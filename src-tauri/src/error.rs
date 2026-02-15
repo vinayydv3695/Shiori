@@ -11,6 +11,9 @@ pub enum ShioriError {
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
 
+    #[error("CSV error: {0}")]
+    Csv(#[from] csv::Error),
+
     #[error("Book not found: {0}")]
     BookNotFound(String),
 
@@ -26,6 +29,9 @@ pub enum ShioriError {
     #[error("Duplicate book: {0}")]
     DuplicateBook(String),
 
+    #[error("Invalid operation: {0}")]
+    InvalidOperation(String),
+
     #[error("{0}")]
     Other(String),
 }
@@ -40,3 +46,4 @@ impl serde::Serialize for ShioriError {
 }
 
 pub type Result<T> = std::result::Result<T, ShioriError>;
+pub type ShioriResult<T> = std::result::Result<T, ShioriError>;

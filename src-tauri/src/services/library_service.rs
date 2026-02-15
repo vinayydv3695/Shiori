@@ -1,21 +1,22 @@
 use crate::db::Database;
 use crate::error::{Result, ShioriError};
-use crate::models::{Book, Author, Tag, ImportResult};
+use crate::models::{Author, Book, ImportResult, Tag};
 use crate::services::metadata_service;
 use crate::utils::file::{calculate_file_hash, get_file_size};
 use rusqlite::params;
 use uuid::Uuid;
+use walkdir::WalkDir;
 
 pub fn get_all_books(db: &Database) -> Result<Vec<Book>> {
     let conn = db.get_connection();
-    
+
     let mut stmt = conn.prepare(
         "SELECT id, uuid, title, sort_title, isbn, isbn13, publisher, pubdate, 
                 series, series_index, rating, file_path, file_format, file_size, 
                 file_hash, cover_path, page_count, word_count, language, 
                 added_date, modified_date, last_opened, notes
          FROM books
-         ORDER BY added_date DESC"
+         ORDER BY added_date DESC",
     )?;
 
     let books_iter = stmt.query_map([], |row| {
@@ -61,44 +62,46 @@ pub fn get_all_books(db: &Database) -> Result<Vec<Book>> {
 
 pub fn get_book_by_id(db: &Database, id: i64) -> Result<Book> {
     let conn = db.get_connection();
-    
-    let mut book: Book = conn.query_row(
-        "SELECT id, uuid, title, sort_title, isbn, isbn13, publisher, pubdate, 
+
+    let mut book: Book = conn
+        .query_row(
+            "SELECT id, uuid, title, sort_title, isbn, isbn13, publisher, pubdate, 
                 series, series_index, rating, file_path, file_format, file_size, 
                 file_hash, cover_path, page_count, word_count, language, 
                 added_date, modified_date, last_opened, notes
          FROM books WHERE id = ?1",
-        params![id],
-        |row| {
-            Ok(Book {
-                id: Some(row.get(0)?),
-                uuid: row.get(1)?,
-                title: row.get(2)?,
-                sort_title: row.get(3)?,
-                isbn: row.get(4)?,
-                isbn13: row.get(5)?,
-                publisher: row.get(6)?,
-                pubdate: row.get(7)?,
-                series: row.get(8)?,
-                series_index: row.get(9)?,
-                rating: row.get(10)?,
-                file_path: row.get(11)?,
-                file_format: row.get(12)?,
-                file_size: row.get(13)?,
-                file_hash: row.get(14)?,
-                cover_path: row.get(15)?,
-                page_count: row.get(16)?,
-                word_count: row.get(17)?,
-                language: row.get(18)?,
-                added_date: row.get(19)?,
-                modified_date: row.get(20)?,
-                last_opened: row.get(21)?,
-                notes: row.get(22)?,
-                authors: vec![],
-                tags: vec![],
-            })
-        },
-    ).map_err(|_| ShioriError::BookNotFound(id.to_string()))?;
+            params![id],
+            |row| {
+                Ok(Book {
+                    id: Some(row.get(0)?),
+                    uuid: row.get(1)?,
+                    title: row.get(2)?,
+                    sort_title: row.get(3)?,
+                    isbn: row.get(4)?,
+                    isbn13: row.get(5)?,
+                    publisher: row.get(6)?,
+                    pubdate: row.get(7)?,
+                    series: row.get(8)?,
+                    series_index: row.get(9)?,
+                    rating: row.get(10)?,
+                    file_path: row.get(11)?,
+                    file_format: row.get(12)?,
+                    file_size: row.get(13)?,
+                    file_hash: row.get(14)?,
+                    cover_path: row.get(15)?,
+                    page_count: row.get(16)?,
+                    word_count: row.get(17)?,
+                    language: row.get(18)?,
+                    added_date: row.get(19)?,
+                    modified_date: row.get(20)?,
+                    last_opened: row.get(21)?,
+                    notes: row.get(22)?,
+                    authors: vec![],
+                    tags: vec![],
+                })
+            },
+        )
+        .map_err(|_| ShioriError::BookNotFound(id.to_string()))?;
 
     book.authors = get_authors_for_book(conn, id)?;
     book.tags = get_tags_for_book(conn, id)?;
@@ -108,7 +111,7 @@ pub fn get_book_by_id(db: &Database, id: i64) -> Result<Book> {
 
 pub fn add_book(db: &Database, mut book: Book) -> Result<i64> {
     let conn = db.get_connection();
-    
+
     // Generate UUID if not provided
     if book.uuid.is_empty() {
         book.uuid = Uuid::new_v4().to_string();
@@ -121,7 +124,7 @@ pub fn add_book(db: &Database, mut book: Book) -> Result<i64> {
             params![hash],
             |row| row.get(0),
         )?;
-        
+
         if exists {
             return Err(ShioriError::DuplicateBook(hash.clone()));
         }
@@ -182,8 +185,10 @@ pub fn add_book(db: &Database, mut book: Book) -> Result<i64> {
 
 pub fn update_book(db: &Database, book: Book) -> Result<()> {
     let conn = db.get_connection();
-    
-    let book_id = book.id.ok_or(ShioriError::Other("Book ID required for update".to_string()))?;
+
+    let book_id = book.id.ok_or(ShioriError::Other(
+        "Book ID required for update".to_string(),
+    ))?;
 
     conn.execute(
         "UPDATE books SET 
@@ -208,7 +213,10 @@ pub fn update_book(db: &Database, book: Book) -> Result<()> {
     )?;
 
     // Update authors
-    conn.execute("DELETE FROM books_authors WHERE book_id = ?1", params![book_id])?;
+    conn.execute(
+        "DELETE FROM books_authors WHERE book_id = ?1",
+        params![book_id],
+    )?;
     for author in &book.authors {
         let author_id = get_or_create_author(conn, &author.name)?;
         conn.execute(
@@ -218,7 +226,10 @@ pub fn update_book(db: &Database, book: Book) -> Result<()> {
     }
 
     // Update tags
-    conn.execute("DELETE FROM books_tags WHERE book_id = ?1", params![book_id])?;
+    conn.execute(
+        "DELETE FROM books_tags WHERE book_id = ?1",
+        params![book_id],
+    )?;
     for tag in &book.tags {
         if let Some(tag_id) = tag.id {
             conn.execute(
@@ -233,9 +244,9 @@ pub fn update_book(db: &Database, book: Book) -> Result<()> {
 
 pub fn delete_book(db: &Database, id: i64) -> Result<()> {
     let conn = db.get_connection();
-    
+
     let rows_affected = conn.execute("DELETE FROM books WHERE id = ?1", params![id])?;
-    
+
     if rows_affected == 0 {
         return Err(ShioriError::BookNotFound(id.to_string()));
     }
@@ -243,7 +254,7 @@ pub fn delete_book(db: &Database, id: i64) -> Result<()> {
     Ok(())
 }
 
-pub async fn import_books(db: &Database, paths: Vec<String>) -> Result<ImportResult> {
+pub fn import_books(db: &Database, paths: Vec<String>) -> Result<ImportResult> {
     let mut result = ImportResult {
         success: vec![],
         failed: vec![],
@@ -251,7 +262,7 @@ pub async fn import_books(db: &Database, paths: Vec<String>) -> Result<ImportRes
     };
 
     for path in paths {
-        match import_single_book(db, &path).await {
+        match import_single_book(db, &path) {
             Ok(is_duplicate) => {
                 if is_duplicate {
                     result.duplicates.push(path);
@@ -268,13 +279,13 @@ pub async fn import_books(db: &Database, paths: Vec<String>) -> Result<ImportRes
     Ok(result)
 }
 
-async fn import_single_book(db: &Database, path: &str) -> Result<bool> {
+fn import_single_book(db: &Database, path: &str) -> Result<bool> {
     // Extract metadata
     let metadata = metadata_service::extract_from_file(path)?;
-    
+
     // Calculate file hash
     let file_hash = calculate_file_hash(path)?;
-    
+
     // Check for duplicates
     let conn = db.get_connection();
     let exists: bool = conn.query_row(
@@ -282,7 +293,7 @@ async fn import_single_book(db: &Database, path: &str) -> Result<bool> {
         params![file_hash],
         |row| row.get(0),
     )?;
-    
+
     if exists {
         return Ok(true); // Is duplicate
     }
@@ -298,7 +309,9 @@ async fn import_single_book(db: &Database, path: &str) -> Result<bool> {
     let book = Book {
         id: None,
         uuid: Uuid::new_v4().to_string(),
-        title: metadata.title.unwrap_or_else(|| "Unknown Title".to_string()),
+        title: metadata
+            .title
+            .unwrap_or_else(|| "Unknown Title".to_string()),
         sort_title: None,
         isbn: metadata.isbn,
         isbn13: None,
@@ -319,17 +332,49 @@ async fn import_single_book(db: &Database, path: &str) -> Result<bool> {
         modified_date: chrono::Utc::now().to_rfc3339(),
         last_opened: None,
         notes: None,
-        authors: metadata.authors.iter().map(|name| Author {
-            id: None,
-            name: name.clone(),
-            sort_name: None,
-            link: None,
-        }).collect(),
+        authors: metadata
+            .authors
+            .iter()
+            .map(|name| Author {
+                id: None,
+                name: name.clone(),
+                sort_name: None,
+                link: None,
+            })
+            .collect(),
         tags: vec![],
     };
 
     add_book(db, book)?;
     Ok(false) // Not a duplicate
+}
+
+pub fn scan_and_import_folder(db: &Database, folder_path: &str) -> Result<ImportResult> {
+    let supported_formats = vec!["epub", "pdf", "mobi", "azw3", "txt", "fb2", "djvu"];
+    let mut book_paths = Vec::new();
+
+    // Recursively scan folder for book files
+    for entry in WalkDir::new(folder_path)
+        .follow_links(true)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        if entry.file_type().is_file() {
+            if let Some(ext) = entry.path().extension() {
+                let ext_str = ext.to_string_lossy().to_lowercase();
+                if supported_formats.contains(&ext_str.as_str()) {
+                    if let Some(path_str) = entry.path().to_str() {
+                        book_paths.push(path_str.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    log::info!("Found {} book files in {}", book_paths.len(), folder_path);
+
+    // Import all found books
+    import_books(db, book_paths)
 }
 
 fn get_authors_for_book(conn: &rusqlite::Connection, book_id: i64) -> Result<Vec<Author>> {
@@ -338,18 +383,19 @@ fn get_authors_for_book(conn: &rusqlite::Connection, book_id: i64) -> Result<Vec
          FROM authors a
          JOIN books_authors ba ON a.id = ba.author_id
          WHERE ba.book_id = ?1
-         ORDER BY ba.author_order"
+         ORDER BY ba.author_order",
     )?;
 
-    let authors = stmt.query_map(params![book_id], |row| {
-        Ok(Author {
-            id: Some(row.get(0)?),
-            name: row.get(1)?,
-            sort_name: row.get(2)?,
-            link: row.get(3)?,
-        })
-    })?
-    .collect::<std::result::Result<Vec<_>, _>>()?;
+    let authors = stmt
+        .query_map(params![book_id], |row| {
+            Ok(Author {
+                id: Some(row.get(0)?),
+                name: row.get(1)?,
+                sort_name: row.get(2)?,
+                link: row.get(3)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
 
     Ok(authors)
 }
@@ -359,17 +405,18 @@ fn get_tags_for_book(conn: &rusqlite::Connection, book_id: i64) -> Result<Vec<Ta
         "SELECT t.id, t.name, t.color
          FROM tags t
          JOIN books_tags bt ON t.id = bt.tag_id
-         WHERE bt.book_id = ?1"
+         WHERE bt.book_id = ?1",
     )?;
 
-    let tags = stmt.query_map(params![book_id], |row| {
-        Ok(Tag {
-            id: Some(row.get(0)?),
-            name: row.get(1)?,
-            color: row.get(2)?,
-        })
-    })?
-    .collect::<std::result::Result<Vec<_>, _>>()?;
+    let tags = stmt
+        .query_map(params![book_id], |row| {
+            Ok(Tag {
+                id: Some(row.get(0)?),
+                name: row.get(1)?,
+                color: row.get(2)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
 
     Ok(tags)
 }
@@ -384,10 +431,7 @@ fn get_or_create_author(conn: &rusqlite::Connection, name: &str) -> Result<i64> 
         Ok(id) => Ok(id),
         Err(rusqlite::Error::QueryReturnedNoRows) => {
             // Create new author
-            conn.execute(
-                "INSERT INTO authors (name) VALUES (?1)",
-                params![name],
-            )?;
+            conn.execute("INSERT INTO authors (name) VALUES (?1)", params![name])?;
             Ok(conn.last_insert_rowid())
         }
         Err(e) => Err(e.into()),

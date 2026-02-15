@@ -22,19 +22,19 @@ fn extract_epub_metadata(file_path: &str) -> Result<Metadata> {
         .map_err(|e| ShioriError::MetadataExtraction(format!("Failed to parse EPUB: {}", e)))?;
 
     let mut metadata = Metadata {
-        title: doc.mdata("title"),
+        title: doc.mdata("title").map(|s| s.value.clone()),
         authors: vec![],
-        isbn: doc.mdata("identifier"),
-        publisher: doc.mdata("publisher"),
-        pubdate: doc.mdata("date"),
-        language: doc.mdata("language"),
-        description: doc.mdata("description"),
+        isbn: doc.mdata("identifier").map(|s| s.value.clone()),
+        publisher: doc.mdata("publisher").map(|s| s.value.clone()),
+        pubdate: doc.mdata("date").map(|s| s.value.clone()),
+        language: doc.mdata("language").map(|s| s.value.clone()),
+        description: doc.mdata("description").map(|s| s.value.clone()),
         page_count: None,
     };
 
     // Get authors (can be multiple)
     if let Some(creator) = doc.mdata("creator") {
-        metadata.authors.push(creator);
+        metadata.authors.push(creator.value.clone());
     }
 
     Ok(metadata)
@@ -59,11 +59,15 @@ fn extract_pdf_metadata(file_path: &str) -> Result<Metadata> {
     if let Ok(info) = doc.trailer.get(b"Info") {
         if let Ok(info_dict) = info.as_dict() {
             if let Ok(title) = info_dict.get(b"Title") {
-                metadata.title = title.as_str().ok().map(String::from);
+                if let Ok(title_bytes) = title.as_str() {
+                    metadata.title = String::from_utf8_lossy(title_bytes).into_owned().into();
+                }
             }
             if let Ok(author) = info_dict.get(b"Author") {
-                if let Ok(author_str) = author.as_str() {
-                    metadata.authors.push(author_str.to_string());
+                if let Ok(author_bytes) = author.as_str() {
+                    metadata
+                        .authors
+                        .push(String::from_utf8_lossy(author_bytes).into_owned());
                 }
             }
         }

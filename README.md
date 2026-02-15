@@ -1,8 +1,9 @@
 <div align="center">
 
-<img src="public/icon.svg" alt="Shiori Logo" width="120" height="120" />
+<img src="public/banner.svg" alt="Shiori Banner" width="100%" />
 
-# 栞 Shiori
+<br />
+<br />
 
 **Your Personal eBook Library Manager**
 

@@ -1,4 +1,3 @@
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,4 +80,83 @@ pub struct Metadata {
     pub language: Option<String>,
     pub description: Option<String>,
     pub page_count: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReadingProgress {
+    pub id: Option<i64>,
+    pub book_id: i64,
+    pub current_location: String,
+    pub progress_percent: f64,
+    pub current_page: Option<i32>,
+    pub total_pages: Option<i32>,
+    pub last_read: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Annotation {
+    pub id: Option<i64>,
+    pub book_id: i64,
+    pub annotation_type: String, // "highlight", "note", "bookmark"
+    pub location: String,
+    pub cfi_range: Option<String>,
+    pub selected_text: Option<String>,
+    pub note_content: Option<String>,
+    pub color: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReaderSettings {
+    pub id: Option<i64>,
+    pub user_id: String,
+    pub font_family: String,
+    pub font_size: i32,
+    pub line_height: f64,
+    pub theme: String,
+    pub page_mode: String,
+    pub margin_size: i32,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Collection {
+    pub id: Option<i64>,
+    pub name: String,
+    pub description: Option<String>,
+    pub parent_id: Option<i64>,
+    pub is_smart: bool,
+    pub smart_rules: Option<String>, // JSON string of SmartRule[]
+    pub icon: Option<String>,
+    pub color: Option<String>,
+    pub sort_order: i32,
+    pub created_at: String,
+    pub updated_at: String,
+    pub book_count: Option<i64>,   // Not in DB, calculated
+    pub children: Vec<Collection>, // Not in DB, for nested collections
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SmartRule {
+    pub field: String, // "author", "tag", "format", "rating", "series", "added_date", etc.
+    pub operator: String, // "equals", "contains", "greater_than", "less_than", "in_last"
+    pub value: String,
+    pub match_type: String, // "all" or "any"
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CollectionWithBooks {
+    pub collection: Collection,
+    pub books: Vec<Book>,
+}
+
+// Export models
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExportOptions {
+    pub format: String, // "csv", "json", "markdown"
+    pub include_metadata: bool,
+    pub include_collections: bool,
+    pub include_reading_progress: bool,
+    pub file_path: String,
 }

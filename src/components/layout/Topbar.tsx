@@ -1,6 +1,6 @@
 import { Search, Moon, Sun, Plus } from "../icons"
-import { Button } from "../ui/Button"
-import { Input } from "../ui/Input"
+import { Button } from "../ui/button"
+import { Input } from "../ui/input"
 import { useUIStore } from "../../store/uiStore"
 import { api } from "../../lib/tauri"
 import { useLibraryStore } from "../../store/libraryStore"

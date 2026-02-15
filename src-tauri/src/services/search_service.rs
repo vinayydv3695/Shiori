@@ -1,22 +1,21 @@
 use crate::db::Database;
 use crate::error::Result;
-use crate::models::{Author, Book, SearchQuery, SearchResult, Tag};
+use crate::models::{SearchQuery, SearchResult};
 use crate::services::library_service;
-use rusqlite::params;
 
 pub fn search(db: &Database, query: SearchQuery) -> Result<SearchResult> {
     let conn = db.get_connection();
 
     // Build SQL query
     let mut sql = String::from("SELECT DISTINCT b.id FROM books b");
-    let mut where_clauses = Vec::new();
+    let mut where_clauses: Vec<String> = Vec::new();
     let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
 
     // Full-text search
     if let Some(ref q) = query.query {
         if !q.is_empty() {
             sql.push_str(" JOIN books_fts fts ON b.id = fts.rowid");
-            where_clauses.push("books_fts MATCH ?");
+            where_clauses.push("books_fts MATCH ?".to_string());
             params_vec.push(Box::new(q.clone()));
         }
     }
@@ -27,7 +26,8 @@ pub fn search(db: &Database, query: SearchQuery) -> Result<SearchResult> {
             sql.push_str(" JOIN books_authors ba ON b.id = ba.book_id");
             sql.push_str(" JOIN authors a ON ba.author_id = a.id");
             let placeholders = authors.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-            where_clauses.push(&format!("a.name IN ({})", placeholders));
+            let clause = format!("a.name IN ({})", placeholders);
+            where_clauses.push(clause);
             for author in authors {
                 params_vec.push(Box::new(author.clone()));
             }
@@ -40,7 +40,8 @@ pub fn search(db: &Database, query: SearchQuery) -> Result<SearchResult> {
             sql.push_str(" JOIN books_tags bt ON b.id = bt.book_id");
             sql.push_str(" JOIN tags t ON bt.tag_id = t.id");
             let placeholders = tags.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-            where_clauses.push(&format!("t.name IN ({})", placeholders));
+            let clause = format!("t.name IN ({})", placeholders);
+            where_clauses.push(clause);
             for tag in tags {
                 params_vec.push(Box::new(tag.clone()));
             }
@@ -51,7 +52,8 @@ pub fn search(db: &Database, query: SearchQuery) -> Result<SearchResult> {
     if let Some(ref formats) = query.formats {
         if !formats.is_empty() {
             let placeholders = formats.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-            where_clauses.push(&format!("b.file_format IN ({})", placeholders));
+            let clause = format!("b.file_format IN ({})", placeholders);
+            where_clauses.push(clause);
             for format in formats {
                 params_vec.push(Box::new(format.clone()));
             }
@@ -60,13 +62,13 @@ pub fn search(db: &Database, query: SearchQuery) -> Result<SearchResult> {
 
     // Filter by series
     if let Some(ref series) = query.series {
-        where_clauses.push("b.series = ?");
+        where_clauses.push("b.series = ?".to_string());
         params_vec.push(Box::new(series.clone()));
     }
 
     // Filter by rating
     if let Some(min_rating) = query.min_rating {
-        where_clauses.push("b.rating >= ?");
+        where_clauses.push("b.rating >= ?".to_string());
         params_vec.push(Box::new(min_rating));
     }
 

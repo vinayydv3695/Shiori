@@ -1,6 +1,5 @@
 use crate::error::Result;
-use crate::models::{Author, Book, Tag};
-use rusqlite::{params, Connection};
+use rusqlite::Connection;
 use std::path::Path;
 
 pub struct Database {
@@ -12,10 +11,10 @@ impl Database {
         let conn = Connection::open(path)?;
 
         // Enable foreign keys
-        conn.execute("PRAGMA foreign_keys = ON", [])?;
+        conn.execute_batch("PRAGMA foreign_keys = ON")?;
 
         // Enable WAL mode for better concurrency
-        conn.execute("PRAGMA journal_mode = WAL", [])?;
+        conn.execute_batch("PRAGMA journal_mode = WAL")?;
 
         let db = Database { conn };
         db.initialize_schema()?;
@@ -179,6 +178,63 @@ impl Database {
             [],
         )?;
 
+        // Reading progress table
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS reading_progress (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                book_id INTEGER NOT NULL,
+                current_location TEXT NOT NULL,
+                progress_percent REAL DEFAULT 0,
+                current_page INTEGER,
+                total_pages INTEGER,
+                last_read TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
+                UNIQUE(book_id)
+            )",
+            [],
+        )?;
+
+        // Annotations table (highlights, notes, bookmarks)
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS annotations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                book_id INTEGER NOT NULL,
+                type TEXT NOT NULL CHECK(type IN ('highlight', 'note', 'bookmark')),
+                location TEXT NOT NULL,
+                cfi_range TEXT,
+                selected_text TEXT,
+                note_content TEXT,
+                color TEXT DEFAULT '#FFEB3B',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+            )",
+            [],
+        )?;
+
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_annotations_book ON annotations(book_id)",
+            [],
+        )?;
+
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_annotations_type ON annotations(type)",
+            [],
+        )?;
+
+        // Reader settings table
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS reader_settings (
+                user_id TEXT PRIMARY KEY DEFAULT 'default',
+                font_family TEXT DEFAULT 'system',
+                font_size INTEGER DEFAULT 18,
+                line_height REAL DEFAULT 1.6,
+                theme TEXT DEFAULT 'light',
+                page_mode TEXT DEFAULT 'paginated'
+            )",
+            [],
+        )?;
+
         // Settings table
         self.conn.execute(
             "CREATE TABLE IF NOT EXISTS settings (
@@ -186,6 +242,59 @@ impl Database {
                 value TEXT NOT NULL,
                 type TEXT NOT NULL
             )",
+            [],
+        )?;
+
+        // Collections table
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS collections (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT,
+                parent_id INTEGER,
+                is_smart INTEGER DEFAULT 0 CHECK(is_smart IN (0, 1)),
+                smart_rules TEXT,
+                icon TEXT,
+                color TEXT,
+                sort_order INTEGER DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (parent_id) REFERENCES collections(id) ON DELETE CASCADE
+            )",
+            [],
+        )?;
+
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_collections_parent ON collections(parent_id)",
+            [],
+        )?;
+
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_collections_smart ON collections(is_smart)",
+            [],
+        )?;
+
+        // Collection-Book junction (only for manual collections)
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS collections_books (
+                collection_id INTEGER NOT NULL,
+                book_id INTEGER NOT NULL,
+                added_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                sort_order INTEGER DEFAULT 0,
+                FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE,
+                FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
+                PRIMARY KEY (collection_id, book_id)
+            )",
+            [],
+        )?;
+
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_collections_books_collection ON collections_books(collection_id)",
+            [],
+        )?;
+
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_collections_books_book ON collections_books(book_id)",
             [],
         )?;
 

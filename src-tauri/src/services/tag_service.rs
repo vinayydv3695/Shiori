@@ -1,5 +1,5 @@
 use crate::db::Database;
-use crate::error::{Result, ShioriError};
+use crate::error::Result;
 use crate::models::Tag;
 use rusqlite::params;
 

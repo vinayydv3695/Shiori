@@ -1,7 +1,10 @@
-use tauri::State;
-use crate::{AppState, error::Result, models::{Book, Author, Tag, ImportResult}};
 use crate::services::library_service;
-use rusqlite::params;
+use crate::{
+    error::Result,
+    models::{Book, ImportResult},
+    AppState,
+};
+use tauri::State;
 
 #[tauri::command]
 pub fn get_books(state: State<AppState>) -> Result<Vec<Book>> {
@@ -34,10 +37,16 @@ pub fn delete_book(state: State<AppState>, id: i64) -> Result<()> {
 }
 
 #[tauri::command]
-pub async fn import_books(
+pub fn import_books(state: State<'_, AppState>, paths: Vec<String>) -> Result<ImportResult> {
+    let db = state.db.lock().unwrap();
+    library_service::import_books(&db, paths)
+}
+
+#[tauri::command]
+pub fn scan_folder_for_books(
     state: State<'_, AppState>,
-    paths: Vec<String>,
+    folder_path: String,
 ) -> Result<ImportResult> {
     let db = state.db.lock().unwrap();
-    library_service::import_books(&db, paths).await
+    library_service::scan_and_import_folder(&db, &folder_path)
 }

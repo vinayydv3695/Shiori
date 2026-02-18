@@ -74,6 +74,7 @@ fn main() {
             commands::rendering::get_book_chapter,
             commands::rendering::get_book_chapter_count,
             commands::rendering::search_in_book,
+            commands::rendering::get_epub_resource,
             commands::rendering::get_renderer_cache_stats,
             commands::rendering::clear_renderer_cache,
             commands::collections::get_collections,

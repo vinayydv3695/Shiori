@@ -25,24 +25,97 @@ impl RenderingService {
 
     /// Open a book and prepare it for rendering
     pub fn open_book(&self, book_id: i64, path: &str, format: &str) -> ShioriResult<BookMetadata> {
+        println!("[RenderingService::open_book] Starting...");
+        println!("  book_id: {}", book_id);
+        println!("  path: {}", path);
+        println!("  format: {}", format);
+
         match format.to_lowercase().as_str() {
             "epub" => {
+                println!("[RenderingService] Creating EpubAdapter...");
                 let mut adapter = EpubAdapter::new();
-                adapter.open(path)?;
+
+                println!("[RenderingService] Calling adapter.open()...");
+                match adapter.open(path) {
+                    Ok(_) => println!("[RenderingService] ✅ adapter.open() succeeded"),
+                    Err(e) => {
+                        println!("[RenderingService] ❌ adapter.open() failed: {}", e);
+                        return Err(e);
+                    }
+                }
+
+                println!("[RenderingService] Getting metadata...");
                 let metadata = adapter.get_metadata()?;
 
-                let mut renderers = self.epub_renderers.lock().unwrap();
-                renderers.insert(book_id, adapter);
+                println!("[RenderingService] Inserting into HashMap...");
+                {
+                    let mut renderers = self.epub_renderers.lock().unwrap();
+                    renderers.insert(book_id, adapter);
+                    println!(
+                        "[RenderingService] ✅ HashMap insert complete, book {} is now accessible",
+                        book_id
+                    );
+                }
+
+                // Verify the book is actually in the HashMap
+                {
+                    let renderers = self.epub_renderers.lock().unwrap();
+                    if renderers.contains_key(&book_id) {
+                        println!(
+                            "[RenderingService] ✅ VERIFIED: Book {} is in HashMap",
+                            book_id
+                        );
+                    } else {
+                        println!(
+                            "[RenderingService] ❌ ERROR: Book {} NOT in HashMap after insert!",
+                            book_id
+                        );
+                    }
+                }
 
                 Ok(metadata)
             }
             "pdf" => {
+                println!("[RenderingService] Creating PdfAdapter...");
                 let mut adapter = PdfAdapter::new();
-                adapter.open(path)?;
+
+                println!("[RenderingService] Calling adapter.open()...");
+                match adapter.open(path) {
+                    Ok(_) => println!("[RenderingService] ✅ adapter.open() succeeded"),
+                    Err(e) => {
+                        println!("[RenderingService] ❌ adapter.open() failed: {}", e);
+                        return Err(e);
+                    }
+                }
+
+                println!("[RenderingService] Getting metadata...");
                 let metadata = adapter.get_metadata()?;
 
-                let mut renderers = self.pdf_renderers.lock().unwrap();
-                renderers.insert(book_id, adapter);
+                println!("[RenderingService] Inserting into HashMap...");
+                {
+                    let mut renderers = self.pdf_renderers.lock().unwrap();
+                    renderers.insert(book_id, adapter);
+                    println!(
+                        "[RenderingService] ✅ HashMap insert complete, book {} is now accessible",
+                        book_id
+                    );
+                }
+
+                // Verify the book is actually in the HashMap
+                {
+                    let renderers = self.pdf_renderers.lock().unwrap();
+                    if renderers.contains_key(&book_id) {
+                        println!(
+                            "[RenderingService] ✅ VERIFIED: Book {} is in HashMap",
+                            book_id
+                        );
+                    } else {
+                        println!(
+                            "[RenderingService] ❌ ERROR: Book {} NOT in HashMap after insert!",
+                            book_id
+                        );
+                    }
+                }
 
                 Ok(metadata)
             }
@@ -85,6 +158,11 @@ impl RenderingService {
 
     /// Get a chapter with caching
     pub fn get_chapter(&self, book_id: i64, chapter_index: usize) -> ShioriResult<Chapter> {
+        println!(
+            "[RenderingService::get_chapter] book_id: {}, chapter_index: {}",
+            book_id, chapter_index
+        );
+
         // Check cache first
         let cache_key = CacheKey {
             book_id,
@@ -93,6 +171,7 @@ impl RenderingService {
         };
 
         if let Some(CachedContent::Html(content)) = self.cache.get(&cache_key) {
+            println!("[RenderingService::get_chapter] ✅ Cache hit");
             // Return cached chapter (construct from cached data)
             return Ok(Chapter {
                 index: chapter_index,
@@ -102,17 +181,43 @@ impl RenderingService {
             });
         }
 
-        // Not in cache, fetch from renderer
-        let chapter = if let Some(adapter) = self.epub_renderers.lock().unwrap().get(&book_id) {
-            adapter.get_chapter(chapter_index)?
-        } else if let Some(adapter) = self.pdf_renderers.lock().unwrap().get(&book_id) {
-            adapter.get_chapter(chapter_index)?
-        } else {
-            return Err(ShioriError::BookNotFound(format!(
-                "Book {} not opened",
-                book_id
-            )));
+        println!("[RenderingService::get_chapter] Cache miss, fetching from renderer...");
+
+        // Try to fetch from renderer - check EPUB first
+        let chapter = {
+            let epub_renderers = self.epub_renderers.lock().unwrap();
+            if let Some(adapter) = epub_renderers.get(&book_id) {
+                println!("[RenderingService::get_chapter] Found in EPUB renderers");
+                let result = adapter.get_chapter(chapter_index);
+                drop(epub_renderers); // Release lock before checking result
+                result?
+            } else {
+                drop(epub_renderers); // Release EPUB lock before trying PDF
+
+                // Try PDF renderer
+                let pdf_renderers = self.pdf_renderers.lock().unwrap();
+                if let Some(adapter) = pdf_renderers.get(&book_id) {
+                    println!("[RenderingService::get_chapter] Found in PDF renderers");
+                    let result = adapter.get_chapter(chapter_index);
+                    drop(pdf_renderers); // Release lock before checking result
+                    result?
+                } else {
+                    println!(
+                        "[RenderingService::get_chapter] ❌ Book {} not in any renderer!",
+                        book_id
+                    );
+                    return Err(ShioriError::BookNotFound(format!(
+                        "Book {} not opened",
+                        book_id
+                    )));
+                }
+            }
         };
+
+        println!(
+            "[RenderingService::get_chapter] ✅ Got chapter: {}",
+            chapter.title
+        );
 
         // Cache the result
         self.cache
@@ -148,6 +253,20 @@ impl RenderingService {
 
         if let Some(adapter) = self.pdf_renderers.lock().unwrap().get(&book_id) {
             return adapter.search(query);
+        }
+
+        Err(ShioriError::BookNotFound(format!(
+            "Book {} not opened",
+            book_id
+        )))
+    }
+
+    /// Get a resource (image, CSS, font) from an EPUB
+    pub fn get_epub_resource(&self, book_id: i64, resource_path: &str) -> ShioriResult<Vec<u8>> {
+        use crate::services::renderer::EpubRenderer;
+
+        if let Some(adapter) = self.epub_renderers.lock().unwrap().get(&book_id) {
+            return adapter.get_resource(resource_path);
         }
 
         Err(ShioriError::BookNotFound(format!(

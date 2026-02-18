@@ -358,13 +358,13 @@ export const api = {
     marginSize: number
   ): Promise<ReaderSettings> {
     return invoke("save_reader_settings", {
-      userId,
-      fontFamily,
-      fontSize,
-      lineHeight,
+      user_id: userId,
+      font_family: fontFamily,
+      font_size: fontSize,
+      line_height: lineHeight,
       theme,
-      pageMode,
-      marginSize,
+      page_mode: pageMode,
+      margin_size: marginSize,
     })
   },
 
@@ -541,5 +541,9 @@ export const api = {
 
   async clearRendererCache(): Promise<void> {
     return invoke("clear_renderer_cache")
+  },
+
+  async getEpubResource(bookId: number, resourcePath: string): Promise<Uint8Array> {
+    return invoke("get_epub_resource", { bookId, resourcePath })
   },
 }

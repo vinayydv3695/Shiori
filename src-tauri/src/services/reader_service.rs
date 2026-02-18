@@ -105,7 +105,7 @@ impl ReaderService {
 
     pub fn get_annotations(conn: &Connection, book_id: i64) -> ShioriResult<Vec<Annotation>> {
         let mut stmt = conn.prepare(
-            "SELECT id, book_id, annotation_type, location, cfi_range, selected_text, 
+            "SELECT id, book_id, type, location, cfi_range, selected_text, 
                     note_content, color, created_at, updated_at
              FROM annotations
              WHERE book_id = ?1
@@ -146,7 +146,7 @@ impl ReaderService {
 
         conn.execute(
             "INSERT INTO annotations 
-             (book_id, annotation_type, location, cfi_range, selected_text, note_content, color, created_at, updated_at)
+             (book_id, type, location, cfi_range, selected_text, note_content, color, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 book_id,
@@ -212,22 +212,22 @@ impl ReaderService {
 
     pub fn get_reader_settings(conn: &Connection, user_id: &str) -> ShioriResult<ReaderSettings> {
         let mut stmt = conn.prepare(
-            "SELECT id, user_id, font_family, font_size, line_height, theme, page_mode, margin_size, updated_at
+            "SELECT user_id, font_family, font_size, line_height, theme, page_mode, margin_size, updated_at
              FROM reader_settings
              WHERE user_id = ?1"
         )?;
 
         let result = stmt.query_row(params![user_id], |row| {
             Ok(ReaderSettings {
-                id: row.get(0)?,
-                user_id: row.get(1)?,
-                font_family: row.get(2)?,
-                font_size: row.get(3)?,
-                line_height: row.get(4)?,
-                theme: row.get(5)?,
-                page_mode: row.get(6)?,
-                margin_size: row.get(7)?,
-                updated_at: row.get(8)?,
+                id: None, // reader_settings uses user_id as primary key, no separate id column
+                user_id: row.get(0)?,
+                font_family: row.get(1)?,
+                font_size: row.get(2)?,
+                line_height: row.get(3)?,
+                theme: row.get(4)?,
+                page_mode: row.get(5)?,
+                margin_size: row.get(6)?,
+                updated_at: row.get(7)?,
             })
         });
 
@@ -266,13 +266,14 @@ impl ReaderService {
         // Check if settings exist
         let existing = conn
             .query_row(
-                "SELECT id FROM reader_settings WHERE user_id = ?1",
+                "SELECT user_id FROM reader_settings WHERE user_id = ?1",
                 params![user_id],
-                |row| row.get::<_, i64>(0),
+                |row| row.get::<_, String>(0),
             )
             .ok();
 
-        let id = if let Some(existing_id) = existing {
+        if existing.is_some() {
+            // Update existing
             conn.execute(
                 "UPDATE reader_settings 
                  SET font_family = ?1, font_size = ?2, line_height = ?3, theme = ?4, 
@@ -289,8 +290,8 @@ impl ReaderService {
                     user_id
                 ],
             )?;
-            Some(existing_id)
         } else {
+            // Insert new
             conn.execute(
                 "INSERT INTO reader_settings 
                  (user_id, font_family, font_size, line_height, theme, page_mode, margin_size, updated_at)
@@ -306,11 +307,10 @@ impl ReaderService {
                     now
                 ],
             )?;
-            Some(conn.last_insert_rowid())
-        };
+        }
 
         Ok(ReaderSettings {
-            id,
+            id: None, // reader_settings uses user_id as primary key, no separate id column
             user_id: user_id.to_string(),
             font_family: font_family.to_string(),
             font_size,

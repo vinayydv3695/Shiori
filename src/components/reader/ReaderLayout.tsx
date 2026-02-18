@@ -5,6 +5,7 @@ import { EpubReader } from './EpubReader';
 import { PdfReader } from './PdfReader';
 import { ReaderControls } from './ReaderControls';
 import { AnnotationSidebar } from './AnnotationSidebar';
+import { ReaderErrorBoundary, parseReaderError } from './ReaderErrorBoundary';
 import { X } from '@/components/icons';
 
 interface ReaderLayoutProps {
@@ -12,104 +13,201 @@ interface ReaderLayoutProps {
   onClose: () => void;
 }
 
+type LoadingStage = 
+  | 'idle'
+  | 'fetching-path'
+  | 'detecting-format'
+  | 'validating-file'
+  | 'loading-metadata'
+  | 'complete';
+
 export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
   const {
     currentBookPath,
     currentBookFormat,
+    openBook,
     setProgress,
     setAnnotations,
     setSettings,
     closeBook,
   } = useReaderStore();
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadingStage, setLoadingStage] = useState<LoadingStage>('idle');
+  const [error, setError] = useState<ReturnType<typeof parseReaderError> | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
     const loadBookData = async () => {
       try {
-        setIsLoading(true);
+        setLoadingStage('fetching-path');
         setError(null);
 
-        // Load book file path
+        console.log('[ReaderLayout] Step 1: Getting file path for bookId:', bookId);
         const filePath = await api.getBookFilePath(bookId);
-        
-        // Determine format from file extension
-        const format = filePath.split('.').pop()?.toLowerCase() || 'epub';
-        
-        // Load book details
-        const book = await api.getBook(bookId);
+        console.log('[ReaderLayout] Step 1 ✓ Got file path:', filePath);
 
-        // Load reading progress
-        const progress = await api.getReadingProgress(bookId);
+        // Step 2: Detect and validate format
+        setLoadingStage('detecting-format');
+        console.log('[ReaderLayout] Step 2: Detecting format...');
+        
+        let detectedFormat: string;
+        try {
+          detectedFormat = await api.detectBookFormat(filePath);
+          console.log('[ReaderLayout] Step 2 ✓ Detected format:', detectedFormat);
+        } catch (formatError) {
+          console.error('[ReaderLayout] Format detection failed, falling back to extension:', formatError);
+          // Fallback to extension-based detection if magic byte detection fails
+          const extension = filePath.split('.').pop()?.toLowerCase() || 'epub';
+          console.log('[ReaderLayout] Using fallback format from extension:', extension);
+          detectedFormat = extension;
+        }
+
+        // Step 3: Validate file integrity (skip validation if detection failed)
+        setLoadingStage('validating-file');
+        console.log('[ReaderLayout] Step 3: Validating file integrity...');
+        
+        try {
+          const isValid = await api.validateBookFile(filePath, detectedFormat);
+          if (!isValid) {
+            console.warn('[ReaderLayout] File validation returned false, but continuing anyway');
+          }
+          console.log('[ReaderLayout] Step 3 ✓ File validation complete (valid:', isValid, ')');
+        } catch (validationError) {
+          console.warn('[ReaderLayout] File validation failed, but continuing anyway:', validationError);
+          // Don't throw - continue with the book even if validation fails
+          // The actual reader components will handle corrupted files
+        }
+
+        // Step 4: Open book in store (now that we know it's valid)
+        console.log('[ReaderLayout] Step 4: Opening book in store...');
+        openBook(bookId, filePath, detectedFormat);
+        console.log('[ReaderLayout] Step 4 ✓ Book opened in store');
+
+        // Step 5: Load metadata (progress, annotations, settings)
+        setLoadingStage('loading-metadata');
+        console.log('[ReaderLayout] Step 5: Loading metadata...');
+
+        const [book, progress, annotations, settings] = await Promise.all([
+          api.getBook(bookId),
+          api.getReadingProgress(bookId),
+          api.getAnnotations(bookId),
+          api.getReaderSettings('default'),
+        ]);
+
+        console.log('[ReaderLayout] Step 5 ✓ Loaded metadata:', {
+          title: book.title,
+          hasProgress: !!progress,
+          annotationCount: annotations.length,
+        });
+
+        // Update store
         if (progress) {
           setProgress(progress);
         }
-
-        // Load annotations
-        const annotations = await api.getAnnotations(bookId);
         setAnnotations(annotations);
-
-        // Load reader settings
-        const settings = await api.getReaderSettings('default');
         setSettings(settings);
 
-        setIsLoading(false);
+        setLoadingStage('complete');
+        console.log('[ReaderLayout] ✅ All steps complete!');
       } catch (err) {
-        console.error('Error loading book data:', err);
-        setError('Failed to load book. Please try again.');
-        setIsLoading(false);
+        console.error('[ReaderLayout] ❌ Error at stage:', loadingStage, err);
+        const parsedError = parseReaderError(err);
+        setError(parsedError);
+        setLoadingStage('idle');
       }
     };
 
+    // Add timeout fallback (10 seconds)
+    timeoutId = setTimeout(() => {
+      if (loadingStage !== 'complete' && loadingStage !== 'idle') {
+        console.error('[ReaderLayout] ⏱️ Timeout - loading took too long at stage:', loadingStage);
+        setError({
+          title: 'Loading Timeout',
+          message: 'The book is taking too long to load. This may indicate a corrupted file or performance issue.',
+          suggestions: [
+            'Try closing and reopening the book',
+            'Restart the application',
+            'Check if the file is very large (>100MB)',
+            'Re-import the book if the problem persists',
+          ],
+          technicalDetails: `Timeout at stage: ${loadingStage}`,
+        });
+        setLoadingStage('idle');
+      }
+    }, 10000); // 10 second timeout
+
+    console.log('[ReaderLayout] Starting load sequence (attempt', retryCount + 1, ')');
     loadBookData();
-  }, [bookId]);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [bookId, retryCount]);
 
   const handleClose = () => {
     closeBook();
     onClose();
   };
 
-  if (isLoading) {
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+    setError(null);
+    setLoadingStage('idle');
+  };
+
+  // Show loading state
+  if (loadingStage !== 'complete' && loadingStage !== 'idle' && !error) {
+    const stageMessages: Record<LoadingStage, string> = {
+      idle: 'Preparing...',
+      'fetching-path': 'Locating book file...',
+      'detecting-format': 'Detecting file format...',
+      'validating-file': 'Validating file integrity...',
+      'loading-metadata': 'Loading book data...',
+      complete: 'Complete',
+    };
+
     return (
-      <div className="fixed inset-0 bg-white z-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-white dark:bg-gray-900 z-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4 mx-auto"></div>
-          <p className="text-gray-600">Loading reader...</p>
+          <p className="text-gray-600 dark:text-gray-400">{stageMessages[loadingStage]}</p>
+          <p className="text-xs text-gray-400 dark:text-gray-600 mt-2">
+            {loadingStage === 'validating-file' && 'This may take a moment for large files...'}
+          </p>
         </div>
       </div>
     );
   }
 
+  // Show error state
   if (error) {
     return (
-      <div className="fixed inset-0 bg-white z-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-500 text-lg mb-4">{error}</p>
-          <button
-            onClick={handleClose}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
-            Close Reader
-          </button>
-        </div>
+      <div className="fixed inset-0 z-50">
+        <ReaderErrorBoundary
+          error={error}
+          onRetry={handleRetry}
+          onClose={handleClose}
+        />
       </div>
     );
   }
 
+  // Show reader
   return (
-    <div className="fixed inset-0 bg-white z-50 flex flex-col">
+    <div className="fixed inset-0 bg-white dark:bg-gray-900 z-50 flex flex-col">
       {/* Top bar with close button */}
-      <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <button
             onClick={handleClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
             title="Close reader"
           >
             <X className="w-5 h-5" />
           </button>
-          <span className="text-sm text-gray-600">Reader</span>
+          <span className="text-sm text-gray-600 dark:text-gray-400">Reader</span>
         </div>
 
         <ReaderControls />
@@ -126,7 +224,7 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
           )}
           {!currentBookPath && (
             <div className="flex items-center justify-center h-full">
-              <p className="text-gray-500">No book loaded</p>
+              <p className="text-gray-500 dark:text-gray-400">No book loaded</p>
             </div>
           )}
         </div>

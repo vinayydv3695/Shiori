@@ -2,7 +2,13 @@ import { invoke } from "@tauri-apps/api/core"
 import { open, save } from "@tauri-apps/plugin-dialog"
 
 // Check if we're running in Tauri environment
-export const isTauri = typeof window !== 'undefined' && '__TAURI__' in window
+export const isTauri = (() => {
+  if (typeof window === 'undefined') return false
+  // Check for __TAURI__ or __TAURI_INTERNALS__ (Tauri v2)
+  const hasTauri = '__TAURI__' in window || '__TAURI_INTERNALS__' in window
+  console.log('[Tauri Detection]', hasTauri ? 'Running in Tauri mode' : 'Running in browser mode')
+  return hasTauri
+})()
 
 export interface Book {
   id?: number
@@ -134,6 +140,45 @@ export interface ExportOptions {
   file_path: string
 }
 
+// Phase 2 Rendering System Types
+export interface BookMetadata {
+  title: string
+  author: string | null
+  total_chapters: number
+  total_pages: number | null
+  format: string
+}
+
+export interface TocEntry {
+  label: string
+  location: string
+  level: number
+  children: TocEntry[]
+}
+
+export interface Chapter {
+  index: number
+  title: string
+  content: string
+  location: string
+}
+
+export interface BookSearchResult {
+  chapter_index: number
+  chapter_title: string
+  snippet: string
+  location: string
+  match_count: number
+}
+
+export interface CacheStats {
+  total_size_bytes: number
+  item_count: number
+  hit_count: number
+  miss_count: number
+  hit_rate: number
+}
+
 // Mock data for development (when not in Tauri)
 const mockBooks: Book[] = [
   {
@@ -175,7 +220,15 @@ export const api = {
       console.warn("Running in browser mode - using mock data")
       return Promise.resolve(mockBooks)
     }
-    return invoke("get_books")
+    try {
+      console.log('[API] Calling get_books command')
+      const books = await invoke<Book[]>("get_books")
+      console.log('[API] Got books:', books.length)
+      return books
+    } catch (error) {
+      console.error('[API] Failed to get books:', error)
+      throw error
+    }
   },
 
   async getBook(id: number): Promise<Book> {
@@ -199,7 +252,15 @@ export const api = {
   },
 
   async importBooks(paths: string[]): Promise<ImportResult> {
-    return invoke("import_books", { paths })
+    console.log('[API] importBooks called with:', paths)
+    try {
+      const result = await invoke<ImportResult>("import_books", { paths })
+      console.log('[API] importBooks result:', result)
+      return result
+    } catch (error) {
+      console.error('[API] importBooks error:', error)
+      throw error
+    }
   },
 
   // Search
@@ -217,16 +278,16 @@ export const api = {
   },
 
   async addTagToBook(bookId: number, tagId: number): Promise<void> {
-    return invoke("add_tag_to_book", { book_id: bookId, tag_id: tagId })
+    return invoke("add_tag_to_book", { bookId, tagId })
   },
 
   async removeTagFromBook(bookId: number, tagId: number): Promise<void> {
-    return invoke("remove_tag_from_book", { book_id: bookId, tag_id: tagId })
+    return invoke("remove_tag_from_book", { bookId, tagId })
   },
 
   // Reader - Reading Progress
   async getReadingProgress(bookId: number): Promise<ReadingProgress | null> {
-    return invoke("get_reading_progress", { book_id: bookId })
+    return invoke("get_reading_progress", { bookId })
   },
 
   async saveReadingProgress(
@@ -237,17 +298,17 @@ export const api = {
     totalPages?: number
   ): Promise<ReadingProgress> {
     return invoke("save_reading_progress", {
-      book_id: bookId,
-      current_location: currentLocation,
-      progress_percent: progressPercent,
-      current_page: currentPage,
-      total_pages: totalPages,
+      bookId,
+      currentLocation,
+      progressPercent,
+      currentPage,
+      totalPages,
     })
   },
 
   // Reader - Annotations
   async getAnnotations(bookId: number): Promise<Annotation[]> {
-    return invoke("get_annotations", { book_id: bookId })
+    return invoke("get_annotations", { bookId })
   },
 
   async createAnnotation(
@@ -260,12 +321,12 @@ export const api = {
     color?: string
   ): Promise<Annotation> {
     return invoke("create_annotation", {
-      book_id: bookId,
-      annotation_type: annotationType,
+      bookId,
+      annotationType,
       location,
-      cfi_range: cfiRange,
-      selected_text: selectedText,
-      note_content: noteContent,
+      cfiRange,
+      selectedText,
+      noteContent,
       color: color || "#fbbf24",
     })
   },
@@ -275,7 +336,7 @@ export const api = {
     noteContent?: string,
     color?: string
   ): Promise<void> {
-    return invoke("update_annotation", { id, note_content: noteContent, color })
+    return invoke("update_annotation", { id, noteContent, color })
   },
 
   async deleteAnnotation(id: number): Promise<void> {
@@ -284,7 +345,7 @@ export const api = {
 
   // Reader - Settings
   async getReaderSettings(userId: string): Promise<ReaderSettings> {
-    return invoke("get_reader_settings", { user_id: userId })
+    return invoke("get_reader_settings", { userId })
   },
 
   async saveReaderSettings(
@@ -297,19 +358,28 @@ export const api = {
     marginSize: number
   ): Promise<ReaderSettings> {
     return invoke("save_reader_settings", {
-      user_id: userId,
-      font_family: fontFamily,
-      font_size: fontSize,
-      line_height: lineHeight,
+      userId,
+      fontFamily,
+      fontSize,
+      lineHeight,
       theme,
-      page_mode: pageMode,
-      margin_size: marginSize,
+      pageMode,
+      marginSize,
     })
   },
 
   // Reader - Book File Access
   async getBookFilePath(bookId: number): Promise<string> {
-    return invoke("get_book_file_path", { book_id: bookId })
+    return invoke("get_book_file_path", { bookId })
+  },
+
+  // Reader - Format Detection
+  async detectBookFormat(path: string): Promise<string> {
+    return invoke("detect_book_format", { path })
+  },
+
+  async validateBookFile(path: string, format: string): Promise<boolean> {
+    return invoke("validate_book_file", { path, format })
   },
 
   // Collections
@@ -333,9 +403,9 @@ export const api = {
     return invoke("create_collection", {
       name,
       description,
-      parent_id: parentId,
-      is_smart: isSmart || false,
-      smart_rules: smartRules,
+      parentId,
+      isSmart: isSmart || false,
+      smartRules,
       icon,
       color,
     })
@@ -354,8 +424,8 @@ export const api = {
       id,
       name,
       description,
-      parent_id: parentId,
-      smart_rules: smartRules,
+      parentId,
+      smartRules,
       icon,
       color,
     })
@@ -366,19 +436,19 @@ export const api = {
   },
 
   async addBookToCollection(collectionId: number, bookId: number): Promise<void> {
-    return invoke("add_book_to_collection", { collection_id: collectionId, book_id: bookId })
+    return invoke("add_book_to_collection", { collectionId, bookId })
   },
 
   async removeBookFromCollection(collectionId: number, bookId: number): Promise<void> {
-    return invoke("remove_book_from_collection", { collection_id: collectionId, book_id: bookId })
+    return invoke("remove_book_from_collection", { collectionId, bookId })
   },
 
   async addBooksToCollection(collectionId: number, bookIds: number[]): Promise<void> {
-    return invoke("add_books_to_collection", { collection_id: collectionId, book_ids: bookIds })
+    return invoke("add_books_to_collection", { collectionId, bookIds })
   },
 
   async getCollectionBooks(collectionId: number): Promise<Book[]> {
-    return invoke("get_collection_books", { collection_id: collectionId })
+    return invoke("get_collection_books", { collectionId })
   },
 
   async getNestedCollections(): Promise<Collection[]> {
@@ -387,7 +457,7 @@ export const api = {
 
   // Import/Export
   async scanFolderForBooks(folderPath: string): Promise<ImportResult> {
-    return invoke("scan_folder_for_books", { folder_path: folderPath })
+    return invoke("scan_folder_for_books", { folderPath })
   },
 
   async exportLibrary(options: ExportOptions): Promise<string> {
@@ -398,17 +468,26 @@ export const api = {
   async openFileDialog(): Promise<string[] | null> {
     if (!isTauri) {
       console.warn("File dialogs only work in Tauri environment. Please run: npm run tauri dev")
+      alert("File dialogs only work in Tauri mode.\n\nPlease run: npm run tauri dev")
       return Promise.resolve(null)
     }
-    return open({
-      multiple: true,
-      filters: [
-        {
-          name: "eBooks",
-          extensions: ["epub", "pdf", "mobi", "azw", "azw3", "txt", "cbz", "cbr"],
-        },
-      ],
-    }) as Promise<string[] | null>
+    try {
+      console.log('[API] Opening file dialog')
+      const result = await open({
+        multiple: true,
+        filters: [
+          {
+            name: "eBooks",
+            extensions: ["epub", "pdf", "mobi", "azw", "azw3", "txt", "cbz", "cbr"],
+          },
+        ],
+      }) as string[] | null
+      console.log('[API] File dialog result:', result)
+      return result
+    } catch (error) {
+      console.error('[API] File dialog error:', error)
+      throw error
+    }
   },
 
   async openFolderDialog(): Promise<string | null> {
@@ -429,5 +508,38 @@ export const api = {
     return save({
       defaultPath,
     }) as Promise<string | null>
+  },
+
+  // Phase 2 Rendering System
+  async openBookRenderer(bookId: number, path: string, format: string): Promise<BookMetadata> {
+    return invoke("open_book_renderer", { bookId, path, format })
+  },
+
+  async closeBookRenderer(bookId: number): Promise<void> {
+    return invoke("close_book_renderer", { bookId })
+  },
+
+  async getBookToc(bookId: number): Promise<TocEntry[]> {
+    return invoke("get_book_toc", { bookId })
+  },
+
+  async getBookChapter(bookId: number, chapterIndex: number): Promise<Chapter> {
+    return invoke("get_book_chapter", { bookId, chapterIndex })
+  },
+
+  async getBookChapterCount(bookId: number): Promise<number> {
+    return invoke("get_book_chapter_count", { bookId })
+  },
+
+  async searchInBook(bookId: number, query: string): Promise<BookSearchResult[]> {
+    return invoke("search_in_book", { bookId, query })
+  },
+
+  async getRendererCacheStats(): Promise<CacheStats> {
+    return invoke("get_renderer_cache_stats")
+  },
+
+  async clearRendererCache(): Promise<void> {
+    return invoke("clear_renderer_cache")
   },
 }

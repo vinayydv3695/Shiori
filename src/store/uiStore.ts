@@ -5,6 +5,7 @@ interface UIStore {
   theme: "light" | "dark"
   sidebarCollapsed: boolean
   toggleTheme: () => void
+  setTheme: (theme: "light" | "dark") => void
   toggleSidebar: () => void
 }
 
@@ -17,6 +18,7 @@ export const useUIStore = create<UIStore>()(
         set((state) => ({
           theme: state.theme === "light" ? "dark" : "light",
         })),
+      setTheme: (theme: "light" | "dark") => set({ theme }),
       toggleSidebar: () =>
         set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
     }),

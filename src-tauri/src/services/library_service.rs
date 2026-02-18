@@ -305,10 +305,18 @@ fn import_single_book(db: &Database, path: &str) -> Result<bool> {
         .unwrap_or("unknown")
         .to_lowercase();
 
+    // Generate UUID for the book
+    let book_uuid = Uuid::new_v4().to_string();
+
+    // Extract cover image (if available)
+    let cover_path = metadata_service::extract_cover(path, &book_uuid)
+        .ok()
+        .flatten();
+
     // Create book
     let book = Book {
         id: None,
-        uuid: Uuid::new_v4().to_string(),
+        uuid: book_uuid,
         title: metadata
             .title
             .unwrap_or_else(|| "Unknown Title".to_string()),
@@ -324,7 +332,7 @@ fn import_single_book(db: &Database, path: &str) -> Result<bool> {
         file_format,
         file_size: Some(get_file_size(path)?),
         file_hash: Some(file_hash),
-        cover_path: None,
+        cover_path,
         page_count: metadata.page_count,
         word_count: None,
         language: metadata.language.unwrap_or_else(|| "eng".to_string()),

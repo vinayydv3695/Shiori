@@ -44,8 +44,13 @@
       "csp": null,
       "assetProtocol": {
         "enable": true,
-        "scope": ["**"]
-      }
+        "scope": [
+          "$APPLOCALDATA/**",
+          "$APPDATA/**",
+          "$HOME/**"
+        ]
+      },
+      "capabilities": ["default"]
     },
     "windows": [
       {

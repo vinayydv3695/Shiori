@@ -4,6 +4,10 @@ import { LibraryGrid } from "./components/library/LibraryGrid"
 import { ModernListView } from "./components/library/ModernListView"
 import { ModernTableView } from "./components/library/ModernTableView"
 import { ReaderLayout } from "./components/reader/ReaderLayout"
+import { EditMetadataDialog } from "./components/library/EditMetadataDialog"
+import { DeleteBookDialog } from "./components/library/DeleteBookDialog"
+import { SettingsDialog } from "./components/library/SettingsDialog"
+import { BookDetailsDialog } from "./components/library/BookDetailsDialog"
 import { ToastContainer } from "./components/ui/ToastContainer"
 import { DevBanner } from "./components/DevBanner"
 import { useLibraryStore } from "./store/libraryStore"
@@ -26,6 +30,13 @@ function App() {
   const { selectedCollection } = useCollectionStore()
   const [selectedBookId, setSelectedBookId] = useState<number | null>(null)
   const [filteredBooks, setFilteredBooks] = useState<Book[]>([])
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false)
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false)
+  const [dialogBookId, setDialogBookId] = useState<number | null>(null)
+  const [dialogBookTitle, setDialogBookTitle] = useState<string>("")
+  const [searchQuery, setSearchQuery] = useState<string>("")
 
   useEffect(() => {
     // Apply theme to document
@@ -67,29 +78,53 @@ function App() {
   }, [selectedCollection, books])
 
   const handleOpenBook = async (bookId: number) => {
+    console.log('[App] Opening book:', bookId)
     try {
       const book = await api.getBook(bookId)
+      console.log('[App] Got book:', book)
       const filePath = await api.getBookFilePath(bookId)
+      console.log('[App] Got file path:', filePath)
       openBook(bookId, filePath, book.file_format)
       setSelectedBookId(bookId)
+      console.log('[App] Book opened successfully')
     } catch (error) {
-      console.error("Failed to open book:", error)
+      console.error("[App] Failed to open book:", error)
+      alert(`Failed to open book: ${error}`)
     }
   }
 
   const handleEditBook = (bookId: number) => {
-    console.log("Edit book:", bookId)
-    // TODO: Open edit metadata dialog
+    setDialogBookId(bookId)
+    setEditDialogOpen(true)
   }
 
   const handleDeleteBook = (bookId: number) => {
-    console.log("Delete book:", bookId)
-    // TODO: Show delete confirmation dialog
+    console.log('[App] Delete book called:', bookId)
+    const book = books.find(b => b.id === bookId)
+    console.log('[App] Found book:', book)
+    setDialogBookId(bookId)
+    setDialogBookTitle(book?.title || "this book")
+    setDeleteDialogOpen(true)
+    console.log('[App] Delete dialog should open')
   }
 
   const handleDownloadBook = (bookId: number) => {
-    console.log("Download book:", bookId)
-    // TODO: Trigger download
+    const book = books.find(b => b.id === bookId)
+    if (book) {
+      // Show file location - user can copy/open from there
+      console.log('Book file path:', book.file_path)
+      alert(`Book file location:\n${book.file_path}\n\nYou can copy this file from the location shown above.`)
+    }
+  }
+
+  const handleOpenSettings = () => {
+    setSettingsDialogOpen(true)
+  }
+
+  const handleViewDetails = (bookId: number) => {
+    console.log('[App] View details for book:', bookId)
+    setDialogBookId(bookId)
+    setDetailsDialogOpen(true)
   }
 
   const handleCloseReader = () => {
@@ -97,7 +132,25 @@ function App() {
     setSelectedBookId(null)
   }
 
-  const displayBooks = filteredBooks.length > 0 || selectedCollection ? filteredBooks : books
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query)
+  }
+
+  // Filter books based on search query
+  const filterBooks = (books: Book[]) => {
+    if (!searchQuery.trim()) return books
+    
+    const query = searchQuery.toLowerCase()
+    return books.filter(book => 
+      book.title.toLowerCase().includes(query) ||
+      book.authors?.some(a => a.name.toLowerCase().includes(query)) ||
+      book.tags?.some(t => t.name.toLowerCase().includes(query)) ||
+      book.publisher?.toLowerCase().includes(query) ||
+      book.series?.toLowerCase().includes(query)
+    )
+  }
+
+  const displayBooks = filterBooks(filteredBooks.length > 0 || selectedCollection ? filteredBooks : books)
 
   // Show reader if open
   if (isReaderOpen && selectedBookId) {
@@ -112,10 +165,25 @@ function App() {
   return (
     <>
       <DevBanner />
-      <Layout>
+      <Layout 
+        onOpenSettings={handleOpenSettings}
+        onEditMetadata={handleEditBook}
+        onDeleteBook={handleDeleteBook}
+        onViewBook={handleOpenBook}
+        onDownloadBook={handleDownloadBook}
+        onViewDetails={handleViewDetails}
+        searchQuery={searchQuery}
+        onSearchChange={handleSearchChange}
+      >
         {/* Library view based on viewMode */}
         {viewMode === "grid" && (
-          <LibraryGrid books={displayBooks} onBookClick={handleOpenBook} />
+          <LibraryGrid 
+            books={displayBooks} 
+            onBookClick={handleOpenBook}
+            onEditBook={handleEditBook}
+            onDeleteBook={handleDeleteBook}
+            onDownloadBook={handleDownloadBook}
+          />
         )}
         
         {viewMode === "list" && (
@@ -143,6 +211,46 @@ function App() {
         )}
       </Layout>
       <ToastContainer />
+      
+      {/* Dialogs */}
+      {dialogBookId && (
+        <>
+          <EditMetadataDialog
+            open={editDialogOpen}
+            onOpenChange={setEditDialogOpen}
+            bookId={dialogBookId}
+          />
+          <DeleteBookDialog
+            open={deleteDialogOpen}
+            onOpenChange={setDeleteDialogOpen}
+            bookId={dialogBookId}
+            bookTitle={dialogBookTitle}
+          />
+          <BookDetailsDialog
+            open={detailsDialogOpen}
+            onOpenChange={setDetailsDialogOpen}
+            bookId={dialogBookId}
+            onEdit={() => {
+              setDetailsDialogOpen(false)
+              setEditDialogOpen(true)
+            }}
+            onDelete={() => {
+              const book = books.find(b => b.id === dialogBookId)
+              setDialogBookTitle(book?.title || "this book")
+              setDetailsDialogOpen(false)
+              setDeleteDialogOpen(true)
+            }}
+            onRead={() => {
+              setDetailsDialogOpen(false)
+              handleOpenBook(dialogBookId)
+            }}
+          />
+        </>
+      )}
+      <SettingsDialog
+        open={settingsDialogOpen}
+        onOpenChange={setSettingsDialogOpen}
+      />
     </>
   )
 }

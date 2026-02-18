@@ -1,7 +1,13 @@
+pub mod cache;
 pub mod collection_service;
+pub mod epub_adapter;
 pub mod export_service;
+pub mod format_detector;
 pub mod library_service;
 pub mod metadata_service;
+pub mod pdf_adapter;
 pub mod reader_service;
+pub mod renderer;
+pub mod rendering_service;
 pub mod search_service;
 pub mod tag_service;

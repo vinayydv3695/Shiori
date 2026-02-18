@@ -5,17 +5,38 @@ import { ModernSidebar } from "../sidebar/ModernSidebar"
 import { ModernToolbar, ViewControls, StatusBar } from "./ModernToolbar"
 import { useUIStore } from "../../store/uiStore"
 import { useLibraryStore } from "../../store/libraryStore"
+import { useToast } from "../../store/toastStore"
 import { cn, formatFileSize } from "../../lib/utils"
 import { api } from "../../lib/tauri"
 
 interface LayoutProps {
   children: ReactNode
+  onOpenSettings: () => void
+  onEditMetadata?: (bookId: number) => void
+  onDeleteBook?: (bookId: number) => void
+  onViewBook?: (bookId: number) => void
+  onDownloadBook?: (bookId: number) => void
+  onViewDetails?: (bookId: number) => void
+  searchQuery?: string
+  onSearchChange?: (query: string) => void
 }
 
-export function Layout({ children }: LayoutProps) {
+export function Layout({ 
+  children, 
+  onOpenSettings, 
+  onEditMetadata,
+  onDeleteBook,
+  onViewBook,
+  onDownloadBook,
+  onViewDetails,
+  searchQuery: externalSearchQuery,
+  onSearchChange 
+}: LayoutProps) {
   const { sidebarCollapsed } = useUIStore()
-  const { books, viewMode, setViewMode, selectedBookIds } = useLibraryStore()
+  const { books, viewMode, setViewMode, selectedBookIds, setBooks } = useLibraryStore()
+  const toast = useToast()
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Initialize filter state
   const [selectedFilters, setSelectedFilters] = useState({
@@ -36,16 +57,104 @@ export function Layout({ children }: LayoutProps) {
 
   // Extract filter data from books
   const getFilterItems = () => {
-    // TODO: Extract real data from books
+    // Extract unique values from books
+    const authorsSet = new Set<string>()
+    const languagesSet = new Set<string>()
+    const seriesSet = new Set<string>()
+    const formatsSet = new Set<string>()
+    const publishersSet = new Set<string>()
+    const ratingsSet = new Set<string>()
+    const tagsSet = new Set<string>()
+    const identifiersSet = new Set<string>()
+
+    books.forEach(book => {
+      // Authors
+      book.authors?.forEach(author => {
+        if (author.name) authorsSet.add(author.name)
+      })
+
+      // Languages
+      if (book.language) languagesSet.add(book.language)
+
+      // Series
+      if (book.series) seriesSet.add(book.series)
+
+      // Formats
+      if (book.file_format) formatsSet.add(book.file_format.toUpperCase())
+
+      // Publishers
+      if (book.publisher) publishersSet.add(book.publisher)
+
+      // Ratings (round to nearest 0.5)
+      if (book.rating) {
+        const roundedRating = Math.round(book.rating * 2) / 2
+        ratingsSet.add(roundedRating.toString())
+      }
+
+      // Tags
+      book.tags?.forEach(tag => {
+        if (tag.name) tagsSet.add(tag.name)
+      })
+
+      // Identifiers (ISBN)
+      if (book.isbn) identifiersSet.add(`ISBN: ${book.isbn}`)
+      if (book.isbn13) identifiersSet.add(`ISBN13: ${book.isbn13}`)
+    })
+
+    // Convert sets to sorted arrays of filter items
+    const toFilterItems = (set: Set<string>) => 
+      Array.from(set).sort().map(item => ({ id: item, label: item, count: 0 }))
+
+    // Count occurrences for each filter
+    const countOccurrences = (items: { id: string; label: string; count: number }[], getValue: (book: any) => string[]) => {
+      items.forEach(item => {
+        item.count = books.filter(book => getValue(book).includes(item.id)).length
+      })
+      return items
+    }
+
+    const authors = toFilterItems(authorsSet)
+    countOccurrences(authors, book => book.authors?.map((a: any) => a.name) || [])
+
+    const languages = toFilterItems(languagesSet)
+    countOccurrences(languages, book => book.language ? [book.language] : [])
+
+    const series = toFilterItems(seriesSet)
+    countOccurrences(series, book => book.series ? [book.series] : [])
+
+    const formats = toFilterItems(formatsSet)
+    countOccurrences(formats, book => book.file_format ? [book.file_format.toUpperCase()] : [])
+
+    const publishers = toFilterItems(publishersSet)
+    countOccurrences(publishers, book => book.publisher ? [book.publisher] : [])
+
+    const ratings = toFilterItems(ratingsSet)
+    countOccurrences(ratings, book => {
+      if (!book.rating) return []
+      const roundedRating = Math.round(book.rating * 2) / 2
+      return [roundedRating.toString()]
+    })
+
+    const tags = toFilterItems(tagsSet)
+    countOccurrences(tags, book => book.tags?.map((t: any) => t.name) || [])
+
+    const identifiers = toFilterItems(identifiersSet)
+    countOccurrences(identifiers, book => {
+      const ids = []
+      if (book.isbn) ids.push(`ISBN: ${book.isbn}`)
+      if (book.isbn13) ids.push(`ISBN13: ${book.isbn13}`)
+      return ids
+    })
+
     return {
-      authors: [],
-      languages: [],
-      series: [],
-      formats: [],
-      publishers: [],
-      ratings: [],
-      tags: [],
-      identifiers: [],
+      authors,
+      languages,
+      series,
+      formats,
+      publishers,
+      ratings,
+      tags,
+      identifiers,
     }
   }
 
@@ -54,6 +163,7 @@ export function Layout({ children }: LayoutProps) {
   // Toolbar action handlers
   const handleAddBook = async () => {
     try {
+      console.log('[Layout] Opening file dialog...')
       const result = await open({
         multiple: true,
         directory: false,
@@ -63,53 +173,125 @@ export function Layout({ children }: LayoutProps) {
         }]
       })
       
+      console.log('[Layout] File dialog result:', result)
+      
       if (result) {
         const paths = Array.isArray(result) ? result : [result]
-        await api.importBooks(paths)
+        console.log('[Layout] Importing paths:', paths)
+        
+        const importResult = await api.importBooks(paths)
+        console.log('[Layout] Import result:', importResult)
+        
+        // Show result toast
+        const totalImported = importResult.success.length
+        const totalDuplicates = importResult.duplicates.length
+        const totalFailed = importResult.failed.length
+        
+        if (totalImported > 0) {
+          toast.success(
+            `Imported ${totalImported} book${totalImported > 1 ? 's' : ''}`,
+            totalDuplicates > 0 || totalFailed > 0
+              ? `${totalDuplicates} duplicates, ${totalFailed} failed`
+              : undefined
+          )
+          
+          // Reload library
+          const updatedBooks = await api.getBooks()
+          setBooks(updatedBooks)
+        } else if (totalFailed > 0) {
+          const errorMsg = importResult.failed[0]?.[1] || 'Unknown error'
+          toast.error('Import failed', errorMsg)
+        } else {
+          toast.warning('No books imported', 'All books were either duplicates or failed to import')
+        }
       }
     } catch (error) {
-      console.error("Failed to import books:", error)
+      console.error("[Layout] Failed to import books:", error)
+      toast.error('Import failed', String(error))
     }
   }
 
   const handleEditMetadata = () => {
-    console.log("Edit metadata clicked")
+    if (selectedBookIds.size === 0) {
+      toast.warning('No book selected', 'Please select a book to edit')
+      return
+    }
+    if (selectedBookIds.size > 1) {
+      toast.warning('Multiple books selected', 'Please select only one book to edit metadata')
+      return
+    }
+    const bookId = Array.from(selectedBookIds)[0]
+    onEditMetadata?.(bookId)
   }
 
   const handleConvert = () => {
-    console.log("Convert clicked")
+    toast.info('Coming soon', 'Format conversion will be available in Phase 3')
   }
 
   const handleView = () => {
-    console.log("View clicked")
+    if (selectedBookIds.size === 0) {
+      toast.warning('No book selected', 'Please select a book to view')
+      return
+    }
+    if (selectedBookIds.size > 1) {
+      toast.warning('Multiple books selected', 'Please select only one book to view')
+      return
+    }
+    const bookId = Array.from(selectedBookIds)[0]
+    onViewBook?.(bookId)
   }
 
   const handleDownload = () => {
-    console.log("Download clicked")
+    if (selectedBookIds.size === 0) {
+      toast.warning('No book selected', 'Please select a book to download')
+      return
+    }
+    if (selectedBookIds.size > 1) {
+      toast.warning('Multiple books selected', 'Please select only one book to download')
+      return
+    }
+    const bookId = Array.from(selectedBookIds)[0]
+    onDownloadBook?.(bookId)
   }
 
   const handleFetchNews = () => {
-    console.log("Fetch news clicked")
+    toast.info('Coming soon', 'RSS news feeds will be available in a future update')
   }
 
   const handleSettings = () => {
-    console.log("Settings clicked")
+    onOpenSettings()
   }
 
   const handleRemove = () => {
-    console.log("Remove clicked")
+    if (selectedBookIds.size === 0) {
+      toast.warning('No book selected', 'Please select a book to remove')
+      return
+    }
+    if (selectedBookIds.size > 1) {
+      toast.warning('Multiple deletion not yet supported', 'Please select only one book to delete')
+      return
+    }
+    const bookId = Array.from(selectedBookIds)[0]
+    onDeleteBook?.(bookId)
   }
 
   const handleSave = () => {
-    console.log("Save clicked")
+    toast.info('Save to disk', 'Export your library using the Export dialog')
   }
 
   const handleShare = () => {
-    console.log("Share clicked")
+    toast.info('Coming soon', 'Book sharing will be available in a future update')
   }
 
   const handleEditBook = () => {
-    console.log("Edit book clicked")
+    handleEditMetadata()
+  }
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query)
+    if (onSearchChange) {
+      onSearchChange(query)
+    }
   }
 
   const toggleSidebar = () => {
@@ -177,6 +359,7 @@ export function Layout({ children }: LayoutProps) {
           onSave={handleSave}
           onShare={handleShare}
           onEditBook={handleEditBook}
+          onSearch={handleSearch}
         />
 
         {/* View Controls */}

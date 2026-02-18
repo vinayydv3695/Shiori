@@ -126,13 +126,26 @@ impl Database {
             [],
         )?;
 
-        // FTS5 virtual table for full-text search
+        // Drop existing contentless FTS table and recreate with content
+        let _ = self
+            .conn
+            .execute("DROP TRIGGER IF EXISTS books_fts_insert", []);
+        let _ = self
+            .conn
+            .execute("DROP TRIGGER IF EXISTS books_fts_update", []);
+        let _ = self
+            .conn
+            .execute("DROP TRIGGER IF EXISTS books_fts_delete", []);
+        let _ = self.conn.execute("DROP TABLE IF EXISTS books_fts", []);
+
+        // FTS5 virtual table for full-text search (with content stored)
         self.conn.execute(
             "CREATE VIRTUAL TABLE IF NOT EXISTS books_fts USING fts5(
                 title,
                 authors,
                 tags,
-                content=''
+                content='books',
+                content_rowid='id'
             )",
             [],
         )?;
@@ -141,7 +154,7 @@ impl Database {
         self.conn.execute(
             "CREATE TRIGGER IF NOT EXISTS books_fts_insert AFTER INSERT ON books BEGIN
                 INSERT INTO books_fts(rowid, title, authors, tags)
-                SELECT 
+                VALUES (
                     NEW.id,
                     NEW.title,
                     COALESCE((SELECT GROUP_CONCAT(name, ' ') FROM authors 
@@ -149,7 +162,8 @@ impl Database {
                      WHERE books_authors.book_id = NEW.id), ''),
                     COALESCE((SELECT GROUP_CONCAT(name, ' ') FROM tags 
                      JOIN books_tags ON tags.id = books_tags.tag_id 
-                     WHERE books_tags.book_id = NEW.id), '');
+                     WHERE books_tags.book_id = NEW.id), '')
+                );
             END",
             [],
         )?;
@@ -157,15 +171,29 @@ impl Database {
         // Trigger to keep FTS in sync on update
         self.conn.execute(
             "CREATE TRIGGER IF NOT EXISTS books_fts_update AFTER UPDATE ON books BEGIN
-                UPDATE books_fts SET
-                    title = NEW.title,
-                    authors = COALESCE((SELECT GROUP_CONCAT(name, ' ') FROM authors 
-                               JOIN books_authors ON authors.id = books_authors.author_id 
-                               WHERE books_authors.book_id = NEW.id), ''),
-                    tags = COALESCE((SELECT GROUP_CONCAT(name, ' ') FROM tags 
-                           JOIN books_tags ON tags.id = books_tags.tag_id 
-                           WHERE books_tags.book_id = NEW.id), '')
-                WHERE rowid = NEW.id;
+                INSERT INTO books_fts(books_fts, rowid, title, authors, tags)
+                VALUES (
+                    'delete',
+                    OLD.id,
+                    OLD.title,
+                    COALESCE((SELECT GROUP_CONCAT(name, ' ') FROM authors 
+                     JOIN books_authors ON authors.id = books_authors.author_id 
+                     WHERE books_authors.book_id = OLD.id), ''),
+                    COALESCE((SELECT GROUP_CONCAT(name, ' ') FROM tags 
+                     JOIN books_tags ON tags.id = books_tags.tag_id 
+                     WHERE books_tags.book_id = OLD.id), '')
+                );
+                INSERT INTO books_fts(rowid, title, authors, tags)
+                VALUES (
+                    NEW.id,
+                    NEW.title,
+                    COALESCE((SELECT GROUP_CONCAT(name, ' ') FROM authors 
+                     JOIN books_authors ON authors.id = books_authors.author_id 
+                     WHERE books_authors.book_id = NEW.id), ''),
+                    COALESCE((SELECT GROUP_CONCAT(name, ' ') FROM tags 
+                     JOIN books_tags ON tags.id = books_tags.tag_id 
+                     WHERE books_tags.book_id = NEW.id), '')
+                );
             END",
             [],
         )?;
@@ -173,7 +201,18 @@ impl Database {
         // Trigger to keep FTS in sync on delete
         self.conn.execute(
             "CREATE TRIGGER IF NOT EXISTS books_fts_delete AFTER DELETE ON books BEGIN
-                DELETE FROM books_fts WHERE rowid = OLD.id;
+                INSERT INTO books_fts(books_fts, rowid, title, authors, tags)
+                VALUES (
+                    'delete',
+                    OLD.id,
+                    OLD.title,
+                    COALESCE((SELECT GROUP_CONCAT(name, ' ') FROM authors 
+                     JOIN books_authors ON authors.id = books_authors.author_id 
+                     WHERE books_authors.book_id = OLD.id), ''),
+                    COALESCE((SELECT GROUP_CONCAT(name, ' ') FROM tags 
+                     JOIN books_tags ON tags.id = books_tags.tag_id 
+                     WHERE books_tags.book_id = OLD.id), '')
+                );
             END",
             [],
         )?;
@@ -230,10 +269,22 @@ impl Database {
                 font_size INTEGER DEFAULT 18,
                 line_height REAL DEFAULT 1.6,
                 theme TEXT DEFAULT 'light',
-                page_mode TEXT DEFAULT 'paginated'
+                page_mode TEXT DEFAULT 'paginated',
+                margin_size INTEGER DEFAULT 2,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )",
             [],
         )?;
+
+        // Add missing columns if they don't exist (for existing databases)
+        let _ = self.conn.execute(
+            "ALTER TABLE reader_settings ADD COLUMN margin_size INTEGER DEFAULT 2",
+            [],
+        );
+        let _ = self.conn.execute(
+            "ALTER TABLE reader_settings ADD COLUMN updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            [],
+        );
 
         // Settings table
         self.conn.execute(

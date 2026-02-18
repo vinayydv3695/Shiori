@@ -36,6 +36,9 @@ fn main() {
                 db: Mutex::new(database),
             });
 
+            // Initialize rendering service with 100MB cache
+            app.manage(commands::rendering::RenderingState::new(100));
+
             log::info!("Shiori initialized with database at {:?}", db_path);
             Ok(())
         })
@@ -62,6 +65,17 @@ fn main() {
             commands::reader::get_reader_settings,
             commands::reader::save_reader_settings,
             commands::reader::get_book_file_path,
+            commands::reader::detect_book_format,
+            commands::reader::validate_book_file,
+            commands::reader::get_error_details,
+            commands::rendering::open_book_renderer,
+            commands::rendering::close_book_renderer,
+            commands::rendering::get_book_toc,
+            commands::rendering::get_book_chapter,
+            commands::rendering::get_book_chapter_count,
+            commands::rendering::search_in_book,
+            commands::rendering::get_renderer_cache_stats,
+            commands::rendering::clear_renderer_cache,
             commands::collections::get_collections,
             commands::collections::get_collection,
             commands::collections::create_collection,

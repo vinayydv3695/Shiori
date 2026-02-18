@@ -1,7 +1,9 @@
 use crate::error::ShioriResult;
 use crate::models::{Annotation, ReaderSettings, ReadingProgress};
+use crate::services::format_detector;
 use crate::services::reader_service::ReaderService;
 use crate::AppState;
+use std::path::Path;
 use tauri::State;
 
 // ==================== Reading Progress Commands ====================
@@ -140,3 +142,42 @@ pub fn get_book_file_path(book_id: i64, state: State<AppState>) -> ShioriResult<
     )?;
     Ok(file_path)
 }
+
+// ==================== Format Detection Commands ====================
+
+#[tauri::command]
+pub async fn detect_book_format(path: String) -> ShioriResult<String> {
+    format_detector::detect_format(Path::new(&path)).await
+}
+
+#[tauri::command]
+pub async fn validate_book_file(path: String, format: String) -> ShioriResult<bool> {
+    format_detector::validate_file_integrity(Path::new(&path), &format).await
+}
+
+// ==================== Error Information Commands ====================
+
+use crate::error::ShioriError;
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
+pub struct ErrorDetails {
+    pub user_message: String,
+    pub recovery_suggestions: Vec<String>,
+    pub technical_details: String,
+}
+
+#[tauri::command]
+pub fn get_error_details(error_message: String) -> ErrorDetails {
+    // This is a helper for frontend to get structured error info
+    // In practice, errors should already include this info
+    ErrorDetails {
+        user_message: error_message.clone(),
+        recovery_suggestions: vec![
+            "Try restarting the application".to_string(),
+            "Check file permissions".to_string(),
+        ],
+        technical_details: error_message,
+    }
+}
+

@@ -121,26 +121,26 @@ export function ReaderControls() {
       <div className="flex items-center gap-2">
         <button
           onClick={createBookmark}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-900 dark:text-gray-100"
           title="Add bookmark"
         >
-          <BookmarkPlus className="w-5 h-5" />
+          <BookmarkPlus className="w-5 h-5 text-gray-900 dark:text-gray-100" />
         </button>
 
         <button
           onClick={toggleAnnotationSidebar}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-900 dark:text-gray-100"
           title="Show annotations"
         >
-          <MessageSquare className="w-5 h-5" />
+          <MessageSquare className="w-5 h-5 text-gray-900 dark:text-gray-100" />
         </button>
 
         <button
           onClick={() => setShowSettings(!showSettings)}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-900 dark:text-gray-100"
           title="Reader settings"
         >
-          <Settings className="w-5 h-5" />
+          <Settings className="w-5 h-5 text-gray-900 dark:text-gray-100" />
         </button>
       </div>
 

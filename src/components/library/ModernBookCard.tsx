@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Star, MoreVertical, Download, Eye, Edit, Trash2, BookOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { convertFileSrc } from '@tauri-apps/api/core'
 import type { Book } from '@/lib/tauri'
 
 interface BookCardProps {
@@ -24,6 +25,10 @@ export const ModernBookCard = ({
 }: BookCardProps) => {
   const [showActions, setShowActions] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(false)
+  const [imageError, setImageError] = useState(false)
+
+  // Convert cover path to Tauri asset URL
+  const coverSrc = book.cover_path ? convertFileSrc(book.cover_path) : null
 
   const handleClick = (e: React.MouseEvent) => {
     if (e.shiftKey || e.ctrlKey || e.metaKey) {
@@ -128,12 +133,13 @@ export const ModernBookCard = ({
 
       {/* Book Cover */}
       <div className="aspect-[2/3] bg-muted relative overflow-hidden">
-        {book.cover_path ? (
+        {coverSrc && !imageError ? (
           <>
             <img
-              src={book.cover_path}
+              src={coverSrc}
               alt={book.title}
               onLoad={() => setImageLoaded(true)}
+              onError={() => setImageError(true)}
               className={cn(
                 'w-full h-full object-cover',
                 'transition-all duration-300',

@@ -6,9 +6,12 @@ import { useLibraryStore } from "../../store/libraryStore"
 interface LibraryGridProps {
   books: Book[]
   onBookClick?: (bookId: number) => void
+  onEditBook?: (bookId: number) => void
+  onDeleteBook?: (bookId: number) => void
+  onDownloadBook?: (bookId: number) => void
 }
 
-export function LibraryGrid({ books, onBookClick }: LibraryGridProps) {
+export function LibraryGrid({ books, onBookClick, onEditBook, onDeleteBook, onDownloadBook }: LibraryGridProps) {
   const { 
     setSelectedBook, 
     selectedBookIds, 
@@ -31,18 +34,21 @@ export function LibraryGrid({ books, onBookClick }: LibraryGridProps) {
   }
 
   const handleEditBook = (bookId: number) => {
-    console.log("Edit book:", bookId)
-    // TODO: Open edit metadata dialog
+    if (onEditBook) {
+      onEditBook(bookId)
+    }
   }
 
   const handleDeleteBook = (bookId: number) => {
-    console.log("Delete book:", bookId)
-    // TODO: Show delete confirmation dialog
+    if (onDeleteBook) {
+      onDeleteBook(bookId)
+    }
   }
 
   const handleDownloadBook = (bookId: number) => {
-    console.log("Download book:", bookId)
-    // TODO: Trigger download
+    if (onDownloadBook) {
+      onDownloadBook(bookId)
+    }
   }
 
   if (books.length === 0) {

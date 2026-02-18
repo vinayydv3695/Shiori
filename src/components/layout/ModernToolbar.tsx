@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { 
   Plus, 
@@ -90,6 +90,7 @@ interface ModernToolbarProps {
   onSave: () => void
   onShare: () => void
   onEditBook: () => void
+  onSearch?: (query: string) => void
 }
 
 export const ModernToolbar = ({
@@ -104,9 +105,21 @@ export const ModernToolbar = ({
   onSave,
   onShare,
   onEditBook,
+  onSearch,
 }: ModernToolbarProps) => {
   const { theme, toggleTheme } = useTheme()
   const [searchQuery, setSearchQuery] = useState('')
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (onSearch) {
+        onSearch(searchQuery)
+      }
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [searchQuery, onSearch])
 
   return (
     <div className="h-14 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">

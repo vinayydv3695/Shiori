@@ -3,14 +3,11 @@ use crate::services::renderer::{
     BookMetadata, BookRenderer, Chapter, EpubRenderer, SearchResult, TocEntry,
 };
 use epub::doc::EpubDoc;
-use std::collections::HashMap;
-use std::path::Path;
 use std::sync::RwLock;
 
 pub struct EpubAdapter {
     doc: Option<RwLock<EpubDoc<std::io::BufReader<std::fs::File>>>>,
     path: String,
-    chapters: Vec<Chapter>,
     toc: Vec<TocEntry>,
     metadata: Option<BookMetadata>,
 }
@@ -20,40 +17,9 @@ impl EpubAdapter {
         Self {
             doc: None,
             path: String::new(),
-            chapters: Vec::new(),
             toc: Vec::new(),
             metadata: None,
         }
-    }
-
-    fn load_chapters(&mut self) -> ShioriResult<()> {
-        let doc_ref = self
-            .doc
-            .as_ref()
-            .ok_or_else(|| ShioriError::Other("EPUB document not opened".to_string()))?;
-
-        let mut doc = doc_ref.write().unwrap();
-        let mut chapters = Vec::new();
-        let spine_len = doc.get_num_chapters();
-
-        for i in 0..spine_len {
-            doc.set_current_chapter(i);
-
-            let (content, _mime) = doc.get_current_str().unwrap_or_default();
-            let title = doc
-                .get_current_id()
-                .unwrap_or_else(|| format!("Chapter {}", i + 1));
-
-            chapters.push(Chapter {
-                index: i,
-                title,
-                content,
-                location: format!("epubcfi(/{})", i),
-            });
-        }
-
-        self.chapters = chapters;
-        Ok(())
     }
 
     fn load_toc(&mut self) -> ShioriResult<()> {
@@ -106,19 +72,50 @@ impl EpubAdapter {
 
 impl BookRenderer for EpubAdapter {
     fn open(&mut self, path: &str) -> ShioriResult<()> {
-        let doc = EpubDoc::new(path).map_err(|e| ShioriError::EpubParseFailed {
-            path: path.to_string(),
-            cause: format!("{}", e),
+        println!("[EpubAdapter::open] Opening file: {}", path);
+
+        // Check if file exists
+        use std::fs;
+        match fs::metadata(path) {
+            Ok(metadata) => {
+                println!(
+                    "[EpubAdapter::open] File exists, size: {} bytes",
+                    metadata.len()
+                );
+            }
+            Err(e) => {
+                println!(
+                    "[EpubAdapter::open] ❌ File not found or inaccessible: {}",
+                    e
+                );
+                return Err(ShioriError::EpubParseFailed {
+                    path: path.to_string(),
+                    cause: format!("File not accessible: {}", e),
+                });
+            }
+        }
+
+        let doc = EpubDoc::new(path).map_err(|e| {
+            println!("[EpubAdapter::open] ❌ EpubDoc::new failed: {}", e);
+            ShioriError::EpubParseFailed {
+                path: path.to_string(),
+                cause: format!("{}", e),
+            }
         })?;
 
+        println!("[EpubAdapter::open] ✅ EpubDoc created successfully");
         self.doc = Some(RwLock::new(doc));
         self.path = path.to_string();
 
-        // Load all data upfront
+        // Load metadata and TOC upfront (fast operations)
+        println!("[EpubAdapter::open] Loading metadata...");
         self.load_metadata()?;
+        println!("[EpubAdapter::open] Loading TOC...");
         self.load_toc()?;
-        self.load_chapters()?;
 
+        // DON'T load all chapters upfront - too slow!
+        // Chapters will be loaded lazily in get_chapter()
+        println!("[EpubAdapter::open] ✅ Book opened successfully (chapters will load on demand)");
         Ok(())
     }
 
@@ -133,39 +130,81 @@ impl BookRenderer for EpubAdapter {
     }
 
     fn get_chapter(&self, index: usize) -> ShioriResult<Chapter> {
-        self.chapters
-            .get(index)
-            .cloned()
-            .ok_or_else(|| ShioriError::ChapterReadFailed {
+        // Load chapter on-demand from EpubDoc
+        let doc_ref = self
+            .doc
+            .as_ref()
+            .ok_or_else(|| ShioriError::Other("EPUB document not opened".to_string()))?;
+
+        let mut doc = doc_ref.write().unwrap();
+        let spine_len = doc.get_num_chapters();
+
+        if index >= spine_len {
+            return Err(ShioriError::ChapterReadFailed {
                 chapter_index: index,
                 cause: "Chapter index out of bounds".to_string(),
-            })
+            });
+        }
+
+        doc.set_current_chapter(index);
+        let (content, _mime) = doc.get_current_str().unwrap_or_default();
+        let title = doc
+            .get_current_id()
+            .unwrap_or_else(|| format!("Chapter {}", index + 1));
+
+        Ok(Chapter {
+            index,
+            title,
+            content,
+            location: format!("epubcfi(/{})", index),
+        })
     }
 
     fn chapter_count(&self) -> usize {
-        self.chapters.len()
+        // Get chapter count from EpubDoc, not from cached chapters
+        if let Some(doc_ref) = &self.doc {
+            let doc = doc_ref.read().unwrap();
+            doc.get_num_chapters()
+        } else {
+            0
+        }
     }
 
     fn search(&self, query: &str) -> ShioriResult<Vec<SearchResult>> {
         let query_lower = query.to_lowercase();
         let mut results = Vec::new();
 
-        for chapter in &self.chapters {
-            let content_lower = chapter.content.to_lowercase();
+        // For search, we need to iterate through all chapters
+        let doc_ref = self
+            .doc
+            .as_ref()
+            .ok_or_else(|| ShioriError::Other("EPUB document not opened".to_string()))?;
+
+        let mut doc = doc_ref.write().unwrap();
+        let spine_len = doc.get_num_chapters();
+
+        for i in 0..spine_len {
+            doc.set_current_chapter(i);
+            let (content, _mime) = doc.get_current_str().unwrap_or_default();
+            let title = doc
+                .get_current_id()
+                .unwrap_or_else(|| format!("Chapter {}", i + 1));
+
+            let content_lower = content.to_lowercase();
             let matches: Vec<_> = content_lower.match_indices(&query_lower).collect();
 
             if !matches.is_empty() {
                 // Get snippet around first match
                 let first_match_pos = matches[0].0;
                 let start = first_match_pos.saturating_sub(50);
-                let end = (first_match_pos + query.len() + 50).min(chapter.content.len());
-                let snippet = format!("...{}...", &chapter.content[start..end]);
+                let end = (first_match_pos + query.len() + 50).min(content.len());
+                let snippet = format!("...{}...", &content[start..end]);
 
                 results.push(SearchResult {
-                    chapter_index: chapter.index,
-                    chapter_title: chapter.title.clone(),
+                    chapter_index: i,
+                    chapter_title: title,
                     snippet,
-                    location: chapter.location.clone(),
+                    location: format!("epubcfi(/{})", i),
                     match_count: matches.len(),
                 });
             }

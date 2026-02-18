@@ -2,18 +2,20 @@ use crate::error::ShioriResult;
 use crate::services::cache::CacheStats;
 use crate::services::renderer::{BookMetadata, Chapter, SearchResult, TocEntry};
 use crate::services::rendering_service::RenderingService;
-use std::sync::Mutex;
+use std::sync::Arc;
 use tauri::State;
 
 /// Global rendering service state
+/// Note: RenderingService is already thread-safe internally with Arc<Mutex<HashMap>>
+/// so we don't need to wrap it in another Mutex
 pub struct RenderingState {
-    pub service: Mutex<RenderingService>,
+    pub service: Arc<RenderingService>,
 }
 
 impl RenderingState {
     pub fn new(cache_size_mb: usize) -> Self {
         Self {
-            service: Mutex::new(RenderingService::new(cache_size_mb)),
+            service: Arc::new(RenderingService::new(cache_size_mb)),
         }
     }
 }
@@ -27,21 +29,37 @@ pub fn open_book_renderer(
     format: String,
     state: State<RenderingState>,
 ) -> ShioriResult<BookMetadata> {
-    let service = state.service.lock().unwrap();
-    service.open_book(book_id, &path, &format)
+    println!("\n=== OPEN_BOOK_RENDERER ===");
+    println!("book_id: {}", book_id);
+    println!("path: {}", path);
+    println!("format: {}", format);
+
+    let result = state.service.open_book(book_id, &path, &format);
+
+    match &result {
+        Ok(metadata) => {
+            println!("✅ SUCCESS");
+            println!("title: {}", metadata.title);
+            println!("chapters: {}", metadata.total_chapters);
+        }
+        Err(e) => {
+            println!("❌ ERROR: {}", e);
+        }
+    }
+    println!("=========================\n");
+
+    result
 }
 
 #[tauri::command]
 pub fn close_book_renderer(book_id: i64, state: State<RenderingState>) -> ShioriResult<()> {
-    let service = state.service.lock().unwrap();
-    service.close_book(book_id);
+    state.service.close_book(book_id);
     Ok(())
 }
 
 #[tauri::command]
 pub fn get_book_toc(book_id: i64, state: State<RenderingState>) -> ShioriResult<Vec<TocEntry>> {
-    let service = state.service.lock().unwrap();
-    service.get_toc(book_id)
+    state.service.get_toc(book_id)
 }
 
 #[tauri::command]
@@ -50,14 +68,23 @@ pub fn get_book_chapter(
     chapter_index: usize,
     state: State<RenderingState>,
 ) -> ShioriResult<Chapter> {
-    let service = state.service.lock().unwrap();
-    service.get_chapter(book_id, chapter_index)
+    println!(
+        "[get_book_chapter] book_id: {}, chapter_index: {}",
+        book_id, chapter_index
+    );
+    let result = state.service.get_chapter(book_id, chapter_index);
+
+    match &result {
+        Ok(chapter) => println!("[get_book_chapter] ✅ Got chapter: {}", chapter.title),
+        Err(e) => println!("[get_book_chapter] ❌ Error: {}", e),
+    }
+
+    result
 }
 
 #[tauri::command]
 pub fn get_book_chapter_count(book_id: i64, state: State<RenderingState>) -> ShioriResult<usize> {
-    let service = state.service.lock().unwrap();
-    service.get_chapter_count(book_id)
+    state.service.get_chapter_count(book_id)
 }
 
 #[tauri::command]
@@ -66,21 +93,27 @@ pub fn search_in_book(
     query: String,
     state: State<RenderingState>,
 ) -> ShioriResult<Vec<SearchResult>> {
-    let service = state.service.lock().unwrap();
-    service.search_book(book_id, &query)
+    state.service.search_book(book_id, &query)
+}
+
+#[tauri::command]
+pub fn get_epub_resource(
+    book_id: i64,
+    resource_path: String,
+    state: State<RenderingState>,
+) -> ShioriResult<Vec<u8>> {
+    state.service.get_epub_resource(book_id, &resource_path)
 }
 
 // ==================== Cache Management Commands ====================
 
 #[tauri::command]
 pub fn get_renderer_cache_stats(state: State<RenderingState>) -> ShioriResult<CacheStats> {
-    let service = state.service.lock().unwrap();
-    Ok(service.get_cache_stats())
+    Ok(state.service.get_cache_stats())
 }
 
 #[tauri::command]
 pub fn clear_renderer_cache(state: State<RenderingState>) -> ShioriResult<()> {
-    let service = state.service.lock().unwrap();
-    service.clear_all_caches();
+    state.service.clear_all_caches();
     Ok(())
 }

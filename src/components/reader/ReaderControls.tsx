@@ -1,88 +1,53 @@
-import { useReaderStore } from '@/store/readerStore';
+import { useReaderStore, ReaderSettings } from '@/store/readerStore';
 import { api } from '@/lib/tauri';
 import { Settings, BookmarkPlus, MessageSquare, X } from '@/components/icons';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export function ReaderControls() {
   const { settings, updateSettings, currentBookId, toggleAnnotationSidebar, progress } = useReaderStore();
   const [showSettings, setShowSettings] = useState(false);
 
+  const saveSettings = async (updates: Partial<ReaderSettings> = {}) => {
+    const newSettings = { ...settings, ...updates };
+    await api.saveReaderSettings(
+      newSettings.userId,
+      newSettings.fontFamily,
+      newSettings.fontSize,
+      newSettings.lineHeight,
+      newSettings.theme,
+      newSettings.pageMode,
+      newSettings.marginSize
+    );
+  };
+
   const handleFontFamilyChange = async (fontFamily: string) => {
     updateSettings({ fontFamily });
-    await api.saveReaderSettings(
-      settings.userId,
-      fontFamily,
-      settings.fontSize,
-      settings.lineHeight,
-      settings.theme,
-      settings.pageMode,
-      settings.marginSize
-    );
+    await saveSettings({ fontFamily });
   };
 
   const handleFontSizeChange = async (fontSize: number) => {
     updateSettings({ fontSize });
-    await api.saveReaderSettings(
-      settings.userId,
-      settings.fontFamily,
-      fontSize,
-      settings.lineHeight,
-      settings.theme,
-      settings.pageMode,
-      settings.marginSize
-    );
+    await saveSettings({ fontSize });
   };
 
   const handleLineHeightChange = async (lineHeight: number) => {
     updateSettings({ lineHeight });
-    await api.saveReaderSettings(
-      settings.userId,
-      settings.fontFamily,
-      settings.fontSize,
-      lineHeight,
-      settings.theme,
-      settings.pageMode,
-      settings.marginSize
-    );
+    await saveSettings({ lineHeight });
   };
 
   const handleThemeChange = async (theme: string) => {
     updateSettings({ theme });
-    await api.saveReaderSettings(
-      settings.userId,
-      settings.fontFamily,
-      settings.fontSize,
-      settings.lineHeight,
-      theme,
-      settings.pageMode,
-      settings.marginSize
-    );
+    await saveSettings({ theme });
   };
 
   const handlePageModeChange = async (pageMode: 'paginated' | 'scrolled') => {
     updateSettings({ pageMode });
-    await api.saveReaderSettings(
-      settings.userId,
-      settings.fontFamily,
-      settings.fontSize,
-      settings.lineHeight,
-      settings.theme,
-      pageMode,
-      settings.marginSize
-    );
+    await saveSettings({ pageMode });
   };
 
   const handleMarginSizeChange = async (marginSize: number) => {
     updateSettings({ marginSize });
-    await api.saveReaderSettings(
-      settings.userId,
-      settings.fontFamily,
-      settings.fontSize,
-      settings.lineHeight,
-      settings.theme,
-      settings.pageMode,
-      marginSize
-    );
+    await saveSettings({ marginSize });
   };
 
   const createBookmark = async () => {
@@ -98,6 +63,17 @@ export function ReaderControls() {
       '#3b82f6' // Blue color for bookmarks
     );
   };
+
+  // Close settings panel on ESC key
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showSettings) {
+        setShowSettings(false);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [showSettings]);
 
   return (
     <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between">
@@ -146,16 +122,25 @@ export function ReaderControls() {
 
       {/* Settings panel */}
       {showSettings && (
-        <div className="absolute right-4 top-14 bg-white rounded-lg shadow-xl border border-gray-200 p-4 w-80 z-50">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold">Reader Settings</h3>
-            <button
-              onClick={() => setShowSettings(false)}
-              className="p-1 hover:bg-gray-100 rounded"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
+        <>
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black/20 z-40"
+            onClick={() => setShowSettings(false)}
+            aria-label="Close settings"
+          />
+          
+          {/* Settings panel */}
+          <div className="absolute right-4 top-14 bg-white rounded-lg shadow-xl border border-gray-200 p-4 w-80 z-50">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold">Reader Settings</h3>
+              <button
+                onClick={() => setShowSettings(false)}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
           <div className="space-y-4">
             {/* Font Family */}
@@ -168,9 +153,14 @@ export function ReaderControls() {
                 onChange={(e) => handleFontFamilyChange(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="serif">Serif</option>
-                <option value="sans">Sans-serif</option>
-                <option value="mono">Monospace</option>
+                <option value="serif">Classic Serif (Georgia)</option>
+                <option value="sans">Clean Sans (Arial)</option>
+                <option value="system">System Font</option>
+                <option value="literata">Literata</option>
+                <option value="merriweather">Merriweather</option>
+                <option value="opensans">Open Sans</option>
+                <option value="lora">Lora</option>
+                <option value="mono">Monospace (Courier)</option>
               </select>
             </div>
 
@@ -223,16 +213,6 @@ export function ReaderControls() {
                   Light
                 </button>
                 <button
-                  onClick={() => handleThemeChange('sepia')}
-                  className={`px-3 py-2 text-sm rounded border ${
-                    settings.theme === 'sepia'
-                      ? 'bg-yellow-100 border-yellow-500'
-                      : 'bg-white border-gray-300 hover:border-yellow-500'
-                  }`}
-                >
-                  Sepia
-                </button>
-                <button
                   onClick={() => handleThemeChange('dark')}
                   className={`px-3 py-2 text-sm rounded border ${
                     settings.theme === 'dark'
@@ -241,6 +221,16 @@ export function ReaderControls() {
                   }`}
                 >
                   Dark
+                </button>
+                <button
+                  onClick={() => handleThemeChange('nightlight')}
+                  className={`px-3 py-2 text-sm rounded border ${
+                    settings.theme === 'nightlight'
+                      ? 'bg-amber-900 text-amber-100 border-amber-900'
+                      : 'bg-white border-gray-300 hover:border-amber-900'
+                  }`}
+                >
+                  Night Light
                 </button>
               </div>
             </div>
@@ -294,7 +284,8 @@ export function ReaderControls() {
               </div>
             </div>
           </div>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

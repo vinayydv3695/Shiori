@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useReaderStore } from '@/store/readerStore';
 import { api } from '@/lib/tauri';
-import { EpubReader } from './EpubReader';
+import { PremiumEpubReader } from './PremiumEpubReader';
 import { PdfReader } from './PdfReader';
-import { ReaderControls } from './ReaderControls';
-import { AnnotationSidebar } from './AnnotationSidebar';
 import { ReaderErrorBoundary, parseReaderError } from './ReaderErrorBoundary';
 import { X } from '@/components/icons';
 
@@ -37,7 +35,7 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
   const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: number;
 
     const loadBookData = async () => {
       try {
@@ -197,41 +195,29 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
   // Show reader
   return (
     <div className="fixed inset-0 bg-white dark:bg-gray-900 z-50 flex flex-col">
-      {/* Top bar with close button */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            title="Close reader"
-          >
-            <X className="w-5 h-5" />
-          </button>
-          <span className="text-sm text-gray-600 dark:text-gray-400">Reader</span>
-        </div>
-
-        <ReaderControls />
+      {/* Top bar with close button (minimal for premium reader) */}
+      <div className="absolute top-4 left-4 z-[110]">
+        <button
+          onClick={handleClose}
+          className="p-2 bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 rounded-lg transition-all backdrop-blur-sm shadow-lg border border-gray-200 dark:border-gray-700"
+          title="Close reader"
+        >
+          <X className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Reader content */}
-      <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1 overflow-hidden">
-          {currentBookPath && currentBookFormat === 'epub' && (
-            <EpubReader bookPath={currentBookPath} bookId={bookId} />
-          )}
-          {currentBookPath && currentBookFormat === 'pdf' && (
-            <PdfReader bookPath={currentBookPath} bookId={bookId} />
-          )}
-          {!currentBookPath && (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-gray-500 dark:text-gray-400">No book loaded</p>
-            </div>
-          )}
+      {currentBookPath && currentBookFormat === 'epub' && (
+        <PremiumEpubReader bookPath={currentBookPath} bookId={bookId} />
+      )}
+      {currentBookPath && currentBookFormat === 'pdf' && (
+        <PdfReader bookPath={currentBookPath} bookId={bookId} />
+      )}
+      {!currentBookPath && (
+        <div className="flex items-center justify-center h-full">
+          <p className="text-gray-500 dark:text-gray-400">No book loaded</p>
         </div>
-
-        {/* Annotation sidebar */}
-        <AnnotationSidebar />
-      </div>
+      )}
     </div>
   );
 }

@@ -12,6 +12,21 @@ interface PdfReaderProps {
 export function PdfReader({ bookPath, bookId }: PdfReaderProps) {
   const { progress, settings, setProgress } = useReaderStore();
   
+  // Map font family IDs to CSS font-family strings
+  const getFontFamily = (fontId: string): string => {
+    const fontMap: Record<string, string> = {
+      serif: 'Georgia, serif',
+      sans: 'Arial, sans-serif',
+      system: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      literata: '"Literata", Georgia, serif',
+      merriweather: '"Merriweather", Georgia, serif',
+      opensans: '"Open Sans", Arial, sans-serif',
+      lora: '"Lora", Georgia, serif',
+      mono: 'Courier, "Courier New", monospace',
+    };
+    return fontMap[fontId] || fontMap.serif;
+  };
+  
   const [metadata, setMetadata] = useState<BookMetadata | null>(null);
   const [currentPage, setCurrentPage] = useState<Chapter | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -248,9 +263,7 @@ export function PdfReader({ bookPath, bookId }: PdfReaderProps) {
           <div 
             className="px-8 py-6"
             style={{
-              fontFamily: settings.fontFamily === 'serif' ? 'Georgia, serif' : 
-                         settings.fontFamily === 'sans' ? 'Arial, sans-serif' : 
-                         'monospace',
+              fontFamily: getFontFamily(settings.fontFamily),
               fontSize: `${settings.fontSize * scale}px`,
               lineHeight: settings.lineHeight,
             }}

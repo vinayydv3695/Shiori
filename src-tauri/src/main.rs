@@ -8,8 +8,16 @@ mod models;
 mod services;
 mod utils;
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tauri::Manager;
+
+use services::{
+    conversion_engine::ConversionEngine,
+    cover_service::CoverService,
+    rss_service::RssService,
+    rss_scheduler::RssScheduler,
+    share_service::ShareService,
+};
 
 pub struct AppState {
     db: Mutex<db::Database>,
@@ -39,7 +47,53 @@ fn main() {
             // Initialize rendering service with 100MB cache
             app.manage(commands::rendering::RenderingState::new(100));
 
-            log::info!("Shiori initialized with database at {:?}", db_path);
+            // Initialize v2.0 services
+            let storage_path = app_dir.join("storage");
+            std::fs::create_dir_all(&storage_path)?;
+
+            // Conversion engine (4 workers)
+            let conversion_engine = Arc::new(ConversionEngine::new(4));
+            app.manage(conversion_engine);
+
+            // Cover service
+            let cover_service = Arc::new(CoverService::new(storage_path.clone())?);
+            app.manage(cover_service);
+
+            // RSS service
+            let rss_service = Arc::new(RssService::new(db_path.clone(), storage_path.clone())?);
+            app.manage(Arc::clone(&rss_service));
+
+            // RSS scheduler (daily EPUB at 6 AM)
+            let rss_scheduler = Arc::new(tokio::sync::Mutex::new(
+                tauri::async_runtime::block_on(async {
+                    RssScheduler::new(rss_service, true, None).await
+                })?
+            ));
+            
+            // Start RSS scheduler
+            let scheduler_clone = Arc::clone(&rss_scheduler);
+            tauri::async_runtime::spawn(async move {
+                if let Ok(mut scheduler) = scheduler_clone.try_lock() {
+                    if let Err(e) = scheduler.start().await {
+                        log::error!("Failed to start RSS scheduler: {}", e);
+                    }
+                }
+            });
+            
+            app.manage(rss_scheduler);
+
+            // Share service
+            let share_service = Arc::new(tokio::sync::Mutex::new(
+                ShareService::new(db_path.clone(), storage_path.clone(), Some(8080))
+            ));
+            app.manage(share_service);
+
+            log::info!("Shiori v2.0 initialized with database at {:?}", db_path);
+            log::info!("Storage path: {:?}", storage_path);
+            log::info!("Conversion engine: 4 workers");
+            log::info!("RSS scheduler: enabled (daily EPUB at 6 AM)");
+            log::info!("Share server: ready (port 8080)");
+            
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -48,6 +102,7 @@ fn main() {
             commands::library::add_book,
             commands::library::update_book,
             commands::library::delete_book,
+            commands::library::delete_books,
             commands::library::import_books,
             commands::library::scan_folder_for_books,
             commands::search::search_books,
@@ -88,6 +143,37 @@ fn main() {
             commands::collections::get_collection_books,
             commands::collections::get_nested_collections,
             commands::export::export_library,
+            // v2.0 commands
+            commands::conversion::convert_book,
+            commands::conversion::get_conversion_status,
+            commands::conversion::list_conversion_jobs,
+            commands::conversion::cancel_conversion,
+            commands::conversion::get_supported_conversions,
+            commands::cover::generate_cover,
+            commands::cover::get_book_cover,
+            commands::cover::clear_cover_cache,
+            commands::rss::add_rss_feed,
+            commands::rss::get_rss_feed,
+            commands::rss::list_rss_feeds,
+            commands::rss::update_rss_feed,
+            commands::rss::delete_rss_feed,
+            commands::rss::toggle_rss_feed,
+            commands::rss::update_rss_feed_articles,
+            commands::rss::update_all_rss_feeds,
+            commands::rss::get_unread_articles,
+            commands::rss::mark_article_read,
+            commands::rss::generate_daily_epub,
+            commands::rss::trigger_feed_update,
+            commands::rss::trigger_daily_epub_generation,
+            commands::share::create_book_share,
+            commands::share::get_share,
+            commands::share::is_share_valid,
+            commands::share::revoke_share,
+            commands::share::list_book_shares,
+            commands::share::start_share_server,
+            commands::share::stop_share_server,
+            commands::share::is_share_server_running,
+            commands::share::cleanup_expired_shares,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

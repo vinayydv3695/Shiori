@@ -1,12 +1,35 @@
 import { create } from "zustand"
 import type { Book } from "../lib/tauri"
 
+export interface FilterState {
+  authors: string[]
+  languages: string[]
+  series: string[]
+  formats: string[]
+  publishers: string[]
+  ratings: string[]
+  tags: string[]
+  identifiers: string[]
+}
+
+const initialFilters: FilterState = {
+  authors: [],
+  languages: [],
+  series: [],
+  formats: [],
+  publishers: [],
+  ratings: [],
+  tags: [],
+  identifiers: [],
+}
+
 interface LibraryStore {
   books: Book[]
   selectedBook: Book | null
   selectedBookIds: Set<number>
   bulkSelectMode: boolean
   viewMode: "grid" | "list" | "table"
+  selectedFilters: FilterState
   setBooks: (books: Book[]) => void
   setSelectedBook: (book: Book | null) => void
   setViewMode: (mode: "grid" | "list" | "table") => void
@@ -17,6 +40,8 @@ interface LibraryStore {
   selectAllBooks: (bookIds: number[]) => void
   clearSelection: () => void
   setBulkSelectMode: (enabled: boolean) => void
+  toggleFilter: (category: keyof FilterState, id: string) => void
+  clearFilters: () => void
 }
 
 export const useLibraryStore = create<LibraryStore>((set) => ({
@@ -25,6 +50,7 @@ export const useLibraryStore = create<LibraryStore>((set) => ({
   selectedBookIds: new Set(),
   bulkSelectMode: false,
   viewMode: "grid",
+  selectedFilters: initialFilters,
   setBooks: (books) => set({ books }),
   setSelectedBook: (selectedBook) => set({ selectedBook }),
   setViewMode: (viewMode) => set({ viewMode }),
@@ -53,4 +79,19 @@ export const useLibraryStore = create<LibraryStore>((set) => ({
     set({ selectedBookIds: new Set(), bulkSelectMode: false }),
   setBulkSelectMode: (enabled) =>
     set({ bulkSelectMode: enabled, selectedBookIds: enabled ? new Set() : new Set() }),
+  toggleFilter: (category, id) =>
+    set((state) => {
+      const current = state.selectedFilters[category];
+      const next = current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id];
+
+      return {
+        selectedFilters: {
+          ...state.selectedFilters,
+          [category]: next,
+        },
+      };
+    }),
+  clearFilters: () => set({ selectedFilters: initialFilters }),
 }))

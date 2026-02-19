@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Star, MoreVertical, Download, Eye, Edit, Trash2, BookOpen } from 'lucide-react'
+import { Star, MoreVertical, Download, Eye, Edit, Trash2, BookOpen, RefreshCw, Share2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import type { Book } from '@/lib/tauri'
+import FormatBadge from './FormatBadge'
 
 interface BookCardProps {
   book: Book
@@ -12,6 +13,8 @@ interface BookCardProps {
   onEdit: (id: number) => void
   onDelete: (id: number) => void
   onDownload: (id: number) => void
+  onConvert?: (id: number) => void
+  onShare?: (id: number) => void
 }
 
 export const ModernBookCard = ({
@@ -22,6 +25,8 @@ export const ModernBookCard = ({
   onEdit,
   onDelete,
   onDownload,
+  onConvert,
+  onShare,
 }: BookCardProps) => {
   const [showActions, setShowActions] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(false)
@@ -129,6 +134,30 @@ export const ModernBookCard = ({
         >
           <Download className="w-4 h-4" />
         </button>
+        {onConvert && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onConvert(book.id!)
+            }}
+            className="w-7 h-7 rounded-md bg-background/80 backdrop-blur-sm border border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors flex items-center justify-center"
+            title="Convert format"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+        )}
+        {onShare && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onShare(book.id!)
+            }}
+            className="w-7 h-7 rounded-md bg-background/80 backdrop-blur-sm border border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors flex items-center justify-center"
+            title="Share book"
+          >
+            <Share2 className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Book Cover */}
@@ -158,9 +187,7 @@ export const ModernBookCard = ({
 
         {/* Format Badge */}
         <div className="absolute bottom-2 left-2">
-          <span className="px-2 py-0.5 text-xs font-medium bg-background/80 backdrop-blur-sm border border-border rounded">
-            {book.file_format.toUpperCase()}
-          </span>
+          <FormatBadge format={book.file_format} size="sm" showIcon={false} />
         </div>
 
         {/* Rating */}

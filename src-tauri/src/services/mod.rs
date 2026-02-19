@@ -11,3 +11,14 @@ pub mod renderer;
 pub mod rendering_service;
 pub mod search_service;
 pub mod tag_service;
+
+// New v2.0 services
+pub mod format_adapter;
+pub mod format_detection;
+pub mod adapters;
+pub mod epub_builder;
+pub mod conversion_engine;
+pub mod cover_service;
+pub mod rss_service;
+pub mod rss_scheduler;
+pub mod share_service;

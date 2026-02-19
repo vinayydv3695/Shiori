@@ -48,4 +48,6 @@ export {
   MoreVertical,
   Eye,
   EyeOff,
+  Columns,
+  FileText,
 } from "lucide-react"

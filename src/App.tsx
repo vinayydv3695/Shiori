@@ -10,6 +10,11 @@ import { SettingsDialog } from "./components/library/SettingsDialog"
 import { BookDetailsDialog } from "./components/library/BookDetailsDialog"
 import { ToastContainer } from "./components/ui/ToastContainer"
 import { DevBanner } from "./components/DevBanner"
+import { ConversionDialog } from "./components/conversion/ConversionDialog"
+import ConversionJobTracker from "./components/conversion/ConversionJobTracker"
+import RSSFeedManager from "./components/rss/RSSFeedManager"
+import RSSArticleList from "./components/rss/RSSArticleList"
+import ShareBookDialog from "./components/share/ShareBookDialog"
 import { useLibraryStore } from "./store/libraryStore"
 import { useReaderStore } from "./store/readerStore"
 import { useUIStore } from "./store/uiStore"
@@ -17,13 +22,14 @@ import { useCollectionStore } from "./store/collectionStore"
 import { api, type Book } from "./lib/tauri"
 
 function App() {
-  const { 
-    books, 
-    setBooks, 
-    viewMode, 
-    selectedBookIds, 
+  const {
+    books,
+    setBooks,
+    viewMode,
+    selectedBookIds,
     toggleBookSelection,
-    clearSelection 
+    clearSelection,
+    selectedFilters
   } = useLibraryStore()
   const { isReaderOpen, openBook, closeBook } = useReaderStore()
   const { theme } = useUIStore()
@@ -36,7 +42,15 @@ function App() {
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false)
   const [dialogBookId, setDialogBookId] = useState<number | null>(null)
   const [dialogBookTitle, setDialogBookTitle] = useState<string>("")
+  const [deleteBookIds, setDeleteBookIds] = useState<number[]>([])
   const [searchQuery, setSearchQuery] = useState<string>("")
+
+  // New feature dialogs
+  const [conversionDialogOpen, setConversionDialogOpen] = useState(false)
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
+  const [rssManagerOpen, setRssManagerOpen] = useState(false)
+  const [rssArticlesOpen, setRssArticlesOpen] = useState(false)
+  const [currentView, setCurrentView] = useState<'library' | 'rss-feeds' | 'rss-articles'>('library')
 
   useEffect(() => {
     // Apply theme to document
@@ -102,10 +116,17 @@ function App() {
     console.log('[App] Delete book called:', bookId)
     const book = books.find(b => b.id === bookId)
     console.log('[App] Found book:', book)
-    setDialogBookId(bookId)
+    setDeleteBookIds([bookId])
     setDialogBookTitle(book?.title || "this book")
     setDeleteDialogOpen(true)
     console.log('[App] Delete dialog should open')
+  }
+
+  const handleDeleteBooks = (bookIds: number[]) => {
+    console.log('[App] Delete multiple books called:', bookIds.length)
+    setDeleteBookIds(bookIds)
+    setDialogBookTitle("") // Not used for multiple
+    setDeleteDialogOpen(true)
   }
 
   const handleDownloadBook = (bookId: number) => {
@@ -136,18 +157,108 @@ function App() {
     setSearchQuery(query)
   }
 
-  // Filter books based on search query
+  const handleConvertBook = (bookId: number) => {
+    setDialogBookId(bookId)
+    setConversionDialogOpen(true)
+  }
+
+  const handleShareBook = (bookId: number) => {
+    const book = books.find(b => b.id === bookId)
+    if (book) {
+      setDialogBookId(bookId)
+      setDialogBookTitle(book.title)
+      setShareDialogOpen(true)
+    }
+  }
+
+  const handleOpenRSSFeeds = () => {
+    setCurrentView('rss-feeds')
+  }
+
+  const handleOpenRSSArticles = () => {
+    setCurrentView('rss-articles')
+  }
+
+  const handleBackToLibrary = () => {
+    setCurrentView('library')
+  }
+
+  // Filter books based on search query and selected filters
   const filterBooks = (books: Book[]) => {
-    if (!searchQuery.trim()) return books
-    
-    const query = searchQuery.toLowerCase()
-    return books.filter(book => 
-      book.title.toLowerCase().includes(query) ||
-      book.authors?.some(a => a.name.toLowerCase().includes(query)) ||
-      book.tags?.some(t => t.name.toLowerCase().includes(query)) ||
-      book.publisher?.toLowerCase().includes(query) ||
-      book.series?.toLowerCase().includes(query)
-    )
+    let result = books;
+
+    // 1. Search Query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      result = result.filter(book =>
+        book.title.toLowerCase().includes(query) ||
+        book.authors?.some(a => a.name.toLowerCase().includes(query)) ||
+        book.tags?.some(t => t.name.toLowerCase().includes(query)) ||
+        book.publisher?.toLowerCase().includes(query) ||
+        book.series?.toLowerCase().includes(query)
+      )
+    }
+
+    // 2. Filters
+    const {
+      authors, languages, series, formats,
+      publishers, ratings, tags, identifiers
+    } = selectedFilters;
+
+    if (authors.length > 0) {
+      result = result.filter(book =>
+        book.authors?.some(a => a.name && authors.includes(a.name))
+      )
+    }
+
+    if (languages.length > 0) {
+      result = result.filter(book =>
+        book.language && languages.includes(book.language)
+      )
+    }
+
+    if (series.length > 0) {
+      result = result.filter(book =>
+        book.series && series.includes(book.series)
+      )
+    }
+
+    if (formats.length > 0) {
+      result = result.filter(book =>
+        book.file_format && formats.includes(book.file_format.toUpperCase())
+      )
+    }
+
+    if (publishers.length > 0) {
+      result = result.filter(book =>
+        book.publisher && publishers.includes(book.publisher)
+      )
+    }
+
+    if (ratings.length > 0) {
+      result = result.filter(book => {
+        if (!book.rating) return false;
+        const roundedRating = (Math.round(book.rating * 2) / 2).toString();
+        return ratings.includes(roundedRating);
+      })
+    }
+
+    if (tags.length > 0) {
+      result = result.filter(book =>
+        book.tags?.some(t => t.name && tags.includes(t.name))
+      )
+    }
+
+    if (identifiers.length > 0) {
+      result = result.filter(book => {
+        const ids = [];
+        if (book.isbn) ids.push(`ISBN: ${book.isbn}`);
+        if (book.isbn13) ids.push(`ISBN13: ${book.isbn13}`);
+        return ids.some(id => identifiers.includes(id));
+      })
+    }
+
+    return result;
   }
 
   const displayBooks = filterBooks(filteredBooks.length > 0 || selectedCollection ? filteredBooks : books)
@@ -165,53 +276,81 @@ function App() {
   return (
     <>
       <DevBanner />
-      <Layout 
+      <Layout
         onOpenSettings={handleOpenSettings}
         onEditMetadata={handleEditBook}
         onDeleteBook={handleDeleteBook}
+        onDeleteBooks={handleDeleteBooks}
         onViewBook={handleOpenBook}
         onDownloadBook={handleDownloadBook}
         onViewDetails={handleViewDetails}
+        onConvertBook={handleConvertBook}
+        onShareBook={handleShareBook}
+        onOpenRSSFeeds={handleOpenRSSFeeds}
+        onOpenRSSArticles={handleOpenRSSArticles}
         searchQuery={searchQuery}
         onSearchChange={handleSearchChange}
+        currentView={currentView}
+        onBackToLibrary={handleBackToLibrary}
       >
-        {/* Library view based on viewMode */}
-        {viewMode === "grid" && (
-          <LibraryGrid 
-            books={displayBooks} 
-            onBookClick={handleOpenBook}
-            onEditBook={handleEditBook}
-            onDeleteBook={handleDeleteBook}
-            onDownloadBook={handleDownloadBook}
-          />
-        )}
-        
-        {viewMode === "list" && (
-          <ModernListView
-            books={displayBooks}
-            selectedBooks={selectedBookIds}
-            onSelectBook={toggleBookSelection}
-            onOpenBook={handleOpenBook}
-            onEditBook={handleEditBook}
-            onDeleteBook={handleDeleteBook}
-            onDownloadBook={handleDownloadBook}
-          />
-        )}
-        
-        {viewMode === "table" && (
-          <ModernTableView
-            books={displayBooks}
-            selectedBooks={selectedBookIds}
-            onSelectBook={toggleBookSelection}
-            onOpenBook={handleOpenBook}
-            onEditBook={handleEditBook}
-            onDeleteBook={handleDeleteBook}
-            onDownloadBook={handleDownloadBook}
-          />
+        {/* Show RSS Feeds view */}
+        {currentView === 'rss-feeds' && <RSSFeedManager />}
+
+        {/* Show RSS Articles view */}
+        {currentView === 'rss-articles' && <RSSArticleList />}
+
+        {/* Show Library view */}
+        {currentView === 'library' && (
+          <>
+            {/* Library view based on viewMode */}
+            {viewMode === "grid" && (
+              <LibraryGrid
+                books={displayBooks}
+                onBookClick={handleOpenBook}
+                onEditBook={handleEditBook}
+                onDeleteBook={handleDeleteBook}
+                onDownloadBook={handleDownloadBook}
+                onConvertBook={handleConvertBook}
+                onShareBook={handleShareBook}
+              />
+            )}
+
+            {viewMode === "list" && (
+              <ModernListView
+                books={displayBooks}
+                selectedBooks={selectedBookIds}
+                onSelectBook={toggleBookSelection}
+                onOpenBook={handleOpenBook}
+                onEditBook={handleEditBook}
+                onDeleteBook={handleDeleteBook}
+                onDownloadBook={handleDownloadBook}
+                onConvertBook={handleConvertBook}
+                onShareBook={handleShareBook}
+              />
+            )}
+
+            {viewMode === "table" && (
+              <ModernTableView
+                books={displayBooks}
+                selectedBooks={selectedBookIds}
+                onSelectBook={toggleBookSelection}
+                onOpenBook={handleOpenBook}
+                onEditBook={handleEditBook}
+                onDeleteBook={handleDeleteBook}
+                onDownloadBook={handleDownloadBook}
+                onConvertBook={handleConvertBook}
+                onShareBook={handleShareBook}
+              />
+            )}
+          </>
         )}
       </Layout>
+
+      {/* Conversion Job Tracker - Always visible when there are jobs */}
+      <ConversionJobTracker position="bottom-right" autoHide={true} />
+
       <ToastContainer />
-      
+
       {/* Dialogs */}
       {dialogBookId && (
         <>
@@ -223,7 +362,7 @@ function App() {
           <DeleteBookDialog
             open={deleteDialogOpen}
             onOpenChange={setDeleteDialogOpen}
-            bookId={dialogBookId}
+            bookIds={deleteBookIds}
             bookTitle={dialogBookTitle}
           />
           <BookDetailsDialog
@@ -251,6 +390,25 @@ function App() {
         open={settingsDialogOpen}
         onOpenChange={setSettingsDialogOpen}
       />
+
+      {/* Conversion Dialog */}
+      {dialogBookId && (
+        <ConversionDialog
+          isOpen={conversionDialogOpen}
+          onClose={() => setConversionDialogOpen(false)}
+          bookId={dialogBookId}
+        />
+      )}
+
+      {/* Share Dialog */}
+      {dialogBookId && (
+        <ShareBookDialog
+          isOpen={shareDialogOpen}
+          onClose={() => setShareDialogOpen(false)}
+          bookId={dialogBookId}
+          bookTitle={dialogBookTitle}
+        />
+      )}
     </>
   )
 }

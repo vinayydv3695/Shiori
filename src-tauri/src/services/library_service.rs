@@ -254,6 +254,18 @@ pub fn delete_book(db: &Database, id: i64) -> Result<()> {
     Ok(())
 }
 
+pub fn delete_books(db: &mut Database, ids: Vec<i64>) -> Result<()> {
+    let conn = db.get_connection_mut();
+    let tx = conn.transaction()?;
+
+    for id in ids {
+        tx.execute("DELETE FROM books WHERE id = ?1", params![id])?;
+    }
+
+    tx.commit()?;
+    Ok(())
+}
+
 pub fn import_books(db: &Database, paths: Vec<String>) -> Result<ImportResult> {
     let mut result = ImportResult {
         success: vec![],

@@ -2,6 +2,8 @@ use crate::error::Result;
 use rusqlite::Connection;
 use std::path::Path;
 
+pub mod migrations;
+
 pub struct Database {
     conn: Connection,
 }
@@ -19,10 +21,19 @@ impl Database {
         let db = Database { conn };
         db.initialize_schema()?;
 
+        // Run migrations for new features
+        db.run_migrations()?;
+
         Ok(db)
     }
 
-    fn initialize_schema(&self) -> Result<()> {
+    fn run_migrations(&self) -> Result<()> {
+        let migrator = migrations::MigrationManager::new(&self.conn);
+        migrator.run_migrations()?;
+        Ok(())
+    }
+
+    pub fn initialize_schema(&self) -> Result<()> {
         // Books table
         self.conn.execute(
             "CREATE TABLE IF NOT EXISTS books (
@@ -126,96 +137,11 @@ impl Database {
             [],
         )?;
 
-        // Drop existing contentless FTS table and recreate with content
-        let _ = self
-            .conn
-            .execute("DROP TRIGGER IF EXISTS books_fts_insert", []);
-        let _ = self
-            .conn
-            .execute("DROP TRIGGER IF EXISTS books_fts_update", []);
-        let _ = self
-            .conn
-            .execute("DROP TRIGGER IF EXISTS books_fts_delete", []);
-        let _ = self.conn.execute("DROP TABLE IF EXISTS books_fts", []);
-
-        // FTS5 virtual table for full-text search (with content stored)
-        self.conn.execute(
-            "CREATE VIRTUAL TABLE IF NOT EXISTS books_fts USING fts5(
-                title,
-                authors,
-                tags,
-                content='books',
-                content_rowid='id'
-            )",
-            [],
-        )?;
-
-        // Trigger to keep FTS in sync on insert
-        self.conn.execute(
-            "CREATE TRIGGER IF NOT EXISTS books_fts_insert AFTER INSERT ON books BEGIN
-                INSERT INTO books_fts(rowid, title, authors, tags)
-                VALUES (
-                    NEW.id,
-                    NEW.title,
-                    COALESCE((SELECT GROUP_CONCAT(name, ' ') FROM authors 
-                     JOIN books_authors ON authors.id = books_authors.author_id 
-                     WHERE books_authors.book_id = NEW.id), ''),
-                    COALESCE((SELECT GROUP_CONCAT(name, ' ') FROM tags 
-                     JOIN books_tags ON tags.id = books_tags.tag_id 
-                     WHERE books_tags.book_id = NEW.id), '')
-                );
-            END",
-            [],
-        )?;
-
-        // Trigger to keep FTS in sync on update
-        self.conn.execute(
-            "CREATE TRIGGER IF NOT EXISTS books_fts_update AFTER UPDATE ON books BEGIN
-                INSERT INTO books_fts(books_fts, rowid, title, authors, tags)
-                VALUES (
-                    'delete',
-                    OLD.id,
-                    OLD.title,
-                    COALESCE((SELECT GROUP_CONCAT(name, ' ') FROM authors 
-                     JOIN books_authors ON authors.id = books_authors.author_id 
-                     WHERE books_authors.book_id = OLD.id), ''),
-                    COALESCE((SELECT GROUP_CONCAT(name, ' ') FROM tags 
-                     JOIN books_tags ON tags.id = books_tags.tag_id 
-                     WHERE books_tags.book_id = OLD.id), '')
-                );
-                INSERT INTO books_fts(rowid, title, authors, tags)
-                VALUES (
-                    NEW.id,
-                    NEW.title,
-                    COALESCE((SELECT GROUP_CONCAT(name, ' ') FROM authors 
-                     JOIN books_authors ON authors.id = books_authors.author_id 
-                     WHERE books_authors.book_id = NEW.id), ''),
-                    COALESCE((SELECT GROUP_CONCAT(name, ' ') FROM tags 
-                     JOIN books_tags ON tags.id = books_tags.tag_id 
-                     WHERE books_tags.book_id = NEW.id), '')
-                );
-            END",
-            [],
-        )?;
-
-        // Trigger to keep FTS in sync on delete
-        self.conn.execute(
-            "CREATE TRIGGER IF NOT EXISTS books_fts_delete AFTER DELETE ON books BEGIN
-                INSERT INTO books_fts(books_fts, rowid, title, authors, tags)
-                VALUES (
-                    'delete',
-                    OLD.id,
-                    OLD.title,
-                    COALESCE((SELECT GROUP_CONCAT(name, ' ') FROM authors 
-                     JOIN books_authors ON authors.id = books_authors.author_id 
-                     WHERE books_authors.book_id = OLD.id), ''),
-                    COALESCE((SELECT GROUP_CONCAT(name, ' ') FROM tags 
-                     JOIN books_tags ON tags.id = books_tags.tag_id 
-                     WHERE books_tags.book_id = OLD.id), '')
-                );
-            END",
-            [],
-        )?;
+        // Drop any old content-sync FTS triggers that might cause "malformed" errors
+        // during v2 migration. The FTS table and new triggers are created by v3 migration.
+        let _ = self.conn.execute("DROP TRIGGER IF EXISTS books_fts_insert", []);
+        let _ = self.conn.execute("DROP TRIGGER IF EXISTS books_fts_update", []);
+        let _ = self.conn.execute("DROP TRIGGER IF EXISTS books_fts_delete", []);
 
         // Reading progress table
         self.conn.execute(
@@ -354,5 +280,9 @@ impl Database {
 
     pub fn get_connection(&self) -> &Connection {
         &self.conn
+    }
+
+    pub fn get_connection_mut(&mut self) -> &mut Connection {
+        &mut self.conn
     }
 }

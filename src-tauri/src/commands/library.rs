@@ -37,6 +37,12 @@ pub fn delete_book(state: State<AppState>, id: i64) -> Result<()> {
 }
 
 #[tauri::command]
+pub fn delete_books(state: State<AppState>, ids: Vec<i64>) -> Result<()> {
+    let mut db = state.db.lock().unwrap();
+    library_service::delete_books(&mut db, ids)
+}
+
+#[tauri::command]
 pub fn import_books(state: State<'_, AppState>, paths: Vec<String>) -> Result<ImportResult> {
     let db = state.db.lock().unwrap();
     library_service::import_books(&db, paths)

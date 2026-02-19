@@ -9,9 +9,19 @@ interface LibraryGridProps {
   onEditBook?: (bookId: number) => void
   onDeleteBook?: (bookId: number) => void
   onDownloadBook?: (bookId: number) => void
+  onConvertBook?: (bookId: number) => void
+  onShareBook?: (bookId: number) => void
 }
 
-export function LibraryGrid({ books, onBookClick, onEditBook, onDeleteBook, onDownloadBook }: LibraryGridProps) {
+export function LibraryGrid({ 
+  books, 
+  onBookClick, 
+  onEditBook, 
+  onDeleteBook, 
+  onDownloadBook,
+  onConvertBook,
+  onShareBook
+}: LibraryGridProps) {
   const { 
     setSelectedBook, 
     selectedBookIds, 
@@ -51,6 +61,18 @@ export function LibraryGrid({ books, onBookClick, onEditBook, onDeleteBook, onDo
     }
   }
 
+  const handleConvertBook = (bookId: number) => {
+    if (onConvertBook) {
+      onConvertBook(bookId)
+    }
+  }
+
+  const handleShareBook = (bookId: number) => {
+    if (onShareBook) {
+      onShareBook(bookId)
+    }
+  }
+
   if (books.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
@@ -75,6 +97,8 @@ export function LibraryGrid({ books, onBookClick, onEditBook, onDeleteBook, onDo
           onEdit={handleEditBook}
           onDelete={handleDeleteBook}
           onDownload={handleDownloadBook}
+          onConvert={handleConvertBook}
+          onShare={handleShareBook}
         />
       ))}
     </div>

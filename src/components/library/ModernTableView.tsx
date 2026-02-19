@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BookOpen, Star, ArrowUp, ArrowDown, MoreVertical, Edit, Trash2, Download } from 'lucide-react'
+import { BookOpen, Star, ArrowUp, ArrowDown, MoreVertical, Edit, Trash2, Download, RefreshCw, Share2 } from 'lucide-react'
 import { cn, formatFileSize, formatDate } from '@/lib/utils'
 import type { Book } from '@/lib/tauri'
 import { Badge } from '@/components/ui/badge'
@@ -22,6 +22,8 @@ interface TableViewProps {
   onEditBook: (id: number) => void
   onDeleteBook: (id: number) => void
   onDownloadBook: (id: number) => void
+  onConvertBook?: (id: number) => void
+  onShareBook?: (id: number) => void
 }
 
 export const ModernTableView = ({
@@ -32,6 +34,8 @@ export const ModernTableView = ({
   onEditBook,
   onDeleteBook,
   onDownloadBook,
+  onConvertBook,
+  onShareBook,
 }: TableViewProps) => {
   const [sortField, setSortField] = useState<SortField>('title')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
@@ -384,6 +388,28 @@ export const ModernTableView = ({
                           <Download className="w-4 h-4 mr-2" />
                           Download
                         </DropdownMenuItem>
+                        {onConvertBook && (
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onConvertBook(book.id!)
+                            }}
+                          >
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            Convert Format
+                          </DropdownMenuItem>
+                        )}
+                        {onShareBook && (
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onShareBook(book.id!)
+                            }}
+                          >
+                            <Share2 className="w-4 h-4 mr-2" />
+                            Share Book
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           onClick={(e) => {

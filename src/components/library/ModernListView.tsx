@@ -1,4 +1,4 @@
-import { BookOpen, Star, Download, Edit, Trash2, Calendar, FileType } from 'lucide-react'
+import { BookOpen, Star, Download, Edit, Trash2, Calendar, FileType, RefreshCw, Share2 } from 'lucide-react'
 import { cn, formatFileSize, formatDate } from '@/lib/utils'
 import type { Book } from '@/lib/tauri'
 import { Badge } from '@/components/ui/badge'
@@ -11,6 +11,8 @@ interface ListViewProps {
   onEditBook: (id: number) => void
   onDeleteBook: (id: number) => void
   onDownloadBook: (id: number) => void
+  onConvertBook?: (id: number) => void
+  onShareBook?: (id: number) => void
 }
 
 export const ModernListView = ({
@@ -21,6 +23,8 @@ export const ModernListView = ({
   onEditBook,
   onDeleteBook,
   onDownloadBook,
+  onConvertBook,
+  onShareBook,
 }: ListViewProps) => {
   if (books.length === 0) {
     return (
@@ -188,6 +192,30 @@ export const ModernListView = ({
               >
                 <Download className="w-4 h-4" />
               </button>
+              {onConvertBook && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onConvertBook(book.id!)
+                  }}
+                  className="p-1.5 rounded hover:bg-primary hover:text-primary-foreground transition-colors"
+                  title="Convert format"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              )}
+              {onShareBook && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onShareBook(book.id!)
+                  }}
+                  className="p-1.5 rounded hover:bg-primary hover:text-primary-foreground transition-colors"
+                  title="Share book"
+                >
+                  <Share2 className="w-4 h-4" />
+                </button>
+              )}
               <button
                 onClick={(e) => {
                   e.stopPropagation()

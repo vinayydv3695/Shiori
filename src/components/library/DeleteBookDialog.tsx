@@ -9,29 +9,40 @@ import { Button } from '../ui/button';
 interface DeleteBookDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  bookId: number;
+  bookIds: number[];
   bookTitle?: string;
 }
 
-export const DeleteBookDialog = ({ open, onOpenChange, bookId, bookTitle }: DeleteBookDialogProps) => {
+export const DeleteBookDialog = ({ open, onOpenChange, bookIds, bookTitle }: DeleteBookDialogProps) => {
   const [deleting, setDeleting] = useState(false);
   const toast = useToast();
-  const { setBooks } = useLibraryStore();
+  const { setBooks, clearSelection } = useLibraryStore();
+
+  const isMultiple = bookIds.length > 1;
 
   const handleDelete = async () => {
     setDeleting(true);
     try {
-      await api.deleteBook(bookId);
-      
+      if (isMultiple) {
+        await api.deleteBooks(bookIds);
+      } else {
+        await api.deleteBook(bookIds[0]);
+      }
+
       // Reload library
       const books = await api.getBooks();
       setBooks(books);
-      
-      toast.success('Book deleted', `"${bookTitle || 'Book'}" has been removed from your library`);
+      clearSelection();
+
+      const message = isMultiple
+        ? `${bookIds.length} books have been removed from your library`
+        : `"${bookTitle || 'Book'}" has been removed from your library`;
+
+      toast.success(isMultiple ? 'Books deleted' : 'Book deleted', message);
       onOpenChange(false);
     } catch (error) {
-      console.error('Failed to delete book:', error);
-      toast.error('Failed to delete', 'Could not remove book from library');
+      console.error('Failed to delete book(s):', error);
+      toast.error('Failed to delete', 'Could not remove book(s) from library');
     } finally {
       setDeleting(false);
     }
@@ -46,7 +57,7 @@ export const DeleteBookDialog = ({ open, onOpenChange, bookId, bookTitle }: Dele
           <div className="flex items-center justify-between p-6 border-b border-border">
             <Dialog.Title className="text-lg font-semibold text-foreground flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              Delete Book
+              {isMultiple ? 'Delete Books' : 'Delete Book'}
             </Dialog.Title>
             <Dialog.Close asChild>
               <button className="text-muted-foreground hover:text-foreground transition-colors">
@@ -59,11 +70,15 @@ export const DeleteBookDialog = ({ open, onOpenChange, bookId, bookTitle }: Dele
           <div className="p-6">
             <p className="text-sm text-foreground mb-4">
               Are you sure you want to delete{' '}
-              <span className="font-semibold">"{bookTitle || 'this book'}"</span>?
+              {isMultiple ? (
+                <span className="font-semibold">{bookIds.length} books</span>
+              ) : (
+                <span className="font-semibold">"{bookTitle || 'this book'}"</span>
+              )}?
             </p>
             <p className="text-sm text-muted-foreground">
-              This action cannot be undone. The book will be permanently removed from your library, 
-              but the file will remain on your disk.
+              This action cannot be undone. The {isMultiple ? 'books' : 'book'} will be permanently removed from your library,
+              but the {isMultiple ? 'files' : 'file'} will remain on your disk.
             </p>
           </div>
 

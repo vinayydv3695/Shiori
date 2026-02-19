@@ -12,18 +12,17 @@
   [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
   
   <p>
-    <a href="#-key-features">Features</a> •
-    <a href="#-screenshots">Screenshots</a> •
-    <a href="#-installation">Installation</a> •
-    <a href="#-quick-start">Quick Start</a> •
-    <a href="#-roadmap">Roadmap</a> •
-    <a href="#-contributing">Contributing</a>
+    <a href="#key-features">Features</a> •
+    <a href="#screenshots">Screenshots</a> •
+    <a href="#installation">Installation</a> •
+    <a href="#quick-start">Quick Start</a> •
+    <a href="#contributing">Contributing</a>
   </p>
 </div>
 
 ---
 
-## 📖 About
+## About
 
 **Shiori** (栞, Japanese for "bookmark") is a modern, offline-first eBook library manager built with performance and privacy in mind. Designed for book lovers who want complete control over their digital library, Shiori offers a beautiful, intuitive interface for organizing, reading, and managing eBooks across multiple formats.
 
@@ -31,102 +30,119 @@ Unlike cloud-based alternatives, Shiori keeps your data local, ensures fast perf
 
 ### Why Shiori?
 
-- **🔒 Privacy First**: All your data stays on your device. No cloud sync, no tracking, no compromises.
-- **⚡ Blazingly Fast**: Native performance powered by Rust and Tauri. Launch instantly, search in milliseconds.
-- **🎨 Beautiful Design**: Modern, intuitive interface with light/dark themes and customizable reading experience.
-- **📚 Multi-Format Support**: Read EPUB, PDF, MOBI, AZW3, DOCX, FB2, CBZ, CBR, and more.
-- **🔍 Smart Organization**: Advanced search, metadata editing, tagging, and full-text indexing.
-- **🌐 Modern Architecture**: Built with React 19, TypeScript, Tailwind CSS, and SQLite FTS5.
+- **Privacy First**: All your data stays on your device. No cloud sync, no tracking, no compromises.
+- **Blazingly Fast**: Native performance powered by Rust and Tauri. Launch instantly, search in milliseconds.
+- **Beautiful Design**: Modern, intuitive interface with light/dark themes and customizable reading experience.
+- **Multi-Format Support**: Read EPUB, PDF, MOBI, AZW3, DOCX, FB2, CBZ, CBR, and more.
+- **Smart Organization**: Advanced search, metadata editing, tagging, and full-text indexing.
+- **Modern Architecture**: Built with React 19, TypeScript, Tailwind CSS, and SQLite FTS5.
 
 ---
 
 ## <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Key Features
 
-### 📚 Library Management
-- ✅ **Import eBooks** from local files with automatic metadata extraction
-- ✅ **Organize by collections** with tags, ratings, and custom metadata
-- ✅ **Advanced search** with full-text indexing (title, author, tags, content)
-- ✅ **Metadata editor** for complete control over book information
-- ✅ **Duplicate detection** using fuzzy matching and content hashing
-- ✅ **Batch operations** for efficient library management
+### Library Management
+- **Import eBooks** from local files with automatic metadata extraction
+- **Organize by collections** with tags, ratings, and custom metadata
+- **Advanced search** with full-text indexing (title, author, tags, content)
+- **Metadata editor** for complete control over book information
+- **Duplicate detection** using fuzzy matching and content hashing
+- **Batch operations** for efficient library management
 
-### 📖 Reading Experience
-- ✅ **Premium reader** with smooth scrolling and page transitions
-- ✅ **Multiple view modes**: Single page, two-page spread, continuous scroll
-- ✅ **Dark/Light themes** with customizable reading settings
-- ✅ **Table of contents** navigation for easy chapter jumping
-- ✅ **Bookmarks and highlights** (coming soon)
-- ✅ **Progress tracking** with reading statistics
+### Reading Experience
+- **Premium reader** with smooth scrolling and page transitions
+- **Multiple view modes**: Single page, two-page spread, continuous scroll
+- **Dark/Light themes** with customizable reading settings
+- **Table of contents** navigation for easy chapter jumping
+- **Bookmarks and highlights** (coming soon)
+- **Progress tracking** with reading statistics
 
-### 🔍 Smart Features
-- ✅ **Full-text search** across your entire library
-- ✅ **Keyword highlighting** in search results
-- ✅ **Recent books** quick access
-- ✅ **Reading history** tracking
-- ✅ **Custom sorting** (title, author, date added, last read)
+### Smart Features
+- **Full-text search** across your entire library
+- **Keyword highlighting** in search results
+- **Recent books** quick access
+- **Reading history** tracking
+- **Custom sorting** (title, author, date added, last read)
 
-### 🔄 Advanced Capabilities
-- ✅ **Format conversion** (EPUB ↔ PDF, with more formats planned)
-- ✅ **RSS feed integration** for blogs and web articles
-- ✅ **Book sharing** via local network with QR codes
-- ✅ **Cover generation** for books without covers
-- ✅ **Multi-language support** (UI localization ready)
+### Advanced Capabilities
+- **Format conversion** (EPUB ↔ PDF, with more formats planned)
+- **RSS feed integration** for blogs and web articles
+- **Book sharing** via local network with QR codes
+- **Cover generation** for books without covers
+- **Multi-language support** (UI localization ready)
 
-### 🛠️ Technical Excellence
-- ✅ **Offline-first architecture** with no cloud dependencies
-- ✅ **SQLite database** with FTS5 full-text search
-- ✅ **Virtual scrolling** for handling massive libraries (10,000+ books)
-- ✅ **Efficient caching** with LRU and compression
-- ✅ **Parallel processing** for CPU-intensive operations
-- ✅ **Cross-platform** support (Windows, macOS, Linux)
+### Technical Excellence
+- **Offline-first architecture** with no cloud dependencies
+- **SQLite database** with FTS5 full-text search
+- **Virtual scrolling** for handling massive libraries (10,000+ books)
+- **Efficient caching** with LRU and compression
+- **Parallel processing** for CPU-intensive operations
+- **Cross-platform** support (Windows, macOS, Linux)
 
 ---
 
 ## <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/><circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/><path d="M21 15L16 10L5 21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Screenshots
 
-### Home & Library
-
 <div align="center">
-  <img src="public/Screenshots/lightmodehome.png" alt="Light Mode Home" width="49%">
-  <img src="public/Screenshots/darkmodehome.png" alt="Dark Mode Home" width="49%">
-  <p><em>Light and Dark theme support with beautiful, modern UI</em></p>
+  <table>
+    <tr>
+      <td width="50%">
+        <img src="public/Screenshots/lightmodehome.png" alt="Light Mode Home" width="100%" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); transition: transform 0.3s ease;">
+        <p align="center"><strong>Light Mode Home</strong><br><em>Clean, modern interface</em></p>
+      </td>
+      <td width="50%">
+        <img src="public/Screenshots/darkmodehome.png" alt="Dark Mode Home" width="100%" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); transition: transform 0.3s ease;">
+        <p align="center"><strong>Dark Mode Home</strong><br><em>Eye-friendly dark theme</em></p>
+      </td>
+    </tr>
+    <tr>
+      <td colspan="2">
+        <img src="public/Screenshots/darkreadingmode.png" alt="Dark Reading Mode" width="100%" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); transition: transform 0.3s ease;">
+        <p align="center"><strong>Immersive Reading Experience</strong><br><em>Focus on what matters - your book</em></p>
+      </td>
+    </tr>
+    <tr>
+      <td width="50%">
+        <img src="public/Screenshots/twopageview.png" alt="Two Page View" width="100%" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); transition: transform 0.3s ease;">
+        <p align="center"><strong>Two-Page Spread</strong><br><em>Like reading a real book</em></p>
+      </td>
+      <td width="50%">
+        <img src="public/Screenshots/editmetadata.png" alt="Edit Metadata" width="100%" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); transition: transform 0.3s ease;">
+        <p align="center"><strong>Metadata Editor</strong><br><em>Full control over book info</em></p>
+      </td>
+    </tr>
+    <tr>
+      <td width="50%">
+        <img src="public/Screenshots/searchbook.png" alt="Search Books" width="100%" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); transition: transform 0.3s ease;">
+        <p align="center"><strong>Advanced Search</strong><br><em>Find any book instantly</em></p>
+      </td>
+      <td width="50%">
+        <img src="public/Screenshots/RSSfeeds.png" alt="RSS Feeds" width="100%" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); transition: transform 0.3s ease;">
+        <p align="center"><strong>RSS Integration</strong><br><em>Save articles for later</em></p>
+      </td>
+    </tr>
+    <tr>
+      <td width="50%">
+        <img src="public/Screenshots/tableofcontent.png" alt="Table of Contents" width="100%" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); transition: transform 0.3s ease;">
+        <p align="center"><strong>Table of Contents</strong><br><em>Navigate chapters easily</em></p>
+      </td>
+      <td width="50%">
+        <img src="public/Screenshots/bookconverter.png" alt="Book Converter" width="100%" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); transition: transform 0.3s ease;">
+        <p align="center"><strong>Format Converter</strong><br><em>Convert between formats</em></p>
+      </td>
+    </tr>
+    <tr>
+      <td width="50%">
+        <img src="public/Screenshots/searchkeyword.png" alt="Search Keywords" width="100%" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); transition: transform 0.3s ease;">
+        <p align="center"><strong>Keyword Search</strong><br><em>Full-text search within books</em></p>
+      </td>
+      <td width="50%">
+        <img src="public/Screenshots/viewpage.png" alt="View Page" width="100%" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); transition: transform 0.3s ease;">
+        <p align="center"><strong>Detailed Book View</strong><br><em>All information at a glance</em></p>
+      </td>
+    </tr>
+  </table>
 </div>
-
-### Reading Experience
-
-<div align="center">
-  <img src="public/Screenshots/darkreadingmode.png" alt="Dark Reading Mode" width="49%">
-  <img src="public/Screenshots/twopageview.png" alt="Two Page View" width="49%">
-  <p><em>Immersive reading experience with multiple view modes</em></p>
-</div>
-
-### Advanced Features
-
-<div align="center">
-  <img src="public/Screenshots/editmetadata.png" alt="Edit Metadata" width="32%">
-  <img src="public/Screenshots/searchbook.png" alt="Search Books" width="32%">
-  <img src="public/Screenshots/RSSfeeds.png" alt="RSS Feeds" width="32%">
-  <p><em>Metadata editing, powerful search, and RSS feed integration</em></p>
-</div>
-
-<details>
-<summary>📸 <strong>View More Screenshots</strong></summary>
-
-### Additional Features
-
-<div align="center">
-  <img src="public/Screenshots/tableofcontent.png" alt="Table of Contents" width="49%">
-  <img src="public/Screenshots/bookconverter.png" alt="Book Converter" width="49%">
-  <p><em>Table of contents navigation and format conversion</em></p>
-</div>
-
-<div align="center">
-  <img src="public/Screenshots/searchkeyword.png" alt="Search Keywords" width="49%">
-  <img src="public/Screenshots/viewpage.png" alt="View Page" width="49%">
-  <p><em>Keyword search and detailed book view</em></p>
-</div>
-
-</details>
 
 ---
 
@@ -134,7 +150,7 @@ Unlike cloud-based alternatives, Shiori keeps your data local, ensures fast perf
 
 ### Download Pre-built Releases
 
-**🚧 Coming Soon!** Pre-built binaries for Windows, macOS, and Linux will be available in the [Releases](https://github.com/vinayydv3695/Shiori/releases) section.
+Pre-built binaries for Windows, macOS, and Linux will be available in the [Releases](https://github.com/vinayydv3695/Shiori/releases) section.
 
 ### Build from Source
 
@@ -253,68 +269,6 @@ Shiori is built with modern, performant technologies:
 
 ---
 
-## <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 15V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="7 10 12 15 17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg> Roadmap
-
-### ✅ Phase 1A - Core Foundation (Completed)
-- [x] Library management (add, view, delete books)
-- [x] EPUB & PDF reader with navigation
-- [x] Dark/Light theme support
-- [x] SQLite database with FTS5 search
-- [x] Basic metadata display
-- [x] Virtual scrolling for large libraries
-- [x] Keyboard shortcuts
-
-### 🚧 Phase 1B - Enhanced Features (In Progress)
-- [x] Advanced metadata editor
-- [x] Full-text search UI
-- [x] Tag management system
-- [x] Collection/category organization
-- [x] Format conversion (EPUB ↔ PDF)
-- [x] RSS feed integration
-- [ ] Import/Export library data
-- [ ] Reading progress sync
-
-### 📋 Phase 2 - Reader Enhancements (Q2 2026)
-- [ ] Bookmarks and highlights
-- [ ] Annotations and notes
-- [ ] Customizable reading themes
-- [ ] Font selection and typography controls
-- [ ] Text-to-speech integration
-- [ ] Dictionary lookup
-- [ ] Reading statistics dashboard
-- [ ] Multiple library support
-
-### 📋 Phase 3 - Advanced Features (Q3 2026)
-- [ ] Browser extension for web article saving
-- [ ] Cloud sync (optional, self-hosted)
-- [ ] Mobile companion app (iOS/Android)
-- [ ] Advanced duplicate detection
-- [ ] Automatic metadata fetching (ISBN lookup)
-- [ ] Series detection and organization
-- [ ] Reading goals and challenges
-- [ ] Export annotations to Markdown/PDF
-
-### 📋 Phase 4 - Community & Polish (Q4 2026)
-- [ ] Plugin system for extensibility
-- [ ] Custom themes and layouts
-- [ ] Community theme marketplace
-- [ ] Multi-language UI (i18n)
-- [ ] Accessibility improvements (ARIA, screen readers)
-- [ ] Performance optimizations
-- [ ] Comprehensive documentation
-- [ ] Video tutorials
-
-### 🔮 Future Possibilities
-- Goodreads integration
-- Calibre library import
-- E-ink device support
-- AI-powered book recommendations
-- OCR for scanned documents
-- Book lending between users
-- Social reading features
-
----
-
 ## <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17 21V19C17 17.9391 16.5786 16.9217 15.8284 16.1716C15.0783 15.4214 14.0609 15 13 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M23 21V19C23 17.9391 22.5786 16.9217 21.8284 16.1716C21.0783 15.4214 20.0609 15 19 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 3.13C16.8604 3.35031 17.623 3.85071 18.1676 4.55232C18.7122 5.25392 19.0078 6.11683 19.0078 7.005C19.0078 7.89317 18.7122 8.75608 18.1676 9.45768C17.623 10.1593 16.8604 10.6597 16 10.88" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Contributing
 
 We welcome contributions from the community! Whether it's bug reports, feature requests, or code contributions, all help is appreciated.
@@ -389,7 +343,7 @@ If you find Shiori useful, please consider:
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 Shiori is built on the shoulders of giants. Special thanks to:
 
@@ -410,7 +364,7 @@ Shiori is built on the shoulders of giants. Special thanks to:
 
 <div align="center">
   
-### 栞 Made with ❤️ for book lovers everywhere
+### 栞 Made for book lovers everywhere
 
 **[⬆ Back to Top](#-shiori)**
 

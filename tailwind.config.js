@@ -35,7 +35,24 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      typography: {
+        DEFAULT: {
+          css: {
+            maxWidth: 'none',
+            p: {
+              marginTop: '0.75em',
+              marginBottom: '0.75em',
+            },
+            img: {
+              marginTop: '1em',
+              marginBottom: '1em',
+            },
+          },
+        },
+      },
     },
   },
-  plugins: [],
+  plugins: [
+    require('@tailwindcss/typography'),
+  ],
 }

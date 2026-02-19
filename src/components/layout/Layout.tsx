@@ -14,41 +14,52 @@ interface LayoutProps {
   onOpenSettings: () => void
   onEditMetadata?: (bookId: number) => void
   onDeleteBook?: (bookId: number) => void
+  onDeleteBooks?: (bookIds: number[]) => void
   onViewBook?: (bookId: number) => void
   onDownloadBook?: (bookId: number) => void
   onViewDetails?: (bookId: number) => void
+  onConvertBook?: (bookId: number) => void
+  onShareBook?: (bookId: number) => void
+  onOpenRSSFeeds?: () => void
+  onOpenRSSArticles?: () => void
+  onBackToLibrary?: () => void
   searchQuery?: string
   onSearchChange?: (query: string) => void
+  currentView?: 'library' | 'rss-feeds' | 'rss-articles'
 }
 
-export function Layout({ 
-  children, 
-  onOpenSettings, 
+export function Layout({
+  children,
+  onOpenSettings,
   onEditMetadata,
   onDeleteBook,
+  onDeleteBooks,
   onViewBook,
   onDownloadBook,
   onViewDetails,
+  onConvertBook,
+  onShareBook,
+  onOpenRSSFeeds,
+  onOpenRSSArticles,
+  onBackToLibrary,
   searchQuery: externalSearchQuery,
-  onSearchChange 
+  onSearchChange,
+  currentView = 'library'
 }: LayoutProps) {
   const { sidebarCollapsed } = useUIStore()
-  const { books, viewMode, setViewMode, selectedBookIds, setBooks } = useLibraryStore()
+  const {
+    books,
+    viewMode,
+    setViewMode,
+    selectedBookIds,
+    setBooks,
+    selectedFilters,
+    toggleFilter,
+    clearFilters
+  } = useLibraryStore()
   const toast = useToast()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-
-  // Initialize filter state
-  const [selectedFilters, setSelectedFilters] = useState({
-    authors: [] as string[],
-    languages: [] as string[],
-    series: [] as string[],
-    formats: [] as string[],
-    publishers: [] as string[],
-    ratings: [] as string[],
-    tags: [] as string[],
-    identifiers: [] as string[],
-  })
 
   // Calculate library stats
   const totalBooks = books.length
@@ -102,7 +113,7 @@ export function Layout({
     })
 
     // Convert sets to sorted arrays of filter items
-    const toFilterItems = (set: Set<string>) => 
+    const toFilterItems = (set: Set<string>) =>
       Array.from(set).sort().map(item => ({ id: item, label: item, count: 0 }))
 
     // Count occurrences for each filter
@@ -172,21 +183,21 @@ export function Layout({
           extensions: ['epub', 'pdf', 'mobi', 'azw3', 'txt']
         }]
       })
-      
+
       console.log('[Layout] File dialog result:', result)
-      
+
       if (result) {
         const paths = Array.isArray(result) ? result : [result]
         console.log('[Layout] Importing paths:', paths)
-        
+
         const importResult = await api.importBooks(paths)
         console.log('[Layout] Import result:', importResult)
-        
+
         // Show result toast
         const totalImported = importResult.success.length
         const totalDuplicates = importResult.duplicates.length
         const totalFailed = importResult.failed.length
-        
+
         if (totalImported > 0) {
           toast.success(
             `Imported ${totalImported} book${totalImported > 1 ? 's' : ''}`,
@@ -194,7 +205,7 @@ export function Layout({
               ? `${totalDuplicates} duplicates, ${totalFailed} failed`
               : undefined
           )
-          
+
           // Reload library
           const updatedBooks = await api.getBooks()
           setBooks(updatedBooks)
@@ -225,7 +236,16 @@ export function Layout({
   }
 
   const handleConvert = () => {
-    toast.info('Coming soon', 'Format conversion will be available in Phase 3')
+    if (selectedBookIds.size === 0) {
+      toast.warning('No book selected', 'Please select a book to convert')
+      return
+    }
+    if (selectedBookIds.size > 1) {
+      toast.warning('Multiple books selected', 'Please select only one book to convert')
+      return
+    }
+    const bookId = Array.from(selectedBookIds)[0]
+    onConvertBook?.(bookId)
   }
 
   const handleView = () => {
@@ -255,7 +275,7 @@ export function Layout({
   }
 
   const handleFetchNews = () => {
-    toast.info('Coming soon', 'RSS news feeds will be available in a future update')
+    onOpenRSSFeeds?.()
   }
 
   const handleSettings = () => {
@@ -267,12 +287,18 @@ export function Layout({
       toast.warning('No book selected', 'Please select a book to remove')
       return
     }
-    if (selectedBookIds.size > 1) {
-      toast.warning('Multiple deletion not yet supported', 'Please select only one book to delete')
-      return
+
+    // Support multiple deletion
+    const ids = Array.from(selectedBookIds)
+    if (ids.length === 1) {
+      onDeleteBook?.(ids[0])
+    } else {
+      if (onDeleteBooks) {
+        onDeleteBooks(ids)
+      } else {
+        toast.warning('Feature not connected', 'Multiple deletion handler missing')
+      }
     }
-    const bookId = Array.from(selectedBookIds)[0]
-    onDeleteBook?.(bookId)
   }
 
   const handleSave = () => {
@@ -280,7 +306,16 @@ export function Layout({
   }
 
   const handleShare = () => {
-    toast.info('Coming soon', 'Book sharing will be available in a future update')
+    if (selectedBookIds.size === 0) {
+      toast.warning('No book selected', 'Please select a book to share')
+      return
+    }
+    if (selectedBookIds.size > 1) {
+      toast.warning('Multiple books selected', 'Please select only one book to share')
+      return
+    }
+    const bookId = Array.from(selectedBookIds)[0]
+    onShareBook?.(bookId)
   }
 
   const handleEditBook = () => {
@@ -299,30 +334,12 @@ export function Layout({
   }
 
   const handleFilterToggle = (category: string, id: string) => {
-    setSelectedFilters(prev => {
-      const categoryFilters = prev[category as keyof typeof prev]
-      const newFilters = categoryFilters.includes(id)
-        ? categoryFilters.filter(item => item !== id)
-        : [...categoryFilters, id]
-      
-      return {
-        ...prev,
-        [category]: newFilters,
-      }
-    })
+    // @ts-ignore
+    toggleFilter(category, id)
   }
 
   const handleClearAllFilters = () => {
-    setSelectedFilters({
-      authors: [],
-      languages: [],
-      series: [],
-      formats: [],
-      publishers: [],
-      ratings: [],
-      tags: [],
-      identifiers: [],
-    })
+    clearFilters()
   }
 
   return (

@@ -251,6 +251,10 @@ export const api = {
     return invoke("delete_book", { id })
   },
 
+  async deleteBooks(ids: number[]): Promise<void> {
+    return invoke("delete_books", { ids })
+  },
+
   async importBooks(paths: string[]): Promise<ImportResult> {
     console.log('[API] importBooks called with:', paths)
     try {

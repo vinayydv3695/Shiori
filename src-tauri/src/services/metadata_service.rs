@@ -37,11 +37,12 @@ pub fn extract_cover(file_path: &str, book_uuid: &str) -> Result<Option<String>>
 }
 
 fn extract_epub_cover(file_path: &str, book_uuid: &str) -> Result<Option<String>> {
+    log::info!("[extract_epub_cover] Extracting cover from: {}", file_path);
     let mut doc = epub::doc::EpubDoc::new(file_path)
         .map_err(|e| ShioriError::MetadataExtraction(format!("Failed to parse EPUB: {}", e)))?;
 
     // Try to get cover image - returns (Vec<u8>, String) where String is media type
-    if let Some((cover_data, _media_type)) = doc.get_cover() {
+    if let Some((cover_data, media_type)) = doc.get_cover() {
         // Get app data directory
         let app_dir = std::env::var("APPDATA")
             .or_else(|_| std::env::var("HOME").map(|h| format!("{}/.local/share", h)))
@@ -54,7 +55,29 @@ fn extract_epub_cover(file_path: &str, book_uuid: &str) -> Result<Option<String>
             ShioriError::MetadataExtraction(format!("Failed to create covers dir: {}", e))
         })?;
 
-        let cover_filename = format!("{}.jpg", book_uuid);
+        // Determine extension from media type or image data
+        let ext = match media_type.as_str() {
+            "image/jpeg" | "image/jpg" => "jpg",
+            "image/png" => "png",
+            "image/webp" => "webp",
+            "image/gif" => "gif",
+            _ => {
+                // Try to detect from image data (magic bytes)
+                if cover_data.len() >= 4 {
+                    match &cover_data[0..4] {
+                        [0xFF, 0xD8, 0xFF, ..] => "jpg",
+                        [0x89, 0x50, 0x4E, 0x47] => "png",
+                        [0x52, 0x49, 0x46, 0x46] => "webp",
+                        [0x47, 0x49, 0x46, ..] => "gif",
+                        _ => "jpg", // fallback
+                    }
+                } else {
+                    "jpg" // fallback
+                }
+            }
+        };
+
+        let cover_filename = format!("{}.{}", book_uuid, ext);
         let cover_path = covers_dir.join(&cover_filename);
 
         // Save cover image
@@ -66,9 +89,14 @@ fn extract_epub_cover(file_path: &str, book_uuid: &str) -> Result<Option<String>
             ShioriError::MetadataExtraction(format!("Failed to write cover data: {}", e))
         })?;
 
+        log::info!(
+            "[extract_epub_cover] ✅ Cover extracted to: {}",
+            cover_path.display()
+        );
         return Ok(Some(cover_path.to_string_lossy().to_string()));
     }
 
+    log::warn!("[extract_epub_cover] No cover found in EPUB");
     Ok(None)
 }
 

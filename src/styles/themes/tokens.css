@@ -1,0 +1,178 @@
+/**
+ * Theme Token System for Shiori v2.0
+ * Pure Black (#000000) and Clean White (#F5F5DC) themes
+ */
+
+/* =================================================================
+   BLACK THEME (Pure Black Background)
+   ================================================================= */
+
+[data-theme="black"] {
+  /* Background Colors */
+  --bg-primary: #000000; /* Pure black */
+  --bg-secondary: #0a0a0a; /* Slightly lighter black for cards */
+  --bg-tertiary: #1a1a1a; /* Hover states */
+  --bg-elevated: #141414; /* Modals, dialogs */
+  --bg-hover: #1f1f1f; /* Interactive elements hover */
+  --bg-active: #2a2a2a; /* Active/pressed state */
+
+  /* Text Colors */
+  --text-primary: #ffffff; /* Pure white for primary text */
+  --text-secondary: #b3b3b3; /* Gray for secondary text */
+  --text-tertiary: #808080; /* Dimmed text */
+  --text-disabled: #4d4d4d; /* Disabled state */
+  --text-inverse: #000000; /* Text on light backgrounds */
+
+  /* Border Colors */
+  --border-primary: #2a2a2a; /* Subtle borders */
+  --border-secondary: #1a1a1a; /* Faint borders */
+  --border-focus: #ffffff; /* Focus outline */
+  --border-hover: #3a3a3a; /* Hover border */
+
+  /* Accent Color (Blue) */
+  --accent: #3b82f6; /* Primary blue */
+  --accent-hover: #2563eb; /* Darker blue on hover */
+  --accent-light: rgba(59, 130, 246, 0.1); /* Light blue background */
+  --accent-text: #60a5fa; /* Lighter blue for text */
+
+  /* Status Colors */
+  --success: #10b981; /* Green */
+  --success-bg: rgba(16, 185, 129, 0.1);
+  --warning: #f59e0b; /* Amber */
+  --warning-bg: rgba(245, 158, 11, 0.1);
+  --error: #ef4444; /* Red */
+  --error-bg: rgba(239, 68, 68, 0.1);
+  --info: #3b82f6; /* Blue */
+  --info-bg: rgba(59, 130, 246, 0.1);
+
+  /* Overlay & Shadows */
+  --overlay: rgba(0, 0, 0, 0.7); /* Modal backdrop */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.7);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.8);
+
+  /* Scrollbar */
+  --scrollbar-track: #1a1a1a;
+  --scrollbar-thumb: #3a3a3a;
+  --scrollbar-thumb-hover: #4a4a4a;
+
+  /* Reader-specific */
+  --reader-bg: #000000;
+  --reader-text: #e5e5e5;
+  --reader-selection: rgba(59, 130, 246, 0.3);
+}
+
+/* =================================================================
+   WHITE THEME (Paper White / Warm White)
+   ================================================================= */
+
+[data-theme="white"] {
+  /* Background Colors */
+  --bg-primary: #f5f5dc; /* Warm beige (like paper) */
+  --bg-secondary: #fafaf5; /* Slightly lighter */
+  --bg-tertiary: #efefea; /* Hover states */
+  --bg-elevated: #ffffff; /* Pure white for modals */
+  --bg-hover: #e8e8dd; /* Interactive hover */
+  --bg-active: #ddddd2; /* Active/pressed state */
+
+  /* Text Colors */
+  --text-primary: #1a1a1a; /* Near-black for primary text */
+  --text-secondary: #4d4d4d; /* Gray for secondary text */
+  --text-tertiary: #737373; /* Light gray */
+  --text-disabled: #a3a3a3; /* Disabled state */
+  --text-inverse: #ffffff; /* Text on dark backgrounds */
+
+  /* Border Colors */
+  --border-primary: #d4d4c9; /* Subtle borders */
+  --border-secondary: #e5e5da; /* Faint borders */
+  --border-focus: #3b82f6; /* Focus outline (blue) */
+  --border-hover: #c4c4b9; /* Hover border */
+
+  /* Accent Color (Blue) */
+  --accent: #3b82f6; /* Primary blue */
+  --accent-hover: #2563eb; /* Darker blue on hover */
+  --accent-light: rgba(59, 130, 246, 0.1); /* Light blue background */
+  --accent-text: #1d4ed8; /* Darker blue for text */
+
+  /* Status Colors */
+  --success: #10b981; /* Green */
+  --success-bg: rgba(16, 185, 129, 0.1);
+  --warning: #f59e0b; /* Amber */
+  --warning-bg: rgba(245, 158, 11, 0.1);
+  --error: #ef4444; /* Red */
+  --error-bg: rgba(239, 68, 68, 0.1);
+  --info: #3b82f6; /* Blue */
+  --info-bg: rgba(59, 130, 246, 0.1);
+
+  /* Overlay & Shadows */
+  --overlay: rgba(0, 0, 0, 0.4); /* Modal backdrop */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.15);
+
+  /* Scrollbar */
+  --scrollbar-track: #e5e5da;
+  --scrollbar-thumb: #c4c4b9;
+  --scrollbar-thumb-hover: #b4b4a9;
+
+  /* Reader-specific */
+  --reader-bg: #f5f5dc;
+  --reader-text: #1a1a1a;
+  --reader-selection: rgba(59, 130, 246, 0.2);
+}
+
+/* =================================================================
+   GLOBAL THEME APPLICATION
+   ================================================================= */
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+/* Selection */
+::selection {
+  background-color: var(--accent-light);
+  color: var(--text-primary);
+}
+
+/* Focus Ring */
+*:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+/* Smooth transitions for theme changes */
+* {
+  transition-property: background-color, border-color, color;
+  transition-duration: 0.2s;
+  transition-timing-function: ease;
+}

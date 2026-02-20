@@ -13,3 +13,4 @@ pub mod cover;
 pub mod manga;
 pub mod rss;
 pub mod share;
+pub mod preferences;

@@ -2,7 +2,8 @@ import type { ReactNode } from "react"
 import { useState } from "react"
 import { open } from "@tauri-apps/plugin-dialog"
 import { ModernSidebar } from "../sidebar/ModernSidebar"
-import { ModernToolbar, ViewControls, StatusBar } from "./ModernToolbar"
+import { ImprovedToolbar } from "./ImprovedToolbar"
+import { StatusBar } from "./ModernToolbar"
 import { useUIStore } from "../../store/uiStore"
 import { useLibraryStore } from "../../store/libraryStore"
 import { useToast } from "../../store/toastStore"
@@ -53,8 +54,6 @@ export function Layout({
   const { sidebarCollapsed } = useUIStore()
   const {
     books,
-    viewMode,
-    setViewMode,
     selectedBookIds,
     setBooks,
     selectedFilters,
@@ -232,60 +231,34 @@ export function Layout({
     }
   }
 
-  const handleEditMetadata = () => {
-    if (selectedBookIds.size === 0) {
-      toast.warning('No book selected', 'Please select a book to edit')
-      return
-    }
-    if (selectedBookIds.size > 1) {
-      toast.warning('Multiple books selected', 'Please select only one book to edit metadata')
-      return
-    }
-    const bookId = Array.from(selectedBookIds)[0]
-    onEditMetadata?.(bookId)
-  }
+  const handleAddFolder = async () => {
+    const isManga = currentDomain === 'manga'
+    const domainLabel = isManga ? 'manga' : 'book'
 
-  const handleConvert = () => {
-    if (selectedBookIds.size === 0) {
-      toast.warning('No book selected', 'Please select a book to convert')
-      return
-    }
-    if (selectedBookIds.size > 1) {
-      toast.warning('Multiple books selected', 'Please select only one book to convert')
-      return
-    }
-    const bookId = Array.from(selectedBookIds)[0]
-    onConvertBook?.(bookId)
-  }
+    try {
+      console.log(`[Layout] Opening folder dialog for ${domainLabel}s...`)
+      const result = await open({
+        multiple: false,
+        directory: true,
+      })
 
-  const handleView = () => {
-    if (selectedBookIds.size === 0) {
-      toast.warning('No book selected', 'Please select a book to view')
-      return
-    }
-    if (selectedBookIds.size > 1) {
-      toast.warning('Multiple books selected', 'Please select only one book to view')
-      return
-    }
-    const bookId = Array.from(selectedBookIds)[0]
-    onViewBook?.(bookId)
-  }
+      console.log('[Layout] Folder dialog result:', result)
 
-  const handleDownload = () => {
-    if (selectedBookIds.size === 0) {
-      toast.warning('No book selected', 'Please select a book to download')
-      return
+      if (result && typeof result === 'string') {
+        console.log(`[Layout] Scanning folder for ${domainLabel}s:`, result)
+        
+        // TODO: Backend needs a scan_folder command that recursively finds all valid files
+        // For now, we'll show a message that this is coming soon
+        toast.info('Folder import', 'This feature will recursively scan folders for books. Coming soon!')
+        
+        // When backend is ready, use something like:
+        // const scanResult = await api.scanFolderForBooks(result, currentDomain)
+        // Then import the found files using existing import logic
+      }
+    } catch (error) {
+      console.error(`[Layout] Failed to scan folder:`, error)
+      toast.error('Folder scan failed', String(error))
     }
-    if (selectedBookIds.size > 1) {
-      toast.warning('Multiple books selected', 'Please select only one book to download')
-      return
-    }
-    const bookId = Array.from(selectedBookIds)[0]
-    onDownloadBook?.(bookId)
-  }
-
-  const handleFetchNews = () => {
-    onOpenRSSFeeds?.()
   }
 
   const handleSettings = () => {
@@ -309,27 +282,6 @@ export function Layout({
         toast.warning('Feature not connected', 'Multiple deletion handler missing')
       }
     }
-  }
-
-  const handleSave = () => {
-    toast.info('Save to disk', 'Export your library using the Export dialog')
-  }
-
-  const handleShare = () => {
-    if (selectedBookIds.size === 0) {
-      toast.warning('No book selected', 'Please select a book to share')
-      return
-    }
-    if (selectedBookIds.size > 1) {
-      toast.warning('Multiple books selected', 'Please select only one book to share')
-      return
-    }
-    const bookId = Array.from(selectedBookIds)[0]
-    onShareBook?.(bookId)
-  }
-
-  const handleEditBook = () => {
-    handleEditMetadata()
   }
 
   const handleSearch = (query: string) => {
@@ -374,30 +326,13 @@ export function Layout({
       {/* Main Content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Toolbar */}
-        <ModernToolbar
+        <ImprovedToolbar
           onAddBook={handleAddBook}
-          onEditMetadata={handleEditMetadata}
-          onConvert={handleConvert}
-          onView={handleView}
-          onDownload={handleDownload}
-          onFetchNews={handleFetchNews}
+          onAddFolder={handleAddFolder}
           onSettings={handleSettings}
-          onRemove={handleRemove}
-          onSave={handleSave}
-          onShare={handleShare}
-          onEditBook={handleEditBook}
           onSearch={handleSearch}
           currentDomain={currentDomain}
           onDomainChange={onDomainChange}
-          onLibraryClick={onBackToLibrary || (() => { })}
-        />
-
-        {/* View Controls */}
-        <ViewControls
-          view={viewMode}
-          onViewChange={setViewMode}
-          onFilterClick={toggleSidebar}
-          selectedCount={selectedBookIds.size}
         />
 
         {/* Content Area */}

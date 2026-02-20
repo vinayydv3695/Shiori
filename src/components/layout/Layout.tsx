@@ -26,6 +26,8 @@ interface LayoutProps {
   searchQuery?: string
   onSearchChange?: (query: string) => void
   currentView?: 'library' | 'rss-feeds' | 'rss-articles'
+  currentDomain?: 'books' | 'manga'
+  onDomainChange?: (domain: 'books' | 'manga') => void
 }
 
 export function Layout({
@@ -44,7 +46,9 @@ export function Layout({
   onBackToLibrary,
   searchQuery: externalSearchQuery,
   onSearchChange,
-  currentView = 'library'
+  currentView = 'library',
+  currentDomain = 'books',
+  onDomainChange = () => { },
 }: LayoutProps) {
   const { sidebarCollapsed } = useUIStore()
   const {
@@ -173,24 +177,30 @@ export function Layout({
 
   // Toolbar action handlers
   const handleAddBook = async () => {
+    const isManga = currentDomain === 'manga'
+    const domainLabel = isManga ? 'manga' : 'book'
+
     try {
-      console.log('[Layout] Opening file dialog...')
+      console.log(`[Layout] Opening ${domainLabel} file dialog...`)
       const result = await open({
         multiple: true,
         directory: false,
-        filters: [{
-          name: 'eBooks',
-          extensions: ['epub', 'pdf', 'mobi', 'azw3', 'txt']
-        }]
+        filters: [isManga
+          ? { name: 'Manga Archives', extensions: ['cbz', 'cbr'] }
+          : { name: 'eBooks', extensions: ['epub', 'pdf', 'mobi', 'azw3', 'fb2', 'txt', 'docx', 'html'] }
+        ]
       })
 
       console.log('[Layout] File dialog result:', result)
 
       if (result) {
         const paths = Array.isArray(result) ? result : [result]
-        console.log('[Layout] Importing paths:', paths)
+        console.log(`[Layout] Importing ${domainLabel} paths:`, paths)
 
-        const importResult = await api.importBooks(paths)
+        // Use domain-specific API
+        const importResult = isManga
+          ? await api.importManga(paths)
+          : await api.importBooks(paths)
         console.log('[Layout] Import result:', importResult)
 
         // Show result toast
@@ -200,7 +210,7 @@ export function Layout({
 
         if (totalImported > 0) {
           toast.success(
-            `Imported ${totalImported} book${totalImported > 1 ? 's' : ''}`,
+            `Imported ${totalImported} ${domainLabel}${totalImported > 1 ? 's' : ''}`,
             totalDuplicates > 0 || totalFailed > 0
               ? `${totalDuplicates} duplicates, ${totalFailed} failed`
               : undefined
@@ -213,11 +223,11 @@ export function Layout({
           const errorMsg = importResult.failed[0]?.[1] || 'Unknown error'
           toast.error('Import failed', errorMsg)
         } else {
-          toast.warning('No books imported', 'All books were either duplicates or failed to import')
+          toast.warning(`No ${domainLabel}s imported`, `All ${domainLabel}s were either duplicates or failed to import`)
         }
       }
     } catch (error) {
-      console.error("[Layout] Failed to import books:", error)
+      console.error(`[Layout] Failed to import ${domainLabel}s:`, error)
       toast.error('Import failed', String(error))
     }
   }
@@ -377,6 +387,9 @@ export function Layout({
           onShare={handleShare}
           onEditBook={handleEditBook}
           onSearch={handleSearch}
+          currentDomain={currentDomain}
+          onDomainChange={onDomainChange}
+          onLibraryClick={onBackToLibrary || (() => { })}
         />
 
         {/* View Controls */}

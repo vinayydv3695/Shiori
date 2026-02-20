@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X, BookOpen, Calendar, FileText, Tag, Star, Globe, Hash } from 'lucide-react';
+import { X, BookOpen, Calendar, FileText, Tag, Star, Globe, Hash, Download } from 'lucide-react';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { api, type Book } from '../../lib/tauri';
 import { Button } from '../ui/button';
+import { MetadataSearchDialog } from './MetadataSearchDialog';
 
 interface BookDetailsDialogProps {
   open: boolean;
@@ -24,6 +25,7 @@ export const BookDetailsDialog = ({
 }: BookDetailsDialogProps) => {
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
+  const [metadataDialogOpen, setMetadataDialogOpen] = useState(false);
 
   useEffect(() => {
     if (open && bookId) {
@@ -44,6 +46,13 @@ export const BookDetailsDialog = ({
   };
 
   const coverSrc = book?.cover_path ? convertFileSrc(book.cover_path) : null;
+
+  const isManga = book?.file_format.toLowerCase() === 'cbz' || book?.file_format.toLowerCase() === 'cbr';
+
+  const handleMetadataFetched = async () => {
+    // Reload book data after metadata update
+    await loadBook();
+  };
 
   const formatFileSize = (bytes?: number) => {
     if (!bytes) return 'Unknown';
@@ -249,35 +258,59 @@ export const BookDetailsDialog = ({
           </div>
 
           {/* Footer Actions */}
-          <div className="flex items-center justify-end gap-3 p-6 border-t border-border bg-muted/30">
-            {onDelete && (
-              <Button variant="outline" onClick={() => {
-                onOpenChange(false);
-                onDelete();
-              }}>
-                Delete
-              </Button>
-            )}
-            {onEdit && (
-              <Button variant="outline" onClick={() => {
-                onOpenChange(false);
-                onEdit();
-              }}>
-                Edit Metadata
-              </Button>
-            )}
-            {onRead && (
-              <Button onClick={() => {
-                onOpenChange(false);
-                onRead();
-              }}>
-                <BookOpen className="w-4 h-4 mr-2" />
-                Read Now
-              </Button>
-            )}
+          <div className="flex items-center justify-between gap-3 p-6 border-t border-border bg-muted/30">
+            <Button
+              variant="outline"
+              onClick={() => setMetadataDialogOpen(true)}
+              className="mr-auto"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Fetch Metadata
+            </Button>
+
+            <div className="flex items-center gap-3">
+              {onDelete && (
+                <Button variant="outline" onClick={() => {
+                  onOpenChange(false);
+                  onDelete();
+                }}>
+                  Delete
+                </Button>
+              )}
+              {onEdit && (
+                <Button variant="outline" onClick={() => {
+                  onOpenChange(false);
+                  onEdit();
+                }}>
+                  Edit Metadata
+                </Button>
+              )}
+              {onRead && (
+                <Button onClick={() => {
+                  onOpenChange(false);
+                  onRead();
+                }}>
+                  <BookOpen className="w-4 h-4 mr-2" />
+                  Read Now
+                </Button>
+              )}
+            </div>
           </div>
         </Dialog.Content>
       </Dialog.Portal>
+
+      {/* Metadata Search Dialog */}
+      {book && (
+        <MetadataSearchDialog
+          open={metadataDialogOpen}
+          onOpenChange={setMetadataDialogOpen}
+          bookId={bookId}
+          bookTitle={book.title}
+          isManga={isManga}
+          isbn={book.isbn || book.isbn13}
+          onMetadataSelected={handleMetadataFetched}
+        />
+      )}
     </Dialog.Root>
   );
 };

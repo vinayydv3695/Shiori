@@ -284,7 +284,7 @@ impl BookFormatAdapter for Fb2FormatAdapter {
         Ok(book_meta)
     }
     
-    async fn extract_cover(&self, path: &Path) -> FormatResult<Option<CoverImage>> {
+    async fn extract_cover(&self, _path: &Path) -> FormatResult<Option<CoverImage>> {
         // FB2 can have base64-encoded images in <binary> tags
         // Extracting this requires parsing the XML and decoding base64
         // For now, return None and let CoverService generate a pattern

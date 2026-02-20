@@ -1,8 +1,9 @@
 use crate::error::{Result, ShioriError};
 use crate::models::Metadata;
 use std::fs;
-use std::io::Write;
+use std::io::{Cursor, Read, Write};
 use std::path::Path;
+use zip::ZipArchive;
 
 pub fn extract_from_file(file_path: &str) -> Result<Metadata> {
     let path = Path::new(file_path);
@@ -29,6 +30,7 @@ pub fn extract_cover(file_path: &str, book_uuid: &str) -> Result<Option<String>>
 
     match extension.as_str() {
         "epub" => extract_epub_cover(file_path, book_uuid),
+        "cbz" | "cbr" => extract_cbz_cover(file_path, book_uuid),
         "pdf" => Ok(None), // PDF cover extraction not yet implemented
         _ => Ok(None),
     }
@@ -68,6 +70,106 @@ fn extract_epub_cover(file_path: &str, book_uuid: &str) -> Result<Option<String>
     }
 
     Ok(None)
+}
+
+fn extract_cbz_cover(file_path: &str, book_uuid: &str) -> Result<Option<String>> {
+    log::info!("[extract_cbz_cover] Extracting cover from: {}", file_path);
+
+    // Read the archive file
+    let file_data = fs::read(file_path).map_err(|e| {
+        ShioriError::MetadataExtraction(format!("Failed to read CBZ/CBR file: {}", e))
+    })?;
+
+    // Parse ZIP archive
+    let cursor = Cursor::new(&file_data);
+    let mut archive = ZipArchive::new(cursor).map_err(|e| {
+        ShioriError::MetadataExtraction(format!("Failed to parse CBZ/CBR archive: {}", e))
+    })?;
+
+    // Helper to check if filename is an image
+    let is_image = |name: &str| {
+        let lower = name.to_lowercase();
+        lower.ends_with(".jpg")
+            || lower.ends_with(".jpeg")
+            || lower.ends_with(".png")
+            || lower.ends_with(".webp")
+            || lower.ends_with(".gif")
+            || lower.ends_with(".bmp")
+    };
+
+    // Collect all image files with natural sorting
+    let mut image_files: Vec<(usize, String)> = Vec::new();
+    for i in 0..archive.len() {
+        if let Ok(file) = archive.by_index(i) {
+            let name = file.name().to_string();
+            // Skip hidden files and directories
+            if !name.starts_with('.') && !name.starts_with("__MACOSX") && is_image(&name) {
+                image_files.push((i, name));
+            }
+        }
+    }
+
+    if image_files.is_empty() {
+        log::warn!("[extract_cbz_cover] No image files found in archive");
+        return Ok(None);
+    }
+
+    // Sort by natural order (page1.jpg < page10.jpg)
+    image_files.sort_by(|a, b| natord::compare(&a.1, &b.1));
+
+    // Get the first image (cover)
+    let first_image_idx = image_files[0].0;
+    let first_image_name = &image_files[0].1;
+
+    log::info!(
+        "[extract_cbz_cover] Using first image as cover: {}",
+        first_image_name
+    );
+
+    // Extract the first image
+    let mut archive = ZipArchive::new(Cursor::new(&file_data)).unwrap();
+    let mut file = archive.by_index(first_image_idx).map_err(|e| {
+        ShioriError::MetadataExtraction(format!("Failed to access first image: {}", e))
+    })?;
+
+    let mut cover_data = Vec::new();
+    file.read_to_end(&mut cover_data).map_err(|e| {
+        ShioriError::MetadataExtraction(format!("Failed to read image data: {}", e))
+    })?;
+
+    // Get app data directory
+    let app_dir = std::env::var("APPDATA")
+        .or_else(|_| std::env::var("HOME").map(|h| format!("{}/.local/share", h)))
+        .map_err(|_| ShioriError::MetadataExtraction("Failed to get app data dir".to_string()))?;
+
+    let covers_dir = Path::new(&app_dir).join("com.tauri.shiori").join("covers");
+    fs::create_dir_all(&covers_dir).map_err(|e| {
+        ShioriError::MetadataExtraction(format!("Failed to create covers dir: {}", e))
+    })?;
+
+    // Determine file extension from original image
+    let ext = Path::new(first_image_name)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("jpg");
+
+    let cover_filename = format!("{}.{}", book_uuid, ext);
+    let cover_path = covers_dir.join(&cover_filename);
+
+    // Save cover image
+    let mut output_file = fs::File::create(&cover_path).map_err(|e| {
+        ShioriError::MetadataExtraction(format!("Failed to create cover file: {}", e))
+    })?;
+
+    output_file.write_all(&cover_data).map_err(|e| {
+        ShioriError::MetadataExtraction(format!("Failed to write cover data: {}", e))
+    })?;
+
+    log::info!(
+        "[extract_cbz_cover] ✅ Cover extracted to: {}",
+        cover_path.display()
+    );
+    Ok(Some(cover_path.to_string_lossy().to_string()))
 }
 
 fn extract_epub_metadata(file_path: &str) -> Result<Metadata> {

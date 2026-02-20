@@ -243,26 +243,62 @@ pub fn update_book(db: &Database, book: Book) -> Result<()> {
 }
 
 pub fn delete_book(db: &Database, id: i64) -> Result<()> {
+    log::info!("[delete_book] Attempting to delete book with id: {}", id);
     let conn = db.get_connection();
 
-    let rows_affected = conn.execute("DELETE FROM books WHERE id = ?1", params![id])?;
+    // First check if book exists
+    let exists: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM books WHERE id = ?1",
+        params![id],
+        |row| row.get(0),
+    )?;
 
-    if rows_affected == 0 {
+    log::info!("[delete_book] Book exists: {}", exists);
+
+    if !exists {
+        log::warn!("[delete_book] Book with id {} not found", id);
         return Err(ShioriError::BookNotFound(id.to_string()));
     }
 
+    // Check foreign keys status
+    let fk_enabled: i32 = conn.query_row("PRAGMA foreign_keys", [], |row| row.get(0))?;
+    log::info!("[delete_book] Foreign keys enabled: {}", fk_enabled);
+
+    let rows_affected = conn.execute("DELETE FROM books WHERE id = ?1", params![id])?;
+    log::info!("[delete_book] Rows affected: {}", rows_affected);
+
+    if rows_affected == 0 {
+        log::error!("[delete_book] Delete failed - no rows affected but book exists!");
+        return Err(ShioriError::BookNotFound(id.to_string()));
+    }
+
+    log::info!("[delete_book] Successfully deleted book with id: {}", id);
     Ok(())
 }
 
 pub fn delete_books(db: &mut Database, ids: Vec<i64>) -> Result<()> {
+    log::info!(
+        "[delete_books] Attempting to delete {} books: {:?}",
+        ids.len(),
+        ids
+    );
     let conn = db.get_connection_mut();
     let tx = conn.transaction()?;
 
+    let mut deleted_count = 0;
     for id in ids {
-        tx.execute("DELETE FROM books WHERE id = ?1", params![id])?;
+        let rows = tx.execute("DELETE FROM books WHERE id = ?1", params![id])?;
+        log::info!(
+            "[delete_books] Deleted book id {} - rows affected: {}",
+            id,
+            rows
+        );
+        deleted_count += rows;
     }
 
+    log::info!("[delete_books] Total rows deleted: {}", deleted_count);
     tx.commit()?;
+    log::info!("[delete_books] Transaction committed successfully");
     Ok(())
 }
 
@@ -395,6 +431,188 @@ pub fn scan_and_import_folder(db: &Database, folder_path: &str) -> Result<Import
 
     // Import all found books
     import_books(db, book_paths)
+}
+
+// ═══════════════════════════════════════════════════════════
+// DOMAIN-SEPARATED IMPORT (Books vs Manga)
+// ═══════════════════════════════════════════════════════════
+
+const BOOK_FORMATS: &[&str] = &["epub", "pdf", "mobi", "azw3", "fb2", "txt", "docx", "html"];
+const MANGA_FORMATS: &[&str] = &["cbz", "cbr"];
+
+/// Validate that a file belongs to the expected domain
+fn validate_domain(path: &str, domain: &str) -> Result<()> {
+    let ext = std::path::Path::new(path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    match domain {
+        "books" => {
+            if MANGA_FORMATS.contains(&ext.as_str()) {
+                return Err(ShioriError::Other(format!(
+                    "This file is a manga archive (.{}). Import it from the Manga tab instead.",
+                    ext
+                )));
+            }
+            if !BOOK_FORMATS.contains(&ext.as_str()) {
+                return Err(ShioriError::UnsupportedFormat {
+                    format: ext.clone(),
+                    path: path.to_string(),
+                });
+            }
+        }
+        "manga" => {
+            if BOOK_FORMATS.contains(&ext.as_str()) {
+                return Err(ShioriError::Other(format!(
+                    "{} files are eBooks, not manga. Import from the Books tab instead.",
+                    ext.to_uppercase()
+                )));
+            }
+            if !MANGA_FORMATS.contains(&ext.as_str()) {
+                return Err(ShioriError::UnsupportedFormat {
+                    format: ext.clone(),
+                    path: path.to_string(),
+                });
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+/// Import manga files (CBZ/CBR only) — rejects non-manga formats
+pub fn import_manga(db: &Database, paths: Vec<String>) -> Result<ImportResult> {
+    let mut result = ImportResult {
+        success: vec![],
+        failed: vec![],
+        duplicates: vec![],
+    };
+
+    for path in paths {
+        // Validate domain first
+        if let Err(e) = validate_domain(&path, "manga") {
+            result.failed.push((path, e.to_string()));
+            continue;
+        }
+
+        match import_single_book(db, &path) {
+            Ok(is_duplicate) => {
+                if is_duplicate {
+                    result.duplicates.push(path);
+                } else {
+                    result.success.push(path);
+                }
+            }
+            Err(e) => {
+                result.failed.push((path, e.to_string()));
+            }
+        }
+    }
+
+    Ok(result)
+}
+
+/// Scan a folder for manga files (CBZ/CBR only)
+pub fn scan_folder_for_manga(db: &Database, folder_path: &str) -> Result<ImportResult> {
+    let mut manga_paths = Vec::new();
+
+    for entry in WalkDir::new(folder_path)
+        .follow_links(true)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        if entry.file_type().is_file() {
+            if let Some(ext) = entry.path().extension() {
+                let ext_str = ext.to_string_lossy().to_lowercase();
+                if MANGA_FORMATS.contains(&ext_str.as_str()) {
+                    if let Some(path_str) = entry.path().to_str() {
+                        manga_paths.push(path_str.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    log::info!("Found {} manga files in {}", manga_paths.len(), folder_path);
+    import_manga(db, manga_paths)
+}
+
+/// Get books filtered by domain
+pub fn get_books_by_domain(db: &Database, domain: &str) -> Result<Vec<Book>> {
+    let conn = db.get_connection();
+
+    let query = match domain {
+        "books" => {
+            "SELECT id, uuid, title, sort_title, isbn, isbn13, publisher, pubdate, 
+                    series, series_index, rating, file_path, file_format, file_size, 
+                    file_hash, cover_path, page_count, word_count, language, 
+                    added_date, modified_date, last_opened, notes
+             FROM books
+             WHERE file_format NOT IN ('cbz', 'cbr')
+             ORDER BY added_date DESC"
+        }
+        "manga" => {
+            "SELECT id, uuid, title, sort_title, isbn, isbn13, publisher, pubdate, 
+                    series, series_index, rating, file_path, file_format, file_size, 
+                    file_hash, cover_path, page_count, word_count, language, 
+                    added_date, modified_date, last_opened, notes
+             FROM books
+             WHERE file_format IN ('cbz', 'cbr')
+             ORDER BY added_date DESC"
+        }
+        _ => {
+            "SELECT id, uuid, title, sort_title, isbn, isbn13, publisher, pubdate, 
+                    series, series_index, rating, file_path, file_format, file_size, 
+                    file_hash, cover_path, page_count, word_count, language, 
+                    added_date, modified_date, last_opened, notes
+             FROM books
+             ORDER BY added_date DESC"
+        }
+    };
+
+    let mut stmt = conn.prepare(query)?;
+
+    let books_iter = stmt.query_map([], |row| {
+        Ok(Book {
+            id: Some(row.get(0)?),
+            uuid: row.get(1)?,
+            title: row.get(2)?,
+            sort_title: row.get(3)?,
+            isbn: row.get(4)?,
+            isbn13: row.get(5)?,
+            publisher: row.get(6)?,
+            pubdate: row.get(7)?,
+            series: row.get(8)?,
+            series_index: row.get(9)?,
+            rating: row.get(10)?,
+            file_path: row.get(11)?,
+            file_format: row.get(12)?,
+            file_size: row.get(13)?,
+            file_hash: row.get(14)?,
+            cover_path: row.get(15)?,
+            page_count: row.get(16)?,
+            word_count: row.get(17)?,
+            language: row.get(18)?,
+            added_date: row.get(19)?,
+            modified_date: row.get(20)?,
+            last_opened: row.get(21)?,
+            notes: row.get(22)?,
+            authors: vec![],
+            tags: vec![],
+        })
+    })?;
+
+    let mut books = Vec::new();
+    for book_result in books_iter {
+        let mut book = book_result?;
+        book.authors = get_authors_for_book(conn, book.id.unwrap())?;
+        book.tags = get_tags_for_book(conn, book.id.unwrap())?;
+        books.push(book);
+    }
+
+    Ok(books)
 }
 
 fn get_authors_for_book(conn: &rusqlite::Connection, book_id: i64) -> Result<Vec<Author>> {

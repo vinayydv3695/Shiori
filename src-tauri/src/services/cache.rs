@@ -135,7 +135,7 @@ impl BookCache {
     }
 
     /// Preload content for upcoming pages/chapters
-    pub fn preload_hint(&self, keys: Vec<CacheKey>) {
+    pub fn preload_hint(&self, _keys: Vec<CacheKey>) {
         // This is a hint for future preloading implementation
         // For now, it's a no-op, but could trigger background loading
     }

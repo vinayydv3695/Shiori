@@ -11,7 +11,6 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
-use tokio::task::JoinHandle;
 use uuid::Uuid;
 use printpdf::*;
 use std::fs::File;
@@ -592,7 +591,7 @@ impl ConversionEngine {
         let _len = doc.get_num_chapters();
         let mut i = 0;
         while i < doc.get_num_chapters() {
-            doc.set_current_page(i);
+            let _ = doc.set_current_chapter(i);
             if let Some((content, _)) = doc.get_current_str() {
                 let text = strip_html(&content);
                 

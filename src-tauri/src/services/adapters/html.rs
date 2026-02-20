@@ -238,7 +238,7 @@ impl BookFormatAdapter for HtmlFormatAdapter {
         Ok(book_meta)
     }
     
-    async fn extract_cover(&self, path: &Path) -> FormatResult<Option<CoverImage>> {
+    async fn extract_cover(&self, _path: &Path) -> FormatResult<Option<CoverImage>> {
         // HTML files don't typically have embedded covers
         // Could potentially extract first <img> tag, but that's often not a cover
         // Let CoverService generate a pattern instead

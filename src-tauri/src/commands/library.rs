@@ -31,15 +31,45 @@ pub fn update_book(state: State<AppState>, book: Book) -> Result<()> {
 }
 
 #[tauri::command]
-pub fn delete_book(state: State<AppState>, id: i64) -> Result<()> {
-    let db = state.db.lock().unwrap();
-    library_service::delete_book(&db, id)
+pub fn delete_books(state: State<AppState>, ids: Vec<i64>) -> Result<()> {
+    log::info!(
+        "[command::delete_books] Received request to delete {} books: {:?}",
+        ids.len(),
+        ids
+    );
+    let mut db = state.db.lock().unwrap();
+    let ids_clone = ids.clone();
+    let result = library_service::delete_books(&mut db, ids);
+    match &result {
+        Ok(_) => log::info!(
+            "[command::delete_books] Successfully deleted {} books",
+            ids_clone.len()
+        ),
+        Err(e) => log::error!("[command::delete_books] Failed to delete books: {:?}", e),
+    }
+    result
 }
 
 #[tauri::command]
-pub fn delete_books(state: State<AppState>, ids: Vec<i64>) -> Result<()> {
-    let mut db = state.db.lock().unwrap();
-    library_service::delete_books(&mut db, ids)
+pub fn delete_book(state: State<AppState>, id: i64) -> Result<()> {
+    log::info!(
+        "[command::delete_book] Received request to delete book id: {}",
+        id
+    );
+    let db = state.db.lock().unwrap();
+    let result = library_service::delete_book(&db, id);
+    match &result {
+        Ok(_) => log::info!(
+            "[command::delete_book] Successfully deleted book id: {}",
+            id
+        ),
+        Err(e) => log::error!(
+            "[command::delete_book] Failed to delete book id {}: {:?}",
+            id,
+            e
+        ),
+    }
+    result
 }
 
 #[tauri::command]
@@ -55,4 +85,25 @@ pub fn scan_folder_for_books(
 ) -> Result<ImportResult> {
     let db = state.db.lock().unwrap();
     library_service::scan_and_import_folder(&db, &folder_path)
+}
+
+#[tauri::command]
+pub fn import_manga(state: State<'_, AppState>, paths: Vec<String>) -> Result<ImportResult> {
+    let db = state.db.lock().unwrap();
+    library_service::import_manga(&db, paths)
+}
+
+#[tauri::command]
+pub fn scan_folder_for_manga(
+    state: State<'_, AppState>,
+    folder_path: String,
+) -> Result<ImportResult> {
+    let db = state.db.lock().unwrap();
+    library_service::scan_folder_for_manga(&db, &folder_path)
+}
+
+#[tauri::command]
+pub fn get_books_by_domain(state: State<'_, AppState>, domain: String) -> Result<Vec<Book>> {
+    let db = state.db.lock().unwrap();
+    library_service::get_books_by_domain(&db, &domain)
 }

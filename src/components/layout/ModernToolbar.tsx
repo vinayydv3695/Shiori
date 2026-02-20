@@ -1,13 +1,13 @@
 import { useState, useCallback, useEffect } from 'react'
 import { cn } from '@/lib/utils'
-import { 
-  Plus, 
-  FileEdit, 
-  RefreshCw, 
-  Eye, 
-  Download, 
-  Newspaper, 
-  Settings, 
+import {
+  Plus,
+  FileEdit,
+  RefreshCw,
+  Eye,
+  Download,
+  Newspaper,
+  Settings,
   Trash2,
   Database,
   Save,
@@ -21,6 +21,8 @@ import {
   Moon,
   Sun,
   Command as CommandIcon,
+  BookMarked,
+  Image as ImageIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -78,6 +80,8 @@ const ToolbarDivider = () => (
   <div className="w-px h-8 bg-border mx-1" />
 )
 
+export type DomainView = 'books' | 'manga'
+
 interface ModernToolbarProps {
   onAddBook: () => void
   onEditMetadata: () => void
@@ -91,6 +95,9 @@ interface ModernToolbarProps {
   onShare: () => void
   onEditBook: () => void
   onSearch?: (query: string) => void
+  currentDomain: DomainView
+  onDomainChange: (domain: DomainView) => void
+  onLibraryClick?: () => void
 }
 
 export const ModernToolbar = ({
@@ -106,6 +113,9 @@ export const ModernToolbar = ({
   onShare,
   onEditBook,
   onSearch,
+  currentDomain,
+  onDomainChange,
+  onLibraryClick,
 }: ModernToolbarProps) => {
   const { theme, toggleTheme } = useTheme()
   const [searchQuery, setSearchQuery] = useState('')
@@ -126,9 +136,33 @@ export const ModernToolbar = ({
       <div className="h-full px-4 flex items-center justify-between gap-2">
         {/* Left: Main Actions */}
         <div className="flex items-center gap-1">
+          {/* Domain Tabs */}
+          <div className="flex items-center gap-1 p-1 rounded-lg bg-muted">
+            <Button
+              variant={currentDomain === 'books' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => onDomainChange('books')}
+              className="h-8 px-3 text-xs font-medium gap-1"
+            >
+              <BookMarked className="w-4 h-4" />
+              Books
+            </Button>
+            <Button
+              variant={currentDomain === 'manga' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => onDomainChange('manga')}
+              className="h-8 px-3 text-xs font-medium gap-1"
+            >
+              <ImageIcon className="w-4 h-4" />
+              Manga
+            </Button>
+          </div>
+
+          <ToolbarDivider />
+
           <ToolbarButton
             icon={<Plus className="w-full h-full" />}
-            label="Add Book"
+            label={currentDomain === 'manga' ? 'Import Manga' : 'Add Book'}
             onClick={onAddBook}
             shortcut="⌘N"
           />
@@ -143,9 +177,9 @@ export const ModernToolbar = ({
             label="Convert"
             onClick={onConvert}
           />
-          
+
           <ToolbarDivider />
-          
+
           <ToolbarButton
             icon={<Eye className="w-full h-full" />}
             label="View"
@@ -161,9 +195,9 @@ export const ModernToolbar = ({
             label="Fetch News"
             onClick={onFetchNews}
           />
-          
+
           <ToolbarDivider />
-          
+
           <ToolbarButton
             icon={<Save className="w-full h-full" />}
             label="Save to Disk"
@@ -179,9 +213,9 @@ export const ModernToolbar = ({
             label="Edit Book"
             onClick={onEditBook}
           />
-          
+
           <ToolbarDivider />
-          
+
           <ToolbarButton
             icon={<Trash2 className="w-full h-full" />}
             label="Remove"
@@ -214,18 +248,18 @@ export const ModernToolbar = ({
           <ToolbarButton
             icon={<Database className="w-full h-full" />}
             label="Library"
-            onClick={() => {}}
+            onClick={onLibraryClick || (() => { })}
           />
-          
+
           <ToolbarDivider />
-          
+
           <ToolbarButton
             icon={<Settings className="w-full h-full" />}
             label="Settings"
             onClick={onSettings}
             shortcut="⌘,"
           />
-          
+
           <Button
             variant="ghost"
             size="icon"

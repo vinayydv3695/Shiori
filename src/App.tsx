@@ -32,7 +32,7 @@ function App() {
     selectedFilters
   } = useLibraryStore()
   const { isReaderOpen, openBook, closeBook } = useReaderStore()
-  const { theme } = useUIStore()
+  const { theme, currentView, currentDomain, setCurrentView, setCurrentDomain, resetToHome } = useUIStore()
   const { selectedCollection } = useCollectionStore()
   const [selectedBookId, setSelectedBookId] = useState<number | null>(null)
   const [filteredBooks, setFilteredBooks] = useState<Book[]>([])
@@ -50,7 +50,6 @@ function App() {
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [rssManagerOpen, setRssManagerOpen] = useState(false)
   const [rssArticlesOpen, setRssArticlesOpen] = useState(false)
-  const [currentView, setCurrentView] = useState<'library' | 'rss-feeds' | 'rss-articles'>('library')
 
   useEffect(() => {
     // Apply theme to document
@@ -292,6 +291,8 @@ function App() {
         onSearchChange={handleSearchChange}
         currentView={currentView}
         onBackToLibrary={handleBackToLibrary}
+        currentDomain={currentDomain}
+        onDomainChange={setCurrentDomain}
       >
         {/* Show RSS Feeds view */}
         {currentView === 'rss-feeds' && <RSSFeedManager />}
@@ -306,6 +307,7 @@ function App() {
             {viewMode === "grid" && (
               <LibraryGrid
                 books={displayBooks}
+                currentDomain={currentDomain}
                 onBookClick={handleOpenBook}
                 onEditBook={handleEditBook}
                 onDeleteBook={handleDeleteBook}

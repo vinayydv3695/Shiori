@@ -23,16 +23,21 @@ export const DeleteBookDialog = ({ open, onOpenChange, bookIds, bookTitle }: Del
   const handleDelete = async () => {
     setDeleting(true);
     try {
+      // Optimistic UI update
+      const currentBooks = useLibraryStore.getState().books;
+      setBooks(currentBooks.filter(b => !bookIds.includes(b.id!)));
+      clearSelection();
+
+      // Database execution
       if (isMultiple) {
         await api.deleteBooks(bookIds);
       } else {
         await api.deleteBook(bookIds[0]);
       }
 
-      // Reload library
+      // Final synchronization
       const books = await api.getBooks();
       setBooks(books);
-      clearSelection();
 
       const message = isMultiple
         ? `${bookIds.length} books have been removed from your library`

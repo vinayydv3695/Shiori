@@ -1,6 +1,5 @@
 use std::sync::Arc;
 use anyhow::Result;
-use tokio::task::JoinHandle;
 use tokio_cron_scheduler::{Job, JobScheduler};
 use log::{info, error, warn};
 

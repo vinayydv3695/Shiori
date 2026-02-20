@@ -1,6 +1,6 @@
 use crate::error::{ShioriError, ShioriResult};
 use std::fs::File;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::Read;
 use std::path::Path;
 
 /// Maximum file size in MB (500 MB)

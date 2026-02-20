@@ -3,7 +3,7 @@
 /// Handles cover extraction, generation, and caching with three resolution levels.
 /// Implements geometric pattern generation for books without covers.
 
-use image::{DynamicImage, ImageBuffer, Rgba, RgbaImage};
+use image::{DynamicImage, Rgba, RgbaImage};
 use imageproc::drawing::{draw_filled_circle_mut, draw_filled_rect_mut, draw_text_mut};
 use imageproc::rect::Rect;
 use lru::LruCache;
@@ -11,12 +11,12 @@ use ab_glyph::{FontArc, PxScale};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::num::NonZeroUsize;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use crate::services::format_adapter::{BookMetadata, CoverImage, FormatError, FormatResult};
+use crate::services::format_adapter::{BookMetadata, CoverImage, FormatResult};
 
 const THUMBNAIL_WIDTH: u32 = 200;
 const THUMBNAIL_HEIGHT: u32 = 300;

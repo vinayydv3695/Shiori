@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import Shiori v2.0 Theme Tokens */
+@import './styles/themes/tokens.css';
+
 @layer base {
   :root {
     /* Colors */

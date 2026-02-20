@@ -29,6 +29,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 3 {
             self.migrate_to_v3()?;
         }
+        if current_version < 4 {
+            self.migrate_to_v4()?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -46,7 +49,7 @@ impl<'a> MigrationManager<'a> {
         // Check if books_fts exists and has the right columns
         let has_publisher: bool = {
             let mut stmt = self.conn.prepare(
-                "SELECT COUNT(*) FROM pragma_table_info('books_fts') WHERE name = 'publisher'"
+                "SELECT COUNT(*) FROM pragma_table_info('books_fts') WHERE name = 'publisher'",
             )?;
             let count: i32 = stmt.query_row([], |row| row.get(0))?;
             count > 0
@@ -58,7 +61,8 @@ impl<'a> MigrationManager<'a> {
             log::info!("[Migration] Recreating FTS5 table with correct schema");
 
             // Drop old table and all triggers
-            self.conn.execute_batch(r#"
+            self.conn.execute_batch(
+                r#"
                 DROP TRIGGER IF EXISTS books_fts_insert;
                 DROP TRIGGER IF EXISTS books_fts_update;
                 DROP TRIGGER IF EXISTS books_fts_delete;
@@ -66,10 +70,12 @@ impl<'a> MigrationManager<'a> {
                 DROP TRIGGER IF EXISTS books_ad;
                 DROP TRIGGER IF EXISTS books_au;
                 DROP TABLE IF EXISTS books_fts;
-            "#)?;
+            "#,
+            )?;
 
             // Create with correct schema
-            self.conn.execute_batch(r#"
+            self.conn.execute_batch(
+                r#"
                 CREATE VIRTUAL TABLE books_fts USING fts5(
                     title,
                     authors,
@@ -112,10 +118,12 @@ impl<'a> MigrationManager<'a> {
                             WHERE bt.book_id = new.id),
                            new.isbn;
                 END;
-            "#)?;
+            "#,
+            )?;
 
             // Re-index existing books
-            self.conn.execute_batch(r#"
+            self.conn.execute_batch(
+                r#"
                 INSERT INTO books_fts(rowid, title, authors, publisher, description, tags, isbn)
                 SELECT b.id, b.title,
                        (SELECT GROUP_CONCAT(a.name, ' ') FROM authors a 
@@ -128,7 +136,8 @@ impl<'a> MigrationManager<'a> {
                         WHERE bt.book_id = b.id),
                        b.isbn
                 FROM books b;
-            "#)?;
+            "#,
+            )?;
         }
 
         Ok(())
@@ -193,11 +202,15 @@ impl<'a> MigrationManager<'a> {
 
     /// Check if a column exists in a table
     fn column_exists(&self, table: &str, column: &str) -> Result<bool> {
-        let mut stmt = self.conn.prepare(&format!("PRAGMA table_info({})", table))?;
-        let exists = stmt.query_map([], |row| {
-            let name: String = row.get(1)?;
-            Ok(name)
-        })?.any(|r| r.map(|n| n == column).unwrap_or(false));
+        let mut stmt = self
+            .conn
+            .prepare(&format!("PRAGMA table_info({})", table))?;
+        let exists = stmt
+            .query_map([], |row| {
+                let name: String = row.get(1)?;
+                Ok(name)
+            })?
+            .any(|r| r.map(|n| n == column).unwrap_or(false));
         Ok(exists)
     }
 
@@ -260,13 +273,12 @@ impl<'a> MigrationManager<'a> {
         if !self.table_exists("book_formats")? {
             // Table was just created, this shouldn't happen, but guard anyway
         } else {
-            let count: i32 = self.conn.query_row(
-                "SELECT COUNT(*) FROM book_formats",
-                [],
-                |row| row.get(0),
-            )?;
+            let count: i32 =
+                self.conn
+                    .query_row("SELECT COUNT(*) FROM book_formats", [], |row| row.get(0))?;
             if count == 0 {
-                self.conn.execute_batch(r#"
+                self.conn.execute_batch(
+                    r#"
                     INSERT INTO book_formats (book_id, format, file_path, file_size, file_hash, 
                                               page_count, word_count, is_primary, added_at)
                     SELECT 
@@ -280,16 +292,13 @@ impl<'a> MigrationManager<'a> {
                         1,
                         added_date
                     FROM books;
-                "#)?;
+                "#,
+                )?;
             }
         }
 
         self.set_schema_version(2)?;
-        self.record_migration(
-            2,
-            "multi_format_support",
-            "v2_multi_format_idempotent",
-        )?;
+        self.record_migration(2, "multi_format_support", "v2_multi_format_idempotent")?;
 
         log::info!("[Migration] v2 applied successfully");
         Ok(())
@@ -400,7 +409,8 @@ impl<'a> MigrationManager<'a> {
 
         // Step 4: Cover cache table
 
-        self.conn.execute_batch(r#"
+        self.conn.execute_batch(
+            r#"
             CREATE TABLE IF NOT EXISTS cover_cache (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 book_id INTEGER NOT NULL,
@@ -417,11 +427,13 @@ impl<'a> MigrationManager<'a> {
             CREATE INDEX IF NOT EXISTS idx_cover_cache_book ON cover_cache(book_id);
             CREATE INDEX IF NOT EXISTS idx_cover_cache_size ON cover_cache(book_id, size);
             CREATE INDEX IF NOT EXISTS idx_cover_cache_accessed ON cover_cache(last_accessed);
-        "#)?;
+        "#,
+        )?;
 
         // Step 5: Drop old FTS table and triggers, recreate with richer standalone schema
 
-        self.conn.execute_batch(r#"
+        self.conn.execute_batch(
+            r#"
             DROP TRIGGER IF EXISTS books_fts_insert;
             DROP TRIGGER IF EXISTS books_fts_update;
             DROP TRIGGER IF EXISTS books_fts_delete;
@@ -429,10 +441,11 @@ impl<'a> MigrationManager<'a> {
             DROP TRIGGER IF EXISTS books_ad;
             DROP TRIGGER IF EXISTS books_au;
             DROP TABLE IF EXISTS books_fts;
-        "#)?;
+        "#,
+        )?;
 
-
-        self.conn.execute_batch(r#"
+        self.conn.execute_batch(
+            r#"
             CREATE VIRTUAL TABLE IF NOT EXISTS books_fts USING fts5(
                 title,
                 authors,
@@ -442,11 +455,13 @@ impl<'a> MigrationManager<'a> {
                 isbn,
                 tokenize='porter unicode61'
             );
-        "#)?;
+        "#,
+        )?;
 
         // Step 6: FTS triggers
 
-        self.conn.execute_batch(r#"
+        self.conn.execute_batch(
+            r#"
             CREATE TRIGGER IF NOT EXISTS books_ai AFTER INSERT ON books BEGIN
                 INSERT INTO books_fts(rowid, title, authors, publisher, description, tags, isbn)
                 SELECT new.id, new.title, 
@@ -479,17 +494,216 @@ impl<'a> MigrationManager<'a> {
                         WHERE bt.book_id = new.id),
                        new.isbn;
             END;
-        "#)?;
-
-
-        self.set_schema_version(3)?;
-        self.record_migration(
-            3,
-            "rss_sharing_conversion",
-            "v3_rss_sharing_conversion",
+        "#,
         )?;
 
+        self.set_schema_version(3)?;
+        self.record_migration(3, "rss_sharing_conversion", "v3_rss_sharing_conversion")?;
+
         log::info!("[Migration] v3 applied successfully");
+        Ok(())
+    }
+
+    /// Migration to v4: User Preferences & Onboarding System
+    fn migrate_to_v4(&self) -> Result<()> {
+        log::info!("[Migration] Applying v4: User Preferences & Onboarding");
+
+        // Step 1: Onboarding state (singleton table)
+        self.conn.execute_batch(
+            r#"
+            CREATE TABLE IF NOT EXISTS onboarding_state (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                completed BOOLEAN DEFAULT 0,
+                completed_at TEXT,
+                version INTEGER DEFAULT 1,
+                skipped_steps TEXT DEFAULT '[]'
+            );
+            
+            INSERT OR IGNORE INTO onboarding_state (id) VALUES (1);
+        "#,
+        )?;
+
+        // Step 2: User preferences (singleton table)
+        self.conn.execute_batch(r#"
+            CREATE TABLE IF NOT EXISTS user_preferences (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                
+                -- Theme
+                theme TEXT DEFAULT 'black' CHECK(theme IN ('black', 'white')),
+                
+                -- Book reading defaults
+                book_font_family TEXT DEFAULT 'Merriweather',
+                book_font_size INTEGER DEFAULT 18 CHECK(book_font_size BETWEEN 12 AND 32),
+                book_line_height REAL DEFAULT 1.6 CHECK(book_line_height BETWEEN 1.2 AND 2.0),
+                book_page_width INTEGER DEFAULT 720 CHECK(book_page_width BETWEEN 600 AND 900),
+                book_scroll_mode TEXT DEFAULT 'paged' CHECK(book_scroll_mode IN ('paged', 'continuous')),
+                book_justification TEXT DEFAULT 'justify' CHECK(book_justification IN ('left', 'justify')),
+                book_paragraph_spacing INTEGER DEFAULT 16,
+                book_animation_speed INTEGER DEFAULT 300 CHECK(book_animation_speed BETWEEN 100 AND 500),
+                book_hyphenation BOOLEAN DEFAULT 1,
+                book_custom_css TEXT DEFAULT '',
+                
+                -- Manga reading defaults
+                manga_mode TEXT DEFAULT 'single' CHECK(manga_mode IN ('long-strip', 'single', 'double')),
+                manga_direction TEXT DEFAULT 'ltr' CHECK(manga_direction IN ('ltr', 'rtl')),
+                manga_margin_size INTEGER DEFAULT 0 CHECK(manga_margin_size BETWEEN 0 AND 100),
+                manga_fit_width BOOLEAN DEFAULT 1,
+                manga_background_color TEXT DEFAULT '#000000',
+                manga_progress_bar TEXT DEFAULT 'bottom' CHECK(manga_progress_bar IN ('top', 'bottom', 'hidden')),
+                manga_image_smoothing BOOLEAN DEFAULT 1,
+                manga_preload_count INTEGER DEFAULT 3 CHECK(manga_preload_count BETWEEN 1 AND 5),
+                manga_gpu_acceleration BOOLEAN DEFAULT 1,
+                
+                -- General settings
+                auto_start BOOLEAN DEFAULT 0,
+                default_import_path TEXT DEFAULT '',
+                ui_density TEXT DEFAULT 'comfortable' CHECK(ui_density IN ('compact', 'comfortable')),
+                accent_color TEXT DEFAULT '#4A9EFF',
+                
+                -- Metadata
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                version INTEGER DEFAULT 1
+            );
+            
+            INSERT OR IGNORE INTO user_preferences (id) VALUES (1);
+            
+            -- Trigger: Update timestamp on change
+            CREATE TRIGGER IF NOT EXISTS user_preferences_update
+            AFTER UPDATE ON user_preferences
+            BEGIN
+                UPDATE user_preferences SET updated_at = CURRENT_TIMESTAMP WHERE id = 1;
+            END;
+        "#)?;
+
+        // Step 3: Book preference overrides (per-book)
+        self.conn.execute_batch(r#"
+            CREATE TABLE IF NOT EXISTS book_preference_overrides (
+                book_id INTEGER PRIMARY KEY,
+                
+                -- Only store overridden fields (sparse table)
+                font_family TEXT,
+                font_size INTEGER,
+                line_height REAL,
+                page_width INTEGER,
+                scroll_mode TEXT,
+                justification TEXT,
+                paragraph_spacing INTEGER,
+                animation_speed INTEGER,
+                hyphenation BOOLEAN,
+                custom_css TEXT,
+                
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                
+                FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+            );
+            
+            CREATE INDEX IF NOT EXISTS idx_book_overrides_book ON book_preference_overrides(book_id);
+            
+            -- Trigger: Update timestamp
+            CREATE TRIGGER IF NOT EXISTS book_preference_overrides_update
+            AFTER UPDATE ON book_preference_overrides
+            BEGIN
+                UPDATE book_preference_overrides 
+                SET updated_at = CURRENT_TIMESTAMP 
+                WHERE book_id = NEW.book_id;
+            END;
+        "#)?;
+
+        // Step 4: Manga preference overrides (per-book)
+        self.conn.execute_batch(r#"
+            CREATE TABLE IF NOT EXISTS manga_preference_overrides (
+                book_id INTEGER PRIMARY KEY,
+                
+                -- Only store overridden fields
+                mode TEXT,
+                direction TEXT,
+                margin_size INTEGER,
+                fit_width BOOLEAN,
+                background_color TEXT,
+                progress_bar TEXT,
+                image_smoothing BOOLEAN,
+                preload_count INTEGER,
+                gpu_acceleration BOOLEAN,
+                
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                
+                FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+            );
+            
+            CREATE INDEX IF NOT EXISTS idx_manga_overrides_book ON manga_preference_overrides(book_id);
+            
+            -- Trigger: Update timestamp
+            CREATE TRIGGER IF NOT EXISTS manga_preference_overrides_update
+            AFTER UPDATE ON manga_preference_overrides
+            BEGIN
+                UPDATE manga_preference_overrides 
+                SET updated_at = CURRENT_TIMESTAMP 
+                WHERE book_id = NEW.book_id;
+            END;
+        "#)?;
+
+        // Step 5: Library settings
+        self.conn.execute_batch(r#"
+            CREATE TABLE IF NOT EXISTS library_settings (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                
+                auto_scan_folders TEXT DEFAULT '[]',
+                duplicate_detection_mode TEXT DEFAULT 'hash' CHECK(duplicate_detection_mode IN ('hash', 'isbn', 'title', 'off')),
+                default_sort_field TEXT DEFAULT 'added_date',
+                default_sort_order TEXT DEFAULT 'desc' CHECK(default_sort_order IN ('asc', 'desc')),
+                
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+            
+            INSERT OR IGNORE INTO library_settings (id) VALUES (1);
+        "#)?;
+
+        // Step 6: RSS settings
+        self.conn.execute_batch(
+            r#"
+            CREATE TABLE IF NOT EXISTS rss_settings (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                
+                auto_download BOOLEAN DEFAULT 0,
+                download_schedule TEXT DEFAULT '0 * * * *',
+                article_cleanup_days INTEGER DEFAULT 30,
+                max_articles_per_feed INTEGER DEFAULT 100,
+                
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+            
+            INSERT OR IGNORE INTO rss_settings (id) VALUES (1);
+        "#,
+        )?;
+
+        // Step 7: Conversion settings
+        self.conn.execute_batch(
+            r#"
+            CREATE TABLE IF NOT EXISTS conversion_settings (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                
+                default_output_format TEXT DEFAULT 'epub',
+                worker_thread_count INTEGER DEFAULT 2 CHECK(worker_thread_count BETWEEN 1 AND 8),
+                profile_presets TEXT DEFAULT '{}',
+                
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+            
+            INSERT OR IGNORE INTO conversion_settings (id) VALUES (1);
+        "#,
+        )?;
+
+        self.set_schema_version(4)?;
+        self.record_migration(
+            4,
+            "user_preferences_onboarding",
+            "v4_preferences_onboarding",
+        )?;
+
+        log::info!("[Migration] v4 applied successfully");
         Ok(())
     }
 

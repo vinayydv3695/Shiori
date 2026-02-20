@@ -204,6 +204,18 @@ fn main() {
             commands::manga::preload_manga_pages,
             commands::manga::get_manga_page_dimensions,
             commands::manga::close_manga,
+            // Preferences commands
+            commands::preferences::get_user_preferences,
+            commands::preferences::get_theme_sync,
+            commands::preferences::update_user_preferences,
+            commands::preferences::get_book_preference_overrides,
+            commands::preferences::set_book_preference_override,
+            commands::preferences::clear_book_preference_override,
+            commands::preferences::get_manga_preference_overrides,
+            commands::preferences::set_manga_preference_override,
+            commands::preferences::clear_manga_preference_override,
+            commands::preferences::get_onboarding_state,
+            commands::preferences::complete_onboarding,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

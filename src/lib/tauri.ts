@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core"
 import { open, save } from "@tauri-apps/plugin-dialog"
+import type { UserPreferences, PreferenceOverride, OnboardingState } from "../types/preferences"
 
 // Check if we're running in Tauri environment
 export const isTauri = (() => {
@@ -601,5 +602,50 @@ export const api = {
 
   async closeManga(bookId: number): Promise<void> {
     return invoke("close_manga", { bookId })
+  },
+
+  // Preferences System (v2.0)
+  async getUserPreferences(): Promise<UserPreferences> {
+    return invoke("get_user_preferences")
+  },
+
+  async getThemeSync(): Promise<string> {
+    return invoke("get_theme_sync")
+  },
+
+  async updateUserPreferences(updates: Partial<UserPreferences>): Promise<void> {
+    return invoke("update_user_preferences", { updates })
+  },
+
+  async getBookPreferenceOverrides(): Promise<PreferenceOverride[]> {
+    return invoke("get_book_preference_overrides")
+  },
+
+  async setBookPreferenceOverride(bookId: number, overrides: Record<string, any>): Promise<void> {
+    return invoke("set_book_preference_override", { bookId, overrides })
+  },
+
+  async clearBookPreferenceOverride(bookId: number): Promise<void> {
+    return invoke("clear_book_preference_override", { bookId })
+  },
+
+  async getMangaPreferenceOverrides(): Promise<PreferenceOverride[]> {
+    return invoke("get_manga_preference_overrides")
+  },
+
+  async setMangaPreferenceOverride(bookId: number, overrides: Record<string, any>): Promise<void> {
+    return invoke("set_manga_preference_override", { bookId, overrides })
+  },
+
+  async clearMangaPreferenceOverride(bookId: number): Promise<void> {
+    return invoke("clear_manga_preference_override", { bookId })
+  },
+
+  async getOnboardingState(): Promise<OnboardingState> {
+    return invoke("get_onboarding_state")
+  },
+
+  async completeOnboarding(skippedSteps: string[]): Promise<void> {
+    return invoke("complete_onboarding", { skippedSteps })
   },
 }

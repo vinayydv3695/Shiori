@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react"
 import { Layout } from "./components/layout/Layout"
 import { LibraryGrid } from "./components/library/LibraryGrid"
-import { ModernListView } from "./components/library/ModernListView"
-import { ModernTableView } from "./components/library/ModernTableView"
 import { ReaderLayout } from "./components/reader/ReaderLayout"
 import { EditMetadataDialog } from "./components/library/EditMetadataDialog"
 import { DeleteBookDialog } from "./components/library/DeleteBookDialog"
-import { SettingsDialog } from "./components/library/SettingsDialog"
+import { SettingsDialog as OldSettingsDialog } from "./components/library/SettingsDialog"
+import { SettingsDialog } from "./components/settings/SettingsDialog"
 import { BookDetailsDialog } from "./components/library/BookDetailsDialog"
 import { ToastContainer } from "./components/ui/ToastContainer"
 import { DevBanner } from "./components/DevBanner"
@@ -15,6 +14,7 @@ import ConversionJobTracker from "./components/conversion/ConversionJobTracker"
 import RSSFeedManager from "./components/rss/RSSFeedManager"
 import RSSArticleList from "./components/rss/RSSArticleList"
 import ShareBookDialog from "./components/share/ShareBookDialog"
+import { Onboarding } from "./components/onboarding/Onboarding"
 import { useLibraryStore } from "./store/libraryStore"
 import { useReaderStore } from "./store/readerStore"
 import { useUIStore } from "./store/uiStore"
@@ -22,10 +22,30 @@ import { useCollectionStore } from "./store/collectionStore"
 import { api, type Book } from "./lib/tauri"
 
 function App() {
+  // Check if user has completed onboarding
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true);
+
+  useEffect(() => {
+    // Check onboarding state from backend
+    const checkOnboarding = async () => {
+      try {
+        const state = await api.getOnboardingState();
+        setShowOnboarding(!state.completed);
+      } catch (error) {
+        console.error("Failed to check onboarding state:", error);
+        // Default to showing onboarding if check fails
+        setShowOnboarding(true);
+      } finally {
+        setIsCheckingOnboarding(false);
+      }
+    };
+
+    checkOnboarding();
+  }, []);
   const {
     books,
     setBooks,
-    viewMode,
     selectedBookIds,
     toggleBookSelection,
     clearSelection,
@@ -272,6 +292,22 @@ function App() {
     )
   }
 
+  // Handle onboarding completion
+  const handleOnboardingComplete = () => {
+    console.log('[App] Onboarding completed')
+    setShowOnboarding(false)
+  }
+
+  // Show loading while checking onboarding state
+  if (isCheckingOnboarding) {
+    return null; // ThemeProvider already shows loading screen
+  }
+
+  // Show onboarding if not completed
+  if (showOnboarding) {
+    return <Onboarding onComplete={handleOnboardingComplete} />
+  }
+
   return (
     <>
       <DevBanner />
@@ -302,49 +338,16 @@ function App() {
 
         {/* Show Library view */}
         {currentView === 'library' && (
-          <>
-            {/* Library view based on viewMode */}
-            {viewMode === "grid" && (
-              <LibraryGrid
-                books={displayBooks}
-                currentDomain={currentDomain}
-                onBookClick={handleOpenBook}
-                onEditBook={handleEditBook}
-                onDeleteBook={handleDeleteBook}
-                onDownloadBook={handleDownloadBook}
-                onConvertBook={handleConvertBook}
-                onShareBook={handleShareBook}
-              />
-            )}
-
-            {viewMode === "list" && (
-              <ModernListView
-                books={displayBooks}
-                selectedBooks={selectedBookIds}
-                onSelectBook={toggleBookSelection}
-                onOpenBook={handleOpenBook}
-                onEditBook={handleEditBook}
-                onDeleteBook={handleDeleteBook}
-                onDownloadBook={handleDownloadBook}
-                onConvertBook={handleConvertBook}
-                onShareBook={handleShareBook}
-              />
-            )}
-
-            {viewMode === "table" && (
-              <ModernTableView
-                books={displayBooks}
-                selectedBooks={selectedBookIds}
-                onSelectBook={toggleBookSelection}
-                onOpenBook={handleOpenBook}
-                onEditBook={handleEditBook}
-                onDeleteBook={handleDeleteBook}
-                onDownloadBook={handleDownloadBook}
-                onConvertBook={handleConvertBook}
-                onShareBook={handleShareBook}
-              />
-            )}
-          </>
+          <LibraryGrid
+            books={displayBooks}
+            currentDomain={currentDomain}
+            onBookClick={handleOpenBook}
+            onEditBook={handleEditBook}
+            onDeleteBook={handleDeleteBook}
+            onDownloadBook={handleDownloadBook}
+            onConvertBook={handleConvertBook}
+            onShareBook={handleShareBook}
+          />
         )}
       </Layout>
 

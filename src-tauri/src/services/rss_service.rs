@@ -1,12 +1,10 @@
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::path::PathBuf;
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use feed_rs::parser;
 use reqwest::Client;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use ammonia::clean;
 
 use super::epub_builder::{EpubBuilder, EpubMetadata};

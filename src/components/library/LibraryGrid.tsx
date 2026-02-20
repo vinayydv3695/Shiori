@@ -1,10 +1,15 @@
+import { useMemo } from "react"
 import type { Book } from "../../lib/tauri"
 import { BookOpen } from "lucide-react"
 import { ModernBookCard } from "./ModernBookCard"
 import { useLibraryStore } from "../../store/libraryStore"
+import type { DomainView } from "../../store/uiStore"
 
 interface LibraryGridProps {
   books: Book[]
+  currentDomain?: DomainView
+  searchQuery?: string
+  selectedCollection?: any
   onBookClick?: (bookId: number) => void
   onEditBook?: (bookId: number) => void
   onDeleteBook?: (bookId: number) => void
@@ -13,21 +18,30 @@ interface LibraryGridProps {
   onShareBook?: (bookId: number) => void
 }
 
-export function LibraryGrid({ 
-  books, 
-  onBookClick, 
-  onEditBook, 
-  onDeleteBook, 
+export function LibraryGrid({
+  books,
+  currentDomain = 'books',
+  onBookClick,
+  onEditBook,
+  onDeleteBook,
   onDownloadBook,
   onConvertBook,
   onShareBook
 }: LibraryGridProps) {
-  const { 
-    setSelectedBook, 
-    selectedBookIds, 
+  const {
+    setSelectedBook,
+    selectedBookIds,
     toggleBookSelection,
-    bulkSelectMode 
+    bulkSelectMode
   } = useLibraryStore()
+
+  // Hard filter on render to cleanly separate DB views
+  const visibleLibrary = useMemo(() => {
+    return books.filter(book => {
+      const isManga = book.file_format === 'cbz' || book.file_format === 'cbr'
+      return currentDomain === 'manga' ? isManga : !isManga
+    })
+  }, [books, currentDomain])
 
   const handleOpenBook = (bookId: number) => {
     const book = books.find(b => b.id === bookId)
@@ -73,7 +87,7 @@ export function LibraryGrid({
     }
   }
 
-  if (books.length === 0) {
+  if (visibleLibrary.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
         <BookOpen className="w-16 h-16 text-muted-foreground/30 mb-4" />
@@ -87,7 +101,7 @@ export function LibraryGrid({
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-      {books.map((book) => (
+      {visibleLibrary.map((book) => (
         <ModernBookCard
           key={book.id}
           book={book}

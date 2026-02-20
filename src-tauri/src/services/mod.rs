@@ -14,6 +14,7 @@ pub mod tag_service;
 
 // New v2.0 services
 pub mod format_adapter;
+pub mod manga_service;
 pub mod format_detection;
 pub mod adapters;
 pub mod epub_builder;
@@ -22,3 +23,7 @@ pub mod cover_service;
 pub mod rss_service;
 pub mod rss_scheduler;
 pub mod share_service;
+
+// Metadata enrichment services (v2.1)
+pub mod manga_metadata_service;
+pub mod book_metadata_service;

@@ -165,7 +165,7 @@ impl BookFormatAdapter for DocxFormatAdapter {
                 for child in &para.children {
                     if let ParagraphChild::Run(run) = child {
                         for child in &run.children {
-                            if let RunChild::Drawing(drawing) = child {
+                            if let RunChild::Drawing(_drawing) = child {
                                 // Found a drawing/image
                                 // Extract image from relationships
                                 // This is complex - for now return None

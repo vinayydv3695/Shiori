@@ -3,6 +3,7 @@ import { useReaderStore } from '@/store/readerStore';
 import { api } from '@/lib/tauri';
 import { PremiumEpubReader } from './PremiumEpubReader';
 import { PdfReader } from './PdfReader';
+import { MangaReader } from '@/components/manga/MangaReader';
 import { ReaderErrorBoundary, parseReaderError } from './ReaderErrorBoundary';
 import { X } from '@/components/icons';
 
@@ -11,7 +12,7 @@ interface ReaderLayoutProps {
   onClose: () => void;
 }
 
-type LoadingStage = 
+type LoadingStage =
   | 'idle'
   | 'fetching-path'
   | 'detecting-format'
@@ -49,7 +50,7 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
         // Step 2: Detect and validate format
         setLoadingStage('detecting-format');
         console.log('[ReaderLayout] Step 2: Detecting format...');
-        
+
         let detectedFormat: string;
         try {
           detectedFormat = await api.detectBookFormat(filePath);
@@ -65,7 +66,7 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
         // Step 3: Validate file integrity (skip validation if detection failed)
         setLoadingStage('validating-file');
         console.log('[ReaderLayout] Step 3: Validating file integrity...');
-        
+
         try {
           const isValid = await api.validateBookFile(filePath, detectedFormat);
           if (!isValid) {
@@ -212,6 +213,13 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
       )}
       {currentBookPath && currentBookFormat === 'pdf' && (
         <PdfReader bookPath={currentBookPath} bookId={bookId} />
+      )}
+      {currentBookPath && (currentBookFormat === 'cbz' || currentBookFormat === 'cbr') && (
+        <MangaReader
+          bookId={bookId}
+          bookPath={currentBookPath}
+          onClose={handleClose}
+        />
       )}
       {!currentBookPath && (
         <div className="flex items-center justify-center h-full">

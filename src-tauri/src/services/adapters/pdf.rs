@@ -5,7 +5,7 @@
 /// Renders first page as cover image using pdf-extract.
 
 use async_trait::async_trait;
-use lopdf::{Document, Object, ObjectId};
+use lopdf::{Document, Object};
 use std::path::Path;
 use tokio::fs;
 use lopdf::content::Content;
@@ -247,7 +247,7 @@ impl BookFormatAdapter for PdfFormatAdapter {
         Ok(book_meta)
     }
     
-    async fn extract_cover(&self, path: &Path) -> FormatResult<Option<CoverImage>> {
+    async fn extract_cover(&self, _path: &Path) -> FormatResult<Option<CoverImage>> {
         // For now, return None - we'll implement first-page rendering later
         // This requires pdf-extract or pdf-render crate which adds complexity
         // The CoverService will handle generating a geometric pattern instead

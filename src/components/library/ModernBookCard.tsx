@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Star, MoreVertical, Download, Eye, Edit, Trash2, BookOpen, RefreshCw, Share2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { convertFileSrc } from '@tauri-apps/api/core'
 import type { Book } from '@/lib/tauri'
 import FormatBadge from './FormatBadge'
+import { useCoverImage } from '../common/hooks/useCoverImage'
 
 interface BookCardProps {
   book: Book
@@ -32,8 +32,8 @@ export const ModernBookCard = ({
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imageError, setImageError] = useState(false)
 
-  // Convert cover path to Tauri asset URL
-  const coverSrc = book.cover_path ? convertFileSrc(book.cover_path) : null
+  // Fetch cover via IPC instead of blocked asset protocol
+  const { coverUrl: coverSrc, loading: coverLoading } = useCoverImage(book.id, null)
 
   const handleClick = (e: React.MouseEvent) => {
     if (e.shiftKey || e.ctrlKey || e.metaKey) {
@@ -175,7 +175,7 @@ export const ModernBookCard = ({
                 imageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
               )}
             />
-            {!imageLoaded && (
+            {(!imageLoaded || coverLoading) && (
               <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-muted to-muted/50" />
             )}
           </>

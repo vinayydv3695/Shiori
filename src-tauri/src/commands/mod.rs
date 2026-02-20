@@ -10,5 +10,6 @@ pub mod tags;
 // New v2.0 commands
 pub mod conversion;
 pub mod cover;
+pub mod manga;
 pub mod rss;
 pub mod share;

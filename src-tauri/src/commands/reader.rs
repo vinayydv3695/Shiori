@@ -157,7 +157,6 @@ pub async fn validate_book_file(path: String, format: String) -> ShioriResult<bo
 
 // ==================== Error Information Commands ====================
 
-use crate::error::ShioriError;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]

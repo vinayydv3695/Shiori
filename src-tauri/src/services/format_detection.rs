@@ -152,7 +152,7 @@ async fn verify_magic_bytes(path: &Path, format: &str) -> FormatResult<bool> {
 
 /// Classify ZIP-based formats (EPUB, DOCX, CBZ)
 async fn classify_zip_format(path: &Path) -> FormatResult<FormatInfo> {
-    use tokio::fs::File as TokioFile;
+    
     use std::io::Cursor;
     
     let file_data = tokio::fs::read(path).await?;

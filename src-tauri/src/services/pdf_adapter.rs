@@ -3,7 +3,6 @@ use crate::services::renderer::{
     BookMetadata, BookRenderer, Chapter, PdfRenderer, SearchResult, TocEntry,
 };
 use lopdf::Document;
-use std::path::Path;
 
 pub struct PdfAdapter {
     doc: Option<Document>,
@@ -180,7 +179,7 @@ impl BookRenderer for PdfAdapter {
 }
 
 impl PdfRenderer for PdfAdapter {
-    fn render_page(&self, page_number: usize, scale: f32) -> ShioriResult<Vec<u8>> {
+    fn render_page(&self, _page_number: usize, _scale: f32) -> ShioriResult<Vec<u8>> {
         // Note: PDF rendering to image requires pdfium-render or similar
         // For now, this is a placeholder that would need pdfium-render integration
         //

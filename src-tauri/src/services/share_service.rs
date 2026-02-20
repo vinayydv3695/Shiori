@@ -1,11 +1,10 @@
 use std::net::SocketAddr;
 use std::path::PathBuf;
-use std::sync::Arc;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use axum::{
     Router,
     extract::{Path, Query, State},
-    http::{StatusCode, header},
+    http::StatusCode,
     response::{IntoResponse, Response},
     routing::get,
 };
@@ -20,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use tokio::task::JoinHandle;
 use tower_http::services::ServeFile;
 use tower_http::trace::TraceLayer;
-use log::{info, error, warn};
+use log::info;
 
 // Helper functions for DateTime conversion
 fn parse_datetime(s: Option<String>) -> Option<DateTime<Utc>> {

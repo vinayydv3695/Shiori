@@ -5,7 +5,6 @@
 /// and format conversion across all 11 supported book formats.
 
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
 use image::DynamicImage;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};

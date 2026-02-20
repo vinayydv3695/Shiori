@@ -179,6 +179,16 @@ export interface CacheStats {
   hit_rate: number
 }
 
+export interface MangaMetadata {
+  title: string
+  page_count: number
+  has_comic_info: boolean
+  series: string | null
+  volume: number | null
+  writer: string | null
+  page_dimensions: [number, number][]
+}
+
 // Mock data for development (when not in Tauri)
 const mockBooks: Book[] = [
   {
@@ -464,6 +474,27 @@ export const api = {
     return invoke("scan_folder_for_books", { folderPath })
   },
 
+  // Domain-separated import
+  async importManga(paths: string[]): Promise<ImportResult> {
+    console.log('[API] importManga called with:', paths)
+    try {
+      const result = await invoke<ImportResult>("import_manga", { paths })
+      console.log('[API] importManga result:', result)
+      return result
+    } catch (error) {
+      console.error('[API] importManga error:', error)
+      throw error
+    }
+  },
+
+  async scanFolderForManga(folderPath: string): Promise<ImportResult> {
+    return invoke("scan_folder_for_manga", { folderPath })
+  },
+
+  async getBooksByDomain(domain: 'books' | 'manga'): Promise<Book[]> {
+    return invoke("get_books_by_domain", { domain })
+  },
+
   async exportLibrary(options: ExportOptions): Promise<string> {
     return invoke("export_library", { options })
   },
@@ -549,5 +580,26 @@ export const api = {
 
   async getEpubResource(bookId: number, resourcePath: string): Promise<Uint8Array> {
     return invoke("get_epub_resource", { bookId, resourcePath })
+  },
+
+  // Manga Reader System
+  async openManga(bookId: number, path: string): Promise<MangaMetadata> {
+    return invoke("open_manga", { bookId, path })
+  },
+
+  async getMangaPage(bookId: number, pageIndex: number, maxDimension: number = 1600): Promise<number[]> {
+    return invoke("get_manga_page", { bookId, pageIndex, maxDimension })
+  },
+
+  async preloadMangaPages(bookId: number, pageIndices: number[], maxDimension: number = 1600): Promise<void> {
+    return invoke("preload_manga_pages", { bookId, pageIndices, maxDimension })
+  },
+
+  async getMangaPageDimensions(bookId: number, pageIndices: number[]): Promise<[number, number][]> {
+    return invoke("get_manga_page_dimensions", { bookId, pageIndices })
+  },
+
+  async closeManga(bookId: number): Promise<void> {
+    return invoke("close_manga", { bookId })
   },
 }

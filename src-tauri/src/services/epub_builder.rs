@@ -1,9 +1,3 @@
-/// EPUB Builder for creating EPUB files from scratch
-/// 
-/// Provides a simple API for building EPUB 3.0 compliant files.
-/// Used by conversion engine to convert TXT, HTML, DOCX, etc. to EPUB.
-
-use std::collections::HashMap;
 use std::io::{Cursor, Write};
 use std::path::Path;
 use tokio::fs;

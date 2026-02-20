@@ -86,34 +86,34 @@ impl ShioriError {
     /// Get a user-friendly error message suitable for display in the UI
     pub fn user_message(&self) -> String {
         match self {
-            Self::FileNotFound { path } => {
+            Self::FileNotFound { path: _ } => {
                 format!("The book file could not be found. It may have been moved or deleted.")
             }
-            Self::FilePermissionDenied { path } => {
+            Self::FilePermissionDenied { path: _ } => {
                 "You don't have permission to read this file. Check file permissions.".to_string()
             }
-            Self::CorruptedEpub { path, details } => {
+            Self::CorruptedEpub { path: _, details: _ } => {
                 "This EPUB file appears to be corrupted or incomplete.".to_string()
             }
-            Self::CorruptedPdf { path, details } => {
+            Self::CorruptedPdf { path: _, details: _ } => {
                 "This PDF file appears to be corrupted or incomplete.".to_string()
             }
-            Self::UnsupportedFormat { format, path } => {
+            Self::UnsupportedFormat { format, path: _ } => {
                 format!("The '{}' format is not currently supported.", format)
             }
-            Self::ChapterReadFailed { chapter_index, cause } => {
+            Self::ChapterReadFailed { chapter_index, cause: _ } => {
                 format!("Failed to load chapter {}. The file may be corrupted.", chapter_index + 1)
             }
-            Self::EpubParseFailed { path, cause } => {
+            Self::EpubParseFailed { path: _, cause: _ } => {
                 "Failed to parse the EPUB file structure. The file may be corrupted.".to_string()
             }
-            Self::PdfRenderFailed { page, cause } => {
+            Self::PdfRenderFailed { page, cause: _ } => {
                 format!("Failed to render page {}. The PDF may be corrupted.", page + 1)
             }
-            Self::EmptyOrTruncatedFile { path } => {
+            Self::EmptyOrTruncatedFile { path: _ } => {
                 "The book file appears to be empty or incomplete.".to_string()
             }
-            Self::FormatDetectionFailed { path } => {
+            Self::FormatDetectionFailed { path: _ } => {
                 "Could not determine the file format. The file may be corrupted or have an incorrect extension.".to_string()
             }
             Self::FileSizeLimitExceeded { size_mb, max_mb } => {
@@ -144,7 +144,7 @@ impl ShioriError {
                 "Check if the file opens in other reader applications".to_string(),
                 "The file may be DRM-protected or incompatible".to_string(),
             ],
-            Self::UnsupportedFormat { format, .. } => vec![
+            Self::UnsupportedFormat { format: _, .. } => vec![
                 format!("Convert the file to EPUB or PDF format"),
                 "Check for app updates that may add support for this format".to_string(),
             ],

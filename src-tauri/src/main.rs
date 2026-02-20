@@ -17,6 +17,8 @@ use services::{
     rss_service::RssService,
     rss_scheduler::RssScheduler,
     share_service::ShareService,
+    manga_metadata_service::MangaMetadataService,
+    book_metadata_service::BookMetadataService,
 };
 
 pub struct AppState {
@@ -46,6 +48,9 @@ fn main() {
 
             // Initialize rendering service with 100MB cache
             app.manage(commands::rendering::RenderingState::new(100));
+
+            // Initialize manga reader service
+            app.manage(commands::manga::MangaState::new());
 
             // Initialize v2.0 services
             let storage_path = app_dir.join("storage");
@@ -88,11 +93,19 @@ fn main() {
             ));
             app.manage(share_service);
 
+            // Metadata enrichment services (v2.1)
+            let manga_metadata_service = Arc::new(MangaMetadataService::new()?);
+            app.manage(manga_metadata_service);
+            
+            let book_metadata_service = Arc::new(BookMetadataService::new()?);
+            app.manage(book_metadata_service);
+
             log::info!("Shiori v2.0 initialized with database at {:?}", db_path);
             log::info!("Storage path: {:?}", storage_path);
             log::info!("Conversion engine: 4 workers");
             log::info!("RSS scheduler: enabled (daily EPUB at 6 AM)");
             log::info!("Share server: ready (port 8080)");
+            log::info!("Metadata APIs: AniList (manga) + Open Library (books)");
             
             Ok(())
         })
@@ -105,8 +118,17 @@ fn main() {
             commands::library::delete_books,
             commands::library::import_books,
             commands::library::scan_folder_for_books,
+            commands::library::import_manga,
+            commands::library::scan_folder_for_manga,
+            commands::library::get_books_by_domain,
             commands::search::search_books,
             commands::metadata::extract_metadata,
+            commands::metadata::search_manga_metadata,
+            commands::metadata::get_manga_metadata_by_id,
+            commands::metadata::parse_manga_filename,
+            commands::metadata::search_book_metadata,
+            commands::metadata::search_book_by_isbn,
+            commands::metadata::enrich_book_metadata,
             commands::tags::get_tags,
             commands::tags::create_tag,
             commands::tags::add_tag_to_book,
@@ -151,6 +173,8 @@ fn main() {
             commands::conversion::get_supported_conversions,
             commands::cover::generate_cover,
             commands::cover::get_book_cover,
+            commands::cover::get_book_cover_bytes,
+            commands::cover::get_cover_by_id,
             commands::cover::clear_cover_cache,
             commands::rss::add_rss_feed,
             commands::rss::get_rss_feed,
@@ -174,6 +198,12 @@ fn main() {
             commands::share::stop_share_server,
             commands::share::is_share_server_running,
             commands::share::cleanup_expired_shares,
+            // Manga reader commands
+            commands::manga::open_manga,
+            commands::manga::get_manga_page,
+            commands::manga::preload_manga_pages,
+            commands::manga::get_manga_page_dimensions,
+            commands::manga::close_manga,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,8 +1,16 @@
+/**
+ * conversionStore.ts
+ *
+ * Uses Tauri event listeners instead of polling.
+ * Call `initEventListeners()` once at app startup (App.tsx).
+ */
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
 export interface ConversionJob {
   id: string;
+  book_id: number | null;
   source_path: string;
   target_path: string;
   source_format: string;
@@ -25,14 +33,18 @@ interface ConversionState {
   supportedFormats: SupportedConversion[];
   isLoading: boolean;
   error: string | null;
-  
+
   // Actions
+  initEventListeners: () => Promise<UnlistenFn>;
   loadJobs: () => Promise<void>;
   loadSupportedFormats: () => Promise<void>;
-  submitConversion: (inputPath: string, outputFormat: string, outputDir?: string) => Promise<string>;
-  getJobStatus: (jobId: string) => Promise<ConversionJob | null>;
+  submitConversion: (
+    inputPath: string,
+    outputFormat: string,
+    outputDir?: string,
+    bookId?: number
+  ) => Promise<string>;
   cancelJob: (jobId: string) => Promise<void>;
-  refreshJob: (jobId: string) => Promise<void>;
   clearCompletedJobs: () => void;
 }
 
@@ -41,6 +53,55 @@ export const useConversionStore = create<ConversionState>((set, get) => ({
   supportedFormats: [],
   isLoading: false,
   error: null,
+
+  /**
+   * Subscribe to Tauri conversion events.
+   * Returns an unlisten function — call it on app unmount.
+   */
+  initEventListeners: async () => {
+    const unlistenProgress = await listen<ConversionJob>('conversion:progress', ({ payload }) => {
+      set(state => {
+        const exists = state.jobs.some(j => j.id === payload.id);
+        return {
+          jobs: exists
+            ? state.jobs.map(j => (j.id === payload.id ? payload : j))
+            : [...state.jobs, payload],
+        };
+      });
+    });
+
+    const unlistenComplete = await listen<{ job_id: string; output_path: string }>(
+      'conversion:complete',
+      ({ payload }) => {
+        set(state => ({
+          jobs: state.jobs.map(j =>
+            j.id === payload.job_id
+              ? { ...j, status: 'Completed' as const, progress: 100, target_path: payload.output_path }
+              : j
+          ),
+        }));
+      }
+    );
+
+    const unlistenError = await listen<{ job_id: string; error: string }>(
+      'conversion:error',
+      ({ payload }) => {
+        set(state => ({
+          jobs: state.jobs.map(j =>
+            j.id === payload.job_id
+              ? { ...j, status: 'Failed' as const, error: payload.error }
+              : j
+          ),
+        }));
+      }
+    );
+
+    return () => {
+      unlistenProgress();
+      unlistenComplete();
+      unlistenError();
+    };
+  },
 
   loadJobs: async () => {
     try {
@@ -55,28 +116,24 @@ export const useConversionStore = create<ConversionState>((set, get) => ({
 
   loadSupportedFormats: async () => {
     try {
-      const formats = await invoke<[string, string[]][]>('get_supported_conversions');
-      const supportedFormats = formats.map(([from, to]) => ({ from, to }));
-      set({ supportedFormats });
+      const raw = await invoke<{ from: string; to: string[] }[]>('get_supported_conversions');
+      set({ supportedFormats: raw });
     } catch (error) {
       console.error('Failed to load supported formats:', error);
       set({ error: String(error) });
     }
   },
 
-  submitConversion: async (inputPath: string, outputFormat: string, outputDir?: string) => {
+  submitConversion: async (inputPath, outputFormat, outputDir, bookId) => {
     try {
       set({ isLoading: true, error: null });
       const jobId = await invoke<string>('convert_book', {
         inputPath,
         outputFormat,
         outputDir,
+        bookId,
       });
-      
-      // Refresh jobs list
-      await get().loadJobs();
       set({ isLoading: false });
-      
       return jobId;
     } catch (error) {
       console.error('Failed to submit conversion:', error);
@@ -85,31 +142,13 @@ export const useConversionStore = create<ConversionState>((set, get) => ({
     }
   },
 
-  getJobStatus: async (jobId: string) => {
-    try {
-      const job = await invoke<ConversionJob>('get_conversion_status', { jobId });
-      
-      // Update job in list
-      set(state => ({
-        jobs: state.jobs.map(j => j.id === jobId ? job : j)
-      }));
-      
-      return job;
-    } catch (error) {
-      console.error('Failed to get job status:', error);
-      return null;
-    }
-  },
-
   cancelJob: async (jobId: string) => {
     try {
       await invoke('cancel_conversion', { jobId });
-      
-      // Update job status locally
       set(state => ({
-        jobs: state.jobs.map(j => 
+        jobs: state.jobs.map(j =>
           j.id === jobId ? { ...j, status: 'Cancelled' as const } : j
-        )
+        ),
       }));
     } catch (error) {
       console.error('Failed to cancel job:', error);
@@ -118,15 +157,11 @@ export const useConversionStore = create<ConversionState>((set, get) => ({
     }
   },
 
-  refreshJob: async (jobId: string) => {
-    await get().getJobStatus(jobId);
-  },
-
   clearCompletedJobs: () => {
     set(state => ({
-      jobs: state.jobs.filter(j => 
-        j.status !== 'Completed' && j.status !== 'Failed' && j.status !== 'Cancelled'
-      )
+      jobs: state.jobs.filter(
+        j => j.status !== 'Completed' && j.status !== 'Failed' && j.status !== 'Cancelled'
+      ),
     }));
   },
 }));

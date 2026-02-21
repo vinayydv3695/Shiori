@@ -239,7 +239,7 @@ impl MangaService {
         };
 
         // Extract image bytes from ZIP (can be CPU intensive for large zips, use spawn_blocking)
-        let mut image_bytes = tokio::task::spawn_blocking(move || -> ShioriResult<Vec<u8>> {
+        let image_bytes = tokio::task::spawn_blocking(move || -> ShioriResult<Vec<u8>> {
             let cursor = Cursor::new(&file_data);
             let mut archive = ZipArchive::new(cursor).map_err(|e| {
                 ShioriError::Other(format!("Failed to reopen archive: {}", e))

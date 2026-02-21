@@ -4,7 +4,7 @@ use crate::models::{SearchQuery, SearchResult};
 use crate::services::library_service;
 
 pub fn search(db: &Database, query: SearchQuery) -> Result<SearchResult> {
-    let conn = db.get_connection();
+    let conn = db.get_connection()?;
 
     // Build SQL query
     let mut sql = String::from("SELECT DISTINCT b.id FROM books b");

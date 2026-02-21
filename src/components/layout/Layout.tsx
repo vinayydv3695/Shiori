@@ -195,6 +195,66 @@ export function Layout({
     }
   }
 
+  const handleScanBooksFolder = async () => {
+    try {
+      const folderPath = await api.openFolderDialog()
+      if (!folderPath) return
+
+      // Let the user know the scan has started
+      toast.info('Scanning folder...', `Looking for eBooks in ${folderPath}`)
+
+      const importResult = await api.scanFolderForBooks(folderPath)
+      const imported = importResult.success.length
+      const dupes = importResult.duplicates.length
+      const failed = importResult.failed.length
+
+      if (imported > 0) {
+        toast.success(
+          `Imported ${imported} book${imported > 1 ? 's' : ''}`,
+          dupes > 0 || failed > 0 ? `${dupes} duplicates, ${failed} failed` : undefined,
+        )
+        const updated = await api.getBooks()
+        setBooks(updated)
+      } else if (failed > 0) {
+        toast.error('Import failed', importResult.failed[0]?.[1] || 'Unknown error')
+      } else {
+        toast.warning('No books imported', 'All files were duplicates or failed.')
+      }
+    } catch (err) {
+      toast.error('Scan failed', String(err))
+    }
+  }
+
+  const handleScanMangaFolder = async () => {
+    try {
+      const folderPath = await api.openFolderDialog()
+      if (!folderPath) return
+
+      // Let the user know the scan has started
+      toast.info('Scanning folder...', `Looking for Manga in ${folderPath}`)
+
+      const importResult = await api.scanFolderForManga(folderPath)
+      const imported = importResult.success.length
+      const dupes = importResult.duplicates.length
+      const failed = importResult.failed.length
+
+      if (imported > 0) {
+        toast.success(
+          `Imported ${imported} manga${imported > 1 ? '' : ''}`,
+          dupes > 0 || failed > 0 ? `${dupes} duplicates, ${failed} failed` : undefined,
+        )
+        const updated = await api.getBooks()
+        setBooks(updated)
+      } else if (failed > 0) {
+        toast.error('Import failed', importResult.failed[0]?.[1] || 'Unknown error')
+      } else {
+        toast.warning('No manga imported', 'All files were duplicates or failed.')
+      }
+    } catch (err) {
+      toast.error('Scan failed', String(err))
+    }
+  }
+
   // ── Action handlers ────────────────────────────
   const handleDelete = () => {
     if (selectedBookIds.size === 0) {
@@ -234,6 +294,8 @@ export function Layout({
         onDomainChange={onDomainChange}
         onImportBooks={handleImportBooks}
         onImportManga={handleImportManga}
+        onScanBooksFolder={handleScanBooksFolder}
+        onScanMangaFolder={handleScanMangaFolder}
         onOpenRSS={onOpenRSSFeeds}
         onConvert={handleConvert}
         onEditMetadata={handleEditMetadata}

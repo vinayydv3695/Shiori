@@ -61,7 +61,9 @@ fn main() {
             // Restore any jobs that were in-progress when the app last closed
             if let Some(state) = app.try_state::<AppState>() {
                 if let Ok(db) = state.db.lock() {
-                    conversion_engine.restore_from_db(db.get_connection());
+                    if let Ok(conn) = db.get_connection() {
+                        let _ = conversion_engine.restore_from_db(&conn);
+                    }
                 }
             }
 
@@ -119,6 +121,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::library::get_books,
+            commands::library::get_total_books,
             commands::library::get_book,
             commands::library::add_book,
             commands::library::update_book,
@@ -129,6 +132,7 @@ fn main() {
             commands::library::import_manga,
             commands::library::scan_folder_for_manga,
             commands::library::get_books_by_domain,
+            commands::library::get_total_books_by_domain,
             commands::search::search_books,
             commands::metadata::extract_metadata,
             commands::metadata::search_manga_metadata,

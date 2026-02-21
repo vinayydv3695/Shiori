@@ -71,7 +71,7 @@ pub struct OnboardingState {
 #[tauri::command]
 pub async fn get_user_preferences(state: State<'_, AppState>) -> Result<UserPreferences> {
     let db = state.db.lock().unwrap();
-    let prefs = db.get_connection().query_row(
+    let prefs = db.get_connection()?.query_row(
         "SELECT 
             theme,
             book_font_family, book_font_size, book_line_height, book_page_width,
@@ -124,7 +124,7 @@ pub async fn get_user_preferences(state: State<'_, AppState>) -> Result<UserPref
 #[tauri::command]
 pub async fn get_theme_sync(state: State<'_, AppState>) -> Result<String> {
     let db = state.db.lock().unwrap();
-    let theme: String = db.get_connection().query_row(
+    let theme: String = db.get_connection()?.query_row(
         "SELECT theme FROM user_preferences WHERE id = 1",
         [],
         |row| row.get(0)
@@ -264,7 +264,7 @@ pub async fn update_user_preferences(
     // Convert Box<dyn ToSql> to &dyn ToSql
     let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
     
-    db.get_connection().execute(&sql, param_refs.as_slice())?;
+    db.get_connection()?.execute(&sql, param_refs.as_slice())?;
     
     Ok(())
 }
@@ -275,7 +275,8 @@ pub async fn get_book_preference_overrides(
     state: State<'_, AppState>,
 ) -> Result<Vec<PreferenceOverride>> {
     let db = state.db.lock().unwrap();
-    let mut stmt = db.get_connection().prepare(
+    let conn = db.get_connection()?;
+    let mut stmt = conn.prepare(
         "SELECT book_id, 
             font_family, font_size, line_height, page_width,
             scroll_mode, justification, paragraph_spacing, animation_speed,
@@ -340,7 +341,7 @@ pub async fn set_book_preference_override(
 ) -> Result<()> {
     let db = state.db.lock().unwrap();
     // Upsert book override entry
-    db.get_connection().execute(
+    db.get_connection()?.execute(
         "INSERT INTO book_preference_overrides (book_id) VALUES (?)
          ON CONFLICT(book_id) DO NOTHING",
         [book_id],
@@ -403,7 +404,7 @@ pub async fn set_book_preference_override(
     params.push(Box::new(book_id));
     let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
     
-    db.get_connection().execute(&sql, param_refs.as_slice())?;
+    db.get_connection()?.execute(&sql, param_refs.as_slice())?;
     
     Ok(())
 }
@@ -415,7 +416,7 @@ pub async fn clear_book_preference_override(
     book_id: i32,
 ) -> Result<()> {
     let db = state.db.lock().unwrap();
-    db.get_connection().execute(
+    db.get_connection()?.execute(
         "DELETE FROM book_preference_overrides WHERE book_id = ?",
         [book_id],
     )?;
@@ -429,7 +430,8 @@ pub async fn get_manga_preference_overrides(
     state: State<'_, AppState>,
 ) -> Result<Vec<PreferenceOverride>> {
     let db = state.db.lock().unwrap();
-    let mut stmt = db.get_connection().prepare(
+    let conn = db.get_connection()?;
+    let mut stmt = conn.prepare(
         "SELECT book_id, 
             mode, direction, margin_size, fit_width,
             background_color, progress_bar, image_smoothing, preload_count,
@@ -489,7 +491,7 @@ pub async fn set_manga_preference_override(
 ) -> Result<()> {
     let db = state.db.lock().unwrap();
     // Upsert manga override entry
-    db.get_connection().execute(
+    db.get_connection()?.execute(
         "INSERT INTO manga_preference_overrides (book_id) VALUES (?)
          ON CONFLICT(book_id) DO NOTHING",
         [book_id],
@@ -547,7 +549,7 @@ pub async fn set_manga_preference_override(
     params.push(Box::new(book_id));
     let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
     
-    db.get_connection().execute(&sql, param_refs.as_slice())?;
+    db.get_connection()?.execute(&sql, param_refs.as_slice())?;
     
     Ok(())
 }
@@ -559,7 +561,7 @@ pub async fn clear_manga_preference_override(
     book_id: i32,
 ) -> Result<()> {
     let db = state.db.lock().unwrap();
-    db.get_connection().execute(
+    db.get_connection()?.execute(
         "DELETE FROM manga_preference_overrides WHERE book_id = ?",
         [book_id],
     )?;
@@ -571,7 +573,7 @@ pub async fn clear_manga_preference_override(
 #[tauri::command]
 pub async fn get_onboarding_state(state: State<'_, AppState>) -> Result<OnboardingState> {
     let db = state.db.lock().unwrap();
-    let onboarding_state = db.get_connection().query_row(
+    let onboarding_state = db.get_connection()?.query_row(
         "SELECT completed, completed_at, version, skipped_steps FROM onboarding_state WHERE id = 1",
         [],
         |row| {
@@ -601,7 +603,7 @@ pub async fn complete_onboarding(
     let skipped_json = serde_json::to_string(&skipped_steps)
         .unwrap_or_else(|_| "[]".to_string());
     
-    db.get_connection().execute(
+    db.get_connection()?.execute(
         "UPDATE onboarding_state 
          SET completed = 1, completed_at = CURRENT_TIMESTAMP, skipped_steps = ?
          WHERE id = 1",

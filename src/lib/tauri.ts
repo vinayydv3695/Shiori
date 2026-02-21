@@ -226,20 +226,27 @@ const mockBooks: Book[] = [
 
 export const api = {
   // Library operations
-  async getBooks(): Promise<Book[]> {
+  async getBooks(limit: number = 50, offset: number = 0): Promise<Book[]> {
     if (!isTauri) {
       console.warn("Running in browser mode - using mock data")
       return Promise.resolve(mockBooks)
     }
     try {
       console.log('[API] Calling get_books command')
-      const books = await invoke<Book[]>("get_books")
+      const books = await invoke<Book[]>("get_books", { limit, offset })
       console.log('[API] Got books:', books.length)
       return books
     } catch (error) {
       console.error('[API] Failed to get books:', error)
       throw error
     }
+  },
+
+  async getTotalBooks(): Promise<number> {
+    if (!isTauri) {
+      return Promise.resolve(mockBooks.length)
+    }
+    return invoke("get_total_books")
   },
 
   async getBook(id: number): Promise<Book> {
@@ -406,43 +413,46 @@ export const api = {
     return invoke("get_collection", { id })
   },
 
-  async createCollection(
-    name: string,
-    description?: string,
-    parentId?: number,
-    isSmart?: boolean,
-    smartRules?: string,
-    icon?: string,
-    color?: string
-  ): Promise<Collection> {
+  async createCollection(data: {
+    name: string;
+    description?: string | null;
+    parent_id?: number | null;
+    is_smart?: boolean;
+    smart_rules?: string | null;
+    icon?: string | null;
+    color?: string | null;
+  }): Promise<Collection> {
     return invoke("create_collection", {
-      name,
-      description,
-      parentId,
-      isSmart: isSmart || false,
-      smartRules,
-      icon,
-      color,
+      name: data.name,
+      description: data.description,
+      parentId: data.parent_id,
+      isSmart: data.is_smart || false,
+      smartRules: data.smart_rules,
+      icon: data.icon,
+      color: data.color,
     })
   },
 
   async updateCollection(
     id: number,
-    name: string,
-    description?: string,
-    parentId?: number,
-    smartRules?: string,
-    icon?: string,
-    color?: string
-  ): Promise<void> {
+    data: {
+      name: string;
+      description?: string | null;
+      parent_id?: number | null;
+      is_smart?: boolean;
+      smart_rules?: string | null;
+      icon?: string | null;
+      color?: string | null;
+    }
+  ): Promise<Collection> {
     return invoke("update_collection", {
       id,
-      name,
-      description,
-      parentId,
-      smartRules,
-      icon,
-      color,
+      name: data.name,
+      description: data.description,
+      parentId: data.parent_id,
+      smartRules: data.smart_rules,
+      icon: data.icon,
+      color: data.color,
     })
   },
 
@@ -492,8 +502,15 @@ export const api = {
     return invoke("scan_folder_for_manga", { folderPath })
   },
 
-  async getBooksByDomain(domain: 'books' | 'manga'): Promise<Book[]> {
-    return invoke("get_books_by_domain", { domain })
+  async getBooksByDomain(domain: 'books' | 'manga', limit: number = 50, offset: number = 0): Promise<Book[]> {
+    return invoke("get_books_by_domain", { domain, limit, offset })
+  },
+
+  async getTotalBooksByDomain(domain: 'books' | 'manga'): Promise<number> {
+    if (!isTauri) {
+      return Promise.resolve(mockBooks.length) // Mock return
+    }
+    return invoke("get_total_books_by_domain", { domain })
   },
 
   async exportLibrary(options: ExportOptions): Promise<string> {

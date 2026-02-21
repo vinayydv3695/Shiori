@@ -94,6 +94,9 @@ class MangaImageCache {
 // Singleton cache instance
 const imageCache = new MangaImageCache();
 
+// Keep track of pending requests to deduplicate concurrent loads for the same page
+const pendingRequests = new Map<string, Promise<string>>();
+
 /**
  * Get or load a page image with caching
  */
@@ -108,23 +111,33 @@ export async function getMangaPageUrl(
     const cached = imageCache.get(cacheKey);
     if (cached) return cached;
 
-    // Load from backend via IPC — returns raw binary directly
-    try {
-        const { invoke } = await import('@tauri-apps/api/core');
-        // invoke will return a Uint8Array when backend returns tauri::ipc::Response natively
-        const responseData = await invoke<Uint8Array>('get_manga_page', {
-            bookId,
-            pageIndex,
-            maxDimension,
-        });
+    // Check if there's already a pending request for this page
+    const pending = pendingRequests.get(cacheKey);
+    if (pending) return pending;
 
-        // Convert to blob and save in URL
-        const blob = new Blob([new Uint8Array(responseData)], { type: 'image/jpeg' });
-        return imageCache.set(cacheKey, blob);
-    } catch (error) {
-        console.error(`[MangaPreloader] Failed to load page ${pageIndex}:`, error);
-        throw error;
-    }
+    const request = (async () => {
+        try {
+            const { invoke } = await import('@tauri-apps/api/core');
+            // invoke will return a Uint8Array when backend returns tauri::ipc::Response natively
+            const responseData = await invoke<Uint8Array>('get_manga_page', {
+                bookId,
+                pageIndex,
+                maxDimension,
+            });
+
+            // Convert to blob and save in URL
+            const blob = new Blob([new Uint8Array(responseData)], { type: 'image/jpeg' });
+            return imageCache.set(cacheKey, blob);
+        } catch (error) {
+            console.error(`[MangaPreloader] Failed to load page ${pageIndex}:`, error);
+            throw error;
+        } finally {
+            pendingRequests.delete(cacheKey);
+        }
+    })();
+
+    pendingRequests.set(cacheKey, request);
+    return request;
 }
 
 /**

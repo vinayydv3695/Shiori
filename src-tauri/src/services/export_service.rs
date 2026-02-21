@@ -44,7 +44,7 @@ pub struct ExportedBook {
 }
 
 pub fn export_library(db: &Database, options: ExportOptions) -> Result<String> {
-    let conn = db.get_connection();
+    let conn = db.get_connection()?;
 
     // Build query based on options
     let query = String::from(

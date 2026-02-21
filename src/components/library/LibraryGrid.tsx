@@ -6,11 +6,12 @@
  * Staggered card animation based on render index.
  */
 
-import { useMemo } from 'react'
+import { useMemo, useRef, useEffect, useState } from 'react'
 import type { Book } from '@/lib/tauri'
 import { PremiumBookCard } from './ModernBookCard'
 import { useLibraryStore } from '@/store/libraryStore'
 import type { DomainView } from '@/store/uiStore'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   IconBookOpen,
   IconManga,
@@ -104,7 +105,7 @@ export function LibraryGrid({
   onImportBooks,
   onImportManga,
 }: LibraryGridProps) {
-  const { setSelectedBook, selectedBookIds, toggleBookSelection } = useLibraryStore()
+  const { setSelectedBook, selectedBookIds, toggleBookSelection, hasMore, isLoading, loadMoreBooks } = useLibraryStore()
 
   // Hard domain filter — strict separation between books and manga
   const visibleLibrary = useMemo(() => {
@@ -123,36 +124,111 @@ export function LibraryGrid({
 
   const isEmpty = visibleLibrary.length === 0
 
+  const parentRef = useRef<HTMLDivElement>(null)
+  const [columns, setColumns] = useState(6)
+
+  // Determine columns based on container width
+  useEffect(() => {
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width
+      if (width) {
+        // Assume card width is roughly ~160px plus gaps
+        setColumns(Math.max(2, Math.floor(width / 180)))
+      }
+    })
+
+    if (parentRef.current) {
+      observer.observe(parentRef.current)
+    }
+
+    return () => observer.disconnect()
+  }, [])
+
+  const rowsCount = Math.ceil(visibleLibrary.length / columns)
+
+  const rowVirtualizer = useVirtualizer({
+    count: rowsCount,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 300, // Estimated height of PremiumBookCard + margin
+    overscan: 2,
+  })
+
+  const virtualItems = rowVirtualizer.getVirtualItems()
+  const lastItem = virtualItems[virtualItems.length - 1]
+
+  useEffect(() => {
+    if (!lastItem) return
+
+    // Fetch more if we're within 2 rows of the end
+    if (lastItem.index >= rowsCount - 2 && hasMore && !isLoading) {
+      loadMoreBooks()
+    }
+  }, [lastItem?.index, hasMore, isLoading, loadMoreBooks, rowsCount])
+
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full w-full relative overflow-y-auto" ref={parentRef}>
       {isEmpty ? (
         <EmptyState
           domain={currentDomain}
-          hasFilters={books.length > 0} // books exist globally but filtered away
+          hasFilters={books.length > 0}
           onImport={currentDomain === 'manga' ? onImportManga : onImportBooks}
         />
       ) : (
         <div
-          className="library-grid"
-          role="list"
+          style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}
+          role="grid"
           aria-label={`${currentDomain === 'manga' ? 'Manga' : 'Books'} library`}
         >
-          {visibleLibrary.map((book, index) => (
-            <div key={book.id} role="listitem">
-              <PremiumBookCard
-                book={book}
-                isSelected={selectedBookIds.has(book.id!)}
-                onSelect={toggleBookSelection}
-                onOpen={handleOpen}
-                onEdit={(id) => onEditBook?.(id)}
-                onDelete={(id) => onDeleteBook?.(id)}
-                onDownload={(id) => onDownloadBook?.(id)}
-                onConvert={onConvertBook ? (id) => onConvertBook(id) : undefined}
-                onShare={onShareBook ? (id) => onShareBook(id) : undefined}
-                animationDelay={Math.min(index * 20, 300)}
-              />
-            </div>
-          ))}
+          {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+            const startIndex = virtualRow.index * columns
+            const rowItems = visibleLibrary.slice(startIndex, startIndex + columns)
+
+            return (
+              <div
+                key={virtualRow.index}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: `${virtualRow.size}px`,
+                  transform: `translateY(${virtualRow.start}px)`,
+                  display: 'flex',
+                  gap: '16px',
+                  padding: '16px',
+                }}
+                role="row"
+              >
+                {rowItems.map((book, idx) => {
+                  const absoluteIndex = startIndex + idx;
+                  return (
+                    <div
+                      key={book.id}
+                      role="gridcell"
+                      style={{ flex: '1 1 0', minWidth: 0 }}
+                    >
+                      <PremiumBookCard
+                        book={book}
+                        isSelected={selectedBookIds.has(book.id!)}
+                        onSelect={toggleBookSelection}
+                        onOpen={handleOpen}
+                        onEdit={(id) => onEditBook?.(id)}
+                        onDelete={(id) => onDeleteBook?.(id)}
+                        onDownload={(id) => onDownloadBook?.(id)}
+                        onConvert={onConvertBook ? (id) => onConvertBook(id) : undefined}
+                        onShare={onShareBook ? (id) => onShareBook(id) : undefined}
+                        animationDelay={Math.min(absoluteIndex * 10, 150)}
+                      />
+                    </div>
+                  )
+                })}
+                {/* Pad out empty spaces in the last row so items align correctly */}
+                {Array.from({ length: columns - rowItems.length }).map((_, i) => (
+                  <div key={`empty-${i}`} style={{ flex: '1 1 0' }} />
+                ))}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

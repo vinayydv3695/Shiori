@@ -1,140 +1,196 @@
-import { useState } from 'react'
-import { 
-  ChevronDown, 
-  ChevronRight, 
-  Search, 
-  X,
-  Users,
-  Globe,
-  BookMarked,
-  FileType,
-  Building,
-  Star,
-  Tag,
-  Hash,
-} from 'lucide-react'
-import { cn } from '@/lib/utils'
+/**
+ * FilterPanel — Shiori v3.0
+ * Domain-aware, collapsible filter sidebar.
+ * Replaces ModernSidebar with a cleaner accordion pattern.
+ */
 
-interface FilterItem {
+import { useState } from 'react'
+import { cn } from '@/lib/utils'
+import {
+  IconChevronDown,
+  IconX,
+  IconSearch,
+  IconFilter,
+  IconStar,
+} from '@/components/icons/ShioriIcons'
+import { Users, Globe, Tag, FileType, Hash, BookMarked, BookOpen } from 'lucide-react'
+
+export interface FilterItem {
   id: string
   label: string
   count: number
 }
 
-interface FilterSectionProps {
+// ─── Reading Status ─────────────────────────────
+type ReadingStatus = 'all' | 'unread' | 'reading' | 'completed'
+
+// ─── Section Component ──────────────────────────
+interface SectionProps {
   title: string
   icon: React.ReactNode
   items: FilterItem[]
-  selectedItems: string[]
+  selected: string[]
   onToggle: (id: string) => void
-  defaultExpanded?: boolean
   searchable?: boolean
+  defaultOpen?: boolean
+  maxVisible?: number
 }
 
 const FilterSection = ({
   title,
   icon,
   items,
-  selectedItems,
+  selected,
   onToggle,
-  defaultExpanded = true,
   searchable = false,
-}: FilterSectionProps) => {
-  const [isExpanded, setIsExpanded] = useState(defaultExpanded)
-  const [searchQuery, setSearchQuery] = useState('')
+  defaultOpen = true,
+  maxVisible = 8,
+}: SectionProps) => {
+  const [open, setOpen] = useState(defaultOpen)
+  const [search, setSearch] = useState('')
+  const [showAll, setShowAll] = useState(false)
 
-  const filteredItems = items.filter(item =>
-    item.label.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filtered = search
+    ? items.filter((i) => i.label.toLowerCase().includes(search.toLowerCase()))
+    : items
+
+  const visible = showAll ? filtered : filtered.slice(0, maxVisible)
+  const hasMore = filtered.length > maxVisible && !showAll
+  const activeCount = selected.length
 
   return (
     <div className="border-b border-border last:border-b-0">
-      {/* Section Header */}
+      {/* Header */}
       <button
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={() => setOpen((o) => !o)}
         className={cn(
-          'w-full flex items-center justify-between px-3 py-2.5',
-          'hover:bg-accent/50 transition-colors',
-          'group'
+          'w-full flex items-center justify-between',
+          'px-3 py-2 text-left',
+          'hover:bg-accent/60 transition-colors duration-[120ms]',
+          'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+          'group',
         )}
       >
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <div className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors">
-            {icon}
-          </div>
-          <span>{title}</span>
-          <span className="text-xs text-muted-foreground">({items.length})</span>
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="w-3.5 h-3.5 text-muted-foreground shrink-0">{icon}</span>
+          <span className="text-xs font-semibold text-foreground truncate">{title}</span>
+          {activeCount > 0 && (
+            <span className="flex items-center justify-center w-4 h-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold shrink-0">
+              {activeCount}
+            </span>
+          )}
         </div>
-        <div className="w-4 h-4 text-muted-foreground transition-transform duration-200" style={{
-          transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)'
-        }}>
-          <ChevronDown className="w-full h-full" />
-        </div>
+        <IconChevronDown
+          size={13}
+          className={cn(
+            'text-muted-foreground shrink-0 transition-transform duration-200',
+            open ? 'rotate-0' : '-rotate-90',
+          )}
+        />
       </button>
 
-      {/* Section Content */}
+      {/* Body */}
       <div
         className={cn(
           'overflow-hidden transition-all duration-200',
-          isExpanded ? 'max-h-96' : 'max-h-0'
+          open ? 'max-h-96' : 'max-h-0',
         )}
       >
+        {/* Search */}
         {searchable && items.length > 5 && (
-          <div className="px-3 py-2">
+          <div className="px-2 pt-1 pb-0.5">
             <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <IconSearch
+                size={11}
+                className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+              />
               <input
-                type="text"
-                placeholder={`Search ${title.toLowerCase()}...`}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={`Filter ${title.toLowerCase()}…`}
                 className={cn(
-                  'w-full h-7 pl-8 pr-7 text-xs',
-                  'bg-muted/50 border border-border rounded-md',
-                  'focus:outline-none focus:ring-1 focus:ring-primary',
-                  'transition-all'
+                  'w-full h-6 pl-6 pr-6 text-[11px] rounded',
+                  'bg-muted/60 border border-border',
+                  'focus:outline-none focus:ring-1 focus:ring-ring focus:border-ring',
+                  'transition-colors',
+                  'placeholder:text-muted-foreground/60',
                 )}
               />
-              {searchQuery && (
+              {search && (
                 <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setSearch('')}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  <X className="w-3 h-3" />
+                  <IconX size={10} />
                 </button>
               )}
             </div>
           </div>
         )}
 
-        <div className="max-h-64 overflow-y-auto custom-scrollbar px-2 pb-2">
-          {filteredItems.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-muted-foreground">
-              No items found
-            </div>
+        {/* Items */}
+        <div className="px-1.5 pb-1.5 pt-0.5 max-h-52 overflow-y-auto custom-scrollbar">
+          {visible.length === 0 ? (
+            <p className="px-2 py-2 text-[11px] text-muted-foreground">No items</p>
           ) : (
-            filteredItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => onToggle(item.id)}
-                className={cn(
-                  'w-full flex items-center justify-between px-2 py-1.5 rounded-md',
-                  'hover:bg-accent/50 transition-colors',
-                  'group text-left',
-                  selectedItems.includes(item.id) && 'bg-accent text-accent-foreground'
-                )}
-              >
-                <span className="text-xs truncate flex-1">{item.label}</span>
-                <span className={cn(
-                  'text-xs px-1.5 py-0.5 rounded-full',
-                  'bg-muted text-muted-foreground',
-                  'group-hover:bg-background',
-                  selectedItems.includes(item.id) && 'bg-primary/10 text-primary'
-                )}>
-                  {item.count}
-                </span>
-              </button>
-            ))
+            <>
+              {visible.map((item) => {
+                const isActive = selected.includes(item.id)
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => onToggle(item.id)}
+                    className={cn(
+                      'w-full flex items-center justify-between',
+                      'px-2 py-1 rounded text-left gap-2',
+                      'transition-colors duration-[100ms]',
+                      'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                      isActive
+                        ? 'bg-primary/10 text-foreground'
+                        : 'hover:bg-accent/60 text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    {/* Check indicator */}
+                    <span
+                      className={cn(
+                        'w-3 h-3 rounded-sm border shrink-0 flex items-center justify-center',
+                        'transition-all duration-[100ms]',
+                        isActive
+                          ? 'bg-primary border-primary'
+                          : 'border-border',
+                      )}
+                    >
+                      {isActive && (
+                        <svg viewBox="0 0 10 10" className="w-2 h-2 text-primary-foreground">
+                          <path
+                            d="M8.5 2.5L4 7.5L1.5 5"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            fill="none"
+                          />
+                        </svg>
+                      )}
+                    </span>
+                    <span className="flex-1 text-[11px] truncate">{item.label}</span>
+                    {item.count > 0 && (
+                      <span className="text-[10px] text-muted-foreground/70 tabular-nums shrink-0">
+                        {item.count}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+              {hasMore && (
+                <button
+                  onClick={() => setShowAll(true)}
+                  className="w-full text-[11px] text-muted-foreground hover:text-foreground px-2 py-1 text-left transition-colors"
+                >
+                  +{filtered.length - maxVisible} more
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -142,7 +198,77 @@ const FilterSection = ({
   )
 }
 
-interface ModernSidebarProps {
+// ─── Reading Status Section ─────────────────────
+interface ReadingStatusSectionProps {
+  value: ReadingStatus
+  onChange: (status: ReadingStatus) => void
+}
+
+const ReadingStatusSection = ({ value, onChange }: ReadingStatusSectionProps) => {
+  const [open, setOpen] = useState(true)
+  const options: { id: ReadingStatus; label: string }[] = [
+    { id: 'all', label: 'All' },
+    { id: 'unread', label: 'Unread' },
+    { id: 'reading', label: 'Reading' },
+    { id: 'completed', label: 'Completed' },
+  ]
+
+  return (
+    <div className="border-b border-border">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-3 py-2 hover:bg-accent/60 transition-colors group focus-visible:outline-none"
+      >
+        <div className="flex items-center gap-2">
+          <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-xs font-semibold">Reading Status</span>
+          {value !== 'all' && (
+            <span className="w-4 h-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
+              1
+            </span>
+          )}
+        </div>
+        <IconChevronDown
+          size={13}
+          className={cn('text-muted-foreground transition-transform duration-200', open ? '' : '-rotate-90')}
+        />
+      </button>
+      <div className={cn('overflow-hidden transition-all duration-200', open ? 'max-h-40' : 'max-h-0')}>
+        <div className="flex flex-col gap-0.5 px-1.5 pb-1.5 pt-0.5">
+          {options.map((opt) => (
+            <button
+              key={opt.id}
+              onClick={() => onChange(opt.id)}
+              className={cn(
+                'flex items-center gap-2 px-2 py-1 rounded text-left',
+                'transition-colors duration-[100ms]',
+                value === opt.id
+                  ? 'bg-primary/10 text-foreground'
+                  : 'hover:bg-accent/60 text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <span
+                className={cn(
+                  'w-3 h-3 rounded-full border shrink-0',
+                  'flex items-center justify-center transition-all duration-[100ms]',
+                  value === opt.id ? 'border-primary' : 'border-border',
+                )}
+              >
+                {value === opt.id && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                )}
+              </span>
+              <span className="text-[11px]">{opt.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Main Sidebar ────────────────────────────────
+export interface FilterPanelProps {
   authors: FilterItem[]
   languages: FilterItem[]
   series: FilterItem[]
@@ -163,9 +289,10 @@ interface ModernSidebarProps {
   }
   onFilterToggle: (category: string, id: string) => void
   onClearAll: () => void
+  domain?: 'books' | 'manga'
 }
 
-export const ModernSidebar = ({
+export function FilterPanel({
   authors,
   languages,
   series,
@@ -177,114 +304,120 @@ export const ModernSidebar = ({
   selectedFilters,
   onFilterToggle,
   onClearAll,
-}: ModernSidebarProps) => {
-  const totalFiltersActive = Object.values(selectedFilters).flat().length
+  domain = 'books',
+}: FilterPanelProps) {
+  const [readingStatus, setReadingStatus] = useState<ReadingStatus>('all')
+
+  const totalActive = Object.values(selectedFilters).flat().length
+
+  // For manga domain — filter formats to CBZ/CBR only
+  const visibleFormats =
+    domain === 'manga'
+      ? formats.filter((f) => ['CBZ', 'CBR'].includes(f.id.toUpperCase()))
+      : formats
 
   return (
-    <div className="w-60 border-r border-border bg-background flex flex-col h-full">
-      {/* Sidebar Header */}
-      <div className="h-12 border-b border-border px-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">Filters</h2>
-        {totalFiltersActive > 0 && (
+    <aside
+      className={cn(
+        'flex flex-col h-full bg-background',
+        'border-r border-border',
+        'w-[var(--sidebar-width,224px)] shrink-0',
+      )}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between h-10 px-3 border-b border-border shrink-0">
+        <div className="flex items-center gap-2">
+          <IconFilter size={13} className="text-muted-foreground" />
+          <span className="text-xs font-semibold">Filters</span>
+          {totalActive > 0 && (
+            <span className="text-[10px] text-muted-foreground">({totalActive})</span>
+          )}
+        </div>
+        {totalActive > 0 && (
           <button
             onClick={onClearAll}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
           >
-            Clear all ({totalFiltersActive})
+            Clear all
           </button>
         )}
       </div>
 
-      {/* Filter Sections */}
+      {/* Sections */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <ReadingStatusSection value={readingStatus} onChange={setReadingStatus} />
+
         <FilterSection
           title="Authors"
-          icon={<Users />}
+          icon={<Users className="w-full h-full" />}
           items={authors}
-          selectedItems={selectedFilters.authors}
+          selected={selectedFilters.authors}
           onToggle={(id) => onFilterToggle('authors', id)}
           searchable
-        />
-
-        <FilterSection
-          title="Languages"
-          icon={<Globe />}
-          items={languages}
-          selectedItems={selectedFilters.languages}
-          onToggle={(id) => onFilterToggle('languages', id)}
-        />
-
-        <FilterSection
-          title="Series"
-          icon={<BookMarked />}
-          items={series}
-          selectedItems={selectedFilters.series}
-          onToggle={(id) => onFilterToggle('series', id)}
-          searchable
-        />
-
-        <FilterSection
-          title="Formats"
-          icon={<FileType />}
-          items={formats}
-          selectedItems={selectedFilters.formats}
-          onToggle={(id) => onFilterToggle('formats', id)}
-        />
-
-        <FilterSection
-          title="Publishers"
-          icon={<Building />}
-          items={publishers}
-          selectedItems={selectedFilters.publishers}
-          onToggle={(id) => onFilterToggle('publishers', id)}
-          searchable
-        />
-
-        <FilterSection
-          title="Rating"
-          icon={<Star />}
-          items={ratings}
-          selectedItems={selectedFilters.ratings}
-          onToggle={(id) => onFilterToggle('ratings', id)}
+          defaultOpen
         />
 
         <FilterSection
           title="Tags"
-          icon={<Tag />}
+          icon={<Tag className="w-full h-full" />}
           items={tags}
-          selectedItems={selectedFilters.tags}
+          selected={selectedFilters.tags}
           onToggle={(id) => onFilterToggle('tags', id)}
           searchable
+          defaultOpen={false}
         />
 
         <FilterSection
-          title="Identifiers"
-          icon={<Hash />}
-          items={identifiers}
-          selectedItems={selectedFilters.identifiers}
-          onToggle={(id) => onFilterToggle('identifiers', id)}
+          title="Series"
+          icon={<BookMarked className="w-full h-full" />}
+          items={series}
+          selected={selectedFilters.series}
+          onToggle={(id) => onFilterToggle('series', id)}
+          searchable
+          defaultOpen={false}
         />
+
+        <FilterSection
+          title={domain === 'manga' ? 'Format' : 'Formats'}
+          icon={<FileType className="w-full h-full" />}
+          items={visibleFormats}
+          selected={selectedFilters.formats}
+          onToggle={(id) => onFilterToggle('formats', id)}
+          defaultOpen={false}
+        />
+
+        <FilterSection
+          title="Languages"
+          icon={<Globe className="w-full h-full" />}
+          items={languages}
+          selected={selectedFilters.languages}
+          onToggle={(id) => onFilterToggle('languages', id)}
+          defaultOpen={false}
+        />
+
+        {domain === 'books' && (
+          <>
+            <FilterSection
+              title="Publishers"
+              icon={<Hash className="w-full h-full" />}
+              items={publishers}
+              selected={selectedFilters.publishers}
+              onToggle={(id) => onFilterToggle('publishers', id)}
+              searchable
+              defaultOpen={false}
+            />
+
+            <FilterSection
+              title="Rating"
+              icon={<IconStar className="w-full h-full" size={14} />}
+              items={ratings}
+              selected={selectedFilters.ratings}
+              onToggle={(id) => onFilterToggle('ratings', id)}
+              defaultOpen={false}
+            />
+          </>
+        )}
       </div>
-    </div>
+    </aside>
   )
 }
-
-// Custom scrollbar styles (add to globals.css)
-/*
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: hsl(var(--border));
-  border-radius: 3px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.3);
-}
-*/

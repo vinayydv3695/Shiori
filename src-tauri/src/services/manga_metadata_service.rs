@@ -410,7 +410,7 @@ pub fn parse_manga_title(filename: &str) -> String {
         .to_string();
 
     // Remove group tags: [Group] or (Group)
-    if let Some(start) = title.find('[') {
+    if let Some(_start) = title.find('[') {
         if let Some(end) = title.find(']') {
             title = title[end + 1..].trim().to_string();
         }

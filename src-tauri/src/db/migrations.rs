@@ -32,6 +32,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 4 {
             self.migrate_to_v4()?;
         }
+        if current_version < 5 {
+            self.migrate_to_v5()?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -704,6 +707,57 @@ impl<'a> MigrationManager<'a> {
         )?;
 
         log::info!("[Migration] v4 applied successfully");
+        Ok(())
+    }
+
+    /// Migration v5: Conversion job persistence + profiles
+    fn migrate_to_v5(&self) -> Result<()> {
+        log::info!("[Migration] Applying v5: conversion_jobs + conversion_profiles");
+
+        // conversion_jobs: persists job state across restarts
+        self.conn.execute_batch(
+            r#"
+            CREATE TABLE IF NOT EXISTS conversion_jobs (
+                id             TEXT PRIMARY KEY,
+                book_id        INTEGER,
+                source_path    TEXT NOT NULL,
+                target_path    TEXT NOT NULL,
+                source_format  TEXT NOT NULL,
+                target_format  TEXT NOT NULL,
+                status         TEXT NOT NULL DEFAULT 'Queued',
+                progress       REAL NOT NULL DEFAULT 0.0,
+                error_message  TEXT,
+                created_at     TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at     TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE SET NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_conv_jobs_status
+                ON conversion_jobs(status);
+
+            CREATE INDEX IF NOT EXISTS idx_conv_jobs_book
+                ON conversion_jobs(book_id);
+
+            -- conversion_profiles: named presets for repeated conversions
+            CREATE TABLE IF NOT EXISTS conversion_profiles (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                name          TEXT NOT NULL UNIQUE,
+                source_format TEXT NOT NULL,
+                target_format TEXT NOT NULL,
+                options_json  TEXT NOT NULL DEFAULT '{}',
+                created_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            "#,
+        )?;
+
+        self.set_schema_version(5)?;
+        self.record_migration(
+            5,
+            "conversion_jobs_profiles",
+            "v5_conversion_persistence",
+        )?;
+
+        log::info!("[Migration] v5 applied successfully");
         Ok(())
     }
 

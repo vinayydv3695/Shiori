@@ -1,249 +1,259 @@
 import React, { useState, useEffect } from 'react';
-import { useConversionStore } from '../../store/conversionStore';
+import * as Dialog from '@radix-ui/react-dialog';
+import { X, FileInput, FolderOpen, ArrowRight, AlertCircle } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-dialog';
+import { useConversionStore } from '../../store/conversionStore';
 import { api } from '../../lib/tauri';
+import { cn } from '../../lib/utils';
 
 interface ConversionDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   bookPath?: string;
   bookFormat?: string;
   bookId?: number;
 }
 
+const FORMAT_LABELS: Record<string, string> = {
+  epub: 'EPUB',
+  pdf: 'PDF',
+  mobi: 'MOBI',
+  azw3: 'AZW3',
+  txt: 'TXT',
+  html: 'HTML',
+  docx: 'DOCX',
+  fb2: 'FB2',
+};
+
 export const ConversionDialog: React.FC<ConversionDialogProps> = ({
-  isOpen,
-  onClose,
+  open: isOpen,
+  onOpenChange,
   bookPath: initialBookPath,
   bookFormat: initialFormat,
   bookId,
 }) => {
-  const { submitConversion, supportedFormats, loadSupportedFormats, isLoading } = useConversionStore();
-  
+  const { submitConversion, supportedFormats, loadSupportedFormats, isLoading } =
+    useConversionStore();
+
   const [bookPath, setBookPath] = useState(initialBookPath || '');
+  const [detectedFormat, setDetectedFormat] = useState(initialFormat || '');
   const [outputFormat, setOutputFormat] = useState('epub');
   const [outputDir, setOutputDir] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
 
-  // Fetch book details if bookId is provided
+  // Load book details if bookId given
   useEffect(() => {
-    const fetchBookDetails = async () => {
+    if (!isOpen) return;
+    const load = async () => {
       if (bookId && !initialBookPath) {
         try {
-          const book = await api.getBook(bookId);
           const filePath = await api.getBookFilePath(bookId);
+          const book = await api.getBook(bookId);
           setBookPath(filePath);
-          // Optionally set a different default output format based on current format
-          if (book.file_format.toLowerCase() === 'epub') {
-            setOutputFormat('pdf');
-          } else {
-            setOutputFormat('epub');
-          }
-        } catch (error) {
-          console.error('Failed to fetch book details:', error);
+          const fmt = book.file_format.toLowerCase();
+          setDetectedFormat(fmt);
+          setOutputFormat(fmt === 'epub' ? 'pdf' : 'epub');
+        } catch {
           setError('Failed to load book information');
         }
       }
     };
-
-    if (isOpen) {
-      fetchBookDetails();
-    }
-  }, [bookId, initialBookPath, isOpen]);
-
-  useEffect(() => {
-    if (isOpen && supportedFormats.length === 0) {
-      loadSupportedFormats();
-    }
-  }, [isOpen, supportedFormats.length, loadSupportedFormats]);
+    load();
+    if (supportedFormats.length === 0) loadSupportedFormats();
+    setSubmitted(false);
+    setError(null);
+  }, [isOpen, bookId]);
 
   useEffect(() => {
-    if (initialBookPath) {
-      setBookPath(initialBookPath);
+    if (initialBookPath) setBookPath(initialBookPath);
+    if (initialFormat) {
+      setDetectedFormat(initialFormat);
+      setOutputFormat(initialFormat === 'epub' ? 'pdf' : 'epub');
     }
-  }, [initialBookPath]);
+  }, [initialBookPath, initialFormat]);
+
+  const availableTargets = (): string[] => {
+    if (!detectedFormat) return ['epub', 'pdf', 'txt'];
+    const entry = supportedFormats.find(f => f.from === detectedFormat);
+    return entry?.to ?? ['epub'];
+  };
 
   const handleSelectFile = async () => {
     try {
       const selected = await open({
         multiple: false,
         filters: [
-          { 
-            name: 'eBooks', 
-            extensions: ['epub', 'pdf', 'mobi', 'azw3', 'txt', 'html', 'docx', 'fb2', 'cbz', 'cbr'] 
-          }
+          { name: 'eBooks', extensions: ['epub', 'pdf', 'mobi', 'azw3', 'txt', 'html', 'docx', 'fb2'] },
         ],
       });
-      
       if (selected && typeof selected === 'string') {
         setBookPath(selected);
+        const ext = selected.split('.').pop()?.toLowerCase() || '';
+        setDetectedFormat(ext);
+        const targets = supportedFormats.find(f => f.from === ext)?.to ?? ['epub'];
+        setOutputFormat(targets[0] ?? 'epub');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to select file');
-      console.error(err);
     }
   };
 
   const handleSelectOutputDir = async () => {
     try {
-      const selected = await open({
-        directory: true,
-        multiple: false,
-      });
-      
-      if (selected && typeof selected === 'string') {
-        setOutputDir(selected);
-      }
-    } catch (err) {
+      const selected = await open({ directory: true, multiple: false });
+      if (selected && typeof selected === 'string') setOutputDir(selected);
+    } catch {
       setError('Failed to select directory');
-      console.error(err);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     setError(null);
-    
-    if (!bookPath) {
-      setError('Please select a book to convert');
-      return;
-    }
-
+    if (!bookPath) { setError('Please select a book to convert'); return; }
     try {
-      const jobId = await submitConversion(
-        bookPath,
-        outputFormat,
-        outputDir || undefined
-      );
-      
-      console.log('Conversion job submitted:', jobId);
-      onClose();
+      await submitConversion(bookPath, outputFormat, outputDir || undefined, bookId);
+      setSubmitted(true);
+      setTimeout(() => onOpenChange(false), 800);
     } catch (err) {
       setError(String(err));
     }
   };
 
-  const getAvailableFormats = () => {
-    if (!bookPath || !initialFormat) {
-      return ['epub', 'pdf', 'mobi', 'txt'];
-    }
-    
-    const conversion = supportedFormats.find(f => f.from === initialFormat);
-    return conversion?.to || ['epub'];
-  };
-
-  if (!isOpen) return null;
+  const targets = availableTargets();
+  const fileName = bookPath ? bookPath.split('/').pop() : null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-            Convert Book
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Input File */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Input File
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={bookPath}
-                onChange={(e) => setBookPath(e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                placeholder="Select a book file..."
-                readOnly
-              />
-              <button
-                type="button"
-                onClick={handleSelectFile}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
-                Browse
+    <Dialog.Root open={isOpen} onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
+        <Dialog.Content
+          className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-lg bg-background border border-border rounded-xl shadow-2xl p-0 focus:outline-none"
+          aria-describedby={undefined}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+            <Dialog.Title className="text-lg font-semibold text-foreground">
+              Convert Book
+            </Dialog.Title>
+            <Dialog.Close asChild>
+              <button className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+                <X className="w-4 h-4" />
               </button>
+            </Dialog.Close>
+          </div>
+
+          <div className="px-6 py-5 space-y-5">
+            {/* Source File */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Source File
+              </label>
+              <div className="flex gap-2">
+                <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-muted text-sm truncate">
+                  <FileInput className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <span className="truncate text-foreground">
+                    {fileName || <span className="text-muted-foreground">No file selected...</span>}
+                  </span>
+                </div>
+                <button
+                  onClick={handleSelectFile}
+                  className="px-3 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-accent transition-colors flex items-center gap-1.5"
+                >
+                  Browse
+                </button>
+              </div>
+              {detectedFormat && (
+                <p className="text-xs text-muted-foreground">
+                  Detected format: <span className="font-medium text-foreground">{FORMAT_LABELS[detectedFormat] ?? detectedFormat.toUpperCase()}</span>
+                </p>
+              )}
             </div>
+
+            {/* Target Format */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Convert To
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {targets.map(fmt => (
+                  <button
+                    key={fmt}
+                    onClick={() => setOutputFormat(fmt)}
+                    className={cn(
+                      'px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all',
+                      outputFormat === fmt
+                        ? 'border-primary bg-primary/10 text-foreground'
+                        : 'border-border text-muted-foreground hover:border-primary/50 hover:text-foreground'
+                    )}
+                  >
+                    {FORMAT_LABELS[fmt] ?? fmt.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Output Directory */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Output Directory <span className="font-normal normal-case">(optional — defaults to same folder)</span>
+              </label>
+              <div className="flex gap-2">
+                <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-muted text-sm truncate">
+                  <FolderOpen className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <span className="truncate text-foreground">
+                    {outputDir || <span className="text-muted-foreground">Same as source file</span>}
+                  </span>
+                </div>
+                <button
+                  onClick={handleSelectOutputDir}
+                  className="px-3 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-accent transition-colors"
+                >
+                  Browse
+                </button>
+              </div>
+            </div>
+
+            {/* Error */}
+            {error && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30">
+                <AlertCircle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-destructive">{error}</p>
+              </div>
+            )}
+
+            {/* Success state */}
+            {submitted && (
+              <p className="text-sm text-center text-muted-foreground">
+                Job queued — watch the conversion panel for progress.
+              </p>
+            )}
           </div>
 
-          {/* Output Format */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Output Format
-            </label>
-            <select
-              value={outputFormat}
-              onChange={(e) => setOutputFormat(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            >
-              {getAvailableFormats().map(format => (
-                <option key={format} value={format}>
-                  {format.toUpperCase()}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Output Directory */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Output Directory (optional)
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={outputDir}
-                onChange={(e) => setOutputDir(e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                placeholder="Same as input file..."
-                readOnly
-              />
-              <button
-                type="button"
-                onClick={handleSelectOutputDir}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
-                Browse
+          {/* Footer */}
+          <div className="flex gap-3 px-6 py-4 border-t border-border">
+            <Dialog.Close asChild>
+              <button className="flex-1 px-4 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-accent transition-colors">
+                Cancel
               </button>
-            </div>
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 rounded-md">
-              <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex gap-3 pt-4">
+            </Dialog.Close>
             <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+              onClick={handleSubmit}
+              disabled={isLoading || !bookPath || submitted}
+              className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity flex items-center justify-center gap-2"
             >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading || !bookPath}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? 'Converting...' : 'Convert'}
+              {isLoading ? (
+                <span>Starting…</span>
+              ) : (
+                <>
+                  <span>Convert</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 };

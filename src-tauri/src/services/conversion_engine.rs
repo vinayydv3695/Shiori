@@ -511,24 +511,28 @@ impl ConversionEngine {
         let adapter = DocxFormatAdapter::new();
         let metadata = adapter.extract_metadata(source).await?;
         let file_data = tokio::fs::read(source).await?;
-        let doc = docx_rs::read_docx(&file_data)
-            .map_err(|e| FormatError::ConversionError(format!("DOCX parse failed: {}", e)))?;
-        let mut content = String::new();
-        for child in &doc.document.children {
-            if let docx_rs::DocumentChild::Paragraph(para) = child {
-                for child in &para.children {
-                    if let docx_rs::ParagraphChild::Run(run) = child {
-                        for child in &run.children {
-                            if let docx_rs::RunChild::Text(t) = child {
-                                content.push_str(&t.text);
-                                content.push(' ');
+        
+        let content = tokio::task::spawn_blocking(move || -> FormatResult<String> {
+            let doc = docx_rs::read_docx(&file_data)
+                .map_err(|e| FormatError::ConversionError(format!("DOCX parse failed: {}", e)))?;
+            let mut content = String::new();
+            for child in &doc.document.children {
+                if let docx_rs::DocumentChild::Paragraph(para) = child {
+                    for child in &para.children {
+                        if let docx_rs::ParagraphChild::Run(run) = child {
+                            for child in &run.children {
+                                if let docx_rs::RunChild::Text(t) = child {
+                                    content.push_str(&t.text);
+                                    content.push(' ');
+                                }
                             }
                         }
                     }
+                    content.push_str("\n\n");
                 }
-                content.push_str("\n\n");
             }
-        }
+            Ok(content)
+        }).await.map_err(|e| FormatError::ConversionError(format!("Task Join Error: {}", e)))??;
         let mut builder = EpubBuilder::new();
         builder = builder.metadata(EpubMetadata {
             title: metadata.title.clone(),
@@ -547,24 +551,28 @@ impl ConversionEngine {
 
     async fn docx_to_txt(source: &Path, target: &Path) -> FormatResult<()> {
         let file_data = tokio::fs::read(source).await?;
-        let doc = docx_rs::read_docx(&file_data)
-            .map_err(|e| FormatError::ConversionError(format!("DOCX parse failed: {}", e)))?;
-        let mut content = String::new();
-        for child in &doc.document.children {
-            if let docx_rs::DocumentChild::Paragraph(para) = child {
-                for child in &para.children {
-                    if let docx_rs::ParagraphChild::Run(run) = child {
-                        for child in &run.children {
-                            if let docx_rs::RunChild::Text(t) = child {
-                                content.push_str(&t.text);
-                                content.push(' ');
+        
+        let content = tokio::task::spawn_blocking(move || -> FormatResult<String> {
+            let doc = docx_rs::read_docx(&file_data)
+                .map_err(|e| FormatError::ConversionError(format!("DOCX parse failed: {}", e)))?;
+            let mut content = String::new();
+            for child in &doc.document.children {
+                if let docx_rs::DocumentChild::Paragraph(para) = child {
+                    for child in &para.children {
+                        if let docx_rs::ParagraphChild::Run(run) = child {
+                            for child in &run.children {
+                                if let docx_rs::RunChild::Text(t) = child {
+                                    content.push_str(&t.text);
+                                    content.push(' ');
+                                }
                             }
                         }
                     }
+                    content.push('\n');
                 }
-                content.push('\n');
             }
-        }
+            Ok(content)
+        }).await.map_err(|e| FormatError::ConversionError(format!("Task Join Error: {}", e)))??;
         tokio::fs::write(target, content).await?;
         log::info!("[Conversion] DOCX → TXT: {}", target.display());
         Ok(())
@@ -601,9 +609,14 @@ impl ConversionEngine {
 
     /// PDF → EPUB: chapter detection via heading heuristic
     async fn pdf_to_epub(source: &Path, target: &Path) -> FormatResult<()> {
-        let text = PdfFormatAdapter::extract_content(source)?;
         let adapter = PdfFormatAdapter::new();
         let metadata = adapter.extract_metadata(source).await?;
+        let source_path = source.to_path_buf();
+
+        let chapters = tokio::task::spawn_blocking(move || -> FormatResult<Vec<(String, String)>> {
+            let text = PdfFormatAdapter::extract_content(&source_path)?;
+            Ok(Self::detect_pdf_chapters(&text))
+        }).await.map_err(|e| FormatError::ConversionError(format!("Task Join Error: {}", e)))??;
 
         let mut builder = EpubBuilder::new();
         builder = builder.metadata(EpubMetadata {
@@ -615,7 +628,6 @@ impl ConversionEngine {
         });
 
         // Split into chapters using heading heuristics
-        let chapters = Self::detect_pdf_chapters(&text);
         for (title, body) in chapters {
             builder.add_chapter(title, body);
         }
@@ -662,7 +674,10 @@ impl ConversionEngine {
     }
 
     async fn pdf_to_txt(source: &Path, target: &Path) -> FormatResult<()> {
-        let text = PdfFormatAdapter::extract_content(source)?;
+        let source_path = source.to_path_buf();
+        let text = tokio::task::spawn_blocking(move || -> FormatResult<String> {
+            PdfFormatAdapter::extract_content(&source_path)
+        }).await.map_err(|e| FormatError::ConversionError(format!("Task Join Error: {}", e)))??;
         tokio::fs::write(target, text).await?;
         log::info!("[Conversion] PDF → TXT: {}", target.display());
         Ok(())

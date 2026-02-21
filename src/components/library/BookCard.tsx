@@ -12,11 +12,11 @@ interface BookCardProps {
 
 export function BookCard({ book, onClick }: BookCardProps) {
   const { bulkSelectMode, selectedBookIds, toggleBookSelection } = useLibraryStore();
-  const isSelected = selectedBookIds.has(book.id);
+  const isSelected = selectedBookIds.has(book.id!);
 
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.effectAllowed = 'copy';
-    
+
     // If in bulk select mode and there are selected books, drag all selected
     if (bulkSelectMode && selectedBookIds.size > 0) {
       const bookIds = Array.from(selectedBookIds);
@@ -38,7 +38,7 @@ export function BookCard({ book, onClick }: BookCardProps) {
   const handleClick = (e: React.MouseEvent) => {
     if (bulkSelectMode) {
       e.stopPropagation();
-      toggleBookSelection(book.id);
+      toggleBookSelection(book.id!);
     } else if (onClick) {
       onClick();
     }
@@ -91,7 +91,7 @@ export function BookCard({ book, onClick }: BookCardProps) {
         <h3 className="line-clamp-2 font-semibold text-foreground">
           {book.title}
         </h3>
-        
+
         {book.authors.length > 0 && (
           <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">
             {book.authors.map((a) => a.name).join(", ")}

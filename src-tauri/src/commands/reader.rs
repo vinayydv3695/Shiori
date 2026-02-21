@@ -14,8 +14,8 @@ pub fn get_reading_progress(
     state: State<AppState>,
 ) -> ShioriResult<Option<ReadingProgress>> {
     let db = state.db.lock().unwrap();
-    let conn = db.get_connection();
-    ReaderService::get_reading_progress(conn, book_id)
+    let conn = db.get_connection()?;
+    ReaderService::get_reading_progress(&conn, book_id)
 }
 
 #[tauri::command]
@@ -28,9 +28,9 @@ pub fn save_reading_progress(
     state: State<AppState>,
 ) -> ShioriResult<ReadingProgress> {
     let db = state.db.lock().unwrap();
-    let conn = db.get_connection();
+    let conn = db.get_connection()?;
     ReaderService::save_reading_progress(
-        conn,
+        &conn,
         book_id,
         &current_location,
         progress_percent,
@@ -44,8 +44,8 @@ pub fn save_reading_progress(
 #[tauri::command]
 pub fn get_annotations(book_id: i64, state: State<AppState>) -> ShioriResult<Vec<Annotation>> {
     let db = state.db.lock().unwrap();
-    let conn = db.get_connection();
-    ReaderService::get_annotations(conn, book_id)
+    let conn = db.get_connection()?;
+    ReaderService::get_annotations(&conn, book_id)
 }
 
 #[tauri::command]
@@ -60,9 +60,9 @@ pub fn create_annotation(
     state: State<AppState>,
 ) -> ShioriResult<Annotation> {
     let db = state.db.lock().unwrap();
-    let conn = db.get_connection();
+    let conn = db.get_connection()?;
     ReaderService::create_annotation(
-        conn,
+        &conn,
         book_id,
         &annotation_type,
         &location,
@@ -81,15 +81,15 @@ pub fn update_annotation(
     state: State<AppState>,
 ) -> ShioriResult<()> {
     let db = state.db.lock().unwrap();
-    let conn = db.get_connection();
-    ReaderService::update_annotation(conn, id, note_content.as_deref(), color.as_deref())
+    let conn = db.get_connection()?;
+    ReaderService::update_annotation(&conn, id, note_content.as_deref(), color.as_deref())
 }
 
 #[tauri::command]
 pub fn delete_annotation(id: i64, state: State<AppState>) -> ShioriResult<()> {
     let db = state.db.lock().unwrap();
-    let conn = db.get_connection();
-    ReaderService::delete_annotation(conn, id)
+    let conn = db.get_connection()?;
+    ReaderService::delete_annotation(&conn, id)
 }
 
 // ==================== Reader Settings Commands ====================
@@ -100,8 +100,8 @@ pub fn get_reader_settings(
     state: State<AppState>,
 ) -> ShioriResult<ReaderSettings> {
     let db = state.db.lock().unwrap();
-    let conn = db.get_connection();
-    ReaderService::get_reader_settings(conn, &user_id)
+    let conn = db.get_connection()?;
+    ReaderService::get_reader_settings(&conn, &user_id)
 }
 
 #[tauri::command]
@@ -116,9 +116,9 @@ pub fn save_reader_settings(
     state: State<AppState>,
 ) -> ShioriResult<ReaderSettings> {
     let db = state.db.lock().unwrap();
-    let conn = db.get_connection();
+    let conn = db.get_connection()?;
     ReaderService::save_reader_settings(
-        conn,
+        &conn,
         &user_id,
         &font_family,
         font_size,
@@ -134,7 +134,7 @@ pub fn save_reader_settings(
 #[tauri::command]
 pub fn get_book_file_path(book_id: i64, state: State<AppState>) -> ShioriResult<String> {
     let db = state.db.lock().unwrap();
-    let conn = db.get_connection();
+    let conn = db.get_connection()?;
     let file_path: String = conn.query_row(
         "SELECT file_path FROM books WHERE id = ?1",
         rusqlite::params![book_id],

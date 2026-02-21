@@ -7,9 +7,15 @@ use crate::{
 use tauri::State;
 
 #[tauri::command]
-pub fn get_books(state: State<AppState>) -> Result<Vec<Book>> {
+pub fn get_books(state: State<AppState>, limit: u32, offset: u32) -> Result<Vec<Book>> {
     let db = state.db.lock().unwrap();
-    library_service::get_all_books(&db)
+    library_service::get_all_books(&db, limit, offset)
+}
+
+#[tauri::command]
+pub fn get_total_books(state: State<AppState>) -> Result<i64> {
+    let db = state.db.lock().unwrap();
+    library_service::get_total_books(&db)
 }
 
 #[tauri::command]
@@ -103,7 +109,13 @@ pub fn scan_folder_for_manga(
 }
 
 #[tauri::command]
-pub fn get_books_by_domain(state: State<'_, AppState>, domain: String) -> Result<Vec<Book>> {
+pub fn get_books_by_domain(state: State<'_, AppState>, domain: String, limit: u32, offset: u32) -> Result<Vec<Book>> {
     let db = state.db.lock().unwrap();
-    library_service::get_books_by_domain(&db, &domain)
+    library_service::get_books_by_domain(&db, &domain, limit, offset)
+}
+
+#[tauri::command]
+pub fn get_total_books_by_domain(state: State<'_, AppState>, domain: String) -> Result<i64> {
+    let db = state.db.lock().unwrap();
+    library_service::get_total_books_by_domain(&db, &domain)
 }

@@ -33,13 +33,13 @@ const CollectionItem = ({ collection, depth, onEdit, onDelete, onAddSubcollectio
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     // Don't allow drops on smart collections
-    if (collection.is_smart) {
+    if (collection.isSmart) {
       e.dataTransfer.dropEffect = 'none';
       return;
     }
-    
+
     e.dataTransfer.dropEffect = 'copy';
     setIsDragOver(true);
   };
@@ -55,24 +55,24 @@ const CollectionItem = ({ collection, depth, onEdit, onDelete, onAddSubcollectio
     e.stopPropagation();
     setIsDragOver(false);
 
-    if (collection.is_smart) {
+    if (collection.isSmart) {
       return;
     }
 
     try {
       const data = JSON.parse(e.dataTransfer.getData('application/json'));
-      
+
       if (data.type === 'book' && data.bookId) {
-        await api.addBookToCollection(collection.id, data.bookId);
-        
+        await api.addBookToCollection(collection.id!, data.bookId);
+
         toast.success(
           'Book added to collection',
           `"${data.bookTitle}" was added to "${collection.name}"`
         );
       } else if (data.type === 'books' && data.bookIds) {
         // Multi-select support
-        await api.addBooksToCollection(collection.id, data.bookIds);
-        
+        await api.addBooksToCollection(collection.id!, data.bookIds);
+
         toast.success(
           'Books added to collection',
           `${data.bookIds.length} books were added to "${collection.name}"`
@@ -91,8 +91,8 @@ const CollectionItem = ({ collection, depth, onEdit, onDelete, onAddSubcollectio
           flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer
           transition-colors group
           ${isSelected ? 'bg-blue-100 dark:bg-blue-900/30' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}
-          ${isDragOver && !collection.is_smart ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/50' : ''}
-          ${collection.is_smart ? 'opacity-75' : ''}
+          ${isDragOver && !collection.isSmart ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/50' : ''}
+          ${collection.isSmart ? 'opacity-75' : ''}
         `}
         style={{ paddingLeft: `${depth * 16 + 12}px` }}
         onClick={handleClick}
@@ -116,7 +116,7 @@ const CollectionItem = ({ collection, depth, onEdit, onDelete, onAddSubcollectio
           {!hasChildren && (
             <Folder className="w-4 h-4 text-gray-600 dark:text-gray-400" />
           )}
-          {collection.is_smart && (
+          {collection.isSmart && (
             <Sparkles className="w-3 h-3 text-purple-500" />
           )}
           <span
@@ -127,7 +127,7 @@ const CollectionItem = ({ collection, depth, onEdit, onDelete, onAddSubcollectio
             {collection.name}
           </span>
           <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
-            {collection.book_count}
+            {collection.bookCount}
           </span>
         </div>
 
@@ -154,7 +154,7 @@ const CollectionItem = ({ collection, depth, onEdit, onDelete, onAddSubcollectio
               </DropdownMenu.Item>
               <DropdownMenu.Item
                 className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer rounded hover:bg-gray-100 dark:hover:bg-gray-700 outline-none"
-                onSelect={() => onAddSubcollection(collection.id)}
+                onSelect={() => onAddSubcollection(collection.id!)}
               >
                 <FolderPlus className="w-4 h-4" />
                 Add Subcollection
@@ -223,7 +223,7 @@ export const CollectionSidebar = ({ onCreateCollection, onEditCollection }: Coll
     }
 
     try {
-      await api.deleteCollection(collection.id);
+      await api.deleteCollection(collection.id!);
       await loadCollections();
       selectCollection(null);
       toast.success('Collection deleted', `"${collection.name}" has been deleted`);
@@ -240,21 +240,21 @@ export const CollectionSidebar = ({ onCreateCollection, onEditCollection }: Coll
   // Filter collections recursively
   const filterCollections = (collections: Collection[], query: string): Collection[] => {
     if (!query.trim()) return collections;
-    
+
     const lowerQuery = query.toLowerCase();
     return collections.reduce((acc: Collection[], collection) => {
       const matchesName = collection.name.toLowerCase().includes(lowerQuery);
-      const filteredChildren = collection.children 
+      const filteredChildren = collection.children
         ? filterCollections(collection.children, query)
         : [];
-      
+
       if (matchesName || filteredChildren.length > 0) {
         acc.push({
           ...collection,
           children: filteredChildren.length > 0 ? filteredChildren : collection.children,
         });
       }
-      
+
       return acc;
     }, []);
   };

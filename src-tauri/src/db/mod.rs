@@ -1,24 +1,36 @@
 use crate::error::Result;
+use r2d2::Pool;
+use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::Connection;
 use std::path::Path;
 
 pub mod migrations;
 
 pub struct Database {
-    conn: Connection,
+    pool: Pool<SqliteConnectionManager>,
 }
 
 impl Database {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let conn = Connection::open(path)?;
+        let manager = SqliteConnectionManager::file(path.as_ref())
+            .with_init(|c| {
+                // Enable foreign keys
+                c.execute_batch("PRAGMA foreign_keys = ON")?;
+                // Enable WAL mode for better concurrency
+                c.execute_batch("PRAGMA journal_mode = WAL")?;
+                c.execute_batch("PRAGMA synchronous = NORMAL")?;
+                c.execute_batch("PRAGMA temp_store = MEMORY")?;
+                c.execute_batch("PRAGMA mmap_size = 3000000000")?;
+                Ok(())
+            });
 
-        // Enable foreign keys
-        conn.execute_batch("PRAGMA foreign_keys = ON")?;
+        // Create connection pool (max 15 concurrent connections)
+        let pool = Pool::builder()
+            .max_size(15)
+            .build(manager)
+            .map_err(|e| crate::error::ShioriError::Other(format!("Database pooling error: {}", e)))?;
 
-        // Enable WAL mode for better concurrency
-        conn.execute_batch("PRAGMA journal_mode = WAL")?;
-
-        let db = Database { conn };
+        let db = Database { pool };
         db.initialize_schema()?;
 
         // Run migrations for new features
@@ -28,14 +40,16 @@ impl Database {
     }
 
     fn run_migrations(&self) -> Result<()> {
-        let migrator = migrations::MigrationManager::new(&self.conn);
+        let conn = self.get_connection()?;
+        let migrator = migrations::MigrationManager::new(&conn);
         migrator.run_migrations()?;
         Ok(())
     }
 
     pub fn initialize_schema(&self) -> Result<()> {
+        let conn = self.get_connection()?;
         // Books table
-        self.conn.execute(
+        conn.execute(
             "CREATE TABLE IF NOT EXISTS books (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 uuid TEXT UNIQUE NOT NULL,
@@ -65,29 +79,29 @@ impl Database {
         )?;
 
         // Indexes for books
-        self.conn.execute(
+        conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_books_title ON books(title COLLATE NOCASE)",
             [],
         )?;
-        self.conn.execute(
+        conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_books_isbn ON books(isbn)",
             [],
         )?;
-        self.conn.execute(
+        conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_books_series ON books(series)",
             [],
         )?;
-        self.conn.execute(
+        conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_books_format ON books(file_format)",
             [],
         )?;
-        self.conn.execute(
+        conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_books_hash ON books(file_hash)",
             [],
         )?;
 
         // Authors table
-        self.conn.execute(
+        conn.execute(
             "CREATE TABLE IF NOT EXISTS authors (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE,
@@ -97,13 +111,13 @@ impl Database {
             [],
         )?;
 
-        self.conn.execute(
+        conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_authors_name ON authors(name COLLATE NOCASE)",
             [],
         )?;
 
         // Book-Author junction
-        self.conn.execute(
+        conn.execute(
             "CREATE TABLE IF NOT EXISTS books_authors (
                 book_id INTEGER NOT NULL,
                 author_id INTEGER NOT NULL,
@@ -116,7 +130,7 @@ impl Database {
         )?;
 
         // Tags table
-        self.conn.execute(
+        conn.execute(
             "CREATE TABLE IF NOT EXISTS tags (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE,
@@ -126,7 +140,7 @@ impl Database {
         )?;
 
         // Book-Tag junction
-        self.conn.execute(
+        conn.execute(
             "CREATE TABLE IF NOT EXISTS books_tags (
                 book_id INTEGER NOT NULL,
                 tag_id INTEGER NOT NULL,
@@ -139,12 +153,12 @@ impl Database {
 
         // Drop any old content-sync FTS triggers that might cause "malformed" errors
         // during v2 migration. The FTS table and new triggers are created by v3 migration.
-        let _ = self.conn.execute("DROP TRIGGER IF EXISTS books_fts_insert", []);
-        let _ = self.conn.execute("DROP TRIGGER IF EXISTS books_fts_update", []);
-        let _ = self.conn.execute("DROP TRIGGER IF EXISTS books_fts_delete", []);
+        let _ = conn.execute("DROP TRIGGER IF EXISTS books_fts_insert", []);
+        let _ = conn.execute("DROP TRIGGER IF EXISTS books_fts_update", []);
+        let _ = conn.execute("DROP TRIGGER IF EXISTS books_fts_delete", []);
 
         // Reading progress table
-        self.conn.execute(
+        conn.execute(
             "CREATE TABLE IF NOT EXISTS reading_progress (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 book_id INTEGER NOT NULL,
@@ -160,7 +174,7 @@ impl Database {
         )?;
 
         // Annotations table (highlights, notes, bookmarks)
-        self.conn.execute(
+        conn.execute(
             "CREATE TABLE IF NOT EXISTS annotations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 book_id INTEGER NOT NULL,
@@ -177,18 +191,18 @@ impl Database {
             [],
         )?;
 
-        self.conn.execute(
+        conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_annotations_book ON annotations(book_id)",
             [],
         )?;
 
-        self.conn.execute(
+        conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_annotations_type ON annotations(type)",
             [],
         )?;
 
         // Reader settings table
-        self.conn.execute(
+        conn.execute(
             "CREATE TABLE IF NOT EXISTS reader_settings (
                 user_id TEXT PRIMARY KEY DEFAULT 'default',
                 font_family TEXT DEFAULT 'system',
@@ -203,17 +217,17 @@ impl Database {
         )?;
 
         // Add missing columns if they don't exist (for existing databases)
-        let _ = self.conn.execute(
+        let _ = conn.execute(
             "ALTER TABLE reader_settings ADD COLUMN margin_size INTEGER DEFAULT 2",
             [],
         );
-        let _ = self.conn.execute(
+        let _ = conn.execute(
             "ALTER TABLE reader_settings ADD COLUMN updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
             [],
         );
 
         // Settings table
-        self.conn.execute(
+        conn.execute(
             "CREATE TABLE IF NOT EXISTS settings (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL,
@@ -223,7 +237,7 @@ impl Database {
         )?;
 
         // Collections table
-        self.conn.execute(
+        conn.execute(
             "CREATE TABLE IF NOT EXISTS collections (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
@@ -241,18 +255,18 @@ impl Database {
             [],
         )?;
 
-        self.conn.execute(
+        conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_collections_parent ON collections(parent_id)",
             [],
         )?;
 
-        self.conn.execute(
+        conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_collections_smart ON collections(is_smart)",
             [],
         )?;
 
         // Collection-Book junction (only for manual collections)
-        self.conn.execute(
+        conn.execute(
             "CREATE TABLE IF NOT EXISTS collections_books (
                 collection_id INTEGER NOT NULL,
                 book_id INTEGER NOT NULL,
@@ -265,12 +279,12 @@ impl Database {
             [],
         )?;
 
-        self.conn.execute(
+        conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_collections_books_collection ON collections_books(collection_id)",
             [],
         )?;
 
-        self.conn.execute(
+        conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_collections_books_book ON collections_books(book_id)",
             [],
         )?;
@@ -278,11 +292,11 @@ impl Database {
         Ok(())
     }
 
-    pub fn get_connection(&self) -> &Connection {
-        &self.conn
+    pub fn get_connection(&self) -> Result<r2d2::PooledConnection<SqliteConnectionManager>> {
+        self.pool.get().map_err(|e| crate::error::ShioriError::Other(e.to_string()))
     }
 
-    pub fn get_connection_mut(&mut self) -> &mut Connection {
-        &mut self.conn
+    pub fn get_connection_mut(&self) -> Result<r2d2::PooledConnection<SqliteConnectionManager>> {
+        self.get_connection()
     }
 }

@@ -30,10 +30,10 @@ export function formatFileSize(bytes: number): string {
  */
 export function formatDate(date: string | Date): string {
   const d = new Date(date)
-  return d.toLocaleDateString('en-US', { 
-    year: 'numeric', 
-    month: 'short', 
-    day: 'numeric' 
+  return d.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
   })
 }
 
@@ -69,11 +69,8 @@ export function formatRelativeTime(date: string | Date): string {
  * @param wait - Wait time in milliseconds
  * @returns Debounced function
  */
-export function debounce<T extends (...args: any[]) => any>(
-  func: T,
-  wait: number
-): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout | null = null
+export function debounce<T extends (...args: any[]) => void>(func: T, wait: number): T {
+  let timeout: ReturnType<typeof setTimeout> | null = null
 
   return function executedFunction(...args: Parameters<T>) {
     const later = () => {
@@ -81,11 +78,11 @@ export function debounce<T extends (...args: any[]) => any>(
       func(...args)
     }
 
-    if (timeout) {
+    if (timeout !== null) {
       clearTimeout(timeout)
     }
     timeout = setTimeout(later, wait)
-  }
+  } as T
 }
 
 /**

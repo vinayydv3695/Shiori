@@ -27,6 +27,14 @@ import {
   IconSidebarToggle,
 } from '@/components/icons/ShioriIcons'
 import { usePreferencesStore } from '@/store/preferencesStore'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from '@/components/ui/dropdown-menu'
 
 export type DomainView = 'books' | 'manga'
 
@@ -35,6 +43,8 @@ interface PremiumTopbarProps {
   onDomainChange: (domain: DomainView) => void
   onImportBooks: () => void
   onImportManga: () => void
+  onScanBooksFolder: () => void
+  onScanMangaFolder: () => void
   onOpenRSS?: () => void
   onConvert?: () => void
   onEditMetadata?: () => void
@@ -181,6 +191,8 @@ export function PremiumTopbar({
   onDomainChange,
   onImportBooks,
   onImportManga,
+  onScanBooksFolder,
+  onScanMangaFolder,
   onOpenRSS,
   onConvert,
   onEditMetadata,
@@ -269,17 +281,45 @@ export function PremiumTopbar({
       <Sep />
 
       {/* ── Import zone ── */}
-      <TBtn
-        onClick={onImportBooks}
-        icon={<IconImportBook size={15} />}
-        label="Import Books"
-        variant="default"
-      />
-      <TBtn
-        onClick={onImportManga}
-        icon={<IconImportManga size={15} />}
-        label="Import Manga"
-      />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            className={cn(
+              'group relative flex items-center gap-1.5 h-8 rounded-md px-2.5',
+              'text-xs font-medium select-none',
+              'transition-all duration-[120ms] ease-[cubic-bezier(0.4,0,0.2,1)]',
+              'bg-primary text-primary-foreground hover:bg-primary/85 shadow-sm',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+            )}
+          >
+            <IconImportBook size={15} />
+            <span>Import ▼</span>
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-48">
+          <DropdownMenuLabel className="text-xs text-muted-foreground">Books</DropdownMenuLabel>
+          <DropdownMenuItem onClick={onImportBooks} className="gap-2 cursor-pointer">
+            <IconImportBook size={14} />
+            <span>Import Books</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onScanBooksFolder} className="gap-2 cursor-pointer">
+            <IconImportBook size={14} />
+            <span>Scan Books Folder</span>
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
+          <DropdownMenuLabel className="text-xs text-muted-foreground">Manga</DropdownMenuLabel>
+          <DropdownMenuItem onClick={onImportManga} className="gap-2 cursor-pointer">
+            <IconImportManga size={14} />
+            <span>Import Manga</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onScanMangaFolder} className="gap-2 cursor-pointer">
+            <IconImportManga size={14} />
+            <span>Scan Manga Folder</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <Sep />
 

@@ -45,7 +45,7 @@ function App() {
   }, []);
   const {
     books,
-    setBooks,
+    loadInitialBooks,
     selectedBookIds,
     toggleBookSelection,
     clearSelection,
@@ -75,18 +75,8 @@ function App() {
   // The old uiStore.theme / .dark class system has been removed.
 
   useEffect(() => {
-    // Load books on mount
-    const loadBooks = async () => {
-      try {
-        const loadedBooks = await api.getBooks()
-        setBooks(loadedBooks)
-      } catch (error) {
-        console.error("Failed to load books:", error)
-      }
-    }
-
-    loadBooks()
-  }, [setBooks])
+    loadInitialBooks();
+  }, [loadInitialBooks])
 
   useEffect(() => {
     // Filter books when collection changes
@@ -349,8 +339,8 @@ function App() {
         )}
       </Layout>
 
-      {/* Conversion Job Tracker - Always visible when there are jobs */}
-      <ConversionJobTracker position="bottom-right" autoHide={true} />
+      {/* Global Overlays */}
+      <ConversionJobTracker />
 
       <ToastContainer />
 
@@ -394,9 +384,10 @@ function App() {
         open={settingsDialogOpen}
         onOpenChange={setSettingsDialogOpen}
       />
+      {/* Conversion Dialog */}
       <ConversionDialog
-        isOpen={conversionDialogOpen}
-        onClose={() => setConversionDialogOpen(false)}
+        open={conversionDialogOpen}
+        onOpenChange={(open) => setConversionDialogOpen(open)}
         bookId={dialogBookId ?? 0}
       />
       <ShareBookDialog

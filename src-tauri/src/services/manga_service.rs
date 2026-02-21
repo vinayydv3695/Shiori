@@ -26,7 +26,7 @@ pub struct MangaMetadata {
 }
 
 struct OpenManga {
-    file_data: Vec<u8>,
+    file_path: String,
     sorted_pages: Vec<String>,
     page_dimensions: Vec<(u32, u32)>,
     title: String,
@@ -116,8 +116,8 @@ impl MangaService {
         println!("\n=== OPEN_MANGA ===");
         println!("book_id: {}, path: {}", book_id, path);
 
-        // Read entire file
-        let file_data = std::fs::read(path).map_err(|e| {
+        // Read ZIP dynamically instead of putting entire file in RAM
+        let file = std::fs::File::open(path).map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
                 ShioriError::FileNotFound {
                     path: path.to_string(),
@@ -127,9 +127,7 @@ impl MangaService {
             }
         })?;
 
-        // Parse ZIP
-        let cursor = Cursor::new(&file_data);
-        let mut archive = ZipArchive::new(cursor).map_err(|e| {
+        let mut archive = ZipArchive::new(file).map_err(|e| {
             ShioriError::InvalidFormat(format!("Invalid CBZ/ZIP file: {}", e))
         })?;
 
@@ -184,7 +182,7 @@ impl MangaService {
 
         // Store open manga
         let open_manga = OpenManga {
-            file_data,
+            file_path: path.to_string(),
             sorted_pages: image_files,
             page_dimensions,
             title,
@@ -220,8 +218,7 @@ impl MangaService {
         }
 
         // Extract from archive
-        // We drop the MutexGuard immediately after cloning what we need for the async boundary
-        let (file_data, page_name) = {
+        let (file_path, page_name) = {
             let books = self.open_books.lock().unwrap();
             let manga = books.get(&book_id).ok_or_else(|| {
                 ShioriError::BookNotFound(format!("Manga {} not open", book_id))
@@ -235,22 +232,25 @@ impl MangaService {
                 )));
             }
 
-            (manga.file_data.clone(), manga.sorted_pages[page_index].clone())
+            (manga.file_path.clone(), manga.sorted_pages[page_index].clone())
         };
 
-        // Extract image bytes from ZIP (can be CPU intensive for large zips, use spawn_blocking)
+        // Extract image bytes from ZIP (CPU intensive for large zips, use spawn_blocking)
         let image_bytes = tokio::task::spawn_blocking(move || -> ShioriResult<Vec<u8>> {
-            let cursor = Cursor::new(&file_data);
-            let mut archive = ZipArchive::new(cursor).map_err(|e| {
+            let file = std::fs::File::open(&file_path).map_err(|e| {
+                ShioriError::Other(format!("Failed to open manga file: {}", e))
+            })?;
+            
+            let mut archive = ZipArchive::new(file).map_err(|e| {
                 ShioriError::Other(format!("Failed to reopen archive: {}", e))
             })?;
 
-            let mut file = archive.by_name(&page_name).map_err(|e| {
+            let mut zip_file = archive.by_name(&page_name).map_err(|e| {
                 ShioriError::Other(format!("Page '{}' not found in archive: {}", page_name, e))
             })?;
 
             let mut bytes = Vec::new();
-            std::io::Read::read_to_end(&mut file, &mut bytes).map_err(|e| {
+            std::io::Read::read_to_end(&mut zip_file, &mut bytes).map_err(|e| {
                 ShioriError::Other(format!("Failed to read page: {}", e))
             })?;
             
@@ -358,7 +358,7 @@ impl MangaService {
 
     /// Read image dimensions from archive entry (header-only decode)
     fn get_image_dimensions_from_archive(
-        archive: &mut ZipArchive<Cursor<&Vec<u8>>>,
+        archive: &mut ZipArchive<std::fs::File>,
         filename: &str,
     ) -> Option<(u32, u32)> {
         let mut file = archive.by_name(filename).ok()?;
@@ -443,7 +443,7 @@ impl MangaService {
 
     /// Try to parse ComicInfo.xml from the archive
     fn try_parse_comic_info(
-        archive: &mut ZipArchive<Cursor<&Vec<u8>>>,
+        archive: &mut ZipArchive<std::fs::File>,
     ) -> (bool, Option<String>, Option<u32>, Option<String>) {
         let mut xml_content = String::new();
         match archive.by_name("ComicInfo.xml") {

@@ -262,7 +262,14 @@ impl EpubRenderer for EpubAdapter {
                 return Ok(bytes);
             }
         }
-
+        
+        // Find mapped zip paths from doc.resources
+        let all_resources: Vec<(String, String)> = doc
+            .resources
+            .iter()
+            .map(|(id, item)| (id.clone(), item.path.to_string_lossy().to_string().replace("\\", "/")))
+            .collect();
+            
         // ── Pass 3: Common EPUB root prefixes ─────────────────────────────
         for prefix in &["OEBPS/", "OPS/", "EPUB/", "content/"] {
             let candidate = format!("{}{}", prefix, clean);
@@ -273,22 +280,21 @@ impl EpubRenderer for EpubAdapter {
         }
 
         // ── Pass 4: Case-insensitive suffix match ─────────────────────────
-        // Handles: key="OEBPS/Images/foo.jpg", clean="images/foo.jpg"
+        // Handles: zip_path="OEBPS/Images/foo.jpg", clean="images/foo.jpg"
         let clean_lower = clean.to_lowercase();
         let slash_clean_lower = format!("/{}", clean_lower);
-        let all_keys: Vec<String> = doc.resources.keys().cloned().collect();
 
-        let mut suffix_match: Option<String> = None;
-        for key in &all_keys {
-            let key_lower = key.to_lowercase();
-            if key_lower == clean_lower || key_lower.ends_with(&slash_clean_lower) {
-                suffix_match = Some(key.clone());
+        let mut suffix_match_id: Option<String> = None;
+        for (id, zip_path) in &all_resources {
+            let path_lower = zip_path.to_lowercase();
+            if path_lower == clean_lower || path_lower.ends_with(&slash_clean_lower) {
+                suffix_match_id = Some(id.clone());
                 break;
             }
         }
-        if let Some(ref key) = suffix_match {
-            if let Some((bytes, _)) = doc.get_resource(key) {
-                println!("[EpubAdapter] Case-insensitive suffix match: {} -> {}", path, key);
+        if let Some(ref id) = suffix_match_id {
+            if let Some((bytes, _)) = doc.get_resource(id) {
+                println!("[EpubAdapter] Case-insensitive suffix match: {} -> (id: {})", path, id);
                 return Ok(bytes);
             }
         }
@@ -300,27 +306,27 @@ impl EpubRenderer for EpubAdapter {
             .unwrap_or(&clean)
             .to_lowercase();
 
-        for key in &all_keys {
-            let key_file = std::path::Path::new(key)
+        for (id, zip_path) in &all_resources {
+            let key_file = std::path::Path::new(zip_path)
                 .file_name()
                 .and_then(|f| f.to_str())
                 .unwrap_or("")
                 .to_lowercase();
             if key_file == requested_filename {
-                if let Some((bytes, _)) = doc.get_resource(key) {
-                    println!("[EpubAdapter] Filename match: {} -> {}", path, key);
+                if let Some((bytes, _)) = doc.get_resource(id) {
+                    println!("[EpubAdapter] Filename match: {} -> (id: {})", path, id);
                     return Ok(bytes);
                 }
             }
         }
 
-        // ── Not found: log available keys for debugging ───────────────────
+        // ── Not found: log available paths for debugging ───────────────────
         println!(
-            "[EpubAdapter::get_resource] ❌ Resource not found: '{}'. Available keys ({}):",
-            path, all_keys.len()
+            "[EpubAdapter::get_resource] ❌ Resource not found: '{}'. Available paths ({}):",
+            path, all_resources.len()
         );
-        for key in all_keys.iter().take(20) {
-            println!("  • {}", key);
+        for (_id, zip_path) in all_resources.iter().take(20) {
+            println!("  • {}", zip_path);
         }
 
         Err(ShioriError::Other(format!("Resource not found: {}", path)))

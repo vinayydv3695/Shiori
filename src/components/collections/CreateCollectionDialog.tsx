@@ -52,13 +52,13 @@ export const CreateCollectionDialog = ({
         setDescription(editCollection.description || '');
         setColor(editCollection.color || PRESET_COLORS[0]);
         setIcon(editCollection.icon || '');
-        setIsSmart(editCollection.is_smart);
-        setSelectedParentId(editCollection.parent_id || null);
-        
+        setIsSmart(editCollection.isSmart);
+        setSelectedParentId(editCollection.parentId || null);
+
         // Parse smart rules if exists
-        if (editCollection.smart_rules) {
+        if (editCollection.smartRules) {
           try {
-            const rules = JSON.parse(editCollection.smart_rules);
+            const rules = JSON.parse(editCollection.smartRules);
             setSmartRules(rules);
           } catch (e) {
             console.error('Failed to parse smart rules:', e);
@@ -93,7 +93,7 @@ export const CreateCollectionDialog = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!name.trim()) {
       alert('Collection name is required');
       return;
@@ -114,13 +114,12 @@ export const CreateCollectionDialog = ({
         smart_rules: isSmart ? JSON.stringify(smartRules) : null,
         icon: icon || null,
         color: color || null,
-        sort_order: 0,
       };
 
-      if (editCollection) {
+      if (editCollection && editCollection.id !== undefined) {
         // Update existing collection
         const updated = await api.updateCollection(editCollection.id, collectionData);
-        updateCollection(updated);
+        updateCollection(editCollection.id, updated as any);
       } else {
         // Create new collection
         const created = await api.createCollection(collectionData);
@@ -171,11 +170,10 @@ export const CreateCollectionDialog = ({
               <button
                 type="button"
                 onClick={() => setIsSmart(false)}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
-                  !isSmart
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                    : 'border-gray-300 dark:border-gray-700 hover:border-gray-400'
-                }`}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all ${!isSmart
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                  : 'border-gray-300 dark:border-gray-700 hover:border-gray-400'
+                  }`}
               >
                 <Folder className="w-5 h-5" />
                 <div className="text-left">
@@ -186,11 +184,10 @@ export const CreateCollectionDialog = ({
               <button
                 type="button"
                 onClick={() => setIsSmart(true)}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
-                  isSmart
-                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
-                    : 'border-gray-300 dark:border-gray-700 hover:border-gray-400'
-                }`}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all ${isSmart
+                  ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                  : 'border-gray-300 dark:border-gray-700 hover:border-gray-400'
+                  }`}
               >
                 <Sparkles className="w-5 h-5" />
                 <div className="text-left">
@@ -253,9 +250,8 @@ export const CreateCollectionDialog = ({
                     key={presetColor}
                     type="button"
                     onClick={() => setColor(presetColor)}
-                    className={`w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 ${
-                      color === presetColor ? 'border-gray-900 dark:border-white scale-110' : 'border-transparent'
-                    }`}
+                    className={`w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 ${color === presetColor ? 'border-gray-900 dark:border-white scale-110' : 'border-transparent'
+                      }`}
                     style={{ backgroundColor: presetColor }}
                   />
                 ))}
@@ -275,11 +271,10 @@ export const CreateCollectionDialog = ({
                 <button
                   type="button"
                   onClick={() => setIcon('')}
-                  className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center text-lg transition-all ${
-                    !icon
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                      : 'border-gray-300 dark:border-gray-700 hover:border-gray-400'
-                  }`}
+                  className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center text-lg transition-all ${!icon
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                    : 'border-gray-300 dark:border-gray-700 hover:border-gray-400'
+                    }`}
                 >
                   <X className="w-4 h-4 text-gray-400" />
                 </button>
@@ -288,11 +283,10 @@ export const CreateCollectionDialog = ({
                     key={presetIcon}
                     type="button"
                     onClick={() => setIcon(presetIcon)}
-                    className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center text-lg transition-all ${
-                      icon === presetIcon
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                        : 'border-gray-300 dark:border-gray-700 hover:border-gray-400'
-                    }`}
+                    className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center text-lg transition-all ${icon === presetIcon
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                      : 'border-gray-300 dark:border-gray-700 hover:border-gray-400'
+                      }`}
                   >
                     {presetIcon}
                   </button>

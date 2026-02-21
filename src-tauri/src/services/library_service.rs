@@ -7,8 +7,8 @@ use rusqlite::params;
 use uuid::Uuid;
 use walkdir::WalkDir;
 
-pub fn get_all_books(db: &Database) -> Result<Vec<Book>> {
-    let conn = db.get_connection();
+pub fn get_all_books(db: &Database, limit: u32, offset: u32) -> Result<Vec<Book>> {
+    let conn = db.get_connection()?;
 
     let mut stmt = conn.prepare(
         "SELECT id, uuid, title, sort_title, isbn, isbn13, publisher, pubdate, 
@@ -16,10 +16,11 @@ pub fn get_all_books(db: &Database) -> Result<Vec<Book>> {
                 file_hash, cover_path, page_count, word_count, language, 
                 added_date, modified_date, last_opened, notes
          FROM books
-         ORDER BY added_date DESC",
+         ORDER BY added_date DESC
+         LIMIT ?1 OFFSET ?2",
     )?;
 
-    let books_iter = stmt.query_map([], |row| {
+    let books_iter = stmt.query_map(params![limit, offset], |row| {
         Ok(Book {
             id: Some(row.get(0)?),
             uuid: row.get(1)?,
@@ -52,16 +53,22 @@ pub fn get_all_books(db: &Database) -> Result<Vec<Book>> {
     let mut books = Vec::new();
     for book_result in books_iter {
         let mut book = book_result?;
-        book.authors = get_authors_for_book(conn, book.id.unwrap())?;
-        book.tags = get_tags_for_book(conn, book.id.unwrap())?;
+        book.authors = get_authors_for_book(&conn, book.id.unwrap())?;
+        book.tags = get_tags_for_book(&conn, book.id.unwrap())?;
         books.push(book);
     }
 
     Ok(books)
 }
 
+pub fn get_total_books(db: &Database) -> Result<i64> {
+    let conn = db.get_connection()?;
+    let count: i64 = conn.query_row("SELECT COUNT(*) FROM books", [], |row| row.get(0))?;
+    Ok(count)
+}
+
 pub fn get_book_by_id(db: &Database, id: i64) -> Result<Book> {
-    let conn = db.get_connection();
+    let conn = db.get_connection()?;
 
     let mut book: Book = conn
         .query_row(
@@ -103,14 +110,14 @@ pub fn get_book_by_id(db: &Database, id: i64) -> Result<Book> {
         )
         .map_err(|_| ShioriError::BookNotFound(id.to_string()))?;
 
-    book.authors = get_authors_for_book(conn, id)?;
-    book.tags = get_tags_for_book(conn, id)?;
+    book.authors = get_authors_for_book(&conn, id)?;
+    book.tags = get_tags_for_book(&conn, id)?;
 
     Ok(book)
 }
 
 pub fn add_book(db: &Database, mut book: Book) -> Result<i64> {
-    let conn = db.get_connection();
+    let conn = db.get_connection()?;
 
     // Generate UUID if not provided
     if book.uuid.is_empty() {
@@ -163,7 +170,7 @@ pub fn add_book(db: &Database, mut book: Book) -> Result<i64> {
 
     // Add authors
     for author in &book.authors {
-        let author_id = get_or_create_author(conn, &author.name)?;
+        let author_id = get_or_create_author(&conn, &author.name)?;
         conn.execute(
             "INSERT INTO books_authors (book_id, author_id) VALUES (?1, ?2)",
             params![book_id, author_id],
@@ -184,7 +191,7 @@ pub fn add_book(db: &Database, mut book: Book) -> Result<i64> {
 }
 
 pub fn update_book(db: &Database, book: Book) -> Result<()> {
-    let conn = db.get_connection();
+    let conn = db.get_connection()?;
 
     let book_id = book.id.ok_or(ShioriError::Other(
         "Book ID required for update".to_string(),
@@ -218,7 +225,7 @@ pub fn update_book(db: &Database, book: Book) -> Result<()> {
         params![book_id],
     )?;
     for author in &book.authors {
-        let author_id = get_or_create_author(conn, &author.name)?;
+        let author_id = get_or_create_author(&conn, &author.name)?;
         conn.execute(
             "INSERT INTO books_authors (book_id, author_id) VALUES (?1, ?2)",
             params![book_id, author_id],
@@ -244,7 +251,7 @@ pub fn update_book(db: &Database, book: Book) -> Result<()> {
 
 pub fn delete_book(db: &Database, id: i64) -> Result<()> {
     log::info!("[delete_book] Attempting to delete book with id: {}", id);
-    let conn = db.get_connection();
+    let conn = db.get_connection()?;
 
     // First check if book exists
     let exists: bool = conn.query_row(
@@ -282,7 +289,7 @@ pub fn delete_books(db: &mut Database, ids: Vec<i64>) -> Result<()> {
         ids.len(),
         ids
     );
-    let conn = db.get_connection_mut();
+    let mut conn = db.get_connection()?;
     let tx = conn.transaction()?;
 
     let mut deleted_count = 0;
@@ -335,7 +342,7 @@ fn import_single_book(db: &Database, path: &str) -> Result<bool> {
     let file_hash = calculate_file_hash(path)?;
 
     // Check for duplicates
-    let conn = db.get_connection();
+    let conn = db.get_connection()?;
     let exists: bool = conn.query_row(
         "SELECT EXISTS(SELECT 1 FROM books WHERE file_hash = ?1)",
         params![file_hash],
@@ -540,8 +547,8 @@ pub fn scan_folder_for_manga(db: &Database, folder_path: &str) -> Result<ImportR
 }
 
 /// Get books filtered by domain
-pub fn get_books_by_domain(db: &Database, domain: &str) -> Result<Vec<Book>> {
-    let conn = db.get_connection();
+pub fn get_books_by_domain(db: &Database, domain: &str, limit: u32, offset: u32) -> Result<Vec<Book>> {
+    let conn = db.get_connection()?;
 
     let query = match domain {
         "books" => {
@@ -551,7 +558,8 @@ pub fn get_books_by_domain(db: &Database, domain: &str) -> Result<Vec<Book>> {
                     added_date, modified_date, last_opened, notes
              FROM books
              WHERE file_format NOT IN ('cbz', 'cbr')
-             ORDER BY added_date DESC"
+             ORDER BY added_date DESC
+             LIMIT ?1 OFFSET ?2"
         }
         "manga" => {
             "SELECT id, uuid, title, sort_title, isbn, isbn13, publisher, pubdate, 
@@ -560,7 +568,8 @@ pub fn get_books_by_domain(db: &Database, domain: &str) -> Result<Vec<Book>> {
                     added_date, modified_date, last_opened, notes
              FROM books
              WHERE file_format IN ('cbz', 'cbr')
-             ORDER BY added_date DESC"
+             ORDER BY added_date DESC
+             LIMIT ?1 OFFSET ?2"
         }
         _ => {
             "SELECT id, uuid, title, sort_title, isbn, isbn13, publisher, pubdate, 
@@ -568,13 +577,14 @@ pub fn get_books_by_domain(db: &Database, domain: &str) -> Result<Vec<Book>> {
                     file_hash, cover_path, page_count, word_count, language, 
                     added_date, modified_date, last_opened, notes
              FROM books
-             ORDER BY added_date DESC"
+             ORDER BY added_date DESC
+             LIMIT ?1 OFFSET ?2"
         }
     };
 
     let mut stmt = conn.prepare(query)?;
 
-    let books_iter = stmt.query_map([], |row| {
+    let books_iter = stmt.query_map(params![limit, offset], |row| {
         Ok(Book {
             id: Some(row.get(0)?),
             uuid: row.get(1)?,
@@ -607,12 +617,23 @@ pub fn get_books_by_domain(db: &Database, domain: &str) -> Result<Vec<Book>> {
     let mut books = Vec::new();
     for book_result in books_iter {
         let mut book = book_result?;
-        book.authors = get_authors_for_book(conn, book.id.unwrap())?;
-        book.tags = get_tags_for_book(conn, book.id.unwrap())?;
+        book.authors = get_authors_for_book(&conn, book.id.unwrap())?;
+        book.tags = get_tags_for_book(&conn, book.id.unwrap())?;
         books.push(book);
     }
 
     Ok(books)
+}
+
+pub fn get_total_books_by_domain(db: &Database, domain: &str) -> Result<i64> {
+    let conn = db.get_connection()?;
+    let query = match domain {
+        "books" => "SELECT COUNT(*) FROM books WHERE file_format NOT IN ('cbz', 'cbr')",
+        "manga" => "SELECT COUNT(*) FROM books WHERE file_format IN ('cbz', 'cbr')",
+        _ => "SELECT COUNT(*) FROM books",
+    };
+    let count: i64 = conn.query_row(query, [], |row| row.get(0))?;
+    Ok(count)
 }
 
 fn get_authors_for_book(conn: &rusqlite::Connection, book_id: i64) -> Result<Vec<Author>> {

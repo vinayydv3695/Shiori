@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import type { Book } from "../lib/tauri"
+import { api, type Book } from "../lib/tauri"
 
 export interface FilterState {
   authors: string[]
@@ -42,9 +42,14 @@ interface LibraryStore {
   setBulkSelectMode: (enabled: boolean) => void
   toggleFilter: (category: keyof FilterState, id: string) => void
   clearFilters: () => void
+  hasMore: boolean
+  isLoading: boolean
+  totalCount: number
+  loadInitialBooks: () => Promise<void>
+  loadMoreBooks: () => Promise<void>
 }
 
-export const useLibraryStore = create<LibraryStore>((set) => ({
+export const useLibraryStore = create<LibraryStore>((set, get) => ({
   books: [],
   selectedBook: null,
   selectedBookIds: new Set(),
@@ -94,4 +99,44 @@ export const useLibraryStore = create<LibraryStore>((set) => ({
       };
     }),
   clearFilters: () => set({ selectedFilters: initialFilters }),
+  hasMore: true,
+  isLoading: false,
+  totalCount: 0,
+  loadInitialBooks: async () => {
+    set({ isLoading: true })
+    try {
+      const [books, totalCount] = await Promise.all([
+        api.getBooks(50, 0),
+        api.getTotalBooks()
+      ])
+      set({ books, totalCount, hasMore: books.length < totalCount, isLoading: false })
+    } catch {
+      set({ isLoading: false })
+    }
+  },
+  loadMoreBooks: async () => {
+    const state = get();
+    if (state.isLoading || !state.hasMore) return;
+
+    set({ isLoading: true });
+    try {
+      const newBooks = await api.getBooks(50, state.books.length);
+      const currentBooks = get().books;
+      const appended = [...currentBooks, ...newBooks];
+
+      const uniqueBooksMap = new Map();
+      for (const item of appended) {
+        uniqueBooksMap.set(item.id, item);
+      }
+      const uniqueBooks = Array.from(uniqueBooksMap.values()) as Book[];
+
+      set({
+        books: uniqueBooks,
+        hasMore: uniqueBooks.length < get().totalCount,
+        isLoading: false
+      });
+    } catch {
+      set({ isLoading: false });
+    }
+  }
 }))

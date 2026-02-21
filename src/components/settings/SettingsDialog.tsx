@@ -69,7 +69,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
             {/* Settings Content */}
             <div className="flex-1 overflow-y-auto p-6">
-              {activeTab === 'appearance' && <AppearanceSettings preferences={preferences} updateTheme={updateTheme} />}
+              {activeTab === 'appearance' && <AppearanceSettings preferences={preferences} updateTheme={updateTheme} updateGeneralSettings={updateGeneralSettings} />}
               {activeTab === 'book-reading' && <BookReadingSettings preferences={preferences} updateBookDefaults={updateBookDefaults} />}
               {activeTab === 'manga-reading' && <MangaReadingSettings preferences={preferences} updateMangaDefaults={updateMangaDefaults} />}
               {activeTab === 'library' && <LibrarySettings preferences={preferences} updateGeneralSettings={updateGeneralSettings} />}
@@ -104,15 +104,19 @@ const SettingItem = ({ label, description, children }: { label: string; descript
   </div>
 )
 
-const AppearanceSettings = ({ preferences, updateTheme }: { 
+const AppearanceSettings = ({ preferences, updateTheme, updateGeneralSettings }: {
   preferences: UserPreferences | null
   updateTheme: (theme: Theme) => Promise<void>
+  updateGeneralSettings: (updates: { uiScale?: number; uiDensity?: 'compact' | 'comfortable'; autoStart?: boolean; defaultImportPath?: string; accentColor?: string }) => Promise<void>
 }) => {
   if (!preferences) return null
 
   const handleThemeChange = async (newTheme: Theme) => {
     await updateTheme(newTheme)
   }
+
+  const currentScale = preferences.uiScale ?? 1.0
+  const scalePercent = Math.round(currentScale * 100)
 
   return (
     <div className="space-y-8">
@@ -164,6 +168,26 @@ const AppearanceSettings = ({ preferences, updateTheme }: {
             </button>
           ))}
         </div>
+      </SettingSection>
+      <SettingSection
+        title="UI Scale"
+        description="Adjust the overall application size (75% – 150%)"
+      >
+        <SettingItem label="Scale" description={`${scalePercent}%`}>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground w-8 text-right">75%</span>
+            <input
+              type="range"
+              min="75"
+              max="150"
+              step="5"
+              value={scalePercent}
+              onChange={(e) => updateGeneralSettings({ uiScale: Number(e.target.value) / 100 })}
+              className="w-40"
+            />
+            <span className="text-xs text-muted-foreground w-10">150%</span>
+          </div>
+        </SettingItem>
       </SettingSection>
     </div>
   )

@@ -1,22 +1,30 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
-import { X, Monitor, Moon, Sun, Book, Image, Palette, Download, Database, Bell, Shield } from 'lucide-react'
+import { X, Monitor, Moon, Sun, Book, Image, Palette, Download, Database, Bell, Shield, BookOpen, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { usePreferencesStore } from '../../store/preferencesStore'
+import type { Theme, UserPreferences, BookPreferences, MangaPreferences } from '../../types/preferences'
 
 interface SettingsDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-type SettingsTab = 'appearance' | 'reading' | 'library' | 'storage' | 'notifications' | 'advanced'
+type SettingsTab = 'appearance' | 'book-reading' | 'manga-reading' | 'library' | 'storage' | 'notifications' | 'advanced'
 
 export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance')
+  const preferences = usePreferencesStore((state) => state.preferences)
+  const updateTheme = usePreferencesStore((state) => state.updateTheme)
+  const updateBookDefaults = usePreferencesStore((state) => state.updateBookDefaults)
+  const updateMangaDefaults = usePreferencesStore((state) => state.updateMangaDefaults)
+  const updateGeneralSettings = usePreferencesStore((state) => state.updateGeneralSettings)
 
   const tabs = [
     { id: 'appearance' as const, name: 'Appearance', icon: Palette },
-    { id: 'reading' as const, name: 'Reading', icon: Book },
+    { id: 'book-reading' as const, name: 'Book Reading', icon: BookOpen },
+    { id: 'manga-reading' as const, name: 'Manga Reading', icon: FileText },
     { id: 'library' as const, name: 'Library', icon: Image },
     { id: 'storage' as const, name: 'Storage', icon: Database },
     { id: 'notifications' as const, name: 'Notifications', icon: Bell },
@@ -61,9 +69,10 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
             {/* Settings Content */}
             <div className="flex-1 overflow-y-auto p-6">
-              {activeTab === 'appearance' && <AppearanceSettings />}
-              {activeTab === 'reading' && <ReadingSettings />}
-              {activeTab === 'library' && <LibrarySettings />}
+              {activeTab === 'appearance' && <AppearanceSettings preferences={preferences} updateTheme={updateTheme} />}
+              {activeTab === 'book-reading' && <BookReadingSettings preferences={preferences} updateBookDefaults={updateBookDefaults} />}
+              {activeTab === 'manga-reading' && <MangaReadingSettings preferences={preferences} updateMangaDefaults={updateMangaDefaults} />}
+              {activeTab === 'library' && <LibrarySettings preferences={preferences} updateGeneralSettings={updateGeneralSettings} />}
               {activeTab === 'storage' && <StorageSettings />}
               {activeTab === 'notifications' && <NotificationSettings />}
               {activeTab === 'advanced' && <AdvancedSettings />}
@@ -95,11 +104,15 @@ const SettingItem = ({ label, description, children }: { label: string; descript
   </div>
 )
 
-const AppearanceSettings = () => {
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system')
-  const [accentColor, setAccentColor] = useState('#8b5cf6')
-  const [compactMode, setCompactMode] = useState(false)
-  const [showCoverShadows, setShowCoverShadows] = useState(true)
+const AppearanceSettings = ({ preferences, updateTheme }: { 
+  preferences: UserPreferences | null
+  updateTheme: (theme: Theme) => Promise<void>
+}) => {
+  if (!preferences) return null
+
+  const handleThemeChange = async (newTheme: Theme) => {
+    await updateTheme(newTheme)
+  }
 
   return (
     <div className="space-y-8">
@@ -107,18 +120,17 @@ const AppearanceSettings = () => {
         title="Theme"
         description="Choose how Shiori looks"
       >
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {[
-            { value: 'light' as const, label: 'Light', icon: Sun },
-            { value: 'dark' as const, label: 'Dark', icon: Moon },
-            { value: 'system' as const, label: 'System', icon: Monitor },
+            { value: 'black' as const, label: 'Black Theme', icon: Moon },
+            { value: 'white' as const, label: 'White Theme', icon: Sun },
           ].map((option) => (
             <button
               key={option.value}
-              onClick={() => setTheme(option.value)}
+              onClick={() => handleThemeChange(option.value)}
               className={cn(
                 'p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-2',
-                theme === option.value
+                preferences.theme === option.value
                   ? 'border-primary bg-primary/5'
                   : 'border-border hover:border-primary/50'
               )}
@@ -131,42 +143,146 @@ const AppearanceSettings = () => {
       </SettingSection>
 
       <SettingSection
-        title="Accent Color"
-        description="Customize the primary color"
+        title="UI Density"
+        description="Adjust interface spacing"
       >
-        <div className="flex items-center gap-3">
-          <input
-            type="color"
-            value={accentColor}
-            onChange={(e) => setAccentColor(e.target.value)}
-            className="w-12 h-12 rounded-lg border border-border cursor-pointer"
-          />
-          <span className="text-sm text-muted-foreground">{accentColor}</span>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { value: 'compact' as const, label: 'Compact' },
+            { value: 'comfortable' as const, label: 'Comfortable' },
+          ].map((option) => (
+            <button
+              key={option.value}
+              className={cn(
+                'p-3 rounded-lg border-2 transition-all',
+                preferences.uiDensity === option.value
+                  ? 'border-primary bg-primary/5'
+                  : 'border-border hover:border-primary/50'
+              )}
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
       </SettingSection>
+    </div>
+  )
+}
 
-      <SettingSection title="Display Options">
-        <SettingItem
-          label="Compact Mode"
-          description="Reduce spacing for more content"
-        >
+const BookReadingSettings = ({ preferences, updateBookDefaults }: {
+  preferences: UserPreferences | null
+  updateBookDefaults: (updates: Partial<BookPreferences>) => Promise<void>
+}) => {
+  if (!preferences) return null
+
+  return (
+    <div className="space-y-8">
+      <SettingSection
+        title="Font Settings"
+        description="Customize how books are displayed"
+      >
+        <SettingItem label="Font Family" description={preferences.book.fontFamily}>
+          <select
+            value={preferences.book.fontFamily}
+            onChange={(e) => updateBookDefaults({ fontFamily: e.target.value })}
+            className="px-3 py-2 rounded-md border border-border bg-background"
+          >
+            <option value="Georgia">Georgia</option>
+            <option value="Arial">Arial</option>
+            <option value="Times New Roman">Times New Roman</option>
+            <option value="Courier New">Courier New</option>
+            <option value="Verdana">Verdana</option>
+          </select>
+        </SettingItem>
+
+        <SettingItem label="Font Size" description={`${preferences.book.fontSize}px`}>
           <input
-            type="checkbox"
-            checked={compactMode}
-            onChange={(e) => setCompactMode(e.target.checked)}
-            className="w-5 h-5"
+            type="range"
+            min="12"
+            max="32"
+            value={preferences.book.fontSize}
+            onChange={(e) => updateBookDefaults({ fontSize: Number(e.target.value) })}
+            className="w-48"
           />
         </SettingItem>
 
+        <SettingItem label="Line Height" description={`${preferences.book.lineHeight}`}>
+          <input
+            type="range"
+            min="1.2"
+            max="2.4"
+            step="0.1"
+            value={preferences.book.lineHeight}
+            onChange={(e) => updateBookDefaults({ lineHeight: Number(e.target.value) })}
+            className="w-48"
+          />
+        </SettingItem>
+      </SettingSection>
+
+      <SettingSection title="Reading Experience">
         <SettingItem
-          label="Cover Shadows"
-          description="Add shadows to book covers"
+          label="Scroll Mode"
+          description={preferences.book.scrollMode === 'continuous' ? 'Continuous' : 'Paged'}
+        >
+          <select
+            value={preferences.book.scrollMode}
+            onChange={(e) => updateBookDefaults({ scrollMode: e.target.value as 'paged' | 'continuous' })}
+            className="px-3 py-2 rounded-md border border-border bg-background"
+          >
+            <option value="paged">Paged</option>
+            <option value="continuous">Continuous</option>
+          </select>
+        </SettingItem>
+
+        <SettingItem
+          label="Text Justification"
+          description={preferences.book.justification === 'justify' ? 'Justified' : 'Left-aligned'}
+        >
+          <select
+            value={preferences.book.justification}
+            onChange={(e) => updateBookDefaults({ justification: e.target.value as 'left' | 'justify' })}
+            className="px-3 py-2 rounded-md border border-border bg-background"
+          >
+            <option value="left">Left</option>
+            <option value="justify">Justify</option>
+          </select>
+        </SettingItem>
+
+        <SettingItem
+          label="Hyphenation"
+          description={preferences.book.hyphenation ? 'Enabled' : 'Disabled'}
         >
           <input
             type="checkbox"
-            checked={showCoverShadows}
-            onChange={(e) => setShowCoverShadows(e.target.checked)}
+            checked={preferences.book.hyphenation}
+            onChange={(e) => updateBookDefaults({ hyphenation: e.target.checked })}
             className="w-5 h-5"
+          />
+        </SettingItem>
+      </SettingSection>
+
+      <SettingSection title="Layout">
+        <SettingItem label="Page Width" description={`${preferences.book.pageWidth}px`}>
+          <input
+            type="range"
+            min="400"
+            max="1200"
+            step="50"
+            value={preferences.book.pageWidth}
+            onChange={(e) => updateBookDefaults({ pageWidth: Number(e.target.value) })}
+            className="w-48"
+          />
+        </SettingItem>
+
+        <SettingItem label="Paragraph Spacing" description={`${preferences.book.paragraphSpacing}em`}>
+          <input
+            type="range"
+            min="0"
+            max="2"
+            step="0.1"
+            value={preferences.book.paragraphSpacing}
+            onChange={(e) => updateBookDefaults({ paragraphSpacing: Number(e.target.value) })}
+            className="w-48"
           />
         </SettingItem>
       </SettingSection>
@@ -174,31 +290,30 @@ const AppearanceSettings = () => {
   )
 }
 
-const ReadingSettings = () => {
-  const [defaultMode, setDefaultMode] = useState<'single' | 'double' | 'scroll'>('single')
-  const [fontSize, setFontSize] = useState(18)
-  const [lineHeight, setLineHeight] = useState(1.6)
-  const [autoBookmark, setAutoBookmark] = useState(true)
-  const [pageTransition, setPageTransition] = useState(true)
+const MangaReadingSettings = ({ preferences, updateMangaDefaults }: {
+  preferences: UserPreferences | null
+  updateMangaDefaults: (updates: Partial<MangaPreferences>) => Promise<void>
+}) => {
+  if (!preferences) return null
 
   return (
     <div className="space-y-8">
       <SettingSection
         title="Reading Mode"
-        description="Default reading layout for books"
+        description="Default manga reading layout"
       >
         <div className="grid grid-cols-3 gap-3">
           {[
             { value: 'single' as const, label: 'Single Page' },
             { value: 'double' as const, label: 'Double Page' },
-            { value: 'scroll' as const, label: 'Continuous' },
+            { value: 'long-strip' as const, label: 'Long Strip' },
           ].map((option) => (
             <button
               key={option.value}
-              onClick={() => setDefaultMode(option.value)}
+              onClick={() => updateMangaDefaults({ mode: option.value })}
               className={cn(
                 'p-3 rounded-lg border-2 transition-all',
-                defaultMode === option.value
+                preferences.manga.mode === option.value
                   ? 'border-primary bg-primary/5'
                   : 'border-border hover:border-primary/50'
               )}
@@ -209,53 +324,102 @@ const ReadingSettings = () => {
         </div>
       </SettingSection>
 
-      <SettingSection title="Typography">
-        <SettingItem label="Font Size" description={`${fontSize}px`}>
+      <SettingSection title="Reading Direction">
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { value: 'ltr' as const, label: 'Left to Right' },
+            { value: 'rtl' as const, label: 'Right to Left' },
+          ].map((option) => (
+            <button
+              key={option.value}
+              onClick={() => updateMangaDefaults({ direction: option.value })}
+              className={cn(
+                'p-3 rounded-lg border-2 transition-all',
+                preferences.manga.direction === option.value
+                  ? 'border-primary bg-primary/5'
+                  : 'border-border hover:border-primary/50'
+              )}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </SettingSection>
+
+      <SettingSection title="Display Options">
+        <SettingItem
+          label="Fit to Width"
+          description={preferences.manga.fitWidth ? 'Enabled' : 'Disabled'}
+        >
           <input
-            type="range"
-            min="12"
-            max="32"
-            value={fontSize}
-            onChange={(e) => setFontSize(Number(e.target.value))}
-            className="w-48"
+            type="checkbox"
+            checked={preferences.manga.fitWidth}
+            onChange={(e) => updateMangaDefaults({ fitWidth: e.target.checked })}
+            className="w-5 h-5"
           />
         </SettingItem>
 
-        <SettingItem label="Line Height" description={`${lineHeight}`}>
+        <SettingItem
+          label="Image Smoothing"
+          description={preferences.manga.imageSmoothing ? 'Enabled' : 'Disabled'}
+        >
           <input
-            type="range"
-            min="1.2"
-            max="2.4"
-            step="0.1"
-            value={lineHeight}
-            onChange={(e) => setLineHeight(Number(e.target.value))}
-            className="w-48"
+            type="checkbox"
+            checked={preferences.manga.imageSmoothing}
+            onChange={(e) => updateMangaDefaults({ imageSmoothing: e.target.checked })}
+            className="w-5 h-5"
           />
+        </SettingItem>
+
+        <SettingItem
+          label="GPU Acceleration"
+          description={preferences.manga.gpuAcceleration ? 'Enabled' : 'Disabled'}
+        >
+          <input
+            type="checkbox"
+            checked={preferences.manga.gpuAcceleration}
+            onChange={(e) => updateMangaDefaults({ gpuAcceleration: e.target.checked })}
+            className="w-5 h-5"
+          />
+        </SettingItem>
+
+        <SettingItem
+          label="Progress Bar"
+          description={preferences.manga.progressBar === 'hidden' ? 'Hidden' : preferences.manga.progressBar.charAt(0).toUpperCase() + preferences.manga.progressBar.slice(1)}
+        >
+          <select
+            value={preferences.manga.progressBar}
+            onChange={(e) => updateMangaDefaults({ progressBar: e.target.value as 'top' | 'bottom' | 'hidden' })}
+            className="px-3 py-2 rounded-md border border-border bg-background"
+          >
+            <option value="hidden">Hidden</option>
+            <option value="top">Top</option>
+            <option value="bottom">Bottom</option>
+          </select>
         </SettingItem>
       </SettingSection>
 
-      <SettingSection title="Reading Experience">
-        <SettingItem
-          label="Auto-bookmark"
-          description="Automatically save reading progress"
-        >
+      <SettingSection title="Performance">
+        <SettingItem label="Preload Pages" description={`${preferences.manga.preloadCount} pages`}>
           <input
-            type="checkbox"
-            checked={autoBookmark}
-            onChange={(e) => setAutoBookmark(e.target.checked)}
-            className="w-5 h-5"
+            type="range"
+            min="0"
+            max="10"
+            value={preferences.manga.preloadCount}
+            onChange={(e) => updateMangaDefaults({ preloadCount: Number(e.target.value) })}
+            className="w-48"
           />
         </SettingItem>
 
-        <SettingItem
-          label="Page Transitions"
-          description="Animated page turns"
-        >
+        <SettingItem label="Margin Size" description={`${preferences.manga.marginSize}px`}>
           <input
-            type="checkbox"
-            checked={pageTransition}
-            onChange={(e) => setPageTransition(e.target.checked)}
-            className="w-5 h-5"
+            type="range"
+            min="0"
+            max="100"
+            step="5"
+            value={preferences.manga.marginSize}
+            onChange={(e) => updateMangaDefaults({ marginSize: Number(e.target.value) })}
+            className="w-48"
           />
         </SettingItem>
       </SettingSection>
@@ -263,58 +427,41 @@ const ReadingSettings = () => {
   )
 }
 
-const LibrarySettings = () => {
-  const [autoFetchMetadata, setAutoFetchMetadata] = useState(true)
-  const [coverQuality, setCoverQuality] = useState<'medium' | 'high'>('high')
-  const [organizeByAuthor, setOrganizeByAuthor] = useState(false)
+const LibrarySettings = ({ preferences, updateGeneralSettings }: {
+  preferences: UserPreferences | null
+  updateGeneralSettings: (updates: any) => Promise<void>
+}) => {
+  if (!preferences) return null
 
   return (
     <div className="space-y-8">
       <SettingSection
-        title="Metadata"
-        description="Automatically fetch book and manga information"
+        title="General Settings"
+        description="Configure library behavior"
       >
         <SettingItem
-          label="Auto-fetch Metadata"
-          description="Fetch metadata when adding new books"
+          label="Auto-start Application"
+          description="Start Shiori when system boots"
         >
           <input
             type="checkbox"
-            checked={autoFetchMetadata}
-            onChange={(e) => setAutoFetchMetadata(e.target.checked)}
+            checked={preferences.autoStart}
+            onChange={(e) => updateGeneralSettings({ autoStart: e.target.checked })}
             className="w-5 h-5"
           />
         </SettingItem>
       </SettingSection>
 
-      <SettingSection title="Covers">
-        <SettingItem
-          label="Cover Quality"
-          description="Higher quality uses more storage"
-        >
-          <select
-            value={coverQuality}
-            onChange={(e) => setCoverQuality(e.target.value as 'medium' | 'high')}
-            className="px-3 py-2 rounded-md border border-border bg-background"
-          >
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-          </select>
-        </SettingItem>
-      </SettingSection>
-
-      <SettingSection title="Organization">
-        <SettingItem
-          label="Organize by Author"
-          description="Create author folders automatically"
-        >
-          <input
-            type="checkbox"
-            checked={organizeByAuthor}
-            onChange={(e) => setOrganizeByAuthor(e.target.checked)}
-            className="w-5 h-5"
-          />
-        </SettingItem>
+      <SettingSection title="Import Path">
+        <div className="space-y-3">
+          <div className="p-4 rounded-lg bg-muted border border-border">
+            <p className="text-sm font-mono">{preferences.defaultImportPath || 'Not set'}</p>
+          </div>
+          <Button variant="outline" onClick={() => {
+            // TODO: Open folder dialog
+            console.log('Open folder dialog')
+          }}>Change Import Path</Button>
+        </div>
       </SettingSection>
     </div>
   )

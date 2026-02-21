@@ -1,210 +1,377 @@
-import { useState, useEffect } from 'react'
+/**
+ * PremiumTopbar — Shiori v3.0
+ *
+ * Layout zones (left → right):
+ * [Logo] [Books|Manga tabs] [|] [Import Books] [Import Manga] [|] [RSS] [Convert] [EditMeta] [Delete]
+ *                   [────────── Search (center) ──────────]
+ *                                                  [Theme] [Settings]
+ */
+
+import { useState, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import {
-  Plus,
-  Search,
-  Settings,
-  Moon,
-  Sun,
-  BookMarked,
-  Image as ImageIcon,
-  FolderUp,
-  LayoutGrid,
-  Trash2,
-} from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { usePreferencesStore } from '../../store/preferencesStore'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+  ShioriWordmark,
+  IconBooks,
+  IconManga,
+  IconImportBook,
+  IconImportManga,
+  IconRSS,
+  IconConvert,
+  IconEditMeta,
+  IconDelete,
+  IconSearch,
+  IconSettings,
+  IconSun,
+  IconMoon,
+  IconX,
+  IconSidebarToggle,
+} from '@/components/icons/ShioriIcons'
+import { usePreferencesStore } from '@/store/preferencesStore'
 
 export type DomainView = 'books' | 'manga'
 
-interface ImprovedToolbarProps {
-  onAddBook: () => void
-  onAddFolder: () => void
-  onSettings: () => void
-  onRemove?: () => void
-  onSearch?: (query: string) => void
+interface PremiumTopbarProps {
   currentDomain: DomainView
   onDomainChange: (domain: DomainView) => void
+  onImportBooks: () => void
+  onImportManga: () => void
+  onOpenRSS?: () => void
+  onConvert?: () => void
+  onEditMetadata?: () => void
+  onDelete?: () => void
+  onSearch?: (query: string) => void
+  onOpenSettings: () => void
+  onToggleSidebar?: () => void
   selectedCount?: number
+  sidebarOpen?: boolean
 }
 
-export const ImprovedToolbar = ({
-  onAddBook,
-  onAddFolder,
-  onSettings,
-  onRemove,
-  onSearch,
-  currentDomain,
-  onDomainChange,
-  selectedCount = 0,
-}: ImprovedToolbarProps) => {
-  const preferences = usePreferencesStore((state) => state.preferences)
-  const updateTheme = usePreferencesStore((state) => state.updateTheme)
-  const [searchQuery, setSearchQuery] = useState('')
+// ─── Separator ────────────────────────────────
+const Sep = () => (
+  <div className="w-px h-5 bg-border self-center shrink-0 mx-0.5" aria-hidden />
+)
+
+// ─── Topbar Button ────────────────────────────
+interface TBtnProps {
+  onClick?: () => void
+  icon: React.ReactNode
+  label: string
+  disabled?: boolean
+  variant?: 'default' | 'ghost' | 'destructive'
+  active?: boolean
+  title?: string
+  showLabel?: boolean
+}
+
+const TBtn = ({
+  onClick,
+  icon,
+  label,
+  disabled = false,
+  variant = 'ghost',
+  active = false,
+  title,
+  showLabel = true,
+}: TBtnProps) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    title={title ?? label}
+    aria-label={label}
+    className={cn(
+      'group relative flex items-center gap-1.5 h-8 rounded-md px-2.5',
+      'text-xs font-medium select-none',
+      'transition-all duration-[120ms] ease-[cubic-bezier(0.4,0,0.2,1)]',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+      // Disabled
+      disabled && 'opacity-38 cursor-not-allowed pointer-events-none',
+      // Variants
+      variant === 'ghost' && !active && [
+        'text-muted-foreground hover:text-foreground',
+        'hover:bg-accent',
+      ],
+      variant === 'ghost' && active && [
+        'text-foreground bg-accent',
+      ],
+      variant === 'default' && [
+        'bg-primary text-primary-foreground',
+        'hover:bg-primary/85',
+        'shadow-sm',
+      ],
+      variant === 'destructive' && [
+        'text-destructive hover:text-destructive-foreground',
+        'hover:bg-destructive',
+      ],
+    )}
+  >
+    <span className="shrink-0">{icon}</span>
+    {showLabel && <span className="truncate">{label}</span>}
+  </button>
+)
+
+// ─── Search Input ─────────────────────────────
+interface SearchBarProps {
+  onSearch?: (query: string) => void
+  currentDomain: DomainView
+}
+
+const SearchBar = ({ onSearch, currentDomain }: SearchBarProps) => {
+  const [value, setValue] = useState('')
+  const [focused, setFocused] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (onSearch) {
-        onSearch(searchQuery)
-      }
-    }, 300)
-
+    const timer = setTimeout(() => onSearch?.(value), 280)
     return () => clearTimeout(timer)
-  }, [searchQuery, onSearch])
+  }, [value, onSearch])
 
-  const toggleTheme = async () => {
-    if (preferences) {
-      const newTheme = preferences.theme === 'black' ? 'white' : 'black'
-      await updateTheme(newTheme)
-    }
+  const clear = () => {
+    setValue('')
+    onSearch?.('')
+    inputRef.current?.focus()
   }
 
   return (
-    <div className="h-16 border-b border-border bg-background sticky top-0 z-50 shadow-sm">
-      <div className="h-full px-6 flex items-center justify-between gap-6">
-        {/* Left: Domain Selector */}
-        <div className="flex items-center gap-4">
-          <h1 className="text-xl font-bold text-primary">Shiori</h1>
-          
-          <div className="flex items-center gap-2 p-1 rounded-lg bg-muted/50 border border-border">
-            <Button
-              variant={currentDomain === 'books' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => onDomainChange('books')}
-              className="h-9 px-4 gap-2 font-medium"
-            >
-              <BookMarked className="w-4 h-4" />
-              Books
-            </Button>
-            <Button
-              variant={currentDomain === 'manga' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => onDomainChange('manga')}
-              className="h-9 px-4 gap-2 font-medium"
-            >
-              <ImageIcon className="w-4 h-4" />
-              Manga
-            </Button>
-          </div>
-        </div>
-
-        {/* Center: Search */}
-        <div className="flex-1 max-w-2xl">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder={`Search ${currentDomain}...`}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-10 bg-background border-border"
-            />
-          </div>
-        </div>
-
-        {/* Right: Actions */}
-        <div className="flex items-center gap-2">
-          {/* Show delete button when items are selected */}
-          {selectedCount > 0 && (
-            <div className="flex items-center gap-2 mr-2">
-              <span className="text-sm font-medium text-muted-foreground">
-                {selectedCount} selected
-              </span>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={onRemove}
-                className="gap-2"
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete
-              </Button>
-            </div>
-          )}
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="default" size="sm" className="gap-2">
-                <Plus className="w-4 h-4" />
-                Add {currentDomain === 'manga' ? 'Manga' : 'Books'}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onClick={onAddBook}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add {currentDomain === 'manga' ? 'Manga' : 'Book'} File
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onAddFolder}>
-                <FolderUp className="w-4 h-4 mr-2" />
-                Import Folder
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleTheme}
-            className="w-10 h-10"
-            title={`Switch to ${preferences?.theme === 'black' ? 'white' : 'black'} theme`}
-          >
-            {preferences?.theme === 'black' ? (
-              <Sun className="w-5 h-5" />
-            ) : (
-              <Moon className="w-5 h-5" />
-            )}
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onSettings}
-            className="w-10 h-10"
-            title="Settings"
-          >
-            <Settings className="w-5 h-5" />
-          </Button>
-        </div>
-      </div>
+    <div
+      className={cn(
+        'relative flex items-center h-8',
+        'rounded-md border',
+        'transition-all duration-200',
+        focused
+          ? 'border-ring ring-1 ring-ring bg-background w-72'
+          : 'border-border bg-muted/60 w-60',
+      )}
+    >
+      <IconSearch
+        size={14}
+        className="absolute left-2.5 text-muted-foreground pointer-events-none shrink-0"
+      />
+      <input
+        ref={inputRef}
+        type="text"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        placeholder={`Search ${currentDomain}…`}
+        className={cn(
+          'w-full h-full pl-8 pr-7',
+          'bg-transparent text-xs text-foreground placeholder:text-muted-foreground',
+          'focus:outline-none',
+          'caret-foreground',
+        )}
+      />
+      {value && (
+        <button
+          onClick={clear}
+          className="absolute right-2 flex items-center text-muted-foreground hover:text-foreground transition-colors"
+          tabIndex={-1}
+          aria-label="Clear search"
+        >
+          <IconX size={12} />
+        </button>
+      )}
     </div>
   )
 }
 
-// Simplified View Controls
-interface ViewControlsProps {
-  selectedCount: number
-  totalCount: number
-}
+// ─── Main Component ───────────────────────────
+export function PremiumTopbar({
+  currentDomain,
+  onDomainChange,
+  onImportBooks,
+  onImportManga,
+  onOpenRSS,
+  onConvert,
+  onEditMetadata,
+  onDelete,
+  onSearch,
+  onOpenSettings,
+  onToggleSidebar,
+  selectedCount = 0,
+  sidebarOpen = true,
+}: PremiumTopbarProps) {
+  const preferences = usePreferencesStore((s) => s.preferences)
+  const updateTheme = usePreferencesStore((s) => s.updateTheme)
 
-export const ViewControls = ({ selectedCount, totalCount }: ViewControlsProps) => {
+  const isDark = preferences?.theme === 'black'
+  const hasSelection = selectedCount > 0
+
+  const toggleTheme = async () => {
+    if (preferences) {
+      await updateTheme(isDark ? 'white' : 'black')
+    }
+  }
+
   return (
-    <div className="h-12 border-b border-border bg-muted/30 px-6 flex items-center justify-between">
-      <div className="text-sm text-muted-foreground">
-        {selectedCount > 0 ? (
-          <span className="font-medium text-foreground">
-            {selectedCount} selected
-          </span>
-        ) : (
-          <span>
-            {totalCount} {totalCount === 1 ? 'item' : 'items'}
-          </span>
-        )}
+    <header
+      className={cn(
+        'flex items-center h-[var(--topbar-height,52px)] px-3 gap-1',
+        'border-b border-border bg-background',
+        'shrink-0 z-[var(--z-topbar,200)]',
+        'select-none',
+      )}
+    >
+      {/* ── Sidebar toggle ── */}
+      <TBtn
+        onClick={onToggleSidebar}
+        icon={<IconSidebarToggle size={16} />}
+        label="Toggle sidebar"
+        showLabel={false}
+        active={sidebarOpen}
+        title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+      />
+
+      {/* ── Logo ── */}
+      <div className="flex items-center pl-1 pr-3 shrink-0">
+        <ShioriWordmark size={18} />
       </div>
 
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" className="gap-2">
-          <LayoutGrid className="w-4 h-4" />
-          Grid View
-        </Button>
+      <Sep />
+
+      {/* ── Domain Tabs ── */}
+      <div
+        className={cn(
+          'flex items-center h-7 rounded-md p-0.5 gap-0.5',
+          'bg-muted border border-border',
+        )}
+      >
+        <button
+          onClick={() => onDomainChange('books')}
+          className={cn(
+            'flex items-center gap-1.5 h-full px-3 rounded',
+            'text-xs font-medium transition-all duration-[120ms]',
+            currentDomain === 'books'
+              ? 'bg-background text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+          aria-pressed={currentDomain === 'books'}
+        >
+          <IconBooks size={14} />
+          Books
+        </button>
+        <button
+          onClick={() => onDomainChange('manga')}
+          className={cn(
+            'flex items-center gap-1.5 h-full px-3 rounded',
+            'text-xs font-medium transition-all duration-[120ms]',
+            currentDomain === 'manga'
+              ? 'bg-background text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+          aria-pressed={currentDomain === 'manga'}
+        >
+          <IconManga size={14} />
+          Manga
+        </button>
       </div>
-    </div>
+
+      <Sep />
+
+      {/* ── Import zone ── */}
+      <TBtn
+        onClick={onImportBooks}
+        icon={<IconImportBook size={15} />}
+        label="Import Books"
+        variant="default"
+      />
+      <TBtn
+        onClick={onImportManga}
+        icon={<IconImportManga size={15} />}
+        label="Import Manga"
+      />
+
+      <Sep />
+
+      {/* ── Content actions ── */}
+      <TBtn
+        onClick={onOpenRSS}
+        icon={<IconRSS size={15} />}
+        label="RSS"
+        showLabel={false}
+        title="RSS Feeds"
+      />
+      <TBtn
+        onClick={onConvert}
+        icon={<IconConvert size={15} />}
+        label="Convert"
+        showLabel={false}
+        disabled={!hasSelection}
+        title={hasSelection ? 'Convert selected book' : 'Select a book to convert'}
+      />
+      <TBtn
+        onClick={onEditMetadata}
+        icon={<IconEditMeta size={15} />}
+        label="Edit Metadata"
+        showLabel={false}
+        disabled={!hasSelection}
+        title={hasSelection ? 'Edit metadata' : 'Select a book to edit metadata'}
+      />
+
+      <Sep />
+
+      {/* ── Delete ── */}
+      {hasSelection ? (
+        <button
+          onClick={onDelete}
+          title={`Delete ${selectedCount} selected`}
+          className={cn(
+            'flex items-center gap-1.5 h-8 rounded-md px-2.5',
+            'text-xs font-medium',
+            'text-destructive hover:text-destructive-foreground hover:bg-destructive',
+            'transition-all duration-[120ms]',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive',
+          )}
+        >
+          <IconDelete size={15} />
+          <span>Delete {selectedCount}</span>
+        </button>
+      ) : (
+        <TBtn
+          icon={<IconDelete size={15} />}
+          label="Delete"
+          showLabel={false}
+          disabled
+          title="Select items to delete"
+        />
+      )}
+
+      {/* ── Spacer ── */}
+      <div className="flex-1" />
+
+      {/* ── Search (center-right) ── */}
+      <SearchBar onSearch={onSearch} currentDomain={currentDomain} />
+
+      {/* ── Utility ── */}
+      <div className="flex items-center gap-0.5 pl-2">
+        <Sep />
+        <button
+          onClick={toggleTheme}
+          title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+          aria-label="Toggle theme"
+          className={cn(
+            'flex items-center justify-center w-8 h-8 rounded-md',
+            'text-muted-foreground hover:text-foreground hover:bg-accent',
+            'transition-all duration-[120ms]',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          )}
+        >
+          {isDark ? <IconSun size={16} /> : <IconMoon size={16} />}
+        </button>
+        <button
+          onClick={onOpenSettings}
+          title="Settings"
+          aria-label="Settings"
+          className={cn(
+            'flex items-center justify-center w-8 h-8 rounded-md',
+            'text-muted-foreground hover:text-foreground hover:bg-accent',
+            'transition-all duration-[120ms]',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          )}
+        >
+          <IconSettings size={16} />
+        </button>
+      </div>
+    </header>
   )
 }

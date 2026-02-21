@@ -56,9 +56,17 @@ fn main() {
             let storage_path = app_dir.join("storage");
             std::fs::create_dir_all(&storage_path)?;
 
-            // Conversion engine (4 workers)
-            let conversion_engine = Arc::new(ConversionEngine::new(4));
+            // Conversion engine (4 workers, with AppHandle for Tauri event emission)
+            let conversion_engine = Arc::new(ConversionEngine::new(4, app.handle().clone()));
+            // Restore any jobs that were in-progress when the app last closed
+            if let Some(state) = app.try_state::<AppState>() {
+                if let Ok(db) = state.db.lock() {
+                    conversion_engine.restore_from_db(db.get_connection());
+                }
+            }
+
             app.manage(conversion_engine);
+
 
             // Cover service
             let cover_service = Arc::new(CoverService::new(storage_path.clone())?);

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useRssStore, RssFeed } from '../../store/rssStore';
-import { Plus, Trash2, Edit2, RefreshCw, Power, Clock, AlertCircle, BookOpen, Rss } from 'lucide-react';
+import { Plus, Trash2, Edit2, RefreshCw, Power, Clock, AlertCircle, BookOpen, Rss, X } from 'lucide-react';
 
 interface AddFeedDialogProps {
   isOpen: boolean;
@@ -231,7 +231,7 @@ const EditFeedDialog: React.FC<EditFeedDialogProps> = ({ isOpen, onClose, feed, 
   );
 };
 
-const RSSFeedManager: React.FC = () => {
+const RSSFeedManager: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
   const { feeds, isLoading, loadFeeds, addFeed, updateFeed, deleteFeed, toggleFeed, updateAllFeeds, updateFeedArticles, generateDailyEpub } = useRssStore();
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -327,26 +327,37 @@ const RSSFeedManager: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
+    <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+      <div className="bg-surface-1 border-b border-border px-6 py-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <Rss className="w-6 h-6 text-orange-500" />
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            <h1 className="text-2xl font-bold text-foreground">
               RSS Feeds
             </h1>
-            <span className="px-2 py-1 text-xs font-medium bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">
+            <span className="px-2 py-1 text-xs font-medium bg-muted text-muted-foreground rounded-full">
               {feeds.length} feeds
             </span>
           </div>
-          <button
-            onClick={() => setShowAddDialog(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Add Feed
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowAddDialog(true)}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary rounded-lg hover:bg-primary/85 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Add Feed
+            </button>
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                title="Back to library"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Actions Bar */}
@@ -354,7 +365,7 @@ const RSSFeedManager: React.FC = () => {
           <button
             onClick={handleUpdateAll}
             disabled={isUpdatingAll || feeds.length === 0}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground bg-muted border border-border rounded-lg hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <RefreshCw className={`w-4 h-4 ${isUpdatingAll ? 'animate-spin' : ''}`} />
             Update All
@@ -362,7 +373,7 @@ const RSSFeedManager: React.FC = () => {
           <button
             onClick={handleGenerateDailyEpub}
             disabled={isGeneratingEpub || feeds.length === 0}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground bg-muted border border-border rounded-lg hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <BookOpen className={`w-4 h-4 ${isGeneratingEpub ? 'animate-pulse' : ''}`} />
             Generate Daily EPUB
@@ -374,10 +385,10 @@ const RSSFeedManager: React.FC = () => {
       <div className="flex-1 overflow-y-auto p-6">
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
-            <RefreshCw className="w-8 h-8 animate-spin text-gray-400" />
+            <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>
         ) : feeds.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400">
+          <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
             <Rss className="w-16 h-16 mb-4 opacity-20" />
             <p className="text-lg font-medium mb-2">No RSS feeds yet</p>
             <p className="text-sm">Add your first feed to get started</p>
@@ -387,36 +398,35 @@ const RSSFeedManager: React.FC = () => {
             {feeds.map((feed) => (
               <div
                 key={feed.id}
-                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow"
+                className="bg-surface-1 border border-border rounded-lg p-4 hover:shadow-md hover:border-border/60 transition-all"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate mb-1">
+                    <h3 className="text-lg font-semibold text-foreground truncate mb-1">
                       {feed.title}
                     </h3>
                     <a
                       href={feed.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline truncate block"
+                      className="text-xs text-primary/70 hover:text-primary hover:underline truncate block"
                     >
                       {feed.url}
                     </a>
                   </div>
                   <button
                     onClick={() => handleToggleFeed(feed.id)}
-                    className={`p-2 rounded-lg transition-colors ${
-                      feed.is_active
-                        ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-400'
-                    }`}
+                    className={`p-2 rounded-lg transition-colors ${feed.is_active
+                      ? 'bg-green-100 dark:bg-green-900/30 text-green-600'
+                      : 'bg-muted text-muted-foreground'
+                      }`}
                     title={feed.is_active ? 'Active' : 'Inactive'}
                   >
                     <Power className="w-4 h-4" />
                   </button>
                 </div>
 
-                <div className="flex items-center gap-4 mb-3 text-sm text-gray-600 dark:text-gray-400">
+                <div className="flex items-center gap-4 mb-3 text-sm text-muted-foreground">
                   <div className="flex items-center gap-1">
                     <Clock className="w-4 h-4" />
                     <span>Every {feed.check_interval_hours}h</span>
@@ -427,10 +437,10 @@ const RSSFeedManager: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-500 mb-3">
+                <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
                   <span>Last checked: {formatLastChecked(feed.last_checked)}</span>
                   {feed.failure_count > 0 && (
-                    <span className="flex items-center gap-1 text-red-500">
+                    <span className="flex items-center gap-1 text-destructive">
                       <AlertCircle className="w-3 h-3" />
                       {feed.failure_count} failures
                     </span>
@@ -442,14 +452,14 @@ const RSSFeedManager: React.FC = () => {
                   <button
                     onClick={() => handleUpdateFeedNow(feed.id)}
                     disabled={updatingFeedIds.has(feed.id)}
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-foreground bg-muted rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
                   >
                     <RefreshCw className={`w-4 h-4 ${updatingFeedIds.has(feed.id) ? 'animate-spin' : ''}`} />
                     Update
                   </button>
                   <button
                     onClick={() => handleEditFeed(feed)}
-                    className="p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                    className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
                     title="Edit"
                   >
                     <Edit2 className="w-4 h-4" />
@@ -457,7 +467,7 @@ const RSSFeedManager: React.FC = () => {
                   <button
                     onClick={() => handleDeleteFeed(feed.id)}
                     disabled={deletingFeedId === feed.id}
-                    className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors disabled:opacity-50"
+                    className="p-2 text-destructive hover:text-destructive-foreground hover:bg-destructive rounded-lg transition-colors disabled:opacity-50"
                     title="Delete"
                   >
                     <Trash2 className="w-4 h-4" />

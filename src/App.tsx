@@ -52,7 +52,7 @@ function App() {
     selectedFilters
   } = useLibraryStore()
   const { isReaderOpen, openBook, closeBook } = useReaderStore()
-  const { theme, currentView, currentDomain, setCurrentView, setCurrentDomain, resetToHome } = useUIStore()
+  const { currentView, currentDomain, setCurrentView, setCurrentDomain, resetToHome } = useUIStore()
   const { selectedCollection } = useCollectionStore()
   const [selectedBookId, setSelectedBookId] = useState<number | null>(null)
   const [filteredBooks, setFilteredBooks] = useState<Book[]>([])
@@ -71,10 +71,8 @@ function App() {
   const [rssManagerOpen, setRssManagerOpen] = useState(false)
   const [rssArticlesOpen, setRssArticlesOpen] = useState(false)
 
-  useEffect(() => {
-    // Apply theme to document
-    document.documentElement.classList.toggle("dark", theme === "dark")
-  }, [theme])
+  // Theme is handled entirely by preferencesStore → [data-theme] attribute.
+  // The old uiStore.theme / .dark class system has been removed.
 
   useEffect(() => {
     // Load books on mount
@@ -331,10 +329,10 @@ function App() {
         onDomainChange={setCurrentDomain}
       >
         {/* Show RSS Feeds view */}
-        {currentView === 'rss-feeds' && <RSSFeedManager />}
+        {currentView === 'rss-feeds' && <RSSFeedManager onClose={handleBackToLibrary} />}
 
         {/* Show RSS Articles view */}
-        {currentView === 'rss-articles' && <RSSArticleList />}
+        {currentView === 'rss-articles' && <RSSArticleList onClose={handleBackToLibrary} />}
 
         {/* Show Library view */}
         {currentView === 'library' && (
@@ -356,64 +354,57 @@ function App() {
 
       <ToastContainer />
 
-      {/* Dialogs */}
-      {dialogBookId && (
-        <>
-          <EditMetadataDialog
-            open={editDialogOpen}
-            onOpenChange={setEditDialogOpen}
-            bookId={dialogBookId}
-          />
-          <DeleteBookDialog
-            open={deleteDialogOpen}
-            onOpenChange={setDeleteDialogOpen}
-            bookIds={deleteBookIds}
-            bookTitle={dialogBookTitle}
-          />
-          <BookDetailsDialog
-            open={detailsDialogOpen}
-            onOpenChange={setDetailsDialogOpen}
-            bookId={dialogBookId}
-            onEdit={() => {
-              setDetailsDialogOpen(false)
-              setEditDialogOpen(true)
-            }}
-            onDelete={() => {
-              const book = books.find(b => b.id === dialogBookId)
-              setDialogBookTitle(book?.title || "this book")
-              setDetailsDialogOpen(false)
-              setDeleteDialogOpen(true)
-            }}
-            onRead={() => {
-              setDetailsDialogOpen(false)
-              handleOpenBook(dialogBookId)
-            }}
-          />
-        </>
+      {/* Dialogs — always mounted; visibility controlled by open prop only */}
+      <EditMetadataDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        bookId={dialogBookId ?? 0}
+      />
+      <DeleteBookDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open)
+          if (!open) clearSelection()
+        }}
+        bookIds={deleteBookIds}
+        bookTitle={dialogBookTitle}
+      />
+      {dialogBookId !== null && (
+        <BookDetailsDialog
+          open={detailsDialogOpen}
+          onOpenChange={setDetailsDialogOpen}
+          bookId={dialogBookId}
+          onEdit={() => {
+            setDetailsDialogOpen(false)
+            setEditDialogOpen(true)
+          }}
+          onDelete={() => {
+            const book = books.find(b => b.id === dialogBookId)
+            setDialogBookTitle(book?.title || "this book")
+            setDetailsDialogOpen(false)
+            setDeleteDialogOpen(true)
+          }}
+          onRead={() => {
+            setDetailsDialogOpen(false)
+            handleOpenBook(dialogBookId)
+          }}
+        />
       )}
       <SettingsDialog
         open={settingsDialogOpen}
         onOpenChange={setSettingsDialogOpen}
       />
-
-      {/* Conversion Dialog */}
-      {dialogBookId && (
-        <ConversionDialog
-          isOpen={conversionDialogOpen}
-          onClose={() => setConversionDialogOpen(false)}
-          bookId={dialogBookId}
-        />
-      )}
-
-      {/* Share Dialog */}
-      {dialogBookId && (
-        <ShareBookDialog
-          isOpen={shareDialogOpen}
-          onClose={() => setShareDialogOpen(false)}
-          bookId={dialogBookId}
-          bookTitle={dialogBookTitle}
-        />
-      )}
+      <ConversionDialog
+        isOpen={conversionDialogOpen}
+        onClose={() => setConversionDialogOpen(false)}
+        bookId={dialogBookId ?? 0}
+      />
+      <ShareBookDialog
+        isOpen={shareDialogOpen}
+        onClose={() => setShareDialogOpen(false)}
+        bookId={dialogBookId ?? 0}
+        bookTitle={dialogBookTitle}
+      />
     </>
   )
 }

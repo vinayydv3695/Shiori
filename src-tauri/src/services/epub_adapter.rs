@@ -236,103 +236,98 @@ impl EpubRenderer for EpubAdapter {
 
         let mut doc = doc_ref.write().unwrap();
 
-        // 1. Try exact path match first (fastest)
-        if let Some((bytes, _mime)) = doc.get_resource(path) {
+        // ── Pass 1: Exact path ────────────────────────────────────────────
+        if let Some((bytes, _)) = doc.get_resource(path) {
             return Ok(bytes);
         }
 
-        // 2. Clean path - remove leading/trailing slashes and normalize
-        let clean_path = path.trim_start_matches('/').trim_end_matches('/'); // Remove leading/trailing /
-        // Remove ../ and ./ segments roughly
-        let clean_path = clean_path.replace("../", "").replace("./", "");
+        // ── Pass 2: Iteratively strip leading ../ and ./ ──────────────────
+        // '../images/foo.jpg' → 'images/foo.jpg'
+        let clean = {
+            let mut s = path.trim_start_matches('/').to_string();
+            loop {
+                if s.starts_with("../") {
+                    s = s[3..].to_string();
+                } else if s.starts_with("./") {
+                    s = s[2..].to_string();
+                } else {
+                    break;
+                }
+            }
+            s
+        };
 
-        if let Some((bytes, _mime)) = doc.get_resource(&clean_path) {
-             return Ok(bytes);
-        }
-
-        // 3. Try variations like prepending OEBPS/OPS (common prefixes)
-        let prefixes = ["OEBPS/", "OPS/", "EPUB/"];
-        for prefix in prefixes {
-            let prefixed = format!("{}{}", prefix, clean_path);
-             if let Some((bytes, _mime)) = doc.get_resource(&prefixed) {
-                println!("[EpubAdapter] Found with prefix: {}", prefixed);
+        if clean != path {
+            if let Some((bytes, _)) = doc.get_resource(&clean) {
                 return Ok(bytes);
             }
         }
-        
-        // 4. Fuzzy Match: Scan all resource keys for suffix match
-        // This handles cases where the path is relative or missing directories
-        // e.g. request "cover.jpg", actual "OEBPS/images/cover.jpg"
-        
-        let requested_filename = std::path::Path::new(path)
+
+        // ── Pass 3: Common EPUB root prefixes ─────────────────────────────
+        for prefix in &["OEBPS/", "OPS/", "EPUB/", "content/"] {
+            let candidate = format!("{}{}", prefix, clean);
+            if let Some((bytes, _)) = doc.get_resource(&candidate) {
+                println!("[EpubAdapter] Found with prefix '{}': {}", prefix, candidate);
+                return Ok(bytes);
+            }
+        }
+
+        // ── Pass 4: Case-insensitive suffix match ─────────────────────────
+        // Handles: key="OEBPS/Images/foo.jpg", clean="images/foo.jpg"
+        let clean_lower = clean.to_lowercase();
+        let slash_clean_lower = format!("/{}", clean_lower);
+        let all_keys: Vec<String> = doc.resources.keys().cloned().collect();
+
+        let mut suffix_match: Option<String> = None;
+        for key in &all_keys {
+            let key_lower = key.to_lowercase();
+            if key_lower == clean_lower || key_lower.ends_with(&slash_clean_lower) {
+                suffix_match = Some(key.clone());
+                break;
+            }
+        }
+        if let Some(ref key) = suffix_match {
+            if let Some((bytes, _)) = doc.get_resource(key) {
+                println!("[EpubAdapter] Case-insensitive suffix match: {} -> {}", path, key);
+                return Ok(bytes);
+            }
+        }
+
+        // ── Pass 5: Case-insensitive filename-only match ──────────────────
+        let requested_filename = std::path::Path::new(&clean)
             .file_name()
             .and_then(|f| f.to_str())
-            .unwrap_or(path);
+            .unwrap_or(&clean)
+            .to_lowercase();
 
-        // We'll look for the "best" match.
-        // Priority 1: Suffix match of the full cleaned path
-        // Priority 2: Exact filename match (last component)
-        
-        let mut best_match: Option<String> = None;
-        let mut filename_match: Option<String> = None;
-
-        for key in doc.resources.keys() {
-            // Check if key ends with the clean path (e.g. key="OEBPS/Styles/main.css", path="Styles/main.css")
-            if key.ends_with(&clean_path) {
-                 // But be careful not to match "domain.css" with "main.css"
-                 // Ensure boundary or exact match
-                 if key.len() == clean_path.len() || key.ends_with(&format!("/{}", clean_path)) {
-                     best_match = Some(key.clone());
-                     break; // Good enough
-                 }
-            }
-
-            // Check if key's filename matches requested filename
-            if let Some(key_filename) = std::path::Path::new(key).file_name().and_then(|f| f.to_str()) {
-                if key_filename == requested_filename {
-                    if filename_match.is_none() {
-                        filename_match = Some(key.clone());
-                    }
+        for key in &all_keys {
+            let key_file = std::path::Path::new(key)
+                .file_name()
+                .and_then(|f| f.to_str())
+                .unwrap_or("")
+                .to_lowercase();
+            if key_file == requested_filename {
+                if let Some((bytes, _)) = doc.get_resource(key) {
+                    println!("[EpubAdapter] Filename match: {} -> {}", path, key);
+                    return Ok(bytes);
                 }
             }
         }
 
-        // If we found a suffix match, use it
-        if let Some(key) = best_match {
-            println!("[EpubAdapter] Fuzzy match (suffix): {} -> {}", path, key);
-             if let Some((bytes, _mime)) = doc.get_resource(&key) {
-                return Ok(bytes);
-            }
-        }
-
-        // Fallback to filename match
-        if let Some(key) = filename_match {
-             println!("[EpubAdapter] Fuzzy match (filename): {} -> {}", path, key);
-             if let Some((bytes, _mime)) = doc.get_resource(&key) {
-                return Ok(bytes);
-            }
-        }
-        
-        // Last ditch: try case-insensitive filename comparison?
-        // ... omitted for now to avoid too much magic ...
-
-        // Iterate keys for debugging log
+        // ── Not found: log available keys for debugging ───────────────────
         println!(
-            "[EpubAdapter::get_resource] ❌ Resource not found: {}. Tried fuzzy matching.",
-            path
+            "[EpubAdapter::get_resource] ❌ Resource not found: '{}'. Available keys ({}):",
+            path, all_keys.len()
         );
-        let resources = doc.resources.keys().take(50).collect::<Vec<_>>();
-        for (idx, key) in resources.iter().enumerate() {
-             println!("  [{}] {}", idx, key);
+        for key in all_keys.iter().take(20) {
+            println!("  • {}", key);
         }
 
-        Err(ShioriError::Other(format!(
-            "Resource not found: {}",
-            path
-        )))
+        Err(ShioriError::Other(format!("Resource not found: {}", path)))
     }
 
     fn get_resource_mime(&self, path: &str) -> ShioriResult<String> {
+
         let doc_ref = self
             .doc
             .as_ref()

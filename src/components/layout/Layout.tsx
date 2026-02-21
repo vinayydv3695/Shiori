@@ -1,14 +1,27 @@
-import type { ReactNode } from "react"
-import { useState } from "react"
-import { open } from "@tauri-apps/plugin-dialog"
-import { ModernSidebar } from "../sidebar/ModernSidebar"
-import { ImprovedToolbar } from "./ImprovedToolbar"
-import { StatusBar } from "./ModernToolbar"
-import { useUIStore } from "../../store/uiStore"
-import { useLibraryStore } from "../../store/libraryStore"
-import { useToast } from "../../store/toastStore"
-import { cn, formatFileSize } from "../../lib/utils"
-import { api } from "../../lib/tauri"
+/**
+ * Layout — Shiori v3.0
+ *
+ * Shell structure:
+ *   [PremiumTopbar]
+ *   [FilterPanel | MainContent]
+ *   [StatusBar]
+ *
+ * Sidebar toggle persisted in local state (could move to uiStore).
+ * Import logic handles both Books (epub/pdf/…) and Manga (cbz/cbr).
+ */
+
+import type { ReactNode } from 'react'
+import { useState } from 'react'
+import { open } from '@tauri-apps/plugin-dialog'
+
+import { PremiumTopbar } from './ImprovedToolbar'
+import { FilterPanel } from '../sidebar/ModernSidebar'
+import { StatusBar } from './ModernToolbar'
+import { cn, formatFileSize } from '@/lib/utils'
+import { api } from '@/lib/tauri'
+import { useUIStore } from '@/store/uiStore'
+import { useLibraryStore } from '@/store/libraryStore'
+import { useToast } from '@/store/toastStore'
 
 interface LayoutProps {
   children: ReactNode
@@ -38,40 +51,31 @@ export function Layout({
   onDeleteBook,
   onDeleteBooks,
   onViewBook,
-  onDownloadBook,
-  onViewDetails,
   onConvertBook,
-  onShareBook,
   onOpenRSSFeeds,
-  onOpenRSSArticles,
-  onBackToLibrary,
-  searchQuery: externalSearchQuery,
   onSearchChange,
-  currentView = 'library',
   currentDomain = 'books',
   onDomainChange = () => { },
 }: LayoutProps) {
-  const { sidebarCollapsed } = useUIStore()
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const toast = useToast()
+
   const {
     books,
-    selectedBookIds,
     setBooks,
+    selectedBookIds,
     selectedFilters,
     toggleFilter,
-    clearFilters
+    clearFilters,
   } = useLibraryStore()
-  const toast = useToast()
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
 
-  // Calculate library stats
+  // ── Library stats ──────────────────────────────
   const totalBooks = books.length
-  const totalSize = books.reduce((sum, book) => sum + (book.file_size || 0), 0)
-  const librarySize = totalSize > 0 ? formatFileSize(totalSize) : "0 B"
+  const totalSize = books.reduce((sum, b) => sum + (b.file_size || 0), 0)
+  const librarySize = totalSize > 0 ? formatFileSize(totalSize) : '0 B'
 
-  // Extract filter data from books
+  // ── Filter data extraction ─────────────────────
   const getFilterItems = () => {
-    // Extract unique values from books
     const authorsSet = new Set<string>()
     const languagesSet = new Set<string>()
     const seriesSet = new Set<string>()
@@ -81,218 +85,140 @@ export function Layout({
     const tagsSet = new Set<string>()
     const identifiersSet = new Set<string>()
 
-    books.forEach(book => {
-      // Authors
-      book.authors?.forEach(author => {
-        if (author.name) authorsSet.add(author.name)
-      })
-
-      // Languages
+    books.forEach((book) => {
+      book.authors?.forEach((a) => { if (a.name) authorsSet.add(a.name) })
       if (book.language) languagesSet.add(book.language)
-
-      // Series
       if (book.series) seriesSet.add(book.series)
-
-      // Formats
       if (book.file_format) formatsSet.add(book.file_format.toUpperCase())
-
-      // Publishers
       if (book.publisher) publishersSet.add(book.publisher)
-
-      // Ratings (round to nearest 0.5)
-      if (book.rating) {
-        const roundedRating = Math.round(book.rating * 2) / 2
-        ratingsSet.add(roundedRating.toString())
-      }
-
-      // Tags
-      book.tags?.forEach(tag => {
-        if (tag.name) tagsSet.add(tag.name)
-      })
-
-      // Identifiers (ISBN)
+      if (book.rating) ratingsSet.add((Math.round(book.rating * 2) / 2).toString())
+      book.tags?.forEach((t) => { if (t.name) tagsSet.add(t.name) })
       if (book.isbn) identifiersSet.add(`ISBN: ${book.isbn}`)
       if (book.isbn13) identifiersSet.add(`ISBN13: ${book.isbn13}`)
     })
 
-    // Convert sets to sorted arrays of filter items
-    const toFilterItems = (set: Set<string>) =>
-      Array.from(set).sort().map(item => ({ id: item, label: item, count: 0 }))
+    const toItems = (set: Set<string>) =>
+      Array.from(set).sort().map((id) => ({ id, label: id, count: 0 }))
 
-    // Count occurrences for each filter
-    const countOccurrences = (items: { id: string; label: string; count: number }[], getValue: (book: any) => string[]) => {
-      items.forEach(item => {
-        item.count = books.filter(book => getValue(book).includes(item.id)).length
+    const withCounts = (
+      items: { id: string; label: string; count: number }[],
+      getValues: (b: any) => string[],
+    ) => {
+      items.forEach((item) => {
+        item.count = books.filter((b) => getValues(b).includes(item.id)).length
       })
       return items
     }
 
-    const authors = toFilterItems(authorsSet)
-    countOccurrences(authors, book => book.authors?.map((a: any) => a.name) || [])
-
-    const languages = toFilterItems(languagesSet)
-    countOccurrences(languages, book => book.language ? [book.language] : [])
-
-    const series = toFilterItems(seriesSet)
-    countOccurrences(series, book => book.series ? [book.series] : [])
-
-    const formats = toFilterItems(formatsSet)
-    countOccurrences(formats, book => book.file_format ? [book.file_format.toUpperCase()] : [])
-
-    const publishers = toFilterItems(publishersSet)
-    countOccurrences(publishers, book => book.publisher ? [book.publisher] : [])
-
-    const ratings = toFilterItems(ratingsSet)
-    countOccurrences(ratings, book => {
-      if (!book.rating) return []
-      const roundedRating = Math.round(book.rating * 2) / 2
-      return [roundedRating.toString()]
+    const authors = withCounts(toItems(authorsSet), (b) => b.authors?.map((a: any) => a.name) || [])
+    const languages = withCounts(toItems(languagesSet), (b) => (b.language ? [b.language] : []))
+    const series = withCounts(toItems(seriesSet), (b) => (b.series ? [b.series] : []))
+    const formats = withCounts(toItems(formatsSet), (b) => (b.file_format ? [b.file_format.toUpperCase()] : []))
+    const publishers = withCounts(toItems(publishersSet), (b) => (b.publisher ? [b.publisher] : []))
+    const ratings = withCounts(toItems(ratingsSet), (b) => {
+      if (!b.rating) return []
+      return [(Math.round(b.rating * 2) / 2).toString()]
     })
-
-    const tags = toFilterItems(tagsSet)
-    countOccurrences(tags, book => book.tags?.map((t: any) => t.name) || [])
-
-    const identifiers = toFilterItems(identifiersSet)
-    countOccurrences(identifiers, book => {
-      const ids = []
-      if (book.isbn) ids.push(`ISBN: ${book.isbn}`)
-      if (book.isbn13) ids.push(`ISBN13: ${book.isbn13}`)
+    const tags = withCounts(toItems(tagsSet), (b) => b.tags?.map((t: any) => t.name) || [])
+    const identifiers = withCounts(toItems(identifiersSet), (b) => {
+      const ids: string[] = []
+      if (b.isbn) ids.push(`ISBN: ${b.isbn}`)
+      if (b.isbn13) ids.push(`ISBN13: ${b.isbn13}`)
       return ids
     })
 
-    return {
-      authors,
-      languages,
-      series,
-      formats,
-      publishers,
-      ratings,
-      tags,
-      identifiers,
-    }
+    return { authors, languages, series, formats, publishers, ratings, tags, identifiers }
   }
 
   const filterItems = getFilterItems()
 
-  // Toolbar action handlers
-  const handleAddBook = async () => {
-    const isManga = currentDomain === 'manga'
-    const domainLabel = isManga ? 'manga' : 'book'
-
+  // ── Import handlers ────────────────────────────
+  const handleImportBooks = async () => {
     try {
-      console.log(`[Layout] Opening ${domainLabel} file dialog...`)
       const result = await open({
         multiple: true,
         directory: false,
-        filters: [isManga
-          ? { name: 'Manga Archives', extensions: ['cbz', 'cbr'] }
-          : { name: 'eBooks', extensions: ['epub', 'pdf', 'mobi', 'azw3', 'fb2', 'txt', 'docx', 'html'] }
-        ]
+        filters: [{ name: 'eBooks', extensions: ['epub', 'pdf', 'mobi', 'azw3', 'fb2', 'txt', 'docx', 'html'] }],
       })
+      if (!result) return
+      const paths = Array.isArray(result) ? result : [result]
+      const importResult = await api.importBooks(paths)
+      const imported = importResult.success.length
+      const dupes = importResult.duplicates.length
+      const failed = importResult.failed.length
 
-      console.log('[Layout] File dialog result:', result)
-
-      if (result) {
-        const paths = Array.isArray(result) ? result : [result]
-        console.log(`[Layout] Importing ${domainLabel} paths:`, paths)
-
-        // Use domain-specific API
-        const importResult = isManga
-          ? await api.importManga(paths)
-          : await api.importBooks(paths)
-        console.log('[Layout] Import result:', importResult)
-
-        // Show result toast
-        const totalImported = importResult.success.length
-        const totalDuplicates = importResult.duplicates.length
-        const totalFailed = importResult.failed.length
-
-        if (totalImported > 0) {
-          toast.success(
-            `Imported ${totalImported} ${domainLabel}${totalImported > 1 ? 's' : ''}`,
-            totalDuplicates > 0 || totalFailed > 0
-              ? `${totalDuplicates} duplicates, ${totalFailed} failed`
-              : undefined
-          )
-
-          // Reload library
-          const updatedBooks = await api.getBooks()
-          setBooks(updatedBooks)
-        } else if (totalFailed > 0) {
-          const errorMsg = importResult.failed[0]?.[1] || 'Unknown error'
-          toast.error('Import failed', errorMsg)
-        } else {
-          toast.warning(`No ${domainLabel}s imported`, `All ${domainLabel}s were either duplicates or failed to import`)
-        }
+      if (imported > 0) {
+        toast.success(
+          `Imported ${imported} book${imported > 1 ? 's' : ''}`,
+          dupes > 0 || failed > 0 ? `${dupes} duplicates, ${failed} failed` : undefined,
+        )
+        const updated = await api.getBooks()
+        setBooks(updated)
+      } else if (failed > 0) {
+        toast.error('Import failed', importResult.failed[0]?.[1] || 'Unknown error')
+      } else {
+        toast.warning('No books imported', 'All files were duplicates or failed.')
       }
-    } catch (error) {
-      console.error(`[Layout] Failed to import ${domainLabel}s:`, error)
-      toast.error('Import failed', String(error))
+    } catch (err) {
+      toast.error('Import failed', String(err))
     }
   }
 
-  const handleAddFolder = async () => {
-    const isManga = currentDomain === 'manga'
-    const domainLabel = isManga ? 'manga' : 'book'
-
+  const handleImportManga = async () => {
     try {
-      console.log(`[Layout] Opening folder dialog for ${domainLabel}s...`)
       const result = await open({
-        multiple: false,
-        directory: true,
+        multiple: true,
+        directory: false,
+        filters: [{ name: 'Manga Archives', extensions: ['cbz', 'cbr'] }],
       })
+      if (!result) return
+      const paths = Array.isArray(result) ? result : [result]
+      const importResult = await api.importManga(paths)
+      const imported = importResult.success.length
+      const dupes = importResult.duplicates.length
+      const failed = importResult.failed.length
 
-      console.log('[Layout] Folder dialog result:', result)
-
-      if (result && typeof result === 'string') {
-        console.log(`[Layout] Scanning folder for ${domainLabel}s:`, result)
-        
-        // TODO: Backend needs a scan_folder command that recursively finds all valid files
-        // For now, we'll show a message that this is coming soon
-        toast.info('Folder import', 'This feature will recursively scan folders for books. Coming soon!')
-        
-        // When backend is ready, use something like:
-        // const scanResult = await api.scanFolderForBooks(result, currentDomain)
-        // Then import the found files using existing import logic
+      if (imported > 0) {
+        toast.success(
+          `Imported ${imported} manga${imported > 1 ? '' : ''}`,
+          dupes > 0 || failed > 0 ? `${dupes} duplicates, ${failed} failed` : undefined,
+        )
+        const updated = await api.getBooks()
+        setBooks(updated)
+      } else if (failed > 0) {
+        toast.error('Import failed', importResult.failed[0]?.[1] || 'Unknown error')
+      } else {
+        toast.warning('No manga imported', 'All files were duplicates or failed.')
       }
-    } catch (error) {
-      console.error(`[Layout] Failed to scan folder:`, error)
-      toast.error('Folder scan failed', String(error))
+    } catch (err) {
+      toast.error('Import failed', String(err))
     }
   }
 
-  const handleSettings = () => {
-    onOpenSettings()
-  }
-
-  const handleRemove = () => {
+  // ── Action handlers ────────────────────────────
+  const handleDelete = () => {
     if (selectedBookIds.size === 0) {
-      toast.warning('No book selected', 'Please select a book to remove')
+      toast.warning('No selection', 'Please select books to delete.')
       return
     }
-
-    // Support multiple deletion
     const ids = Array.from(selectedBookIds)
     if (ids.length === 1) {
       onDeleteBook?.(ids[0])
     } else {
-      if (onDeleteBooks) {
-        onDeleteBooks(ids)
-      } else {
-        toast.warning('Feature not connected', 'Multiple deletion handler missing')
-      }
+      onDeleteBooks?.(ids)
     }
   }
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query)
-    if (onSearchChange) {
-      onSearchChange(query)
-    }
+  const handleEditMetadata = () => {
+    if (selectedBookIds.size === 0) return
+    const [firstId] = Array.from(selectedBookIds)
+    onEditMetadata?.(firstId)
   }
 
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen)
+  const handleConvert = () => {
+    if (selectedBookIds.size === 0) return
+    const [firstId] = Array.from(selectedBookIds)
+    onConvertBook?.(firstId)
   }
 
   const handleFilterToggle = (category: string, id: string) => {
@@ -300,57 +226,59 @@ export function Layout({
     toggleFilter(category, id)
   }
 
-  const handleClearAllFilters = () => {
-    clearFilters()
-  }
-
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      {/* Sidebar */}
-      {sidebarOpen && (
-        <ModernSidebar
-          authors={filterItems.authors}
-          languages={filterItems.languages}
-          series={filterItems.series}
-          formats={filterItems.formats}
-          publishers={filterItems.publishers}
-          ratings={filterItems.ratings}
-          tags={filterItems.tags}
-          identifiers={filterItems.identifiers}
-          selectedFilters={selectedFilters}
-          onFilterToggle={handleFilterToggle}
-          onClearAll={handleClearAllFilters}
-        />
-      )}
+    <div className="flex flex-col h-screen overflow-hidden bg-background">
+      {/* ── Topbar ── */}
+      <PremiumTopbar
+        currentDomain={currentDomain}
+        onDomainChange={onDomainChange}
+        onImportBooks={handleImportBooks}
+        onImportManga={handleImportManga}
+        onOpenRSS={onOpenRSSFeeds}
+        onConvert={handleConvert}
+        onEditMetadata={handleEditMetadata}
+        onDelete={handleDelete}
+        onSearch={onSearchChange}
+        onOpenSettings={onOpenSettings}
+        onToggleSidebar={() => setSidebarOpen((o) => !o)}
+        selectedCount={selectedBookIds.size}
+        sidebarOpen={sidebarOpen}
+      />
 
-      {/* Main Content */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Toolbar */}
-        <ImprovedToolbar
-          onAddBook={handleAddBook}
-          onAddFolder={handleAddFolder}
-          onSettings={handleSettings}
-          onRemove={handleRemove}
-          onSearch={handleSearch}
-          currentDomain={currentDomain}
-          onDomainChange={onDomainChange}
-          selectedCount={selectedBookIds.size}
-        />
+      {/* ── Body ── */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar */}
+        {sidebarOpen && (
+          <FilterPanel
+            authors={filterItems.authors}
+            languages={filterItems.languages}
+            series={filterItems.series}
+            formats={filterItems.formats}
+            publishers={filterItems.publishers}
+            ratings={filterItems.ratings}
+            tags={filterItems.tags}
+            identifiers={filterItems.identifiers}
+            selectedFilters={selectedFilters}
+            onFilterToggle={handleFilterToggle}
+            onClearAll={clearFilters}
+            domain={currentDomain}
+          />
+        )}
 
-        {/* Content Area */}
-        <main className="flex-1 overflow-auto bg-background p-6">
+        {/* Main content */}
+        <main className={cn('flex-1 overflow-y-auto bg-background')}>
           {children}
         </main>
-
-        {/* Status Bar */}
-        <StatusBar
-          totalBooks={totalBooks}
-          filteredBooks={books.length}
-          selectedBooks={selectedBookIds.size}
-          librarySize={librarySize}
-          syncStatus="synced"
-        />
       </div>
+
+      {/* ── Status Bar ── */}
+      <StatusBar
+        totalBooks={totalBooks}
+        filteredBooks={books.length}
+        selectedBooks={selectedBookIds.size}
+        librarySize={librarySize}
+        syncStatus="synced"
+      />
     </div>
   )
 }

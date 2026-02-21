@@ -26,6 +26,7 @@ interface PreferencesStore {
     defaultImportPath?: string;
     uiDensity?: "compact" | "comfortable";
     accentColor?: string;
+    uiScale?: number;
   }) => Promise<void>;
 
   // Per-book overrides
@@ -82,8 +83,10 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
         isLoading: false,
       });
 
-      // Apply theme to DOM
+      // Apply theme and scale to DOM
       document.documentElement.setAttribute("data-theme", preferences.theme);
+      const scale = (preferences as any).uiScale ?? preferences.uiScale ?? 1.0;
+      document.documentElement.style.setProperty('--ui-scale', String(scale));
     } catch (error) {
       console.error("Failed to load preferences:", error);
       set({ isLoading: false });
@@ -126,9 +129,9 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
     set((state) => ({
       preferences: state.preferences
         ? {
-            ...state.preferences,
-            book: { ...state.preferences.book, ...updates },
-          }
+          ...state.preferences,
+          book: { ...state.preferences.book, ...updates },
+        }
         : DEFAULT_USER_PREFERENCES,
     }));
 
@@ -157,9 +160,9 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
     set((state) => ({
       preferences: state.preferences
         ? {
-            ...state.preferences,
-            manga: { ...state.preferences.manga, ...updates },
-          }
+          ...state.preferences,
+          manga: { ...state.preferences.manga, ...updates },
+        }
         : DEFAULT_USER_PREFERENCES,
     }));
 
@@ -191,6 +194,12 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
         : DEFAULT_USER_PREFERENCES,
     }));
 
+    // Immediately apply ui_scale to CSS if provided (real-time preview)
+    if ('uiScale' in updates) {
+      const scale = (updates as any).uiScale as number;
+      document.documentElement.style.setProperty('--ui-scale', String(scale));
+    }
+
     try {
       await api.updateUserPreferences(updates);
     } catch (error) {
@@ -198,6 +207,8 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
       // Rollback
       if (previous) {
         set({ preferences: previous });
+        const prevScale = previous.uiScale ?? 1.0;
+        document.documentElement.style.setProperty('--ui-scale', String(prevScale));
       }
     }
   },

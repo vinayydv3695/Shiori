@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useRssStore, RssArticle } from '../../store/rssStore';
-import { BookOpen, ExternalLink, Check, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { BookOpen, ExternalLink, Check, RefreshCw, Eye, EyeOff, X } from 'lucide-react';
 
 interface RSSArticleListProps {
   feedId?: number | null;
+  onClose?: () => void;
 }
 
-const RSSArticleList: React.FC<RSSArticleListProps> = ({ feedId = null }) => {
+const RSSArticleList: React.FC<RSSArticleListProps> = ({ feedId = null, onClose }) => {
   const { articles, feeds, selectedFeedId, isLoading, loadArticles, markArticleRead, setSelectedFeed } = useRssStore();
   const [limit, setLimit] = useState(25);
   const [expandedArticleId, setExpandedArticleId] = useState<number | null>(null);
@@ -42,8 +43,8 @@ const RSSArticleList: React.FC<RSSArticleListProps> = ({ feedId = null }) => {
   };
 
   // Filter articles based on showRead toggle
-  const filteredArticles = showRead 
-    ? articles 
+  const filteredArticles = showRead
+    ? articles
     : articles.filter(article => !article.is_read);
 
   // Get feed name for display
@@ -76,27 +77,26 @@ const RSSArticleList: React.FC<RSSArticleListProps> = ({ feedId = null }) => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
+    <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+      <div className="bg-surface-1 border-b border-border px-6 py-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <BookOpen className="w-6 h-6 text-blue-500" />
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            <BookOpen className="w-6 h-6 text-primary" />
+            <h1 className="text-2xl font-bold text-foreground">
               RSS Articles
             </h1>
-            <span className="px-2 py-1 text-xs font-medium bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">
+            <span className="px-2 py-1 text-xs font-medium bg-muted text-muted-foreground rounded-full">
               {filteredArticles.length} articles
             </span>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowRead(!showRead)}
-              className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                showRead
-                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-              }`}
+              className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${showRead
+                  ? 'bg-primary/10 text-primary'
+                  : 'bg-muted text-muted-foreground hover:text-foreground'
+                }`}
             >
               {showRead ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
               {showRead ? 'All' : 'Unread Only'}
@@ -104,11 +104,20 @@ const RSSArticleList: React.FC<RSSArticleListProps> = ({ feedId = null }) => {
             <button
               onClick={handleRefresh}
               disabled={isLoading}
-              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-foreground bg-muted rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
               Refresh
             </button>
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                title="Back to library"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -164,11 +173,10 @@ const RSSArticleList: React.FC<RSSArticleListProps> = ({ feedId = null }) => {
               return (
                 <div
                   key={article.id}
-                  className={`bg-white dark:bg-gray-800 border rounded-lg transition-all ${
-                    article.is_read
+                  className={`bg-white dark:bg-gray-800 border rounded-lg transition-all ${article.is_read
                       ? 'border-gray-200 dark:border-gray-700 opacity-60'
                       : 'border-blue-200 dark:border-blue-800'
-                  }`}
+                    }`}
                 >
                   {/* Article Header */}
                   <div
@@ -176,11 +184,10 @@ const RSSArticleList: React.FC<RSSArticleListProps> = ({ feedId = null }) => {
                     onClick={() => handleToggleExpand(article.id)}
                   >
                     <div className="flex items-start justify-between gap-3 mb-2">
-                      <h3 className={`text-lg font-semibold flex-1 ${
-                        article.is_read 
+                      <h3 className={`text-lg font-semibold flex-1 ${article.is_read
                           ? 'text-gray-600 dark:text-gray-400'
                           : 'text-gray-900 dark:text-gray-100'
-                      }`}>
+                        }`}>
                         {article.title}
                       </h3>
                       {!article.is_read && (

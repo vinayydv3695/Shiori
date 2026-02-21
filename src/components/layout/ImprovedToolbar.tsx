@@ -10,10 +10,11 @@ import {
   Image as ImageIcon,
   FolderUp,
   LayoutGrid,
+  Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { useTheme } from '@/hooks/useTheme'
+import { usePreferencesStore } from '../../store/preferencesStore'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,20 +29,25 @@ interface ImprovedToolbarProps {
   onAddBook: () => void
   onAddFolder: () => void
   onSettings: () => void
+  onRemove?: () => void
   onSearch?: (query: string) => void
   currentDomain: DomainView
   onDomainChange: (domain: DomainView) => void
+  selectedCount?: number
 }
 
 export const ImprovedToolbar = ({
   onAddBook,
   onAddFolder,
   onSettings,
+  onRemove,
   onSearch,
   currentDomain,
   onDomainChange,
+  selectedCount = 0,
 }: ImprovedToolbarProps) => {
-  const { theme, toggleTheme } = useTheme()
+  const preferences = usePreferencesStore((state) => state.preferences)
+  const updateTheme = usePreferencesStore((state) => state.updateTheme)
   const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
@@ -53,6 +59,13 @@ export const ImprovedToolbar = ({
 
     return () => clearTimeout(timer)
   }, [searchQuery, onSearch])
+
+  const toggleTheme = async () => {
+    if (preferences) {
+      const newTheme = preferences.theme === 'black' ? 'white' : 'black'
+      await updateTheme(newTheme)
+    }
+  }
 
   return (
     <div className="h-16 border-b border-border bg-background sticky top-0 z-50 shadow-sm">
@@ -99,6 +112,24 @@ export const ImprovedToolbar = ({
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2">
+          {/* Show delete button when items are selected */}
+          {selectedCount > 0 && (
+            <div className="flex items-center gap-2 mr-2">
+              <span className="text-sm font-medium text-muted-foreground">
+                {selectedCount} selected
+              </span>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={onRemove}
+                className="gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </Button>
+            </div>
+          )}
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="default" size="sm" className="gap-2">
@@ -123,8 +154,9 @@ export const ImprovedToolbar = ({
             size="icon"
             onClick={toggleTheme}
             className="w-10 h-10"
+            title={`Switch to ${preferences?.theme === 'black' ? 'white' : 'black'} theme`}
           >
-            {theme === 'dark' ? (
+            {preferences?.theme === 'black' ? (
               <Sun className="w-5 h-5" />
             ) : (
               <Moon className="w-5 h-5" />
@@ -136,6 +168,7 @@ export const ImprovedToolbar = ({
             size="icon"
             onClick={onSettings}
             className="w-10 h-10"
+            title="Settings"
           >
             <Settings className="w-5 h-5" />
           </Button>

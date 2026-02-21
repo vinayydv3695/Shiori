@@ -330,9 +330,11 @@ export function Layout({
           onAddBook={handleAddBook}
           onAddFolder={handleAddFolder}
           onSettings={handleSettings}
+          onRemove={handleRemove}
           onSearch={handleSearch}
           currentDomain={currentDomain}
           onDomainChange={onDomainChange}
+          selectedCount={selectedBookIds.size}
         />
 
         {/* Content Area */}

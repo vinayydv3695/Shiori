@@ -143,7 +143,7 @@ export const useMangaUIStore = create<MangaUIState>((set) => ({
 // ────────────────────────────────────────────────────────────
 export type ReadingMode = 'single' | 'double' | 'strip';
 export type ReadingDirection = 'ltr' | 'rtl';
-export type FitMode = 'width' | 'height' | 'original';
+export type FitMode = 'width' | 'height' | 'contain' | 'original';
 export type ProgressBarPosition = 'top' | 'bottom' | 'left' | 'right' | 'none';
 
 interface MangaSettingsState {
@@ -174,7 +174,7 @@ interface MangaSettingsState {
 const defaultMangaSettings = {
     readingMode: 'single' as ReadingMode,
     readingDirection: 'ltr' as ReadingDirection,
-    fitMode: 'width' as FitMode,
+    fitMode: 'contain' as FitMode,
     stripMargin: 4,
     progressBarPosition: 'bottom' as ProgressBarPosition,
     stickyHeader: true,
@@ -260,7 +260,7 @@ if (typeof window !== 'undefined') {
             const theme = parsed.state?.theme || 'dark';
             document.documentElement.setAttribute('data-manga-theme', theme);
 
-            const fitMode = parsed.state?.fitMode || 'width';
+            const fitMode = parsed.state?.fitMode || 'contain';
             document.documentElement.style.setProperty('--manga-fit-mode', fitMode);
 
             const stripMargin = parsed.state?.stripMargin ?? 4;

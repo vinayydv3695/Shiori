@@ -10,6 +10,7 @@ interface MangaPageImageProps {
     className?: string;
     style?: React.CSSProperties;
     onLoad?: () => void;
+    imageRef?: React.Ref<HTMLImageElement>;
 }
 
 /**
@@ -24,11 +25,26 @@ export const MangaPageImage = memo(function MangaPageImage({
     className = '',
     style,
     onLoad,
+    imageRef,
 }: MangaPageImageProps) {
     const fitMode = useMangaSettingsStore(s => s.fitMode);
     const { url, loading, error } = useImageDecode(bookId, pageIndex, maxDimension);
     const [imgLoaded, setImgLoaded] = useState(false);
     const imgRef = useRef<HTMLImageElement>(null);
+
+    // Combine internal ref (for decode) and external ref (for virtualization)
+    // Moved to top to follow Rules of Hooks
+    const setRefs = useCallback(
+        (node: HTMLImageElement | null) => {
+            imgRef.current = node;
+            if (typeof imageRef === 'function') {
+                imageRef(node);
+            } else if (imageRef && typeof imageRef === 'object' && 'current' in imageRef) {
+                (imageRef as React.MutableRefObject<HTMLImageElement | null>).current = node;
+            }
+        },
+        [imageRef]
+    );
 
     const handleImageLoad = useCallback(() => {
         setImgLoaded(true);
@@ -40,9 +56,6 @@ export const MangaPageImage = memo(function MangaPageImage({
             img.decode?.().catch(() => { });
         }
     }, [onLoad]);
-
-    const fitClass = `manga-page-img--fit-${fitMode}`;
-    const loadingClass = imgLoaded ? 'manga-page-img--loaded' : 'manga-page-img--loading';
 
     if (error) {
         return (
@@ -68,9 +81,12 @@ export const MangaPageImage = memo(function MangaPageImage({
         );
     }
 
+    const fitClass = `manga-page-img--fit-${fitMode}`;
+    const loadingClass = imgLoaded ? 'manga-page-img--loaded' : 'manga-page-img--loading';
+
     return (
         <img
-            ref={imgRef}
+            ref={setRefs}
             src={url}
             alt={`Page ${pageIndex + 1}`}
             className={`manga-page-img ${fitClass} ${loadingClass} ${className}`}

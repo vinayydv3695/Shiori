@@ -146,7 +146,7 @@ export const MangaSidebar = memo(function MangaSidebar() {
                         <div className="manga-sidebar-row">
                             <span className="manga-sidebar-label">Fit Mode</span>
                             <div className="manga-mode-selector">
-                                {(['width', 'height', 'original'] as const).map(mode => (
+                                {(['width', 'height', 'contain', 'original'] as const).map(mode => (
                                     <button
                                         key={mode}
                                         className={`manga-mode-btn ${fitMode === mode ? 'manga-mode-btn--active' : ''}`}

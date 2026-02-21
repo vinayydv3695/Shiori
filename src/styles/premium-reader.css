@@ -24,20 +24,20 @@
   --shadow: rgba(0, 0, 0, 0.05);
   --overlay: rgba(0, 0, 0, 0.2);
   --progress-bar: #3B82F6;
-  
+
   /* Typography (set by settings) */
   --reading-font-family: "Literata", Georgia, serif;
   --reading-font-size: 18px;
   --reading-line-height: 1.6;
   --reading-paragraph-spacing: 1em;
   --reading-letter-spacing: 0;
-  
+
   /* Layout */
   --readable-width-narrow: 60ch;
   --readable-width-medium: 75ch;
   --readable-width-wide: 90ch;
   --readable-width-full: 100%;
-  
+
   /* Spacing */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
@@ -45,19 +45,19 @@
   --spacing-lg: 24px;
   --spacing-xl: 32px;
   --spacing-xxl: 48px;
-  
+
   /* Border radius */
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
   --radius-xl: 12px;
-  
+
   /* Shadows */
   --shadow-sm: 0 1px 2px 0 var(--shadow);
   --shadow-md: 0 4px 6px -1px var(--shadow);
   --shadow-lg: 0 10px 15px -3px var(--shadow);
   --shadow-xl: 0 20px 25px -5px var(--shadow);
-  
+
   /* Transitions */
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-normal: 300ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -77,7 +77,7 @@
 /* Only transition background and text colors on theme changes */
 .premium-reader {
   transition: background-color var(--transition-slow),
-              color var(--transition-slow);
+    color var(--transition-slow);
 }
 
 /* Interactive elements get fast transitions */
@@ -87,10 +87,10 @@ input,
 textarea,
 select {
   transition: background-color var(--transition-fast),
-              color var(--transition-fast),
-              border-color var(--transition-fast),
-              transform var(--transition-fast),
-              opacity var(--transition-fast);
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    transform var(--transition-fast),
+    opacity var(--transition-fast);
 }
 
 /* ────────────────────────────────────────────────────────────
@@ -152,6 +152,7 @@ select {
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -284,9 +285,9 @@ select {
   border-radius: var(--radius-md);
   cursor: pointer;
   color: var(--text-secondary);
-  transition: background-color var(--transition-fast), 
-              border-color var(--transition-fast),
-              color var(--transition-fast);
+  transition: background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast);
 }
 
 .premium-control-button:hover {
@@ -321,8 +322,10 @@ select {
   overflow-x: hidden;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
-  padding-top: 60px; /* Top bar height */
-  padding-bottom: 80px; /* Extra space at bottom */
+  padding-top: 60px;
+  /* Top bar height */
+  padding-bottom: 80px;
+  /* Extra space at bottom */
 }
 
 /* Focus mode adjustments */
@@ -415,6 +418,7 @@ select {
     opacity: 0;
     transform: translateY(8px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -463,10 +467,12 @@ select {
 }
 
 .premium-chapter-content img {
+  display: block;
   max-width: 100%;
-  height: auto;
+  max-height: 80vh;
+  object-fit: contain;
   border-radius: var(--radius-lg);
-  margin: var(--spacing-lg) 0;
+  margin: var(--spacing-lg) auto;
   box-shadow: var(--shadow-md);
 }
 
@@ -848,6 +854,7 @@ select {
     opacity: 0;
     transform: translateY(-8px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -1115,9 +1122,9 @@ select {
   border: 1px solid var(--ui-border);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background-color var(--transition-fast), 
-              border-color var(--transition-fast),
-              transform 100ms ease;
+  transition: background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    transform 100ms ease;
   user-select: none;
 }
 
@@ -1210,7 +1217,7 @@ select {
 }
 
 /* Show on hover over reading area */
-.premium-reading-canvas:hover ~ .premium-nav-arrow {
+.premium-reading-canvas:hover~.premium-nav-arrow {
   opacity: 0.6;
 }
 
@@ -1241,15 +1248,15 @@ select {
   .premium-sidebar {
     width: 100%;
   }
-  
+
   .premium-content-container--two-page {
     grid-template-columns: 1fr;
   }
-  
+
   .premium-nav-arrow {
     display: none;
   }
-  
+
   .premium-top-bar__content {
     padding: 0 var(--spacing-md);
   }
@@ -1259,18 +1266,19 @@ select {
    PRINT STYLES
    ──────────────────────────────────────────────────────────── */
 @media print {
+
   .premium-top-bar,
   .premium-sidebar,
   .premium-progress-bar,
   .premium-nav-arrow {
     display: none !important;
   }
-  
+
   .premium-reading-canvas {
     overflow: visible;
     padding: 0;
   }
-  
+
   .premium-content-container {
     max-width: 100% !important;
   }

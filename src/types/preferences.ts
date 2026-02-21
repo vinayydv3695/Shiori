@@ -44,6 +44,8 @@ export interface UserPreferences {
   defaultImportPath: string;
   uiDensity: UIDensity;
   accentColor: string;
+  /** Global UI scale factor: 0.75 – 1.5. Applied as font-size on <html>. */
+  uiScale: number;
 }
 
 export interface PreferenceOverride {
@@ -92,4 +94,5 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   defaultImportPath: '',
   uiDensity: 'comfortable',
   accentColor: '#3B82F6',
+  uiScale: 1.0,
 };

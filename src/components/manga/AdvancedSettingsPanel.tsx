@@ -185,9 +185,10 @@ export function AdvancedSettingsPanel() {
                                 <div className="manga-settings-group-title">Image Fit</div>
                                 <div className="manga-radio-cards">
                                     {([
+                                        { value: 'contain' as FitMode, label: 'Fit Screen', desc: 'Auto-resize to fit completely' },
                                         { value: 'width' as FitMode, label: 'Fit Width', desc: 'Scale to viewport width' },
                                         { value: 'height' as FitMode, label: 'Fit Height', desc: 'Scale to viewport height' },
-                                        { value: 'original' as FitMode, label: 'Original', desc: 'Contain within viewport' },
+                                        { value: 'original' as FitMode, label: 'Original', desc: 'Actual image size' },
                                     ]).map(opt => (
                                         <button
                                             key={opt.value}

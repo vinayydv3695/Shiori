@@ -303,11 +303,12 @@
    ──────────────────────────────────────────────────────────── */
 .manga-single-view {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   width: 100%;
   height: 100%;
   position: relative;
+  overflow: auto;
 }
 
 .manga-page-container {
@@ -316,7 +317,8 @@
   align-items: center;
   justify-content: center;
   max-width: 100%;
-  max-height: 100%;
+  margin-top: auto;
+  margin-bottom: auto;
 }
 
 .manga-page-img {
@@ -333,7 +335,6 @@
 .manga-page-img--fit-width {
   width: 100%;
   height: auto;
-  max-height: 100%;
 }
 
 .manga-page-img--fit-height {
@@ -342,9 +343,16 @@
   max-width: 100%;
 }
 
-.manga-page-img--fit-original {
+.manga-page-img--fit-contain {
   max-width: 100%;
-  max-height: 100%;
+  max-height: calc(100vh - 52px);
+  object-fit: contain;
+}
+
+.manga-page-img--fit-original {
+  max-width: none;
+  max-height: none;
+  object-fit: none;
 }
 
 /* Page fade-in */
@@ -363,11 +371,12 @@
    ──────────────────────────────────────────────────────────── */
 .manga-double-view {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   width: 100%;
   height: 100%;
   gap: 4px;
+  overflow: auto;
 }
 
 .manga-double-view--rtl {
@@ -377,15 +386,15 @@
 .manga-double-page {
   flex: 1;
   max-width: 50%;
-  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-top: auto;
+  margin-bottom: auto;
 }
 
 .manga-double-page .manga-page-img {
   max-width: 100%;
-  max-height: 100%;
 }
 
 

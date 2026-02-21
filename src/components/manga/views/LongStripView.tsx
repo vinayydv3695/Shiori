@@ -93,16 +93,18 @@ export function LongStripView() {
                 {virtualizer.getVirtualItems().map((virtualItem) => (
                     <div
                         key={virtualItem.key}
+                        ref={virtualizer.measureElement} // Add ref here for dynamic measurement
                         className="manga-strip-page"
                         style={{
                             top: 0,
                             transform: `translateY(${virtualItem.start}px)`,
-                            height: `${virtualItem.size}px`,
+                            // height: `${virtualItem.size}px`, // Remove fixed height, let content define it
                         }}
                     >
                         <MangaPageImage
                             bookId={bookId}
                             pageIndex={virtualItem.index}
+                            onLoad={() => virtualizer.measure()}
                         />
                     </div>
                 ))}

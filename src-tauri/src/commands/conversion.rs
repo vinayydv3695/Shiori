@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::path::PathBuf;
 use tauri::State;
 
-use crate::services::conversion_engine::{ConversionEngine, ConversionJob};
+use crate::services::conversion_engine::{ConversionEngine, ConversionJob, CONVERSION_MATRIX};
 
 /// Submit a conversion job
 #[tauri::command]
@@ -11,16 +11,17 @@ pub async fn convert_book(
     input_path: String,
     output_format: String,
     output_dir: Option<String>,
+    book_id: Option<i64>,
 ) -> Result<String, String> {
-    let output_path = output_dir.map(PathBuf::from);
-    
-    let job_id = engine.submit_conversion(
-        input_path.into(),
-        &output_format,
-        output_path,
-    ).await.map_err(|e| e.to_string())?;
-
-    Ok(job_id.to_string())
+    engine
+        .submit_conversion(
+            PathBuf::from(&input_path),
+            &output_format,
+            output_dir.map(PathBuf::from),
+            book_id,
+        )
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// Get conversion job status
@@ -29,14 +30,12 @@ pub async fn get_conversion_status(
     engine: State<'_, Arc<ConversionEngine>>,
     job_id: String,
 ) -> Result<ConversionJob, String> {
-    let uuid = uuid::Uuid::parse_str(&job_id)
-        .map_err(|e| format!("Invalid job ID: {}", e))?;
-
-    engine.get_job_status(&uuid)
+    engine
+        .get_job_status(&job_id)
         .ok_or_else(|| "Job not found".to_string())
 }
 
-/// List all conversion jobs
+/// List all in-memory conversion jobs
 #[tauri::command]
 pub async fn list_conversion_jobs(
     engine: State<'_, Arc<ConversionEngine>>,
@@ -44,29 +43,26 @@ pub async fn list_conversion_jobs(
     Ok(engine.get_all_jobs())
 }
 
-/// Cancel a conversion job
+/// Cancel a conversion job (works for both Queued and Processing)
 #[tauri::command]
 pub async fn cancel_conversion(
     engine: State<'_, Arc<ConversionEngine>>,
     job_id: String,
 ) -> Result<(), String> {
-    let uuid = uuid::Uuid::parse_str(&job_id)
-        .map_err(|e| format!("Invalid job ID: {}", e))?;
-
-    engine.cancel_job(&uuid)
-        .await
-        .map_err(|e| e.to_string())
+    engine.cancel_job(&job_id).await.map_err(|e| e.to_string())
 }
 
-/// Get supported conversion formats
+/// Get supported conversions — derived from the CONVERSION_MATRIX constant
 #[tauri::command]
-pub async fn get_supported_conversions() -> Result<Vec<(String, Vec<String>)>, String> {
-    Ok(vec![
-        ("txt".to_string(), vec!["epub".to_string()]),
-        ("html".to_string(), vec!["epub".to_string(), "txt".to_string()]),
-        ("mobi".to_string(), vec!["epub".to_string()]),
-        ("azw3".to_string(), vec!["epub".to_string()]),
-        ("docx".to_string(), vec!["epub".to_string(), "txt".to_string()]),
-        ("fb2".to_string(), vec!["epub".to_string(), "txt".to_string()]),
-    ])
+pub async fn get_supported_conversions() -> Result<Vec<serde_json::Value>, String> {
+    let result = CONVERSION_MATRIX
+        .iter()
+        .map(|(from, targets)| {
+            serde_json::json!({
+                "from": from,
+                "to": targets,
+            })
+        })
+        .collect();
+    Ok(result)
 }

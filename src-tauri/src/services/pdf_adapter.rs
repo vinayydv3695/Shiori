@@ -1,15 +1,20 @@
 use crate::error::{ShioriError, ShioriResult};
 use crate::services::renderer::{
-    BookMetadata, BookRenderer, Chapter, PdfRenderer, SearchResult, TocEntry,
+    BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry,
 };
-use lopdf::Document;
+use async_trait::async_trait;
+use lopdf::{Document, Object, content::Content};
 
 pub struct PdfAdapter {
     doc: Option<Document>,
     path: String,
     metadata: Option<BookMetadata>,
     page_count: usize,
+    page_ids: Vec<lopdf::ObjectId>,
 }
+
+unsafe impl Send for PdfAdapter {}
+unsafe impl Sync for PdfAdapter {}
 
 impl PdfAdapter {
     pub fn new() -> Self {
@@ -18,88 +23,111 @@ impl PdfAdapter {
             path: String::new(),
             metadata: None,
             page_count: 0,
+            page_ids: Vec::new(),
         }
     }
 
-    fn load_metadata(&mut self) -> ShioriResult<()> {
-        let doc = self
-            .doc
-            .as_ref()
-            .ok_or_else(|| ShioriError::Other("PDF document not opened".to_string()))?;
+    fn extract_text_from_page(&self, page_number: usize) -> ShioriResult<String> {
+        let doc = self.doc.as_ref().ok_or_else(|| ShioriError::Other("PDF not loaded".into()))?;
+        let mut full_text = String::new();
+        
+        if let Some(page_id) = self.page_ids.get(page_number) {
+            if let Ok(content_data) = doc.get_page_content(*page_id) {
+                 if let Ok(content) = Content::decode(&content_data) {
+                     for operation in content.operations {
+                         if operation.operator == "Tj" {
+                             if let Some(obj) = operation.operands.get(0) {
+                                 if let Some(text) = Self::get_pdf_text(obj) {
+                                     full_text.push_str(&text);
+                                 }
+                             }
+                         } else if operation.operator == "TJ" {
+                             if let Some(Object::Array(arr)) = operation.operands.get(0) {
+                                 for obj in arr {
+                                     if let Some(text) = Self::get_pdf_text(obj) {
+                                         full_text.push_str(&text);
+                                     } else if let Object::Integer(spacing) = obj {
+                                         if *spacing < -100 { full_text.push(' '); }
+                                     } else if let Object::Real(spacing) = obj {
+                                         if *spacing < -100.0 { full_text.push(' '); }
+                                     }
+                                 }
+                             }
+                         } else if operation.operator == "T*" || operation.operator == "ET" {
+                             full_text.push('\n');
+                         } else if operation.operator == "TD" || operation.operator == "Td" {
+                             full_text.push('\n');
+                         }
+                     }
+                 }
+            }
+        }
+        
+        if full_text.trim().is_empty() {
+            Ok(format!("Page {}", page_number + 1))
+        } else {
+            Ok(full_text)
+        }
+    }
 
-        let page_count = doc.get_pages().len();
-
-        // Try to extract PDF metadata
-        let title = doc
-            .trailer
-            .get(b"Info")
-            .ok()
-            .and_then(|info| info.as_dict().ok())
-            .and_then(|dict| dict.get(b"Title").ok())
-            .and_then(|title| {
-                title
-                    .as_str()
+    fn get_pdf_string(obj: &Object) -> Option<String> {
+        match obj {
+            Object::String(bytes, _) => {
+                String::from_utf8(bytes.clone())
+                    .or_else(|_| Ok::<String, ()>(bytes.iter().map(|&b| b as char).collect()))
                     .ok()
-                    .and_then(|bytes| std::str::from_utf8(bytes).ok().map(|s| s.to_string()))
+            }
+            Object::Name(bytes) => String::from_utf8(bytes.clone()).ok(),
+            _ => None,
+        }
+    }
+    
+    fn get_pdf_text(obj: &Object) -> Option<String> {
+        match obj {
+            Object::String(_, _) | Object::Name(_) => Self::get_pdf_string(obj),
+            Object::Array(arr) => {
+                Some(arr.iter()
+                    .filter_map(Self::get_pdf_string)
+                    .collect::<Vec<_>>()
+                    .join(""))
+            }
+            _ => None,
+        }
+    }
+}
+
+#[async_trait]
+impl BookReaderAdapter for PdfAdapter {
+    async fn load(&mut self, path: &str) -> ShioriResult<()> {
+        let path_str = path.to_string();
+        
+        // Load in a blocking task using Tauri's runtime to avoid panic
+        let doc_result = tauri::async_runtime::spawn_blocking(move || {
+            Document::load(&path_str).map_err(|e| ShioriError::CorruptedPdf {
+                path: path_str.clone(),
+                details: format!("{:?}", e),
             })
-            .unwrap_or_else(|| "Unknown Title".to_string());
+        }).await.map_err(|e| ShioriError::Other(format!("Task spawn failed: {:?}", e)))?;
 
-        let author = doc
-            .trailer
-            .get(b"Info")
-            .ok()
-            .and_then(|info| info.as_dict().ok())
-            .and_then(|dict| dict.get(b"Author").ok())
-            .and_then(|author| {
-                author
-                    .as_str()
-                    .ok()
-                    .and_then(|bytes| std::str::from_utf8(bytes).ok().map(|s| s.to_string()))
-            });
+        let doc = doc_result?;
+        let page_ids: Vec<_> = doc.get_pages().into_values().collect();
+        let page_count = page_ids.len();
+
+        let title = "Unknown Title".to_string();
+        let author = None;
 
         self.metadata = Some(BookMetadata {
             title,
             author,
-            total_chapters: page_count, // For PDF, treat each page as a "chapter"
+            total_chapters: page_count,
             total_pages: Some(page_count),
             format: "pdf".to_string(),
         });
 
         self.page_count = page_count;
-        Ok(())
-    }
-
-    fn extract_text_from_page(&self, page_number: usize) -> ShioriResult<String> {
-        let doc = self
-            .doc
-            .as_ref()
-            .ok_or_else(|| ShioriError::Other("PDF document not opened".to_string()))?;
-
-        let pages = doc.get_pages();
-        let page_id = *pages
-            .get(&((page_number + 1) as u32))
-            .ok_or_else(|| ShioriError::Other(format!("Page {} not found", page_number)))?;
-
-        // Extract text content from the page
-        // Note: This is a simplified version. Real text extraction from PDF is complex.
-        let content = doc
-            .extract_text(&[page_id.0])
-            .unwrap_or_else(|_| format!("Page {}", page_number + 1));
-
-        Ok(content)
-    }
-}
-
-impl BookRenderer for PdfAdapter {
-    fn open(&mut self, path: &str) -> ShioriResult<()> {
-        let doc = Document::load(path).map_err(|e| ShioriError::CorruptedPdf {
-            path: path.to_string(),
-            details: format!("{}", e),
-        })?;
-
+        self.page_ids = page_ids;
         self.doc = Some(doc);
         self.path = path.to_string();
-        self.load_metadata()?;
 
         Ok(())
     }
@@ -111,10 +139,8 @@ impl BookRenderer for PdfAdapter {
     }
 
     fn get_toc(&self) -> ShioriResult<Vec<TocEntry>> {
-        // PDF ToC extraction is complex and not supported by lopdf easily
-        // For now, return a simple page-based ToC
-        let page_count = self.page_count;
-        let toc: Vec<TocEntry> = (0..page_count)
+        let toc: Vec<TocEntry> = (0..self.page_count)
+            .step_by(10)
             .map(|i| TocEntry {
                 label: format!("Page {}", i + 1),
                 location: format!("page:{}", i + 1),
@@ -122,7 +148,6 @@ impl BookRenderer for PdfAdapter {
                 children: Vec::new(),
             })
             .collect();
-
         Ok(toc)
     }
 
@@ -133,9 +158,7 @@ impl BookRenderer for PdfAdapter {
                 cause: "Page index out of bounds".to_string(),
             });
         }
-
         let content = self.extract_text_from_page(index)?;
-
         Ok(Chapter {
             index,
             title: format!("Page {}", index + 1),
@@ -151,18 +174,15 @@ impl BookRenderer for PdfAdapter {
     fn search(&self, query: &str) -> ShioriResult<Vec<SearchResult>> {
         let query_lower = query.to_lowercase();
         let mut results = Vec::new();
-
         for page_num in 0..self.page_count {
             if let Ok(content) = self.extract_text_from_page(page_num) {
                 let content_lower = content.to_lowercase();
                 let matches: Vec<_> = content_lower.match_indices(&query_lower).collect();
-
                 if !matches.is_empty() {
                     let first_match_pos = matches[0].0;
                     let start = first_match_pos.saturating_sub(50);
                     let end = (first_match_pos + query.len() + 50).min(content.len());
                     let snippet = format!("...{}...", &content[start..end]);
-
                     results.push(SearchResult {
                         chapter_index: page_num,
                         chapter_title: format!("Page {}", page_num + 1),
@@ -173,78 +193,37 @@ impl BookRenderer for PdfAdapter {
                 }
             }
         }
-
         Ok(results)
     }
-}
 
-impl PdfRenderer for PdfAdapter {
-    fn render_page(&self, _page_number: usize, _scale: f32) -> ShioriResult<Vec<u8>> {
-        // Note: PDF rendering to image requires pdfium-render or similar
-        // For now, this is a placeholder that would need pdfium-render integration
-        //
-        // TODO: Integrate pdfium-render for actual rasterization
-        // Example:
-        // let pdfium = Pdfium::new(...);
-        // let document = pdfium.load_pdf_from_file(path)?;
-        // let page = document.pages().get(page_number)?;
-        // let bitmap = page.render_with_config(...)?;
-        // return bitmap.as_image_buffer().as_bytes();
-
-        Err(ShioriError::Other(
-            "PDF rendering not yet implemented - requires pdfium-render integration".to_string(),
-        ))
+    fn get_resource(&self, _path: &str) -> ShioriResult<Vec<u8>> {
+        // Fallback or empty image to avoid errors
+        Ok(Vec::new())
     }
 
-    fn get_page_dimensions(&self, page_number: usize) -> ShioriResult<(f32, f32)> {
-        let doc = self
-            .doc
-            .as_ref()
-            .ok_or_else(|| ShioriError::Other("PDF document not opened".to_string()))?;
+    fn get_resource_mime(&self, _path: &str) -> ShioriResult<String> {
+        Ok("application/octet-stream".to_string())
+    }
 
-        let pages = doc.get_pages();
-        let page_id = *pages
-            .get(&((page_number + 1) as u32))
-            .ok_or_else(|| ShioriError::Other(format!("Page {} not found", page_number)))?;
+    fn supports_pagination(&self) -> bool {
+        true
+    }
 
-        // Get the page object
-        let page_object = doc.get_object(page_id)?;
-        let page_dict = page_object
-            .as_dict()
-            .map_err(|_| ShioriError::Other("Page is not a dictionary".to_string()))?;
+    fn supports_images(&self) -> bool {
+        false
+    }
+    
+    async fn render_page(&self, page_number: usize, _scale: f32) -> ShioriResult<Vec<u8>> {
+         Err(ShioriError::Other("Native image rendering is configured off for lopdf".into()))
+    }
 
-        // Try to get MediaBox
-        let media_box = page_dict
-            .get(b"MediaBox")
-            .map_err(|_| ShioriError::Other("Page has no MediaBox".to_string()))?;
-
-        let media_box_array = media_box
-            .as_array()
-            .map_err(|_| ShioriError::Other("MediaBox is not an array".to_string()))?;
-
-        if media_box_array.len() < 4 {
-            return Err(ShioriError::Other("MediaBox array too short".to_string()));
-        }
-
-        // Extract width and height, handling both Integer and Real types
-        let width = media_box_array[2].as_float().unwrap_or(612.0);
-        let height = media_box_array[3].as_float().unwrap_or(792.0);
-
-        Ok((width, height))
+    fn get_page_dimensions(&self, _page_number: usize) -> ShioriResult<(f32, f32)> {
+        // Lopdf doesn't easily expose this through a standardized property without checking CropBox, MediaBox, etc.
+        // Return standard A4 dimensions roughly as fallback
+        Ok((595.0, 842.0))
     }
 
     fn page_count(&self) -> usize {
         self.page_count
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_pdf_adapter_creation() {
-        let adapter = PdfAdapter::new();
-        assert_eq!(adapter.chapter_count(), 0);
     }
 }

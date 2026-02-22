@@ -14,7 +14,7 @@ pub fn get_all_books(db: &Database, limit: u32, offset: u32) -> Result<Vec<Book>
         "SELECT id, uuid, title, sort_title, isbn, isbn13, publisher, pubdate, 
                 series, series_index, rating, file_path, file_format, file_size, 
                 file_hash, cover_path, page_count, word_count, language, 
-                added_date, modified_date, last_opened, notes
+                added_date, modified_date, last_opened, notes, online_metadata_fetched, metadata_source, metadata_last_sync, anilist_id
          FROM books
          ORDER BY added_date DESC
          LIMIT ?1 OFFSET ?2",
@@ -45,6 +45,10 @@ pub fn get_all_books(db: &Database, limit: u32, offset: u32) -> Result<Vec<Book>
             modified_date: row.get(20)?,
             last_opened: row.get(21)?,
             notes: row.get(22)?,
+            online_metadata_fetched: row.get::<_, i64>(23).unwrap_or(0) != 0,
+            metadata_source: row.get(24).ok().flatten(),
+            metadata_last_sync: row.get(25).ok().flatten(),
+            anilist_id: row.get(26).ok().flatten(),
             authors: vec![],
             tags: vec![],
         })
@@ -75,7 +79,7 @@ pub fn get_book_by_id(db: &Database, id: i64) -> Result<Book> {
             "SELECT id, uuid, title, sort_title, isbn, isbn13, publisher, pubdate, 
                 series, series_index, rating, file_path, file_format, file_size, 
                 file_hash, cover_path, page_count, word_count, language, 
-                added_date, modified_date, last_opened, notes
+                added_date, modified_date, last_opened, notes, online_metadata_fetched, metadata_source, metadata_last_sync, anilist_id
          FROM books WHERE id = ?1",
             params![id],
             |row| {
@@ -103,6 +107,10 @@ pub fn get_book_by_id(db: &Database, id: i64) -> Result<Book> {
                     modified_date: row.get(20)?,
                     last_opened: row.get(21)?,
                     notes: row.get(22)?,
+                    online_metadata_fetched: row.get::<_, i64>(23).unwrap_or(0) != 0,
+                    metadata_source: row.get(24).ok().flatten(),
+                    metadata_last_sync: row.get(25).ok().flatten(),
+                    anilist_id: row.get(26).ok().flatten(),
                     authors: vec![],
                     tags: vec![],
                 })
@@ -406,6 +414,10 @@ fn import_single_book(db: &Database, path: &str) -> Result<bool> {
             })
             .collect(),
         tags: vec![],
+        online_metadata_fetched: false,
+        metadata_source: None,
+        metadata_last_sync: None,
+        anilist_id: None,
     };
 
     add_book(db, book)?;
@@ -555,7 +567,7 @@ pub fn get_books_by_domain(db: &Database, domain: &str, limit: u32, offset: u32)
             "SELECT id, uuid, title, sort_title, isbn, isbn13, publisher, pubdate, 
                     series, series_index, rating, file_path, file_format, file_size, 
                     file_hash, cover_path, page_count, word_count, language, 
-                    added_date, modified_date, last_opened, notes
+                    added_date, modified_date, last_opened, notes, online_metadata_fetched, metadata_source, metadata_last_sync, anilist_id
              FROM books
              WHERE file_format NOT IN ('cbz', 'cbr')
              ORDER BY added_date DESC
@@ -565,7 +577,7 @@ pub fn get_books_by_domain(db: &Database, domain: &str, limit: u32, offset: u32)
             "SELECT id, uuid, title, sort_title, isbn, isbn13, publisher, pubdate, 
                     series, series_index, rating, file_path, file_format, file_size, 
                     file_hash, cover_path, page_count, word_count, language, 
-                    added_date, modified_date, last_opened, notes
+                    added_date, modified_date, last_opened, notes, online_metadata_fetched, metadata_source, metadata_last_sync, anilist_id
              FROM books
              WHERE file_format IN ('cbz', 'cbr')
              ORDER BY added_date DESC
@@ -575,7 +587,7 @@ pub fn get_books_by_domain(db: &Database, domain: &str, limit: u32, offset: u32)
             "SELECT id, uuid, title, sort_title, isbn, isbn13, publisher, pubdate, 
                     series, series_index, rating, file_path, file_format, file_size, 
                     file_hash, cover_path, page_count, word_count, language, 
-                    added_date, modified_date, last_opened, notes
+                    added_date, modified_date, last_opened, notes, online_metadata_fetched, metadata_source, metadata_last_sync, anilist_id
              FROM books
              ORDER BY added_date DESC
              LIMIT ?1 OFFSET ?2"
@@ -609,6 +621,10 @@ pub fn get_books_by_domain(db: &Database, domain: &str, limit: u32, offset: u32)
             modified_date: row.get(20)?,
             last_opened: row.get(21)?,
             notes: row.get(22)?,
+            online_metadata_fetched: row.get::<_, i64>(23).unwrap_or(0) != 0,
+            metadata_source: row.get(24).ok().flatten(),
+            metadata_last_sync: row.get(25).ok().flatten(),
+            anilist_id: row.get(26).ok().flatten(),
             authors: vec![],
             tags: vec![],
         })
@@ -695,4 +711,38 @@ fn get_or_create_author(conn: &rusqlite::Connection, name: &str) -> Result<i64> 
         }
         Err(e) => Err(e.into()),
     }
+}
+
+pub fn reset_database(db: &Database) -> Result<()> {
+    let mut conn = db.get_connection()?;
+    let tx = conn.transaction()?;
+    
+    // Disable foreign keys temporarily for a cleaner drop
+    tx.execute("PRAGMA foreign_keys = OFF", [])?;
+    
+    // Tables to reset
+    let tables = vec![
+        "collections_books",
+        "collections",
+        "books_authors",
+        "books_tags",
+        "authors",
+        "tags",
+        "reading_progress",
+        "annotations",
+        "rss_articles",
+        "rss_feeds",
+        "books",
+    ];
+    
+    for table in tables {
+        tx.execute(&format!("DELETE FROM {}", table), [])?;
+    }
+    
+    // Re-enable foreign keys
+    tx.execute("PRAGMA foreign_keys = ON", [])?;
+    
+    tx.commit()?;
+    log::info!("[reset_database] Database has been reset successfully.");
+    Ok(())
 }

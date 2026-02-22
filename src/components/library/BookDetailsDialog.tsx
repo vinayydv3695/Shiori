@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X, BookOpen, Calendar, FileText, Tag, Star, Globe, Hash, Download } from 'lucide-react';
+import { X, BookOpen, Calendar, FileText, Tag, Star, Globe, Hash, Download, Loader2 } from 'lucide-react';
 import { convertFileSrc } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { api, type Book } from '../../lib/tauri';
+import { useToast } from '../../store/toastStore';
 import { Button } from '../ui/button';
 import { MetadataSearchDialog } from './MetadataSearchDialog';
 
@@ -15,17 +17,52 @@ interface BookDetailsDialogProps {
   onRead?: () => void;
 }
 
-export const BookDetailsDialog = ({ 
-  open, 
-  onOpenChange, 
+export const BookDetailsDialog = ({
+  open,
+  onOpenChange,
   bookId,
   onEdit,
   onDelete,
-  onRead 
+  onRead
 }: BookDetailsDialogProps) => {
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
   const [metadataDialogOpen, setMetadataDialogOpen] = useState(false);
+  const [autoEnrichLoading, setAutoEnrichLoading] = useState(false);
+  const toast = useToast();
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+
+    const setupListener = async () => {
+      unlisten = await listen<any>("metadata-update", (event) => {
+        const payload = event.payload;
+        if (payload.bookId === bookId) {
+          if (payload.status === "loading") {
+            setAutoEnrichLoading(true);
+          } else if (payload.status === "success") {
+            setAutoEnrichLoading(false);
+            toast.success("Metadata Enriched", `Successfully updated metadata from ${payload.provider}`);
+            loadBook(); // Reload data
+          } else if (payload.status === "not_found") {
+            setAutoEnrichLoading(false);
+            toast.info("No Metadata Found", `Could not find relevant metadata on ${payload.provider}`);
+          } else if (payload.status === "error") {
+            setAutoEnrichLoading(false);
+            toast.error("Metadata Sync Error", payload.error || "Failed to sync metadata");
+          }
+        }
+      });
+    };
+
+    if (open) {
+      setupListener();
+    }
+
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, [open, bookId]);
 
   useEffect(() => {
     if (open && bookId) {
@@ -128,6 +165,12 @@ export const BookDetailsDialog = ({
                     <p className="text-lg text-muted-foreground">
                       by {book.authors.map(a => a.name).join(', ')}
                     </p>
+                  )}
+                  {book.metadata_source && (
+                    <div className="mt-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+                      <Globe className="w-3 h-3 mr-1" />
+                      Metadata from {book.metadata_source}
+                    </div>
                   )}
                 </div>
 
@@ -259,14 +302,38 @@ export const BookDetailsDialog = ({
 
           {/* Footer Actions */}
           <div className="flex items-center justify-between gap-3 p-6 border-t border-border bg-muted/30">
-            <Button
-              variant="outline"
-              onClick={() => setMetadataDialogOpen(true)}
-              className="mr-auto"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Fetch Metadata
-            </Button>
+            <div className="flex items-center gap-2 mr-auto">
+              <Button
+                variant="outline"
+                onClick={() => setMetadataDialogOpen(true)}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Find Metadata
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={autoEnrichLoading}
+                onClick={async () => {
+                  try {
+                    setAutoEnrichLoading(true);
+                    await api.enrichBookMetadata(bookId);
+                  } catch (e) {
+                    setAutoEnrichLoading(false);
+                    console.error("Auto enrich failed:", e);
+                    toast.error("Dispatch Failed", "Could not start the enrichment process");
+                  }
+                }}
+              >
+                {autoEnrichLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Enriching...
+                  </>
+                ) : (
+                  "Auto-Enrich"
+                )}
+              </Button>
+            </div>
 
             <div className="flex items-center gap-3">
               {onDelete && (

@@ -6,6 +6,7 @@ use std::path::Path;
 
 pub mod migrations;
 
+#[derive(Clone)]
 pub struct Database {
     pool: Pool<SqliteConnectionManager>,
 }

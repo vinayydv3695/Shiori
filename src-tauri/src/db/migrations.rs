@@ -35,6 +35,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 5 {
             self.migrate_to_v5()?;
         }
+        if current_version < 6 {
+            self.migrate_to_v6()?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -758,6 +761,56 @@ impl<'a> MigrationManager<'a> {
         )?;
 
         log::info!("[Migration] v5 applied successfully");
+        Ok(())
+    }
+
+    /// Migration v6: Online metadata enrichment
+    fn migrate_to_v6(&self) -> Result<()> {
+        log::info!("[Migration] Applying v6: online_metadata fields and metadata_cache");
+
+        // Add metadata tracking fields to books
+        if !self.column_exists("books", "anilist_id")? {
+            self.conn
+                .execute("ALTER TABLE books ADD COLUMN anilist_id TEXT DEFAULT NULL", [])?;
+        }
+        if !self.column_exists("books", "online_metadata_fetched")? {
+            self.conn
+                .execute("ALTER TABLE books ADD COLUMN online_metadata_fetched INTEGER DEFAULT 0", [])?;
+        }
+        if !self.column_exists("books", "metadata_source")? {
+            self.conn
+                .execute("ALTER TABLE books ADD COLUMN metadata_source TEXT DEFAULT NULL", [])?;
+        }
+        if !self.column_exists("books", "metadata_last_sync")? {
+            self.conn
+                .execute("ALTER TABLE books ADD COLUMN metadata_last_sync TEXT DEFAULT NULL", [])?;
+        }
+
+        // Create metadata cache table
+        self.conn.execute_batch(
+            r#"
+            CREATE TABLE IF NOT EXISTS metadata_cache (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                provider TEXT NOT NULL,
+                query_hash TEXT NOT NULL,
+                response_json TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                expires_at TEXT NOT NULL
+            );
+
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_metadata_cache_lookup ON metadata_cache(provider, query_hash);
+            CREATE INDEX IF NOT EXISTS idx_metadata_cache_expiry ON metadata_cache(expires_at);
+            "#,
+        )?;
+
+        self.set_schema_version(6)?;
+        self.record_migration(
+            6,
+            "online_metadata",
+            "v6_online_metadata",
+        )?;
+
+        log::info!("[Migration] v6 applied successfully");
         Ok(())
     }
 

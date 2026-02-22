@@ -119,3 +119,9 @@ pub fn get_total_books_by_domain(state: State<'_, AppState>, domain: String) -> 
     let db = state.db.lock().unwrap();
     library_service::get_total_books_by_domain(&db, &domain)
 }
+
+#[tauri::command]
+pub fn reset_database(state: State<'_, AppState>) -> Result<()> {
+    let db = state.db.lock().unwrap();
+    library_service::reset_database(&db)
+}

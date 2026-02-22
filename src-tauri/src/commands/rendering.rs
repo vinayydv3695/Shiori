@@ -117,3 +117,22 @@ pub fn clear_renderer_cache(state: State<RenderingState>) -> ShioriResult<()> {
     state.service.clear_all_caches();
     Ok(())
 }
+
+#[tauri::command]
+pub fn render_pdf_page(
+    book_id: i64,
+    page_index: usize,
+    scale: f32,
+    state: State<RenderingState>,
+) -> ShioriResult<Vec<u8>> {
+    state.service.render_page(book_id, page_index, scale)
+}
+
+#[tauri::command]
+pub fn get_pdf_page_dimensions(
+    book_id: i64,
+    page_index: usize,
+    state: State<RenderingState>,
+) -> ShioriResult<(f32, f32)> {
+    state.service.get_page_dimensions(book_id, page_index)
+}

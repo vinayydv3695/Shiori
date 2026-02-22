@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0">
+<channel>
+  <title>Local Test Feed</title>
+  <link>http://localhost</link>
+  <description>A test feed</description>
+  <item>
+    <title>Test Item 1</title>
+    <link>http://localhost/1</link>
+    <description>Test description 1</description>
+  </item>
+</channel>
+</rss>

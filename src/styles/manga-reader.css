@@ -345,7 +345,7 @@
 
 .manga-page-img--fit-contain {
   max-width: 100%;
-  max-height: calc(100vh - 52px);
+  max-height: 100vh;
   object-fit: contain;
 }
 

@@ -42,10 +42,13 @@ pub struct TocEntry {
     pub children: Vec<TocEntry>,
 }
 
-/// Common interface for all book format renderers
-pub trait BookRenderer: Send + Sync {
+use async_trait::async_trait;
+
+/// Common unified interface for all book format renderers (EPUB, PDF, DOCX, MOBI)
+#[async_trait]
+pub trait BookReaderAdapter: Send + Sync {
     /// Open and initialize the book
-    fn open(&mut self, path: &str) -> ShioriResult<()>;
+    async fn load(&mut self, path: &str) -> ShioriResult<()>;
 
     /// Get book metadata
     fn get_metadata(&self) -> ShioriResult<BookMetadata>;
@@ -53,7 +56,7 @@ pub trait BookRenderer: Send + Sync {
     /// Get table of contents
     fn get_toc(&self) -> ShioriResult<Vec<TocEntry>>;
 
-    /// Get a specific chapter by index
+    /// Get a specific chapter by index (used primarily by flow-content like EPUB/DOCX)
     fn get_chapter(&self, index: usize) -> ShioriResult<Chapter>;
 
     /// Get total number of chapters
@@ -61,30 +64,53 @@ pub trait BookRenderer: Send + Sync {
 
     /// Search within the book content
     fn search(&self, query: &str) -> ShioriResult<Vec<SearchResult>>;
-}
 
-/// PDF-specific renderer trait
-pub trait PdfRenderer: BookRenderer {
-    /// Render a specific page to PNG
-    fn render_page(&self, page_number: usize, scale: f32) -> ShioriResult<Vec<u8>>;
-
-    /// Get page dimensions
-    fn get_page_dimensions(&self, page_number: usize) -> ShioriResult<(f32, f32)>;
-
-    /// Get total page count
-    fn page_count(&self) -> usize;
-}
-
-/// EPUB-specific renderer trait
-pub trait EpubRenderer: BookRenderer {
-    /// Get spine (reading order)
-    fn get_spine(&self) -> ShioriResult<Vec<String>>;
-
-    /// Get resource by path (images, stylesheets, etc.)
+    /// Get resource by path (images, stylesheets, etc. inside the archive)
     fn get_resource(&self, path: &str) -> ShioriResult<Vec<u8>>;
 
     /// Get resource MIME type
     fn get_resource_mime(&self, path: &str) -> ShioriResult<String>;
+
+    // ─── Format Feature Flags ────────────────────────────────────────────────
+
+    /// Whether this format supports extracting embedded images
+    fn supports_images(&self) -> bool {
+        true
+    }
+
+    /// Whether this format strictly uses paginated rendering (e.g. PDF/CBZ)
+    fn supports_pagination(&self) -> bool {
+        false
+    }
+
+    // ─── Flow-content Specific (EPUB) ────────────────────────────────────────
+
+    /// Get spine (reading order of chapters/resources).
+    /// Default implementation returns empty for formats that don't use spines.
+    fn get_spine(&self) -> ShioriResult<Vec<String>> {
+        Ok(Vec::new())
+    }
+
+    // ─── Paginated-content Specific (PDF) ────────────────────────────────────
+
+    /// Get total page count
+    fn page_count(&self) -> usize {
+        0
+    }
+
+    /// Render a specific page to a PNG buffer
+    async fn render_page(&self, _page_number: usize, _scale: f32) -> ShioriResult<Vec<u8>> {
+        Err(crate::error::ShioriError::Other(
+            "Pagination rendering is not supported by this format".into(),
+        ))
+    }
+
+    /// Get physical/logical dimensions of a page
+    fn get_page_dimensions(&self, _page_number: usize) -> ShioriResult<(f32, f32)> {
+        Err(crate::error::ShioriError::Other(
+            "Page dimensions are not available for this format".into(),
+        ))
+    }
 }
 
 /// Search result entry

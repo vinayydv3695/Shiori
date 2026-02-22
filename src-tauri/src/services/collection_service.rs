@@ -191,7 +191,8 @@ impl CollectionService {
             "SELECT b.id, b.uuid, b.title, b.sort_title, b.isbn, b.isbn13, b.publisher, 
                     b.pubdate, b.series, b.series_index, b.rating, b.file_path, b.file_format,
                     b.file_size, b.file_hash, b.cover_path, b.page_count, b.word_count,
-                    b.language, b.added_date, b.modified_date, b.last_opened, b.notes
+                    b.language, b.added_date, b.modified_date, b.last_opened, b.notes,
+                    b.online_metadata_fetched, b.metadata_source, b.metadata_last_sync, b.anilist_id
              FROM books b
              JOIN collections_books cb ON b.id = cb.book_id
              WHERE cb.collection_id = ?1
@@ -224,6 +225,10 @@ impl CollectionService {
                     modified_date: row.get(20)?,
                     last_opened: row.get(21)?,
                     notes: row.get(22)?,
+                    online_metadata_fetched: row.get::<_, i64>(23).unwrap_or(0) != 0,
+                    metadata_source: row.get(24).ok().flatten(),
+                    metadata_last_sync: row.get(25).ok().flatten(),
+                    anilist_id: row.get(26).ok().flatten(),
                     authors: Vec::new(),
                     tags: Vec::new(),
                 })
@@ -291,7 +296,8 @@ impl CollectionService {
             "SELECT b.id, b.uuid, b.title, b.sort_title, b.isbn, b.isbn13, b.publisher,
                     b.pubdate, b.series, b.series_index, b.rating, b.file_path, b.file_format,
                     b.file_size, b.file_hash, b.cover_path, b.page_count, b.word_count,
-                    b.language, b.added_date, b.modified_date, b.last_opened, b.notes
+                    b.language, b.added_date, b.modified_date, b.last_opened, b.notes,
+                    b.online_metadata_fetched, b.metadata_source, b.metadata_last_sync, b.anilist_id
              FROM books b
              WHERE {}
              ORDER BY b.title ASC",
@@ -326,6 +332,10 @@ impl CollectionService {
                     modified_date: row.get(20)?,
                     last_opened: row.get(21)?,
                     notes: row.get(22)?,
+                    online_metadata_fetched: row.get::<_, i64>(23).unwrap_or(0) != 0,
+                    metadata_source: row.get(24).ok().flatten(),
+                    metadata_last_sync: row.get(25).ok().flatten(),
+                    anilist_id: row.get(26).ok().flatten(),
                     authors: Vec::new(),
                     tags: Vec::new(),
                 })

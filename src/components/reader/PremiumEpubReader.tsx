@@ -16,44 +16,44 @@ interface PremiumEpubReaderProps {
 // Helper function to convert resource URLs to data URIs and inline CSS
 async function processEpubHtml(bookId: number, html: string, searchTerm?: string | null): Promise<string> {
   console.log(`[processEpubHtml] Starting for book ${bookId}, HTML length: ${html.length}`);
-  
+
   let processedHtml = html;
   let successCount = 0;
   let failCount = 0;
-  
+
   // Step 1: Process CSS stylesheets - Convert <link> tags to <style> tags
   const cssLinkRegex = /<link[^>]+rel=["']stylesheet["'][^>]*>/gi;
   const cssMatches = Array.from(html.matchAll(cssLinkRegex));
-  
+
   console.log(`[processEpubHtml] Found ${cssMatches.length} CSS stylesheet links`);
-  
+
   for (const match of cssMatches) {
     const linkTag = match[0];
     const hrefMatch = linkTag.match(/href=["']([^"']+)["']/i);
-    
+
     if (!hrefMatch) continue;
-    
+
     const cssPath = hrefMatch[1];
-    
+
     // Skip absolute URLs
     if (cssPath.startsWith('http') || cssPath.startsWith('data:')) {
       continue;
     }
-    
+
     try {
       // Clean the path
       let cleanPath = cssPath;
       while (cleanPath.startsWith('../') || cleanPath.startsWith('./')) {
         cleanPath = cleanPath.replace(/^\.\.\//, '').replace(/^\.\//, '');
       }
-      
+
       console.log(`[processEpubHtml] Fetching CSS: ${cssPath} (cleaned: ${cleanPath})`);
       const cssData = await api.getEpubResource(bookId, cleanPath);
-      
+
       // Convert bytes to string
       const cssText = new TextDecoder().decode(new Uint8Array(cssData));
       console.log(`[processEpubHtml] ✅ Got CSS, size: ${cssData.length} bytes`);
-      
+
       // Replace <link> tag with <style> tag containing the CSS
       const styleTag = `<style type="text/css">\n${cssText}\n</style>`;
       processedHtml = processedHtml.replace(linkTag, styleTag);
@@ -67,36 +67,36 @@ async function processEpubHtml(bookId: number, html: string, searchTerm?: string
       processedHtml = processedHtml.replace(linkTag, '');
     }
   }
-  
+
   // Step 2: Process images and other resources
   const srcRegex = /(src|href)="([^"']+)"/g;
   const matches = Array.from(processedHtml.matchAll(srcRegex));
-  
+
   console.log(`[processEpubHtml] Found ${matches.length} src/href resource references`);
-  
+
   for (const match of matches) {
     const attr = match[1];
     const originalPath = match[2];
-    
+
     // Skip absolute URLs, data URIs, anchors, and CSS files (already processed)
-    if (originalPath.startsWith('http') || 
-        originalPath.startsWith('data:') || 
-        originalPath.startsWith('#') ||
-        originalPath.endsWith('.css')) {
+    if (originalPath.startsWith('http') ||
+      originalPath.startsWith('data:') ||
+      originalPath.startsWith('#') ||
+      originalPath.endsWith('.css')) {
       continue;
     }
-    
+
     try {
       // Clean the path: remove ../ and ./ prefixes
       let cleanPath = originalPath;
       while (cleanPath.startsWith('../') || cleanPath.startsWith('./')) {
         cleanPath = cleanPath.replace(/^\.\.\//, '').replace(/^\.\//, '');
       }
-      
+
       console.log(`[processEpubHtml] Fetching resource: ${originalPath} (cleaned: ${cleanPath})`);
       const resourceData = await api.getEpubResource(bookId, cleanPath);
       console.log(`[processEpubHtml] Got resource data, size: ${resourceData.length} bytes`);
-      
+
       // Determine MIME type
       let mimeType = 'application/octet-stream';
       const ext = cleanPath.toLowerCase();
@@ -110,11 +110,11 @@ async function processEpubHtml(bookId: number, html: string, searchTerm?: string
       else if (ext.endsWith('.woff2')) mimeType = 'font/woff2';
       else if (ext.endsWith('.ttf')) mimeType = 'font/ttf';
       else if (ext.endsWith('.otf')) mimeType = 'font/otf';
-      
+
       // Convert to base64
       const base64 = btoa(String.fromCharCode(...new Uint8Array(resourceData)));
       const dataUri = `data:${mimeType};base64,${base64}`;
-      
+
       processedHtml = processedHtml.replace(`${attr}="${originalPath}"`, `${attr}="${dataUri}"`);
       successCount++;
       console.log(`[processEpubHtml] ✅ Processed: ${originalPath}`);
@@ -124,12 +124,12 @@ async function processEpubHtml(bookId: number, html: string, searchTerm?: string
       console.warn(`[processEpubHtml] ❌ Could not load resource: ${originalPath} - ${errorMsg}`);
     }
   }
-  
+
   // Step 3: Highlight search term if provided
   if (searchTerm && searchTerm.trim()) {
     processedHtml = highlightSearchTerm(processedHtml, searchTerm);
   }
-  
+
   console.log(`[processEpubHtml] Completed. Success: ${successCount}, Failed: ${failCount}`);
   return processedHtml;
 }
@@ -137,15 +137,15 @@ async function processEpubHtml(bookId: number, html: string, searchTerm?: string
 // Helper function to highlight search terms in HTML (case-insensitive, preserves HTML tags)
 function highlightSearchTerm(html: string, searchTerm: string): string {
   if (!searchTerm || !searchTerm.trim()) return html;
-  
+
   // Create a temporary DOM element to parse HTML safely
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
-  
+
   // Escape special regex characters in search term
   const escapedTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const regex = new RegExp(`(${escapedTerm})`, 'gi');
-  
+
   // Recursive function to highlight text nodes only
   const highlightTextNodes = (node: Node) => {
     if (node.nodeType === Node.TEXT_NODE) {
@@ -164,9 +164,9 @@ function highlightSearchTerm(html: string, searchTerm: string): string {
       }
     }
   };
-  
+
   highlightTextNodes(doc.body);
-  
+
   // Add styles for highlighted text
   const style = doc.createElement('style');
   style.textContent = `
@@ -183,7 +183,7 @@ function highlightSearchTerm(html: string, searchTerm: string): string {
     }
   `;
   doc.head.appendChild(style);
-  
+
   return doc.documentElement.outerHTML;
 }
 
@@ -199,9 +199,9 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
     setScrollProgress,
     updateMouseMovement,
   } = useUIStore();
-  
+
   const { theme, width, twoPageView, toggleTwoPageView } = useReadingSettings();
-  
+
   // Book state
   const [metadata, setMetadata] = useState<BookMetadata | null>(null);
   const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null);
@@ -210,11 +210,11 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchHighlight, setSearchHighlight] = useState<string | null>(null); // NEW: Store search term for highlighting
-  
+
   // Refs
   const canvasRef = useRef<HTMLDivElement>(null);
   const autoHideTimerRef = useRef<number | null>(null);
-  
+
   // ────────────────────────────────────────────────────────────
   // AUTO-HIDE TOP BAR LOGIC
   // ────────────────────────────────────────────────────────────
@@ -222,23 +222,23 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
     // Always show top bar on mouse movement (unless in focus mode)
     if (!isFocusMode) {
       setTopBarVisible(true);
-      
+
       // Clear existing timer
       if (autoHideTimerRef.current) {
         clearTimeout(autoHideTimerRef.current);
       }
-      
+
       // Set new timer to hide after 3 seconds
       autoHideTimerRef.current = setTimeout(() => {
         setTopBarVisible(false);
       }, 3000);
     }
   }, [isFocusMode, setTopBarVisible]);
-  
+
   // Track mouse movement for auto-hide (throttled to prevent excessive updates)
   useEffect(() => {
     let throttleTimeout: number | null = null;
-    
+
     const handleMouseMove = () => {
       if (!throttleTimeout) {
         resetAutoHideTimer();
@@ -247,9 +247,9 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
         }, 100); // Throttle to max 10 times per second
       }
     };
-    
+
     document.addEventListener('mousemove', handleMouseMove, { passive: true });
-    
+
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       if (throttleTimeout) {
@@ -260,7 +260,7 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
       }
     };
   }, [resetAutoHideTimer]);
-  
+
   // Focus mode overrides auto-hide
   useEffect(() => {
     if (isFocusMode) {
@@ -273,7 +273,7 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
       resetAutoHideTimer();
     }
   }, [isFocusMode, setTopBarVisible, resetAutoHideTimer]);
-  
+
   // ────────────────────────────────────────────────────────────
   // SCROLL PROGRESS TRACKING (optimized)
   // ────────────────────────────────────────────────────────────
@@ -281,10 +281,10 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
     let ticking = false;
     let lastUpdateTime = 0;
     const UPDATE_INTERVAL = 100; // Only update progress every 100ms
-    
+
     return () => {
       const now = Date.now();
-      
+
       if (!ticking && (now - lastUpdateTime) >= UPDATE_INTERVAL) {
         requestAnimationFrame(() => {
           const canvas = canvasRef.current;
@@ -292,8 +292,8 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
             const scrollTop = canvas.scrollTop;
             const scrollHeight = canvas.scrollHeight;
             const clientHeight = canvas.clientHeight;
-            const progress = scrollHeight > clientHeight 
-              ? (scrollTop / (scrollHeight - clientHeight)) * 100 
+            const progress = scrollHeight > clientHeight
+              ? (scrollTop / (scrollHeight - clientHeight)) * 100
               : 0;
             setScrollProgress(Math.min(100, Math.max(0, progress)));
             lastUpdateTime = Date.now();
@@ -304,7 +304,7 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
       }
     };
   }, [setScrollProgress]);
-  
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (canvas) {
@@ -312,7 +312,7 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
       return () => canvas.removeEventListener('scroll', handleScroll);
     }
   }, [handleScroll]);
-  
+
   // ────────────────────────────────────────────────────────────
   // BOOK LOADING
   // ────────────────────────────────────────────────────────────
@@ -322,28 +322,39 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
       api.closeBookRenderer(bookId).catch(console.error);
     };
   }, [bookPath, bookId]);
-  
+
   const loadBook = async () => {
     try {
       setIsLoading(true);
       setError(null);
 
       console.log('[PremiumEpubReader] Opening book:', bookId, bookPath);
-      
+
       // Add small delay to ensure book is in database
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       console.log('[PremiumEpubReader] Calling openBookRenderer...');
       const bookMetadata = await api.openBookRenderer(bookId, bookPath, 'epub');
       console.log('[PremiumEpubReader] ✅ Got book metadata:', bookMetadata);
-      
-      // Add another small delay to ensure HashMap insert completes
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
       setMetadata(bookMetadata);
 
-      // TODO: Load progress from database
-      const startIndex = 0;
+      // Add another small delay to ensure HashMap insert completes
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Load progress from database
+      let startIndex = 0;
+      try {
+        const progress = await api.getReadingProgress(bookId);
+        if (progress && progress.currentLocation && progress.currentLocation.startsWith('chapter_')) {
+          const idx = parseInt(progress.currentLocation.replace('chapter_', ''), 10);
+          if (!isNaN(idx) && idx >= 0 && idx < bookMetadata.total_chapters) {
+            startIndex = idx;
+            console.log(`[PremiumEpubReader] Restoring progress: chapter ${startIndex}`);
+          }
+        }
+      } catch (err) {
+        console.warn('[PremiumEpubReader] Could not load reading progress:', err);
+      }
 
       console.log('[PremiumEpubReader] Loading initial chapter:', startIndex);
       await loadChapter(startIndex);
@@ -355,37 +366,37 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
       setIsLoading(false);
     }
   };
-  
+
   const loadChapter = async (index: number, highlightTerm?: string | null) => {
     try {
       console.log('[PremiumEpubReader] Loading chapter:', index);
       setIsLoading(true);
-      
+
       // Update search highlight state
       if (highlightTerm !== undefined) {
         setSearchHighlight(highlightTerm);
       }
-      
+
       const chapter = await api.getBookChapter(bookId, index);
       console.log('[PremiumEpubReader] ✅ Got chapter:', chapter.title, `(${chapter.content.length} chars)`);
-      
+
       // Validate chapter content
       if (!chapter.content || chapter.content.trim().length === 0) {
         console.warn('[PremiumEpubReader] ⚠️ Chapter content is empty!');
         throw new Error(`Chapter ${index + 1} has no content`);
       }
-      
+
       // Process HTML to convert resource paths to data URIs and highlight search terms
       console.log('[PremiumEpubReader] Processing chapter HTML...');
       const termToHighlight = highlightTerm !== undefined ? highlightTerm : searchHighlight;
       const processedContent = await processEpubHtml(bookId, chapter.content, termToHighlight);
       console.log('[PremiumEpubReader] ✅ HTML processed, length:', processedContent.length);
-      
+
       const processedChapter = { ...chapter, content: processedContent };
-      
+
       setCurrentChapter(processedChapter);
       setCurrentIndex(index);
-      
+
       // Load next chapter for two-page view if enabled
       if (twoPageView && metadata && index < metadata.total_chapters - 1) {
         try {
@@ -399,14 +410,14 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
       } else {
         setAdjacentChapter(null);
       }
-      
+
       setIsLoading(false);
       console.log('[PremiumEpubReader] ✅ Chapter loaded and rendered');
 
-      const progressPercent = metadata 
+      const progressPercent = metadata
         ? ((index + 1) / metadata.total_chapters) * 100
         : 0;
-      
+
       // Save progress to database (ignore errors gracefully)
       try {
         await api.saveReadingProgress(bookId, `chapter_${index}`, progressPercent);
@@ -416,12 +427,12 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
           console.warn('[PremiumEpubReader] Could not save reading progress:', saveErr);
         }
       }
-      
+
       // Reset scroll to top
       if (canvasRef.current) {
         canvasRef.current.scrollTop = 0;
       }
-      
+
       // If we have a highlight term, scroll to first highlight after a short delay
       if (termToHighlight) {
         setTimeout(() => {
@@ -437,7 +448,7 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
       setIsLoading(false);
     }
   };
-  
+
   // ────────────────────────────────────────────────────────────
   // NAVIGATION
   // ────────────────────────────────────────────────────────────
@@ -453,24 +464,52 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
       loadChapter(currentIndex - 1, null); // Clear search highlight when navigating manually
     }
   }, [currentIndex]);
-  
+
+  const nextPage = useCallback(() => {
+    if (canvasRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = canvasRef.current;
+      const isAtBottom = scrollTop + clientHeight >= scrollHeight - 50;
+
+      if (isAtBottom) {
+        nextChapter();
+      } else {
+        canvasRef.current.scrollBy({ top: clientHeight * 0.85, behavior: 'smooth' });
+      }
+    }
+  }, [nextChapter]);
+
+  const prevPage = useCallback(() => {
+    if (canvasRef.current) {
+      const { scrollTop, clientHeight } = canvasRef.current;
+      const isAtTop = scrollTop <= 50;
+
+      if (isAtTop) {
+        prevChapter();
+      } else {
+        canvasRef.current.scrollBy({ top: -clientHeight * 0.85, behavior: 'smooth' });
+      }
+    }
+  }, [prevChapter]);
+
   // Keyboard shortcuts
   usePremiumReaderKeyboard({
-    onPrevChapter: prevChapter,
-    onNextChapter: nextChapter,
+    onPrevChapter: prevPage,
+    onNextChapter: nextPage,
+    onPrevPage: prevPage,
+    onNextPage: nextPage,
   });
-  
+
   // Reload current chapter when two-page view is toggled
   useEffect(() => {
     if (currentChapter) {
       loadChapter(currentIndex);
     }
   }, [twoPageView]);
-  
+
   // ────────────────────────────────────────────────────────────
   // RENDER
   // ────────────────────────────────────────────────────────────
-  
+
   if (error) {
     return (
       <div className="premium-reader premium-reader--error">
@@ -505,8 +544,8 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
     );
   }
 
-  const progressPercentage = metadata 
-    ? ((currentIndex + 1) / metadata.total_chapters) * 100 
+  const progressPercentage = metadata
+    ? ((currentIndex + 1) / metadata.total_chapters) * 100
     : 0;
 
   return (
@@ -523,18 +562,18 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
               {currentChapter.title}
             </span>
           </div>
-          
+
           {/* Center: Progress */}
           <div className="premium-top-bar-center">
             <span className="premium-progress-text">
               {Math.round(progressPercentage)}%
             </span>
           </div>
-          
+
           {/* Right: Controls */}
           <div className="premium-top-bar-right">
             <ReaderSettings />
-            
+
             <button
               onClick={() => toggleSidebar('search')}
               className="premium-control-button"
@@ -543,7 +582,7 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
             >
               <Search className="premium-control-icon" />
             </button>
-            
+
             <button
               onClick={() => toggleSidebar('toc')}
               className="premium-control-button"
@@ -552,7 +591,7 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
             >
               <BookOpen className="premium-control-icon" />
             </button>
-            
+
             <button
               onClick={toggleTwoPageView}
               className={`premium-control-button ${twoPageView ? 'premium-control-button--active' : ''}`}
@@ -564,7 +603,7 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
                 <rect x="13" y="4" width="8" height="16" />
               </svg>
             </button>
-            
+
             <button
               onClick={() => toggleSidebar('bookmarks')}
               className="premium-control-button"
@@ -576,9 +615,9 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
           </div>
         </div>
       </div>
-      
+
       {/* Reading Canvas */}
-      <div 
+      <div
         ref={canvasRef}
         className={`premium-reading-canvas ${isFocusMode ? 'premium-reading-canvas--focus-mode' : ''}`}
       >
@@ -587,16 +626,14 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
             /* Two-page layout */
             <>
               <div className="premium-chapter-page">
-                <h2 className="premium-chapter-title">{currentChapter.title}</h2>
-                <div 
+                <div
                   className="premium-chapter-content"
                   dangerouslySetInnerHTML={{ __html: currentChapter.content }}
                 />
               </div>
-              
+
               <div className="premium-chapter-page">
-                <h2 className="premium-chapter-title">{adjacentChapter.title}</h2>
-                <div 
+                <div
                   className="premium-chapter-content"
                   dangerouslySetInnerHTML={{ __html: adjacentChapter.content }}
                 />
@@ -605,8 +642,7 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
           ) : (
             /* Single-page layout */
             <div className="premium-chapter-page">
-              <h2 className="premium-chapter-title">{currentChapter.title}</h2>
-              <div 
+              <div
                 className="premium-chapter-content"
                 dangerouslySetInnerHTML={{ __html: currentChapter.content }}
               />
@@ -614,15 +650,15 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
           )}
         </div>
       </div>
-      
+
       {/* Bottom Progress Bar */}
       <div className="premium-progress-bar">
-        <div 
-          className="premium-progress-bar-fill" 
+        <div
+          className="premium-progress-bar-fill"
           style={{ width: `${scrollProgress}%` }}
         />
       </div>
-      
+
       {/* Floating Navigation Arrows */}
       {!isFocusMode && (
         <>
@@ -634,7 +670,7 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
           >
             <ChevronLeft className="premium-nav-icon" />
           </button>
-          
+
           <button
             onClick={nextChapter}
             disabled={!metadata || currentIndex >= metadata.total_chapters - 1}
@@ -645,7 +681,7 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
           </button>
         </>
       )}
-      
+
       {/* Sidebar */}
       <PremiumSidebar
         bookId={bookId}

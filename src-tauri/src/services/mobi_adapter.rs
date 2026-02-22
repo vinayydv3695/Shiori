@@ -35,7 +35,7 @@ impl BookReaderAdapter for MobiAdapter {
         
         self.path = path.to_string();
 
-        let html = m.content_as_string()
+        let html = m.content_as_string_lossy()
             .map_err(|e| ShioriError::Other(format!("Failed to read MOBI content: {}", e)))?;
             
         self.html_content = html;

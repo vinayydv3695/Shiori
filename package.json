@@ -32,10 +32,10 @@
     "cmdk": "^1.1.1",
     "epubjs": "^0.3.93",
     "lucide-react": "^0.564.0",
-    "pdfjs-dist": "^5.4.624",
+    "pdfjs-dist": "^5.4.296",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-pdf": "^10.3.0",
+    "react-pdf": "^10.4.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.1",
     "zustand": "^5.0.11"

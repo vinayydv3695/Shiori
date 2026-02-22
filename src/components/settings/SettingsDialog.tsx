@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { usePreferencesStore } from '../../store/preferencesStore'
 import type { Theme, UserPreferences, BookPreferences, MangaPreferences } from '../../types/preferences'
+import { api } from '../../lib/tauri'
 
 interface SettingsDialogProps {
   open: boolean
@@ -73,7 +74,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
               {activeTab === 'book-reading' && <BookReadingSettings preferences={preferences} updateBookDefaults={updateBookDefaults} />}
               {activeTab === 'manga-reading' && <MangaReadingSettings preferences={preferences} updateMangaDefaults={updateMangaDefaults} />}
               {activeTab === 'library' && <LibrarySettings preferences={preferences} updateGeneralSettings={updateGeneralSettings} />}
-              {activeTab === 'storage' && <StorageSettings />}
+              {activeTab === 'storage' && <StorageSettings preferences={preferences} />}
               {activeTab === 'notifications' && <NotificationSettings />}
               {activeTab === 'advanced' && <AdvancedSettings />}
             </div>
@@ -409,10 +410,14 @@ const MangaReadingSettings = ({ preferences, updateMangaDefaults }: {
 
         <SettingItem
           label="Progress Bar"
-          description={preferences.manga.progressBar === 'hidden' ? 'Hidden' : preferences.manga.progressBar.charAt(0).toUpperCase() + preferences.manga.progressBar.slice(1)}
+          description={
+            !preferences.manga?.progressBar || preferences.manga.progressBar === 'hidden'
+              ? 'Hidden'
+              : preferences.manga.progressBar.charAt(0).toUpperCase() + preferences.manga.progressBar.slice(1)
+          }
         >
           <select
-            value={preferences.manga.progressBar}
+            value={preferences.manga?.progressBar || 'hidden'}
             onChange={(e) => updateMangaDefaults({ progressBar: e.target.value as 'top' | 'bottom' | 'hidden' })}
             className="px-3 py-2 rounded-md border border-border bg-background"
           >
@@ -491,7 +496,8 @@ const LibrarySettings = ({ preferences, updateGeneralSettings }: {
   )
 }
 
-const StorageSettings = () => {
+const StorageSettings = ({ preferences }: { preferences: UserPreferences | null }) => {
+  if (!preferences) return null;
   return (
     <div className="space-y-8">
       <SettingSection
@@ -500,9 +506,8 @@ const StorageSettings = () => {
       >
         <div className="space-y-3">
           <div className="p-4 rounded-lg bg-muted border border-border">
-            <p className="text-sm font-mono">/home/user/Documents/Shiori</p>
+            <p className="text-sm font-mono">{preferences.defaultImportPath || 'Default system data folder'}</p>
           </div>
-          <Button variant="outline">Change Location</Button>
         </div>
       </SettingSection>
 
@@ -510,17 +515,15 @@ const StorageSettings = () => {
         <div className="space-y-3">
           <div className="flex items-center justify-between p-4 rounded-lg bg-muted border border-border">
             <div>
-              <p className="font-medium">Cover Cache</p>
-              <p className="text-sm text-muted-foreground">245 MB</p>
+              <p className="font-medium">Renderer Cache</p>
+              <p className="text-sm text-muted-foreground">Temporary reading resources</p>
             </div>
-            <Button variant="outline" size="sm">Clear</Button>
-          </div>
-          <div className="flex items-center justify-between p-4 rounded-lg bg-muted border border-border">
-            <div>
-              <p className="font-medium">Reading Cache</p>
-              <p className="text-sm text-muted-foreground">102 MB</p>
-            </div>
-            <Button variant="outline" size="sm">Clear</Button>
+            <Button variant="outline" size="sm" onClick={async () => {
+              try {
+                await api.clearRendererCache();
+                alert('Cache cleared!');
+              } catch (e) { console.error(e); }
+            }}>Clear Memory Cache</Button>
           </div>
         </div>
       </SettingSection>
@@ -564,6 +567,64 @@ const NotificationSettings = () => {
 }
 
 const AdvancedSettings = () => {
+  const [isExporting, setIsExporting] = useState(false)
+  const [isResetting, setIsResetting] = useState(false)
+
+  const handleExport = async () => {
+    try {
+      setIsExporting(true)
+      const savePath = await api.saveFileDialog('shiori_export.json')
+      if (savePath) {
+        await api.exportLibrary({
+          format: 'json',
+          include_metadata: true,
+          include_collections: true,
+          include_reading_progress: true,
+          file_path: savePath
+        })
+        alert('Database exported successfully!')
+      }
+    } catch (err) {
+      console.error(err)
+      alert('Failed to export database')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  const handleReset = async () => {
+    if (confirm('Are you sure you want to reset the database? This will delete all your books and settings. This cannot be undone.')) {
+      try {
+        setIsResetting(true)
+        await api.resetDatabase()
+        alert('Database has been reset. The application will now reload.')
+        window.location.reload()
+      } catch (err) {
+        console.error(err)
+        alert('Failed to reset database')
+      } finally {
+        setIsResetting(false)
+      }
+    }
+  }
+
+  const handleResetOnboarding = async () => {
+    if (confirm('Recheck the onboarding experience? This will take you back to the welcome screens. Your library data will NOT be deleted.')) {
+      try {
+        await api.resetOnboarding();
+        alert('Onboarding state reset. The application will now reload.');
+        window.location.reload();
+      } catch (err) {
+        console.error(err);
+        alert('Failed to reset onboarding state');
+      }
+    }
+  }
+
+  const handleImport = async () => {
+    alert('Import feature from an exported dataset is not fully supported yet in the backend! Coming soon in future versions.')
+  }
+
   return (
     <div className="space-y-8">
       <SettingSection
@@ -571,9 +632,20 @@ const AdvancedSettings = () => {
         description="Manage your library database"
       >
         <div className="space-y-3">
-          <Button variant="outline">Export Database</Button>
-          <Button variant="outline">Import Database</Button>
-          <Button variant="destructive">Reset Database</Button>
+          <Button variant="outline" onClick={handleExport} disabled={isExporting}>
+            {isExporting ? 'Exporting...' : 'Export Database'}
+          </Button>
+          <Button variant="outline" onClick={handleImport}>
+            Import Database
+          </Button>
+          <Button variant="destructive" onClick={handleReset} disabled={isResetting}>
+            {isResetting ? 'Resetting...' : 'Reset Database'}
+          </Button>
+          <div className="pt-2">
+            <Button variant="outline" onClick={handleResetOnboarding} className="w-full">
+              Reset Onboarding Experience
+            </Button>
+          </div>
         </div>
       </SettingSection>
 

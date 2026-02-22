@@ -227,16 +227,36 @@ impl RssService {
         Ok(new_status)
     }
 
-    /// Fetch and parse feed data from URL
+    /// Fetch and parse feed data from URL or local file
     async fn fetch_feed_data(&self, url: &str) -> Result<feed_rs::model::Feed> {
-        let response = self.client.get(url)
-            .send()
-            .await
-            .context("HTTP request failed")?;
+        let content = if url.starts_with("file://") || std::path::Path::new(url).is_absolute() {
+            // Handle local file
+            let path_str = if url.starts_with("file://") {
+                url.strip_prefix("file://").unwrap()
+            } else {
+                url
+            };
+            
+            // On Windows, file:///C:/... becomes /C:/... so we need to handle that
+            let path_str = if cfg!(windows) && path_str.starts_with('/') && path_str.len() > 2 && path_str.chars().nth(2) == Some(':') {
+                &path_str[1..]
+            } else {
+                path_str
+            };
 
-        let content = response.bytes().await.context("Failed to read response body")?;
+            std::fs::read(path_str)
+                .with_context(|| format!("Failed to read local feed file: {}", path_str))?
+        } else {
+            // Handle remote URL
+            let response = self.client.get(url)
+                .send()
+                .await
+                .context("HTTP request failed")?;
+
+            response.bytes().await.context("Failed to read response body")?.to_vec()
+        };
+
         let feed = parser::parse(&content[..]).context("Failed to parse feed")?;
-
         Ok(feed)
     }
 
@@ -533,5 +553,38 @@ mod tests {
         assert_eq!(options.author, "Shiori RSS");
         assert_eq!(options.max_articles, Some(50));
         assert_eq!(options.min_articles, Some(1));
+    }
+
+    #[tokio::test]
+    async fn test_fetch_local_feed_data() {
+        let temp_dir = std::env::temp_dir().join("shiori-test-local-feed");
+        std::fs::create_dir_all(&temp_dir).unwrap();
+        
+        let db_path = temp_dir.join("test.db");
+        let service = RssService::new(db_path, temp_dir.clone()).unwrap();
+
+        let xml_content = r#"<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0">
+<channel>
+  <title>Local Test Feed Test</title>
+  <link>http://localhost</link>
+  <description>A test feed</description>
+  <item>
+    <title>Test Item 1</title>
+    <link>http://localhost/1</link>
+    <description>Test description 1</description>
+  </item>
+</channel>
+</rss>"#;
+        
+        let file_path = temp_dir.join("test_feed.xml");
+        std::fs::write(&file_path, xml_content).unwrap();
+        
+        let url = format!("file://{}", file_path.to_string_lossy());
+        let feed = service.fetch_feed_data(&url).await.unwrap();
+        
+        assert_eq!(feed.title.unwrap().content, "Local Test Feed Test");
+        assert_eq!(feed.entries.len(), 1);
+        assert_eq!(feed.entries[0].title.as_ref().unwrap().content, "Test Item 1");
     }
 }

@@ -3,6 +3,7 @@ import { useReaderStore } from '@/store/readerStore';
 import { api } from '@/lib/tauri';
 import { PremiumEpubReader } from './PremiumEpubReader';
 import { PdfReader } from './PdfReader';
+import { MobiReader } from './MobiReader';
 import { MangaReader } from '@/components/manga/MangaReader';
 import { ReaderErrorBoundary, parseReaderError } from './ReaderErrorBoundary';
 import { X } from '@/components/icons';
@@ -220,6 +221,9 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
           bookPath={currentBookPath}
           onClose={handleClose}
         />
+      )}
+      {currentBookPath && (currentBookFormat === 'mobi' || currentBookFormat === 'azw3') && (
+        <MobiReader bookPath={currentBookPath} bookId={bookId} />
       )}
       {!currentBookPath && (
         <div className="flex items-center justify-center h-full">

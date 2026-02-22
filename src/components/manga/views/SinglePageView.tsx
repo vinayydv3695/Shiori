@@ -33,7 +33,7 @@ export function SinglePageView() {
 
     return (
         <div className="manga-single-view">
-            <div className="manga-page-container" style={{ padding: '16px' }}>
+            <div className="manga-page-container">
                 <MangaPageImage
                     bookId={bookId}
                     pageIndex={currentPage}

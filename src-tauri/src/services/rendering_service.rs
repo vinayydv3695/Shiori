@@ -2,7 +2,9 @@ use crate::error::{ShioriError, ShioriResult};
 use crate::services::cache::{BookCache, CacheItemType, CacheKey, CachedContent};
 use crate::services::epub_adapter::EpubAdapter;
 use crate::services::pdf_adapter::PdfAdapter;
-use crate::services::renderer::{BookMetadata, BookRenderer, Chapter, SearchResult, TocEntry};
+use crate::services::docx_adapter::DocxAdapter;
+use crate::services::mobi_adapter::MobiAdapter;
+use crate::services::renderer::{BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -12,6 +14,8 @@ pub struct RenderingService {
     // Store active renderers per book
     epub_renderers: Arc<Mutex<HashMap<i64, EpubAdapter>>>,
     pdf_renderers: Arc<Mutex<HashMap<i64, PdfAdapter>>>,
+    docx_renderers: Arc<Mutex<HashMap<i64, DocxAdapter>>>,
+    mobi_renderers: Arc<Mutex<HashMap<i64, MobiAdapter>>>,
 }
 
 impl RenderingService {
@@ -20,6 +24,8 @@ impl RenderingService {
             cache: Arc::new(BookCache::new(cache_size_mb)),
             epub_renderers: Arc::new(Mutex::new(HashMap::new())),
             pdf_renderers: Arc::new(Mutex::new(HashMap::new())),
+            docx_renderers: Arc::new(Mutex::new(HashMap::new())),
+            mobi_renderers: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -35,11 +41,11 @@ impl RenderingService {
                 println!("[RenderingService] Creating EpubAdapter...");
                 let mut adapter = EpubAdapter::new();
 
-                println!("[RenderingService] Calling adapter.open()...");
-                match adapter.open(path) {
-                    Ok(_) => println!("[RenderingService] ✅ adapter.open() succeeded"),
+                println!("[RenderingService] Calling adapter.load()...");
+                match futures::executor::block_on(adapter.load(path)) {
+                    Ok(_) => println!("[RenderingService] ✅ adapter.load() succeeded"),
                     Err(e) => {
-                        println!("[RenderingService] ❌ adapter.open() failed: {}", e);
+                        println!("[RenderingService] ❌ adapter.load() failed: {}", e);
                         return Err(e);
                     }
                 }
@@ -79,11 +85,11 @@ impl RenderingService {
                 println!("[RenderingService] Creating PdfAdapter...");
                 let mut adapter = PdfAdapter::new();
 
-                println!("[RenderingService] Calling adapter.open()...");
-                match adapter.open(path) {
-                    Ok(_) => println!("[RenderingService] ✅ adapter.open() succeeded"),
+                println!("[RenderingService] Calling adapter.load()...");
+                match futures::executor::block_on(adapter.load(path)) {
+                    Ok(_) => println!("[RenderingService] ✅ adapter.load() succeeded"),
                     Err(e) => {
-                        println!("[RenderingService] ❌ adapter.open() failed: {}", e);
+                        println!("[RenderingService] ❌ adapter.load() failed: {}", e);
                         return Err(e);
                     }
                 }
@@ -119,6 +125,62 @@ impl RenderingService {
 
                 Ok(metadata)
             }
+            "docx" => {
+                println!("[RenderingService] Creating DocxAdapter...");
+                let mut adapter = DocxAdapter::new();
+
+                println!("[RenderingService] Calling adapter.load()...");
+                match futures::executor::block_on(adapter.load(path)) {
+                    Ok(_) => println!("[RenderingService] ✅ adapter.load() succeeded"),
+                    Err(e) => {
+                        println!("[RenderingService] ❌ adapter.load() failed: {}", e);
+                        return Err(e);
+                    }
+                }
+
+                println!("[RenderingService] Getting metadata...");
+                let metadata = adapter.get_metadata()?;
+
+                println!("[RenderingService] Inserting into HashMap...");
+                {
+                    let mut renderers = self.docx_renderers.lock().unwrap();
+                    renderers.insert(book_id, adapter);
+                    println!(
+                        "[RenderingService] ✅ HashMap insert complete, book {} is now accessible",
+                        book_id
+                    );
+                }
+
+                Ok(metadata)
+            }
+            "mobi" | "azw3" | "azw" => {
+                println!("[RenderingService] Creating MobiAdapter...");
+                let mut adapter = MobiAdapter::new();
+
+                println!("[RenderingService] Calling adapter.load()...");
+                match futures::executor::block_on(adapter.load(path)) {
+                    Ok(_) => println!("[RenderingService] ✅ adapter.load() succeeded"),
+                    Err(e) => {
+                        println!("[RenderingService] ❌ adapter.load() failed: {}", e);
+                        return Err(e);
+                    }
+                }
+
+                println!("[RenderingService] Getting metadata...");
+                let metadata = adapter.get_metadata()?;
+
+                println!("[RenderingService] Inserting into HashMap...");
+                {
+                    let mut renderers = self.mobi_renderers.lock().unwrap();
+                    renderers.insert(book_id, adapter);
+                    println!(
+                        "[RenderingService] ✅ HashMap insert complete, book {} is now accessible",
+                        book_id
+                    );
+                }
+
+                Ok(metadata)
+            }
             _ => Err(ShioriError::UnsupportedFormat {
                 format: format.to_string(),
                 path: path.to_string(),
@@ -134,6 +196,12 @@ impl RenderingService {
         let mut pdf_renderers = self.pdf_renderers.lock().unwrap();
         pdf_renderers.remove(&book_id);
 
+        let mut docx_renderers = self.docx_renderers.lock().unwrap();
+        docx_renderers.remove(&book_id);
+
+        let mut mobi_renderers = self.mobi_renderers.lock().unwrap();
+        mobi_renderers.remove(&book_id);
+
         // Clear cache for this book
         self.cache.clear_book(book_id);
     }
@@ -147,6 +215,16 @@ impl RenderingService {
 
         // Try PDF
         if let Some(adapter) = self.pdf_renderers.lock().unwrap().get(&book_id) {
+            return adapter.get_toc();
+        }
+
+        // Try DOCX
+        if let Some(adapter) = self.docx_renderers.lock().unwrap().get(&book_id) {
+            return adapter.get_toc();
+        }
+
+        // Try MOBI
+        if let Some(adapter) = self.mobi_renderers.lock().unwrap().get(&book_id) {
             return adapter.get_toc();
         }
 
@@ -202,14 +280,36 @@ impl RenderingService {
                     drop(pdf_renderers); // Release lock before checking result
                     result?
                 } else {
-                    println!(
-                        "[RenderingService::get_chapter] ❌ Book {} not in any renderer!",
-                        book_id
-                    );
-                    return Err(ShioriError::BookNotFound(format!(
-                        "Book {} not opened",
-                        book_id
-                    )));
+                    drop(pdf_renderers);
+
+                    // Try DOCX renderer
+                    let docx_renderers = self.docx_renderers.lock().unwrap();
+                    if let Some(adapter) = docx_renderers.get(&book_id) {
+                        println!("[RenderingService::get_chapter] Found in DOCX renderers");
+                        let result = adapter.get_chapter(chapter_index);
+                        drop(docx_renderers);
+                        result?
+                    } else {
+                        drop(docx_renderers);
+                        
+                        // Try MOBI renderer
+                        let mobi_renderers = self.mobi_renderers.lock().unwrap();
+                        if let Some(adapter) = mobi_renderers.get(&book_id) {
+                            println!("[RenderingService::get_chapter] Found in MOBI renderers");
+                            let result = adapter.get_chapter(chapter_index);
+                            drop(mobi_renderers);
+                            result?
+                        } else {
+                            println!(
+                                "[RenderingService::get_chapter] ❌ Book {} not in any renderer!",
+                                book_id
+                            );
+                            return Err(ShioriError::BookNotFound(format!(
+                                "Book {} not opened",
+                                book_id
+                            )));
+                        }
+                    }
                 }
             }
         };
@@ -239,6 +339,14 @@ impl RenderingService {
             return Ok(adapter.chapter_count());
         }
 
+        if let Some(adapter) = self.docx_renderers.lock().unwrap().get(&book_id) {
+            return Ok(adapter.chapter_count());
+        }
+
+        if let Some(adapter) = self.mobi_renderers.lock().unwrap().get(&book_id) {
+            return Ok(adapter.chapter_count());
+        }
+
         Err(ShioriError::BookNotFound(format!(
             "Book {} not opened",
             book_id
@@ -255,6 +363,14 @@ impl RenderingService {
             return adapter.search(query);
         }
 
+        if let Some(adapter) = self.docx_renderers.lock().unwrap().get(&book_id) {
+            return adapter.search(query);
+        }
+
+        if let Some(adapter) = self.mobi_renderers.lock().unwrap().get(&book_id) {
+            return adapter.search(query);
+        }
+
         Err(ShioriError::BookNotFound(format!(
             "Book {} not opened",
             book_id
@@ -263,8 +379,6 @@ impl RenderingService {
 
     /// Get a resource (image, CSS, font) from an EPUB
     pub fn get_epub_resource(&self, book_id: i64, resource_path: &str) -> ShioriResult<Vec<u8>> {
-        use crate::services::renderer::EpubRenderer;
-
         if let Some(adapter) = self.epub_renderers.lock().unwrap().get(&book_id) {
             return adapter.get_resource(resource_path);
         }
@@ -299,6 +413,16 @@ impl RenderingService {
                         self.cache
                             .put(cache_key, CachedContent::Html(chapter.content.clone()));
                     }
+                } else if let Some(adapter) = self.docx_renderers.lock().unwrap().get(&book_id) {
+                    if let Ok(chapter) = adapter.get_chapter(next_index) {
+                        self.cache
+                            .put(cache_key, CachedContent::Html(chapter.content.clone()));
+                    }
+                } else if let Some(adapter) = self.mobi_renderers.lock().unwrap().get(&book_id) {
+                    if let Ok(chapter) = adapter.get_chapter(next_index) {
+                        self.cache
+                            .put(cache_key, CachedContent::Html(chapter.content.clone()));
+                    }
                 }
             }
         }
@@ -312,5 +436,30 @@ impl RenderingService {
     /// Clear all caches
     pub fn clear_all_caches(&self) {
         self.cache.clear();
+    }
+
+    /// Render a specific page as a PNG image Buffer (for native PDF/image books)
+    pub fn render_page(&self, book_id: i64, page_index: usize, scale: f32) -> ShioriResult<Vec<u8>> {
+        // Try PDF
+        if let Some(adapter) = self.pdf_renderers.lock().unwrap().get(&book_id) {
+            return futures::executor::block_on(adapter.render_page(page_index, scale));
+        }
+
+        Err(ShioriError::BookNotFound(format!(
+            "Book {} not opened or doesn't support page rendering",
+            book_id
+        )))
+    }
+
+    /// Get native page dimensions (width, height) at 1.0 scale
+    pub fn get_page_dimensions(&self, book_id: i64, page_index: usize) -> ShioriResult<(f32, f32)> {
+        if let Some(adapter) = self.pdf_renderers.lock().unwrap().get(&book_id) {
+            return adapter.get_page_dimensions(page_index);
+        }
+
+        Err(ShioriError::BookNotFound(format!(
+            "Book {} not opened or doesn't support dimension querying",
+            book_id
+        )))
     }
 }

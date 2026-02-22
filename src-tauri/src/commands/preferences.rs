@@ -612,3 +612,17 @@ pub async fn complete_onboarding(
     
     Ok(())
 }
+
+/// Reset onboarding state to allow re-checking the onboarding experience
+#[tauri::command]
+pub async fn reset_onboarding(state: State<'_, AppState>) -> Result<()> {
+    let db = state.db.lock().unwrap();
+    db.get_connection()?.execute(
+        "UPDATE onboarding_state 
+         SET completed = 0, completed_at = NULL, skipped_steps = '[]'
+         WHERE id = 1",
+        [],
+    )?;
+    
+    Ok(())
+}

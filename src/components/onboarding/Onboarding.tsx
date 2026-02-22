@@ -37,6 +37,8 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   const [mangaMode, setMangaMode] = useState(preferences?.manga.mode ?? "single");
   const [mangaDirection, setMangaDirection] = useState(preferences?.manga.direction ?? "ltr");
   const [importPath, setImportPath] = useState(preferences?.defaultImportPath ?? "");
+  const [uiScale, setUiScale] = useState(preferences?.uiScale ?? 1.0);
+  const [uiDensity, setUiDensity] = useState<'compact' | 'comfortable'>(preferences?.uiDensity ?? "comfortable");
   const [isCompleting, setIsCompleting] = useState(false);
 
   const steps = [
@@ -54,6 +56,24 @@ export function Onboarding({ onComplete }: OnboardingProps) {
           onChange={async (theme) => {
             setSelectedTheme(theme);
             await updateTheme(theme);
+          }}
+        />
+      ),
+    },
+    {
+      title: "Interface Options",
+      description: "Adjust the application scale and density",
+      component: (
+        <InterfaceOptionsStep
+          scale={uiScale}
+          density={uiDensity}
+          onScaleChange={async (scale) => {
+            setUiScale(scale);
+            await updateGeneralSettings({ uiScale: scale });
+          }}
+          onDensityChange={async (density) => {
+            setUiDensity(density);
+            await updateGeneralSettings({ uiDensity: density });
           }}
         />
       ),
@@ -452,6 +472,63 @@ const LibraryStep = ({ path, onPathChange }: LibraryStepProps) => {
           <div className="text-sm font-mono break-all">{path}</div>
         </div>
       )}
+    </div>
+  );
+};
+
+interface InterfaceOptionsStepProps {
+  scale: number;
+  density: 'compact' | 'comfortable';
+  onScaleChange: (scale: number) => void;
+  onDensityChange: (density: 'compact' | 'comfortable') => void;
+}
+
+const InterfaceOptionsStep = ({ scale, density, onScaleChange, onDensityChange }: InterfaceOptionsStepProps) => {
+  const scalePercent = Math.round(scale * 100);
+
+  return (
+    <div className="w-full space-y-8">
+      <div className="space-y-4">
+        <label className="font-medium">Interface Scale ({scalePercent}%)</label>
+        <div className="flex items-center gap-4">
+          <span className="text-xs text-muted-foreground w-8 text-right">75%</span>
+          <input
+            type="range"
+            min="75"
+            max="150"
+            step="5"
+            value={scalePercent}
+            onChange={(e) => onScaleChange(Number(e.target.value) / 100)}
+            className="flex-1"
+          />
+          <span className="text-xs text-muted-foreground w-10 text-left">150%</span>
+        </div>
+        <p className="text-xs text-muted-foreground">Adjust text and component size globally.</p>
+      </div>
+
+      <div className="space-y-4">
+        <label className="font-medium">Interface Density</label>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { value: "compact" as const, label: "Compact", desc: "Less padding, more content" },
+            { value: "comfortable" as const, label: "Comfortable", desc: "More spacing, easier to tap" },
+          ].map((option) => (
+            <button
+              key={option.value}
+              onClick={() => onDensityChange(option.value)}
+              className={cn(
+                "p-4 rounded-lg border-2 transition-all space-y-2 hover:border-primary/50 text-left",
+                density === option.value
+                  ? "border-primary bg-primary/5"
+                  : "border-border bg-background"
+              )}
+            >
+              <div className="font-semibold text-sm">{option.label}</div>
+              <div className="text-xs text-muted-foreground">{option.desc}</div>
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };

@@ -19,10 +19,20 @@ use services::{
     share_service::ShareService,
     manga_metadata_service::MangaMetadataService,
     book_metadata_service::BookMetadataService,
+    online::{
+        worker::{MetadataWorker, MetadataJob},
+        provider::MetadataProvider,
+        anilist::AniListProvider,
+        openlibrary::OpenLibraryProvider,
+    },
 };
 
 pub struct AppState {
     db: Mutex<db::Database>,
+}
+
+pub struct MetadataState {
+    pub sender: tokio::sync::mpsc::Sender<MetadataJob>,
 }
 
 fn main() {
@@ -43,7 +53,7 @@ fn main() {
             let database = db::Database::new(&db_path)?;
 
             app.manage(AppState {
-                db: Mutex::new(database),
+                db: Mutex::new(database.clone()),
             });
 
             // Initialize rendering service with 100MB cache
@@ -110,6 +120,24 @@ fn main() {
             let book_metadata_service = Arc::new(BookMetadataService::new()?);
             app.manage(book_metadata_service);
 
+            // Online Metadata Enrichment Worker
+            let (mut metadata_worker, metadata_rx) = MetadataWorker::new(database.clone());
+            
+            if let Ok(anilist) = AniListProvider::new() {
+                metadata_worker.add_provider(Arc::new(anilist));
+            }
+            if let Ok(ol) = OpenLibraryProvider::new() {
+                metadata_worker.add_provider(Arc::new(ol));
+            }
+
+            let metadata_job_sender = metadata_worker.sender.clone();
+            metadata_worker.set_app_handle(app.handle().clone());
+            metadata_worker.start(metadata_rx);
+
+            app.manage(MetadataState {
+                sender: metadata_job_sender,
+            });
+
             log::info!("Shiori v2.0 initialized with database at {:?}", db_path);
             log::info!("Storage path: {:?}", storage_path);
             log::info!("Conversion engine: 4 workers");
@@ -133,6 +161,7 @@ fn main() {
             commands::library::scan_folder_for_manga,
             commands::library::get_books_by_domain,
             commands::library::get_total_books_by_domain,
+            commands::library::reset_database,
             commands::search::search_books,
             commands::metadata::extract_metadata,
             commands::metadata::search_manga_metadata,
@@ -166,6 +195,8 @@ fn main() {
             commands::rendering::get_epub_resource,
             commands::rendering::get_renderer_cache_stats,
             commands::rendering::clear_renderer_cache,
+            commands::rendering::render_pdf_page,
+            commands::rendering::get_pdf_page_dimensions,
             commands::collections::get_collections,
             commands::collections::get_collection,
             commands::collections::create_collection,
@@ -228,6 +259,7 @@ fn main() {
             commands::preferences::clear_manga_preference_override,
             commands::preferences::get_onboarding_state,
             commands::preferences::complete_onboarding,
+            commands::preferences::reset_onboarding,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

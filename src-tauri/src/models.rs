@@ -25,6 +25,14 @@ pub struct Book {
     pub modified_date: String,
     pub last_opened: Option<String>,
     pub notes: Option<String>,
+    
+    // Online metadata
+    #[serde(default)]
+    pub online_metadata_fetched: bool,
+    pub metadata_source: Option<String>,
+    pub metadata_last_sync: Option<String>,
+    pub anilist_id: Option<String>,
+
     pub authors: Vec<Author>,
     pub tags: Vec<Tag>,
 }

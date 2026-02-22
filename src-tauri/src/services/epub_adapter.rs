@@ -1,7 +1,8 @@
 use crate::error::{ShioriError, ShioriResult};
 use crate::services::renderer::{
-    BookMetadata, BookRenderer, Chapter, EpubRenderer, SearchResult, TocEntry,
+    BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry,
 };
+use async_trait::async_trait;
 use epub::doc::EpubDoc;
 use std::sync::RwLock;
 
@@ -70,8 +71,9 @@ impl EpubAdapter {
     }
 }
 
-impl BookRenderer for EpubAdapter {
-    fn open(&mut self, path: &str) -> ShioriResult<()> {
+#[async_trait]
+impl BookReaderAdapter for EpubAdapter {
+    async fn load(&mut self, path: &str) -> ShioriResult<()> {
         println!("[EpubAdapter::open] Opening file: {}", path);
 
         // Check if file exists
@@ -196,9 +198,24 @@ impl BookRenderer for EpubAdapter {
             if !matches.is_empty() {
                 // Get snippet around first match
                 let first_match_pos = matches[0].0;
-                let start = first_match_pos.saturating_sub(50);
-                let end = (first_match_pos + query.len() + 50).min(content.len());
-                let snippet = format!("...{}...", &content[start..end]);
+                
+                // Safely slice strings using character boundaries to avoid panics on emoji/unicode
+                let char_indices: Vec<(usize, char)> = content.char_indices().collect();
+                
+                // Find the index in our char array that corresponds to the byte position
+                let char_idx = char_indices.iter().position(|&(b_idx, _)| b_idx >= first_match_pos).unwrap_or(0);
+                
+                let start_char_idx = char_idx.saturating_sub(50);
+                let end_char_idx = (char_idx + query.chars().count() + 50).min(char_indices.len());
+                
+                let start_byte = char_indices.get(start_char_idx).map(|&(b, _)| b).unwrap_or(0);
+                let end_byte = if end_char_idx >= char_indices.len() {
+                    content.len()
+                } else {
+                    char_indices[end_char_idx].0
+                };
+                
+                let snippet = format!("...{}...", &content[start_byte..end_byte]);
 
                 results.push(SearchResult {
                     chapter_index: i,
@@ -212,9 +229,7 @@ impl BookRenderer for EpubAdapter {
 
         Ok(results)
     }
-}
 
-impl EpubRenderer for EpubAdapter {
     fn get_spine(&self) -> ShioriResult<Vec<String>> {
         let doc_ref = self
             .doc

@@ -12,44 +12,44 @@ interface EpubReaderProps {
 // Helper function to convert resource URLs to data URIs and inline CSS
 async function processEpubHtml(bookId: number, html: string): Promise<string> {
   console.log(`[processEpubHtml] Starting for book ${bookId}, HTML length: ${html.length}`);
-  
+
   let processedHtml = html;
   let successCount = 0;
   let failCount = 0;
-  
+
   // Step 1: Process CSS stylesheets - Convert <link> tags to <style> tags
   const cssLinkRegex = /<link[^>]+rel=["']stylesheet["'][^>]*>/gi;
   const cssMatches = Array.from(html.matchAll(cssLinkRegex));
-  
+
   console.log(`[processEpubHtml] Found ${cssMatches.length} CSS stylesheet links`);
-  
+
   for (const match of cssMatches) {
     const linkTag = match[0];
     const hrefMatch = linkTag.match(/href=["']([^"']+)["']/i);
-    
+
     if (!hrefMatch) continue;
-    
+
     const cssPath = hrefMatch[1];
-    
+
     // Skip absolute URLs
     if (cssPath.startsWith('http') || cssPath.startsWith('data:')) {
       continue;
     }
-    
+
     try {
       // Clean the path
       let cleanPath = cssPath;
       while (cleanPath.startsWith('../') || cleanPath.startsWith('./')) {
         cleanPath = cleanPath.replace(/^\.\.\//, '').replace(/^\.\//, '');
       }
-      
+
       console.log(`[processEpubHtml] Fetching CSS: ${cssPath} (cleaned: ${cleanPath})`);
       const cssData = await api.getEpubResource(bookId, cleanPath);
-      
+
       // Convert bytes to string
       const cssText = new TextDecoder().decode(new Uint8Array(cssData));
       console.log(`[processEpubHtml] ✅ Got CSS, size: ${cssData.length} bytes`);
-      
+
       // Replace <link> tag with <style> tag containing the CSS
       const styleTag = `<style type="text/css">\n${cssText}\n</style>`;
       processedHtml = processedHtml.replace(linkTag, styleTag);
@@ -63,36 +63,36 @@ async function processEpubHtml(bookId: number, html: string): Promise<string> {
       processedHtml = processedHtml.replace(linkTag, '');
     }
   }
-  
+
   // Step 2: Process images and other resources
   const srcRegex = /(src|href)="([^"']+)"/g;
   const matches = Array.from(processedHtml.matchAll(srcRegex));
-  
+
   console.log(`[processEpubHtml] Found ${matches.length} src/href resource references`);
-  
+
   for (const match of matches) {
     const attr = match[1];
     const originalPath = match[2];
-    
+
     // Skip absolute URLs, data URIs, anchors, and CSS files (already processed)
-    if (originalPath.startsWith('http') || 
-        originalPath.startsWith('data:') || 
-        originalPath.startsWith('#') ||
-        originalPath.endsWith('.css')) {
+    if (originalPath.startsWith('http') ||
+      originalPath.startsWith('data:') ||
+      originalPath.startsWith('#') ||
+      originalPath.endsWith('.css')) {
       continue;
     }
-    
+
     try {
       // Clean the path: remove ../ and ./ prefixes
       let cleanPath = originalPath;
       while (cleanPath.startsWith('../') || cleanPath.startsWith('./')) {
         cleanPath = cleanPath.replace(/^\.\.\//, '').replace(/^\.\//, '');
       }
-      
+
       console.log(`[processEpubHtml] Fetching resource: ${originalPath} (cleaned: ${cleanPath})`);
       const resourceData = await api.getEpubResource(bookId, cleanPath);
       console.log(`[processEpubHtml] Got resource data, size: ${resourceData.length} bytes`);
-      
+
       // Determine MIME type
       let mimeType = 'application/octet-stream';
       const ext = cleanPath.toLowerCase();
@@ -106,11 +106,11 @@ async function processEpubHtml(bookId: number, html: string): Promise<string> {
       else if (ext.endsWith('.woff2')) mimeType = 'font/woff2';
       else if (ext.endsWith('.ttf')) mimeType = 'font/ttf';
       else if (ext.endsWith('.otf')) mimeType = 'font/otf';
-      
+
       // Convert to base64
       const base64 = btoa(String.fromCharCode(...new Uint8Array(resourceData)));
       const dataUri = `data:${mimeType};base64,${base64}`;
-      
+
       processedHtml = processedHtml.replace(`${attr}="${originalPath}"`, `${attr}="${dataUri}"`);
       successCount++;
       console.log(`[processEpubHtml] ✅ Processed: ${originalPath}`);
@@ -120,14 +120,14 @@ async function processEpubHtml(bookId: number, html: string): Promise<string> {
       console.warn(`[processEpubHtml] ❌ Could not load resource: ${originalPath} - ${errorMsg}`);
     }
   }
-  
+
   console.log(`[processEpubHtml] Completed. Success: ${successCount}, Failed: ${failCount}`);
   return processedHtml;
 }
 
 export function EpubReader({ bookPath, bookId }: EpubReaderProps) {
   const { progress, settings, setProgress } = useReaderStore();
-  
+
   // Map font family IDs to CSS font-family strings
   const getFontFamily = (fontId: string): string => {
     const fontMap: Record<string, string> = {
@@ -142,7 +142,7 @@ export function EpubReader({ bookPath, bookId }: EpubReaderProps) {
     };
     return fontMap[fontId] || fontMap.serif;
   };
-  
+
   const [metadata, setMetadata] = useState<BookMetadata | null>(null);
   const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null);
   const [adjacentChapter, setAdjacentChapter] = useState<Chapter | null>(null);
@@ -225,17 +225,17 @@ export function EpubReader({ bookPath, bookId }: EpubReaderProps) {
       setError(null);
 
       console.log('[EpubReader] Opening book:', bookId, bookPath);
-      
+
       // Add small delay to ensure book is in database
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       console.log('[EpubReader] Calling openBookRenderer...');
       const bookMetadata = await api.openBookRenderer(bookId, bookPath, 'epub');
       console.log('[EpubReader] ✅ Got book metadata:', bookMetadata);
-      
+
       // Add another small delay to ensure HashMap insert completes
       await new Promise(resolve => setTimeout(resolve, 200));
-      
+
       setMetadata(bookMetadata);
 
       let startIndex = 0;
@@ -261,26 +261,26 @@ export function EpubReader({ bookPath, bookId }: EpubReaderProps) {
     try {
       console.log('[EpubReader] Loading chapter:', index);
       setIsLoading(true);
-      
+
       const chapter = await api.getBookChapter(bookId, index);
       console.log('[EpubReader] ✅ Got chapter:', chapter.title, `(${chapter.content.length} chars)`);
-      
+
       // Validate chapter content
       if (!chapter.content || chapter.content.trim().length === 0) {
         console.warn('[EpubReader] ⚠️ Chapter content is empty!');
         throw new Error(`Chapter ${index + 1} has no content`);
       }
-      
+
       // Process HTML to convert resource paths to data URIs
       console.log('[EpubReader] Processing chapter HTML...');
       const processedContent = await processEpubHtml(bookId, chapter.content);
       console.log('[EpubReader] ✅ HTML processed, length:', processedContent.length);
-      
+
       const processedChapter = { ...chapter, content: processedContent };
-      
+
       setCurrentChapter(processedChapter);
       setCurrentIndex(index);
-      
+
       // Load next chapter for two-page view if enabled
       if (twoPageView && metadata && index < metadata.total_chapters - 1) {
         try {
@@ -294,14 +294,14 @@ export function EpubReader({ bookPath, bookId }: EpubReaderProps) {
       } else {
         setAdjacentChapter(null);
       }
-      
+
       setIsLoading(false);
       console.log('[EpubReader] ✅ Chapter loaded and rendered');
 
-      const progressPercent = metadata 
+      const progressPercent = metadata
         ? ((index + 1) / metadata.total_chapters) * 100
         : 0;
-      
+
       setProgress({
         bookId,
         currentLocation: `chapter_${index}`,
@@ -409,11 +409,10 @@ export function EpubReader({ bookPath, bookId }: EpubReaderProps) {
             {/* Two-Page View Toggle - EPUB specific feature */}
             <button
               onClick={() => setTwoPageView(!twoPageView)}
-              className={`p-2 rounded-lg transition-all ${
-                twoPageView 
-                  ? theme.buttonActive
-                  : `${theme.buttonBg} ${theme.buttonHover} ${theme.buttonText}`
-              }`}
+              className={`p-2 rounded-lg transition-all ${twoPageView
+                ? theme.buttonActive
+                : `${theme.buttonBg} ${theme.buttonHover} ${theme.buttonText}`
+                }`}
               aria-label="Toggle two-page view"
               title="Two-page view"
             >
@@ -438,13 +437,9 @@ export function EpubReader({ bookPath, bookId }: EpubReaderProps) {
                   padding: `${settings.marginSize * 20}px`,
                 }}
               >
-                <h2 className={`text-2xl font-bold mb-6 ${textColor}`}>
-                  {currentChapter.title}
-                </h2>
-                <div 
-                  className={`prose ${settings.fontSize > 18 ? 'prose-lg' : ''} max-w-none ${
-                    isDark ? 'prose-invert' : ''
-                  }`}
+                <div
+                  className={`prose ${settings.fontSize > 18 ? 'prose-lg' : ''} max-w-none ${isDark ? 'prose-invert' : ''
+                    }`}
                   style={{
                     color: theme.contentColor,
                     lineHeight: settings.lineHeight,
@@ -462,13 +457,9 @@ export function EpubReader({ bookPath, bookId }: EpubReaderProps) {
                   padding: `${settings.marginSize * 20}px`,
                 }}
               >
-                <h2 className={`text-2xl font-bold mb-6 ${textColor}`}>
-                  {adjacentChapter.title}
-                </h2>
-                <div 
-                  className={`prose ${settings.fontSize > 18 ? 'prose-lg' : ''} max-w-none ${
-                    isDark ? 'prose-invert' : ''
-                  }`}
+                <div
+                  className={`prose ${settings.fontSize > 18 ? 'prose-lg' : ''} max-w-none ${isDark ? 'prose-invert' : ''
+                    }`}
                   style={{
                     color: theme.contentColor,
                     lineHeight: settings.lineHeight,
@@ -487,13 +478,9 @@ export function EpubReader({ bookPath, bookId }: EpubReaderProps) {
                 padding: `${settings.marginSize * 20}px`,
               }}
             >
-              <h2 className={`text-3xl font-bold mb-8 ${textColor}`}>
-                {currentChapter.title}
-              </h2>
-              <div 
-                className={`prose prose-lg max-w-none ${
-                  isDark ? 'prose-invert' : ''
-                }`}
+              <div
+                className={`prose prose-lg max-w-none ${isDark ? 'prose-invert' : ''
+                  }`}
                 style={{
                   color: theme.contentColor,
                   lineHeight: settings.lineHeight,
@@ -505,20 +492,20 @@ export function EpubReader({ bookPath, bookId }: EpubReaderProps) {
         </div>
       </div>
 
-      {/* Floating navigation arrows - only show on hover */}
+      {/* Floating navigation arrows */}
       <button
         onClick={prevChapter}
         disabled={currentIndex === 0}
-        className={`fixed left-4 top-1/2 -translate-y-1/2 p-3 rounded-full shadow-lg transition-all opacity-0 hover:opacity-100 disabled:opacity-0 ${theme.controlsBg} ${theme.controlsBorder} ${theme.text} border hover:opacity-100`}
+        className={`fixed left-4 top-1/2 -translate-y-1/2 p-3 rounded-full shadow-lg transition-all disabled:opacity-0 ${theme.controlsBg} ${theme.controlsBorder} ${theme.text} border`}
         aria-label="Previous chapter"
       >
         <ChevronLeft className="w-6 h-6" />
       </button>
-      
+
       <button
         onClick={nextChapter}
         disabled={!metadata || currentIndex >= metadata.total_chapters - 1}
-        className={`fixed right-4 top-1/2 -translate-y-1/2 p-3 rounded-full shadow-lg transition-all opacity-0 hover:opacity-100 disabled:opacity-0 ${theme.controlsBg} ${theme.controlsBorder} ${theme.text} border hover:opacity-100`}
+        className={`fixed right-4 top-1/2 -translate-y-1/2 p-3 rounded-full shadow-lg transition-all disabled:opacity-0 ${theme.controlsBg} ${theme.controlsBorder} ${theme.text} border`}
         aria-label="Next chapter"
       >
         <ChevronRight className="w-6 h-6" />

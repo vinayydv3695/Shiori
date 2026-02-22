@@ -1,6 +1,8 @@
 pub mod cache;
 pub mod collection_service;
 pub mod epub_adapter;
+pub mod docx_adapter;
+pub mod mobi_adapter;
 pub mod export_service;
 pub mod format_detector;
 pub mod library_service;
@@ -27,3 +29,5 @@ pub mod share_service;
 // Metadata enrichment services (v2.1)
 pub mod manga_metadata_service;
 pub mod book_metadata_service;
+pub mod online;
+

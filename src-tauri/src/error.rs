@@ -60,6 +60,9 @@ pub enum ShioriError {
     #[error("PDF rendering failed on page {page}: {cause}")]
     PdfRenderFailed { page: usize, cause: String },
 
+    #[error("Unsupported feature: {0}")]
+    UnsupportedFeature(String),
+
     #[error("Book file is empty or truncated")]
     EmptyOrTruncatedFile { path: String },
 

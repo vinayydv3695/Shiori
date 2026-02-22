@@ -35,6 +35,10 @@ export interface Book {
   modified_date: string
   last_opened?: string
   notes?: string
+  online_metadata_fetched?: boolean
+  metadata_source?: string
+  metadata_last_sync?: string
+  anilist_id?: string
   authors: Author[]
   tags: Tag[]
 }
@@ -285,6 +289,10 @@ export const api = {
     }
   },
 
+  async enrichBookMetadata(bookId: number): Promise<boolean> {
+    return invoke("enrich_book_metadata", { bookId })
+  },
+
   // Search
   async searchBooks(query: SearchQuery): Promise<SearchResult> {
     return invoke("search_books", { query })
@@ -513,6 +521,10 @@ export const api = {
     return invoke("get_total_books_by_domain", { domain })
   },
 
+  async resetDatabase(): Promise<void> {
+    return invoke("reset_database")
+  },
+
   async exportLibrary(options: ExportOptions): Promise<string> {
     return invoke("export_library", { options })
   },
@@ -600,6 +612,14 @@ export const api = {
     return invoke("get_epub_resource", { bookId, resourcePath })
   },
 
+  async renderPdfPage(bookId: number, pageIndex: number, scale: number = 1.0): Promise<number[]> {
+    return invoke("render_pdf_page", { bookId, pageIndex, scale })
+  },
+
+  async getPdfPageDimensions(bookId: number, pageIndex: number): Promise<[number, number]> {
+    return invoke("get_pdf_page_dimensions", { bookId, pageIndex })
+  },
+
   // Manga Reader System
   async openManga(bookId: number, path: string): Promise<MangaMetadata> {
     return invoke("open_manga", { bookId, path })
@@ -664,5 +684,9 @@ export const api = {
 
   async completeOnboarding(skippedSteps: string[]): Promise<void> {
     return invoke("complete_onboarding", { skippedSteps })
+  },
+
+  async resetOnboarding(): Promise<void> {
+    return invoke("reset_onboarding")
   },
 }

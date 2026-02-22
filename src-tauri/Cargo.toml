@@ -95,6 +95,7 @@ strsim = "0.11"                 # String similarity for duplicate detection
 parking_lot = "0.12"            # Faster mutexes
 lazy_static = "1.5"             # Static initialization
 natord = "1.0"                  # Natural sort ordering
+futures = "0.3.31"
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem and the built-in dev server is disabled.

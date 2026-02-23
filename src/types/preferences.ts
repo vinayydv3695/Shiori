@@ -46,6 +46,11 @@ export interface UserPreferences {
   accentColor: string;
   /** Global UI scale factor: 0.75 – 1.5. Applied as font-size on <html>. */
   uiScale: number;
+  preferredContentType: string;
+  performanceMode: string;
+  metadataMode: string;
+  autoScanEnabled: boolean;
+  defaultMangaPath: string | null;
 }
 
 export interface PreferenceOverride {
@@ -95,4 +100,9 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   uiDensity: 'comfortable',
   accentColor: '#3B82F6',
   uiScale: 1.0,
+  preferredContentType: 'both',
+  performanceMode: 'standard',
+  metadataMode: 'online',
+  autoScanEnabled: true,
+  defaultMangaPath: null,
 };

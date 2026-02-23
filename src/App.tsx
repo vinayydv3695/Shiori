@@ -14,7 +14,7 @@ import ConversionJobTracker from "./components/conversion/ConversionJobTracker"
 import RSSFeedManager from "./components/rss/RSSFeedManager"
 import RSSArticleList from "./components/rss/RSSArticleList"
 import ShareBookDialog from "./components/share/ShareBookDialog"
-import { Onboarding } from "./components/onboarding/Onboarding"
+import { OnboardingWizard } from "./components/onboarding/OnboardingWizard"
 import { useLibraryStore } from "./store/libraryStore"
 import { useReaderStore } from "./store/readerStore"
 import { useUIStore } from "./store/uiStore"
@@ -293,7 +293,7 @@ function App() {
 
   // Show onboarding if not completed
   if (showOnboarding) {
-    return <Onboarding onComplete={handleOnboardingComplete} />
+    return <OnboardingWizard onComplete={handleOnboardingComplete} />
   }
 
   return (

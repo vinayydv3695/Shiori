@@ -20,6 +20,12 @@ pub struct UserPreferences {
     pub default_import_path: String,
     pub ui_density: String,
     pub accent_color: String,
+    pub preferred_content_type: String,
+    pub ui_scale: f32,
+    pub performance_mode: String,
+    pub metadata_mode: String,
+    pub auto_scan_enabled: bool,
+    pub default_manga_path: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -80,7 +86,9 @@ pub async fn get_user_preferences(state: State<'_, AppState>) -> Result<UserPref
             manga_mode, manga_direction, manga_margin_size, manga_fit_width,
             manga_background_color, manga_progress_bar, manga_image_smoothing,
             manga_preload_count, manga_gpu_acceleration,
-            auto_start, default_import_path, ui_density, accent_color
+            auto_start, default_import_path, ui_density, accent_color,
+            preferred_content_type, ui_scale, performance_mode, 
+            metadata_mode, auto_scan_enabled, default_manga_path
         FROM user_preferences WHERE id = 1",
         [],
         |row| {
@@ -113,6 +121,12 @@ pub async fn get_user_preferences(state: State<'_, AppState>) -> Result<UserPref
                 default_import_path: row.get(21)?,
                 ui_density: row.get(22)?,
                 accent_color: row.get(23)?,
+                preferred_content_type: row.get(24).unwrap_or_else(|_| "both".to_string()),
+                ui_scale: row.get(25).unwrap_or(1.0),
+                performance_mode: row.get(26).unwrap_or_else(|_| "standard".to_string()),
+                metadata_mode: row.get(27).unwrap_or_else(|_| "online".to_string()),
+                auto_scan_enabled: row.get(28).unwrap_or(true),
+                default_manga_path: row.get(29).unwrap_or(None),
             })
         },
     )?;
@@ -249,6 +263,34 @@ pub async fn update_user_preferences(
     if let Some(accent_color) = updates.get("accentColor").and_then(|v| v.as_str()) {
         set_clauses.push("accent_color = ?".to_string());
         params.push(Box::new(accent_color.to_string()));
+    }
+    
+    // Onboarding configs
+    if let Some(preferred_content_type) = updates.get("preferredContentType").and_then(|v| v.as_str()) {
+        set_clauses.push("preferred_content_type = ?".to_string());
+        params.push(Box::new(preferred_content_type.to_string()));
+    }
+    if let Some(ui_scale) = updates.get("uiScale").and_then(|v| v.as_f64()) {
+        set_clauses.push("ui_scale = ?".to_string());
+        params.push(Box::new(ui_scale as f32));
+    }
+    if let Some(performance_mode) = updates.get("performanceMode").and_then(|v| v.as_str()) {
+        set_clauses.push("performance_mode = ?".to_string());
+        params.push(Box::new(performance_mode.to_string()));
+    }
+    if let Some(metadata_mode) = updates.get("metadataMode").and_then(|v| v.as_str()) {
+        set_clauses.push("metadata_mode = ?".to_string());
+        params.push(Box::new(metadata_mode.to_string()));
+    }
+    if let Some(auto_scan_enabled) = updates.get("autoScanEnabled").and_then(|v| v.as_bool()) {
+        set_clauses.push("auto_scan_enabled = ?".to_string());
+        params.push(Box::new(auto_scan_enabled));
+    }
+    if let Some(default_manga_path) = updates.get("defaultMangaPath").and_then(|v| {
+        if v.is_null() { Some(None) } else { v.as_str().map(|s| Some(s.to_string())) }
+    }) {
+        set_clauses.push("default_manga_path = ?".to_string());
+        params.push(Box::new(default_manga_path));
     }
     
     if set_clauses.is_empty() {

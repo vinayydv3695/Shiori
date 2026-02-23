@@ -38,6 +38,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 6 {
             self.migrate_to_v6()?;
         }
+        if current_version < 7 {
+            self.migrate_to_v7()?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -811,6 +814,43 @@ impl<'a> MigrationManager<'a> {
         )?;
 
         log::info!("[Migration] v6 applied successfully");
+        Ok(())
+    }
+
+    /// Migration v7: Onboarding and Advanced User Preferences
+    fn migrate_to_v7(&self) -> Result<()> {
+        log::info!("[Migration] Applying v7: Advanced Onboarding Preferences");
+
+        // Add new onboarding columns to user_preferences
+        let columns_to_add = vec![
+            ("preferred_content_type", "TEXT DEFAULT 'both'"),
+            ("ui_scale", "REAL DEFAULT 1.0"),
+            ("performance_mode", "TEXT DEFAULT 'standard'"),
+            ("metadata_mode", "TEXT DEFAULT 'online'"),
+            ("auto_scan_enabled", "BOOLEAN DEFAULT TRUE"),
+            ("default_manga_path", "TEXT DEFAULT NULL"),
+        ];
+
+        for (col_name, col_def) in columns_to_add {
+            if !self.column_exists("user_preferences", col_name)? {
+                let sql = format!("ALTER TABLE user_preferences ADD COLUMN {} {}", col_name, col_def);
+                match self.conn.execute(&sql, []) {
+                    Ok(_) => log::debug!("Added column {} to user_preferences", col_name),
+                    Err(e) => {
+                        log::warn!("Failed to add column {}: {}", col_name, e);
+                    }
+                }
+            }
+        }
+
+        self.set_schema_version(7)?;
+        self.record_migration(
+            7,
+            "onboarding_preferences",
+            "v7_onboarding",
+        )?;
+
+        log::info!("[Migration] v7 applied successfully");
         Ok(())
     }
 

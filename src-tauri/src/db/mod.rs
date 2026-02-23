@@ -37,6 +37,8 @@ impl Database {
         // Run migrations for new features
         db.run_migrations()?;
 
+        db.apply_performance_pragmas()?;
+
         Ok(db)
     }
 
@@ -44,6 +46,30 @@ impl Database {
         let conn = self.get_connection()?;
         let migrator = migrations::MigrationManager::new(&conn);
         migrator.run_migrations()?;
+        Ok(())
+    }
+
+    fn apply_performance_pragmas(&self) -> Result<()> {
+        let conn = self.get_connection()?;
+        let perf_mode: String = conn.query_row(
+            "SELECT performance_mode FROM user_preferences WHERE id = 1",
+            [],
+            |row| row.get(0),
+        ).unwrap_or_else(|_| "standard".to_string());
+
+        match perf_mode.as_str() {
+            "large_library" => {
+                log::info!("Applying Large Library performance pragmas");
+                conn.execute_batch("PRAGMA cache_size = -64000;")?;
+            },
+            "low_memory" => {
+                log::info!("Applying Low Memory performance pragmas");
+                conn.execute_batch("PRAGMA cache_size = -2000; PRAGMA temp_store = FILE;")?;
+            },
+            _ => { // standard
+                conn.execute_batch("PRAGMA cache_size = -16000;")?;
+            }
+        }
         Ok(())
     }
 

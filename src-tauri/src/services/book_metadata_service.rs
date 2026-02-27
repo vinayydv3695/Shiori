@@ -9,7 +9,7 @@
 /// - Publication dates
 /// - ISBN information
 
-use crate::error::{ShioriError, ShioriResult};
+use crate::error::{ShioriError, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -119,8 +119,13 @@ pub struct BookMetadataService {
     covers_url: String,
 }
 
+/// Maximum response body size for JSON/API responses (2 MB)
+const MAX_JSON_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
+/// Maximum response body size for cover image downloads (10 MB)
+const MAX_IMAGE_RESPONSE_BYTES: usize = 10 * 1024 * 1024;
+
 impl BookMetadataService {
-    pub fn new() -> ShioriResult<Self> {
+    pub fn new() -> Result<Self> {
         let client = Client::builder()
             .timeout(Duration::from_secs(30))
             .user_agent("Shiori/0.1.0 (https://github.com/yourusername/shiori)")
@@ -134,12 +139,53 @@ impl BookMetadataService {
         })
     }
 
+    /// Read a response body as JSON with a size limit to prevent memory exhaustion.
+    async fn bounded_json<T: serde::de::DeserializeOwned>(
+        response: reqwest::Response,
+        max_bytes: usize,
+        context: &str,
+    ) -> Result<T> {
+        let bytes = Self::bounded_bytes(response, max_bytes, context).await?;
+        serde_json::from_slice(&bytes)
+            .map_err(|e| ShioriError::Other(format!("Failed to parse {}: {}", context, e)))
+    }
+
+    /// Read a response body with a size limit to prevent memory exhaustion.
+    async fn bounded_bytes(
+        response: reqwest::Response,
+        max_bytes: usize,
+        context: &str,
+    ) -> Result<Vec<u8>> {
+        // Check Content-Length header first for an early reject
+        if let Some(len) = response.content_length() {
+            if len as usize > max_bytes {
+                return Err(ShioriError::Other(format!(
+                    "{} response too large: {} bytes (max {})",
+                    context, len, max_bytes
+                )));
+            }
+        }
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|e| ShioriError::Other(format!("Failed to read {}: {}", context, e)))?;
+        if bytes.len() > max_bytes {
+            return Err(ShioriError::Other(format!(
+                "{} response too large: {} bytes (max {})",
+                context,
+                bytes.len(),
+                max_bytes
+            )));
+        }
+        Ok(bytes.to_vec())
+    }
+
     /// Search for books by title and optional author
     pub async fn search_book(
         &self,
         title: &str,
         author: Option<&str>,
-    ) -> ShioriResult<Vec<BookMetadata>> {
+    ) -> Result<Vec<BookMetadata>> {
         log::info!("[BookMetadataService] Searching for: '{}'", title);
 
         let mut query_parts = vec![format!("title:{}", title)];
@@ -168,10 +214,12 @@ impl BookMetadataService {
             )));
         }
 
-        let result: SearchResponse = response
-            .json()
-            .await
-            .map_err(|e| ShioriError::Other(format!("Failed to parse response: {}", e)))?;
+        let result: SearchResponse = Self::bounded_json(
+            response,
+            MAX_JSON_RESPONSE_BYTES,
+            "search response",
+        )
+        .await?;
 
         let metadata: Vec<BookMetadata> = result
             .docs
@@ -189,7 +237,7 @@ impl BookMetadataService {
     }
 
     /// Search by ISBN (most accurate)
-    pub async fn search_by_isbn(&self, isbn: &str) -> ShioriResult<Option<BookMetadata>> {
+    pub async fn search_by_isbn(&self, isbn: &str) -> Result<Option<BookMetadata>> {
         log::info!("[BookMetadataService] Searching by ISBN: {}", isbn);
 
         let url = format!("{}/isbn/{}.json", self.base_url, isbn);
@@ -198,10 +246,12 @@ impl BookMetadataService {
 
         match response {
             Ok(resp) if resp.status().is_success() => {
-                let edition: EditionResponse = resp
-                    .json()
-                    .await
-                    .map_err(|e| ShioriError::Other(format!("Failed to parse response: {}", e)))?;
+                let edition: EditionResponse = Self::bounded_json(
+                    resp,
+                    MAX_JSON_RESPONSE_BYTES,
+                    "ISBN response",
+                )
+                .await?;
 
                 // Get work details for better metadata
                 let metadata = self.convert_edition_to_metadata(edition).await?;
@@ -220,7 +270,7 @@ impl BookMetadataService {
     }
 
     /// Get detailed book metadata by Open Library ID
-    pub async fn get_book_by_id(&self, ol_id: &str) -> ShioriResult<BookMetadata> {
+    pub async fn get_book_by_id(&self, ol_id: &str) -> Result<BookMetadata> {
         log::info!("[BookMetadataService] Fetching book: {}", ol_id);
 
         // Determine if it's a work or edition ID
@@ -245,20 +295,26 @@ impl BookMetadataService {
         }
 
         if ol_id.contains('W') {
-            let work: WorkResponse = response.json().await.map_err(|e| {
-                ShioriError::Other(format!("Failed to parse work data: {}", e))
-            })?;
+            let work: WorkResponse = Self::bounded_json(
+                response,
+                MAX_JSON_RESPONSE_BYTES,
+                "work data",
+            )
+            .await?;
             self.convert_work_to_metadata(ol_id, work).await
         } else {
-            let edition: EditionResponse = response.json().await.map_err(|e| {
-                ShioriError::Other(format!("Failed to parse edition data: {}", e))
-            })?;
+            let edition: EditionResponse = Self::bounded_json(
+                response,
+                MAX_JSON_RESPONSE_BYTES,
+                "edition data",
+            )
+            .await?;
             self.convert_edition_to_metadata(edition).await
         }
     }
 
     /// Download cover image from Open Library
-    pub async fn download_cover(&self, cover_id: i64, size: &str) -> ShioriResult<Vec<u8>> {
+    pub async fn download_cover(&self, cover_id: i64, size: &str) -> Result<Vec<u8>> {
         // size can be "S" (small), "M" (medium), or "L" (large)
         let url = format!("{}/b/id/{}-{}.jpg", self.covers_url, cover_id, size);
         log::info!("[BookMetadataService] Downloading cover from: {}", url);
@@ -277,13 +333,15 @@ impl BookMetadataService {
             )));
         }
 
-        let bytes = response
-            .bytes()
-            .await
-            .map_err(|e| ShioriError::Other(format!("Failed to read cover data: {}", e)))?;
+        let bytes = Self::bounded_bytes(
+            response,
+            MAX_IMAGE_RESPONSE_BYTES,
+            "cover image",
+        )
+        .await?;
 
         log::info!("[BookMetadataService] ✅ Downloaded {} bytes", bytes.len());
-        Ok(bytes.to_vec())
+        Ok(bytes)
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -354,7 +412,7 @@ impl BookMetadataService {
         &self,
         work_id: &str,
         work: WorkResponse,
-    ) -> ShioriResult<BookMetadata> {
+    ) -> Result<BookMetadata> {
         let description = work.description.map(|desc| match desc {
             DescriptionField::String(s) => s,
             DescriptionField::Object { value } => value,
@@ -400,7 +458,7 @@ impl BookMetadataService {
     async fn convert_edition_to_metadata(
         &self,
         edition: EditionResponse,
-    ) -> ShioriResult<BookMetadata> {
+    ) -> Result<BookMetadata> {
         let (cover_s, cover_m, cover_l) = if let Some(covers) = edition.covers {
             if let Some(&cover_id) = covers.first() {
                 (

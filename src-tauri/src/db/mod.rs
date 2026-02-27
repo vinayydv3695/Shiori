@@ -1,7 +1,6 @@
 use crate::error::Result;
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
-use rusqlite::Connection;
 use std::path::Path;
 
 pub mod migrations;
@@ -13,23 +12,23 @@ pub struct Database {
 
 impl Database {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let manager = SqliteConnectionManager::file(path.as_ref())
-            .with_init(|c| {
-                // Enable foreign keys
-                c.execute_batch("PRAGMA foreign_keys = ON")?;
-                // Enable WAL mode for better concurrency
-                c.execute_batch("PRAGMA journal_mode = WAL")?;
-                c.execute_batch("PRAGMA synchronous = NORMAL")?;
-                c.execute_batch("PRAGMA temp_store = MEMORY")?;
-                c.execute_batch("PRAGMA mmap_size = 3000000000")?;
-                Ok(())
-            });
+        let manager = SqliteConnectionManager::file(path.as_ref()).with_init(|c| {
+            // Enable foreign keys
+            c.execute_batch("PRAGMA foreign_keys = ON")?;
+            // Enable WAL mode for better concurrency
+            c.execute_batch("PRAGMA journal_mode = WAL")?;
+            c.execute_batch("PRAGMA synchronous = NORMAL")?;
+            c.execute_batch("PRAGMA temp_store = MEMORY")?;
+            c.execute_batch("PRAGMA mmap_size = 3000000000")?;
+            // Avoid SQLITE_BUSY under concurrent access
+            c.execute_batch("PRAGMA busy_timeout = 5000")?;
+            Ok(())
+        });
 
-        // Create connection pool (max 15 concurrent connections)
-        let pool = Pool::builder()
-            .max_size(15)
-            .build(manager)
-            .map_err(|e| crate::error::ShioriError::Other(format!("Database pooling error: {}", e)))?;
+        // Create connection pool (max 8 concurrent connections)
+        let pool = Pool::builder().max_size(8).build(manager).map_err(|e| {
+            crate::error::ShioriError::Other(format!("Database pooling error: {}", e))
+        })?;
 
         let db = Database { pool };
         db.initialize_schema()?;
@@ -51,22 +50,25 @@ impl Database {
 
     fn apply_performance_pragmas(&self) -> Result<()> {
         let conn = self.get_connection()?;
-        let perf_mode: String = conn.query_row(
-            "SELECT performance_mode FROM user_preferences WHERE id = 1",
-            [],
-            |row| row.get(0),
-        ).unwrap_or_else(|_| "standard".to_string());
+        let perf_mode: String = conn
+            .query_row(
+                "SELECT performance_mode FROM user_preferences WHERE id = 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or_else(|_| "standard".to_string());
 
         match perf_mode.as_str() {
             "large_library" => {
                 log::info!("Applying Large Library performance pragmas");
                 conn.execute_batch("PRAGMA cache_size = -64000;")?;
-            },
+            }
             "low_memory" => {
                 log::info!("Applying Low Memory performance pragmas");
                 conn.execute_batch("PRAGMA cache_size = -2000; PRAGMA temp_store = FILE;")?;
-            },
-            _ => { // standard
+            }
+            _ => {
+                // standard
                 conn.execute_batch("PRAGMA cache_size = -16000;")?;
             }
         }
@@ -124,6 +126,15 @@ impl Database {
         )?;
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_books_hash ON books(file_hash)",
+            [],
+        )?;
+        // Composite indexes for common sort/filter queries
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_books_added_date ON books(added_date DESC)",
+            [],
+        )?;
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_books_format_date ON books(file_format, added_date DESC)",
             [],
         )?;
 
@@ -320,10 +331,8 @@ impl Database {
     }
 
     pub fn get_connection(&self) -> Result<r2d2::PooledConnection<SqliteConnectionManager>> {
-        self.pool.get().map_err(|e| crate::error::ShioriError::Other(e.to_string()))
-    }
-
-    pub fn get_connection_mut(&self) -> Result<r2d2::PooledConnection<SqliteConnectionManager>> {
-        self.get_connection()
+        self.pool
+            .get()
+            .map_err(|e| crate::error::ShioriError::Other(e.to_string()))
     }
 }

@@ -14,3 +14,4 @@ pub mod manga;
 pub mod rss;
 pub mod share;
 pub mod preferences;
+pub mod doodle;

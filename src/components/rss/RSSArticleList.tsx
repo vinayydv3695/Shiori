@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { sanitizeArticleHTML } from '@/lib/sanitize';
 import { useRssStore, RssArticle } from '../../store/rssStore';
 import { BookOpen, ExternalLink, Check, RefreshCw, Eye, EyeOff, X } from 'lucide-react';
 
@@ -67,14 +68,7 @@ const RSSArticleList: React.FC<RSSArticleListProps> = ({ feedId = null, onClose 
     return date.toLocaleDateString();
   };
 
-  const sanitizeHTML = (html: string) => {
-    // Basic sanitization - strip script tags and event handlers
-    // For production, use DOMPurify or similar
-    return html
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/on\w+="[^"]*"/g, '')
-      .replace(/on\w+='[^']*'/g, '');
-  };
+  const sanitizeHTML = sanitizeArticleHTML;
 
   return (
     <div className="flex flex-col h-full bg-background">

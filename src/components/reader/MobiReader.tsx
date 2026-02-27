@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Search, BookOpen, Book
 import { useUIStore, useReadingSettings } from '@/store/premiumReaderStore';
 import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
 import { ReaderSettings } from './ReaderSettings';
+import { sanitizeBookContent } from '@/lib/sanitize';
 import '@/styles/premium-reader.css';
 
 interface MobiReaderProps {
@@ -283,7 +284,7 @@ export function MobiReader({ bookPath, bookId }: MobiReaderProps) {
                                 fontSize: `${fontSize}px`,
                                 lineHeight: lineHeight,
                             }}
-                            dangerouslySetInnerHTML={{ __html: content }}
+                            dangerouslySetInnerHTML={{ __html: sanitizeBookContent(content) }}
                         />
                     </div>
                 </div>

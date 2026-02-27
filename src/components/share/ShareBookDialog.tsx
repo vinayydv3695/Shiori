@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { sanitizeSVG } from '@/lib/sanitize';
 import { useShareStore, Share, ShareResponse } from '../../store/shareStore';
 import { Share2, Copy, QrCode, X, Lock, Clock, Download, Trash2, Power, CheckCircle, AlertCircle } from 'lucide-react';
 
@@ -385,7 +386,9 @@ const ShareBookDialog: React.FC<ShareBookDialogProps> = ({ isOpen, onClose, book
               </div>
               <div className="flex items-center justify-center p-6 bg-white rounded-lg">
                 {activeShareResponse.qr_code_svg && (
-                  <div dangerouslySetInnerHTML={{ __html: activeShareResponse.qr_code_svg }} />
+                  <div dangerouslySetInnerHTML={{
+                    __html: sanitizeSVG(activeShareResponse.qr_code_svg)
+                  }} />
                 )}
               </div>
               <p className="text-sm text-center text-gray-600 dark:text-gray-400 mt-4">

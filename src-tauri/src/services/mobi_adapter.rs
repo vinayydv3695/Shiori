@@ -108,9 +108,20 @@ impl BookReaderAdapter for MobiAdapter {
         let matches: Vec<_> = content_lower.match_indices(&query_lower).collect();
         if !matches.is_empty() {
             let first_match_pos = matches[0].0;
-            let start = first_match_pos.saturating_sub(50);
-            let end = (first_match_pos + query.len() + 50).min(self.html_content.len());
-            let snippet = format!("...{}...", &self.html_content[start..end]);
+
+            // Safely slice using character boundaries to avoid panics on multi-byte UTF-8
+            let char_indices: Vec<(usize, char)> = self.html_content.char_indices().collect();
+            let char_idx = char_indices.iter().position(|&(b_idx, _)| b_idx >= first_match_pos).unwrap_or(0);
+            let start_char_idx = char_idx.saturating_sub(50);
+            let end_char_idx = (char_idx + query.chars().count() + 50).min(char_indices.len());
+            let start_byte = char_indices.get(start_char_idx).map(|&(b, _)| b).unwrap_or(0);
+            let end_byte = if end_char_idx >= char_indices.len() {
+                self.html_content.len()
+            } else {
+                char_indices[end_char_idx].0
+            };
+
+            let snippet = format!("...{}...", &self.html_content[start_byte..end_byte]);
 
             results.push(SearchResult {
                 chapter_index: 0,

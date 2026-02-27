@@ -24,6 +24,7 @@ use crate::services::epub_builder::{split_text_into_chapters, EpubBuilder, EpubM
 use crate::services::format_adapter::{BookFormatAdapter, FormatError, FormatResult};
 use crate::services::format_detection::detect_format;
 use crate::services::adapters::*;
+use crate::db::Database;
 
 // ──────────────────────────────────────────────────────────────────────────
 // CAPABILITY MATRIX  (source → [valid targets])
@@ -103,6 +104,7 @@ pub struct ConversionEngine {
     worker_count:    usize,
     workers_started: std::sync::Mutex<bool>,
     app_handle:      tauri::AppHandle,
+    db:              Option<Database>,
 }
 
 impl ConversionEngine {
@@ -115,7 +117,13 @@ impl ConversionEngine {
             worker_count,
             workers_started: std::sync::Mutex::new(false),
             app_handle,
+            db:              None,
         }
+    }
+
+    /// Set the database pool for job persistence
+    pub fn set_database(&mut self, db: Database) {
+        self.db = Some(db);
     }
 
     // ── Worker management ─────────────────────────────────────────────────
@@ -129,8 +137,9 @@ impl ConversionEngine {
                 let cancelled = self.cancelled.clone();
                 let shutdown = self.shutdown.clone();
                 let handle   = self.app_handle.clone();
+                let db       = self.db.clone();
                 tokio::spawn(async move {
-                    Self::worker_loop(id, queue, tracker, cancelled, shutdown, handle).await;
+                    Self::worker_loop(id, queue, tracker, cancelled, shutdown, handle, db).await;
                 });
             }
             *started = true;
@@ -184,6 +193,13 @@ impl ConversionEngine {
 
         self.tracker.insert(job_id.clone(), job.clone());
         self.queue.lock().await.push_back(job_id.clone());
+
+        // Persist initial job state to DB
+        if let Some(ref db) = self.db {
+            if let Ok(conn) = db.get_connection() {
+                Self::persist_job(&job, &conn);
+            }
+        }
 
         self.emit_progress(&job);
 
@@ -309,8 +325,19 @@ impl ConversionEngine {
         cancelled: Arc<DashSet<String>>,
         shutdown:  Arc<Mutex<bool>>,
         handle:    tauri::AppHandle,
+        db:        Option<Database>,
     ) {
         log::info!("[ConversionWorker-{}] Started", worker_id);
+
+        // Helper to persist job state to DB
+        let persist = |job: &ConversionJob| {
+            if let Some(ref db) = db {
+                if let Ok(conn) = db.get_connection() {
+                    Self::persist_job(job, &conn);
+                }
+            }
+        };
+
         loop {
             if *shutdown.lock().await {
                 log::info!("[ConversionWorker-{}] Shutting down", worker_id);
@@ -342,6 +369,7 @@ impl ConversionEngine {
                     j.started_at = Some(Utc::now());
                     j.progress = 5.0;
                     handle.emit("conversion:progress", j.value()).ok();
+                    persist(j.value());
                 }
 
                 // Execute
@@ -379,6 +407,7 @@ impl ConversionEngine {
                         }
                     }
                     handle.emit("conversion:progress", j.value()).ok();
+                    persist(j.value());
                 }
             } else {
                 tokio::time::sleep(Duration::from_millis(500)).await;

@@ -48,6 +48,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 8 {
             self.run_in_savepoint("v8", |mgr| mgr.migrate_to_v8())?;
         }
+        if current_version < 9 {
+            self.run_in_savepoint("v9", |mgr| mgr.migrate_to_v9())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -357,11 +360,11 @@ impl<'a> MigrationManager<'a> {
             CREATE TABLE IF NOT EXISTS rss_feeds (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 url TEXT NOT NULL UNIQUE,
-                title TEXT NOT NULL,
+                title TEXT,
                 description TEXT,
-                fetch_interval_hours INTEGER DEFAULT 12,
-                last_fetched TEXT,
-                last_success TEXT,
+                last_checked TEXT,
+                next_check TEXT,
+                check_interval_hours INTEGER DEFAULT 12,
                 failure_count INTEGER DEFAULT 0,
                 is_active INTEGER DEFAULT 1,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -370,21 +373,21 @@ impl<'a> MigrationManager<'a> {
             CREATE TABLE IF NOT EXISTS rss_articles (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 feed_id INTEGER NOT NULL,
-                guid TEXT NOT NULL UNIQUE,
                 title TEXT NOT NULL,
                 author TEXT,
-                link TEXT NOT NULL,
-                content TEXT NOT NULL,
-                published_at TEXT NOT NULL,
-                fetched_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                url TEXT,
+                content TEXT NOT NULL DEFAULT '',
+                summary TEXT,
+                published TEXT,
+                guid TEXT NOT NULL,
                 is_read INTEGER DEFAULT 0,
                 epub_book_id INTEGER,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (feed_id) REFERENCES rss_feeds(id) ON DELETE CASCADE,
                 FOREIGN KEY (epub_book_id) REFERENCES books(id) ON DELETE SET NULL
             );
             
             CREATE INDEX IF NOT EXISTS idx_rss_articles_feed ON rss_articles(feed_id);
-            CREATE INDEX IF NOT EXISTS idx_rss_articles_published ON rss_articles(published_at DESC);
             CREATE INDEX IF NOT EXISTS idx_rss_articles_guid ON rss_articles(guid);
             CREATE INDEX IF NOT EXISTS idx_rss_feeds_active ON rss_feeds(is_active) WHERE is_active = 1;
         "#)?;
@@ -1018,6 +1021,104 @@ impl<'a> MigrationManager<'a> {
         self.record_migration(8, "doodles_reader_enhancements", "v8_doodles_reader_prefs")?;
 
         log::info!("[Migration] v8 applied successfully");
+        Ok(())
+    }
+
+    /// Migration v9: Fix RSS schema mismatch
+    ///
+    /// v3 created rss_feeds with columns (fetch_interval_hours, last_fetched, last_success)
+    /// and rss_articles with (link, published_at, fetched_at) but RssService queries for
+    /// (check_interval_hours, last_checked, next_check) and inserts (url, published, summary, created_at).
+    /// This migration reconciles the schema by recreating both tables with the correct column names.
+    fn migrate_to_v9(&self) -> Result<()> {
+        log::info!("[Migration] Applying v9: Fix RSS schema mismatch");
+
+        // --- Fix rss_feeds ---
+        // Rename columns: fetch_interval_hours -> check_interval_hours,
+        //                  last_fetched -> last_checked,
+        //                  last_success -> next_check
+        if self.table_exists("rss_feeds")? {
+            let needs_fix = self.column_exists("rss_feeds", "fetch_interval_hours")?
+                && !self.column_exists("rss_feeds", "check_interval_hours")?;
+
+            if needs_fix {
+                self.conn.execute_batch(r#"
+                    ALTER TABLE rss_feeds RENAME TO _rss_feeds_v3;
+
+                    CREATE TABLE rss_feeds (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        url TEXT NOT NULL UNIQUE,
+                        title TEXT,
+                        description TEXT,
+                        last_checked TEXT,
+                        next_check TEXT,
+                        check_interval_hours INTEGER DEFAULT 12,
+                        failure_count INTEGER DEFAULT 0,
+                        is_active INTEGER DEFAULT 1,
+                        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    );
+
+                    INSERT INTO rss_feeds (id, url, title, description, last_checked, next_check,
+                                           check_interval_hours, failure_count, is_active, created_at)
+                    SELECT id, url, title, description, last_fetched, last_success,
+                           fetch_interval_hours, failure_count, is_active, created_at
+                    FROM _rss_feeds_v3;
+
+                    DROP TABLE _rss_feeds_v3;
+
+                    CREATE INDEX IF NOT EXISTS idx_rss_feeds_active ON rss_feeds(is_active) WHERE is_active = 1;
+                "#)?;
+                log::info!("[Migration] v9: rss_feeds columns renamed");
+            }
+        }
+
+        // --- Fix rss_articles ---
+        // The v3 schema has: guid UNIQUE, link, published_at, fetched_at
+        // RssService expects: guid (not unique by itself), url, published, summary, created_at
+        if self.table_exists("rss_articles")? {
+            let needs_fix = self.column_exists("rss_articles", "link")?
+                && !self.column_exists("rss_articles", "url")?;
+
+            if needs_fix {
+                self.conn.execute_batch(r#"
+                    ALTER TABLE rss_articles RENAME TO _rss_articles_v3;
+
+                    CREATE TABLE rss_articles (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        feed_id INTEGER NOT NULL,
+                        title TEXT NOT NULL,
+                        author TEXT,
+                        url TEXT,
+                        content TEXT NOT NULL DEFAULT '',
+                        summary TEXT,
+                        published TEXT,
+                        guid TEXT NOT NULL,
+                        is_read INTEGER DEFAULT 0,
+                        epub_book_id INTEGER,
+                        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (feed_id) REFERENCES rss_feeds(id) ON DELETE CASCADE,
+                        FOREIGN KEY (epub_book_id) REFERENCES books(id) ON DELETE SET NULL
+                    );
+
+                    INSERT INTO rss_articles (id, feed_id, title, author, url, content,
+                                              summary, published, guid, is_read, epub_book_id, created_at)
+                    SELECT id, feed_id, title, author, link, content,
+                           NULL, published_at, guid, is_read, epub_book_id, fetched_at
+                    FROM _rss_articles_v3;
+
+                    DROP TABLE _rss_articles_v3;
+
+                    CREATE INDEX IF NOT EXISTS idx_rss_articles_feed ON rss_articles(feed_id);
+                    CREATE INDEX IF NOT EXISTS idx_rss_articles_guid ON rss_articles(guid);
+                "#)?;
+                log::info!("[Migration] v9: rss_articles columns renamed");
+            }
+        }
+
+        self.set_schema_version(9)?;
+        self.record_migration(9, "fix_rss_schema_mismatch", "v9_rss_schema_fix")?;
+
+        log::info!("[Migration] v9 applied successfully");
         Ok(())
     }
 

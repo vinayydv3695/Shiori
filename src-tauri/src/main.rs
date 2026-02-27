@@ -67,12 +67,12 @@ fn main() {
             std::fs::create_dir_all(&storage_path)?;
 
             // Conversion engine (4 workers, with AppHandle for Tauri event emission)
-            let conversion_engine = Arc::new(ConversionEngine::new(4, app.handle().clone()));
+            let mut conversion_engine = ConversionEngine::new(4, app.handle().clone());
+            conversion_engine.set_database(database.clone());
+            let conversion_engine = Arc::new(conversion_engine);
             // Restore any jobs that were in-progress when the app last closed
-            if let Some(state) = app.try_state::<AppState>() {
-                if let Ok(conn) = state.db.get_connection() {
-                    let _ = conversion_engine.restore_from_db(&conn);
-                }
+            if let Ok(conn) = database.get_connection() {
+                let _ = conversion_engine.restore_from_db(&conn);
             }
 
             app.manage(conversion_engine);

@@ -130,7 +130,8 @@ export const useReadingSettings = create<ReadingSettings>()(
 
       setTheme: (theme) => {
         set({ theme });
-        applyThemeToDOM(theme);
+        // Theme is now applied to the reader container element by the reader component
+        // via applyReaderThemeToElement(), not globally on <html>.
         // Apply texture intensity for paper themes
         if (theme === 'paper' || theme === 'paper-dark') {
           applyTextureIntensityToDOM(get().paperTextureIntensity);
@@ -221,91 +222,104 @@ export const useReadingSettings = create<ReadingSettings>()(
 // DOM MANIPULATION HELPERS (No React re-renders!)
 // ────────────────────────────────────────────────────────────
 
-const applyThemeToDOM = (theme: ReaderTheme) => {
-  const root = document.documentElement;
+// Reader theme color maps — applied to the reader container element, NOT <html>
+export const READER_THEME_COLORS: Record<ReaderTheme, Record<string, string>> = {
+  light: {
+    '--bg-primary': '#FDFCFA',
+    '--bg-secondary': '#F8F7F5',
+    '--bg-elevated': '#FFFFFF',
+    '--text-primary': '#1A1817',
+    '--text-secondary': '#4A4745',
+    '--text-tertiary': '#6E6B68',
+    '--text-link': '#2563EB',
+    '--text-selection': '#3B82F680',
+    '--ui-border': '#E7E5E4',
+    '--ui-divider': '#D6D3D1',
+    '--ui-hover': '#F5F5F4',
+    '--ui-active': '#E7E5E4',
+    '--ui-focus': '#3B82F6',
+    '--shadow': 'rgba(0, 0, 0, 0.05)',
+    '--overlay': 'rgba(0, 0, 0, 0.2)',
+    '--progress-bar': '#3B82F6',
+  },
+  dark: {
+    '--bg-primary': '#1C1917',
+    '--bg-secondary': '#292524',
+    '--bg-elevated': '#1F1E1C',
+    '--text-primary': '#E7E5E4',
+    '--text-secondary': '#A8A29E',
+    '--text-tertiary': '#78716C',
+    '--text-link': '#60A5FA',
+    '--text-selection': '#3B82F680',
+    '--ui-border': '#3F3F3F',
+    '--ui-divider': '#525252',
+    '--ui-hover': '#292524',
+    '--ui-active': '#3F3F3F',
+    '--ui-focus': '#60A5FA',
+    '--shadow': 'rgba(0, 0, 0, 0.3)',
+    '--overlay': 'rgba(0, 0, 0, 0.6)',
+    '--progress-bar': '#60A5FA',
+  },
+  paper: {
+    '--bg-primary': '#F5F0E8',
+    '--bg-secondary': '#EDE7DB',
+    '--bg-elevated': '#FAF7F2',
+    '--text-primary': '#2C2416',
+    '--text-secondary': '#5C4F3D',
+    '--text-tertiary': '#8A7B66',
+    '--text-link': '#8B4513',
+    '--text-selection': '#D4A57480',
+    '--ui-border': '#D4C9B8',
+    '--ui-divider': '#C7BAA7',
+    '--ui-hover': '#EDE7DB',
+    '--ui-active': '#D4C9B8',
+    '--ui-focus': '#8B6914',
+    '--shadow': 'rgba(139, 119, 90, 0.12)',
+    '--overlay': 'rgba(44, 36, 22, 0.25)',
+    '--progress-bar': '#8B6914',
+  },
+  'paper-dark': {
+    '--bg-primary': '#2A2520',
+    '--bg-secondary': '#332E28',
+    '--bg-elevated': '#3A342D',
+    '--text-primary': '#D4C8B8',
+    '--text-secondary': '#A89882',
+    '--text-tertiary': '#7A6E5E',
+    '--text-link': '#D4A574',
+    '--text-selection': '#8B691440',
+    '--ui-border': '#4A4238',
+    '--ui-divider': '#5A5048',
+    '--ui-hover': '#3A342D',
+    '--ui-active': '#4A4238',
+    '--ui-focus': '#D4A574',
+    '--shadow': 'rgba(0, 0, 0, 0.25)',
+    '--overlay': 'rgba(0, 0, 0, 0.45)',
+    '--progress-bar': '#D4A574',
+  },
+};
 
-  const themes: Record<ReaderTheme, Record<string, string>> = {
-    light: {
-      '--bg-primary': '#FDFCFA',
-      '--bg-secondary': '#F8F7F5',
-      '--bg-elevated': '#FFFFFF',
-      '--text-primary': '#1A1817',
-      '--text-secondary': '#4A4745',
-      '--text-tertiary': '#6E6B68',
-      '--text-link': '#2563EB',
-      '--text-selection': '#3B82F680',
-      '--ui-border': '#E7E5E4',
-      '--ui-divider': '#D6D3D1',
-      '--ui-hover': '#F5F5F4',
-      '--ui-active': '#E7E5E4',
-      '--ui-focus': '#3B82F6',
-      '--shadow': 'rgba(0, 0, 0, 0.05)',
-      '--overlay': 'rgba(0, 0, 0, 0.2)',
-      '--progress-bar': '#3B82F6',
-    },
-    dark: {
-      '--bg-primary': '#1C1917',
-      '--bg-secondary': '#292524',
-      '--bg-elevated': '#1F1E1C',
-      '--text-primary': '#E7E5E4',
-      '--text-secondary': '#A8A29E',
-      '--text-tertiary': '#78716C',
-      '--text-link': '#60A5FA',
-      '--text-selection': '#3B82F680',
-      '--ui-border': '#3F3F3F',
-      '--ui-divider': '#525252',
-      '--ui-hover': '#292524',
-      '--ui-active': '#3F3F3F',
-      '--ui-focus': '#60A5FA',
-      '--shadow': 'rgba(0, 0, 0, 0.3)',
-      '--overlay': 'rgba(0, 0, 0, 0.6)',
-      '--progress-bar': '#60A5FA',
-    },
-    paper: {
-      '--bg-primary': '#F5F0E8',
-      '--bg-secondary': '#EDE7DB',
-      '--bg-elevated': '#FAF7F2',
-      '--text-primary': '#2C2416',
-      '--text-secondary': '#5C4F3D',
-      '--text-tertiary': '#8A7B66',
-      '--text-link': '#8B4513',
-      '--text-selection': '#D4A57480',
-      '--ui-border': '#D4C9B8',
-      '--ui-divider': '#C7BAA7',
-      '--ui-hover': '#EDE7DB',
-      '--ui-active': '#D4C9B8',
-      '--ui-focus': '#8B6914',
-      '--shadow': 'rgba(139, 119, 90, 0.12)',
-      '--overlay': 'rgba(44, 36, 22, 0.25)',
-      '--progress-bar': '#8B6914',
-    },
-    'paper-dark': {
-      '--bg-primary': '#2A2520',
-      '--bg-secondary': '#332E28',
-      '--bg-elevated': '#3A342D',
-      '--text-primary': '#D4C8B8',
-      '--text-secondary': '#A89882',
-      '--text-tertiary': '#7A6E5E',
-      '--text-link': '#D4A574',
-      '--text-selection': '#8B691440',
-      '--ui-border': '#4A4238',
-      '--ui-divider': '#5A5048',
-      '--ui-hover': '#3A342D',
-      '--ui-active': '#4A4238',
-      '--ui-focus': '#D4A574',
-      '--shadow': 'rgba(0, 0, 0, 0.25)',
-      '--overlay': 'rgba(0, 0, 0, 0.45)',
-      '--progress-bar': '#D4A574',
-    },
-  };
-
-  const colors = themes[theme];
-  requestAnimationFrame(() => {
-    Object.entries(colors).forEach(([key, value]) => {
-      root.style.setProperty(key, value);
-    });
-    root.setAttribute('data-theme', theme);
+/**
+ * Apply reader theme to a specific DOM element (the reader container).
+ * This MUST NOT touch document.documentElement — the app-level theme
+ * is managed exclusively by preferencesStore via data-theme="black"|"white".
+ */
+export const applyReaderThemeToElement = (el: HTMLElement, theme: ReaderTheme) => {
+  const colors = READER_THEME_COLORS[theme];
+  Object.entries(colors).forEach(([key, value]) => {
+    el.style.setProperty(key, value);
   });
+  el.setAttribute('data-reader-theme', theme);
+};
+
+/**
+ * Remove reader theme from a DOM element (cleanup on unmount).
+ */
+export const removeReaderThemeFromElement = (el: HTMLElement) => {
+  const allKeys = Object.keys(READER_THEME_COLORS.light);
+  allKeys.forEach((key) => {
+    el.style.removeProperty(key);
+  });
+  el.removeAttribute('data-reader-theme');
 };
 
 const applyTextureIntensityToDOM = (intensity: number) => {
@@ -370,7 +384,10 @@ const applyLetterSpacingToDOM = (spacing: string) => {
   });
 };
 
-// Initialize theme on load
+// Initialize reader typography settings on load.
+// NOTE: Reader theme (colors) are NOT applied here — they are scoped to
+// the reader container element and applied on mount via applyReaderThemeToElement().
+// The app-level theme (data-theme="black"|"white") is managed by preferencesStore.
 if (typeof window !== 'undefined') {
   const savedSettings = localStorage.getItem('shiori-reading-settings');
   let parsed: Record<string, any> | null = null;
@@ -387,23 +404,19 @@ if (typeof window !== 'undefined') {
 
   if (parsed?.state) {
     const s = parsed.state;
-    applyThemeToDOM((s.theme || 'light') as ReaderTheme);
     applyFontToDOM(s.fontFamily || 'literata');
     applyFontSizeToDOM(s.fontSize || 18);
     applyLineHeightToDOM(s.lineHeight || 1.6);
     applyParagraphSpacingToDOM(s.paragraphSpacing || '1em');
     applyLetterSpacingToDOM(s.letterSpacing || 'normal');
     applyTextureIntensityToDOM(s.paperTextureIntensity ?? 0.08);
-    applyUiScaleToDOM(s.uiScale ?? 1.0);
   } else {
     // Apply defaults
-    applyThemeToDOM('light');
     applyFontToDOM('literata');
     applyFontSizeToDOM(18);
     applyLineHeightToDOM(1.6);
     applyParagraphSpacingToDOM('1em');
     applyLetterSpacingToDOM('normal');
     applyTextureIntensityToDOM(0.08);
-    applyUiScaleToDOM(1.0);
   }
 }

@@ -158,6 +158,7 @@ const AppearanceSettings = ({ preferences, updateTheme, updateGeneralSettings }:
           ].map((option) => (
             <button
               key={option.value}
+              onClick={() => updateGeneralSettings({ uiDensity: option.value })}
               className={cn(
                 'p-3 rounded-lg border-2 transition-all',
                 preferences.uiDensity === option.value
@@ -532,35 +533,14 @@ const StorageSettings = ({ preferences }: { preferences: UserPreferences | null 
 }
 
 const NotificationSettings = () => {
-  const [newBookNotif, setNewBookNotif] = useState(true)
-  const [updateNotif, setUpdateNotif] = useState(true)
-
   return (
     <div className="space-y-8">
       <SettingSection title="Notifications">
-        <SettingItem
-          label="New Books"
-          description="Notify when books are added"
-        >
-          <input
-            type="checkbox"
-            checked={newBookNotif}
-            onChange={(e) => setNewBookNotif(e.target.checked)}
-            className="w-5 h-5"
-          />
-        </SettingItem>
-
-        <SettingItem
-          label="Updates"
-          description="Notify about app updates"
-        >
-          <input
-            type="checkbox"
-            checked={updateNotif}
-            onChange={(e) => setUpdateNotif(e.target.checked)}
-            className="w-5 h-5"
-          />
-        </SettingItem>
+        <div className="p-6 text-center text-muted-foreground">
+          <Bell className="w-10 h-10 mx-auto mb-3 opacity-40" />
+          <p className="font-medium">Notifications are not yet available</p>
+          <p className="text-sm mt-1">This feature will be added in a future update.</p>
+        </div>
       </SettingSection>
     </div>
   )

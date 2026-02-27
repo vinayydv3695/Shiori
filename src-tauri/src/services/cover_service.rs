@@ -55,20 +55,33 @@ pub struct CoverGenerator {
     font: Option<FontArc>,
 }
 
+/// DejaVu Sans font embedded at compile time (Bitstream Vera / Arev license — free to bundle)
+const EMBEDDED_FONT: &[u8] = include_bytes!("../../assets/fonts/DejaVuSans.ttf");
+
 impl CoverGenerator {
-    /// Create a new cover generator
+    /// Create a new cover generator with the embedded font
     pub fn new() -> FormatResult<Self> {
-        // Try to load embedded font
-        // TODO: Bundle DejaVuSans.ttf or similar font in assets
-        // For now, font is optional - covers will be pattern-only without text
+        let font = FontArc::try_from_slice(EMBEDDED_FONT).map_err(|e| {
+            crate::services::format_adapter::FormatError::ConversionError(
+                format!("Failed to load embedded font: {}", e),
+            )
+        })?;
         
-        Ok(Self { font: None })
+        Ok(Self { font: Some(font) })
     }
     
-    /// Create a new generator with fallback (no text)
+    /// Create a new generator with fallback (no text if font fails to load)
     pub fn new_with_fallback() -> Self {
-        log::info!("Cover generator created without font - covers will be pattern-only");
-        Self { font: None }
+        match FontArc::try_from_slice(EMBEDDED_FONT) {
+            Ok(font) => {
+                log::info!("Cover generator created with embedded DejaVu Sans font");
+                Self { font: Some(font) }
+            }
+            Err(e) => {
+                log::warn!("Cover generator: failed to load embedded font ({e}), covers will be pattern-only");
+                Self { font: None }
+            }
+        }
     }
     
     /// Generate a geometric pattern cover
@@ -317,7 +330,7 @@ impl CoverGenerator {
         }
     }
     
-    /// Draw title text with shadow
+    /// Draw title text with shadow (word-wrapped)
     fn draw_title(&self, img: &mut RgbaImage, title: &str, colors: &ColorScheme) {
         // Skip text drawing if no font available
         let font = match &self.font {
@@ -326,17 +339,27 @@ impl CoverGenerator {
         };
         
         let max_width = MEDIUM_WIDTH - 40; // 20px padding on each side
-        let font_size = self.calculate_font_size(title, max_width, font);
-        
+        let font_size = self.calculate_font_size_wrapped(title, max_width, font, 48.0, 20.0);
         let scale = PxScale::from(font_size);
-        let y_pos = (MEDIUM_HEIGHT as f32 * 0.45) as i32;
+        let line_height = (font_size * 1.3) as i32;
         
-        // Draw shadow
-        let shadow_color = Rgba([0, 0, 0, 100]);
-        draw_text_mut(img, shadow_color, 22, y_pos + 2, scale, font, title);
+        // Word-wrap title
+        let lines = self.wrap_text(title, max_width, scale, font);
         
-        // Draw text
-        draw_text_mut(img, colors.text_color, 20, y_pos, scale, font, title);
+        // Center vertically around 45% of image height
+        let total_text_height = lines.len() as i32 * line_height;
+        let start_y = (MEDIUM_HEIGHT as f32 * 0.45) as i32 - total_text_height / 2;
+        
+        for (i, line) in lines.iter().enumerate() {
+            let y_pos = start_y + i as i32 * line_height;
+            
+            // Draw shadow
+            let shadow_color = Rgba([0, 0, 0, 100]);
+            draw_text_mut(img, shadow_color, 22, y_pos + 2, scale, font, line);
+            
+            // Draw text
+            draw_text_mut(img, colors.text_color, 20, y_pos, scale, font, line);
+        }
     }
     
     /// Draw author text
@@ -347,27 +370,44 @@ impl CoverGenerator {
             None => return,
         };
         
-        let scale = PxScale::from(24.0);
-        let y_pos = (MEDIUM_HEIGHT as f32 * 0.65) as i32;
+        let max_width = MEDIUM_WIDTH - 40;
+        let font_size = self.calculate_font_size_wrapped(author, max_width, font, 24.0, 16.0);
+        let scale = PxScale::from(font_size);
+        let y_pos = (MEDIUM_HEIGHT as f32 * 0.70) as i32;
         
-        // Draw shadow
-        let shadow_color = Rgba([0, 0, 0, 100]);
-        draw_text_mut(img, shadow_color, 22, y_pos + 2, scale, font, author);
+        // Word-wrap author if needed
+        let lines = self.wrap_text(author, max_width, scale, font);
+        let line_height = (font_size * 1.3) as i32;
         
-        // Draw text
-        draw_text_mut(img, colors.text_color, 20, y_pos, scale, font, author);
+        for (i, line) in lines.iter().enumerate() {
+            let y = y_pos + i as i32 * line_height;
+            
+            // Draw shadow
+            let shadow_color = Rgba([0, 0, 0, 100]);
+            draw_text_mut(img, shadow_color, 22, y + 2, scale, font, &line);
+            
+            // Draw text
+            draw_text_mut(img, colors.text_color, 20, y, scale, font, &line);
+        }
     }
     
-    /// Calculate appropriate font size for text to fit width
-    fn calculate_font_size(&self, text: &str, max_width: u32, font: &FontArc) -> f32 {
-        let mut size = 48.0;
-        let min_size = 18.0;
+    /// Calculate font size that fits text within max_width (accounting for wrapping up to ~3 lines)
+    fn calculate_font_size_wrapped(
+        &self,
+        text: &str,
+        max_width: u32,
+        font: &FontArc,
+        max_size: f32,
+        min_size: f32,
+    ) -> f32 {
+        let mut size = max_size;
         
         while size > min_size {
             let scale = PxScale::from(size);
-            let width = self.measure_text_width(text, scale, font);
+            let lines = self.wrap_text(text, max_width, scale, font);
             
-            if width <= max_width as i32 {
+            // Accept if it fits in 3 lines or fewer
+            if lines.len() <= 3 {
                 return size;
             }
             
@@ -375,6 +415,44 @@ impl CoverGenerator {
         }
         
         min_size
+    }
+    
+    /// Word-wrap text to fit within max_width pixels
+    fn wrap_text(&self, text: &str, max_width: u32, scale: PxScale, font: &FontArc) -> Vec<String> {
+        let words: Vec<&str> = text.split_whitespace().collect();
+        if words.is_empty() {
+            return vec![text.to_string()];
+        }
+        
+        let mut lines: Vec<String> = Vec::new();
+        let mut current_line = String::new();
+        
+        for word in words {
+            let test_line = if current_line.is_empty() {
+                word.to_string()
+            } else {
+                format!("{} {}", current_line, word)
+            };
+            
+            let width = self.measure_text_width(&test_line, scale, font);
+            
+            if width > max_width as i32 && !current_line.is_empty() {
+                lines.push(current_line);
+                current_line = word.to_string();
+            } else {
+                current_line = test_line;
+            }
+        }
+        
+        if !current_line.is_empty() {
+            lines.push(current_line);
+        }
+        
+        if lines.is_empty() {
+            lines.push(text.to_string());
+        }
+        
+        lines
     }
     
     /// Measure text width at given scale

@@ -3,7 +3,7 @@ import { useReaderStore } from '@/store/readerStore';
 import { api } from '@/lib/tauri';
 import type { BookMetadata } from '@/lib/tauri';
 import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Search, BookOpen, Bookmark } from '@/components/icons';
-import { useUIStore, useReadingSettings } from '@/store/premiumReaderStore';
+import { useUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement } from '@/store/premiumReaderStore';
 import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
 import { ReaderSettings } from './ReaderSettings';
 import { sanitizeBookContent } from '@/lib/sanitize';
@@ -26,8 +26,18 @@ export function MobiReader({ bookPath, bookId }: MobiReaderProps) {
 
     const containerRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
+    const readerContainerRef = useRef<HTMLDivElement>(null);
 
     const autoHideTimerRef = useRef<number | null>(null);
+
+    // ────────────────────────────────────────────────────────────
+    // READER THEME — scoped to this container, not global <html>
+    // ────────────────────────────────────────────────────────────
+    useEffect(() => {
+        const el = readerContainerRef.current;
+        if (el) applyReaderThemeToElement(el, theme);
+        return () => { if (el) removeReaderThemeFromElement(el); };
+    }, [theme]);
 
     // ────────────────────────────────────────────────────────────
     // AUTO-HIDE TOP BAR LOGIC
@@ -236,9 +246,9 @@ export function MobiReader({ bookPath, bookId }: MobiReaderProps) {
     const progressPercentage = progress?.progressPercent || 0;
 
     return (
-        <div className={`premium-reader ${isFocusMode ? 'premium-reader--focus-mode' : ''}`}
+        <div ref={readerContainerRef} className={`premium-reader ${isFocusMode ? 'premium-reader--focus-mode' : ''}`}
             style={{
-                backgroundColor: theme === 'dark' ? '#121212' : '#ffffff',
+                backgroundColor: 'var(--bg-primary)',
             }}
         >
             {/* Auto-hide Top Bar */}

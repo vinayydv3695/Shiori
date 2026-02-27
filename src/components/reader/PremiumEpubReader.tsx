@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { api } from '@/lib/tauri';
 import type { BookMetadata, Chapter } from '@/lib/tauri';
-import { useUIStore, useReadingSettings } from '@/store/premiumReaderStore';
+import { useUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement } from '@/store/premiumReaderStore';
 import { useDoodleStore } from '@/store/doodleStore';
 import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
 import { PremiumSidebar } from './PremiumSidebar';
@@ -155,7 +155,7 @@ function highlightSearchTerm(html: string, searchTerm: string): string {
       border-radius: 2px;
       font-weight: 500;
     }
-    [data-theme="dark"] .search-highlight {
+    [data-reader-theme="dark"] .search-highlight {
       background-color: #f59e0b;
       color: #000;
     }
@@ -193,6 +193,7 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
   // Refs
   const canvasRef = useRef<HTMLDivElement>(null);
   const contentContainerRef = useRef<HTMLDivElement>(null);
+  const readerContainerRef = useRef<HTMLDivElement>(null);
   const autoHideTimerRef = useRef<number | null>(null);
   const pageFlipRef = useRef<PageFlipHandle>(null);
   const scrollPositionsRef = useRef<Map<number, number>>(new Map());
@@ -200,6 +201,19 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
   // Preloaded chapter content for page flip
   const [nextChapterContent, setNextChapterContent] = useState<string | null>(null);
   const [prevChapterContent, setPrevChapterContent] = useState<string | null>(null);
+
+  // ────────────────────────────────────────────────────────────
+  // READER THEME — scoped to this container, not global <html>
+  // ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const el = readerContainerRef.current;
+    if (el) {
+      applyReaderThemeToElement(el, theme);
+    }
+    return () => {
+      if (el) removeReaderThemeFromElement(el);
+    };
+  }, [theme]);
 
   // ────────────────────────────────────────────────────────────
   // AUTO-HIDE TOP BAR LOGIC
@@ -674,7 +688,7 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
     : 0;
 
   return (
-    <div className={`premium-reader ${isFocusMode ? 'premium-reader--focus-mode' : ''}`}>
+    <div ref={readerContainerRef} className={`premium-reader ${isFocusMode ? 'premium-reader--focus-mode' : ''}`}>
       {/* Auto-hide Top Bar */}
       <div className={`premium-top-bar ${!isTopBarVisible ? 'premium-top-bar--hidden' : ''}`}>
         <div className="premium-top-bar-content">

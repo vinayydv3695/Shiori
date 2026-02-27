@@ -1,12 +1,12 @@
 import { Search, Moon, Sun, Plus } from "../icons"
 import { Button } from "../ui/button"
 import { Input } from "../ui/input"
-import { useUIStore } from "../../store/uiStore"
+import { useTheme } from "../../hooks/useTheme"
 import { api } from "../../lib/tauri"
 import { useLibraryStore } from "../../store/libraryStore"
 
 export function Topbar() {
-  const { theme, toggleTheme } = useUIStore()
+  const { theme, toggleTheme } = useTheme()
   const { addBook } = useLibraryStore()
 
   const handleImport = async () => {
@@ -45,10 +45,10 @@ export function Topbar() {
           onClick={toggleTheme}
           className="rounded-full"
         >
-          {theme === "light" ? (
-            <Moon className="h-5 w-5" />
-          ) : (
+          {theme === "black" ? (
             <Sun className="h-5 w-5" />
+          ) : (
+            <Moon className="h-5 w-5" />
           )}
         </Button>
       </div>

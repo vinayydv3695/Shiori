@@ -4,7 +4,7 @@ import { api } from '@/lib/tauri';
 import type { BookMetadata } from '@/lib/tauri';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Loader2, AlertCircle, Search, BookOpen, Bookmark } from '@/components/icons';
-import { useUIStore, useReadingSettings } from '@/store/premiumReaderStore';
+import { useUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement } from '@/store/premiumReaderStore';
 import { ReaderSettings } from './ReaderSettings';
 import '@/styles/premium-reader.css';
 import { Document, Page, pdfjs } from 'react-pdf';
@@ -35,7 +35,17 @@ export function PdfReader({ bookPath, bookId }: PdfReaderProps) {
   const [pdfUrl, setPdfUrl] = useState<string>('');
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const readerContainerRef = useRef<HTMLDivElement>(null);
   const autoHideTimerRef = useRef<number | null>(null);
+
+  // ────────────────────────────────────────────────────────────
+  // READER THEME — scoped to this container, not global <html>
+  // ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const el = readerContainerRef.current;
+    if (el) applyReaderThemeToElement(el, theme);
+    return () => { if (el) removeReaderThemeFromElement(el); };
+  }, [theme]);
 
   // ────────────────────────────────────────────────────────────
   // AUTO-HIDE TOP BAR LOGIC
@@ -209,7 +219,7 @@ export function PdfReader({ bookPath, bookId }: PdfReaderProps) {
   }
 
   return (
-    <div className={`premium-reader ${isFocusMode ? 'premium-reader--focus-mode' : ''}`}>
+    <div ref={readerContainerRef} className={`premium-reader ${isFocusMode ? 'premium-reader--focus-mode' : ''}`}>
       {/* Auto-hide Top Bar */}
       <div className={`premium-top-bar ${!isTopBarVisible ? 'premium-top-bar--hidden' : ''}`}>
         <div className="premium-top-bar-content">
@@ -245,7 +255,7 @@ export function PdfReader({ bookPath, bookId }: PdfReaderProps) {
         ref={containerRef}
         className={`premium-reading-canvas ${isFocusMode ? 'premium-reading-canvas--focus-mode' : ''} flex justify-center`}
         style={{
-          backgroundColor: theme === 'dark' ? '#1a1a1a' : '#f5f5f5',
+          backgroundColor: 'var(--bg-primary)',
         }}
       >
         {isLoading && (

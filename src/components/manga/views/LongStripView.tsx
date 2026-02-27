@@ -3,6 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useMangaContentStore, useMangaUIStore, useMangaSettingsStore } from '@/store/mangaReaderStore';
 import { MangaPageImage } from '../MangaPageImage';
 import { useMangaScroll } from '../hooks/useMangaScroll';
+import { preloadPages } from '../hooks/useMangaPreloader';
 
 /**
  * Long strip (webtoon-style) virtualized scroll view.
@@ -12,9 +13,11 @@ import { useMangaScroll } from '../hooks/useMangaScroll';
 export function LongStripView() {
     const bookId = useMangaContentStore(s => s.bookId);
     const totalPages = useMangaContentStore(s => s.totalPages);
+    const currentPage = useMangaContentStore(s => s.currentPage);
     const pageDimensions = useMangaContentStore(s => s.pageDimensions);
     const setCurrentPage = useMangaContentStore(s => s.setCurrentPage);
     const setScrollProgress = useMangaUIStore(s => s.setScrollProgress);
+    const setTopBarVisible = useMangaUIStore(s => s.setTopBarVisible);
 
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -34,7 +37,7 @@ export function LongStripView() {
         count: totalPages,
         getScrollElement: () => containerRef.current,
         estimateSize,
-        overscan: 2,
+        overscan: 5,
     });
 
     // Track scroll progress and current page
@@ -42,17 +45,32 @@ export function LongStripView() {
         setScrollProgress(progress);
     }, [setScrollProgress]);
 
+    // Auto-hide top bar on scroll down, show on scroll up
     const handleScrollDirection = useCallback((direction: 'up' | 'down') => {
-        // Could be used for auto-hide top bar in strip mode
-    }, []);
+        setTopBarVisible(direction === 'up');
+    }, [setTopBarVisible]);
 
     useMangaScroll(containerRef, handleProgressChange, handleScrollDirection);
 
+    // Preload pages ahead of the current visible range
+    useEffect(() => {
+        if (!bookId || totalPages === 0) return;
+
+        // Preload 5 pages ahead and 2 behind the current page
+        const pagesToPreload: number[] = [];
+        for (let i = -2; i <= 5; i++) {
+            const target = currentPage + i;
+            if (target >= 0 && target < totalPages && target !== currentPage) {
+                pagesToPreload.push(target);
+            }
+        }
+
+        if (pagesToPreload.length > 0) {
+            preloadPages(bookId, pagesToPreload);
+        }
+    }, [bookId, currentPage, totalPages]);
+
     // Detect which page is most visible and update currentPage
-    // NOTE: virtualizer.getVirtualItems() returns a new array every call, so it must NOT
-    // be used as a useEffect dependency (infinite loop). Instead, re-run when the
-    // virtualizer's internal scroll offset changes (exposed via getTotalSize as a proxy)
-    // and when totalPages changes.
     const virtualItems = virtualizer.getVirtualItems();
     const scrollOffset = containerRef.current?.scrollTop ?? 0;
 

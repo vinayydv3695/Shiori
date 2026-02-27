@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X, Save, Loader2, Settings as SettingsIcon } from 'lucide-react';
-import { useUIStore } from '../../store/uiStore';
+import { useTheme } from '../../hooks/useTheme';
 import { useToast } from '../../store/toastStore';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -11,13 +11,17 @@ interface SettingsDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+/**
+ * @deprecated Use src/components/settings/SettingsDialog.tsx instead.
+ * This legacy dialog is kept temporarily for compatibility.
+ */
 export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
-  const { theme, setTheme } = useUIStore();
+  const { theme, setTheme } = useTheme();
   const toast = useToast();
   const [saving, setSaving] = useState(false);
   
   const [settings, setSettings] = useState({
-    theme: theme,
+    theme: theme as string,
     defaultView: 'grid' as 'grid' | 'list' | 'table',
     booksPerPage: '50',
     autoExtractMetadata: true,
@@ -27,7 +31,6 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
   useEffect(() => {
     if (open) {
-      // Load settings
       setSettings({
         theme: theme,
         defaultView: 'grid',
@@ -42,10 +45,9 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Apply theme
-      setTheme(settings.theme);
+      // Apply theme via the canonical system
+      setTheme(settings.theme === 'black' ? 'black' : 'white');
       
-      // Save other settings (to localStorage for now)
       localStorage.setItem('shiori_settings', JSON.stringify(settings));
       
       toast.success('Settings saved', 'Your preferences have been updated');

@@ -134,7 +134,11 @@ export const useOnboardingStore = create<OnboardingState>()(
                     await api.updateUserPreferences(draftConfig as any);
 
                     // 2. Mark onboarding as officially completed
-                    await api.completeOnboarding([]);
+                    // Compute which steps were skipped based on their conditions
+                    const skippedSteps = ONBOARDING_STEPS
+                        .filter(step => step.condition && !step.condition(draftConfig))
+                        .map(step => step.id);
+                    await api.completeOnboarding(skippedSteps);
 
                     // 3. Hydrate the main preferences store so the app catches up
                     await usePreferencesStore.getState().loadPreferences();

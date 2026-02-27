@@ -6,7 +6,7 @@ use tauri::State;
 
 #[tauri::command]
 pub fn export_library(state: State<AppState>, options: ExportOptions) -> Result<String> {
-    let db = state.db.lock().unwrap();
+    let db = &state.db;
 
     // Convert string format to enum
     let format = match options.format.to_lowercase().as_str() {

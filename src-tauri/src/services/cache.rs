@@ -1,7 +1,7 @@
 use lru::LruCache;
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroUsize;
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 /// Cache entry for rendered content
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29,11 +29,16 @@ pub enum CacheItemType {
     Resource,
 }
 
+/// Internal state protected by a single mutex to prevent deadlocks
+struct CacheState {
+    lru: LruCache<CacheKey, CachedContent>,
+    current_size_bytes: usize,
+}
+
 /// In-memory LRU cache for book content
 pub struct BookCache {
-    cache: Arc<Mutex<LruCache<CacheKey, CachedContent>>>,
+    state: Mutex<CacheState>,
     max_size_bytes: usize,
-    current_size_bytes: Arc<Mutex<usize>>,
 }
 
 impl BookCache {
@@ -43,58 +48,56 @@ impl BookCache {
         let capacity = NonZeroUsize::new(1000).unwrap(); // Max 1000 items
 
         Self {
-            cache: Arc::new(Mutex::new(LruCache::new(capacity))),
+            state: Mutex::new(CacheState {
+                lru: LruCache::new(capacity),
+                current_size_bytes: 0,
+            }),
             max_size_bytes,
-            current_size_bytes: Arc::new(Mutex::new(0)),
         }
     }
 
     /// Get an item from the cache
     pub fn get(&self, key: &CacheKey) -> Option<CachedContent> {
-        let mut cache = self.cache.lock().unwrap();
-        cache.get(key).cloned()
+        let mut state = self.state.lock().unwrap();
+        state.lru.get(key).cloned()
     }
 
     /// Put an item into the cache
     pub fn put(&self, key: CacheKey, content: CachedContent) {
-        let content_size = self.estimate_content_size(&content);
+        let content_size = Self::estimate_content_size(&content);
+        let mut state = self.state.lock().unwrap();
 
-        // Check if adding this would exceed memory budget
-        let mut current_size = self.current_size_bytes.lock().unwrap();
-        while *current_size + content_size > self.max_size_bytes {
-            // Evict oldest item
-            let mut cache = self.cache.lock().unwrap();
-            if let Some((_, evicted)) = cache.pop_lru() {
-                *current_size -= self.estimate_content_size(&evicted);
+        // Evict oldest items until we have space
+        while state.current_size_bytes + content_size > self.max_size_bytes {
+            if let Some((_, evicted)) = state.lru.pop_lru() {
+                state.current_size_bytes -= Self::estimate_content_size(&evicted);
             } else {
                 break; // Cache is empty
             }
         }
 
         // Add new item
-        let mut cache = self.cache.lock().unwrap();
-        if let Some(old_content) = cache.put(key, content.clone()) {
-            // Replace existing item
-            *current_size -= self.estimate_content_size(&old_content);
+        if let Some(old_content) = state.lru.put(key, content) {
+            // Replace existing item — subtract old size
+            state.current_size_bytes -= Self::estimate_content_size(&old_content);
         }
-        *current_size += content_size;
+        state.current_size_bytes += content_size;
     }
 
     /// Clear all cached items
     pub fn clear(&self) {
-        let mut cache = self.cache.lock().unwrap();
-        cache.clear();
-        let mut size = self.current_size_bytes.lock().unwrap();
-        *size = 0;
+        let mut state = self.state.lock().unwrap();
+        state.lru.clear();
+        state.current_size_bytes = 0;
     }
 
     /// Clear cache for a specific book
     pub fn clear_book(&self, book_id: i64) {
-        let mut cache = self.cache.lock().unwrap();
-        let mut size = self.current_size_bytes.lock().unwrap();
+        let mut state = self.state.lock().unwrap();
 
         // Collect keys to remove
-        let keys_to_remove: Vec<CacheKey> = cache
+        let keys_to_remove: Vec<CacheKey> = state
+            .lru
             .iter()
             .filter_map(|(k, _)| {
                 if k.book_id == book_id {
@@ -107,27 +110,27 @@ impl BookCache {
 
         // Remove items and update size
         for key in keys_to_remove {
-            if let Some(content) = cache.pop(&key) {
-                *size -= self.estimate_content_size(&content);
+            if let Some(content) = state.lru.pop(&key) {
+                state.current_size_bytes -= Self::estimate_content_size(&content);
             }
         }
     }
 
     /// Get current cache statistics
     pub fn stats(&self) -> CacheStats {
-        let cache = self.cache.lock().unwrap();
-        let size = self.current_size_bytes.lock().unwrap();
+        let state = self.state.lock().unwrap();
 
         CacheStats {
-            item_count: cache.len(),
-            size_bytes: *size,
+            item_count: state.lru.len(),
+            size_bytes: state.current_size_bytes,
             max_size_bytes: self.max_size_bytes,
-            utilization_percent: (*size as f64 / self.max_size_bytes as f64 * 100.0) as u32,
+            utilization_percent: (state.current_size_bytes as f64 / self.max_size_bytes as f64
+                * 100.0) as u32,
         }
     }
 
     /// Estimate content size in bytes
-    fn estimate_content_size(&self, content: &CachedContent) -> usize {
+    fn estimate_content_size(content: &CachedContent) -> usize {
         match content {
             CachedContent::Html(s) | CachedContent::Text(s) => s.len(),
             CachedContent::Image(data) => data.len(),

@@ -63,6 +63,9 @@ pub enum ShioriError {
     #[error("Unsupported feature: {0}")]
     UnsupportedFeature(String),
 
+    #[error("Validation error: {0}")]
+    Validation(String),
+
     #[error("Book file is empty or truncated")]
     EmptyOrTruncatedFile { path: String },
 
@@ -124,6 +127,7 @@ impl ShioriError {
             }
             Self::BookNotFound(msg) => format!("Book not found: {}", msg),
             Self::InvalidFormat(msg) => format!("Invalid format: {}", msg),
+            Self::Validation(msg) => format!("Invalid input: {}", msg),
             _ => self.to_string(),
         }
     }
@@ -189,6 +193,37 @@ impl ShioriError {
             _ => format!("{:?}", self),
         }
     }
+
+    /// Get the error kind for structured error classification
+    pub fn error_kind(&self) -> &'static str {
+        match self {
+            Self::Database(_) => "database",
+            Self::Io(_) => "io",
+            Self::Serialization(_) => "serialization",
+            Self::Csv(_) => "serialization",
+            Self::LopdfError(_) | Self::CorruptedPdf { .. } | Self::PdfRenderFailed { .. } => {
+                "rendering"
+            }
+            Self::BookNotFound(_) => "not_found",
+            Self::TagNotFound(_) => "not_found",
+            Self::InvalidFormat(_)
+            | Self::UnsupportedFormat { .. }
+            | Self::FormatDetectionFailed { .. } => "format",
+            Self::MetadataExtraction(_) => "metadata",
+            Self::DuplicateBook(_) => "duplicate",
+            Self::InvalidOperation(_) => "invalid_operation",
+            Self::FileNotFound { .. } => "file_not_found",
+            Self::FilePermissionDenied { .. } => "permission",
+            Self::CorruptedEpub { .. }
+            | Self::EpubParseFailed { .. }
+            | Self::ChapterReadFailed { .. } => "rendering",
+            Self::UnsupportedFeature(_) => "unsupported",
+            Self::Validation(_) => "validation",
+            Self::EmptyOrTruncatedFile { .. } => "corrupted",
+            Self::FileSizeLimitExceeded { .. } => "size_limit",
+            Self::Other(_) => "unknown",
+        }
+    }
 }
 
 impl serde::Serialize for ShioriError {
@@ -196,9 +231,15 @@ impl serde::Serialize for ShioriError {
     where
         S: serde::Serializer,
     {
-        serializer.serialize_str(&self.to_string())
+        use serde::ser::SerializeStruct;
+        let mut state = serializer.serialize_struct("ShioriError", 5)?;
+        state.serialize_field("message", &self.to_string())?;
+        state.serialize_field("userMessage", &self.user_message())?;
+        state.serialize_field("suggestions", &self.recovery_suggestions())?;
+        state.serialize_field("technicalDetails", &self.technical_details())?;
+        state.serialize_field("kind", &self.error_kind())?;
+        state.end()
     }
 }
 
 pub type Result<T> = std::result::Result<T, ShioriError>;
-pub type ShioriResult<T> = std::result::Result<T, ShioriError>;

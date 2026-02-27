@@ -2,6 +2,7 @@ use std::sync::Arc;
 use tauri::State;
 use uuid::Uuid;
 
+use crate::error::ShioriError;
 use crate::services::cover_service::CoverService;
 use crate::services::format_adapter::BookMetadata;
 
@@ -12,9 +13,9 @@ pub async fn generate_cover(
     book_id: String,
     title: String,
     authors: Option<Vec<String>>,
-) -> Result<String, String> {
+) -> crate::error::Result<String> {
     let uuid = Uuid::parse_str(&book_id)
-        .map_err(|e| format!("Invalid book ID: {}", e))?;
+        .map_err(|e| ShioriError::Other(format!("Invalid book ID: {}", e)))?;
     
     let metadata = BookMetadata {
         title,
@@ -24,7 +25,7 @@ pub async fn generate_cover(
     
     let cover_set = service.get_or_generate_cover(uuid, None, &metadata)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| ShioriError::Other(e.to_string()))?;
     
     Ok(cover_set.medium.to_string_lossy().to_string())
 }
@@ -35,9 +36,9 @@ pub async fn get_book_cover(
     book_id: String,
     title: String,
     authors: Option<Vec<String>>,
-) -> Result<String, String> {
+) -> crate::error::Result<String> {
     let uuid = Uuid::parse_str(&book_id)
-        .map_err(|e| format!("Invalid book ID: {}", e))?;
+        .map_err(|e| ShioriError::Other(format!("Invalid book ID: {}", e)))?;
     
     let metadata = BookMetadata {
         title,
@@ -47,7 +48,7 @@ pub async fn get_book_cover(
     
     let cover_set = service.get_or_generate_cover(uuid, None, &metadata)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| ShioriError::Other(e.to_string()))?;
     
     Ok(cover_set.medium.to_string_lossy().to_string())
 }
@@ -59,9 +60,9 @@ pub async fn get_book_cover_bytes(
     book_id: String,
     title: String,
     authors: Option<Vec<String>>,
-) -> Result<tauri::ipc::Response, String> {
+) -> crate::error::Result<tauri::ipc::Response> {
     let uuid = Uuid::parse_str(&book_id)
-        .map_err(|e| format!("Invalid book ID: {}", e))?;
+        .map_err(|e| ShioriError::Other(format!("Invalid book ID: {}", e)))?;
     
     let metadata = BookMetadata {
         title,
@@ -71,10 +72,10 @@ pub async fn get_book_cover_bytes(
     
     let cover_set = service.get_or_generate_cover(uuid, None, &metadata)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| ShioriError::Other(e.to_string()))?;
     
     let bytes = tokio::fs::read(&cover_set.medium).await
-        .map_err(|e| format!("Failed to read cover image: {}", e))?;
+        .map_err(|e| ShioriError::Io(e))?;
         
     Ok(tauri::ipc::Response::new(bytes))
 }
@@ -85,10 +86,10 @@ pub async fn get_cover_by_id(
     app_state: State<'_, crate::AppState>,
     service: State<'_, Arc<CoverService>>,
     id: i64,
-) -> Result<tauri::ipc::Response, String> {
+) -> crate::error::Result<tauri::ipc::Response> {
     let book = {
-        let db = app_state.db.lock().unwrap();
-        crate::services::library_service::get_book_by_id(&db, id).map_err(|e| e.to_string())?
+        let db = &app_state.db;
+        crate::services::library_service::get_book_by_id(db, id)?
     };
 
     // First, try to use the extracted cover from database if it exists
@@ -104,7 +105,7 @@ pub async fn get_cover_by_id(
     // Fallback: Generate or get cover from CoverService
     log::debug!("[get_cover_by_id] No extracted cover, using CoverService for book: {}", book.title);
     let uuid = Uuid::parse_str(&book.uuid)
-        .map_err(|e| format!("Invalid book UUID: {}", e))?;
+        .map_err(|e| ShioriError::Other(format!("Invalid book UUID: {}", e)))?;
 
     let metadata = BookMetadata {
         title: book.title.clone(),
@@ -114,10 +115,10 @@ pub async fn get_cover_by_id(
 
     let cover_set = service.get_or_generate_cover(uuid, None, &metadata)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| ShioriError::Other(e.to_string()))?;
 
     let bytes = tokio::fs::read(&cover_set.medium).await
-        .map_err(|e| format!("Failed to read cover image: {}", e))?;
+        .map_err(|e| ShioriError::Io(e))?;
 
     Ok(tauri::ipc::Response::new(bytes))
 }
@@ -126,7 +127,7 @@ pub async fn get_cover_by_id(
 #[tauri::command]
 pub async fn clear_cover_cache(
     service: State<'_, Arc<CoverService>>,
-) -> Result<(), String> {
+) -> crate::error::Result<()> {
     service.inner().clear_cache().await;
     Ok(())
 }

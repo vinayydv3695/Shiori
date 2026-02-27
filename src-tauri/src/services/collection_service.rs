@@ -1,4 +1,4 @@
-use crate::error::ShioriResult;
+use crate::error::Result;
 use crate::models::{Book, Collection, SmartRule};
 use chrono::Utc;
 use rusqlite::{params, Connection, Row};
@@ -9,7 +9,7 @@ pub struct CollectionService;
 impl CollectionService {
     // ==================== Collection CRUD ====================
 
-    pub fn get_collections(conn: &Connection) -> ShioriResult<Vec<Collection>> {
+    pub fn get_collections(conn: &Connection) -> Result<Vec<Collection>> {
         let mut stmt = conn.prepare(
             "SELECT id, name, description, parent_id, is_smart, smart_rules, icon, color, 
                     sort_order, created_at, updated_at
@@ -19,7 +19,7 @@ impl CollectionService {
 
         let collections = stmt
             .query_map([], |row| Self::collection_from_row(row))?
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<std::result::Result<Vec<_>, _>>()?;
 
         // Calculate book counts for each collection
         let mut collections_with_counts = Vec::new();
@@ -31,7 +31,7 @@ impl CollectionService {
         Ok(collections_with_counts)
     }
 
-    pub fn get_collection(conn: &Connection, id: i64) -> ShioriResult<Collection> {
+    pub fn get_collection(conn: &Connection, id: i64) -> Result<Collection> {
         let mut stmt = conn.prepare(
             "SELECT id, name, description, parent_id, is_smart, smart_rules, icon, color,
                     sort_order, created_at, updated_at
@@ -54,7 +54,7 @@ impl CollectionService {
         smart_rules: Option<&str>,
         icon: Option<&str>,
         color: Option<&str>,
-    ) -> ShioriResult<Collection> {
+    ) -> Result<Collection> {
         let now = Utc::now().to_rfc3339();
 
         conn.execute(
@@ -76,7 +76,7 @@ impl CollectionService {
         smart_rules: Option<&str>,
         icon: Option<&str>,
         color: Option<&str>,
-    ) -> ShioriResult<()> {
+    ) -> Result<()> {
         let now = Utc::now().to_rfc3339();
 
         conn.execute(
@@ -99,7 +99,7 @@ impl CollectionService {
         Ok(())
     }
 
-    pub fn delete_collection(conn: &Connection, id: i64) -> ShioriResult<()> {
+    pub fn delete_collection(conn: &Connection, id: i64) -> Result<()> {
         conn.execute("DELETE FROM collections WHERE id = ?1", params![id])?;
         Ok(())
     }
@@ -110,7 +110,7 @@ impl CollectionService {
         conn: &Connection,
         collection_id: i64,
         book_id: i64,
-    ) -> ShioriResult<()> {
+    ) -> Result<()> {
         let now = Utc::now().to_rfc3339();
 
         // Check if collection is smart
@@ -139,7 +139,7 @@ impl CollectionService {
         conn: &Connection,
         collection_id: i64,
         book_id: i64,
-    ) -> ShioriResult<()> {
+    ) -> Result<()> {
         conn.execute(
             "DELETE FROM collections_books WHERE collection_id = ?1 AND book_id = ?2",
             params![collection_id, book_id],
@@ -152,7 +152,7 @@ impl CollectionService {
         conn: &Connection,
         collection_id: i64,
         book_ids: Vec<i64>,
-    ) -> ShioriResult<()> {
+    ) -> Result<()> {
         let now = Utc::now().to_rfc3339();
 
         let tx = conn.unchecked_transaction()?;
@@ -169,7 +169,7 @@ impl CollectionService {
         Ok(())
     }
 
-    pub fn get_collection_books(conn: &Connection, collection_id: i64) -> ShioriResult<Vec<Book>> {
+    pub fn get_collection_books(conn: &Connection, collection_id: i64) -> Result<Vec<Book>> {
         // Check if smart collection
         let collection = Self::get_collection(conn, collection_id)?;
 
@@ -186,7 +186,7 @@ impl CollectionService {
         }
     }
 
-    fn get_books_from_junction(conn: &Connection, collection_id: i64) -> ShioriResult<Vec<Book>> {
+    fn get_books_from_junction(conn: &Connection, collection_id: i64) -> Result<Vec<Book>> {
         let mut stmt = conn.prepare(
             "SELECT b.id, b.uuid, b.title, b.sort_title, b.isbn, b.isbn13, b.publisher, 
                     b.pubdate, b.series, b.series_index, b.rating, b.file_path, b.file_format,
@@ -233,13 +233,13 @@ impl CollectionService {
                     tags: Vec::new(),
                 })
             })?
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<std::result::Result<Vec<_>, _>>()?;
 
         // TODO: Load authors and tags for each book
         Ok(books)
     }
 
-    fn get_books_by_smart_rules(conn: &Connection, rules_json: &str) -> ShioriResult<Vec<Book>> {
+    fn get_books_by_smart_rules(conn: &Connection, rules_json: &str) -> Result<Vec<Book>> {
         let rules: Vec<SmartRule> = serde_json::from_str(rules_json).map_err(|e| {
             crate::error::ShioriError::InvalidOperation(format!("Invalid smart rules: {}", e))
         })?;
@@ -340,7 +340,7 @@ impl CollectionService {
                     tags: Vec::new(),
                 })
             })?
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<std::result::Result<Vec<_>, _>>()?;
 
         Ok(books)
     }
@@ -365,7 +365,7 @@ impl CollectionService {
         })
     }
 
-    fn get_book_count(conn: &Connection, collection_id: i64) -> ShioriResult<i64> {
+    fn get_book_count(conn: &Connection, collection_id: i64) -> Result<i64> {
         let collection = conn.query_row(
             "SELECT is_smart, smart_rules FROM collections WHERE id = ?1",
             params![collection_id],
@@ -391,7 +391,7 @@ impl CollectionService {
         }
     }
 
-    pub fn get_nested_collections(conn: &Connection) -> ShioriResult<Vec<Collection>> {
+    pub fn get_nested_collections(conn: &Connection) -> Result<Vec<Collection>> {
         // Get all collections
         let all_collections = Self::get_collections(conn)?;
 

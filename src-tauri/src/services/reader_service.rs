@@ -1,4 +1,4 @@
-use crate::error::ShioriResult;
+use crate::error::Result;
 use crate::models::{Annotation, ReaderSettings, ReadingProgress};
 use chrono::Utc;
 use rusqlite::{params, Connection};
@@ -11,7 +11,7 @@ impl ReaderService {
     pub fn get_reading_progress(
         conn: &Connection,
         book_id: i64,
-    ) -> ShioriResult<Option<ReadingProgress>> {
+    ) -> Result<Option<ReadingProgress>> {
         let mut stmt = conn.prepare(
             "SELECT id, book_id, current_location, progress_percent, current_page, total_pages, last_read
              FROM reading_progress
@@ -44,7 +44,7 @@ impl ReaderService {
         progress_percent: f64,
         current_page: Option<i32>,
         total_pages: Option<i32>,
-    ) -> ShioriResult<ReadingProgress> {
+    ) -> Result<ReadingProgress> {
         let now = Utc::now().to_rfc3339();
 
         // Check if progress exists
@@ -103,7 +103,7 @@ impl ReaderService {
 
     // ==================== Annotations ====================
 
-    pub fn get_annotations(conn: &Connection, book_id: i64) -> ShioriResult<Vec<Annotation>> {
+    pub fn get_annotations(conn: &Connection, book_id: i64) -> Result<Vec<Annotation>> {
         let mut stmt = conn.prepare(
             "SELECT id, book_id, type, location, cfi_range, selected_text, 
                     note_content, color, created_at, updated_at
@@ -127,7 +127,7 @@ impl ReaderService {
                     updated_at: row.get(9)?,
                 })
             })?
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<std::result::Result<Vec<_>, _>>()?;
 
         Ok(annotations)
     }
@@ -141,7 +141,7 @@ impl ReaderService {
         selected_text: Option<&str>,
         note_content: Option<&str>,
         color: &str,
-    ) -> ShioriResult<Annotation> {
+    ) -> Result<Annotation> {
         let now = Utc::now().to_rfc3339();
 
         conn.execute(
@@ -182,7 +182,7 @@ impl ReaderService {
         id: i64,
         note_content: Option<&str>,
         color: Option<&str>,
-    ) -> ShioriResult<()> {
+    ) -> Result<()> {
         let now = Utc::now().to_rfc3339();
 
         // Build dynamic query based on what's being updated
@@ -203,14 +203,14 @@ impl ReaderService {
         Ok(())
     }
 
-    pub fn delete_annotation(conn: &Connection, id: i64) -> ShioriResult<()> {
+    pub fn delete_annotation(conn: &Connection, id: i64) -> Result<()> {
         conn.execute("DELETE FROM annotations WHERE id = ?1", params![id])?;
         Ok(())
     }
 
     // ==================== Reader Settings ====================
 
-    pub fn get_reader_settings(conn: &Connection, user_id: &str) -> ShioriResult<ReaderSettings> {
+    pub fn get_reader_settings(conn: &Connection, user_id: &str) -> Result<ReaderSettings> {
         let mut stmt = conn.prepare(
             "SELECT user_id, font_family, font_size, line_height, theme, page_mode, margin_size, updated_at
              FROM reader_settings
@@ -260,7 +260,7 @@ impl ReaderService {
         theme: &str,
         page_mode: &str,
         margin_size: i32,
-    ) -> ShioriResult<ReaderSettings> {
+    ) -> Result<ReaderSettings> {
         let now = Utc::now().to_rfc3339();
 
         // Check if settings exist

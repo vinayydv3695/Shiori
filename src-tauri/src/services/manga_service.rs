@@ -318,23 +318,51 @@ impl MangaService {
         Ok(())
     }
 
-    /// Get page dimensions for given indices
+    /// Get page dimensions for given indices.
+    /// Lazily computes real dimensions from the archive, caching them for future calls.
     pub fn get_page_dimensions(
         &self,
         book_id: i64,
         page_indices: &[usize],
     ) -> Result<Vec<(u32, u32)>> {
-        let books = self.open_books.lock().unwrap();
-        let manga = books.get(&book_id).ok_or_else(|| {
+        let mut books = self.open_books.lock().unwrap();
+        let manga = books.get_mut(&book_id).ok_or_else(|| {
             ShioriError::BookNotFound(format!("Manga {} not open", book_id))
         })?;
+
+        // Check which pages still have placeholder dimensions and need resolving
+        let placeholder = (800u32, 1200u32);
+        let needs_resolve: Vec<usize> = page_indices
+            .iter()
+            .copied()
+            .filter(|&idx| {
+                idx < manga.page_dimensions.len()
+                    && manga.page_dimensions[idx] == placeholder
+            })
+            .collect();
+
+        if !needs_resolve.is_empty() {
+            // Open archive once and resolve all needed dimensions
+            if let Ok(file) = std::fs::File::open(&manga.file_path) {
+                if let Ok(mut archive) = ZipArchive::new(file) {
+                    for &idx in &needs_resolve {
+                        if idx < manga.sorted_pages.len() {
+                            let page_name = &manga.sorted_pages[idx];
+                            if let Some(dims) = Self::read_image_dimensions(&mut archive, page_name) {
+                                manga.page_dimensions[idx] = dims;
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         let mut dims = Vec::with_capacity(page_indices.len());
         for &idx in page_indices {
             if idx < manga.page_dimensions.len() {
                 dims.push(manga.page_dimensions[idx]);
             } else {
-                dims.push((800, 1200)); // Fallback
+                dims.push(placeholder);
             }
         }
         Ok(dims)
@@ -356,7 +384,31 @@ impl MangaService {
 
     // ─── Private helpers ───────────────────────────────────
 
+    /// Read image dimensions from archive entry using header-only decode.
+    /// Falls back to full decode if header-only fails.
+    fn read_image_dimensions(
+        archive: &mut ZipArchive<std::fs::File>,
+        filename: &str,
+    ) -> Option<(u32, u32)> {
+        let mut file = archive.by_name(filename).ok()?;
+        let mut buf = Vec::new();
+        file.read_to_end(&mut buf).ok()?;
+
+        // Try header-only decode first (fast — doesn't load full pixel data)
+        let reader = image::ImageReader::new(Cursor::new(&buf))
+            .with_guessed_format()
+            .ok()?;
+        if let Ok((w, h)) = reader.into_dimensions() {
+            return Some((w, h));
+        }
+
+        // Fallback: full decode
+        let img = image::load_from_memory(&buf).ok()?;
+        Some(img.dimensions())
+    }
+
     /// Read image dimensions from archive entry (header-only decode)
+    #[allow(dead_code)]
     fn get_image_dimensions_from_archive(
         archive: &mut ZipArchive<std::fs::File>,
         filename: &str,

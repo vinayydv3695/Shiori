@@ -57,19 +57,19 @@ export function UiScaleStep() {
                     <div className="grid grid-cols-2 gap-3">
                         {[
                             { value: "compact" as const, label: "Compact", desc: "Less padding, more data on screen" },
-                            { value: " आरामदायक" /* oops replacing comfortable */, label: "Comfortable", desc: "More spacing, easier boundaries" }
+                            { value: "comfortable" as const, label: "Comfortable", desc: "More spacing, easier boundaries" }
                         ].map((option) => (
                             <button
                                 key={option.value}
-                                onClick={() => setDraftValue('uiDensity', option.value === ' आरामदायक' ? 'comfortable' : 'compact')}
+                                onClick={() => setDraftValue('uiDensity', option.value)}
                                 className={cn(
                                     "p-4 rounded-lg border-2 transition-all text-left",
-                                    uiDensity === (option.value === ' आरामदायक' ? 'comfortable' : 'compact')
+                                    uiDensity === option.value
                                         ? "border-primary bg-primary/5"
                                         : "border-border bg-background hover:bg-muted"
                                 )}
                             >
-                                <div className="font-semibold text-sm">{option.label === ' आरामदायक' ? 'Comfortable' : 'Compact'}</div>
+                                <div className="font-semibold text-sm">{option.label}</div>
                                 <div className="text-xs text-muted-foreground mt-1 leading-relaxed">{option.desc}</div>
                             </button>
                         ))}

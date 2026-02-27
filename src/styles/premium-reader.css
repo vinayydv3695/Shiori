@@ -1231,13 +1231,13 @@ select {
 }
 
 /* ────────────────────────────────────────────────────────────
-   DARK THEME ADJUSTMENTS
+   DARK THEME ADJUSTMENTS (scoped to reader container)
    ──────────────────────────────────────────────────────────── */
-[data-theme="dark"] {
+[data-reader-theme="dark"] {
   color-scheme: dark;
 }
 
-[data-theme="dark"] .premium-chapter-content img {
+[data-reader-theme="dark"] .premium-chapter-content img {
   opacity: 0.9;
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { Layout } from "./components/layout/Layout"
 import { LibraryGrid } from "./components/library/LibraryGrid"
 import { ReaderLayout } from "./components/reader/ReaderLayout"
@@ -19,6 +19,8 @@ import { useLibraryStore } from "./store/libraryStore"
 import { useReaderStore } from "./store/readerStore"
 import { useUIStore } from "./store/uiStore"
 import { useCollectionStore } from "./store/collectionStore"
+import { useConversionStore } from "./store/conversionStore"
+import { useToastStore } from "./store/toastStore"
 import { api, type Book } from "./lib/tauri"
 
 function App() {
@@ -78,24 +80,38 @@ function App() {
     loadInitialBooks();
   }, [loadInitialBooks])
 
+  // Initialize conversion event listeners once at app startup
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    useConversionStore.getState().initEventListeners().then((fn) => {
+      unlisten = fn;
+    });
+    return () => {
+      unlisten?.();
+    };
+  }, [])
+
   useEffect(() => {
     // Filter books when collection changes
+    let aborted = false;
+
     const filterByCollection = async () => {
       if (!selectedCollection) {
-        setFilteredBooks(books)
+        if (!aborted) setFilteredBooks(books)
         return
       }
 
       try {
         const collectionBooks = await api.getCollectionBooks(selectedCollection.id!)
-        setFilteredBooks(collectionBooks)
+        if (!aborted) setFilteredBooks(collectionBooks)
       } catch (error) {
         console.error("Failed to load collection books:", error)
-        setFilteredBooks([])
+        if (!aborted) setFilteredBooks([])
       }
     }
 
     filterByCollection()
+    return () => { aborted = true }
   }, [selectedCollection, books])
 
   const handleOpenBook = async (bookId: number) => {
@@ -110,7 +126,11 @@ function App() {
       console.log('[App] Book opened successfully')
     } catch (error) {
       console.error("[App] Failed to open book:", error)
-      alert(`Failed to open book: ${error}`)
+      useToastStore.getState().addToast({
+        title: "Failed to open book",
+        description: String(error),
+        variant: "error",
+      })
     }
   }
 
@@ -139,9 +159,23 @@ function App() {
   const handleDownloadBook = (bookId: number) => {
     const book = books.find(b => b.id === bookId)
     if (book) {
-      // Show file location - user can copy/open from there
-      console.log('Book file path:', book.file_path)
-      alert(`Book file location:\n${book.file_path}\n\nYou can copy this file from the location shown above.`)
+      // Copy file path to clipboard and notify via toast
+      navigator.clipboard.writeText(book.file_path).then(
+        () => {
+          useToastStore.getState().addToast({
+            title: "File path copied",
+            description: book.file_path,
+            variant: "info",
+          })
+        },
+        () => {
+          useToastStore.getState().addToast({
+            title: "Book file location",
+            description: book.file_path,
+            variant: "info",
+          })
+        }
+      )
     }
   }
 
@@ -344,12 +378,14 @@ function App() {
 
       <ToastContainer />
 
-      {/* Dialogs — always mounted; visibility controlled by open prop only */}
-      <EditMetadataDialog
-        open={editDialogOpen}
-        onOpenChange={setEditDialogOpen}
-        bookId={dialogBookId ?? 0}
-      />
+      {/* Dialogs — only render when we have a valid bookId */}
+      {dialogBookId !== null && (
+        <EditMetadataDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          bookId={dialogBookId}
+        />
+      )}
       <DeleteBookDialog
         open={deleteDialogOpen}
         onOpenChange={(open) => {
@@ -385,17 +421,21 @@ function App() {
         onOpenChange={setSettingsDialogOpen}
       />
       {/* Conversion Dialog */}
-      <ConversionDialog
-        open={conversionDialogOpen}
-        onOpenChange={(open) => setConversionDialogOpen(open)}
-        bookId={dialogBookId ?? 0}
-      />
-      <ShareBookDialog
-        isOpen={shareDialogOpen}
-        onClose={() => setShareDialogOpen(false)}
-        bookId={dialogBookId ?? 0}
-        bookTitle={dialogBookTitle}
-      />
+      {dialogBookId !== null && (
+        <ConversionDialog
+          open={conversionDialogOpen}
+          onOpenChange={(open) => setConversionDialogOpen(open)}
+          bookId={dialogBookId}
+        />
+      )}
+      {dialogBookId !== null && (
+        <ShareBookDialog
+          isOpen={shareDialogOpen}
+          onClose={() => setShareDialogOpen(false)}
+          bookId={dialogBookId}
+          bookTitle={dialogBookTitle}
+        />
+      )}
     </>
   )
 }

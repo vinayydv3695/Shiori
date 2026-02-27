@@ -3,7 +3,7 @@
 /// Thread-safe service for extracting and caching manga page images.
 /// Uses natural sort for page ordering and optional image downscaling.
 
-use crate::error::{ShioriError, ShioriResult};
+use crate::error::{ShioriError, Result};
 use image::GenericImageView;
 use std::collections::HashMap;
 use std::io::{Cursor, Read};
@@ -112,7 +112,7 @@ impl MangaService {
     }
 
     /// Open a manga archive and prepare it for reading
-    pub fn open(&self, book_id: i64, path: &str) -> ShioriResult<MangaMetadata> {
+    pub fn open(&self, book_id: i64, path: &str) -> Result<MangaMetadata> {
         println!("\n=== OPEN_MANGA ===");
         println!("book_id: {}, path: {}", book_id, path);
 
@@ -206,7 +206,7 @@ impl MangaService {
         book_id: i64,
         page_index: usize,
         max_dimension: u32,
-    ) -> ShioriResult<Vec<u8>> {
+    ) -> Result<Vec<u8>> {
         // Check cache first
         let cache_key = (book_id, page_index, max_dimension);
         {
@@ -236,7 +236,7 @@ impl MangaService {
         };
 
         // Extract image bytes from ZIP (CPU intensive for large zips, use spawn_blocking)
-        let image_bytes = tokio::task::spawn_blocking(move || -> ShioriResult<Vec<u8>> {
+        let image_bytes = tokio::task::spawn_blocking(move || -> Result<Vec<u8>> {
             let file = std::fs::File::open(&file_path).map_err(|e| {
                 ShioriError::Other(format!("Failed to open manga file: {}", e))
             })?;
@@ -258,7 +258,7 @@ impl MangaService {
         }).await.map_err(|e| ShioriError::Other(format!("Task Join Error: {}", e)))??;
 
         // Optionally downscale (Also in the blocking task to avoid dropping frames)
-        let result_bytes = tokio::task::spawn_blocking(move || -> ShioriResult<Vec<u8>> {
+        let result_bytes = tokio::task::spawn_blocking(move || -> Result<Vec<u8>> {
              if max_dimension > 0 {
                  let reader = image::ImageReader::new(Cursor::new(&image_bytes))
                      .with_guessed_format()
@@ -302,7 +302,7 @@ impl MangaService {
         book_id: i64,
         page_indices: &[usize],
         max_dimension: u32,
-    ) -> ShioriResult<()> {
+    ) -> Result<()> {
         for &idx in page_indices {
             let cache_key = (book_id, idx, max_dimension);
             // Skip if already cached
@@ -323,7 +323,7 @@ impl MangaService {
         &self,
         book_id: i64,
         page_indices: &[usize],
-    ) -> ShioriResult<Vec<(u32, u32)>> {
+    ) -> Result<Vec<(u32, u32)>> {
         let books = self.open_books.lock().unwrap();
         let manga = books.get(&book_id).ok_or_else(|| {
             ShioriError::BookNotFound(format!("Manga {} not open", book_id))

@@ -1,4 +1,4 @@
-use crate::error::{ShioriError, ShioriResult};
+use crate::error::{ShioriError, Result};
 use crate::services::renderer::{
     BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry,
 };
@@ -27,7 +27,7 @@ unsafe impl Sync for MobiAdapter {}
 
 #[async_trait]
 impl BookReaderAdapter for MobiAdapter {
-    async fn load(&mut self, path: &str) -> ShioriResult<()> {
+    async fn load(&mut self, path: &str) -> Result<()> {
         let file_data = fs::read(path).map_err(|e| ShioriError::Io(e))?;
         
         let m = Mobi::from_read(&mut &file_data[..])
@@ -63,13 +63,13 @@ impl BookReaderAdapter for MobiAdapter {
         Ok(())
     }
 
-    fn get_metadata(&self) -> ShioriResult<BookMetadata> {
+    fn get_metadata(&self) -> Result<BookMetadata> {
         self.metadata
             .clone()
             .ok_or_else(|| ShioriError::Other("Metadata not loaded".to_string()))
     }
 
-    fn get_toc(&self) -> ShioriResult<Vec<TocEntry>> {
+    fn get_toc(&self) -> Result<Vec<TocEntry>> {
         // MOBI crate does not easily expose TOC records from EXTH headers out-of-the-box
         // We will just provide a single entry for the whole book
         Ok(vec![TocEntry {
@@ -80,7 +80,7 @@ impl BookReaderAdapter for MobiAdapter {
         }])
     }
 
-    fn get_chapter(&self, index: usize) -> ShioriResult<Chapter> {
+    fn get_chapter(&self, index: usize) -> Result<Chapter> {
         if index > 0 {
             return Err(ShioriError::ChapterReadFailed {
                 chapter_index: index,
@@ -100,7 +100,7 @@ impl BookReaderAdapter for MobiAdapter {
         1
     }
 
-    fn search(&self, query: &str) -> ShioriResult<Vec<SearchResult>> {
+    fn search(&self, query: &str) -> Result<Vec<SearchResult>> {
         let query_lower = query.to_lowercase();
         let content_lower = self.html_content.to_lowercase();
         let mut results = Vec::new();
@@ -124,11 +124,11 @@ impl BookReaderAdapter for MobiAdapter {
         Ok(results)
     }
 
-    fn get_resource(&self, _path: &str) -> ShioriResult<Vec<u8>> {
+    fn get_resource(&self, _path: &str) -> Result<Vec<u8>> {
         Err(ShioriError::Other("MOBI resources not exposed natively yet".into()))
     }
 
-    fn get_resource_mime(&self, _path: &str) -> ShioriResult<String> {
+    fn get_resource_mime(&self, _path: &str) -> Result<String> {
         Err(ShioriError::Other("MOBI resources not exposed natively yet".into()))
     }
 
@@ -140,11 +140,11 @@ impl BookReaderAdapter for MobiAdapter {
         false // Base64 encoding images could be done later if parsed from records
     }
     
-    async fn render_page(&self, _page_number: usize, _scale: f32) -> ShioriResult<Vec<u8>> {
+    async fn render_page(&self, _page_number: usize, _scale: f32) -> Result<Vec<u8>> {
         Err(ShioriError::UnsupportedFeature("MOBI does not support strict pagination rendering".into()))
     }
 
-    fn get_page_dimensions(&self, _page_number: usize) -> ShioriResult<(f32, f32)> {
+    fn get_page_dimensions(&self, _page_number: usize) -> Result<(f32, f32)> {
         Err(ShioriError::UnsupportedFeature("MOBI does not support strict pagination dimensions".into()))
     }
 

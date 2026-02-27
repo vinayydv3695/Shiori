@@ -1,9 +1,9 @@
-use crate::error::{ShioriError, ShioriResult};
+use crate::error::{Result, ShioriError};
 use crate::services::cache::{BookCache, CacheItemType, CacheKey, CachedContent};
-use crate::services::epub_adapter::EpubAdapter;
-use crate::services::pdf_adapter::PdfAdapter;
 use crate::services::docx_adapter::DocxAdapter;
+use crate::services::epub_adapter::EpubAdapter;
 use crate::services::mobi_adapter::MobiAdapter;
+use crate::services::pdf_adapter::PdfAdapter;
 use crate::services::renderer::{BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -30,7 +30,7 @@ impl RenderingService {
     }
 
     /// Open a book and prepare it for rendering
-    pub fn open_book(&self, book_id: i64, path: &str, format: &str) -> ShioriResult<BookMetadata> {
+    pub fn open_book(&self, book_id: i64, path: &str, format: &str) -> Result<BookMetadata> {
         println!("[RenderingService::open_book] Starting...");
         println!("  book_id: {}", book_id);
         println!("  path: {}", path);
@@ -207,7 +207,7 @@ impl RenderingService {
     }
 
     /// Get table of contents for a book
-    pub fn get_toc(&self, book_id: i64) -> ShioriResult<Vec<TocEntry>> {
+    pub fn get_toc(&self, book_id: i64) -> Result<Vec<TocEntry>> {
         // Try EPUB first
         if let Some(adapter) = self.epub_renderers.lock().unwrap().get(&book_id) {
             return adapter.get_toc();
@@ -235,7 +235,7 @@ impl RenderingService {
     }
 
     /// Get a chapter with caching
-    pub fn get_chapter(&self, book_id: i64, chapter_index: usize) -> ShioriResult<Chapter> {
+    pub fn get_chapter(&self, book_id: i64, chapter_index: usize) -> Result<Chapter> {
         println!(
             "[RenderingService::get_chapter] book_id: {}, chapter_index: {}",
             book_id, chapter_index
@@ -291,7 +291,7 @@ impl RenderingService {
                         result?
                     } else {
                         drop(docx_renderers);
-                        
+
                         // Try MOBI renderer
                         let mobi_renderers = self.mobi_renderers.lock().unwrap();
                         if let Some(adapter) = mobi_renderers.get(&book_id) {
@@ -330,7 +330,7 @@ impl RenderingService {
     }
 
     /// Get chapter count
-    pub fn get_chapter_count(&self, book_id: i64) -> ShioriResult<usize> {
+    pub fn get_chapter_count(&self, book_id: i64) -> Result<usize> {
         if let Some(adapter) = self.epub_renderers.lock().unwrap().get(&book_id) {
             return Ok(adapter.chapter_count());
         }
@@ -354,7 +354,7 @@ impl RenderingService {
     }
 
     /// Search within a book
-    pub fn search_book(&self, book_id: i64, query: &str) -> ShioriResult<Vec<SearchResult>> {
+    pub fn search_book(&self, book_id: i64, query: &str) -> Result<Vec<SearchResult>> {
         if let Some(adapter) = self.epub_renderers.lock().unwrap().get(&book_id) {
             return adapter.search(query);
         }
@@ -378,7 +378,7 @@ impl RenderingService {
     }
 
     /// Get a resource (image, CSS, font) from an EPUB
-    pub fn get_epub_resource(&self, book_id: i64, resource_path: &str) -> ShioriResult<Vec<u8>> {
+    pub fn get_epub_resource(&self, book_id: i64, resource_path: &str) -> Result<Vec<u8>> {
         if let Some(adapter) = self.epub_renderers.lock().unwrap().get(&book_id) {
             return adapter.get_resource(resource_path);
         }
@@ -439,7 +439,7 @@ impl RenderingService {
     }
 
     /// Render a specific page as a PNG image Buffer (for native PDF/image books)
-    pub fn render_page(&self, book_id: i64, page_index: usize, scale: f32) -> ShioriResult<Vec<u8>> {
+    pub fn render_page(&self, book_id: i64, page_index: usize, scale: f32) -> Result<Vec<u8>> {
         // Try PDF
         if let Some(adapter) = self.pdf_renderers.lock().unwrap().get(&book_id) {
             return futures::executor::block_on(adapter.render_page(page_index, scale));
@@ -452,7 +452,7 @@ impl RenderingService {
     }
 
     /// Get native page dimensions (width, height) at 1.0 scale
-    pub fn get_page_dimensions(&self, book_id: i64, page_index: usize) -> ShioriResult<(f32, f32)> {
+    pub fn get_page_dimensions(&self, book_id: i64, page_index: usize) -> Result<(f32, f32)> {
         if let Some(adapter) = self.pdf_renderers.lock().unwrap().get(&book_id) {
             return adapter.get_page_dimensions(page_index);
         }

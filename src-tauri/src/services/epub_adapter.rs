@@ -1,4 +1,4 @@
-use crate::error::{ShioriError, ShioriResult};
+use crate::error::{ShioriError, Result};
 use crate::services::renderer::{
     BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry,
 };
@@ -23,7 +23,7 @@ impl EpubAdapter {
         }
     }
 
-    fn load_toc(&mut self) -> ShioriResult<()> {
+    fn load_toc(&mut self) -> Result<()> {
         let doc_ref = self
             .doc
             .as_ref()
@@ -46,7 +46,7 @@ impl EpubAdapter {
         Ok(())
     }
 
-    fn load_metadata(&mut self) -> ShioriResult<()> {
+    fn load_metadata(&mut self) -> Result<()> {
         let doc_ref = self
             .doc
             .as_ref()
@@ -73,7 +73,7 @@ impl EpubAdapter {
 
 #[async_trait]
 impl BookReaderAdapter for EpubAdapter {
-    async fn load(&mut self, path: &str) -> ShioriResult<()> {
+    async fn load(&mut self, path: &str) -> Result<()> {
         println!("[EpubAdapter::open] Opening file: {}", path);
 
         // Check if file exists
@@ -121,17 +121,17 @@ impl BookReaderAdapter for EpubAdapter {
         Ok(())
     }
 
-    fn get_metadata(&self) -> ShioriResult<BookMetadata> {
+    fn get_metadata(&self) -> Result<BookMetadata> {
         self.metadata
             .clone()
             .ok_or_else(|| ShioriError::Other("Metadata not loaded".to_string()))
     }
 
-    fn get_toc(&self) -> ShioriResult<Vec<TocEntry>> {
+    fn get_toc(&self) -> Result<Vec<TocEntry>> {
         Ok(self.toc.clone())
     }
 
-    fn get_chapter(&self, index: usize) -> ShioriResult<Chapter> {
+    fn get_chapter(&self, index: usize) -> Result<Chapter> {
         // Load chapter on-demand from EpubDoc
         let doc_ref = self
             .doc
@@ -172,7 +172,7 @@ impl BookReaderAdapter for EpubAdapter {
         }
     }
 
-    fn search(&self, query: &str) -> ShioriResult<Vec<SearchResult>> {
+    fn search(&self, query: &str) -> Result<Vec<SearchResult>> {
         let query_lower = query.to_lowercase();
         let mut results = Vec::new();
 
@@ -230,7 +230,7 @@ impl BookReaderAdapter for EpubAdapter {
         Ok(results)
     }
 
-    fn get_spine(&self) -> ShioriResult<Vec<String>> {
+    fn get_spine(&self) -> Result<Vec<String>> {
         let doc_ref = self
             .doc
             .as_ref()
@@ -241,7 +241,7 @@ impl BookReaderAdapter for EpubAdapter {
         Ok(doc.spine.iter().map(|item| item.idref.clone()).collect())
     }
 
-    fn get_resource(&self, path: &str) -> ShioriResult<Vec<u8>> {
+    fn get_resource(&self, path: &str) -> Result<Vec<u8>> {
         println!("[EpubAdapter::get_resource] Requesting resource: {}", path);
 
         let doc_ref = self
@@ -347,7 +347,7 @@ impl BookReaderAdapter for EpubAdapter {
         Err(ShioriError::Other(format!("Resource not found: {}", path)))
     }
 
-    fn get_resource_mime(&self, path: &str) -> ShioriResult<String> {
+    fn get_resource_mime(&self, path: &str) -> Result<String> {
 
         let doc_ref = self
             .doc

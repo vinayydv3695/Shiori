@@ -2,6 +2,9 @@
 ///
 /// Handles versioned schema migrations for adding new features like multi-format support,
 /// RSS feeds, book sharing, and conversion tracking.
+///
+/// Each migration runs inside a SAVEPOINT so that if it fails, the database
+/// is rolled back to its pre-migration state rather than left half-applied.
 use rusqlite::{Connection, Result};
 use sha2::{Digest, Sha256};
 
@@ -22,24 +25,28 @@ impl<'a> MigrationManager<'a> {
         let current_version = self.get_schema_version()?;
         log::info!("[Migration] Current schema version: {}", current_version);
 
-        // Apply migrations in order
+        // Each migration is wrapped in run_in_savepoint so partial failures
+        // roll back cleanly instead of leaving the DB in a broken state.
         if current_version < 2 {
-            self.migrate_to_v2()?;
+            self.run_in_savepoint("v2", |mgr| mgr.migrate_to_v2())?;
         }
         if current_version < 3 {
-            self.migrate_to_v3()?;
+            self.run_in_savepoint("v3", |mgr| mgr.migrate_to_v3())?;
         }
         if current_version < 4 {
-            self.migrate_to_v4()?;
+            self.run_in_savepoint("v4", |mgr| mgr.migrate_to_v4())?;
         }
         if current_version < 5 {
-            self.migrate_to_v5()?;
+            self.run_in_savepoint("v5", |mgr| mgr.migrate_to_v5())?;
         }
         if current_version < 6 {
-            self.migrate_to_v6()?;
+            self.run_in_savepoint("v6", |mgr| mgr.migrate_to_v6())?;
         }
         if current_version < 7 {
-            self.migrate_to_v7()?;
+            self.run_in_savepoint("v7", |mgr| mgr.migrate_to_v7())?;
+        }
+        if current_version < 8 {
+            self.run_in_savepoint("v8", |mgr| mgr.migrate_to_v8())?;
         }
 
         // Always ensure the FTS table has the correct schema.
@@ -50,6 +57,33 @@ impl<'a> MigrationManager<'a> {
 
         log::info!("[Migration] All migrations applied successfully");
         Ok(())
+    }
+
+    /// Run a closure inside a SAVEPOINT. If the closure fails, the savepoint
+    /// is rolled back so the database is not left in a half-migrated state.
+    fn run_in_savepoint<F>(&self, name: &str, f: F) -> Result<()>
+    where
+        F: FnOnce(&MigrationManager) -> Result<()>,
+    {
+        let sp_name = format!("migration_{}", name);
+        self.conn.execute_batch(&format!("SAVEPOINT {}", sp_name))?;
+
+        match f(self) {
+            Ok(()) => {
+                self.conn
+                    .execute_batch(&format!("RELEASE SAVEPOINT {}", sp_name))?;
+                Ok(())
+            }
+            Err(e) => {
+                log::error!("[Migration] {} failed: {}, rolling back", name, e);
+                self.conn
+                    .execute_batch(&format!("ROLLBACK TO SAVEPOINT {}", sp_name))?;
+                // Release after rollback to clean up the savepoint
+                self.conn
+                    .execute_batch(&format!("RELEASE SAVEPOINT {}", sp_name))?;
+                Err(e)
+            }
+        }
     }
 
     /// Ensure FTS5 table has the correct 6-column schema.
@@ -717,34 +751,104 @@ impl<'a> MigrationManager<'a> {
     }
 
     /// Migration v5: Conversion job persistence + profiles
+    ///
+    /// v3 created `conversion_jobs` with `id INTEGER PRIMARY KEY AUTOINCREMENT`
+    /// plus a separate `uuid TEXT UNIQUE` column. v5 needs `id TEXT PRIMARY KEY`
+    /// (the UUID *is* the PK). If the old v3 schema exists, we migrate data
+    /// into the new schema. `CREATE TABLE IF NOT EXISTS` would silently keep
+    /// the old incompatible schema, so we must detect and handle the conflict.
     fn migrate_to_v5(&self) -> Result<()> {
         log::info!("[Migration] Applying v5: conversion_jobs + conversion_profiles");
 
-        // conversion_jobs: persists job state across restarts
+        // Detect if conversion_jobs already exists with the old v3 schema
+        // (v3 has a `uuid` column; v5 does not — it uses `id TEXT` as PK)
+        let has_old_schema = self.table_exists("conversion_jobs")?
+            && self.column_exists("conversion_jobs", "uuid")?;
+
+        if has_old_schema {
+            log::info!("[Migration] Detected old v3 conversion_jobs schema, migrating...");
+
+            // Drop old indexes that reference the old table
+            self.conn.execute_batch(
+                r#"
+                DROP INDEX IF EXISTS idx_conversion_jobs_uuid;
+                DROP INDEX IF EXISTS idx_conversion_jobs_status;
+                DROP INDEX IF EXISTS idx_conversion_jobs_book;
+                DROP INDEX IF EXISTS idx_conversion_jobs_queued;
+                "#,
+            )?;
+
+            // Rename old table, create new one, migrate data, drop old
+            self.conn.execute_batch(
+                r#"
+                ALTER TABLE conversion_jobs RENAME TO _conversion_jobs_v3;
+
+                CREATE TABLE conversion_jobs (
+                    id             TEXT PRIMARY KEY,
+                    book_id        INTEGER,
+                    source_path    TEXT NOT NULL,
+                    target_path    TEXT NOT NULL,
+                    source_format  TEXT NOT NULL,
+                    target_format  TEXT NOT NULL,
+                    status         TEXT NOT NULL DEFAULT 'Queued',
+                    progress       REAL NOT NULL DEFAULT 0.0,
+                    error_message  TEXT,
+                    created_at     TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at     TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE SET NULL
+                );
+
+                INSERT OR IGNORE INTO conversion_jobs
+                    (id, book_id, source_path, target_path, source_format, target_format,
+                     status, progress, error_message, created_at, updated_at)
+                SELECT
+                    uuid, book_id, source_path,
+                    COALESCE(target_path, ''),
+                    source_format, target_format,
+                    status, progress, error_message,
+                    created_at, created_at
+                FROM _conversion_jobs_v3;
+
+                DROP TABLE _conversion_jobs_v3;
+                "#,
+            )?;
+        } else if !self.table_exists("conversion_jobs")? {
+            // Fresh install — create new schema directly
+            self.conn.execute_batch(
+                r#"
+                CREATE TABLE conversion_jobs (
+                    id             TEXT PRIMARY KEY,
+                    book_id        INTEGER,
+                    source_path    TEXT NOT NULL,
+                    target_path    TEXT NOT NULL,
+                    source_format  TEXT NOT NULL,
+                    target_format  TEXT NOT NULL,
+                    status         TEXT NOT NULL DEFAULT 'Queued',
+                    progress       REAL NOT NULL DEFAULT 0.0,
+                    error_message  TEXT,
+                    created_at     TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at     TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE SET NULL
+                );
+                "#,
+            )?;
+        }
+        // else: table exists with correct v5 schema already (idempotent re-run)
+
+        // Create indexes (idempotent)
         self.conn.execute_batch(
             r#"
-            CREATE TABLE IF NOT EXISTS conversion_jobs (
-                id             TEXT PRIMARY KEY,
-                book_id        INTEGER,
-                source_path    TEXT NOT NULL,
-                target_path    TEXT NOT NULL,
-                source_format  TEXT NOT NULL,
-                target_format  TEXT NOT NULL,
-                status         TEXT NOT NULL DEFAULT 'Queued',
-                progress       REAL NOT NULL DEFAULT 0.0,
-                error_message  TEXT,
-                created_at     TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                updated_at     TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE SET NULL
-            );
-
             CREATE INDEX IF NOT EXISTS idx_conv_jobs_status
                 ON conversion_jobs(status);
 
             CREATE INDEX IF NOT EXISTS idx_conv_jobs_book
                 ON conversion_jobs(book_id);
+            "#,
+        )?;
 
-            -- conversion_profiles: named presets for repeated conversions
+        // conversion_profiles: named presets for repeated conversions
+        self.conn.execute_batch(
+            r#"
             CREATE TABLE IF NOT EXISTS conversion_profiles (
                 id            INTEGER PRIMARY KEY AUTOINCREMENT,
                 name          TEXT NOT NULL UNIQUE,
@@ -757,11 +861,7 @@ impl<'a> MigrationManager<'a> {
         )?;
 
         self.set_schema_version(5)?;
-        self.record_migration(
-            5,
-            "conversion_jobs_profiles",
-            "v5_conversion_persistence",
-        )?;
+        self.record_migration(5, "conversion_jobs_profiles", "v5_conversion_persistence")?;
 
         log::info!("[Migration] v5 applied successfully");
         Ok(())
@@ -773,20 +873,28 @@ impl<'a> MigrationManager<'a> {
 
         // Add metadata tracking fields to books
         if !self.column_exists("books", "anilist_id")? {
-            self.conn
-                .execute("ALTER TABLE books ADD COLUMN anilist_id TEXT DEFAULT NULL", [])?;
+            self.conn.execute(
+                "ALTER TABLE books ADD COLUMN anilist_id TEXT DEFAULT NULL",
+                [],
+            )?;
         }
         if !self.column_exists("books", "online_metadata_fetched")? {
-            self.conn
-                .execute("ALTER TABLE books ADD COLUMN online_metadata_fetched INTEGER DEFAULT 0", [])?;
+            self.conn.execute(
+                "ALTER TABLE books ADD COLUMN online_metadata_fetched INTEGER DEFAULT 0",
+                [],
+            )?;
         }
         if !self.column_exists("books", "metadata_source")? {
-            self.conn
-                .execute("ALTER TABLE books ADD COLUMN metadata_source TEXT DEFAULT NULL", [])?;
+            self.conn.execute(
+                "ALTER TABLE books ADD COLUMN metadata_source TEXT DEFAULT NULL",
+                [],
+            )?;
         }
         if !self.column_exists("books", "metadata_last_sync")? {
-            self.conn
-                .execute("ALTER TABLE books ADD COLUMN metadata_last_sync TEXT DEFAULT NULL", [])?;
+            self.conn.execute(
+                "ALTER TABLE books ADD COLUMN metadata_last_sync TEXT DEFAULT NULL",
+                [],
+            )?;
         }
 
         // Create metadata cache table
@@ -807,11 +915,7 @@ impl<'a> MigrationManager<'a> {
         )?;
 
         self.set_schema_version(6)?;
-        self.record_migration(
-            6,
-            "online_metadata",
-            "v6_online_metadata",
-        )?;
+        self.record_migration(6, "online_metadata", "v6_online_metadata")?;
 
         log::info!("[Migration] v6 applied successfully");
         Ok(())
@@ -833,7 +937,10 @@ impl<'a> MigrationManager<'a> {
 
         for (col_name, col_def) in columns_to_add {
             if !self.column_exists("user_preferences", col_name)? {
-                let sql = format!("ALTER TABLE user_preferences ADD COLUMN {} {}", col_name, col_def);
+                let sql = format!(
+                    "ALTER TABLE user_preferences ADD COLUMN {} {}",
+                    col_name, col_def
+                );
                 match self.conn.execute(&sql, []) {
                     Ok(_) => log::debug!("Added column {} to user_preferences", col_name),
                     Err(e) => {
@@ -844,13 +951,73 @@ impl<'a> MigrationManager<'a> {
         }
 
         self.set_schema_version(7)?;
-        self.record_migration(
-            7,
-            "onboarding_preferences",
-            "v7_onboarding",
-        )?;
+        self.record_migration(7, "onboarding_preferences", "v7_onboarding")?;
 
         log::info!("[Migration] v7 applied successfully");
+        Ok(())
+    }
+
+    /// Migration v8: Doodle overlay & enhanced reader preferences
+    fn migrate_to_v8(&self) -> Result<()> {
+        log::info!("[Migration] Applying v8: Doodles & Reader Enhancement Preferences");
+
+        // Step 1: Doodle strokes storage
+        self.conn.execute_batch(
+            r#"
+            CREATE TABLE IF NOT EXISTS doodles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                book_id INTEGER NOT NULL,
+                page_number TEXT NOT NULL,
+                strokes_json TEXT NOT NULL DEFAULT '[]',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+            );
+
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_doodles_book_page
+                ON doodles(book_id, page_number);
+
+            CREATE INDEX IF NOT EXISTS idx_doodles_book
+                ON doodles(book_id);
+
+            CREATE TRIGGER IF NOT EXISTS doodles_update
+            AFTER UPDATE ON doodles
+            BEGIN
+                UPDATE doodles SET updated_at = CURRENT_TIMESTAMP
+                WHERE id = NEW.id;
+            END;
+            "#,
+        )?;
+
+        // Step 2: Add reader enhancement columns to user_preferences
+        let columns_to_add = vec![
+            ("page_flip_enabled", "BOOLEAN DEFAULT 1"),
+            ("page_flip_speed", "INTEGER DEFAULT 400"),
+            ("paper_theme_enabled", "BOOLEAN DEFAULT 0"),
+            ("paper_texture_intensity", "REAL DEFAULT 0.08"),
+            ("doodle_enabled", "BOOLEAN DEFAULT 1"),
+            ("adaptive_mode", "TEXT DEFAULT 'auto'"),
+        ];
+
+        for (col_name, col_def) in columns_to_add {
+            if !self.column_exists("user_preferences", col_name)? {
+                let sql = format!(
+                    "ALTER TABLE user_preferences ADD COLUMN {} {}",
+                    col_name, col_def
+                );
+                match self.conn.execute(&sql, []) {
+                    Ok(_) => log::debug!("Added column {} to user_preferences", col_name),
+                    Err(e) => {
+                        log::warn!("Failed to add column {}: {}", col_name, e);
+                    }
+                }
+            }
+        }
+
+        self.set_schema_version(8)?;
+        self.record_migration(8, "doodles_reader_enhancements", "v8_doodles_reader_prefs")?;
+
+        log::info!("[Migration] v8 applied successfully");
         Ok(())
     }
 

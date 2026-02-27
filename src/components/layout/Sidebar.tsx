@@ -7,17 +7,21 @@ import { CreateCollectionDialog } from "../collections/CreateCollectionDialog"
 import { useState } from "react"
 import { Collection } from "../../lib/tauri"
 
-export function Sidebar() {
-  const { sidebarCollapsed, toggleSidebar } = useUIStore()
+interface SidebarProps {
+  onOpenSettings?: () => void
+}
+
+export function Sidebar({ onOpenSettings }: SidebarProps) {
+  const { sidebarCollapsed, toggleSidebar, currentView, setCurrentView } = useUIStore()
   const [showCollections, setShowCollections] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editCollection, setEditCollection] = useState<Collection | null>(null)
   const [parentId, setParentId] = useState<number | undefined>(undefined)
 
   const navItems = [
-    { icon: Library, label: "Library", href: "/" },
-    { icon: Tag, label: "Tags", href: "/tags" },
-    { icon: Settings, label: "Settings", href: "/settings" },
+    { icon: Library, label: "Library", action: () => setCurrentView("library") },
+    { icon: Tag, label: "Tags", action: () => setCurrentView("library") },
+    { icon: Settings, label: "Settings", action: () => onOpenSettings?.() },
   ]
 
   const handleCreateCollection = (parentCollectionId?: number) => {
@@ -54,11 +58,13 @@ export function Sidebar() {
         <nav className="flex-1 space-y-1 p-2 overflow-y-auto">
           {navItems.map((item) => (
             <button
-              key={item.href}
+              key={item.label}
+              onClick={item.action}
               className={cn(
                 "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 "hover:bg-accent hover:text-accent-foreground",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                item.label === "Library" && currentView === "library" && "bg-accent text-accent-foreground"
               )}
             >
               <item.icon className="h-5 w-5 flex-shrink-0" />

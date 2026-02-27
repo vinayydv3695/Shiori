@@ -258,14 +258,14 @@ export const CommandPalette = ({
                 'hover:bg-accent/50 transition-colors'
               )}
             >
-              {theme === 'dark' ? (
+              {theme === 'black' ? (
                 <Moon className="w-4 h-4 mr-3" />
               ) : (
                 <Sun className="w-4 h-4 mr-3" />
               )}
               <span>Toggle Theme</span>
               <span className="ml-auto text-xs text-muted-foreground">
-                {theme === 'dark' ? 'Dark' : 'Light'}
+                {theme === 'black' ? 'Dark' : 'Light'}
               </span>
             </Command.Item>
           </Command.Group>

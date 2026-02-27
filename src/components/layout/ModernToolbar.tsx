@@ -266,7 +266,7 @@ export const ModernToolbar = ({
             onClick={toggleTheme}
             className="w-9 h-9"
           >
-            {theme === 'dark' ? (
+            {theme === 'black' ? (
               <Sun className="w-4 h-4" />
             ) : (
               <Moon className="w-4 h-4" />

@@ -3,6 +3,7 @@ import { useReaderStore } from '@/store/readerStore';
 import { api } from '@/lib/tauri';
 import type { BookMetadata, Chapter } from '@/lib/tauri';
 import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Columns } from '@/components/icons';
+import { sanitizeBookContent } from '@/lib/sanitize';
 
 interface EpubReaderProps {
   bookPath: string;
@@ -444,7 +445,7 @@ export function EpubReader({ bookPath, bookId }: EpubReaderProps) {
                     color: theme.contentColor,
                     lineHeight: settings.lineHeight,
                   }}
-                  dangerouslySetInnerHTML={{ __html: currentChapter.content }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeBookContent(currentChapter.content) }}
                 />
               </div>
 
@@ -464,7 +465,7 @@ export function EpubReader({ bookPath, bookId }: EpubReaderProps) {
                     color: theme.contentColor,
                     lineHeight: settings.lineHeight,
                   }}
-                  dangerouslySetInnerHTML={{ __html: adjacentChapter.content }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeBookContent(adjacentChapter.content) }}
                 />
               </div>
             </div>
@@ -485,7 +486,7 @@ export function EpubReader({ bookPath, bookId }: EpubReaderProps) {
                   color: theme.contentColor,
                   lineHeight: settings.lineHeight,
                 }}
-                dangerouslySetInnerHTML={{ __html: currentChapter.content }}
+                dangerouslySetInnerHTML={{ __html: sanitizeBookContent(currentChapter.content) }}
               />
             </div>
           )}

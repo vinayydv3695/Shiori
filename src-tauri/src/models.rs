@@ -159,6 +159,17 @@ pub struct CollectionWithBooks {
     pub books: Vec<Book>,
 }
 
+// Doodle overlay model
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Doodle {
+    pub id: Option<i64>,
+    pub book_id: i64,
+    pub page_number: String,
+    pub strokes_json: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
 // Export models
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExportOptions {

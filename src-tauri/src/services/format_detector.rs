@@ -1,4 +1,4 @@
-use crate::error::{ShioriError, ShioriResult};
+use crate::error::{ShioriError, Result};
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -51,7 +51,7 @@ impl BookFormat {
 }
 
 /// Detect book format using multiple strategies
-pub async fn detect_format(path: &Path) -> ShioriResult<String> {
+pub async fn detect_format(path: &Path) -> Result<String> {
     // Strategy 1: Check if file exists and is readable
     if !path.exists() {
         return Err(ShioriError::FileNotFound {
@@ -94,7 +94,7 @@ pub async fn detect_format(path: &Path) -> ShioriResult<String> {
 }
 
 /// Verify format using magic bytes
-fn verify_format_with_magic(path: &Path, format: &BookFormat) -> ShioriResult<bool> {
+fn verify_format_with_magic(path: &Path, format: &BookFormat) -> Result<bool> {
     let mut file = File::open(path)?;
     let mut buffer = vec![0u8; 512];
     let bytes_read = file.read(&mut buffer)?;
@@ -135,7 +135,7 @@ fn verify_format_with_magic(path: &Path, format: &BookFormat) -> ShioriResult<bo
 }
 
 /// Detect format purely from magic bytes
-fn detect_format_from_magic(path: &Path) -> ShioriResult<String> {
+fn detect_format_from_magic(path: &Path) -> Result<String> {
     let mut file = File::open(path)?;
     let mut buffer = vec![0u8; 512];
     let bytes_read = file.read(&mut buffer)?;
@@ -184,7 +184,7 @@ fn detect_format_from_magic(path: &Path) -> ShioriResult<String> {
 }
 
 /// Validate book file integrity based on format
-pub async fn validate_file_integrity(path: &Path, format: &str) -> ShioriResult<bool> {
+pub async fn validate_file_integrity(path: &Path, format: &str) -> Result<bool> {
     let format_enum = BookFormat::from_str(format).ok_or_else(|| {
         ShioriError::UnsupportedFormat {
             format: format.to_string(),
@@ -202,7 +202,7 @@ pub async fn validate_file_integrity(path: &Path, format: &str) -> ShioriResult<
     }
 }
 
-fn validate_epub(path: &Path) -> ShioriResult<bool> {
+fn validate_epub(path: &Path) -> Result<bool> {
     use epub::doc::EpubDoc;
     
     match EpubDoc::new(path) {
@@ -214,7 +214,7 @@ fn validate_epub(path: &Path) -> ShioriResult<bool> {
     }
 }
 
-fn validate_pdf(path: &Path) -> ShioriResult<bool> {
+fn validate_pdf(path: &Path) -> Result<bool> {
     use lopdf::Document;
     
     match Document::load(path) {
@@ -226,7 +226,7 @@ fn validate_pdf(path: &Path) -> ShioriResult<bool> {
     }
 }
 
-fn validate_mobi(path: &Path) -> ShioriResult<bool> {
+fn validate_mobi(path: &Path) -> Result<bool> {
     // Basic check: file should start with proper MOBI header
     let mut file = File::open(path)?;
     let mut buffer = vec![0u8; 68];
@@ -241,7 +241,7 @@ fn validate_mobi(path: &Path) -> ShioriResult<bool> {
     }
 }
 
-fn validate_cbz(path: &Path) -> ShioriResult<bool> {
+fn validate_cbz(path: &Path) -> Result<bool> {
     use zip::ZipArchive;
     
     let file = File::open(path)?;
@@ -271,7 +271,7 @@ fn validate_cbz(path: &Path) -> ShioriResult<bool> {
     }
 }
 
-fn validate_cbr(path: &Path) -> ShioriResult<bool> {
+fn validate_cbr(path: &Path) -> Result<bool> {
     // RAR support requires external library (unrar)
     // For now, just check magic bytes
     let mut file = File::open(path)?;
@@ -287,7 +287,7 @@ fn validate_cbr(path: &Path) -> ShioriResult<bool> {
     }
 }
 
-fn validate_txt(path: &Path) -> ShioriResult<bool> {
+fn validate_txt(path: &Path) -> Result<bool> {
     let mut file = File::open(path)?;
     let mut buffer = vec![0u8; 4096];
     let bytes_read = file.read(&mut buffer)?;

@@ -1,4 +1,4 @@
-use crate::error::ShioriResult;
+use crate::error::Result;
 use serde::{Deserialize, Serialize};
 
 /// Represents a single chapter/section in a book
@@ -48,28 +48,28 @@ use async_trait::async_trait;
 #[async_trait]
 pub trait BookReaderAdapter: Send + Sync {
     /// Open and initialize the book
-    async fn load(&mut self, path: &str) -> ShioriResult<()>;
+    async fn load(&mut self, path: &str) -> Result<()>;
 
     /// Get book metadata
-    fn get_metadata(&self) -> ShioriResult<BookMetadata>;
+    fn get_metadata(&self) -> Result<BookMetadata>;
 
     /// Get table of contents
-    fn get_toc(&self) -> ShioriResult<Vec<TocEntry>>;
+    fn get_toc(&self) -> Result<Vec<TocEntry>>;
 
     /// Get a specific chapter by index (used primarily by flow-content like EPUB/DOCX)
-    fn get_chapter(&self, index: usize) -> ShioriResult<Chapter>;
+    fn get_chapter(&self, index: usize) -> Result<Chapter>;
 
     /// Get total number of chapters
     fn chapter_count(&self) -> usize;
 
     /// Search within the book content
-    fn search(&self, query: &str) -> ShioriResult<Vec<SearchResult>>;
+    fn search(&self, query: &str) -> Result<Vec<SearchResult>>;
 
     /// Get resource by path (images, stylesheets, etc. inside the archive)
-    fn get_resource(&self, path: &str) -> ShioriResult<Vec<u8>>;
+    fn get_resource(&self, path: &str) -> Result<Vec<u8>>;
 
     /// Get resource MIME type
-    fn get_resource_mime(&self, path: &str) -> ShioriResult<String>;
+    fn get_resource_mime(&self, path: &str) -> Result<String>;
 
     // ─── Format Feature Flags ────────────────────────────────────────────────
 
@@ -87,7 +87,7 @@ pub trait BookReaderAdapter: Send + Sync {
 
     /// Get spine (reading order of chapters/resources).
     /// Default implementation returns empty for formats that don't use spines.
-    fn get_spine(&self) -> ShioriResult<Vec<String>> {
+    fn get_spine(&self) -> Result<Vec<String>> {
         Ok(Vec::new())
     }
 
@@ -99,14 +99,14 @@ pub trait BookReaderAdapter: Send + Sync {
     }
 
     /// Render a specific page to a PNG buffer
-    async fn render_page(&self, _page_number: usize, _scale: f32) -> ShioriResult<Vec<u8>> {
+    async fn render_page(&self, _page_number: usize, _scale: f32) -> Result<Vec<u8>> {
         Err(crate::error::ShioriError::Other(
             "Pagination rendering is not supported by this format".into(),
         ))
     }
 
     /// Get physical/logical dimensions of a page
-    fn get_page_dimensions(&self, _page_number: usize) -> ShioriResult<(f32, f32)> {
+    fn get_page_dimensions(&self, _page_number: usize) -> Result<(f32, f32)> {
         Err(crate::error::ShioriError::Other(
             "Page dimensions are not available for this format".into(),
         ))

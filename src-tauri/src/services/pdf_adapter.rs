@@ -1,4 +1,4 @@
-use crate::error::{ShioriError, ShioriResult};
+use crate::error::{ShioriError, Result};
 use crate::services::renderer::{
     BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry,
 };
@@ -27,7 +27,7 @@ impl PdfAdapter {
         }
     }
 
-    fn extract_text_from_page(&self, page_number: usize) -> ShioriResult<String> {
+    fn extract_text_from_page(&self, page_number: usize) -> Result<String> {
         let doc = self.doc.as_ref().ok_or_else(|| ShioriError::Other("PDF not loaded".into()))?;
         let mut full_text = String::new();
         
@@ -98,7 +98,7 @@ impl PdfAdapter {
 
 #[async_trait]
 impl BookReaderAdapter for PdfAdapter {
-    async fn load(&mut self, path: &str) -> ShioriResult<()> {
+    async fn load(&mut self, path: &str) -> Result<()> {
         let path_str = path.to_string();
         
         // Load in a blocking task using Tauri's runtime to avoid panic
@@ -132,13 +132,13 @@ impl BookReaderAdapter for PdfAdapter {
         Ok(())
     }
 
-    fn get_metadata(&self) -> ShioriResult<BookMetadata> {
+    fn get_metadata(&self) -> Result<BookMetadata> {
         self.metadata
             .clone()
             .ok_or_else(|| ShioriError::Other("Metadata not loaded".to_string()))
     }
 
-    fn get_toc(&self) -> ShioriResult<Vec<TocEntry>> {
+    fn get_toc(&self) -> Result<Vec<TocEntry>> {
         let toc: Vec<TocEntry> = (0..self.page_count)
             .step_by(10)
             .map(|i| TocEntry {
@@ -151,7 +151,7 @@ impl BookReaderAdapter for PdfAdapter {
         Ok(toc)
     }
 
-    fn get_chapter(&self, index: usize) -> ShioriResult<Chapter> {
+    fn get_chapter(&self, index: usize) -> Result<Chapter> {
         if index >= self.page_count {
             return Err(ShioriError::ChapterReadFailed {
                 chapter_index: index,
@@ -171,7 +171,7 @@ impl BookReaderAdapter for PdfAdapter {
         self.page_count
     }
 
-    fn search(&self, query: &str) -> ShioriResult<Vec<SearchResult>> {
+    fn search(&self, query: &str) -> Result<Vec<SearchResult>> {
         let query_lower = query.to_lowercase();
         let mut results = Vec::new();
         for page_num in 0..self.page_count {
@@ -196,12 +196,12 @@ impl BookReaderAdapter for PdfAdapter {
         Ok(results)
     }
 
-    fn get_resource(&self, _path: &str) -> ShioriResult<Vec<u8>> {
+    fn get_resource(&self, _path: &str) -> Result<Vec<u8>> {
         // Fallback or empty image to avoid errors
         Ok(Vec::new())
     }
 
-    fn get_resource_mime(&self, _path: &str) -> ShioriResult<String> {
+    fn get_resource_mime(&self, _path: &str) -> Result<String> {
         Ok("application/octet-stream".to_string())
     }
 
@@ -213,11 +213,11 @@ impl BookReaderAdapter for PdfAdapter {
         false
     }
     
-    async fn render_page(&self, page_number: usize, _scale: f32) -> ShioriResult<Vec<u8>> {
+    async fn render_page(&self, page_number: usize, _scale: f32) -> Result<Vec<u8>> {
          Err(ShioriError::Other("Native image rendering is configured off for lopdf".into()))
     }
 
-    fn get_page_dimensions(&self, _page_number: usize) -> ShioriResult<(f32, f32)> {
+    fn get_page_dimensions(&self, _page_number: usize) -> Result<(f32, f32)> {
         // Lopdf doesn't easily expose this through a standardized property without checking CropBox, MediaBox, etc.
         // Return standard A4 dimensions roughly as fallback
         Ok((595.0, 842.0))

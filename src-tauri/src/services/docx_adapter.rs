@@ -1,4 +1,4 @@
-use crate::error::{ShioriError, ShioriResult};
+use crate::error::{ShioriError, Result};
 use crate::services::renderer::{
     BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry,
 };
@@ -106,7 +106,7 @@ unsafe impl Sync for DocxAdapter {}
 
 #[async_trait]
 impl BookReaderAdapter for DocxAdapter {
-    async fn load(&mut self, path: &str) -> ShioriResult<()> {
+    async fn load(&mut self, path: &str) -> Result<()> {
         let file_data = fs::read(path).map_err(|e| ShioriError::Io(e))?;
         
         // Parse DOCX
@@ -132,17 +132,17 @@ impl BookReaderAdapter for DocxAdapter {
         Ok(())
     }
 
-    fn get_metadata(&self) -> ShioriResult<BookMetadata> {
+    fn get_metadata(&self) -> Result<BookMetadata> {
         self.metadata
             .clone()
             .ok_or_else(|| ShioriError::Other("Metadata not loaded".to_string()))
     }
 
-    fn get_toc(&self) -> ShioriResult<Vec<TocEntry>> {
+    fn get_toc(&self) -> Result<Vec<TocEntry>> {
         Ok(self.toc.clone())
     }
 
-    fn get_chapter(&self, index: usize) -> ShioriResult<Chapter> {
+    fn get_chapter(&self, index: usize) -> Result<Chapter> {
         if index > 0 {
             return Err(ShioriError::ChapterReadFailed {
                 chapter_index: index,
@@ -162,7 +162,7 @@ impl BookReaderAdapter for DocxAdapter {
         1
     }
 
-    fn search(&self, query: &str) -> ShioriResult<Vec<SearchResult>> {
+    fn search(&self, query: &str) -> Result<Vec<SearchResult>> {
         let query_lower = query.to_lowercase();
         let content_lower = self.html_content.to_lowercase();
         let mut results = Vec::new();
@@ -186,11 +186,11 @@ impl BookReaderAdapter for DocxAdapter {
         Ok(results)
     }
 
-    fn get_resource(&self, _path: &str) -> ShioriResult<Vec<u8>> {
+    fn get_resource(&self, _path: &str) -> Result<Vec<u8>> {
         Err(ShioriError::Other("DOCX resources not currently exposed natively".into()))
     }
 
-    fn get_resource_mime(&self, _path: &str) -> ShioriResult<String> {
+    fn get_resource_mime(&self, _path: &str) -> Result<String> {
         Err(ShioriError::Other("DOCX resources not currently exposed natively".into()))
     }
 
@@ -202,11 +202,11 @@ impl BookReaderAdapter for DocxAdapter {
         false // Images not supported yet in this basic adapter
     }
     
-    async fn render_page(&self, _page_number: usize, _scale: f32) -> ShioriResult<Vec<u8>> {
+    async fn render_page(&self, _page_number: usize, _scale: f32) -> Result<Vec<u8>> {
         Err(ShioriError::UnsupportedFeature("DOCX does not support strict pagination rendering natively in Shiori".into()))
     }
 
-    fn get_page_dimensions(&self, _page_number: usize) -> ShioriResult<(f32, f32)> {
+    fn get_page_dimensions(&self, _page_number: usize) -> Result<(f32, f32)> {
         Err(ShioriError::UnsupportedFeature("DOCX does not support strict pagination dimensions".into()))
     }
 

@@ -20,12 +20,15 @@ export function SinglePageView() {
 
     // Update progress bar
     useEffect(() => {
-        if (totalPages > 0) {
+        if (totalPages > 1) {
             const progress = (currentPage / (totalPages - 1)) * 100;
             document.documentElement.style.setProperty(
                 '--manga-progress',
                 String(Math.min(1, Math.max(0, progress / 100)))
             );
+        } else {
+            // 0 or 1 pages — full progress (nothing to scroll through)
+            document.documentElement.style.setProperty('--manga-progress', '1');
         }
     }, [currentPage, totalPages]);
 

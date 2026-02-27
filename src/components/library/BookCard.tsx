@@ -4,6 +4,7 @@ import { Star, StarOff, Check } from "../icons"
 import { cn } from "../../lib/utils"
 import { formatDate } from "../../lib/utils"
 import { useLibraryStore } from "../../store/libraryStore"
+import { convertFileSrc } from "@tauri-apps/api/core"
 
 interface BookCardProps {
   book: Book
@@ -73,7 +74,7 @@ export function BookCard({ book, onClick }: BookCardProps) {
       <div className="aspect-[2/3] w-full overflow-hidden bg-muted">
         {book.cover_path ? (
           <img
-            src={book.cover_path}
+            src={convertFileSrc(book.cover_path)}
             alt={book.title}
             className="h-full w-full object-cover transition-transform group-hover:scale-105"
           />

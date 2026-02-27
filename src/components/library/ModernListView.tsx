@@ -2,6 +2,7 @@ import { BookOpen, Star, Download, Edit, Trash2, Calendar, FileType, RefreshCw, 
 import { cn, formatFileSize, formatDate } from '@/lib/utils'
 import type { Book } from '@/lib/tauri'
 import { Badge } from '@/components/ui/badge'
+import { convertFileSrc } from '@tauri-apps/api/core'
 
 interface ListViewProps {
   books: Book[]
@@ -90,7 +91,7 @@ export const ModernListView = ({
             <div className="flex-shrink-0 w-12 h-16 bg-muted rounded overflow-hidden">
               {book.cover_path ? (
                 <img
-                  src={book.cover_path}
+                  src={convertFileSrc(book.cover_path)}
                   alt={book.title}
                   className="w-full h-full object-cover"
                 />

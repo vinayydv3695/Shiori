@@ -3,6 +3,7 @@ import { BookOpen, Star, ArrowUp, ArrowDown, MoreVertical, Edit, Trash2, Downloa
 import { cn, formatFileSize, formatDate } from '@/lib/utils'
 import type { Book } from '@/lib/tauri'
 import { Badge } from '@/components/ui/badge'
+import { convertFileSrc } from '@tauri-apps/api/core'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -271,7 +272,7 @@ export const ModernTableView = ({
                     <div className="w-10 h-14 bg-muted rounded overflow-hidden">
                       {book.cover_path ? (
                         <img
-                          src={book.cover_path}
+                          src={convertFileSrc(book.cover_path)}
                           alt={book.title}
                           className="w-full h-full object-cover"
                         />

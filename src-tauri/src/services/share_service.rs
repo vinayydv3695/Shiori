@@ -14,12 +14,14 @@ use qrcode::render::svg;
 use rand::Rng;
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use argon2::password_hash::{SaltString, rand_core::OsRng};
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use tokio::task::JoinHandle;
 use tower_http::services::ServeFile;
 use tower_http::trace::TraceLayer;
 use log::info;
+
+use crate::db::Database;
 
 // Helper functions for DateTime conversion
 fn parse_datetime(s: Option<String>) -> Option<DateTime<Utc>> {
@@ -87,20 +89,13 @@ pub struct ShareResponse {
 /// Application state for Axum
 #[derive(Clone)]
 struct AppState {
-    db_path: PathBuf,
+    db: Database,
     storage_path: PathBuf,
-}
-
-/// Get a database connection
-fn get_db_connection(db_path: &PathBuf) -> Result<Connection> {
-    let conn = Connection::open(db_path)?;
-    conn.execute_batch("PRAGMA foreign_keys = ON")?;
-    Ok(conn)
 }
 
 /// Book sharing service
 pub struct ShareService {
-    db_path: PathBuf,
+    db: Database,
     storage_path: PathBuf,
     server_handle: Option<JoinHandle<Result<()>>>,
     port: u16,
@@ -108,9 +103,9 @@ pub struct ShareService {
 
 impl ShareService {
     /// Create a new share service
-    pub fn new(db_path: PathBuf, storage_path: PathBuf, port: Option<u16>) -> Self {
+    pub fn new(db: Database, storage_path: PathBuf, port: Option<u16>) -> Self {
         Self {
-            db_path,
+            db,
             storage_path,
             server_handle: None,
             port: port.unwrap_or(8080),
@@ -120,7 +115,8 @@ impl ShareService {
     /// Create a share for a book
     pub fn create_share(&self, book_id: i64, options: ShareOptions) -> Result<Share> {
         // Verify book exists and get format
-        let conn = get_db_connection(&self.db_path)?;
+        let conn = self.db.get_connection()
+            .map_err(|e| anyhow!("{}", e))?;
         let format: String = conn.query_row(
             "SELECT file_format FROM books WHERE id = ?1",
             params![book_id],
@@ -181,7 +177,8 @@ impl ShareService {
 
     /// Get share by token
     pub fn get_share(&self, token: &str) -> Result<Option<Share>> {
-        let conn = get_db_connection(&self.db_path)?;
+        let conn = self.db.get_connection()
+            .map_err(|e| anyhow!("{}", e))?;
         let mut stmt = conn.prepare(
             "SELECT id, book_id, token, format, password_hash, expires_at, max_accesses, access_count, revoked_at, created_at
              FROM shares WHERE token = ?1"
@@ -249,7 +246,8 @@ impl ShareService {
 
     /// Increment download count
     pub fn increment_download_count(&self, token: &str) -> Result<()> {
-        let conn = get_db_connection(&self.db_path)?;
+        let conn = self.db.get_connection()
+            .map_err(|e| anyhow!("{}", e))?;
         conn.execute(
             "UPDATE shares SET access_count = access_count + 1 WHERE token = ?1",
             params![token]
@@ -259,7 +257,8 @@ impl ShareService {
 
     /// Log share access
     pub fn log_access(&self, share_id: i64, ip_address: &str, user_agent: Option<&str>) -> Result<()> {
-        let conn = get_db_connection(&self.db_path)?;
+        let conn = self.db.get_connection()
+            .map_err(|e| anyhow!("{}", e))?;
         conn.execute(
             "INSERT INTO share_access_log (share_token, ip_address, user_agent) 
              VALUES ((SELECT token FROM shares WHERE id = ?1), ?2, ?3)",
@@ -270,7 +269,8 @@ impl ShareService {
 
     /// Revoke a share
     pub fn revoke_share(&self, token: &str) -> Result<()> {
-        let conn = get_db_connection(&self.db_path)?;
+        let conn = self.db.get_connection()
+            .map_err(|e| anyhow!("{}", e))?;
         let now = Utc::now();
         conn.execute(
             "UPDATE shares SET revoked_at = ?1 WHERE token = ?2",
@@ -281,7 +281,8 @@ impl ShareService {
 
     /// List all shares for a book
     pub fn list_shares(&self, book_id: Option<i64>) -> Result<Vec<Share>> {
-        let conn = get_db_connection(&self.db_path)?;
+        let conn = self.db.get_connection()
+            .map_err(|e| anyhow!("{}", e))?;
         
         let (query, params_vec): (String, Vec<Box<dyn rusqlite::ToSql>>) = if let Some(bid) = book_id {
             (
@@ -321,7 +322,8 @@ impl ShareService {
 
     /// Clean up expired shares
     pub fn cleanup_expired_shares(&self) -> Result<usize> {
-        let conn = get_db_connection(&self.db_path)?;
+        let conn = self.db.get_connection()
+            .map_err(|e| anyhow!("{}", e))?;
         let now = Utc::now();
         
         let count = conn.execute(
@@ -362,7 +364,7 @@ impl ShareService {
         }
 
         let state = AppState {
-            db_path: self.db_path.clone(),
+            db: self.db.clone(),
             storage_path: self.storage_path.clone(),
         };
 
@@ -414,8 +416,8 @@ async fn handle_share_download(
     Path(token): Path<String>,
     Query(query): Query<ShareQuery>,
 ) -> Result<Response, (StatusCode, String)> {
-    // Get share
-    let conn = get_db_connection(&state.db_path)
+    // Get a single connection from the pool for all DB operations
+    let conn = state.db.get_connection()
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     
     let share = conn.query_row(
@@ -471,10 +473,7 @@ async fn handle_share_download(
     }
 
     // Get book file path
-    let conn2 = get_db_connection(&state.db_path)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    
-    let book_path: String = conn2.query_row(
+    let book_path: String = conn.query_row(
             "SELECT file_path FROM books WHERE id = ?1",
             params![share.book_id],
             |row| row.get(0)
@@ -488,24 +487,17 @@ async fn handle_share_download(
     }
 
     // Increment download count
-    let conn3 = get_db_connection(&state.db_path)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    
-    conn3.execute(
+    conn.execute(
             "UPDATE shares SET access_count = access_count + 1 WHERE id = ?1",
             params![share.id]
         )
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    // Log access
-    let _ = get_db_connection(&state.db_path)
-        .and_then(|conn| {
-            conn.execute(
-                "INSERT INTO share_access_log (share_token, ip_address) VALUES (?1, ?2)",
-                params![share.token, "unknown"]
-            )
-            .map_err(|e| anyhow::anyhow!("Failed to log access: {}", e))
-        });
+    // Log access (best-effort, don't fail the download)
+    let _ = conn.execute(
+        "INSERT INTO share_access_log (share_token, ip_address) VALUES (?1, ?2)",
+        params![share.token, "unknown"]
+    );
 
     // Serve file
     Ok(ServeFile::new(full_path).try_call(axum::http::Request::new(axum::body::Body::empty()))
@@ -524,7 +516,8 @@ mod tests {
         std::fs::create_dir_all(&temp_dir).unwrap();
         
         let db_path = temp_dir.join("test.db");
-        let service = ShareService::new(db_path, temp_dir, Some(8888));
+        let db = Database::new(&db_path).unwrap();
+        let service = ShareService::new(db, temp_dir, Some(8888));
         
         assert_eq!(service.port, 8888);
         assert!(!service.is_running());

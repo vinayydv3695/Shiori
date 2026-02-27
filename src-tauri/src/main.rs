@@ -29,6 +29,7 @@ use services::{
 
 pub struct AppState {
     db: db::Database,
+    covers_dir: std::path::PathBuf,
 }
 
 pub struct MetadataState {
@@ -52,8 +53,12 @@ fn main() {
             let db_path = app_dir.join("library.db");
             let database = db::Database::new(&db_path)?;
 
+            let covers_dir = app_dir.join("covers");
+            std::fs::create_dir_all(&covers_dir)?;
+
             app.manage(AppState {
                 db: database.clone(),
+                covers_dir,
             });
 
             // Initialize rendering service with 100MB cache
@@ -83,7 +88,7 @@ fn main() {
             app.manage(cover_service);
 
             // RSS service
-            let rss_service = Arc::new(RssService::new(db_path.clone(), storage_path.clone())?);
+            let rss_service = Arc::new(RssService::new(database.clone(), storage_path.clone())?);
             app.manage(Arc::clone(&rss_service));
 
             // RSS scheduler (daily EPUB at 6 AM)
@@ -107,7 +112,7 @@ fn main() {
 
             // Share service
             let share_service = Arc::new(tokio::sync::Mutex::new(
-                ShareService::new(db_path.clone(), storage_path.clone(), Some(8080))
+                ShareService::new(database.clone(), storage_path.clone(), Some(8080))
             ));
             app.manage(share_service);
 

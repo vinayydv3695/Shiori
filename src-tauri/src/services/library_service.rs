@@ -381,7 +381,11 @@ pub fn delete_books(db: &Database, ids: Vec<i64>) -> Result<()> {
     Ok(())
 }
 
-pub fn import_books(db: &Database, paths: Vec<String>) -> Result<ImportResult> {
+pub fn import_books(
+    db: &Database,
+    paths: Vec<String>,
+    covers_dir: &std::path::Path,
+) -> Result<ImportResult> {
     let mut result = ImportResult {
         success: vec![],
         failed: vec![],
@@ -389,7 +393,7 @@ pub fn import_books(db: &Database, paths: Vec<String>) -> Result<ImportResult> {
     };
 
     for path in paths {
-        match import_single_book(db, &path) {
+        match import_single_book(db, &path, covers_dir) {
             Ok(is_duplicate) => {
                 if is_duplicate {
                     result.duplicates.push(path);
@@ -406,7 +410,7 @@ pub fn import_books(db: &Database, paths: Vec<String>) -> Result<ImportResult> {
     Ok(result)
 }
 
-fn import_single_book(db: &Database, path: &str) -> Result<bool> {
+fn import_single_book(db: &Database, path: &str, covers_dir: &std::path::Path) -> Result<bool> {
     // Extract metadata
     let metadata = metadata_service::extract_from_file(path)?;
 
@@ -436,7 +440,7 @@ fn import_single_book(db: &Database, path: &str) -> Result<bool> {
     let book_uuid = Uuid::new_v4().to_string();
 
     // Extract cover image (if available)
-    let cover_path = metadata_service::extract_cover(path, &book_uuid)
+    let cover_path = metadata_service::extract_cover(path, &book_uuid, covers_dir)
         .ok()
         .flatten();
 
@@ -488,7 +492,11 @@ fn import_single_book(db: &Database, path: &str) -> Result<bool> {
     Ok(false) // Not a duplicate
 }
 
-pub fn scan_and_import_folder(db: &Database, folder_path: &str) -> Result<ImportResult> {
+pub fn scan_and_import_folder(
+    db: &Database,
+    folder_path: &str,
+    covers_dir: &std::path::Path,
+) -> Result<ImportResult> {
     let supported_formats = vec!["epub", "pdf", "mobi", "azw3", "txt", "fb2", "djvu"];
     let mut book_paths = Vec::new();
 
@@ -513,7 +521,7 @@ pub fn scan_and_import_folder(db: &Database, folder_path: &str) -> Result<Import
     log::info!("Found {} book files in {}", book_paths.len(), folder_path);
 
     // Import all found books
-    import_books(db, book_paths)
+    import_books(db, book_paths, covers_dir)
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -566,7 +574,11 @@ fn validate_domain(path: &str, domain: &str) -> Result<()> {
 }
 
 /// Import manga files (CBZ/CBR only) — rejects non-manga formats
-pub fn import_manga(db: &Database, paths: Vec<String>) -> Result<ImportResult> {
+pub fn import_manga(
+    db: &Database,
+    paths: Vec<String>,
+    covers_dir: &std::path::Path,
+) -> Result<ImportResult> {
     let mut result = ImportResult {
         success: vec![],
         failed: vec![],
@@ -580,7 +592,7 @@ pub fn import_manga(db: &Database, paths: Vec<String>) -> Result<ImportResult> {
             continue;
         }
 
-        match import_single_book(db, &path) {
+        match import_single_book(db, &path, covers_dir) {
             Ok(is_duplicate) => {
                 if is_duplicate {
                     result.duplicates.push(path);
@@ -598,7 +610,11 @@ pub fn import_manga(db: &Database, paths: Vec<String>) -> Result<ImportResult> {
 }
 
 /// Scan a folder for manga files (CBZ/CBR only)
-pub fn scan_folder_for_manga(db: &Database, folder_path: &str) -> Result<ImportResult> {
+pub fn scan_folder_for_manga(
+    db: &Database,
+    folder_path: &str,
+    covers_dir: &std::path::Path,
+) -> Result<ImportResult> {
     let mut manga_paths = Vec::new();
 
     for entry in WalkDir::new(folder_path)
@@ -619,7 +635,7 @@ pub fn scan_folder_for_manga(db: &Database, folder_path: &str) -> Result<ImportR
     }
 
     log::info!("Found {} manga files in {}", manga_paths.len(), folder_path);
-    import_manga(db, manga_paths)
+    import_manga(db, manga_paths, covers_dir)
 }
 
 /// Get books filtered by domain

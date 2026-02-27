@@ -91,6 +91,13 @@ struct AuthorKey {
     key: String,
 }
 
+/// Response from /authors/{key}.json
+#[derive(Debug, Deserialize)]
+struct AuthorDetailResponse {
+    name: Option<String>,
+    personal_name: Option<String>,
+}
+
 #[derive(Debug, Deserialize)]
 struct EditionResponse {
     title: String,
@@ -433,8 +440,8 @@ impl BookMetadataService {
             (None, None, None)
         };
 
-        // TODO: Fetch author details if needed
-        let authors = vec![]; // Simplified for now
+        // Resolve author references to actual names
+        let authors = self.resolve_author_refs(&work.authors).await;
 
         Ok(BookMetadata {
             open_library_id: work_id.to_string(),
@@ -453,6 +460,59 @@ impl BookMetadataService {
             number_of_pages: None,
             languages: vec![],
         })
+    }
+
+    /// Resolve author references (e.g. /authors/OL123A) to AuthorInfo with actual names.
+    /// Makes one HTTP request per author. If a request fails, that author is silently skipped.
+    async fn resolve_author_refs(&self, author_refs: &Option<Vec<AuthorRef>>) -> Vec<AuthorInfo> {
+        let refs = match author_refs {
+            Some(refs) if !refs.is_empty() => refs,
+            _ => return vec![],
+        };
+
+        let mut authors = Vec::with_capacity(refs.len());
+        for author_ref in refs {
+            let key = &author_ref.author.key;
+            // key is like "/authors/OL123A"
+            let url = format!("{}{}.json", self.base_url, key);
+
+            match self.client.get(&url).send().await {
+                Ok(resp) if resp.status().is_success() => {
+                    if let Ok(detail) = Self::bounded_json::<AuthorDetailResponse>(
+                        resp,
+                        MAX_JSON_RESPONSE_BYTES,
+                        "author detail",
+                    )
+                    .await
+                    {
+                        // Prefer `name`, fall back to `personal_name`
+                        let name = detail
+                            .name
+                            .or(detail.personal_name)
+                            .unwrap_or_else(|| key.clone());
+                        authors.push(AuthorInfo {
+                            name,
+                            key: Some(key.trim_start_matches("/authors/").to_string()),
+                        });
+                    }
+                }
+                Ok(resp) => {
+                    log::warn!(
+                        "[BookMetadataService] Author {} returned HTTP {}",
+                        key,
+                        resp.status()
+                    );
+                }
+                Err(e) => {
+                    log::warn!(
+                        "[BookMetadataService] Failed to fetch author {}: {}",
+                        key,
+                        e
+                    );
+                }
+            }
+        }
+        authors
     }
 
     async fn convert_edition_to_metadata(

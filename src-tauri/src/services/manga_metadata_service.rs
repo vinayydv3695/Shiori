@@ -412,13 +412,7 @@ impl MangaMetadataService {
 
         // Strip HTML tags from description
         let description = media.description.map(|desc| {
-            // Simple HTML tag removal
-            desc.replace("<br>", "\n")
-                .replace("<br/>", "\n")
-                .replace("<i>", "")
-                .replace("</i>", "")
-                .replace("<b>", "")
-                .replace("</b>", "")
+            strip_html_tags(&desc)
         });
 
         MangaMetadata {
@@ -444,6 +438,45 @@ impl Default for MangaMetadataService {
     fn default() -> Self {
         Self::new().expect("Failed to create MangaMetadataService")
     }
+}
+
+// ═══════════════════════════════════════════════════════════
+// HTML STRIPPING
+// ═══════════════════════════════════════════════════════════
+
+/// Strip all HTML tags from a string, converting block-level elements to newlines.
+/// Handles AniList descriptions which contain <br>, <p>, <i>, <b>, <em>, <strong>,
+/// <ul>, <li>, <a href="...">, and other common HTML tags.
+fn strip_html_tags(html: &str) -> String {
+    // First pass: convert block-level and line-break tags to newlines
+    let with_newlines = html
+        .replace("<br>", "\n")
+        .replace("<br/>", "\n")
+        .replace("<br />", "\n")
+        .replace("</p>", "\n")
+        .replace("</li>", "\n")
+        .replace("</ul>", "\n")
+        .replace("</ol>", "\n");
+
+    // Second pass: strip all remaining HTML tags using regex
+    let tag_re = regex::Regex::new(r"<[^>]+>").unwrap();
+    let stripped = tag_re.replace_all(&with_newlines, "");
+
+    // Decode common HTML entities
+    let decoded = stripped
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&apos;", "'")
+        .replace("&nbsp;", " ");
+
+    // Clean up: collapse multiple newlines and trim
+    let newline_re = regex::Regex::new(r"\n{3,}").unwrap();
+    let result = newline_re.replace_all(&decoded, "\n\n");
+
+    result.trim().to_string()
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -501,6 +534,33 @@ pub fn parse_manga_title(filename: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_strip_html_tags() {
+        // Basic tag stripping
+        assert_eq!(
+            strip_html_tags("<b>Bold</b> and <i>italic</i>"),
+            "Bold and italic"
+        );
+
+        // AniList-style description
+        assert_eq!(
+            strip_html_tags("First paragraph<br><br>Second paragraph"),
+            "First paragraph\n\nSecond paragraph"
+        );
+
+        // Complex HTML with entities
+        assert_eq!(
+            strip_html_tags("<p>Tom &amp; Jerry</p><p>A &quot;classic&quot;</p>"),
+            "Tom & Jerry\nA \"classic\""
+        );
+
+        // Nested tags and links
+        assert_eq!(
+            strip_html_tags("<p><a href=\"https://example.com\"><strong>Link</strong></a></p>"),
+            "Link"
+        );
+    }
 
     #[test]
     fn test_parse_manga_title() {

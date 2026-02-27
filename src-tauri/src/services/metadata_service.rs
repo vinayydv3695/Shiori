@@ -20,7 +20,11 @@ pub fn extract_from_file(file_path: &str) -> Result<Metadata> {
     }
 }
 
-pub fn extract_cover(file_path: &str, book_uuid: &str) -> Result<Option<String>> {
+pub fn extract_cover(
+    file_path: &str,
+    book_uuid: &str,
+    covers_dir: &Path,
+) -> Result<Option<String>> {
     let path = Path::new(file_path);
     let extension = path
         .extension()
@@ -29,29 +33,25 @@ pub fn extract_cover(file_path: &str, book_uuid: &str) -> Result<Option<String>>
         .to_lowercase();
 
     match extension.as_str() {
-        "epub" => extract_epub_cover(file_path, book_uuid),
-        "cbz" | "cbr" => extract_cbz_cover(file_path, book_uuid),
+        "epub" => extract_epub_cover(file_path, book_uuid, covers_dir),
+        "cbz" | "cbr" => extract_cbz_cover(file_path, book_uuid, covers_dir),
         "pdf" => Ok(None), // PDF cover extraction not yet implemented
         _ => Ok(None),
     }
 }
 
-fn extract_epub_cover(file_path: &str, book_uuid: &str) -> Result<Option<String>> {
+fn extract_epub_cover(
+    file_path: &str,
+    book_uuid: &str,
+    covers_dir: &Path,
+) -> Result<Option<String>> {
     log::info!("[extract_epub_cover] Extracting cover from: {}", file_path);
     let mut doc = epub::doc::EpubDoc::new(file_path)
         .map_err(|e| ShioriError::MetadataExtraction(format!("Failed to parse EPUB: {}", e)))?;
 
     // Try to get cover image - returns (Vec<u8>, String) where String is media type
     if let Some((cover_data, media_type)) = doc.get_cover() {
-        // Get app data directory
-        let app_dir = std::env::var("APPDATA")
-            .or_else(|_| std::env::var("HOME").map(|h| format!("{}/.local/share", h)))
-            .map_err(|_| {
-                ShioriError::MetadataExtraction("Failed to get app data dir".to_string())
-            })?;
-
-        let covers_dir = Path::new(&app_dir).join("com.tauri.shiori").join("covers");
-        fs::create_dir_all(&covers_dir).map_err(|e| {
+        fs::create_dir_all(covers_dir).map_err(|e| {
             ShioriError::MetadataExtraction(format!("Failed to create covers dir: {}", e))
         })?;
 
@@ -100,7 +100,11 @@ fn extract_epub_cover(file_path: &str, book_uuid: &str) -> Result<Option<String>
     Ok(None)
 }
 
-fn extract_cbz_cover(file_path: &str, book_uuid: &str) -> Result<Option<String>> {
+fn extract_cbz_cover(
+    file_path: &str,
+    book_uuid: &str,
+    covers_dir: &Path,
+) -> Result<Option<String>> {
     log::info!("[extract_cbz_cover] Extracting cover from: {}", file_path);
 
     // Read the archive file
@@ -165,13 +169,8 @@ fn extract_cbz_cover(file_path: &str, book_uuid: &str) -> Result<Option<String>>
         ShioriError::MetadataExtraction(format!("Failed to read image data: {}", e))
     })?;
 
-    // Get app data directory
-    let app_dir = std::env::var("APPDATA")
-        .or_else(|_| std::env::var("HOME").map(|h| format!("{}/.local/share", h)))
-        .map_err(|_| ShioriError::MetadataExtraction("Failed to get app data dir".to_string()))?;
-
-    let covers_dir = Path::new(&app_dir).join("com.tauri.shiori").join("covers");
-    fs::create_dir_all(&covers_dir).map_err(|e| {
+    // Save cover to provided covers directory
+    fs::create_dir_all(covers_dir).map_err(|e| {
         ShioriError::MetadataExtraction(format!("Failed to create covers dir: {}", e))
     })?;
 

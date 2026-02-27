@@ -1,0 +1,148 @@
+/* ═══════════════════════════════════════════════════════════
+   PAPER TEXTURE THEME
+   Realistic book-feel theme with grain texture overlay
+   ═══════════════════════════════════════════════════════════ */
+
+/* ────────────────────────────────────────────────────────────
+   PAPER LIGHT THEME
+   ──────────────────────────────────────────────────────────── */
+[data-theme="paper"] {
+    --bg-primary: #F5F0E8;
+    --bg-secondary: #EDE7DB;
+    --bg-elevated: #FAF7F2;
+    --text-primary: #2C2416;
+    --text-secondary: #5C4F3D;
+    --text-tertiary: #8A7B66;
+    --text-link: #8B4513;
+    --text-selection: #D4A57480;
+    --ui-border: #D4C9B8;
+    --ui-divider: #C7BAA7;
+    --ui-hover: #EDE7DB;
+    --ui-active: #D4C9B8;
+    --ui-focus: #8B6914;
+    --shadow: rgba(139, 119, 90, 0.12);
+    --overlay: rgba(44, 36, 22, 0.25);
+    --progress-bar: #8B6914;
+
+    color-scheme: light;
+}
+
+/* Paper grain texture overlay via inline SVG feTurbulence filter */
+[data-theme="paper"] .premium-reading-canvas::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: var(--texture-intensity, 0.08);
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+}
+
+/* Vignette and soft shadow on content container */
+[data-theme="paper"] .premium-content-container {
+    position: relative;
+    box-shadow:
+        inset 0 0 100px rgba(139, 119, 90, 0.05),
+        0 1px 20px rgba(44, 36, 22, 0.06);
+    border-radius: 2px;
+}
+
+/* Subtle page edge effect */
+[data-theme="paper"] .premium-content-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: -1px;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(to right,
+            rgba(139, 119, 90, 0.08),
+            rgba(139, 119, 90, 0.02),
+            transparent);
+    pointer-events: none;
+}
+
+/* Warm scrollbar */
+[data-theme="paper"] .premium-reading-canvas::-webkit-scrollbar-thumb {
+    background: #C7BAA7;
+}
+
+[data-theme="paper"] .premium-reading-canvas::-webkit-scrollbar-thumb:hover {
+    background: #B5A78F;
+}
+
+/* Top bar warm styling */
+[data-theme="paper"] .premium-top-bar {
+    background: #FAF7F2;
+    border-bottom-color: #D4C9B8;
+}
+
+[data-theme="paper"] .premium-sidebar {
+    background: #FAF7F2;
+    border-left-color: #D4C9B8;
+}
+
+/* ────────────────────────────────────────────────────────────
+   PAPER DARK THEME
+   ──────────────────────────────────────────────────────────── */
+[data-theme="paper-dark"] {
+    --bg-primary: #2A2520;
+    --bg-secondary: #332E28;
+    --bg-elevated: #3A342D;
+    --text-primary: #D4C8B8;
+    --text-secondary: #A89882;
+    --text-tertiary: #7A6E5E;
+    --text-link: #D4A574;
+    --text-selection: #8B691440;
+    --ui-border: #4A4238;
+    --ui-divider: #5A5048;
+    --ui-hover: #3A342D;
+    --ui-active: #4A4238;
+    --ui-focus: #D4A574;
+    --shadow: rgba(0, 0, 0, 0.25);
+    --overlay: rgba(0, 0, 0, 0.45);
+    --progress-bar: #D4A574;
+
+    color-scheme: dark;
+}
+
+/* Reduced grain in dark mode */
+[data-theme="paper-dark"] .premium-reading-canvas::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: var(--texture-intensity, 0.04);
+    mix-blend-mode: soft-light;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+}
+
+[data-theme="paper-dark"] .premium-content-container {
+    box-shadow:
+        inset 0 0 100px rgba(0, 0, 0, 0.08),
+        0 1px 20px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="paper-dark"] .premium-chapter-content img {
+    opacity: 0.85;
+}
+
+[data-theme="paper-dark"] .premium-top-bar {
+    background: #3A342D;
+    border-bottom-color: #4A4238;
+}
+
+[data-theme="paper-dark"] .premium-sidebar {
+    background: #3A342D;
+    border-left-color: #4A4238;
+}
+
+[data-theme="paper-dark"] .premium-reading-canvas::-webkit-scrollbar-thumb {
+    background: #5A5048;
+}
+
+[data-theme="paper-dark"] .premium-reading-canvas::-webkit-scrollbar-thumb:hover {
+    background: #6A6058;
+}

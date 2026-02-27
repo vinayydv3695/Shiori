@@ -1,47 +1,22 @@
-import { useEffect, useState } from 'react'
+import { usePreferencesStore } from '@/store/preferencesStore'
+import type { Theme } from '@/types/preferences'
 
-type Theme = 'light' | 'dark' | 'system'
-
+/**
+ * Legacy compatibility wrapper around preferencesStore for theme access.
+ * Prefer using `usePreferencesStore` directly in new code.
+ */
 export function useTheme() {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window === 'undefined') return 'system'
-    const stored = localStorage.getItem('shiori-theme') as Theme
-    return stored || 'system'
-  })
+  const preferences = usePreferencesStore((s) => s.preferences)
+  const updateTheme = usePreferencesStore((s) => s.updateTheme)
 
-  useEffect(() => {
-    const root = window.document.documentElement
-    root.classList.remove('light', 'dark')
+  const theme: Theme = preferences?.theme ?? 'white'
 
-    if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
-        ? 'dark'
-        : 'light'
-      root.classList.add(systemTheme)
-    } else {
-      root.classList.add(theme)
-    }
-
-    localStorage.setItem('shiori-theme', theme)
-  }, [theme])
-
-  // Listen for system theme changes
-  useEffect(() => {
-    if (theme !== 'system') return
-
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    const handleChange = () => {
-      const root = window.document.documentElement
-      root.classList.remove('light', 'dark')
-      root.classList.add(mediaQuery.matches ? 'dark' : 'light')
-    }
-
-    mediaQuery.addEventListener('change', handleChange)
-    return () => mediaQuery.removeEventListener('change', handleChange)
-  }, [theme])
+  const setTheme = (t: Theme) => {
+    updateTheme(t)
+  }
 
   const toggleTheme = () => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark')
+    updateTheme(theme === 'black' ? 'white' : 'black')
   }
 
   return { theme, setTheme, toggleTheme }

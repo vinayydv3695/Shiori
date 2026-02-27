@@ -111,8 +111,8 @@ export const useRssStore = create<RssState>((set, get) => ({
     try {
       await invoke('update_rss_feed', { 
         feedId, 
-        title: title || null, 
-        checkIntervalHours: checkIntervalHours || null 
+        title: title ?? null, 
+        checkIntervalHours: checkIntervalHours ?? null 
       });
       
       // Reload feeds

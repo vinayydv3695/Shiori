@@ -1,7 +1,8 @@
-use crate::error::ShioriResult;
+use crate::error::Result;
 use crate::models::{Annotation, ReaderSettings, ReadingProgress};
 use crate::services::format_detector;
 use crate::services::reader_service::ReaderService;
+use crate::utils::validate;
 use crate::AppState;
 use std::path::Path;
 use tauri::State;
@@ -12,9 +13,9 @@ use tauri::State;
 pub fn get_reading_progress(
     book_id: i64,
     state: State<AppState>,
-) -> ShioriResult<Option<ReadingProgress>> {
-    let db = state.db.lock().unwrap();
-    let conn = db.get_connection()?;
+) -> Result<Option<ReadingProgress>> {
+    validate::require_positive_id(book_id, "book_id")?;
+    let conn = state.db.get_connection()?;
     ReaderService::get_reading_progress(&conn, book_id)
 }
 
@@ -26,9 +27,10 @@ pub fn save_reading_progress(
     current_page: Option<i32>,
     total_pages: Option<i32>,
     state: State<AppState>,
-) -> ShioriResult<ReadingProgress> {
-    let db = state.db.lock().unwrap();
-    let conn = db.get_connection()?;
+) -> Result<ReadingProgress> {
+    validate::require_positive_id(book_id, "book_id")?;
+    validate::require_non_empty(&current_location, "current_location")?;
+    let conn = state.db.get_connection()?;
     ReaderService::save_reading_progress(
         &conn,
         book_id,
@@ -42,9 +44,9 @@ pub fn save_reading_progress(
 // ==================== Annotation Commands ====================
 
 #[tauri::command]
-pub fn get_annotations(book_id: i64, state: State<AppState>) -> ShioriResult<Vec<Annotation>> {
-    let db = state.db.lock().unwrap();
-    let conn = db.get_connection()?;
+pub fn get_annotations(book_id: i64, state: State<AppState>) -> Result<Vec<Annotation>> {
+    validate::require_positive_id(book_id, "book_id")?;
+    let conn = state.db.get_connection()?;
     ReaderService::get_annotations(&conn, book_id)
 }
 
@@ -58,9 +60,13 @@ pub fn create_annotation(
     note_content: Option<String>,
     color: String,
     state: State<AppState>,
-) -> ShioriResult<Annotation> {
-    let db = state.db.lock().unwrap();
-    let conn = db.get_connection()?;
+) -> Result<Annotation> {
+    validate::require_positive_id(book_id, "book_id")?;
+    validate::require_non_empty(&annotation_type, "annotation_type")?;
+    validate::require_non_empty(&location, "location")?;
+    validate::require_non_empty(&color, "color")?;
+    validate::require_max_length(&color, 50, "color")?;
+    let conn = state.db.get_connection()?;
     ReaderService::create_annotation(
         &conn,
         book_id,
@@ -79,16 +85,19 @@ pub fn update_annotation(
     note_content: Option<String>,
     color: Option<String>,
     state: State<AppState>,
-) -> ShioriResult<()> {
-    let db = state.db.lock().unwrap();
-    let conn = db.get_connection()?;
+) -> Result<()> {
+    validate::require_positive_id(id, "id")?;
+    if let Some(ref c) = color {
+        validate::require_max_length(c, 50, "color")?;
+    }
+    let conn = state.db.get_connection()?;
     ReaderService::update_annotation(&conn, id, note_content.as_deref(), color.as_deref())
 }
 
 #[tauri::command]
-pub fn delete_annotation(id: i64, state: State<AppState>) -> ShioriResult<()> {
-    let db = state.db.lock().unwrap();
-    let conn = db.get_connection()?;
+pub fn delete_annotation(id: i64, state: State<AppState>) -> Result<()> {
+    validate::require_positive_id(id, "id")?;
+    let conn = state.db.get_connection()?;
     ReaderService::delete_annotation(&conn, id)
 }
 
@@ -98,9 +107,9 @@ pub fn delete_annotation(id: i64, state: State<AppState>) -> ShioriResult<()> {
 pub fn get_reader_settings(
     user_id: String,
     state: State<AppState>,
-) -> ShioriResult<ReaderSettings> {
-    let db = state.db.lock().unwrap();
-    let conn = db.get_connection()?;
+) -> Result<ReaderSettings> {
+    validate::require_non_empty(&user_id, "user_id")?;
+    let conn = state.db.get_connection()?;
     ReaderService::get_reader_settings(&conn, &user_id)
 }
 
@@ -114,9 +123,12 @@ pub fn save_reader_settings(
     page_mode: String,
     margin_size: i32,
     state: State<AppState>,
-) -> ShioriResult<ReaderSettings> {
-    let db = state.db.lock().unwrap();
-    let conn = db.get_connection()?;
+) -> Result<ReaderSettings> {
+    validate::require_non_empty(&user_id, "user_id")?;
+    validate::require_non_empty(&font_family, "font_family")?;
+    validate::require_non_empty(&theme, "theme")?;
+    validate::require_non_empty(&page_mode, "page_mode")?;
+    let conn = state.db.get_connection()?;
     ReaderService::save_reader_settings(
         &conn,
         &user_id,
@@ -132,9 +144,9 @@ pub fn save_reader_settings(
 // ==================== Book Access Command ====================
 
 #[tauri::command]
-pub fn get_book_file_path(book_id: i64, state: State<AppState>) -> ShioriResult<String> {
-    let db = state.db.lock().unwrap();
-    let conn = db.get_connection()?;
+pub fn get_book_file_path(book_id: i64, state: State<AppState>) -> Result<String> {
+    validate::require_positive_id(book_id, "book_id")?;
+    let conn = state.db.get_connection()?;
     let file_path: String = conn.query_row(
         "SELECT file_path FROM books WHERE id = ?1",
         rusqlite::params![book_id],
@@ -146,12 +158,15 @@ pub fn get_book_file_path(book_id: i64, state: State<AppState>) -> ShioriResult<
 // ==================== Format Detection Commands ====================
 
 #[tauri::command]
-pub async fn detect_book_format(path: String) -> ShioriResult<String> {
+pub async fn detect_book_format(path: String) -> Result<String> {
+    validate::require_safe_path(&path, "path")?;
     format_detector::detect_format(Path::new(&path)).await
 }
 
 #[tauri::command]
-pub async fn validate_book_file(path: String, format: String) -> ShioriResult<bool> {
+pub async fn validate_book_file(path: String, format: String) -> Result<bool> {
+    validate::require_safe_path(&path, "path")?;
+    validate::require_non_empty(&format, "format")?;
     format_detector::validate_file_integrity(Path::new(&path), &format).await
 }
 

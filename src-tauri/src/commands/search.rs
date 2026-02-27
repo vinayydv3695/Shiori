@@ -8,6 +8,6 @@ use tauri::State;
 
 #[tauri::command]
 pub fn search_books(state: State<AppState>, query: SearchQuery) -> Result<SearchResult> {
-    let db = state.db.lock().unwrap();
-    search_service::search(&db, query)
+    let db = &state.db;
+    search_service::search(db, query)
 }

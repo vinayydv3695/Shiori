@@ -8,7 +8,7 @@ mod models;
 mod services;
 mod utils;
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tauri::Manager;
 
 use services::{
@@ -28,7 +28,7 @@ use services::{
 };
 
 pub struct AppState {
-    db: Mutex<db::Database>,
+    db: db::Database,
 }
 
 pub struct MetadataState {
@@ -53,7 +53,7 @@ fn main() {
             let database = db::Database::new(&db_path)?;
 
             app.manage(AppState {
-                db: Mutex::new(database.clone()),
+                db: database.clone(),
             });
 
             // Initialize rendering service with 100MB cache
@@ -70,10 +70,8 @@ fn main() {
             let conversion_engine = Arc::new(ConversionEngine::new(4, app.handle().clone()));
             // Restore any jobs that were in-progress when the app last closed
             if let Some(state) = app.try_state::<AppState>() {
-                if let Ok(db) = state.db.lock() {
-                    if let Ok(conn) = db.get_connection() {
-                        let _ = conversion_engine.restore_from_db(&conn);
-                    }
+                if let Ok(conn) = state.db.get_connection() {
+                    let _ = conversion_engine.restore_from_db(&conn);
                 }
             }
 
@@ -260,6 +258,11 @@ fn main() {
             commands::preferences::get_onboarding_state,
             commands::preferences::complete_onboarding,
             commands::preferences::reset_onboarding,
+            // Doodle commands
+            commands::doodle::save_doodle,
+            commands::doodle::get_doodle,
+            commands::doodle::delete_doodle,
+            commands::doodle::delete_book_doodles,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

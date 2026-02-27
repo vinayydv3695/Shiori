@@ -76,8 +76,8 @@ pub struct OnboardingState {
 /// Get all user preferences (called once on app start)
 #[tauri::command]
 pub async fn get_user_preferences(state: State<'_, AppState>) -> Result<UserPreferences> {
-    let db = state.db.lock().unwrap();
-    let prefs = db.get_connection()?.query_row(
+    let conn = state.db.get_connection()?;
+    let prefs = conn.query_row(
         "SELECT 
             theme,
             book_font_family, book_font_size, book_line_height, book_page_width,
@@ -137,8 +137,8 @@ pub async fn get_user_preferences(state: State<'_, AppState>) -> Result<UserPref
 /// Get theme synchronously (for no-flash initialization)
 #[tauri::command]
 pub async fn get_theme_sync(state: State<'_, AppState>) -> Result<String> {
-    let db = state.db.lock().unwrap();
-    let theme: String = db.get_connection()?.query_row(
+    let conn = state.db.get_connection()?;
+    let theme: String = conn.query_row(
         "SELECT theme FROM user_preferences WHERE id = 1",
         [],
         |row| row.get(0)
@@ -153,7 +153,7 @@ pub async fn update_user_preferences(
     state: State<'_, AppState>,
     updates: serde_json::Value,
 ) -> Result<()> {
-    let db = state.db.lock().unwrap();
+    let conn = state.db.get_connection()?;
     let mut set_clauses = Vec::new();
     let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
     
@@ -306,7 +306,7 @@ pub async fn update_user_preferences(
     // Convert Box<dyn ToSql> to &dyn ToSql
     let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
     
-    db.get_connection()?.execute(&sql, param_refs.as_slice())?;
+    conn.execute(&sql, param_refs.as_slice())?;
     
     Ok(())
 }
@@ -316,8 +316,7 @@ pub async fn update_user_preferences(
 pub async fn get_book_preference_overrides(
     state: State<'_, AppState>,
 ) -> Result<Vec<PreferenceOverride>> {
-    let db = state.db.lock().unwrap();
-    let conn = db.get_connection()?;
+    let conn = state.db.get_connection()?;
     let mut stmt = conn.prepare(
         "SELECT book_id, 
             font_family, font_size, line_height, page_width,
@@ -381,9 +380,9 @@ pub async fn set_book_preference_override(
     book_id: i32,
     overrides: serde_json::Value,
 ) -> Result<()> {
-    let db = state.db.lock().unwrap();
+    let conn = state.db.get_connection()?;
     // Upsert book override entry
-    db.get_connection()?.execute(
+    conn.execute(
         "INSERT INTO book_preference_overrides (book_id) VALUES (?)
          ON CONFLICT(book_id) DO NOTHING",
         [book_id],
@@ -446,7 +445,7 @@ pub async fn set_book_preference_override(
     params.push(Box::new(book_id));
     let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
     
-    db.get_connection()?.execute(&sql, param_refs.as_slice())?;
+    conn.execute(&sql, param_refs.as_slice())?;
     
     Ok(())
 }
@@ -457,8 +456,8 @@ pub async fn clear_book_preference_override(
     state: State<'_, AppState>,
     book_id: i32,
 ) -> Result<()> {
-    let db = state.db.lock().unwrap();
-    db.get_connection()?.execute(
+    let conn = state.db.get_connection()?;
+    conn.execute(
         "DELETE FROM book_preference_overrides WHERE book_id = ?",
         [book_id],
     )?;
@@ -471,8 +470,7 @@ pub async fn clear_book_preference_override(
 pub async fn get_manga_preference_overrides(
     state: State<'_, AppState>,
 ) -> Result<Vec<PreferenceOverride>> {
-    let db = state.db.lock().unwrap();
-    let conn = db.get_connection()?;
+    let conn = state.db.get_connection()?;
     let mut stmt = conn.prepare(
         "SELECT book_id, 
             mode, direction, margin_size, fit_width,
@@ -531,9 +529,9 @@ pub async fn set_manga_preference_override(
     book_id: i32,
     overrides: serde_json::Value,
 ) -> Result<()> {
-    let db = state.db.lock().unwrap();
+    let conn = state.db.get_connection()?;
     // Upsert manga override entry
-    db.get_connection()?.execute(
+    conn.execute(
         "INSERT INTO manga_preference_overrides (book_id) VALUES (?)
          ON CONFLICT(book_id) DO NOTHING",
         [book_id],
@@ -591,7 +589,7 @@ pub async fn set_manga_preference_override(
     params.push(Box::new(book_id));
     let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
     
-    db.get_connection()?.execute(&sql, param_refs.as_slice())?;
+    conn.execute(&sql, param_refs.as_slice())?;
     
     Ok(())
 }
@@ -602,8 +600,8 @@ pub async fn clear_manga_preference_override(
     state: State<'_, AppState>,
     book_id: i32,
 ) -> Result<()> {
-    let db = state.db.lock().unwrap();
-    db.get_connection()?.execute(
+    let conn = state.db.get_connection()?;
+    conn.execute(
         "DELETE FROM manga_preference_overrides WHERE book_id = ?",
         [book_id],
     )?;
@@ -614,8 +612,8 @@ pub async fn clear_manga_preference_override(
 /// Get onboarding state
 #[tauri::command]
 pub async fn get_onboarding_state(state: State<'_, AppState>) -> Result<OnboardingState> {
-    let db = state.db.lock().unwrap();
-    let onboarding_state = db.get_connection()?.query_row(
+    let conn = state.db.get_connection()?;
+    let onboarding_state = conn.query_row(
         "SELECT completed, completed_at, version, skipped_steps FROM onboarding_state WHERE id = 1",
         [],
         |row| {
@@ -641,11 +639,11 @@ pub async fn complete_onboarding(
     state: State<'_, AppState>,
     skipped_steps: Vec<String>,
 ) -> Result<()> {
-    let db = state.db.lock().unwrap();
+    let conn = state.db.get_connection()?;
     let skipped_json = serde_json::to_string(&skipped_steps)
         .unwrap_or_else(|_| "[]".to_string());
     
-    db.get_connection()?.execute(
+    conn.execute(
         "UPDATE onboarding_state 
          SET completed = 1, completed_at = CURRENT_TIMESTAMP, skipped_steps = ?
          WHERE id = 1",
@@ -658,8 +656,8 @@ pub async fn complete_onboarding(
 /// Reset onboarding state to allow re-checking the onboarding experience
 #[tauri::command]
 pub async fn reset_onboarding(state: State<'_, AppState>) -> Result<()> {
-    let db = state.db.lock().unwrap();
-    db.get_connection()?.execute(
+    let conn = state.db.get_connection()?;
+    conn.execute(
         "UPDATE onboarding_state 
          SET completed = 0, completed_at = NULL, skipped_steps = '[]'
          WHERE id = 1",

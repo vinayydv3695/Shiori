@@ -49,8 +49,14 @@ export function LongStripView() {
     useMangaScroll(containerRef, handleProgressChange, handleScrollDirection);
 
     // Detect which page is most visible and update currentPage
+    // NOTE: virtualizer.getVirtualItems() returns a new array every call, so it must NOT
+    // be used as a useEffect dependency (infinite loop). Instead, re-run when the
+    // virtualizer's internal scroll offset changes (exposed via getTotalSize as a proxy)
+    // and when totalPages changes.
+    const virtualItems = virtualizer.getVirtualItems();
+    const scrollOffset = containerRef.current?.scrollTop ?? 0;
+
     useEffect(() => {
-        const virtualItems = virtualizer.getVirtualItems();
         if (virtualItems.length === 0) return;
 
         const container = containerRef.current;
@@ -73,7 +79,8 @@ export function LongStripView() {
         }
 
         setCurrentPage(closestPage);
-    }, [virtualizer.getVirtualItems(), setCurrentPage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [virtualItems.length, scrollOffset, setCurrentPage]);
 
     if (!bookId) return null;
 

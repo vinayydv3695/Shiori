@@ -49,6 +49,8 @@ export function MangaReader({
 
     // Initialize manga state and load reading progress
     useEffect(() => {
+        let cancelled = false;
+
         const init = async () => {
             setLoading(true);
             setError(null);
@@ -61,6 +63,8 @@ export function MangaReader({
                     page_dimensions?: [number, number][];
                 }>('open_manga', { bookId, path: bookPath });
 
+                if (cancelled) return;
+
                 openManga(
                     bookId,
                     bookPath,
@@ -72,6 +76,7 @@ export function MangaReader({
                 // Load reading progress and resume from last page
                 try {
                     const progress = await api.getReadingProgress(bookId);
+                    if (cancelled) return;
                     if (progress && progress.currentPage !== undefined) {
                         console.log('[MangaReader] Resuming from page:', progress.currentPage);
                         setCurrentPage(progress.currentPage);
@@ -80,16 +85,20 @@ export function MangaReader({
                     console.warn('[MangaReader] Failed to load reading progress:', progressErr);
                 }
             } catch (err) {
+                if (cancelled) return;
                 // Fallback: use provided props if IPC not available yet
                 console.warn('[MangaReader] IPC open_manga not available, using props:', err);
                 openManga(bookId, bookPath, title, totalPages);
             }
-            setLoading(false);
+            if (!cancelled) {
+                setLoading(false);
+            }
         };
 
         init();
 
         return () => {
+            cancelled = true;
             // Cleanup on unmount
             closeManga();
             imageCache.clear();

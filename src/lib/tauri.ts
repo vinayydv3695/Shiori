@@ -194,6 +194,15 @@ export interface MangaMetadata {
   page_dimensions: [number, number][]
 }
 
+export interface Doodle {
+  id?: number
+  book_id: number
+  page_number: string
+  strokes_json: string
+  created_at: string
+  updated_at: string
+}
+
 // Mock data for development (when not in Tauri)
 const mockBooks: Book[] = [
   {
@@ -533,7 +542,6 @@ export const api = {
   async openFileDialog(): Promise<string[] | null> {
     if (!isTauri) {
       console.warn("File dialogs only work in Tauri environment. Please run: npm run tauri dev")
-      alert("File dialogs only work in Tauri mode.\n\nPlease run: npm run tauri dev")
       return Promise.resolve(null)
     }
     try {
@@ -688,5 +696,22 @@ export const api = {
 
   async resetOnboarding(): Promise<void> {
     return invoke("reset_onboarding")
+  },
+
+  // Doodle System
+  async saveDoodle(bookId: number, pageNumber: string, strokesJson: string): Promise<Doodle> {
+    return invoke("save_doodle", { bookId, pageNumber, strokesJson })
+  },
+
+  async getDoodle(bookId: number, pageNumber: string): Promise<Doodle | null> {
+    return invoke("get_doodle", { bookId, pageNumber })
+  },
+
+  async deleteDoodle(bookId: number, pageNumber: string): Promise<void> {
+    return invoke("delete_doodle", { bookId, pageNumber })
+  },
+
+  async deleteBookDoodles(bookId: number): Promise<number> {
+    return invoke("delete_book_doodles", { bookId })
   },
 }

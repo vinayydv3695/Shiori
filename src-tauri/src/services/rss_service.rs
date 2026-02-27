@@ -3,10 +3,11 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use feed_rs::parser;
 use reqwest::Client;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use ammonia::clean;
 
+use crate::db::Database;
 use super::epub_builder::{EpubBuilder, EpubMetadata};
 
 /// RSS feed metadata
@@ -65,7 +66,7 @@ impl Default for DailyEpubOptions {
 
 /// RSS feed management service
 pub struct RssService {
-    db_path: PathBuf,
+    db: Database,
     client: Client,
     storage_path: PathBuf,
 }
@@ -83,7 +84,7 @@ fn parse_datetime_required(s: String) -> rusqlite::Result<DateTime<Utc>> {
 
 impl RssService {
     /// Create a new RSS service
-    pub fn new(db_path: PathBuf, storage_path: PathBuf) -> Result<Self> {
+    pub fn new(db: Database, storage_path: PathBuf) -> Result<Self> {
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(30))
             .user_agent("Shiori/2.0 RSS Reader")
@@ -91,17 +92,16 @@ impl RssService {
             .context("Failed to create HTTP client")?;
 
         Ok(Self {
-            db_path,
+            db,
             client,
             storage_path,
         })
     }
 
-    /// Get a database connection
-    fn get_connection(&self) -> Result<Connection> {
-        let conn = Connection::open(&self.db_path)?;
-        conn.execute_batch("PRAGMA foreign_keys = ON")?;
-        Ok(conn)
+    /// Get a database connection from the shared pool
+    fn get_connection(&self) -> Result<r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>> {
+        self.db.get_connection()
+            .map_err(|e| anyhow::anyhow!("{}", e))
     }
 
     /// Add a new RSS feed
@@ -541,8 +541,8 @@ mod tests {
         let temp_dir = std::env::temp_dir().join("shiori-test-rss");
         std::fs::create_dir_all(&temp_dir).unwrap();
         
-        let db_path = temp_dir.join("test.db");
-        let service = RssService::new(db_path, temp_dir);
+        let db = Database::new(&temp_dir.join("test.db")).unwrap();
+        let service = RssService::new(db, temp_dir);
         
         assert!(service.is_ok());
     }
@@ -560,8 +560,8 @@ mod tests {
         let temp_dir = std::env::temp_dir().join("shiori-test-local-feed");
         std::fs::create_dir_all(&temp_dir).unwrap();
         
-        let db_path = temp_dir.join("test.db");
-        let service = RssService::new(db_path, temp_dir.clone()).unwrap();
+        let db = Database::new(&temp_dir.join("test.db")).unwrap();
+        let service = RssService::new(db, temp_dir.clone()).unwrap();
 
         let xml_content = r#"<?xml version="1.0" encoding="UTF-8" ?>
 <rss version="2.0">

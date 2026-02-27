@@ -167,7 +167,7 @@ mod tests {
         let temp_dir = std::env::temp_dir().join("shiori-test-scheduler");
         std::fs::create_dir_all(&temp_dir).unwrap();
         
-        let db = Arc::new(Database::new(&temp_dir.join("test.db")).unwrap());
+        let db = Database::new(&temp_dir.join("test.db")).unwrap();
         let rss_service = Arc::new(RssService::new(db, temp_dir).unwrap());
         
         let scheduler = RssScheduler::new(rss_service, true, None).await;

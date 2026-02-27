@@ -18,6 +18,7 @@ export const ImportDialog = ({ open, onOpenChange }: ImportDialogProps) => {
   const [status, setStatus] = useState<ImportStatus>('idle');
   const [result, setResult] = useState<ImportResult | null>(null);
   const [selectedPath, setSelectedPath] = useState<string>('');
+  const [selectedFilePaths, setSelectedFilePaths] = useState<string[]>([]);
   const toast = useToast();
   const { setBooks } = useLibraryStore();
 
@@ -38,8 +39,7 @@ export const ImportDialog = ({ open, onOpenChange }: ImportDialogProps) => {
       const paths = await api.openFileDialog();
       if (paths && paths.length > 0) {
         setSelectedPath(`${paths.length} file(s) selected`);
-        // Store paths for import
-        (window as any).__selectedFilePaths = paths;
+        setSelectedFilePaths(paths);
       }
     } catch (error) {
       console.error('Failed to select files:', error);
@@ -62,13 +62,12 @@ export const ImportDialog = ({ open, onOpenChange }: ImportDialogProps) => {
         }
         importResult = await api.scanFolderForBooks(selectedPath);
       } else {
-        const paths = (window as any).__selectedFilePaths as string[];
-        if (!paths || paths.length === 0) {
+        if (selectedFilePaths.length === 0) {
           toast.error('No files selected', 'Please select files to import');
           setStatus('idle');
           return;
         }
-        importResult = await api.importBooks(paths);
+        importResult = await api.importBooks(selectedFilePaths);
       }
 
       setResult(importResult);
@@ -104,7 +103,7 @@ export const ImportDialog = ({ open, onOpenChange }: ImportDialogProps) => {
     setStatus('idle');
     setResult(null);
     setSelectedPath('');
-    (window as any).__selectedFilePaths = null;
+    setSelectedFilePaths([]);
     onOpenChange(false);
   };
 

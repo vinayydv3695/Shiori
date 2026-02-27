@@ -102,7 +102,7 @@ pub fn import_books(state: State<'_, AppState>, paths: Vec<String>) -> Result<Im
         validate::require_safe_path(path, "import path")?;
     }
     let db = &state.db;
-    library_service::import_books(db, paths)
+    library_service::import_books(db, paths, &state.covers_dir)
 }
 
 #[tauri::command]
@@ -112,7 +112,7 @@ pub fn scan_folder_for_books(
 ) -> Result<ImportResult> {
     validate::require_safe_path(&folder_path, "folder path")?;
     let db = &state.db;
-    library_service::scan_and_import_folder(db, &folder_path)
+    library_service::scan_and_import_folder(db, &folder_path, &state.covers_dir)
 }
 
 #[tauri::command]
@@ -122,7 +122,7 @@ pub fn import_manga(state: State<'_, AppState>, paths: Vec<String>) -> Result<Im
         validate::require_safe_path(path, "import path")?;
     }
     let db = &state.db;
-    library_service::import_manga(db, paths)
+    library_service::import_manga(db, paths, &state.covers_dir)
 }
 
 #[tauri::command]
@@ -132,7 +132,7 @@ pub fn scan_folder_for_manga(
 ) -> Result<ImportResult> {
     validate::require_safe_path(&folder_path, "folder path")?;
     let db = &state.db;
-    library_service::scan_folder_for_manga(db, &folder_path)
+    library_service::scan_folder_for_manga(db, &folder_path, &state.covers_dir)
 }
 
 #[tauri::command]

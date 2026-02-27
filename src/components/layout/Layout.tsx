@@ -11,7 +11,7 @@
  */
 
 import type { ReactNode } from 'react'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { open } from '@tauri-apps/plugin-dialog'
 
 import { PremiumTopbar } from './ImprovedToolbar'
@@ -74,8 +74,8 @@ export function Layout({
   const totalSize = books.reduce((sum, b) => sum + (b.file_size || 0), 0)
   const librarySize = totalSize > 0 ? formatFileSize(totalSize) : '0 B'
 
-  // ── Filter data extraction ─────────────────────
-  const getFilterItems = () => {
+  // ── Filter data extraction (memoized) ──────────────
+  const filterItems = useMemo(() => {
     const authorsSet = new Set<string>()
     const languagesSet = new Set<string>()
     const seriesSet = new Set<string>()
@@ -128,9 +128,7 @@ export function Layout({
     })
 
     return { authors, languages, series, formats, publishers, ratings, tags, identifiers }
-  }
-
-  const filterItems = getFilterItems()
+  }, [books])
 
   // ── Import handlers ────────────────────────────
   const handleImportBooks = async () => {

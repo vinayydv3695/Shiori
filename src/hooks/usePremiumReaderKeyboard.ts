@@ -138,21 +138,21 @@ export function usePremiumReaderKeyboard(handlers: PremiumReaderKeyboardHandlers
         return;
       }
 
+      // Shift+Space / PageUp: Previous Page (must be checked BEFORE Space)
+      if ((key === ' ' && e.shiftKey) || key === 'PageUp') {
+        if (handlersRef.current.onPrevPage) {
+          e.preventDefault();
+          handlersRef.current.onPrevPage();
+        }
+        return;
+      }
+
       // Space / PageDown: Next Page
       if (key === ' ' || key === 'PageDown') {
         // Only prevent default if we have a handler, otherwise let browser scroll
         if (handlersRef.current.onNextPage) {
           e.preventDefault();
           handlersRef.current.onNextPage();
-        }
-        return;
-      }
-
-      // Shift+Space / PageUp: Previous Page
-      if ((key === ' ' && e.shiftKey) || key === 'PageUp') {
-        if (handlersRef.current.onPrevPage) {
-          e.preventDefault();
-          handlersRef.current.onPrevPage();
         }
         return;
       }

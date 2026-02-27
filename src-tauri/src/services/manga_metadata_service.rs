@@ -8,7 +8,7 @@
 /// - Community ratings
 /// - Publication information
 
-use crate::error::{ShioriError, ShioriResult};
+use crate::error::{ShioriError, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -126,8 +126,13 @@ pub struct MangaMetadataService {
     api_url: String,
 }
 
+/// Maximum response body size for JSON/GraphQL responses (2 MB)
+const MAX_JSON_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
+/// Maximum response body size for cover image downloads (10 MB)
+const MAX_IMAGE_RESPONSE_BYTES: usize = 10 * 1024 * 1024;
+
 impl MangaMetadataService {
-    pub fn new() -> ShioriResult<Self> {
+    pub fn new() -> Result<Self> {
         let client = Client::builder()
             .timeout(Duration::from_secs(30))
             .user_agent("Shiori/0.1.0")
@@ -140,8 +145,49 @@ impl MangaMetadataService {
         })
     }
 
+    /// Read a response body as JSON with a size limit to prevent memory exhaustion.
+    async fn bounded_json<T: serde::de::DeserializeOwned>(
+        response: reqwest::Response,
+        max_bytes: usize,
+        context: &str,
+    ) -> Result<T> {
+        let bytes = Self::bounded_bytes(response, max_bytes, context).await?;
+        serde_json::from_slice(&bytes)
+            .map_err(|e| ShioriError::Other(format!("Failed to parse {}: {}", context, e)))
+    }
+
+    /// Read a response body with a size limit to prevent memory exhaustion.
+    async fn bounded_bytes(
+        response: reqwest::Response,
+        max_bytes: usize,
+        context: &str,
+    ) -> Result<Vec<u8>> {
+        // Check Content-Length header first for an early reject
+        if let Some(len) = response.content_length() {
+            if len as usize > max_bytes {
+                return Err(ShioriError::Other(format!(
+                    "{} response too large: {} bytes (max {})",
+                    context, len, max_bytes
+                )));
+            }
+        }
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|e| ShioriError::Other(format!("Failed to read {}: {}", context, e)))?;
+        if bytes.len() > max_bytes {
+            return Err(ShioriError::Other(format!(
+                "{} response too large: {} bytes (max {})",
+                context,
+                bytes.len(),
+                max_bytes
+            )));
+        }
+        Ok(bytes.to_vec())
+    }
+
     /// Search for manga by title
-    pub async fn search_manga(&self, title: &str) -> ShioriResult<Vec<MangaMetadata>> {
+    pub async fn search_manga(&self, title: &str) -> Result<Vec<MangaMetadata>> {
         log::info!("[MangaMetadataService] Searching for: '{}'", title);
 
         let query = r#"
@@ -206,10 +252,12 @@ impl MangaMetadataService {
             )));
         }
 
-        let result: GraphQLResponse = response
-            .json()
-            .await
-            .map_err(|e| ShioriError::Other(format!("Failed to parse AniList response: {}", e)))?;
+        let result: GraphQLResponse = Self::bounded_json(
+            response,
+            MAX_JSON_RESPONSE_BYTES,
+            "AniList search response",
+        )
+        .await?;
 
         if let Some(data) = result.data {
             if let Some(page) = data.page {
@@ -233,7 +281,7 @@ impl MangaMetadataService {
     }
 
     /// Get detailed metadata by AniList ID
-    pub async fn get_manga_by_id(&self, anilist_id: i64) -> ShioriResult<MangaMetadata> {
+    pub async fn get_manga_by_id(&self, anilist_id: i64) -> Result<MangaMetadata> {
         log::info!("[MangaMetadataService] Fetching manga ID: {}", anilist_id);
 
         let query = r#"
@@ -296,10 +344,12 @@ impl MangaMetadataService {
             )));
         }
 
-        let result: GraphQLResponse = response
-            .json()
-            .await
-            .map_err(|e| ShioriError::Other(format!("Failed to parse AniList response: {}", e)))?;
+        let result: GraphQLResponse = Self::bounded_json(
+            response,
+            MAX_JSON_RESPONSE_BYTES,
+            "AniList manga response",
+        )
+        .await?;
 
         if let Some(data) = result.data {
             if let Some(media) = data.media {
@@ -314,7 +364,7 @@ impl MangaMetadataService {
     }
 
     /// Download cover image from URL
-    pub async fn download_cover(&self, url: &str) -> ShioriResult<Vec<u8>> {
+    pub async fn download_cover(&self, url: &str) -> Result<Vec<u8>> {
         log::info!("[MangaMetadataService] Downloading cover from: {}", url);
 
         let response = self
@@ -331,13 +381,15 @@ impl MangaMetadataService {
             )));
         }
 
-        let bytes = response
-            .bytes()
-            .await
-            .map_err(|e| ShioriError::Other(format!("Failed to read cover data: {}", e)))?;
+        let bytes = Self::bounded_bytes(
+            response,
+            MAX_IMAGE_RESPONSE_BYTES,
+            "cover image",
+        )
+        .await?;
 
         log::info!("[MangaMetadataService] ✅ Downloaded {} bytes", bytes.len());
-        Ok(bytes.to_vec())
+        Ok(bytes)
     }
 
     /// Helper to convert API data to our format

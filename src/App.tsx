@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
 import { Layout } from "./components/layout/Layout"
 import { LibraryGrid } from "./components/library/LibraryGrid"
 import { ReaderLayout } from "./components/reader/ReaderLayout"
@@ -48,8 +48,6 @@ function App() {
   const {
     books,
     loadInitialBooks,
-    selectedBookIds,
-    toggleBookSelection,
     clearSelection,
     selectedFilters
   } = useLibraryStore()
@@ -70,8 +68,6 @@ function App() {
   // New feature dialogs
   const [conversionDialogOpen, setConversionDialogOpen] = useState(false)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
-  const [rssManagerOpen, setRssManagerOpen] = useState(false)
-  const [rssArticlesOpen, setRssArticlesOpen] = useState(false)
 
   // Theme is handled entirely by preferencesStore → [data-theme] attribute.
   // The old uiStore.theme / .dark class system has been removed.
@@ -342,7 +338,6 @@ function App() {
         onEditMetadata={handleEditBook}
         onDeleteBook={handleDeleteBook}
         onDeleteBooks={handleDeleteBooks}
-        onViewBook={handleOpenBook}
         onDownloadBook={handleDownloadBook}
         onViewDetails={handleViewDetails}
         onConvertBook={handleConvertBook}

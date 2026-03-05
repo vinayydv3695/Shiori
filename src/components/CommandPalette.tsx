@@ -10,12 +10,7 @@ import {
   Table2,
   Moon,
   Sun,
-  FileEdit,
-  Download,
-  Trash2,
-  Tag,
   Star,
-  FolderPlus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLibraryStore } from '@/store/libraryStore'
@@ -27,8 +22,6 @@ interface CommandPaletteProps {
   onOpenBook: (bookId: number) => void
   onAddBook: () => void
   onSettings: () => void
-  onEditBook?: (bookId: number) => void
-  onDeleteBook?: (bookId: number) => void
 }
 
 export const CommandPalette = ({
@@ -36,8 +29,6 @@ export const CommandPalette = ({
   onOpenBook,
   onAddBook,
   onSettings,
-  onEditBook,
-  onDeleteBook,
 }: CommandPaletteProps) => {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')

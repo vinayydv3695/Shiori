@@ -19,7 +19,6 @@ import { FilterPanel } from '../sidebar/ModernSidebar'
 import { StatusBar } from './ModernToolbar'
 import { cn, formatFileSize } from '@/lib/utils'
 import { api } from '@/lib/tauri'
-import { useUIStore } from '@/store/uiStore'
 import { useLibraryStore } from '@/store/libraryStore'
 import { useToast } from '@/store/toastStore'
 
@@ -29,7 +28,6 @@ interface LayoutProps {
   onEditMetadata?: (bookId: number) => void
   onDeleteBook?: (bookId: number) => void
   onDeleteBooks?: (bookIds: number[]) => void
-  onViewBook?: (bookId: number) => void
   onDownloadBook?: (bookId: number) => void
   onViewDetails?: (bookId: number) => void
   onConvertBook?: (bookId: number) => void
@@ -51,7 +49,6 @@ export function Layout({
   onEditMetadata,
   onDeleteBook,
   onDeleteBooks,
-  onViewBook,
   onConvertBook,
   onOpenRSSFeeds,
   onGoHome,

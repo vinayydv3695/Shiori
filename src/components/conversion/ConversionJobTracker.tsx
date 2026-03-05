@@ -1,12 +1,10 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import {
   X, Loader2, CheckCircle, Clock, XCircle, AlertCircle, Minimize2, Maximize2, RefreshCw,
 } from 'lucide-react';
 import { useConversionStore, type ConversionJob } from '../../store/conversionStore';
 
 interface ConversionJobTrackerProps {
-  /** Bottom toolbar integration: show as compact strip instead of floating panel */
-  compact?: boolean;
 }
 
 const STATUS_CONFIG: Record<
@@ -85,7 +83,7 @@ const JobRow: React.FC<{ job: ConversionJob; onCancel: (id: string) => void }> =
   );
 };
 
-const ConversionJobTracker: React.FC<ConversionJobTrackerProps> = ({ compact = false }) => {
+const ConversionJobTracker: React.FC<ConversionJobTrackerProps> = () => {
   const { jobs, loadJobs, cancelJob, clearCompletedJobs } = useConversionStore();
   const [minimized, setMinimized] = React.useState(false);
   const [visible, setVisible] = React.useState(true);

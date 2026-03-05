@@ -7,7 +7,6 @@ import { useLibraryStore } from "../../store/libraryStore"
 
 export function Topbar() {
   const { theme, toggleTheme } = useTheme()
-  const { addBook } = useLibraryStore()
 
   const handleImport = async () => {
     const files = await api.openFileDialog()

@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useOnboardingStore, ONBOARDING_STEPS } from "../../store/onboardingStore";
 import { Button } from "../ui/button";
 import { Card } from "../ui/Card";

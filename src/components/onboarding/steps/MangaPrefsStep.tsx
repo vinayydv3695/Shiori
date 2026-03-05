@@ -1,5 +1,5 @@
 import { useOnboardingStore } from "../../../store/onboardingStore";
-import { DEFAULT_MANGA_PREFERENCES } from "../../../types/preferences";
+import { DEFAULT_MANGA_PREFERENCES, type MangaMode, type Direction, type ProgressBarPosition } from "../../../types/preferences";
 import { cn } from "../../../lib/utils";
 import { Layout, Type, Book } from "lucide-react";
 
@@ -9,7 +9,7 @@ export function MangaPrefsStep() {
 
     const mangaPrefs = draftConfig.manga || DEFAULT_MANGA_PREFERENCES;
 
-    const updateMangaPref = (key: keyof typeof DEFAULT_MANGA_PREFERENCES, value: any) => {
+    const updateMangaPref = (key: keyof typeof DEFAULT_MANGA_PREFERENCES, value: MangaMode | Direction | number | boolean | ProgressBarPosition | string) => {
         setDraftValue('manga', { ...mangaPrefs, [key]: value });
     };
 

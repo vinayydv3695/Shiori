@@ -23,6 +23,8 @@ export function useImageDecode(
 
     useEffect(() => {
         if (bookId === null) {
+            // Intentional: reset state when source unavailable
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setUrl(null);
             setLoading(false);
             return;

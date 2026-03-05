@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
-import { X, Monitor, Moon, Sun, Book, Image, Palette, Download, Database, Bell, Shield, BookOpen, FileText } from 'lucide-react'
+import { X, Moon, Sun, Image, Palette, Database, Bell, Shield, BookOpen, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { usePreferencesStore } from '../../store/preferencesStore'
@@ -459,7 +459,7 @@ const MangaReadingSettings = ({ preferences, updateMangaDefaults }: {
 
 const LibrarySettings = ({ preferences, updateGeneralSettings }: {
   preferences: UserPreferences | null
-  updateGeneralSettings: (updates: any) => Promise<void>
+  updateGeneralSettings: (updates: Partial<UserPreferences>) => Promise<void>
 }) => {
   if (!preferences) return null
 

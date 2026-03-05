@@ -119,7 +119,7 @@ export const CreateCollectionDialog = ({
       if (editCollection && editCollection.id !== undefined) {
         // Update existing collection
         const updated = await api.updateCollection(editCollection.id, collectionData);
-        updateCollection(editCollection.id, updated as any);
+        updateCollection(editCollection.id, updated);
       } else {
         // Create new collection
         const created = await api.createCollection(collectionData);

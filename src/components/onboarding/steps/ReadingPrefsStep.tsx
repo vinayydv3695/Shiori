@@ -1,5 +1,5 @@
 import { useOnboardingStore } from "../../../store/onboardingStore";
-import { DEFAULT_BOOK_PREFERENCES } from "../../../types/preferences";
+import { DEFAULT_BOOK_PREFERENCES, type ScrollMode, type Justification } from "../../../types/preferences";
 
 export function ReadingPrefsStep() {
     const draftConfig = useOnboardingStore(state => state.draftConfig);
@@ -8,7 +8,7 @@ export function ReadingPrefsStep() {
     // Initialize nested config if missing
     const bookPrefs = draftConfig.book || DEFAULT_BOOK_PREFERENCES;
 
-    const updateBookPref = (key: keyof typeof DEFAULT_BOOK_PREFERENCES, value: any) => {
+    const updateBookPref = (key: keyof typeof DEFAULT_BOOK_PREFERENCES, value: string | number | boolean | ScrollMode | Justification) => {
         setDraftValue('book', { ...bookPrefs, [key]: value });
     };
 

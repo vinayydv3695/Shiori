@@ -37,6 +37,8 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
     if (open && bookId) {
       loadBook();
     }
+    // loadBook is defined below and recreated each render - would cause infinite loop if added
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, bookId]);
 
   const loadBook = async () => {

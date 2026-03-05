@@ -64,11 +64,19 @@ export function useMangaKeyboard(onClose: () => void) {
         switch (key) {
             case 'ArrowRight':
                 e.preventDefault();
-                rtl ? goBackward(step) : goForward(step);
+                if (rtl) {
+                    goBackward(step);
+                } else {
+                    goForward(step);
+                }
                 break;
             case 'ArrowLeft':
                 e.preventDefault();
-                rtl ? goForward(step) : goBackward(step);
+                if (rtl) {
+                    goForward(step);
+                } else {
+                    goBackward(step);
+                }
                 break;
             case 'ArrowDown':
                 // In strip mode, let the browser handle native vertical scrolling
@@ -86,7 +94,11 @@ export function useMangaKeyboard(onClose: () => void) {
                 // In strip mode, let the browser handle native scroll (Space = page down)
                 if (readingMode === 'strip') return;
                 e.preventDefault();
-                shift ? goBackward(step) : goForward(step);
+                if (shift) {
+                    goBackward(step);
+                } else {
+                    goForward(step);
+                }
                 break;
             case 'Home':
                 e.preventDefault();
@@ -148,7 +160,7 @@ export function useMangaKeyboard(onClose: () => void) {
                 break;
         }
     }, [
-        rtl, step, goForward, goBackward, setCurrentPage, totalPages,
+        rtl, step, readingMode, goForward, goBackward, setCurrentPage, totalPages,
         toggleSidebar, closeSidebar, isSidebarOpen,
         toggleSettings, isSettingsOpen, closeSettings,
         setReadingMode, toggleTheme, onClose

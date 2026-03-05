@@ -39,103 +39,6 @@ export const DoodleCanvas = memo(function DoodleCanvas({
     } = useDoodleStore();
 
     // ────────────────────────────────────────────────────────────
-    // CANVAS SIZING (match content container)
-    // ────────────────────────────────────────────────────────────
-    const resizeCanvas = useCallback(() => {
-        const canvas = canvasRef.current;
-        const container = containerRef.current;
-        if (!canvas || !container) return;
-
-        const rect = container.getBoundingClientRect();
-        const dpr = window.devicePixelRatio || 1;
-
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        canvas.style.width = `${rect.width}px`;
-        canvas.style.height = `${rect.height}px`;
-
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-            ctx.scale(dpr, dpr);
-        }
-
-        // Redraw all strokes after resize
-        redrawAllStrokes();
-    }, [strokes]);
-
-    useEffect(() => {
-        resizeCanvas();
-        const observer = new ResizeObserver(resizeCanvas);
-        if (containerRef.current) {
-            observer.observe(containerRef.current);
-        }
-        return () => observer.disconnect();
-    }, [resizeCanvas]);
-
-    // ────────────────────────────────────────────────────────────
-    // LOAD DOODLES FROM DATABASE ON PAGE CHANGE
-    // ────────────────────────────────────────────────────────────
-    useEffect(() => {
-        if (!bookId || !pageId) return;
-
-        const loadFromDb = async () => {
-            try {
-                const doodle = await api.getDoodle(bookId, pageId);
-                if (doodle && doodle.strokes_json) {
-                    const parsed = JSON.parse(doodle.strokes_json) as DoodleStroke[];
-                    loadStrokes(parsed);
-                } else {
-                    loadStrokes([]);
-                }
-            } catch (err) {
-                console.warn('[DoodleCanvas] Failed to load doodles:', err);
-                loadStrokes([]);
-            }
-        };
-
-        loadFromDb();
-    }, [bookId, pageId, loadStrokes]);
-
-    // ────────────────────────────────────────────────────────────
-    // DEBOUNCED SAVE
-    // ────────────────────────────────────────────────────────────
-    useEffect(() => {
-        if (!isDirty) return;
-
-        if (saveTimeoutRef.current) {
-            clearTimeout(saveTimeoutRef.current);
-        }
-
-        saveTimeoutRef.current = window.setTimeout(async () => {
-            try {
-                const currentStrokes = useDoodleStore.getState().strokes;
-                const json = JSON.stringify(currentStrokes);
-
-                // Check 5MB limit
-                if (json.length > 5 * 1024 * 1024) {
-                    console.warn('[DoodleCanvas] Doodle data exceeds 5MB, skipping save');
-                    return;
-                }
-
-                if (currentStrokes.length === 0) {
-                    await api.deleteDoodle(bookId, pageId);
-                } else {
-                    await api.saveDoodle(bookId, pageId, json);
-                }
-                markClean();
-            } catch (err) {
-                console.warn('[DoodleCanvas] Failed to save doodles:', err);
-            }
-        }, 2000);
-
-        return () => {
-            if (saveTimeoutRef.current) {
-                clearTimeout(saveTimeoutRef.current);
-            }
-        };
-    }, [isDirty, bookId, pageId, markClean]);
-
-    // ────────────────────────────────────────────────────────────
     // STROKE RENDERING
     // ────────────────────────────────────────────────────────────
     const getCanvasDimensions = useCallback(() => {
@@ -204,6 +107,103 @@ export const DoodleCanvas = memo(function DoodleCanvas({
             drawStroke(ctx, stroke, dims);
         }
     }, [drawStroke]);
+
+    // ────────────────────────────────────────────────────────────
+    // CANVAS SIZING (match content container)
+    // ────────────────────────────────────────────────────────────
+    const resizeCanvas = useCallback(() => {
+        const canvas = canvasRef.current;
+        const container = containerRef.current;
+        if (!canvas || !container) return;
+
+        const rect = container.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
+
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+            ctx.scale(dpr, dpr);
+        }
+
+        // Redraw all strokes after resize
+        redrawAllStrokes();
+    }, [containerRef, redrawAllStrokes]);
+
+    useEffect(() => {
+        resizeCanvas();
+        const observer = new ResizeObserver(resizeCanvas);
+        if (containerRef.current) {
+            observer.observe(containerRef.current);
+        }
+        return () => observer.disconnect();
+    }, [containerRef, resizeCanvas]);
+
+    // ────────────────────────────────────────────────────────────
+    // LOAD DOODLES FROM DATABASE ON PAGE CHANGE
+    // ────────────────────────────────────────────────────────────
+    useEffect(() => {
+        if (!bookId || !pageId) return;
+
+        const loadFromDb = async () => {
+            try {
+                const doodle = await api.getDoodle(bookId, pageId);
+                if (doodle && doodle.strokes_json) {
+                    const parsed = JSON.parse(doodle.strokes_json) as DoodleStroke[];
+                    loadStrokes(parsed);
+                } else {
+                    loadStrokes([]);
+                }
+            } catch (err) {
+                console.warn('[DoodleCanvas] Failed to load doodles:', err);
+                loadStrokes([]);
+            }
+        };
+
+        loadFromDb();
+    }, [bookId, pageId, loadStrokes]);
+
+    // ────────────────────────────────────────────────────────────
+    // DEBOUNCED SAVE
+    // ────────────────────────────────────────────────────────────
+    useEffect(() => {
+        if (!isDirty) return;
+
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+        }
+
+        saveTimeoutRef.current = window.setTimeout(async () => {
+            try {
+                const currentStrokes = useDoodleStore.getState().strokes;
+                const json = JSON.stringify(currentStrokes);
+
+                // Check 5MB limit
+                if (json.length > 5 * 1024 * 1024) {
+                    console.warn('[DoodleCanvas] Doodle data exceeds 5MB, skipping save');
+                    return;
+                }
+
+                if (currentStrokes.length === 0) {
+                    await api.deleteDoodle(bookId, pageId);
+                } else {
+                    await api.saveDoodle(bookId, pageId, json);
+                }
+                markClean();
+            } catch (err) {
+                console.warn('[DoodleCanvas] Failed to save doodles:', err);
+            }
+        }, 2000);
+
+        return () => {
+            if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current);
+            }
+        };
+    }, [isDirty, bookId, pageId, markClean]);
 
     // Redraw when strokes change (undo/redo/clear/load)
     useEffect(() => {

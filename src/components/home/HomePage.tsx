@@ -236,6 +236,8 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
   }, [allBooks])
 
   useEffect(() => {
+    // Intentional: loading data on mount/dependency change
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadProgress()
   }, [loadProgress])
 

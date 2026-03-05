@@ -61,11 +61,15 @@ export const ConversionDialog: React.FC<ConversionDialogProps> = ({
     };
     load();
     if (supportedFormats.length === 0) loadSupportedFormats();
+    // Intentional: reset dialog state when dialog opens/bookId changes
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSubmitted(false);
     setError(null);
-  }, [isOpen, bookId]);
+  }, [isOpen, bookId, initialBookPath, loadSupportedFormats, supportedFormats.length]);
 
   useEffect(() => {
+    // Intentional: reset state when initial values change
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (initialBookPath) setBookPath(initialBookPath);
     if (initialFormat) {
       setDetectedFormat(initialFormat);

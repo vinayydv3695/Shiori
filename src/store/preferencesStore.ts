@@ -85,7 +85,7 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
 
       // Apply theme and scale to DOM
       document.documentElement.setAttribute("data-theme", preferences.theme);
-      const scale = (preferences as any).uiScale ?? preferences.uiScale ?? 1.0;
+      const scale = preferences.uiScale ?? 1.0;
       document.documentElement.style.setProperty('--ui-scale', String(scale));
     } catch (error) {
       console.error("Failed to load preferences:", error);
@@ -195,8 +195,8 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
     }));
 
     // Immediately apply ui_scale to CSS if provided (real-time preview)
-    if ('uiScale' in updates) {
-      const scale = (updates as any).uiScale as number;
+    if ('uiScale' in updates && updates.uiScale !== undefined) {
+      const scale = updates.uiScale;
       document.documentElement.style.setProperty('--ui-scale', String(scale));
     }
 

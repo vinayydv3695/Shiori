@@ -12,7 +12,7 @@
  */
 
 import { ReactNode, useEffect, useState } from "react";
-import { api, isTauri } from "../lib/tauri";
+import { isTauri } from "../lib/tauri";
 import { usePreferencesStore } from "../store/preferencesStore";
 
 interface ThemeProviderProps {

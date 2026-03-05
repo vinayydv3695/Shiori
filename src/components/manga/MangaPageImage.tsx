@@ -45,6 +45,7 @@ export const MangaPageImage = memo(function MangaPageImage({
             if (typeof imageRef === 'function') {
                 imageRef(node);
             } else if (imageRef && typeof imageRef === 'object' && 'current' in imageRef) {
+                // eslint-disable-next-line react-hooks/immutability -- ref callback pattern requires mutable assignment
                 (imageRef as React.MutableRefObject<HTMLImageElement | null>).current = node;
             }
         },

@@ -4,8 +4,7 @@ import {
 } from 'lucide-react';
 import { useConversionStore, type ConversionJob } from '../../store/conversionStore';
 
-interface ConversionJobTrackerProps {
-}
+type ConversionJobTrackerProps = Record<string, never>;
 
 const STATUS_CONFIG: Record<
   ConversionJob['status'],
@@ -89,10 +88,12 @@ const ConversionJobTracker: React.FC<ConversionJobTrackerProps> = () => {
   const [visible, setVisible] = React.useState(true);
 
   // Initial load
-  useEffect(() => { loadJobs(); }, []);
+  useEffect(() => { loadJobs(); }, [loadJobs]);
 
   // Auto-show/hide
   useEffect(() => {
+    // Intentional: auto-show tracker when new jobs arrive
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (jobs.length > 0) setVisible(true);
   }, [jobs.length]);
 

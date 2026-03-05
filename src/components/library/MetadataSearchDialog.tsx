@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X, Search, Loader2, Download, Check, ExternalLink } from 'lucide-react';
+import { X, Search, Loader2, Download, ExternalLink } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { Button } from '../ui/button';
 import { useToast } from '@/store/toastStore';
@@ -70,6 +70,8 @@ export const MetadataSearchDialog = ({
       // Auto-search when dialog opens
       performSearch();
     }
+    // performSearch is defined below and recreated each render - would cause infinite loop if added
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, bookId]);
 
   const performSearch = async () => {
@@ -156,7 +158,7 @@ export const MetadataSearchDialog = ({
     }
   };
 
-  const isMangaResult = (result: any): result is MangaMetadata => {
+  const isMangaResult = (result: MangaMetadata | BookMetadata): result is MangaMetadata => {
     return 'anilist_id' in result;
   };
 

@@ -192,14 +192,13 @@ export function preloadPages(
  */
 export function useMangaPreloader() {
     const bookId = useMangaContentStore(s => s.bookId);
-    const currentPage = useMangaContentStore(s => s.currentPage);
     const totalPages = useMangaContentStore(s => s.totalPages);
     const readingMode = useMangaSettingsStore(s => s.readingMode);
 
     const preloadAround = useCallback((page: number) => {
         if (!bookId || totalPages === 0) return;
 
-        let pagesToPreload: number[] = [];
+        const pagesToPreload: number[] = [];
 
         if (readingMode === 'single') {
             // Preload 3 ahead, 1 behind

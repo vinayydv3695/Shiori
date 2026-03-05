@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Folder, FolderOpen, Sparkles, MoreVertical, Plus, Trash2, Edit, FolderPlus, Search } from 'lucide-react';
 import { useCollectionStore } from '../../store/collectionStore';
 import { useToast } from '../../store/toastStore';
@@ -201,7 +201,7 @@ export const CollectionSidebar = ({ onCreateCollection, onEditCollection }: Coll
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const loadCollections = async () => {
+  const loadCollections = useCallback(async () => {
     try {
       setLoading(true);
       const nested = await api.getNestedCollections();
@@ -211,11 +211,11 @@ export const CollectionSidebar = ({ onCreateCollection, onEditCollection }: Coll
     } finally {
       setLoading(false);
     }
-  };
+  }, [setCollections]);
 
   useEffect(() => {
     loadCollections();
-  }, []);
+  }, [loadCollections]);
 
   const handleDelete = async (collection: Collection) => {
     if (!confirm(`Delete "${collection.name}" and all its subcollections?`)) {

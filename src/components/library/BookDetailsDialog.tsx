@@ -35,7 +35,7 @@ export const BookDetailsDialog = ({
     let unlisten: (() => void) | undefined;
 
     const setupListener = async () => {
-      unlisten = await listen<any>("metadata-update", (event) => {
+      unlisten = await listen<{ bookId: number; status: string; provider?: string; error?: string }>("metadata-update", (event) => {
         const payload = event.payload;
         if (payload.bookId === bookId) {
           if (payload.status === "loading") {
@@ -62,12 +62,16 @@ export const BookDetailsDialog = ({
     return () => {
       if (unlisten) unlisten();
     };
-  }, [open, bookId]);
+    // loadBook is defined below and recreated each render - would cause infinite loop if added
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, bookId, toast]);
 
   useEffect(() => {
     if (open && bookId) {
       loadBook();
     }
+    // loadBook is defined below and recreated each render - would cause infinite loop if added
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, bookId]);
 
   const loadBook = async () => {

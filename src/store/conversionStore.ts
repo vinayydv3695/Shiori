@@ -48,7 +48,7 @@ interface ConversionState {
   clearCompletedJobs: () => void;
 }
 
-export const useConversionStore = create<ConversionState>((set, get) => ({
+export const useConversionStore = create<ConversionState>((set) => ({
   jobs: [],
   supportedFormats: [],
   isLoading: false,

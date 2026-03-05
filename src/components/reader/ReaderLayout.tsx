@@ -37,8 +37,6 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
   const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
-    let timeoutId: number;
-
     const loadBookData = async () => {
       try {
         setLoadingStage('fetching-path');
@@ -120,7 +118,7 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
     };
 
     // Add timeout fallback (10 seconds)
-    timeoutId = setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       if (loadingStage !== 'complete' && loadingStage !== 'idle') {
         console.error('[ReaderLayout] ⏱️ Timeout - loading took too long at stage:', loadingStage);
         setError({
@@ -144,6 +142,8 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
     return () => {
       clearTimeout(timeoutId);
     };
+    // loadBookData and internal state setters are recreated each render - deps intentionally minimal
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookId, retryCount]);
 
   const handleClose = () => {

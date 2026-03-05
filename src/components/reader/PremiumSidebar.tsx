@@ -45,6 +45,8 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
       loadToc();
       loadAnnotations();
     }
+    // loadToc and loadAnnotations are recreated each render - would cause infinite loop if added
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookId]);
 
   // Reload annotations when sidebar opens (to see newly created ones from TextSelectionToolbar)
@@ -52,6 +54,8 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
     if (isSidebarOpen && bookId) {
       loadAnnotations();
     }
+    // loadAnnotations is recreated each render - would cause infinite loop if added
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSidebarOpen, bookId]);
 
   // Auto-focus search input when switching to search tab

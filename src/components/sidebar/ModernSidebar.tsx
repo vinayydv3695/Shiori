@@ -300,6 +300,7 @@ export function FilterPanel({
   publishers,
   ratings,
   tags,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   identifiers,
   selectedFilters,
   onFilterToggle,

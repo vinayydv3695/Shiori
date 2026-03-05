@@ -456,3 +456,261 @@
     background: hsl(var(--border));
     margin: 4px 0;
 }
+
+/* ═══════════════════════════════════════════════════
+   HomePage — Hero Section & Glass-morphism
+   ═══════════════════════════════════════════════════ */
+
+/* ─── Page wrapper ────────────────────────────────── */
+
+.home-page {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    padding: 24px 28px 48px;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+/* ─── Hero Section ────────────────────────────────── */
+
+.hero-section {
+    position: relative;
+    border-radius: 16px;
+    padding: 32px 36px;
+    overflow: hidden;
+    border: 1px solid hsl(var(--border) / 0.6);
+    background: hsl(var(--card));
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* Animated gradient background orbs */
+.hero-bg {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.hero-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.15;
+    animation: orbFloat 12s ease-in-out infinite;
+}
+
+.hero-orb-1 {
+    width: 300px;
+    height: 300px;
+    background: hsl(35, 90%, 55%);
+    top: -60px;
+    right: -40px;
+    animation-delay: 0s;
+}
+
+.hero-orb-2 {
+    width: 220px;
+    height: 220px;
+    background: hsl(245, 70%, 60%);
+    bottom: -40px;
+    left: 20%;
+    animation-delay: -4s;
+}
+
+.hero-orb-3 {
+    width: 180px;
+    height: 180px;
+    background: hsl(180, 60%, 50%);
+    top: 30%;
+    left: -30px;
+    animation-delay: -8s;
+}
+
+@keyframes orbFloat {
+    0%, 100% {
+        transform: translate(0, 0) scale(1);
+    }
+    33% {
+        transform: translate(15px, -20px) scale(1.05);
+    }
+    66% {
+        transform: translate(-10px, 10px) scale(0.95);
+    }
+}
+
+/* Dark theme — brighter orbs */
+[data-theme="black"] .hero-orb {
+    opacity: 0.12;
+}
+
+.hero-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 32px;
+    flex-wrap: wrap;
+}
+
+/* ─── Hero Text ───────────────────────────────────── */
+
+.hero-text {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 200px;
+}
+
+.hero-greeting {
+    font-family: 'Playfair Display', 'Literata', Georgia, serif;
+    font-size: 32px;
+    font-weight: 700;
+    color: hsl(var(--foreground));
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+}
+
+.hero-subtitle {
+    font-family: 'Inter', var(--font-sans);
+    font-size: 14px;
+    color: hsl(var(--muted-foreground));
+    line-height: 1.5;
+    font-weight: 400;
+}
+
+/* ─── Glass Stat Cards ────────────────────────────── */
+
+.hero-stats {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.glass-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 20px;
+    border-radius: 12px;
+    min-width: 160px;
+    cursor: default;
+
+    /* Glass-morphism */
+    background: hsl(var(--background) / 0.6);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid hsl(var(--border) / 0.5);
+    box-shadow:
+        0 4px 16px hsl(var(--foreground) / 0.04),
+        inset 0 1px 0 hsl(var(--background) / 0.5);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+    border-color: hsl(var(--border));
+    box-shadow:
+        0 8px 24px hsl(var(--foreground) / 0.06),
+        inset 0 1px 0 hsl(var(--background) / 0.6);
+}
+
+/* Dark theme glass */
+[data-theme="black"] .glass-card {
+    background: hsl(0 0% 100% / 0.04);
+    border-color: hsl(0 0% 100% / 0.08);
+    box-shadow:
+        0 4px 16px hsl(0 0% 0% / 0.3),
+        inset 0 1px 0 hsl(0 0% 100% / 0.05);
+}
+
+[data-theme="black"] .glass-card:hover {
+    background: hsl(0 0% 100% / 0.06);
+    border-color: hsl(0 0% 100% / 0.12);
+}
+
+.glass-card-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: white;
+}
+
+.glass-card-icon[data-domain="books"] {
+    background: linear-gradient(135deg, hsl(35, 90%, 55%), hsl(35, 80%, 45%));
+}
+
+.glass-card-icon[data-domain="manga"] {
+    background: linear-gradient(135deg, hsl(245, 70%, 60%), hsl(245, 60%, 50%));
+}
+
+.glass-card-icon[data-accent="progress"] {
+    background: linear-gradient(135deg, hsl(150, 60%, 45%), hsl(160, 50%, 38%));
+}
+
+.glass-card-icon[data-accent="size"] {
+    background: linear-gradient(135deg, hsl(210, 70%, 55%), hsl(220, 60%, 45%));
+}
+
+.glass-card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.glass-card-value {
+    font-family: 'Inter', var(--font-sans);
+    font-size: 20px;
+    font-weight: 700;
+    color: hsl(var(--foreground));
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+}
+
+.glass-card-label {
+    font-size: 11px;
+    color: hsl(var(--muted-foreground));
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 500;
+}
+
+/* ─── Hero Action Button ──────────────────────────── */
+
+.hero-action {
+    position: relative;
+    z-index: 1;
+    align-self: flex-start;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-family: 'Inter', var(--font-sans);
+    font-size: 13px;
+    font-weight: 600;
+    color: hsl(var(--primary-foreground));
+    background: hsl(var(--primary));
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px hsl(var(--primary) / 0.2);
+}
+
+.hero-action:hover {
+    box-shadow: 0 4px 16px hsl(var(--primary) / 0.3);
+}
+
+/* ─── Scroll strip animation fix ──────────────────── */
+
+.scroll-strip > * {
+    flex-shrink: 0;
+}

@@ -1,5 +1,6 @@
-import React, { memo } from 'react';
+import React, { memo, useRef } from 'react';
 import { useMangaContentStore, useMangaSettingsStore } from '@/store/mangaReaderStore';
+import { useToastStore } from '@/store/toastStore';
 
 /**
  * Click-zone navigation overlay for single/double page modes.
@@ -14,11 +15,33 @@ export const NavigationOverlay = memo(function NavigationOverlay() {
     const readingMode = useMangaSettingsStore(s => s.readingMode);
     const rtl = readingDirection === 'rtl';
 
+    // Debounce boundary toasts to avoid spam
+    const lastBoundaryToast = useRef(0);
+
     // Don't show overlay in strip mode (scroll-based navigation)
     if (readingMode === 'strip') return null;
 
-    const handlePrev = () => rtl ? nextPage() : prevPage();
-    const handleNext = () => rtl ? prevPage() : nextPage();
+    const step = readingMode === 'double' ? 2 : 1;
+
+    const showBoundaryToast = (message: string) => {
+        const now = Date.now();
+        if (now - lastBoundaryToast.current < 2000) return;
+        lastBoundaryToast.current = now;
+        useToastStore.getState().addToast({
+            title: message,
+            variant: 'info',
+            duration: 1500,
+        });
+    };
+
+    const handlePrev = () => {
+        const moved = rtl ? nextPage(step) : prevPage(step);
+        if (!moved) showBoundaryToast('You\'re at the first page');
+    };
+    const handleNext = () => {
+        const moved = rtl ? prevPage(step) : nextPage(step);
+        if (!moved) showBoundaryToast('You\'ve reached the last page');
+    };
 
     return (
         <div className="manga-nav-overlay">

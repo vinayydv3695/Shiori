@@ -1,5 +1,5 @@
 import React from 'react';
-import { useMangaSettingsStore, useMangaUIStore } from '@/store/mangaReaderStore';
+import { useMangaSettingsStore } from '@/store/mangaReaderStore';
 
 /**
  * Configurable progress bar.

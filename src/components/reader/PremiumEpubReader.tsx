@@ -9,8 +9,10 @@ import { ReaderSettings } from './ReaderSettings';
 import { DoodleCanvas } from './DoodleCanvas';
 import { DoodleToolbar } from './DoodleToolbar';
 import { PageFlipEngine, type PageFlipHandle } from './PageFlipEngine';
+import { TextSelectionToolbar } from './TextSelectionToolbar';
 import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Search, BookOpen, Bookmark } from '@/components/icons';
 import { sanitizeBookContent } from '@/lib/sanitize';
+import { useToastStore } from '@/store/toastStore';
 import '@/styles/premium-reader.css';
 import '@/styles/themes/paper-theme.css';
 import '@/styles/page-flip.css';
@@ -178,7 +180,7 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
     updateMouseMovement,
   } = useUIStore();
 
-  const { theme, width, twoPageView, toggleTwoPageView, pageFlipEnabled, pageFlipSpeed } = useReadingSettings();
+  const { theme, width, twoPageView, toggleTwoPageView, pageFlipEnabled, pageFlipSpeed, animationStyle } = useReadingSettings();
   const { isDoodleMode, toggleDoodleMode, resetPage: resetDoodlePage } = useDoodleStore();
 
   // Book state
@@ -384,6 +386,19 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
 
       await loadChapter(startIndex);
       setIsLoading(false);
+
+      // Show resume toast if we restored to a non-zero position
+      if (startIndex > 0 || savedScrollRatio > 0) {
+        const pct = bookMetadata.total_chapters > 0
+          ? Math.round((startIndex / bookMetadata.total_chapters) * 100)
+          : 0;
+        useToastStore.getState().addToast({
+          title: 'Resuming reading',
+          description: `Chapter ${startIndex + 1} of ${bookMetadata.total_chapters} (${pct}%)`,
+          variant: 'info',
+          duration: 3000,
+        });
+      }
 
       // Restore scroll position after content renders
       if (savedScrollRatio > 0) {
@@ -711,7 +726,7 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
 
           {/* Right: Controls */}
           <div className="premium-top-bar-right">
-            <ReaderSettings />
+            <ReaderSettings format="epub" />
 
             <button
               onClick={() => toggleSidebar('search')}
@@ -803,6 +818,7 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
               prevContent={prevChapterContent}
               flipSpeed={pageFlipSpeed}
               enabled={pageFlipEnabled}
+              animationStyle={animationStyle}
               onFlipComplete={handleFlipComplete}
               className="premium-chapter-page"
             />
@@ -831,6 +847,14 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
       {/* Doodle Toolbar (floating, only when active) */}
       {isDoodleMode && <DoodleToolbar />}
 
+      {/* Text Selection Toolbar */}
+      {!isDoodleMode && (
+        <TextSelectionToolbar
+          bookId={bookId}
+          currentLocation={`chapter_${currentIndex}`}
+        />
+      )}
+
       {/* Bottom Progress Bar */}
       <div className="premium-progress-bar">
         <div
@@ -843,19 +867,17 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
       {!isFocusMode && (
         <>
           <button
-            onClick={prevChapter}
-            disabled={currentIndex === 0}
+            onClick={prevPage}
             className="premium-nav-arrow premium-nav-arrow--left"
-            aria-label="Previous chapter"
+            aria-label="Previous page"
           >
             <ChevronLeft className="premium-nav-icon" />
           </button>
 
           <button
-            onClick={nextChapter}
-            disabled={!metadata || currentIndex >= metadata.total_chapters - 1}
+            onClick={nextPage}
             className="premium-nav-arrow premium-nav-arrow--right"
-            aria-label="Next chapter"
+            aria-label="Next page"
           >
             <ChevronRight className="premium-nav-icon" />
           </button>

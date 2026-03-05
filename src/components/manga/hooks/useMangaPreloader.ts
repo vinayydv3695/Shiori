@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useMangaContentStore, useMangaUIStore, useMangaSettingsStore } from '@/store/mangaReaderStore';
+import { useMangaContentStore, useMangaSettingsStore } from '@/store/mangaReaderStore';
 
 /**
  * Image preloader with LRU blob cache.
@@ -141,21 +141,40 @@ export async function getMangaPageUrl(
 }
 
 /**
- * Preload multiple pages in background
+ * Preload multiple pages in background.
+ * First warms the Rust backend cache via a single batch IPC call,
+ * then fetches individual pages to populate the frontend blob cache.
  */
 export function preloadPages(
     bookId: number,
     pageIndices: number[],
     maxDimension: number = 1600
 ): void {
-    for (const idx of pageIndices) {
+    // Filter out pages already in the frontend cache
+    const uncached = pageIndices.filter(idx => {
         const cacheKey = `${bookId}:${idx}:${maxDimension}`;
-        if (!imageCache.has(cacheKey)) {
-            // Fire and forget — don't await
-            getMangaPageUrl(bookId, idx, maxDimension).catch(() => {
-                // Silently ignore preload failures
-            });
-        }
+        return !imageCache.has(cacheKey);
+    });
+
+    if (uncached.length === 0) return;
+
+    // Step 1: Warm the backend cache in a single batch IPC call
+    import('@tauri-apps/api/core').then(({ invoke }) => {
+        invoke('preload_manga_pages', {
+            bookId,
+            pageIndices: uncached,
+            maxDimension,
+        }).catch(() => {
+            // Backend preload failed — individual fetches will still work (just slower)
+        });
+    });
+
+    // Step 2: Also fire individual fetches to populate the frontend blob cache.
+    // These will be fast once the backend cache is warm.
+    for (const idx of uncached) {
+        getMangaPageUrl(bookId, idx, maxDimension).catch(() => {
+            // Silently ignore preload failures
+        });
     }
 }
 

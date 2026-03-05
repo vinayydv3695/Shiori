@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect } from 'react';
-import { useMangaContentStore, useMangaSettingsStore } from '@/store/mangaReaderStore';
+import React, { useEffect } from 'react';
+import { useMangaContentStore } from '@/store/mangaReaderStore';
 import { MangaPageImage } from '../MangaPageImage';
 import { useMangaPreloader } from '../hooks/useMangaPreloader';
 

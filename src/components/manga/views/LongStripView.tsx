@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect } from 'react';
+import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useMangaContentStore, useMangaUIStore, useMangaSettingsStore } from '@/store/mangaReaderStore';
 import { MangaPageImage } from '../MangaPageImage';
@@ -18,8 +18,11 @@ export function LongStripView() {
     const setCurrentPage = useMangaContentStore(s => s.setCurrentPage);
     const setScrollProgress = useMangaUIStore(s => s.setScrollProgress);
     const setTopBarVisible = useMangaUIStore(s => s.setTopBarVisible);
+    const stripMargin = useMangaSettingsStore(s => s.stripMargin);
 
     const containerRef = useRef<HTMLDivElement>(null);
+    // Track scroll changes to trigger page detection re-evaluation
+    const [scrollTick, setScrollTick] = useState(0);
 
     // Estimate page height based on dimensions or fallback
     const estimateSize = useCallback((index: number): number => {
@@ -38,6 +41,7 @@ export function LongStripView() {
         getScrollElement: () => containerRef.current,
         estimateSize,
         overscan: 5,
+        gap: stripMargin,
     });
 
     // Track scroll progress and current page
@@ -51,6 +55,26 @@ export function LongStripView() {
     }, [setTopBarVisible]);
 
     useMangaScroll(containerRef, handleProgressChange, handleScrollDirection);
+
+    // Listen for scroll events to trigger page detection updates
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+
+        let ticking = false;
+        const onScroll = () => {
+            if (!ticking) {
+                requestAnimationFrame(() => {
+                    setScrollTick(t => t + 1);
+                    ticking = false;
+                });
+                ticking = true;
+            }
+        };
+
+        container.addEventListener('scroll', onScroll, { passive: true });
+        return () => container.removeEventListener('scroll', onScroll);
+    }, []);
 
     // Preload pages ahead of the current visible range
     useEffect(() => {
@@ -72,7 +96,6 @@ export function LongStripView() {
 
     // Detect which page is most visible and update currentPage
     const virtualItems = virtualizer.getVirtualItems();
-    const scrollOffset = containerRef.current?.scrollTop ?? 0;
 
     useEffect(() => {
         if (virtualItems.length === 0) return;
@@ -80,6 +103,7 @@ export function LongStripView() {
         const container = containerRef.current;
         if (!container) return;
 
+        // Read scroll position fresh inside the effect (not stale from render)
         const scrollTop = container.scrollTop;
         const viewportCenter = scrollTop + container.clientHeight / 2;
 
@@ -97,8 +121,7 @@ export function LongStripView() {
         }
 
         setCurrentPage(closestPage);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [virtualItems.length, scrollOffset, setCurrentPage]);
+    }, [virtualItems, scrollTick, setCurrentPage]);
 
     if (!bookId) return null;
 
@@ -118,12 +141,11 @@ export function LongStripView() {
                 {virtualizer.getVirtualItems().map((virtualItem) => (
                     <div
                         key={virtualItem.key}
-                        ref={virtualizer.measureElement} // Add ref here for dynamic measurement
+                        ref={virtualizer.measureElement}
                         className="manga-strip-page"
                         style={{
                             top: 0,
                             transform: `translateY(${virtualItem.start}px)`,
-                            // height: `${virtualItem.size}px`, // Remove fixed height, let content define it
                         }}
                     >
                         <MangaPageImage

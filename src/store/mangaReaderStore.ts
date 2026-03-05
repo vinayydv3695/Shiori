@@ -26,8 +26,8 @@ interface MangaContentState {
     closeManga: () => void;
     setCurrentPage: (page: number) => void;
     setCurrentChapter: (chapter: number) => void;
-    nextPage: () => void;
-    prevPage: () => void;
+    nextPage: (step?: number) => boolean;
+    prevPage: (step?: number) => boolean;
     setLoading: (loading: boolean) => void;
     setError: (error: string | null) => void;
     setTotalPages: (total: number) => void;
@@ -79,18 +79,22 @@ export const useMangaContentStore = create<MangaContentState>((set, get) => ({
 
     setCurrentChapter: (chapter) => set({ currentChapter: chapter }),
 
-    nextPage: () => {
+    nextPage: (step = 1) => {
         const { currentPage, totalPages } = get();
         if (currentPage < totalPages - 1) {
-            set({ currentPage: currentPage + 1 });
+            set({ currentPage: Math.min(currentPage + step, totalPages - 1) });
+            return true;
         }
+        return false;
     },
 
-    prevPage: () => {
+    prevPage: (step = 1) => {
         const { currentPage } = get();
         if (currentPage > 0) {
-            set({ currentPage: currentPage - 1 });
+            set({ currentPage: Math.max(currentPage - step, 0) });
+            return true;
         }
+        return false;
     },
 
     setLoading: (loading) => set({ isLoading: loading }),
@@ -192,12 +196,10 @@ export const useMangaSettingsStore = create<MangaSettingsState>()(
             setReadingDirection: (dir) => set({ readingDirection: dir }),
             setFitMode: (fit) => {
                 set({ fitMode: fit });
-                applyFitModeToDOM(fit);
             },
             setStripMargin: (margin) => {
                 const clamped = Math.max(0, Math.min(32, margin));
                 set({ stripMargin: clamped });
-                applyStripMarginToDOM(clamped);
             },
             setProgressBarPosition: (pos) => set({ progressBarPosition: pos }),
             toggleStickyHeader: () => set((s) => ({ stickyHeader: !s.stickyHeader })),
@@ -217,8 +219,6 @@ export const useMangaSettingsStore = create<MangaSettingsState>()(
             resetToDefaults: () => {
                 set(defaultMangaSettings);
                 applyMangaThemeToDOM(defaultMangaSettings.theme);
-                applyFitModeToDOM(defaultMangaSettings.fitMode);
-                applyStripMarginToDOM(defaultMangaSettings.stripMargin);
             },
         }),
         {
@@ -239,18 +239,6 @@ const applyMangaThemeToDOM = (theme: 'light' | 'dark') => {
     });
 };
 
-const applyFitModeToDOM = (fitMode: FitMode) => {
-    requestAnimationFrame(() => {
-        document.documentElement.style.setProperty('--manga-fit-mode', fitMode);
-    });
-};
-
-const applyStripMarginToDOM = (margin: number) => {
-    requestAnimationFrame(() => {
-        document.documentElement.style.setProperty('--manga-strip-margin', `${margin}px`);
-    });
-};
-
 // Initialize on load (prevent FOUC)
 if (typeof window !== 'undefined') {
     const saved = localStorage.getItem('shiori-manga-settings');
@@ -259,12 +247,6 @@ if (typeof window !== 'undefined') {
             const parsed = JSON.parse(saved);
             const theme = parsed.state?.theme || 'dark';
             document.documentElement.setAttribute('data-manga-theme', theme);
-
-            const fitMode = parsed.state?.fitMode || 'contain';
-            document.documentElement.style.setProperty('--manga-fit-mode', fitMode);
-
-            const stripMargin = parsed.state?.stripMargin ?? 4;
-            document.documentElement.style.setProperty('--manga-strip-margin', `${stripMargin}px`);
         } catch {
             document.documentElement.setAttribute('data-manga-theme', 'dark');
         }

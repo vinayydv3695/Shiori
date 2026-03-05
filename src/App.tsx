@@ -14,6 +14,7 @@ import RSSFeedManager from "./components/rss/RSSFeedManager"
 import RSSArticleList from "./components/rss/RSSArticleList"
 import ShareBookDialog from "./components/share/ShareBookDialog"
 import { OnboardingWizard } from "./components/onboarding/OnboardingWizard"
+import { HomePage } from "./components/home/HomePage"
 import { useLibraryStore } from "./store/libraryStore"
 import { useReaderStore } from "./store/readerStore"
 import { useUIStore } from "./store/uiStore"
@@ -223,6 +224,10 @@ function App() {
     setCurrentView('library')
   }
 
+  const handleGoHome = () => {
+    resetToHome()
+  }
+
   // Filter books based on search query and selected filters
   const filterBooks = (books: Book[]) => {
     let result = books;
@@ -344,6 +349,7 @@ function App() {
         onShareBook={handleShareBook}
         onOpenRSSFeeds={handleOpenRSSFeeds}
         onOpenRSSArticles={handleOpenRSSArticles}
+        onGoHome={handleGoHome}
         searchQuery={searchQuery}
         onSearchChange={handleSearchChange}
         currentView={currentView}
@@ -351,6 +357,14 @@ function App() {
         currentDomain={currentDomain}
         onDomainChange={setCurrentDomain}
       >
+        {/* Show Home dashboard view */}
+        {currentView === 'home' && (
+          <HomePage
+            onOpenBook={handleOpenBook}
+            onViewRSS={handleOpenRSSArticles}
+          />
+        )}
+
         {/* Show RSS Feeds view */}
         {currentView === 'rss-feeds' && <RSSFeedManager onClose={handleBackToLibrary} />}
 

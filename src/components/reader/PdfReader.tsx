@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
-import { useReaderStore } from '@/store/readerStore';
 import { api } from '@/lib/tauri';
 import type { BookMetadata } from '@/lib/tauri';
 import { convertFileSrc } from '@tauri-apps/api/core';
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Loader2, AlertCircle, Search, BookOpen, Bookmark } from '@/components/icons';
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Loader2, AlertCircle } from '@/components/icons';
 import { useUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement } from '@/store/premiumReaderStore';
+import { useToastStore } from '@/store/toastStore';
 import { ReaderSettings } from './ReaderSettings';
 import '@/styles/premium-reader.css';
 import { Document, Page, pdfjs } from 'react-pdf';
@@ -22,7 +22,6 @@ interface PdfReaderProps {
 }
 
 export function PdfReader({ bookPath, bookId }: PdfReaderProps) {
-  const { progress, setProgress } = useReaderStore();
   const { isTopBarVisible, isFocusMode, setTopBarVisible, toggleSidebar } = useUIStore();
   const { theme } = useReadingSettings();
 
@@ -108,9 +107,28 @@ export function PdfReader({ bookPath, bookId }: PdfReaderProps) {
       console.log('[PdfReader] Asset URL generated:', assetUrl);
       setPdfUrl(assetUrl);
 
-      // Load saved progress
-      if (progress?.currentPage) {
-        setPageNumber(progress.currentPage);
+      // Load saved progress from database (persisted across restarts)
+      try {
+        const savedProgress = await api.getReadingProgress(bookId);
+        if (savedProgress?.currentLocation) {
+          const match = savedProgress.currentLocation.match(/page-(\d+)/);
+          if (match) {
+            const savedPage = parseInt(match[1], 10);
+            if (!isNaN(savedPage) && savedPage >= 1) {
+              setPageNumber(savedPage);
+              if (savedPage > 1) {
+                useToastStore.getState().addToast({
+                  title: 'Resuming reading',
+                  description: `Page ${savedPage}`,
+                  variant: 'info',
+                  duration: 3000,
+                });
+              }
+            }
+          }
+        }
+      } catch {
+        // Silently ignore - start from page 1
       }
     } catch (err) {
       console.error('[PdfReader] Error initializing PDF:', err);
@@ -139,15 +157,6 @@ export function PdfReader({ bookPath, bookId }: PdfReaderProps) {
 
   const updateProgress = async (pageIndex: number) => {
     const progressPercent = numPages > 0 ? (pageIndex / numPages) * 100 : 0;
-
-    setProgress({
-      bookId,
-      currentLocation: `page-${pageIndex}`,
-      progressPercent,
-      currentPage: pageIndex,
-      totalPages: numPages,
-      lastRead: new Date().toISOString(),
-    });
 
     try {
       await api.saveReadingProgress(
@@ -245,7 +254,7 @@ export function PdfReader({ bookPath, bookId }: PdfReaderProps) {
           </div>
 
           <div className="premium-top-bar-right">
-            <ReaderSettings />
+            <ReaderSettings format="pdf" />
           </div>
         </div>
       </div>

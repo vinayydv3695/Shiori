@@ -1,6 +1,6 @@
 /* Shiori Global Styles v3.0 */
-/* @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'); */
 @import './styles/tokens.css';
+@import './styles/home.css';
 
 @tailwind base;
 @tailwind components;

@@ -71,14 +71,20 @@ export function useMangaKeyboard(onClose: () => void) {
                 rtl ? goForward(step) : goBackward(step);
                 break;
             case 'ArrowDown':
+                // In strip mode, let the browser handle native vertical scrolling
+                if (readingMode === 'strip') return;
                 e.preventDefault();
                 goForward(step);
                 break;
             case 'ArrowUp':
+                // In strip mode, let the browser handle native vertical scrolling
+                if (readingMode === 'strip') return;
                 e.preventDefault();
                 goBackward(step);
                 break;
             case ' ':
+                // In strip mode, let the browser handle native scroll (Space = page down)
+                if (readingMode === 'strip') return;
                 e.preventDefault();
                 shift ? goBackward(step) : goForward(step);
                 break;

@@ -742,6 +742,112 @@ select {
   color: var(--text-tertiary);
 }
 
+/* ── Annotation delete / edit / action buttons ── */
+.premium-annotation-delete,
+.premium-annotation-action-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.premium-annotation-item:hover .premium-annotation-delete,
+.premium-annotation-item:hover .premium-annotation-action-btn {
+  opacity: 1;
+}
+
+.premium-annotation-delete:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.premium-annotation-action-btn:hover {
+  color: var(--text-primary);
+  background: var(--ui-hover);
+}
+
+.premium-annotation-actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Note edit form */
+.premium-annotation-edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  width: 100%;
+}
+
+.premium-annotation-edit-input {
+  width: 100%;
+  padding: var(--spacing-sm);
+  font-size: 13px;
+  font-family: inherit;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-md);
+  resize: vertical;
+}
+
+.premium-annotation-edit-input:focus {
+  outline: none;
+  border-color: var(--ui-focus);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.premium-annotation-edit-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  justify-content: flex-end;
+}
+
+.premium-annotation-edit-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.premium-annotation-edit-btn--cancel {
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+}
+
+.premium-annotation-edit-btn--cancel:hover {
+  background: var(--ui-hover);
+}
+
+.premium-annotation-edit-btn--save {
+  color: #fff;
+  background: var(--ui-focus);
+}
+
+.premium-annotation-edit-btn--save:hover {
+  background: #2563eb;
+}
+
+.premium-annotation-edit-btn--save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Search Styles */
 .premium-search-input-container {
   display: flex;
@@ -800,6 +906,22 @@ select {
   background: var(--text-selection, rgba(59, 130, 246, 0.3));
   border-radius: 2px;
   padding: 0 1px;
+}
+
+/* ── Annotation highlights (rendered back into chapter content) ── */
+.epub-highlight {
+  border-radius: 2px;
+  padding: 0 1px;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.epub-highlight:hover {
+  filter: brightness(0.9);
+}
+
+.epub-highlight[data-annotation-type="note"] {
+  border-bottom: 2px dashed currentColor;
 }
 
 .premium-search-results {

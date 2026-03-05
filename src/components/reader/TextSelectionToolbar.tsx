@@ -127,6 +127,8 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
         variant: 'success',
         duration: 2000,
       });
+      // Notify readers to re-render highlights
+      window.dispatchEvent(new CustomEvent('annotation-changed'));
     } catch (err) {
       useToastStore.getState().addToast({
         title: 'Failed to save highlight',
@@ -155,6 +157,8 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
         variant: 'success',
         duration: 2000,
       });
+      // Notify readers to re-render highlights
+      window.dispatchEvent(new CustomEvent('annotation-changed'));
     } catch (err) {
       useToastStore.getState().addToast({
         title: 'Failed to save note',
@@ -182,6 +186,8 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
         variant: 'success',
         duration: 2000,
       });
+      // Notify readers to re-render highlights
+      window.dispatchEvent(new CustomEvent('annotation-changed'));
     } catch (err) {
       useToastStore.getState().addToast({
         title: 'Failed to add bookmark',

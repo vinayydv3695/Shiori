@@ -42,6 +42,8 @@ export function MangaReader({
     const currentPage = useMangaContentStore(s => s.currentPage);
     const setCurrentPage = useMangaContentStore(s => s.setCurrentPage);
     const mangaTotalPages = useMangaContentStore(s => s.totalPages);
+    const pageDimensions = useMangaContentStore(s => s.pageDimensions);
+    const mergePageDimensions = useMangaContentStore(s => s.mergePageDimensions);
     const isLoading = useMangaContentStore(s => s.isLoading);
     const error = useMangaContentStore(s => s.error);
     const setLoading = useMangaContentStore(s => s.setLoading);
@@ -117,7 +119,11 @@ export function MangaReader({
         return () => {
             cancelled = true;
             initCompleteRef.current = false;
-            // Cleanup on unmount
+            // Release the backend ZIP archive to free ~200MB/book
+            api.closeManga(bookId).catch(err =>
+                console.warn('[MangaReader] Failed to close manga backend:', err)
+            );
+            // Cleanup frontend state
             closeManga();
             imageCache.clear();
         };
@@ -127,6 +133,45 @@ export function MangaReader({
     useEffect(() => {
         document.documentElement.setAttribute('data-manga-theme', theme);
     }, [theme]);
+
+    // Progressively fetch real page dimensions (backend returns placeholder 800x1200 on open).
+    // On each page change, request dimensions for a window of ±10 pages around the viewport.
+    const PLACEHOLDER: [number, number] = [800, 1200];
+    const fetchedDimsRef = useRef(new Set<number>());
+
+    useEffect(() => {
+        if (!bookId || mangaTotalPages === 0 || !initCompleteRef.current) return;
+
+        const start = Math.max(0, currentPage - 10);
+        const end = Math.min(mangaTotalPages, currentPage + 20);
+        const needed: number[] = [];
+
+        for (let i = start; i < end; i++) {
+            if (!fetchedDimsRef.current.has(i)) {
+                // Check if still placeholder
+                const dim = pageDimensions[i];
+                if (!dim || (dim[0] === PLACEHOLDER[0] && dim[1] === PLACEHOLDER[1])) {
+                    needed.push(i);
+                } else {
+                    // Already real, mark as fetched
+                    fetchedDimsRef.current.add(i);
+                }
+            }
+        }
+
+        if (needed.length === 0) return;
+
+        let cancelled = false;
+        api.getMangaPageDimensions(bookId, needed).then(dims => {
+            if (cancelled) return;
+            for (const idx of needed) fetchedDimsRef.current.add(idx);
+            mergePageDimensions(needed, dims);
+        }).catch(err => {
+            console.warn('[MangaReader] Failed to fetch page dimensions:', err);
+        });
+
+        return () => { cancelled = true; };
+    }, [bookId, currentPage, mangaTotalPages, pageDimensions, mergePageDimensions]);
 
     // Save reading progress when page changes
     useEffect(() => {
@@ -163,10 +208,14 @@ export function MangaReader({
 
     // Close handler
     const handleClose = useCallback(() => {
+        // Release the backend ZIP archive to free memory
+        api.closeManga(bookId).catch(err =>
+            console.warn('[MangaReader] Failed to close manga backend:', err)
+        );
         closeManga();
         imageCache.clear();
         onClose();
-    }, [closeManga, onClose]);
+    }, [bookId, closeManga, onClose]);
 
     // Register keyboard shortcuts
     useMangaKeyboard(handleClose);

@@ -1,6 +1,7 @@
 import React, { memo, useCallback, useRef, useState } from 'react';
 import { useImageDecode } from './hooks/useImageDecode';
 import { useMangaSettingsStore } from '@/store/mangaReaderStore';
+import { getEffectiveMaxDimension } from './hooks/useMangaPreloader';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface MangaPageImageProps {
@@ -28,10 +29,9 @@ export const MangaPageImage = memo(function MangaPageImage({
     imageRef,
 }: MangaPageImageProps) {
     const fitMode = useMangaSettingsStore(s => s.fitMode);
-    const imageQuality = useMangaSettingsStore(s => s.imageQuality);
 
-    // Map imageQuality (0.5–1.0) to maxDimension (800–1600) if not explicitly set
-    const effectiveMaxDimension = maxDimension ?? Math.round(800 + imageQuality * 800);
+    // Use the centralized maxDimension calculation so cache keys match preloading
+    const effectiveMaxDimension = maxDimension ?? getEffectiveMaxDimension();
 
     const { url, loading, error, retry } = useImageDecode(bookId, pageIndex, effectiveMaxDimension);
     const [imgLoaded, setImgLoaded] = useState(false);

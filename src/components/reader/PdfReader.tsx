@@ -1,11 +1,13 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '@/lib/tauri';
 import type { BookMetadata } from '@/lib/tauri';
 import { convertFileSrc } from '@tauri-apps/api/core';
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Loader2, AlertCircle } from '@/components/icons';
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Loader2, AlertCircle, Bookmark } from '@/components/icons';
 import { useUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement } from '@/store/premiumReaderStore';
 import { useToastStore } from '@/store/toastStore';
 import { ReaderSettings } from './ReaderSettings';
+import { PremiumSidebar } from './PremiumSidebar';
+import { TextSelectionToolbar } from './TextSelectionToolbar';
 import '@/styles/premium-reader.css';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -195,6 +197,20 @@ export function PdfReader({ bookPath, bookId }: PdfReaderProps) {
     setScale(1.0);
   };
 
+  // Navigate to a page from sidebar annotation clicks
+  const handleSidebarNavigate = useCallback((chapterIndex: number) => {
+    // For PDF, annotations use "page-N" location format.
+    // The sidebar's handleAnnotationClick parses "chapter_N" → index N,
+    // but PDF uses page numbers. We handle this in the sidebar click.
+    // This callback receives the parsed index which for PDF IS the page number.
+    // However, sidebar also passes raw chapter indices for TOC — we need
+    // to ensure the page number is valid.
+    const page = chapterIndex;
+    if (page >= 1 && page <= numPages) {
+      setPageNumber(page);
+    }
+  }, [numPages]);
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -255,6 +271,13 @@ export function PdfReader({ bookPath, bookId }: PdfReaderProps) {
 
           <div className="premium-top-bar-right">
             <ReaderSettings format="pdf" />
+            <button
+              onClick={() => toggleSidebar('bookmarks')}
+              className="premium-control-button"
+              title="Annotations & Search"
+            >
+              <Bookmark className="premium-control-icon" />
+            </button>
           </div>
         </div>
       </div>
@@ -324,6 +347,19 @@ export function PdfReader({ bookPath, bookId }: PdfReaderProps) {
           </button>
         </>
       )}
+
+      {/* Sidebar (bookmarks, highlights, notes, search) */}
+      <PremiumSidebar
+        bookId={bookId}
+        currentIndex={pageNumber}
+        onNavigate={handleSidebarNavigate}
+      />
+
+      {/* Text Selection Toolbar */}
+      <TextSelectionToolbar
+        bookId={bookId}
+        currentLocation={`page-${pageNumber}`}
+      />
     </div>
   );
 }

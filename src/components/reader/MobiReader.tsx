@@ -9,6 +9,7 @@ import { ReaderSettings } from './ReaderSettings';
 import { PremiumSidebar } from './PremiumSidebar';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
 import { sanitizeBookContent } from '@/lib/sanitize';
+import { applyHighlightsToDOM } from '@/lib/highlightAnnotations';
 import '@/styles/premium-reader.css';
 
 interface MobiReaderProps {
@@ -154,9 +155,10 @@ export function MobiReader({ bookPath, bookId }: MobiReaderProps) {
             const maxScroll = scrollHeight - clientHeight;
             const progressPercent = maxScroll > 0 ? (scrollTop / maxScroll) * 100 : 100;
 
+            // Save as a percentage (0-100) so progress survives font/window resizes
             api.saveReadingProgress(
                 bookId,
-                `mobi-scroll-${Math.round(scrollTop)}`,
+                `mobi-progress-${progressPercent.toFixed(4)}`,
                 progressPercent,
                 1,
                 1
@@ -179,25 +181,81 @@ export function MobiReader({ bookPath, bookId }: MobiReaderProps) {
         if (!containerRef.current) return;
         try {
             const savedProgress = await api.getReadingProgress(bookId);
-            if (savedProgress?.currentLocation?.startsWith('mobi-scroll-')) {
-                const topStr = savedProgress.currentLocation.replace('mobi-scroll-', '');
-                const top = parseInt(topStr, 10);
-                if (!isNaN(top)) {
-                    containerRef.current.scrollTo({ top, behavior: 'auto' });
-                    if (top > 0) {
-                        useToastStore.getState().addToast({
-                            title: 'Resuming reading',
-                            description: `Restored to previous position`,
-                            variant: 'info',
-                            duration: 3000,
-                        });
-                    }
+            if (!savedProgress?.currentLocation) return;
+
+            const loc = savedProgress.currentLocation;
+            let targetTop: number | null = null;
+
+            if (loc.startsWith('mobi-progress-')) {
+                // New percentage-based format — resize-invariant
+                const pct = parseFloat(loc.replace('mobi-progress-', ''));
+                if (!isNaN(pct) && pct > 0) {
+                    const { scrollHeight, clientHeight } = containerRef.current;
+                    const maxScroll = scrollHeight - clientHeight;
+                    targetTop = Math.round((pct / 100) * maxScroll);
                 }
+            } else if (loc.startsWith('mobi-scroll-')) {
+                // Legacy absolute pixel format — best-effort restore
+                const top = parseInt(loc.replace('mobi-scroll-', ''), 10);
+                if (!isNaN(top) && top > 0) {
+                    targetTop = top;
+                }
+            }
+
+            if (targetTop !== null && targetTop > 0) {
+                containerRef.current.scrollTo({ top: targetTop, behavior: 'auto' });
+                useToastStore.getState().addToast({
+                    title: 'Resuming reading',
+                    description: `Restored to previous position`,
+                    variant: 'info',
+                    duration: 3000,
+                });
             }
         } catch {
             // Silently ignore - start from top
         }
     };
+
+    // ────────────────────────────────────────────────────────────
+    // ANNOTATION HIGHLIGHTS — render saved highlights into DOM
+    // ────────────────────────────────────────────────────────────
+    useEffect(() => {
+        if (!content || isLoading) return;
+
+        let cancelled = false;
+
+        const applyAnnotations = async () => {
+            const container = contentRef.current;
+            if (!container || cancelled) return;
+
+            try {
+                const annotations = await api.getAnnotations(bookId);
+                if (cancelled) return;
+
+                // MOBI uses "mobi-chapter-0" as the location
+                const mobiAnnotations = annotations.filter(
+                    (a) => a.location === 'mobi-chapter-0'
+                );
+
+                applyHighlightsToDOM(container, mobiAnnotations);
+            } catch {
+                // Silently ignore — highlights are non-critical
+            }
+        };
+
+        const timerId = window.setTimeout(applyAnnotations, 80);
+
+        const handleAnnotationChanged = () => {
+            window.setTimeout(applyAnnotations, 50);
+        };
+        window.addEventListener('annotation-changed', handleAnnotationChanged);
+
+        return () => {
+            cancelled = true;
+            window.clearTimeout(timerId);
+            window.removeEventListener('annotation-changed', handleAnnotationChanged);
+        };
+    }, [content, bookId, isLoading]);
 
     // Keyboard navigation matching Premium UI
     const nextPage = useCallback(() => {

@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect, useState } from 'react';
+import React, { useRef, useCallback, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useMangaContentStore, useMangaUIStore, useMangaSettingsStore } from '@/store/mangaReaderStore';
 import { MangaPageImage } from '../MangaPageImage';
@@ -21,8 +21,8 @@ export function LongStripView() {
     const stripMargin = useMangaSettingsStore(s => s.stripMargin);
 
     const containerRef = useRef<HTMLDivElement>(null);
-    // Track scroll changes to trigger page detection re-evaluation
-    const [scrollTick, setScrollTick] = useState(0);
+    // Track whether we've done the initial scroll-to-resume
+    const hasScrolledToResume = useRef(false);
 
     // Estimate page height based on dimensions or fallback
     const estimateSize = useCallback((index: number): number => {
@@ -44,9 +44,43 @@ export function LongStripView() {
         gap: stripMargin,
     });
 
-    // Track scroll progress and current page
+    // Ref to hold the latest virtualizer so the scroll callback can access it
+    // without causing re-subscriptions.
+    const virtualizerRef = useRef(virtualizer);
+    virtualizerRef.current = virtualizer;
+
+    // Ref to hold the latest setCurrentPage to avoid stale closures
+    const setCurrentPageRef = useRef(setCurrentPage);
+    setCurrentPageRef.current = setCurrentPage;
+
+    // Track scroll progress, current page, and auto-hide top bar
+    // All in a single scroll listener via useMangaScroll — no React state updates per frame.
     const handleProgressChange = useCallback((progress: number) => {
         setScrollProgress(progress);
+
+        // Detect which page is most visible and update currentPage
+        const container = containerRef.current;
+        if (!container) return;
+
+        const virtualItems = virtualizerRef.current.getVirtualItems();
+        if (virtualItems.length === 0) return;
+
+        const scrollTop = container.scrollTop;
+        const viewportCenter = scrollTop + container.clientHeight / 2;
+
+        let closestPage = 0;
+        let closestDistance = Infinity;
+
+        for (const item of virtualItems) {
+            const itemCenter = item.start + item.size / 2;
+            const distance = Math.abs(itemCenter - viewportCenter);
+            if (distance < closestDistance) {
+                closestDistance = distance;
+                closestPage = item.index;
+            }
+        }
+
+        setCurrentPageRef.current(closestPage);
     }, [setScrollProgress]);
 
     // Auto-hide top bar on scroll down, show on scroll up
@@ -56,25 +90,20 @@ export function LongStripView() {
 
     useMangaScroll(containerRef, handleProgressChange, handleScrollDirection);
 
-    // Listen for scroll events to trigger page detection updates
+    // On mount, scroll to the resumed page (if any). Run once after virtualizer is ready.
     useEffect(() => {
-        const container = containerRef.current;
-        if (!container) return;
-
-        let ticking = false;
-        const onScroll = () => {
-            if (!ticking) {
-                requestAnimationFrame(() => {
-                    setScrollTick(t => t + 1);
-                    ticking = false;
-                });
-                ticking = true;
-            }
-        };
-
-        container.addEventListener('scroll', onScroll, { passive: true });
-        return () => container.removeEventListener('scroll', onScroll);
-    }, []);
+        if (hasScrolledToResume.current) return;
+        if (currentPage > 0 && totalPages > 0) {
+            // Small delay to allow virtualizer to measure initial items
+            const timer = setTimeout(() => {
+                virtualizerRef.current.scrollToIndex(currentPage, { align: 'start' });
+                hasScrolledToResume.current = true;
+            }, 100);
+            return () => clearTimeout(timer);
+        } else {
+            hasScrolledToResume.current = true;
+        }
+    }, [currentPage, totalPages]);
 
     // Preload pages ahead of the current visible range
     useEffect(() => {
@@ -93,35 +122,6 @@ export function LongStripView() {
             preloadPages(bookId, pagesToPreload);
         }
     }, [bookId, currentPage, totalPages]);
-
-    // Detect which page is most visible and update currentPage
-    const virtualItems = virtualizer.getVirtualItems();
-
-    useEffect(() => {
-        if (virtualItems.length === 0) return;
-
-        const container = containerRef.current;
-        if (!container) return;
-
-        // Read scroll position fresh inside the effect (not stale from render)
-        const scrollTop = container.scrollTop;
-        const viewportCenter = scrollTop + container.clientHeight / 2;
-
-        // Find the page whose center is closest to viewport center
-        let closestPage = 0;
-        let closestDistance = Infinity;
-
-        for (const item of virtualItems) {
-            const itemCenter = item.start + item.size / 2;
-            const distance = Math.abs(itemCenter - viewportCenter);
-            if (distance < closestDistance) {
-                closestDistance = distance;
-                closestPage = item.index;
-            }
-        }
-
-        setCurrentPage(closestPage);
-    }, [virtualItems, scrollTick, setCurrentPage]);
 
     if (!bookId) return null;
 

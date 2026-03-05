@@ -36,11 +36,11 @@ export const NavigationOverlay = memo(function NavigationOverlay() {
 
     const handlePrev = () => {
         const moved = rtl ? nextPage(step) : prevPage(step);
-        if (!moved) showBoundaryToast('You\'re at the first page');
+        if (!moved) showBoundaryToast(rtl ? 'You\'ve reached the last page' : 'You\'re at the first page');
     };
     const handleNext = () => {
         const moved = rtl ? prevPage(step) : nextPage(step);
-        if (!moved) showBoundaryToast('You\'ve reached the last page');
+        if (!moved) showBoundaryToast(rtl ? 'You\'re at the first page' : 'You\'ve reached the last page');
     };
 
     return (

@@ -6,13 +6,13 @@
   "build": {
     "beforeDevCommand": "vite",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "tsc -b && vite build",
     "frontendDist": "../dist"
   },
   "bundle": {
     "active": true,
     "category": "Productivity",
-    "copyright": "",
+    "copyright": "2026 Shiori Contributors",
     "targets": "all",
     "icon": [
       "icons/32x32.png",
@@ -25,17 +25,33 @@
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
       "timestampUrl": "",
-      "wix": null,
-      "nsis": null
+      "nsis": {
+        "displayLanguageSelector": true
+      }
     },
     "macOS": {
       "frameworks": [],
-      "minimumSystemVersion": "",
+      "minimumSystemVersion": "10.15",
       "exceptionDomain": ""
     },
     "linux": {
       "deb": {
-        "depends": []
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libayatana-appindicator3-1",
+          "librsvg2-common"
+        ],
+        "section": "utils"
+      },
+      "rpm": {
+        "depends": [
+          "webkit2gtk4.1",
+          "libayatana-appindicator-gtk3",
+          "librsvg2"
+        ]
+      },
+      "appimage": {
+        "bundleMediaFramework": true
       }
     }
   },

@@ -32,6 +32,7 @@ interface MangaContentState {
     setError: (error: string | null) => void;
     setTotalPages: (total: number) => void;
     setPageDimensions: (dims: [number, number][]) => void;
+    mergePageDimensions: (indices: number[], dims: [number, number][]) => void;
 }
 
 export const useMangaContentStore = create<MangaContentState>((set, get) => ({
@@ -101,6 +102,17 @@ export const useMangaContentStore = create<MangaContentState>((set, get) => ({
     setError: (error) => set({ error }),
     setTotalPages: (total) => set({ totalPages: total }),
     setPageDimensions: (dims) => set({ pageDimensions: dims }),
+    /** Merge real dimensions into the array at specific indices.
+     *  indices[i] maps to dims[i]. Leaves other entries untouched. */
+    mergePageDimensions: (indices: number[], dims: [number, number][]) => set((state) => {
+        const updated = [...state.pageDimensions];
+        for (let i = 0; i < indices.length && i < dims.length; i++) {
+            if (indices[i] < updated.length) {
+                updated[indices[i]] = dims[i];
+            }
+        }
+        return { pageDimensions: updated };
+    }),
 }));
 
 

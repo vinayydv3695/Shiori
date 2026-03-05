@@ -27,6 +27,9 @@ pub struct MangaMetadata {
 
 struct OpenManga {
     file_path: String,
+    /// Keep the original file handle open so subsequent reads can use
+    /// `try_clone()` instead of re-opening from the filesystem path.
+    file_handle: std::fs::File,
     sorted_pages: Vec<String>,
     page_dimensions: Vec<(u32, u32)>,
     title: String,
@@ -127,7 +130,12 @@ impl MangaService {
             }
         })?;
 
-        let mut archive = ZipArchive::new(file).map_err(|e| {
+        // Clone the file handle so we can store it for subsequent reads
+        let file_for_archive = file.try_clone().map_err(|e| {
+            ShioriError::Other(format!("Failed to clone file handle: {}", e))
+        })?;
+
+        let mut archive = ZipArchive::new(file_for_archive).map_err(|e| {
             ShioriError::InvalidFormat(format!("Invalid CBZ/ZIP file: {}", e))
         })?;
 
@@ -183,6 +191,7 @@ impl MangaService {
         // Store open manga
         let open_manga = OpenManga {
             file_path: path.to_string(),
+            file_handle: file,
             sorted_pages: image_files,
             page_dimensions,
             title,
@@ -217,8 +226,8 @@ impl MangaService {
             }
         }
 
-        // Extract from archive
-        let (file_path, page_name) = {
+        // Extract from archive — use stored file handle (try_clone) instead of re-opening from disk
+        let (cloned_file, page_name) = {
             let books = self.open_books.lock().unwrap();
             let manga = books.get(&book_id).ok_or_else(|| {
                 ShioriError::BookNotFound(format!("Manga {} not open", book_id))
@@ -232,17 +241,17 @@ impl MangaService {
                 )));
             }
 
-            (manga.file_path.clone(), manga.sorted_pages[page_index].clone())
+            let file = manga.file_handle.try_clone().map_err(|e| {
+                ShioriError::Other(format!("Failed to clone file handle: {}", e))
+            })?;
+
+            (file, manga.sorted_pages[page_index].clone())
         };
 
         // Extract image bytes from ZIP (CPU intensive for large zips, use spawn_blocking)
         let image_bytes = tokio::task::spawn_blocking(move || -> Result<Vec<u8>> {
-            let file = std::fs::File::open(&file_path).map_err(|e| {
-                ShioriError::Other(format!("Failed to open manga file: {}", e))
-            })?;
-            
-            let mut archive = ZipArchive::new(file).map_err(|e| {
-                ShioriError::Other(format!("Failed to reopen archive: {}", e))
+            let mut archive = ZipArchive::new(cloned_file).map_err(|e| {
+                ShioriError::Other(format!("Failed to create archive from handle: {}", e))
             })?;
 
             let mut zip_file = archive.by_name(&page_name).map_err(|e| {
@@ -342,8 +351,8 @@ impl MangaService {
             .collect();
 
         if !needs_resolve.is_empty() {
-            // Open archive once and resolve all needed dimensions
-            if let Ok(file) = std::fs::File::open(&manga.file_path) {
+            // Use stored file handle (try_clone) instead of re-opening from disk
+            if let Ok(file) = manga.file_handle.try_clone() {
                 if let Ok(mut archive) = ZipArchive::new(file) {
                     for &idx in &needs_resolve {
                         if idx < manga.sorted_pages.len() {
@@ -405,50 +414,6 @@ impl MangaService {
         // Fallback: full decode
         let img = image::load_from_memory(&buf).ok()?;
         Some(img.dimensions())
-    }
-
-    /// Read image dimensions from archive entry (header-only decode)
-    #[allow(dead_code)]
-    fn get_image_dimensions_from_archive(
-        archive: &mut ZipArchive<std::fs::File>,
-        filename: &str,
-    ) -> Option<(u32, u32)> {
-        let mut file = archive.by_name(filename).ok()?;
-        let mut buf = Vec::new();
-        file.read_to_end(&mut buf).ok()?;
-
-        let img = image::load_from_memory(&buf).ok()?;
-        Some(img.dimensions())
-    }
-
-    /// Downscale image if larger than max_dimension
-    fn maybe_downscale(&self, image_bytes: &[u8], max_dimension: u32) -> Option<Vec<u8>> {
-        let img = image::load_from_memory(image_bytes).ok()?;
-        let (w, h) = img.dimensions();
-
-        // Only downscale if image exceeds max_dimension
-        if w <= max_dimension && h <= max_dimension {
-            return None; // Return None to use original bytes
-        }
-
-        // Calculate new dimensions preserving aspect ratio
-        let scale = if w > h {
-            max_dimension as f64 / w as f64
-        } else {
-            max_dimension as f64 / h as f64
-        };
-        let new_w = (w as f64 * scale) as u32;
-        let new_h = (h as f64 * scale) as u32;
-
-        let resized = img.resize(new_w, new_h, image::imageops::FilterType::Lanczos3);
-
-        // Encode back to JPEG for efficient transfer
-        let mut output = Cursor::new(Vec::new());
-        resized
-            .write_to(&mut output, image::ImageFormat::Jpeg)
-            .ok()?;
-
-        Some(output.into_inner())
     }
 
     /// Cache a page, evicting LRU entries if over limits

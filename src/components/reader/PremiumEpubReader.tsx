@@ -12,6 +12,7 @@ import { PageFlipEngine, type PageFlipHandle } from './PageFlipEngine';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
 import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Search, BookOpen, Bookmark } from '@/components/icons';
 import { sanitizeBookContent } from '@/lib/sanitize';
+import { applyHighlightsToDOM } from '@/lib/highlightAnnotations';
 import { useToastStore } from '@/store/toastStore';
 import '@/styles/premium-reader.css';
 import '@/styles/themes/paper-theme.css';
@@ -23,6 +24,19 @@ interface PremiumEpubReaderProps {
 }
 
 // Helper function to convert resource URLs to data URIs and inline CSS
+/** Convert a byte array to base64 without hitting call-stack limits on large files. */
+function bytesToBase64(data: number[] | Uint8Array | ArrayBuffer): string {
+  const bytes = data instanceof Uint8Array ? data
+    : data instanceof ArrayBuffer ? new Uint8Array(data)
+    : new Uint8Array(data);
+  let binary = '';
+  const CHUNK = 8192;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + CHUNK, bytes.length)));
+  }
+  return btoa(binary);
+}
+
 async function processEpubHtml(bookId: number, html: string, searchTerm?: string | null): Promise<string> {
   let processedHtml = html;
 
@@ -96,8 +110,8 @@ async function processEpubHtml(bookId: number, html: string, searchTerm?: string
       else if (ext.endsWith('.ttf')) mimeType = 'font/ttf';
       else if (ext.endsWith('.otf')) mimeType = 'font/otf';
 
-      // Convert to base64
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(resourceData)));
+      // Convert to base64 (chunked to avoid call-stack overflow on large files)
+      const base64 = bytesToBase64(resourceData);
       const dataUri = `data:${mimeType};base64,${base64}`;
 
       processedHtml = processedHtml.replace(`${attr}="${originalPath}"`, `${attr}="${dataUri}"`);
@@ -580,6 +594,50 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
       }
     };
   }, [currentIndex, pageFlipEnabled, metadata, bookId]);
+
+  // ────────────────────────────────────────────────────────────
+  // ANNOTATION HIGHLIGHTS — render saved highlights into DOM
+  // ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!currentChapter || isLoading) return;
+
+    let cancelled = false;
+
+    const applyAnnotations = async () => {
+      const container = contentContainerRef.current;
+      if (!container || cancelled) return;
+
+      try {
+        const annotations = await api.getAnnotations(bookId);
+        if (cancelled) return;
+
+        // Filter to annotations for the current chapter
+        const chapterLocation = `chapter_${currentIndex}`;
+        const chapterAnnotations = annotations.filter(
+          (a) => a.location === chapterLocation
+        );
+
+        applyHighlightsToDOM(container, chapterAnnotations);
+      } catch {
+        // Silently ignore — highlights are non-critical
+      }
+    };
+
+    // Small delay to ensure dangerouslySetInnerHTML content is in the DOM
+    const timerId = window.setTimeout(applyAnnotations, 80);
+
+    // Also listen for annotation changes (e.g. new highlight created)
+    const handleAnnotationChanged = () => {
+      window.setTimeout(applyAnnotations, 50);
+    };
+    window.addEventListener('annotation-changed', handleAnnotationChanged);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timerId);
+      window.removeEventListener('annotation-changed', handleAnnotationChanged);
+    };
+  }, [currentChapter, currentIndex, bookId, isLoading]);
 
   const nextPage = useCallback(() => {
     // Page flip mode: trigger flip animation instead of scroll

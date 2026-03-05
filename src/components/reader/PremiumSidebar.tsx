@@ -2,7 +2,8 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useUIStore } from '@/store/premiumReaderStore';
 import { api } from '@/lib/tauri';
 import type { TocEntry, Annotation, BookSearchResult } from '@/lib/tauri';
-import { X, BookOpen, Highlighter, FileText, Bookmark, Search, Loader2 } from '@/components/icons';
+import { X, BookOpen, Highlighter, FileText, Bookmark, Search, Loader2, Trash2, Edit2 } from '@/components/icons';
+import { useToastStore } from '@/store/toastStore';
 
 interface PremiumSidebarProps {
   bookId: number;
@@ -140,11 +141,116 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
       closeSidebar();
     }
   };
+
+  // ── C14: Navigate to annotation's chapter on click ──
+  const handleAnnotationClick = useCallback((annotation: Annotation) => {
+    const loc = annotation.location;
+
+    // Parse "chapter_N" format (EPUB)
+    const chapterMatch = loc.match(/^chapter_(\d+)/);
+    if (chapterMatch) {
+      const index = parseInt(chapterMatch[1], 10);
+      onNavigate(index);
+      closeSidebar();
+      return;
+    }
+
+    // Parse "page-N" format (PDF)
+    const pageMatch = loc.match(/^page-(\d+)/);
+    if (pageMatch) {
+      const page = parseInt(pageMatch[1], 10);
+      onNavigate(page);
+      closeSidebar();
+      return;
+    }
+
+    // MOBI "mobi-chapter-0" — already on the single chapter, just close sidebar
+    if (loc.startsWith('mobi-chapter-')) {
+      closeSidebar();
+      return;
+    }
+  }, [onNavigate, closeSidebar]);
+
+  // ── C15: Delete annotation ──
+  const handleDeleteAnnotation = useCallback(async (e: React.MouseEvent, annotation: Annotation) => {
+    e.stopPropagation(); // Don't trigger the navigation click
+    if (!annotation.id) return;
+
+    try {
+      await api.deleteAnnotation(annotation.id);
+      // Remove from local state
+      setAnnotations(prev => prev.filter(a => a.id !== annotation.id));
+      // Notify readers to re-render highlights
+      window.dispatchEvent(new CustomEvent('annotation-changed'));
+      useToastStore.getState().addToast({
+        title: `${annotation.annotationType.charAt(0).toUpperCase() + annotation.annotationType.slice(1)} deleted`,
+        variant: 'success',
+        duration: 2000,
+      });
+    } catch (err) {
+      useToastStore.getState().addToast({
+        title: 'Failed to delete',
+        description: String(err),
+        variant: 'error',
+      });
+    }
+  }, []);
+
+  // ── C15: Edit note content ──
+  const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
+  const [editNoteText, setEditNoteText] = useState('');
+
+  const handleStartEditNote = useCallback((e: React.MouseEvent, note: Annotation) => {
+    e.stopPropagation();
+    setEditingNoteId(note.id ?? null);
+    setEditNoteText(note.noteContent || '');
+  }, []);
+
+  const handleSaveEditNote = useCallback(async (annotation: Annotation) => {
+    if (!annotation.id || !editNoteText.trim()) return;
+
+    try {
+      await api.updateAnnotation(annotation.id, editNoteText.trim(), undefined);
+      // Update local state
+      setAnnotations(prev => prev.map(a =>
+        a.id === annotation.id ? { ...a, noteContent: editNoteText.trim() } : a
+      ));
+      setEditingNoteId(null);
+      setEditNoteText('');
+      window.dispatchEvent(new CustomEvent('annotation-changed'));
+      useToastStore.getState().addToast({
+        title: 'Note updated',
+        variant: 'success',
+        duration: 2000,
+      });
+    } catch (err) {
+      useToastStore.getState().addToast({
+        title: 'Failed to update note',
+        description: String(err),
+        variant: 'error',
+      });
+    }
+  }, [editNoteText]);
+
+  const handleCancelEditNote = useCallback(() => {
+    setEditingNoteId(null);
+    setEditNoteText('');
+  }, []);
   
   // Filter annotations by type
   const highlights = annotations.filter(a => a.annotationType === 'highlight');
   const notes = annotations.filter(a => a.annotationType === 'note');
   const bookmarks = annotations.filter(a => a.annotationType === 'bookmark');
+
+  /** Format a raw location string for display */
+  const formatLocation = (loc: string): string => {
+    const chapterMatch = loc.match(/^chapter_(\d+)/);
+    if (chapterMatch) return `Chapter ${parseInt(chapterMatch[1], 10) + 1}`;
+    const pageMatch = loc.match(/^page-(\d+)/);
+    if (pageMatch) return `Page ${pageMatch[1]}`;
+    if (loc === 'mobi-chapter-0') return 'Full text';
+    return loc;
+  };
   
   if (!isSidebarOpen) return null;
   
@@ -248,15 +354,26 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
               ) : (
                 <div className="premium-annotations-list">
                   {highlights.map((highlight) => (
-                    <div key={highlight.id} className="premium-annotation-item">
+                    <div
+                      key={highlight.id}
+                      className="premium-annotation-item premium-annotation-item--clickable"
+                      onClick={() => handleAnnotationClick(highlight)}
+                    >
                       <div 
                         className="premium-annotation-color"
                         style={{ backgroundColor: highlight.color }}
                       />
                       <div className="premium-annotation-content">
                         <p className="premium-annotation-text">{highlight.selectedText}</p>
-                        <span className="premium-annotation-location">{highlight.location}</span>
+                        <span className="premium-annotation-location">{formatLocation(highlight.location)}</span>
                       </div>
+                      <button
+                        className="premium-annotation-delete"
+                        onClick={(e) => handleDeleteAnnotation(e, highlight)}
+                        title="Delete highlight"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -273,14 +390,72 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
               ) : (
                 <div className="premium-annotations-list">
                   {notes.map((note) => (
-                    <div key={note.id} className="premium-annotation-item">
+                    <div
+                      key={note.id}
+                      className="premium-annotation-item premium-annotation-item--clickable"
+                      onClick={() => handleAnnotationClick(note)}
+                    >
                       <div className="premium-annotation-content">
-                        <p className="premium-annotation-note">{note.noteContent}</p>
-                        {note.selectedText && (
-                          <p className="premium-annotation-text">{note.selectedText}</p>
+                        {editingNoteId === note.id ? (
+                          <div className="premium-annotation-edit" onClick={(e) => e.stopPropagation()}>
+                            <textarea
+                              className="premium-annotation-edit-input"
+                              value={editNoteText}
+                              onChange={(e) => setEditNoteText(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  handleSaveEditNote(note);
+                                }
+                                if (e.key === 'Escape') handleCancelEditNote();
+                              }}
+                              rows={3}
+                              autoFocus
+                            />
+                            <div className="premium-annotation-edit-actions">
+                              <button
+                                className="premium-annotation-edit-btn premium-annotation-edit-btn--cancel"
+                                onClick={handleCancelEditNote}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                className="premium-annotation-edit-btn premium-annotation-edit-btn--save"
+                                onClick={() => handleSaveEditNote(note)}
+                                disabled={!editNoteText.trim()}
+                              >
+                                Save
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <p className="premium-annotation-note">{note.noteContent}</p>
+                            {note.selectedText && (
+                              <p className="premium-annotation-text">{note.selectedText}</p>
+                            )}
+                            <span className="premium-annotation-location">{formatLocation(note.location)}</span>
+                          </>
                         )}
-                        <span className="premium-annotation-location">{note.location}</span>
                       </div>
+                      {editingNoteId !== note.id && (
+                        <div className="premium-annotation-actions">
+                          <button
+                            className="premium-annotation-action-btn"
+                            onClick={(e) => handleStartEditNote(e, note)}
+                            title="Edit note"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                          <button
+                            className="premium-annotation-delete"
+                            onClick={(e) => handleDeleteAnnotation(e, note)}
+                            title="Delete note"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -297,13 +472,27 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
               ) : (
                 <div className="premium-annotations-list">
                   {bookmarks.map((bookmark) => (
-                    <div key={bookmark.id} className="premium-annotation-item premium-annotation-item--clickable">
+                    <div
+                      key={bookmark.id}
+                      className="premium-annotation-item premium-annotation-item--clickable"
+                      onClick={() => handleAnnotationClick(bookmark)}
+                    >
                       <div className="premium-annotation-content">
-                        <p className="premium-annotation-location">{bookmark.location}</p>
+                        {bookmark.selectedText && (
+                          <p className="premium-annotation-text">{bookmark.selectedText}</p>
+                        )}
+                        <span className="premium-annotation-location">{formatLocation(bookmark.location)}</span>
                         <span className="premium-annotation-date">
                           {new Date(bookmark.createdAt).toLocaleDateString()}
                         </span>
                       </div>
+                      <button
+                        className="premium-annotation-delete"
+                        onClick={(e) => handleDeleteAnnotation(e, bookmark)}
+                        title="Delete bookmark"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   ))}
                 </div>

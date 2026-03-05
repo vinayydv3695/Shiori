@@ -1,0 +1,189 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'package.json'
+
+# Prevent concurrent releases
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Step 1: Check if version actually changed ──────────────────────
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version_changed: ${{ steps.check.outputs.changed }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check if version changed
+        id: check
+        run: |
+          # Get current version from package.json
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "Current version: $CURRENT_VERSION"
+
+          # Get previous version from the parent commit
+          git show HEAD~1:package.json > /tmp/prev-package.json 2>/dev/null || echo '{"version":"0.0.0"}' > /tmp/prev-package.json
+          PREV_VERSION=$(node -p "require('/tmp/prev-package.json').version")
+          echo "Previous version: $PREV_VERSION"
+
+          if [ "$CURRENT_VERSION" != "$PREV_VERSION" ]; then
+            echo "Version changed from $PREV_VERSION to $CURRENT_VERSION"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+          else
+            echo "Version unchanged"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ── Step 2: Create GitHub Release ──────────────────────────────────
+  create-release:
+    needs: check-version
+    if: needs.check-version.outputs.version_changed == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.create_release.outputs.id }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.check-version.outputs.version }}
+          name: Shiori v${{ needs.check-version.outputs.version }}
+          body: |
+            ## Shiori v${{ needs.check-version.outputs.version }}
+
+            Download the appropriate installer for your platform:
+
+            | Platform | File |
+            |----------|------|
+            | **Windows** | `.exe` (NSIS installer) |
+            | **macOS (Apple Silicon)** | `.dmg` (aarch64) |
+            | **macOS (Intel)** | `.dmg` (x64) |
+            | **Linux (Debian/Ubuntu)** | `.deb` |
+            | **Linux (Fedora/RHEL)** | `.rpm` |
+            | **Linux (Universal)** | `.AppImage` |
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── Step 3: Build for all platforms ────────────────────────────────
+  build:
+    needs: [check-version, create-release]
+    if: needs.check-version.outputs.version_changed == 'true'
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux — builds deb, rpm, AppImage
+          - platform: ubuntu-22.04
+            rust_targets: ''
+            args: ''
+
+          # Windows — builds NSIS installer
+          - platform: windows-latest
+            rust_targets: ''
+            args: ''
+
+          # macOS — Apple Silicon (M1+)
+          - platform: macos-latest
+            rust_targets: aarch64-apple-darwin
+            args: '--target aarch64-apple-darwin'
+
+          # macOS — Intel
+          - platform: macos-latest
+            rust_targets: x86_64-apple-darwin
+            args: '--target x86_64-apple-darwin'
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Sync versions: package.json → tauri.conf.json & Cargo.toml ──
+      - name: Sync version to Tauri config
+        shell: bash
+        run: |
+          VERSION="${{ needs.check-version.outputs.version }}"
+          echo "Syncing version $VERSION across all config files"
+
+          # Update tauri.conf.json
+          if command -v python3 &> /dev/null; then
+            python3 -c "
+          import json
+          with open('src-tauri/tauri.conf.json', 'r') as f:
+              config = json.load(f)
+          config['version'] = '$VERSION'
+          with open('src-tauri/tauri.conf.json', 'w') as f:
+              json.dump(config, f, indent=2)
+              f.write('\n')
+          "
+          fi
+
+          # Update Cargo.toml version
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            sed -i "s/^version = \".*\"/version = \"$VERSION\"/" src-tauri/Cargo.toml
+          else
+            sed -i'' -e "s/^version = \".*\"/version = \"$VERSION\"/" src-tauri/Cargo.toml
+          fi
+
+      # ── Setup Node.js ──
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+
+      # ── Setup Rust ──
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_targets }}
+
+      # ── Cache Rust dependencies ──
+      - name: Cache Rust dependencies
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: 'src-tauri -> target'
+
+      # ── Linux system dependencies ──
+      - name: Install system dependencies (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev
+
+      # ── Install frontend dependencies ──
+      - name: Install frontend dependencies
+        run: npm ci
+
+      # ── Build with Tauri Action ──
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=4096'
+        with:
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+          args: ${{ matrix.args }}

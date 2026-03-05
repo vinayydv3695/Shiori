@@ -6,6 +6,12 @@ import { useMangaContentStore, useMangaSettingsStore } from '@/store/mangaReader
  * Manages background preloading and memory-bounded caching.
  */
 
+/** Derive the maxDimension used for IPC from the store's imageQuality setting (0.5–1.0 → 800–1600). */
+export function getEffectiveMaxDimension(): number {
+    const quality = useMangaSettingsStore.getState().imageQuality;
+    return Math.round(800 + quality * 800);
+}
+
 interface CacheEntry {
     blob: Blob;
     url: string;
@@ -103,9 +109,10 @@ const pendingRequests = new Map<string, Promise<string>>();
 export async function getMangaPageUrl(
     bookId: number,
     pageIndex: number,
-    maxDimension: number = 1600
+    maxDimension?: number
 ): Promise<string> {
-    const cacheKey = `${bookId}:${pageIndex}:${maxDimension}`;
+    const dim = maxDimension ?? getEffectiveMaxDimension();
+    const cacheKey = `${bookId}:${pageIndex}:${dim}`;
 
     // Check cache first
     const cached = imageCache.get(cacheKey);
@@ -122,7 +129,7 @@ export async function getMangaPageUrl(
             const responseData = await invoke<Uint8Array>('get_manga_page', {
                 bookId,
                 pageIndex,
-                maxDimension,
+                maxDimension: dim,
             });
 
             // Convert to blob and save in URL
@@ -148,11 +155,13 @@ export async function getMangaPageUrl(
 export function preloadPages(
     bookId: number,
     pageIndices: number[],
-    maxDimension: number = 1600
+    maxDimension?: number
 ): void {
+    const dim = maxDimension ?? getEffectiveMaxDimension();
+
     // Filter out pages already in the frontend cache
     const uncached = pageIndices.filter(idx => {
-        const cacheKey = `${bookId}:${idx}:${maxDimension}`;
+        const cacheKey = `${bookId}:${idx}:${dim}`;
         return !imageCache.has(cacheKey);
     });
 
@@ -163,7 +172,7 @@ export function preloadPages(
         invoke('preload_manga_pages', {
             bookId,
             pageIndices: uncached,
-            maxDimension,
+            maxDimension: dim,
         }).catch(() => {
             // Backend preload failed — individual fetches will still work (just slower)
         });
@@ -172,7 +181,7 @@ export function preloadPages(
     // Step 2: Also fire individual fetches to populate the frontend blob cache.
     // These will be fast once the backend cache is warm.
     for (const idx of uncached) {
-        getMangaPageUrl(bookId, idx, maxDimension).catch(() => {
+        getMangaPageUrl(bookId, idx, dim).catch(() => {
             // Silently ignore preload failures
         });
     }

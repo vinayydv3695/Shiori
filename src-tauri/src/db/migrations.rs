@@ -240,6 +240,7 @@ impl<'a> MigrationManager<'a> {
     }
 
     /// Calculate checksum for migration validation
+    #[allow(dead_code)]
     fn calculate_checksum(sql: &str) -> String {
         let mut hasher = Sha256::new();
         hasher.update(sql.as_bytes());

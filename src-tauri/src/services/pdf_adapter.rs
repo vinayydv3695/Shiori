@@ -224,7 +224,7 @@ impl BookReaderAdapter for PdfAdapter {
         false
     }
     
-    async fn render_page(&self, page_number: usize, _scale: f32) -> Result<Vec<u8>> {
+    async fn render_page(&self, _page_number: usize, _scale: f32) -> Result<Vec<u8>> {
          Err(ShioriError::Other("Native image rendering is configured off for lopdf".into()))
     }
 

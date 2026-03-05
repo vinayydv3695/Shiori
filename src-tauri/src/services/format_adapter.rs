@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
+#[allow(dead_code)]
 #[derive(Debug, Error)]
 pub enum FormatError {
     #[error("IO error: {0}")]
@@ -43,6 +44,7 @@ pub enum FormatError {
 pub type FormatResult<T> = Result<T, FormatError>;
 
 /// Core trait that all format adapters must implement
+#[allow(dead_code)]
 #[async_trait]
 pub trait BookFormatAdapter: Send + Sync {
     /// Get format identifier (e.g., "epub", "pdf", "mobi")
@@ -73,6 +75,7 @@ pub trait BookFormatAdapter: Send + Sync {
 }
 
 /// Validation result containing file integrity information
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ValidationResult {
     pub is_valid: bool,
@@ -84,6 +87,7 @@ pub struct ValidationResult {
     pub chapter_count: Option<u32>,
 }
 
+#[allow(dead_code)]
 impl ValidationResult {
     pub fn valid(file_size: u64) -> Self {
         Self {
@@ -153,6 +157,7 @@ impl Default for BookMetadata {
 }
 
 /// Cover image with metadata
+#[allow(dead_code)]
 #[derive(Clone)]
 pub struct CoverImage {
     pub image: DynamicImage,
@@ -170,6 +175,7 @@ pub enum ImageFormat {
     Bmp,
 }
 
+#[allow(dead_code)]
 impl CoverImage {
     pub fn new(image: DynamicImage) -> Self {
         let (width, height) = (image.width(), image.height());
@@ -189,6 +195,7 @@ impl CoverImage {
 }
 
 /// Result of a format conversion operation
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConversionResult {
     pub success: bool,
@@ -199,6 +206,7 @@ pub struct ConversionResult {
 }
 
 /// Format capabilities describing what features are supported
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct FormatCapabilities {
     pub supports_toc: bool,           // Table of contents
@@ -210,6 +218,7 @@ pub struct FormatCapabilities {
     pub supports_search: bool,        // Text search
 }
 
+#[allow(dead_code)]
 impl FormatCapabilities {
     pub fn full_support() -> Self {
         Self {
@@ -249,6 +258,7 @@ impl FormatCapabilities {
 }
 
 /// Format information with detection metadata
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FormatInfo {
     pub format: String,
@@ -264,6 +274,7 @@ pub enum DetectionMethod {
     ContentInspection,
 }
 
+#[allow(dead_code)]
 impl FormatInfo {
     pub fn new(format: &str) -> Self {
         let (extension, mime_type) = match format {
@@ -301,6 +312,7 @@ impl FormatInfo {
 }
 
 /// Format support level
+#[allow(dead_code)]
 pub enum FormatSupport {
     /// Fully supported with all features
     FullySupported {

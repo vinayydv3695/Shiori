@@ -25,6 +25,7 @@ pub struct MangaMetadata {
     pub page_dimensions: Vec<(u32, u32)>,
 }
 
+#[allow(dead_code)]
 struct OpenManga {
     file_path: String,
     /// Keep the original file handle open so subsequent reads can use

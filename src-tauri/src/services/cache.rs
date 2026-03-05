@@ -22,6 +22,7 @@ pub struct CacheKey {
     pub index: usize,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum CacheItemType {
     Chapter,
@@ -138,6 +139,7 @@ impl BookCache {
     }
 
     /// Preload content for upcoming pages/chapters
+    #[allow(dead_code)]
     pub fn preload_hint(&self, _keys: Vec<CacheKey>) {
         // This is a hint for future preloading implementation
         // For now, it's a no-op, but could trigger background loading
@@ -153,10 +155,12 @@ pub struct CacheStats {
 }
 
 /// Global cache instance manager
+#[allow(dead_code)]
 pub struct CacheManager {
     book_cache: BookCache,
 }
 
+#[allow(dead_code)]
 impl CacheManager {
     pub fn new(max_size_mb: usize) -> Self {
         Self {

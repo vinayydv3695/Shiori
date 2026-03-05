@@ -21,11 +21,13 @@ impl MobiFormatAdapter {
     }
     
     /// Create adapter specifically for AZW3
+    #[allow(dead_code)]
     pub fn new_azw3() -> Self {
         Self { is_azw3: true }
     }
     
     /// Detect if MOBI file is actually AZW3 (KF8 format)
+    #[allow(dead_code)]
     fn is_kf8(m: &Mobi) -> bool {
         // KF8 (AZW3) has specific markers in the MOBI header
         // Check for "boundary" section which indicates KF8
@@ -34,6 +36,7 @@ impl MobiFormatAdapter {
     }
     
     /// Extract string from EXTH record using public API
+    #[allow(dead_code)]
     fn get_exth_string(_m: &Mobi, _record_type: u32) -> Option<String> {
         // The mobi crate doesn't expose exth records directly
         // Use the public API methods instead

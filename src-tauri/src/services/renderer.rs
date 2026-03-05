@@ -13,6 +13,7 @@ pub struct Chapter {
 }
 
 /// Represents a rendered page (for PDF or paginated views)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RenderedPage {
     pub page_number: usize,
@@ -46,6 +47,7 @@ use async_trait::async_trait;
 
 /// Common unified interface for all book format renderers (EPUB, PDF, DOCX, MOBI)
 #[async_trait]
+#[allow(dead_code)]
 pub trait BookReaderAdapter: Send + Sync {
     /// Open and initialize the book
     async fn load(&mut self, path: &str) -> Result<()>;

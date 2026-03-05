@@ -230,6 +230,7 @@ impl ConversionEngine {
         Err(FormatError::ConversionError("Job not found or already finished".to_string()))
     }
 
+    #[allow(dead_code)]
     pub async fn shutdown(&self) {
         *self.shutdown.lock().await = true;
         log::info!("[ConversionEngine] Shutdown signal sent");

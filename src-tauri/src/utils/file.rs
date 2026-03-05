@@ -26,6 +26,7 @@ pub fn get_file_size(path: &str) -> Result<i64> {
     Ok(metadata.len() as i64)
 }
 
+#[allow(dead_code)]
 pub fn is_supported_format(path: &Path) -> bool {
     if let Some(ext) = path.extension() {
         if let Some(ext_str) = ext.to_str() {

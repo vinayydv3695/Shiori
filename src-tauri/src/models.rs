@@ -25,7 +25,7 @@ pub struct Book {
     pub modified_date: String,
     pub last_opened: Option<String>,
     pub notes: Option<String>,
-    
+
     // Online metadata
     #[serde(default)]
     pub online_metadata_fetched: bool,
@@ -153,6 +153,7 @@ pub struct SmartRule {
     pub match_type: String, // "all" or "any"
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CollectionWithBooks {
     pub collection: Collection,

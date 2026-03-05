@@ -106,6 +106,7 @@ impl RssScheduler {
     }
 
     /// Stop the scheduler
+    #[allow(dead_code)]
     pub async fn stop(&mut self) -> Result<()> {
         self.scheduler.shutdown().await?;
         info!("RSS Scheduler: Stopped");
@@ -113,11 +114,13 @@ impl RssScheduler {
     }
 
     /// Enable/disable daily EPUB generation
+    #[allow(dead_code)]
     pub fn set_daily_epub_enabled(&mut self, enabled: bool) {
         self.daily_epub_enabled = enabled;
     }
 
     /// Update daily EPUB generation time
+    #[allow(dead_code)]
     pub fn set_daily_epub_time(&mut self, cron_schedule: String) {
         self.daily_epub_time = cron_schedule;
     }

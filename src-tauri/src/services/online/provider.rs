@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
+#[allow(dead_code)]
 #[derive(thiserror::Error, Debug)]
 pub enum MetadataError {
     #[error("Network is offline")]
@@ -44,6 +45,7 @@ pub struct FetchedMetadata {
     pub extra_data: Option<serde_json::Value>,
 }
 
+#[allow(dead_code)]
 #[async_trait]
 pub trait MetadataProvider: Send + Sync {
     /// Identifier for the provider (e.g., "openlibrary", "anilist")

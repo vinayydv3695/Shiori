@@ -24,6 +24,7 @@ const MEDIUM_WIDTH: u32 = 400;
 const MEDIUM_HEIGHT: u32 = 600;
 
 /// Set of cover images at different resolutions
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct CoverSet {
     pub uuid: Uuid,

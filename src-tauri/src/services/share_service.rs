@@ -50,6 +50,7 @@ pub struct Share {
 }
 
 /// Share access log entry
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShareAccessLog {
     pub id: i64,
@@ -203,6 +204,7 @@ impl ShareService {
     }
 
     /// Verify share password
+    #[allow(dead_code)]
     pub fn verify_password(&self, token: &str, password: &str) -> Result<bool> {
         let share = self.get_share(token)?
             .ok_or_else(|| anyhow::anyhow!("Share not found"))?;
@@ -245,6 +247,7 @@ impl ShareService {
     }
 
     /// Increment download count
+    #[allow(dead_code)]
     pub fn increment_download_count(&self, token: &str) -> Result<()> {
         let conn = self.db.get_connection()
             .map_err(|e| anyhow!("{}", e))?;
@@ -256,6 +259,7 @@ impl ShareService {
     }
 
     /// Log share access
+    #[allow(dead_code)]
     pub fn log_access(&self, share_id: i64, ip_address: &str, user_agent: Option<&str>) -> Result<()> {
         let conn = self.db.get_connection()
             .map_err(|e| anyhow!("{}", e))?;

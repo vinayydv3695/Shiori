@@ -50,6 +50,7 @@ impl DocxFormatAdapter {
     }
     
     /// Estimate paragraphs and chapters from document structure
+    #[allow(dead_code)]
     fn count_structure(doc: &Docx) -> (u32, u32) {
         let mut paragraph_count = 0;
         let mut heading_count = 0;

@@ -73,12 +73,14 @@ impl EpubBuilder {
     }
     
     /// Set custom stylesheet
+    #[allow(dead_code)]
     pub fn stylesheet(mut self, css: String) -> Self {
         self.stylesheet = Some(css);
         self
     }
     
     /// Set cover image
+    #[allow(dead_code)]
     pub fn cover_image(mut self, image_data: Vec<u8>) -> Self {
         self.cover_image = Some(image_data);
         self

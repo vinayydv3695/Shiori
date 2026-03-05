@@ -43,6 +43,7 @@ pub struct AuthorInfo {
     pub key: Option<String>, // Open Library author key
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct SearchResponse {
     docs: Vec<SearchDoc>,
@@ -65,6 +66,7 @@ struct SearchDoc {
     cover_i: Option<i64>, // Cover ID
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct WorkResponse {
     title: String,
@@ -74,6 +76,7 @@ struct WorkResponse {
     authors: Option<Vec<AuthorRef>>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
 enum DescriptionField {
@@ -81,17 +84,20 @@ enum DescriptionField {
     Object { value: String },
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct AuthorRef {
     author: AuthorKey,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct AuthorKey {
     key: String,
 }
 
 /// Response from /authors/{key}.json
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct AuthorDetailResponse {
     name: Option<String>,
@@ -129,6 +135,7 @@ pub struct BookMetadataService {
 /// Maximum response body size for JSON/API responses (2 MB)
 const MAX_JSON_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
 /// Maximum response body size for cover image downloads (10 MB)
+#[allow(dead_code)]
 const MAX_IMAGE_RESPONSE_BYTES: usize = 10 * 1024 * 1024;
 
 impl BookMetadataService {
@@ -277,6 +284,7 @@ impl BookMetadataService {
     }
 
     /// Get detailed book metadata by Open Library ID
+    #[allow(dead_code)]
     pub async fn get_book_by_id(&self, ol_id: &str) -> Result<BookMetadata> {
         log::info!("[BookMetadataService] Fetching book: {}", ol_id);
 
@@ -321,6 +329,7 @@ impl BookMetadataService {
     }
 
     /// Download cover image from Open Library
+    #[allow(dead_code)]
     pub async fn download_cover(&self, cover_id: i64, size: &str) -> Result<Vec<u8>> {
         // size can be "S" (small), "M" (medium), or "L" (large)
         let url = format!("{}/b/id/{}-{}.jpg", self.covers_url, cover_id, size);
@@ -415,6 +424,7 @@ impl BookMetadataService {
         }
     }
 
+    #[allow(dead_code)]
     async fn convert_work_to_metadata(
         &self,
         work_id: &str,
@@ -464,6 +474,7 @@ impl BookMetadataService {
 
     /// Resolve author references (e.g. /authors/OL123A) to AuthorInfo with actual names.
     /// Makes one HTTP request per author. If a request fails, that author is silently skipped.
+    #[allow(dead_code)]
     async fn resolve_author_refs(&self, author_refs: &Option<Vec<AuthorRef>>) -> Vec<AuthorInfo> {
         let refs = match author_refs {
             Some(refs) if !refs.is_empty() => refs,

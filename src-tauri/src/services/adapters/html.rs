@@ -94,6 +94,7 @@ impl HtmlFormatAdapter {
     }
     
     /// Count headings for chapter estimation
+    #[allow(dead_code)]
     fn count_headings(handle: &Handle) -> u32 {
         let mut count = 0;
         

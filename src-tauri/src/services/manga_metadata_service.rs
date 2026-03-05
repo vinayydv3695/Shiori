@@ -129,6 +129,7 @@ pub struct MangaMetadataService {
 /// Maximum response body size for JSON/GraphQL responses (2 MB)
 const MAX_JSON_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
 /// Maximum response body size for cover image downloads (10 MB)
+#[allow(dead_code)]
 const MAX_IMAGE_RESPONSE_BYTES: usize = 10 * 1024 * 1024;
 
 impl MangaMetadataService {
@@ -364,6 +365,7 @@ impl MangaMetadataService {
     }
 
     /// Download cover image from URL
+    #[allow(dead_code)]
     pub async fn download_cover(&self, url: &str) -> Result<Vec<u8>> {
         log::info!("[MangaMetadataService] Downloading cover from: {}", url);
 

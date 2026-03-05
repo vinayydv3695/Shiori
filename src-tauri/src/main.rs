@@ -21,7 +21,6 @@ use services::{
     book_metadata_service::BookMetadataService,
     online::{
         worker::{MetadataWorker, MetadataJob},
-        provider::MetadataProvider,
         anilist::AniListProvider,
         openlibrary::OpenLibraryProvider,
     },
@@ -39,6 +38,7 @@ pub struct MetadataState {
 fn main() {
     #[cfg(target_os = "linux")]
     {
+        std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
         std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
     }
 

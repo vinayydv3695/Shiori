@@ -1,7 +1,5 @@
 use crate::db::Database;
-use crate::error::Result as AppResult;
 use crate::services::online::provider::{ItemType, MetadataProvider, MetadataQuery, FetchedMetadata};
-use reqwest::Client;
 use sha2::{Sha256, Digest};
 use std::sync::Arc;
 use tokio::sync::{mpsc, Semaphore};
@@ -79,7 +77,7 @@ impl MetadataWorker {
                     // Check local cache first (unless forced)
                     if !job.force_refresh {
                         if let Ok(conn) = db.get_connection() {
-                            let mut stmt = conn.prepare(
+                            let stmt = conn.prepare(
                                 "SELECT response_json FROM metadata_cache 
                                  WHERE provider = ?1 AND query_hash = ?2 AND expires_at > CURRENT_TIMESTAMP"
                             );

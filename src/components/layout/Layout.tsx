@@ -102,7 +102,7 @@ export function Layout({
 
     const withCounts = (
       items: { id: string; label: string; count: number }[],
-      getValues: (b: any) => string[],
+      getValues: (b: { authors: { name: string }[]; tags: { name: string }[]; language: string; series?: string; file_format: string; rating?: number; publisher?: string; isbn?: string; isbn13?: string }) => string[],
     ) => {
       items.forEach((item) => {
         item.count = books.filter((b) => getValues(b).includes(item.id)).length
@@ -110,7 +110,7 @@ export function Layout({
       return items
     }
 
-    const authors = withCounts(toItems(authorsSet), (b) => b.authors?.map((a: any) => a.name) || [])
+    const authors = withCounts(toItems(authorsSet), (b) => b.authors?.map((a) => a.name) || [])
     const languages = withCounts(toItems(languagesSet), (b) => (b.language ? [b.language] : []))
     const series = withCounts(toItems(seriesSet), (b) => (b.series ? [b.series] : []))
     const formats = withCounts(toItems(formatsSet), (b) => (b.file_format ? [b.file_format.toUpperCase()] : []))
@@ -119,7 +119,7 @@ export function Layout({
       if (!b.rating) return []
       return [(Math.round(b.rating * 2) / 2).toString()]
     })
-    const tags = withCounts(toItems(tagsSet), (b) => b.tags?.map((t: any) => t.name) || [])
+    const tags = withCounts(toItems(tagsSet), (b) => b.tags?.map((t) => t.name) || [])
     const identifiers = withCounts(toItems(identifiersSet), (b) => {
       const ids: string[] = []
       if (b.isbn) ids.push(`ISBN: ${b.isbn}`)
@@ -280,7 +280,7 @@ export function Layout({
   }
 
   const handleFilterToggle = (category: string, id: string) => {
-    // @ts-ignore
+    // @ts-expect-error - toggleFilter accepts keyof FilterState but category is string from FilterPanel
     toggleFilter(category, id)
   }
 

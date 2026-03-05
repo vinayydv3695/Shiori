@@ -1,4 +1,3 @@
-import { useOnboardingStore } from "../../../store/onboardingStore";
 import { BookOpen, CheckCircle2 } from "lucide-react";
 
 export function WelcomeStep() {

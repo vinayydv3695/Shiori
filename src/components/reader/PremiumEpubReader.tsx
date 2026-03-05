@@ -185,13 +185,11 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
   // State management
   const {
     isTopBarVisible,
-    isSidebarOpen,
     isFocusMode,
     scrollProgress,
     setTopBarVisible,
     toggleSidebar,
     setScrollProgress,
-    updateMouseMovement,
   } = useUIStore();
 
   const { theme, width, twoPageView, toggleTwoPageView, pageFlipEnabled, pageFlipSpeed, animationStyle } = useReadingSettings();
@@ -352,13 +350,6 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
   // ────────────────────────────────────────────────────────────
   // BOOK LOADING
   // ────────────────────────────────────────────────────────────
-  useEffect(() => {
-    loadBook();
-    return () => {
-      api.closeBookRenderer(bookId).catch(console.error);
-    };
-  }, [bookPath, bookId]);
-
   const loadBook = async () => {
     try {
       setIsLoading(true);
@@ -431,6 +422,15 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadBook();
+    return () => {
+      api.closeBookRenderer(bookId).catch(console.error);
+    };
+    // loadBook is recreated each render - would cause infinite loop if added
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookPath, bookId]);
 
   const loadChapter = async (index: number, highlightTerm?: string | null) => {
     try {
@@ -534,12 +534,16 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
     if (currentIndex < metadata.total_chapters - 1) {
       loadChapter(currentIndex + 1, null); // Clear search highlight when navigating manually
     }
+    // loadChapter is recreated each render - would cause infinite loop if added
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [metadata, currentIndex]);
 
   const prevChapter = useCallback(() => {
     if (currentIndex > 0) {
       loadChapter(currentIndex - 1, null); // Clear search highlight when navigating manually
     }
+    // loadChapter is recreated each render - would cause infinite loop if added
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex]);
 
   // Preload adjacent chapters for page flip — deferred to idle time
@@ -582,13 +586,13 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
 
     // Use requestIdleCallback to avoid blocking the main thread
     const idleId = 'requestIdleCallback' in window
-      ? (window as any).requestIdleCallback(() => preload())
+      ? (window as Window & { requestIdleCallback: (callback: () => void) => number }).requestIdleCallback(() => preload())
       : setTimeout(() => preload(), 500);
 
     return () => {
       cancelled = true;
       if ('cancelIdleCallback' in window) {
-        (window as any).cancelIdleCallback(idleId);
+        (window as Window & { cancelIdleCallback: (id: number) => void }).cancelIdleCallback(idleId);
       } else {
         clearTimeout(idleId);
       }
@@ -716,6 +720,8 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
     if (currentChapter) {
       loadChapter(currentIndex);
     }
+    // loadChapter is recreated each render - would cause infinite loop if added
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [twoPageView]);
 
   // ────────────────────────────────────────────────────────────

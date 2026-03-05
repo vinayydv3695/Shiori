@@ -134,6 +134,7 @@ ${error.technicalDetails ? `\nTechnical Details:\n${error.technicalDetails}` : '
 }
 
 // Helper function to parse errors from Tauri
+// eslint-disable-next-line react-refresh/only-export-components
 export function parseReaderError(error: unknown): ErrorDetails {
   if (typeof error === 'string') {
     // Parse common error patterns

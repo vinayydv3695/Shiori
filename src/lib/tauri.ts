@@ -666,7 +666,7 @@ export const api = {
     return invoke("get_book_preference_overrides")
   },
 
-  async setBookPreferenceOverride(bookId: number, overrides: Record<string, any>): Promise<void> {
+  async setBookPreferenceOverride(bookId: number, overrides: Record<string, unknown>): Promise<void> {
     return invoke("set_book_preference_override", { bookId, overrides })
   },
 
@@ -678,7 +678,7 @@ export const api = {
     return invoke("get_manga_preference_overrides")
   },
 
-  async setMangaPreferenceOverride(bookId: number, overrides: Record<string, any>): Promise<void> {
+  async setMangaPreferenceOverride(bookId: number, overrides: Record<string, unknown>): Promise<void> {
     return invoke("set_manga_preference_override", { bookId, overrides })
   },
 

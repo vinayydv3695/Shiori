@@ -36,6 +36,8 @@ export function LongStripView() {
         return 1400; // Fallback for manga pages
     }, [pageDimensions]);
 
+    // TanStack Virtual v3 is compatible with React 19
+    // eslint-disable-next-line react-hooks/incompatible-library
     const virtualizer = useVirtualizer({
         count: totalPages,
         getScrollElement: () => containerRef.current,

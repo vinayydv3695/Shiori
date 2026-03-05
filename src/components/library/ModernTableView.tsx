@@ -27,6 +27,15 @@ interface TableViewProps {
   onShareBook?: (id: number) => void
 }
 
+function SortIcon({ field, sortField, sortDirection }: { field: SortField; sortField: SortField; sortDirection: 'asc' | 'desc' }) {
+  if (sortField !== field) return null
+  return sortDirection === 'asc' ? (
+    <ArrowUp className="w-3.5 h-3.5" />
+  ) : (
+    <ArrowDown className="w-3.5 h-3.5" />
+  )
+}
+
 export const ModernTableView = ({
   books,
   selectedBooks,
@@ -57,11 +66,12 @@ export const ModernTableView = ({
       case 'title':
         comparison = a.title.localeCompare(b.title)
         break
-      case 'author':
+      case 'author': {
         const aAuthor = a.authors?.[0]?.name || ''
         const bAuthor = b.authors?.[0]?.name || ''
         comparison = aAuthor.localeCompare(bAuthor)
         break
+      }
       case 'rating':
         comparison = (a.rating || 0) - (b.rating || 0)
         break
@@ -78,15 +88,6 @@ export const ModernTableView = ({
 
     return sortDirection === 'asc' ? comparison : -comparison
   })
-
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return null
-    return sortDirection === 'asc' ? (
-      <ArrowUp className="w-3.5 h-3.5" />
-    ) : (
-      <ArrowDown className="w-3.5 h-3.5" />
-    )
-  }
 
   const handleSelectAll = () => {
     if (selectedBooks.size === books.length) {
@@ -155,7 +156,7 @@ export const ModernTableView = ({
                   className="flex items-center gap-2 font-semibold text-sm hover:text-primary transition-colors"
                 >
                   Title
-                  <SortIcon field="title" />
+                  <SortIcon field="title" sortField={sortField} sortDirection={sortDirection} />
                 </button>
               </th>
 
@@ -166,7 +167,7 @@ export const ModernTableView = ({
                   className="flex items-center gap-2 font-semibold text-sm hover:text-primary transition-colors"
                 >
                   Author
-                  <SortIcon field="author" />
+                  <SortIcon field="author" sortField={sortField} sortDirection={sortDirection} />
                 </button>
               </th>
 
@@ -182,7 +183,7 @@ export const ModernTableView = ({
                   className="flex items-center gap-2 font-semibold text-sm hover:text-primary transition-colors"
                 >
                   Rating
-                  <SortIcon field="rating" />
+                  <SortIcon field="rating" sortField={sortField} sortDirection={sortDirection} />
                 </button>
               </th>
 
@@ -193,7 +194,7 @@ export const ModernTableView = ({
                   className="flex items-center gap-2 font-semibold text-sm hover:text-primary transition-colors"
                 >
                   Format
-                  <SortIcon field="format" />
+                  <SortIcon field="format" sortField={sortField} sortDirection={sortDirection} />
                 </button>
               </th>
 
@@ -204,7 +205,7 @@ export const ModernTableView = ({
                   className="flex items-center gap-2 font-semibold text-sm hover:text-primary transition-colors"
                 >
                   Size
-                  <SortIcon field="size" />
+                  <SortIcon field="size" sortField={sortField} sortDirection={sortDirection} />
                 </button>
               </th>
 
@@ -215,7 +216,7 @@ export const ModernTableView = ({
                   className="flex items-center gap-2 font-semibold text-sm hover:text-primary transition-colors"
                 >
                   Added
-                  <SortIcon field="date" />
+                  <SortIcon field="date" sortField={sortField} sortDirection={sortDirection} />
                 </button>
               </th>
 

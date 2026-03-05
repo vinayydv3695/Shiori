@@ -410,6 +410,7 @@ const applyTextAlignToDOM = (align: string) => {
 // The app-level theme (data-theme="black"|"white") is managed by preferencesStore.
 if (typeof window !== 'undefined') {
   const savedSettings = localStorage.getItem('shiori-reading-settings');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSON.parse returns any; validated below via fallback defaults
   let parsed: Record<string, any> | null = null;
 
   if (savedSettings) {

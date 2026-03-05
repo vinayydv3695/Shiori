@@ -69,7 +69,7 @@ export function formatRelativeTime(date: string | Date): string {
  * @param wait - Wait time in milliseconds
  * @returns Debounced function
  */
-export function debounce<T extends (...args: any[]) => void>(func: T, wait: number): T {
+export function debounce<T extends (...args: unknown[]) => void>(func: T, wait: number): T {
   let timeout: ReturnType<typeof setTimeout> | null = null
 
   return function executedFunction(...args: Parameters<T>) {

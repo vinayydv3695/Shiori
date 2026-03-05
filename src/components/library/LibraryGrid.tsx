@@ -25,7 +25,6 @@ interface LibraryGridProps {
   onBookClick?: (bookId: number) => void
   onEditBook?: (bookId: number) => void
   onDeleteBook?: (bookId: number) => void
-  onDownloadBook?: (bookId: number) => void
   onConvertBook?: (bookId: number) => void
   onShareBook?: (bookId: number) => void
   onImportBooks?: () => void
@@ -99,7 +98,6 @@ export function LibraryGrid({
   onBookClick,
   onEditBook,
   onDeleteBook,
-  onDownloadBook,
   onConvertBook,
   onShareBook,
   onImportBooks,
@@ -146,6 +144,8 @@ export function LibraryGrid({
 
   const rowsCount = Math.ceil(visibleLibrary.length / columns)
 
+  // TanStack Virtual v3 is compatible with React 19
+  // eslint-disable-next-line react-hooks/incompatible-library
   const rowVirtualizer = useVirtualizer({
     count: rowsCount,
     getScrollElement: () => parentRef.current,
@@ -163,7 +163,7 @@ export function LibraryGrid({
     if (lastItem.index >= rowsCount - 2 && hasMore && !isLoading) {
       loadMoreBooks()
     }
-  }, [lastItem?.index, hasMore, isLoading, loadMoreBooks, rowsCount])
+  }, [lastItem, hasMore, isLoading, loadMoreBooks, rowsCount])
 
   return (
     <div className="flex flex-col h-full w-full relative overflow-y-auto" ref={parentRef}>
@@ -214,7 +214,6 @@ export function LibraryGrid({
                         onOpen={handleOpen}
                         onEdit={(id) => onEditBook?.(id)}
                         onDelete={(id) => onDeleteBook?.(id)}
-                        onDownload={(id) => onDownloadBook?.(id)}
                         onConvert={onConvertBook ? (id) => onConvertBook(id) : undefined}
                         onShare={onShareBook ? (id) => onShareBook(id) : undefined}
                         animationDelay={Math.min(absoluteIndex * 10, 150)}

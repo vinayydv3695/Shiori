@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { sanitizeSVG } from '@/lib/sanitize';
 import { useShareStore, Share, ShareResponse } from '../../store/shareStore';
-import { Share2, Copy, QrCode, X, Lock, Clock, Download, Trash2, Power, CheckCircle, AlertCircle } from 'lucide-react';
+import { Share2, Copy, X, Lock, Clock, Download, Trash2, Power, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface ShareBookDialogProps {
   isOpen: boolean;

@@ -63,7 +63,7 @@ interface DoodleState {
 const MAX_UNDO_STACK = 50;
 const MAX_STROKES_PER_PAGE = 500;
 
-export const useDoodleStore = create<DoodleState>((set, get) => ({
+export const useDoodleStore = create<DoodleState>((set) => ({
     isDoodleMode: false,
     tool: 'pen',
     penColor: '#1A1A2E',

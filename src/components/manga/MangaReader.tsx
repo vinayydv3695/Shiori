@@ -1,7 +1,6 @@
 import React, { useEffect, useCallback, useRef } from 'react';
 import {
     useMangaContentStore,
-    useMangaUIStore,
     useMangaSettingsStore,
 } from '@/store/mangaReaderStore';
 import { api } from '@/lib/tauri';
@@ -17,6 +16,8 @@ import { imageCache } from './hooks/useMangaPreloader';
 
 // Import manga reader styles
 import '@/styles/manga-reader.css';
+
+const PLACEHOLDER: [number, number] = [800, 1200];
 
 interface MangaReaderProps {
     bookId: number;
@@ -127,7 +128,7 @@ export function MangaReader({
             closeManga();
             imageCache.clear();
         };
-    }, [bookId, bookPath]);
+    }, [bookId, bookPath, title, totalPages, openManga, closeManga, setLoading, setError, setCurrentPage]);
 
     // Apply theme on mount
     useEffect(() => {
@@ -136,7 +137,6 @@ export function MangaReader({
 
     // Progressively fetch real page dimensions (backend returns placeholder 800x1200 on open).
     // On each page change, request dimensions for a window of ±10 pages around the viewport.
-    const PLACEHOLDER: [number, number] = [800, 1200];
     const fetchedDimsRef = useRef(new Set<number>());
 
     useEffect(() => {

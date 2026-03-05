@@ -131,7 +131,7 @@ export const useOnboardingStore = create<OnboardingState>()(
                     const { draftConfig } = get();
 
                     // 1. Send transient FSM config to Rust backend SQLite
-                    await api.updateUserPreferences(draftConfig as any);
+                    await api.updateUserPreferences(draftConfig as Partial<UserPreferences>);
 
                     // 2. Mark onboarding as officially completed
                     // Compute which steps were skipped based on their conditions

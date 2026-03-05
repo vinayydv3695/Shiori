@@ -67,6 +67,8 @@ export function MobiReader({ bookPath, bookId }: MobiReaderProps) {
             if (throttleTimeout) clearTimeout(throttleTimeout);
             if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
         };
+        // resetAutoHideTimer is recreated each render - would cause infinite loop if added
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isFocusMode, setTopBarVisible]);
 
     useEffect(() => {
@@ -77,6 +79,8 @@ export function MobiReader({ bookPath, bookId }: MobiReaderProps) {
             setTopBarVisible(true);
             resetAutoHideTimer();
         }
+        // resetAutoHideTimer is recreated each render - would cause infinite loop if added
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isFocusMode, setTopBarVisible]);
 
     // Map font family IDs to CSS font-family strings
@@ -93,14 +97,6 @@ export function MobiReader({ bookPath, bookId }: MobiReaderProps) {
         };
         return fontMap[fontId] || fontMap.serif;
     };
-
-    useEffect(() => {
-        loadBook();
-        return () => {
-            // Cleanup
-            api.closeBookRenderer(bookId).catch(console.error);
-        };
-    }, [bookPath, bookId]);
 
     const loadBook = async () => {
         try {
@@ -131,6 +127,16 @@ export function MobiReader({ bookPath, bookId }: MobiReaderProps) {
             setIsLoading(false);
         }
     };
+
+    useEffect(() => {
+        loadBook();
+        return () => {
+            // Cleanup
+            api.closeBookRenderer(bookId).catch(console.error);
+        };
+        // loadBook is recreated each render - would cause infinite loop if added
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [bookPath, bookId]);
 
     // Setup scroll event listener for continuous progress tracking
     const handleScroll = useCallback(() => {

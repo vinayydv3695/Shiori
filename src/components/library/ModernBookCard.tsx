@@ -117,7 +117,6 @@ interface BookCardProps {
   onOpen: (id: number) => void
   onEdit: (id: number) => void
   onDelete: (id: number) => void
-  onDownload: (id: number) => void
   onConvert?: (id: number) => void
   onShare?: (id: number) => void
   animationDelay?: number
@@ -130,7 +129,6 @@ export function PremiumBookCard({
   onOpen,
   onEdit,
   onDelete,
-  onDownload,
   onConvert,
   onShare,
   animationDelay = 0,

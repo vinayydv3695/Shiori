@@ -51,13 +51,13 @@ export function PdfReader({ bookPath, bookId }: PdfReaderProps) {
   // ────────────────────────────────────────────────────────────
   // AUTO-HIDE TOP BAR LOGIC
   // ────────────────────────────────────────────────────────────
-  const resetAutoHideTimer = () => {
+  const resetAutoHideTimer = useCallback(() => {
     if (!isFocusMode) {
       setTopBarVisible(true);
       if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
       autoHideTimerRef.current = window.setTimeout(() => setTopBarVisible(false), 3000);
     }
-  };
+  }, [isFocusMode, setTopBarVisible]);
 
   useEffect(() => {
     let throttleTimeout: number | null = null;
@@ -73,7 +73,7 @@ export function PdfReader({ bookPath, bookId }: PdfReaderProps) {
       if (throttleTimeout) clearTimeout(throttleTimeout);
       if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
     };
-  }, [isFocusMode, setTopBarVisible]);
+  }, [isFocusMode, setTopBarVisible, resetAutoHideTimer]);
 
   useEffect(() => {
     if (isFocusMode) {
@@ -83,15 +83,7 @@ export function PdfReader({ bookPath, bookId }: PdfReaderProps) {
       setTopBarVisible(true);
       resetAutoHideTimer();
     }
-  }, [isFocusMode, setTopBarVisible]);
-
-  useEffect(() => {
-    loadBook();
-    return () => {
-      // Cleanup
-      api.closeBookRenderer(bookId).catch(console.error);
-    };
-  }, [bookPath, bookId]);
+  }, [isFocusMode, setTopBarVisible, resetAutoHideTimer]);
 
   const loadBook = async () => {
     try {
@@ -139,6 +131,16 @@ export function PdfReader({ bookPath, bookId }: PdfReaderProps) {
     }
   };
 
+  useEffect(() => {
+    loadBook();
+    return () => {
+      // Cleanup
+      api.closeBookRenderer(bookId).catch(console.error);
+    };
+    // loadBook is recreated each render - would cause infinite loop if added
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookPath, bookId]);
+
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     setNumPages(numPages);
     setIsLoading(false);
@@ -149,13 +151,6 @@ export function PdfReader({ bookPath, bookId }: PdfReaderProps) {
     setError(error.message || 'Failed to parse PDF document.');
     setIsLoading(false);
   }
-
-  // Effect to update progress whenever page changes
-  useEffect(() => {
-    if (numPages > 0) {
-      updateProgress(pageNumber);
-    }
-  }, [pageNumber, numPages]);
 
   const updateProgress = async (pageIndex: number) => {
     const progressPercent = numPages > 0 ? (pageIndex / numPages) * 100 : 0;
@@ -172,6 +167,15 @@ export function PdfReader({ bookPath, bookId }: PdfReaderProps) {
       console.error('[PdfReader] Failed saving progress:', err);
     }
   }
+
+  // Effect to update progress whenever page changes
+  useEffect(() => {
+    if (numPages > 0) {
+      updateProgress(pageNumber);
+    }
+    // updateProgress is recreated each render - would cause infinite loop if added
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageNumber, numPages]);
 
   const nextPage = () => {
     if (pageNumber < numPages) {
@@ -229,6 +233,8 @@ export function PdfReader({ bookPath, bookId }: PdfReaderProps) {
 
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
+    // Navigation functions are recreated each render - would cause infinite loop if added
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageNumber, numPages]);
 
   if (error) {

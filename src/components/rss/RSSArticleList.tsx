@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { sanitizeArticleHTML } from '@/lib/sanitize';
-import { useRssStore, RssArticle } from '../../store/rssStore';
+import { useRssStore } from '../../store/rssStore';
 import { BookOpen, ExternalLink, Check, RefreshCw, Eye, EyeOff, X } from 'lucide-react';
 
 interface RSSArticleListProps {

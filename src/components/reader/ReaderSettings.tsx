@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useReadingSettings, type ReaderTheme } from '@/store/premiumReaderStore';
-import { Sun, Moon, Settings, Columns, ChevronDown, ChevronUp } from '@/components/icons';
+import { Settings, Columns, ChevronDown, ChevronUp } from '@/components/icons';
 
 export type ReaderFormat = 'epub' | 'pdf' | 'mobi' | 'manga';
 
@@ -28,7 +28,6 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
     uiScale,
     textAlign,
     setTheme,
-    toggleTheme,
     setFontFamily,
     setFontSize,
     setLineHeight,

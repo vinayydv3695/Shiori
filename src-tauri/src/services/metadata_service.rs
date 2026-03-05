@@ -16,6 +16,9 @@ pub fn extract_from_file(file_path: &str) -> Result<Metadata> {
     match extension.as_str() {
         "epub" => extract_epub_metadata(file_path),
         "pdf" => extract_pdf_metadata(file_path),
+        "mobi" | "azw3" => extract_mobi_metadata(file_path),
+        "fb2" => extract_fb2_metadata(file_path),
+        "docx" => extract_docx_metadata(file_path),
         _ => Ok(Metadata::default_from_filename(path)),
     }
 }
@@ -280,6 +283,286 @@ fn extract_pdf_metadata(file_path: &str) -> Result<Metadata> {
             let cleaned = file_stem.replace('_', " ").replace('-', " ");
             metadata.title = Some(cleaned);
         }
+    }
+
+    Ok(metadata)
+}
+
+fn extract_mobi_metadata(file_path: &str) -> Result<Metadata> {
+    use mobi::Mobi;
+
+    let file_data = fs::read(file_path)
+        .map_err(|e| ShioriError::MetadataExtraction(format!("Failed to read MOBI: {}", e)))?;
+
+    let m = Mobi::from_read(&mut &file_data[..])
+        .map_err(|e| ShioriError::MetadataExtraction(format!("Failed to parse MOBI: {}", e)))?;
+
+    let mut metadata = Metadata {
+        title: None,
+        authors: vec![],
+        isbn: None,
+        publisher: None,
+        pubdate: None,
+        language: None,
+        description: None,
+        page_count: None,
+    };
+
+    // Title
+    let title = m.title();
+    if !title.is_empty() && title != "Unknown" {
+        metadata.title = Some(title);
+    }
+
+    // Author — may be semicolon-separated
+    if let Some(author) = m.author() {
+        let authors: Vec<String> = author
+            .split(';')
+            .map(|a| a.trim().to_string())
+            .filter(|a| !a.is_empty())
+            .collect();
+        metadata.authors = authors;
+    }
+
+    metadata.publisher = m.publisher();
+    metadata.description = m.description();
+    metadata.isbn = m.isbn();
+    metadata.pubdate = m.publish_date();
+
+    // Language — mobi crate returns Language enum directly
+    let lang = m.language();
+    metadata.language = Some(format!("{:?}", lang));
+
+    // Word count / page estimate
+    if let Ok(content) = m.content_as_string() {
+        let words = content.split_whitespace().count();
+        metadata.page_count = Some(((words + 249) / 250) as i32);
+    }
+
+    // Fallback title from filename
+    if metadata.title.is_none() {
+        let path = Path::new(file_path);
+        metadata.title = path.file_stem().and_then(|s| s.to_str()).map(String::from);
+    }
+
+    Ok(metadata)
+}
+
+fn extract_fb2_metadata(file_path: &str) -> Result<Metadata> {
+    use quick_xml::events::Event;
+    use quick_xml::Reader;
+
+    let content = fs::read_to_string(file_path)
+        .map_err(|e| ShioriError::MetadataExtraction(format!("Failed to read FB2: {}", e)))?;
+
+    let mut metadata = Metadata {
+        title: None,
+        authors: vec![],
+        isbn: None,
+        publisher: None,
+        pubdate: None,
+        language: None,
+        description: None,
+        page_count: None,
+    };
+
+    let mut reader = Reader::from_str(&content);
+    reader.config_mut().trim_text(true);
+
+    // Track element path for context
+    let mut path_stack: Vec<String> = Vec::new();
+    let mut current_text = String::new();
+
+    // Author name parts
+    let mut in_author = false;
+    let mut first_name = String::new();
+    let mut middle_name = String::new();
+    let mut last_name = String::new();
+
+    let mut buf = Vec::new();
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(ref e)) => {
+                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                if name == "author" && path_stack.last().map_or(false, |p| p == "title-info") {
+                    in_author = true;
+                    first_name.clear();
+                    middle_name.clear();
+                    last_name.clear();
+                }
+                path_stack.push(name);
+                current_text.clear();
+            }
+            Ok(Event::End(ref e)) => {
+                let name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+
+                if in_author {
+                    match name.as_str() {
+                        "first-name" => first_name = current_text.trim().to_string(),
+                        "middle-name" => middle_name = current_text.trim().to_string(),
+                        "last-name" => last_name = current_text.trim().to_string(),
+                        "author" => {
+                            let full_name = [&first_name, &middle_name, &last_name]
+                                .iter()
+                                .filter(|s| !s.is_empty())
+                                .map(|s| s.as_str())
+                                .collect::<Vec<_>>()
+                                .join(" ");
+                            if !full_name.is_empty() {
+                                metadata.authors.push(full_name);
+                            }
+                            in_author = false;
+                        }
+                        _ => {}
+                    }
+                }
+
+                let in_title_info = path_stack.iter().any(|p| p == "title-info");
+                let in_publish_info = path_stack.iter().any(|p| p == "publish-info");
+
+                match name.as_str() {
+                    "book-title" if in_title_info => {
+                        let t = current_text.trim().to_string();
+                        if !t.is_empty() {
+                            metadata.title = Some(t);
+                        }
+                    }
+                    "lang" if in_title_info => {
+                        let l = current_text.trim().to_string();
+                        if !l.is_empty() {
+                            metadata.language = Some(l);
+                        }
+                    }
+                    "date" if in_title_info => {
+                        let d = current_text.trim().to_string();
+                        if !d.is_empty() {
+                            metadata.pubdate = Some(d);
+                        }
+                    }
+                    "publisher" if in_publish_info => {
+                        let p = current_text.trim().to_string();
+                        if !p.is_empty() {
+                            metadata.publisher = Some(p);
+                        }
+                    }
+                    "isbn" if in_publish_info => {
+                        let i = current_text.trim().to_string();
+                        if !i.is_empty() {
+                            metadata.isbn = Some(i);
+                        }
+                    }
+                    "annotation" if in_title_info => {
+                        let desc = current_text.trim().to_string();
+                        if !desc.is_empty() {
+                            metadata.description = Some(desc);
+                        }
+                    }
+                    _ => {}
+                }
+
+                path_stack.pop();
+                current_text.clear();
+            }
+            Ok(Event::Text(ref e)) => {
+                if let Ok(text) = e.unescape() {
+                    current_text.push_str(&text);
+                }
+            }
+            Ok(Event::Eof) => break,
+            Err(_) => break,
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    // Fallback title from filename
+    if metadata.title.is_none() {
+        let path = Path::new(file_path);
+        metadata.title = path.file_stem().and_then(|s| s.to_str()).map(String::from);
+    }
+
+    Ok(metadata)
+}
+
+fn extract_docx_metadata(file_path: &str) -> Result<Metadata> {
+    // DOCX files are ZIP archives with metadata in docProps/core.xml (Dublin Core)
+    use quick_xml::events::Event;
+    use quick_xml::Reader;
+
+    let file_data = fs::read(file_path)
+        .map_err(|e| ShioriError::MetadataExtraction(format!("Failed to read DOCX: {}", e)))?;
+
+    let cursor = Cursor::new(&file_data);
+    let mut archive = ZipArchive::new(cursor).map_err(|e| {
+        ShioriError::MetadataExtraction(format!("Failed to parse DOCX as ZIP: {}", e))
+    })?;
+
+    let mut metadata = Metadata {
+        title: None,
+        authors: vec![],
+        isbn: None,
+        publisher: None,
+        pubdate: None,
+        language: None,
+        description: None,
+        page_count: None,
+    };
+
+    // Try to read docProps/core.xml for Dublin Core metadata
+    if let Ok(mut core_xml) = archive.by_name("docProps/core.xml") {
+        let mut xml_content = String::new();
+        if core_xml.read_to_string(&mut xml_content).is_ok() {
+            let mut reader = Reader::from_str(&xml_content);
+            reader.config_mut().trim_text(true);
+
+            let mut current_element = String::new();
+            let mut buf = Vec::new();
+
+            loop {
+                match reader.read_event_into(&mut buf) {
+                    Ok(Event::Start(ref e)) => {
+                        // Extract local name (strip namespace prefix)
+                        let full_name = String::from_utf8_lossy(e.name().as_ref()).to_string();
+                        current_element = full_name
+                            .split(':')
+                            .last()
+                            .unwrap_or(&full_name)
+                            .to_string();
+                    }
+                    Ok(Event::Text(ref e)) => {
+                        if let Ok(text) = e.unescape() {
+                            let text = text.trim().to_string();
+                            if !text.is_empty() {
+                                match current_element.as_str() {
+                                    "title" => metadata.title = Some(text),
+                                    "creator" => metadata.authors.push(text),
+                                    "description" | "subject" => {
+                                        if metadata.description.is_none() {
+                                            metadata.description = Some(text);
+                                        }
+                                    }
+                                    "language" => metadata.language = Some(text),
+                                    _ => {}
+                                }
+                            }
+                        }
+                    }
+                    Ok(Event::End(_)) => {
+                        current_element.clear();
+                    }
+                    Ok(Event::Eof) => break,
+                    Err(_) => break,
+                    _ => {}
+                }
+                buf.clear();
+            }
+        }
+    }
+
+    // Fallback title from filename
+    if metadata.title.is_none() {
+        let path = Path::new(file_path);
+        metadata.title = path.file_stem().and_then(|s| s.to_str()).map(String::from);
     }
 
     Ok(metadata)

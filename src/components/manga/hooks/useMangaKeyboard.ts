@@ -1,5 +1,6 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useMangaContentStore, useMangaUIStore, useMangaSettingsStore } from '@/store/mangaReaderStore';
+import { useToastStore } from '@/store/toastStore';
 
 /**
  * Keyboard shortcut handler for the manga reader.
@@ -19,10 +20,36 @@ export function useMangaKeyboard(onClose: () => void) {
     const closeSettings = useMangaUIStore(s => s.closeSettings);
 
     const readingDirection = useMangaSettingsStore(s => s.readingDirection);
+    const readingMode = useMangaSettingsStore(s => s.readingMode);
     const setReadingMode = useMangaSettingsStore(s => s.setReadingMode);
     const toggleTheme = useMangaSettingsStore(s => s.toggleTheme);
 
     const rtl = readingDirection === 'rtl';
+    const step = readingMode === 'double' ? 2 : 1;
+
+    // Debounce boundary toasts to avoid spam (same pattern as NavigationOverlay)
+    const lastBoundaryToast = useRef(0);
+
+    const showBoundaryToast = useCallback((direction: 'forward' | 'backward') => {
+        const now = Date.now();
+        if (now - lastBoundaryToast.current < 2000) return;
+        lastBoundaryToast.current = now;
+        useToastStore.getState().addToast({
+            title: direction === 'backward' ? "You're at the first page" : "You've reached the last page",
+            variant: 'info',
+            duration: 1500,
+        });
+    }, []);
+
+    const goForward = useCallback((s: number) => {
+        const moved = nextPage(s);
+        if (!moved) showBoundaryToast('forward');
+    }, [nextPage, showBoundaryToast]);
+
+    const goBackward = useCallback((s: number) => {
+        const moved = prevPage(s);
+        if (!moved) showBoundaryToast('backward');
+    }, [prevPage, showBoundaryToast]);
 
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         // Don't handle if user is typing in an input
@@ -37,23 +64,23 @@ export function useMangaKeyboard(onClose: () => void) {
         switch (key) {
             case 'ArrowRight':
                 e.preventDefault();
-                rtl ? prevPage() : nextPage();
+                rtl ? goBackward(step) : goForward(step);
                 break;
             case 'ArrowLeft':
                 e.preventDefault();
-                rtl ? nextPage() : prevPage();
+                rtl ? goForward(step) : goBackward(step);
                 break;
             case 'ArrowDown':
                 e.preventDefault();
-                nextPage();
+                goForward(step);
                 break;
             case 'ArrowUp':
                 e.preventDefault();
-                prevPage();
+                goBackward(step);
                 break;
             case ' ':
                 e.preventDefault();
-                shift ? prevPage() : nextPage();
+                shift ? goBackward(step) : goForward(step);
                 break;
             case 'Home':
                 e.preventDefault();
@@ -115,7 +142,7 @@ export function useMangaKeyboard(onClose: () => void) {
                 break;
         }
     }, [
-        rtl, nextPage, prevPage, setCurrentPage, totalPages,
+        rtl, step, goForward, goBackward, setCurrentPage, totalPages,
         toggleSidebar, closeSidebar, isSidebarOpen,
         toggleSettings, isSettingsOpen, closeSettings,
         setReadingMode, toggleTheme, onClose

@@ -13,6 +13,7 @@ export function useImageDecode(
     const [url, setUrl] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [retryCount, setRetryCount] = useState(0);
     const mountedRef = useRef(true);
 
     useEffect(() => {
@@ -45,7 +46,11 @@ export function useImageDecode(
         })();
 
         return () => { cancelled = true; };
-    }, [bookId, pageIndex, maxDimension]);
+    }, [bookId, pageIndex, maxDimension, retryCount]);
 
-    return { url, loading, error };
+    const retry = useCallback(() => {
+        setRetryCount(c => c + 1);
+    }, []);
+
+    return { url, loading, error, retry };
 }

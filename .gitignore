@@ -38,3 +38,6 @@ Thumbs.db
 *.db
 *.db-wal
 *.db-shm
+
+# Development tooling
+.opencode/

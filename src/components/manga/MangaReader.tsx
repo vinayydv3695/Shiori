@@ -1,10 +1,11 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useRef } from 'react';
 import {
     useMangaContentStore,
     useMangaUIStore,
     useMangaSettingsStore,
 } from '@/store/mangaReaderStore';
 import { api } from '@/lib/tauri';
+import { useToastStore } from '@/store/toastStore';
 import { MangaTopBar } from './MangaTopBar';
 import { MangaCanvas } from './MangaCanvas';
 import { MangaSidebar } from './MangaSidebar';
@@ -47,6 +48,9 @@ export function MangaReader({
     const setError = useMangaContentStore(s => s.setError);
     const theme = useMangaSettingsStore(s => s.theme);
 
+    // Guard: don't save progress until initialization + resume is complete
+    const initCompleteRef = useRef(false);
+
     // Initialize manga state and load reading progress
     useEffect(() => {
         let cancelled = false;
@@ -80,15 +84,28 @@ export function MangaReader({
                     if (progress && progress.currentPage !== undefined) {
                         console.log('[MangaReader] Resuming from page:', progress.currentPage);
                         setCurrentPage(progress.currentPage);
+                        if (progress.currentPage > 0) {
+                            useToastStore.getState().addToast({
+                                title: 'Resuming reading',
+                                description: `Page ${progress.currentPage + 1} of ${metadata.page_count}`,
+                                variant: 'info',
+                                duration: 3000,
+                            });
+                        }
                     }
                 } catch (progressErr) {
                     console.warn('[MangaReader] Failed to load reading progress:', progressErr);
+                }
+
+                if (!cancelled) {
+                    initCompleteRef.current = true;
                 }
             } catch (err) {
                 if (cancelled) return;
                 // Fallback: use provided props if IPC not available yet
                 console.warn('[MangaReader] IPC open_manga not available, using props:', err);
                 openManga(bookId, bookPath, title, totalPages);
+                initCompleteRef.current = true;
             }
             if (!cancelled) {
                 setLoading(false);
@@ -99,6 +116,7 @@ export function MangaReader({
 
         return () => {
             cancelled = true;
+            initCompleteRef.current = false;
             // Cleanup on unmount
             closeManga();
             imageCache.clear();
@@ -112,8 +130,10 @@ export function MangaReader({
 
     // Save reading progress when page changes
     useEffect(() => {
+        // Skip saving until initialization + resume is complete
+        if (!initCompleteRef.current) return;
+
         if (currentPage === 0 && mangaTotalPages === 0) {
-            // Skip saving during initialization
             return;
         }
 

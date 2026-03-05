@@ -5,7 +5,7 @@ import {
     useMangaSettingsStore,
     type ReadingMode,
 } from '@/store/mangaReaderStore';
-import { X, Bookmark, Settings, AlertCircle } from 'lucide-react';
+import { X, Settings } from 'lucide-react';
 
 /**
  * Right sidebar overlay with reading controls.

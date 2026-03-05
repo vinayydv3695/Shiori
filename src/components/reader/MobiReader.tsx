@@ -1,11 +1,13 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useReaderStore } from '@/store/readerStore';
 import { api } from '@/lib/tauri';
 import type { BookMetadata } from '@/lib/tauri';
-import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Search, BookOpen, Bookmark } from '@/components/icons';
+import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Bookmark } from '@/components/icons';
 import { useUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement } from '@/store/premiumReaderStore';
+import { useToastStore } from '@/store/toastStore';
 import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
 import { ReaderSettings } from './ReaderSettings';
+import { PremiumSidebar } from './PremiumSidebar';
+import { TextSelectionToolbar } from './TextSelectionToolbar';
 import { sanitizeBookContent } from '@/lib/sanitize';
 import '@/styles/premium-reader.css';
 
@@ -15,7 +17,6 @@ interface MobiReaderProps {
 }
 
 export function MobiReader({ bookPath, bookId }: MobiReaderProps) {
-    const { progress, setProgress } = useReaderStore();
     const { isTopBarVisible, isFocusMode, setTopBarVisible, toggleSidebar } = useUIStore();
     const { theme, fontSize, fontFamily, lineHeight, width } = useReadingSettings();
 
@@ -23,6 +24,7 @@ export function MobiReader({ bookPath, bookId }: MobiReaderProps) {
     const [content, setContent] = useState<string>('');
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [progressPercentage, setProgressPercentage] = useState(0);
 
     const containerRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
@@ -137,20 +139,10 @@ export function MobiReader({ bookPath, bookId }: MobiReaderProps) {
 
         // Calculate continuous progress percentage against the total height of the DOM
         const maxScroll = scrollHeight - clientHeight;
-        const progressPercent = maxScroll > 0 ? (scrollTop / maxScroll) * 100 : 100;
+        const percent = maxScroll > 0 ? (scrollTop / maxScroll) * 100 : 100;
 
-        // Only save progress updates occasionally to avoid spamming the DB
-        // Note: Math.floor isn't used here because we want precise floats
-        setProgress({
-            bookId,
-            currentLocation: `mobi-scroll-${Math.round(scrollTop)}`,
-            progressPercent,
-            currentPage: 1,
-            totalPages: 1,
-            lastRead: new Date().toISOString()
-        });
-
-    }, [bookId, setProgress]);
+        setProgressPercentage(percent);
+    }, []);
 
     // Debounced scroll listener to save backend state every 2 seconds after user stops scrolling
     useEffect(() => {
@@ -183,15 +175,27 @@ export function MobiReader({ bookPath, bookId }: MobiReaderProps) {
         }
     }, [handleScroll, bookId]);
 
-    const restoreProgress = () => {
-        if (!containerRef.current || !progress?.currentLocation) return;
-        const locationString = progress.currentLocation;
-        if (locationString.startsWith('mobi-scroll-')) {
-            const topStr = locationString.replace('mobi-scroll-', '');
-            const top = parseInt(topStr, 10);
-            if (!isNaN(top)) {
-                containerRef.current.scrollTo({ top, behavior: 'auto' });
+    const restoreProgress = async () => {
+        if (!containerRef.current) return;
+        try {
+            const savedProgress = await api.getReadingProgress(bookId);
+            if (savedProgress?.currentLocation?.startsWith('mobi-scroll-')) {
+                const topStr = savedProgress.currentLocation.replace('mobi-scroll-', '');
+                const top = parseInt(topStr, 10);
+                if (!isNaN(top)) {
+                    containerRef.current.scrollTo({ top, behavior: 'auto' });
+                    if (top > 0) {
+                        useToastStore.getState().addToast({
+                            title: 'Resuming reading',
+                            description: `Restored to previous position`,
+                            variant: 'info',
+                            duration: 3000,
+                        });
+                    }
+                }
             }
+        } catch {
+            // Silently ignore - start from top
         }
     };
 
@@ -243,8 +247,6 @@ export function MobiReader({ bookPath, bookId }: MobiReaderProps) {
         );
     }
 
-    const progressPercentage = progress?.progressPercent || 0;
-
     return (
         <div ref={readerContainerRef} className={`premium-reader ${isFocusMode ? 'premium-reader--focus-mode' : ''}`}
             style={{
@@ -264,14 +266,12 @@ export function MobiReader({ bookPath, bookId }: MobiReaderProps) {
                     </div>
 
                     <div className="premium-top-bar-right">
-                        <ReaderSettings />
-                        <button onClick={() => toggleSidebar('search')} className="premium-control-button" title="Search">
-                            <Search className="premium-control-icon" />
-                        </button>
-                        <button onClick={() => toggleSidebar('toc')} className="premium-control-button" title="Table of Contents">
-                            <BookOpen className="premium-control-icon" />
-                        </button>
-                        <button onClick={() => toggleSidebar('bookmarks')} className="premium-control-button" title="Bookmarks">
+                        <ReaderSettings format="mobi" />
+                        <button
+                            onClick={() => toggleSidebar('bookmarks')}
+                            className="premium-control-button"
+                            title="Bookmarks & Search"
+                        >
                             <Bookmark className="premium-control-icon" />
                         </button>
                     </div>
@@ -319,6 +319,19 @@ export function MobiReader({ bookPath, bookId }: MobiReaderProps) {
                     </button>
                 </>
             )}
+
+            {/* Sidebar (bookmarks, highlights, notes, search) */}
+            <PremiumSidebar
+                bookId={bookId}
+                currentIndex={0}
+                onNavigate={() => { /* MOBI has single chapter - no navigation needed */ }}
+            />
+
+            {/* Text Selection Toolbar */}
+            <TextSelectionToolbar
+                bookId={bookId}
+                currentLocation="mobi-chapter-0"
+            />
         </div>
     );
 }

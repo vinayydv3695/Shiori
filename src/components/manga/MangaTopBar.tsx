@@ -1,6 +1,6 @@
-import React, { memo, useRef, useEffect, useCallback } from 'react';
-import { useMangaContentStore, useMangaUIStore } from '@/store/mangaReaderStore';
-import { Search, SlidersHorizontal, PanelRightOpen, X } from 'lucide-react';
+import React, { memo, useRef, useEffect } from 'react';
+import { useMangaContentStore, useMangaUIStore, useMangaSettingsStore } from '@/store/mangaReaderStore';
+import { PanelRightOpen, X } from 'lucide-react';
 
 interface MangaTopBarProps {
     onClose: () => void;
@@ -16,19 +16,21 @@ export const MangaTopBar = memo(function MangaTopBar({ onClose }: MangaTopBarPro
     const totalPages = useMangaContentStore(s => s.totalPages);
     const toggleSidebar = useMangaUIStore(s => s.toggleSidebar);
     const isTopBarVisible = useMangaUIStore(s => s.isTopBarVisible);
+    const stickyHeader = useMangaSettingsStore(s => s.stickyHeader);
 
     const topBarRef = useRef<HTMLDivElement>(null);
 
     // Auto-hide on scroll (controlled externally via class toggle)
+    // When stickyHeader is enabled, always keep the bar visible.
     useEffect(() => {
         const el = topBarRef.current;
         if (!el) return;
-        if (isTopBarVisible) {
+        if (stickyHeader || isTopBarVisible) {
             el.classList.remove('manga-topbar--hidden');
         } else {
             el.classList.add('manga-topbar--hidden');
         }
-    }, [isTopBarVisible]);
+    }, [isTopBarVisible, stickyHeader]);
 
     return (
         <div ref={topBarRef} className="manga-topbar">

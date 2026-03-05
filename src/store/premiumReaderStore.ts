@@ -73,14 +73,16 @@ interface ReadingSettings {
   lineHeight: number;
   paragraphSpacing: string;
   letterSpacing: string;
+  textAlign: 'left' | 'justify';
 
   // Layout
   width: 'narrow' | 'medium' | 'wide' | 'full';
   twoPageView: boolean;
 
-  // Page Flip
+  // Page Transition Animation
   pageFlipEnabled: boolean;
   pageFlipSpeed: number; // ms (100-800)
+  animationStyle: 'slide' | 'fade' | 'none';
 
   // Paper Texture
   paperTextureIntensity: number; // 0.0-0.20
@@ -98,11 +100,13 @@ interface ReadingSettings {
   setLineHeight: (height: number) => void;
   setParagraphSpacing: (spacing: string) => void;
   setLetterSpacing: (spacing: string) => void;
+  setTextAlign: (align: 'left' | 'justify') => void;
   setWidth: (width: 'narrow' | 'medium' | 'wide' | 'full') => void;
   cycleWidth: () => void;
   toggleTwoPageView: () => void;
   setPageFlipEnabled: (enabled: boolean) => void;
   setPageFlipSpeed: (speed: number) => void;
+  setAnimationStyle: (style: 'slide' | 'fade' | 'none') => void;
   setPaperTextureIntensity: (intensity: number) => void;
   setUiScale: (scale: number) => void;
   resetToDefaults: () => void;
@@ -115,10 +119,12 @@ const defaultSettings = {
   lineHeight: 1.6,
   paragraphSpacing: '1em',
   letterSpacing: 'normal',
+  textAlign: 'left' as const,
   width: 'wide' as const,
   twoPageView: false,
   pageFlipEnabled: false,
   pageFlipSpeed: 400,
+  animationStyle: 'slide' as const,
   paperTextureIntensity: 0.08,
   uiScale: 1.0,
 };
@@ -151,7 +157,7 @@ export const useReadingSettings = create<ReadingSettings>()(
       },
 
       setFontSize: (size) => {
-        const clamped = Math.max(14, Math.min(24, size));
+        const clamped = Math.max(12, Math.min(32, size));
         set({ fontSize: clamped });
         applyFontSizeToDOM(clamped);
       },
@@ -181,6 +187,11 @@ export const useReadingSettings = create<ReadingSettings>()(
         applyLetterSpacingToDOM(spacing);
       },
 
+      setTextAlign: (align) => {
+        set({ textAlign: align });
+        applyTextAlignToDOM(align);
+      },
+
       setWidth: (width) => set({ width }),
 
       cycleWidth: () => {
@@ -196,6 +207,8 @@ export const useReadingSettings = create<ReadingSettings>()(
       setPageFlipEnabled: (enabled) => set({ pageFlipEnabled: enabled }),
 
       setPageFlipSpeed: (speed) => set({ pageFlipSpeed: Math.max(100, Math.min(800, speed)) }),
+
+      setAnimationStyle: (style) => set({ animationStyle: style }),
 
       setPaperTextureIntensity: (intensity) => {
         const clamped = Math.max(0, Math.min(0.20, intensity));
@@ -384,6 +397,13 @@ const applyLetterSpacingToDOM = (spacing: string) => {
   });
 };
 
+const applyTextAlignToDOM = (align: string) => {
+  const value = align === 'justify' ? 'justify' : 'left';
+  requestAnimationFrame(() => {
+    document.documentElement.style.setProperty('--reading-text-align', value);
+  });
+};
+
 // Initialize reader typography settings on load.
 // NOTE: Reader theme (colors) are NOT applied here — they are scoped to
 // the reader container element and applied on mount via applyReaderThemeToElement().
@@ -409,6 +429,7 @@ if (typeof window !== 'undefined') {
     applyLineHeightToDOM(s.lineHeight || 1.6);
     applyParagraphSpacingToDOM(s.paragraphSpacing || '1em');
     applyLetterSpacingToDOM(s.letterSpacing || 'normal');
+    applyTextAlignToDOM(s.textAlign || 'left');
     applyTextureIntensityToDOM(s.paperTextureIntensity ?? 0.08);
   } else {
     // Apply defaults
@@ -417,6 +438,7 @@ if (typeof window !== 'undefined') {
     applyLineHeightToDOM(1.6);
     applyParagraphSpacingToDOM('1em');
     applyLetterSpacingToDOM('normal');
+    applyTextAlignToDOM('left');
     applyTextureIntensityToDOM(0.08);
   }
 }

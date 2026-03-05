@@ -37,9 +37,10 @@ interface LayoutProps {
   onOpenRSSFeeds?: () => void
   onOpenRSSArticles?: () => void
   onBackToLibrary?: () => void
+  onGoHome?: () => void
   searchQuery?: string
   onSearchChange?: (query: string) => void
-  currentView?: 'library' | 'rss-feeds' | 'rss-articles'
+  currentView?: 'home' | 'library' | 'rss-feeds' | 'rss-articles'
   currentDomain?: 'books' | 'manga'
   onDomainChange?: (domain: 'books' | 'manga') => void
 }
@@ -53,7 +54,9 @@ export function Layout({
   onViewBook,
   onConvertBook,
   onOpenRSSFeeds,
+  onGoHome,
   onSearchChange,
+  currentView = 'home',
   currentDomain = 'books',
   onDomainChange = () => { },
 }: LayoutProps) {
@@ -301,14 +304,15 @@ export function Layout({
         onSearch={onSearchChange}
         onOpenSettings={onOpenSettings}
         onToggleSidebar={() => setSidebarOpen((o) => !o)}
+        onGoHome={onGoHome}
         selectedCount={selectedBookIds.size}
         sidebarOpen={sidebarOpen}
       />
 
       {/* ── Body ── */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        {sidebarOpen && (
+        {/* Sidebar — hidden on homepage */}
+        {currentView !== 'home' && sidebarOpen && (
           <FilterPanel
             authors={filterItems.authors}
             languages={filterItems.languages}

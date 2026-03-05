@@ -96,7 +96,7 @@ impl BookFormatAdapter for TxtFormatAdapter {
     }
     
     fn can_convert_to(&self, target: &str) -> bool {
-        matches!(target, "epub" | "html" | "pdf")
+        matches!(target, "epub")
     }
     
     async fn convert_to(

@@ -1,4 +1,5 @@
-import { useRef, useCallback, useEffect, useState, forwardRef, useImperativeHandle, memo } from 'react';
+import { useCallback, forwardRef, useImperativeHandle, memo, useRef, useState } from 'react';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { sanitizeBookContent } from '@/lib/sanitize';
 import '@/styles/page-flip.css';
 
@@ -8,6 +9,7 @@ interface PageFlipEngineProps {
     prevContent: string | null;
     flipSpeed: number;
     enabled: boolean;
+    animationStyle: 'slide' | 'fade' | 'none';
     onFlipComplete: (direction: 'forward' | 'backward') => void;
     className?: string;
 }
@@ -18,157 +20,117 @@ export interface PageFlipHandle {
     isFlipping: () => boolean;
 }
 
-type FlipState = 'idle' | 'flipping-forward' | 'flipping-backward';
-
 /**
- * CSS 3D page-flip animation engine.
+ * Framer Motion page transition engine.
+ *
+ * Supports three animation styles:
+ * - slide: smooth horizontal slide (default)
+ * - fade: crossfade transition
+ * - none: instant switch (no animation)
  *
  * KEY DESIGN: The current page sits in NORMAL DOCUMENT FLOW so the container
- * gets its height from the content. Only the animating overlay layers use
- * position:absolute. This prevents the blank-page bug where the container
- * would collapse to 0px when all children were absolutely positioned.
+ * gets its height from the content.
  */
 export const PageFlipEngine = memo(
     forwardRef<PageFlipHandle, PageFlipEngineProps>(function PageFlipEngine(
-        { currentContent, nextContent, prevContent, flipSpeed, enabled, onFlipComplete, className },
+        { currentContent, nextContent, prevContent, flipSpeed, enabled, animationStyle, onFlipComplete, className },
         ref
     ) {
-        const containerRef = useRef<HTMLDivElement>(null);
-        const shadowRef = useRef<HTMLCanvasElement>(null);
-        const flipStateRef = useRef<FlipState>('idle');
-        const [flipState, setFlipState] = useState<FlipState>('idle');
-        const animationFrameRef = useRef<number | null>(null);
+        const isFlippingRef = useRef(false);
+        const [direction, setDirection] = useState<1 | -1>(1); // 1 = forward, -1 = backward
+        // Monotonic key so AnimatePresence sees a new child on each flip
+        const [pageKey, setPageKey] = useState(0);
 
         // ────────────────────────────────────────────────────────────
-        // SET CSS VARIABLE FOR FLIP SPEED
+        // ANIMATION VARIANTS
         // ────────────────────────────────────────────────────────────
-        useEffect(() => {
-            if (containerRef.current) {
-                containerRef.current.style.setProperty('--flip-duration', `${flipSpeed}ms`);
+        const slideVariants: Variants = {
+            enter: (dir: number) => ({
+                x: dir > 0 ? '40%' : '-40%',
+                opacity: 0,
+            }),
+            center: {
+                x: 0,
+                opacity: 1,
+            },
+            exit: (dir: number) => ({
+                x: dir > 0 ? '-40%' : '40%',
+                opacity: 0,
+            }),
+        };
+
+        const fadeVariants: Variants = {
+            enter: { opacity: 0 },
+            center: { opacity: 1 },
+            exit: { opacity: 0 },
+        };
+
+        const noneVariants: Variants = {
+            enter: { opacity: 1 },
+            center: { opacity: 1 },
+            exit: { opacity: 0 },
+        };
+
+        const getVariants = () => {
+            switch (animationStyle) {
+                case 'slide': return slideVariants;
+                case 'fade': return fadeVariants;
+                case 'none': return noneVariants;
             }
-        }, [flipSpeed]);
+        };
 
-        // ────────────────────────────────────────────────────────────
-        // SHADOW CANVAS RENDERING
-        // ────────────────────────────────────────────────────────────
-        const renderShadow = useCallback((progress: number) => {
-            const canvas = shadowRef.current;
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return;
-
-            const { width, height } = canvas;
-            ctx.clearRect(0, 0, width, height);
-
-            const foldX = width * (1 - progress);
-            const sw = 40;
-
-            const gradient = ctx.createLinearGradient(foldX - sw, 0, foldX + sw / 2, 0);
-            gradient.addColorStop(0, 'rgba(0,0,0,0)');
-            gradient.addColorStop(0.4, `rgba(0,0,0,${0.15 * Math.sin(progress * Math.PI)})`);
-            gradient.addColorStop(0.6, `rgba(0,0,0,${0.08 * Math.sin(progress * Math.PI)})`);
-            gradient.addColorStop(1, 'rgba(0,0,0,0)');
-
-            ctx.fillStyle = gradient;
-            ctx.fillRect(foldX - sw, 0, sw * 1.5, height);
-        }, []);
-
-        const animateShadow = useCallback(
-            (startTime: number, duration: number) => {
-                const tick = () => {
-                    const elapsed = performance.now() - startTime;
-                    const progress = Math.min(elapsed / duration, 1);
-                    renderShadow(progress);
-                    if (progress < 1) {
-                        animationFrameRef.current = requestAnimationFrame(tick);
-                    }
-                };
-                animationFrameRef.current = requestAnimationFrame(tick);
-            },
-            [renderShadow]
-        );
-
-        // ────────────────────────────────────────────────────────────
-        // RESIZE SHADOW CANVAS
-        // ────────────────────────────────────────────────────────────
-        useEffect(() => {
-            const resize = () => {
-                const canvas = shadowRef.current;
-                const container = containerRef.current;
-                if (!canvas || !container) return;
-                const rect = container.getBoundingClientRect();
-                canvas.width = rect.width;
-                canvas.height = rect.height;
+        const getTransition = () => {
+            if (animationStyle === 'none') {
+                return { duration: 0 };
+            }
+            const durationSec = flipSpeed / 1000;
+            return {
+                duration: durationSec,
+                ease: [0.4, 0.0, 0.2, 1] as [number, number, number, number],
             };
-
-            resize();
-            const obs = new ResizeObserver(resize);
-            if (containerRef.current) obs.observe(containerRef.current);
-            return () => obs.disconnect();
-        }, []);
-
-        // ────────────────────────────────────────────────────────────
-        // ANIMATION END HANDLER
-        // ────────────────────────────────────────────────────────────
-        const handleAnimationEnd = useCallback(
-            (direction: 'forward' | 'backward') => {
-                flipStateRef.current = 'idle';
-                setFlipState('idle');
-
-                if (animationFrameRef.current) {
-                    cancelAnimationFrame(animationFrameRef.current);
-                }
-
-                const canvas = shadowRef.current;
-                if (canvas) {
-                    const ctx = canvas.getContext('2d');
-                    ctx?.clearRect(0, 0, canvas.width, canvas.height);
-                }
-
-                onFlipComplete(direction);
-            },
-            [onFlipComplete]
-        );
+        };
 
         // ────────────────────────────────────────────────────────────
         // IMPERATIVE FLIP METHODS
         // ────────────────────────────────────────────────────────────
+        const handleAnimationComplete = useCallback(
+            (dir: 'forward' | 'backward') => {
+                isFlippingRef.current = false;
+                onFlipComplete(dir);
+            },
+            [onFlipComplete]
+        );
+
         useImperativeHandle(
             ref,
             () => ({
                 flipForward: () => {
-                    if (!enabled || !nextContent || flipStateRef.current !== 'idle') return false;
-                    flipStateRef.current = 'flipping-forward';
-                    setFlipState('flipping-forward');
-                    animateShadow(performance.now(), flipSpeed);
+                    if (!enabled || !nextContent || isFlippingRef.current) return false;
+                    isFlippingRef.current = true;
+                    setDirection(1);
+                    setPageKey((k) => k + 1);
+                    // Schedule callback after animation
+                    setTimeout(() => handleAnimationComplete('forward'), flipSpeed + 50);
                     return true;
                 },
 
                 flipBackward: () => {
-                    if (!enabled || !prevContent || flipStateRef.current !== 'idle') return false;
-                    flipStateRef.current = 'flipping-backward';
-                    setFlipState('flipping-backward');
-                    animateShadow(performance.now(), flipSpeed);
+                    if (!enabled || !prevContent || isFlippingRef.current) return false;
+                    isFlippingRef.current = true;
+                    setDirection(-1);
+                    setPageKey((k) => k + 1);
+                    setTimeout(() => handleAnimationComplete('backward'), flipSpeed + 50);
                     return true;
                 },
 
-                isFlipping: () => flipStateRef.current !== 'idle',
+                isFlipping: () => isFlippingRef.current,
             }),
-            [enabled, nextContent, prevContent, flipSpeed, animateShadow]
+            [enabled, nextContent, prevContent, flipSpeed, handleAnimationComplete]
         );
 
-        // Cleanup
-        useEffect(() => {
-            return () => {
-                if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-            };
-        }, []);
-
         // ────────────────────────────────────────────────────────────
-        // RENDER
+        // RENDER — disabled mode (no animation wrapper overhead)
         // ────────────────────────────────────────────────────────────
-
-        // When disabled, render content directly (no wrapper overhead)
         if (!enabled) {
             return (
                 <div className={className}>
@@ -180,58 +142,34 @@ export const PageFlipEngine = memo(
             );
         }
 
+        // ────────────────────────────────────────────────────────────
+        // RENDER — animated mode
+        // ────────────────────────────────────────────────────────────
         return (
-            <div ref={containerRef} className={`page-flip-container ${className || ''}`}>
-                {/*
-          CURRENT PAGE — position:relative (normal flow).
-          This is what gives the container its height.
-        */}
-                <div
-                    className={`page-flip-current ${flipState === 'flipping-forward' ? 'page-flip-current--flipping-forward' : ''
-                        }`}
-                    onAnimationEnd={() => {
-                        if (flipState === 'flipping-forward') handleAnimationEnd('forward');
-                    }}
-                >
-                    <div
-                        className="premium-chapter-content"
-                        dangerouslySetInnerHTML={{ __html: sanitizeBookContent(currentContent) }}
-                    />
-                </div>
-
-                {/* NEXT PAGE — absolute layer underneath, revealed during forward flip */}
-                {flipState === 'flipping-forward' && nextContent && (
-                    <div className="page-flip-layer page-flip-layer--next">
-                        <div
-                            className="premium-chapter-content"
-                            dangerouslySetInnerHTML={{ __html: sanitizeBookContent(nextContent) }}
-                        />
-                    </div>
-                )}
-
-                {/* PREV PAGE — absolute layer on top, flips in during backward flip */}
-                {flipState === 'flipping-backward' && prevContent && (
-                    <div
-                        className="page-flip-layer page-flip-layer--prev page-flip-layer--flipping-backward"
-                        onAnimationEnd={() => handleAnimationEnd('backward')}
+            <div className={`page-transition-container ${className || ''}`}>
+                <AnimatePresence initial={false} custom={direction} mode="wait">
+                    <motion.div
+                        key={pageKey}
+                        custom={direction}
+                        variants={getVariants()}
+                        initial="enter"
+                        animate="center"
+                        exit="exit"
+                        transition={getTransition()}
+                        className="page-transition-page"
                     >
                         <div
                             className="premium-chapter-content"
-                            dangerouslySetInnerHTML={{ __html: sanitizeBookContent(prevContent) }}
+                            dangerouslySetInnerHTML={{ __html: sanitizeBookContent(currentContent) }}
                         />
-                    </div>
-                )}
-
-                {/* Shadow overlay canvas */}
-                <canvas
-                    ref={shadowRef}
-                    className={`page-flip-shadow ${flipState !== 'idle' ? 'page-flip-shadow--active' : ''}`}
-                />
+                    </motion.div>
+                </AnimatePresence>
             </div>
         );
     }),
     (prev, next) =>
         prev.currentContent === next.currentContent &&
         prev.enabled === next.enabled &&
-        prev.flipSpeed === next.flipSpeed
+        prev.flipSpeed === next.flipSpeed &&
+        prev.animationStyle === next.animationStyle
 );

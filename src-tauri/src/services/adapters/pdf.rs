@@ -339,7 +339,7 @@ mod tests {
         let adapter = PdfFormatAdapter::new();
         
         assert!(adapter.can_convert_to("txt"));
-        assert!(!adapter.can_convert_to("epub"));
+        assert!(adapter.can_convert_to("epub"));
         assert!(!adapter.can_convert_to("mobi"));
     }
 }

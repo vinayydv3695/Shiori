@@ -2,7 +2,14 @@ import { useState, useRef, useEffect } from 'react';
 import { useReadingSettings, type ReaderTheme } from '@/store/premiumReaderStore';
 import { Sun, Moon, Settings, Columns, ChevronDown, ChevronUp } from '@/components/icons';
 
-export function ReaderSettings() {
+export type ReaderFormat = 'epub' | 'pdf' | 'mobi' | 'manga';
+
+interface ReaderSettingsProps {
+  /** Current book format — controls which settings are visible */
+  format?: ReaderFormat;
+}
+
+export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -16,8 +23,10 @@ export function ReaderSettings() {
     twoPageView,
     pageFlipEnabled,
     pageFlipSpeed,
+    animationStyle,
     paperTextureIntensity,
     uiScale,
+    textAlign,
     setTheme,
     toggleTheme,
     setFontFamily,
@@ -27,9 +36,16 @@ export function ReaderSettings() {
     toggleTwoPageView,
     setPageFlipEnabled,
     setPageFlipSpeed,
+    setAnimationStyle,
     setPaperTextureIntensity,
     setUiScale,
+    setTextAlign,
   } = useReadingSettings();
+
+  // Format helpers: which sections are relevant
+  const showTypography = format === 'epub' || format === 'mobi';
+  const showLayout = format === 'epub';
+  const showPageTransition = format === 'epub';
 
   // Close on click outside
   useEffect(() => {
@@ -94,7 +110,7 @@ export function ReaderSettings() {
 
       {isOpen && (
         <div ref={panelRef} className="premium-settings-panel">
-          {/* Theme Selection */}
+          {/* Theme Selection — all formats */}
           <div className="premium-settings-section">
             <label className="premium-settings-label">Theme</label>
             <div className="premium-settings-width-grid">
@@ -149,8 +165,7 @@ export function ReaderSettings() {
                 <button
                   key={opt.id}
                   onClick={() => setTheme(opt.id)}
-                  className={`premium-settings-width-option ${theme === opt.id ? 'premium-settings-width-option--active' : ''
-                    }`}
+                  className={`premium-settings-width-option ${theme === opt.id ? 'premium-settings-width-option--active' : ''}`}
                 >
                   {opt.icon}
                   <span className="premium-settings-option-label">{opt.label}</span>
@@ -159,155 +174,226 @@ export function ReaderSettings() {
             </div>
           </div>
 
-          {/* Font Family */}
-          <div className="premium-settings-section">
-            <label className="premium-settings-label">Font Family</label>
-            <div className="premium-settings-font-grid">
-              {fontOptions.map((font) => (
+          {/* Font Family — EPUB/MOBI only */}
+          {showTypography && (
+            <div className="premium-settings-section">
+              <label className="premium-settings-label">Font Family</label>
+              <div className="premium-settings-font-grid">
+                {fontOptions.map((font) => (
+                  <button
+                    key={font.id}
+                    onClick={() => setFontFamily(font.id)}
+                    className={`premium-settings-font-option ${fontFamily === font.id ? 'premium-settings-font-option--active' : ''}`}
+                    style={{ fontFamily: font.name }}
+                  >
+                    {font.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Font Size — EPUB/MOBI only */}
+          {showTypography && (
+            <div className="premium-settings-section">
+              <label className="premium-settings-label">
+                Font Size
+                <span className="premium-settings-value">{fontSize}px</span>
+              </label>
+              <div className="premium-settings-slider-container">
                 <button
-                  key={font.id}
-                  onClick={() => setFontFamily(font.id)}
-                  className={`premium-settings-font-option ${fontFamily === font.id ? 'premium-settings-font-option--active' : ''
-                    }`}
-                  style={{ fontFamily: font.name }}
+                  onClick={() => setFontSize(fontSize - 1)}
+                  className="premium-settings-slider-button"
+                  disabled={fontSize <= 12}
                 >
-                  {font.label}
+                  <ChevronDown className="premium-settings-slider-icon" />
                 </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Font Size */}
-          <div className="premium-settings-section">
-            <label className="premium-settings-label">
-              Font Size
-              <span className="premium-settings-value">{fontSize}px</span>
-            </label>
-            <div className="premium-settings-slider-container">
-              <button
-                onClick={() => setFontSize(fontSize - 1)}
-                className="premium-settings-slider-button"
-                disabled={fontSize <= 14}
-              >
-                <ChevronDown className="premium-settings-slider-icon" />
-              </button>
-              <input
-                type="range"
-                min="14"
-                max="24"
-                value={fontSize}
-                onChange={(e) => setFontSize(Number(e.target.value))}
-                className="premium-settings-slider"
-              />
-              <button
-                onClick={() => setFontSize(fontSize + 1)}
-                className="premium-settings-slider-button"
-                disabled={fontSize >= 24}
-              >
-                <ChevronUp className="premium-settings-slider-icon" />
-              </button>
-            </div>
-          </div>
-
-          {/* Line Height */}
-          <div className="premium-settings-section">
-            <label className="premium-settings-label">
-              Line Height
-              <span className="premium-settings-value">{lineHeight.toFixed(1)}</span>
-            </label>
-            <div className="premium-settings-slider-container">
-              <button
-                onClick={() => setLineHeight(Math.max(1.2, lineHeight - 0.1))}
-                className="premium-settings-slider-button"
-                disabled={lineHeight <= 1.2}
-              >
-                <ChevronDown className="premium-settings-slider-icon" />
-              </button>
-              <input
-                type="range"
-                min="1.2"
-                max="2.0"
-                step="0.1"
-                value={lineHeight}
-                onChange={(e) => setLineHeight(Number(e.target.value))}
-                className="premium-settings-slider"
-              />
-              <button
-                onClick={() => setLineHeight(Math.min(2.0, lineHeight + 0.1))}
-                className="premium-settings-slider-button"
-                disabled={lineHeight >= 2.0}
-              >
-                <ChevronUp className="premium-settings-slider-icon" />
-              </button>
-            </div>
-          </div>
-
-          {/* Width Preset */}
-          <div className="premium-settings-section">
-            <label className="premium-settings-label">Reading Width</label>
-            <div className="premium-settings-width-grid">
-              {widthOptions.map((option) => (
-                <button
-                  key={option.id}
-                  onClick={() => setWidth(option.id)}
-                  className={`premium-settings-width-option ${width === option.id ? 'premium-settings-width-option--active' : ''
-                    }`}
-                >
-                  <svg className="premium-settings-option-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M2 4h12M2 8h12M2 12h12" />
-                  </svg>
-                  <span className="premium-settings-option-label">{option.label}</span>
-                  <span className="premium-settings-option-sublabel">{option.chars}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Two-Page View */}
-          <div className="premium-settings-section">
-            <label className="premium-settings-label">Layout</label>
-            <button
-              onClick={toggleTwoPageView}
-              className={`premium-settings-toggle ${twoPageView ? 'premium-settings-toggle--active' : ''
-                }`}
-            >
-              <Columns className="premium-settings-icon" />
-              <span>Two-Page View</span>
-            </button>
-          </div>
-
-          {/* ── Page Flip ── */}
-          <div className="premium-settings-section">
-            <label className="premium-settings-label">Page Flip Animation</label>
-            <button
-              onClick={() => setPageFlipEnabled(!pageFlipEnabled)}
-              className={`premium-settings-toggle ${pageFlipEnabled ? 'premium-settings-toggle--active' : ''
-                }`}
-            >
-              <svg className="premium-settings-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-              </svg>
-              <span>Enable Page Flip</span>
-            </button>
-            {pageFlipEnabled && (
-              <div className="premium-settings-slider-container" style={{ marginTop: 8 }}>
-                <span style={{ fontSize: 12, color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>Speed</span>
                 <input
                   type="range"
-                  min="100"
-                  max="800"
-                  step="50"
-                  value={pageFlipSpeed}
-                  onChange={(e) => setPageFlipSpeed(Number(e.target.value))}
+                  min="12"
+                  max="32"
+                  value={fontSize}
+                  onChange={(e) => setFontSize(Number(e.target.value))}
                   className="premium-settings-slider"
                 />
-                <span style={{ fontSize: 12, color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>{pageFlipSpeed}ms</span>
+                <button
+                  onClick={() => setFontSize(fontSize + 1)}
+                  className="premium-settings-slider-button"
+                  disabled={fontSize >= 32}
+                >
+                  <ChevronUp className="premium-settings-slider-icon" />
+                </button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* ── Paper Texture Intensity ── */}
+          {/* Line Height — EPUB/MOBI only */}
+          {showTypography && (
+            <div className="premium-settings-section">
+              <label className="premium-settings-label">
+                Line Height
+                <span className="premium-settings-value">{lineHeight.toFixed(1)}</span>
+              </label>
+              <div className="premium-settings-slider-container">
+                <button
+                  onClick={() => setLineHeight(Math.max(1.2, lineHeight - 0.1))}
+                  className="premium-settings-slider-button"
+                  disabled={lineHeight <= 1.2}
+                >
+                  <ChevronDown className="premium-settings-slider-icon" />
+                </button>
+                <input
+                  type="range"
+                  min="1.2"
+                  max="2.0"
+                  step="0.1"
+                  value={lineHeight}
+                  onChange={(e) => setLineHeight(Number(e.target.value))}
+                  className="premium-settings-slider"
+                />
+                <button
+                  onClick={() => setLineHeight(Math.min(2.0, lineHeight + 0.1))}
+                  className="premium-settings-slider-button"
+                  disabled={lineHeight >= 2.0}
+                >
+                  <ChevronUp className="premium-settings-slider-icon" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Text Alignment — EPUB/MOBI only */}
+          {showTypography && (
+            <div className="premium-settings-section">
+              <label className="premium-settings-label">Text Alignment</label>
+              <div className="premium-settings-width-grid">
+                {([
+                  {
+                    id: 'left' as const,
+                    label: 'Left',
+                    icon: (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="17" y1="10" x2="3" y2="10" />
+                        <line x1="21" y1="6" x2="3" y2="6" />
+                        <line x1="21" y1="14" x2="3" y2="14" />
+                        <line x1="17" y1="18" x2="3" y2="18" />
+                      </svg>
+                    ),
+                  },
+                  {
+                    id: 'justify' as const,
+                    label: 'Justify',
+                    icon: (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="21" y1="10" x2="3" y2="10" />
+                        <line x1="21" y1="6" x2="3" y2="6" />
+                        <line x1="21" y1="14" x2="3" y2="14" />
+                        <line x1="21" y1="18" x2="3" y2="18" />
+                      </svg>
+                    ),
+                  },
+                ]).map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setTextAlign(opt.id)}
+                    className={`premium-settings-width-option ${textAlign === opt.id ? 'premium-settings-width-option--active' : ''}`}
+                  >
+                    {opt.icon}
+                    <span className="premium-settings-option-label">{opt.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Reading Width — EPUB/MOBI only */}
+          {showTypography && (
+            <div className="premium-settings-section">
+              <label className="premium-settings-label">Reading Width</label>
+              <div className="premium-settings-width-grid">
+                {widthOptions.map((option) => (
+                  <button
+                    key={option.id}
+                    onClick={() => setWidth(option.id)}
+                    className={`premium-settings-width-option ${width === option.id ? 'premium-settings-width-option--active' : ''}`}
+                  >
+                    <svg className="premium-settings-option-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M2 4h12M2 8h12M2 12h12" />
+                    </svg>
+                    <span className="premium-settings-option-label">{option.label}</span>
+                    <span className="premium-settings-option-sublabel">{option.chars}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Two-Page View — EPUB only */}
+          {showLayout && (
+            <div className="premium-settings-section">
+              <label className="premium-settings-label">Layout</label>
+              <button
+                onClick={toggleTwoPageView}
+                className={`premium-settings-toggle ${twoPageView ? 'premium-settings-toggle--active' : ''}`}
+              >
+                <Columns className="premium-settings-icon" />
+                <span>Two-Page View</span>
+              </button>
+            </div>
+          )}
+
+          {/* Page Transition — EPUB only */}
+          {showPageTransition && (
+            <div className="premium-settings-section">
+              <label className="premium-settings-label">Page Transition</label>
+              <button
+                onClick={() => setPageFlipEnabled(!pageFlipEnabled)}
+                className={`premium-settings-toggle ${pageFlipEnabled ? 'premium-settings-toggle--active' : ''}`}
+              >
+                <svg className="premium-settings-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+                  <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+                </svg>
+                <span>Enable Page Transition</span>
+              </button>
+              {pageFlipEnabled && (
+                <>
+                  <div className="premium-settings-width-grid" style={{ marginTop: 8 }}>
+                    {([
+                      { id: 'slide' as const, label: 'Slide' },
+                      { id: 'fade' as const, label: 'Fade' },
+                      { id: 'none' as const, label: 'Instant' },
+                    ]).map((opt) => (
+                      <button
+                        key={opt.id}
+                        onClick={() => setAnimationStyle(opt.id)}
+                        className={`premium-settings-width-option ${animationStyle === opt.id ? 'premium-settings-width-option--active' : ''}`}
+                      >
+                        <span className="premium-settings-option-label">{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {animationStyle !== 'none' && (
+                    <div className="premium-settings-slider-container" style={{ marginTop: 8 }}>
+                      <span style={{ fontSize: 12, color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>Speed</span>
+                      <input
+                        type="range"
+                        min="100"
+                        max="800"
+                        step="50"
+                        value={pageFlipSpeed}
+                        onChange={(e) => setPageFlipSpeed(Number(e.target.value))}
+                        className="premium-settings-slider"
+                      />
+                      <span style={{ fontSize: 12, color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>{pageFlipSpeed}ms</span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Paper Texture Intensity — paper themes only, all formats */}
           {(theme === 'paper' || theme === 'paper-dark') && (
             <div className="premium-settings-section">
               <label className="premium-settings-label">
@@ -328,7 +414,7 @@ export function ReaderSettings() {
             </div>
           )}
 
-          {/* ── UI Scale ── */}
+          {/* UI Scale — all formats */}
           <div className="premium-settings-section">
             <label className="premium-settings-label">
               UI Scale

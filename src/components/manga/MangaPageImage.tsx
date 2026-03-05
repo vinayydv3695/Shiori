@@ -1,7 +1,7 @@
 import React, { memo, useCallback, useRef, useState } from 'react';
 import { useImageDecode } from './hooks/useImageDecode';
-import { useMangaSettingsStore, type FitMode } from '@/store/mangaReaderStore';
-import { AlertTriangle } from 'lucide-react';
+import { useMangaSettingsStore } from '@/store/mangaReaderStore';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface MangaPageImageProps {
     bookId: number;
@@ -21,14 +21,19 @@ interface MangaPageImageProps {
 export const MangaPageImage = memo(function MangaPageImage({
     bookId,
     pageIndex,
-    maxDimension = 1600,
+    maxDimension,
     className = '',
     style,
     onLoad,
     imageRef,
 }: MangaPageImageProps) {
     const fitMode = useMangaSettingsStore(s => s.fitMode);
-    const { url, loading, error } = useImageDecode(bookId, pageIndex, maxDimension);
+    const imageQuality = useMangaSettingsStore(s => s.imageQuality);
+
+    // Map imageQuality (0.5–1.0) to maxDimension (800–1600) if not explicitly set
+    const effectiveMaxDimension = maxDimension ?? Math.round(800 + imageQuality * 800);
+
+    const { url, loading, error, retry } = useImageDecode(bookId, pageIndex, effectiveMaxDimension);
     const [imgLoaded, setImgLoaded] = useState(false);
     const imgRef = useRef<HTMLImageElement>(null);
 
@@ -63,6 +68,14 @@ export const MangaPageImage = memo(function MangaPageImage({
                 <AlertTriangle />
                 <span>Failed to load page {pageIndex + 1}</span>
                 <span style={{ fontSize: '11px', opacity: 0.6 }}>{error}</span>
+                <button
+                    onClick={retry}
+                    className="manga-page-retry-btn"
+                    title="Retry loading this page"
+                >
+                    <RefreshCw size={14} />
+                    <span>Retry</span>
+                </button>
             </div>
         );
     }

@@ -52,6 +52,7 @@ interface PremiumTopbarProps {
   onSearch?: (query: string) => void
   onOpenSettings: () => void
   onToggleSidebar?: () => void
+  onGoHome?: () => void
   selectedCount?: number
   sidebarOpen?: boolean
 }
@@ -200,6 +201,7 @@ export function PremiumTopbar({
   onSearch,
   onOpenSettings,
   onToggleSidebar,
+  onGoHome,
   selectedCount = 0,
   sidebarOpen = true,
 }: PremiumTopbarProps) {
@@ -234,10 +236,15 @@ export function PremiumTopbar({
         title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
       />
 
-      {/* ── Logo ── */}
-      <div className="flex items-center pl-1 pr-3 shrink-0">
+      {/* ── Logo (clickable → home) ── */}
+      <button
+        onClick={onGoHome}
+        className="flex items-center pl-1 pr-3 shrink-0 hover:opacity-80 transition-opacity duration-150 cursor-pointer bg-transparent border-none"
+        title="Go to Home"
+        aria-label="Go to Home"
+      >
         <ShioriWordmark size={18} />
-      </div>
+      </button>
 
       <Sep />
 

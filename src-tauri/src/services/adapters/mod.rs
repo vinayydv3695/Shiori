@@ -4,12 +4,6 @@
 /// Each adapter provides format-specific logic for metadata extraction, validation,
 /// cover extraction, and conversion.
 
-/// Format Adapters Module
-/// 
-/// Contains all format-specific adapters implementing the BookFormatAdapter trait.
-/// Each adapter provides format-specific logic for metadata extraction, validation,
-/// cover extraction, and conversion.
-
 pub mod txt;
 pub mod pdf;
 pub mod mobi;

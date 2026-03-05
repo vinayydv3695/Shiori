@@ -1,13 +1,29 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useUIStore } from '@/store/premiumReaderStore';
 import { api } from '@/lib/tauri';
 import type { TocEntry, Annotation, BookSearchResult } from '@/lib/tauri';
-import { X, BookOpen, Highlighter, FileText, Bookmark, Search } from '@/components/icons';
+import { X, BookOpen, Highlighter, FileText, Bookmark, Search, Loader2 } from '@/components/icons';
 
 interface PremiumSidebarProps {
   bookId: number;
   currentIndex: number;
   onNavigate: (chapterIndex: number, searchTerm?: string | null) => void;
+}
+
+/** Highlight search query matches in a snippet (case-insensitive) */
+function highlightMatches(text: string, query: string): string {
+  if (!query.trim()) return escapeHtml(text);
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(${escaped})`, 'gi');
+  return escapeHtml(text).replace(regex, '<mark class="premium-search-highlight">$1</mark>');
+}
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSidebarProps) {
@@ -19,6 +35,8 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<BookSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   
   // Load TOC on mount
   useEffect(() => {
@@ -27,6 +45,20 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
       loadAnnotations();
     }
   }, [bookId]);
+
+  // Reload annotations when sidebar opens (to see newly created ones from TextSelectionToolbar)
+  useEffect(() => {
+    if (isSidebarOpen && bookId) {
+      loadAnnotations();
+    }
+  }, [isSidebarOpen, bookId]);
+
+  // Auto-focus search input when switching to search tab
+  useEffect(() => {
+    if (sidebarTab === 'search' && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [sidebarTab]);
   
   const loadToc = async () => {
     try {
@@ -46,19 +78,43 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
     }
   };
   
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
+  const handleSearch = useCallback(async (query: string) => {
+    if (!query.trim() || query.trim().length < 2) {
+      setSearchResults([]);
+      return;
+    }
     
     setIsSearching(true);
     try {
-      const results = await api.searchInBook(bookId, searchQuery);
+      const results = await api.searchInBook(bookId, query);
       setSearchResults(results);
     } catch (err) {
       console.error('[PremiumSidebar] Search failed:', err);
+      setSearchResults([]);
     } finally {
       setIsSearching(false);
     }
-  };
+  }, [bookId]);
+
+  // Debounced search-as-you-type
+  const handleSearchInput = useCallback((value: string) => {
+    setSearchQuery(value);
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+    searchDebounceRef.current = setTimeout(() => {
+      handleSearch(value);
+    }, 350);
+  }, [handleSearch]);
+
+  // Cleanup debounce timer
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, []);
   
   const handleTocClick = (entry: TocEntry) => {
     // Parse chapter index from location format: "epubcfi(/0/)", "epubcfi(/1/)", etc.
@@ -261,26 +317,23 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
               <h3 className="premium-sidebar-title">Search in Book</h3>
               <div className="premium-search-input-container">
                 <input
+                  ref={searchInputRef}
                   type="text"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                  placeholder="Search..."
+                  onChange={(e) => handleSearchInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch(searchQuery)}
+                  placeholder="Search in book..."
                   className="premium-search-input"
                 />
-                <button
-                  onClick={handleSearch}
-                  disabled={isSearching || !searchQuery.trim()}
-                  className="premium-search-button"
-                >
-                  {isSearching ? 'Searching...' : 'Search'}
-                </button>
+                {isSearching && (
+                  <Loader2 className="premium-search-spinner" style={{ animation: 'spin 1s linear infinite' }} />
+                )}
               </div>
               
               {searchResults.length > 0 && (
                 <div className="premium-search-results">
                   <p className="premium-search-count">
-                    {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}
+                    {searchResults.reduce((sum, r) => sum + r.match_count, 0)} match{searchResults.reduce((sum, r) => sum + r.match_count, 0) !== 1 ? 'es' : ''} in {searchResults.length} chapter{searchResults.length !== 1 ? 's' : ''}
                   </p>
                   {searchResults.map((result, index) => (
                     <div
@@ -289,13 +342,26 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                       onClick={() => handleSearchResultClick(result)}
                     >
                       <p className="premium-search-result-chapter">{result.chapter_title}</p>
-                      <p className="premium-search-result-snippet">{result.snippet}</p>
+                      <p
+                        className="premium-search-result-snippet"
+                        dangerouslySetInnerHTML={{
+                          __html: highlightMatches(result.snippet, searchQuery),
+                        }}
+                      />
                       <span className="premium-search-result-matches">
                         {result.match_count} match{result.match_count !== 1 ? 'es' : ''}
                       </span>
                     </div>
                   ))}
                 </div>
+              )}
+
+              {!isSearching && searchQuery.trim().length >= 2 && searchResults.length === 0 && (
+                <p className="premium-sidebar-empty">No results found</p>
+              )}
+
+              {searchQuery.trim().length > 0 && searchQuery.trim().length < 2 && (
+                <p className="premium-sidebar-empty" style={{ fontSize: 12 }}>Type at least 2 characters</p>
               )}
             </div>
           )}

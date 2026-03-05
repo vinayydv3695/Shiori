@@ -10,7 +10,7 @@ interface ContinueReadingCardProps {
 }
 
 export function ContinueReadingCard({ book, progress, domain, onClick }: ContinueReadingCardProps) {
-    const { coverUrl: coverSrc, loading: coverLoading } = useCoverImage(book.id, null)
+    const { coverUrl: coverSrc, loading: coverLoading } = useCoverImage(book.id, book.cover_path)
 
     const progressLabel = domain === 'manga'
         ? `Page ${Math.round((progress / 100) * (book.page_count || 0))} of ${book.page_count || '?'}`
@@ -46,7 +46,7 @@ interface RecentlyAddedCardProps {
 }
 
 export function RecentlyAddedCard({ book, onClick }: RecentlyAddedCardProps) {
-    const { coverUrl: coverSrc, loading: coverLoading } = useCoverImage(book.id, null)
+    const { coverUrl: coverSrc, loading: coverLoading } = useCoverImage(book.id, book.cover_path)
 
     return (
         <div className="recent-card" onClick={() => onClick(book)}>

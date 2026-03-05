@@ -374,7 +374,6 @@ function App() {
             onBookClick={handleOpenBook}
             onEditBook={handleEditBook}
             onDeleteBook={handleDeleteBook}
-            onDownloadBook={handleDownloadBook}
             onConvertBook={handleConvertBook}
             onShareBook={handleShareBook}
           />

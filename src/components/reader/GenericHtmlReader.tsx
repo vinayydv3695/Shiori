@@ -1,12 +1,12 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '@/lib/tauri';
 import type { BookMetadata } from '@/lib/tauri';
-import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Bookmark } from '@/components/icons';
+import { ChevronLeft, ChevronRight, Loader2, AlertCircle } from '@/components/icons';
 import { useUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement } from '@/store/premiumReaderStore';
 import { useToastStore } from '@/store/toastStore';
 import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
 import { useReadingSession } from '@/hooks/useReadingSession';
-import { ReaderSettings } from './ReaderSettings';
+import { ReaderTopBar } from './ReaderTopBar';
 import type { ReaderFormat } from './ReaderSettings';
 import { PremiumSidebar } from './PremiumSidebar';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
@@ -19,10 +19,11 @@ interface GenericHtmlReaderProps {
     bookPath: string;
     bookId: number;
     format: ReaderFormat;
+    onClose: () => void;
 }
 
-export function GenericHtmlReader({ bookPath, bookId, format }: GenericHtmlReaderProps) {
-    const { isTopBarVisible, isFocusMode, setTopBarVisible, toggleSidebar } = useUIStore();
+export function GenericHtmlReader({ bookPath, bookId, format, onClose }: GenericHtmlReaderProps) {
+    const { isFocusMode, setTopBarVisible } = useUIStore();
     const { theme, fontSize, fontFamily, lineHeight, width } = useReadingSettings();
 
     useReadingSession(bookId);
@@ -354,33 +355,14 @@ export function GenericHtmlReader({ bookPath, bookId, format }: GenericHtmlReade
             }}
         >
             {/* Auto-hide Top Bar */}
-            <div className={`premium-top-bar ${!isTopBarVisible ? 'premium-top-bar--hidden' : ''}`}>
-                <div className="premium-top-bar-content">
-                    <div className="premium-top-bar-left">
-                        <span className="premium-book-title">{metadata?.title || 'Loading...'}</span>
-                        <span className="premium-chapter-indicator">
-                            {totalChapters > 1
-                                ? `Chapter ${currentChapter + 1} / ${totalChapters}`
-                                : `${format.toUpperCase()} Render`}
-                        </span>
-                    </div>
-
-                    <div className="premium-top-bar-center">
-                        <span className="premium-progress-text">{Math.round(progressPercentage)}%</span>
-                    </div>
-
-                    <div className="premium-top-bar-right">
-                        <ReaderSettings format={format} />
-                        <button
-                            onClick={() => toggleSidebar('bookmarks')}
-                            className="premium-control-button"
-                            title="Bookmarks & Search"
-                        >
-                            <Bookmark className="premium-control-icon" />
-                        </button>
-                    </div>
-                </div>
-            </div>
+            <ReaderTopBar
+                bookId={bookId}
+                title={metadata?.title || 'Loading...'}
+                subtitle={totalChapters > 1 ? `Chapter ${currentChapter + 1} / ${totalChapters}` : `${format.toUpperCase()} Render`}
+                progress={progressPercentage}
+                format={format}
+                onClose={onClose}
+            />
 
             {/* Reading Canvas */}
             <div

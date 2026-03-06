@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useReadingSettings, type ReaderTheme } from '@/store/premiumReaderStore';
+import { useReadingSettings, BG_COLOR_PRESETS, TEXT_COLOR_PRESETS, type ReaderTheme } from '@/store/premiumReaderStore';
 import { Settings, Columns, ChevronDown, ChevronUp } from '@/components/icons';
 
 export type ReaderFormat = 'epub' | 'pdf' | 'mobi' | 'manga' | 'fb2' | 'docx' | 'html' | 'htm' | 'txt' | 'md' | 'markdown';
@@ -19,6 +19,12 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
     fontFamily,
     fontSize,
     lineHeight,
+    paragraphSpacing,
+    letterSpacing,
+    backgroundColor,
+    textColor,
+    margin,
+    brightness,
     width,
     twoPageView,
     pageFlipEnabled,
@@ -31,6 +37,12 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
     setFontFamily,
     setFontSize,
     setLineHeight,
+    setParagraphSpacing,
+    setLetterSpacing,
+    setBackgroundColor,
+    setTextColor,
+    setMargin,
+    setBrightness,
     setWidth,
     toggleTwoPageView,
     setPageFlipEnabled,
@@ -41,12 +53,11 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
     setTextAlign,
   } = useReadingSettings();
 
-  // Format helpers: which sections are relevant
   const showTypography = format === 'epub' || format === 'mobi';
   const showLayout = format === 'epub';
   const showPageTransition = format === 'epub';
+  const isTextFormat = !['pdf', 'manga'].includes(format);
 
-  // Close on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (
@@ -65,7 +76,6 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
     }
   }, [isOpen]);
 
-  // Close on Escape
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
@@ -86,6 +96,20 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
     { id: 'sans', name: 'Arial', label: 'Arial (Sans)' },
     { id: 'system', name: 'System', label: 'System Font' },
     { id: 'mono', name: 'Monospace', label: 'Monospace' },
+  ];
+
+  const letterSpacingOptions = [
+    { id: 'tight', label: 'Tight' },
+    { id: 'normal', label: 'Normal' },
+    { id: 'relaxed', label: 'Relax' },
+    { id: 'wide', label: 'Wide' },
+  ];
+
+  const paragraphSpacingOptions = [
+    { id: '0.5em', label: 'Small' },
+    { id: '1em', label: 'Medium' },
+    { id: '1.5em', label: 'Large' },
+    { id: '2em', label: 'Extra' },
   ];
 
   const widthOptions: Array<{ id: 'narrow' | 'medium' | 'wide' | 'full'; label: string; chars: string }> = [
@@ -109,9 +133,8 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
 
       {isOpen && (
         <div ref={panelRef} className="premium-settings-panel">
-          {/* Theme Selection — all formats */}
           <div className="premium-settings-section">
-            <label className="premium-settings-label">Theme</label>
+            <label className="premium-settings-label">View Mode</label>
             <div className="premium-settings-width-grid">
               {[
                 {
@@ -173,26 +196,40 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
             </div>
           </div>
 
-          {/* Font Family — EPUB/MOBI only */}
-          {showTypography && (
+          {(isTextFormat || format === 'pdf') && (
             <div className="premium-settings-section">
-              <label className="premium-settings-label">Font Family</label>
-              <div className="premium-settings-font-grid">
-                {fontOptions.map((font) => (
+              <label className="premium-settings-label">Background Color</label>
+              <div className="premium-settings-color-row">
+                {BG_COLOR_PRESETS.map((preset) => (
                   <button
-                    key={font.id}
-                    onClick={() => setFontFamily(font.id)}
-                    className={`premium-settings-font-option ${fontFamily === font.id ? 'premium-settings-font-option--active' : ''}`}
-                    style={{ fontFamily: font.name }}
-                  >
-                    {font.label}
-                  </button>
+                    key={preset.id}
+                    title={preset.label}
+                    onClick={() => setBackgroundColor(preset.id)}
+                    className={`premium-settings-color-swatch ${backgroundColor === preset.id ? 'premium-settings-color-swatch--active' : ''} ${preset.id === 'default' ? 'premium-settings-color-swatch--default' : ''}`}
+                    style={preset.id !== 'default' ? { backgroundColor: preset.color } : {}}
+                  />
                 ))}
               </div>
             </div>
           )}
 
-          {/* Font Size — EPUB/MOBI only */}
+          {isTextFormat && (
+            <div className="premium-settings-section">
+              <label className="premium-settings-label">Text Color</label>
+              <div className="premium-settings-color-row">
+                {TEXT_COLOR_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    title={preset.label}
+                    onClick={() => setTextColor(preset.id)}
+                    className={`premium-settings-color-swatch ${textColor === preset.id ? 'premium-settings-color-swatch--active' : ''} ${preset.id === 'default' ? 'premium-settings-color-swatch--default' : ''}`}
+                    style={preset.id !== 'default' ? { backgroundColor: preset.color } : {}}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
           {showTypography && (
             <div className="premium-settings-section">
               <label className="premium-settings-label">
@@ -226,7 +263,60 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
             </div>
           )}
 
-          {/* Line Height — EPUB/MOBI only */}
+          {isTextFormat && (
+            <div className="premium-settings-section">
+              <label className="premium-settings-label">
+                Margin
+                <span className="premium-settings-value">{margin}px</span>
+              </label>
+              <div className="premium-settings-slider-container">
+                <input
+                  type="range"
+                  min="0"
+                  max="80"
+                  step="4"
+                  value={margin}
+                  onChange={(e) => setMargin(Number(e.target.value))}
+                  className="premium-settings-slider"
+                />
+              </div>
+            </div>
+          )}
+
+          {isTextFormat && (
+            <div className="premium-settings-section">
+              <label className="premium-settings-label">Letter Spacing</label>
+              <div className="premium-settings-segment-group">
+                {letterSpacingOptions.map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setLetterSpacing(opt.id)}
+                    className={`premium-settings-segment-button ${letterSpacing === opt.id ? 'premium-settings-segment-button--active' : ''}`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {isTextFormat && (
+            <div className="premium-settings-section">
+              <label className="premium-settings-label">Paragraph Spacing</label>
+              <div className="premium-settings-segment-group">
+                {paragraphSpacingOptions.map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setParagraphSpacing(opt.id)}
+                    className={`premium-settings-segment-button ${paragraphSpacing === opt.id ? 'premium-settings-segment-button--active' : ''}`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {showTypography && (
             <div className="premium-settings-section">
               <label className="premium-settings-label">
@@ -261,11 +351,74 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
             </div>
           )}
 
-          {/* Text Alignment — EPUB/MOBI only */}
+          {showTypography && (
+            <div className="premium-settings-section">
+              <label className="premium-settings-label">Reading Width</label>
+              <div className="premium-settings-segment-group">
+                {widthOptions.map((option) => (
+                  <button
+                    key={option.id}
+                    onClick={() => setWidth(option.id)}
+                    className={`premium-settings-segment-button ${width === option.id ? 'premium-settings-segment-button--active' : ''}`}
+                    title={option.chars}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(isTextFormat || format === 'pdf') && (
+            <div className="premium-settings-section">
+              <label className="premium-settings-label">
+                Brightness
+                <span className="premium-settings-value">{Math.round(brightness * 100)}%</span>
+              </label>
+              <div className="premium-settings-slider-container">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="premium-settings-slider-icon">
+                  <circle cx="12" cy="12" r="4"/>
+                  <path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
+                </svg>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="1.5"
+                  step="0.05"
+                  value={brightness}
+                  onChange={(e) => setBrightness(Number(e.target.value))}
+                  className="premium-settings-slider"
+                />
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="premium-settings-slider-icon">
+                  <circle cx="12" cy="12" r="5"/>
+                  <path d="M12 1v2"/><path d="M12 21v2"/><path d="M4.22 4.22l1.42 1.42"/><path d="M18.36 18.36l1.42 1.42"/><path d="M1 12h2"/><path d="M21 12h2"/><path d="M4.22 19.78l1.42-1.42"/><path d="M18.36 5.64l1.42-1.42"/>
+                </svg>
+              </div>
+            </div>
+          )}
+
+          {isTextFormat && (
+            <div className="premium-settings-section">
+              <label className="premium-settings-label">Font Family</label>
+              <div className="premium-settings-font-grid">
+                {fontOptions.map((font) => (
+                  <button
+                    key={font.id}
+                    onClick={() => setFontFamily(font.id)}
+                    className={`premium-settings-font-option ${fontFamily === font.id ? 'premium-settings-font-option--active' : ''}`}
+                    style={{ fontFamily: font.name }}
+                  >
+                    {font.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {showTypography && (
             <div className="premium-settings-section">
               <label className="premium-settings-label">Text Alignment</label>
-              <div className="premium-settings-width-grid">
+              <div className="premium-settings-segment-group">
                 {([
                   {
                     id: 'left' as const,
@@ -295,39 +448,16 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
                   <button
                     key={opt.id}
                     onClick={() => setTextAlign(opt.id)}
-                    className={`premium-settings-width-option ${textAlign === opt.id ? 'premium-settings-width-option--active' : ''}`}
+                    className={`premium-settings-segment-button ${textAlign === opt.id ? 'premium-settings-segment-button--active' : ''}`}
                   >
                     {opt.icon}
-                    <span className="premium-settings-option-label">{opt.label}</span>
+                    <span>{opt.label}</span>
                   </button>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Reading Width — EPUB/MOBI only */}
-          {showTypography && (
-            <div className="premium-settings-section">
-              <label className="premium-settings-label">Reading Width</label>
-              <div className="premium-settings-width-grid">
-                {widthOptions.map((option) => (
-                  <button
-                    key={option.id}
-                    onClick={() => setWidth(option.id)}
-                    className={`premium-settings-width-option ${width === option.id ? 'premium-settings-width-option--active' : ''}`}
-                  >
-                    <svg className="premium-settings-option-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M2 4h12M2 8h12M2 12h12" />
-                    </svg>
-                    <span className="premium-settings-option-label">{option.label}</span>
-                    <span className="premium-settings-option-sublabel">{option.chars}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Two-Page View — EPUB only */}
           {showLayout && (
             <div className="premium-settings-section">
               <label className="premium-settings-label">Layout</label>
@@ -341,7 +471,6 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
             </div>
           )}
 
-          {/* Page Transition — EPUB only */}
           {showPageTransition && (
             <div className="premium-settings-section">
               <label className="premium-settings-label">Page Transition</label>
@@ -357,7 +486,7 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
               </button>
               {pageFlipEnabled && (
                 <>
-                  <div className="premium-settings-width-grid" style={{ marginTop: 8 }}>
+                  <div className="premium-settings-segment-group" style={{ marginTop: 8 }}>
                     {([
                       { id: 'slide' as const, label: 'Slide' },
                       { id: 'fade' as const, label: 'Fade' },
@@ -366,9 +495,9 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
                       <button
                         key={opt.id}
                         onClick={() => setAnimationStyle(opt.id)}
-                        className={`premium-settings-width-option ${animationStyle === opt.id ? 'premium-settings-width-option--active' : ''}`}
+                        className={`premium-settings-segment-button ${animationStyle === opt.id ? 'premium-settings-segment-button--active' : ''}`}
                       >
-                        <span className="premium-settings-option-label">{opt.label}</span>
+                        {opt.label}
                       </button>
                     ))}
                   </div>
@@ -392,7 +521,6 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
             </div>
           )}
 
-          {/* Paper Texture Intensity — paper themes only, all formats */}
           {(theme === 'paper' || theme === 'paper-dark') && (
             <div className="premium-settings-section">
               <label className="premium-settings-label">
@@ -413,7 +541,6 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
             </div>
           )}
 
-          {/* UI Scale — all formats */}
           <div className="premium-settings-section">
             <label className="premium-settings-label">
               UI Scale

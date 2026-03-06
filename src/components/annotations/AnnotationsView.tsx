@@ -170,8 +170,11 @@ export function AnnotationsView({ onClose }: AnnotationsViewProps) {
                 key={result.annotation.id || idx}
                 className="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 hover:shadow-md transition-shadow cursor-pointer relative"
                 onClick={() => {
-                  // Future: navigate to book and specific location
-                  console.log('Selected annotation:', result);
+                  if (result.annotation.bookId) {
+                    window.dispatchEvent(new CustomEvent('open-book', {
+                      detail: { bookId: result.annotation.bookId },
+                    }));
+                  }
                 }}
               >
                 <div className="flex items-start gap-4">

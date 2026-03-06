@@ -1,7 +1,8 @@
 use crate::error::Result;
 use crate::models::{
     Annotation, AnnotationCategory, AnnotationExportData, AnnotationExportOptions,
-    AnnotationSearchResult, ReaderSettings, ReadingProgress,
+    AnnotationSearchResult, BookReadingStats, DailyReadingStats, ReaderSettings, ReadingGoal,
+    ReadingProgress, ReadingSession, ReadingStreak,
 };
 use chrono::Utc;
 use rusqlite::{params, Connection};
@@ -602,6 +603,243 @@ impl ReaderService {
         }
 
         output
+    }
+
+    // ==================== Reading Sessions & Statistics ====================
+
+    pub fn start_reading_session(
+        conn: &Connection,
+        book_id: i64,
+        pages_start: Option<i32>,
+    ) -> Result<ReadingSession> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let now = Utc::now().to_rfc3339();
+
+        conn.execute(
+            "INSERT INTO reading_sessions (id, book_id, started_at, duration_seconds, pages_start, created_at)
+             VALUES (?1, ?2, ?3, 0, ?4, ?5)",
+            params![id, book_id, now, pages_start, now],
+        )?;
+
+        Ok(ReadingSession {
+            id,
+            book_id,
+            started_at: now.clone(),
+            ended_at: None,
+            duration_seconds: 0,
+            pages_start,
+            pages_end: None,
+            created_at: now,
+        })
+    }
+
+    pub fn end_reading_session(
+        conn: &Connection,
+        session_id: &str,
+        pages_end: Option<i32>,
+    ) -> Result<()> {
+        let now = Utc::now().to_rfc3339();
+
+        conn.execute(
+            "UPDATE reading_sessions SET ended_at = ?1, pages_end = ?2 WHERE id = ?3 AND ended_at IS NULL",
+            params![now, pages_end, session_id],
+        )?;
+
+        Ok(())
+    }
+
+    pub fn heartbeat_reading_session(
+        conn: &Connection,
+        session_id: &str,
+        duration_seconds: i64,
+    ) -> Result<()> {
+        conn.execute(
+            "UPDATE reading_sessions SET duration_seconds = ?1 WHERE id = ?2 AND ended_at IS NULL",
+            params![duration_seconds, session_id],
+        )?;
+
+        Ok(())
+    }
+
+    pub fn get_daily_reading_stats(conn: &Connection, days: i32) -> Result<Vec<DailyReadingStats>> {
+        let sql = r#"
+            SELECT
+                date(started_at) as read_date,
+                SUM(duration_seconds) as total_seconds,
+                COUNT(DISTINCT book_id) as books_count,
+                COUNT(*) as sessions_count
+            FROM reading_sessions
+            WHERE started_at >= date('now', ?1 || ' days')
+              AND duration_seconds > 0
+            GROUP BY date(started_at)
+            ORDER BY read_date ASC
+        "#;
+
+        let days_param = format!("-{}", days);
+        let mut stmt = conn.prepare(sql)?;
+        let results = stmt
+            .query_map(params![days_param], |row| {
+                Ok(DailyReadingStats {
+                    date: row.get(0)?,
+                    total_seconds: row.get(1)?,
+                    books_count: row.get(2)?,
+                    sessions_count: row.get(3)?,
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
+        Ok(results)
+    }
+
+    pub fn get_book_reading_stats(conn: &Connection, book_id: i64) -> Result<BookReadingStats> {
+        let sql = r#"
+            SELECT
+                COALESCE(SUM(duration_seconds), 0) as total_seconds,
+                COUNT(*) as sessions_count,
+                MAX(started_at) as last_read,
+                CASE WHEN COUNT(*) > 0
+                    THEN CAST(SUM(duration_seconds) AS REAL) / COUNT(*) / 60.0
+                    ELSE 0.0
+                END as average_session_minutes
+            FROM reading_sessions
+            WHERE book_id = ?1 AND duration_seconds > 0
+        "#;
+
+        let result = conn.query_row(sql, params![book_id], |row| {
+            Ok(BookReadingStats {
+                book_id,
+                total_seconds: row.get(0)?,
+                sessions_count: row.get(1)?,
+                last_read: row.get(2)?,
+                average_session_minutes: row.get(3)?,
+            })
+        })?;
+
+        Ok(result)
+    }
+
+    pub fn get_reading_streak(conn: &Connection) -> Result<ReadingStreak> {
+        let total_days: i32 = conn.query_row(
+            "SELECT COUNT(DISTINCT date(started_at)) FROM reading_sessions WHERE duration_seconds > 0",
+            [],
+            |row| row.get(0),
+        )?;
+
+        let current_streak: i32 = conn.query_row(
+            r#"
+            WITH RECURSIVE dates AS (
+                SELECT date('now') as d
+                UNION ALL
+                SELECT date(d, '-1 day') FROM dates
+                WHERE EXISTS (
+                    SELECT 1 FROM reading_sessions
+                    WHERE date(started_at) = date(dates.d, '-1 day')
+                      AND duration_seconds > 0
+                )
+            )
+            SELECT COUNT(*) FROM dates
+            WHERE EXISTS (
+                SELECT 1 FROM reading_sessions
+                WHERE date(started_at) = dates.d AND duration_seconds > 0
+            )
+            "#,
+            [],
+            |row| row.get(0),
+        )?;
+
+        let longest_streak: i32 = conn.query_row(
+            r#"
+            WITH reading_days AS (
+                SELECT DISTINCT date(started_at) as d
+                FROM reading_sessions
+                WHERE duration_seconds > 0
+            ),
+            numbered AS (
+                SELECT d, ROW_NUMBER() OVER (ORDER BY d) as rn
+                FROM reading_days
+            ),
+            groups AS (
+                SELECT d, date(d, '-' || rn || ' days') as grp
+                FROM numbered
+            )
+            SELECT COALESCE(MAX(streak_len), 0) FROM (
+                SELECT COUNT(*) as streak_len FROM groups GROUP BY grp
+            )
+            "#,
+            [],
+            |row| row.get(0),
+        )?;
+
+        Ok(ReadingStreak {
+            current_streak,
+            longest_streak,
+            total_reading_days: total_days,
+        })
+    }
+
+    pub fn get_reading_goal(conn: &Connection) -> Result<ReadingGoal> {
+        let result = conn.query_row(
+            "SELECT id, daily_minutes_target, is_active, created_at, updated_at
+             FROM reading_goals WHERE is_active = 1 ORDER BY id DESC LIMIT 1",
+            [],
+            |row| {
+                Ok(ReadingGoal {
+                    id: row.get(0)?,
+                    daily_minutes_target: row.get(1)?,
+                    is_active: row.get::<_, i32>(2)? != 0,
+                    created_at: row.get(3)?,
+                    updated_at: row.get(4)?,
+                })
+            },
+        );
+
+        match result {
+            Ok(goal) => Ok(goal),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(ReadingGoal {
+                id: None,
+                daily_minutes_target: 30,
+                is_active: true,
+                created_at: Utc::now().to_rfc3339(),
+                updated_at: Utc::now().to_rfc3339(),
+            }),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    pub fn update_reading_goal(
+        conn: &Connection,
+        daily_minutes_target: i32,
+    ) -> Result<ReadingGoal> {
+        let now = Utc::now().to_rfc3339();
+
+        let updated = conn.execute(
+            "UPDATE reading_goals SET daily_minutes_target = ?1, updated_at = ?2 WHERE is_active = 1",
+            params![daily_minutes_target, now],
+        )?;
+
+        if updated == 0 {
+            conn.execute(
+                "INSERT INTO reading_goals (daily_minutes_target, is_active, created_at, updated_at)
+                 VALUES (?1, 1, ?2, ?3)",
+                params![daily_minutes_target, now, now],
+            )?;
+        }
+
+        Self::get_reading_goal(conn)
+    }
+
+    pub fn get_today_reading_time(conn: &Connection) -> Result<i64> {
+        let seconds: i64 = conn
+            .query_row(
+                "SELECT COALESCE(SUM(duration_seconds), 0)
+                 FROM reading_sessions
+                 WHERE date(started_at) = date('now') AND duration_seconds > 0",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+
+        Ok(seconds)
     }
 
     // ==================== Reader Settings ====================

@@ -292,6 +292,10 @@ fn main() {
             commands::doodle::get_doodle,
             commands::doodle::delete_doodle,
             commands::doodle::delete_book_doodles,
+            // Backup commands
+            commands::backup::create_backup,
+            commands::backup::restore_backup,
+            commands::backup::get_backup_info,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

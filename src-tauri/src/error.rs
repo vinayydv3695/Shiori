@@ -15,6 +15,9 @@ pub enum ShioriError {
     #[error("CSV error: {0}")]
     Csv(#[from] csv::Error),
 
+    #[error("ZIP error: {0}")]
+    Zip(#[from] zip::result::ZipError),
+
     #[error("PDF library error: {0}")]
     LopdfError(String),
 
@@ -202,6 +205,7 @@ impl ShioriError {
             Self::Io(_) => "io",
             Self::Serialization(_) => "serialization",
             Self::Csv(_) => "serialization",
+            Self::Zip(_) => "io",
             Self::LopdfError(_) | Self::CorruptedPdf { .. } | Self::PdfRenderFailed { .. } => {
                 "rendering"
             }

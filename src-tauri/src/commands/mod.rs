@@ -15,3 +15,4 @@ pub mod rss;
 pub mod share;
 pub mod preferences;
 pub mod doodle;
+pub mod backup;

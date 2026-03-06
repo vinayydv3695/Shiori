@@ -8,6 +8,7 @@ import { useToastStore } from '@/store/toastStore';
 import { ReaderSettings } from './ReaderSettings';
 import { PremiumSidebar } from './PremiumSidebar';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
+import { useReadingSession } from '@/hooks/useReadingSession';
 import '@/styles/premium-reader.css';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -26,6 +27,8 @@ interface PdfReaderProps {
 export function PdfReader({ bookPath, bookId }: PdfReaderProps) {
   const { isTopBarVisible, isFocusMode, setTopBarVisible, toggleSidebar } = useUIStore();
   const { theme } = useReadingSettings();
+
+  useReadingSession(bookId);
 
   const [metadata, setMetadata] = useState<BookMetadata | null>(null);
   const [numPages, setNumPages] = useState<number>(0);

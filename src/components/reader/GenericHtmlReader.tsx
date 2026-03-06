@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Bookmark } from '@/com
 import { useUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement } from '@/store/premiumReaderStore';
 import { useToastStore } from '@/store/toastStore';
 import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
+import { useReadingSession } from '@/hooks/useReadingSession';
 import { ReaderSettings } from './ReaderSettings';
 import type { ReaderFormat } from './ReaderSettings';
 import { PremiumSidebar } from './PremiumSidebar';
@@ -22,6 +23,8 @@ interface GenericHtmlReaderProps {
 export function GenericHtmlReader({ bookPath, bookId, format }: GenericHtmlReaderProps) {
     const { isTopBarVisible, isFocusMode, setTopBarVisible, toggleSidebar } = useUIStore();
     const { theme, fontSize, fontFamily, lineHeight, width } = useReadingSettings();
+
+    useReadingSession(bookId);
 
     const [metadata, setMetadata] = useState<BookMetadata | null>(null);
     const [content, setContent] = useState<string>('');

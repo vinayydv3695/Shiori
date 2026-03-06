@@ -172,6 +172,7 @@ interface MangaSettingsState {
     showNavigationTips: boolean;
     theme: 'light' | 'dark';
     imageQuality: number; // 0.5–1.0
+    preloadIntensity: 'light' | 'normal' | 'aggressive';
 
     // Actions
     setReadingMode: (mode: ReadingMode) => void;
@@ -184,6 +185,7 @@ interface MangaSettingsState {
     setTheme: (theme: 'light' | 'dark') => void;
     toggleTheme: () => void;
     setImageQuality: (quality: number) => void;
+    setPreloadIntensity: (intensity: 'light' | 'normal' | 'aggressive') => void;
     resetToDefaults: () => void;
 }
 
@@ -197,6 +199,7 @@ const defaultMangaSettings = {
     showNavigationTips: true,
     theme: 'dark' as const,
     imageQuality: 0.85,
+    preloadIntensity: 'normal' as const,
 };
 
 export const useMangaSettingsStore = create<MangaSettingsState>()(
@@ -204,7 +207,17 @@ export const useMangaSettingsStore = create<MangaSettingsState>()(
         (set, get) => ({
             ...defaultMangaSettings,
 
-            setReadingMode: (mode) => set({ readingMode: mode }),
+            setReadingMode: (mode) => {
+                const fitDefaults: Record<ReadingMode, FitMode> = {
+                    single: 'contain',
+                    double: 'contain',
+                    strip: 'width',
+                    webtoon: 'width',
+                    manhwa: 'width',
+                    comic: 'contain',
+                };
+                set({ readingMode: mode, fitMode: fitDefaults[mode] });
+            },
             setReadingDirection: (dir) => set({ readingDirection: dir }),
             setFitMode: (fit) => {
                 set({ fitMode: fit });
@@ -228,6 +241,7 @@ export const useMangaSettingsStore = create<MangaSettingsState>()(
                 const clamped = Math.max(0.5, Math.min(1.0, quality));
                 set({ imageQuality: clamped });
             },
+            setPreloadIntensity: (intensity) => set({ preloadIntensity: intensity }),
             resetToDefaults: () => {
                 set(defaultMangaSettings);
                 applyMangaThemeToDOM(defaultMangaSettings.theme);

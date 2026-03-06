@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useMangaContentStore, useMangaSettingsStore } from '@/store/mangaReaderStore';
+import { useMangaContentStore, useMangaSettingsStore, type ReadingMode } from '@/store/mangaReaderStore';
 
 /**
  * Image preloader with LRU blob cache.
@@ -7,9 +7,12 @@ import { useMangaContentStore, useMangaSettingsStore } from '@/store/mangaReader
  */
 
 /** Derive the maxDimension used for IPC from the store's imageQuality setting (0.5–1.0 → 800–1600). */
-export function getEffectiveMaxDimension(): number {
-    const quality = useMangaSettingsStore.getState().imageQuality;
-    return Math.round(800 + quality * 800);
+export function getEffectiveMaxDimension(mode?: ReadingMode): number {
+    const { imageQuality, readingMode } = useMangaSettingsStore.getState();
+    const effectiveMode = mode ?? readingMode;
+    // Scroll modes use lower res since images are scaled to viewport width anyway
+    const baseMax = (effectiveMode === 'strip' || effectiveMode === 'webtoon' || effectiveMode === 'manhwa') ? 1200 : 1600;
+    return Math.round(baseMax * imageQuality);
 }
 
 interface CacheEntry {
@@ -194,6 +197,7 @@ export function useMangaPreloader() {
     const bookId = useMangaContentStore(s => s.bookId);
     const totalPages = useMangaContentStore(s => s.totalPages);
     const readingMode = useMangaSettingsStore(s => s.readingMode);
+    const preloadIntensity = useMangaSettingsStore(s => s.preloadIntensity);
 
     const preloadAround = useCallback((page: number) => {
         if (!bookId || totalPages === 0) return;
@@ -201,16 +205,18 @@ export function useMangaPreloader() {
         const pagesToPreload: number[] = [];
 
         if (readingMode === 'single' || readingMode === 'comic') {
-            // Preload 3 ahead, 1 behind
-            for (let i = -1; i <= 3; i++) {
+            const behind = preloadIntensity === 'light' ? 1 : preloadIntensity === 'aggressive' ? 2 : 1;
+            const ahead = preloadIntensity === 'light' ? 2 : preloadIntensity === 'aggressive' ? 5 : 3;
+            for (let i = -behind; i <= ahead; i++) {
                 const target = page + i;
                 if (target >= 0 && target < totalPages && target !== page) {
                     pagesToPreload.push(target);
                 }
             }
         } else if (readingMode === 'double') {
-            // Preload 4 ahead (2 spreads), 2 behind
-            for (let i = -2; i <= 5; i++) {
+            const behind = 2;
+            const ahead = preloadIntensity === 'light' ? 3 : preloadIntensity === 'aggressive' ? 7 : 5;
+            for (let i = -behind; i <= ahead; i++) {
                 const target = page + i;
                 if (target >= 0 && target < totalPages && target !== page) {
                     pagesToPreload.push(target);
@@ -222,7 +228,7 @@ export function useMangaPreloader() {
         if (pagesToPreload.length > 0) {
             preloadPages(bookId, pagesToPreload);
         }
-    }, [bookId, totalPages, readingMode]);
+    }, [bookId, totalPages, readingMode, preloadIntensity]);
 
     return { preloadAround, getMangaPageUrl, clearCache: () => imageCache.clear() };
 }

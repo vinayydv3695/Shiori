@@ -296,6 +296,8 @@ fn main() {
             commands::backup::create_backup,
             commands::backup::restore_backup,
             commands::backup::get_backup_info,
+            // File write command
+            commands::export::write_text_to_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

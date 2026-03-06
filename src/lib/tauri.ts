@@ -525,6 +525,10 @@ export const api = {
     return invoke("export_annotations", { options })
   },
 
+  async writeTextToFile(filePath: string, contents: string): Promise<void> {
+    return invoke("write_text_to_file", { filePath, contents })
+  },
+
   // Reader - Settings
   async getReaderSettings(userId: string): Promise<ReaderSettings> {
     return invoke("get_reader_settings", { userId })

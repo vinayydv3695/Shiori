@@ -8,6 +8,7 @@ import { useToastStore } from '@/store/toastStore';
 import { ReaderSettings } from './ReaderSettings';
 import { PremiumSidebar } from './PremiumSidebar';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
+import { TTSControlBar } from './TTSControlBar';
 import { useReadingSession } from '@/hooks/useReadingSession';
 import '@/styles/premium-reader.css';
 import { Document, Page, pdfjs } from 'react-pdf';
@@ -368,6 +369,12 @@ export function PdfReader({ bookPath, bookId }: PdfReaderProps) {
       <TextSelectionToolbar
         bookId={bookId}
         currentLocation={`page-${pageNumber}`}
+      />
+
+      {/* TTS Control Bar */}
+      <TTSControlBar
+        contentRef={containerRef}
+        onChapterEnd={nextPage}
       />
     </div>
   );

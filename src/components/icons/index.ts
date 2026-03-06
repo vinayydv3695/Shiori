@@ -51,4 +51,10 @@ export {
   Columns,
   FileText,
   BarChart2,
+  Volume2,
+  VolumeX,
+  SkipForward,
+  SkipBack,
+  Play,
+  Pause,
 } from "lucide-react"

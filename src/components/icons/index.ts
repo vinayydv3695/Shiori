@@ -50,4 +50,5 @@ export {
   EyeOff,
   Columns,
   FileText,
+  BarChart2,
 } from "lucide-react"

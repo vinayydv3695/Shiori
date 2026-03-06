@@ -157,7 +157,7 @@ export const useMangaUIStore = create<MangaUIState>((set) => ({
 // ────────────────────────────────────────────────────────────
 // SLICE 3: Settings State (persisted to localStorage)
 // ────────────────────────────────────────────────────────────
-export type ReadingMode = 'single' | 'double' | 'strip';
+export type ReadingMode = 'single' | 'double' | 'strip' | 'webtoon' | 'manhwa' | 'comic';
 export type ReadingDirection = 'ltr' | 'rtl';
 export type FitMode = 'width' | 'height' | 'contain' | 'original';
 export type ProgressBarPosition = 'top' | 'bottom' | 'left' | 'right' | 'none';

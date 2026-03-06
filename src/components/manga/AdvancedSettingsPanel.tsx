@@ -50,6 +50,9 @@ export function AdvancedSettingsPanel() {
         { action: 'Single Page Mode', key: '1' },
         { action: 'Double Page Mode', key: '2' },
         { action: 'Long Strip Mode', key: '3' },
+        { action: 'Webtoon Mode', key: '4' },
+        { action: 'Manhwa Mode', key: '5' },
+        { action: 'Comic Mode', key: '6' },
         { action: 'Toggle Sidebar', key: 'S' },
         { action: 'Toggle Settings', key: ',' },
         { action: 'Toggle Theme', key: 'D' },
@@ -96,7 +99,10 @@ export function AdvancedSettingsPanel() {
                                     {([
                                         { value: 'single' as ReadingMode, label: 'Single Page', desc: 'One page at a time' },
                                         { value: 'double' as ReadingMode, label: 'Double Page', desc: 'Two pages side by side' },
-                                        { value: 'strip' as ReadingMode, label: 'Long Strip', desc: 'Continuous scrolling' },
+                                        { value: 'strip' as ReadingMode, label: 'Long Strip', desc: 'Continuous scroll with gap' },
+                                        { value: 'webtoon' as ReadingMode, label: 'Webtoon', desc: 'Seamless vertical scroll' },
+                                        { value: 'manhwa' as ReadingMode, label: 'Manhwa', desc: 'Wide seamless scroll' },
+                                        { value: 'comic' as ReadingMode, label: 'Comic', desc: 'Western LTR single page' },
                                     ]).map(opt => (
                                         <button
                                             key={opt.value}

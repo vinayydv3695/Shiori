@@ -25,7 +25,10 @@ export function useMangaKeyboard(onClose: () => void) {
     const toggleTheme = useMangaSettingsStore(s => s.toggleTheme);
 
     const rtl = readingDirection === 'rtl';
+    // Comic mode forces LTR behavior regardless of direction setting
+    const effectiveRtl = readingMode === 'comic' ? false : rtl;
     const step = readingMode === 'double' ? 2 : 1;
+    const isScrollMode = readingMode === 'strip' || readingMode === 'webtoon' || readingMode === 'manhwa';
 
     // Debounce boundary toasts to avoid spam (same pattern as NavigationOverlay)
     const lastBoundaryToast = useRef(0);
@@ -64,7 +67,7 @@ export function useMangaKeyboard(onClose: () => void) {
         switch (key) {
             case 'ArrowRight':
                 e.preventDefault();
-                if (rtl) {
+                if (effectiveRtl) {
                     goBackward(step);
                 } else {
                     goForward(step);
@@ -72,27 +75,27 @@ export function useMangaKeyboard(onClose: () => void) {
                 break;
             case 'ArrowLeft':
                 e.preventDefault();
-                if (rtl) {
+                if (effectiveRtl) {
                     goForward(step);
                 } else {
                     goBackward(step);
                 }
                 break;
             case 'ArrowDown':
-                // In strip mode, let the browser handle native vertical scrolling
-                if (readingMode === 'strip') return;
+                // In scroll modes, let the browser handle native vertical scrolling
+                if (isScrollMode) return;
                 e.preventDefault();
                 goForward(step);
                 break;
             case 'ArrowUp':
-                // In strip mode, let the browser handle native vertical scrolling
-                if (readingMode === 'strip') return;
+                // In scroll modes, let the browser handle native vertical scrolling
+                if (isScrollMode) return;
                 e.preventDefault();
                 goBackward(step);
                 break;
             case ' ':
-                // In strip mode, let the browser handle native scroll (Space = page down)
-                if (readingMode === 'strip') return;
+                // In scroll modes, let the browser handle native scroll (Space = page down)
+                if (isScrollMode) return;
                 e.preventDefault();
                 if (shift) {
                     goBackward(step);
@@ -143,6 +146,24 @@ export function useMangaKeyboard(onClose: () => void) {
                     setReadingMode('strip');
                 }
                 break;
+            case '4':
+                if (!e.ctrlKey && !e.metaKey) {
+                    e.preventDefault();
+                    setReadingMode('webtoon');
+                }
+                break;
+            case '5':
+                if (!e.ctrlKey && !e.metaKey) {
+                    e.preventDefault();
+                    setReadingMode('manhwa');
+                }
+                break;
+            case '6':
+                if (!e.ctrlKey && !e.metaKey) {
+                    e.preventDefault();
+                    setReadingMode('comic');
+                }
+                break;
             case ',':
                 if (!e.ctrlKey && !e.metaKey) {
                     e.preventDefault();
@@ -160,7 +181,7 @@ export function useMangaKeyboard(onClose: () => void) {
                 break;
         }
     }, [
-        rtl, step, readingMode, goForward, goBackward, setCurrentPage, totalPages,
+        effectiveRtl, step, isScrollMode, goForward, goBackward, setCurrentPage, totalPages,
         toggleSidebar, closeSidebar, isSidebarOpen,
         toggleSettings, isSettingsOpen, closeSettings,
         setReadingMode, toggleTheme, onClose

@@ -36,15 +36,22 @@ export interface MangaPreferences {
   gpuAcceleration: boolean;
 }
 
+export interface TtsPreferences {
+  voice: string;
+  rate: number;
+  autoAdvance: boolean;
+  highlightColor: string;
+}
+
 export interface UserPreferences {
   theme: Theme;
   book: BookPreferences;
   manga: MangaPreferences;
+  tts: TtsPreferences;
   autoStart: boolean;
   defaultImportPath: string;
   uiDensity: UIDensity;
   accentColor: string;
-  /** Global UI scale factor: 0.75 – 1.5. Applied as font-size on <html>. */
   uiScale: number;
   preferredContentType: string;
   performanceMode: string;
@@ -91,10 +98,18 @@ export const DEFAULT_MANGA_PREFERENCES: MangaPreferences = {
   gpuAcceleration: true,
 };
 
+export const DEFAULT_TTS_PREFERENCES: TtsPreferences = {
+  voice: 'default',
+  rate: 1.0,
+  autoAdvance: true,
+  highlightColor: '#f3a6a68c',
+};
+
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   theme: 'white',
   book: DEFAULT_BOOK_PREFERENCES,
   manga: DEFAULT_MANGA_PREFERENCES,
+  tts: DEFAULT_TTS_PREFERENCES,
   autoStart: false,
   defaultImportPath: '',
   uiDensity: 'comfortable',

@@ -57,6 +57,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 11 {
             self.run_in_savepoint("v11", |mgr| mgr.migrate_to_v11())?;
         }
+        if current_version < 12 {
+            self.run_in_savepoint("v12", |mgr| mgr.migrate_to_v12())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -1284,6 +1287,49 @@ impl<'a> MigrationManager<'a> {
         self.record_migration(11, "reading_sessions_goals", "v11_reading_statistics")?;
 
         log::info!("[Migration] v11 applied successfully");
+        Ok(())
+    }
+
+    /// V12: Text-to-Speech preferences columns on user_preferences
+    fn migrate_to_v12(&self) -> Result<()> {
+        log::info!("[Migration] Applying v12: TTS preferences columns");
+
+        // Add TTS voice preference (voice URI string)
+        if !self.column_exists("user_preferences", "tts_voice")? {
+            self.conn.execute(
+                "ALTER TABLE user_preferences ADD COLUMN tts_voice TEXT NOT NULL DEFAULT 'default'",
+                [],
+            )?;
+        }
+
+        // Add TTS speech rate (0.5 to 4.0, default 1.0)
+        if !self.column_exists("user_preferences", "tts_rate")? {
+            self.conn.execute(
+                "ALTER TABLE user_preferences ADD COLUMN tts_rate REAL NOT NULL DEFAULT 1.0",
+                [],
+            )?;
+        }
+
+        // Add TTS auto-advance (continue to next chapter when page is done)
+        if !self.column_exists("user_preferences", "tts_auto_advance")? {
+            self.conn.execute(
+                "ALTER TABLE user_preferences ADD COLUMN tts_auto_advance INTEGER NOT NULL DEFAULT 1",
+                [],
+            )?;
+        }
+
+        // Add TTS highlight color for current sentence
+        if !self.column_exists("user_preferences", "tts_highlight_color")? {
+            self.conn.execute(
+                "ALTER TABLE user_preferences ADD COLUMN tts_highlight_color TEXT NOT NULL DEFAULT '#f3a6a68c'",
+                [],
+            )?;
+        }
+
+        self.set_schema_version(12)?;
+        self.record_migration(12, "tts_preferences", "v12_tts_preferences")?;
+
+        log::info!("[Migration] v12 applied successfully");
         Ok(())
     }
 

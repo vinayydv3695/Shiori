@@ -626,6 +626,16 @@ export function PremiumEpubReader({ bookPath, bookId, onClose }: PremiumEpubRead
         );
 
         applyHighlightsToDOM(container, chapterAnnotations);
+
+        // Scroll to pending annotation if set (from sidebar click)
+        const pendingId = useUIStore.getState().pendingAnnotationId;
+        if (pendingId) {
+          const mark = container.querySelector(`mark.epub-highlight[data-annotation-id="${pendingId}"]`);
+          if (mark) {
+            mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          useUIStore.getState().setPendingAnnotationId(null);
+        }
       } catch {
         // Silently ignore — highlights are non-critical
       }

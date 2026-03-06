@@ -1,9 +1,20 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useUIStore } from '@/store/premiumReaderStore';
 import { api } from '@/lib/tauri';
-import type { TocEntry, Annotation, BookSearchResult } from '@/lib/tauri';
+import type { TocEntry, Annotation, BookSearchResult, AnnotationCategory } from '@/lib/tauri';
 import { X, BookOpen, Highlighter, FileText, Bookmark, Search, Loader2, Trash2, Edit2 } from '@/components/icons';
 import { useToastStore } from '@/store/toastStore';
+
+const HIGHLIGHT_COLORS = [
+  { name: 'Yellow', value: '#fbbf24' },
+  { name: 'Green', value: '#34d399' },
+  { name: 'Blue', value: '#60a5fa' },
+  { name: 'Pink', value: '#f472b6' },
+  { name: 'Purple', value: '#a78bfa' },
+  { name: 'Orange', value: '#fb923c' },
+  { name: 'Red', value: '#f87171' },
+  { name: 'Teal', value: '#2dd4bf' },
+];
 
 interface PremiumSidebarProps {
   bookId: number;
@@ -28,11 +39,12 @@ function escapeHtml(str: string): string {
 }
 
 export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSidebarProps) {
-  const { isSidebarOpen, sidebarTab, closeSidebar, setSidebarTab } = useUIStore();
+  const { isSidebarOpen, sidebarTab, closeSidebar, setSidebarTab, setPendingAnnotationId } = useUIStore();
   
   // Tab data states
   const [toc, setToc] = useState<TocEntry[]>([]);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [categories, setCategories] = useState<AnnotationCategory[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<BookSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -44,6 +56,7 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
     if (bookId) {
       loadToc();
       loadAnnotations();
+      api.getAnnotationCategories().then(setCategories).catch(console.error);
     }
     // loadToc and loadAnnotations are recreated each render - would cause infinite loop if added
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -150,6 +163,11 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
   const handleAnnotationClick = useCallback((annotation: Annotation) => {
     const loc = annotation.location;
 
+    // Set pending annotation for scroll-to after highlights render
+    if (annotation.id) {
+      setPendingAnnotationId(annotation.id);
+    }
+
     // Parse "chapter_N" format (EPUB)
     const chapterMatch = loc.match(/^chapter_(\d+)/);
     if (chapterMatch) {
@@ -173,7 +191,7 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
       closeSidebar();
       return;
     }
-  }, [onNavigate, closeSidebar]);
+  }, [onNavigate, closeSidebar, setPendingAnnotationId]);
 
   // ── C15: Delete annotation ──
   const handleDeleteAnnotation = useCallback(async (e: React.MouseEvent, annotation: Annotation) => {
@@ -203,6 +221,7 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
   // ── C15: Edit note content ──
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [editNoteText, setEditNoteText] = useState('');
+  const [editingColorId, setEditingColorId] = useState<number | null>(null);
 
   const handleStartEditNote = useCallback((e: React.MouseEvent, note: Annotation) => {
     e.stopPropagation();
@@ -239,6 +258,24 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
   const handleCancelEditNote = useCallback(() => {
     setEditingNoteId(null);
     setEditNoteText('');
+  }, []);
+
+  const handleChangeHighlightColor = useCallback(async (annotation: Annotation, newColor: string) => {
+    if (!annotation.id) return;
+    try {
+      await api.updateAnnotation(annotation.id, undefined, newColor);
+      setAnnotations(prev => prev.map(a =>
+        a.id === annotation.id ? { ...a, color: newColor } : a
+      ));
+      setEditingColorId(null);
+      window.dispatchEvent(new CustomEvent('annotation-changed'));
+    } catch (err) {
+      useToastStore.getState().addToast({
+        title: 'Failed to update color',
+        description: String(err),
+        variant: 'error',
+      });
+    }
   }, []);
   
   // Filter annotations by type
@@ -363,10 +400,30 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                       className="premium-annotation-item premium-annotation-item--clickable"
                       onClick={() => handleAnnotationClick(highlight)}
                     >
-                      <div 
-                        className="premium-annotation-color"
-                        style={{ backgroundColor: highlight.color }}
-                      />
+                      <div className="premium-annotation-color-wrapper">
+                        <div 
+                          className="premium-annotation-color"
+                          style={{ backgroundColor: highlight.color }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingColorId(editingColorId === highlight.id ? null : (highlight.id ?? null));
+                          }}
+                          title="Change color"
+                        />
+                        {editingColorId === highlight.id && (
+                          <div className="premium-annotation-color-picker" onClick={(e) => e.stopPropagation()}>
+                            {HIGHLIGHT_COLORS.map((c) => (
+                              <button
+                                key={c.value}
+                                className={`premium-annotation-color-swatch ${highlight.color === c.value ? 'premium-annotation-color-swatch--active' : ''}`}
+                                style={{ backgroundColor: c.value }}
+                                onClick={() => handleChangeHighlightColor(highlight, c.value)}
+                                title={c.name}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
                       <div className="premium-annotation-content">
                         <p className="premium-annotation-text">{highlight.selectedText}</p>
                         <span className="premium-annotation-location">{formatLocation(highlight.location)}</span>
@@ -438,7 +495,20 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                             {note.selectedText && (
                               <p className="premium-annotation-text">{note.selectedText}</p>
                             )}
-                            <span className="premium-annotation-location">{formatLocation(note.location)}</span>
+                            <div className="premium-annotation-meta">
+                              <span className="premium-annotation-location">{formatLocation(note.location)}</span>
+                              {note.categoryId && (() => {
+                                const cat = categories.find(c => c.id === note.categoryId);
+                                return cat ? (
+                                  <span
+                                    className="premium-annotation-category-badge"
+                                    style={{ backgroundColor: cat.color + '20', color: cat.color, borderColor: cat.color + '40' }}
+                                  >
+                                    {cat.name}
+                                  </span>
+                                ) : null;
+                              })()}
+                            </div>
                           </>
                         )}
                       </div>

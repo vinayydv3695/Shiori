@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Highlighter, StickyNote, Bookmark, X, Volume2 } from '@/components/icons';
 import { api } from '@/lib/tauri';
+import type { AnnotationCategory } from '@/lib/tauri';
 import { useToastStore } from '@/store/toastStore';
 import { ttsEngine, TTSEngine } from '@/lib/ttsEngine';
 
@@ -38,6 +39,8 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [noteText, setNoteText] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(undefined);
+  const [categories, setCategories] = useState<AnnotationCategory[]>([]);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const noteInputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -46,6 +49,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     setShowColorPicker(false);
     setShowNoteInput(false);
     setNoteText('');
+    setSelectedCategoryId(undefined);
   }, []);
 
   // Listen for text selection changes
@@ -94,7 +98,10 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     if (showNoteInput && noteInputRef.current) {
       noteInputRef.current.focus();
     }
-  }, [showNoteInput]);
+    if (showNoteInput && categories.length === 0) {
+      api.getAnnotationCategories().then(setCategories).catch(console.error);
+    }
+  }, [showNoteInput, categories.length]);
 
   const handleCopy = useCallback(async () => {
     try {
@@ -154,14 +161,14 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
         undefined,
         selectedText,
         noteText.trim(),
-        '#fbbf24'
+        '#fbbf24',
+        selectedCategoryId
       );
       useToastStore.getState().addToast({
         title: 'Note saved',
         variant: 'success',
         duration: 2000,
       });
-      // Notify readers to re-render highlights
       window.dispatchEvent(new CustomEvent('annotation-changed'));
     } catch (err) {
       useToastStore.getState().addToast({
@@ -172,7 +179,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     }
     hideToolbar();
     window.getSelection()?.removeAllRanges();
-  }, [bookId, currentLocation, selectedText, noteText, hideToolbar]);
+  }, [bookId, currentLocation, selectedText, noteText, selectedCategoryId, hideToolbar]);
 
   const handleBookmark = useCallback(async () => {
     try {
@@ -334,6 +341,19 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
                 }}
                 rows={3}
               />
+              {categories.length > 0 && (
+                <select
+                  className="text-selection-category-select"
+                  value={selectedCategoryId ?? ''}
+                  onChange={(e) => setSelectedCategoryId(e.target.value ? Number(e.target.value) : undefined)}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <option value="">No category</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              )}
               <div className="text-selection-note-actions">
                 <button
                   className="text-selection-toolbar-btn text-selection-toolbar-btn--cancel"

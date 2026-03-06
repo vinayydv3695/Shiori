@@ -4,6 +4,7 @@ import type { BookMetadata, Chapter } from '@/lib/tauri';
 import { useUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement } from '@/store/premiumReaderStore';
 import { useDoodleStore } from '@/store/doodleStore';
 import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
+import { useReadingSession } from '@/hooks/useReadingSession';
 import { PremiumSidebar } from './PremiumSidebar';
 import { ReaderSettings } from './ReaderSettings';
 import { DoodleCanvas } from './DoodleCanvas';
@@ -194,6 +195,8 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
 
   const { theme, width, twoPageView, toggleTwoPageView, pageFlipEnabled, pageFlipSpeed, animationStyle } = useReadingSettings();
   const { isDoodleMode, toggleDoodleMode, resetPage: resetDoodlePage } = useDoodleStore();
+
+  useReadingSession(bookId);
 
   // Book state
   const [metadata, setMetadata] = useState<BookMetadata | null>(null);

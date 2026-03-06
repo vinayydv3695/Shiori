@@ -21,6 +21,7 @@ import { cn, formatFileSize } from '@/lib/utils'
 import { api } from '@/lib/tauri'
 import { useLibraryStore } from '@/store/libraryStore'
 import { useToast } from '@/store/toastStore'
+import type { CurrentView } from '@/store/uiStore'
 
 interface LayoutProps {
   children: ReactNode
@@ -38,7 +39,7 @@ interface LayoutProps {
   onGoHome?: () => void
   searchQuery?: string
   onSearchChange?: (query: string) => void
-  currentView?: 'home' | 'library' | 'rss-feeds' | 'rss-articles'
+  currentView?: CurrentView
   currentDomain?: 'books' | 'manga'
   onDomainChange?: (domain: 'books' | 'manga') => void
 }

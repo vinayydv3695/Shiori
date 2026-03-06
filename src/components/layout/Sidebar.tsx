@@ -1,4 +1,4 @@
-import { Library, Tag, Settings, ChevronLeft, ChevronRight, FolderOpen } from "../icons"
+import { Library, Tag, Settings, ChevronLeft, ChevronRight, FolderOpen, Highlighter } from "../icons"
 import { useUIStore } from "../../store/uiStore"
 import { cn } from "../../lib/utils"
 import { Button } from "../ui/button"
@@ -20,6 +20,7 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
 
   const navItems = [
     { icon: Library, label: "Library", action: () => setCurrentView("library") },
+    { icon: Highlighter, label: "Annotations", action: () => setCurrentView("annotations") },
     { icon: Tag, label: "Tags", action: () => setCurrentView("library") },
     { icon: Settings, label: "Settings", action: () => onOpenSettings?.() },
   ]
@@ -64,7 +65,8 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
                 "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 "hover:bg-accent hover:text-accent-foreground",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                item.label === "Library" && currentView === "library" && "bg-accent text-accent-foreground"
+                item.label === "Library" && currentView === "library" && "bg-accent text-accent-foreground",
+                item.label === "Annotations" && currentView === "annotations" && "bg-accent text-accent-foreground"
               )}
             >
               <item.icon className="h-5 w-5 flex-shrink-0" />

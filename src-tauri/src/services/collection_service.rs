@@ -12,7 +12,7 @@ impl CollectionService {
     pub fn get_collections(conn: &Connection) -> Result<Vec<Collection>> {
         let mut stmt = conn.prepare(
             "SELECT id, name, description, parent_id, is_smart, smart_rules, icon, color, 
-                    sort_order, created_at, updated_at
+                    collection_type, sort_order, created_at, updated_at
              FROM collections
              ORDER BY sort_order ASC, name ASC",
         )?;
@@ -34,7 +34,7 @@ impl CollectionService {
     pub fn get_collection(conn: &Connection, id: i64) -> Result<Collection> {
         let mut stmt = conn.prepare(
             "SELECT id, name, description, parent_id, is_smart, smart_rules, icon, color,
-                    sort_order, created_at, updated_at
+                    collection_type, sort_order, created_at, updated_at
              FROM collections
              WHERE id = ?1",
         )?;
@@ -54,13 +54,15 @@ impl CollectionService {
         smart_rules: Option<&str>,
         icon: Option<&str>,
         color: Option<&str>,
+        collection_type: Option<&str>,
     ) -> Result<Collection> {
         let now = Utc::now().to_rfc3339();
+        let coll_type = collection_type.unwrap_or("regular");
 
         conn.execute(
-            "INSERT INTO collections (name, description, parent_id, is_smart, smart_rules, icon, color, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-            params![name, description, parent_id, is_smart, smart_rules, icon, color, now, now],
+            "INSERT INTO collections (name, description, parent_id, is_smart, smart_rules, icon, color, collection_type, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![name, description, parent_id, is_smart, smart_rules, icon, color, coll_type, now, now],
         )?;
 
         let id = conn.last_insert_rowid();
@@ -192,7 +194,8 @@ impl CollectionService {
                     b.pubdate, b.series, b.series_index, b.rating, b.file_path, b.file_format,
                     b.file_size, b.file_hash, b.cover_path, b.page_count, b.word_count,
                     b.language, b.added_date, b.modified_date, b.last_opened, b.notes,
-                    b.online_metadata_fetched, b.metadata_source, b.metadata_last_sync, b.anilist_id
+                    b.online_metadata_fetched, b.metadata_source, b.metadata_last_sync, b.anilist_id,
+                    b.is_favorite
              FROM books b
              JOIN collections_books cb ON b.id = cb.book_id
              WHERE cb.collection_id = ?1
@@ -229,6 +232,7 @@ impl CollectionService {
                     metadata_source: row.get(24).ok().flatten(),
                     metadata_last_sync: row.get(25).ok().flatten(),
                     anilist_id: row.get(26).ok().flatten(),
+                    is_favorite: row.get::<_, i64>(27).unwrap_or(0) != 0,
                     authors: Vec::new(),
                     tags: Vec::new(),
                 })
@@ -297,7 +301,8 @@ impl CollectionService {
                     b.pubdate, b.series, b.series_index, b.rating, b.file_path, b.file_format,
                     b.file_size, b.file_hash, b.cover_path, b.page_count, b.word_count,
                     b.language, b.added_date, b.modified_date, b.last_opened, b.notes,
-                    b.online_metadata_fetched, b.metadata_source, b.metadata_last_sync, b.anilist_id
+                    b.online_metadata_fetched, b.metadata_source, b.metadata_last_sync, b.anilist_id,
+                    b.is_favorite
              FROM books b
              WHERE {}
              ORDER BY b.title ASC",
@@ -336,6 +341,7 @@ impl CollectionService {
                     metadata_source: row.get(24).ok().flatten(),
                     metadata_last_sync: row.get(25).ok().flatten(),
                     anilist_id: row.get(26).ok().flatten(),
+                    is_favorite: row.get::<_, i64>(27).unwrap_or(0) != 0,
                     authors: Vec::new(),
                     tags: Vec::new(),
                 })
@@ -357,9 +363,10 @@ impl CollectionService {
             smart_rules: row.get(5)?,
             icon: row.get(6)?,
             color: row.get(7)?,
-            sort_order: row.get(8)?,
-            created_at: row.get(9)?,
-            updated_at: row.get(10)?,
+            collection_type: row.get(8)?,
+            sort_order: row.get(9)?,
+            created_at: row.get(10)?,
+            updated_at: row.get(11)?,
             book_count: None,
             children: Vec::new(),
         })
@@ -418,5 +425,99 @@ impl CollectionService {
         }
 
         Ok(root_collections)
+    }
+
+    pub fn get_collections_by_type(
+        conn: &Connection,
+        collection_type: &str,
+    ) -> Result<Vec<Collection>> {
+        let mut stmt = conn.prepare(
+            "SELECT id, name, description, parent_id, is_smart, smart_rules, icon, color,
+                    collection_type, sort_order, created_at, updated_at
+             FROM collections
+             WHERE collection_type = ?1
+             ORDER BY sort_order ASC, name ASC",
+        )?;
+
+        let collections = stmt
+            .query_map(params![collection_type], |row| {
+                Self::collection_from_row(row)
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
+        let mut collections_with_counts = Vec::new();
+        for mut collection in collections {
+            collection.book_count = Some(Self::get_book_count(conn, collection.id.unwrap())?);
+            collections_with_counts.push(collection);
+        }
+
+        Ok(collections_with_counts)
+    }
+
+    pub fn get_favorites_collection(conn: &Connection) -> Result<Collection> {
+        let result = conn.query_row(
+            "SELECT id, name, description, parent_id, is_smart, smart_rules, icon, color,
+                    collection_type, sort_order, created_at, updated_at
+             FROM collections
+             WHERE collection_type = 'favorites'
+             LIMIT 1",
+            [],
+            |row| Self::collection_from_row(row),
+        );
+
+        match result {
+            Ok(mut collection) => {
+                collection.book_count = Some(Self::get_book_count(conn, collection.id.unwrap())?);
+                Ok(collection)
+            }
+            Err(_) => {
+                let now = Utc::now().to_rfc3339();
+                conn.execute(
+                    "INSERT INTO collections (name, description, is_smart, collection_type, icon, sort_order, created_at, updated_at)
+                     VALUES ('Favorites', 'Your favorite books', 0, 'favorites', '❤️', -1, ?1, ?2)",
+                    params![now, now],
+                )?;
+                let id = conn.last_insert_rowid();
+                Self::get_collection(conn, id)
+            }
+        }
+    }
+
+    pub fn toggle_book_favorite(conn: &Connection, book_id: i64) -> Result<bool> {
+        let current: bool = conn.query_row(
+            "SELECT is_favorite FROM books WHERE id = ?1",
+            params![book_id],
+            |row| Ok(row.get::<_, i64>(0)? != 0),
+        )?;
+
+        let new_state = !current;
+        conn.execute(
+            "UPDATE books SET is_favorite = ?1 WHERE id = ?2",
+            params![if new_state { 1 } else { 0 }, book_id],
+        )?;
+
+        let favorites = Self::get_favorites_collection(conn)?;
+        let fav_id = favorites.id.unwrap();
+        if new_state {
+            conn.execute(
+                "INSERT OR IGNORE INTO collections_books (collection_id, book_id, added_at) VALUES (?1, ?2, ?3)",
+                params![fav_id, book_id, Utc::now().to_rfc3339()],
+            )?;
+        } else {
+            conn.execute(
+                "DELETE FROM collections_books WHERE collection_id = ?1 AND book_id = ?2",
+                params![fav_id, book_id],
+            )?;
+        }
+
+        Ok(new_state)
+    }
+
+    pub fn get_favorite_book_ids(conn: &Connection) -> Result<Vec<i64>> {
+        let mut stmt = conn.prepare("SELECT id FROM books WHERE is_favorite = 1")?;
+        let ids = stmt
+            .query_map([], |row| row.get(0))?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok(ids)
     }
 }

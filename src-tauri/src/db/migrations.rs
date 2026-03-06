@@ -60,6 +60,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 12 {
             self.run_in_savepoint("v12", |mgr| mgr.migrate_to_v12())?;
         }
+        if current_version < 13 {
+            self.run_in_savepoint("v13", |mgr| mgr.migrate_to_v13())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -1330,6 +1333,52 @@ impl<'a> MigrationManager<'a> {
         self.record_migration(12, "tts_preferences", "v12_tts_preferences")?;
 
         log::info!("[Migration] v12 applied successfully");
+        Ok(())
+    }
+
+    /// Migration v13: Collection types and book favorites
+    fn migrate_to_v13(&self) -> Result<()> {
+        log::info!("[Migration] Applying v13: Collection types and book favorites");
+
+        // Add collection_type column: 'regular', 'shelf', 'favorites'
+        if !self.column_exists("collections", "collection_type")? {
+            self.conn.execute(
+                "ALTER TABLE collections ADD COLUMN collection_type TEXT NOT NULL DEFAULT 'regular'",
+                [],
+            )?;
+        }
+
+        // Add is_favorite column to books table for quick toggle
+        if !self.column_exists("books", "is_favorite")? {
+            self.conn.execute(
+                "ALTER TABLE books ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0",
+                [],
+            )?;
+        }
+
+        // Create the built-in Favorites collection if it doesn't exist
+        let favorites_exists: bool = self.conn.query_row(
+            "SELECT COUNT(*) > 0 FROM collections WHERE collection_type = 'favorites'",
+            [],
+            |row| row.get(0),
+        )?;
+
+        if !favorites_exists {
+            let now = chrono::Utc::now().to_rfc3339();
+            self.conn.execute(
+                "INSERT INTO collections (name, description, is_smart, collection_type, icon, sort_order, created_at, updated_at) VALUES ('Favorites', 'Your favorite books', 0, 'favorites', '❤️', -1, ?1, ?2)",
+                rusqlite::params![now, now],
+            )?;
+        }
+
+        self.set_schema_version(13)?;
+        self.record_migration(
+            13,
+            "collection_types_favorites",
+            "v13_collection_types_favorites",
+        )?;
+
+        log::info!("[Migration] v13 applied successfully");
         Ok(())
     }
 

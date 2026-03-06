@@ -35,3 +35,6 @@ pub mod manga_metadata_service;
 pub mod book_metadata_service;
 pub mod online;
 
+// Backup/restore service
+pub mod backup_service;
+

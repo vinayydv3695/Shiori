@@ -55,6 +55,10 @@ interface ReaderState {
   // Reading progress
   progress: ReadingProgress | null;
   
+  // Reading session (Phase 3)
+  currentSessionId: string | null;
+  sessionStartTime: number | null;
+  
   // Annotations
   annotations: Annotation[];
   selectedAnnotation: Annotation | null;
@@ -82,6 +86,8 @@ interface ReaderState {
   updateSettings: (settings: Partial<ReaderSettings>) => void;
   toggleAnnotationSidebar: () => void;
   toggleControls: () => void;
+  startSession: (sessionId: string) => void;
+  endSession: () => void;
 }
 
 export const useReaderStore = create<ReaderState>((set) => ({
@@ -90,6 +96,8 @@ export const useReaderStore = create<ReaderState>((set) => ({
   currentBookPath: null,
   currentBookFormat: null,
   progress: null,
+  currentSessionId: null,
+  sessionStartTime: null,
   annotations: [],
   categories: [],
   selectedAnnotation: null,
@@ -125,6 +133,8 @@ export const useReaderStore = create<ReaderState>((set) => ({
       progress: null,
       annotations: [],
       selectedAnnotation: null,
+      currentSessionId: null,
+      sessionStartTime: null,
     }),
 
   setProgress: (progress) => set({ progress }),
@@ -167,4 +177,16 @@ export const useReaderStore = create<ReaderState>((set) => ({
     set((state) => ({
       showControls: !state.showControls,
     })),
+
+  startSession: (sessionId: string) =>
+    set({
+      currentSessionId: sessionId,
+      sessionStartTime: Date.now(),
+    }),
+
+  endSession: () =>
+    set({
+      currentSessionId: null,
+      sessionStartTime: null,
+    }),
 }));

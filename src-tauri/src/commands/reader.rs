@@ -1,5 +1,9 @@
 use crate::error::Result;
-use crate::models::{Annotation, AnnotationCategory, AnnotationExportData, AnnotationExportOptions, AnnotationSearchResult, ReaderSettings, ReadingProgress};
+use crate::models::{
+    Annotation, AnnotationCategory, AnnotationExportData, AnnotationExportOptions,
+    AnnotationSearchResult, BookReadingStats, DailyReadingStats, ReaderSettings, ReadingGoal,
+    ReadingProgress, ReadingSession, ReadingStreak,
+};
 use crate::services::format_detector;
 use crate::services::reader_service::ReaderService;
 use crate::utils::validate;
@@ -270,6 +274,87 @@ pub async fn validate_book_file(path: String, format: String) -> Result<bool> {
     validate::require_safe_path(&path, "path")?;
     validate::require_non_empty(&format, "format")?;
     format_detector::validate_file_integrity(Path::new(&path), &format).await
+}
+
+// ==================== Reading Session & Statistics Commands ====================
+
+#[tauri::command]
+pub fn start_reading_session(
+    book_id: i64,
+    pages_start: Option<i32>,
+    state: State<AppState>,
+) -> Result<ReadingSession> {
+    validate::require_positive_id(book_id, "book_id")?;
+    let conn = state.db.get_connection()?;
+    ReaderService::start_reading_session(&conn, book_id, pages_start)
+}
+
+#[tauri::command]
+pub fn end_reading_session(
+    session_id: String,
+    pages_end: Option<i32>,
+    state: State<AppState>,
+) -> Result<()> {
+    validate::require_non_empty(&session_id, "session_id")?;
+    let conn = state.db.get_connection()?;
+    ReaderService::end_reading_session(&conn, &session_id, pages_end)
+}
+
+#[tauri::command]
+pub fn heartbeat_reading_session(
+    session_id: String,
+    duration_seconds: i64,
+    state: State<AppState>,
+) -> Result<()> {
+    validate::require_non_empty(&session_id, "session_id")?;
+    let conn = state.db.get_connection()?;
+    ReaderService::heartbeat_reading_session(&conn, &session_id, duration_seconds)
+}
+
+#[tauri::command]
+pub fn get_daily_reading_stats(
+    days: Option<i32>,
+    state: State<AppState>,
+) -> Result<Vec<DailyReadingStats>> {
+    let conn = state.db.get_connection()?;
+    ReaderService::get_daily_reading_stats(&conn, days.unwrap_or(30))
+}
+
+#[tauri::command]
+pub fn get_book_reading_stats(
+    book_id: i64,
+    state: State<AppState>,
+) -> Result<BookReadingStats> {
+    validate::require_positive_id(book_id, "book_id")?;
+    let conn = state.db.get_connection()?;
+    ReaderService::get_book_reading_stats(&conn, book_id)
+}
+
+#[tauri::command]
+pub fn get_reading_streak(state: State<AppState>) -> Result<ReadingStreak> {
+    let conn = state.db.get_connection()?;
+    ReaderService::get_reading_streak(&conn)
+}
+
+#[tauri::command]
+pub fn get_reading_goal(state: State<AppState>) -> Result<ReadingGoal> {
+    let conn = state.db.get_connection()?;
+    ReaderService::get_reading_goal(&conn)
+}
+
+#[tauri::command]
+pub fn update_reading_goal(
+    daily_minutes_target: i32,
+    state: State<AppState>,
+) -> Result<ReadingGoal> {
+    let conn = state.db.get_connection()?;
+    ReaderService::update_reading_goal(&conn, daily_minutes_target)
+}
+
+#[tauri::command]
+pub fn get_today_reading_time(state: State<AppState>) -> Result<i64> {
+    let conn = state.db.get_connection()?;
+    ReaderService::get_today_reading_time(&conn)
 }
 
 // ==================== Error Information Commands ====================

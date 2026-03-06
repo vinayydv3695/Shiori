@@ -215,3 +215,48 @@ pub struct ExportOptions {
     pub include_reading_progress: bool,
     pub file_path: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReadingSession {
+    pub id: String,
+    pub book_id: i64,
+    pub started_at: String,
+    pub ended_at: Option<String>,
+    pub duration_seconds: i64,
+    pub pages_start: Option<i32>,
+    pub pages_end: Option<i32>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyReadingStats {
+    pub date: String,
+    pub total_seconds: i64,
+    pub books_count: i64,
+    pub sessions_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReadingGoal {
+    pub id: Option<i64>,
+    pub daily_minutes_target: i32,
+    pub is_active: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReadingStreak {
+    pub current_streak: i32,
+    pub longest_streak: i32,
+    pub total_reading_days: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BookReadingStats {
+    pub book_id: i64,
+    pub total_seconds: i64,
+    pub sessions_count: i64,
+    pub last_read: Option<String>,
+    pub average_session_minutes: f64,
+}

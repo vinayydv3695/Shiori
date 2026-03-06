@@ -54,6 +54,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 10 {
             self.run_in_savepoint("v10", |mgr| mgr.migrate_to_v10())?;
         }
+        if current_version < 11 {
+            self.run_in_savepoint("v11", |mgr| mgr.migrate_to_v11())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -1231,6 +1234,56 @@ impl<'a> MigrationManager<'a> {
         self.record_migration(10, "enhanced_annotations", "v10_annotations_categories_fts")?;
 
         log::info!("[Migration] v10 applied successfully");
+        Ok(())
+    }
+
+    /// Migration v11: Reading sessions & reading goals (Phase 3 — Reading Statistics)
+    fn migrate_to_v11(&self) -> Result<()> {
+        log::info!("[Migration] Applying v11: Reading sessions & goals (statistics)");
+
+        // Step 1: Reading sessions table — one row per reading session
+        if !self.table_exists("reading_sessions")? {
+            self.conn.execute_batch(
+                r#"
+                CREATE TABLE reading_sessions (
+                    id TEXT PRIMARY KEY,
+                    book_id INTEGER NOT NULL,
+                    started_at TEXT NOT NULL,
+                    ended_at TEXT,
+                    duration_seconds INTEGER NOT NULL DEFAULT 0,
+                    pages_start INTEGER,
+                    pages_end INTEGER,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(book_id) REFERENCES books(id) ON DELETE CASCADE
+                );
+
+                CREATE INDEX idx_reading_sessions_book_id ON reading_sessions(book_id);
+                CREATE INDEX idx_reading_sessions_started_at ON reading_sessions(started_at);
+                "#,
+            )?;
+        }
+
+        // Step 2: Reading goals table — singleton active goal
+        if !self.table_exists("reading_goals")? {
+            self.conn.execute_batch(
+                r#"
+                CREATE TABLE reading_goals (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    daily_minutes_target INTEGER NOT NULL DEFAULT 30,
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+
+                INSERT INTO reading_goals (daily_minutes_target, is_active) VALUES (30, 1);
+                "#,
+            )?;
+        }
+
+        self.set_schema_version(11)?;
+        self.record_migration(11, "reading_sessions_goals", "v11_reading_statistics")?;
+
+        log::info!("[Migration] v11 applied successfully");
         Ok(())
     }
 

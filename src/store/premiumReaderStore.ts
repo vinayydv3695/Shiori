@@ -16,6 +16,7 @@ interface UIState {
   isFocusMode: boolean;
   scrollProgress: number; // 0-100
   lastMouseMovement: number;
+  pendingAnnotationId: number | null; // Set to scroll-to a specific annotation after DOM render
 
   // Actions
   setTopBarVisible: (visible: boolean) => void;
@@ -25,6 +26,7 @@ interface UIState {
   toggleFocusMode: () => void;
   setScrollProgress: (progress: number) => void;
   updateMouseMovement: () => void;
+  setPendingAnnotationId: (id: number | null) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -34,6 +36,7 @@ export const useUIStore = create<UIState>((set) => ({
   isFocusMode: false,
   scrollProgress: 0,
   lastMouseMovement: Date.now(),
+  pendingAnnotationId: null,
 
   setTopBarVisible: (visible) => set({ isTopBarVisible: visible }),
 
@@ -56,6 +59,8 @@ export const useUIStore = create<UIState>((set) => ({
   setScrollProgress: (progress) => set({ scrollProgress: progress }),
 
   updateMouseMovement: () => set({ lastMouseMovement: Date.now() }),
+
+  setPendingAnnotationId: (id) => set({ pendingAnnotationId: id }),
 }));
 
 // ────────────────────────────────────────────────────────────

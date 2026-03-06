@@ -6,10 +6,13 @@ import { AnimatePresence, motion } from "framer-motion";
 
 // Steps
 import { WelcomeStep } from "./steps/WelcomeStep";
+import { FeaturesOverviewStep } from "./steps/FeaturesOverviewStep";
 import { ContentTypeStep } from "./steps/ContentTypeStep";
 import { ThemeStep } from "./steps/ThemeStep";
 import { ReadingPrefsStep } from "./steps/ReadingPrefsStep";
 import { MangaPrefsStep } from "./steps/MangaPrefsStep";
+import { ReadingGoalStep } from "./steps/ReadingGoalStep";
+import { TranslationStep } from "./steps/TranslationStep";
 import { PerformanceStep } from "./steps/PerformanceStep";
 import { MetadataStep } from "./steps/MetadataStep";
 import { LibrarySetupStep } from "./steps/LibrarySetupStep";
@@ -46,10 +49,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     const renderStep = () => {
         switch (currentStepId) {
             case 'welcome': return <WelcomeStep />;
+            case 'features-overview': return <FeaturesOverviewStep />;
             case 'content-type': return <ContentTypeStep />;
             case 'theme': return <ThemeStep />;
             case 'reading-prefs': return <ReadingPrefsStep />;
             case 'manga-prefs': return <MangaPrefsStep />;
+            case 'reading-goal': return <ReadingGoalStep />;
+            case 'translation': return <TranslationStep />;
             case 'performance': return <PerformanceStep />;
             case 'metadata': return <MetadataStep />;
             case 'library-setup': return <LibrarySetupStep />;

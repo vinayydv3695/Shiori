@@ -6,7 +6,7 @@
 export type Theme = 'black' | 'white';
 export type ScrollMode = 'paged' | 'continuous';
 export type Justification = 'left' | 'justify';
-export type MangaMode = 'long-strip' | 'single' | 'double';
+export type MangaMode = 'long-strip' | 'single' | 'double' | 'webtoon' | 'manhwa' | 'comic';
 export type Direction = 'ltr' | 'rtl';
 export type ProgressBarPosition = 'top' | 'bottom' | 'hidden';
 export type UIDensity = 'compact' | 'comfortable';
@@ -59,6 +59,7 @@ export interface UserPreferences {
   autoScanEnabled: boolean;
   defaultMangaPath: string | null;
   translationTargetLanguage: string;
+  dailyReadingGoalMinutes: number;
 }
 
 export interface PreferenceOverride {
@@ -122,4 +123,5 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   autoScanEnabled: true,
   defaultMangaPath: null,
   translationTargetLanguage: 'en',
+  dailyReadingGoalMinutes: 30,
 };

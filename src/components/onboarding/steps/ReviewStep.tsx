@@ -1,8 +1,16 @@
 import { useOnboardingStore } from "../../../store/onboardingStore";
 import { Check, Settings } from "lucide-react";
 
+const LANGUAGE_NAMES: Record<string, string> = {
+    en: 'English', es: 'Spanish', fr: 'French', de: 'German', ja: 'Japanese',
+    zh: 'Chinese', ko: 'Korean', pt: 'Portuguese', ru: 'Russian', ar: 'Arabic',
+};
+
 export function ReviewStep() {
     const draftConfig = useOnboardingStore(state => state.draftConfig);
+
+    const goalMinutes = draftConfig.dailyReadingGoalMinutes ?? 30;
+    const translationLang = draftConfig.translationTargetLanguage || 'en';
 
     return (
         <div className="w-full space-y-8 py-4 px-2 max-w-xl mx-auto animate-in fade-in duration-500">
@@ -40,6 +48,16 @@ export function ReviewStep() {
                 <div className="flex justify-between items-center border-b border-border/50 pb-3">
                     <span className="text-muted-foreground font-medium">Automatic Metadata Enrichment</span>
                     <span className="font-semibold capitalize text-foreground">{draftConfig.metadataMode || 'Online'} Flow</span>
+                </div>
+
+                <div className="flex justify-between items-center border-b border-border/50 pb-3">
+                    <span className="text-muted-foreground font-medium">Daily Reading Goal</span>
+                    <span className="font-semibold text-foreground">{goalMinutes} min/day</span>
+                </div>
+
+                <div className="flex justify-between items-center border-b border-border/50 pb-3">
+                    <span className="text-muted-foreground font-medium">Translation Language</span>
+                    <span className="font-semibold text-foreground">{LANGUAGE_NAMES[translationLang] || translationLang}</span>
                 </div>
 
                 <div className="flex justify-between items-center pt-1">

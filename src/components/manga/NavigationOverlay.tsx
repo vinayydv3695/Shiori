@@ -18,8 +18,8 @@ export const NavigationOverlay = memo(function NavigationOverlay() {
     // Debounce boundary toasts to avoid spam
     const lastBoundaryToast = useRef(0);
 
-    // Don't show overlay in strip mode (scroll-based navigation)
-    if (readingMode === 'strip') return null;
+    // Don't show overlay in scroll-based modes (strip, webtoon, manhwa)
+    if (readingMode === 'strip' || readingMode === 'webtoon' || readingMode === 'manhwa') return null;
 
     const step = readingMode === 'double' ? 2 : 1;
 

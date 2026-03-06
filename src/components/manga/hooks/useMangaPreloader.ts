@@ -200,7 +200,7 @@ export function useMangaPreloader() {
 
         const pagesToPreload: number[] = [];
 
-        if (readingMode === 'single') {
+        if (readingMode === 'single' || readingMode === 'comic') {
             // Preload 3 ahead, 1 behind
             for (let i = -1; i <= 3; i++) {
                 const target = page + i;
@@ -217,7 +217,7 @@ export function useMangaPreloader() {
                 }
             }
         }
-        // Strip mode: handled by virtualizer overscan
+        // Strip, webtoon, and manhwa: handled by virtualizer overscan + view-level preloading
 
         if (pagesToPreload.length > 0) {
             preloadPages(bookId, pagesToPreload);

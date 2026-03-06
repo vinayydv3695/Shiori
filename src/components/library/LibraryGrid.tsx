@@ -8,6 +8,7 @@
 
 import { useMemo, useRef, useEffect, useState } from 'react'
 import type { Book } from '@/lib/tauri'
+import { api } from '@/lib/tauri'
 import { PremiumBookCard } from './ModernBookCard'
 import { useLibraryStore } from '@/store/libraryStore'
 import type { DomainView } from '@/store/uiStore'
@@ -103,7 +104,7 @@ export function LibraryGrid({
   onImportBooks,
   onImportManga,
 }: LibraryGridProps) {
-  const { setSelectedBook, selectedBookIds, toggleBookSelection, hasMore, isLoading, loadMoreBooks } = useLibraryStore()
+  const { setSelectedBook, selectedBookIds, toggleBookSelection, hasMore, isLoading, loadMoreBooks, favoriteBookIds, toggleFavorite } = useLibraryStore()
 
   // Hard domain filter — strict separation between books and manga
   const visibleLibrary = useMemo(() => {
@@ -216,6 +217,11 @@ export function LibraryGrid({
                         onDelete={(id) => onDeleteBook?.(id)}
                         onConvert={onConvertBook ? (id) => onConvertBook(id) : undefined}
                         onShare={onShareBook ? (id) => onShareBook(id) : undefined}
+                        isFavorited={favoriteBookIds.has(book.id!)}
+                        onFavorite={async (id) => {
+                          await api.toggleBookFavorite(id)
+                          toggleFavorite(id)
+                        }}
                         animationDelay={Math.min(absoluteIndex * 10, 150)}
                       />
                     </div>

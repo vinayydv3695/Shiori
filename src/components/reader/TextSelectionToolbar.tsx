@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Highlighter, StickyNote, Bookmark, X } from '@/components/icons';
+import { Highlighter, StickyNote, Bookmark, X, Volume2 } from '@/components/icons';
 import { api } from '@/lib/tauri';
 import { useToastStore } from '@/store/toastStore';
+import { ttsEngine, TTSEngine } from '@/lib/ttsEngine';
 
 interface TextSelectionToolbarProps {
   bookId: number;
@@ -202,6 +203,21 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     window.getSelection()?.removeAllRanges();
   }, [bookId, currentLocation, selectedText, hideToolbar]);
 
+  const handleSpeak = useCallback(() => {
+    if (!TTSEngine.isAvailable()) {
+      useToastStore.getState().addToast({
+        title: 'Text-to-Speech not available',
+        description: 'Your platform does not support speech synthesis',
+        variant: 'error',
+        duration: 3000,
+      });
+      return;
+    }
+    ttsEngine.speak(selectedText, { rate: 1.0 });
+    hideToolbar();
+    window.getSelection()?.removeAllRanges();
+  }, [selectedText, hideToolbar]);
+
   return (
     <AnimatePresence>
       {isVisible && (
@@ -259,6 +275,17 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
                 <Bookmark size={14} />
                 <span>Bookmark</span>
               </button>
+
+              {TTSEngine.isAvailable() && (
+                <button
+                  className="text-selection-toolbar-btn"
+                  onClick={handleSpeak}
+                  title="Speak selected text"
+                >
+                  <Volume2 size={14} />
+                  <span>Speak</span>
+                </button>
+              )}
             </div>
           )}
 

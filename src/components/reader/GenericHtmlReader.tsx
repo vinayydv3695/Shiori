@@ -10,6 +10,7 @@ import { ReaderSettings } from './ReaderSettings';
 import type { ReaderFormat } from './ReaderSettings';
 import { PremiumSidebar } from './PremiumSidebar';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
+import { TTSControlBar } from './TTSControlBar';
 import { sanitizeBookContent } from '@/lib/sanitize';
 import { applyHighlightsToDOM } from '@/lib/highlightAnnotations';
 import '@/styles/premium-reader.css';
@@ -434,6 +435,12 @@ export function GenericHtmlReader({ bookPath, bookId, format }: GenericHtmlReade
             <TextSelectionToolbar
                 bookId={bookId}
                 currentLocation={`generic-chapter-${currentChapter}`}
+            />
+
+            {/* TTS Control Bar */}
+            <TTSControlBar
+                contentRef={contentRef}
+                onChapterEnd={nextPage}
             />
         </div>
     );

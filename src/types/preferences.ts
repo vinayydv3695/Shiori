@@ -58,6 +58,7 @@ export interface UserPreferences {
   metadataMode: string;
   autoScanEnabled: boolean;
   defaultMangaPath: string | null;
+  translationTargetLanguage: string;
 }
 
 export interface PreferenceOverride {
@@ -120,4 +121,5 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   metadataMode: 'online',
   autoScanEnabled: true,
   defaultMangaPath: null,
+  translationTargetLanguage: 'en',
 };

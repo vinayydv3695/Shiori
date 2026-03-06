@@ -297,6 +297,33 @@ export interface RestoreInfo {
   frontend_settings: string | null
 }
 
+export interface DictionaryMeaning {
+  part_of_speech: string
+  definitions: DictionaryDefinition[]
+}
+
+export interface DictionaryDefinition {
+  definition: string
+  example: string | null
+  synonyms: string[]
+  antonyms: string[]
+}
+
+export interface DictionaryResponse {
+  word: string
+  phonetic: string | null
+  audio_url: string | null
+  meanings: DictionaryMeaning[]
+  source_url: string | null
+}
+
+export interface TranslationResponse {
+  translated_text: string
+  source_language: string
+  target_language: string
+  provider: string
+}
+
 // Mock data for development (when not in Tauri)
 const mockBooks: Book[] = [
   {
@@ -924,5 +951,13 @@ export const api = {
 
   async getBackupInfo(backupPath: string): Promise<BackupInfo> {
     return invoke("get_backup_info", { backupPath })
+  },
+
+  async dictionaryLookup(word: string, lang?: string): Promise<DictionaryResponse> {
+    return invoke("dictionary_lookup", { word, lang })
+  },
+
+  async translateText(text: string, targetLang: string, sourceLang?: string): Promise<TranslationResponse> {
+    return invoke("translate_text", { text, sourceLang, targetLang })
   },
 }

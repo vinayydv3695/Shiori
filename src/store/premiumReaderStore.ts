@@ -75,9 +75,17 @@ interface ReadingSettings {
   letterSpacing: string;
   textAlign: 'left' | 'justify';
 
+  // Colors (Koodo-style custom bg/text)
+  backgroundColor: string; // hex color or 'default' (uses theme color)
+  textColor: string; // hex color or 'default' (uses theme color)
+
   // Layout
   width: 'narrow' | 'medium' | 'wide' | 'full';
+  margin: number; // 0-80px content margin
   twoPageView: boolean;
+
+  // Brightness
+  brightness: number; // 0.5-1.5
 
   // Page Transition Animation
   pageFlipEnabled: boolean;
@@ -101,9 +109,13 @@ interface ReadingSettings {
   setParagraphSpacing: (spacing: string) => void;
   setLetterSpacing: (spacing: string) => void;
   setTextAlign: (align: 'left' | 'justify') => void;
+  setBackgroundColor: (color: string) => void;
+  setTextColor: (color: string) => void;
   setWidth: (width: 'narrow' | 'medium' | 'wide' | 'full') => void;
+  setMargin: (margin: number) => void;
   cycleWidth: () => void;
   toggleTwoPageView: () => void;
+  setBrightness: (brightness: number) => void;
   setPageFlipEnabled: (enabled: boolean) => void;
   setPageFlipSpeed: (speed: number) => void;
   setAnimationStyle: (style: 'slide' | 'fade' | 'none') => void;
@@ -120,14 +132,38 @@ const defaultSettings = {
   paragraphSpacing: '1em',
   letterSpacing: 'normal',
   textAlign: 'left' as const,
+  backgroundColor: 'default',
+  textColor: 'default',
   width: 'wide' as const,
+  margin: 0,
   twoPageView: false,
+  brightness: 1.0,
   pageFlipEnabled: false,
   pageFlipSpeed: 400,
   animationStyle: 'slide' as const,
   paperTextureIntensity: 0.08,
   uiScale: 1.0,
 };
+
+export const BG_COLOR_PRESETS = [
+  { id: 'default', color: 'default', label: 'Theme' },
+  { id: 'white', color: '#FFFFFF', label: 'White' },
+  { id: 'cream', color: '#F5F0E8', label: 'Cream' },
+  { id: 'green', color: '#E8F0E8', label: 'Green' },
+  { id: 'blue', color: '#E8EEF5', label: 'Blue' },
+  { id: 'pink', color: '#F5E8EE', label: 'Pink' },
+  { id: 'dark', color: '#1C1917', label: 'Dark' },
+];
+
+export const TEXT_COLOR_PRESETS = [
+  { id: 'default', color: 'default', label: 'Theme' },
+  { id: 'black', color: '#1A1817', label: 'Black' },
+  { id: 'dark-gray', color: '#333333', label: 'Dark Gray' },
+  { id: 'brown', color: '#5C4F3D', label: 'Brown' },
+  { id: 'dark-green', color: '#2D4A2D', label: 'Green' },
+  { id: 'dark-blue', color: '#2D3A4A', label: 'Blue' },
+  { id: 'light', color: '#E7E5E4', label: 'Light' },
+];
 
 export const useReadingSettings = create<ReadingSettings>()(
   persist(
@@ -192,7 +228,23 @@ export const useReadingSettings = create<ReadingSettings>()(
         applyTextAlignToDOM(align);
       },
 
+      setBackgroundColor: (color) => {
+        set({ backgroundColor: color });
+        applyBackgroundColorToDOM(color);
+      },
+
+      setTextColor: (color) => {
+        set({ textColor: color });
+        applyTextColorToDOM(color);
+      },
+
       setWidth: (width) => set({ width }),
+
+      setMargin: (margin) => {
+        const clamped = Math.max(0, Math.min(80, margin));
+        set({ margin: clamped });
+        applyMarginToDOM(clamped);
+      },
 
       cycleWidth: () => {
         const widths: Array<'narrow' | 'medium' | 'wide' | 'full'> = ['narrow', 'medium', 'wide', 'full'];
@@ -203,6 +255,12 @@ export const useReadingSettings = create<ReadingSettings>()(
       },
 
       toggleTwoPageView: () => set((state) => ({ twoPageView: !state.twoPageView })),
+
+      setBrightness: (brightness) => {
+        const clamped = Math.max(0.5, Math.min(1.5, brightness));
+        set({ brightness: clamped });
+        applyBrightnessToDOM(clamped);
+      },
 
       setPageFlipEnabled: (enabled) => set({ pageFlipEnabled: enabled }),
 
@@ -226,7 +284,7 @@ export const useReadingSettings = create<ReadingSettings>()(
     }),
     {
       name: 'shiori-reading-settings',
-      version: 3,
+      version: 4,
     }
   )
 );
@@ -404,6 +462,38 @@ const applyTextAlignToDOM = (align: string) => {
   });
 };
 
+const applyBackgroundColorToDOM = (color: string) => {
+  requestAnimationFrame(() => {
+    if (color === 'default') {
+      document.documentElement.style.removeProperty('--reading-bg-color');
+    } else {
+      document.documentElement.style.setProperty('--reading-bg-color', color);
+    }
+  });
+};
+
+const applyTextColorToDOM = (color: string) => {
+  requestAnimationFrame(() => {
+    if (color === 'default') {
+      document.documentElement.style.removeProperty('--reading-text-color');
+    } else {
+      document.documentElement.style.setProperty('--reading-text-color', color);
+    }
+  });
+};
+
+const applyMarginToDOM = (margin: number) => {
+  requestAnimationFrame(() => {
+    document.documentElement.style.setProperty('--reading-margin', `${margin}px`);
+  });
+};
+
+const applyBrightnessToDOM = (brightness: number) => {
+  requestAnimationFrame(() => {
+    document.documentElement.style.setProperty('--reading-brightness', `${brightness}`);
+  });
+};
+
 // Initialize reader typography settings on load.
 // NOTE: Reader theme (colors) are NOT applied here — they are scoped to
 // the reader container element and applied on mount via applyReaderThemeToElement().
@@ -432,6 +522,10 @@ if (typeof window !== 'undefined') {
     applyLetterSpacingToDOM(s.letterSpacing || 'normal');
     applyTextAlignToDOM(s.textAlign || 'left');
     applyTextureIntensityToDOM(s.paperTextureIntensity ?? 0.08);
+    applyBackgroundColorToDOM(s.backgroundColor || 'default');
+    applyTextColorToDOM(s.textColor || 'default');
+    applyMarginToDOM(s.margin ?? 0);
+    applyBrightnessToDOM(s.brightness ?? 1.0);
   } else {
     // Apply defaults
     applyFontToDOM('literata');
@@ -441,5 +535,9 @@ if (typeof window !== 'undefined') {
     applyLetterSpacingToDOM('normal');
     applyTextAlignToDOM('left');
     applyTextureIntensityToDOM(0.08);
+    applyBackgroundColorToDOM('default');
+    applyTextColorToDOM('default');
+    applyMarginToDOM(0);
+    applyBrightnessToDOM(1.0);
   }
 }

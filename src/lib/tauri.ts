@@ -234,6 +234,47 @@ export interface Doodle {
   updated_at: string
 }
 
+// Phase 3: Reading Statistics Types
+export interface ReadingSession {
+  id: string
+  book_id: number
+  started_at: string
+  ended_at: string | null
+  duration_seconds: number
+  pages_start: number | null
+  pages_end: number | null
+  created_at: string
+}
+
+export interface DailyReadingStats {
+  date: string
+  total_seconds: number
+  books_count: number
+  sessions_count: number
+}
+
+export interface ReadingGoal {
+  id?: number
+  daily_minutes_target: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface ReadingStreak {
+  current_streak: number
+  longest_streak: number
+  total_reading_days: number
+}
+
+export interface BookReadingStats {
+  book_id: number
+  total_seconds: number
+  sessions_count: number
+  last_read: string | null
+  average_session_minutes: number
+}
+
 // Mock data for development (when not in Tauri)
 const mockBooks: Book[] = [
   {
@@ -793,5 +834,42 @@ export const api = {
 
   async deleteBookDoodles(bookId: number): Promise<number> {
     return invoke("delete_book_doodles", { bookId })
+  },
+
+  // Reading Sessions & Statistics
+  async startReadingSession(bookId: number, pagesStart?: number): Promise<ReadingSession> {
+    return invoke("start_reading_session", { bookId, pagesStart })
+  },
+
+  async endReadingSession(sessionId: string, pagesEnd?: number): Promise<void> {
+    return invoke("end_reading_session", { sessionId, pagesEnd })
+  },
+
+  async heartbeatReadingSession(sessionId: string, durationSeconds: number): Promise<void> {
+    return invoke("heartbeat_reading_session", { sessionId, durationSeconds })
+  },
+
+  async getDailyReadingStats(days?: number): Promise<DailyReadingStats[]> {
+    return invoke("get_daily_reading_stats", { days })
+  },
+
+  async getBookReadingStats(bookId: number): Promise<BookReadingStats> {
+    return invoke("get_book_reading_stats", { bookId })
+  },
+
+  async getReadingStreak(): Promise<ReadingStreak> {
+    return invoke("get_reading_streak")
+  },
+
+  async getReadingGoal(): Promise<ReadingGoal> {
+    return invoke("get_reading_goal")
+  },
+
+  async updateReadingGoal(dailyMinutesTarget: number): Promise<ReadingGoal> {
+    return invoke("update_reading_goal", { dailyMinutesTarget })
+  },
+
+  async getTodayReadingTime(): Promise<number> {
+    return invoke("get_today_reading_time")
   },
 }

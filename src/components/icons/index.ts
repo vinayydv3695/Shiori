@@ -57,4 +57,8 @@ export {
   SkipBack,
   Play,
   Pause,
+  Clock,
+  Maximize2,
+  Minimize2,
+  ArrowLeft,
 } from "lucide-react"

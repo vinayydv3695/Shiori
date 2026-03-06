@@ -51,6 +51,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 9 {
             self.run_in_savepoint("v9", |mgr| mgr.migrate_to_v9())?;
         }
+        if current_version < 10 {
+            self.run_in_savepoint("v10", |mgr| mgr.migrate_to_v10())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -1120,6 +1123,114 @@ impl<'a> MigrationManager<'a> {
         self.record_migration(9, "fix_rss_schema_mismatch", "v9_rss_schema_fix")?;
 
         log::info!("[Migration] v9 applied successfully");
+        Ok(())
+    }
+
+    /// Migration v10: Enhanced annotations — categories, FTS5, chapter tracking
+    fn migrate_to_v10(&self) -> Result<()> {
+        log::info!(
+            "[Migration] Applying v10: Enhanced annotations (categories, FTS5, chapter tracking)"
+        );
+
+        // Step 1: Annotation categories table
+        self.conn.execute_batch(
+            r#"
+            CREATE TABLE IF NOT EXISTS annotation_categories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                color TEXT NOT NULL DEFAULT '#6B7280',
+                icon TEXT,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            "#,
+        )?;
+
+        // Insert default categories (idempotent via OR IGNORE)
+        self.conn.execute_batch(
+            r#"
+            INSERT OR IGNORE INTO annotation_categories (name, color, icon, sort_order) VALUES ('Important', '#EF4444', 'star', 1);
+            INSERT OR IGNORE INTO annotation_categories (name, color, icon, sort_order) VALUES ('Question', '#F59E0B', 'help-circle', 2);
+            INSERT OR IGNORE INTO annotation_categories (name, color, icon, sort_order) VALUES ('Vocabulary', '#10B981', 'book-open', 3);
+            INSERT OR IGNORE INTO annotation_categories (name, color, icon, sort_order) VALUES ('Quote', '#8B5CF6', 'quote', 4);
+            INSERT OR IGNORE INTO annotation_categories (name, color, icon, sort_order) VALUES ('Reference', '#3B82F6', 'link', 5);
+            "#,
+        )?;
+
+        // Step 2: Add new columns to annotations table
+        if !self.column_exists("annotations", "category_id")? {
+            self.conn.execute(
+                "ALTER TABLE annotations ADD COLUMN category_id INTEGER DEFAULT NULL REFERENCES annotation_categories(id) ON DELETE SET NULL",
+                [],
+            )?;
+        }
+
+        if !self.column_exists("annotations", "chapter_title")? {
+            self.conn.execute(
+                "ALTER TABLE annotations ADD COLUMN chapter_title TEXT DEFAULT NULL",
+                [],
+            )?;
+        }
+
+        // Step 3: Index on category_id
+        self.conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_annotations_category ON annotations(category_id);",
+        )?;
+
+        // Step 4: FTS5 virtual table for annotation full-text search
+        if !self.table_exists("annotations_fts")? {
+            self.conn.execute_batch(
+                r#"
+                CREATE VIRTUAL TABLE annotations_fts USING fts5(
+                    selected_text,
+                    note_content,
+                    chapter_title,
+                    content='annotations',
+                    content_rowid='id',
+                    tokenize='unicode61 remove_diacritics 2'
+                );
+                "#,
+            )?;
+        }
+
+        // Step 5: Triggers to keep FTS in sync
+        self.conn.execute_batch(
+            r#"
+            DROP TRIGGER IF EXISTS annotations_fts_insert;
+            CREATE TRIGGER annotations_fts_insert AFTER INSERT ON annotations BEGIN
+                INSERT INTO annotations_fts(rowid, selected_text, note_content, chapter_title)
+                VALUES (new.id, COALESCE(new.selected_text, ''), COALESCE(new.note_content, ''), COALESCE(new.chapter_title, ''));
+            END;
+
+            DROP TRIGGER IF EXISTS annotations_fts_delete;
+            CREATE TRIGGER annotations_fts_delete AFTER DELETE ON annotations BEGIN
+                INSERT INTO annotations_fts(annotations_fts, rowid, selected_text, note_content, chapter_title)
+                VALUES ('delete', old.id, COALESCE(old.selected_text, ''), COALESCE(old.note_content, ''), COALESCE(old.chapter_title, ''));
+            END;
+
+            DROP TRIGGER IF EXISTS annotations_fts_update;
+            CREATE TRIGGER annotations_fts_update AFTER UPDATE ON annotations BEGIN
+                INSERT INTO annotations_fts(annotations_fts, rowid, selected_text, note_content, chapter_title)
+                VALUES ('delete', old.id, COALESCE(old.selected_text, ''), COALESCE(old.note_content, ''), COALESCE(old.chapter_title, ''));
+                INSERT INTO annotations_fts(rowid, selected_text, note_content, chapter_title)
+                VALUES (new.id, COALESCE(new.selected_text, ''), COALESCE(new.note_content, ''), COALESCE(new.chapter_title, ''));
+            END;
+            "#,
+        )?;
+
+        // Step 6: Backfill existing annotations into FTS table
+        self.conn.execute_batch(
+            r#"
+            INSERT OR IGNORE INTO annotations_fts(rowid, selected_text, note_content, chapter_title)
+            SELECT id, COALESCE(selected_text, ''), COALESCE(note_content, ''), COALESCE(chapter_title, '')
+            FROM annotations;
+            "#,
+        )?;
+
+        self.set_schema_version(10)?;
+        self.record_migration(10, "enhanced_annotations", "v10_annotations_categories_fts")?;
+
+        log::info!("[Migration] v10 applied successfully");
         Ok(())
     }
 

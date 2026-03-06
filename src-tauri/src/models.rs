@@ -105,14 +105,49 @@ pub struct ReadingProgress {
 pub struct Annotation {
     pub id: Option<i64>,
     pub book_id: i64,
-    pub annotation_type: String, // "highlight", "note", "bookmark"
+    pub annotation_type: String,
     pub location: String,
     pub cfi_range: Option<String>,
     pub selected_text: Option<String>,
     pub note_content: Option<String>,
     pub color: String,
+    pub category_id: Option<i64>,
+    pub chapter_title: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnnotationCategory {
+    pub id: Option<i64>,
+    pub name: String,
+    pub color: String,
+    pub icon: Option<String>,
+    pub sort_order: i32,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnnotationSearchResult {
+    pub annotation: Annotation,
+    pub book_title: String,
+    pub book_author: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnnotationExportOptions {
+    pub format: String,
+    pub book_id: Option<i64>,
+    pub annotation_types: Option<Vec<String>>,
+    pub category_ids: Option<Vec<i64>>,
+    pub include_book_info: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnnotationExportData {
+    pub content: String,
+    pub format: String,
+    pub annotation_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

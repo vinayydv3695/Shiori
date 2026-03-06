@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useReadingSettings, type ReaderTheme } from '@/store/premiumReaderStore';
 import { Settings, Columns, ChevronDown, ChevronUp } from '@/components/icons';
 
-export type ReaderFormat = 'epub' | 'pdf' | 'mobi' | 'manga';
+export type ReaderFormat = 'epub' | 'pdf' | 'mobi' | 'manga' | 'fb2' | 'docx' | 'html' | 'htm' | 'txt' | 'md' | 'markdown';
 
 interface ReaderSettingsProps {
   /** Current book format — controls which settings are visible */

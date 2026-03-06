@@ -551,7 +551,7 @@ export const api = {
         filters: [
           {
             name: "eBooks",
-            extensions: ["epub", "pdf", "mobi", "azw", "azw3", "txt", "cbz", "cbr"],
+            extensions: ["epub", "pdf", "mobi", "azw", "azw3", "txt", "cbz", "cbr", "fb2", "docx", "html", "htm", "md"],
           },
         ],
       }) as string[] | null

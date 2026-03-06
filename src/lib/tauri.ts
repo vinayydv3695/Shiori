@@ -100,6 +100,37 @@ export interface Annotation {
   color: string
   createdAt: string
   updatedAt: string
+  categoryId?: number
+  chapterTitle?: string
+}
+
+export interface AnnotationCategory {
+  id?: number;
+  name: string;
+  color: string;
+  icon?: string;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export interface AnnotationExportOptions {
+  format: string;              // "markdown", "json", "text"
+  book_id?: number;            // undefined = all books
+  annotation_types?: string[]; // filter by type
+  category_ids?: number[];     // filter by category
+  include_book_info: boolean;
+}
+
+export interface AnnotationExportData {
+  content: string;
+  format: string;
+  annotation_count: number;
+}
+
+export interface AnnotationSearchResult {
+  annotation: Annotation;
+  book_title: string;
+  book_author: string;
 }
 
 export interface ReaderSettings {
@@ -357,7 +388,9 @@ export const api = {
     cfiRange?: string,
     selectedText?: string,
     noteContent?: string,
-    color?: string
+    color?: string,
+    categoryId?: number,
+    chapterTitle?: string
   ): Promise<Annotation> {
     return invoke("create_annotation", {
       bookId,
@@ -367,19 +400,66 @@ export const api = {
       selectedText,
       noteContent,
       color: color || "#fbbf24",
+      categoryId,
+      chapterTitle,
     })
   },
 
   async updateAnnotation(
     id: number,
     noteContent?: string,
-    color?: string
+    color?: string,
+    categoryId?: number
   ): Promise<void> {
-    return invoke("update_annotation", { id, noteContent, color })
+    return invoke("update_annotation", { id, noteContent, color, categoryId })
   },
 
   async deleteAnnotation(id: number): Promise<void> {
     return invoke("delete_annotation", { id })
+  },
+
+  // Annotation Categories
+  async getAnnotationCategories(): Promise<AnnotationCategory[]> {
+    return invoke("get_annotation_categories")
+  },
+
+  async createAnnotationCategory(name: string, color: string, icon?: string): Promise<AnnotationCategory> {
+    return invoke("create_annotation_category", { name, color, icon })
+  },
+
+  async updateAnnotationCategory(id: number, name?: string, color?: string, icon?: string): Promise<void> {
+    return invoke("update_annotation_category", { id, name, color, icon })
+  },
+
+  async deleteAnnotationCategory(id: number): Promise<void> {
+    return invoke("delete_annotation_category", { id })
+  },
+
+  // Global Annotation Search
+  async searchAnnotationsGlobal(
+    query: string,
+    bookId?: number,
+    annotationType?: string,
+    categoryId?: number,
+    limit?: number,
+    offset?: number
+  ): Promise<AnnotationSearchResult[]> {
+    return invoke("search_annotations_global", { query, bookId, annotationType, categoryId, limit: limit || 50, offset: offset || 0 })
+  },
+
+  async getAllAnnotations(
+    bookId?: number,
+    annotationType?: string,
+    categoryId?: number,
+    limit?: number,
+    offset?: number
+  ): Promise<AnnotationSearchResult[]> {
+    return invoke("get_all_annotations", { bookId, annotationType, categoryId, limit: limit || 50, offset: offset || 0 })
+  },
+
+  // Annotation Export
+  async exportAnnotations(options: AnnotationExportOptions): Promise<AnnotationExportData> {
+    return invoke("export_annotations", { options })
   },
 
   // Reader - Settings

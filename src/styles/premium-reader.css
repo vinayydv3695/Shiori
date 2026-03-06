@@ -276,6 +276,33 @@ select {
   text-align: center;
 }
 
+.premium-reading-time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.premium-reading-time svg {
+  width: 14px;
+  height: 14px;
+  opacity: 0.7;
+}
+
+.premium-top-bar-separator {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  opacity: 0.5;
+  margin: 0 8px;
+}
+
+.premium-fullscreen-button {
+}
+
 .premium-control-button {
   display: flex;
   align-items: center;

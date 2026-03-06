@@ -4,6 +4,7 @@ import type {
   UserPreferences,
   BookPreferences,
   MangaPreferences,
+  TtsPreferences,
   Theme,
 } from "../types/preferences";
 import { DEFAULT_USER_PREFERENCES } from "../types/preferences";
@@ -21,6 +22,7 @@ interface PreferencesStore {
   updateTheme: (theme: Theme) => Promise<void>;
   updateBookDefaults: (updates: Partial<BookPreferences>) => Promise<void>;
   updateMangaDefaults: (updates: Partial<MangaPreferences>) => Promise<void>;
+  updateTtsDefaults: (updates: Partial<TtsPreferences>) => Promise<void>;
   updateGeneralSettings: (updates: {
     autoStart?: boolean;
     defaultImportPath?: string;
@@ -177,6 +179,34 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
         set((state) => ({
           preferences: state.preferences
             ? { ...state.preferences, manga: previous }
+            : DEFAULT_USER_PREFERENCES,
+        }));
+      }
+    }
+  },
+
+  updateTtsDefaults: async (updates: Partial<TtsPreferences>) => {
+    const previous = get().preferences?.tts;
+
+    set((state) => ({
+      preferences: state.preferences
+        ? {
+          ...state.preferences,
+          tts: { ...state.preferences.tts, ...updates },
+        }
+        : DEFAULT_USER_PREFERENCES,
+    }));
+
+    try {
+      await api.updateUserPreferences({
+        tts: { ...get().preferences!.tts, ...updates },
+      });
+    } catch (error) {
+      console.error("Failed to update TTS preferences:", error);
+      if (previous) {
+        set((state) => ({
+          preferences: state.preferences
+            ? { ...state.preferences, tts: previous }
             : DEFAULT_USER_PREFERENCES,
         }));
       }

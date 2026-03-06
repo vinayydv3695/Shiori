@@ -16,6 +16,7 @@ export interface Collection {
   smartRules?: string; // JSON string of SmartRule[]
   icon?: string;
   color?: string;
+  collectionType: string;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
@@ -27,6 +28,8 @@ interface CollectionState {
   collections: Collection[];
   selectedCollection: Collection | null;
   isLoading: boolean;
+  favoritesCollection: Collection | null;
+  shelves: Collection[];
   
   // Actions
   setCollections: (collections: Collection[]) => void;
@@ -35,12 +38,16 @@ interface CollectionState {
   removeCollection: (id: number) => void;
   selectCollection: (collection: Collection | null) => void;
   setLoading: (isLoading: boolean) => void;
+  setFavoritesCollection: (collection: Collection | null) => void;
+  setShelves: (shelves: Collection[]) => void;
 }
 
 export const useCollectionStore = create<CollectionState>((set) => ({
   collections: [],
   selectedCollection: null,
   isLoading: false,
+  favoritesCollection: null,
+  shelves: [],
 
   setCollections: (collections) => set({ collections }),
 
@@ -66,4 +73,8 @@ export const useCollectionStore = create<CollectionState>((set) => ({
   selectCollection: (collection) => set({ selectedCollection: collection }),
 
   setLoading: (isLoading) => set({ isLoading }),
+
+  setFavoritesCollection: (favoritesCollection) => set({ favoritesCollection }),
+
+  setShelves: (shelves) => set({ shelves }),
 }));

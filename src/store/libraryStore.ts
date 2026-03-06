@@ -30,6 +30,7 @@ interface LibraryStore {
   bulkSelectMode: boolean
   viewMode: "grid" | "list" | "table"
   selectedFilters: FilterState
+  favoriteBookIds: Set<number>
   setBooks: (books: Book[]) => void
   setSelectedBook: (book: Book | null) => void
   setViewMode: (mode: "grid" | "list" | "table") => void
@@ -42,6 +43,8 @@ interface LibraryStore {
   setBulkSelectMode: (enabled: boolean) => void
   toggleFilter: (category: keyof FilterState, id: string) => void
   clearFilters: () => void
+  setFavoriteBookIds: (ids: number[]) => void
+  toggleFavorite: (bookId: number) => void
   hasMore: boolean
   isLoading: boolean
   totalCount: number
@@ -56,6 +59,7 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
   bulkSelectMode: false,
   viewMode: "grid",
   selectedFilters: initialFilters,
+  favoriteBookIds: new Set(),
   setBooks: (books) => set({ books }),
   setSelectedBook: (selectedBook) => set({ selectedBook }),
   setViewMode: (viewMode) => set({ viewMode }),
@@ -99,6 +103,16 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
       };
     }),
   clearFilters: () => set({ selectedFilters: initialFilters }),
+  setFavoriteBookIds: (ids) => set({ favoriteBookIds: new Set(ids) }),
+  toggleFavorite: (bookId) => set((state) => {
+    const newSet = new Set(state.favoriteBookIds);
+    if (newSet.has(bookId)) {
+      newSet.delete(bookId);
+    } else {
+      newSet.add(bookId);
+    }
+    return { favoriteBookIds: newSet };
+  }),
   hasMore: true,
   isLoading: false,
   totalCount: 0,

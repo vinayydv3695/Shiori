@@ -39,6 +39,7 @@ export interface Book {
   metadata_source?: string
   metadata_last_sync?: string
   anilist_id?: string
+  is_favorite?: boolean
   authors: Author[]
   tags: Tag[]
 }
@@ -154,6 +155,7 @@ export interface Collection {
   smartRules?: string
   icon?: string
   color?: string
+  collectionType: string  // "regular" | "shelf" | "favorites"
   sortOrder: number
   createdAt: string
   updatedAt: string
@@ -559,6 +561,7 @@ export const api = {
     smart_rules?: string | null;
     icon?: string | null;
     color?: string | null;
+    collection_type?: string | null;
   }): Promise<Collection> {
     return invoke("create_collection", {
       name: data.name,
@@ -568,6 +571,7 @@ export const api = {
       smartRules: data.smart_rules,
       icon: data.icon,
       color: data.color,
+      collectionType: data.collection_type || 'regular',
     })
   },
 
@@ -616,6 +620,18 @@ export const api = {
 
   async getNestedCollections(): Promise<Collection[]> {
     return invoke("get_nested_collections")
+  },
+
+  async toggleBookFavorite(bookId: number): Promise<boolean> {
+    return invoke("toggle_book_favorite", { bookId })
+  },
+
+  async getFavoriteBookIds(): Promise<number[]> {
+    return invoke("get_favorite_book_ids")
+  },
+
+  async getCollectionsByType(collectionType: string): Promise<Collection[]> {
+    return invoke("get_collections_by_type", { collectionType })
   },
 
   // Import/Export

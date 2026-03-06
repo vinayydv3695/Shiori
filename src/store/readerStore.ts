@@ -21,6 +21,17 @@ export interface Annotation {
   color: string;
   createdAt: string;
   updatedAt: string;
+  categoryId?: number;
+  chapterTitle?: string;
+}
+
+export interface AnnotationCategory {
+  id?: number;
+  name: string;
+  color: string;
+  icon?: string;
+  sortOrder: number;
+  createdAt: string;
 }
 
 export interface ReaderSettings {
@@ -47,6 +58,7 @@ interface ReaderState {
   // Annotations
   annotations: Annotation[];
   selectedAnnotation: Annotation | null;
+  categories: AnnotationCategory[];
   
   // Reader settings
   settings: ReaderSettings;
@@ -61,6 +73,7 @@ interface ReaderState {
   closeBook: () => void;
   setProgress: (progress: ReadingProgress) => void;
   setAnnotations: (annotations: Annotation[]) => void;
+  setCategories: (categories: AnnotationCategory[]) => void;
   addAnnotation: (annotation: Annotation) => void;
   updateAnnotation: (id: number, annotation: Partial<Annotation>) => void;
   removeAnnotation: (id: number) => void;
@@ -78,6 +91,7 @@ export const useReaderStore = create<ReaderState>((set) => ({
   currentBookFormat: null,
   progress: null,
   annotations: [],
+  categories: [],
   selectedAnnotation: null,
   settings: {
     userId: 'default',
@@ -116,6 +130,7 @@ export const useReaderStore = create<ReaderState>((set) => ({
   setProgress: (progress) => set({ progress }),
 
   setAnnotations: (annotations) => set({ annotations }),
+  setCategories: (categories) => set({ categories }),
 
   addAnnotation: (annotation) =>
     set((state) => ({

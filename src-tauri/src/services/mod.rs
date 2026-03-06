@@ -38,3 +38,6 @@ pub mod online;
 // Backup/restore service
 pub mod backup_service;
 
+// Translation/dictionary service
+pub mod translation_service;
+

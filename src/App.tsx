@@ -93,6 +93,17 @@ function App() {
   }, [])
 
   useEffect(() => {
+    const handleOpenBookEvent = (e: Event) => {
+      const bookId = (e as CustomEvent<{ bookId: number }>).detail?.bookId;
+      if (bookId) {
+        handleOpenBook(bookId);
+      }
+    };
+    window.addEventListener('open-book', handleOpenBookEvent);
+    return () => window.removeEventListener('open-book', handleOpenBookEvent);
+  });
+
+  useEffect(() => {
     // Filter books when collection changes
     let aborted = false;
 

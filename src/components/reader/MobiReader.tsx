@@ -1,11 +1,11 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '@/lib/tauri';
 import type { BookMetadata } from '@/lib/tauri';
-import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Bookmark } from '@/components/icons';
+import { ChevronLeft, ChevronRight, Loader2, AlertCircle } from '@/components/icons';
 import { useUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement } from '@/store/premiumReaderStore';
 import { useToastStore } from '@/store/toastStore';
 import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
-import { ReaderSettings } from './ReaderSettings';
+import { ReaderTopBar } from './ReaderTopBar';
 import { PremiumSidebar } from './PremiumSidebar';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
 import { sanitizeBookContent } from '@/lib/sanitize';
@@ -15,10 +15,11 @@ import '@/styles/premium-reader.css';
 interface MobiReaderProps {
     bookPath: string;
     bookId: number;
+    onClose: () => void;
 }
 
-export function MobiReader({ bookPath, bookId }: MobiReaderProps) {
-    const { isTopBarVisible, isFocusMode, setTopBarVisible, toggleSidebar } = useUIStore();
+export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
+    const { isFocusMode, setTopBarVisible } = useUIStore();
     const { theme, fontSize, fontFamily, lineHeight, width } = useReadingSettings();
 
     const [metadata, setMetadata] = useState<BookMetadata | null>(null);
@@ -318,29 +319,14 @@ export function MobiReader({ bookPath, bookId }: MobiReaderProps) {
             }}
         >
             {/* Auto-hide Top Bar */}
-            <div className={`premium-top-bar ${!isTopBarVisible ? 'premium-top-bar--hidden' : ''}`}>
-                <div className="premium-top-bar-content">
-                    <div className="premium-top-bar-left">
-                        <span className="premium-book-title">{metadata?.title || 'Loading...'}</span>
-                        <span className="premium-chapter-indicator">MOBI Render</span>
-                    </div>
-
-                    <div className="premium-top-bar-center">
-                        <span className="premium-progress-text">{Math.round(progressPercentage)}%</span>
-                    </div>
-
-                    <div className="premium-top-bar-right">
-                        <ReaderSettings format="mobi" />
-                        <button
-                            onClick={() => toggleSidebar('bookmarks')}
-                            className="premium-control-button"
-                            title="Bookmarks & Search"
-                        >
-                            <Bookmark className="premium-control-icon" />
-                        </button>
-                    </div>
-                </div>
-            </div>
+            <ReaderTopBar
+                bookId={bookId}
+                title={metadata?.title || 'Loading...'}
+                subtitle="MOBI Render"
+                progress={progressPercentage}
+                format="mobi"
+                onClose={onClose}
+            />
 
             {/* Reading Canvas */}
             <div

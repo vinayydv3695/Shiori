@@ -4,6 +4,7 @@ import { api } from '@/lib/tauri';
 import { PremiumEpubReader } from './PremiumEpubReader';
 import { PdfReader } from './PdfReader';
 import { MobiReader } from './MobiReader';
+import { GenericHtmlReader } from './GenericHtmlReader';
 import { MangaReader } from '@/components/manga/MangaReader';
 import { ReaderErrorBoundary, parseReaderError } from './ReaderErrorBoundary';
 import { X } from '@/components/icons';
@@ -224,6 +225,9 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
       )}
       {currentBookPath && (currentBookFormat === 'mobi' || currentBookFormat === 'azw3') && (
         <MobiReader bookPath={currentBookPath} bookId={bookId} />
+      )}
+      {currentBookPath && (currentBookFormat === 'fb2' || currentBookFormat === 'docx' || currentBookFormat === 'html' || currentBookFormat === 'htm' || currentBookFormat === 'txt' || currentBookFormat === 'md' || currentBookFormat === 'markdown') && (
+        <GenericHtmlReader bookPath={currentBookPath} bookId={bookId} format={currentBookFormat} />
       )}
       {!currentBookPath && (
         <div className="flex items-center justify-center h-full">

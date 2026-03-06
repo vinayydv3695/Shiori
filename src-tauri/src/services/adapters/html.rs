@@ -271,7 +271,7 @@ impl BookFormatAdapter for HtmlFormatAdapter {
             supports_text_reflow: true,
             supports_annotations: false,
             supports_metadata: true,
-            is_readable: false,         // Not directly readable in app
+            is_readable: true,
             supports_search: true,
         }
     }
@@ -297,7 +297,7 @@ mod tests {
         assert!(caps.supports_text_reflow);
         assert!(!caps.supports_annotations);
         assert!(caps.supports_metadata);
-        assert!(!caps.is_readable);
+        assert!(caps.is_readable);
         assert!(caps.supports_search);
     }
     

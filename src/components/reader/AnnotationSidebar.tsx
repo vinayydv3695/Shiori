@@ -1,21 +1,32 @@
 import { useReaderStore, Annotation } from '@/store/readerStore';
 import { api } from '@/lib/tauri';
 import { Trash2, Edit2, Bookmark, Highlighter, StickyNote, X } from '@/components/icons';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { formatDate } from '@/lib/utils';
+import { AnnotationExportDialog } from './AnnotationExportDialog';
 
 export function AnnotationSidebar() {
-  const { annotations, removeAnnotation, updateAnnotation, showAnnotationSidebar, toggleAnnotationSidebar } = useReaderStore();
+  const { annotations, removeAnnotation, updateAnnotation, showAnnotationSidebar, toggleAnnotationSidebar, currentBookId } = useReaderStore();
   const [filter, setFilter] = useState<'all' | 'highlight' | 'note' | 'bookmark'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editNote, setEditNote] = useState('');
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+
+  const filteredAnnotations = useMemo(() => {
+    return annotations.filter((a) => {
+      if (filter !== 'all' && a.annotationType !== filter) return false;
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const textMatch = a.selectedText?.toLowerCase().includes(query) || false;
+        const noteMatch = a.noteContent?.toLowerCase().includes(query) || false;
+        if (!textMatch && !noteMatch) return false;
+      }
+      return true;
+    });
+  }, [annotations, filter, searchQuery]);
 
   if (!showAnnotationSidebar) return null;
-
-  const filteredAnnotations = annotations.filter((a) => {
-    if (filter === 'all') return true;
-    return a.annotationType === filter;
-  });
 
   const handleDelete = async (annotation: Annotation) => {
     if (!annotation.id) return;
@@ -60,16 +71,44 @@ export function AnnotationSidebar() {
   };
 
   return (
-    <div className="w-80 bg-white border-l border-gray-200 flex flex-col h-full">
+    <div className="w-80 bg-white border-l border-gray-200 flex flex-col h-full z-10 shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.05)]">
       {/* Header */}
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-        <h2 className="font-semibold text-lg">Annotations</h2>
-        <button
-          onClick={toggleAnnotationSidebar}
-          className="p-1 hover:bg-gray-100 rounded"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        <h2 className="font-semibold text-lg text-gray-900">Annotations</h2>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setExportDialogOpen(true)}
+            className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition-colors"
+            title="Export annotations"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+          </button>
+          <button
+            onClick={toggleAnnotationSidebar}
+            className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50">
+        <div className="relative">
+          <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Search annotations..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-3 py-1.5 text-sm bg-white border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+          />
+        </div>
       </div>
 
       {/* Filter tabs */}
@@ -136,7 +175,15 @@ export function AnnotationSidebar() {
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    {getAnnotationIcon(annotation.annotationType)}
+                    <div className="relative">
+                      {getAnnotationIcon(annotation.annotationType)}
+                      {annotation.annotationType === 'highlight' && annotation.color && (
+                        <div 
+                          className="absolute -bottom-1 -right-1 w-2.5 h-2.5 rounded-full border border-white"
+                          style={{ backgroundColor: annotation.color }}
+                        />
+                      )}
+                    </div>
                     <span className="text-xs text-gray-500">
                       {formatDate(annotation.createdAt)}
                     </span>
@@ -211,6 +258,12 @@ export function AnnotationSidebar() {
           </div>
         )}
       </div>
+
+      <AnnotationExportDialog
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
+        bookId={currentBookId ?? undefined}
+      />
     </div>
   );
 }

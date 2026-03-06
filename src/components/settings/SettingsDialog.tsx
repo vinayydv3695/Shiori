@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
-import { X, Moon, Sun, Image, Palette, Database, Bell, Shield, BookOpen, FileText, Volume2 } from 'lucide-react'
+import { X, Moon, Sun, Image, Palette, Database, Bell, Shield, BookOpen, FileText, Volume2, Download, Upload, HardDrive, Archive, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { usePreferencesStore } from '../../store/preferencesStore'
 import type { Theme, UserPreferences, BookPreferences, MangaPreferences, TtsPreferences } from '../../types/preferences'
-import { api } from '../../lib/tauri'
+import { api, isTauri } from '../../lib/tauri'
+import type { BackupInfo } from '../../lib/tauri'
 import { TTSEngine } from '@/lib/ttsEngine'
+import { open as openDialog } from '@tauri-apps/plugin-dialog'
 
 interface SettingsDialogProps {
   open: boolean
@@ -598,7 +600,101 @@ const LibrarySettings = ({ preferences, updateGeneralSettings }: {
 }
 
 const StorageSettings = ({ preferences }: { preferences: UserPreferences | null }) => {
+  const [isBackingUp, setIsBackingUp] = useState(false)
+  const [isRestoring, setIsRestoring] = useState(false)
+  const [includeBooks, setIncludeBooks] = useState(false)
+  const [backupResult, setBackupResult] = useState<BackupInfo | null>(null)
+  const [restoreSuccess, setRestoreSuccess] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
   if (!preferences) return null;
+
+  const collectFrontendSettings = (): string => {
+    const settings: Record<string, string> = {}
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith('shiori-')) {
+        settings[key] = localStorage.getItem(key) ?? ''
+      }
+    }
+    return JSON.stringify(settings)
+  }
+
+  const restoreFrontendSettings = (settingsJson: string) => {
+    try {
+      const settings: Record<string, string> = JSON.parse(settingsJson)
+      for (const [key, value] of Object.entries(settings)) {
+        localStorage.setItem(key, value)
+      }
+    } catch {
+      console.error('Failed to restore frontend settings')
+    }
+  }
+
+  const handleBackup = async () => {
+    setError(null)
+    setBackupResult(null)
+    try {
+      const defaultName = `shiori-backup-${new Date().toISOString().slice(0, 10)}.zip`
+      const savePath = await api.saveFileDialog(defaultName)
+      if (!savePath) return
+
+      setIsBackingUp(true)
+      const frontendSettings = collectFrontendSettings()
+      const info = await api.createBackup(savePath, {
+        include_books: includeBooks,
+        frontend_settings: frontendSettings,
+      })
+      setBackupResult(info)
+    } catch (err) {
+      setError(`Backup failed: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setIsBackingUp(false)
+    }
+  }
+
+  const handleRestore = async () => {
+    setError(null)
+    setRestoreSuccess(false)
+
+    const confirmed = confirm(
+      'Restoring a backup will REPLACE all current data (books, annotations, settings, collections). This cannot be undone.\n\nContinue?'
+    )
+    if (!confirmed) return
+
+    try {
+      if (!isTauri) return
+      const filePath = await openDialog({
+        multiple: false,
+        filters: [{ name: 'Shiori Backup', extensions: ['zip'] }],
+      }) as string | null
+      if (!filePath) return
+
+      setIsRestoring(true)
+      const result = await api.restoreBackup(filePath)
+
+      if (result.frontend_settings) {
+        restoreFrontendSettings(result.frontend_settings)
+      }
+
+      setRestoreSuccess(true)
+      setTimeout(() => {
+        alert(`Restored ${result.books_restored} books, ${result.annotations_restored} annotations, ${result.collections_restored} collections, ${result.covers_restored} covers. The app will reload.`)
+        window.location.reload()
+      }, 500)
+    } catch (err) {
+      setError(`Restore failed: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setIsRestoring(false)
+    }
+  }
+
+  const formatBytes = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
   return (
     <div className="space-y-8">
       <SettingSection
@@ -611,6 +707,85 @@ const StorageSettings = ({ preferences }: { preferences: UserPreferences | null 
           </div>
         </div>
       </SettingSection>
+
+      <SettingSection
+        title="Backup"
+        description="Create a full backup of your library, annotations, settings, and optionally book files"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-4 rounded-lg bg-muted border border-border">
+            <div className="space-y-0.5">
+              <label className="text-sm font-medium">Include book files</label>
+              <p className="text-xs text-muted-foreground">Include all imported book files (EPUB, PDF, etc.) in the backup. This will significantly increase backup size.</p>
+            </div>
+            <input
+              type="checkbox"
+              checked={includeBooks}
+              onChange={(e) => setIncludeBooks(e.target.checked)}
+              className="w-5 h-5"
+            />
+          </div>
+
+          <Button variant="outline" onClick={handleBackup} disabled={isBackingUp} className="w-full gap-2">
+            {isBackingUp ? (
+              <><HardDrive className="w-4 h-4 animate-pulse" /> Creating backup...</>
+            ) : (
+              <><Download className="w-4 h-4" /> Create Backup</>
+            )}
+          </Button>
+
+          {backupResult && (
+            <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/30 space-y-1">
+              <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                <CheckCircle2 className="w-4 h-4" />
+                <span className="text-sm font-medium">Backup created successfully</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {backupResult.book_count} books, {backupResult.annotation_count} annotations, {backupResult.collection_count} collections — {formatBytes(backupResult.total_size_bytes)}
+              </p>
+            </div>
+          )}
+        </div>
+      </SettingSection>
+
+      <SettingSection
+        title="Restore"
+        description="Restore your library from a previously created backup"
+      >
+        <div className="space-y-4">
+          <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400 mt-0.5 shrink-0" />
+              <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                Restoring a backup will replace ALL current data including books, annotations, collections, and settings. This action cannot be undone.
+              </p>
+            </div>
+          </div>
+
+          <Button variant="outline" onClick={handleRestore} disabled={isRestoring} className="w-full gap-2">
+            {isRestoring ? (
+              <><Archive className="w-4 h-4 animate-pulse" /> Restoring...</>
+            ) : (
+              <><Upload className="w-4 h-4" /> Restore from Backup</>
+            )}
+          </Button>
+
+          {restoreSuccess && (
+            <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/30">
+              <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                <CheckCircle2 className="w-4 h-4" />
+                <span className="text-sm font-medium">Restore completed successfully</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </SettingSection>
+
+      {error && (
+        <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30">
+          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        </div>
+      )}
 
       <SettingSection title="Cache">
         <div className="space-y-3">

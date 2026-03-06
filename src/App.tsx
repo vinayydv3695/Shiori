@@ -16,6 +16,7 @@ import ShareBookDialog from "./components/share/ShareBookDialog"
 import { OnboardingWizard } from "./components/onboarding/OnboardingWizard"
 import { HomePage } from "./components/home/HomePage"
 import { AnnotationsView } from "./components/annotations/AnnotationsView"
+import { StatisticsView } from "./components/statistics/StatisticsView"
 import { useLibraryStore } from "./store/libraryStore"
 import { useReaderStore } from "./store/readerStore"
 import { useUIStore } from "./store/uiStore"
@@ -383,6 +384,11 @@ function App() {
         {/* Show Annotations view */}
         {currentView === 'annotations' && (
           <AnnotationsView onClose={handleBackToLibrary} />
+        )}
+
+        {/* Show Statistics view */}
+        {currentView === 'statistics' && (
+          <StatisticsView onClose={handleBackToLibrary} />
         )}
       </Layout>
 

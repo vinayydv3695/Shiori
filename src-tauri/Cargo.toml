@@ -40,6 +40,7 @@ walkdir = "2.5"
 mobi = "0.6"                    # MOBI/AZW3 support
 docx-rs = "0.4"                 # DOCX parsing
 quick-xml = "0.36"              # FB2/XML parsing
+pulldown-cmark = "0.12"             # Markdown to HTML conversion
 html5ever = "0.27"              # HTML parsing
 markup5ever_rcdom = "0.3"       # HTML DOM
 unrar = { version = "0.5", optional = true }  # CBR support (requires libunrar)

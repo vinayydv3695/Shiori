@@ -20,7 +20,11 @@ export function WelcomeStep() {
                 <ul className="text-sm font-medium space-y-3 text-left">
                     <li className="flex items-center gap-3">
                         <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
-                        <span>Customize reading interfaces</span>
+                        <span>Customize reading &amp; manga interfaces</span>
+                    </li>
+                    <li className="flex items-center gap-3">
+                        <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
+                        <span>Set reading goals &amp; translation preferences</span>
                     </li>
                     <li className="flex items-center gap-3">
                         <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />

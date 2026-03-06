@@ -1,7 +1,7 @@
 import { useOnboardingStore } from "../../../store/onboardingStore";
 import { DEFAULT_MANGA_PREFERENCES, type MangaMode, type Direction, type ProgressBarPosition } from "../../../types/preferences";
 import { cn } from "../../../lib/utils";
-import { Layout, Type, Book } from "lucide-react";
+import { Layout, Type, Book, Rows3, ScrollText, Layers } from "lucide-react";
 
 export function MangaPrefsStep() {
     const draftConfig = useOnboardingStore(state => state.draftConfig);
@@ -14,9 +14,12 @@ export function MangaPrefsStep() {
     };
 
     const modes = [
-        { id: "single" as const, name: "Single Page", icon: Layout, desc: "Classic vertical scrolling, one page per block" },
+        { id: "single" as const, name: "Single Page", icon: Layout, desc: "One page at a time" },
         { id: "double" as const, name: "Spread", icon: Book, desc: "Two pages side-by-side" },
-        { id: "long-strip" as const, name: "Webtoon Strip", icon: Type, desc: "Continuous seamless images" },
+        { id: "long-strip" as const, name: "Long Strip", icon: Type, desc: "Continuous vertical scroll" },
+        { id: "webtoon" as const, name: "Webtoon", icon: Rows3, desc: "Seamless zero-gap scroll" },
+        { id: "manhwa" as const, name: "Manhwa", icon: ScrollText, desc: "Korean webtoon style" },
+        { id: "comic" as const, name: "Comic", icon: Layers, desc: "Western comic layout" },
     ];
 
     const directions = [
@@ -38,7 +41,7 @@ export function MangaPrefsStep() {
                 {/* Reading Mode */}
                 <div className="space-y-4 bg-card border border-border p-6 rounded-xl shadow-sm">
                     <label className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Mode</label>
-                    <div className="grid grid-cols-1 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {modes.map((m) => (
                             <button
                                 key={m.id}

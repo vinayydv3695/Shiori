@@ -7,10 +7,13 @@ import type { UserPreferences } from '../types/preferences';
 // The ID's of the possible steps in the Onboarding flow
 export type StepId =
     | 'welcome'
+    | 'features-overview'
     | 'content-type'
     | 'theme'
     | 'reading-prefs'
     | 'manga-prefs'
+    | 'reading-goal'
+    | 'translation'
     | 'performance'
     | 'metadata'
     | 'library-setup'
@@ -26,6 +29,7 @@ export interface StepRegistryItem {
 // Global registry defining the logical order of steps
 export const ONBOARDING_STEPS: StepRegistryItem[] = [
     { id: 'welcome' },
+    { id: 'features-overview' },
     { id: 'content-type' },
     { id: 'theme' },
     {
@@ -36,6 +40,8 @@ export const ONBOARDING_STEPS: StepRegistryItem[] = [
         id: 'manga-prefs',
         condition: (draft) => draft.preferredContentType === 'both' || draft.preferredContentType === 'manga'
     },
+    { id: 'reading-goal' },
+    { id: 'translation' },
     { id: 'performance' },
     {
         id: 'metadata',
@@ -132,6 +138,11 @@ export const useOnboardingStore = create<OnboardingState>()(
 
                     // 1. Send transient FSM config to Rust backend SQLite
                     await api.updateUserPreferences(draftConfig as Partial<UserPreferences>);
+
+                    // 1b. Save reading goal separately (stored in reading_goals table, not user_preferences)
+                    if (draftConfig.dailyReadingGoalMinutes) {
+                        await api.updateReadingGoal(draftConfig.dailyReadingGoalMinutes);
+                    }
 
                     // 2. Mark onboarding as officially completed
                     // Compute which steps were skipped based on their conditions

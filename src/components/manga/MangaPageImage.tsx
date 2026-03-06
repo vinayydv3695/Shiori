@@ -107,6 +107,8 @@ export const MangaPageImage = memo(function MangaPageImage({
             style={style}
             onLoad={handleImageLoad}
             draggable={false}
+            loading="lazy"
+            decoding="async"
         />
     );
 });

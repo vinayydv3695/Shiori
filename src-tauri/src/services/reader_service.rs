@@ -1,5 +1,8 @@
 use crate::error::Result;
-use crate::models::{Annotation, ReaderSettings, ReadingProgress};
+use crate::models::{
+    Annotation, AnnotationCategory, AnnotationExportData, AnnotationExportOptions,
+    AnnotationSearchResult, ReaderSettings, ReadingProgress,
+};
 use chrono::Utc;
 use rusqlite::{params, Connection};
 
@@ -106,7 +109,7 @@ impl ReaderService {
     pub fn get_annotations(conn: &Connection, book_id: i64) -> Result<Vec<Annotation>> {
         let mut stmt = conn.prepare(
             "SELECT id, book_id, type, location, cfi_range, selected_text, 
-                    note_content, color, created_at, updated_at
+                    note_content, color, category_id, chapter_title, created_at, updated_at
              FROM annotations
              WHERE book_id = ?1
              ORDER BY created_at DESC",
@@ -123,8 +126,10 @@ impl ReaderService {
                     selected_text: row.get(5)?,
                     note_content: row.get(6)?,
                     color: row.get(7)?,
-                    created_at: row.get(8)?,
-                    updated_at: row.get(9)?,
+                    category_id: row.get(8)?,
+                    chapter_title: row.get(9)?,
+                    created_at: row.get(10)?,
+                    updated_at: row.get(11)?,
                 })
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -141,13 +146,15 @@ impl ReaderService {
         selected_text: Option<&str>,
         note_content: Option<&str>,
         color: &str,
+        category_id: Option<i64>,
+        chapter_title: Option<&str>,
     ) -> Result<Annotation> {
         let now = Utc::now().to_rfc3339();
 
         conn.execute(
             "INSERT INTO annotations 
-             (book_id, type, location, cfi_range, selected_text, note_content, color, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+             (book_id, type, location, cfi_range, selected_text, note_content, color, category_id, chapter_title, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 book_id,
                 annotation_type,
@@ -156,6 +163,8 @@ impl ReaderService {
                 selected_text,
                 note_content,
                 color,
+                category_id,
+                chapter_title,
                 now,
                 now
             ],
@@ -172,6 +181,8 @@ impl ReaderService {
             selected_text: selected_text.map(String::from),
             note_content: note_content.map(String::from),
             color: color.to_string(),
+            category_id,
+            chapter_title: chapter_title.map(String::from),
             created_at: now.clone(),
             updated_at: now,
         })
@@ -182,10 +193,10 @@ impl ReaderService {
         id: i64,
         note_content: Option<&str>,
         color: Option<&str>,
+        category_id: Option<i64>,
     ) -> Result<()> {
         let now = Utc::now().to_rfc3339();
 
-        // Build dynamic query based on what's being updated
         if let Some(content) = note_content {
             conn.execute(
                 "UPDATE annotations SET note_content = ?1, updated_at = ?2 WHERE id = ?3",
@@ -200,12 +211,397 @@ impl ReaderService {
             )?;
         }
 
+        if let Some(cat_id) = category_id {
+            conn.execute(
+                "UPDATE annotations SET category_id = ?1, updated_at = ?2 WHERE id = ?3",
+                params![cat_id, now, id],
+            )?;
+        }
+
         Ok(())
     }
 
     pub fn delete_annotation(conn: &Connection, id: i64) -> Result<()> {
         conn.execute("DELETE FROM annotations WHERE id = ?1", params![id])?;
         Ok(())
+    }
+
+    // ==================== Annotation Categories ====================
+
+    pub fn get_annotation_categories(conn: &Connection) -> Result<Vec<AnnotationCategory>> {
+        let mut stmt = conn.prepare(
+            "SELECT id, name, color, icon, sort_order, created_at
+             FROM annotation_categories
+             ORDER BY sort_order ASC",
+        )?;
+
+        let categories = stmt
+            .query_map([], |row| {
+                Ok(AnnotationCategory {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    color: row.get(2)?,
+                    icon: row.get(3)?,
+                    sort_order: row.get(4)?,
+                    created_at: row.get(5)?,
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
+        Ok(categories)
+    }
+
+    pub fn create_annotation_category(
+        conn: &Connection,
+        name: &str,
+        color: &str,
+        icon: Option<&str>,
+    ) -> Result<AnnotationCategory> {
+        let now = Utc::now().to_rfc3339();
+
+        let max_order: i32 = conn
+            .query_row(
+                "SELECT COALESCE(MAX(sort_order), 0) FROM annotation_categories",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+
+        conn.execute(
+            "INSERT INTO annotation_categories (name, color, icon, sort_order, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![name, color, icon, max_order + 1, now],
+        )?;
+
+        let id = conn.last_insert_rowid();
+
+        Ok(AnnotationCategory {
+            id: Some(id),
+            name: name.to_string(),
+            color: color.to_string(),
+            icon: icon.map(String::from),
+            sort_order: max_order + 1,
+            created_at: now,
+        })
+    }
+
+    pub fn update_annotation_category(
+        conn: &Connection,
+        id: i64,
+        name: Option<&str>,
+        color: Option<&str>,
+        icon: Option<&str>,
+    ) -> Result<()> {
+        if let Some(n) = name {
+            conn.execute(
+                "UPDATE annotation_categories SET name = ?1 WHERE id = ?2",
+                params![n, id],
+            )?;
+        }
+        if let Some(c) = color {
+            conn.execute(
+                "UPDATE annotation_categories SET color = ?1 WHERE id = ?2",
+                params![c, id],
+            )?;
+        }
+        if let Some(i) = icon {
+            conn.execute(
+                "UPDATE annotation_categories SET icon = ?1 WHERE id = ?2",
+                params![i, id],
+            )?;
+        }
+        Ok(())
+    }
+
+    pub fn delete_annotation_category(conn: &Connection, id: i64) -> Result<()> {
+        conn.execute(
+            "UPDATE annotations SET category_id = NULL WHERE category_id = ?1",
+            params![id],
+        )?;
+        conn.execute(
+            "DELETE FROM annotation_categories WHERE id = ?1",
+            params![id],
+        )?;
+        Ok(())
+    }
+
+    // ==================== Global Annotation Search ====================
+
+    pub fn search_annotations_global(
+        conn: &Connection,
+        query: &str,
+        book_id: Option<i64>,
+        annotation_type: Option<&str>,
+        category_id: Option<i64>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<AnnotationSearchResult>> {
+        let fts_query = format!("\"{}\"", query.replace('"', "\"\""));
+
+        let sql = r#"
+            SELECT a.id, a.book_id, a.type, a.location, a.cfi_range, a.selected_text,
+                   a.note_content, a.color, a.category_id, a.chapter_title, a.created_at, a.updated_at,
+                   b.title,
+                   COALESCE(
+                       (SELECT GROUP_CONCAT(au.name, ', ') FROM authors au
+                        JOIN books_authors ba ON au.id = ba.author_id
+                        WHERE ba.book_id = b.id), ''
+                   ) as author_names
+            FROM annotations a
+            JOIN annotations_fts fts ON a.id = fts.rowid
+            JOIN books b ON a.book_id = b.id
+            WHERE annotations_fts MATCH ?1
+              AND (?2 IS NULL OR a.book_id = ?2)
+              AND (?3 IS NULL OR a.type = ?3)
+              AND (?4 IS NULL OR a.category_id = ?4)
+            ORDER BY a.created_at DESC
+            LIMIT ?5 OFFSET ?6
+        "#;
+
+        let mut stmt = conn.prepare(sql)?;
+        let results = stmt
+            .query_map(
+                params![
+                    fts_query,
+                    book_id,
+                    annotation_type,
+                    category_id,
+                    limit,
+                    offset
+                ],
+                |row| {
+                    Ok(AnnotationSearchResult {
+                        annotation: Annotation {
+                            id: row.get(0)?,
+                            book_id: row.get(1)?,
+                            annotation_type: row.get(2)?,
+                            location: row.get(3)?,
+                            cfi_range: row.get(4)?,
+                            selected_text: row.get(5)?,
+                            note_content: row.get(6)?,
+                            color: row.get(7)?,
+                            category_id: row.get(8)?,
+                            chapter_title: row.get(9)?,
+                            created_at: row.get(10)?,
+                            updated_at: row.get(11)?,
+                        },
+                        book_title: row.get(12)?,
+                        book_author: row.get(13)?,
+                    })
+                },
+            )?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
+        Ok(results)
+    }
+
+    pub fn get_all_annotations(
+        conn: &Connection,
+        book_id: Option<i64>,
+        annotation_type: Option<&str>,
+        category_id: Option<i64>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<AnnotationSearchResult>> {
+        let sql = r#"
+            SELECT a.id, a.book_id, a.type, a.location, a.cfi_range, a.selected_text,
+                   a.note_content, a.color, a.category_id, a.chapter_title, a.created_at, a.updated_at,
+                   b.title,
+                   COALESCE(
+                       (SELECT GROUP_CONCAT(au.name, ', ') FROM authors au
+                        JOIN books_authors ba ON au.id = ba.author_id
+                        WHERE ba.book_id = b.id), ''
+                   ) as author_names
+            FROM annotations a
+            JOIN books b ON a.book_id = b.id
+            WHERE (?1 IS NULL OR a.book_id = ?1)
+              AND (?2 IS NULL OR a.type = ?2)
+              AND (?3 IS NULL OR a.category_id = ?3)
+            ORDER BY a.created_at DESC
+            LIMIT ?4 OFFSET ?5
+        "#;
+
+        let mut stmt = conn.prepare(sql)?;
+        let results = stmt
+            .query_map(
+                params![book_id, annotation_type, category_id, limit, offset],
+                |row| {
+                    Ok(AnnotationSearchResult {
+                        annotation: Annotation {
+                            id: row.get(0)?,
+                            book_id: row.get(1)?,
+                            annotation_type: row.get(2)?,
+                            location: row.get(3)?,
+                            cfi_range: row.get(4)?,
+                            selected_text: row.get(5)?,
+                            note_content: row.get(6)?,
+                            color: row.get(7)?,
+                            category_id: row.get(8)?,
+                            chapter_title: row.get(9)?,
+                            created_at: row.get(10)?,
+                            updated_at: row.get(11)?,
+                        },
+                        book_title: row.get(12)?,
+                        book_author: row.get(13)?,
+                    })
+                },
+            )?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
+        Ok(results)
+    }
+
+    // ==================== Annotation Export ====================
+
+    pub fn export_annotations(
+        conn: &Connection,
+        options: &AnnotationExportOptions,
+    ) -> Result<AnnotationExportData> {
+        let results = Self::get_all_annotations(conn, options.book_id, None, None, 10000, 0)?;
+
+        let filtered: Vec<&AnnotationSearchResult> = results
+            .iter()
+            .filter(|r| {
+                if let Some(ref types) = options.annotation_types {
+                    if !types.contains(&r.annotation.annotation_type) {
+                        return false;
+                    }
+                }
+                if let Some(ref cats) = options.category_ids {
+                    if let Some(cat_id) = r.annotation.category_id {
+                        if !cats.contains(&cat_id) {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                }
+                true
+            })
+            .collect();
+
+        let annotation_count = filtered.len();
+
+        let content = match options.format.as_str() {
+            "json" => Self::export_as_json(&filtered, options.include_book_info),
+            "text" => Self::export_as_text(&filtered, options.include_book_info),
+            _ => Self::export_as_markdown(&filtered, options.include_book_info),
+        };
+
+        Ok(AnnotationExportData {
+            content,
+            format: options.format.clone(),
+            annotation_count,
+        })
+    }
+
+    fn export_as_markdown(
+        annotations: &[&AnnotationSearchResult],
+        include_book_info: bool,
+    ) -> String {
+        let mut output = String::from("# Annotations Export\n\n");
+        let mut current_book = String::new();
+
+        for result in annotations {
+            if include_book_info && result.book_title != current_book {
+                current_book = result.book_title.clone();
+                output.push_str(&format!("## {}\n", result.book_title));
+                if !result.book_author.is_empty() {
+                    output.push_str(&format!("*by {}*\n", result.book_author));
+                }
+                output.push('\n');
+            }
+
+            if let Some(ref chapter) = result.annotation.chapter_title {
+                output.push_str(&format!("### {}\n\n", chapter));
+            }
+
+            match result.annotation.annotation_type.as_str() {
+                "highlight" => {
+                    if let Some(ref text) = result.annotation.selected_text {
+                        output.push_str(&format!("> {}\n\n", text));
+                    }
+                }
+                "note" => {
+                    if let Some(ref text) = result.annotation.selected_text {
+                        output.push_str(&format!("> {}\n\n", text));
+                    }
+                    if let Some(ref note) = result.annotation.note_content {
+                        output.push_str(&format!("**Note:** {}\n\n", note));
+                    }
+                }
+                "bookmark" => {
+                    output.push_str(&format!("Bookmark at {}\n\n", result.annotation.location));
+                }
+                _ => {}
+            }
+
+            output.push_str(&format!("*{}*\n\n---\n\n", result.annotation.created_at));
+        }
+
+        output
+    }
+
+    fn export_as_json(annotations: &[&AnnotationSearchResult], include_book_info: bool) -> String {
+        let items: Vec<serde_json::Value> = annotations
+            .iter()
+            .map(|r| {
+                let mut obj = serde_json::json!({
+                    "type": r.annotation.annotation_type,
+                    "text": r.annotation.selected_text,
+                    "note": r.annotation.note_content,
+                    "color": r.annotation.color,
+                    "location": r.annotation.location,
+                    "chapter": r.annotation.chapter_title,
+                    "created_at": r.annotation.created_at,
+                });
+                if include_book_info {
+                    obj["book_title"] = serde_json::json!(r.book_title);
+                    obj["book_author"] = serde_json::json!(r.book_author);
+                }
+                obj
+            })
+            .collect();
+
+        serde_json::to_string_pretty(&items).unwrap_or_else(|_| "[]".to_string())
+    }
+
+    fn export_as_text(annotations: &[&AnnotationSearchResult], include_book_info: bool) -> String {
+        let mut output = String::from("ANNOTATIONS EXPORT\n==================\n\n");
+        let mut current_book = String::new();
+
+        for result in annotations {
+            if include_book_info && result.book_title != current_book {
+                current_book = result.book_title.clone();
+                output.push_str(&format!("{}\n", result.book_title));
+                if !result.book_author.is_empty() {
+                    output.push_str(&format!("by {}\n", result.book_author));
+                }
+                output.push_str(&"-".repeat(40));
+                output.push('\n');
+            }
+
+            let type_label = match result.annotation.annotation_type.as_str() {
+                "highlight" => "HIGHLIGHT",
+                "note" => "NOTE",
+                "bookmark" => "BOOKMARK",
+                other => other,
+            };
+
+            output.push_str(&format!("[{}] ", type_label));
+
+            if let Some(ref text) = result.annotation.selected_text {
+                output.push_str(&format!("\"{}\"", text));
+            }
+
+            if let Some(ref note) = result.annotation.note_content {
+                output.push_str(&format!("\n  Note: {}", note));
+            }
+
+            output.push_str(&format!("\n  Date: {}\n\n", result.annotation.created_at));
+        }
+
+        output
     }
 
     // ==================== Reader Settings ====================

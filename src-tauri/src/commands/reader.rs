@@ -1,5 +1,5 @@
 use crate::error::Result;
-use crate::models::{Annotation, ReaderSettings, ReadingProgress};
+use crate::models::{Annotation, AnnotationCategory, AnnotationExportData, AnnotationExportOptions, AnnotationSearchResult, ReaderSettings, ReadingProgress};
 use crate::services::format_detector;
 use crate::services::reader_service::ReaderService;
 use crate::utils::validate;
@@ -59,6 +59,8 @@ pub fn create_annotation(
     selected_text: Option<String>,
     note_content: Option<String>,
     color: String,
+    category_id: Option<i64>,
+    chapter_title: Option<String>,
     state: State<AppState>,
 ) -> Result<Annotation> {
     validate::require_positive_id(book_id, "book_id")?;
@@ -76,6 +78,8 @@ pub fn create_annotation(
         selected_text.as_deref(),
         note_content.as_deref(),
         &color,
+        category_id,
+        chapter_title.as_deref(),
     )
 }
 
@@ -84,6 +88,7 @@ pub fn update_annotation(
     id: i64,
     note_content: Option<String>,
     color: Option<String>,
+    category_id: Option<i64>,
     state: State<AppState>,
 ) -> Result<()> {
     validate::require_positive_id(id, "id")?;
@@ -91,7 +96,7 @@ pub fn update_annotation(
         validate::require_max_length(c, 50, "color")?;
     }
     let conn = state.db.get_connection()?;
-    ReaderService::update_annotation(&conn, id, note_content.as_deref(), color.as_deref())
+    ReaderService::update_annotation(&conn, id, note_content.as_deref(), color.as_deref(), category_id)
 }
 
 #[tauri::command]
@@ -99,6 +104,103 @@ pub fn delete_annotation(id: i64, state: State<AppState>) -> Result<()> {
     validate::require_positive_id(id, "id")?;
     let conn = state.db.get_connection()?;
     ReaderService::delete_annotation(&conn, id)
+}
+
+#[tauri::command]
+pub fn get_annotation_categories(state: State<AppState>) -> Result<Vec<AnnotationCategory>> {
+    let conn = state.db.get_connection()?;
+    ReaderService::get_annotation_categories(&conn)
+}
+
+#[tauri::command]
+pub fn create_annotation_category(
+    name: String,
+    color: String,
+    icon: Option<String>,
+    state: State<AppState>,
+) -> Result<AnnotationCategory> {
+    validate::require_non_empty(&name, "name")?;
+    validate::require_non_empty(&color, "color")?;
+    let conn = state.db.get_connection()?;
+    ReaderService::create_annotation_category(&conn, &name, &color, icon.as_deref())
+}
+
+#[tauri::command]
+pub fn update_annotation_category(
+    id: i64,
+    name: Option<String>,
+    color: Option<String>,
+    icon: Option<String>,
+    state: State<AppState>,
+) -> Result<()> {
+    validate::require_positive_id(id, "id")?;
+    let conn = state.db.get_connection()?;
+    ReaderService::update_annotation_category(
+        &conn,
+        id,
+        name.as_deref(),
+        color.as_deref(),
+        icon.as_deref(),
+    )
+}
+
+#[tauri::command]
+pub fn delete_annotation_category(id: i64, state: State<AppState>) -> Result<()> {
+    validate::require_positive_id(id, "id")?;
+    let conn = state.db.get_connection()?;
+    ReaderService::delete_annotation_category(&conn, id)
+}
+
+#[tauri::command]
+pub fn search_annotations_global(
+    query: String,
+    book_id: Option<i64>,
+    annotation_type: Option<String>,
+    category_id: Option<i64>,
+    limit: Option<i64>,
+    offset: Option<i64>,
+    state: State<AppState>,
+) -> Result<Vec<AnnotationSearchResult>> {
+    validate::require_non_empty(&query, "query")?;
+    let conn = state.db.get_connection()?;
+    ReaderService::search_annotations_global(
+        &conn,
+        &query,
+        book_id,
+        annotation_type.as_deref(),
+        category_id,
+        limit.unwrap_or(50),
+        offset.unwrap_or(0),
+    )
+}
+
+#[tauri::command]
+pub fn get_all_annotations(
+    book_id: Option<i64>,
+    annotation_type: Option<String>,
+    category_id: Option<i64>,
+    limit: Option<i64>,
+    offset: Option<i64>,
+    state: State<AppState>,
+) -> Result<Vec<AnnotationSearchResult>> {
+    let conn = state.db.get_connection()?;
+    ReaderService::get_all_annotations(
+        &conn,
+        book_id,
+        annotation_type.as_deref(),
+        category_id,
+        limit.unwrap_or(50),
+        offset.unwrap_or(0),
+    )
+}
+
+#[tauri::command]
+pub fn export_annotations(
+    options: AnnotationExportOptions,
+    state: State<AppState>,
+) -> Result<AnnotationExportData> {
+    let conn = state.db.get_connection()?;
+    ReaderService::export_annotations(&conn, &options)
 }
 
 // ==================== Reader Settings Commands ====================

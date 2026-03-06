@@ -63,6 +63,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 13 {
             self.run_in_savepoint("v13", |mgr| mgr.migrate_to_v13())?;
         }
+        if current_version < 14 {
+            self.run_in_savepoint("v14", |mgr| mgr.migrate_to_v14())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -1379,6 +1382,28 @@ impl<'a> MigrationManager<'a> {
         )?;
 
         log::info!("[Migration] v13 applied successfully");
+        Ok(())
+    }
+
+    /// Migration v14: Translation target language preference
+    fn migrate_to_v14(&self) -> Result<()> {
+        log::info!("[Migration] Applying v14: Translation target language preference");
+
+        if !self.column_exists("user_preferences", "translation_target_language")? {
+            self.conn.execute(
+                "ALTER TABLE user_preferences ADD COLUMN translation_target_language TEXT NOT NULL DEFAULT 'en'",
+                [],
+            )?;
+        }
+
+        self.set_schema_version(14)?;
+        self.record_migration(
+            14,
+            "translation_target_language",
+            "v14_translation_target_language",
+        )?;
+
+        log::info!("[Migration] v14 applied successfully");
         Ok(())
     }
 

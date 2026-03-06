@@ -298,6 +298,9 @@ fn main() {
             commands::backup::get_backup_info,
             // File write command
             commands::export::write_text_to_file,
+            // Translation/dictionary commands
+            commands::translation::dictionary_lookup,
+            commands::translation::translate_text,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

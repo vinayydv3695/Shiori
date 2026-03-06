@@ -16,3 +16,4 @@ pub mod share;
 pub mod preferences;
 pub mod doodle;
 pub mod backup;
+pub mod translation;

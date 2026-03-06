@@ -231,6 +231,9 @@ fn main() {
             commands::collections::add_books_to_collection,
             commands::collections::get_collection_books,
             commands::collections::get_nested_collections,
+            commands::collections::toggle_book_favorite,
+            commands::collections::get_favorite_book_ids,
+            commands::collections::get_collections_by_type,
             commands::export::export_library,
             // v2.0 commands
             commands::conversion::convert_book,

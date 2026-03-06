@@ -29,6 +29,7 @@ pub fn create_collection(
     smart_rules: Option<String>,
     icon: Option<String>,
     color: Option<String>,
+    collection_type: Option<String>,
     state: State<AppState>,
 ) -> Result<Collection> {
     validate::require_non_empty(&name, "name")?;
@@ -49,6 +50,7 @@ pub fn create_collection(
         smart_rules.as_deref(),
         icon.as_deref(),
         color.as_deref(),
+        collection_type.as_deref(),
     )
 }
 
@@ -141,4 +143,26 @@ pub fn get_collection_books(collection_id: i64, state: State<AppState>) -> Resul
 pub fn get_nested_collections(state: State<AppState>) -> Result<Vec<Collection>> {
     let conn = state.db.get_connection()?;
     CollectionService::get_nested_collections(&conn)
+}
+
+#[tauri::command]
+pub fn toggle_book_favorite(book_id: i64, state: State<AppState>) -> Result<bool> {
+    validate::require_positive_id(book_id, "book_id")?;
+    let conn = state.db.get_connection()?;
+    CollectionService::toggle_book_favorite(&conn, book_id)
+}
+
+#[tauri::command]
+pub fn get_favorite_book_ids(state: State<AppState>) -> Result<Vec<i64>> {
+    let conn = state.db.get_connection()?;
+    CollectionService::get_favorite_book_ids(&conn)
+}
+
+#[tauri::command]
+pub fn get_collections_by_type(
+    collection_type: String,
+    state: State<AppState>,
+) -> Result<Vec<Collection>> {
+    let conn = state.db.get_connection()?;
+    CollectionService::get_collections_by_type(&conn, &collection_type)
 }

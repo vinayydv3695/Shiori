@@ -14,7 +14,8 @@ const BOOK_COLUMNS: &str =
      b.series, b.series_index, b.rating, b.file_path, b.file_format, b.file_size, 
      b.file_hash, b.cover_path, b.page_count, b.word_count, b.language, 
      b.added_date, b.modified_date, b.last_opened, b.notes,
-     b.online_metadata_fetched, b.metadata_source, b.metadata_last_sync, b.anilist_id";
+     b.online_metadata_fetched, b.metadata_source, b.metadata_last_sync, b.anilist_id,
+     b.is_favorite";
 
 /// Map a single row (using the BOOK_COLUMNS order) into a Book with empty authors/tags.
 fn book_from_row(row: &rusqlite::Row) -> rusqlite::Result<Book> {
@@ -46,6 +47,7 @@ fn book_from_row(row: &rusqlite::Row) -> rusqlite::Result<Book> {
         metadata_source: row.get(24).ok().flatten(),
         metadata_last_sync: row.get(25).ok().flatten(),
         anilist_id: row.get(26).ok().flatten(),
+        is_favorite: row.get::<_, i64>(27).unwrap_or(0) != 0,
         authors: vec![],
         tags: vec![],
     })
@@ -486,6 +488,7 @@ fn import_single_book(db: &Database, path: &str, covers_dir: &std::path::Path) -
         metadata_source: None,
         metadata_last_sync: None,
         anilist_id: None,
+        is_favorite: false,
     };
 
     add_book(db, book)?;

@@ -61,19 +61,15 @@ export function AnnotationExportDialog({ open, onOpenChange, bookId }: Annotatio
   const handleSave = async () => {
     if (!exportData) return;
     try {
-      // In Tauri, we ask for a save file path
       const defaultExt = format === 'markdown' ? 'md' : format === 'json' ? 'json' : 'txt';
       const defaultName = `annotations_export.${defaultExt}`;
       const filePath = await api.saveFileDialog(defaultName);
       
       if (filePath) {
-        // Since we don't have a direct write-file method exposed in api yet,
-        // we'll just copy it to the clipboard and let the user know.
-        // If there was a save method: await invoke('write_file', { path: filePath, contents: exportData.content });
-        await navigator.clipboard.writeText(exportData.content);
+        await api.writeTextToFile(filePath, exportData.content);
         useToastStore.getState().addToast({
-          title: 'File path selected',
-          description: 'Direct file writing is pending backend support. Content copied to clipboard instead.',
+          title: 'Annotations exported',
+          description: `Saved to ${filePath}`,
           variant: 'success',
         });
         onOpenChange(false);

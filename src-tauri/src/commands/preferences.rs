@@ -16,6 +16,7 @@ pub struct UserPreferences {
     pub theme: String,
     pub book: BookPreferences,
     pub manga: MangaPreferences,
+    pub tts: TtsPreferences,
     pub auto_start: bool,
     pub default_import_path: String,
     pub ui_density: String,
@@ -55,6 +56,14 @@ pub struct MangaPreferences {
     pub gpu_acceleration: bool,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TtsPreferences {
+    pub voice: String,
+    pub rate: f32,
+    pub auto_advance: bool,
+    pub highlight_color: String,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PreferenceOverride {
     pub book_id: i32,
@@ -88,7 +97,8 @@ pub async fn get_user_preferences(state: State<'_, AppState>) -> Result<UserPref
             manga_preload_count, manga_gpu_acceleration,
             auto_start, default_import_path, ui_density, accent_color,
             preferred_content_type, ui_scale, performance_mode, 
-            metadata_mode, auto_scan_enabled, default_manga_path
+            metadata_mode, auto_scan_enabled, default_manga_path,
+            tts_voice, tts_rate, tts_auto_advance, tts_highlight_color
         FROM user_preferences WHERE id = 1",
         [],
         |row| {
@@ -127,6 +137,12 @@ pub async fn get_user_preferences(state: State<'_, AppState>) -> Result<UserPref
                 metadata_mode: row.get(27).unwrap_or_else(|_| "online".to_string()),
                 auto_scan_enabled: row.get(28).unwrap_or(true),
                 default_manga_path: row.get(29).unwrap_or(None),
+                tts: TtsPreferences {
+                    voice: row.get(30).unwrap_or_else(|_| "default".to_string()),
+                    rate: row.get(31).unwrap_or(1.0),
+                    auto_advance: row.get::<_, bool>(32).unwrap_or(true),
+                    highlight_color: row.get(33).unwrap_or_else(|_| "#f3a6a68c".to_string()),
+                },
             })
         },
     )?;
@@ -244,6 +260,26 @@ pub async fn update_user_preferences(
         if let Some(gpu_acceleration) = manga.get("gpuAcceleration").and_then(|v| v.as_bool()) {
             set_clauses.push("manga_gpu_acceleration = ?".to_string());
             params.push(Box::new(gpu_acceleration));
+        }
+    }
+
+    // TTS preferences
+    if let Some(tts) = updates.get("tts") {
+        if let Some(voice) = tts.get("voice").and_then(|v| v.as_str()) {
+            set_clauses.push("tts_voice = ?".to_string());
+            params.push(Box::new(voice.to_string()));
+        }
+        if let Some(rate) = tts.get("rate").and_then(|v| v.as_f64()) {
+            set_clauses.push("tts_rate = ?".to_string());
+            params.push(Box::new(rate as f32));
+        }
+        if let Some(auto_advance) = tts.get("autoAdvance").and_then(|v| v.as_bool()) {
+            set_clauses.push("tts_auto_advance = ?".to_string());
+            params.push(Box::new(auto_advance));
+        }
+        if let Some(highlight_color) = tts.get("highlightColor").and_then(|v| v.as_str()) {
+            set_clauses.push("tts_highlight_color = ?".to_string());
+            params.push(Box::new(highlight_color.to_string()));
         }
     }
     

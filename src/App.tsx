@@ -76,6 +76,9 @@ function App() {
 
   useEffect(() => {
     loadInitialBooks();
+    api.getFavoriteBookIds().then(ids => {
+      useLibraryStore.getState().setFavoriteBookIds(ids)
+    }).catch(console.error)
   }, [loadInitialBooks])
 
   // Initialize conversion event listeners once at app startup

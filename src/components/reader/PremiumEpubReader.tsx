@@ -6,16 +6,16 @@ import { useDoodleStore } from '@/store/doodleStore';
 import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
 import { useReadingSession } from '@/hooks/useReadingSession';
 import { PremiumSidebar } from './PremiumSidebar';
-import { ReaderSettings } from './ReaderSettings';
 import { DoodleCanvas } from './DoodleCanvas';
 import { DoodleToolbar } from './DoodleToolbar';
 import { PageFlipEngine, type PageFlipHandle } from './PageFlipEngine';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
 import { TTSControlBar } from './TTSControlBar';
-import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Search, BookOpen, Bookmark } from '@/components/icons';
+import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Search, BookOpen } from '@/components/icons';
 import { sanitizeBookContent } from '@/lib/sanitize';
 import { applyHighlightsToDOM } from '@/lib/highlightAnnotations';
 import { useToastStore } from '@/store/toastStore';
+import { ReaderTopBar } from './ReaderTopBar';
 import '@/styles/premium-reader.css';
 import '@/styles/themes/paper-theme.css';
 import '@/styles/page-flip.css';
@@ -23,6 +23,7 @@ import '@/styles/page-flip.css';
 interface PremiumEpubReaderProps {
   bookPath: string;
   bookId: number;
+  onClose: () => void;
 }
 
 // Helper function to convert resource URLs to data URIs and inline CSS
@@ -183,10 +184,9 @@ function highlightSearchTerm(html: string, searchTerm: string): string {
   return doc.documentElement.outerHTML;
 }
 
-export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) {
+export function PremiumEpubReader({ bookPath, bookId, onClose }: PremiumEpubReaderProps) {
   // State management
   const {
-    isTopBarVisible,
     isFocusMode,
     scrollProgress,
     setTopBarVisible,
@@ -773,29 +773,15 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
   return (
     <div ref={readerContainerRef} className={`premium-reader ${isFocusMode ? 'premium-reader--focus-mode' : ''}`}>
       {/* Auto-hide Top Bar */}
-      <div className={`premium-top-bar ${!isTopBarVisible ? 'premium-top-bar--hidden' : ''}`}>
-        <div className="premium-top-bar-content">
-          {/* Left: Book info */}
-          <div className="premium-top-bar-left">
-            <span className="premium-book-title">
-              {metadata?.title || 'Loading...'}
-            </span>
-            <span className="premium-chapter-indicator">
-              {currentChapter.title}
-            </span>
-          </div>
-
-          {/* Center: Progress */}
-          <div className="premium-top-bar-center">
-            <span className="premium-progress-text">
-              {Math.round(progressPercentage)}%
-            </span>
-          </div>
-
-          {/* Right: Controls */}
-          <div className="premium-top-bar-right">
-            <ReaderSettings format="epub" />
-
+      <ReaderTopBar
+        bookId={bookId}
+        title={metadata?.title || 'Loading...'}
+        subtitle={currentChapter.title}
+        progress={progressPercentage}
+        format="epub"
+        onClose={onClose}
+        rightExtra={
+          <>
             <button
               onClick={() => toggleSidebar('search')}
               className="premium-control-button"
@@ -804,7 +790,6 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
             >
               <Search className="premium-control-icon" />
             </button>
-
             <button
               onClick={() => toggleSidebar('toc')}
               className="premium-control-button"
@@ -813,7 +798,6 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
             >
               <BookOpen className="premium-control-icon" />
             </button>
-
             <button
               onClick={toggleTwoPageView}
               className={`premium-control-button ${twoPageView ? 'premium-control-button--active' : ''}`}
@@ -825,17 +809,6 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
                 <rect x="13" y="4" width="8" height="16" />
               </svg>
             </button>
-
-            <button
-              onClick={() => toggleSidebar('bookmarks')}
-              className="premium-control-button"
-              aria-label="Bookmarks"
-              title="Bookmarks"
-            >
-              <Bookmark className="premium-control-icon" />
-            </button>
-
-            {/* Doodle Mode Toggle */}
             <button
               onClick={toggleDoodleMode}
               className={`premium-control-button ${isDoodleMode ? 'premium-control-button--active' : ''}`}
@@ -847,9 +820,9 @@ export function PremiumEpubReader({ bookPath, bookId }: PremiumEpubReaderProps) 
                 <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
               </svg>
             </button>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* Reading Canvas */}
       <div

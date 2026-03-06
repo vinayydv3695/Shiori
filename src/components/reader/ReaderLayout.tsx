@@ -7,7 +7,7 @@ import { MobiReader } from './MobiReader';
 import { GenericHtmlReader } from './GenericHtmlReader';
 import { MangaReader } from '@/components/manga/MangaReader';
 import { ReaderErrorBoundary, parseReaderError } from './ReaderErrorBoundary';
-import { X } from '@/components/icons';
+import type { ReaderFormat } from './ReaderSettings';
 
 interface ReaderLayoutProps {
   bookId: number;
@@ -198,23 +198,12 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
   // Show reader
   return (
     <div className="fixed inset-0 bg-white dark:bg-gray-900 z-50 flex flex-col">
-      {/* Top bar with close button (minimal for premium reader) */}
-      <div className="absolute top-4 left-4 z-[110]">
-        <button
-          onClick={handleClose}
-          className="p-2 bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 rounded-lg transition-all backdrop-blur-sm shadow-lg border border-gray-200 dark:border-gray-700"
-          title="Close reader"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-
       {/* Reader content */}
       {currentBookPath && currentBookFormat === 'epub' && (
-        <PremiumEpubReader bookPath={currentBookPath} bookId={bookId} />
+        <PremiumEpubReader bookPath={currentBookPath} bookId={bookId} onClose={handleClose} />
       )}
       {currentBookPath && currentBookFormat === 'pdf' && (
-        <PdfReader bookPath={currentBookPath} bookId={bookId} />
+        <PdfReader bookPath={currentBookPath} bookId={bookId} onClose={handleClose} />
       )}
       {currentBookPath && (currentBookFormat === 'cbz' || currentBookFormat === 'cbr') && (
         <MangaReader
@@ -224,10 +213,10 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
         />
       )}
       {currentBookPath && (currentBookFormat === 'mobi' || currentBookFormat === 'azw3') && (
-        <MobiReader bookPath={currentBookPath} bookId={bookId} />
+        <MobiReader bookPath={currentBookPath} bookId={bookId} onClose={handleClose} />
       )}
       {currentBookPath && (currentBookFormat === 'fb2' || currentBookFormat === 'docx' || currentBookFormat === 'html' || currentBookFormat === 'htm' || currentBookFormat === 'txt' || currentBookFormat === 'md' || currentBookFormat === 'markdown') && (
-        <GenericHtmlReader bookPath={currentBookPath} bookId={bookId} format={currentBookFormat} />
+        <GenericHtmlReader bookPath={currentBookPath} bookId={bookId} format={currentBookFormat as ReaderFormat} onClose={handleClose} />
       )}
       {!currentBookPath && (
         <div className="flex items-center justify-center h-full">

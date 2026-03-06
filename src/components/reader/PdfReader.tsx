@@ -2,10 +2,10 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '@/lib/tauri';
 import type { BookMetadata } from '@/lib/tauri';
 import { convertFileSrc } from '@tauri-apps/api/core';
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Loader2, AlertCircle, Bookmark } from '@/components/icons';
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Loader2, AlertCircle } from '@/components/icons';
 import { useUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement } from '@/store/premiumReaderStore';
 import { useToastStore } from '@/store/toastStore';
-import { ReaderSettings } from './ReaderSettings';
+import { ReaderTopBar } from './ReaderTopBar';
 import { PremiumSidebar } from './PremiumSidebar';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
 import { TTSControlBar } from './TTSControlBar';
@@ -23,10 +23,11 @@ pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
 interface PdfReaderProps {
   bookPath: string;
   bookId: number;
+  onClose: () => void;
 }
 
-export function PdfReader({ bookPath, bookId }: PdfReaderProps) {
-  const { isTopBarVisible, isFocusMode, setTopBarVisible, toggleSidebar } = useUIStore();
+export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
+  const { isFocusMode, setTopBarVisible } = useUIStore();
   const { theme } = useReadingSettings();
 
   useReadingSession(bookId);
@@ -256,41 +257,28 @@ export function PdfReader({ bookPath, bookId }: PdfReaderProps) {
   return (
     <div ref={readerContainerRef} className={`premium-reader ${isFocusMode ? 'premium-reader--focus-mode' : ''}`}>
       {/* Auto-hide Top Bar */}
-      <div className={`premium-top-bar ${!isTopBarVisible ? 'premium-top-bar--hidden' : ''}`}>
-        <div className="premium-top-bar-content">
-          <div className="premium-top-bar-left">
-            <span className="premium-book-title">{metadata?.title || 'Loading...'}</span>
-            <span className="premium-chapter-indicator">Page {pageNumber} of {numPages}</span>
-          </div>
-
-          <div className="premium-top-bar-center">
-            <span className="premium-progress-text">{Math.round((pageNumber / numPages) * 100 || 0)}%</span>
-            <div className="flex items-center gap-2 ml-4">
-              <button onClick={zoomOut} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors" title="Zoom out">
-                <ZoomOut className="w-4 h-4" />
-              </button>
-              <span className="text-xs font-medium min-w-[40px] text-center">{Math.round(scale * 100)}%</span>
-              <button onClick={zoomIn} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors" title="Zoom in">
-                <ZoomIn className="w-4 h-4" />
-              </button>
-              <button onClick={resetZoom} className="px-2 py-1 text-xs hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors" title="Reset zoom">
-                Reset
-              </button>
-            </div>
-          </div>
-
-          <div className="premium-top-bar-right">
-            <ReaderSettings format="pdf" />
-            <button
-              onClick={() => toggleSidebar('bookmarks')}
-              className="premium-control-button"
-              title="Annotations & Search"
-            >
-              <Bookmark className="premium-control-icon" />
+      <ReaderTopBar
+        bookId={bookId}
+        title={metadata?.title || 'Loading...'}
+        subtitle={`Page ${pageNumber} of ${numPages}`}
+        progress={Math.round((pageNumber / numPages) * 100 || 0)}
+        format="pdf"
+        onClose={onClose}
+        centerExtra={
+          <div className="flex items-center gap-2 ml-4">
+            <button onClick={zoomOut} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors" title="Zoom out">
+              <ZoomOut className="w-4 h-4" />
+            </button>
+            <span className="text-xs font-medium min-w-[40px] text-center">{Math.round(scale * 100)}%</span>
+            <button onClick={zoomIn} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors" title="Zoom in">
+              <ZoomIn className="w-4 h-4" />
+            </button>
+            <button onClick={resetZoom} className="px-2 py-1 text-xs hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors" title="Reset zoom">
+              Reset
             </button>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* PDF Canvas Viewport */}
       <div

@@ -19,6 +19,7 @@ export function WebtoonView() {
     const setScrollProgress = useMangaUIStore(s => s.setScrollProgress);
     const setTopBarVisible = useMangaUIStore(s => s.setTopBarVisible);
     const readingMode = useMangaSettingsStore(s => s.readingMode);
+    const preloadIntensity = useMangaSettingsStore(s => s.preloadIntensity);
 
     const containerRef = useRef<HTMLDivElement>(null);
     const hasScrolledToResume = useRef(false);
@@ -99,8 +100,11 @@ export function WebtoonView() {
     useEffect(() => {
         if (!bookId || totalPages === 0) return;
 
+        const behind = preloadIntensity === 'light' ? 2 : preloadIntensity === 'aggressive' ? 4 : 3;
+        const ahead = preloadIntensity === 'light' ? 5 : preloadIntensity === 'aggressive' ? 12 : 8;
+
         const pagesToPreload: number[] = [];
-        for (let i = -3; i <= 8; i++) {
+        for (let i = -behind; i <= ahead; i++) {
             const target = currentPage + i;
             if (target >= 0 && target < totalPages && target !== currentPage) {
                 pagesToPreload.push(target);
@@ -110,7 +114,7 @@ export function WebtoonView() {
         if (pagesToPreload.length > 0) {
             preloadPages(bookId, pagesToPreload);
         }
-    }, [bookId, currentPage, totalPages]);
+    }, [bookId, currentPage, totalPages, preloadIntensity]);
 
     if (!bookId) return null;
 

@@ -321,7 +321,7 @@ impl BookFormatAdapter for Fb2FormatAdapter {
             supports_text_reflow: true,
             supports_annotations: false,
             supports_metadata: true,
-            is_readable: false,
+            is_readable: true,
             supports_search: true,
         }
     }
@@ -347,7 +347,7 @@ mod tests {
         assert!(caps.supports_text_reflow);
         assert!(!caps.supports_annotations);
         assert!(caps.supports_metadata);
-        assert!(!caps.is_readable);
+        assert!(caps.is_readable);
         assert!(caps.supports_search);
     }
     

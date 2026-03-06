@@ -12,6 +12,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
+import { Heart } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Book } from '@/lib/tauri'
 import {
@@ -119,6 +120,8 @@ interface BookCardProps {
   onDelete: (id: number) => void
   onConvert?: (id: number) => void
   onShare?: (id: number) => void
+  isFavorited?: boolean
+  onFavorite?: (id: number) => void
   animationDelay?: number
 }
 
@@ -131,6 +134,8 @@ export function PremiumBookCard({
   onDelete,
   onConvert,
   onShare,
+  isFavorited,
+  onFavorite,
   animationDelay = 0,
 }: BookCardProps) {
   const [imgLoaded, setImgLoaded] = useState(false)
@@ -245,6 +250,23 @@ export function PremiumBookCard({
           )}
         >
           {isSelected && <IconCheck size={11} className="text-primary-foreground" />}
+        </button>
+
+        {/* Favorite toggle */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onFavorite?.(book.id!) }}
+          aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+          className={cn(
+            'absolute top-1.5 right-1.5 z-10',
+            'w-5 h-5 rounded flex items-center justify-center',
+            'transition-all duration-[100ms]',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            isFavorited
+              ? 'text-red-500 opacity-100'
+              : 'text-white/70 opacity-0 group-hover:opacity-100 hover:text-red-400',
+          )}
+        >
+          <Heart size={13} fill={isFavorited ? 'currentColor' : 'none'} />
         </button>
 
         {/* Format badge */}

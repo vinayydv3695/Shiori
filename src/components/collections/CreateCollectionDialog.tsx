@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X, Folder, Sparkles } from 'lucide-react';
+import { X, Folder, Sparkles, BookMarked } from 'lucide-react';
 import { api, Collection, SmartRule } from '../../lib/tauri';
 import { useCollectionStore } from '../../store/collectionStore';
 import { SmartCollectionEditor } from './SmartCollectionEditor';
@@ -36,6 +36,7 @@ export const CreateCollectionDialog = ({
   const [color, setColor] = useState(PRESET_COLORS[0]);
   const [icon, setIcon] = useState('');
   const [isSmart, setIsSmart] = useState(false);
+  const [collectionType, setCollectionType] = useState<'regular' | 'shelf'>('regular');
   const [smartRules, setSmartRules] = useState<SmartRule[]>([]);
   const [selectedParentId, setSelectedParentId] = useState<number | null>(null);
   const [allCollections, setAllCollections] = useState<Collection[]>([]);
@@ -53,6 +54,9 @@ export const CreateCollectionDialog = ({
         setColor(editCollection.color || PRESET_COLORS[0]);
         setIcon(editCollection.icon || '');
         setIsSmart(editCollection.isSmart);
+        setCollectionType(
+          editCollection.collectionType === 'shelf' ? 'shelf' : 'regular'
+        );
         setSelectedParentId(editCollection.parentId || null);
 
         // Parse smart rules if exists
@@ -87,6 +91,7 @@ export const CreateCollectionDialog = ({
     setColor(PRESET_COLORS[0]);
     setIcon('');
     setIsSmart(false);
+    setCollectionType('regular');
     setSmartRules([]);
     setSelectedParentId(null);
   };
@@ -114,6 +119,7 @@ export const CreateCollectionDialog = ({
         smart_rules: isSmart ? JSON.stringify(smartRules) : null,
         icon: icon || null,
         color: color || null,
+        collection_type: collectionType,
       };
 
       if (editCollection && editCollection.id !== undefined) {
@@ -196,6 +202,41 @@ export const CreateCollectionDialog = ({
                 </div>
               </button>
             </div>
+
+            {/* Collection Type (Regular vs Shelf) */}
+            {!isSmart && (
+              <div>
+                <label className="block text-sm font-medium mb-2">Collection Type</label>
+                <div className="flex gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setCollectionType('regular')}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all ${collectionType === 'regular'
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                      : 'border-gray-300 dark:border-gray-700 hover:border-gray-400'
+                      }`}
+                  >
+                    <Folder className="w-4 h-4" />
+                    <div className="text-left">
+                      <div className="text-sm font-medium">Collection</div>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCollectionType('shelf')}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all ${collectionType === 'shelf'
+                      ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20'
+                      : 'border-gray-300 dark:border-gray-700 hover:border-gray-400'
+                      }`}
+                  >
+                    <BookMarked className="w-4 h-4" />
+                    <div className="text-left">
+                      <div className="text-sm font-medium">Shelf</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Name */}
             <div>

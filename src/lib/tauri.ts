@@ -277,6 +277,26 @@ export interface BookReadingStats {
   average_session_minutes: number
 }
 
+export interface BackupInfo {
+  version: string
+  created_at: string
+  app_version: string
+  book_count: number
+  annotation_count: number
+  collection_count: number
+  includes_books: boolean
+  total_size_bytes: number
+}
+
+export interface RestoreInfo {
+  books_restored: number
+  annotations_restored: number
+  collections_restored: number
+  covers_restored: number
+  settings_restored: boolean
+  frontend_settings: string | null
+}
+
 // Mock data for development (when not in Tauri)
 const mockBooks: Book[] = [
   {
@@ -887,5 +907,18 @@ export const api = {
 
   async getTodayReadingTime(): Promise<number> {
     return invoke("get_today_reading_time")
+  },
+
+  // Backup & Restore
+  async createBackup(backupPath: string, options: { include_books: boolean; frontend_settings?: string }): Promise<BackupInfo> {
+    return invoke("create_backup", { backupPath, options })
+  },
+
+  async restoreBackup(backupPath: string): Promise<RestoreInfo> {
+    return invoke("restore_backup", { backupPath })
+  },
+
+  async getBackupInfo(backupPath: string): Promise<BackupInfo> {
+    return invoke("get_backup_info", { backupPath })
   },
 }

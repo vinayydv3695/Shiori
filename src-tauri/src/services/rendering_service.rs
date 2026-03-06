@@ -2,9 +2,13 @@ use crate::error::{Result, ShioriError};
 use crate::services::cache::{BookCache, CacheItemType, CacheKey, CachedContent};
 use crate::services::docx_adapter::DocxAdapter;
 use crate::services::epub_adapter::EpubAdapter;
+use crate::services::fb2_reader_adapter::Fb2ReaderAdapter;
+use crate::services::html_reader_adapter::HtmlReaderAdapter;
+use crate::services::markdown_reader_adapter::MarkdownReaderAdapter;
 use crate::services::mobi_adapter::MobiAdapter;
 use crate::services::pdf_adapter::PdfAdapter;
 use crate::services::renderer::{BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry};
+use crate::services::txt_reader_adapter::TxtReaderAdapter;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -16,6 +20,10 @@ pub struct RenderingService {
     pdf_renderers: Arc<Mutex<HashMap<i64, PdfAdapter>>>,
     docx_renderers: Arc<Mutex<HashMap<i64, DocxAdapter>>>,
     mobi_renderers: Arc<Mutex<HashMap<i64, MobiAdapter>>>,
+    fb2_renderers: Arc<Mutex<HashMap<i64, Fb2ReaderAdapter>>>,
+    html_renderers: Arc<Mutex<HashMap<i64, HtmlReaderAdapter>>>,
+    txt_renderers: Arc<Mutex<HashMap<i64, TxtReaderAdapter>>>,
+    md_renderers: Arc<Mutex<HashMap<i64, MarkdownReaderAdapter>>>,
 }
 
 impl RenderingService {
@@ -26,6 +34,10 @@ impl RenderingService {
             pdf_renderers: Arc::new(Mutex::new(HashMap::new())),
             docx_renderers: Arc::new(Mutex::new(HashMap::new())),
             mobi_renderers: Arc::new(Mutex::new(HashMap::new())),
+            fb2_renderers: Arc::new(Mutex::new(HashMap::new())),
+            html_renderers: Arc::new(Mutex::new(HashMap::new())),
+            txt_renderers: Arc::new(Mutex::new(HashMap::new())),
+            md_renderers: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -181,6 +193,74 @@ impl RenderingService {
 
                 Ok(metadata)
             }
+            "fb2" => {
+                println!("[RenderingService] Creating Fb2ReaderAdapter...");
+                let mut adapter = Fb2ReaderAdapter::new();
+                match futures::executor::block_on(adapter.load(path)) {
+                    Ok(_) => println!("[RenderingService] ✅ adapter.load() succeeded"),
+                    Err(e) => {
+                        println!("[RenderingService] ❌ adapter.load() failed: {}", e);
+                        return Err(e);
+                    }
+                }
+                let metadata = adapter.get_metadata()?;
+                {
+                    let mut renderers = self.fb2_renderers.lock().unwrap();
+                    renderers.insert(book_id, adapter);
+                }
+                Ok(metadata)
+            }
+            "html" | "htm" => {
+                println!("[RenderingService] Creating HtmlReaderAdapter...");
+                let mut adapter = HtmlReaderAdapter::new();
+                match futures::executor::block_on(adapter.load(path)) {
+                    Ok(_) => println!("[RenderingService] ✅ adapter.load() succeeded"),
+                    Err(e) => {
+                        println!("[RenderingService] ❌ adapter.load() failed: {}", e);
+                        return Err(e);
+                    }
+                }
+                let metadata = adapter.get_metadata()?;
+                {
+                    let mut renderers = self.html_renderers.lock().unwrap();
+                    renderers.insert(book_id, adapter);
+                }
+                Ok(metadata)
+            }
+            "txt" => {
+                println!("[RenderingService] Creating TxtReaderAdapter...");
+                let mut adapter = TxtReaderAdapter::new();
+                match futures::executor::block_on(adapter.load(path)) {
+                    Ok(_) => println!("[RenderingService] ✅ adapter.load() succeeded"),
+                    Err(e) => {
+                        println!("[RenderingService] ❌ adapter.load() failed: {}", e);
+                        return Err(e);
+                    }
+                }
+                let metadata = adapter.get_metadata()?;
+                {
+                    let mut renderers = self.txt_renderers.lock().unwrap();
+                    renderers.insert(book_id, adapter);
+                }
+                Ok(metadata)
+            }
+            "md" | "markdown" => {
+                println!("[RenderingService] Creating MarkdownReaderAdapter...");
+                let mut adapter = MarkdownReaderAdapter::new();
+                match futures::executor::block_on(adapter.load(path)) {
+                    Ok(_) => println!("[RenderingService] ✅ adapter.load() succeeded"),
+                    Err(e) => {
+                        println!("[RenderingService] ❌ adapter.load() failed: {}", e);
+                        return Err(e);
+                    }
+                }
+                let metadata = adapter.get_metadata()?;
+                {
+                    let mut renderers = self.md_renderers.lock().unwrap();
+                    renderers.insert(book_id, adapter);
+                }
+                Ok(metadata)
+            }
             _ => Err(ShioriError::UnsupportedFormat {
                 format: format.to_string(),
                 path: path.to_string(),
@@ -201,6 +281,18 @@ impl RenderingService {
 
         let mut mobi_renderers = self.mobi_renderers.lock().unwrap();
         mobi_renderers.remove(&book_id);
+
+        let mut fb2_renderers = self.fb2_renderers.lock().unwrap();
+        fb2_renderers.remove(&book_id);
+
+        let mut html_renderers = self.html_renderers.lock().unwrap();
+        html_renderers.remove(&book_id);
+
+        let mut txt_renderers = self.txt_renderers.lock().unwrap();
+        txt_renderers.remove(&book_id);
+
+        let mut md_renderers = self.md_renderers.lock().unwrap();
+        md_renderers.remove(&book_id);
 
         // Clear cache for this book
         self.cache.clear_book(book_id);
@@ -225,6 +317,26 @@ impl RenderingService {
 
         // Try MOBI
         if let Some(adapter) = self.mobi_renderers.lock().unwrap().get(&book_id) {
+            return adapter.get_toc();
+        }
+
+        // Try FB2
+        if let Some(adapter) = self.fb2_renderers.lock().unwrap().get(&book_id) {
+            return adapter.get_toc();
+        }
+
+        // Try HTML
+        if let Some(adapter) = self.html_renderers.lock().unwrap().get(&book_id) {
+            return adapter.get_toc();
+        }
+
+        // Try TXT
+        if let Some(adapter) = self.txt_renderers.lock().unwrap().get(&book_id) {
+            return adapter.get_toc();
+        }
+
+        // Try Markdown
+        if let Some(adapter) = self.md_renderers.lock().unwrap().get(&book_id) {
             return adapter.get_toc();
         }
 
@@ -300,14 +412,56 @@ impl RenderingService {
                             drop(mobi_renderers);
                             result?
                         } else {
-                            println!(
-                                "[RenderingService::get_chapter] ❌ Book {} not in any renderer!",
-                                book_id
-                            );
-                            return Err(ShioriError::BookNotFound(format!(
-                                "Book {} not opened",
-                                book_id
-                            )));
+                            drop(mobi_renderers);
+
+                            let fb2_renderers = self.fb2_renderers.lock().unwrap();
+                            if let Some(adapter) = fb2_renderers.get(&book_id) {
+                                println!("[RenderingService::get_chapter] Found in FB2 renderers");
+                                let result = adapter.get_chapter(chapter_index);
+                                drop(fb2_renderers);
+                                result?
+                            } else {
+                                drop(fb2_renderers);
+
+                                let html_renderers = self.html_renderers.lock().unwrap();
+                                if let Some(adapter) = html_renderers.get(&book_id) {
+                                    println!(
+                                        "[RenderingService::get_chapter] Found in HTML renderers"
+                                    );
+                                    let result = adapter.get_chapter(chapter_index);
+                                    drop(html_renderers);
+                                    result?
+                                } else {
+                                    drop(html_renderers);
+
+                                    let txt_renderers = self.txt_renderers.lock().unwrap();
+                                    if let Some(adapter) = txt_renderers.get(&book_id) {
+                                        println!("[RenderingService::get_chapter] Found in TXT renderers");
+                                        let result = adapter.get_chapter(chapter_index);
+                                        drop(txt_renderers);
+                                        result?
+                                    } else {
+                                        drop(txt_renderers);
+
+                                        let md_renderers = self.md_renderers.lock().unwrap();
+                                        if let Some(adapter) = md_renderers.get(&book_id) {
+                                            println!("[RenderingService::get_chapter] Found in MD renderers");
+                                            let result = adapter.get_chapter(chapter_index);
+                                            drop(md_renderers);
+                                            result?
+                                        } else {
+                                            println!(
+                                                "[RenderingService::get_chapter] ❌ Book {} not in any renderer!",
+                                                book_id
+                                            );
+                                            return Err(ShioriError::BookNotFound(format!(
+                                                "Book {} not opened",
+                                                book_id
+                                            )));
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -347,6 +501,22 @@ impl RenderingService {
             return Ok(adapter.chapter_count());
         }
 
+        if let Some(adapter) = self.fb2_renderers.lock().unwrap().get(&book_id) {
+            return Ok(adapter.chapter_count());
+        }
+
+        if let Some(adapter) = self.html_renderers.lock().unwrap().get(&book_id) {
+            return Ok(adapter.chapter_count());
+        }
+
+        if let Some(adapter) = self.txt_renderers.lock().unwrap().get(&book_id) {
+            return Ok(adapter.chapter_count());
+        }
+
+        if let Some(adapter) = self.md_renderers.lock().unwrap().get(&book_id) {
+            return Ok(adapter.chapter_count());
+        }
+
         Err(ShioriError::BookNotFound(format!(
             "Book {} not opened",
             book_id
@@ -368,6 +538,22 @@ impl RenderingService {
         }
 
         if let Some(adapter) = self.mobi_renderers.lock().unwrap().get(&book_id) {
+            return adapter.search(query);
+        }
+
+        if let Some(adapter) = self.fb2_renderers.lock().unwrap().get(&book_id) {
+            return adapter.search(query);
+        }
+
+        if let Some(adapter) = self.html_renderers.lock().unwrap().get(&book_id) {
+            return adapter.search(query);
+        }
+
+        if let Some(adapter) = self.txt_renderers.lock().unwrap().get(&book_id) {
+            return adapter.search(query);
+        }
+
+        if let Some(adapter) = self.md_renderers.lock().unwrap().get(&book_id) {
             return adapter.search(query);
         }
 
@@ -419,6 +605,26 @@ impl RenderingService {
                             .put(cache_key, CachedContent::Html(chapter.content.clone()));
                     }
                 } else if let Some(adapter) = self.mobi_renderers.lock().unwrap().get(&book_id) {
+                    if let Ok(chapter) = adapter.get_chapter(next_index) {
+                        self.cache
+                            .put(cache_key, CachedContent::Html(chapter.content.clone()));
+                    }
+                } else if let Some(adapter) = self.fb2_renderers.lock().unwrap().get(&book_id) {
+                    if let Ok(chapter) = adapter.get_chapter(next_index) {
+                        self.cache
+                            .put(cache_key, CachedContent::Html(chapter.content.clone()));
+                    }
+                } else if let Some(adapter) = self.html_renderers.lock().unwrap().get(&book_id) {
+                    if let Ok(chapter) = adapter.get_chapter(next_index) {
+                        self.cache
+                            .put(cache_key, CachedContent::Html(chapter.content.clone()));
+                    }
+                } else if let Some(adapter) = self.txt_renderers.lock().unwrap().get(&book_id) {
+                    if let Ok(chapter) = adapter.get_chapter(next_index) {
+                        self.cache
+                            .put(cache_key, CachedContent::Html(chapter.content.clone()));
+                    }
+                } else if let Some(adapter) = self.md_renderers.lock().unwrap().get(&book_id) {
                     if let Ok(chapter) = adapter.get_chapter(next_index) {
                         self.cache
                             .put(cache_key, CachedContent::Html(chapter.content.clone()));

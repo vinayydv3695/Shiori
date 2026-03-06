@@ -33,6 +33,8 @@ pub struct Book {
     pub metadata_last_sync: Option<String>,
     pub anilist_id: Option<String>,
 
+    pub is_favorite: bool,
+
     pub authors: Vec<Author>,
     pub tags: Vec<Tag>,
 }
@@ -173,6 +175,7 @@ pub struct Collection {
     pub smart_rules: Option<String>, // JSON string of SmartRule[]
     pub icon: Option<String>,
     pub color: Option<String>,
+    pub collection_type: String, // "regular", "shelf", "favorites"
     pub sort_order: i32,
     pub created_at: String,
     pub updated_at: String,

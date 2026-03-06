@@ -1,18 +1,19 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
-import { X, Moon, Sun, Image, Palette, Database, Bell, Shield, BookOpen, FileText } from 'lucide-react'
+import { X, Moon, Sun, Image, Palette, Database, Bell, Shield, BookOpen, FileText, Volume2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { usePreferencesStore } from '../../store/preferencesStore'
-import type { Theme, UserPreferences, BookPreferences, MangaPreferences } from '../../types/preferences'
+import type { Theme, UserPreferences, BookPreferences, MangaPreferences, TtsPreferences } from '../../types/preferences'
 import { api } from '../../lib/tauri'
+import { TTSEngine } from '@/lib/ttsEngine'
 
 interface SettingsDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-type SettingsTab = 'appearance' | 'book-reading' | 'manga-reading' | 'library' | 'storage' | 'notifications' | 'advanced'
+type SettingsTab = 'appearance' | 'book-reading' | 'manga-reading' | 'audio' | 'library' | 'storage' | 'notifications' | 'advanced'
 
 export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance')
@@ -20,12 +21,14 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   const updateTheme = usePreferencesStore((state) => state.updateTheme)
   const updateBookDefaults = usePreferencesStore((state) => state.updateBookDefaults)
   const updateMangaDefaults = usePreferencesStore((state) => state.updateMangaDefaults)
+  const updateTtsDefaults = usePreferencesStore((state) => state.updateTtsDefaults)
   const updateGeneralSettings = usePreferencesStore((state) => state.updateGeneralSettings)
 
   const tabs = [
     { id: 'appearance' as const, name: 'Appearance', icon: Palette },
     { id: 'book-reading' as const, name: 'Book Reading', icon: BookOpen },
     { id: 'manga-reading' as const, name: 'Manga Reading', icon: FileText },
+    { id: 'audio' as const, name: 'Audio / TTS', icon: Volume2 },
     { id: 'library' as const, name: 'Library', icon: Image },
     { id: 'storage' as const, name: 'Storage', icon: Database },
     { id: 'notifications' as const, name: 'Notifications', icon: Bell },
@@ -73,6 +76,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
               {activeTab === 'appearance' && <AppearanceSettings preferences={preferences} updateTheme={updateTheme} updateGeneralSettings={updateGeneralSettings} />}
               {activeTab === 'book-reading' && <BookReadingSettings preferences={preferences} updateBookDefaults={updateBookDefaults} />}
               {activeTab === 'manga-reading' && <MangaReadingSettings preferences={preferences} updateMangaDefaults={updateMangaDefaults} />}
+              {activeTab === 'audio' && <AudioTTSSettings preferences={preferences} updateTtsDefaults={updateTtsDefaults} />}
               {activeTab === 'library' && <LibrarySettings preferences={preferences} updateGeneralSettings={updateGeneralSettings} />}
               {activeTab === 'storage' && <StorageSettings preferences={preferences} />}
               {activeTab === 'notifications' && <NotificationSettings />}
@@ -451,6 +455,102 @@ const MangaReadingSettings = ({ preferences, updateMangaDefaults }: {
             onChange={(e) => updateMangaDefaults({ marginSize: Number(e.target.value) })}
             className="w-48"
           />
+        </SettingItem>
+      </SettingSection>
+    </div>
+  )
+}
+
+const SPEED_OPTIONS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
+
+const AudioTTSSettings = ({ preferences, updateTtsDefaults }: {
+  preferences: UserPreferences | null
+  updateTtsDefaults: (updates: Partial<TtsPreferences>) => Promise<void>
+}) => {
+  const isAvailable = TTSEngine.isAvailable()
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
+
+  useEffect(() => {
+    if (isAvailable && typeof window !== 'undefined' && window.speechSynthesis) {
+      const loadVoices = () => setVoices(window.speechSynthesis.getVoices())
+      loadVoices()
+      window.speechSynthesis.addEventListener('voiceschanged', loadVoices)
+      return () => window.speechSynthesis.removeEventListener('voiceschanged', loadVoices)
+    }
+  }, [isAvailable])
+
+  if (!preferences) return null
+
+  return (
+    <div className="space-y-8">
+      {!isAvailable && (
+        <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+          <p className="text-sm font-medium text-yellow-600 dark:text-yellow-400">
+            Text-to-Speech is not available on this platform.
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Speech synthesis requires a Chromium-based WebView (Windows/macOS). Linux WebKitGTK does not support the Web Speech API.
+          </p>
+        </div>
+      )}
+
+      <SettingSection
+        title="Text-to-Speech"
+        description="Configure voice and speech settings for read-aloud"
+      >
+        <SettingItem label="Voice" description={preferences.tts.voice === 'default' ? 'System default' : preferences.tts.voice}>
+          <select
+            value={preferences.tts.voice}
+            onChange={(e) => updateTtsDefaults({ voice: e.target.value })}
+            disabled={!isAvailable}
+            className="px-3 py-2 rounded-md border border-border bg-background max-w-[250px] disabled:opacity-50"
+          >
+            <option value="default">System Default</option>
+            {voices.map((v) => (
+              <option key={v.voiceURI} value={v.voiceURI}>
+                {v.name} ({v.lang})
+              </option>
+            ))}
+          </select>
+        </SettingItem>
+
+        <SettingItem label="Speech Rate" description={`${preferences.tts.rate}x`}>
+          <select
+            value={preferences.tts.rate}
+            onChange={(e) => updateTtsDefaults({ rate: Number(e.target.value) })}
+            disabled={!isAvailable}
+            className="px-3 py-2 rounded-md border border-border bg-background disabled:opacity-50"
+          >
+            {SPEED_OPTIONS.map((s) => (
+              <option key={s} value={s}>{s}x</option>
+            ))}
+          </select>
+        </SettingItem>
+
+        <SettingItem
+          label="Auto-advance Chapter"
+          description={preferences.tts.autoAdvance ? 'Automatically go to next chapter when done' : 'Stop at end of chapter'}
+        >
+          <input
+            type="checkbox"
+            checked={preferences.tts.autoAdvance}
+            onChange={(e) => updateTtsDefaults({ autoAdvance: e.target.checked })}
+            disabled={!isAvailable}
+            className="w-5 h-5 disabled:opacity-50"
+          />
+        </SettingItem>
+
+        <SettingItem label="Highlight Color" description="Color used to highlight the spoken sentence">
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={preferences.tts.highlightColor.slice(0, 7)}
+              onChange={(e) => updateTtsDefaults({ highlightColor: e.target.value + '8c' })}
+              disabled={!isAvailable}
+              className="w-8 h-8 rounded cursor-pointer border border-border disabled:opacity-50"
+            />
+            <span className="text-xs text-muted-foreground font-mono">{preferences.tts.highlightColor}</span>
+          </div>
         </SettingItem>
       </SettingSection>
     </div>

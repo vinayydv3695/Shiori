@@ -32,6 +32,8 @@ export function AdvancedSettingsPanel() {
     const toggleNavigationTips = useMangaSettingsStore(s => s.toggleNavigationTips);
     const imageQuality = useMangaSettingsStore(s => s.imageQuality);
     const setImageQuality = useMangaSettingsStore(s => s.setImageQuality);
+    const preloadIntensity = useMangaSettingsStore(s => s.preloadIntensity);
+    const setPreloadIntensity = useMangaSettingsStore(s => s.setPreloadIntensity);
     const resetToDefaults = useMangaSettingsStore(s => s.resetToDefaults);
 
     const [activeTab, setActiveTab] = useState<SettingsTab>('layout');
@@ -118,20 +120,22 @@ export function AdvancedSettingsPanel() {
 
                             <div className="manga-settings-group">
                                 <div className="manga-settings-group-title">Layout Options</div>
-                                <div className="manga-settings-option">
-                                    <div>
-                                        <div className="manga-settings-option-label">Strip Margin</div>
-                                        <div className="manga-settings-option-hint">{stripMargin}px gap between pages</div>
+                                {readingMode === 'strip' && (
+                                    <div className="manga-settings-option">
+                                        <div>
+                                            <div className="manga-settings-option-label">Strip Margin</div>
+                                            <div className="manga-settings-option-hint">{stripMargin}px gap between pages</div>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            className="manga-slider"
+                                            min="0"
+                                            max="32"
+                                            value={stripMargin}
+                                            onChange={(e) => setStripMargin(Number(e.target.value))}
+                                        />
                                     </div>
-                                    <input
-                                        type="range"
-                                        className="manga-slider"
-                                        min="0"
-                                        max="32"
-                                        value={stripMargin}
-                                        onChange={(e) => setStripMargin(Number(e.target.value))}
-                                    />
-                                </div>
+                                )}
 
                                 <div className="manga-settings-option">
                                     <div>
@@ -205,6 +209,31 @@ export function AdvancedSettingsPanel() {
                                             <div style={{ fontSize: '10px', opacity: 0.7 }}>{opt.desc}</div>
                                         </button>
                                     ))}
+                                </div>
+                            </div>
+
+                            <div className="manga-settings-group">
+                                <div className="manga-settings-group-title">Preload Intensity</div>
+                                <div className="manga-settings-option">
+                                    <div>
+                                        <div className="manga-settings-option-label">Pages to Preload</div>
+                                        <div className="manga-settings-option-hint">
+                                            {preloadIntensity === 'light' ? 'Fewer pages, less memory' :
+                                             preloadIntensity === 'normal' ? 'Balanced loading' :
+                                             'More pages, smoother reading'}
+                                        </div>
+                                    </div>
+                                    <div className="manga-position-pills">
+                                        {(['light', 'normal', 'aggressive'] as const).map(level => (
+                                            <button
+                                                key={level}
+                                                className={`manga-position-pill ${preloadIntensity === level ? 'manga-position-pill--active' : ''}`}
+                                                onClick={() => setPreloadIntensity(level)}
+                                            >
+                                                {level.charAt(0).toUpperCase() + level.slice(1)}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
 

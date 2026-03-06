@@ -19,6 +19,7 @@ export function LongStripView() {
     const setScrollProgress = useMangaUIStore(s => s.setScrollProgress);
     const setTopBarVisible = useMangaUIStore(s => s.setTopBarVisible);
     const stripMargin = useMangaSettingsStore(s => s.stripMargin);
+    const preloadIntensity = useMangaSettingsStore(s => s.preloadIntensity);
 
     const containerRef = useRef<HTMLDivElement>(null);
     // Track whether we've done the initial scroll-to-resume
@@ -111,9 +112,11 @@ export function LongStripView() {
     useEffect(() => {
         if (!bookId || totalPages === 0) return;
 
-        // Preload 5 pages ahead and 2 behind the current page
+        const behind = preloadIntensity === 'light' ? 1 : preloadIntensity === 'aggressive' ? 3 : 2;
+        const ahead = preloadIntensity === 'light' ? 3 : preloadIntensity === 'aggressive' ? 8 : 5;
+
         const pagesToPreload: number[] = [];
-        for (let i = -2; i <= 5; i++) {
+        for (let i = -behind; i <= ahead; i++) {
             const target = currentPage + i;
             if (target >= 0 && target < totalPages && target !== currentPage) {
                 pagesToPreload.push(target);
@@ -123,7 +126,7 @@ export function LongStripView() {
         if (pagesToPreload.length > 0) {
             preloadPages(bookId, pagesToPreload);
         }
-    }, [bookId, currentPage, totalPages]);
+    }, [bookId, currentPage, totalPages, preloadIntensity]);
 
     if (!bookId) return null;
 

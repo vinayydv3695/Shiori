@@ -1938,3 +1938,150 @@ select {
   outline: none;
   border-color: var(--ui-focus, #3b82f6);
 }
+
+/* ═══════════════════════════════════════════════════════════
+   TRANSLATION & DICTIONARY POPUP
+   ═══════════════════════════════════════════════════════════ */
+
+.translation-popup {
+  padding: 8px;
+  min-width: 280px;
+  max-width: 360px;
+}
+
+.translation-popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--ui-border, #e5e5e5);
+}
+
+.translation-popup-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.translation-popup-tab {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-secondary, #4a4745);
+  transition: background 0.15s, color 0.15s;
+}
+
+.translation-popup-tab:hover {
+  background: var(--ui-hover, #f5f5f4);
+  color: var(--text-primary, #1a1817);
+}
+
+.translation-popup-tab--active {
+  background: var(--ui-focus, #3b82f6);
+  color: #ffffff;
+}
+
+.translation-popup-tab--active:hover {
+  background: var(--ui-focus, #3b82f6);
+  color: #ffffff;
+}
+
+.translation-popup-body {
+  padding-top: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.translation-popup-loading {
+  text-align: center;
+  padding: 16px;
+  color: var(--text-tertiary, #9ca3af);
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.translation-popup-spinner {
+  animation: spin 1s linear infinite;
+}
+
+.translation-popup-error {
+  color: #ef4444;
+  font-size: 12px;
+  padding: 8px;
+}
+
+.translation-popup-result {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary, #1a1817);
+}
+
+.translation-popup-provider {
+  font-size: 10px;
+  color: var(--text-tertiary, #9ca3af);
+  margin-top: 4px;
+}
+
+.translation-popup-word-header {
+  margin-bottom: 8px;
+}
+
+.translation-popup-word {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.translation-popup-phonetic {
+  font-size: 12px;
+  color: var(--text-tertiary, #9ca3af);
+  font-style: italic;
+}
+
+.translation-popup-meaning {
+  margin-top: 8px;
+}
+
+.translation-popup-pos {
+  font-size: 11px;
+  font-weight: 600;
+  font-style: italic;
+  color: var(--ui-focus, #3b82f6);
+  text-transform: uppercase;
+}
+
+.translation-popup-def-container {
+  margin-bottom: 6px;
+}
+
+.translation-popup-definition {
+  font-size: 13px;
+  margin: 4px 0;
+  color: var(--text-primary, #1a1817);
+}
+
+.translation-popup-example {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--text-secondary, #4a4745);
+  margin-left: 12px;
+}
+
+.translation-popup-synonyms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.translation-popup-chip {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: var(--bg-secondary, #f5f5f5);
+  border-radius: 3px;
+  color: var(--text-secondary, #4a4745);
+}

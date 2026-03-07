@@ -229,7 +229,41 @@ pub async fn apply_selected_metadata(
             
             tauri::async_runtime::spawn(async move {
                 if let Ok(response) = reqwest::get(&url).await {
+                    // Check HTTP response status
+                    if !response.status().is_success() {
+                        log::error!("[apply_selected_metadata] Cover download failed with status: {}", response.status());
+                        return;
+                    }
+                    
+                    // Determine extension from Content-Type header
+                    let content_type = response.headers()
+                        .get(reqwest::header::CONTENT_TYPE)
+                        .and_then(|ct| ct.to_str().ok())
+                        .unwrap_or("image/jpeg");
+                    
+                    let mut ext = match content_type {
+                        ct if ct.contains("png") => "png",
+                        ct if ct.contains("webp") => "webp",
+                        ct if ct.contains("gif") => "gif",
+                        _ => "jpg",
+                    };
+                    
                     if let Ok(bytes) = response.bytes().await {
+                        // Check size limit (10MB)
+                        if bytes.len() > 10 * 1024 * 1024 {
+                            log::error!("[apply_selected_metadata] Cover too large: {} bytes", bytes.len());
+                            return;
+                        }
+                        
+                        // Magic bytes fallback for extension detection
+                        if bytes.starts_with(b"\x89PNG") {
+                            ext = "png";
+                        } else if bytes.len() > 12 && bytes.starts_with(b"RIFF") && &bytes[8..12] == b"WEBP" {
+                            ext = "webp";
+                        } else if bytes.starts_with(b"GIF8") {
+                            ext = "gif";
+                        }
+                        
                         if let Ok(conn) = db_clone.get_connection() {
                             if let Ok(uuid) = conn.query_row(
                                 "SELECT uuid FROM books WHERE id = ?1",
@@ -241,7 +275,6 @@ pub async fn apply_selected_metadata(
                                     return;
                                 }
                                 
-                                let ext = if url.contains(".png") { "png" } else { "jpg" };
                                 let cover_path = covers_dir.join(format!("{}.{}", uuid, ext));
                                 
                                 if std::fs::write(&cover_path, &bytes).is_ok() {

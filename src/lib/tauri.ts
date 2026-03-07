@@ -41,6 +41,7 @@ export interface Book {
   anilist_id?: string
   is_favorite?: boolean
   reading_status?: string
+  domain?: string
   authors: Author[]
   tags: Tag[]
 }
@@ -708,11 +709,27 @@ export const api = {
     return invoke("scan_folder_for_manga", { folderPath })
   },
 
-  async getBooksByDomain(domain: 'books' | 'manga', limit: number = 50, offset: number = 0): Promise<Book[]> {
+  async importComics(paths: string[]): Promise<ImportResult> {
+    console.log('[API] importComics called with:', paths)
+    try {
+      const result = await invoke<ImportResult>("import_comics", { paths })
+      console.log('[API] importComics result:', result)
+      return result
+    } catch (error) {
+      console.error('[API] importComics error:', error)
+      throw error
+    }
+  },
+
+  async scanFolderForComics(folderPath: string): Promise<ImportResult> {
+    return invoke("scan_folder_for_comics", { folderPath })
+  },
+
+  async getBooksByDomain(domain: 'books' | 'manga' | 'comics', limit: number = 50, offset: number = 0): Promise<Book[]> {
     return invoke("get_books_by_domain", { domain, limit, offset })
   },
 
-  async getTotalBooksByDomain(domain: 'books' | 'manga'): Promise<number> {
+  async getTotalBooksByDomain(domain: 'books' | 'manga' | 'comics'): Promise<number> {
     if (!isTauri) {
       return Promise.resolve(mockBooks.length) // Mock return
     }

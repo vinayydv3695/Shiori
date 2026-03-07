@@ -136,20 +136,40 @@ pub fn scan_folder_for_manga(
 }
 
 #[tauri::command]
+pub fn import_comics(state: State<'_, AppState>, paths: Vec<String>) -> Result<ImportResult> {
+    validate::require_non_empty_vec(&paths, "file paths")?;
+    for path in &paths {
+        validate::require_safe_path(path, "import path")?;
+    }
+    let db = &state.db;
+    library_service::import_comics(db, paths, &state.covers_dir)
+}
+
+#[tauri::command]
+pub fn scan_folder_for_comics(
+    state: State<'_, AppState>,
+    folder_path: String,
+) -> Result<ImportResult> {
+    validate::require_safe_path(&folder_path, "folder path")?;
+    let db = &state.db;
+    library_service::scan_folder_for_comics(db, &folder_path, &state.covers_dir)
+}
+
+#[tauri::command]
 pub fn get_books_by_domain(
     state: State<'_, AppState>,
     domain: String,
     limit: u32,
     offset: u32,
 ) -> Result<Vec<Book>> {
-    validate::require_one_of(&domain, &["books", "manga", "all"], "domain")?;
+    validate::require_one_of(&domain, &["books", "manga", "comics", "all"], "domain")?;
     let db = &state.db;
     library_service::get_books_by_domain(db, &domain, limit, offset)
 }
 
 #[tauri::command]
 pub fn get_total_books_by_domain(state: State<'_, AppState>, domain: String) -> Result<i64> {
-    validate::require_one_of(&domain, &["books", "manga", "all"], "domain")?;
+    validate::require_one_of(&domain, &["books", "manga", "comics", "all"], "domain")?;
     let db = &state.db;
     library_service::get_total_books_by_domain(db, &domain)
 }

@@ -80,7 +80,7 @@ const ToolbarDivider = () => (
   <div className="w-px h-8 bg-border mx-1" />
 )
 
-export type DomainView = 'books' | 'manga'
+export type DomainView = 'books' | 'manga' | 'comics'
 
 interface ModernToolbarProps {
   onAddBook: () => void
@@ -155,6 +155,15 @@ export const ModernToolbar = ({
             >
               <ImageIcon className="w-4 h-4" />
               Manga
+            </Button>
+            <Button
+              variant={currentDomain === 'comics' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => onDomainChange('comics')}
+              className="h-8 px-3 text-xs font-medium gap-1"
+            >
+              <BookMarked className="w-4 h-4" />
+              Comics
             </Button>
           </div>
 

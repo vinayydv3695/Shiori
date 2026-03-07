@@ -15,7 +15,7 @@ const BOOK_COLUMNS: &str =
      b.file_hash, b.cover_path, b.page_count, b.word_count, b.language, 
      b.added_date, b.modified_date, b.last_opened, b.notes,
      b.online_metadata_fetched, b.metadata_source, b.metadata_last_sync, b.anilist_id,
-     b.is_favorite, b.reading_status";
+     b.is_favorite, b.reading_status, b.domain";
 
 /// Map a single row (using the BOOK_COLUMNS order) into a Book with empty authors/tags.
 fn book_from_row(row: &rusqlite::Row) -> rusqlite::Result<Book> {
@@ -49,6 +49,7 @@ fn book_from_row(row: &rusqlite::Row) -> rusqlite::Result<Book> {
         anilist_id: row.get(26).ok().flatten(),
         is_favorite: row.get::<_, i64>(27).unwrap_or(0) != 0,
         reading_status: row.get(28)?,
+        domain: row.get(29).ok().flatten(),
         authors: vec![],
         tags: vec![],
     })
@@ -403,6 +404,11 @@ pub fn import_books(
                 if is_duplicate {
                     result.duplicates.push(path);
                 } else {
+                    let conn = db.get_connection()?;
+                    conn.execute(
+                        "UPDATE books SET domain = 'books' WHERE file_path = ?1",
+                        params![path],
+                    )?;
                     result.success.push(path);
                 }
             }
@@ -493,6 +499,7 @@ fn import_single_book(db: &Database, path: &str, covers_dir: &std::path::Path) -
         anilist_id: None,
         is_favorite: false,
         reading_status: "planning".to_string(),
+        domain: None,
     };
 
     add_book(db, book)?;
@@ -537,6 +544,7 @@ pub fn scan_and_import_folder(
 
 const BOOK_FORMATS: &[&str] = &["epub", "pdf", "mobi", "azw3", "fb2", "txt", "docx", "html"];
 const MANGA_FORMATS: &[&str] = &["cbz", "cbr"];
+const COMICS_FORMATS: &[&str] = &["cbz", "cbr"];
 
 /// Validate that a file belongs to the expected domain
 fn validate_domain(path: &str, domain: &str) -> Result<()> {
@@ -575,6 +583,20 @@ fn validate_domain(path: &str, domain: &str) -> Result<()> {
                 });
             }
         }
+        "comics" => {
+            if BOOK_FORMATS.contains(&ext.as_str()) {
+                return Err(ShioriError::Other(format!(
+                    "{} files are eBooks, not comics. Import from the Books tab instead.",
+                    ext.to_uppercase()
+                )));
+            }
+            if !COMICS_FORMATS.contains(&ext.as_str()) {
+                return Err(ShioriError::UnsupportedFormat {
+                    format: ext.clone(),
+                    path: path.to_string(),
+                });
+            }
+        }
         _ => {}
     }
     Ok(())
@@ -593,7 +615,6 @@ pub fn import_manga(
     };
 
     for path in paths {
-        // Validate domain first
         if let Err(e) = validate_domain(&path, "manga") {
             result.failed.push((path, e.to_string()));
             continue;
@@ -604,6 +625,11 @@ pub fn import_manga(
                 if is_duplicate {
                     result.duplicates.push(path);
                 } else {
+                    let conn = db.get_connection()?;
+                    conn.execute(
+                        "UPDATE books SET domain = 'manga' WHERE file_path = ?1",
+                        params![path],
+                    )?;
                     result.success.push(path);
                 }
             }
@@ -645,6 +671,77 @@ pub fn scan_folder_for_manga(
     import_manga(db, manga_paths, covers_dir)
 }
 
+pub fn import_comics(
+    db: &Database,
+    paths: Vec<String>,
+    covers_dir: &std::path::Path,
+) -> Result<ImportResult> {
+    let mut result = ImportResult {
+        success: vec![],
+        failed: vec![],
+        duplicates: vec![],
+    };
+
+    for path in paths {
+        if let Err(e) = validate_domain(&path, "comics") {
+            result.failed.push((path, e.to_string()));
+            continue;
+        }
+
+        match import_single_book(db, &path, covers_dir) {
+            Ok(is_duplicate) => {
+                if is_duplicate {
+                    result.duplicates.push(path);
+                } else {
+                    let conn = db.get_connection()?;
+                    conn.execute(
+                        "UPDATE books SET domain = 'comics' WHERE file_path = ?1",
+                        params![path],
+                    )?;
+                    result.success.push(path);
+                }
+            }
+            Err(e) => {
+                result.failed.push((path, e.to_string()));
+            }
+        }
+    }
+
+    Ok(result)
+}
+
+pub fn scan_folder_for_comics(
+    db: &Database,
+    folder_path: &str,
+    covers_dir: &std::path::Path,
+) -> Result<ImportResult> {
+    let mut comics_paths = Vec::new();
+
+    for entry in WalkDir::new(folder_path)
+        .follow_links(true)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        if entry.file_type().is_file() {
+            if let Some(ext) = entry.path().extension() {
+                let ext_str = ext.to_string_lossy().to_lowercase();
+                if COMICS_FORMATS.contains(&ext_str.as_str()) {
+                    if let Some(path_str) = entry.path().to_str() {
+                        comics_paths.push(path_str.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    log::info!(
+        "Found {} comics files in {}",
+        comics_paths.len(),
+        folder_path
+    );
+    import_comics(db, comics_paths, covers_dir)
+}
+
 /// Get books filtered by domain
 pub fn get_books_by_domain(
     db: &Database,
@@ -655,8 +752,9 @@ pub fn get_books_by_domain(
     let conn = db.get_connection()?;
 
     let where_clause = match domain {
-        "books" => "WHERE b.file_format NOT IN ('cbz', 'cbr')",
-        "manga" => "WHERE b.file_format IN ('cbz', 'cbr')",
+        "books" => "WHERE b.domain = 'books'",
+        "manga" => "WHERE b.domain = 'manga'",
+        "comics" => "WHERE b.domain = 'comics'",
         _ => "",
     };
 
@@ -679,8 +777,9 @@ pub fn get_books_by_domain(
 pub fn get_total_books_by_domain(db: &Database, domain: &str) -> Result<i64> {
     let conn = db.get_connection()?;
     let query = match domain {
-        "books" => "SELECT COUNT(*) FROM books WHERE file_format NOT IN ('cbz', 'cbr')",
-        "manga" => "SELECT COUNT(*) FROM books WHERE file_format IN ('cbz', 'cbr')",
+        "books" => "SELECT COUNT(*) FROM books WHERE domain = 'books'",
+        "manga" => "SELECT COUNT(*) FROM books WHERE domain = 'manga'",
+        "comics" => "SELECT COUNT(*) FROM books WHERE domain = 'comics'",
         _ => "SELECT COUNT(*) FROM books",
     };
     let count: i64 = conn.query_row(query, [], |row| row.get(0))?;

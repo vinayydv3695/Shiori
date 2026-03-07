@@ -496,6 +496,17 @@ const AudioTTSSettings = ({ preferences, updateTtsDefaults }: {
         </div>
       )}
 
+      {/* Show when speechSynthesis exists but no voices loaded */}
+      {'speechSynthesis' in window && voices.length === 0 && (
+        <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+          <p className="text-sm text-amber-600 dark:text-amber-400">
+            No TTS voices were found. On Linux, the WebKitGTK webview may expose 
+            the Speech API but provide no voices. Try installing speech-dispatcher 
+            or espeak-ng and restarting the app.
+          </p>
+        </div>
+      )}
+
       <SettingSection
         title="Text-to-Speech"
         description="Configure voice and speech settings for read-aloud"

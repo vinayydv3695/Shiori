@@ -40,8 +40,8 @@ interface LayoutProps {
   searchQuery?: string
   onSearchChange?: (query: string) => void
   currentView?: CurrentView
-  currentDomain?: 'books' | 'manga'
-  onDomainChange?: (domain: 'books' | 'manga') => void
+  currentDomain?: 'books' | 'manga' | 'comics'
+  onDomainChange?: (domain: 'books' | 'manga' | 'comics') => void
 }
 
 export function Layout({
@@ -254,6 +254,66 @@ export function Layout({
     }
   }
 
+  const handleImportComics = async () => {
+    try {
+      const result = await open({
+        multiple: true,
+        directory: false,
+        filters: [{ name: 'Comic Archives', extensions: ['cbz', 'cbr'] }],
+      })
+      if (!result) return
+      const paths = Array.isArray(result) ? result : [result]
+      const importResult = await api.importComics(paths)
+      const imported = importResult.success.length
+      const dupes = importResult.duplicates.length
+      const failed = importResult.failed.length
+
+      if (imported > 0) {
+        toast.success(
+          `Imported ${imported} comic${imported > 1 ? 's' : ''}`,
+          dupes > 0 || failed > 0 ? `${dupes} duplicates, ${failed} failed` : undefined,
+        )
+        const updated = await api.getBooks()
+        setBooks(updated)
+      } else if (failed > 0) {
+        toast.error('Import failed', importResult.failed[0]?.[1] || 'Unknown error')
+      } else {
+        toast.warning('No comics imported', 'All files were duplicates or failed.')
+      }
+    } catch (err) {
+      toast.error('Import failed', String(err))
+    }
+  }
+
+  const handleScanComicsFolder = async () => {
+    try {
+      const folderPath = await api.openFolderDialog()
+      if (!folderPath) return
+
+      toast.info('Scanning folder...', `Looking for Comics in ${folderPath}`)
+
+      const importResult = await api.scanFolderForComics(folderPath)
+      const imported = importResult.success.length
+      const dupes = importResult.duplicates.length
+      const failed = importResult.failed.length
+
+      if (imported > 0) {
+        toast.success(
+          `Imported ${imported} comic${imported > 1 ? 's' : ''}`,
+          dupes > 0 || failed > 0 ? `${dupes} duplicates, ${failed} failed` : undefined,
+        )
+        const updated = await api.getBooks()
+        setBooks(updated)
+      } else if (failed > 0) {
+        toast.error('Import failed', importResult.failed[0]?.[1] || 'Unknown error')
+      } else {
+        toast.warning('No comics imported', 'All files were duplicates or failed.')
+      }
+    } catch (err) {
+      toast.error('Scan failed', String(err))
+    }
+  }
+
   // ── Action handlers ────────────────────────────
   const handleDelete = () => {
     if (selectedBookIds.size === 0) {
@@ -293,8 +353,10 @@ export function Layout({
         onDomainChange={onDomainChange}
         onImportBooks={handleImportBooks}
         onImportManga={handleImportManga}
+        onImportComics={handleImportComics}
         onScanBooksFolder={handleScanBooksFolder}
         onScanMangaFolder={handleScanMangaFolder}
+        onScanComicsFolder={handleScanComicsFolder}
         onOpenRSS={onOpenRSSFeeds}
         onConvert={handleConvert}
         onEditMetadata={handleEditMetadata}

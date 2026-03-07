@@ -38,6 +38,8 @@ pub struct Book {
     #[serde(default = "default_reading_status")]
     pub reading_status: String,
 
+    pub domain: Option<String>,
+
     pub authors: Vec<Author>,
     pub tags: Vec<Tag>,
 }

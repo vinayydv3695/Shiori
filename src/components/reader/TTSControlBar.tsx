@@ -72,14 +72,20 @@ export function TTSControlBar({ contentRef, onChapterEnd }: TTSControlBarProps) 
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
-            onClick={() => isAvailable && setIsExpanded(true)}
-            disabled={!isAvailable}
-            title={!isAvailable ? "Text-to-Speech is not available on this platform" : "Open Text-to-Speech"}
+            onClick={() => {
+              if (isAvailable && voices.length > 0) {
+                setIsExpanded(true);
+              } else if (isAvailable && voices.length === 0) {
+                console.warn('TTS: No voices available on this system');
+              }
+            }}
+            disabled={!isAvailable || voices.length === 0}
+            title={!isAvailable ? 'Text-to-speech not available' : voices.length === 0 ? 'No TTS voices found on this system' : 'Text-to-speech'}
             className={`fixed bottom-6 right-6 z-50 p-3 rounded-full bg-black/80 backdrop-blur-sm text-white shadow-lg ${
-              !isAvailable ? 'opacity-50 cursor-not-allowed' : 'hover:bg-black transition-colors'
+              !isAvailable || voices.length === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-black transition-colors'
             }`}
           >
-            {isAvailable ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
+            {isAvailable && voices.length > 0 ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
           </motion.button>
         )}
       </AnimatePresence>

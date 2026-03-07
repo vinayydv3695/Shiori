@@ -18,6 +18,7 @@ export interface UseTTSOptions {
 
 export interface UseTTSReturn {
   isAvailable: boolean;
+  noVoices: boolean;
   state: TTSState;
   currentSentenceIndex: number;
   totalSentences: number;
@@ -41,6 +42,7 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState<number>(0);
   const [sentences, setSentences] = useState<string[]>([]);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [noVoices, setNoVoices] = useState<boolean>(false);
   const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
   const [rate, setRateState] = useState<number>(1.0);
 
@@ -62,6 +64,9 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
     const loadVoices = () => {
       const availableVoices = ttsEngine.getVoices();
       setVoices(availableVoices);
+
+      // Track zero-voices state (can happen on some Linux configs)
+      setNoVoices(availableVoices.length === 0);
 
       // Load preferred voice from preferences
       const preferences = usePreferencesStore.getState().preferences;
@@ -331,6 +336,7 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
 
   return {
     isAvailable,
+    noVoices,
     state,
     currentSentenceIndex,
     totalSentences: sentences.length,

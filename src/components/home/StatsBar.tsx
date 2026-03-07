@@ -3,7 +3,7 @@ import type { Book } from '@/lib/tauri'
 
 interface StatsBarProps {
     books: Book[]
-    domain: 'books' | 'manga'
+    domain: 'books' | 'manga' | 'comics'
 }
 
 function formatSize(bytes: number): string {

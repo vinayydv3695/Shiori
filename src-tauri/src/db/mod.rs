@@ -102,7 +102,8 @@ impl Database {
                 added_date TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 modified_date TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 last_opened TEXT,
-                notes TEXT
+                notes TEXT,
+                reading_status TEXT NOT NULL DEFAULT 'planning'
             )",
             [],
         )?;

@@ -272,6 +272,7 @@ fn main() {
             // Manga reader commands
             commands::manga::open_manga,
             commands::manga::get_manga_page,
+            commands::manga::get_manga_page_path,
             commands::manga::preload_manga_pages,
             commands::manga::get_manga_page_dimensions,
             commands::manga::close_manga,

@@ -261,7 +261,13 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     setDictionaryResult(null);
     setTranslationResult(null);
     try {
-      const word = selectedText.split(/\s+/)[0];
+      const cleanText = selectedText.replace(/[[\](){}0-9]/g, '').trim();
+      const word = cleanText.split(/\s+/).find(w => /^[a-zA-Z\u00C0-\u024F]+$/.test(w)) || cleanText.split(/\s+/)[0] || '';
+      if (!word || word.length < 2) {
+          setTranslationError('Please select a valid word to define');
+          setTranslationLoading(false);
+          return;
+      }
       const result = await api.dictionaryLookup(word);
       setDictionaryResult(result);
     } catch (err) {

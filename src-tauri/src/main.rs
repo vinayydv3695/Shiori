@@ -245,6 +245,7 @@ fn main() {
             commands::cover::get_book_cover,
             commands::cover::get_book_cover_bytes,
             commands::cover::get_cover_by_id,
+            commands::cover::get_cover_path_by_id,
             commands::cover::clear_cover_cache,
             commands::rss::add_rss_feed,
             commands::rss::get_rss_feed,

@@ -13,7 +13,7 @@ import { useMemo, useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   BookOpen, Clock, Sparkles, Rss, Library, ArrowRight,
-  TrendingUp, BarChart3,
+  TrendingUp, BarChart3, Heart, History
 } from 'lucide-react'
 import { HomeSection } from './HomeSection'
 import { ContinueReadingCard, RecentlyAddedCard } from './ContinueReadingCard'
@@ -175,6 +175,7 @@ interface HomePageProps {
 
 export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
   const allBooks = useLibraryStore((s) => s.books)
+  const favoriteBookIds = useLibraryStore((s) => s.favoriteBookIds)
   const { currentDomain, setCurrentView } = useUIStore()
   const [progressMap, setProgressMap] = useState<Record<number, ReadingProgress>>({})
 
@@ -210,6 +211,25 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
     return [...domainItems]
       .sort((a, b) => new Date(b.added_date).getTime() - new Date(a.added_date).getTime())
       .slice(0, 12)
+  }, [domainItems])
+
+  // Favorites
+  const favoriteBooks = useMemo(() => {
+    return domainItems
+      .filter((b) => b.id && favoriteBookIds.has(b.id))
+      .slice(0, 12)
+  }, [domainItems, favoriteBookIds])
+
+  // Last Read
+  const lastReadBooks = useMemo(() => {
+    return domainItems
+      .filter((b) => b.last_opened && b.id)
+      .sort((a, b) => {
+        const dateA = a.last_opened ? new Date(a.last_opened).getTime() : 0
+        const dateB = b.last_opened ? new Date(b.last_opened).getTime() : 0
+        return dateB - dateA
+      })
+      .slice(0, 10)
   }, [domainItems])
 
   // All items in progress (for hero count)
@@ -328,6 +348,64 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── Favorites ── */}
+      {favoriteBooks.length > 0 && (
+        <motion.div variants={itemVariants}>
+          <HomeSection
+            icon={<Heart size={18} />}
+            title="Favorites"
+            action={{ label: 'View All', onClick: handleViewLibrary }}
+          >
+            <div className="scroll-strip">
+              {favoriteBooks.map((book, i) => (
+                <motion.div
+                  key={book.id}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.04, duration: 0.3 }}
+                >
+                  <ContinueReadingCard
+                    book={book}
+                    progress={progressMap[book.id!]?.progressPercent ?? 0}
+                    domain={domain}
+                    onClick={handleOpenBook}
+                  />
+                </motion.div>
+              ))}
+            </div>
+          </HomeSection>
+        </motion.div>
+      )}
+
+      {/* ── Last Read ── */}
+      {lastReadBooks.length > 0 && (
+        <motion.div variants={itemVariants}>
+          <HomeSection
+            icon={<History size={18} />}
+            title="Last Read"
+            action={{ label: 'View All', onClick: handleViewLibrary }}
+          >
+            <div className="scroll-strip">
+              {lastReadBooks.map((book, i) => (
+                <motion.div
+                  key={book.id}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.04, duration: 0.3 }}
+                >
+                  <ContinueReadingCard
+                    book={book}
+                    progress={progressMap[book.id!]?.progressPercent ?? 0}
+                    domain={domain}
+                    onClick={handleOpenBook}
+                  />
+                </motion.div>
+              ))}
+            </div>
+          </HomeSection>
+        </motion.div>
+      )}
 
       {/* ── Recently Added ── */}
       <motion.div variants={itemVariants}>

@@ -162,7 +162,9 @@ fn extract_cbz_cover(
     );
 
     // Extract the first image
-    let mut archive = ZipArchive::new(Cursor::new(&file_data)).unwrap();
+    let mut archive = ZipArchive::new(Cursor::new(&file_data)).map_err(|e| {
+        ShioriError::MetadataExtraction(format!("Failed to open ZIP archive: {}", e))
+    })?;
     let mut file = archive.by_index(first_image_idx).map_err(|e| {
         ShioriError::MetadataExtraction(format!("Failed to access first image: {}", e))
     })?;
@@ -494,7 +496,7 @@ fn extract_docx_metadata(file_path: &str) -> Result<Metadata> {
 
     let cursor = Cursor::new(&file_data);
     let mut archive = ZipArchive::new(cursor).map_err(|e| {
-        ShioriError::MetadataExtraction(format!("Failed to parse DOCX as ZIP: {}", e))
+        ShioriError::MetadataExtraction(format!("Failed to open ZIP archive: {}", e))
     })?;
 
     let mut metadata = Metadata {

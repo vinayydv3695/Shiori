@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { Layout } from "./components/layout/Layout"
 import { LibraryGrid } from "./components/library/LibraryGrid"
 import { ReaderLayout } from "./components/reader/ReaderLayout"
@@ -241,8 +241,9 @@ function App() {
   }
 
   // Filter books based on search query and selected filters
-  const filterBooks = (books: Book[]) => {
-    let result = books;
+  const displayBooks = useMemo(() => {
+    const sourceBooks = filteredBooks.length > 0 || selectedCollection ? filteredBooks : books;
+    let result = sourceBooks;
 
     // 1. Search Query
     if (searchQuery.trim()) {
@@ -316,9 +317,7 @@ function App() {
     }
 
     return result;
-  }
-
-  const displayBooks = filterBooks(filteredBooks.length > 0 || selectedCollection ? filteredBooks : books)
+  }, [books, searchQuery, selectedFilters, selectedCollection, filteredBooks]);
 
   // Show reader if open
   if (isReaderOpen && selectedBookId) {

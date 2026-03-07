@@ -21,18 +21,22 @@ const AddFeedDialog: React.FC<AddFeedDialogProps> = ({ isOpen, onClose, onAdd })
 
     try {
       // Basic URL validation
+      let normalizedUrl = url.trim();
+      if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+          normalizedUrl = 'https://' + normalizedUrl;
+      }
       try {
-        new URL(url);
+        new URL(normalizedUrl);
       } catch {
         throw new Error('Please enter a valid URL');
       }
 
-      await onAdd(url, checkInterval);
+      await onAdd(normalizedUrl, checkInterval);
       setUrl('');
       setCheckInterval(6);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add feed');
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsSubmitting(false);
     }

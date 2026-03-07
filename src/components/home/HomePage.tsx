@@ -13,7 +13,7 @@ import { useMemo, useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   BookOpen, Clock, Sparkles, Rss, Library, ArrowRight,
-  TrendingUp, BarChart3, Heart, History
+  TrendingUp, BarChart3, Heart, History, CheckCircle2, PauseCircle
 } from 'lucide-react'
 import { HomeSection } from './HomeSection'
 import { ContinueReadingCard, RecentlyAddedCard } from './ContinueReadingCard'
@@ -178,6 +178,8 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
   const favoriteBookIds = useLibraryStore((s) => s.favoriteBookIds)
   const { currentDomain, setCurrentView } = useUIStore()
   const [progressMap, setProgressMap] = useState<Record<number, ReadingProgress>>({})
+  const [completedBooks, setCompletedBooks] = useState<Book[]>([])
+  const [onHoldBooks, setOnHoldBooks] = useState<Book[]>([])
 
   const domain = currentDomain
 
@@ -260,6 +262,22 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadProgress()
   }, [loadProgress])
+
+  useEffect(() => {
+    const loadStatusBooks = async () => {
+      try {
+        const [completed, onHold] = await Promise.all([
+          api.getBooksByReadingStatus('completed', 12, 0),
+          api.getBooksByReadingStatus('on_hold', 12, 0),
+        ])
+        setCompletedBooks(completed)
+        setOnHoldBooks(onHold)
+      } catch (err) {
+        console.error('Failed to load reading status books:', err)
+      }
+    }
+    loadStatusBooks()
+  }, [allBooks])
 
   const handleOpenBook = (book: Book) => {
     onOpenBook(book.id!)
@@ -359,6 +377,64 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
           >
             <div className="scroll-strip">
               {favoriteBooks.map((book, i) => (
+                <motion.div
+                  key={book.id}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.04, duration: 0.3 }}
+                >
+                  <ContinueReadingCard
+                    book={book}
+                    progress={progressMap[book.id!]?.progressPercent ?? 0}
+                    domain={domain}
+                    onClick={handleOpenBook}
+                  />
+                </motion.div>
+              ))}
+            </div>
+          </HomeSection>
+        </motion.div>
+      )}
+
+      {/* ── Completed ── */}
+      {completedBooks.length > 0 && (
+        <motion.div variants={itemVariants}>
+          <HomeSection
+            icon={<CheckCircle2 size={18} />}
+            title="Completed"
+            action={{ label: 'View All', onClick: handleViewLibrary }}
+          >
+            <div className="scroll-strip">
+              {completedBooks.map((book, i) => (
+                <motion.div
+                  key={book.id}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.04, duration: 0.3 }}
+                >
+                  <ContinueReadingCard
+                    book={book}
+                    progress={100}
+                    domain={domain}
+                    onClick={handleOpenBook}
+                  />
+                </motion.div>
+              ))}
+            </div>
+          </HomeSection>
+        </motion.div>
+      )}
+
+      {/* ── On Hold ── */}
+      {onHoldBooks.length > 0 && (
+        <motion.div variants={itemVariants}>
+          <HomeSection
+            icon={<PauseCircle size={18} />}
+            title="On Hold"
+            action={{ label: 'View All', onClick: handleViewLibrary }}
+          >
+            <div className="scroll-strip">
+              {onHoldBooks.map((book, i) => (
                 <motion.div
                   key={book.id}
                   initial={{ opacity: 0, x: 20 }}

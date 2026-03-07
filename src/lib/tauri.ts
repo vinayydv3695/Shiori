@@ -40,6 +40,7 @@ export interface Book {
   metadata_last_sync?: string
   anilist_id?: string
   is_favorite?: boolean
+  reading_status?: string
   authors: Author[]
   tags: Tag[]
 }
@@ -716,6 +717,14 @@ export const api = {
       return Promise.resolve(mockBooks.length) // Mock return
     }
     return invoke("get_total_books_by_domain", { domain })
+  },
+
+  async updateReadingStatus(bookId: number, status: string): Promise<void> {
+    return invoke("update_reading_status", { bookId, status })
+  },
+
+  async getBooksByReadingStatus(status: string, limit: number = 50, offset: number = 0): Promise<Book[]> {
+    return invoke("get_books_by_reading_status", { status, limit, offset })
   },
 
   async resetDatabase(): Promise<void> {

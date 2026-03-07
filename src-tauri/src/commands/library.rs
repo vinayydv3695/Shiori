@@ -159,3 +159,33 @@ pub fn reset_database(state: State<'_, AppState>) -> Result<()> {
     let db = &state.db;
     library_service::reset_database(db)
 }
+
+#[tauri::command]
+pub fn update_reading_status(
+    app_state: State<'_, AppState>,
+    book_id: i64,
+    status: String,
+) -> Result<()> {
+    validate::require_positive_id(book_id, "book id")?;
+    validate::require_one_of(
+        &status,
+        &["planning", "reading", "completed", "on_hold", "dropped"],
+        "reading status",
+    )?;
+    library_service::update_reading_status(&app_state.db, book_id, &status)
+}
+
+#[tauri::command]
+pub fn get_books_by_reading_status(
+    app_state: State<'_, AppState>,
+    status: String,
+    limit: u32,
+    offset: u32,
+) -> Result<Vec<Book>> {
+    validate::require_one_of(
+        &status,
+        &["planning", "reading", "completed", "on_hold", "dropped"],
+        "reading status",
+    )?;
+    library_service::get_books_by_reading_status(&app_state.db, &status, limit, offset)
+}

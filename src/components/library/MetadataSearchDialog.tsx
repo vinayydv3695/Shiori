@@ -138,21 +138,56 @@ export const MetadataSearchDialog = ({
     setDownloading(index);
 
     try {
-      // Use the auto-enrichment command
-      const success = await invoke<boolean>('enrich_book_metadata', {
+      let selectedMetadata: Record<string, unknown>;
+
+      if (isMangaResult(metadata)) {
+        selectedMetadata = {
+          title: metadata.title_english || metadata.title_romaji,
+          description: metadata.description,
+          authors: metadata.authors,
+          genres: metadata.genres,
+          coverUrl: metadata.cover_url_extra_large || metadata.cover_url_large,
+          publisher: null,
+          publishDate: metadata.start_year ? String(metadata.start_year) : null,
+          pageCount: null,
+          isbn: null,
+          isbn13: null,
+          anilistId: String(metadata.anilist_id),
+          openLibraryId: null,
+        };
+      } else {
+        const bookResult = metadata as BookMetadata;
+        selectedMetadata = {
+          title: bookResult.title,
+          description: bookResult.description,
+          authors: bookResult.authors.map(a => a.name),
+          genres: bookResult.subjects.slice(0, 10),
+          coverUrl: bookResult.cover_url_large || bookResult.cover_url_medium,
+          publisher: bookResult.publishers[0] || null,
+          publishDate: bookResult.publish_date,
+          pageCount: bookResult.number_of_pages,
+          isbn: bookResult.isbn_10[0] || null,
+          isbn13: bookResult.isbn_13[0] || null,
+          anilistId: null,
+          openLibraryId: bookResult.open_library_id,
+        };
+      }
+
+      const success = await invoke<boolean>('apply_selected_metadata', {
         bookId,
+        metadata: selectedMetadata,
       });
 
       if (success) {
-        toast.success('Metadata updated', 'Book has been enriched with API data');
+        toast.success('Metadata applied', 'Book has been updated with the selected metadata');
         onMetadataSelected();
         onOpenChange(false);
       } else {
-        toast.error('Update failed', 'Could not update book metadata');
+        toast.error('Update failed', 'Could not apply selected metadata');
       }
     } catch (error) {
       console.error('[MetadataSearch] Failed to apply metadata:', error);
-      toast.error('Update failed', 'An error occurred while updating metadata');
+      toast.error('Update failed', 'An error occurred while applying metadata');
     } finally {
       setDownloading(null);
     }

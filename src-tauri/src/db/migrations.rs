@@ -66,6 +66,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 14 {
             self.run_in_savepoint("v14", |mgr| mgr.migrate_to_v14())?;
         }
+        if current_version < 15 {
+            self.run_in_savepoint("v15", |mgr| mgr.migrate_to_v15())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -1404,6 +1407,32 @@ impl<'a> MigrationManager<'a> {
         )?;
 
         log::info!("[Migration] v14 applied successfully");
+        Ok(())
+    }
+
+    /// Migration v15: Reading status field
+    fn migrate_to_v15(&self) -> Result<()> {
+        log::info!("[Migration] Applying v15: Reading status field");
+
+        // Add reading_status column with default 'planning'
+        if !self.column_exists("books", "reading_status")? {
+            self.conn.execute(
+                "ALTER TABLE books ADD COLUMN reading_status TEXT NOT NULL DEFAULT 'planning'",
+                [],
+            )?;
+        }
+
+        // Backfill: set reading_status to 'reading' for books that have been opened
+        self.conn.execute(
+            "UPDATE books SET reading_status = 'reading' WHERE last_opened IS NOT NULL",
+            [],
+        )?;
+
+        let hash = Self::calculate_checksum("v15_reading_status");
+        self.set_schema_version(15)?;
+        self.record_migration(15, "reading_status", &hash)?;
+
+        log::info!("[Migration] v15 applied successfully");
         Ok(())
     }
 

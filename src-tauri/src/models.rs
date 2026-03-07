@@ -35,8 +35,15 @@ pub struct Book {
 
     pub is_favorite: bool,
 
+    #[serde(default = "default_reading_status")]
+    pub reading_status: String,
+
     pub authors: Vec<Author>,
     pub tags: Vec<Tag>,
+}
+
+fn default_reading_status() -> String {
+    "planning".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

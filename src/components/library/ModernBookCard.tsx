@@ -11,7 +11,7 @@
  * - Entrance animation via CSS class
  */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, memo } from 'react'
 import { Heart } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Book } from '@/lib/tauri'
@@ -125,7 +125,7 @@ interface BookCardProps {
   animationDelay?: number
 }
 
-export function PremiumBookCard({
+export const PremiumBookCard = memo(function PremiumBookCard({
   book,
   isSelected,
   onSelect,
@@ -143,7 +143,7 @@ export function PremiumBookCard({
   const cardRef = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
 
-  const { coverUrl, loading: coverLoading } = useCoverImage(book.id, null)
+  const { coverUrl, loading: coverLoading } = useCoverImage(visible ? book.id : undefined, null)
 
   const isManga = book.file_format === 'cbz' || book.file_format === 'cbr'
 
@@ -289,7 +289,7 @@ export function PremiumBookCard({
       </div>
     </div>
   )
-}
+})
 
 // ─── Keep old export name for backward compat ─
 export { PremiumBookCard as ModernBookCard }

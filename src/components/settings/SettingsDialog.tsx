@@ -481,7 +481,7 @@ const AudioTTSSettings = ({ preferences, updateTtsDefaults }: {
     }
   }, [isAvailable])
 
-  if (!preferences) return null
+  if (!preferences?.tts) return null
 
   return (
     <div className="space-y-8">
@@ -500,9 +500,9 @@ const AudioTTSSettings = ({ preferences, updateTtsDefaults }: {
         title="Text-to-Speech"
         description="Configure voice and speech settings for read-aloud"
       >
-        <SettingItem label="Voice" description={preferences.tts.voice === 'default' ? 'System default' : preferences.tts.voice}>
+        <SettingItem label="Voice" description={(preferences.tts?.voice ?? 'default') === 'default' ? 'System default' : (preferences.tts?.voice ?? 'default')}>
           <select
-            value={preferences.tts.voice}
+            value={preferences.tts?.voice ?? 'default'}
             onChange={(e) => updateTtsDefaults({ voice: e.target.value })}
             disabled={!isAvailable}
             className="px-3 py-2 rounded-md border border-border bg-background max-w-[250px] disabled:opacity-50"
@@ -516,9 +516,9 @@ const AudioTTSSettings = ({ preferences, updateTtsDefaults }: {
           </select>
         </SettingItem>
 
-        <SettingItem label="Speech Rate" description={`${preferences.tts.rate}x`}>
+        <SettingItem label="Speech Rate" description={`${preferences.tts?.rate ?? 1.0}x`}>
           <select
-            value={preferences.tts.rate}
+            value={preferences.tts?.rate ?? 1.0}
             onChange={(e) => updateTtsDefaults({ rate: Number(e.target.value) })}
             disabled={!isAvailable}
             className="px-3 py-2 rounded-md border border-border bg-background disabled:opacity-50"
@@ -531,11 +531,11 @@ const AudioTTSSettings = ({ preferences, updateTtsDefaults }: {
 
         <SettingItem
           label="Auto-advance Chapter"
-          description={preferences.tts.autoAdvance ? 'Automatically go to next chapter when done' : 'Stop at end of chapter'}
+          description={(preferences.tts?.autoAdvance ?? true) ? 'Automatically go to next chapter when done' : 'Stop at end of chapter'}
         >
           <input
             type="checkbox"
-            checked={preferences.tts.autoAdvance}
+            checked={preferences.tts?.autoAdvance ?? true}
             onChange={(e) => updateTtsDefaults({ autoAdvance: e.target.checked })}
             disabled={!isAvailable}
             className="w-5 h-5 disabled:opacity-50"
@@ -546,12 +546,12 @@ const AudioTTSSettings = ({ preferences, updateTtsDefaults }: {
           <div className="flex items-center gap-2">
             <input
               type="color"
-              value={preferences.tts.highlightColor.slice(0, 7)}
+              value={(preferences.tts?.highlightColor ?? '#f3a6a6').slice(0, 7)}
               onChange={(e) => updateTtsDefaults({ highlightColor: e.target.value + '8c' })}
               disabled={!isAvailable}
               className="w-8 h-8 rounded cursor-pointer border border-border disabled:opacity-50"
             />
-            <span className="text-xs text-muted-foreground font-mono">{preferences.tts.highlightColor}</span>
+            <span className="text-xs text-muted-foreground font-mono">{preferences.tts?.highlightColor ?? '#f3a6a68c'}</span>
           </div>
         </SettingItem>
       </SettingSection>

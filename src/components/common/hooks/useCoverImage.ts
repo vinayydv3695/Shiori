@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 
 export function useCoverImage(bookId?: number, initialCoverSrc?: string | null) {
     const [coverUrl, setCoverUrl] = useState<string | null>(initialCoverSrc || null);
@@ -8,22 +8,19 @@ export function useCoverImage(bookId?: number, initialCoverSrc?: string | null) 
 
     useEffect(() => {
         let mounted = true;
-        let objectUrl: string | null = null;
 
         async function loadCover() {
-            // If we already have a direct passed URL/file src, or no bookId skip
             if (!bookId || initialCoverSrc) return;
 
             setLoading(true);
             setError(false);
 
             try {
-                const responseData = await invoke<Uint8Array>('get_cover_by_id', { id: bookId });
-                const blob = new Blob([new Uint8Array(responseData)], { type: 'image/jpeg' });
-                objectUrl = URL.createObjectURL(blob);
-
-                if (mounted) {
-                    setCoverUrl(objectUrl);
+                const coverPath = await invoke<string | null>('get_cover_path_by_id', { id: bookId });
+                if (coverPath && mounted) {
+                    setCoverUrl(convertFileSrc(coverPath));
+                } else if (mounted) {
+                    setError(true);
                 }
             } catch (err) {
                 console.error("Failed to load cover:", err);
@@ -34,13 +31,7 @@ export function useCoverImage(bookId?: number, initialCoverSrc?: string | null) 
         }
 
         loadCover();
-
-        return () => {
-            mounted = false;
-            if (objectUrl) {
-                URL.revokeObjectURL(objectUrl);
-            }
-        };
+        return () => { mounted = false; };
     }, [bookId, initialCoverSrc]);
 
     return { coverUrl, loading, error };

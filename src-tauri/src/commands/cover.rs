@@ -123,6 +123,40 @@ pub async fn get_cover_by_id(
     Ok(tauri::ipc::Response::new(bytes))
 }
 
+/// Get cover file path by numeric database ID (returns path string instead of bytes)
+#[tauri::command]
+pub async fn get_cover_path_by_id(
+    app_state: State<'_, crate::AppState>,
+    service: State<'_, Arc<CoverService>>,
+    id: i64,
+) -> crate::error::Result<Option<String>> {
+    let book = {
+        let db = &app_state.db;
+        crate::services::library_service::get_book_by_id(db, id)?
+    };
+    
+    // Try extracted cover path first
+    if let Some(cover_path) = &book.cover_path {
+        if std::path::Path::new(cover_path).exists() {
+            return Ok(Some(cover_path.clone()));
+        }
+    }
+    
+    // Fallback: Generate cover via CoverService
+    let uuid = Uuid::parse_str(&book.uuid)
+        .map_err(|e| ShioriError::Other(format!("Invalid book UUID: {}", e)))?;
+    let metadata = BookMetadata {
+        title: book.title.clone(),
+        authors: book.authors.iter().map(|a| a.name.clone()).collect(),
+        ..Default::default()
+    };
+    let cover_set = service.get_or_generate_cover(uuid, None, &metadata)
+        .await
+        .map_err(|e| ShioriError::Other(e.to_string()))?;
+    
+    Ok(Some(cover_set.medium.to_string_lossy().to_string()))
+}
+
 /// Clear cover cache
 #[tauri::command]
 pub async fn clear_cover_cache(

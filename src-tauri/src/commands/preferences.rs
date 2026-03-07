@@ -12,6 +12,7 @@ use crate::AppState;
 // ═══════════════════════════════════════════════════════════════
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct UserPreferences {
     pub theme: String,
     pub book: BookPreferences,
@@ -31,6 +32,7 @@ pub struct UserPreferences {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct BookPreferences {
     pub font_family: String,
     pub font_size: i32,
@@ -45,6 +47,7 @@ pub struct BookPreferences {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct MangaPreferences {
     pub mode: String,
     pub direction: String,
@@ -58,6 +61,7 @@ pub struct MangaPreferences {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct TtsPreferences {
     pub voice: String,
     pub rate: f32,

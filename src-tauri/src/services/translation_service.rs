@@ -220,11 +220,13 @@ pub async fn translate_text(
         text
     };
 
-    // Try MyMemory first
-    match translate_mymemory(text, source_lang, target_lang).await {
-        Ok(result) => return Ok(result),
-        Err(e) => {
-            log::warn!("MyMemory translation failed: {}, trying Lingva fallback", e);
+    // Skip MyMemory for "auto" source — it requires specific ISO language codes
+    if source_lang != "auto" {
+        match translate_mymemory(text, source_lang, target_lang).await {
+            Ok(result) => return Ok(result),
+            Err(e) => {
+                log::warn!("MyMemory translation failed: {}, trying Lingva fallback", e);
+            }
         }
     }
 

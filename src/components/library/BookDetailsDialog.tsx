@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X, BookOpen, Calendar, FileText, Tag, Star, Globe, Hash, Download, Loader2 } from 'lucide-react';
+import { X, BookOpen, Calendar, FileText, Tag, Star, Globe, Hash, Download, Loader2, BookmarkCheck } from 'lucide-react';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { api, type Book } from '../../lib/tauri';
@@ -29,7 +29,14 @@ export const BookDetailsDialog = ({
   const [loading, setLoading] = useState(true);
   const [metadataDialogOpen, setMetadataDialogOpen] = useState(false);
   const [autoEnrichLoading, setAutoEnrichLoading] = useState(false);
+  const [readingStatus, setReadingStatus] = useState(book?.reading_status || 'planning');
   const toast = useToast();
+
+  useEffect(() => {
+    if (book?.reading_status) {
+      setReadingStatus(book.reading_status);
+    }
+  }, [book?.reading_status]);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -186,6 +193,35 @@ export const BookDetailsDialog = ({
                     <span className="text-muted-foreground">/ 5</span>
                   </div>
                 )}
+
+                {/* Reading Status */}
+                <div className="flex items-center gap-3">
+                  <BookmarkCheck className="w-5 h-5 text-muted-foreground" />
+                  <div className="flex-1">
+                    <div className="text-xs text-muted-foreground mb-1">Reading Status</div>
+                    <select
+                      value={readingStatus}
+                      onChange={async (e) => {
+                        const newStatus = e.target.value
+                        setReadingStatus(newStatus)
+                        try {
+                          await api.updateReadingStatus(bookId, newStatus)
+                          await loadBook()
+                        } catch (err) {
+                          console.error('Failed to update reading status:', err)
+                          setReadingStatus(book?.reading_status || 'planning')
+                        }
+                      }}
+                      className="w-full px-3 py-1.5 text-sm bg-muted border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    >
+                      <option value="planning">Planning to Read</option>
+                      <option value="reading">Currently Reading</option>
+                      <option value="completed">Completed</option>
+                      <option value="on_hold">On Hold</option>
+                      <option value="dropped">Dropped</option>
+                    </select>
+                  </div>
+                </div>
 
                 {/* Metadata Grid */}
                 <div className="grid grid-cols-2 gap-4">

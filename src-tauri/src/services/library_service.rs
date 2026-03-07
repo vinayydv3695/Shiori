@@ -15,7 +15,7 @@ const BOOK_COLUMNS: &str =
      b.file_hash, b.cover_path, b.page_count, b.word_count, b.language, 
      b.added_date, b.modified_date, b.last_opened, b.notes,
      b.online_metadata_fetched, b.metadata_source, b.metadata_last_sync, b.anilist_id,
-     b.is_favorite";
+     b.is_favorite, b.reading_status";
 
 /// Map a single row (using the BOOK_COLUMNS order) into a Book with empty authors/tags.
 fn book_from_row(row: &rusqlite::Row) -> rusqlite::Result<Book> {
@@ -48,6 +48,7 @@ fn book_from_row(row: &rusqlite::Row) -> rusqlite::Result<Book> {
         metadata_last_sync: row.get(25).ok().flatten(),
         anilist_id: row.get(26).ok().flatten(),
         is_favorite: row.get::<_, i64>(27).unwrap_or(0) != 0,
+        reading_status: row.get(28)?,
         authors: vec![],
         tags: vec![],
     })
@@ -210,8 +211,8 @@ pub fn add_book(db: &Database, mut book: Book) -> Result<i64> {
     tx.execute(
         "INSERT INTO books (uuid, title, sort_title, isbn, isbn13, publisher, pubdate,
                            series, series_index, rating, file_path, file_format, file_size,
-                           file_hash, cover_path, page_count, word_count, language, notes)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
+                           file_hash, cover_path, page_count, word_count, language, notes, reading_status)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
         params![
             book.uuid,
             book.title,
@@ -232,6 +233,7 @@ pub fn add_book(db: &Database, mut book: Book) -> Result<i64> {
             book.word_count,
             book.language,
             book.notes,
+            book.reading_status,
         ],
     )?;
 
@@ -274,8 +276,8 @@ pub fn update_book(db: &Database, book: Book) -> Result<()> {
         "UPDATE books SET 
             title = ?1, sort_title = ?2, isbn = ?3, isbn13 = ?4, publisher = ?5,
             pubdate = ?6, series = ?7, series_index = ?8, rating = ?9, language = ?10,
-            notes = ?11, modified_date = CURRENT_TIMESTAMP
-         WHERE id = ?12",
+            notes = ?11, reading_status = ?12, modified_date = CURRENT_TIMESTAMP
+         WHERE id = ?13",
         params![
             book.title,
             book.sort_title,
@@ -288,6 +290,7 @@ pub fn update_book(db: &Database, book: Book) -> Result<()> {
             book.rating,
             book.language,
             book.notes,
+            book.reading_status,
             book_id,
         ],
     )?;
@@ -489,6 +492,7 @@ fn import_single_book(db: &Database, path: &str, covers_dir: &std::path::Path) -
         metadata_last_sync: None,
         anilist_id: None,
         is_favorite: false,
+        reading_status: "planning".to_string(),
     };
 
     add_book(db, book)?;
@@ -781,4 +785,39 @@ pub fn reset_database(db: &Database) -> Result<()> {
     tx.commit()?;
     log::info!("[reset_database] Database has been reset successfully.");
     Ok(())
+}
+
+pub fn update_reading_status(db: &Database, book_id: i64, status: &str) -> Result<()> {
+    let valid = ["planning", "reading", "completed", "on_hold", "dropped"];
+    if !valid.contains(&status) {
+        return Err(ShioriError::Validation(format!(
+            "Invalid reading status: {}",
+            status
+        )));
+    }
+    let conn = db.get_connection()?;
+    conn.execute(
+        "UPDATE books SET reading_status = ?1, modified_date = CURRENT_TIMESTAMP WHERE id = ?2",
+        params![status, book_id],
+    )?;
+    Ok(())
+}
+
+pub fn get_books_by_reading_status(
+    db: &Database,
+    status: &str,
+    limit: u32,
+    offset: u32,
+) -> Result<Vec<Book>> {
+    let conn = db.get_connection()?;
+    let sql = format!(
+        "SELECT {} FROM books b WHERE b.reading_status = ?1 ORDER BY b.modified_date DESC LIMIT ?2 OFFSET ?3",
+        BOOK_COLUMNS
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let mut books: Vec<Book> = stmt
+        .query_map(params![status, limit, offset], book_from_row)?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    attach_authors_and_tags(&conn, &mut books)?;
+    Ok(books)
 }

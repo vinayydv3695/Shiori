@@ -120,3 +120,147 @@ pub async fn enrich_book_metadata(
     // We return true immediately; the frontend should subscribe to Tauri events (or poll)
     Ok(true)
 }
+
+// ═══════════════════════════════════════════════════════════
+// APPLY SELECTED METADATA (Direct)
+// ═══════════════════════════════════════════════════════════
+
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SelectedMetadata {
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub authors: Vec<String>,
+    pub genres: Vec<String>,  // Applied as tags
+    pub cover_url: Option<String>,
+    pub publisher: Option<String>,
+    pub publish_date: Option<String>,
+    pub page_count: Option<i32>,
+    pub isbn: Option<String>,
+    pub isbn13: Option<String>,
+    pub anilist_id: Option<String>,
+    pub open_library_id: Option<String>,
+}
+
+/// Apply selected metadata directly to a book without re-searching
+#[tauri::command]
+pub async fn apply_selected_metadata(
+    app_state: State<'_, crate::AppState>,
+    book_id: i64,
+    metadata: SelectedMetadata,
+) -> Result<bool> {
+    use crate::services::library_service;
+    
+    validate::require_positive_id(book_id, "book_id")?;
+    
+    let db = &app_state.db;
+    let mut book = library_service::get_book_by_id(db, book_id)?;
+    
+    if let Some(title) = &metadata.title {
+        if !title.is_empty() {
+            book.title = title.clone();
+        }
+    }
+    if let Some(desc) = &metadata.description {
+        book.notes = Some(desc.clone());
+    }
+    if let Some(publisher) = &metadata.publisher {
+        book.publisher = Some(publisher.clone());
+    }
+    if let Some(pubdate) = &metadata.publish_date {
+        book.pubdate = Some(pubdate.clone());
+    }
+    if let Some(pages) = metadata.page_count {
+        book.page_count = Some(pages);
+    }
+    if let Some(isbn) = &metadata.isbn {
+        book.isbn = Some(isbn.clone());
+    }
+    if let Some(isbn13) = &metadata.isbn13 {
+        book.isbn13 = Some(isbn13.clone());
+    }
+    if let Some(anilist_id) = &metadata.anilist_id {
+        book.anilist_id = Some(anilist_id.clone());
+    }
+    
+    if !metadata.authors.is_empty() {
+        book.authors = metadata.authors.iter().map(|name| crate::models::Author {
+            id: None,
+            name: name.clone(),
+            sort_name: None,
+            link: None,
+        }).collect();
+    }
+    
+    if !metadata.genres.is_empty() {
+        book.tags = metadata.genres.iter().map(|g| crate::models::Tag {
+            id: None,
+            name: g.clone(),
+            color: None,
+        }).collect();
+    }
+    
+    book.online_metadata_fetched = true;
+    book.metadata_source = Some(if metadata.anilist_id.is_some() { "anilist" } else { "openlibrary" }.to_string());
+    book.metadata_last_sync = Some(chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string());
+    
+    library_service::update_book(db, book)?;
+    
+    let conn = db.get_connection()?;
+    conn.execute(
+        "UPDATE books SET 
+            online_metadata_fetched = 1,
+            metadata_source = ?1,
+            metadata_last_sync = ?2
+         WHERE id = ?3",
+        rusqlite::params![
+            if metadata.anilist_id.is_some() { "anilist" } else { "openlibrary" },
+            chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
+            book_id,
+        ],
+    )?;
+    
+    if let Some(cover_url) = &metadata.cover_url {
+        if !cover_url.is_empty() {
+            let url = cover_url.clone();
+            let db_clone = db.clone();
+            let book_id_clone = book_id;
+            let covers_dir = app_state.covers_dir.clone();
+            
+            tauri::async_runtime::spawn(async move {
+                if let Ok(response) = reqwest::get(&url).await {
+                    if let Ok(bytes) = response.bytes().await {
+                        if let Ok(conn) = db_clone.get_connection() {
+                            if let Ok(uuid) = conn.query_row(
+                                "SELECT uuid FROM books WHERE id = ?1",
+                                rusqlite::params![book_id_clone],
+                                |row| row.get::<_, String>(0)
+                            ) {
+                                if let Err(e) = std::fs::create_dir_all(&covers_dir) {
+                                    log::error!("[apply_selected_metadata] Failed to create covers dir: {}", e);
+                                    return;
+                                }
+                                
+                                let ext = if url.contains(".png") { "png" } else { "jpg" };
+                                let cover_path = covers_dir.join(format!("{}.{}", uuid, ext));
+                                
+                                if std::fs::write(&cover_path, &bytes).is_ok() {
+                                    let _ = conn.execute(
+                                        "UPDATE books SET cover_path = ?1 WHERE id = ?2",
+                                        rusqlite::params![cover_path.to_string_lossy().to_string(), book_id_clone],
+                                    );
+                                    log::info!("[apply_selected_metadata] Cover downloaded for book {}", book_id_clone);
+                                } else {
+                                    log::error!("[apply_selected_metadata] Failed to write cover file");
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+    
+    log::info!("[apply_selected_metadata] Applied selected metadata to book {}", book_id);
+    Ok(true)
+}

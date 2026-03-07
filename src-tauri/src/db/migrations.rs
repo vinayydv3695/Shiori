@@ -69,6 +69,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 15 {
             self.run_in_savepoint("v15", |mgr| mgr.migrate_to_v15())?;
         }
+        if current_version < 16 {
+            self.run_in_savepoint("v16", |mgr| mgr.migrate_to_v16())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -1433,6 +1436,37 @@ impl<'a> MigrationManager<'a> {
         self.record_migration(15, "reading_status", &hash)?;
 
         log::info!("[Migration] v15 applied successfully");
+        Ok(())
+    }
+
+    /// Migration v16: Domain column for comics/manga/books separation
+    fn migrate_to_v16(&self) -> Result<()> {
+        log::info!("[Migration] Applying v16: Domain column for comics/manga/books");
+
+        // Add domain column
+        if !self.column_exists("books", "domain")? {
+            self.conn
+                .execute("ALTER TABLE books ADD COLUMN domain TEXT DEFAULT NULL", [])?;
+        }
+
+        // Backfill domain based on file format
+        // CBZ/CBR files default to manga (existing behavior)
+        self.conn.execute(
+            "UPDATE books SET domain = 'manga' WHERE file_format IN ('cbz', 'cbr') AND domain IS NULL",
+            [],
+        )?;
+
+        // All other formats are books
+        self.conn.execute(
+            "UPDATE books SET domain = 'books' WHERE file_format NOT IN ('cbz', 'cbr') AND domain IS NULL",
+            [],
+        )?;
+
+        let hash = Self::calculate_checksum("v16_domain_column");
+        self.set_schema_version(16)?;
+        self.record_migration(16, "domain_column", &hash)?;
+
+        log::info!("[Migration] v16 applied successfully");
         Ok(())
     }
 

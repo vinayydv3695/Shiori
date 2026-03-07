@@ -36,15 +36,17 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu'
 
-export type DomainView = 'books' | 'manga'
+export type DomainView = 'books' | 'manga' | 'comics'
 
 interface PremiumTopbarProps {
   currentDomain: DomainView
   onDomainChange: (domain: DomainView) => void
   onImportBooks: () => void
   onImportManga: () => void
+  onImportComics: () => void
   onScanBooksFolder: () => void
   onScanMangaFolder: () => void
+  onScanComicsFolder: () => void
   onOpenRSS?: () => void
   onConvert?: () => void
   onEditMetadata?: () => void
@@ -192,8 +194,10 @@ export function PremiumTopbar({
   onDomainChange,
   onImportBooks,
   onImportManga,
+  onImportComics,
   onScanBooksFolder,
   onScanMangaFolder,
+  onScanComicsFolder,
   onOpenRSS,
   onConvert,
   onEditMetadata,
@@ -283,6 +287,20 @@ export function PremiumTopbar({
           <IconManga size={14} />
           Manga
         </button>
+        <button
+          onClick={() => onDomainChange('comics')}
+          className={cn(
+            'flex items-center gap-1.5 h-full px-3 rounded',
+            'text-xs font-medium transition-all duration-[120ms]',
+            currentDomain === 'comics'
+              ? 'bg-background text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+          aria-pressed={currentDomain === 'comics'}
+        >
+          <IconBooks size={14} />
+          Comics
+        </button>
       </div>
 
       <Sep />
@@ -324,6 +342,18 @@ export function PremiumTopbar({
           <DropdownMenuItem onClick={onScanMangaFolder} className="gap-2 cursor-pointer">
             <IconImportManga size={14} />
             <span>Scan Manga Folder</span>
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
+          <DropdownMenuLabel className="text-xs text-muted-foreground">Comics</DropdownMenuLabel>
+          <DropdownMenuItem onClick={onImportComics} className="gap-2 cursor-pointer">
+            <IconImportManga size={14} />
+            <span>Import Comics</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onScanComicsFolder} className="gap-2 cursor-pointer">
+            <IconImportManga size={14} />
+            <span>Scan Comics Folder</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

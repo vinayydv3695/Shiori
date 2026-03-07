@@ -167,6 +167,8 @@ fn main() {
             commands::library::scan_folder_for_books,
             commands::library::import_manga,
             commands::library::scan_folder_for_manga,
+            commands::library::import_comics,
+            commands::library::scan_folder_for_comics,
             commands::library::get_books_by_domain,
             commands::library::get_total_books_by_domain,
             commands::library::reset_database,

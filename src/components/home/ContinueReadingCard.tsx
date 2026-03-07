@@ -5,7 +5,7 @@ import type { Book } from '@/lib/tauri'
 interface ContinueReadingCardProps {
     book: Book
     progress: number // 0-100
-    domain: 'books' | 'manga'
+    domain: 'books' | 'manga' | 'comics'
     onClick: (book: Book) => void
 }
 

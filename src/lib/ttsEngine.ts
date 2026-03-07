@@ -27,7 +27,15 @@ export class TTSEngine {
    * Check if Web Speech API is available in the current environment
    */
   static isAvailable(): boolean {
-    return typeof window !== 'undefined' && 'speechSynthesis' in window;
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      return false;
+    }
+    // WebKitGTK (Linux Tauri webview) exposes speechSynthesis but provides no voices
+    const ua = navigator.userAgent;
+    if (ua.includes('WebKitGTK') || ua.includes('WebKit2GTK')) {
+      return false;
+    }
+    return true;
   }
 
   /**

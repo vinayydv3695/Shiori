@@ -9,13 +9,16 @@ export type StepId =
     | 'welcome'
     | 'features-overview'
     | 'content-type'
+    | 'comic-setup'
     | 'theme'
     | 'reading-prefs'
     | 'manga-prefs'
     | 'reading-goal'
+    | 'reading-status'
     | 'translation'
     | 'performance'
     | 'metadata'
+    | 'metadata-search'
     | 'library-setup'
     | 'ui-scale'
     | 'review';
@@ -31,6 +34,10 @@ export const ONBOARDING_STEPS: StepRegistryItem[] = [
     { id: 'welcome' },
     { id: 'features-overview' },
     { id: 'content-type' },
+    {
+        id: 'comic-setup',
+        condition: (draft) => draft.preferredContentType === 'both' || draft.preferredContentType === 'manga'
+    },
     { id: 'theme' },
     {
         id: 'reading-prefs',
@@ -41,11 +48,16 @@ export const ONBOARDING_STEPS: StepRegistryItem[] = [
         condition: (draft) => draft.preferredContentType === 'both' || draft.preferredContentType === 'manga'
     },
     { id: 'reading-goal' },
+    { id: 'reading-status' },
     { id: 'translation' },
     { id: 'performance' },
     {
         id: 'metadata',
         condition: () => navigator.onLine // Only ask about metadata if they have internet 
+    },
+    {
+        id: 'metadata-search',
+        condition: () => navigator.onLine
     },
     { id: 'library-setup' },
     { id: 'ui-scale' },

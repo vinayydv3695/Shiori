@@ -8,6 +8,8 @@ export type TTSState = 'idle' | 'speaking' | 'paused';
 export interface TTSOptions {
   /** Speech rate: 0.5 to 4.0, default 1.0 */
   rate?: number;
+  /** Volume: 0.0 to 1.0, default 1.0 */
+  volume?: number;
   /** Voice to use for speech synthesis */
   voice?: SpeechSynthesisVoice;
   /** Callback fired when speech ends */
@@ -55,6 +57,10 @@ export class TTSEngine {
     }
 
     const utterance = new SpeechSynthesisUtterance(text);
+    
+    // Set explicit volume and pitch defaults
+    utterance.volume = options?.volume !== undefined ? Math.max(0, Math.min(1, options.volume)) : 1.0;
+    utterance.pitch = 1.0;
     
     // Apply options
     if (options?.rate !== undefined) {

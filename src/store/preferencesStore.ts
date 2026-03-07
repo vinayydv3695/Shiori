@@ -63,11 +63,17 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
   loadPreferences: async () => {
     set({ isLoading: true });
     try {
-      const [preferences, bookOverrides, mangaOverrides] = await Promise.all([
+      const [preferences, bookOverrides, mangaOverrides, readingGoal] = await Promise.all([
         api.getUserPreferences(),
         api.getBookPreferenceOverrides(),
         api.getMangaPreferenceOverrides(),
+        api.getReadingGoal().catch(() => null),
       ]);
+
+      // Merge reading goal into preferences if available
+      if (readingGoal && readingGoal.daily_minutes_target !== undefined) {
+        preferences.dailyReadingGoalMinutes = readingGoal.daily_minutes_target;
+      }
 
       const bookOverrideMap = new Map(
         bookOverrides.map((o) => [o.bookId, o.preferences as Partial<BookPreferences>])

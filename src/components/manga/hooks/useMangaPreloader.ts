@@ -16,10 +16,11 @@ export function getEffectiveMaxDimension(mode?: ReadingMode): number {
 }
 
 interface CacheEntry {
-    blob: Blob;
     url: string;
     lastAccess: number;
     size: number;
+    type: 'blob' | 'path';
+    blob?: Blob;
 }
 
 class MangaImageCache {
@@ -36,14 +37,14 @@ class MangaImageCache {
     }
 
     set(key: string, blob: Blob): string {
-        // If already cached, revoke old and replace
         const existing = this.cache.get(key);
         if (existing) {
-            URL.revokeObjectURL(existing.url);
+            if (existing.type === 'blob' && existing.blob) {
+                URL.revokeObjectURL(existing.url);
+            }
             this.currentBytes -= existing.size;
         }
 
-        // Evict if over limits
         while (this.cache.size >= this.maxEntries || this.currentBytes + blob.size > this.maxBytes) {
             this.evictOldest();
             if (this.cache.size === 0) break;
@@ -51,12 +52,38 @@ class MangaImageCache {
 
         const url = URL.createObjectURL(blob);
         this.cache.set(key, {
+            type: 'blob',
             blob,
             url,
             lastAccess: Date.now(),
             size: blob.size,
         });
         this.currentBytes += blob.size;
+        return url;
+    }
+
+    setPath(key: string, url: string): string {
+        const existing = this.cache.get(key);
+        if (existing) {
+            if (existing.type === 'blob' && existing.blob) {
+                URL.revokeObjectURL(existing.url);
+            }
+            this.currentBytes -= existing.size;
+        }
+
+        const estimatedSize = 1024;
+        while (this.cache.size >= this.maxEntries || this.currentBytes + estimatedSize > this.maxBytes) {
+            this.evictOldest();
+            if (this.cache.size === 0) break;
+        }
+
+        this.cache.set(key, {
+            type: 'path',
+            url,
+            lastAccess: Date.now(),
+            size: estimatedSize,
+        });
+        this.currentBytes += estimatedSize;
         return url;
     }
 
@@ -77,7 +104,9 @@ class MangaImageCache {
 
         if (oldestKey) {
             const entry = this.cache.get(oldestKey)!;
-            URL.revokeObjectURL(entry.url);
+            if (entry.type === 'blob' && entry.blob) {
+                URL.revokeObjectURL(entry.url);
+            }
             this.currentBytes -= entry.size;
             this.cache.delete(oldestKey);
         }
@@ -85,7 +114,9 @@ class MangaImageCache {
 
     clear(): void {
         for (const entry of this.cache.values()) {
-            URL.revokeObjectURL(entry.url);
+            if (entry.type === 'blob' && entry.blob) {
+                URL.revokeObjectURL(entry.url);
+            }
         }
         this.cache.clear();
         this.currentBytes = 0;
@@ -117,27 +148,25 @@ export async function getMangaPageUrl(
     const dim = maxDimension ?? getEffectiveMaxDimension();
     const cacheKey = `${bookId}:${pageIndex}:${dim}`;
 
-    // Check cache first
     const cached = imageCache.get(cacheKey);
     if (cached) return cached;
 
-    // Check if there's already a pending request for this page
     const pending = pendingRequests.get(cacheKey);
     if (pending) return pending;
 
     const request = (async () => {
         try {
             const { invoke } = await import('@tauri-apps/api/core');
-            // invoke will return a Uint8Array when backend returns tauri::ipc::Response natively
-            const responseData = await invoke<Uint8Array>('get_manga_page', {
+            const { convertFileSrc } = await import('@tauri-apps/api/core');
+            
+            const filePath = await invoke<string>('get_manga_page_path', {
                 bookId,
                 pageIndex,
                 maxDimension: dim,
             });
 
-            // Convert to blob and save in URL
-            const blob = new Blob([new Uint8Array(responseData)], { type: 'image/jpeg' });
-            return imageCache.set(cacheKey, blob);
+            const url = convertFileSrc(filePath);
+            return imageCache.setPath(cacheKey, url);
         } catch (error) {
             console.error(`[MangaPreloader] Failed to load page ${pageIndex}:`, error);
             throw error;

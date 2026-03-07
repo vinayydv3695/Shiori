@@ -134,6 +134,7 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
     // Speak sentence
     const options: TTSOptions = {
       rate,
+      volume: 1.0,
       voice: selectedVoice || undefined,
       onEnd: () => {
         const nextIndex = currentIndexRef.current + 1;
@@ -321,6 +322,7 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
 
     const options: TTSOptions = {
       rate,
+      volume: 1.0,
       voice: selectedVoice || undefined,
     };
 

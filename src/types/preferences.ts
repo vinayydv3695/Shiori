@@ -59,7 +59,7 @@ export interface UserPreferences {
   autoScanEnabled: boolean;
   defaultMangaPath: string | null;
   translationTargetLanguage: string;
-  dailyReadingGoalMinutes: number;
+  dailyReadingGoalMinutes?: number;
 }
 
 export interface PreferenceOverride {

@@ -74,3 +74,38 @@ pub fn close_manga(
     state.service.close(book_id);
     Ok(())
 }
+
+#[tauri::command]
+pub async fn get_manga_page_path(
+    book_id: i64,
+    page_index: usize,
+    max_dimension: u32,
+    state: State<'_, MangaState>,
+) -> Result<String> {
+    validate::require_positive_id(book_id, "book_id")?;
+    let bytes = state.service.get_page(book_id, page_index, max_dimension).await?;
+    
+    let mut dir = std::env::temp_dir();
+    dir.push("shiori");
+    dir.push("manga-pages");
+    std::fs::create_dir_all(&dir).map_err(|e| crate::error::ShioriError::Io(e))?;
+    
+    let filename = format!("manga-{}-{}-{}.img", book_id, page_index, max_dimension);
+    let final_path = dir.join(&filename);
+    
+    // If file already exists with correct size, skip writing
+    if final_path.exists() {
+        if let Ok(meta) = std::fs::metadata(&final_path) {
+            if meta.len() == bytes.len() as u64 {
+                return Ok(final_path.to_string_lossy().into_owned());
+            }
+        }
+    }
+    
+    // Write atomically
+    let tmp_path = dir.join(format!("{}.tmp", filename));
+    std::fs::write(&tmp_path, &bytes).map_err(|e| crate::error::ShioriError::Io(e))?;
+    std::fs::rename(&tmp_path, &final_path).map_err(|e| crate::error::ShioriError::Io(e))?;
+    
+    Ok(final_path.to_string_lossy().into_owned())
+}

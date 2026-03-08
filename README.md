@@ -162,6 +162,7 @@ Before building Shiori, ensure you have the following installed:
 - **Rust** (1.70 or higher) - [Install via rustup](https://rustup.rs/)
 - **System dependencies** for Tauri:
   - **Linux**: `sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libayatana-appindicator3-dev librsvg2-dev`
+    - **For Text-to-Speech support**: `sudo apt install speech-dispatcher` (Debian/Ubuntu) or `sudo dnf install speech-dispatcher` (Fedora) or `sudo pacman -S speech-dispatcher` (Arch)
   - **macOS**: Xcode Command Line Tools (`xcode-select --install`)
   - **Windows**: [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
 

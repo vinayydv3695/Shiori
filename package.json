@@ -41,6 +41,7 @@
     "recharts": "^3.7.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.1",
+    "tauri-plugin-tts-api": "^0.1.2",
     "zustand": "^5.0.11"
   },
   "devDependencies": {

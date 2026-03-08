@@ -46,6 +46,7 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_tts::init())
         .setup(|app| {
             // Initialize database
             let app_dir = app

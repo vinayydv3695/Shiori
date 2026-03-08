@@ -185,6 +185,14 @@ npm run build
 
 After building, you'll find the installer in `src-tauri/target/release/bundle/`.
 
+#### Known Issues
+
+**Linux Text-to-Speech**: Native TTS integration via `tauri-plugin-tts` is currently unavailable due to a compilation error in v0.1.2 (missing `TtsEngineError` enum variant). The app falls back to Web Speech API, which is not supported in WebKitGTK. This is an upstream issue that will be resolved when the plugin is fixed.
+
+- **Workaround**: Use alternative TTS solutions like browser extensions or system-level TTS
+- **Tracking**: [tauri-plugin-tts issue tracker](https://github.com/brenogonzaga/tauri-plugin-tts/issues)
+- **Feature Flag**: Build with `--features native-tts` once upstream fix is released
+
 ---
 
 ## <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Quick Start

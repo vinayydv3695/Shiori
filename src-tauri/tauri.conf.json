@@ -63,7 +63,9 @@
         "scope": [
           "$APPLOCALDATA/**",
           "$APPDATA/**",
-          "$HOME/**"
+          "$HOME/**",
+          "$TEMP/**",
+          "$TMP/**"
         ]
       },
       "capabilities": ["default"]

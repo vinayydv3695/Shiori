@@ -57,7 +57,12 @@ pub fn require_safe_path(path: &str, field: &str) -> Result<()> {
 }
 
 /// Validate a URL is well-formed and uses http/https.
+/// Set allow_private = true for desktop apps to permit local/LAN feeds.
 pub fn require_valid_url(url: &str, field: &str) -> Result<()> {
+    require_valid_url_with_options(url, field, true)
+}
+
+pub fn require_valid_url_with_options(url: &str, field: &str, allow_private: bool) -> Result<()> {
     require_non_empty(url, field)?;
     require_max_length(url, 2048, field)?;
 
@@ -70,32 +75,33 @@ pub fn require_valid_url(url: &str, field: &str) -> Result<()> {
         )));
     }
 
-    // Reject obvious SSRF targets
     let host_part = lower
         .trim_start_matches("http://")
         .trim_start_matches("https://");
     let host = host_part.split('/').next().unwrap_or("");
     let host_no_port = host.split(':').next().unwrap_or("");
 
-    if host_no_port == "localhost"
-        || host_no_port == "127.0.0.1"
-        || host_no_port == "[::1]"
-        || host_no_port.starts_with("0.")
-        || host_no_port.starts_with("10.")
-        || host_no_port.starts_with("192.168.")
-        || host_no_port.starts_with("169.254.")
-        || host_no_port.starts_with("172.16.")
-        || host_no_port.starts_with("172.17.")
-        || host_no_port.starts_with("172.18.")
-        || host_no_port.starts_with("172.19.")
-        || host_no_port.starts_with("172.2")
-        || host_no_port.starts_with("172.30.")
-        || host_no_port.starts_with("172.31.")
-    {
-        return Err(ShioriError::Validation(format!(
-            "{} must not target local/private network addresses",
-            field
-        )));
+    if !allow_private {
+        if host_no_port == "localhost"
+            || host_no_port == "127.0.0.1"
+            || host_no_port == "[::1]"
+            || host_no_port.starts_with("0.")
+            || host_no_port.starts_with("10.")
+            || host_no_port.starts_with("192.168.")
+            || host_no_port.starts_with("169.254.")
+            || host_no_port.starts_with("172.16.")
+            || host_no_port.starts_with("172.17.")
+            || host_no_port.starts_with("172.18.")
+            || host_no_port.starts_with("172.19.")
+            || host_no_port.starts_with("172.2")
+            || host_no_port.starts_with("172.30.")
+            || host_no_port.starts_with("172.31.")
+        {
+            return Err(ShioriError::Validation(format!(
+                "{} must not target local/private network addresses",
+                field
+            )));
+        }
     }
 
     Ok(())

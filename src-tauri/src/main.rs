@@ -44,10 +44,15 @@ fn main() {
 
     env_logger::init();
 
-    tauri::Builder::default()
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_tts::init())
-        .setup(|app| {
+    let mut builder = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init());
+    
+    #[cfg(feature = "native-tts")]
+    {
+        builder = builder.plugin(tauri_plugin_tts::init());
+    }
+    
+    builder.setup(|app| {
             // Initialize database
             let app_dir = app
                 .path()

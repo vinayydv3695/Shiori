@@ -7,7 +7,6 @@
     "core:default",
     "dialog:allow-open",
     "dialog:allow-save",
-    "dialog:default",
-    "tts:default"
+    "dialog:default"
   ]
 }

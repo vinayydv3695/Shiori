@@ -27,7 +27,13 @@ interface OnboardingWizardProps {
 }
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
-    const { currentStepId, nextStep, prevStep, commit, isCommitting, getProgress, draftConfig } = useOnboardingStore();
+    const currentStepId = useOnboardingStore(state => state.currentStepId);
+    const nextStep = useOnboardingStore(state => state.nextStep);
+    const prevStep = useOnboardingStore(state => state.prevStep);
+    const commit = useOnboardingStore(state => state.commit);
+    const isCommitting = useOnboardingStore(state => state.isCommitting);
+    const getProgress = useOnboardingStore(state => state.getProgress);
+    const draftConfig = useOnboardingStore(state => state.draftConfig);
 
     const progress = getProgress();
 

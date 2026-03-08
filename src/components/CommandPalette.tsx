@@ -32,7 +32,8 @@ export const CommandPalette = ({
 }: CommandPaletteProps) => {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
-  const { viewMode, setViewMode } = useLibraryStore()
+  const viewMode = useLibraryStore(state => state.viewMode)
+  const setViewMode = useLibraryStore(state => state.setViewMode)
   const { theme, toggleTheme } = useTheme()
 
   // Toggle command palette with Cmd+K / Ctrl+K

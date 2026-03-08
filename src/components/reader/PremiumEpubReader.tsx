@@ -186,16 +186,16 @@ function highlightSearchTerm(html: string, searchTerm: string): string {
 
 export function PremiumEpubReader({ bookPath, bookId, onClose }: PremiumEpubReaderProps) {
   // State management
-  const {
-    isFocusMode,
-    scrollProgress,
-    setTopBarVisible,
-    toggleSidebar,
-    setScrollProgress,
-  } = useUIStore();
+  const isFocusMode = useUIStore(state => state.isFocusMode);
+  const scrollProgress = useUIStore(state => state.scrollProgress);
+  const setTopBarVisible = useUIStore(state => state.setTopBarVisible);
+  const toggleSidebar = useUIStore(state => state.toggleSidebar);
+  const setScrollProgress = useUIStore(state => state.setScrollProgress);
 
   const { theme, width, twoPageView, toggleTwoPageView, pageFlipEnabled, pageFlipSpeed, animationStyle } = useReadingSettings();
-  const { isDoodleMode, toggleDoodleMode, resetPage: resetDoodlePage } = useDoodleStore();
+  const isDoodleMode = useDoodleStore(state => state.isDoodleMode);
+  const toggleDoodleMode = useDoodleStore(state => state.toggleDoodleMode);
+  const resetDoodlePage = useDoodleStore(state => state.resetPage);
 
   useReadingSession(bookId);
 

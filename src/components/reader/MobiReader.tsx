@@ -19,7 +19,8 @@ interface MobiReaderProps {
 }
 
 export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
-    const { isFocusMode, setTopBarVisible } = useUIStore();
+    const isFocusMode = useUIStore(state => state.isFocusMode);
+    const setTopBarVisible = useUIStore(state => state.setTopBarVisible);
     const { theme, fontSize, fontFamily, lineHeight, width } = useReadingSettings();
 
     const [metadata, setMetadata] = useState<BookMetadata | null>(null);

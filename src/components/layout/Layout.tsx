@@ -40,8 +40,8 @@ interface LayoutProps {
   searchQuery?: string
   onSearchChange?: (query: string) => void
   currentView?: CurrentView
-  currentDomain?: 'books' | 'manga' | 'comics'
-  onDomainChange?: (domain: 'books' | 'manga' | 'comics') => void
+  currentDomain?: 'books' | 'manga_comics'
+  onDomainChange?: (domain: 'books' | 'manga_comics') => void
 }
 
 export function Layout({

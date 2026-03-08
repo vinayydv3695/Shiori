@@ -93,8 +93,8 @@ function HeroSection({
           <h1 className="hero-greeting">{greeting}</h1>
           <p className="hero-subtitle">
             {booksInProgress > 0
-              ? `You have ${booksInProgress} ${domain === 'manga' ? 'manga' : 'book'}${booksInProgress > 1 ? 's' : ''} in progress`
-              : `Your personal ${domain === 'manga' ? 'manga' : 'book'} library`}
+              ? `You have ${booksInProgress} ${domain === 'manga_comics' ? 'manga & comics' : 'book'}${booksInProgress > 1 ? 's' : ''} in progress`
+              : `Your personal ${domain === 'manga_comics' ? 'manga & comics' : 'book'} library`}
           </p>
         </motion.div>
 
@@ -174,26 +174,27 @@ interface HomePageProps {
 }
 
 export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
-  const allBooks = useLibraryStore((s) => s.books)
-  const favoriteBookIds = useLibraryStore((s) => s.favoriteBookIds)
-  const { currentDomain, setCurrentView } = useUIStore()
+  const allBooks = useLibraryStore(s => s.books)
+  const favoriteBookIds = useLibraryStore(s => s.favoriteBookIds)
+  const currentDomain = useUIStore(state => state.currentDomain);
+  const setCurrentView = useUIStore(state => state.setCurrentView);
   const [progressMap, setProgressMap] = useState<Record<number, ReadingProgress>>({})
   const [completedBooks, setCompletedBooks] = useState<Book[]>([])
   const [onHoldBooks, setOnHoldBooks] = useState<Book[]>([])
 
   const domain = currentDomain
 
-  // Split books vs manga
+  // Split books vs manga & comics
   const books = useMemo(
     () => allBooks.filter((b) => !MANGA_FORMATS.includes(b.file_format.toLowerCase())),
     [allBooks]
   )
-  const manga = useMemo(
+  const mangaComics = useMemo(
     () => allBooks.filter((b) => MANGA_FORMATS.includes(b.file_format.toLowerCase())),
     [allBooks]
   )
 
-  const domainItems = domain === 'manga' ? manga : books
+  const domainItems = domain === 'manga_comics' ? mangaComics : books
   const totalSize = allBooks.reduce((sum, b) => sum + (b.file_size || 0), 0)
 
   // Continue reading — items with progress
@@ -307,11 +308,11 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
         <div className="home-empty">
           <BookOpen className="home-empty-icon" />
           <div className="home-empty-title">
-            {domain === 'manga' ? 'No manga yet' : 'No books yet'}
+            {domain === 'manga_comics' ? 'No manga & comics yet' : 'No books yet'}
           </div>
           <div className="home-empty-desc">
-            {domain === 'manga'
-              ? 'Import your manga archives (CBZ, CBR) using the Import button in the toolbar.'
+            {domain === 'manga_comics'
+              ? 'Import your manga and comics archives (CBZ, CBR) using the Import button in the toolbar.'
               : 'Import your eBooks (EPUB, PDF, MOBI) using the Import button in the toolbar.'}
           </div>
         </div>
@@ -329,7 +330,7 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
       {/* ── Hero ── */}
       <HeroSection
         totalBooks={books.length}
-        totalManga={manga.length}
+        totalManga={mangaComics.length}
         totalSize={totalSize}
         booksInProgress={allInProgress}
         domain={domain}

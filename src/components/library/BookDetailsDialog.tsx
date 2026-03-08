@@ -153,12 +153,14 @@ export const BookDetailsDialog = ({
               {/* Cover Image */}
               <div className="md:col-span-1">
                 <div className="aspect-[2/3] bg-muted rounded-lg overflow-hidden border border-border">
-                  {coverSrc ? (
-                    <img
-                      src={coverSrc}
-                      alt={book.title}
-                      className="w-full h-full object-cover"
-                    />
+                   {coverSrc ? (
+                     <img
+                       src={coverSrc}
+                       alt={book.title}
+                       loading="lazy"
+                       decoding="async"
+                       className="w-full h-full object-cover"
+                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <BookOpen className="w-20 h-20 text-muted-foreground/30" />

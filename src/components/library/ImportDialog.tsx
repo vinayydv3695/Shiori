@@ -20,7 +20,7 @@ export const ImportDialog = ({ open, onOpenChange }: ImportDialogProps) => {
   const [selectedPath, setSelectedPath] = useState<string>('');
   const [selectedFilePaths, setSelectedFilePaths] = useState<string[]>([]);
   const toast = useToast();
-  const { setBooks } = useLibraryStore();
+  const setBooks = useLibraryStore(state => state.setBooks);
 
   const handleSelectFolder = async () => {
     try {

@@ -11,7 +11,15 @@ interface ShareBookDialogProps {
 }
 
 const ShareBookDialog: React.FC<ShareBookDialogProps> = ({ isOpen, onClose, bookId, bookTitle }) => {
-  const { shares, serverRunning, isLoading, createShare, revokeShare, loadShares, startServer, stopServer, checkServerStatus } = useShareStore();
+  const shares = useShareStore(state => state.shares);
+  const serverRunning = useShareStore(state => state.serverRunning);
+  const isLoading = useShareStore(state => state.isLoading);
+  const createShare = useShareStore(state => state.createShare);
+  const revokeShare = useShareStore(state => state.revokeShare);
+  const loadShares = useShareStore(state => state.loadShares);
+  const startServer = useShareStore(state => state.startServer);
+  const stopServer = useShareStore(state => state.stopServer);
+  const checkServerStatus = useShareStore(state => state.checkServerStatus);
   
   // Form state
   const [password, setPassword] = useState('');

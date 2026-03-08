@@ -271,12 +271,14 @@ export const ModernTableView = ({
                   {/* Cover */}
                   <td className="p-3">
                     <div className="w-10 h-14 bg-muted rounded overflow-hidden">
-                      {book.cover_path ? (
-                        <img
-                          src={convertFileSrc(book.cover_path)}
-                          alt={book.title}
-                          className="w-full h-full object-cover"
-                        />
+                       {book.cover_path ? (
+                         <img
+                           src={convertFileSrc(book.cover_path)}
+                           alt={book.title}
+                           loading="lazy"
+                           decoding="async"
+                           className="w-full h-full object-cover"
+                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/50">
                           <BookOpen className="w-5 h-5 text-muted-foreground/30" />

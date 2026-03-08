@@ -236,7 +236,16 @@ const EditFeedDialog: React.FC<EditFeedDialogProps> = ({ isOpen, onClose, feed, 
 };
 
 const RSSFeedManager: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
-  const { feeds, isLoading, loadFeeds, addFeed, updateFeed, deleteFeed, toggleFeed, updateAllFeeds, updateFeedArticles, generateDailyEpub } = useRssStore();
+  const feeds = useRssStore(state => state.feeds);
+  const isLoading = useRssStore(state => state.isLoading);
+  const loadFeeds = useRssStore(state => state.loadFeeds);
+  const addFeed = useRssStore(state => state.addFeed);
+  const updateFeed = useRssStore(state => state.updateFeed);
+  const deleteFeed = useRssStore(state => state.deleteFeed);
+  const toggleFeed = useRssStore(state => state.toggleFeed);
+  const updateAllFeeds = useRssStore(state => state.updateAllFeeds);
+  const updateFeedArticles = useRssStore(state => state.updateFeedArticles);
+  const generateDailyEpub = useRssStore(state => state.generateDailyEpub);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingFeed, setEditingFeed] = useState<typeof feeds[0] | null>(null);

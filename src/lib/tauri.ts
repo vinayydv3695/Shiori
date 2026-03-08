@@ -725,11 +725,11 @@ export const api = {
     return invoke("scan_folder_for_comics", { folderPath })
   },
 
-  async getBooksByDomain(domain: 'books' | 'manga' | 'comics', limit: number = 50, offset: number = 0): Promise<Book[]> {
+  async getBooksByDomain(domain: 'books' | 'manga_comics', limit: number = 50, offset: number = 0): Promise<Book[]> {
     return invoke("get_books_by_domain", { domain, limit, offset })
   },
 
-  async getTotalBooksByDomain(domain: 'books' | 'manga' | 'comics'): Promise<number> {
+  async getTotalBooksByDomain(domain: 'books' | 'manga_comics'): Promise<number> {
     if (!isTauri) {
       return Promise.resolve(mockBooks.length) // Mock return
     }

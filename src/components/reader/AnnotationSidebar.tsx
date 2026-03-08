@@ -6,7 +6,12 @@ import { formatDate } from '@/lib/utils';
 import { AnnotationExportDialog } from './AnnotationExportDialog';
 
 export function AnnotationSidebar() {
-  const { annotations, removeAnnotation, updateAnnotation, showAnnotationSidebar, toggleAnnotationSidebar, currentBookId } = useReaderStore();
+  const annotations = useReaderStore(state => state.annotations);
+  const removeAnnotation = useReaderStore(state => state.removeAnnotation);
+  const updateAnnotation = useReaderStore(state => state.updateAnnotation);
+  const showAnnotationSidebar = useReaderStore(state => state.showAnnotationSidebar);
+  const toggleAnnotationSidebar = useReaderStore(state => state.toggleAnnotationSidebar);
+  const currentBookId = useReaderStore(state => state.currentBookId);
   const [filter, setFilter] = useState<'all' | 'highlight' | 'note' | 'bookmark'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);

@@ -9,7 +9,13 @@ interface RSSArticleListProps {
 }
 
 const RSSArticleList: React.FC<RSSArticleListProps> = ({ feedId = null, onClose }) => {
-  const { articles, feeds, selectedFeedId, isLoading, loadArticles, markArticleRead, setSelectedFeed } = useRssStore();
+  const articles = useRssStore(state => state.articles);
+  const feeds = useRssStore(state => state.feeds);
+  const selectedFeedId = useRssStore(state => state.selectedFeedId);
+  const isLoading = useRssStore(state => state.isLoading);
+  const loadArticles = useRssStore(state => state.loadArticles);
+  const markArticleRead = useRssStore(state => state.markArticleRead);
+  const setSelectedFeed = useRssStore(state => state.setSelectedFeed);
   const [limit, setLimit] = useState(25);
   const [expandedArticleId, setExpandedArticleId] = useState<number | null>(null);
   const [showRead, setShowRead] = useState(false);

@@ -5,21 +5,21 @@ import type { Book } from '@/lib/tauri'
 interface ContinueReadingCardProps {
     book: Book
     progress: number // 0-100
-    domain: 'books' | 'manga' | 'comics'
+    domain: 'books' | 'manga_comics'
     onClick: (book: Book) => void
 }
 
 export function ContinueReadingCard({ book, progress, domain, onClick }: ContinueReadingCardProps) {
     const { coverUrl: coverSrc, loading: coverLoading } = useCoverImage(book.id, book.cover_path)
 
-    const progressLabel = domain === 'manga'
+    const progressLabel = domain === 'manga_comics'
         ? `Page ${Math.round((progress / 100) * (book.page_count || 0))} of ${book.page_count || '?'}`
         : `${Math.round(progress)}%`
 
     return (
         <div className="continue-card" onClick={() => onClick(book)}>
             {coverSrc ? (
-                <img className="continue-card-cover" src={coverSrc} alt={book.title} loading="lazy" />
+                <img className="continue-card-cover" src={coverSrc} alt={book.title} loading="lazy" decoding="async" />
             ) : (
                 <div className="continue-card-cover-placeholder">
                     {coverLoading ? <div className="animate-pulse bg-muted w-full h-full" /> : <BookOpen size={32} />}
@@ -51,7 +51,7 @@ export function RecentlyAddedCard({ book, onClick }: RecentlyAddedCardProps) {
     return (
         <div className="recent-card" onClick={() => onClick(book)}>
             {coverSrc ? (
-                <img className="recent-card-cover" src={coverSrc} alt={book.title} loading="lazy" />
+                <img className="recent-card-cover" src={coverSrc} alt={book.title} loading="lazy" decoding="async" />
             ) : (
                 <div className="recent-card-cover-placeholder">
                     {coverLoading ? <div className="animate-pulse bg-muted w-full h-full" /> : <span>📚</span>}

@@ -16,7 +16,8 @@ interface DeleteBookDialogProps {
 export const DeleteBookDialog = ({ open, onOpenChange, bookIds, bookTitle }: DeleteBookDialogProps) => {
   const [deleting, setDeleting] = useState(false);
   const toast = useToast();
-  const { setBooks, clearSelection } = useLibraryStore();
+  const setBooks = useLibraryStore(state => state.setBooks);
+  const clearSelection = useLibraryStore(state => state.clearSelection);
 
   const isMultiple = bookIds.length > 1;
 

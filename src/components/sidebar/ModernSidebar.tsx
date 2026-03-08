@@ -289,7 +289,7 @@ export interface FilterPanelProps {
   }
   onFilterToggle: (category: string, id: string) => void
   onClearAll: () => void
-  domain?: 'books' | 'manga' | 'comics'
+  domain?: 'books' | 'manga_comics'
 }
 
 export function FilterPanel({
@@ -311,9 +311,9 @@ export function FilterPanel({
 
   const totalActive = Object.values(selectedFilters).flat().length
 
-  // For manga/comics domains — filter formats to CBZ/CBR only
+  // For manga & comics domain — filter formats to CBZ/CBR only
   const visibleFormats =
-    domain === 'manga' || domain === 'comics'
+    domain === 'manga_comics'
       ? formats.filter((f) => ['CBZ', 'CBR'].includes(f.id.toUpperCase()))
       : formats
 
@@ -379,7 +379,7 @@ export function FilterPanel({
         />
 
         <FilterSection
-          title={domain === 'manga' ? 'Format' : 'Formats'}
+          title={domain === 'manga_comics' ? 'Format' : 'Formats'}
           icon={<FileType className="w-full h-full" />}
           items={visibleFormats}
           selected={selectedFilters.formats}

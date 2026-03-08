@@ -2,7 +2,7 @@ import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
 export type CurrentView = "home" | "library" | "rss-feeds" | "rss-articles" | "annotations" | "statistics"
-export type DomainView = "books" | "manga" | "comics"
+export type DomainView = "books" | "manga_comics"
 
 interface UIStore {
   sidebarCollapsed: boolean

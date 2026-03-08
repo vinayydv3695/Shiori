@@ -27,7 +27,8 @@ interface PdfReaderProps {
 }
 
 export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
-  const { isFocusMode, setTopBarVisible } = useUIStore();
+  const isFocusMode = useUIStore(state => state.isFocusMode);
+  const setTopBarVisible = useUIStore(state => state.setTopBarVisible);
   const { theme } = useReadingSettings();
 
   useReadingSession(bookId);

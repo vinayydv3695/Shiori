@@ -47,15 +47,19 @@ function App() {
 
     checkOnboarding();
   }, []);
-  const {
-    books,
-    loadInitialBooks,
-    clearSelection,
-    selectedFilters
-  } = useLibraryStore()
-  const { isReaderOpen, openBook, closeBook } = useReaderStore()
-  const { currentView, currentDomain, setCurrentView, setCurrentDomain, resetToHome } = useUIStore()
-  const { selectedCollection } = useCollectionStore()
+  const books = useLibraryStore(state => state.books)
+  const loadInitialBooks = useLibraryStore(state => state.loadInitialBooks)
+  const clearSelection = useLibraryStore(state => state.clearSelection)
+  const selectedFilters = useLibraryStore(state => state.selectedFilters)
+  const isReaderOpen = useReaderStore(state => state.isReaderOpen)
+  const openBook = useReaderStore(state => state.openBook)
+  const closeBook = useReaderStore(state => state.closeBook)
+  const currentView = useUIStore(state => state.currentView)
+  const currentDomain = useUIStore(state => state.currentDomain)
+  const setCurrentView = useUIStore(state => state.setCurrentView)
+  const setCurrentDomain = useUIStore(state => state.setCurrentDomain)
+  const resetToHome = useUIStore(state => state.resetToHome)
+  const selectedCollection = useCollectionStore(state => state.selectedCollection)
   const [selectedBookId, setSelectedBookId] = useState<number | null>(null)
   const [filteredBooks, setFilteredBooks] = useState<Book[]>([])
   const [editDialogOpen, setEditDialogOpen] = useState(false)

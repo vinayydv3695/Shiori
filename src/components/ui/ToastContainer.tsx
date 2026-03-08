@@ -2,7 +2,8 @@ import { Toast, ToastProvider, ToastViewport } from './Toast';
 import { useToastStore } from '../../store/toastStore';
 
 export const ToastContainer = () => {
-  const { toasts, removeToast } = useToastStore();
+  const toasts = useToastStore(state => state.toasts);
+  const removeToast = useToastStore(state => state.removeToast);
 
   return (
     <ToastProvider>

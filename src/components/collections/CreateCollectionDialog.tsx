@@ -42,7 +42,8 @@ export const CreateCollectionDialog = ({
   const [allCollections, setAllCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const { addCollection, updateCollection } = useCollectionStore();
+  const addCollection = useCollectionStore(state => state.addCollection);
+  const updateCollection = useCollectionStore(state => state.updateCollection);
 
   useEffect(() => {
     if (open) {

@@ -83,7 +83,10 @@ const JobRow: React.FC<{ job: ConversionJob; onCancel: (id: string) => void }> =
 };
 
 const ConversionJobTracker: React.FC<ConversionJobTrackerProps> = () => {
-  const { jobs, loadJobs, cancelJob, clearCompletedJobs } = useConversionStore();
+  const jobs = useConversionStore(state => state.jobs);
+  const loadJobs = useConversionStore(state => state.loadJobs);
+  const cancelJob = useConversionStore(state => state.cancelJob);
+  const clearCompletedJobs = useConversionStore(state => state.clearCompletedJobs);
   const [minimized, setMinimized] = React.useState(false);
   const [visible, setVisible] = React.useState(true);
 

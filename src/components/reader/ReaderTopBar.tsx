@@ -25,7 +25,8 @@ export function ReaderTopBar({
   centerExtra,
   rightExtra,
 }: ReaderTopBarProps) {
-  const { isTopBarVisible, toggleSidebar } = useUIStore();
+  const isTopBarVisible = useUIStore(state => state.isTopBarVisible);
+  const toggleSidebar = useUIStore(state => state.toggleSidebar);
   const { formattedTime } = useBookReadingTime(bookId);
   const [isFullscreen, setIsFullscreen] = useState(false);
 

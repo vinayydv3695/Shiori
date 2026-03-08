@@ -40,13 +40,13 @@ interface EmptyStateProps {
 }
 
 const EmptyState = ({ domain, hasFilters, onImport }: EmptyStateProps) => {
-  const isManga = domain === 'manga'
+  const isMangaComics = domain === 'manga_comics'
 
   if (hasFilters) {
     return (
       <div className="flex flex-col items-center justify-center h-full py-20 text-center gap-3">
         <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center">
-          {isManga ? (
+          {isMangaComics ? (
             <IconManga size={28} className="text-muted-foreground/40" />
           ) : (
             <IconBookOpen size={28} className="text-muted-foreground/40" />
@@ -63,7 +63,7 @@ const EmptyState = ({ domain, hasFilters, onImport }: EmptyStateProps) => {
   return (
     <div className="flex flex-col items-center justify-center h-full py-20 text-center gap-4 px-8">
       <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
-        {isManga ? (
+        {isMangaComics ? (
           <IconManga size={32} className="text-muted-foreground/35" />
         ) : (
           <IconBookOpen size={32} className="text-muted-foreground/35" />
@@ -71,11 +71,11 @@ const EmptyState = ({ domain, hasFilters, onImport }: EmptyStateProps) => {
       </div>
       <div>
         <p className="text-sm font-semibold text-foreground">
-          {isManga ? 'Your manga library is empty' : 'Your book library is empty'}
+          {isMangaComics ? 'Your manga & comics library is empty' : 'Your book library is empty'}
         </p>
         <p className="text-xs text-muted-foreground mt-1.5 max-w-[240px]">
-          {isManga
-            ? 'Import CBZ or CBR archives to start reading manga here.'
+          {isMangaComics
+            ? 'Import CBZ or CBR archives to start reading manga and comics here.'
             : 'Import ePub, PDF, or other ebook formats to get started.'}
         </p>
       </div>
@@ -84,8 +84,8 @@ const EmptyState = ({ domain, hasFilters, onImport }: EmptyStateProps) => {
           onClick={onImport}
           className="flex items-center gap-2 h-8 px-4 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/85 transition-colors"
         >
-          {isManga ? <IconImportManga size={14} /> : <IconImportBook size={14} />}
-          {isManga ? 'Import Manga' : 'Import Books'}
+          {isMangaComics ? <IconImportManga size={14} /> : <IconImportBook size={14} />}
+          {isMangaComics ? 'Import Manga & Comics' : 'Import Books'}
         </button>
       )}
     </div>
@@ -104,14 +104,21 @@ export function LibraryGrid({
   onImportBooks,
   onImportManga,
 }: LibraryGridProps) {
-  const { setSelectedBook, selectedBookIds, toggleBookSelection, hasMore, isLoading, loadMoreBooks, favoriteBookIds, toggleFavorite } = useLibraryStore()
+  const setSelectedBook = useLibraryStore(state => state.setSelectedBook)
+  const selectedBookIds = useLibraryStore(state => state.selectedBookIds)
+  const toggleBookSelection = useLibraryStore(state => state.toggleBookSelection)
+  const hasMore = useLibraryStore(state => state.hasMore)
+  const isLoading = useLibraryStore(state => state.isLoading)
+  const loadMoreBooks = useLibraryStore(state => state.loadMoreBooks)
+  const favoriteBookIds = useLibraryStore(state => state.favoriteBookIds)
+  const toggleFavorite = useLibraryStore(state => state.toggleFavorite)
 
-  // Hard domain filter — strict separation between books and manga
+  // Hard domain filter — strict separation between books and manga & comics
   const visibleLibrary = useMemo(() => {
     return books.filter((book) => {
       const fmt = book.file_format?.toLowerCase()
-      const isManga = fmt === 'cbz' || fmt === 'cbr'
-      return currentDomain === 'manga' ? isManga : !isManga
+      const isMangaComics = fmt === 'cbz' || fmt === 'cbr'
+      return currentDomain === 'manga_comics' ? isMangaComics : !isMangaComics
     })
   }, [books, currentDomain])
 
@@ -172,13 +179,13 @@ export function LibraryGrid({
         <EmptyState
           domain={currentDomain}
           hasFilters={books.length > 0}
-          onImport={currentDomain === 'manga' ? onImportManga : onImportBooks}
+          onImport={currentDomain === 'manga_comics' ? onImportManga : onImportBooks}
         />
       ) : (
         <div
           style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}
           role="grid"
-          aria-label={`${currentDomain === 'manga' ? 'Manga' : 'Books'} library`}
+          aria-label={`${currentDomain === 'manga_comics' ? 'Manga & Comics' : 'Books'} library`}
         >
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
             const startIndex = virtualRow.index * columns

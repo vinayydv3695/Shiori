@@ -12,7 +12,10 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onOpenSettings }: SidebarProps) {
-  const { sidebarCollapsed, toggleSidebar, currentView, setCurrentView } = useUIStore()
+  const sidebarCollapsed = useUIStore(state => state.sidebarCollapsed)
+  const toggleSidebar = useUIStore(state => state.toggleSidebar)
+  const currentView = useUIStore(state => state.currentView)
+  const setCurrentView = useUIStore(state => state.setCurrentView)
   const [showCollections, setShowCollections] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editCollection, setEditCollection] = useState<Collection | null>(null)

@@ -2,7 +2,8 @@ import { useOnboardingStore } from '../../../store/onboardingStore';
 import { cn } from '../../../lib/utils';
 
 export function ReadingGoalStep() {
-  const { draftConfig, setDraftValue } = useOnboardingStore();
+  const draftConfig = useOnboardingStore(state => state.draftConfig);
+  const setDraftValue = useOnboardingStore(state => state.setDraftValue);
   const goal = draftConfig.dailyReadingGoalMinutes ?? 30;
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {

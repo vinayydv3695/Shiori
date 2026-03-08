@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '@/lib/tauri';
-import type { BookMetadata } from '@/lib/tauri';
+import type { BookMetadata, Annotation } from '@/lib/tauri';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Loader2, AlertCircle } from '@/components/icons';
 import { useUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement } from '@/store/premiumReaderStore';
@@ -40,10 +40,13 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string>('');
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const autoHideTimerRef = useRef<number | null>(null);
+  const pageCache = useRef<Map<number, ImageBitmap>>(new Map());
+  const MAX_CACHE_SIZE = 5;
 
   // ────────────────────────────────────────────────────────────
   // READER THEME — scoped to this container, not global <html>
@@ -107,6 +110,15 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
       console.log('[PdfReader] Asset URL generated:', assetUrl);
       setPdfUrl(assetUrl);
 
+      // Load annotations for this book
+      try {
+        const bookAnnotations = await api.getAnnotations(bookId);
+        setAnnotations(bookAnnotations);
+        console.log('[PdfReader] Loaded annotations:', bookAnnotations.length);
+      } catch (err) {
+        console.error('[PdfReader] Failed to load annotations:', err);
+      }
+
       // Load saved progress from database (persisted across restarts)
       try {
         const savedProgress = await api.getReadingProgress(bookId);
@@ -142,6 +154,7 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
     return () => {
       // Cleanup
       api.closeBookRenderer(bookId).catch(console.error);
+      pageCache.current.clear();
     };
     // loadBook is recreated each render - would cause infinite loop if added
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -157,6 +170,127 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
     setError(error.message || 'Failed to parse PDF document.');
     setIsLoading(false);
   }
+
+  const applyPDFHighlights = useCallback(() => {
+    const textLayer = containerRef.current?.querySelector('.react-pdf__Page__textContent');
+    if (!textLayer) return;
+
+    const pageAnnotations = annotations.filter(
+      (a) =>
+        (a.annotationType === 'highlight' || a.annotationType === 'note') &&
+        a.location === `page-${pageNumber}` &&
+        a.selectedText &&
+        a.selectedText.trim().length > 0
+    );
+
+    if (pageAnnotations.length === 0) return;
+
+    clearPDFHighlights();
+
+    for (const annotation of pageAnnotations) {
+      highlightTextInPDF(textLayer as HTMLElement, annotation);
+    }
+  }, [annotations, pageNumber]);
+
+  const clearPDFHighlights = () => {
+    const textLayer = containerRef.current?.querySelector('.react-pdf__Page__textContent');
+    if (!textLayer) return;
+
+    const marks = textLayer.querySelectorAll('mark.pdf-highlight');
+    marks.forEach((mark) => {
+      const parent = mark.parentNode;
+      if (!parent) return;
+      const textNode = document.createTextNode(mark.textContent || '');
+      parent.replaceChild(textNode, mark);
+      parent.normalize();
+    });
+  };
+
+  const highlightTextInPDF = (textLayer: HTMLElement, annotation: Annotation) => {
+    const searchText = annotation.selectedText;
+    if (!searchText) return;
+
+    const walker = document.createTreeWalker(
+      textLayer,
+      NodeFilter.SHOW_TEXT,
+      null
+    );
+
+    const textNodes: Text[] = [];
+    let node: Text | null;
+    while ((node = walker.nextNode() as Text | null)) {
+      textNodes.push(node);
+    }
+
+    for (const textNode of textNodes) {
+      const nodeText = textNode.textContent || '';
+      const index = nodeText.indexOf(searchText);
+      if (index === -1) continue;
+
+      try {
+        const range = document.createRange();
+        range.setStart(textNode, index);
+        range.setEnd(textNode, index + searchText.length);
+
+        const mark = document.createElement('mark');
+        mark.className = 'pdf-highlight';
+        mark.style.backgroundColor = annotation.color || '#fbbf24';
+        mark.style.padding = '0';
+        mark.style.borderRadius = '2px';
+        mark.dataset.annotationId = String(annotation.id || '');
+        mark.dataset.annotationType = annotation.annotationType;
+
+        if (annotation.annotationType === 'note') {
+          mark.title = annotation.noteContent || '';
+        }
+
+        range.surroundContents(mark);
+        return;
+      } catch {
+        break;
+      }
+    }
+  };
+
+  const onPageRenderSuccess = useCallback(() => {
+    setTimeout(() => {
+      applyPDFHighlights();
+    }, 100);
+  }, [applyPDFHighlights]);
+
+  const prerenderAdjacentPages = useCallback(async (currentPage: number) => {
+    if (pageCache.current.size > MAX_CACHE_SIZE) {
+      const oldestKey = pageCache.current.keys().next().value;
+      if (oldestKey !== undefined) {
+        const bitmap = pageCache.current.get(oldestKey);
+        bitmap?.close();
+        pageCache.current.delete(oldestKey);
+      }
+    }
+
+    const pagesToPrerender = [currentPage - 1, currentPage + 1].filter(
+      (p) => p >= 1 && p <= numPages && !pageCache.current.has(p)
+    );
+
+    for (const page of pagesToPrerender) {
+      try {
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        if (!context) continue;
+
+        const dpr = window.devicePixelRatio || 1;
+        const adjustedScale = scale * dpr;
+
+        canvas.width = 595 * adjustedScale;
+        canvas.height = 842 * adjustedScale;
+
+        const bitmap = await createImageBitmap(canvas);
+        pageCache.current.set(page, bitmap);
+      } catch (err) {
+        console.error(`[PdfReader] Failed to prerender page ${page}:`, err);
+      }
+    }
+  }, [scale, numPages]);
 
   const updateProgress = async (pageIndex: number) => {
     const progressPercent = numPages > 0 ? (pageIndex / numPages) * 100 : 0;
@@ -178,6 +312,7 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
   useEffect(() => {
     if (numPages > 0) {
       updateProgress(pageNumber);
+      prerenderAdjacentPages(pageNumber);
     }
     // updateProgress is recreated each render - would cause infinite loop if added
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -306,10 +441,11 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
             >
               <Page
                 pageNumber={pageNumber}
-                scale={scale}
+                scale={scale * (window.devicePixelRatio || 1)}
                 renderTextLayer={true}
                 renderAnnotationLayer={true}
                 className="bg-white"
+                onRenderSuccess={onPageRenderSuccess}
               />
             </Document>
           </div>

@@ -50,7 +50,6 @@ export function AdvancedSettingsPanel() {
         { action: 'First Page', key: 'Home' },
         { action: 'Last Page', key: 'End' },
         { action: 'Single Page Mode', key: '1' },
-        { action: 'Double Page Mode', key: '2' },
         { action: 'Long Strip Mode', key: '3' },
         { action: 'Webtoon Mode', key: '4' },
         { action: 'Manhwa Mode', key: '5' },
@@ -100,7 +99,6 @@ export function AdvancedSettingsPanel() {
                                 <div className="manga-radio-cards">
                                     {([
                                         { value: 'single' as ReadingMode, label: 'Single Page', desc: 'One page at a time' },
-                                        { value: 'double' as ReadingMode, label: 'Double Page', desc: 'Two pages side by side' },
                                         { value: 'strip' as ReadingMode, label: 'Long Strip', desc: 'Continuous scroll with gap' },
                                         { value: 'webtoon' as ReadingMode, label: 'Webtoon', desc: 'Seamless vertical scroll' },
                                         { value: 'manhwa' as ReadingMode, label: 'Manhwa', desc: 'Wide seamless scroll' },

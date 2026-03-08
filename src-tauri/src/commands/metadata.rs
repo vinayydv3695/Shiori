@@ -122,6 +122,43 @@ pub async fn enrich_book_metadata(
 }
 
 // ═══════════════════════════════════════════════════════════
+// PREVIEW COVER
+// ═══════════════════════════════════════════════════════════
+
+#[tauri::command]
+pub async fn preview_cover_url(url: String) -> Result<Vec<u8>> {
+    validate::require_non_empty(&url, "url")?;
+    
+    // Safety measures: 10 second timeout, 5MB size limit
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| ShioriError::Other(format!("Failed to build HTTP client: {}", e)))?;
+        
+    let mut response = client.get(&url)
+        .send()
+        .await
+        .map_err(|e| ShioriError::Other(format!("Failed to download cover: {}", e)))?;
+        
+    if !response.status().is_success() {
+        return Err(ShioriError::Other(format!("Cover download failed with status: {}", response.status())));
+    }
+
+    // Read bytes in chunks to enforce size limit
+    let mut bytes = Vec::new();
+    let max_size: usize = 5 * 1024 * 1024; // 5MB
+    
+    while let Some(chunk) = response.chunk().await.map_err(|e| ShioriError::Other(format!("Failed to read cover chunk: {}", e)))? {
+        if bytes.len() + chunk.len() > max_size {
+            return Err(ShioriError::Other("Cover file too large (exceeds 5MB limit)".to_string()));
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    
+    Ok(bytes)
+}
+
+// ═══════════════════════════════════════════════════════════
 // APPLY SELECTED METADATA (Direct)
 // ═══════════════════════════════════════════════════════════
 

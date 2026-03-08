@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X, Search, Loader2, Download, ExternalLink } from 'lucide-react';
-import { invoke } from '@tauri-apps/api/core';
+import { X, Search, Loader2, Download, ExternalLink, ImageIcon } from 'lucide-react';
+import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { Button } from '../ui/button';
 import { useToast } from '@/store/toastStore';
 
@@ -63,6 +63,11 @@ export const MetadataSearchDialog = ({
   const [downloading, setDownloading] = useState<number | null>(null);
   const [results, setResults] = useState<(MangaMetadata | BookMetadata)[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [previewMetadata, setPreviewMetadata] = useState<Record<string, any> | null>(null);
+  const [previewCoverUrl, setPreviewCoverUrl] = useState<string | null>(null);
+  const [currentCoverUrl, setCurrentCoverUrl] = useState<string | null>(null);
+  const [fetchingPreview, setFetchingPreview] = useState(false);
   const toast = useToast();
 
   useEffect(() => {
@@ -136,9 +141,10 @@ export const MetadataSearchDialog = ({
   const handleSelectMetadata = async (metadata: MangaMetadata | BookMetadata) => {
     const index = results.indexOf(metadata);
     setDownloading(index);
+    setFetchingPreview(true);
 
     try {
-      let selectedMetadata: Record<string, unknown>;
+      let selectedMetadata: Record<string, any>;
 
       if (isMangaResult(metadata)) {
         selectedMetadata = {
@@ -173,14 +179,61 @@ export const MetadataSearchDialog = ({
         };
       }
 
+      setPreviewMetadata(selectedMetadata);
+
+      try {
+        const coverPath = await invoke<string | null>('get_cover_path_by_id', { id: bookId });
+        if (coverPath) {
+          setCurrentCoverUrl(convertFileSrc(coverPath));
+        } else {
+          setCurrentCoverUrl(null);
+        }
+      } catch (e) {
+        console.error('Failed to fetch current cover', e);
+        setCurrentCoverUrl(null);
+      }
+
+      try {
+        if (selectedMetadata.coverUrl) {
+          const bytes = await invoke<Uint8Array>('preview_cover_url', { url: selectedMetadata.coverUrl as string });
+          const blob = new Blob([new Uint8Array(bytes)]);
+          setPreviewCoverUrl(URL.createObjectURL(blob));
+        } else {
+          setPreviewCoverUrl(null);
+        }
+      } catch (e) {
+        console.error('Failed to fetch preview cover', e);
+        setPreviewCoverUrl(null);
+      }
+
+      setPreviewModalOpen(true);
+    } catch (error) {
+      console.error('[MetadataSearch] Failed to prepare preview:', error);
+      toast.error('Preview failed', 'An error occurred while preparing preview');
+    } finally {
+      setDownloading(null);
+      setFetchingPreview(false);
+    }
+  };
+
+  const executeApply = async (includeCover: boolean) => {
+    if (!previewMetadata) return;
+
+    const metadataToApply = { ...previewMetadata };
+    if (!includeCover) {
+      metadataToApply.coverUrl = null;
+    }
+
+    try {
       const success = await invoke<boolean>('apply_selected_metadata', {
         bookId,
-        metadata: selectedMetadata,
+        metadata: metadataToApply,
       });
 
       if (success) {
         toast.success('Metadata applied', 'Book has been updated with the selected metadata');
         onMetadataSelected();
+        handleClosePreview();
         onOpenChange(false);
       } else {
         toast.error('Update failed', 'Could not apply selected metadata');
@@ -188,9 +241,17 @@ export const MetadataSearchDialog = ({
     } catch (error) {
       console.error('[MetadataSearch] Failed to apply metadata:', error);
       toast.error('Update failed', 'An error occurred while applying metadata');
-    } finally {
-      setDownloading(null);
     }
+  };
+
+  const handleClosePreview = () => {
+    setPreviewModalOpen(false);
+    if (previewCoverUrl && previewCoverUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(previewCoverUrl);
+    }
+    setPreviewCoverUrl(null);
+    setCurrentCoverUrl(null);
+    setPreviewMetadata(null);
   };
 
   const isMangaResult = (result: MangaMetadata | BookMetadata): result is MangaMetadata => {
@@ -198,10 +259,11 @@ export const MetadataSearchDialog = ({
   };
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-lg shadow-lg w-[90vw] max-w-3xl max-h-[85vh] z-50 flex flex-col">
+    <>
+      <Dialog.Root open={open} onOpenChange={onOpenChange}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-lg shadow-lg w-[90vw] max-w-3xl max-h-[85vh] z-50 flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-border flex-shrink-0">
             <Dialog.Title className="text-lg font-semibold text-foreground">
@@ -486,5 +548,124 @@ export const MetadataSearchDialog = ({
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+
+    <Dialog.Root open={previewModalOpen} onOpenChange={handleClosePreview}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-md z-[60] animate-in fade-in" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-2xl w-[95vw] max-w-4xl max-h-[90vh] z-[60] flex flex-col overflow-hidden animate-in zoom-in-95 fade-in duration-200">
+          <div className="flex items-center justify-between p-6 border-b border-border bg-muted/10">
+            <Dialog.Title className="text-xl font-bold tracking-tight text-foreground">
+              Review Metadata & Cover
+            </Dialog.Title>
+            <Dialog.Close asChild>
+              <button className="text-muted-foreground hover:bg-muted p-2 rounded-full transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </Dialog.Close>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-6 flex flex-col md:flex-row gap-8">
+            <div className="flex-1 space-y-6">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground border-b border-border pb-2">
+                Metadata Changes
+              </h3>
+              {previewMetadata && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs text-muted-foreground font-medium">Title</label>
+                    <p className="text-foreground font-medium">{String(previewMetadata.title || 'Unknown Title')}</p>
+                  </div>
+                  
+                  {previewMetadata.authors && Array.isArray(previewMetadata.authors) && previewMetadata.authors.length > 0 && (
+                    <div>
+                      <label className="text-xs text-muted-foreground font-medium">Authors</label>
+                      <p className="text-foreground">{previewMetadata.authors.join(', ')}</p>
+                    </div>
+                  )}
+
+                  {previewMetadata.genres && Array.isArray(previewMetadata.genres) && previewMetadata.genres.length > 0 && (
+                    <div>
+                      <label className="text-xs text-muted-foreground font-medium">Tags / Genres</label>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {previewMetadata.genres.map((g: string) => (
+                          <span key={g} className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-md">
+                            {g}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {previewMetadata.description && (
+                    <div>
+                      <label className="text-xs text-muted-foreground font-medium">Description</label>
+                      <p className="text-sm text-foreground/80 line-clamp-6 leading-relaxed mt-1">
+                        {String(previewMetadata.description)}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="w-full md:w-72 flex-shrink-0 space-y-6">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground border-b border-border pb-2">
+                Cover Comparison
+              </h3>
+              <div className="space-y-6">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center justify-between">
+                    <span>Suggested Cover</span>
+                    <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full">New</span>
+                  </p>
+                  <div className="aspect-[2/3] w-full bg-muted rounded-lg overflow-hidden border-2 border-primary/30 shadow-sm relative group">
+                    {previewCoverUrl ? (
+                      <img src={previewCoverUrl} alt="Preview Cover" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-2">
+                        <ImageIcon className="h-8 w-8 opacity-50" />
+                        <span className="text-xs font-medium">No cover found</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {currentCoverUrl && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center justify-between">
+                      <span>Current Cover</span>
+                      <span className="text-[10px] bg-muted-foreground/20 px-2 py-0.5 rounded-full">Existing</span>
+                    </p>
+                    <div className="aspect-[2/3] w-2/3 mx-auto bg-muted rounded-md overflow-hidden border border-border opacity-70">
+                      <img src={currentCoverUrl} alt="Current Cover" className="w-full h-full object-cover grayscale-[0.2]" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6 border-t border-border bg-muted/10 flex flex-col sm:flex-row gap-3 justify-end items-center mt-auto">
+            <Button variant="ghost" onClick={handleClosePreview} className="w-full sm:w-auto">
+              Cancel
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => executeApply(false)} 
+              className="w-full sm:w-auto hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-colors"
+            >
+              Apply Metadata Only
+            </Button>
+            <Button 
+              onClick={() => executeApply(true)} 
+              className="w-full sm:w-auto shadow-md hover:shadow-lg transition-all"
+            >
+              Apply + Save Cover
+            </Button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+    </>
   );
 };

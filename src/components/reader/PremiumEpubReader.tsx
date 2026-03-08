@@ -393,10 +393,9 @@ export function PremiumEpubReader({ bookPath, bookId, onClose }: PremiumEpubRead
         // Silently ignore
       }
 
-      await loadChapter(startIndex);
+      await loadChapter(startIndex, null, savedScrollRatio);
       setIsLoading(false);
 
-      // Show resume toast if we restored to a non-zero position
       if (startIndex > 0 || savedScrollRatio > 0) {
         const pct = bookMetadata.total_chapters > 0
           ? Math.round((startIndex / bookMetadata.total_chapters) * 100)
@@ -406,19 +405,6 @@ export function PremiumEpubReader({ bookPath, bookId, onClose }: PremiumEpubRead
           description: `Chapter ${startIndex + 1} of ${bookMetadata.total_chapters} (${pct}%)`,
           variant: 'info',
           duration: 3000,
-        });
-      }
-
-      // Restore scroll position after content renders
-      if (savedScrollRatio > 0) {
-        requestAnimationFrame(() => {
-          setTimeout(() => {
-            if (canvasRef.current) {
-              const scrollHeight = canvasRef.current.scrollHeight;
-              const clientHeight = canvasRef.current.clientHeight;
-              canvasRef.current.scrollTop = savedScrollRatio * (scrollHeight - clientHeight);
-            }
-          }, 100);
         });
       }
     } catch (err) {
@@ -436,7 +422,7 @@ export function PremiumEpubReader({ bookPath, bookId, onClose }: PremiumEpubRead
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookPath, bookId]);
 
-  const loadChapter = async (index: number, highlightTerm?: string | null) => {
+  const loadChapter = async (index: number, highlightTerm?: string | null, initialScrollRatio?: number) => {
     try {
       setIsLoading(true);
 
@@ -500,16 +486,20 @@ export function PremiumEpubReader({ bookPath, bookId, onClose }: PremiumEpubRead
         // Silently ignore database errors
       }
 
-      // Restore scroll position if we've been to this chapter before, else reset to top
       requestAnimationFrame(() => {
         setTimeout(() => {
           if (canvasRef.current) {
-            const savedPos = scrollPositionsRef.current.get(index);
-            if (savedPos && savedPos > 0 && !termToHighlight) {
+            if (initialScrollRatio !== undefined && initialScrollRatio > 0 && !termToHighlight) {
               const { scrollHeight, clientHeight } = canvasRef.current;
-              canvasRef.current.scrollTop = savedPos * (scrollHeight - clientHeight);
+              canvasRef.current.scrollTop = initialScrollRatio * (scrollHeight - clientHeight);
             } else {
-              canvasRef.current.scrollTop = 0;
+              const savedPos = scrollPositionsRef.current.get(index);
+              if (savedPos && savedPos > 0 && !termToHighlight) {
+                const { scrollHeight, clientHeight } = canvasRef.current;
+                canvasRef.current.scrollTop = savedPos * (scrollHeight - clientHeight);
+              } else {
+                canvasRef.current.scrollTop = 0;
+              }
             }
           }
         }, 50);

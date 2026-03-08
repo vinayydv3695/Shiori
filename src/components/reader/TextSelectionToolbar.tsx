@@ -4,6 +4,7 @@ import { Highlighter, StickyNote, Bookmark, X, Volume2 } from '@/components/icon
 import { api } from '@/lib/tauri';
 import type { AnnotationCategory, DictionaryResponse, TranslationResponse } from '@/lib/tauri';
 import { useToastStore } from '@/store/toastStore';
+import { usePreferencesStore } from '@/store/preferencesStore';
 import { ttsEngine, TTSEngine } from '@/lib/ttsEngine';
 import { TranslationPopup } from './TranslationPopup';
 
@@ -244,7 +245,8 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     setDictionaryResult(null);
     setTranslationResult(null);
     try {
-      const result = await api.translateText(selectedText, 'en');
+      const targetLang = usePreferencesStore.getState().preferences?.translationTargetLanguage ?? 'en';
+      const result = await api.translateText(selectedText, targetLang);
       setTranslationResult(result);
     } catch (err) {
       setTranslationError(String(err));

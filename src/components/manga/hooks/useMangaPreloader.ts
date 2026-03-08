@@ -242,15 +242,6 @@ export function useMangaPreloader() {
                     pagesToPreload.push(target);
                 }
             }
-        } else if (readingMode === 'double') {
-            const behind = 2;
-            const ahead = preloadIntensity === 'light' ? 3 : preloadIntensity === 'aggressive' ? 7 : 5;
-            for (let i = -behind; i <= ahead; i++) {
-                const target = page + i;
-                if (target >= 0 && target < totalPages && target !== page) {
-                    pagesToPreload.push(target);
-                }
-            }
         }
         // Strip, webtoon, and manhwa: handled by virtualizer overscan + view-level preloading
 

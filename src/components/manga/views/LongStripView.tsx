@@ -29,9 +29,10 @@ export function LongStripView() {
     const estimateSize = useCallback((index: number): number => {
         if (pageDimensions[index]) {
             const [w, h] = pageDimensions[index];
-            // Scale to container width (assume ~800px effective)
-            const containerWidth = containerRef.current?.clientWidth || 800;
-            const scale = containerWidth / w;
+            // Scale to actual rendered width (max 900px)
+            const containerWidth = containerRef.current?.clientWidth || 900;
+            const actualWidth = Math.min(containerWidth, 900);
+            const scale = actualWidth / w;
             return Math.round(h * scale);
         }
         return 1400; // Fallback for manga pages

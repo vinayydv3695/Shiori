@@ -1,7 +1,6 @@
 import React from 'react';
 import { useMangaSettingsStore } from '@/store/mangaReaderStore';
 import { SinglePageView } from './views/SinglePageView';
-import { DoublePageView } from './views/DoublePageView';
 import { LongStripView } from './views/LongStripView';
 import { WebtoonView } from './views/WebtoonView';
 
@@ -11,7 +10,6 @@ import { WebtoonView } from './views/WebtoonView';
  *
  * Mode → View mapping:
  *   single, comic  → SinglePageView (comic is LTR-locked single)
- *   double         → DoublePageView
  *   strip          → LongStripView
  *   webtoon, manhwa → WebtoonView (seamless zero-gap scroll)
  */
@@ -21,7 +19,6 @@ export function MangaCanvas() {
     return (
         <div className="manga-canvas">
             {(readingMode === 'single' || readingMode === 'comic') && <SinglePageView />}
-            {readingMode === 'double' && <DoublePageView />}
             {readingMode === 'strip' && <LongStripView />}
             {(readingMode === 'webtoon' || readingMode === 'manhwa') && <WebtoonView />}
         </div>

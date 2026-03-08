@@ -38,7 +38,6 @@ export const MangaSidebar = memo(function MangaSidebar() {
 
     const modeOptions: { value: ReadingMode; label: string }[] = [
         { value: 'single', label: 'Single' },
-        { value: 'double', label: 'Double' },
         { value: 'strip', label: 'Strip' },
         { value: 'webtoon', label: 'Webtoon' },
         { value: 'manhwa', label: 'Manhwa' },

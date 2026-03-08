@@ -82,7 +82,7 @@ export function MangaHome({ onOpenManga }: MangaHomeProps) {
 
     return (
         <div className="home-container">
-            <StatsBar books={manga} domain="manga" />
+            <StatsBar books={manga} domain="manga_comics" />
 
             {continueReading.length > 0 && (
                 <HomeSection
@@ -95,7 +95,7 @@ export function MangaHome({ onOpenManga }: MangaHomeProps) {
                                 key={item.id}
                                 book={item}
                                 progress={progressMap[item.id!]?.progressPercent ?? 0}
-                                domain="manga"
+                                domain="manga_comics"
                                 onClick={onOpenManga}
                             />
                         ))}

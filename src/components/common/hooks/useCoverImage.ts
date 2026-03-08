@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 
 export function useCoverImage(bookId?: number, initialCoverSrc?: string | null) {
-    const [coverUrl, setCoverUrl] = useState<string | null>(initialCoverSrc || null);
+    const [coverUrl, setCoverUrl] = useState<string | null>(
+        initialCoverSrc ? convertFileSrc(initialCoverSrc) : null
+    );
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(false);
 

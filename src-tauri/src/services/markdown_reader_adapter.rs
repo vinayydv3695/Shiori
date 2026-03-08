@@ -5,7 +5,6 @@ use crate::services::renderer::{
 use async_trait::async_trait;
 use pulldown_cmark::{html, Options, Parser};
 use regex::Regex;
-use std::fs;
 
 pub struct MarkdownReaderAdapter {
     path: String,
@@ -162,7 +161,7 @@ unsafe impl Sync for MarkdownReaderAdapter {}
 #[async_trait]
 impl BookReaderAdapter for MarkdownReaderAdapter {
     async fn load(&mut self, path: &str) -> Result<()> {
-        let markdown = fs::read_to_string(path).map_err(ShioriError::Io)?;
+        let markdown = tokio::fs::read_to_string(path).await.map_err(ShioriError::Io)?;
         self.path = path.to_string();
 
         let title = Self::extract_first_heading(&markdown).unwrap_or_else(|| {

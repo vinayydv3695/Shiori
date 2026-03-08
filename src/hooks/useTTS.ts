@@ -1,6 +1,9 @@
 /**
  * React hook for Text-to-Speech orchestration with sentence-level reading
  * Manages TTS state machine, voice selection, and DOM highlighting
+ * 
+ * On Linux: Uses native TTS via tauri-plugin-tts (speech-dispatcher)
+ * On other platforms: Falls back to Web Speech API
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
@@ -10,6 +13,9 @@ import { splitSentences } from '@/lib/sentenceSplitter';
 import { highlightSentence, clearAllHighlights } from '@/lib/sentenceHighlighter';
 import { extractTextFromDOM } from '@/lib/textExtractor';
 import { usePreferencesStore } from '@/store/preferencesStore';
+
+// Native TTS support (Tauri plugin)
+import { speak as nativeSpeak, stop as nativeStop } from 'tauri-plugin-tts-api';
 
 export interface UseTTSOptions {
   contentRef: React.RefObject<HTMLElement | null>;
@@ -37,7 +43,6 @@ export interface UseTTSReturn {
 }
 
 export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSReturn {
-  // State
   const [state, setState] = useState<TTSState>('idle');
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState<number>(0);
   const [sentences, setSentences] = useState<string[]>([]);
@@ -45,30 +50,39 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
   const [noVoices, setNoVoices] = useState<boolean>(false);
   const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
   const [rate, setRateState] = useState<number>(1.0);
+  const [useNativeTTS, setUseNativeTTS] = useState<boolean>(false);
 
-  // Refs
   const sentencesRef = useRef<string[]>([]);
   const currentIndexRef = useRef<number>(0);
   const cleanupHighlightRef = useRef<(() => void) | null>(null);
   const speakSentenceAtIndexRef = useRef<(index: number, sentenceArray?: string[]) => void>(() => {});
+  const nativeTTSTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Check availability
-  const isAvailable = TTSEngine.isAvailable();
+  const isAvailable = TTSEngine.isAvailable() || useNativeTTS;
 
-  // Load voices on mount
   useEffect(() => {
     if (!isAvailable) {
       return;
     }
 
+    const checkNativeTTS = async () => {
+      try {
+        await nativeStop();
+        setUseNativeTTS(true);
+        return;
+      } catch {
+        setUseNativeTTS(false);
+      }
+    };
+
+    checkNativeTTS();
+
     const loadVoices = () => {
       const availableVoices = ttsEngine.getVoices();
       setVoices(availableVoices);
 
-      // Track zero-voices state (can happen on some Linux configs)
       setNoVoices(availableVoices.length === 0);
 
-      // Load preferred voice from preferences
       const preferences = usePreferencesStore.getState().preferences;
       const preferredVoiceURI = preferences?.tts?.voice;
 
@@ -79,17 +93,14 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
         }
       }
 
-      // Load preferred rate
       const preferredRate = preferences?.tts?.rate;
       if (preferredRate !== undefined) {
         setRateState(preferredRate);
       }
     };
 
-    // Load immediately
     loadVoices();
 
-    // Listen for voiceschanged event (some browsers load voices async)
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
 
@@ -99,11 +110,17 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
     }
   }, [isAvailable]);
 
-  // Cleanup on unmount
   useEffect(() => {
     const contentEl = contentRef.current;
     return () => {
-      ttsEngine.stop();
+      if (useNativeTTS) {
+        nativeStop().catch(() => {});
+        if (nativeTTSTimeoutRef.current) {
+          clearTimeout(nativeTTSTimeoutRef.current);
+        }
+      } else {
+        ttsEngine.stop();
+      }
       if (cleanupHighlightRef.current) {
         cleanupHighlightRef.current();
         cleanupHighlightRef.current = null;
@@ -112,11 +129,8 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
         clearAllHighlights(contentEl);
       }
     };
-  }, [contentRef]);
+  }, [contentRef, useNativeTTS]);
 
-  /**
-   * Speak a sentence at the given index
-   */
   const speakSentenceAtIndex = useCallback((index: number, sentenceArray?: string[]) => {
     const currentSentences = sentenceArray || sentencesRef.current;
     
@@ -124,7 +138,6 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
       return;
     }
 
-    // Clean up previous highlight
     if (cleanupHighlightRef.current) {
       cleanupHighlightRef.current();
       cleanupHighlightRef.current = null;
@@ -132,16 +145,30 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
 
     const sentence = currentSentences[index];
 
-    // Highlight sentence in DOM
     const cleanup = highlightSentence(contentRef.current, sentence);
     cleanupHighlightRef.current = cleanup;
 
-    // Speak sentence
-    const options: TTSOptions = {
-      rate,
-      volume: 1.0,
-      voice: selectedVoice || undefined,
-      onEnd: () => {
+    if (useNativeTTS) {
+      const estimatedDuration = (sentence.length / 15) * (1.0 / rate) * 1000;
+      
+      nativeSpeak({
+        text: sentence,
+        language: null,
+        voiceId: null,
+        rate,
+        pitch: null,
+        volume: null,
+        queueMode: null,
+      }).catch((error) => {
+        console.error('Native TTS error:', error);
+        setState('idle');
+      });
+
+      setState('speaking');
+      setCurrentSentenceIndex(index);
+      currentIndexRef.current = index;
+
+      nativeTTSTimeoutRef.current = setTimeout(() => {
         const nextIndex = currentIndexRef.current + 1;
 
         if (nextIndex < sentencesRef.current.length) {
@@ -158,18 +185,42 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
 
           onChapterEnd?.();
         }
-      },
-      onError: (event) => {
-        console.error('TTS error:', event);
-        setState('idle');
-      },
-    };
+      }, estimatedDuration);
+    } else {
+      const options: TTSOptions = {
+        rate,
+        volume: 1.0,
+        voice: selectedVoice || undefined,
+        onEnd: () => {
+          const nextIndex = currentIndexRef.current + 1;
 
-    ttsEngine.speak(sentence, options);
-    setState('speaking');
-    setCurrentSentenceIndex(index);
-    currentIndexRef.current = index;
-  }, [contentRef, rate, selectedVoice, onChapterEnd]);
+          if (nextIndex < sentencesRef.current.length) {
+            speakSentenceAtIndexRef.current(nextIndex);
+          } else {
+            setState('idle');
+            setCurrentSentenceIndex(0);
+            currentIndexRef.current = 0;
+            
+            if (cleanupHighlightRef.current) {
+              cleanupHighlightRef.current();
+              cleanupHighlightRef.current = null;
+            }
+
+            onChapterEnd?.();
+          }
+        },
+        onError: (event) => {
+          console.error('TTS error:', event);
+          setState('idle');
+        },
+      };
+
+      ttsEngine.speak(sentence, options);
+      setState('speaking');
+      setCurrentSentenceIndex(index);
+      currentIndexRef.current = index;
+    }
+  }, [contentRef, rate, selectedVoice, onChapterEnd, useNativeTTS]);
 
   // Keep ref in sync
   useEffect(() => {
@@ -208,44 +259,55 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
     speakSentenceAtIndex(0, sentenceList);
   }, [isAvailable, contentRef, speakSentenceAtIndex]);
 
-  /**
-   * Pause ongoing speech
-   */
   const pause = useCallback(() => {
     if (!isAvailable) {
       return;
     }
 
-    ttsEngine.pause();
+    if (useNativeTTS) {
+      if (nativeTTSTimeoutRef.current) {
+        clearTimeout(nativeTTSTimeoutRef.current);
+        nativeTTSTimeoutRef.current = null;
+      }
+      nativeStop().catch(() => {});
+    } else {
+      ttsEngine.pause();
+    }
     setState('paused');
-  }, [isAvailable]);
+  }, [isAvailable, useNativeTTS]);
 
-  /**
-   * Resume paused speech
-   */
   const resume = useCallback(() => {
     if (!isAvailable) {
       return;
     }
 
-    ttsEngine.resume();
+    if (useNativeTTS) {
+      speakSentenceAtIndex(currentIndexRef.current);
+    } else {
+      ttsEngine.resume();
+    }
     setState('speaking');
-  }, [isAvailable]);
+  }, [isAvailable, useNativeTTS, speakSentenceAtIndex]);
 
-  /**
-   * Stop speech and reset
-   */
   const stop = useCallback(() => {
     if (!isAvailable) {
       return;
     }
 
-    ttsEngine.stop();
+    if (useNativeTTS) {
+      if (nativeTTSTimeoutRef.current) {
+        clearTimeout(nativeTTSTimeoutRef.current);
+        nativeTTSTimeoutRef.current = null;
+      }
+      nativeStop().catch(() => {});
+    } else {
+      ttsEngine.stop();
+    }
+    
     setState('idle');
     setCurrentSentenceIndex(0);
     currentIndexRef.current = 0;
 
-    // Clean up highlight
     if (cleanupHighlightRef.current) {
       cleanupHighlightRef.current();
       cleanupHighlightRef.current = null;
@@ -254,11 +316,8 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
     if (contentRef.current) {
       clearAllHighlights(contentRef.current);
     }
-  }, [isAvailable, contentRef]);
+  }, [isAvailable, contentRef, useNativeTTS]);
 
-  /**
-   * Skip to next sentence
-   */
   const nextSentence = useCallback(() => {
     const currentSentences = sentencesRef.current;
     if (!isAvailable || currentSentences.length === 0) {
@@ -267,16 +326,19 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
 
     const nextIndex = Math.min(currentIndexRef.current + 1, currentSentences.length - 1);
     
-    // Stop current speech
-    ttsEngine.stop();
+    if (useNativeTTS) {
+      if (nativeTTSTimeoutRef.current) {
+        clearTimeout(nativeTTSTimeoutRef.current);
+        nativeTTSTimeoutRef.current = null;
+      }
+      nativeStop().catch(() => {});
+    } else {
+      ttsEngine.stop();
+    }
 
-    // Speak next sentence
     speakSentenceAtIndex(nextIndex);
-  }, [isAvailable, speakSentenceAtIndex]);
+  }, [isAvailable, speakSentenceAtIndex, useNativeTTS]);
 
-  /**
-   * Skip to previous sentence
-   */
   const prevSentence = useCallback(() => {
     const currentSentences = sentencesRef.current;
     if (!isAvailable || currentSentences.length === 0) {
@@ -285,12 +347,18 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
 
     const prevIndex = Math.max(currentIndexRef.current - 1, 0);
     
-    // Stop current speech
-    ttsEngine.stop();
+    if (useNativeTTS) {
+      if (nativeTTSTimeoutRef.current) {
+        clearTimeout(nativeTTSTimeoutRef.current);
+        nativeTTSTimeoutRef.current = null;
+      }
+      nativeStop().catch(() => {});
+    } else {
+      ttsEngine.stop();
+    }
 
-    // Speak previous sentence
     speakSentenceAtIndex(prevIndex);
-  }, [isAvailable, speakSentenceAtIndex]);
+  }, [isAvailable, speakSentenceAtIndex, useNativeTTS]);
 
   /**
    * Change voice and save to preferences
@@ -316,23 +384,33 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
     });
   }, []);
 
-  /**
-   * Speak arbitrary text (for "Speak Selection" feature)
-   * Does not update sentence tracking
-   */
   const speakText = useCallback((text: string) => {
     if (!isAvailable) {
       return;
     }
 
-    const options: TTSOptions = {
-      rate,
-      volume: 1.0,
-      voice: selectedVoice || undefined,
-    };
+    if (useNativeTTS) {
+      nativeSpeak({
+        text,
+        language: null,
+        voiceId: null,
+        rate,
+        pitch: null,
+        volume: null,
+        queueMode: null,
+      }).catch((error) => {
+        console.error('Native TTS error:', error);
+      });
+    } else {
+      const options: TTSOptions = {
+        rate,
+        volume: 1.0,
+        voice: selectedVoice || undefined,
+      };
 
-    ttsEngine.speak(text, options);
-  }, [isAvailable, rate, selectedVoice]);
+      ttsEngine.speak(text, options);
+    }
+  }, [isAvailable, rate, selectedVoice, useNativeTTS]);
 
   return {
     isAvailable,

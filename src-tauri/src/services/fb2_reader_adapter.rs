@@ -5,7 +5,6 @@ use crate::services::renderer::{
 use async_trait::async_trait;
 use quick_xml::events::Event;
 use quick_xml::reader::Reader;
-use std::fs;
 
 pub struct Fb2ReaderAdapter {
     path: String,
@@ -430,7 +429,7 @@ unsafe impl Sync for Fb2ReaderAdapter {}
 #[async_trait]
 impl BookReaderAdapter for Fb2ReaderAdapter {
     async fn load(&mut self, path: &str) -> Result<()> {
-        let content = fs::read_to_string(path).map_err(ShioriError::Io)?;
+        let content = tokio::fs::read_to_string(path).await.map_err(ShioriError::Io)?;
 
         self.path = path.to_string();
 

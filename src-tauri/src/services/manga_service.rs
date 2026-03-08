@@ -227,8 +227,7 @@ impl MangaService {
             }
         }
 
-        // Extract from archive — use stored file handle (try_clone) instead of re-opening from disk
-        let (cloned_file, page_name) = {
+        let (file_path, page_name) = {
             let books = self.open_books.lock().unwrap();
             let manga = books.get(&book_id).ok_or_else(|| {
                 ShioriError::BookNotFound(format!("Manga {} not open", book_id))
@@ -242,16 +241,19 @@ impl MangaService {
                 )));
             }
 
-            let file = manga.file_handle.try_clone().map_err(|e| {
-                ShioriError::Other(format!("Failed to clone file handle: {}", e))
-            })?;
+            // Open fresh file handle to avoid race conditions with shared file offsets
+            let file_path = manga.file_path.clone();
+            let page_name = manga.sorted_pages[page_index].clone();
 
-            (file, manga.sorted_pages[page_index].clone())
+            (file_path, page_name)
         };
 
         // Extract image bytes from ZIP (CPU intensive for large zips, use spawn_blocking)
         let image_bytes = tokio::task::spawn_blocking(move || -> Result<Vec<u8>> {
-            let mut archive = ZipArchive::new(cloned_file).map_err(|e| {
+            let file = std::fs::File::open(&file_path).map_err(|e| {
+                ShioriError::Other(format!("Failed to open archive: {}", e))
+            })?;
+            let mut archive = ZipArchive::new(file).map_err(|e| {
                 ShioriError::Other(format!("Failed to create archive from handle: {}", e))
             })?;
 
@@ -352,8 +354,9 @@ impl MangaService {
             .collect();
 
         if !needs_resolve.is_empty() {
-            // Use stored file handle (try_clone) instead of re-opening from disk
-            if let Ok(file) = manga.file_handle.try_clone() {
+            // Open fresh file handle for dimension reading to avoid concurrent access issues
+            let file_path = manga.file_path.clone();
+            if let Ok(file) = std::fs::File::open(&file_path) {
                 if let Ok(mut archive) = ZipArchive::new(file) {
                     for &idx in &needs_resolve {
                         if idx < manga.sorted_pages.len() {

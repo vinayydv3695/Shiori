@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import { Layout } from "./components/layout/Layout"
 import { LibraryGrid } from "./components/library/LibraryGrid"
 import { ReaderLayout } from "./components/reader/ReaderLayout"
@@ -101,7 +101,7 @@ function App() {
     };
     window.addEventListener('open-book', handleOpenBookEvent);
     return () => window.removeEventListener('open-book', handleOpenBookEvent);
-  });
+  }, []);
 
   useEffect(() => {
     // Filter books when collection changes
@@ -126,7 +126,7 @@ function App() {
     return () => { aborted = true }
   }, [selectedCollection, books])
 
-  const handleOpenBook = async (bookId: number) => {
+  const handleOpenBook = useCallback(async (bookId: number) => {
     console.log('[App] Opening book:', bookId)
     try {
       const book = await api.getBook(bookId)
@@ -144,7 +144,7 @@ function App() {
         variant: "error",
       })
     }
-  }
+  }, [openBook])
 
   const handleEditBook = (bookId: number) => {
     setDialogBookId(bookId)

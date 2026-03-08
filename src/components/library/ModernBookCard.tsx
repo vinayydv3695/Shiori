@@ -123,6 +123,7 @@ interface BookCardProps {
   isFavorited?: boolean
   onFavorite?: (id: number) => void
   animationDelay?: number
+  scrollRoot?: HTMLElement | null
 }
 
 export const PremiumBookCard = memo(function PremiumBookCard({
@@ -137,6 +138,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
   isFavorited,
   onFavorite,
   animationDelay = 0,
+  scrollRoot,
 }: BookCardProps) {
   const [imgLoaded, setImgLoaded] = useState(false)
   const [imgError, setImgError] = useState(false)
@@ -147,17 +149,16 @@ export const PremiumBookCard = memo(function PremiumBookCard({
 
   const isManga = book.file_format === 'cbz' || book.file_format === 'cbr'
 
-  // Intersection Observer for entrance animation
   useEffect(() => {
     const el = cardRef.current
     if (!el) return
     const observer = new IntersectionObserver(
       ([entry]) => { if (entry.isIntersecting) { setVisible(true); observer.disconnect() } },
-      { threshold: 0.05 },
+      { root: scrollRoot ?? null, threshold: 0.05 },
     )
     observer.observe(el)
     return () => observer.disconnect()
-  }, [])
+  }, [scrollRoot])
 
   const handleClick = (e: React.MouseEvent) => {
     if (e.shiftKey || e.ctrlKey || e.metaKey) {

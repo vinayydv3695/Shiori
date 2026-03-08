@@ -223,6 +223,7 @@ export function LibraryGrid({
                           toggleFavorite(id)
                         }}
                         animationDelay={Math.min(absoluteIndex * 10, 150)}
+                        scrollRoot={parentRef.current}
                       />
                     </div>
                   )

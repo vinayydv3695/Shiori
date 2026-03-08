@@ -3,7 +3,6 @@ use crate::services::renderer::{
     BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry,
 };
 use async_trait::async_trait;
-use std::fs;
 
 pub struct TxtReaderAdapter {
     path: String,
@@ -52,7 +51,7 @@ unsafe impl Sync for TxtReaderAdapter {}
 #[async_trait]
 impl BookReaderAdapter for TxtReaderAdapter {
     async fn load(&mut self, path: &str) -> Result<()> {
-        let content = fs::read_to_string(path).map_err(ShioriError::Io)?;
+        let content = tokio::fs::read_to_string(path).await.map_err(ShioriError::Io)?;
         self.path = path.to_string();
 
         self.html_content = Self::text_to_html(&content);

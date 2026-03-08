@@ -3,7 +3,7 @@ import { useMangaContentStore, useMangaSettingsStore } from '@/store/mangaReader
 import { useToastStore } from '@/store/toastStore';
 
 /**
- * Click-zone navigation overlay for single/double page modes.
+ * Click-zone navigation overlay for single page modes.
  * Left 30% = prev, right 30% = next, center 40% = no-op.
  * Memoized — never changes after mount.
  */
@@ -21,7 +21,7 @@ export const NavigationOverlay = memo(function NavigationOverlay() {
     // Don't show overlay in scroll-based modes (strip, webtoon, manhwa)
     if (readingMode === 'strip' || readingMode === 'webtoon' || readingMode === 'manhwa') return null;
 
-    const step = readingMode === 'double' ? 2 : 1;
+    const step = 1;
 
     const showBoundaryToast = (message: string) => {
         const now = Date.now();

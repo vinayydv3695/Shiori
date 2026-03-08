@@ -195,6 +195,7 @@ fn main() {
             commands::metadata::search_book_by_isbn,
             commands::metadata::enrich_book_metadata,
             commands::metadata::apply_selected_metadata,
+            commands::metadata::preview_cover_url,
             commands::tags::get_tags,
             commands::tags::create_tag,
             commands::tags::add_tag_to_book,

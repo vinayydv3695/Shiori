@@ -27,7 +27,7 @@ export function useMangaKeyboard(onClose: () => void) {
     const rtl = readingDirection === 'rtl';
     // Comic mode forces LTR behavior regardless of direction setting
     const effectiveRtl = readingMode === 'comic' ? false : rtl;
-    const step = readingMode === 'double' ? 2 : 1;
+    const step = 1;
     const isScrollMode = readingMode === 'strip' || readingMode === 'webtoon' || readingMode === 'manhwa';
 
     // Debounce boundary toasts to avoid spam (same pattern as NavigationOverlay)
@@ -132,12 +132,6 @@ export function useMangaKeyboard(onClose: () => void) {
                 if (!e.ctrlKey && !e.metaKey) {
                     e.preventDefault();
                     setReadingMode('single');
-                }
-                break;
-            case '2':
-                if (!e.ctrlKey && !e.metaKey) {
-                    e.preventDefault();
-                    setReadingMode('double');
                 }
                 break;
             case '3':

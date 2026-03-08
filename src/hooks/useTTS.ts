@@ -67,10 +67,13 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
 
     const checkNativeTTS = async () => {
       try {
+        console.log('[TTS] Checking native TTS plugin availability...');
         await nativeStop();
+        console.log('[TTS] Native TTS plugin detected and available');
         setUseNativeTTS(true);
         return;
-      } catch {
+      } catch (error) {
+        console.log('[TTS] Native TTS plugin not available, falling back to Web Speech API:', error);
         setUseNativeTTS(false);
       }
     };

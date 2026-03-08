@@ -1,22 +1,8 @@
-import { useEffect, useState, useMemo, useCallback } from "react"
+import { useEffect, useState, useMemo, useCallback, lazy, Suspense } from "react"
 import { Layout } from "./components/layout/Layout"
 import { LibraryGrid } from "./components/library/LibraryGrid"
-import { ReaderLayout } from "./components/reader/ReaderLayout"
-import { EditMetadataDialog } from "./components/library/EditMetadataDialog"
-import { DeleteBookDialog } from "./components/library/DeleteBookDialog"
-import { SettingsDialog } from "./components/settings/SettingsDialog"
-import { BookDetailsDialog } from "./components/library/BookDetailsDialog"
 import { ToastContainer } from "./components/ui/ToastContainer"
 import { DevBanner } from "./components/DevBanner"
-import { ConversionDialog } from "./components/conversion/ConversionDialog"
-import ConversionJobTracker from "./components/conversion/ConversionJobTracker"
-import RSSFeedManager from "./components/rss/RSSFeedManager"
-import RSSArticleList from "./components/rss/RSSArticleList"
-import ShareBookDialog from "./components/share/ShareBookDialog"
-import { OnboardingWizard } from "./components/onboarding/OnboardingWizard"
-import { HomePage } from "./components/home/HomePage"
-import { AnnotationsView } from "./components/annotations/AnnotationsView"
-import { StatisticsView } from "./components/statistics/StatisticsView"
 import { useLibraryStore } from "./store/libraryStore"
 import { useReaderStore } from "./store/readerStore"
 import { useUIStore } from "./store/uiStore"
@@ -24,6 +10,21 @@ import { useCollectionStore } from "./store/collectionStore"
 import { useConversionStore } from "./store/conversionStore"
 import { useToastStore } from "./store/toastStore"
 import { api, type Book } from "./lib/tauri"
+
+const ReaderLayout = lazy(() => import("./components/reader/ReaderLayout").then(m => ({ default: m.ReaderLayout })))
+const EditMetadataDialog = lazy(() => import("./components/library/EditMetadataDialog").then(m => ({ default: m.EditMetadataDialog })))
+const DeleteBookDialog = lazy(() => import("./components/library/DeleteBookDialog").then(m => ({ default: m.DeleteBookDialog })))
+const SettingsDialog = lazy(() => import("./components/settings/SettingsDialog").then(m => ({ default: m.SettingsDialog })))
+const BookDetailsDialog = lazy(() => import("./components/library/BookDetailsDialog").then(m => ({ default: m.BookDetailsDialog })))
+const ConversionDialog = lazy(() => import("./components/conversion/ConversionDialog").then(m => ({ default: m.ConversionDialog })))
+const ConversionJobTracker = lazy(() => import("./components/conversion/ConversionJobTracker"))
+const RSSFeedManager = lazy(() => import("./components/rss/RSSFeedManager"))
+const RSSArticleList = lazy(() => import("./components/rss/RSSArticleList"))
+const ShareBookDialog = lazy(() => import("./components/share/ShareBookDialog"))
+const OnboardingWizard = lazy(() => import("./components/onboarding/OnboardingWizard").then(m => ({ default: m.OnboardingWizard })))
+const HomePage = lazy(() => import("./components/home/HomePage").then(m => ({ default: m.HomePage })))
+const AnnotationsView = lazy(() => import("./components/annotations/AnnotationsView").then(m => ({ default: m.AnnotationsView })))
+const StatisticsView = lazy(() => import("./components/statistics/StatisticsView").then(m => ({ default: m.StatisticsView })))
 
 function App() {
   // Check if user has completed onboarding
@@ -327,7 +328,9 @@ function App() {
   if (isReaderOpen && selectedBookId) {
     return (
       <>
-        <ReaderLayout bookId={selectedBookId} onClose={handleCloseReader} />
+        <Suspense fallback={<div className="flex items-center justify-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>}>
+          <ReaderLayout bookId={selectedBookId} onClose={handleCloseReader} />
+        </Suspense>
         <ToastContainer />
       </>
     )
@@ -341,12 +344,16 @@ function App() {
 
   // Show loading while checking onboarding state
   if (isCheckingOnboarding) {
-    return null; // ThemeProvider already shows loading screen
+    return null;
   }
 
   // Show onboarding if not completed
   if (showOnboarding) {
-    return <OnboardingWizard onComplete={handleOnboardingComplete} />
+    return (
+      <Suspense fallback={<div className="flex items-center justify-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>}>
+        <OnboardingWizard onComplete={handleOnboardingComplete} />
+      </Suspense>
+    )
   }
 
   return (
@@ -373,17 +380,27 @@ function App() {
       >
         {/* Show Home dashboard view */}
         {currentView === 'home' && (
-          <HomePage
-            onOpenBook={handleOpenBook}
-            onViewRSS={handleOpenRSSArticles}
-          />
+          <Suspense fallback={<div className="flex items-center justify-center py-24"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+            <HomePage
+              onOpenBook={handleOpenBook}
+              onViewRSS={handleOpenRSSArticles}
+            />
+          </Suspense>
         )}
 
         {/* Show RSS Feeds view */}
-        {currentView === 'rss-feeds' && <RSSFeedManager onClose={handleBackToLibrary} />}
+        {currentView === 'rss-feeds' && (
+          <Suspense fallback={<div className="flex items-center justify-center py-24"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+            <RSSFeedManager onClose={handleBackToLibrary} />
+          </Suspense>
+        )}
 
         {/* Show RSS Articles view */}
-        {currentView === 'rss-articles' && <RSSArticleList onClose={handleBackToLibrary} />}
+        {currentView === 'rss-articles' && (
+          <Suspense fallback={<div className="flex items-center justify-center py-24"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+            <RSSArticleList onClose={handleBackToLibrary} />
+          </Suspense>
+        )}
 
         {/* Show Library view */}
         {currentView === 'library' && (
@@ -400,7 +417,16 @@ function App() {
 
         {/* Show Annotations view */}
         {currentView === 'annotations' && (
-          <AnnotationsView onClose={handleBackToLibrary} />
+          <Suspense fallback={<div className="flex items-center justify-center py-24"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+            <AnnotationsView onClose={handleBackToLibrary} />
+          </Suspense>
+        )}
+
+        {/* Show Statistics view */}
+        {currentView === 'statistics' && (
+          <Suspense fallback={<div className="flex items-center justify-center py-24"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+            <StatisticsView onClose={handleBackToLibrary} />
+          </Suspense>
         )}
 
         {/* Show Statistics view */}
@@ -410,67 +436,81 @@ function App() {
       </Layout>
 
       {/* Global Overlays */}
-      <ConversionJobTracker />
+      <Suspense fallback={null}>
+        <ConversionJobTracker />
+      </Suspense>
 
       <ToastContainer />
 
       {/* Dialogs — only render when we have a valid bookId */}
       {dialogBookId !== null && (
-        <EditMetadataDialog
-          open={editDialogOpen}
-          onOpenChange={setEditDialogOpen}
-          bookId={dialogBookId}
-        />
+        <Suspense fallback={null}>
+          <EditMetadataDialog
+            open={editDialogOpen}
+            onOpenChange={setEditDialogOpen}
+            bookId={dialogBookId}
+          />
+        </Suspense>
       )}
-      <DeleteBookDialog
-        open={deleteDialogOpen}
-        onOpenChange={(open) => {
-          setDeleteDialogOpen(open)
-          if (!open) clearSelection()
-        }}
-        bookIds={deleteBookIds}
-        bookTitle={dialogBookTitle}
-      />
-      {dialogBookId !== null && (
-        <BookDetailsDialog
-          open={detailsDialogOpen}
-          onOpenChange={setDetailsDialogOpen}
-          bookId={dialogBookId}
-          onEdit={() => {
-            setDetailsDialogOpen(false)
-            setEditDialogOpen(true)
+      <Suspense fallback={null}>
+        <DeleteBookDialog
+          open={deleteDialogOpen}
+          onOpenChange={(open) => {
+            setDeleteDialogOpen(open)
+            if (!open) clearSelection()
           }}
-          onDelete={() => {
-            const book = books.find(b => b.id === dialogBookId)
-            setDialogBookTitle(book?.title || "this book")
-            setDetailsDialogOpen(false)
-            setDeleteDialogOpen(true)
-          }}
-          onRead={() => {
-            setDetailsDialogOpen(false)
-            handleOpenBook(dialogBookId)
-          }}
-        />
-      )}
-      <SettingsDialog
-        open={settingsDialogOpen}
-        onOpenChange={setSettingsDialogOpen}
-      />
-      {/* Conversion Dialog */}
-      {dialogBookId !== null && (
-        <ConversionDialog
-          open={conversionDialogOpen}
-          onOpenChange={(open) => setConversionDialogOpen(open)}
-          bookId={dialogBookId}
-        />
-      )}
-      {dialogBookId !== null && (
-        <ShareBookDialog
-          isOpen={shareDialogOpen}
-          onClose={() => setShareDialogOpen(false)}
-          bookId={dialogBookId}
+          bookIds={deleteBookIds}
           bookTitle={dialogBookTitle}
         />
+      </Suspense>
+      {dialogBookId !== null && (
+        <Suspense fallback={null}>
+          <BookDetailsDialog
+            open={detailsDialogOpen}
+            onOpenChange={setDetailsDialogOpen}
+            bookId={dialogBookId}
+            onEdit={() => {
+              setDetailsDialogOpen(false)
+              setEditDialogOpen(true)
+            }}
+            onDelete={() => {
+              const book = books.find(b => b.id === dialogBookId)
+              setDialogBookTitle(book?.title || "this book")
+              setDetailsDialogOpen(false)
+              setDeleteDialogOpen(true)
+            }}
+            onRead={() => {
+              setDetailsDialogOpen(false)
+              handleOpenBook(dialogBookId)
+            }}
+          />
+        </Suspense>
+      )}
+      <Suspense fallback={null}>
+        <SettingsDialog
+          open={settingsDialogOpen}
+          onOpenChange={setSettingsDialogOpen}
+        />
+      </Suspense>
+      {/* Conversion Dialog */}
+      {dialogBookId !== null && (
+        <Suspense fallback={null}>
+          <ConversionDialog
+            open={conversionDialogOpen}
+            onOpenChange={(open) => setConversionDialogOpen(open)}
+            bookId={dialogBookId}
+          />
+        </Suspense>
+      )}
+      {dialogBookId !== null && (
+        <Suspense fallback={null}>
+          <ShareBookDialog
+            isOpen={shareDialogOpen}
+            onClose={() => setShareDialogOpen(false)}
+            bookId={dialogBookId}
+            bookTitle={dialogBookTitle}
+          />
+        </Suspense>
       )}
     </>
   )

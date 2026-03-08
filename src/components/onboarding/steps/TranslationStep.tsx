@@ -2,7 +2,8 @@ import { useOnboardingStore } from '../../../store/onboardingStore';
 import { cn } from '../../../lib/utils';
 
 export function TranslationStep() {
-  const { draftConfig, setDraftValue } = useOnboardingStore();
+  const draftConfig = useOnboardingStore(state => state.draftConfig);
+  const setDraftValue = useOnboardingStore(state => state.setDraftValue);
   const targetLang = draftConfig.translationTargetLanguage || 'en';
 
   const languages = [

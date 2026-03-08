@@ -39,7 +39,11 @@ function escapeHtml(str: string): string {
 }
 
 export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSidebarProps) {
-  const { isSidebarOpen, sidebarTab, closeSidebar, setSidebarTab, setPendingAnnotationId } = useUIStore();
+  const isSidebarOpen = useUIStore(state => state.isSidebarOpen);
+  const sidebarTab = useUIStore(state => state.sidebarTab);
+  const closeSidebar = useUIStore(state => state.closeSidebar);
+  const setSidebarTab = useUIStore(state => state.setSidebarTab);
+  const setPendingAnnotationId = useUIStore(state => state.setPendingAnnotationId);
   
   // Tab data states
   const [toc, setToc] = useState<TocEntry[]>([]);

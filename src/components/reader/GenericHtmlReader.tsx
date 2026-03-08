@@ -23,7 +23,8 @@ interface GenericHtmlReaderProps {
 }
 
 export function GenericHtmlReader({ bookPath, bookId, format, onClose }: GenericHtmlReaderProps) {
-    const { isFocusMode, setTopBarVisible } = useUIStore();
+    const isFocusMode = useUIStore(state => state.isFocusMode);
+    const setTopBarVisible = useUIStore(state => state.setTopBarVisible);
     const { theme, fontSize, fontFamily, lineHeight, width } = useReadingSettings();
 
     useReadingSession(bookId);

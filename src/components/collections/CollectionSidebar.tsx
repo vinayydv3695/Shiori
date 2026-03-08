@@ -16,7 +16,8 @@ interface CollectionItemProps {
 const CollectionItem = ({ collection, depth, onEdit, onDelete, onAddSubcollection }: CollectionItemProps) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const [isDragOver, setIsDragOver] = useState(false);
-  const { selectedCollection, selectCollection } = useCollectionStore();
+  const selectedCollection = useCollectionStore(state => state.selectedCollection);
+  const selectCollection = useCollectionStore(state => state.selectCollection);
   const toast = useToast();
   const isSelected = selectedCollection?.id === collection.id;
   const hasChildren = collection.children && collection.children.length > 0;
@@ -196,7 +197,10 @@ interface CollectionSidebarProps {
 }
 
 export const CollectionSidebar = ({ onCreateCollection, onEditCollection }: CollectionSidebarProps) => {
-  const { collections, setCollections, selectCollection, selectedCollection } = useCollectionStore();
+  const collections = useCollectionStore(state => state.collections);
+  const setCollections = useCollectionStore(state => state.setCollections);
+  const selectCollection = useCollectionStore(state => state.selectCollection);
+  const selectedCollection = useCollectionStore(state => state.selectedCollection);
   const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');

@@ -3,7 +3,7 @@ import type { Book } from '@/lib/tauri'
 
 interface StatsBarProps {
     books: Book[]
-    domain: 'books' | 'manga' | 'comics'
+    domain: 'books' | 'manga_comics'
 }
 
 function formatSize(bytes: number): string {
@@ -18,9 +18,9 @@ export function StatsBar({ books, domain }: StatsBarProps) {
         const formats = new Set(books.map(b => b.file_format.toUpperCase()))
         const totalPages = books.reduce((sum, b) => sum + (b.page_count || 0), 0)
 
-        if (domain === 'manga') {
+        if (domain === 'manga_comics') {
             return [
-                { value: books.length.toString(), label: 'Manga' },
+                { value: books.length.toString(), label: 'Manga & Comics' },
                 { value: totalPages.toLocaleString(), label: 'Total Pages' },
                 { value: formatSize(totalSize), label: 'Library Size' },
             ]

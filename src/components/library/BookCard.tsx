@@ -12,7 +12,9 @@ interface BookCardProps {
 }
 
 export function BookCard({ book, onClick }: BookCardProps) {
-  const { bulkSelectMode, selectedBookIds, toggleBookSelection } = useLibraryStore();
+  const bulkSelectMode = useLibraryStore(state => state.bulkSelectMode);
+  const selectedBookIds = useLibraryStore(state => state.selectedBookIds);
+  const toggleBookSelection = useLibraryStore(state => state.toggleBookSelection);
   const isSelected = selectedBookIds.has(book.id!);
 
   const handleDragStart = (e: React.DragEvent) => {
@@ -72,12 +74,14 @@ export function BookCard({ book, onClick }: BookCardProps) {
       )}
       {/* Cover */}
       <div className="aspect-[2/3] w-full overflow-hidden bg-muted">
-        {book.cover_path ? (
-          <img
-            src={convertFileSrc(book.cover_path)}
-            alt={book.title}
-            className="h-full w-full object-cover transition-transform group-hover:scale-105"
-          />
+       {book.cover_path ? (
+           <img
+             src={convertFileSrc(book.cover_path)}
+             alt={book.title}
+             loading="lazy"
+             decoding="async"
+             className="h-full w-full object-cover transition-transform group-hover:scale-105"
+           />
         ) : (
           <div className="flex h-full items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
             <span className="text-6xl font-bold text-primary/30">

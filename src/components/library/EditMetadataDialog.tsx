@@ -31,7 +31,7 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
     notes: '',
   });
   const toast = useToast();
-  const { setBooks } = useLibraryStore();
+  const setBooks = useLibraryStore(state => state.setBooks);
 
   useEffect(() => {
     if (open && bookId) {

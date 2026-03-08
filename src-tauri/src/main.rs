@@ -49,7 +49,13 @@ fn main() {
     
     #[cfg(feature = "native-tts")]
     {
+        log::info!("Native TTS plugin enabled - initializing tauri-plugin-tts");
         builder = builder.plugin(tauri_plugin_tts::init());
+    }
+    
+    #[cfg(not(feature = "native-tts"))]
+    {
+        log::warn!("Native TTS plugin NOT enabled - rebuild with --features native-tts for native TTS support");
     }
     
     builder.setup(|app| {

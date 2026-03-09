@@ -1,0 +1,84 @@
+name: Flatpak Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-flatpak:
+    runs-on: ubuntu-latest
+    container:
+      image: bilelmoussaoui/flatpak-github-actions:freedesktop-23.08
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create Flatpak manifest
+        run: |
+          cat > io.github.vinayydv3695.Shiori.yml <<EOF
+          app-id: io.github.vinayydv3695.Shiori
+          runtime: org.freedesktop.Platform
+          runtime-version: '23.08'
+          sdk: org.freedesktop.Sdk
+          sdk-extensions:
+            - org.freedesktop.Sdk.Extension.rust-stable
+            - org.freedesktop.Sdk.Extension.node20
+          command: shiori
+          finish-args:
+            - --socket=wayland
+            - --socket=fallback-x11
+            - --socket=pulseaudio
+            - --share=ipc
+            - --share=network
+            - --device=dri
+            - --filesystem=home
+            - --talk-name=org.freedesktop.Notifications
+            - --talk-name=org.kde.StatusNotifierWatcher
+          modules:
+            - name: shiori
+              buildsystem: simple
+              build-options:
+                append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node20/bin
+                env:
+                  CARGO_HOME: /run/build/shiori/cargo
+                  NPM_CONFIG_CACHE: /run/build/shiori/npm-cache
+              build-commands:
+                - npm install
+                - npm run build
+                - install -Dm755 src-tauri/target/release/shiori /app/bin/shiori
+                - install -Dm644 src-tauri/icons/128x128.png /app/share/icons/hicolor/128x128/apps/io.github.vinayydv3695.Shiori.png
+                - install -Dm644 src-tauri/icons/32x32.png /app/share/icons/hicolor/32x32/apps/io.github.vinayydv3695.Shiori.png
+                - |
+                  cat > /app/share/applications/io.github.vinayydv3695.Shiori.desktop <<DESKTOP
+                  [Desktop Entry]
+                  Name=Shiori
+                  GenericName=eBook Library Manager
+                  Comment=Organize, read, and manage your eBook collection
+                  Exec=shiori
+                  Icon=io.github.vinayydv3695.Shiori
+                  Type=Application
+                  Categories=Office;Viewer;Education;
+                  Terminal=false
+                  DESKTOP
+              sources:
+                - type: dir
+                  path: .
+          EOF
+
+      - name: Build Flatpak
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: shiori.flatpak
+          manifest-path: io.github.vinayydv3695.Shiori.yml
+          cache-key: flatpak-builder-${{ github.sha }}
+
+      - name: Upload Flatpak to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: shiori.flatpak
+          asset_name: shiori-${{ github.ref_name }}.flatpak
+          tag: ${{ github.ref }}

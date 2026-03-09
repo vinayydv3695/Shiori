@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { api } from '../lib/tauri';
@@ -13,12 +14,16 @@ export type StepId =
     | 'theme'
     | 'reading-prefs'
     | 'manga-prefs'
+    | 'manga-series-grouping'
+    | 'auto-group-manga'
+    | 'series-management'
     | 'reading-goal'
     | 'reading-status'
     | 'translation'
     | 'performance'
     | 'metadata'
     | 'metadata-search'
+    | 'info-button-tutorial'
     | 'library-setup'
     | 'ui-scale'
     | 'review';
@@ -47,6 +52,18 @@ export const ONBOARDING_STEPS: StepRegistryItem[] = [
         id: 'manga-prefs',
         condition: (draft) => draft.preferredContentType === 'both' || draft.preferredContentType === 'manga'
     },
+    {
+        id: 'manga-series-grouping',
+        condition: (draft) => draft.preferredContentType === 'both' || draft.preferredContentType === 'manga'
+    },
+    {
+        id: 'auto-group-manga',
+        condition: (draft) => draft.preferredContentType === 'both' || draft.preferredContentType === 'manga'
+    },
+    {
+        id: 'series-management',
+        condition: (draft) => draft.preferredContentType === 'both' || draft.preferredContentType === 'manga'
+    },
     { id: 'reading-goal' },
     { id: 'reading-status' },
     { id: 'translation' },
@@ -59,6 +76,7 @@ export const ONBOARDING_STEPS: StepRegistryItem[] = [
         id: 'metadata-search',
         condition: () => navigator.onLine
     },
+    { id: 'info-button-tutorial' },
     { id: 'library-setup' },
     { id: 'ui-scale' },
     { id: 'review' }
@@ -169,7 +187,7 @@ export const useOnboardingStore = create<OnboardingState>()(
                     // 4. Reset our own state to clean up localStorage transient
                     get().init({});
                 } catch (error) {
-                    console.error("Failed to commit onboarding setup:", error);
+                    logger.error("Failed to commit onboarding setup:", error);
                     set({ isCommitting: false });
                     throw error;
                 }

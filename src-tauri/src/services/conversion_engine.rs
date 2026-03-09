@@ -298,7 +298,7 @@ impl ConversionEngine {
 
     fn persist_job(job: &ConversionJob, conn: &rusqlite::Connection) {
         let status_str = job.status.to_string();
-        let _ = conn.execute(
+        if let Err(e) = conn.execute(
             "INSERT OR REPLACE INTO conversion_jobs
              (id, book_id, source_path, target_path, source_format, target_format,
               status, progress, error_message, updated_at)
@@ -314,7 +314,9 @@ impl ConversionEngine {
                 job.progress,
                 job.error,
             ],
-        );
+        ) {
+            log::error!("[ConversionEngine] Failed to persist conversion job {}: {}", job.id, e);
+        }
     }
 
     // ── Worker loop ───────────────────────────────────────────────────────

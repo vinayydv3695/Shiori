@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { useState, useEffect } from 'react';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 
@@ -25,7 +26,7 @@ export function useCoverImage(bookId?: number, initialCoverSrc?: string | null) 
                     setError(true);
                 }
             } catch (err) {
-                console.error("Failed to load cover:", err);
+                logger.error("Failed to load cover:", err);
                 if (mounted) setError(true);
             } finally {
                 if (mounted) setLoading(false);

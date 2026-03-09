@@ -29,7 +29,8 @@ impl EpubAdapter {
             .as_ref()
             .ok_or_else(|| ShioriError::Other("EPUB document not opened".to_string()))?;
 
-        let doc = doc_ref.read().unwrap();
+        let doc = doc_ref.read()
+            .map_err(|e| ShioriError::Other(format!("Failed to acquire read lock on EPUB document: {}", e)))?;
         let toc_entries: Vec<TocEntry> = doc
             .toc
             .iter()
@@ -52,7 +53,8 @@ impl EpubAdapter {
             .as_ref()
             .ok_or_else(|| ShioriError::Other("EPUB document not opened".to_string()))?;
 
-        let doc = doc_ref.read().unwrap();
+        let doc = doc_ref.read()
+            .map_err(|e| ShioriError::Other(format!("Failed to acquire read lock on EPUB document: {}", e)))?;
         let title = doc
             .get_title()
             .unwrap_or_else(|| "Unknown Title".to_string());
@@ -63,7 +65,7 @@ impl EpubAdapter {
             title,
             author,
             total_chapters,
-            total_pages: None, // EPUB doesn't have fixed pages
+            total_pages: None,
             format: "epub".to_string(),
         });
 
@@ -132,13 +134,13 @@ impl BookReaderAdapter for EpubAdapter {
     }
 
     fn get_chapter(&self, index: usize) -> Result<Chapter> {
-        // Load chapter on-demand from EpubDoc
         let doc_ref = self
             .doc
             .as_ref()
             .ok_or_else(|| ShioriError::Other("EPUB document not opened".to_string()))?;
 
-        let mut doc = doc_ref.write().unwrap();
+        let mut doc = doc_ref.write()
+            .map_err(|e| ShioriError::Other(format!("Failed to acquire write lock on EPUB document: {}", e)))?;
         let spine_len = doc.get_num_chapters();
 
         if index >= spine_len {
@@ -163,10 +165,12 @@ impl BookReaderAdapter for EpubAdapter {
     }
 
     fn chapter_count(&self) -> usize {
-        // Get chapter count from EpubDoc, not from cached chapters
         if let Some(doc_ref) = &self.doc {
-            let doc = doc_ref.read().unwrap();
-            doc.get_num_chapters()
+            if let Ok(doc) = doc_ref.read() {
+                doc.get_num_chapters()
+            } else {
+                0
+            }
         } else {
             0
         }
@@ -176,13 +180,13 @@ impl BookReaderAdapter for EpubAdapter {
         let query_lower = query.to_lowercase();
         let mut results = Vec::new();
 
-        // For search, we need to iterate through all chapters
         let doc_ref = self
             .doc
             .as_ref()
             .ok_or_else(|| ShioriError::Other("EPUB document not opened".to_string()))?;
 
-        let mut doc = doc_ref.write().unwrap();
+        let mut doc = doc_ref.write()
+            .map_err(|e| ShioriError::Other(format!("Failed to acquire write lock on EPUB document: {}", e)))?;
         let spine_len = doc.get_num_chapters();
 
         for i in 0..spine_len {
@@ -236,8 +240,8 @@ impl BookReaderAdapter for EpubAdapter {
             .as_ref()
             .ok_or_else(|| ShioriError::Other("EPUB document not opened".to_string()))?;
 
-        let doc = doc_ref.read().unwrap();
-        // Extract idref from each SpineItem
+        let doc = doc_ref.read()
+            .map_err(|e| ShioriError::Other(format!("Failed to acquire read lock on EPUB document: {}", e)))?;
         Ok(doc.spine.iter().map(|item| item.idref.clone()).collect())
     }
 
@@ -249,7 +253,8 @@ impl BookReaderAdapter for EpubAdapter {
             .as_ref()
             .ok_or_else(|| ShioriError::Other("EPUB document not opened".to_string()))?;
 
-        let mut doc = doc_ref.write().unwrap();
+        let mut doc = doc_ref.write()
+            .map_err(|e| ShioriError::Other(format!("Failed to acquire write lock on EPUB document: {}", e)))?;
 
         // ── Pass 1: Exact path ────────────────────────────────────────────
         if let Some((bytes, _)) = doc.get_resource(path) {
@@ -354,7 +359,8 @@ impl BookReaderAdapter for EpubAdapter {
             .as_ref()
             .ok_or_else(|| ShioriError::Other("EPUB document not opened".to_string()))?;
 
-        let doc = doc_ref.read().unwrap();
+        let doc = doc_ref.read()
+            .map_err(|e| ShioriError::Other(format!("Failed to acquire read lock on EPUB document: {}", e)))?;
         doc.get_resource_mime_by_path(path)
             .ok_or_else(|| ShioriError::Other(format!("MIME type not found for: {}", path)))
     }

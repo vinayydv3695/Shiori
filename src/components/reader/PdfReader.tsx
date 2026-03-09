@@ -1,12 +1,16 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '@/lib/tauri';
+import { logger } from '@/lib/logger';
 import type { BookMetadata, Annotation } from '@/lib/tauri';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Loader2, AlertCircle } from '@/components/icons';
 import { useUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement } from '@/store/premiumReaderStore';
+import { useDoodleStore } from '@/store/doodleStore';
 import { useToastStore } from '@/store/toastStore';
 import { ReaderTopBar } from './ReaderTopBar';
 import { PremiumSidebar } from './PremiumSidebar';
+import { DoodleCanvas } from './DoodleCanvas';
+import { DoodleToolbar } from './DoodleToolbar';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
 import { TTSControlBar } from './TTSControlBar';
 import { useReadingSession } from '@/hooks/useReadingSession';
@@ -30,6 +34,10 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
   const isFocusMode = useUIStore(state => state.isFocusMode);
   const setTopBarVisible = useUIStore(state => state.setTopBarVisible);
   const { theme } = useReadingSettings();
+
+  const isDoodleMode = useDoodleStore(state => state.isDoodleMode);
+  const toggleDoodleMode = useDoodleStore(state => state.toggleDoodleMode);
+  const resetDoodlePage = useDoodleStore(state => state.resetPage);
 
   useReadingSession(bookId);
 
@@ -96,66 +104,66 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
 
   const loadBook = async () => {
     try {
-      setIsLoading(true);
-      setError(null);
+       setIsLoading(true);
+       setError(null);
 
-      console.log('[PdfReader] Opening book:', bookId, bookPath);
+       logger.debug('[PdfReader] Opening book:', bookId, bookPath);
 
-      // Still open in backend to maintain standard reader tracking and metadata
-      const bookMetadata = await api.openBookRenderer(bookId, bookPath, 'pdf');
-      setMetadata(bookMetadata);
+       // Still open in backend to maintain standard reader tracking and metadata
+       const bookMetadata = await api.openBookRenderer(bookId, bookPath, 'pdf');
+       setMetadata(bookMetadata);
 
-      // Load file directly via Tauri's asset protocol for frontend rendering component
-      const assetUrl = convertFileSrc(bookPath);
-      console.log('[PdfReader] Asset URL generated:', assetUrl);
-      setPdfUrl(assetUrl);
+       // Load file directly via Tauri's asset protocol for frontend rendering component
+       const assetUrl = convertFileSrc(bookPath);
+       logger.debug('[PdfReader] Asset URL generated:', assetUrl);
+       setPdfUrl(assetUrl);
 
-      // Load annotations for this book
-      try {
-        const bookAnnotations = await api.getAnnotations(bookId);
-        setAnnotations(bookAnnotations);
-        console.log('[PdfReader] Loaded annotations:', bookAnnotations.length);
-      } catch (err) {
-        console.error('[PdfReader] Failed to load annotations:', err);
-      }
+       // Load annotations for this book
+       try {
+         const bookAnnotations = await api.getAnnotations(bookId);
+         setAnnotations(bookAnnotations);
+         logger.debug('[PdfReader] Loaded annotations:', bookAnnotations.length);
+       } catch (err) {
+         logger.error('[PdfReader] Failed to load annotations:', err);
+       }
 
-      // Load saved progress from database (persisted across restarts)
-      try {
-        const savedProgress = await api.getReadingProgress(bookId);
-        if (savedProgress?.currentLocation) {
-          const match = savedProgress.currentLocation.match(/page-(\d+)/);
-          if (match) {
-            const savedPage = parseInt(match[1], 10);
-            if (!isNaN(savedPage) && savedPage >= 1) {
-              setPageNumber(savedPage);
-              if (savedPage > 1) {
-                useToastStore.getState().addToast({
-                  title: 'Resuming reading',
-                  description: `Page ${savedPage}`,
-                  variant: 'info',
-                  duration: 3000,
-                });
-              }
-            }
-          }
-        }
-      } catch {
-        // Silently ignore - start from page 1
-      }
-    } catch (err) {
-      console.error('[PdfReader] Error initializing PDF:', err);
+       // Load saved progress from database (persisted across restarts)
+       try {
+         const savedProgress = await api.getReadingProgress(bookId);
+         if (savedProgress?.currentLocation) {
+           const match = savedProgress.currentLocation.match(/page-(\d+)/);
+           if (match) {
+             const savedPage = parseInt(match[1], 10);
+             if (!isNaN(savedPage) && savedPage >= 1) {
+               setPageNumber(savedPage);
+               if (savedPage > 1) {
+                 useToastStore.getState().addToast({
+                   title: 'Resuming reading',
+                   description: `Page ${savedPage}`,
+                   variant: 'info',
+                   duration: 3000,
+                 });
+               }
+             }
+           }
+         }
+       } catch {
+         // Silently ignore - start from page 1
+       }
+     } catch (err) {
+       logger.error('[PdfReader] Error initializing PDF:', err);
       setError(err instanceof Error ? err.message : 'Failed to initialize PDF');
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadBook();
-    return () => {
-      // Cleanup
-      api.closeBookRenderer(bookId).catch(console.error);
-      pageCache.current.clear();
-    };
+   useEffect(() => {
+     loadBook();
+     return () => {
+       // Cleanup
+       api.closeBookRenderer(bookId).catch(logger.error);
+       pageCache.current.clear();
+     };
     // loadBook is recreated each render - would cause infinite loop if added
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookPath, bookId]);
@@ -165,8 +173,8 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
     setIsLoading(false);
   };
 
-  const onDocumentLoadError = (error: Error) => {
-    console.error('[PdfReader] Error loading PDF document:', error);
+   const onDocumentLoadError = (error: Error) => {
+     logger.error('[PdfReader] Error loading PDF document:', error);
     setError(error.message || 'Failed to parse PDF document.');
     setIsLoading(false);
   }
@@ -284,10 +292,10 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
         canvas.width = 595 * adjustedScale;
         canvas.height = 842 * adjustedScale;
 
-        const bitmap = await createImageBitmap(canvas);
-        pageCache.current.set(page, bitmap);
-      } catch (err) {
-        console.error(`[PdfReader] Failed to prerender page ${page}:`, err);
+         const bitmap = await createImageBitmap(canvas);
+         pageCache.current.set(page, bitmap);
+       } catch (err) {
+         logger.error(`[PdfReader] Failed to prerender page ${page}:`, err);
       }
     }
   }, [scale, numPages]);
@@ -302,9 +310,9 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
         progressPercent,
         pageIndex,
         numPages
-      );
-    } catch (err) {
-      console.error('[PdfReader] Failed saving progress:', err);
+       );
+     } catch (err) {
+       logger.error('[PdfReader] Failed saving progress:', err);
     }
   }
 
@@ -313,10 +321,11 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
     if (numPages > 0) {
       updateProgress(pageNumber);
       prerenderAdjacentPages(pageNumber);
+      resetDoodlePage();
     }
     // updateProgress is recreated each render - would cause infinite loop if added
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageNumber, numPages]);
+  }, [pageNumber, numPages, resetDoodlePage]);
 
   const nextPage = () => {
     if (pageNumber < numPages) {
@@ -412,6 +421,21 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
             <button onClick={resetZoom} className="px-2 py-1 text-xs hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors" title="Reset zoom">
               Reset
             </button>
+            <div className="h-4 w-px bg-gray-300 dark:bg-gray-600 mx-1" />
+            <button
+              onClick={toggleDoodleMode}
+              className={`p-1 rounded transition-colors ${
+                isDoodleMode 
+                  ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                  : 'hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
+              title="Toggle drawing mode"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+              </svg>
+            </button>
           </div>
         }
       />
@@ -501,6 +525,18 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
         contentRef={containerRef}
         onChapterEnd={nextPage}
       />
+
+      {/* Doodle Canvas Overlay */}
+      {isDoodleMode && (
+        <DoodleCanvas
+          bookId={bookId}
+          pageId={`page-${pageNumber}`}
+          containerRef={containerRef}
+        />
+      )}
+
+      {/* Doodle Toolbar */}
+      {isDoodleMode && <DoodleToolbar />}
     </div>
   );
 }

@@ -13,6 +13,7 @@
 
 import { ReactNode, useEffect, useState } from "react";
 import { isTauri } from "../lib/tauri";
+import { logger } from "../lib/logger";
 import { usePreferencesStore } from "../store/preferencesStore";
 
 interface ThemeProviderProps {
@@ -27,7 +28,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     const initializeTheme = async () => {
       if (!isTauri) {
         // Browser mode: use default theme
-        document.documentElement.setAttribute("data-theme", "white");
+        document.documentElement.setAttribute("data-theme", "light");
         setIsReady(true);
         return;
       }
@@ -37,9 +38,9 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
         await loadPreferences();
         setIsReady(true);
       } catch (error) {
-        console.error("Failed to initialize theme:", error);
-        // Fallback to white theme on error
-        document.documentElement.setAttribute("data-theme", "white");
+        logger.error("Failed to initialize theme:", error);
+        // Fallback to light theme on error
+        document.documentElement.setAttribute("data-theme", "light");
         setIsReady(true);
       }
     };

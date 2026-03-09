@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '@/lib/tauri';
 import type { BookMetadata } from '@/lib/tauri';
 import { ChevronLeft, ChevronRight, Loader2, AlertCircle } from '@/components/icons';
+import { logger } from '@/lib/logger';
 import { useUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement } from '@/store/premiumReaderStore';
 import { useToastStore } from '@/store/toastStore';
 import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
@@ -66,15 +67,30 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
 
     useEffect(() => {
         let throttleTimeout: number | null = null;
+        
         const handleMouseMove = () => {
             if (!throttleTimeout) {
                 resetAutoHideTimer();
                 throttleTimeout = window.setTimeout(() => { throttleTimeout = null; }, 100);
             }
         };
+        
+        const handleTouch = () => {
+            resetAutoHideTimer();
+        };
+        
+        const handleKeyDown = () => {
+            resetAutoHideTimer();
+        };
+        
         document.addEventListener('mousemove', handleMouseMove, { passive: true });
+        document.addEventListener('touchstart', handleTouch, { passive: true });
+        document.addEventListener('keydown', handleKeyDown, { passive: true });
+        
         return () => {
             document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('touchstart', handleTouch);
+            document.removeEventListener('keydown', handleKeyDown);
             if (throttleTimeout) clearTimeout(throttleTimeout);
             if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
         };
@@ -112,7 +128,7 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
             setIsLoading(true);
             setError(null);
 
-            console.log(`[GenericHtmlReader] Opening book:`, bookId, bookPath, format);
+            logger.debug(`[GenericHtmlReader] Opening book:`, bookId, bookPath, format);
 
             const bookMetadata = await api.openBookRenderer(bookId, bookPath, format);
             setMetadata(bookMetadata);
@@ -146,21 +162,21 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
                 restoreProgress();
             }, 300);
 
-        } catch (err) {
-            console.error('[GenericHtmlReader] Error loading book:', err);
-            setError(err instanceof Error ? err.message : `Failed to load ${format.toUpperCase()} file`);
-            setIsLoading(false);
-        }
+         } catch (err) {
+             logger.error('[GenericHtmlReader] Error loading book:', err);
+             setError(err instanceof Error ? err.message : `Failed to load ${format.toUpperCase()} file`);
+             setIsLoading(false);
+         }
     };
 
-    useEffect(() => {
-        loadBook();
-        return () => {
-            // Cleanup
-            api.closeBookRenderer(bookId).catch(console.error);
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [bookPath, bookId, format]);
+     useEffect(() => {
+         loadBook();
+         return () => {
+             // Cleanup
+             api.closeBookRenderer(bookId).catch(logger.error);
+         };
+         // eslint-disable-next-line react-hooks/exhaustive-deps
+     }, [bookPath, bookId, format]);
 
     const goToChapter = async (index: number) => {
         if (index < 0 || index >= totalChapters) return;
@@ -172,9 +188,9 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
             if (containerRef.current) {
                 containerRef.current.scrollTo({ top: 0, behavior: 'auto' });
             }
-        } catch (err) {
-            console.error('[GenericHtmlReader] Error loading chapter:', err);
-        }
+         } catch (err) {
+             logger.error('[GenericHtmlReader] Error loading chapter:', err);
+         }
     };
 
     const nextChapter = () => goToChapter(currentChapter + 1);
@@ -204,13 +220,16 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
             const progressPercent = maxScroll > 0 ? (scrollTop / maxScroll) * 100 : 100;
 
             // Save as a percentage (0-100) so progress survives font/window resizes
+            const scrollRatio = maxScroll > 0 ? scrollTop / maxScroll : 0;
+            const cfi = `epubcfi(/0/${currentChapter}!/scroll/${scrollRatio.toFixed(6)})`;
             api.saveReadingProgress(
-                bookId,
-                `generic-progress-${progressPercent.toFixed(4)}-ch${currentChapter}`,
-                progressPercent,
-                currentChapter + 1,
-                totalChapters
-            ).catch(e => console.error('[GenericHtmlReader] Error saving progress:', e));
+                 bookId,
+                 `generic-progress-${progressPercent.toFixed(4)}-ch${currentChapter}`,
+                 progressPercent,
+                 currentChapter + 1,
+                 totalChapters,
+                 cfi
+             ).catch(e => logger.error('[GenericHtmlReader] Error saving progress:', e));
         };
 
         const scrollElement = containerRef.current;
@@ -229,20 +248,36 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
         if (!containerRef.current) return;
         try {
             const savedProgress = await api.getReadingProgress(bookId);
-            if (!savedProgress?.currentLocation) return;
+            if (!savedProgress) return;
 
-            const loc = savedProgress.currentLocation;
             let targetTop: number | null = null;
 
-            if (loc.startsWith('generic-progress-')) {
-                // New percentage-based format — resize-invariant
-                const pctMatch = loc.match(/generic-progress-([\d.]+)-ch/);
-                if (pctMatch) {
-                    const pct = parseFloat(pctMatch[1]);
-                    if (!isNaN(pct) && pct > 0) {
+            // Try CFI-based restore first (precise scroll position)
+            const cfi = savedProgress.cfiLocation;
+            if (cfi) {
+                const cfiMatch = cfi.match(/^epubcfi\(\/0\/(\d+)!\/scroll\/([\d.]+)\)$/);
+                if (cfiMatch) {
+                    const scrollRatio = parseFloat(cfiMatch[2]);
+                    if (!isNaN(scrollRatio) && scrollRatio > 0) {
                         const { scrollHeight, clientHeight } = containerRef.current;
                         const maxScroll = scrollHeight - clientHeight;
-                        targetTop = Math.round((pct / 100) * maxScroll);
+                        targetTop = Math.round(scrollRatio * maxScroll);
+                    }
+                }
+            }
+
+            // Fallback to legacy percentage-based location
+            if (targetTop === null && savedProgress.currentLocation) {
+                const loc = savedProgress.currentLocation;
+                if (loc.startsWith('generic-progress-')) {
+                    const pctMatch = loc.match(/generic-progress-([\d.]+)-ch/);
+                    if (pctMatch) {
+                        const pct = parseFloat(pctMatch[1]);
+                        if (!isNaN(pct) && pct > 0) {
+                            const { scrollHeight, clientHeight } = containerRef.current;
+                            const maxScroll = scrollHeight - clientHeight;
+                            targetTop = Math.round((pct / 100) * maxScroll);
+                        }
                     }
                 }
             }

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { Search, Moon, Sun, Plus } from "../icons"
 import { Button } from "../ui/button"
 import { Input } from "../ui/input"
@@ -12,7 +13,7 @@ export function Topbar() {
     const files = await api.openFileDialog()
     if (files && files.length > 0) {
       const result = await api.importBooks(files)
-      console.log("Import result:", result)
+      logger.debug("Import result:", result)
       // Refresh library
       const books = await api.getBooks()
       useLibraryStore.setState({ books })
@@ -44,7 +45,7 @@ export function Topbar() {
           onClick={toggleTheme}
           className="rounded-full"
         >
-          {theme === "black" ? (
+          {theme === "dark" ? (
             <Sun className="h-5 w-5" />
           ) : (
             <Moon className="h-5 w-5" />

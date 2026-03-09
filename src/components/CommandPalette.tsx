@@ -11,6 +11,8 @@ import {
   Moon,
   Sun,
   Star,
+  Layers,
+  Copy,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLibraryStore } from '@/store/libraryStore'
@@ -22,6 +24,8 @@ interface CommandPaletteProps {
   onOpenBook: (bookId: number) => void
   onAddBook: () => void
   onSettings: () => void
+  onFetchMetadata?: () => void
+  onFindDuplicates?: () => void
 }
 
 export const CommandPalette = ({
@@ -29,6 +33,8 @@ export const CommandPalette = ({
   onOpenBook,
   onAddBook,
   onSettings,
+  onFetchMetadata,
+  onFindDuplicates,
 }: CommandPaletteProps) => {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -169,6 +175,37 @@ export const CommandPalette = ({
               <kbd className="ml-auto text-xs text-muted-foreground">⌘N</kbd>
             </Command.Item>
 
+            {onFetchMetadata && (
+              <Command.Item
+                onSelect={() => handleCommand(onFetchMetadata)}
+                className={cn(
+                  'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-2.5',
+                  'text-sm outline-none',
+                  'aria-selected:bg-accent aria-selected:text-accent-foreground',
+                  'hover:bg-accent/50 transition-colors'
+                )}
+              >
+                <Layers className="w-4 h-4 mr-3" />
+                <span>Fetch Metadata for Selected</span>
+                <kbd className="ml-auto text-xs text-muted-foreground">⌘⇧M</kbd>
+              </Command.Item>
+            )}
+
+            {onFindDuplicates && (
+              <Command.Item
+                onSelect={() => handleCommand(onFindDuplicates)}
+                className={cn(
+                  'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-2.5',
+                  'text-sm outline-none',
+                  'aria-selected:bg-accent aria-selected:text-accent-foreground',
+                  'hover:bg-accent/50 transition-colors'
+                )}
+              >
+                <Copy className="w-4 h-4 mr-3" />
+                <span>Find Duplicates</span>
+              </Command.Item>
+            )}
+
             <Command.Item
               onSelect={() => handleCommand(onSettings)}
               className={cn(
@@ -250,14 +287,14 @@ export const CommandPalette = ({
                 'hover:bg-accent/50 transition-colors'
               )}
             >
-              {theme === 'black' ? (
+              {theme === 'dark' ? (
                 <Moon className="w-4 h-4 mr-3" />
               ) : (
                 <Sun className="w-4 h-4 mr-3" />
               )}
               <span>Toggle Theme</span>
               <span className="ml-auto text-xs text-muted-foreground">
-                {theme === 'black' ? 'Dark' : 'Light'}
+                {theme === 'dark' ? 'Dark' : 'Light'}
               </span>
             </Command.Item>
           </Command.Group>

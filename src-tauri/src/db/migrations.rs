@@ -72,6 +72,18 @@ impl<'a> MigrationManager<'a> {
         if current_version < 16 {
             self.run_in_savepoint("v16", |mgr| mgr.migrate_to_v16())?;
         }
+        if current_version < 17 {
+            self.run_in_savepoint("v17", |mgr| mgr.migrate_to_v17())?;
+        }
+        if current_version < 18 {
+            self.run_in_savepoint("v18", |mgr| mgr.migrate_to_v18())?;
+        }
+        if current_version < 19 {
+            self.run_in_savepoint("v19", |mgr| mgr.migrate_to_v19())?;
+        }
+        if current_version < 20 {
+            self.run_in_savepoint("v20", |mgr| mgr.migrate_to_v20())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -1467,6 +1479,110 @@ impl<'a> MigrationManager<'a> {
         self.record_migration(16, "domain_column", &hash)?;
 
         log::info!("[Migration] v16 applied successfully");
+        Ok(())
+    }
+
+    /// Migration v17: Manga series grouping
+    fn migrate_to_v17(&self) -> Result<()> {
+        log::info!("[Migration] Applying v17: Manga series grouping");
+
+        // Create manga_series table for grouping manga volumes
+        self.conn.execute_batch(
+            r#"
+            CREATE TABLE IF NOT EXISTS manga_series (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL UNIQUE,
+                sort_title TEXT,
+                cover_path TEXT,
+                status TEXT DEFAULT 'ongoing',
+                added_date TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_manga_series_title ON manga_series(title COLLATE NOCASE);
+            "#,
+        )?;
+
+        // Add manga_series_id foreign key to books table
+        if !self.column_exists("books", "manga_series_id")? {
+            self.conn.execute(
+                "ALTER TABLE books ADD COLUMN manga_series_id INTEGER REFERENCES manga_series(id) ON DELETE SET NULL",
+                [],
+            )?;
+        }
+
+        // Create index on manga_series_id for efficient lookups
+        self.conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_books_manga_series ON books(manga_series_id);",
+        )?;
+
+        let hash = Self::calculate_checksum("v17_manga_series_grouping");
+        self.set_schema_version(17)?;
+        self.record_migration(17, "manga_series_grouping", &hash)?;
+
+        log::info!("[Migration] v17 applied successfully");
+        Ok(())
+    }
+
+    /// Migration v18: Add performance indexes for frequently queried columns
+    fn migrate_to_v18(&self) -> Result<()> {
+        log::info!("[Migration] Applying v18: Performance indexes");
+
+        self.conn.execute_batch(
+            r#"
+            CREATE INDEX IF NOT EXISTS idx_books_is_favorite ON books(is_favorite) WHERE is_favorite = 1;
+            CREATE INDEX IF NOT EXISTS idx_books_reading_status ON books(reading_status);
+            CREATE INDEX IF NOT EXISTS idx_books_last_opened ON books(last_opened DESC);
+            "#,
+        )?;
+
+        let hash = Self::calculate_checksum("v18_performance_indexes");
+        self.set_schema_version(18)?;
+        self.record_migration(18, "performance_indexes", &hash)?;
+
+        log::info!("[Migration] v18 applied successfully");
+        Ok(())
+    }
+
+    /// Migration v19: Metadata lock system (per-field locks to prevent auto-overwrite)
+    fn migrate_to_v19(&self) -> Result<()> {
+        log::info!("[Migration] Applying v19: Metadata lock system");
+
+        // Add metadata_locked column to store JSON object mapping field names to lock states
+        // Format: {"title": true, "author": true, "description": false, ...}
+        // NULL means no locks (all fields unlocked)
+        if !self.column_exists("books", "metadata_locked")? {
+            self.conn.execute(
+                "ALTER TABLE books ADD COLUMN metadata_locked TEXT DEFAULT NULL",
+                [],
+            )?;
+        }
+
+        let hash = Self::calculate_checksum("v19_metadata_lock_system");
+        self.set_schema_version(19)?;
+        self.record_migration(19, "metadata_lock_system", &hash)?;
+
+        log::info!("[Migration] v19 applied successfully");
+        Ok(())
+    }
+
+    /// Migration v20: Add CFI (Canonical Fragment Identifier) for precise EPUB position tracking
+    fn migrate_to_v20(&self) -> Result<()> {
+        log::info!("[Migration] Applying v20: CFI location tracking for EPUB");
+
+        // Add cfi_location column for precise EPUB position tracking
+        // NULL indicates legacy page-based progress (backward compatible)
+        if !self.column_exists("reading_progress", "cfi_location")? {
+            self.conn.execute(
+                "ALTER TABLE reading_progress ADD COLUMN cfi_location TEXT DEFAULT NULL",
+                [],
+            )?;
+        }
+
+        let hash = Self::calculate_checksum("v20_cfi_location_tracking");
+        self.set_schema_version(20)?;
+        self.record_migration(20, "cfi_location_tracking", &hash)?;
+
+        log::info!("[Migration] v20 applied successfully");
         Ok(())
     }
 

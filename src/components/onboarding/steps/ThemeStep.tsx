@@ -8,7 +8,7 @@ export function ThemeStep() {
     const draftConfig = useOnboardingStore(state => state.draftConfig);
     const setDraftValue = useOnboardingStore(state => state.setDraftValue);
 
-    const currentTheme = (draftConfig.theme as Theme) || "white";
+    const currentTheme = (draftConfig.theme as Theme) || "light";
 
     // Live preview effect
     useEffect(() => {
@@ -16,8 +16,8 @@ export function ThemeStep() {
     }, [currentTheme]);
 
     const themes = [
-        { id: "white" as Theme, name: "Light Mode", icon: Sun, desc: "Crisp and clear" },
-        { id: "black" as Theme, name: "Dark Mode", icon: Moon, desc: "Easy on the eyes" },
+        { id: "light" as Theme, name: "Light Mode", icon: Sun, desc: "Crisp and clear" },
+        { id: "dark" as Theme, name: "Dark Mode", icon: Moon, desc: "Easy on the eyes" },
     ];
 
     return (

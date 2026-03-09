@@ -1,3 +1,4 @@
+import { logger } from './logger';
 /**
  * Text extraction utilities for DOM and PDF content
  * Provides clean text output for TTS processing
@@ -77,7 +78,7 @@ export async function extractTextFromPdfPage(
     
     return text;
   } catch (error) {
-    console.error('Failed to extract text from PDF page:', error);
+    logger.error('Failed to extract text from PDF page:', error);
     return '';
   }
 }

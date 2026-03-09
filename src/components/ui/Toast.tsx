@@ -9,6 +9,7 @@ interface ToastProps {
   description?: string;
   variant?: 'success' | 'error' | 'info' | 'warning';
   duration?: number;
+  action?: { label: string; onClick: () => void };
 }
 
 export const Toast = ({
@@ -18,6 +19,7 @@ export const Toast = ({
   description,
   variant = 'info',
   duration = 3000,
+  action,
 }: ToastProps) => {
   const icons = {
     success: <CheckCircle className="w-5 h-5 text-green-500" />,
@@ -57,6 +59,16 @@ export const Toast = ({
           </ToastPrimitive.Description>
         )}
       </div>
+      {action && (
+        <ToastPrimitive.Action asChild altText={action.label}>
+          <button
+            onClick={action.onClick}
+            className="flex-shrink-0 rounded bg-transparent px-3 py-1 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors border border-gray-300 dark:border-gray-700"
+          >
+            {action.label}
+          </button>
+        </ToastPrimitive.Action>
+      )}
       <ToastPrimitive.Close className="flex-shrink-0 rounded-lg p-1 hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors">
         <X className="w-4 h-4" />
       </ToastPrimitive.Close>

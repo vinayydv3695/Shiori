@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { logger } from '@/lib/logger';
 
 // ═══════════════════════════════════════════════════════════
 // PREMIUM READER STATE MANAGEMENT
@@ -513,7 +514,7 @@ if (typeof window !== 'undefined') {
       parsed = JSON.parse(savedSettings);
     } catch {
       // Corrupted localStorage — clear it so defaults apply cleanly
-      console.warn('[premiumReaderStore] Corrupted saved settings, resetting to defaults');
+      logger.warn('[premiumReaderStore] Corrupted saved settings, resetting to defaults');
       localStorage.removeItem('shiori-reading-settings');
     }
   }

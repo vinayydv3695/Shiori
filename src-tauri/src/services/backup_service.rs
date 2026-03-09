@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io::{BufWriter, Read, Write};
 use std::path::Path;
+use tempfile::TempDir;
 use walkdir::WalkDir;
 use zip::write::SimpleFileOptions;
 use zip::{ZipArchive, ZipWriter};
@@ -45,12 +46,10 @@ pub fn create_backup(
 ) -> Result<BackupInfo> {
     let conn = db.get_connection()?;
 
-    // Create a temporary directory for building the backup
-    let temp_dir = std::env::temp_dir().join(format!("shiori_backup_{}", Utc::now().timestamp()));
-    fs::create_dir_all(&temp_dir)?;
+    let temp_dir = TempDir::new()
+        .map_err(|e| ShioriError::Other(format!("Failed to create temp directory: {}", e)))?;
+    let temp_db_path = temp_dir.path().join("library.db");
 
-    // Step 1: VACUUM database into a clean copy
-    let temp_db_path = temp_dir.join("library.db");
     conn.execute_batch(&format!(
         "VACUUM INTO '{}'",
         temp_db_path.display().to_string().replace("'", "''")
@@ -139,9 +138,6 @@ pub fn create_backup(
     zip.write_all(manifest_json.as_bytes())?;
 
     zip.finish()?;
-
-    // Cleanup temp directory
-    fs::remove_dir_all(&temp_dir)?;
 
     Ok(backup_info)
 }

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Book {
@@ -26,7 +27,6 @@ pub struct Book {
     pub last_opened: Option<String>,
     pub notes: Option<String>,
 
-    // Online metadata
     #[serde(default)]
     pub online_metadata_fetched: bool,
     pub metadata_source: Option<String>,
@@ -39,6 +39,9 @@ pub struct Book {
     pub reading_status: String,
 
     pub domain: Option<String>,
+
+    #[serde(default)]
+    pub metadata_locked: Option<HashMap<String, bool>>,
 
     pub authors: Vec<Author>,
     pub tags: Vec<Tag>,
@@ -109,6 +112,7 @@ pub struct ReadingProgress {
     pub progress_percent: f64,
     pub current_page: Option<i32>,
     pub total_pages: Option<i32>,
+    pub cfi_location: Option<String>,
     pub last_read: String,
 }
 
@@ -271,4 +275,22 @@ pub struct BookReadingStats {
     pub sessions_count: i64,
     pub last_read: Option<String>,
     pub average_session_minutes: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MangaSeries {
+    pub id: Option<i64>,
+    pub title: String,
+    pub sort_title: Option<String>,
+    pub cover_path: Option<String>,
+    pub status: Option<String>,
+    pub added_date: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MangaVolume {
+    pub id: Option<i64>,
+    pub manga_series_id: i64,
+    pub book_id: i64,
+    pub volume_number: Option<i32>,
 }

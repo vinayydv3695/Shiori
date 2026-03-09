@@ -3,7 +3,7 @@
  * Matches Rust backend types in src-tauri/src/commands/preferences.rs
  */
 
-export type Theme = 'black' | 'white';
+export type Theme = 'light' | 'dark' | 'system' | 'sepia' | 'high-contrast';
 export type ScrollMode = 'paged' | 'continuous';
 export type Justification = 'left' | 'justify';
 export type MangaMode = 'long-strip' | 'single' | 'double' | 'webtoon' | 'manhwa' | 'comic';
@@ -43,6 +43,19 @@ export interface TtsPreferences {
   highlightColor: string;
 }
 
+export type CoverSize = 'small' | 'medium' | 'large';
+export type SortOrder = 'title-asc' | 'title-desc' | 'author-asc' | 'date-added-desc' | 'date-added-asc' | 'last-read-desc';
+export type ViewMode = 'grid' | 'list' | 'table';
+export type LibraryDensity = 'compact' | 'comfortable' | 'spacious';
+export type DuplicateHandling = 'skip' | 'overwrite' | 'keep-both' | 'ask';
+export type MetadataMode = 'auto' | 'embedded-only' | 'manual' | 'online';
+export type CacheClearPolicy = 'manual' | 'on-startup' | 'weekly' | 'monthly';
+
+export interface WatchFolder {
+  path: string;
+  enabled: boolean;
+}
+
 export interface UserPreferences {
   theme: Theme;
   book: BookPreferences;
@@ -60,6 +73,21 @@ export interface UserPreferences {
   defaultMangaPath: string | null;
   translationTargetLanguage: string;
   dailyReadingGoalMinutes?: number;
+  debugLogging?: boolean;
+  uiFontFamily?: string;
+  coverSize?: CoverSize;
+  defaultSortOrder?: SortOrder;
+  defaultViewMode?: ViewMode;
+  libraryDensity?: LibraryDensity;
+  duplicateHandling?: DuplicateHandling;
+  autoFetchCovers?: boolean;
+  autoScanIntervalMinutes?: number;
+  cacheSizeLimitMB?: number;
+  cacheClearPolicy?: CacheClearPolicy;
+  sendAnalytics?: boolean;
+  sendCrashReports?: boolean;
+  historyRetentionDays?: number;
+  watchFolders?: WatchFolder[];
 }
 
 export interface PreferenceOverride {
@@ -82,7 +110,7 @@ export const DEFAULT_BOOK_PREFERENCES: BookPreferences = {
   pageWidth: 720,
   scrollMode: 'paged',
   justification: 'left',
-  paragraphSpacing: 16,
+  paragraphSpacing: 1.0,
   animationSpeed: 250,
   hyphenation: false,
   customCSS: '',
@@ -108,7 +136,7 @@ export const DEFAULT_TTS_PREFERENCES: TtsPreferences = {
 };
 
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
-  theme: 'white',
+  theme: 'light',
   book: DEFAULT_BOOK_PREFERENCES,
   manga: DEFAULT_MANGA_PREFERENCES,
   tts: DEFAULT_TTS_PREFERENCES,
@@ -124,4 +152,18 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   defaultMangaPath: null,
   translationTargetLanguage: 'en',
   dailyReadingGoalMinutes: 30,
+  debugLogging: false,
+  uiFontFamily: 'system',
+  coverSize: 'medium',
+  defaultSortOrder: 'title-asc',
+  defaultViewMode: 'grid',
+  libraryDensity: 'comfortable',
+  duplicateHandling: 'skip',
+  autoFetchCovers: true,
+  autoScanIntervalMinutes: 60,
+  cacheSizeLimitMB: 500,
+  cacheClearPolicy: 'manual',
+  sendAnalytics: false,
+  sendCrashReports: false,
+  historyRetentionDays: -1,
 };

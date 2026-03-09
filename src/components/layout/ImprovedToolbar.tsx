@@ -18,6 +18,7 @@ import {
   IconRSS,
   IconConvert,
   IconEditMeta,
+  IconInfo,
   IconDelete,
   IconSearch,
   IconSettings,
@@ -26,6 +27,7 @@ import {
   IconX,
   IconSidebarToggle,
 } from '@/components/icons/ShioriIcons'
+import { Layers, Copy, Filter } from 'lucide-react'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import {
   DropdownMenu,
@@ -35,6 +37,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu'
+import { FeatureHint } from '@/components/ui/FeatureHint'
 
 export type DomainView = 'books' | 'manga_comics'
 
@@ -50,12 +53,18 @@ interface PremiumTopbarProps {
   onOpenRSS?: () => void
   onConvert?: () => void
   onEditMetadata?: () => void
+  onFetchMetadata?: () => void
+  onViewDetails?: () => void
   onDelete?: () => void
   onSearch?: (query: string) => void
   onOpenSettings: () => void
+  onOpenDuplicateFinder?: () => void
+  onOpenAdvancedFilter?: () => void
   onToggleSidebar?: () => void
   onGoHome?: () => void
+  onAutoGroupManga?: () => void
   selectedCount?: number
+  activeFilterCount?: number
   sidebarOpen?: boolean
 }
 
@@ -201,23 +210,29 @@ export function PremiumTopbar({
   onOpenRSS,
   onConvert,
   onEditMetadata,
+  onFetchMetadata,
+  onViewDetails,
   onDelete,
   onSearch,
   onOpenSettings,
+  onOpenDuplicateFinder,
+  onOpenAdvancedFilter,
   onToggleSidebar,
   onGoHome,
+  onAutoGroupManga,
   selectedCount = 0,
+  activeFilterCount = 0,
   sidebarOpen = true,
 }: PremiumTopbarProps) {
   const preferences = usePreferencesStore((s) => s.preferences)
   const updateTheme = usePreferencesStore((s) => s.updateTheme)
 
-  const isDark = preferences?.theme === 'black'
+  const isDark = preferences?.theme === 'dark'
   const hasSelection = selectedCount > 0
 
   const toggleTheme = async () => {
     if (preferences) {
-      await updateTheme(isDark ? 'white' : 'black')
+      await updateTheme(isDark ? 'light' : 'dark')
     }
   }
 
@@ -337,6 +352,24 @@ export function PremiumTopbar({
             <IconImportManga size={14} />
             <span>Scan Comics Folder</span>
           </DropdownMenuItem>
+
+          {currentDomain === 'manga_comics' && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Organization</DropdownMenuLabel>
+              <FeatureHint
+                featureId="auto-group-manga"
+                title="Auto-group Manga Volumes"
+                description="Automatically detect and group manga volumes by series name from filenames. Perfect for organizing your manga collection!"
+                position="right"
+              >
+                <DropdownMenuItem onClick={onAutoGroupManga} className="gap-2 cursor-pointer">
+                  <Layers size={14} />
+                  <span>Auto-group Manga Volumes</span>
+                </DropdownMenuItem>
+              </FeatureHint>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -366,6 +399,59 @@ export function PremiumTopbar({
         disabled={!hasSelection}
         title={hasSelection ? 'Edit metadata' : 'Select a book to edit metadata'}
       />
+      <TBtn
+        onClick={onFetchMetadata}
+        icon={<Layers size={15} />}
+        label="Fetch Metadata"
+        showLabel={false}
+        disabled={!hasSelection}
+        title={hasSelection ? 'Batch fetch metadata for selected' : 'Select books to fetch metadata'}
+      />
+      <FeatureHint
+        featureId="info-button"
+        title="View Book Details"
+        description="Click the Info button or press ⌘I / Ctrl+I to view complete book information and metadata."
+        position="bottom"
+      >
+        <TBtn
+          onClick={onViewDetails}
+          icon={<IconInfo size={15} />}
+          label="Info"
+          showLabel={false}
+          disabled={!hasSelection}
+          title={hasSelection ? 'View book details (⌘I / Ctrl+I)' : 'Select a book to view details'}
+        />
+      </FeatureHint>
+
+      <TBtn
+        onClick={onOpenDuplicateFinder}
+        icon={<Copy size={15} />}
+        label="Duplicates"
+        showLabel={false}
+        title="Find duplicate books"
+      />
+
+      <button
+        onClick={onOpenAdvancedFilter}
+        title="Advanced Filters (Ctrl+Shift+F)"
+        aria-label="Advanced Filters"
+        className={cn(
+          'group relative flex items-center gap-1.5 h-8 rounded-md px-2.5',
+          'text-xs font-medium select-none',
+          'transition-all duration-[120ms] ease-[cubic-bezier(0.4,0,0.2,1)]',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          activeFilterCount > 0
+            ? 'text-primary bg-primary/10'
+            : 'text-muted-foreground hover:text-foreground hover:bg-accent',
+        )}
+      >
+        <Filter size={15} />
+        {activeFilterCount > 0 && (
+          <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold leading-none">
+            {activeFilterCount}
+          </span>
+        )}
+      </button>
 
       <Sep />
 

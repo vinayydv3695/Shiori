@@ -164,6 +164,7 @@ pub async fn preview_cover_url(url: String) -> Result<Vec<u8>> {
 
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct SelectedMetadata {
     pub title: Option<String>,
     pub description: Option<String>,
@@ -193,34 +194,54 @@ pub async fn apply_selected_metadata(
     let db = &app_state.db;
     let mut book = library_service::get_book_by_id(db, book_id)?;
     
+    let is_locked = |field: &str| -> bool {
+        book.metadata_locked
+            .as_ref()
+            .and_then(|locks| locks.get(field))
+            .copied()
+            .unwrap_or(false)
+    };
+    
     if let Some(title) = &metadata.title {
-        if !title.is_empty() {
+        if !title.is_empty() && !is_locked("title") {
             book.title = title.clone();
         }
     }
     if let Some(desc) = &metadata.description {
-        book.notes = Some(desc.clone());
+        if !is_locked("description") {
+            book.notes = Some(desc.clone());
+        }
     }
     if let Some(publisher) = &metadata.publisher {
-        book.publisher = Some(publisher.clone());
+        if !is_locked("publisher") {
+            book.publisher = Some(publisher.clone());
+        }
     }
     if let Some(pubdate) = &metadata.publish_date {
-        book.pubdate = Some(pubdate.clone());
+        if !is_locked("publish_date") {
+            book.pubdate = Some(pubdate.clone());
+        }
     }
     if let Some(pages) = metadata.page_count {
-        book.page_count = Some(pages);
+        if !is_locked("page_count") {
+            book.page_count = Some(pages);
+        }
     }
     if let Some(isbn) = &metadata.isbn {
-        book.isbn = Some(isbn.clone());
+        if !is_locked("isbn") {
+            book.isbn = Some(isbn.clone());
+        }
     }
     if let Some(isbn13) = &metadata.isbn13 {
-        book.isbn13 = Some(isbn13.clone());
+        if !is_locked("isbn") {
+            book.isbn13 = Some(isbn13.clone());
+        }
     }
     if let Some(anilist_id) = &metadata.anilist_id {
         book.anilist_id = Some(anilist_id.clone());
     }
     
-    if !metadata.authors.is_empty() {
+    if !metadata.authors.is_empty() && !is_locked("author") {
         book.authors = metadata.authors.iter().map(|name| crate::models::Author {
             id: None,
             name: name.clone(),
@@ -229,7 +250,7 @@ pub async fn apply_selected_metadata(
         }).collect();
     }
     
-    if !metadata.genres.is_empty() {
+    if !metadata.genres.is_empty() && !is_locked("tags") {
         book.tags = metadata.genres.iter().map(|g| crate::models::Tag {
             id: None,
             name: g.clone(),
@@ -266,13 +287,11 @@ pub async fn apply_selected_metadata(
             
             tauri::async_runtime::spawn(async move {
                 if let Ok(response) = reqwest::get(&url).await {
-                    // Check HTTP response status
                     if !response.status().is_success() {
                         log::error!("[apply_selected_metadata] Cover download failed with status: {}", response.status());
                         return;
                     }
                     
-                    // Determine extension from Content-Type header
                     let content_type = response.headers()
                         .get(reqwest::header::CONTENT_TYPE)
                         .and_then(|ct| ct.to_str().ok())
@@ -286,13 +305,11 @@ pub async fn apply_selected_metadata(
                     };
                     
                     if let Ok(bytes) = response.bytes().await {
-                        // Check size limit (10MB)
                         if bytes.len() > 10 * 1024 * 1024 {
                             log::error!("[apply_selected_metadata] Cover too large: {} bytes", bytes.len());
                             return;
                         }
                         
-                        // Magic bytes fallback for extension detection
                         if bytes.starts_with(b"\x89PNG") {
                             ext = "png";
                         } else if bytes.len() > 12 && bytes.starts_with(b"RIFF") && &bytes[8..12] == b"WEBP" {

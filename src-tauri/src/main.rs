@@ -10,6 +10,7 @@ mod utils;
 
 use std::sync::Arc;
 use tauri::Manager;
+use error::ShioriError;
 
 use services::{
     conversion_engine::ConversionEngine,
@@ -19,6 +20,7 @@ use services::{
     share_service::ShareService,
     manga_metadata_service::MangaMetadataService,
     book_metadata_service::BookMetadataService,
+    folder_watch::FolderWatchService,
     online::{
         worker::{MetadataWorker, MetadataJob},
         anilist::AniListProvider,
@@ -44,6 +46,7 @@ fn main() {
 
     env_logger::init();
 
+    #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init());
     
@@ -59,11 +62,10 @@ fn main() {
     }
     
     builder.setup(|app| {
-            // Initialize database
             let app_dir = app
                 .path()
                 .app_data_dir()
-                .expect("Failed to get app data directory");
+                .map_err(|e| ShioriError::Other(format!("Failed to get app data directory: {}", e)))?;
 
             std::fs::create_dir_all(&app_dir)?;
 
@@ -75,7 +77,7 @@ fn main() {
 
             app.manage(AppState {
                 db: database.clone(),
-                covers_dir,
+                covers_dir: covers_dir.clone(),
             });
 
             // Initialize rendering service with 100MB cache
@@ -88,13 +90,11 @@ fn main() {
             let storage_path = app_dir.join("storage");
             std::fs::create_dir_all(&storage_path)?;
 
-            // Conversion engine (4 workers, with AppHandle for Tauri event emission)
             let mut conversion_engine = ConversionEngine::new(4, app.handle().clone());
             conversion_engine.set_database(database.clone());
             let conversion_engine = Arc::new(conversion_engine);
-            // Restore any jobs that were in-progress when the app last closed
             if let Ok(conn) = database.get_connection() {
-                let _ = conversion_engine.restore_from_db(&conn);
+                conversion_engine.restore_from_db(&conn);
             }
 
             app.manage(conversion_engine);
@@ -158,6 +158,9 @@ fn main() {
                 sender: metadata_job_sender,
             });
 
+            let folder_watch_service = FolderWatchService::new(database.clone(), covers_dir.clone());
+            app.manage(commands::folder_watch::FolderWatchState::new(folder_watch_service));
+
             log::info!("Shiori v2.0 initialized with database at {:?}", db_path);
             log::info!("Storage path: {:?}", storage_path);
             log::info!("Conversion engine: 4 workers");
@@ -169,6 +172,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::library::get_books,
+            commands::library::find_duplicate_books,
             commands::library::get_total_books,
             commands::library::get_book,
             commands::library::add_book,
@@ -252,6 +256,7 @@ fn main() {
             commands::collections::toggle_book_favorite,
             commands::collections::get_favorite_book_ids,
             commands::collections::get_collections_by_type,
+            commands::collections::preview_smart_collection,
             commands::export::export_library,
             // v2.0 commands
             commands::conversion::convert_book,
@@ -294,6 +299,12 @@ fn main() {
             commands::manga::preload_manga_pages,
             commands::manga::get_manga_page_dimensions,
             commands::manga::close_manga,
+            commands::manga::get_manga_series_list,
+            commands::manga::get_series_volumes,
+            commands::manga::auto_group_manga_volumes,
+            commands::manga::create_manga_series,
+            commands::manga::assign_book_to_series,
+            commands::manga::remove_book_from_series,
             // Preferences commands
             commands::preferences::get_user_preferences,
             commands::preferences::get_theme_sync,
@@ -321,7 +332,17 @@ fn main() {
             // Translation/dictionary commands
             commands::translation::dictionary_lookup,
             commands::translation::translate_text,
+            // Folder watch commands
+            commands::folder_watch::start_folder_watch,
+            commands::folder_watch::stop_folder_watch,
+            commands::folder_watch::add_watch_folder,
+            commands::folder_watch::remove_watch_folder,
+            commands::folder_watch::get_watch_folders,
+            commands::folder_watch::get_watch_status,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .unwrap_or_else(|e| {
+            eprintln!("Fatal error starting Shiori application: {}", e);
+            std::process::exit(1);
+        });
 }

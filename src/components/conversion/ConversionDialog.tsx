@@ -140,11 +140,11 @@ export const ConversionDialog: React.FC<ConversionDialogProps> = ({
             <Dialog.Title className="text-lg font-semibold text-foreground">
               Convert Book
             </Dialog.Title>
-            <Dialog.Close asChild>
-              <button className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-            </Dialog.Close>
+             <Dialog.Close asChild>
+               <button className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors" title="Close">
+                 <X className="w-4 h-4" />
+               </button>
+             </Dialog.Close>
           </div>
 
           <div className="px-6 py-5 space-y-5">

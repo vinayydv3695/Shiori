@@ -6,6 +6,7 @@ export interface ToastMessage {
   description?: string;
   variant?: 'success' | 'error' | 'info' | 'warning';
   duration?: number;
+  action?: { label: string; onClick: () => void };
 }
 
 interface ToastStore {
@@ -46,8 +47,11 @@ export const useToast = () => {
   const { addToast } = useToastStore();
   
   return {
-    success: (title: string, description?: string) => 
-      addToast({ title, description, variant: 'success' }),
+    success: (title: string, descriptionOrOptions?: string | { description?: string, action?: { label: string; onClick: () => void } }, options?: { action?: { label: string; onClick: () => void } }) => {
+      const desc = typeof descriptionOrOptions === 'string' ? descriptionOrOptions : descriptionOrOptions?.description;
+      const action = typeof descriptionOrOptions === 'object' ? descriptionOrOptions.action : options?.action;
+      addToast({ title, description: desc, variant: 'success', action });
+    },
     error: (title: string, description?: string) => 
       addToast({ title, description, variant: 'error' }),
     info: (title: string, description?: string) => 

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import React from 'react';
 
 interface ErrorBoundaryState {
@@ -25,7 +26,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('[ErrorBoundary] Uncaught error:', error, errorInfo);
+    logger.error('[ErrorBoundary] Uncaught error:', error, errorInfo);
   }
 
   handleRetry = () => {

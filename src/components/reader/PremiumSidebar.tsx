@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useUIStore } from '@/store/premiumReaderStore';
 import { api } from '@/lib/tauri';
+import { logger } from '@/lib/logger';
 import type { TocEntry, Annotation, BookSearchResult, AnnotationCategory } from '@/lib/tauri';
 import { X, BookOpen, Highlighter, FileText, Bookmark, Search, Loader2, Trash2, Edit2 } from '@/components/icons';
 import { useToastStore } from '@/store/toastStore';
@@ -57,11 +58,11 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
   
   // Load TOC on mount
   useEffect(() => {
-    if (bookId) {
-      loadToc();
-      loadAnnotations();
-      api.getAnnotationCategories().then(setCategories).catch(console.error);
-    }
+     if (bookId) {
+       loadToc();
+       loadAnnotations();
+       api.getAnnotationCategories().then(setCategories).catch(logger.error);
+     }
     // loadToc and loadAnnotations are recreated each render - would cause infinite loop if added
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookId]);
@@ -82,23 +83,23 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
     }
   }, [sidebarTab]);
   
-  const loadToc = async () => {
-    try {
-      const tocData = await api.getBookToc(bookId);
-      setToc(tocData);
-    } catch (err) {
-      console.error('[PremiumSidebar] Failed to load TOC:', err);
-    }
-  };
-  
-  const loadAnnotations = async () => {
-    try {
-      const annotationsData = await api.getAnnotations(bookId);
-      setAnnotations(annotationsData);
-    } catch (err) {
-      console.error('[PremiumSidebar] Failed to load annotations:', err);
-    }
-  };
+   const loadToc = async () => {
+     try {
+       const tocData = await api.getBookToc(bookId);
+       setToc(tocData);
+     } catch (err) {
+       logger.error('[PremiumSidebar] Failed to load TOC:', err);
+     }
+   };
+   
+   const loadAnnotations = async () => {
+     try {
+       const annotationsData = await api.getAnnotations(bookId);
+       setAnnotations(annotationsData);
+     } catch (err) {
+       logger.error('[PremiumSidebar] Failed to load annotations:', err);
+     }
+   };
   
   const handleSearch = useCallback(async (query: string) => {
     if (!query.trim() || query.trim().length < 2) {
@@ -107,15 +108,15 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
     }
     
     setIsSearching(true);
-    try {
-      const results = await api.searchInBook(bookId, query);
-      setSearchResults(results);
-    } catch (err) {
-      console.error('[PremiumSidebar] Search failed:', err);
-      setSearchResults([]);
-    } finally {
-      setIsSearching(false);
-    }
+     try {
+       const results = await api.searchInBook(bookId, query);
+       setSearchResults(results);
+     } catch (err) {
+       logger.error('[PremiumSidebar] Search failed:', err);
+       setSearchResults([]);
+     } finally {
+       setIsSearching(false);
+     }
   }, [bookId]);
 
   // Debounced search-as-you-type
@@ -138,24 +139,24 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
     };
   }, []);
   
-  const handleTocClick = (entry: TocEntry) => {
-    // Parse chapter index from location format: "epubcfi(/0/)", "epubcfi(/1/)", etc.
-    const match = entry.location.match(/epubcfi\(\/(\d+)\//);
-    if (match) {
-      const index = parseInt(match[1], 10);
-      console.log('[PremiumSidebar] Navigating to chapter:', index, 'from TOC entry:', entry.label);
-      onNavigate(index);
-      closeSidebar();
-    } else {
-      console.warn('[PremiumSidebar] Could not parse chapter index from location:', entry.location);
-    }
-  };
+   const handleTocClick = (entry: TocEntry) => {
+     // Parse chapter index from location format: "epubcfi(/0/)", "epubcfi(/1/)", etc.
+     const match = entry.location.match(/epubcfi\(\/(\d+)\//);
+     if (match) {
+       const index = parseInt(match[1], 10);
+       logger.debug('[PremiumSidebar] Navigating to chapter:', index, 'from TOC entry:', entry.label);
+       onNavigate(index);
+       closeSidebar();
+     } else {
+       logger.warn('[PremiumSidebar] Could not parse chapter index from location:', entry.location);
+     }
+   };
   
-  const handleSearchResultClick = (result: BookSearchResult) => {
-    console.log('[PremiumSidebar] Navigating to search result, chapter:', result.chapter_index, 'query:', searchQuery);
-    onNavigate(result.chapter_index, searchQuery);
-    closeSidebar();
-  };
+   const handleSearchResultClick = (result: BookSearchResult) => {
+     logger.debug('[PremiumSidebar] Navigating to search result, chapter:', result.chapter_index, 'query:', searchQuery);
+     onNavigate(result.chapter_index, searchQuery);
+     closeSidebar();
+   };
   
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {

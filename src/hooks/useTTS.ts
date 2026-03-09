@@ -8,6 +8,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { ttsEngine, TTSEngine } from '@/lib/ttsEngine';
+import { logger } from '@/lib/logger';
 import type { TTSState, TTSOptions } from '@/lib/ttsEngine';
 import { splitSentences } from '@/lib/sentenceSplitter';
 import { highlightSentence, clearAllHighlights } from '@/lib/sentenceHighlighter';
@@ -65,18 +66,18 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
       return;
     }
 
-    const checkNativeTTS = async () => {
-      try {
-        console.log('[TTS] Checking native TTS plugin availability...');
-        await nativeStop();
-        console.log('[TTS] Native TTS plugin detected and available');
-        setUseNativeTTS(true);
-        return;
-      } catch (error) {
-        console.log('[TTS] Native TTS plugin not available, falling back to Web Speech API:', error);
-        setUseNativeTTS(false);
-      }
-    };
+     const checkNativeTTS = async () => {
+       try {
+         logger.debug('[TTS] Checking native TTS plugin availability...');
+         await nativeStop();
+         logger.debug('[TTS] Native TTS plugin detected and available');
+         setUseNativeTTS(true);
+         return;
+       } catch (error) {
+         logger.debug('[TTS] Native TTS plugin not available, falling back to Web Speech API:', error);
+         setUseNativeTTS(false);
+       }
+     };
 
     checkNativeTTS();
 
@@ -154,18 +155,18 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
     if (useNativeTTS) {
       const estimatedDuration = (sentence.length / 15) * (1.0 / rate) * 1000;
       
-      nativeSpeak({
-        text: sentence,
-        language: null,
-        voiceId: null,
-        rate,
-        pitch: null,
-        volume: null,
-        queueMode: null,
-      }).catch((error) => {
-        console.error('Native TTS error:', error);
-        setState('idle');
-      });
+       nativeSpeak({
+         text: sentence,
+         language: null,
+         voiceId: null,
+         rate,
+         pitch: null,
+         volume: null,
+         queueMode: null,
+       }).catch((error) => {
+         logger.error('Native TTS error:', error);
+         setState('idle');
+       });
 
       setState('speaking');
       setCurrentSentenceIndex(index);
@@ -212,8 +213,8 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
             onChapterEnd?.();
           }
         },
-        onError: (event) => {
-          console.error('TTS error:', event);
+         onError: (event) => {
+           logger.error('TTS error:', event);
           setState('idle');
         },
       };
@@ -238,19 +239,19 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
       return;
     }
 
-    // Extract text from DOM
-    const text = extractTextFromDOM(contentRef.current);
-    if (!text) {
-      console.warn('No text content found to speak');
-      return;
-    }
+     // Extract text from DOM
+     const text = extractTextFromDOM(contentRef.current);
+     if (!text) {
+       logger.warn('No text content found to speak');
+       return;
+     }
 
-    // Split into sentences
-    const sentenceList = splitSentences(text);
-    if (sentenceList.length === 0) {
-      console.warn('No sentences found in content');
-      return;
-    }
+     // Split into sentences
+     const sentenceList = splitSentences(text);
+     if (sentenceList.length === 0) {
+       logger.warn('No sentences found in content');
+       return;
+     }
 
     // Update state
     setSentences(sentenceList);
@@ -401,9 +402,9 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
         pitch: null,
         volume: null,
         queueMode: null,
-      }).catch((error) => {
-        console.error('Native TTS error:', error);
-      });
+       }).catch((error) => {
+         logger.error('Native TTS error:', error);
+       });
     } else {
       const options: TTSOptions = {
         rate,

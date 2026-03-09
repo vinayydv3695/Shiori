@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useOnboardingStore } from "../../../store/onboardingStore";
 import { api } from "../../../lib/tauri";
+import { logger } from "@/lib/logger";
 import { FolderOpen, MapPin, Search } from "lucide-react";
 import { Button } from "../../ui/button";
 import { cn } from "../../../lib/utils";
@@ -16,25 +17,25 @@ export function LibrarySetupStep() {
     const mangaPath = draftConfig.defaultMangaPath || "";
     const autoScan = draftConfig.autoScanEnabled ?? true;
 
-    const handleSelectBookFolder = async () => {
-        setIsSelectingBook(true);
-        try {
-            const folder = await api.openFolderDialog();
-            if (folder) setDraftValue('defaultImportPath', folder);
-        } catch (e) {
-            console.error(e);
+     const handleSelectBookFolder = async () => {
+         setIsSelectingBook(true);
+         try {
+             const folder = await api.openFolderDialog();
+             if (folder) setDraftValue('defaultImportPath', folder);
+         } catch (e) {
+             logger.error(e);
         } finally {
             setIsSelectingBook(false);
         }
     };
 
-    const handleSelectMangaFolder = async () => {
-        setIsSelectingManga(true);
-        try {
-            const folder = await api.openFolderDialog();
-            if (folder) setDraftValue('defaultMangaPath', folder);
-        } catch (e) {
-            console.error(e);
+     const handleSelectMangaFolder = async () => {
+         setIsSelectingManga(true);
+         try {
+             const folder = await api.openFolderDialog();
+             if (folder) setDraftValue('defaultMangaPath', folder);
+         } catch (e) {
+             logger.error(e);
         } finally {
             setIsSelectingManga(false);
         }

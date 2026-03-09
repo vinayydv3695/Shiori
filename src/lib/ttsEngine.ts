@@ -1,3 +1,4 @@
+import { logger } from './logger';
 /**
  * TTS Engine abstraction over Web Speech API
  * Provides a clean interface for text-to-speech operations with proper state management
@@ -55,7 +56,7 @@ export class TTSEngine {
    */
   speak(text: string, options?: TTSOptions): void {
     if (!TTSEngine.isAvailable()) {
-      console.warn('Speech synthesis not available');
+      logger.warn('Speech synthesis not available');
       return;
     }
 

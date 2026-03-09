@@ -12,6 +12,8 @@ depends=(
     'libayatana-appindicator'
     'librsvg'
     'speech-dispatcher'
+    'sqlite'
+    'zstd'
 )
 makedepends=(
     'rust'
@@ -28,6 +30,8 @@ makedepends=(
     'gtk3'
     'libappindicator-gtk3'
     'librsvg'
+    'sqlite'
+    'zstd'
 )
 optdepends=(
     'speech-dispatcher: Native TTS support (experimental)'

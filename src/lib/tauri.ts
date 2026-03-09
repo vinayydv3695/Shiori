@@ -1,13 +1,14 @@
 import { invoke } from "@tauri-apps/api/core"
 import { open, save } from "@tauri-apps/plugin-dialog"
-import type { UserPreferences, PreferenceOverride, OnboardingState } from "../types/preferences"
+import type { UserPreferences, PreferenceOverride, OnboardingState, WatchFolder } from "../types/preferences"
+import { logger } from '@/lib/logger'
 
 // Check if we're running in Tauri environment
 export const isTauri = (() => {
   if (typeof window === 'undefined') return false
   // Check for __TAURI__ or __TAURI_INTERNALS__ (Tauri v2)
   const hasTauri = '__TAURI__' in window || '__TAURI_INTERNALS__' in window
-  console.log('[Tauri Detection]', hasTauri ? 'Running in Tauri mode' : 'Running in browser mode')
+  logger.debug('[Tauri Detection]', hasTauri ? 'Running in Tauri mode' : 'Running in browser mode')
   return hasTauri
 })()
 
@@ -42,6 +43,7 @@ export interface Book {
   is_favorite?: boolean
   reading_status?: string
   domain?: string
+  metadata_locked?: Record<string, boolean>
   authors: Author[]
   tags: Tag[]
 }
@@ -57,6 +59,22 @@ export interface Tag {
   id?: number
   name: string
   color?: string
+}
+
+export interface MangaSeries {
+  id?: number
+  title: string
+  sort_title?: string
+  cover_path?: string
+  status?: string
+  added_date: string
+}
+
+export interface MangaVolume {
+  id?: number
+  manga_series_id: number
+  book_id: number
+  volume_number?: number
 }
 
 export interface SearchQuery {
@@ -89,6 +107,7 @@ export interface ReadingProgress {
   progressPercent: number
   currentPage?: number
   totalPages?: number
+  cfiLocation?: string
   lastRead: string
 }
 
@@ -364,16 +383,16 @@ export const api = {
   // Library operations
   async getBooks(limit: number = 50, offset: number = 0): Promise<Book[]> {
     if (!isTauri) {
-      console.warn("Running in browser mode - using mock data")
+      logger.warn("Running in browser mode - using mock data")
       return Promise.resolve(mockBooks)
     }
     try {
-      console.log('[API] Calling get_books command')
+      logger.debug('[API] Calling get_books command')
       const books = await invoke<Book[]>("get_books", { limit, offset })
-      console.log('[API] Got books:', books.length)
+      logger.debug('[API] Got books:', books.length)
       return books
     } catch (error) {
-      console.error('[API] Failed to get books:', error)
+      logger.error('[API] Failed to get books:', error)
       throw error
     }
   },
@@ -405,18 +424,22 @@ export const api = {
     return invoke("delete_book", { id })
   },
 
+  async findDuplicateBooks(criteria: string, threshold?: number): Promise<Book[][]> {
+    return invoke("find_duplicate_books", { criteria, threshold })
+  },
+
   async deleteBooks(ids: number[]): Promise<void> {
     return invoke("delete_books", { ids })
   },
 
   async importBooks(paths: string[]): Promise<ImportResult> {
-    console.log('[API] importBooks called with:', paths)
+    logger.debug('[API] importBooks called with:', paths)
     try {
       const result = await invoke<ImportResult>("import_books", { paths })
-      console.log('[API] importBooks result:', result)
+      logger.debug('[API] importBooks result:', result)
       return result
     } catch (error) {
-      console.error('[API] importBooks error:', error)
+      logger.error('[API] importBooks error:', error)
       throw error
     }
   },
@@ -457,7 +480,8 @@ export const api = {
     currentLocation: string,
     progressPercent: number,
     currentPage?: number,
-    totalPages?: number
+    totalPages?: number,
+    cfiLocation?: string
   ): Promise<ReadingProgress> {
     return invoke("save_reading_progress", {
       bookId,
@@ -465,6 +489,7 @@ export const api = {
       progressPercent,
       currentPage,
       totalPages,
+      cfiLocation,
     })
   },
 
@@ -687,6 +712,10 @@ export const api = {
     return invoke("get_collections_by_type", { collectionType })
   },
 
+  async previewSmartCollection(smartRules: string): Promise<number> {
+    return invoke("preview_smart_collection", { smartRules })
+  },
+
   // Import/Export
   async scanFolderForBooks(folderPath: string): Promise<ImportResult> {
     return invoke("scan_folder_for_books", { folderPath })
@@ -694,13 +723,13 @@ export const api = {
 
   // Domain-separated import
   async importManga(paths: string[]): Promise<ImportResult> {
-    console.log('[API] importManga called with:', paths)
+    logger.debug('[API] importManga called with:', paths)
     try {
       const result = await invoke<ImportResult>("import_manga", { paths })
-      console.log('[API] importManga result:', result)
+      logger.debug('[API] importManga result:', result)
       return result
     } catch (error) {
-      console.error('[API] importManga error:', error)
+      logger.error('[API] importManga error:', error)
       throw error
     }
   },
@@ -710,13 +739,13 @@ export const api = {
   },
 
   async importComics(paths: string[]): Promise<ImportResult> {
-    console.log('[API] importComics called with:', paths)
+    logger.debug('[API] importComics called with:', paths)
     try {
       const result = await invoke<ImportResult>("import_comics", { paths })
-      console.log('[API] importComics result:', result)
+      logger.debug('[API] importComics result:', result)
       return result
     } catch (error) {
-      console.error('[API] importComics error:', error)
+      logger.error('[API] importComics error:', error)
       throw error
     }
   },
@@ -755,11 +784,11 @@ export const api = {
   // File dialogs
   async openFileDialog(): Promise<string[] | null> {
     if (!isTauri) {
-      console.warn("File dialogs only work in Tauri environment. Please run: npm run tauri dev")
+      logger.warn("File dialogs only work in Tauri environment. Please run: npm run tauri dev")
       return Promise.resolve(null)
     }
     try {
-      console.log('[API] Opening file dialog')
+      logger.debug('[API] Opening file dialog')
       const result = await open({
         multiple: true,
         filters: [
@@ -769,17 +798,17 @@ export const api = {
           },
         ],
       }) as string[] | null
-      console.log('[API] File dialog result:', result)
+      logger.debug('[API] File dialog result:', result)
       return result
     } catch (error) {
-      console.error('[API] File dialog error:', error)
+      logger.error('[API] File dialog error:', error)
       throw error
     }
   },
 
   async openFolderDialog(): Promise<string | null> {
     if (!isTauri) {
-      console.warn("File dialogs only work in Tauri environment. Please run: npm run tauri dev")
+      logger.warn("File dialogs only work in Tauri environment. Please run: npm run tauri dev")
       return Promise.resolve(null)
     }
     return open({
@@ -789,7 +818,7 @@ export const api = {
 
   async saveFileDialog(defaultPath?: string): Promise<string | null> {
     if (!isTauri) {
-      console.warn("File dialogs only work in Tauri environment. Please run: npm run tauri dev")
+      logger.warn("File dialogs only work in Tauri environment. Please run: npm run tauri dev")
       return Promise.resolve(null)
     }
     return save({
@@ -985,5 +1014,65 @@ export const api = {
 
   async translateText(text: string, targetLang: string, sourceLang?: string): Promise<TranslationResponse> {
     return invoke("translate_text", { text, sourceLang, targetLang })
+  },
+
+  async getMangaSeriesList(limit?: number, offset?: number): Promise<MangaSeries[]> {
+    return invoke("get_manga_series_list", { limit, offset })
+  },
+
+  async getSeriesVolumes(seriesId: number): Promise<MangaVolume[]> {
+    return invoke("get_series_volumes", { seriesId })
+  },
+
+  async autoGroupMangaVolumes(): Promise<number> {
+    return invoke("auto_group_manga_volumes")
+  },
+
+  async createMangaSeries(title: string): Promise<number> {
+    return invoke("create_manga_series", { title })
+  },
+
+  async updateMangaSeries(seriesId: number, updates: Partial<MangaSeries>): Promise<void> {
+    return invoke("update_manga_series", { seriesId, updates })
+  },
+
+  async assignBookToSeries(bookId: number, seriesTitle: string, chapterNumber?: number): Promise<void> {
+    return invoke("assign_book_to_series", { bookId, seriesTitle, chapterNumber })
+  },
+
+  async removeBookFromSeries(bookId: number): Promise<void> {
+    return invoke("remove_book_from_series", { bookId })
+  },
+
+  async deleteMangaSeries(seriesId: number): Promise<void> {
+    return invoke("delete_manga_series", { seriesId })
+  },
+
+  async mergeMangaSeries(sourceIds: number[], targetId: number): Promise<void> {
+    return invoke("merge_manga_series", { sourceIds, targetId })
+  },
+
+  async startFolderWatch(): Promise<void> {
+    return invoke("start_folder_watch")
+  },
+
+  async stopFolderWatch(): Promise<void> {
+    return invoke("stop_folder_watch")
+  },
+
+  async addWatchFolder(path: string, enabled: boolean): Promise<void> {
+    return invoke("add_watch_folder", { path, enabled })
+  },
+
+  async removeWatchFolder(path: string): Promise<void> {
+    return invoke("remove_watch_folder", { path })
+  },
+
+  async getWatchFolders(): Promise<WatchFolder[]> {
+    return invoke("get_watch_folders")
+  },
+
+  async getWatchStatus(): Promise<{ is_running: boolean; watched_folders_count: number; enabled_folders_count: number }> {
+    return invoke("get_watch_status")
   },
 }

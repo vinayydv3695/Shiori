@@ -4,6 +4,7 @@ import {
     useMangaSettingsStore,
 } from '@/store/mangaReaderStore';
 import { api } from '@/lib/tauri';
+import { logger } from '@/lib/logger';
 import { useToastStore } from '@/store/toastStore';
 import { MangaTopBar } from './MangaTopBar';
 import { MangaCanvas } from './MangaCanvas';
@@ -81,35 +82,35 @@ export function MangaReader({
                 );
 
                 // Load reading progress and resume from last page
-                try {
-                    const progress = await api.getReadingProgress(bookId);
-                    if (cancelled) return;
-                    if (progress && progress.currentPage !== undefined) {
-                        console.log('[MangaReader] Resuming from page:', progress.currentPage);
-                        setCurrentPage(progress.currentPage);
-                        if (progress.currentPage > 0) {
-                            useToastStore.getState().addToast({
-                                title: 'Resuming reading',
-                                description: `Page ${progress.currentPage + 1} of ${metadata.page_count}`,
-                                variant: 'info',
-                                duration: 3000,
-                            });
-                        }
-                    }
-                } catch (progressErr) {
-                    console.warn('[MangaReader] Failed to load reading progress:', progressErr);
-                }
+                 try {
+                     const progress = await api.getReadingProgress(bookId);
+                     if (cancelled) return;
+                     if (progress && progress.currentPage !== undefined) {
+                         logger.debug('[MangaReader] Resuming from page:', progress.currentPage);
+                         setCurrentPage(progress.currentPage);
+                         if (progress.currentPage > 0) {
+                             useToastStore.getState().addToast({
+                                 title: 'Resuming reading',
+                                 description: `Page ${progress.currentPage + 1} of ${metadata.page_count}`,
+                                 variant: 'info',
+                                 duration: 3000,
+                             });
+                         }
+                     }
+                 } catch (progressErr) {
+                     logger.warn('[MangaReader] Failed to load reading progress:', progressErr);
+                 }
 
-                if (!cancelled) {
-                    initCompleteRef.current = true;
-                }
-            } catch (err) {
-                if (cancelled) return;
-                // Fallback: use provided props if IPC not available yet
-                console.warn('[MangaReader] IPC open_manga not available, using props:', err);
-                openManga(bookId, bookPath, title, totalPages);
-                initCompleteRef.current = true;
-            }
+                 if (!cancelled) {
+                     initCompleteRef.current = true;
+                 }
+             } catch (err) {
+                 if (cancelled) return;
+                 // Fallback: use provided props if IPC not available yet
+                 logger.warn('[MangaReader] IPC open_manga not available, using props:', err);
+                 openManga(bookId, bookPath, title, totalPages);
+                 initCompleteRef.current = true;
+             }
             if (!cancelled) {
                 setLoading(false);
             }
@@ -120,10 +121,10 @@ export function MangaReader({
         return () => {
             cancelled = true;
             initCompleteRef.current = false;
-            // Release the backend ZIP archive to free ~200MB/book
-            api.closeManga(bookId).catch(err =>
-                console.warn('[MangaReader] Failed to close manga backend:', err)
-            );
+             // Release the backend ZIP archive to free ~200MB/book
+             api.closeManga(bookId).catch(err =>
+                 logger.warn('[MangaReader] Failed to close manga backend:', err)
+             );
             // Cleanup frontend state
             closeManga();
             imageCache.clear();
@@ -166,9 +167,9 @@ export function MangaReader({
             if (cancelled) return;
             for (const idx of needed) fetchedDimsRef.current.add(idx);
             mergePageDimensions(needed, dims);
-        }).catch(err => {
-            console.warn('[MangaReader] Failed to fetch page dimensions:', err);
-        });
+         }).catch(err => {
+             logger.warn('[MangaReader] Failed to fetch page dimensions:', err);
+         });
 
         return () => { cancelled = true; };
     }, [bookId, currentPage, mangaTotalPages, pageDimensions, mergePageDimensions]);
@@ -194,10 +195,10 @@ export function MangaReader({
                     progressPercent,
                     currentPage,
                     mangaTotalPages
-                );
-                console.log('[MangaReader] Saved progress:', { currentPage, total: mangaTotalPages, percent: progressPercent });
-            } catch (err) {
-                console.warn('[MangaReader] Failed to save reading progress:', err);
+                 );
+                 logger.debug('[MangaReader] Saved progress:', { currentPage, total: mangaTotalPages, percent: progressPercent });
+             } catch (err) {
+                 logger.warn('[MangaReader] Failed to save reading progress:', err);
             }
         };
 
@@ -206,12 +207,12 @@ export function MangaReader({
         return () => clearTimeout(timeoutId);
     }, [bookId, currentPage, mangaTotalPages]);
 
-    // Close handler
-    const handleClose = useCallback(() => {
-        // Release the backend ZIP archive to free memory
-        api.closeManga(bookId).catch(err =>
-            console.warn('[MangaReader] Failed to close manga backend:', err)
-        );
+     // Close handler
+     const handleClose = useCallback(() => {
+         // Release the backend ZIP archive to free memory
+         api.closeManga(bookId).catch(err =>
+             logger.warn('[MangaReader] Failed to close manga backend:', err)
+         );
         closeManga();
         imageCache.clear();
         onClose();

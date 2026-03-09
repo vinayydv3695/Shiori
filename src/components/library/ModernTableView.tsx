@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BookOpen, Star, ArrowUp, ArrowDown, MoreVertical, Edit, Trash2, Download, RefreshCw, Share2 } from 'lucide-react'
+import { BookOpen, Star, ArrowUp, ArrowDown, MoreVertical, Edit, Trash2, Download, RefreshCw, Share2, Info } from 'lucide-react'
 import { cn, formatFileSize, formatDate } from '@/lib/utils'
 import type { Book } from '@/lib/tauri'
 import { Badge } from '@/components/ui/badge'
@@ -20,11 +20,11 @@ interface TableViewProps {
   selectedBooks: Set<number>
   onSelectBook: (id: number) => void
   onOpenBook: (id: number) => void
+  onViewDetails?: (id: number) => void
   onEditBook: (id: number) => void
   onDeleteBook: (id: number) => void
   onDownloadBook: (id: number) => void
   onConvertBook?: (id: number) => void
-  onShareBook?: (id: number) => void
 }
 
 function SortIcon({ field, sortField, sortDirection }: { field: SortField; sortField: SortField; sortDirection: 'asc' | 'desc' }) {
@@ -41,11 +41,11 @@ export const ModernTableView = ({
   selectedBooks,
   onSelectBook,
   onOpenBook,
+  onViewDetails,
   onEditBook,
   onDeleteBook,
   onDownloadBook,
   onConvertBook,
-  onShareBook,
 }: TableViewProps) => {
   const [sortField, setSortField] = useState<SortField>('title')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
@@ -368,6 +368,15 @@ export const ModernTableView = ({
                         <DropdownMenuItem
                           onClick={(e) => {
                             e.stopPropagation()
+                            onViewDetails?.(book.id!)
+                          }}
+                        >
+                          <Info className="w-4 h-4 mr-2" />
+                          View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation()
                             onOpenBook(book.id!)
                           }}
                         >
@@ -401,17 +410,6 @@ export const ModernTableView = ({
                           >
                             <RefreshCw className="w-4 h-4 mr-2" />
                             Convert Format
-                          </DropdownMenuItem>
-                        )}
-                        {onShareBook && (
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onShareBook(book.id!)
-                            }}
-                          >
-                            <Share2 className="w-4 h-4 mr-2" />
-                            Share Book
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuSeparator />

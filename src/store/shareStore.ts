@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
+import { logger } from '@/lib/logger';
 
 export interface Share {
   id: number;
@@ -55,7 +56,7 @@ export const useShareStore = create<ShareState>((set, get) => ({
       });
       set({ shares, isLoading: false });
     } catch (error) {
-      console.error('Failed to load shares:', error);
+      logger.error('Failed to load shares:', error);
       set({ error: String(error), isLoading: false });
     }
   },
@@ -81,7 +82,7 @@ export const useShareStore = create<ShareState>((set, get) => ({
       
       return response;
     } catch (error) {
-      console.error('Failed to create share:', error);
+      logger.error('Failed to create share:', error);
       set({ error: String(error), isLoading: false });
       throw error;
     }
@@ -98,7 +99,7 @@ export const useShareStore = create<ShareState>((set, get) => ({
         )
       }));
     } catch (error) {
-      console.error('Failed to revoke share:', error);
+      logger.error('Failed to revoke share:', error);
       set({ error: String(error) });
       throw error;
     }
@@ -109,7 +110,7 @@ export const useShareStore = create<ShareState>((set, get) => ({
       const running = await invoke<boolean>('is_share_server_running');
       set({ serverRunning: running });
     } catch (error) {
-      console.error('Failed to check server status:', error);
+      logger.error('Failed to check server status:', error);
       set({ error: String(error) });
     }
   },
@@ -120,7 +121,7 @@ export const useShareStore = create<ShareState>((set, get) => ({
       await invoke('start_share_server');
       set({ serverRunning: true, isLoading: false });
     } catch (error) {
-      console.error('Failed to start share server:', error);
+      logger.error('Failed to start share server:', error);
       set({ error: String(error), isLoading: false });
       throw error;
     }
@@ -132,7 +133,7 @@ export const useShareStore = create<ShareState>((set, get) => ({
       await invoke('stop_share_server');
       set({ serverRunning: false, isLoading: false });
     } catch (error) {
-      console.error('Failed to stop share server:', error);
+      logger.error('Failed to stop share server:', error);
       set({ error: String(error), isLoading: false });
       throw error;
     }
@@ -147,7 +148,7 @@ export const useShareStore = create<ShareState>((set, get) => ({
       
       return count;
     } catch (error) {
-      console.error('Failed to cleanup expired shares:', error);
+      logger.error('Failed to cleanup expired shares:', error);
       set({ error: String(error) });
       return 0;
     }

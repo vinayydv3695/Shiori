@@ -71,7 +71,7 @@ export function AdvancedSettingsPanel() {
                 {/* Header */}
                 <div className="manga-settings-header">
                     <span className="manga-settings-title">Settings</span>
-                    <button className="manga-sidebar-close" onClick={closeSettings}>
+                    <button className="manga-sidebar-close" onClick={closeSettings} title="Close settings">
                         <X />
                     </button>
                 </div>

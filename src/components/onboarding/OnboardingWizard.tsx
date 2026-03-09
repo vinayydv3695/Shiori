@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { useOnboardingStore, ONBOARDING_STEPS } from "../../store/onboardingStore";
 import { Button } from "../ui/button";
 import { Card } from "../ui/Card";
@@ -12,12 +13,16 @@ import { ComicSetupStep } from "./steps/ComicSetupStep";
 import { ThemeStep } from "./steps/ThemeStep";
 import { ReadingPrefsStep } from "./steps/ReadingPrefsStep";
 import { MangaPrefsStep } from "./steps/MangaPrefsStep";
+import { MangaSeriesGroupingStep } from "./steps/MangaSeriesGroupingStep";
+import { AutoGroupMangaStep } from "./steps/AutoGroupMangaStep";
+import { SeriesManagementStep } from "./steps/SeriesManagementStep";
 import { ReadingGoalStep } from "./steps/ReadingGoalStep";
 import { ReadingStatusStep } from "./steps/ReadingStatusStep";
 import { TranslationStep } from "./steps/TranslationStep";
 import { PerformanceStep } from "./steps/PerformanceStep";
 import { MetadataStep } from "./steps/MetadataStep";
 import { MetadataSearchStep } from "./steps/MetadataSearchStep";
+import { InfoButtonTutorialStep } from "./steps/InfoButtonTutorialStep";
 import { LibrarySetupStep } from "./steps/LibrarySetupStep";
 import { UiScaleStep } from "./steps/UiScaleStep";
 import { ReviewStep } from "./steps/ReviewStep";
@@ -48,7 +53,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 await commit();
                 onComplete();
             } catch (error) {
-                console.error("Failed to commit onboarding", error);
+                logger.error("Failed to commit onboarding", error);
             }
         } else {
             nextStep();
@@ -64,12 +69,16 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             case 'theme': return <ThemeStep />;
             case 'reading-prefs': return <ReadingPrefsStep />;
             case 'manga-prefs': return <MangaPrefsStep />;
+            case 'manga-series-grouping': return <MangaSeriesGroupingStep />;
+            case 'auto-group-manga': return <AutoGroupMangaStep />;
+            case 'series-management': return <SeriesManagementStep />;
             case 'reading-goal': return <ReadingGoalStep />;
             case 'reading-status': return <ReadingStatusStep />;
             case 'translation': return <TranslationStep />;
             case 'performance': return <PerformanceStep />;
             case 'metadata': return <MetadataStep />;
             case 'metadata-search': return <MetadataSearchStep />;
+            case 'info-button-tutorial': return <InfoButtonTutorialStep />;
             case 'library-setup': return <LibrarySetupStep />;
             case 'ui-scale': return <UiScaleStep />;
             case 'review': return <ReviewStep />;

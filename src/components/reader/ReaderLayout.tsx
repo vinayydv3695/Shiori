@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useReaderStore } from '@/store/readerStore';
 import { api } from '@/lib/tauri';
+import { logger } from '@/lib/logger';
 import { PremiumEpubReader } from './PremiumEpubReader';
 import { PdfReader } from './PdfReader';
 import { MobiReader } from './MobiReader';
@@ -43,61 +44,61 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
         setLoadingStage('fetching-path');
         setError(null);
 
-        console.log('[ReaderLayout] Step 1: Getting file path for bookId:', bookId);
+        logger.debug('[ReaderLayout] Step 1: Getting file path for bookId:', bookId);
         const filePath = await api.getBookFilePath(bookId);
-        console.log('[ReaderLayout] Step 1 ✓ Got file path:', filePath);
+        logger.debug('[ReaderLayout] Step 1 ✓ Got file path:', filePath);
 
         // Step 2: Detect and validate format
-        setLoadingStage('detecting-format');
-        console.log('[ReaderLayout] Step 2: Detecting format...');
+         setLoadingStage('detecting-format');
+         logger.debug('[ReaderLayout] Step 2: Detecting format...');
 
-        let detectedFormat: string;
-        try {
-          detectedFormat = await api.detectBookFormat(filePath);
-          console.log('[ReaderLayout] Step 2 ✓ Detected format:', detectedFormat);
-        } catch (formatError) {
-          console.error('[ReaderLayout] Format detection failed, falling back to extension:', formatError);
-          // Fallback to extension-based detection if magic byte detection fails
-          const extension = filePath.split('.').pop()?.toLowerCase() || 'epub';
-          console.log('[ReaderLayout] Using fallback format from extension:', extension);
-          detectedFormat = extension;
-        }
+         let detectedFormat: string;
+         try {
+           detectedFormat = await api.detectBookFormat(filePath);
+           logger.debug('[ReaderLayout] Step 2 ✓ Detected format:', detectedFormat);
+         } catch (formatError) {
+           logger.error('[ReaderLayout] Format detection failed, falling back to extension:', formatError);
+           // Fallback to extension-based detection if magic byte detection fails
+           const extension = filePath.split('.').pop()?.toLowerCase() || 'epub';
+           logger.debug('[ReaderLayout] Using fallback format from extension:', extension);
+           detectedFormat = extension;
+         }
 
         // Step 3: Validate file integrity (skip validation if detection failed)
-        setLoadingStage('validating-file');
-        console.log('[ReaderLayout] Step 3: Validating file integrity...');
+         setLoadingStage('validating-file');
+         logger.debug('[ReaderLayout] Step 3: Validating file integrity...');
 
-        try {
-          const isValid = await api.validateBookFile(filePath, detectedFormat);
-          if (!isValid) {
-            console.warn('[ReaderLayout] File validation returned false, but continuing anyway');
-          }
-          console.log('[ReaderLayout] Step 3 ✓ File validation complete (valid:', isValid, ')');
-        } catch (validationError) {
-          console.warn('[ReaderLayout] File validation failed, but continuing anyway:', validationError);
-          // Don't throw - continue with the book even if validation fails
-          // The actual reader components will handle corrupted files
-        }
+         try {
+           const isValid = await api.validateBookFile(filePath, detectedFormat);
+           if (!isValid) {
+             logger.warn('[ReaderLayout] File validation returned false, but continuing anyway');
+           }
+           logger.debug('[ReaderLayout] Step 3 ✓ File validation complete (valid:', isValid, ')');
+         } catch (validationError) {
+           logger.warn('[ReaderLayout] File validation failed, but continuing anyway:', validationError);
+           // Don't throw - continue with the book even if validation fails
+           // The actual reader components will handle corrupted files
+         }
 
         // Step 4: Open book in store (now that we know it's valid)
-        console.log('[ReaderLayout] Step 4: Opening book in store...');
-        openBook(bookId, filePath, detectedFormat);
-        console.log('[ReaderLayout] Step 4 ✓ Book opened in store');
+         logger.debug('[ReaderLayout] Step 4: Opening book in store...');
+         openBook(bookId, filePath, detectedFormat);
+         logger.debug('[ReaderLayout] Step 4 ✓ Book opened in store');
 
-        // Step 5: Load metadata (progress, annotations, settings)
-        setLoadingStage('loading-metadata');
-        console.log('[ReaderLayout] Step 5: Loading metadata...');
+         // Step 5: Load metadata (progress, annotations, settings)
+         setLoadingStage('loading-metadata');
+         logger.debug('[ReaderLayout] Step 5: Loading metadata...');
 
-        const [book, progress, annotations, settings] = await Promise.all([
-          api.getBook(bookId),
-          api.getReadingProgress(bookId),
-          api.getAnnotations(bookId),
-          api.getReaderSettings('default'),
-        ]);
+         const [book, progress, annotations, settings] = await Promise.all([
+           api.getBook(bookId),
+           api.getReadingProgress(bookId),
+           api.getAnnotations(bookId),
+           api.getReaderSettings('default'),
+         ]);
 
-        console.log('[ReaderLayout] Step 5 ✓ Loaded metadata:', {
-          title: book.title,
-          hasProgress: !!progress,
+         logger.debug('[ReaderLayout] Step 5 ✓ Loaded metadata:', {
+           title: book.title,
+           hasProgress: !!progress,
           annotationCount: annotations.length,
         });
 
@@ -108,10 +109,10 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
         setAnnotations(annotations);
         setSettings(settings);
 
-        setLoadingStage('complete');
-        console.log('[ReaderLayout] ✅ All steps complete!');
-      } catch (err) {
-        console.error('[ReaderLayout] ❌ Error at stage:', loadingStage, err);
+         setLoadingStage('complete');
+         logger.debug('[ReaderLayout] ✅ All steps complete!');
+       } catch (err) {
+         logger.error('[ReaderLayout] ❌ Error at stage:', loadingStage, err);
         const parsedError = parseReaderError(err);
         setError(parsedError);
         setLoadingStage('idle');
@@ -119,9 +120,9 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
     };
 
     // Add timeout fallback (10 seconds)
-    const timeoutId = setTimeout(() => {
-      if (loadingStage !== 'complete' && loadingStage !== 'idle') {
-        console.error('[ReaderLayout] ⏱️ Timeout - loading took too long at stage:', loadingStage);
+     const timeoutId = setTimeout(() => {
+       if (loadingStage !== 'complete' && loadingStage !== 'idle') {
+         logger.error('[ReaderLayout] ⏱️ Timeout - loading took too long at stage:', loadingStage);
         setError({
           title: 'Loading Timeout',
           message: 'The book is taking too long to load. This may indicate a corrupted file or performance issue.',
@@ -137,7 +138,7 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
       }
     }, 10000); // 10 second timeout
 
-    console.log('[ReaderLayout] Starting load sequence (attempt', retryCount + 1, ')');
+    logger.debug('[ReaderLayout] Starting load sequence (attempt', retryCount + 1, ')');
     loadBookData();
 
     return () => {

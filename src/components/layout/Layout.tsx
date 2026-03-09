@@ -17,6 +17,7 @@ import { open } from '@tauri-apps/plugin-dialog'
 import { PremiumTopbar } from './ImprovedToolbar'
 import { FilterPanel } from '../sidebar/ModernSidebar'
 import { StatusBar } from './ModernToolbar'
+import { DuplicateFinderDialog } from '../library/DuplicateFinderDialog'
 import { cn, formatFileSize } from '@/lib/utils'
 import { api } from '@/lib/tauri'
 import { useLibraryStore } from '@/store/libraryStore'
@@ -27,16 +28,19 @@ interface LayoutProps {
   children: ReactNode
   onOpenSettings: () => void
   onEditMetadata?: (bookId: number) => void
+  onFetchMetadata?: () => void
   onDeleteBook?: (bookId: number) => void
   onDeleteBooks?: (bookIds: number[]) => void
   onDownloadBook?: (bookId: number) => void
   onViewDetails?: (bookId: number) => void
   onConvertBook?: (bookId: number) => void
-  onShareBook?: (bookId: number) => void
   onOpenRSSFeeds?: () => void
   onOpenRSSArticles?: () => void
   onBackToLibrary?: () => void
   onGoHome?: () => void
+  onAutoGroupManga?: () => void
+  onOpenAdvancedFilter?: () => void
+  activeFilterCount?: number
   searchQuery?: string
   onSearchChange?: (query: string) => void
   currentView?: CurrentView
@@ -48,17 +52,23 @@ export function Layout({
   children,
   onOpenSettings,
   onEditMetadata,
+  onFetchMetadata,
   onDeleteBook,
   onDeleteBooks,
   onConvertBook,
+  onViewDetails,
   onOpenRSSFeeds,
   onGoHome,
+  onAutoGroupManga,
+  onOpenAdvancedFilter,
+  activeFilterCount = 0,
   onSearchChange,
   currentView = 'home',
   currentDomain = 'books',
   onDomainChange = () => { },
 }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [duplicateFinderOpen, setDuplicateFinderOpen] = useState(false)
   const toast = useToast()
 
   const {
@@ -151,6 +161,8 @@ export function Layout({
           `Imported ${imported} book${imported > 1 ? 's' : ''}`,
           dupes > 0 || failed > 0 ? `${dupes} duplicates, ${failed} failed` : undefined,
         )
+        
+        await api.autoGroupMangaVolumes()
         const updated = await api.getBooks()
         setBooks(updated)
       } else if (failed > 0) {
@@ -182,6 +194,8 @@ export function Layout({
           `Imported ${imported} manga${imported > 1 ? '' : ''}`,
           dupes > 0 || failed > 0 ? `${dupes} duplicates, ${failed} failed` : undefined,
         )
+        
+        await api.autoGroupMangaVolumes()
         const updated = await api.getBooks()
         setBooks(updated)
       } else if (failed > 0) {
@@ -212,6 +226,8 @@ export function Layout({
           `Imported ${imported} book${imported > 1 ? 's' : ''}`,
           dupes > 0 || failed > 0 ? `${dupes} duplicates, ${failed} failed` : undefined,
         )
+        
+        await api.autoGroupMangaVolumes()
         const updated = await api.getBooks()
         setBooks(updated)
       } else if (failed > 0) {
@@ -242,6 +258,8 @@ export function Layout({
           `Imported ${imported} manga${imported > 1 ? '' : ''}`,
           dupes > 0 || failed > 0 ? `${dupes} duplicates, ${failed} failed` : undefined,
         )
+        
+        await api.autoGroupMangaVolumes()
         const updated = await api.getBooks()
         setBooks(updated)
       } else if (failed > 0) {
@@ -273,6 +291,8 @@ export function Layout({
           `Imported ${imported} comic${imported > 1 ? 's' : ''}`,
           dupes > 0 || failed > 0 ? `${dupes} duplicates, ${failed} failed` : undefined,
         )
+        
+        await api.autoGroupMangaVolumes()
         const updated = await api.getBooks()
         setBooks(updated)
       } else if (failed > 0) {
@@ -302,6 +322,8 @@ export function Layout({
           `Imported ${imported} comic${imported > 1 ? 's' : ''}`,
           dupes > 0 || failed > 0 ? `${dupes} duplicates, ${failed} failed` : undefined,
         )
+        
+        await api.autoGroupMangaVolumes()
         const updated = await api.getBooks()
         setBooks(updated)
       } else if (failed > 0) {
@@ -334,6 +356,17 @@ export function Layout({
     onEditMetadata?.(firstId)
   }
 
+  const handleFetchMetadataClick = () => {
+    if (selectedBookIds.size === 0) return
+    onFetchMetadata?.()
+  }
+
+  const handleViewDetails = () => {
+    if (selectedBookIds.size === 0) return
+    const [firstId] = Array.from(selectedBookIds)
+    onViewDetails?.(firstId)
+  }
+
   const handleConvert = () => {
     if (selectedBookIds.size === 0) return
     const [firstId] = Array.from(selectedBookIds)
@@ -360,12 +393,18 @@ export function Layout({
         onOpenRSS={onOpenRSSFeeds}
         onConvert={handleConvert}
         onEditMetadata={handleEditMetadata}
+        onFetchMetadata={handleFetchMetadataClick}
+        onViewDetails={handleViewDetails}
         onDelete={handleDelete}
         onSearch={onSearchChange}
         onOpenSettings={onOpenSettings}
+        onOpenDuplicateFinder={() => setDuplicateFinderOpen(true)}
+        onOpenAdvancedFilter={onOpenAdvancedFilter}
         onToggleSidebar={() => setSidebarOpen((o) => !o)}
         onGoHome={onGoHome}
+        onAutoGroupManga={onAutoGroupManga}
         selectedCount={selectedBookIds.size}
+        activeFilterCount={activeFilterCount}
         sidebarOpen={sidebarOpen}
       />
 
@@ -402,6 +441,16 @@ export function Layout({
         selectedBooks={selectedBookIds.size}
         librarySize={librarySize}
         syncStatus="synced"
+      />
+
+      {/* ── Duplicate Finder Dialog ── */}
+      <DuplicateFinderDialog
+        open={duplicateFinderOpen}
+        onOpenChange={setDuplicateFinderOpen}
+        onBooksDeleted={async () => {
+          const updated = await api.getBooks()
+          setBooks(updated)
+        }}
       />
     </div>
   )

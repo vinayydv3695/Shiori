@@ -15,10 +15,13 @@ const BOOK_COLUMNS: &str =
      b.file_hash, b.cover_path, b.page_count, b.word_count, b.language, 
      b.added_date, b.modified_date, b.last_opened, b.notes,
      b.online_metadata_fetched, b.metadata_source, b.metadata_last_sync, b.anilist_id,
-     b.is_favorite, b.reading_status, b.domain";
+     b.is_favorite, b.reading_status, b.domain, b.metadata_locked";
 
 /// Map a single row (using the BOOK_COLUMNS order) into a Book with empty authors/tags.
 fn book_from_row(row: &rusqlite::Row) -> rusqlite::Result<Book> {
+    let metadata_locked_json: Option<String> = row.get(30).ok().flatten();
+    let metadata_locked = metadata_locked_json.and_then(|json| serde_json::from_str(&json).ok());
+
     Ok(Book {
         id: Some(row.get(0)?),
         uuid: row.get(1)?,
@@ -50,6 +53,7 @@ fn book_from_row(row: &rusqlite::Row) -> rusqlite::Result<Book> {
         is_favorite: row.get::<_, i64>(27).unwrap_or(0) != 0,
         reading_status: row.get(28)?,
         domain: row.get(29).ok().flatten(),
+        metadata_locked,
         authors: vec![],
         tags: vec![],
     })
@@ -270,15 +274,19 @@ pub fn update_book(db: &Database, book: Book) -> Result<()> {
         "Book ID required for update".to_string(),
     ))?;
 
-    // Use a transaction so book + authors + tags are updated atomically
+    let metadata_locked_json = book
+        .metadata_locked
+        .as_ref()
+        .and_then(|locks| serde_json::to_string(locks).ok());
+
     let tx = conn.transaction()?;
 
     tx.execute(
         "UPDATE books SET 
             title = ?1, sort_title = ?2, isbn = ?3, isbn13 = ?4, publisher = ?5,
             pubdate = ?6, series = ?7, series_index = ?8, rating = ?9, language = ?10,
-            notes = ?11, reading_status = ?12, modified_date = CURRENT_TIMESTAMP
-         WHERE id = ?13",
+            notes = ?11, reading_status = ?12, metadata_locked = ?13, modified_date = CURRENT_TIMESTAMP
+         WHERE id = ?14",
         params![
             book.title,
             book.sort_title,
@@ -292,11 +300,11 @@ pub fn update_book(db: &Database, book: Book) -> Result<()> {
             book.language,
             book.notes,
             book.reading_status,
+            metadata_locked_json,
             book_id,
         ],
     )?;
 
-    // Update authors
     tx.execute(
         "DELETE FROM books_authors WHERE book_id = ?1",
         params![book_id],
@@ -309,7 +317,6 @@ pub fn update_book(db: &Database, book: Book) -> Result<()> {
         )?;
     }
 
-    // Update tags
     tx.execute(
         "DELETE FROM books_tags WHERE book_id = ?1",
         params![book_id],
@@ -421,7 +428,7 @@ pub fn import_books(
     Ok(result)
 }
 
-fn import_single_book(db: &Database, path: &str, covers_dir: &std::path::Path) -> Result<bool> {
+pub fn import_single_book(db: &Database, path: &str, covers_dir: &std::path::Path) -> Result<bool> {
     // Extract metadata
     let metadata = metadata_service::extract_from_file(path)?;
 
@@ -500,6 +507,7 @@ fn import_single_book(db: &Database, path: &str, covers_dir: &std::path::Path) -
         is_favorite: false,
         reading_status: "planning".to_string(),
         domain: None,
+        metadata_locked: None,
     };
 
     add_book(db, book)?;

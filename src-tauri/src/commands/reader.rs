@@ -30,6 +30,7 @@ pub fn save_reading_progress(
     progress_percent: f64,
     current_page: Option<i32>,
     total_pages: Option<i32>,
+    cfi_location: Option<String>,
     state: State<AppState>,
 ) -> Result<ReadingProgress> {
     validate::require_positive_id(book_id, "book_id")?;
@@ -42,6 +43,7 @@ pub fn save_reading_progress(
         progress_percent,
         current_page,
         total_pages,
+        cfi_location.as_deref(),
     )
 }
 

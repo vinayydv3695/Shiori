@@ -18,6 +18,7 @@ export const ToastContainer = () => {
           description={toast.description}
           variant={toast.variant}
           duration={toast.duration}
+          action={toast.action}
         />
       ))}
       <ToastViewport />

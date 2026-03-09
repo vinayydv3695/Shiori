@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Highlighter, StickyNote, Bookmark, X, Volume2 } from '@/components/icons';
 import { api } from '@/lib/tauri';
 import type { AnnotationCategory, DictionaryResponse, TranslationResponse } from '@/lib/tauri';
+import { logger } from '@/lib/logger';
 import { useToastStore } from '@/store/toastStore';
 import { usePreferencesStore } from '@/store/preferencesStore';
 import { ttsEngine, TTSEngine } from '@/lib/ttsEngine';
@@ -111,7 +112,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
       noteInputRef.current.focus();
     }
     if (showNoteInput && categories.length === 0) {
-      api.getAnnotationCategories().then(setCategories).catch(console.error);
+      api.getAnnotationCategories().then(setCategories).catch(logger.error);
     }
   }, [showNoteInput, categories.length]);
 

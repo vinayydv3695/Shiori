@@ -12,7 +12,7 @@
  */
 
 import { useState, useEffect, useRef, memo } from 'react'
-import { Heart } from 'lucide-react'
+import { Heart, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Book } from '@/lib/tauri'
 import {
@@ -20,10 +20,12 @@ import {
   IconEditMeta,
   IconDelete,
   IconConvert,
-  IconShare,
   IconCheck,
 } from '@/components/icons/ShioriIcons'
 import { useCoverImage } from '../common/hooks/useCoverImage'
+import * as ContextMenu from '@radix-ui/react-context-menu'
+import { Edit2, Trash2, SplitSquareHorizontal, Layers } from 'lucide-react'
+import { SeriesAssignmentDialog } from './SeriesAssignmentDialog'
 
 // ─── Format Badge ─────────────────────────────
 const fmtColors: Record<string, string> = {
@@ -42,9 +44,14 @@ const fmtColors: Record<string, string> = {
 const FormatPill = ({ format }: { format?: string }) => {
   if (!format) return null
   const fmt = format.toUpperCase()
+  const isManga = fmt === 'CBZ' || fmt === 'CBR'
   const cls = fmtColors[fmt] ?? 'bg-muted text-muted-foreground'
   return (
-    <span className={cn('px-1.5 py-0.5 text-[9px] font-bold rounded tracking-wide', cls)}>
+    <span className={cn(
+      'px-2 py-1 text-[11px] font-bold rounded tracking-wide shadow-md',
+      isManga && 'ring-2 ring-white/30',
+      cls
+    )}>
       {fmt}
     </span>
   )
@@ -53,14 +60,14 @@ const FormatPill = ({ format }: { format?: string }) => {
 // ─── Hover Overlay Actions ─────────────────────
 interface OverlayProps {
   onOpen: () => void
+  onViewDetails?: () => void
   onEdit: () => void
   onDelete: () => void
   onConvert?: () => void
-  onShare?: () => void
   isManga: boolean
 }
 
-const HoverOverlay = ({ onOpen, onEdit, onDelete, onConvert, onShare, isManga }: OverlayProps) => {
+const HoverOverlay = ({ onOpen, onViewDetails, onEdit, onDelete, onConvert, isManga }: OverlayProps) => {
   const btnCls = cn(
     'flex items-center justify-center w-8 h-8 rounded-lg',
     'bg-background/90 backdrop-blur-sm',
@@ -84,17 +91,17 @@ const HoverOverlay = ({ onOpen, onEdit, onDelete, onConvert, onShare, isManga }:
         <IconBookOpen size={15} />
       </button>
       <div className="flex items-center gap-1.5">
+        {onViewDetails && (
+          <button onClick={(e) => { e.stopPropagation(); onViewDetails() }} className={btnCls} title="View details">
+            <Info className="w-3.5 h-3.5" />
+          </button>
+        )}
         <button onClick={(e) => { e.stopPropagation(); onEdit() }} className={btnCls} title="Edit metadata">
           <IconEditMeta size={14} />
         </button>
         {onConvert && (
           <button onClick={(e) => { e.stopPropagation(); onConvert() }} className={btnCls} title="Convert format">
             <IconConvert size={14} />
-          </button>
-        )}
-        {onShare && (
-          <button onClick={(e) => { e.stopPropagation(); onShare() }} className={btnCls} title="Share">
-            <IconShare size={14} />
           </button>
         )}
       </div>
@@ -116,10 +123,10 @@ interface BookCardProps {
   isSelected: boolean
   onSelect: (id: number) => void
   onOpen: (id: number) => void
+  onViewDetails?: (id: number) => void
   onEdit: (id: number) => void
   onDelete: (id: number) => void
   onConvert?: (id: number) => void
-  onShare?: (id: number) => void
   isFavorited?: boolean
   onFavorite?: (id: number) => void
   animationDelay?: number
@@ -131,10 +138,10 @@ export const PremiumBookCard = memo(function PremiumBookCard({
   isSelected,
   onSelect,
   onOpen,
+  onViewDetails,
   onEdit,
   onDelete,
   onConvert,
-  onShare,
   isFavorited,
   onFavorite,
   animationDelay = 0,
@@ -144,6 +151,8 @@ export const PremiumBookCard = memo(function PremiumBookCard({
   const [imgError, setImgError] = useState(false)
   const cardRef = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
+  const [assignOpen, setAssignOpen] = useState(false)
+
 
   const { coverUrl, loading: coverLoading } = useCoverImage(visible ? book.id : undefined, null)
 
@@ -171,8 +180,11 @@ export const PremiumBookCard = memo(function PremiumBookCard({
   const authorStr = book.authors?.map((a) => a.name).join(', ') || 'Unknown Author'
 
   return (
-    <div
-      ref={cardRef}
+        <>
+      <ContextMenu.Root>
+        <ContextMenu.Trigger asChild>
+          <div
+            ref={cardRef}
       onClick={handleClick}
       style={{ animationDelay: `${animationDelay}ms` }}
       className={cn(
@@ -228,10 +240,10 @@ export const PremiumBookCard = memo(function PremiumBookCard({
         {/* Hover action overlay */}
         <HoverOverlay
           onOpen={() => onOpen(book.id!)}
+          onViewDetails={onViewDetails ? () => onViewDetails(book.id!) : undefined}
           onEdit={() => onEdit(book.id!)}
           onDelete={() => onDelete(book.id!)}
           onConvert={onConvert ? () => onConvert(book.id!) : undefined}
-          onShare={onShare ? () => onShare(book.id!) : undefined}
           isManga={isManga}
         />
 
@@ -288,7 +300,70 @@ export const PremiumBookCard = memo(function PremiumBookCard({
           {authorStr}
         </p>
       </div>
-    </div>
+          </div>
+        </ContextMenu.Trigger>
+        <ContextMenu.Portal>
+          <ContextMenu.Content className="min-w-[160px] bg-background border border-border rounded-md shadow-md p-1 z-50 text-sm">
+            <ContextMenu.Item 
+              className="flex items-center px-2 py-1.5 rounded cursor-pointer hover:bg-muted outline-none"
+              onClick={() => onOpen(book.id!)}
+            >
+              <IconBookOpen className="w-4 h-4 mr-2" />
+              Open
+            </ContextMenu.Item>
+            
+            {onViewDetails && (
+              <ContextMenu.Item 
+                className="flex items-center px-2 py-1.5 rounded cursor-pointer hover:bg-muted outline-none"
+                onClick={() => onViewDetails(book.id!)}
+              >
+                <Info className="w-4 h-4 mr-2" />
+                View Details
+              </ContextMenu.Item>
+            )}
+
+            <ContextMenu.Item 
+              className="flex items-center px-2 py-1.5 rounded cursor-pointer hover:bg-muted outline-none"
+              onClick={() => onEdit(book.id!)}
+            >
+              <Edit2 className="w-4 h-4 mr-2" />
+              Edit Metadata
+            </ContextMenu.Item>
+
+            {isManga && (
+              <>
+                <ContextMenu.Separator className="h-px bg-border my-1" />
+                <ContextMenu.Item 
+                  className="flex items-center px-2 py-1.5 rounded cursor-pointer hover:bg-muted outline-none"
+                  onClick={() => setAssignOpen(true)}
+                >
+                  <Layers className="w-4 h-4 mr-2" />
+                  Assign to Series...
+                </ContextMenu.Item>
+              </>
+            )}
+
+            <ContextMenu.Separator className="h-px bg-border my-1" />
+            <ContextMenu.Item 
+              className="flex items-center px-2 py-1.5 rounded cursor-pointer hover:bg-destructive/10 text-destructive outline-none"
+              onClick={() => onDelete(book.id!)}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </ContextMenu.Item>
+          </ContextMenu.Content>
+        </ContextMenu.Portal>
+      </ContextMenu.Root>
+
+      {isManga && (
+        <SeriesAssignmentDialog
+          open={assignOpen}
+          onOpenChange={setAssignOpen}
+          bookId={book.id!}
+          bookTitle={book.title}
+        />
+      )}
+    </>
   )
 })
 

@@ -344,9 +344,23 @@ export function IconShare({ size = 16, className, ...props }: IconProps) {
 export function IconCollection({ size = 16, className, ...props }: IconProps) {
     return (
         <svg {...baseProps(size)} className={cn(className)} {...props}>
-            <path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2H3V5z" />
-            <path d="M3 7h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
-            <path d="M7 11h4M7 15h6" />
+            <rect x="3" y="3" width="18" height="4" rx="1" />
+            <rect x="3" y="9" width="18" height="12" rx="1" />
+            <path d="M8 14h8" />
+            <path d="M10 18h4" />
+        </svg>
+    )
+}
+
+// ──────────────────────────────────────────────
+// INFO (book details / information)
+// ──────────────────────────────────────────────
+export function IconInfo({ size = 20, className, ...props }: IconProps) {
+    return (
+        <svg {...baseProps(size)} className={cn(className)} {...props}>
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="16" x2="12" y2="12" />
+            <line x1="12" y1="8" x2="12.01" y2="8" />
         </svg>
     )
 }

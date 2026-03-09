@@ -92,7 +92,6 @@ interface ModernToolbarProps {
   onSettings: () => void
   onRemove: () => void
   onSave: () => void
-  onShare: () => void
   onEditBook: () => void
   onSearch?: (query: string) => void
   currentDomain: DomainView
@@ -110,7 +109,6 @@ export const ModernToolbar = ({
   onSettings,
   onRemove,
   onSave,
-  onShare,
   onEditBook,
   onSearch,
   currentDomain,
@@ -204,11 +202,6 @@ export const ModernToolbar = ({
             onClick={onSave}
           />
           <ToolbarButton
-            icon={<Share2 className="w-full h-full" />}
-            label="Share"
-            onClick={onShare}
-          />
-          <ToolbarButton
             icon={<BookOpen className="w-full h-full" />}
             label="Edit Book"
             onClick={onEditBook}
@@ -266,7 +259,7 @@ export const ModernToolbar = ({
             onClick={toggleTheme}
             className="w-9 h-9"
           >
-            {theme === 'black' ? (
+            {theme === 'dark' ? (
               <Sun className="w-4 h-4" />
             ) : (
               <Moon className="w-4 h-4" />

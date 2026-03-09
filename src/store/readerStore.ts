@@ -7,6 +7,7 @@ export interface ReadingProgress {
   progressPercent: number;
   currentPage?: number;
   totalPages?: number;
+  cfiLocation?: string;
   lastRead: string;
 }
 

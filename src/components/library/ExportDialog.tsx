@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X, Download, FileText, FileJson, FileCode, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
@@ -63,7 +64,7 @@ export const ExportDialog = ({ open, onOpenChange }: ExportDialogProps) => {
         `Saved to ${result.split('/').pop()}`
       );
     } catch (error) {
-      console.error('Export failed:', error);
+      logger.error('Export failed:', error);
       setStatus('error');
       toast.error('Export failed', 'An error occurred during export');
     }
@@ -84,9 +85,9 @@ export const ExportDialog = ({ open, onOpenChange }: ExportDialogProps) => {
             <div className="flex items-center justify-between">
               <Dialog.Title className="text-xl font-semibold">Export Library</Dialog.Title>
               <Dialog.Close asChild>
-                <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
-                  <X className="w-5 h-5" />
-                </button>
+               <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded" title="Close">
+                   <X className="w-5 h-5" />
+                 </button>
               </Dialog.Close>
             </div>
           </div>

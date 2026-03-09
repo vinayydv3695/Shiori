@@ -10,26 +10,30 @@ import { useMemo, useRef, useEffect, useState } from 'react'
 import type { Book } from '@/lib/tauri'
 import { api } from '@/lib/tauri'
 import { PremiumBookCard } from './ModernBookCard'
+import { SeriesCard } from './SeriesCard'
 import { useLibraryStore } from '@/store/libraryStore'
 import type { DomainView } from '@/store/uiStore'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { useGroupedLibrary, type SeriesGroup, type GroupedItem } from '@/hooks/useGroupedLibrary'
 import {
   IconBookOpen,
   IconManga,
   IconImportBook,
   IconImportManga,
 } from '@/components/icons/ShioriIcons'
+import { FeatureHint } from '@/components/ui/FeatureHint'
 
 interface LibraryGridProps {
   books: Book[]
   currentDomain?: DomainView
   onBookClick?: (bookId: number) => void
+  onViewDetails?: (bookId: number) => void
   onEditBook?: (bookId: number) => void
   onDeleteBook?: (bookId: number) => void
   onConvertBook?: (bookId: number) => void
-  onShareBook?: (bookId: number) => void
   onImportBooks?: () => void
   onImportManga?: () => void
+  onViewSeries?: (series: SeriesGroup) => void
 }
 
 // ─── Domain Empty State ──────────────────────
@@ -97,12 +101,13 @@ export function LibraryGrid({
   books,
   currentDomain = 'books',
   onBookClick,
+  onViewDetails,
   onEditBook,
   onDeleteBook,
   onConvertBook,
-  onShareBook,
   onImportBooks,
   onImportManga,
+  onViewSeries,
 }: LibraryGridProps) {
   const setSelectedBook = useLibraryStore(state => state.setSelectedBook)
   const selectedBookIds = useLibraryStore(state => state.selectedBookIds)
@@ -113,6 +118,9 @@ export function LibraryGrid({
   const favoriteBookIds = useLibraryStore(state => state.favoriteBookIds)
   const toggleFavorite = useLibraryStore(state => state.toggleFavorite)
 
+  const [selectedSeries, setSelectedSeries] = useState<SeriesGroup | null>(null)
+  const [isFirstSeries, setIsFirstSeries] = useState(true)
+
   // Hard domain filter — strict separation between books and manga & comics
   const visibleLibrary = useMemo(() => {
     return books.filter((book) => {
@@ -121,6 +129,9 @@ export function LibraryGrid({
       return currentDomain === 'manga_comics' ? isMangaComics : !isMangaComics
     })
   }, [books, currentDomain])
+
+  // Apply grouping for ALL domains (books can have series too)
+  const groupedItems = useGroupedLibrary(visibleLibrary, true)
 
   const handleOpen = (bookId: number) => {
     const book = books.find((b) => b.id === bookId)
@@ -133,12 +144,10 @@ export function LibraryGrid({
   const parentRef = useRef<HTMLDivElement>(null)
   const [columns, setColumns] = useState(6)
 
-  // Determine columns based on container width
   useEffect(() => {
     const observer = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width
       if (width) {
-        // Assume card width is roughly ~160px plus gaps
         setColumns(Math.max(2, Math.floor(width / 180)))
       }
     })
@@ -150,14 +159,14 @@ export function LibraryGrid({
     return () => observer.disconnect()
   }, [])
 
-  const rowsCount = Math.ceil(visibleLibrary.length / columns)
+  const rowsCount = Math.ceil(groupedItems.length / columns)
 
   // TanStack Virtual v3 is compatible with React 19
   // eslint-disable-next-line react-hooks/incompatible-library
   const rowVirtualizer = useVirtualizer({
     count: rowsCount,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 300, // Estimated height of PremiumBookCard + margin
+    estimateSize: () => 300,
     overscan: 2,
   })
 
@@ -167,7 +176,6 @@ export function LibraryGrid({
   useEffect(() => {
     if (!lastItem) return
 
-    // Fetch more if we're within 2 rows of the end
     if (lastItem.index >= rowsCount - 2 && hasMore && !isLoading) {
       loadMoreBooks()
     }
@@ -189,7 +197,7 @@ export function LibraryGrid({
         >
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
             const startIndex = virtualRow.index * columns
-            const rowItems = visibleLibrary.slice(startIndex, startIndex + columns)
+            const rowItems = groupedItems.slice(startIndex, startIndex + columns)
 
             return (
               <div
@@ -207,35 +215,72 @@ export function LibraryGrid({
                 }}
                 role="row"
               >
-                {rowItems.map((book, idx) => {
-                  const absoluteIndex = startIndex + idx;
+                {rowItems.map((item, idx) => {
+                  const absoluteIndex = startIndex + idx
                   return (
                     <div
-                      key={book.id}
+                      key={item.type === 'book' ? `book-${item.data.id}` : `series-${item.data.id}`}
                       role="gridcell"
                       style={{ flex: '1 1 0', minWidth: 0 }}
                     >
-                      <PremiumBookCard
-                        book={book}
-                        isSelected={selectedBookIds.has(book.id!)}
-                        onSelect={toggleBookSelection}
-                        onOpen={handleOpen}
-                        onEdit={(id) => onEditBook?.(id)}
-                        onDelete={(id) => onDeleteBook?.(id)}
-                        onConvert={onConvertBook ? (id) => onConvertBook(id) : undefined}
-                        onShare={onShareBook ? (id) => onShareBook(id) : undefined}
-                        isFavorited={favoriteBookIds.has(book.id!)}
-                        onFavorite={async (id) => {
-                          await api.toggleBookFavorite(id)
-                          toggleFavorite(id)
-                        }}
-                        animationDelay={Math.min(absoluteIndex * 10, 150)}
-                        scrollRoot={parentRef.current}
-                      />
+                      {item.type === 'book' ? (
+                        <PremiumBookCard
+                          book={item.data}
+                          isSelected={selectedBookIds.has(item.data.id!)}
+                          onSelect={toggleBookSelection}
+                          onOpen={handleOpen}
+                          onViewDetails={(id) => onViewDetails?.(id)}
+                          onEdit={(id) => onEditBook?.(id)}
+                          onDelete={(id) => onDeleteBook?.(id)}
+                          onConvert={onConvertBook ? (id) => onConvertBook(id) : undefined}
+                          isFavorited={favoriteBookIds.has(item.data.id!)}
+                          onFavorite={async (id) => {
+                            await api.toggleBookFavorite(id)
+                            toggleFavorite(id)
+                          }}
+                          animationDelay={Math.min(absoluteIndex * 10, 150)}
+                          scrollRoot={parentRef.current}
+                        />
+                      ) : (
+                        <>
+                          {isFirstSeries && item.type === 'series' ? (
+                            <FeatureHint
+                              featureId="manga-series-card"
+                              title="Series Grouping Active"
+                              description="Manga volumes are now grouped by series! Click to view all volumes, or right-click to manage the series."
+                              position="top"
+                            >
+                              <SeriesCard
+                                series={item.data}
+                                isSelected={false}
+                                onSelect={() => {}}
+                                onOpen={(series) => {
+                                  setIsFirstSeries(false)
+                                  setSelectedSeries(series)
+                                  onViewSeries?.(series)
+                                }}
+                                animationDelay={Math.min(absoluteIndex * 10, 150)}
+                                scrollRoot={parentRef.current}
+                              />
+                            </FeatureHint>
+                          ) : (
+                            <SeriesCard
+                              series={item.data}
+                              isSelected={false}
+                              onSelect={() => {}}
+                              onOpen={(series) => {
+                                setSelectedSeries(series)
+                                onViewSeries?.(series)
+                              }}
+                              animationDelay={Math.min(absoluteIndex * 10, 150)}
+                              scrollRoot={parentRef.current}
+                            />
+                          )}
+                        </>
+                      )}
                     </div>
                   )
                 })}
-                {/* Pad out empty spaces in the last row so items align correctly */}
                 {Array.from({ length: columns - rowItems.length }).map((_, i) => (
                   <div key={`empty-${i}`} style={{ flex: '1 1 0' }} />
                 ))}

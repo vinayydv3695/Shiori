@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRssStore, RssFeed } from '../../store/rssStore';
 import { Plus, Trash2, Edit2, RefreshCw, Power, Clock, AlertCircle, BookOpen, Rss, X } from 'lucide-react';
+import { useToast } from '@/store/toastStore';
 
 interface AddFeedDialogProps {
   isOpen: boolean;
@@ -253,6 +254,7 @@ const RSSFeedManager: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
   const [updatingFeedIds, setUpdatingFeedIds] = useState<Set<number>>(new Set());
   const [isUpdatingAll, setIsUpdatingAll] = useState(false);
   const [isGeneratingEpub, setIsGeneratingEpub] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     loadFeeds();
@@ -311,9 +313,9 @@ const RSSFeedManager: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
         title: `Daily Digest - ${today}`,
         maxArticles: 50,
       });
-      alert('Daily EPUB generated successfully!');
+      toast.success('Daily EPUB generated successfully!');
     } catch (error) {
-      alert(`Failed to generate EPUB: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast.error(`Failed to generate EPUB: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsGeneratingEpub(false);
     }

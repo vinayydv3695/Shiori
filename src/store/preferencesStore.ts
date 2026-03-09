@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { api } from "../lib/tauri";
+import { logger } from "../lib/logger";
 import type {
   UserPreferences,
   BookPreferences,
@@ -23,13 +24,7 @@ interface PreferencesStore {
   updateBookDefaults: (updates: Partial<BookPreferences>) => Promise<void>;
   updateMangaDefaults: (updates: Partial<MangaPreferences>) => Promise<void>;
   updateTtsDefaults: (updates: Partial<TtsPreferences>) => Promise<void>;
-  updateGeneralSettings: (updates: {
-    autoStart?: boolean;
-    defaultImportPath?: string;
-    uiDensity?: "compact" | "comfortable";
-    accentColor?: string;
-    uiScale?: number;
-  }) => Promise<void>;
+  updateGeneralSettings: (updates: Partial<UserPreferences>) => Promise<void>;
 
   // Per-book overrides
   setBookOverride: (
@@ -96,7 +91,7 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
       const scale = preferences.uiScale ?? 1.0;
       document.documentElement.style.setProperty('--ui-scale', String(scale));
     } catch (error) {
-      console.error("Failed to load preferences:", error);
+      logger.error("Failed to load preferences:", error);
       set({ isLoading: false });
     }
   },
@@ -116,7 +111,7 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
     try {
       await api.updateUserPreferences({ theme });
     } catch (error) {
-      console.error("Failed to update theme:", error);
+      logger.error("Failed to update theme:", error);
       // Rollback
       if (previousTheme) {
         set((state) => ({
@@ -148,7 +143,7 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
         book: { ...get().preferences!.book, ...updates },
       });
     } catch (error) {
-      console.error("Failed to update book preferences:", error);
+      logger.error("Failed to update book preferences:", error);
       // Rollback
       if (previous) {
         set((state) => ({
@@ -179,7 +174,7 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
         manga: { ...get().preferences!.manga, ...updates },
       });
     } catch (error) {
-      console.error("Failed to update manga preferences:", error);
+      logger.error("Failed to update manga preferences:", error);
       // Rollback
       if (previous) {
         set((state) => ({
@@ -208,7 +203,7 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
         tts: { ...get().preferences!.tts, ...updates },
       });
     } catch (error) {
-      console.error("Failed to update TTS preferences:", error);
+      logger.error("Failed to update TTS preferences:", error);
       if (previous) {
         set((state) => ({
           preferences: state.preferences
@@ -239,7 +234,7 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
     try {
       await api.updateUserPreferences(updates);
     } catch (error) {
-      console.error("Failed to update general settings:", error);
+      logger.error("Failed to update general settings:", error);
       // Rollback
       if (previous) {
         set({ preferences: previous });
@@ -263,7 +258,7 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
     try {
       await api.setBookPreferenceOverride(bookId, overrides);
     } catch (error) {
-      console.error("Failed to set book override:", error);
+      logger.error("Failed to set book override:", error);
       // Rollback
       set((state) => {
         const newOverrides = new Map(state.bookOverrides);
@@ -291,7 +286,7 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
     try {
       await api.clearBookPreferenceOverride(bookId);
     } catch (error) {
-      console.error("Failed to clear book override:", error);
+      logger.error("Failed to clear book override:", error);
       // Rollback
       if (previous) {
         set((state) => {
@@ -324,7 +319,7 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
     try {
       await api.setMangaPreferenceOverride(bookId, overrides);
     } catch (error) {
-      console.error("Failed to set manga override:", error);
+      logger.error("Failed to set manga override:", error);
       // Rollback
       set((state) => {
         const newOverrides = new Map(state.mangaOverrides);
@@ -352,7 +347,7 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
     try {
       await api.clearMangaPreferenceOverride(bookId);
     } catch (error) {
-      console.error("Failed to clear manga override:", error);
+      logger.error("Failed to clear manga override:", error);
       // Rollback
       if (previous) {
         set((state) => {
@@ -382,3 +377,8 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
     });
   },
 }));
+
+// Expose store on window for logger access (avoids circular dependency)
+if (typeof window !== 'undefined') {
+  (window as any).__PREFERENCES_STORE__ = usePreferencesStore;
+}

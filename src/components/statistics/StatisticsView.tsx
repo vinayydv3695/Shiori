@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api, isTauri } from '@/lib/tauri';
 import type { DailyReadingStats, ReadingStreak, ReadingGoal } from '@/lib/tauri';
+import { logger } from '@/lib/logger';
 import { Loader2, X, RotateCw, Check, Edit2 } from '@/components/icons';
 import { cn } from '@/lib/utils';
 import { WeeklyChart } from './WeeklyChart';
@@ -77,7 +78,7 @@ export function StatisticsView({ onClose }: StatisticsViewProps) {
       }
       setIsEditingGoal(false);
     } catch (err) {
-      console.error('Failed to update goal', err);
+      logger.error('Failed to update goal', err);
     } finally {
       setSavingGoal(false);
     }

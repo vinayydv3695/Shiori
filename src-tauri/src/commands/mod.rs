@@ -17,3 +17,4 @@ pub mod preferences;
 pub mod doodle;
 pub mod backup;
 pub mod translation;
+pub mod folder_watch;

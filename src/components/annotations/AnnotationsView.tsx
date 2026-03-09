@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import React, { useState, useEffect, useCallback } from 'react';
 import { api, AnnotationSearchResult, AnnotationCategory } from '@/lib/tauri';
 import { useToastStore } from '@/store/toastStore';
@@ -50,7 +51,7 @@ export function AnnotationsView({ onClose }: AnnotationsViewProps) {
       const cats = await api.getAnnotationCategories();
       setCategories(cats);
     } catch (err) {
-      console.error('Failed to fetch categories:', err);
+      logger.error('Failed to fetch categories:', err);
     }
   }, []);
 

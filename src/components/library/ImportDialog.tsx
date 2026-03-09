@@ -2,6 +2,7 @@ import { useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X, FolderOpen, File, Upload, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { api, ImportResult } from '../../lib/tauri';
+import { logger } from '@/lib/logger';
 import { useToast } from '../../store/toastStore';
 import { useLibraryStore } from '../../store/libraryStore';
 
@@ -28,10 +29,10 @@ export const ImportDialog = ({ open, onOpenChange }: ImportDialogProps) => {
       if (path) {
         setSelectedPath(path);
       }
-    } catch (error) {
-      console.error('Failed to select folder:', error);
-      toast.error('Failed to select folder', 'Could not open folder selection dialog');
-    }
+     } catch (error) {
+       logger.error('Failed to select folder:', error);
+       toast.error('Failed to select folder', 'Could not open folder selection dialog');
+     }
   };
 
   const handleSelectFiles = async () => {
@@ -41,10 +42,10 @@ export const ImportDialog = ({ open, onOpenChange }: ImportDialogProps) => {
         setSelectedPath(`${paths.length} file(s) selected`);
         setSelectedFilePaths(paths);
       }
-    } catch (error) {
-      console.error('Failed to select files:', error);
-      toast.error('Failed to select files', 'Could not open file selection dialog');
-    }
+     } catch (error) {
+       logger.error('Failed to select files:', error);
+       toast.error('Failed to select files', 'Could not open file selection dialog');
+     }
   };
 
   const handleImport = async () => {
@@ -92,11 +93,11 @@ export const ImportDialog = ({ open, onOpenChange }: ImportDialogProps) => {
       } else {
         toast.warning('No books imported', 'All books were either duplicates or failed to import');
       }
-    } catch (error) {
-      console.error('Import failed:', error);
-      setStatus('error');
-      toast.error('Import failed', 'An error occurred during import');
-    }
+     } catch (error) {
+       logger.error('Import failed:', error);
+       setStatus('error');
+       toast.error('Import failed', 'An error occurred during import');
+     }
   };
 
   const handleClose = () => {
@@ -116,9 +117,9 @@ export const ImportDialog = ({ open, onOpenChange }: ImportDialogProps) => {
             <div className="flex items-center justify-between">
               <Dialog.Title className="text-xl font-semibold">Import Books</Dialog.Title>
               <Dialog.Close asChild>
-                <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
-                  <X className="w-5 h-5" />
-                </button>
+               <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded" title="Close">
+                   <X className="w-5 h-5" />
+                 </button>
               </Dialog.Close>
             </div>
           </div>

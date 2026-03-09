@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import React from 'react';
 import { XCircle, RefreshCw, Copy, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -32,7 +33,7 @@ ${error.technicalDetails ? `\nTechnical Details:\n${error.technicalDetails}` : '
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.error('Failed to copy error:', err);
+      logger.error('Failed to copy error:', err);
     }
   };
 

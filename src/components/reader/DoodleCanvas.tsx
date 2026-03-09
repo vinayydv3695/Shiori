@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, memo } from 'react';
 import { useDoodleStore, type DoodleStroke } from '@/store/doodleStore';
 import { api } from '@/lib/tauri';
+import { logger } from '@/lib/logger';
 
 interface DoodleCanvasProps {
     bookId: number;
@@ -157,10 +158,10 @@ export const DoodleCanvas = memo(function DoodleCanvas({
                 } else {
                     loadStrokes([]);
                 }
-            } catch (err) {
-                console.warn('[DoodleCanvas] Failed to load doodles:', err);
-                loadStrokes([]);
-            }
+             } catch (err) {
+                 logger.warn('[DoodleCanvas] Failed to load doodles:', err);
+                 loadStrokes([]);
+             }
         };
 
         loadFromDb();
@@ -181,11 +182,11 @@ export const DoodleCanvas = memo(function DoodleCanvas({
                 const currentStrokes = useDoodleStore.getState().strokes;
                 const json = JSON.stringify(currentStrokes);
 
-                // Check 5MB limit
-                if (json.length > 5 * 1024 * 1024) {
-                    console.warn('[DoodleCanvas] Doodle data exceeds 5MB, skipping save');
-                    return;
-                }
+                 // Check 5MB limit
+                 if (json.length > 5 * 1024 * 1024) {
+                     logger.warn('[DoodleCanvas] Doodle data exceeds 5MB, skipping save');
+                     return;
+                 }
 
                 if (currentStrokes.length === 0) {
                     await api.deleteDoodle(bookId, pageId);
@@ -193,9 +194,9 @@ export const DoodleCanvas = memo(function DoodleCanvas({
                     await api.saveDoodle(bookId, pageId, json);
                 }
                 markClean();
-            } catch (err) {
-                console.warn('[DoodleCanvas] Failed to save doodles:', err);
-            }
+             } catch (err) {
+                 logger.warn('[DoodleCanvas] Failed to save doodles:', err);
+             }
         }, 2000);
 
         return () => {

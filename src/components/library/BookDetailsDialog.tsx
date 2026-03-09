@@ -4,9 +4,11 @@ import { X, BookOpen, Calendar, FileText, Tag, Star, Globe, Hash, Download, Load
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { api, type Book } from '../../lib/tauri';
+import { logger } from '@/lib/logger';
 import { useToast } from '../../store/toastStore';
 import { Button } from '../ui/button';
 import { MetadataSearchDialog } from './MetadataSearchDialog';
+import { FeatureHint } from '../ui/FeatureHint';
 
 interface BookDetailsDialogProps {
   open: boolean;
@@ -86,8 +88,8 @@ export const BookDetailsDialog = ({
       setLoading(true);
       const bookData = await api.getBook(bookId);
       setBook(bookData);
-    } catch (error) {
-      console.error('Failed to load book:', error);
+     } catch (error) {
+       logger.error('Failed to load book:', error);
     } finally {
       setLoading(false);
     }
@@ -140,11 +142,11 @@ export const BookDetailsDialog = ({
             <Dialog.Title className="text-lg font-semibold text-foreground">
               Book Details
             </Dialog.Title>
-            <Dialog.Close asChild>
-              <button className="text-muted-foreground hover:text-foreground transition-colors">
-                <X className="h-5 w-5" />
-              </button>
-            </Dialog.Close>
+             <Dialog.Close asChild>
+               <button className="text-muted-foreground hover:text-foreground transition-colors" title="Close">
+                 <X className="h-5 w-5" />
+               </button>
+             </Dialog.Close>
           </div>
 
           {/* Content */}
@@ -210,7 +212,7 @@ export const BookDetailsDialog = ({
                           await api.updateReadingStatus(bookId, newStatus)
                           await loadBook()
                         } catch (err) {
-                          console.error('Failed to update reading status:', err)
+                          logger.error('Failed to update reading status:', err)
                           setReadingStatus(book?.reading_status || 'planning')
                         }
                       }}
@@ -345,13 +347,20 @@ export const BookDetailsDialog = ({
           {/* Footer Actions */}
           <div className="flex items-center justify-between gap-3 p-6 border-t border-border bg-muted/30">
             <div className="flex items-center gap-2 mr-auto">
-              <Button
-                variant="outline"
-                onClick={() => setMetadataDialogOpen(true)}
+              <FeatureHint
+                featureId="metadata-search"
+                title="Find Book Metadata"
+                description="Search online databases to automatically populate your book's metadata including cover, description, and more."
+                position="top"
               >
-                <Download className="w-4 h-4 mr-2" />
-                Find Metadata
-              </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setMetadataDialogOpen(true)}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Find Metadata
+                </Button>
+              </FeatureHint>
               <Button
                 variant="secondary"
                 disabled={autoEnrichLoading}
@@ -359,9 +368,9 @@ export const BookDetailsDialog = ({
                   try {
                     setAutoEnrichLoading(true);
                     await api.enrichBookMetadata(bookId);
-                  } catch (e) {
-                    setAutoEnrichLoading(false);
-                    console.error("Auto enrich failed:", e);
+                   } catch (e) {
+                     setAutoEnrichLoading(false);
+                     logger.error("Auto enrich failed:", e);
                     toast.error("Dispatch Failed", "Could not start the enrichment process");
                   }
                 }}
@@ -413,7 +422,7 @@ export const BookDetailsDialog = ({
         <MetadataSearchDialog
           open={metadataDialogOpen}
           onOpenChange={setMetadataDialogOpen}
-          bookId={bookId}
+          bookIds={[bookId]}
           bookTitle={book.title}
           isManga={isManga}
           isbn={book.isbn || book.isbn13}

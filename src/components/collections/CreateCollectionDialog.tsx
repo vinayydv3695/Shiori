@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X, Folder, Sparkles, BookMarked } from 'lucide-react';
 import { api, Collection, SmartRule } from '../../lib/tauri';
+import { logger } from '@/lib/logger';
 import { useCollectionStore } from '../../store/collectionStore';
 import { SmartCollectionEditor } from './SmartCollectionEditor';
+import { useToast } from '@/store/toastStore';
 
 interface CreateCollectionDialogProps {
   open: boolean;
@@ -41,6 +43,11 @@ export const CreateCollectionDialog = ({
   const [selectedParentId, setSelectedParentId] = useState<number | null>(null);
   const [allCollections, setAllCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<{ name?: string; rules?: string }>({});
+  const [previewCount, setPreviewCount] = useState<number | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  const toast = useToast();
 
   const addCollection = useCollectionStore(state => state.addCollection);
   const updateCollection = useCollectionStore(state => state.updateCollection);
@@ -65,8 +72,8 @@ export const CreateCollectionDialog = ({
           try {
             const rules = JSON.parse(editCollection.smartRules);
             setSmartRules(rules);
-          } catch (e) {
-            console.error('Failed to parse smart rules:', e);
+           } catch (e) {
+             logger.error('Failed to parse smart rules:', e);
           }
         }
       } else {
@@ -81,8 +88,8 @@ export const CreateCollectionDialog = ({
     try {
       const cols = await api.getCollections();
       setAllCollections(cols);
-    } catch (error) {
-      console.error('Failed to load collections:', error);
+     } catch (error) {
+       logger.error('Failed to load collections:', error);
     }
   };
 
@@ -95,20 +102,42 @@ export const CreateCollectionDialog = ({
     setCollectionType('regular');
     setSmartRules([]);
     setSelectedParentId(null);
+    setErrors({});
+    setPreviewCount(null);
+  };
+
+  const updatePreview = async (rules: SmartRule[]) => {
+    if (rules.length === 0) {
+      setPreviewCount(null);
+      return;
+    }
+
+    setPreviewLoading(true);
+    try {
+      const count = await api.previewSmartCollection(JSON.stringify(rules));
+      setPreviewCount(count);
+    } catch (error) {
+      logger.error('Failed to preview smart collection:', error);
+      setPreviewCount(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const validate = () => {
+    const newErrors: typeof errors = {};
+    if (!name.trim()) newErrors.name = "Collection name is required";
+    if (isSmart && smartRules.length === 0) {
+      newErrors.rules = "Smart collections must have at least one rule";
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!name.trim()) {
-      alert('Collection name is required');
-      return;
-    }
-
-    if (isSmart && smartRules.length === 0) {
-      alert('Smart collections must have at least one rule');
-      return;
-    }
+    if (!validate()) return;
 
     setLoading(true);
     try {
@@ -136,8 +165,8 @@ export const CreateCollectionDialog = ({
       onOpenChange(false);
       resetForm();
     } catch (error) {
-      console.error('Failed to save collection:', error);
-      alert('Failed to save collection');
+      logger.error('Failed to save collection:', error);
+      toast.error('Failed to save collection', error instanceof Error ? error.message : 'Unknown error');
     } finally {
       setLoading(false);
     }
@@ -145,12 +174,23 @@ export const CreateCollectionDialog = ({
 
   const getAvailableParentCollections = () => {
     if (!editCollection) return allCollections;
+    
     // When editing, exclude self and descendants to prevent cycles
-    return allCollections.filter(c => {
-      if (c.id === editCollection.id) return false;
-      // TODO: Also exclude descendants (would need recursive check)
-      return true;
-    });
+    const excludedIds = new Set<number>([editCollection.id!]);
+    
+    // Recursively find all descendants
+    const findDescendants = (parentId: number) => {
+      allCollections.forEach(c => {
+        if (c.parentId === parentId && !excludedIds.has(c.id!)) {
+          excludedIds.add(c.id!);
+          findDescendants(c.id!);
+        }
+      });
+    };
+    
+    findDescendants(editCollection.id!);
+    
+    return allCollections.filter(c => !excludedIds.has(c.id!));
   };
 
   return (
@@ -163,11 +203,11 @@ export const CreateCollectionDialog = ({
               <Dialog.Title className="text-xl font-semibold">
                 {editCollection ? 'Edit Collection' : 'Create Collection'}
               </Dialog.Title>
-              <Dialog.Close asChild>
-                <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
-                  <X className="w-5 h-5" />
-                </button>
-              </Dialog.Close>
+               <Dialog.Close asChild>
+                 <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded" title="Close">
+                   <X className="w-5 h-5" />
+                 </button>
+               </Dialog.Close>
             </div>
           </div>
 
@@ -247,11 +287,19 @@ export const CreateCollectionDialog = ({
               <input
                 type="text"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setErrors(prev => ({ ...prev, name: undefined }));
+                }}
                 placeholder="e.g., Science Fiction, Favorites, To Read"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none ${
+                  errors.name 
+                    ? 'border-destructive focus:border-destructive focus:ring-destructive' 
+                    : 'border-gray-300 dark:border-gray-700'
+                }`}
                 required
               />
+              {errors.name && <p className="text-xs text-destructive mt-1">{errors.name}</p>}
             </div>
 
             {/* Description */}
@@ -342,7 +390,33 @@ export const CreateCollectionDialog = ({
                 <label className="block text-sm font-medium mb-2">
                   Filter Rules <span className="text-red-500">*</span>
                 </label>
-                <SmartCollectionEditor rules={smartRules} onChange={setSmartRules} />
+                <div className={errors.rules ? 'border border-destructive rounded-lg p-2' : ''}>
+                  <SmartCollectionEditor 
+                    rules={smartRules} 
+                    onChange={(rules) => {
+                      setSmartRules(rules);
+                      setErrors(prev => ({ ...prev, rules: undefined }));
+                      updatePreview(rules);
+                    }} 
+                  />
+                </div>
+                {errors.rules && <p className="text-xs text-destructive mt-1">{errors.rules}</p>}
+                
+                {previewLoading && (
+                  <div className="mt-3 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      🔄 Calculating preview...
+                    </p>
+                  </div>
+                )}
+                
+                {!previewLoading && previewCount !== null && (
+                  <div className="mt-3 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      📊 This collection will contain <strong>{previewCount}</strong> {previewCount === 1 ? 'book' : 'books'}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 

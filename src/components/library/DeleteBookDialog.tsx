@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
@@ -47,7 +48,7 @@ export const DeleteBookDialog = ({ open, onOpenChange, bookIds, bookTitle }: Del
       toast.success(isMultiple ? 'Books deleted' : 'Book deleted', message);
       onOpenChange(false);
     } catch (error) {
-      console.error('Failed to delete book(s):', error);
+      logger.error('Failed to delete book(s):', error);
       toast.error('Failed to delete', 'Could not remove book(s) from library');
     } finally {
       setDeleting(false);
@@ -65,11 +66,11 @@ export const DeleteBookDialog = ({ open, onOpenChange, bookIds, bookTitle }: Del
               <AlertTriangle className="h-5 w-5 text-destructive" />
               {isMultiple ? 'Delete Books' : 'Delete Book'}
             </Dialog.Title>
-            <Dialog.Close asChild>
-              <button className="text-muted-foreground hover:text-foreground transition-colors">
-                <X className="h-5 w-5" />
-              </button>
-            </Dialog.Close>
+             <Dialog.Close asChild>
+               <button className="text-muted-foreground hover:text-foreground transition-colors" title="Close">
+                 <X className="h-5 w-5" />
+               </button>
+             </Dialog.Close>
           </div>
 
           {/* Content */}

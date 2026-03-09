@@ -17,7 +17,7 @@ impl ReaderService {
         book_id: i64,
     ) -> Result<Option<ReadingProgress>> {
         let mut stmt = conn.prepare(
-            "SELECT id, book_id, current_location, progress_percent, current_page, total_pages, last_read
+            "SELECT id, book_id, current_location, progress_percent, current_page, total_pages, cfi_location, last_read
              FROM reading_progress
              WHERE book_id = ?1"
         )?;
@@ -30,7 +30,8 @@ impl ReaderService {
                 progress_percent: row.get(3)?,
                 current_page: row.get(4)?,
                 total_pages: row.get(5)?,
-                last_read: row.get(6)?,
+                cfi_location: row.get(6)?,
+                last_read: row.get(7)?,
             })
         });
 
@@ -48,47 +49,46 @@ impl ReaderService {
         progress_percent: f64,
         current_page: Option<i32>,
         total_pages: Option<i32>,
+        cfi_location: Option<&str>,
     ) -> Result<ReadingProgress> {
         let now = Utc::now().to_rfc3339();
 
-        // Check if progress exists
         let existing = Self::get_reading_progress(conn, book_id)?;
 
         let id = if let Some(existing_progress) = existing {
-            // Update existing
             conn.execute(
                 "UPDATE reading_progress 
                  SET current_location = ?1, progress_percent = ?2, current_page = ?3, 
-                     total_pages = ?4, last_read = ?5
-                 WHERE book_id = ?6",
+                     total_pages = ?4, cfi_location = ?5, last_read = ?6
+                 WHERE book_id = ?7",
                 params![
                     current_location,
                     progress_percent,
                     current_page,
                     total_pages,
+                    cfi_location,
                     now,
                     book_id
                 ],
             )?;
             existing_progress.id
         } else {
-            // Insert new
             conn.execute(
-                "INSERT INTO reading_progress (book_id, current_location, progress_percent, current_page, total_pages, last_read)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                "INSERT INTO reading_progress (book_id, current_location, progress_percent, current_page, total_pages, cfi_location, last_read)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                 params![
                     book_id,
                     current_location,
                     progress_percent,
                     current_page,
                     total_pages,
+                    cfi_location,
                     now
                 ],
             )?;
             Some(conn.last_insert_rowid())
         };
 
-        // Update last_opened in books table
         conn.execute(
             "UPDATE books SET last_opened = ?1 WHERE id = ?2",
             params![now, book_id],
@@ -101,6 +101,7 @@ impl ReaderService {
             progress_percent,
             current_page,
             total_pages,
+            cfi_location: cfi_location.map(String::from),
             last_read: now,
         })
     }

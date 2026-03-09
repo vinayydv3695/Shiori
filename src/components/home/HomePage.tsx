@@ -9,6 +9,7 @@
  * - Quick action buttons
  */
 
+import { logger } from '@/lib/logger';
 import { useMemo, useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -274,7 +275,7 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
         setCompletedBooks(completed)
         setOnHoldBooks(onHold)
       } catch (err) {
-        console.error('Failed to load reading status books:', err)
+        logger.error('Failed to load reading status books:', err)
       }
     }
     loadStatusBooks()

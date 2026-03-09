@@ -57,7 +57,7 @@ export const MangaSidebar = memo(function MangaSidebar() {
                 {/* Header */}
                 <div className="manga-sidebar-header">
                     <span className="manga-sidebar-title">{title || 'Manga'}</span>
-                    <button className="manga-sidebar-close" onClick={closeSidebar}>
+                    <button className="manga-sidebar-close" onClick={closeSidebar} title="Close sidebar">
                         <X />
                     </button>
                 </div>

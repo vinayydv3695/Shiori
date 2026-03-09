@@ -7,6 +7,7 @@
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { logger } from '@/lib/logger';
 
 export interface ConversionJob {
   id: string;
@@ -108,20 +109,20 @@ export const useConversionStore = create<ConversionState>((set) => ({
       set({ isLoading: true, error: null });
       const jobs = await invoke<ConversionJob[]>('list_conversion_jobs');
       set({ jobs, isLoading: false });
-    } catch (error) {
-      console.error('Failed to load conversion jobs:', error);
-      set({ error: String(error), isLoading: false });
-    }
+     } catch (error) {
+       logger.error('Failed to load conversion jobs:', error);
+       set({ error: String(error), isLoading: false });
+     }
   },
 
   loadSupportedFormats: async () => {
     try {
       const raw = await invoke<{ from: string; to: string[] }[]>('get_supported_conversions');
       set({ supportedFormats: raw });
-    } catch (error) {
-      console.error('Failed to load supported formats:', error);
-      set({ error: String(error) });
-    }
+     } catch (error) {
+       logger.error('Failed to load supported formats:', error);
+       set({ error: String(error) });
+     }
   },
 
   submitConversion: async (inputPath, outputFormat, outputDir, bookId) => {
@@ -135,11 +136,11 @@ export const useConversionStore = create<ConversionState>((set) => ({
       });
       set({ isLoading: false });
       return jobId;
-    } catch (error) {
-      console.error('Failed to submit conversion:', error);
-      set({ error: String(error), isLoading: false });
-      throw error;
-    }
+     } catch (error) {
+       logger.error('Failed to submit conversion:', error);
+       set({ error: String(error), isLoading: false });
+       throw error;
+     }
   },
 
   cancelJob: async (jobId: string) => {
@@ -150,11 +151,11 @@ export const useConversionStore = create<ConversionState>((set) => ({
           j.id === jobId ? { ...j, status: 'Cancelled' as const } : j
         ),
       }));
-    } catch (error) {
-      console.error('Failed to cancel job:', error);
-      set({ error: String(error) });
-      throw error;
-    }
+     } catch (error) {
+       logger.error('Failed to cancel job:', error);
+       set({ error: String(error) });
+       throw error;
+     }
   },
 
   clearCompletedJobs: () => {

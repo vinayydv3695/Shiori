@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X, Save, Loader2 } from 'lucide-react';
+import { X, Save, Loader2, Lock, Unlock } from 'lucide-react';
 import { api, type Book } from '../../lib/tauri';
 import { useToast } from '../../store/toastStore';
+import { logger } from '@/lib/logger';
 import { useLibraryStore } from '../../store/libraryStore';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -30,6 +31,7 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
     language: '',
     notes: '',
   });
+  const [lockedFields, setLockedFields] = useState<Record<string, boolean>>({});
   const toast = useToast();
   const setBooks = useLibraryStore(state => state.setBooks);
 
@@ -59,8 +61,9 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
         language: loadedBook.language || 'en',
         notes: loadedBook.notes || '',
       });
+      setLockedFields(loadedBook.metadata_locked || {});
     } catch (error) {
-      console.error('Failed to load book:', error);
+      logger.error('Failed to load book:', error);
       toast.error('Failed to load book', 'Could not load book metadata');
     } finally {
       setLoading(false);
@@ -69,6 +72,13 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const toggleLock = (field: string) => {
+    setLockedFields(prev => ({
+      ...prev,
+      [field]: !prev[field]
+    }));
   };
 
   const handleSave = async () => {
@@ -90,18 +100,18 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
         language: formData.language,
         notes: formData.notes || undefined,
         modified_date: new Date().toISOString(),
+        metadata_locked: lockedFields,
       };
 
       await api.updateBook(updatedBook);
       
-      // Reload library
       const books = await api.getBooks();
       setBooks(books);
       
       toast.success('Metadata updated', 'Book metadata has been saved successfully');
       onOpenChange(false);
     } catch (error) {
-      console.error('Failed to update book:', error);
+      logger.error('Failed to update book:', error);
       toast.error('Failed to update', 'Could not save book metadata');
     } finally {
       setSaving(false);
@@ -118,11 +128,11 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
             <Dialog.Title className="text-lg font-semibold text-foreground">
               Edit Metadata
             </Dialog.Title>
-            <Dialog.Close asChild>
-              <button className="text-muted-foreground hover:text-foreground transition-colors">
-                <X className="h-5 w-5" />
-              </button>
-            </Dialog.Close>
+             <Dialog.Close asChild>
+               <button className="text-muted-foreground hover:text-foreground transition-colors" title="Close">
+                 <X className="h-5 w-5" />
+               </button>
+             </Dialog.Close>
           </div>
 
           {/* Content */}
@@ -135,27 +145,47 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
               <div className="space-y-4">
                 {/* Title */}
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">
-                    Title *
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-sm font-medium text-foreground">
+                      Title *
+                    </label>
+                    <button
+                      onClick={() => toggleLock('title')}
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                      title={lockedFields['title'] ? 'Unlock to allow auto-updates' : 'Lock to prevent auto-updates'}
+                      type="button"
+                    >
+                      {lockedFields['title'] ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+                    </button>
+                  </div>
                   <Input
                     value={formData.title}
                     onChange={(e) => handleInputChange('title', e.target.value)}
                     placeholder="Book title"
-                    className="w-full"
+                    className={`w-full ${lockedFields['title'] ? 'bg-blue-50 dark:bg-blue-900/10' : ''}`}
                   />
                 </div>
 
                 {/* Authors */}
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">
-                    Authors
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-sm font-medium text-foreground">
+                      Authors
+                    </label>
+                    <button
+                      onClick={() => toggleLock('author')}
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                      title={lockedFields['author'] ? 'Unlock to allow auto-updates' : 'Lock to prevent auto-updates'}
+                      type="button"
+                    >
+                      {lockedFields['author'] ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+                    </button>
+                  </div>
                   <Input
                     value={formData.authors}
                     onChange={(e) => handleInputChange('authors', e.target.value)}
                     placeholder="Author names (comma-separated)"
-                    className="w-full"
+                    className={`w-full ${lockedFields['author'] ? 'bg-blue-50 dark:bg-blue-900/10' : ''}`}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
                     Separate multiple authors with commas
@@ -165,14 +195,24 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
                 {/* ISBN Fields */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1.5">
-                      ISBN
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-sm font-medium text-foreground">
+                        ISBN
+                      </label>
+                      <button
+                        onClick={() => toggleLock('isbn')}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        title={lockedFields['isbn'] ? 'Unlock to allow auto-updates' : 'Lock to prevent auto-updates'}
+                        type="button"
+                      >
+                        {lockedFields['isbn'] ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+                      </button>
+                    </div>
                     <Input
                       value={formData.isbn}
                       onChange={(e) => handleInputChange('isbn', e.target.value)}
                       placeholder="ISBN-10"
-                      className="w-full"
+                      className={`w-full ${lockedFields['isbn'] ? 'bg-blue-50 dark:bg-blue-900/10' : ''}`}
                     />
                   </div>
                   <div>
@@ -183,7 +223,7 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
                       value={formData.isbn13}
                       onChange={(e) => handleInputChange('isbn13', e.target.value)}
                       placeholder="ISBN-13"
-                      className="w-full"
+                      className={`w-full ${lockedFields['isbn'] ? 'bg-blue-50 dark:bg-blue-900/10' : ''}`}
                     />
                   </div>
                 </div>
@@ -191,25 +231,45 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
                 {/* Publisher & Publication Date */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1.5">
-                      Publisher
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-sm font-medium text-foreground">
+                        Publisher
+                      </label>
+                      <button
+                        onClick={() => toggleLock('publisher')}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        title={lockedFields['publisher'] ? 'Unlock to allow auto-updates' : 'Lock to prevent auto-updates'}
+                        type="button"
+                      >
+                        {lockedFields['publisher'] ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+                      </button>
+                    </div>
                     <Input
                       value={formData.publisher}
                       onChange={(e) => handleInputChange('publisher', e.target.value)}
                       placeholder="Publisher name"
-                      className="w-full"
+                      className={`w-full ${lockedFields['publisher'] ? 'bg-blue-50 dark:bg-blue-900/10' : ''}`}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-1.5">
-                      Publication Date
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-sm font-medium text-foreground">
+                        Publication Date
+                      </label>
+                      <button
+                        onClick={() => toggleLock('publish_date')}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        title={lockedFields['publish_date'] ? 'Unlock to allow auto-updates' : 'Lock to prevent auto-updates'}
+                        type="button"
+                      >
+                        {lockedFields['publish_date'] ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+                      </button>
+                    </div>
                     <Input
                       value={formData.pubdate}
                       onChange={(e) => handleInputChange('pubdate', e.target.value)}
                       placeholder="YYYY-MM-DD"
-                      className="w-full"
+                      className={`w-full ${lockedFields['publish_date'] ? 'bg-blue-50 dark:bg-blue-900/10' : ''}`}
                     />
                   </div>
                 </div>
@@ -274,15 +334,25 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
 
                 {/* Notes */}
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">
-                    Notes
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-sm font-medium text-foreground">
+                      Notes
+                    </label>
+                    <button
+                      onClick={() => toggleLock('description')}
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                      title={lockedFields['description'] ? 'Unlock to allow auto-updates' : 'Lock to prevent auto-updates'}
+                      type="button"
+                    >
+                      {lockedFields['description'] ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+                    </button>
+                  </div>
                   <textarea
                     value={formData.notes}
                     onChange={(e) => handleInputChange('notes', e.target.value)}
                     placeholder="Add notes about this book..."
                     rows={4}
-                    className="w-full px-3 py-2 bg-background border border-input rounded-md text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none"
+                    className={`w-full px-3 py-2 bg-background border border-input rounded-md text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none ${lockedFields['description'] ? 'bg-blue-50 dark:bg-blue-900/10' : ''}`}
                   />
                 </div>
               </div>

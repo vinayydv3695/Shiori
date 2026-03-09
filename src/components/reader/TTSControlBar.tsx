@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTTS } from '@/hooks/useTTS';
+import { logger } from '@/lib/logger';
 import { 
   Volume2, 
   VolumeX, 
@@ -76,7 +77,7 @@ export function TTSControlBar({ contentRef, onChapterEnd }: TTSControlBarProps) 
               if (isAvailable && voices.length > 0) {
                 setIsExpanded(true);
               } else if (isAvailable && voices.length === 0) {
-                console.warn('TTS: No voices available on this system');
+                logger.warn('TTS: No voices available on this system');
               }
             }}
             disabled={!isAvailable || voices.length === 0}

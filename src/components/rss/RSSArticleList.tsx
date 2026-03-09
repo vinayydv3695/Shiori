@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { sanitizeArticleHTML } from '@/lib/sanitize';
 import { useRssStore } from '../../store/rssStore';
+import { logger } from '@/lib/logger';
 import { BookOpen, ExternalLink, Check, RefreshCw, Eye, EyeOff, X } from 'lucide-react';
 
 interface RSSArticleListProps {
@@ -33,7 +34,7 @@ const RSSArticleList: React.FC<RSSArticleListProps> = ({ feedId = null, onClose 
       // Reload articles to reflect changes
       await loadArticles(activeFeedId || undefined, limit);
     } catch (error) {
-      console.error('Failed to mark article as read:', error);
+      logger.error('Failed to mark article as read:', error);
     }
   };
 

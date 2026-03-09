@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import React, { useEffect } from 'react';
 import {
   X, Loader2, CheckCircle, Clock, XCircle, AlertCircle, Minimize2, Maximize2, RefreshCw,
@@ -151,7 +152,7 @@ const ConversionJobTracker: React.FC<ConversionJobTrackerProps> = () => {
         <>
           <div className="overflow-y-auto max-h-[400px] p-3 space-y-2">
             {jobs.map(job => (
-              <JobRow key={job.id} job={job} onCancel={id => cancelJob(id).catch(console.error)} />
+              <JobRow key={job.id} job={job} onCancel={id => cancelJob(id).catch(logger.error)} />
             ))}
           </div>
 

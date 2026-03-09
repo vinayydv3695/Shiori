@@ -7,8 +7,8 @@ interface SmartCollectionEditorProps {
   onChange: (rules: SmartRule[]) => void;
 }
 
-type RuleField = 'author' | 'tag' | 'format' | 'series' | 'rating' | 'added_date' | 'title' | 'publisher' | 'language';
-type RuleOperator = 'equals' | 'contains' | 'greater_than' | 'less_than' | 'in_last_days' | 'not_equals' | 'starts_with' | 'ends_with' | 'is_empty' | 'is_not_empty';
+type RuleField = 'author' | 'tag' | 'format' | 'series' | 'rating' | 'added_date' | 'title' | 'publisher' | 'language' | 'reading_status' | 'is_favorite';
+type RuleOperator = 'equals' | 'contains' | 'greater_than' | 'less_than' | 'in_last_days' | 'not_equals' | 'starts_with' | 'ends_with' | 'is_empty' | 'is_not_empty' | 'is_one_of';
 type MatchType = 'all' | 'any';
 
 const FIELD_OPTIONS: { value: RuleField; label: string }[] = [
@@ -20,6 +20,8 @@ const FIELD_OPTIONS: { value: RuleField; label: string }[] = [
   { value: 'rating', label: 'Rating' },
   { value: 'publisher', label: 'Publisher' },
   { value: 'language', label: 'Language' },
+  { value: 'reading_status', label: 'Reading Status' },
+  { value: 'is_favorite', label: 'Favorite' },
   { value: 'added_date', label: 'Date Added' },
 ];
 
@@ -69,12 +71,27 @@ const OPERATOR_MAP: Record<RuleField, { value: RuleOperator; label: string }[]> 
     { value: 'not_equals', label: 'is not' },
     { value: 'is_empty', label: 'is not set' },
   ],
+  reading_status: [
+    { value: 'equals', label: 'is' },
+    { value: 'not_equals', label: 'is not' },
+    { value: 'is_one_of', label: 'is one of' },
+  ],
+  is_favorite: [
+    { value: 'equals', label: 'is' },
+  ],
   added_date: [
     { value: 'in_last_days', label: 'in last N days' },
   ],
 };
 
 const FORMAT_OPTIONS = ['epub', 'pdf', 'mobi', 'azw3', 'txt', 'html'];
+const READING_STATUS_OPTIONS = [
+  { value: 'planning', label: 'Planning to Read' },
+  { value: 'reading', label: 'Currently Reading' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'paused', label: 'On Hold' },
+  { value: 'dropped', label: 'Dropped' },
+];
 
 export const SmartCollectionEditor = ({ rules, onChange }: SmartCollectionEditorProps) => {
   const [matchType, setMatchType] = useState<MatchType>('all');
@@ -147,6 +164,60 @@ export const SmartCollectionEditor = ({ rules, onChange }: SmartCollectionEditor
                 {fmt.toUpperCase()}
               </option>
             ))}
+          </select>
+        );
+
+      case 'reading_status':
+        if (operator === 'is_one_of') {
+          // Multi-select for reading status
+          const selectedStatuses = rule.value ? rule.value.split(',') : [];
+          return (
+            <div className="flex-1 flex flex-wrap gap-2 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
+              {READING_STATUS_OPTIONS.map((status) => (
+                <label key={status.value} className="flex items-center gap-1 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedStatuses.includes(status.value)}
+                    onChange={(e) => {
+                      const newStatuses = e.target.checked
+                        ? [...selectedStatuses, status.value]
+                        : selectedStatuses.filter(s => s !== status.value);
+                      updateRule(index, { value: newStatuses.join(',') });
+                    }}
+                    className="rounded border-gray-300 dark:border-gray-600"
+                  />
+                  <span>{status.label}</span>
+                </label>
+              ))}
+            </div>
+          );
+        } else {
+          return (
+            <select
+              value={rule.value}
+              onChange={(e) => updateRule(index, { value: e.target.value })}
+              className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
+            >
+              <option value="">Select status...</option>
+              {READING_STATUS_OPTIONS.map((status) => (
+                <option key={status.value} value={status.value}>
+                  {status.label}
+                </option>
+              ))}
+            </select>
+          );
+        }
+
+      case 'is_favorite':
+        return (
+          <select
+            value={rule.value}
+            onChange={(e) => updateRule(index, { value: e.target.value })}
+            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
+          >
+            <option value="">Select...</option>
+            <option value="true">Yes (Favorite)</option>
+            <option value="false">No (Not Favorite)</option>
           </select>
         );
 

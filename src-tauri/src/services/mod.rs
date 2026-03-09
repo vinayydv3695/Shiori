@@ -41,3 +41,6 @@ pub mod backup_service;
 // Translation/dictionary service
 pub mod translation_service;
 
+// Folder watch service
+pub mod folder_watch;
+

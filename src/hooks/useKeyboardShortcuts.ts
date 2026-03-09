@@ -37,18 +37,16 @@ export function useKeyboardShortcuts(shortcuts: Shortcuts) {
         // Check modifiers
         const cmdMatch = modifiers.includes('cmd') && (mac ? event.metaKey : event.ctrlKey)
         const ctrlMatch = modifiers.includes('ctrl') && event.ctrlKey
-        const shiftMatch = modifiers.includes('shift') ? event.shiftKey : !event.shiftKey
-        const altMatch = modifiers.includes('alt') ? event.altKey : !event.altKey
+        const shiftMatch = modifiers.includes('shift') && event.shiftKey
+        const altMatch = modifiers.includes('alt') && event.altKey
 
-        // Check main key
         const keyMatch = event.key.toLowerCase() === mainKey
 
-        // Check if all conditions match
         const allModifiersMatch = 
           (!modifiers.includes('cmd') || cmdMatch) &&
           (!modifiers.includes('ctrl') || ctrlMatch) &&
-          (modifiers.includes('shift') ? shiftMatch : !event.shiftKey) &&
-          (modifiers.includes('alt') ? altMatch : !event.altKey)
+          (!modifiers.includes('shift') || shiftMatch) &&
+          (!modifiers.includes('alt') || altMatch)
 
         if (keyMatch && allModifiersMatch) {
           // Prevent default browser behavior

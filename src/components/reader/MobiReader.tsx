@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '@/lib/tauri';
 import type { BookMetadata } from '@/lib/tauri';
 import { ChevronLeft, ChevronRight, Loader2, AlertCircle } from '@/components/icons';
+import { logger } from '@/lib/logger';
 import { useUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement } from '@/store/premiumReaderStore';
 import { useToastStore } from '@/store/toastStore';
 import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
@@ -105,7 +106,7 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
             setIsLoading(true);
             setError(null);
 
-            console.log('[MobiReader] Opening book:', bookId, bookPath);
+            logger.debug('[MobiReader] Opening book:', bookId, bookPath);
 
             // We pass 'mobi' for both mobi and azw3 since the backend MobiAdapter handles them both identically via the `mobi` crate
             const formatString = bookPath.endsWith('.azw3') ? 'azw3' : 'mobi';
@@ -123,22 +124,22 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
                 restoreProgress();
             }, 300);
 
-        } catch (err) {
-            console.error('[MobiReader] Error loading book:', err);
-            setError(err instanceof Error ? err.message : 'Failed to load MOBI file');
-            setIsLoading(false);
-        }
+         } catch (err) {
+             logger.error('[MobiReader] Error loading book:', err);
+             setError(err instanceof Error ? err.message : 'Failed to load MOBI file');
+             setIsLoading(false);
+         }
     };
 
-    useEffect(() => {
-        loadBook();
-        return () => {
-            // Cleanup
-            api.closeBookRenderer(bookId).catch(console.error);
-        };
-        // loadBook is recreated each render - would cause infinite loop if added
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [bookPath, bookId]);
+     useEffect(() => {
+         loadBook();
+         return () => {
+             // Cleanup
+             api.closeBookRenderer(bookId).catch(logger.error);
+         };
+         // loadBook is recreated each render - would cause infinite loop if added
+         // eslint-disable-next-line react-hooks/exhaustive-deps
+     }, [bookPath, bookId]);
 
     // Setup scroll event listener for continuous progress tracking
     const handleScroll = useCallback(() => {
@@ -164,13 +165,16 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
             const progressPercent = maxScroll > 0 ? (scrollTop / maxScroll) * 100 : 100;
 
             // Save as a percentage (0-100) so progress survives font/window resizes
+            const scrollRatio = maxScroll > 0 ? scrollTop / maxScroll : 0;
+            const cfi = `epubcfi(/0/0!/scroll/${scrollRatio.toFixed(6)})`;
             api.saveReadingProgress(
-                bookId,
-                `mobi-progress-${progressPercent.toFixed(4)}`,
-                progressPercent,
-                1,
-                1
-            ).catch(e => console.error('[MobiReader] Error saving progress:', e));
+                 bookId,
+                 `mobi-progress-${progressPercent.toFixed(4)}`,
+                 progressPercent,
+                 1,
+                 1,
+                 cfi
+             ).catch(e => logger.error('[MobiReader] Error saving progress:', e));
         };
 
         const scrollElement = containerRef.current;
@@ -189,24 +193,39 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
         if (!containerRef.current) return;
         try {
             const savedProgress = await api.getReadingProgress(bookId);
-            if (!savedProgress?.currentLocation) return;
+            if (!savedProgress) return;
 
-            const loc = savedProgress.currentLocation;
             let targetTop: number | null = null;
 
-            if (loc.startsWith('mobi-progress-')) {
-                // New percentage-based format — resize-invariant
-                const pct = parseFloat(loc.replace('mobi-progress-', ''));
-                if (!isNaN(pct) && pct > 0) {
-                    const { scrollHeight, clientHeight } = containerRef.current;
-                    const maxScroll = scrollHeight - clientHeight;
-                    targetTop = Math.round((pct / 100) * maxScroll);
+            // Try CFI-based restore first
+            const cfi = savedProgress.cfiLocation;
+            if (cfi) {
+                const cfiMatch = cfi.match(/^epubcfi\(\/0\/\d+!\/scroll\/([\d.]+)\)$/);
+                if (cfiMatch) {
+                    const scrollRatio = parseFloat(cfiMatch[1]);
+                    if (!isNaN(scrollRatio) && scrollRatio > 0) {
+                        const { scrollHeight, clientHeight } = containerRef.current;
+                        const maxScroll = scrollHeight - clientHeight;
+                        targetTop = Math.round(scrollRatio * maxScroll);
+                    }
                 }
-            } else if (loc.startsWith('mobi-scroll-')) {
-                // Legacy absolute pixel format — best-effort restore
-                const top = parseInt(loc.replace('mobi-scroll-', ''), 10);
-                if (!isNaN(top) && top > 0) {
-                    targetTop = top;
+            }
+
+            // Fallback to legacy location formats
+            if (targetTop === null && savedProgress.currentLocation) {
+                const loc = savedProgress.currentLocation;
+                if (loc.startsWith('mobi-progress-')) {
+                    const pct = parseFloat(loc.replace('mobi-progress-', ''));
+                    if (!isNaN(pct) && pct > 0) {
+                        const { scrollHeight, clientHeight } = containerRef.current;
+                        const maxScroll = scrollHeight - clientHeight;
+                        targetTop = Math.round((pct / 100) * maxScroll);
+                    }
+                } else if (loc.startsWith('mobi-scroll-')) {
+                    const top = parseInt(loc.replace('mobi-scroll-', ''), 10);
+                    if (!isNaN(top) && top > 0) {
+                        targetTop = top;
+                    }
                 }
             }
 

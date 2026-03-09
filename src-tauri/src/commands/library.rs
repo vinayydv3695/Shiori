@@ -209,3 +209,79 @@ pub fn get_books_by_reading_status(
     )?;
     library_service::get_books_by_reading_status(&app_state.db, &status, limit, offset)
 }
+
+#[tauri::command]
+pub async fn find_duplicate_books(
+    criteria: String,
+    threshold: Option<f32>,
+    state: State<'_, AppState>,
+) -> Result<Vec<Vec<Book>>> {
+    let db = &state.db;
+    let books = crate::services::library_service::get_all_books(db, u32::MAX, 0)?;
+    
+    let mut duplicates: Vec<Vec<Book>> = Vec::new();
+    let threshold = threshold.unwrap_or(0.8);
+    let mut processed_ids: std::collections::HashSet<i64> = std::collections::HashSet::new();
+
+    for i in 0..books.len() {
+        let current_book = &books[i];
+        let current_id = current_book.id.unwrap_or(-1);
+        if processed_ids.contains(&current_id) {
+            continue;
+        }
+
+        let mut group: Vec<Book> = vec![current_book.clone()];
+        processed_ids.insert(current_id);
+
+        for j in (i + 1)..books.len() {
+            let other_book = &books[j];
+            let other_id = other_book.id.unwrap_or(-1);
+            if processed_ids.contains(&other_id) {
+                continue;
+            }
+
+            let is_duplicate = match criteria.as_str() {
+                "title" => {
+                    let score = strsim::jaro_winkler(&current_book.title.to_lowercase(), &other_book.title.to_lowercase());
+                    score as f32 >= threshold
+                },
+                "author" => {
+                    let current_authors = current_book.authors.iter().map(|a| a.name.to_lowercase()).collect::<Vec<String>>().join(" ");
+                    let other_authors = other_book.authors.iter().map(|a| a.name.to_lowercase()).collect::<Vec<String>>().join(" ");
+                    if current_authors.is_empty() || other_authors.is_empty() {
+                        false
+                    } else {
+                        let score = strsim::jaro_winkler(&current_authors, &other_authors);
+                        score as f32 >= threshold
+                    }
+                },
+                "hash" => {
+                    if let (Some(ref h1), Some(ref h2)) = (&current_book.file_hash, &other_book.file_hash) {
+                        h1 == h2
+                    } else {
+                        false
+                    }
+                },
+                "size" => {
+                    if let (Some(s1), Some(s2)) = (current_book.file_size, other_book.file_size) {
+                        s1 == s2 && s1 > 0
+                    } else {
+                        false
+                    }
+                },
+                _ => false,
+            };
+
+            if is_duplicate {
+                group.push(other_book.clone());
+                processed_ids.insert(other_id);
+            }
+        }
+
+        if group.len() > 1 {
+            duplicates.push(group);
+        }
+    }
+
+    Ok(duplicates)
+}

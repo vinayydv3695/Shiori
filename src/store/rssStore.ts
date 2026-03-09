@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
+import { logger } from '@/lib/logger';
 
 export interface RssFeed {
   id: number;
@@ -68,7 +69,7 @@ export const useRssStore = create<RssState>((set, get) => ({
       const feeds = await invoke<RssFeed[]>('list_rss_feeds', { activeOnly });
       set({ feeds, isLoading: false });
     } catch (error) {
-      console.error('Failed to load RSS feeds:', error);
+      logger.error('Failed to load RSS feeds:', error);
       set({ error: String(error), isLoading: false });
     }
   },
@@ -82,7 +83,7 @@ export const useRssStore = create<RssState>((set, get) => ({
       });
       set({ articles, isLoading: false });
     } catch (error) {
-      console.error('Failed to load articles:', error);
+      logger.error('Failed to load articles:', error);
       set({ error: String(error), isLoading: false });
     }
   },
@@ -101,7 +102,7 @@ export const useRssStore = create<RssState>((set, get) => ({
       
       return feedId;
     } catch (error) {
-      console.error('Failed to add feed:', error);
+      logger.error('Failed to add feed:', error);
       set({ error: String(error), isLoading: false });
       throw error;
     }
@@ -118,7 +119,7 @@ export const useRssStore = create<RssState>((set, get) => ({
       // Reload feeds
       await get().loadFeeds();
     } catch (error) {
-      console.error('Failed to update feed:', error);
+      logger.error('Failed to update feed:', error);
       set({ error: String(error) });
       throw error;
     }
@@ -134,7 +135,7 @@ export const useRssStore = create<RssState>((set, get) => ({
         selectedFeedId: state.selectedFeedId === feedId ? null : state.selectedFeedId
       }));
     } catch (error) {
-      console.error('Failed to delete feed:', error);
+      logger.error('Failed to delete feed:', error);
       set({ error: String(error) });
       throw error;
     }
@@ -151,7 +152,7 @@ export const useRssStore = create<RssState>((set, get) => ({
         )
       }));
     } catch (error) {
-      console.error('Failed to toggle feed:', error);
+      logger.error('Failed to toggle feed:', error);
       set({ error: String(error) });
       throw error;
     }
@@ -170,7 +171,7 @@ export const useRssStore = create<RssState>((set, get) => ({
       set({ isLoading: false });
       return newCount;
     } catch (error) {
-      console.error('Failed to update feed articles:', error);
+      logger.error('Failed to update feed articles:', error);
       set({ error: String(error), isLoading: false });
       throw error;
     }
@@ -190,7 +191,7 @@ export const useRssStore = create<RssState>((set, get) => ({
       
       set({ isLoading: false });
     } catch (error) {
-      console.error('Failed to update all feeds:', error);
+      logger.error('Failed to update all feeds:', error);
       set({ error: String(error), isLoading: false });
     }
   },
@@ -206,7 +207,7 @@ export const useRssStore = create<RssState>((set, get) => ({
         )
       }));
     } catch (error) {
-      console.error('Failed to mark article as read:', error);
+      logger.error('Failed to mark article as read:', error);
       set({ error: String(error) });
     }
   },
@@ -224,7 +225,7 @@ export const useRssStore = create<RssState>((set, get) => ({
       set({ isLoading: false });
       return path;
     } catch (error) {
-      console.error('Failed to generate daily EPUB:', error);
+      logger.error('Failed to generate daily EPUB:', error);
       set({ error: String(error), isLoading: false });
       throw error;
     }

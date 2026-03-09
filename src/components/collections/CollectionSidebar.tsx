@@ -1,8 +1,9 @@
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Folder, FolderOpen, Sparkles, MoreVertical, Plus, Trash2, Edit, FolderPlus, Search, Heart } from 'lucide-react';
 import { useCollectionStore } from '../../store/collectionStore';
 import { useToast } from '../../store/toastStore';
 import { api, Collection } from '../../lib/tauri';
+import { logger } from '@/lib/logger';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 
 interface CollectionItemProps {
@@ -16,11 +17,13 @@ interface CollectionItemProps {
 const CollectionItem = ({ collection, depth, onEdit, onDelete, onAddSubcollection }: CollectionItemProps) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [contextMenuOpen, setContextMenuOpen] = useState(false);
   const selectedCollection = useCollectionStore(state => state.selectedCollection);
   const selectCollection = useCollectionStore(state => state.selectCollection);
   const toast = useToast();
   const isSelected = selectedCollection?.id === collection.id;
   const hasChildren = collection.children && collection.children.length > 0;
+  const itemRef = React.useRef<HTMLDivElement>(null);
 
   const handleClick = () => {
     selectCollection(collection);
@@ -79,99 +82,195 @@ const CollectionItem = ({ collection, depth, onEdit, onDelete, onAddSubcollectio
           `${data.bookIds.length} books were added to "${collection.name}"`
         );
       }
-    } catch (error) {
-      console.error('Failed to add book to collection:', error);
-      toast.error('Failed to add book', 'Could not add book to collection');
+     } catch (error) {
+       logger.error('Failed to add book to collection:', error);
+       toast.error('Failed to add book', 'Could not add book to collection');
+     }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Enter: Select collection
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleClick();
     }
+    // Space: Toggle expansion if has children
+    else if (e.key === ' ' && hasChildren) {
+      e.preventDefault();
+      setIsExpanded(!isExpanded);
+    }
+    // Delete/Backspace: Delete collection (with confirmation)
+    else if ((e.key === 'Delete' || e.key === 'Backspace') && !e.repeat) {
+      e.preventDefault();
+      onDelete(collection);
+    }
+    // e: Edit collection
+    else if (e.key === 'e' && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      onEdit(collection);
+    }
+    // n: Add subcollection
+    else if (e.key === 'n' && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      onAddSubcollection(collection.id!);
+    }
+    // Arrow Right: Expand if collapsed and has children
+    else if (e.key === 'ArrowRight' && hasChildren && !isExpanded) {
+      e.preventDefault();
+      setIsExpanded(true);
+    }
+    // Arrow Left: Collapse if expanded and has children
+    else if (e.key === 'ArrowLeft' && hasChildren && isExpanded) {
+      e.preventDefault();
+      setIsExpanded(false);
+    }
+  };
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenuOpen(true);
   };
 
   return (
     <div>
-      <div
-        className={`
-          flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer
-          transition-colors group
-          ${isSelected ? 'bg-blue-100 dark:bg-blue-900/30' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}
-          ${isDragOver && !collection.isSmart ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/50' : ''}
-          ${collection.isSmart ? 'opacity-75' : ''}
-        `}
-        style={{ paddingLeft: `${depth * 16 + 12}px` }}
-        onClick={handleClick}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-      >
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          {hasChildren && (
-            <button
-              onClick={handleToggle}
-              className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
-            >
-              {isExpanded ? (
-                <FolderOpen className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-              ) : (
+      <DropdownMenu.Root open={contextMenuOpen} onOpenChange={setContextMenuOpen}>
+        <DropdownMenu.Trigger asChild>
+          <div
+            ref={itemRef}
+            className={`
+              flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer
+              transition-colors group
+              ${isSelected ? 'bg-blue-100 dark:bg-blue-900/30' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}
+              ${isDragOver && !collection.isSmart ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/50' : ''}
+              ${collection.isSmart ? 'opacity-75' : ''}
+            `}
+            style={{ paddingLeft: `${depth * 16 + 12}px` }}
+            onClick={handleClick}
+            onContextMenu={handleContextMenu}
+            onKeyDown={handleKeyDown}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            tabIndex={0}
+            role="button"
+            aria-label={`Collection: ${collection.name}. ${collection.bookCount} books. Press Enter to select, E to edit, N to add subcollection, Delete to remove.`}
+            aria-expanded={hasChildren ? isExpanded : undefined}
+          >
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              {hasChildren && (
+                <button
+                  onClick={handleToggle}
+                  className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+                  title={isExpanded ? "Collapse" : "Expand"}
+                  tabIndex={-1}
+                >
+                  {isExpanded ? (
+                    <FolderOpen className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                  ) : (
+                    <Folder className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                  )}
+                </button>
+              )}
+              {!hasChildren && (
                 <Folder className="w-4 h-4 text-gray-600 dark:text-gray-400" />
               )}
-            </button>
-          )}
-          {!hasChildren && (
-            <Folder className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-          )}
-          {collection.isSmart && (
-            <Sparkles className="w-3 h-3 text-purple-500" />
-          )}
-          <span
-            className="flex-1 text-sm font-medium truncate"
-            style={{ color: collection.color || undefined }}
-          >
-            {collection.icon && <span className="mr-1">{collection.icon}</span>}
-            {collection.name}
-          </span>
-          <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
-            {collection.bookCount}
-          </span>
-        </div>
+              {collection.isSmart && (
+                <Sparkles className="w-3 h-3 text-purple-500" />
+              )}
+              <span
+                className="flex-1 text-sm font-medium truncate"
+                style={{ color: collection.color || undefined }}
+              >
+                {collection.icon && <span className="mr-1">{collection.icon}</span>}
+                {collection.name}
+              </span>
+              <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
+                {collection.bookCount}
+              </span>
+            </div>
 
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger asChild>
-            <button
-              className="p-1 opacity-0 group-hover:opacity-100 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
-              onClick={(e) => e.stopPropagation()}
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger asChild>
+                <button
+                  className="p-1 opacity-0 group-hover:opacity-100 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+                  onClick={(e) => e.stopPropagation()}
+                  title="More options"
+                  tabIndex={-1}
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content
+                  className="min-w-[180px] bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-1"
+                  sideOffset={5}
+                >
+                  <DropdownMenu.Item
+                    className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer rounded hover:bg-gray-100 dark:hover:bg-gray-700 outline-none"
+                    onSelect={() => onEdit(collection)}
+                  >
+                    <Edit className="w-4 h-4" />
+                    Edit Collection
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer rounded hover:bg-gray-100 dark:hover:bg-gray-700 outline-none"
+                    onSelect={() => onAddSubcollection(collection.id!)}
+                  >
+                    <FolderPlus className="w-4 h-4" />
+                    Add Subcollection
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Separator className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
+                  <DropdownMenu.Item
+                    className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 outline-none"
+                    onSelect={() => onDelete(collection)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete Collection
+                  </DropdownMenu.Item>
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
+          </div>
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content
+            className="min-w-[180px] bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-1 z-50"
+            sideOffset={5}
+          >
+            <DropdownMenu.Item
+              className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer rounded hover:bg-gray-100 dark:hover:bg-gray-700 outline-none"
+              onSelect={() => {
+                onEdit(collection);
+                setContextMenuOpen(false);
+              }}
             >
-              <MoreVertical className="w-4 h-4" />
-            </button>
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Portal>
-            <DropdownMenu.Content
-              className="min-w-[180px] bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-1"
-              sideOffset={5}
+              <Edit className="w-4 h-4" />
+              Edit Collection
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer rounded hover:bg-gray-100 dark:hover:bg-gray-700 outline-none"
+              onSelect={() => {
+                onAddSubcollection(collection.id!);
+                setContextMenuOpen(false);
+              }}
             >
-              <DropdownMenu.Item
-                className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer rounded hover:bg-gray-100 dark:hover:bg-gray-700 outline-none"
-                onSelect={() => onEdit(collection)}
-              >
-                <Edit className="w-4 h-4" />
-                Edit Collection
-              </DropdownMenu.Item>
-              <DropdownMenu.Item
-                className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer rounded hover:bg-gray-100 dark:hover:bg-gray-700 outline-none"
-                onSelect={() => onAddSubcollection(collection.id!)}
-              >
-                <FolderPlus className="w-4 h-4" />
-                Add Subcollection
-              </DropdownMenu.Item>
-              <DropdownMenu.Separator className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
-              <DropdownMenu.Item
-                className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 outline-none"
-                onSelect={() => onDelete(collection)}
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete Collection
-              </DropdownMenu.Item>
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
-        </DropdownMenu.Root>
-      </div>
+              <FolderPlus className="w-4 h-4" />
+              Add Subcollection
+            </DropdownMenu.Item>
+            <DropdownMenu.Separator className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
+            <DropdownMenu.Item
+              className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 outline-none"
+              onSelect={() => {
+                onDelete(collection);
+                setContextMenuOpen(false);
+              }}
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete Collection
+            </DropdownMenu.Item>
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
 
       {hasChildren && isExpanded && (
         <div>
@@ -215,9 +314,9 @@ export const CollectionSidebar = ({ onCreateCollection, onEditCollection }: Coll
       ]);
       setFavoritesCollection(favs[0] || null);
       setShelves(shelfList);
-    } catch (err) {
-      console.error('Failed to load special collections:', err);
-    }
+     } catch (err) {
+       logger.error('Failed to load special collections:', err);
+     }
   }, []);
 
   const loadCollections = useCallback(async () => {
@@ -226,11 +325,11 @@ export const CollectionSidebar = ({ onCreateCollection, onEditCollection }: Coll
       const nested = await api.getNestedCollections();
       setCollections(nested);
       await loadSpecialCollections();
-    } catch (error) {
-      console.error('Failed to load collections:', error);
-    } finally {
-      setLoading(false);
-    }
+     } catch (error) {
+       logger.error('Failed to load collections:', error);
+     } finally {
+       setLoading(false);
+     }
   }, [setCollections, loadSpecialCollections]);
 
   useEffect(() => {
@@ -247,10 +346,10 @@ export const CollectionSidebar = ({ onCreateCollection, onEditCollection }: Coll
       await loadCollections();
       selectCollection(null);
       toast.success('Collection deleted', `"${collection.name}" has been deleted`);
-    } catch (error) {
-      console.error('Failed to delete collection:', error);
-      toast.error('Failed to delete collection', 'An error occurred while deleting the collection');
-    }
+     } catch (error) {
+       logger.error('Failed to delete collection:', error);
+       toast.error('Failed to delete collection', 'An error occurred while deleting the collection');
+     }
   };
 
   const handleAddSubcollection = (parentId: number) => {

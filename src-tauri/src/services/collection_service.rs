@@ -11,36 +11,55 @@ impl CollectionService {
 
     pub fn get_collections(conn: &Connection) -> Result<Vec<Collection>> {
         let mut stmt = conn.prepare(
-            "SELECT id, name, description, parent_id, is_smart, smart_rules, icon, color, 
-                    collection_type, sort_order, created_at, updated_at
-             FROM collections
-             ORDER BY sort_order ASC, name ASC",
+            "SELECT c.id, c.name, c.description, c.parent_id, c.is_smart, c.smart_rules, c.icon, c.color, 
+                    c.collection_type, c.sort_order, c.created_at, c.updated_at,
+                    CASE 
+                        WHEN c.is_smart = 0 THEN (
+                            SELECT COUNT(*) FROM collections_books WHERE collection_id = c.id
+                        )
+                        ELSE NULL
+                    END as book_count
+             FROM collections c
+             ORDER BY c.sort_order ASC, c.name ASC",
         )?;
 
-        let collections = stmt
-            .query_map([], |row| Self::collection_from_row(row))?
+        let mut collections = stmt
+            .query_map([], |row| Self::collection_from_row_with_count(row))?
             .collect::<std::result::Result<Vec<_>, _>>()?;
 
-        // Calculate book counts for each collection
-        let mut collections_with_counts = Vec::new();
-        for mut collection in collections {
-            collection.book_count = Some(Self::get_book_count(conn, collection.id.unwrap())?);
-            collections_with_counts.push(collection);
+        // For smart collections, calculate book count separately (unavoidable due to complex rule evaluation)
+        for collection in &mut collections {
+            if collection.is_smart && collection.book_count.is_none() {
+                collection.book_count = Some(Self::get_smart_collection_book_count(
+                    conn,
+                    collection.id.unwrap(),
+                )?);
+            }
         }
 
-        Ok(collections_with_counts)
+        Ok(collections)
     }
 
     pub fn get_collection(conn: &Connection, id: i64) -> Result<Collection> {
         let mut stmt = conn.prepare(
-            "SELECT id, name, description, parent_id, is_smart, smart_rules, icon, color,
-                    collection_type, sort_order, created_at, updated_at
-             FROM collections
-             WHERE id = ?1",
+            "SELECT c.id, c.name, c.description, c.parent_id, c.is_smart, c.smart_rules, c.icon, c.color,
+                    c.collection_type, c.sort_order, c.created_at, c.updated_at,
+                    CASE 
+                        WHEN c.is_smart = 0 THEN (
+                            SELECT COUNT(*) FROM collections_books WHERE collection_id = c.id
+                        )
+                        ELSE NULL
+                    END as book_count
+             FROM collections c
+             WHERE c.id = ?1",
         )?;
 
-        let mut collection = stmt.query_row(params![id], |row| Self::collection_from_row(row))?;
-        collection.book_count = Some(Self::get_book_count(conn, id)?);
+        let mut collection =
+            stmt.query_row(params![id], |row| Self::collection_from_row_with_count(row))?;
+
+        if collection.is_smart && collection.book_count.is_none() {
+            collection.book_count = Some(Self::get_smart_collection_book_count(conn, id)?);
+        }
 
         Ok(collection)
     }
@@ -235,6 +254,7 @@ impl CollectionService {
                     is_favorite: row.get::<_, i64>(27).unwrap_or(0) != 0,
                     reading_status: row.get(28)?,
                     domain: row.get(29).ok().flatten(),
+                    metadata_locked: None,
                     authors: Vec::new(),
                     tags: Vec::new(),
                 })
@@ -253,15 +273,31 @@ impl CollectionService {
             return Ok(Vec::new());
         }
 
-        // Build WHERE clause based on rules
         let mut where_clauses = Vec::new();
         let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
 
-        for rule in rules {
+        let match_type = rules
+            .first()
+            .map(|r| r.match_type.clone())
+            .unwrap_or_else(|| "all".to_string());
+
+        for rule in &rules {
             let clause = match (rule.field.as_str(), rule.operator.as_str()) {
                 ("format", "equals") => {
                     params_vec.push(Box::new(rule.value.clone()));
                     "b.file_format = ?".to_string()
+                }
+                ("format", "not_equals") => {
+                    params_vec.push(Box::new(rule.value.clone()));
+                    "b.file_format != ?".to_string()
+                }
+                ("rating", "equals") => {
+                    if let Ok(val) = rule.value.parse::<i32>() {
+                        params_vec.push(Box::new(val));
+                        "b.rating = ?".to_string()
+                    } else {
+                        continue;
+                    }
                 }
                 ("rating", "greater_than") => {
                     if let Ok(val) = rule.value.parse::<i32>() {
@@ -271,17 +307,118 @@ impl CollectionService {
                         continue;
                     }
                 }
+                ("rating", "less_than") => {
+                    if let Ok(val) = rule.value.parse::<i32>() {
+                        params_vec.push(Box::new(val));
+                        "b.rating < ?".to_string()
+                    } else {
+                        continue;
+                    }
+                }
+                ("rating", "is_empty") => "b.rating IS NULL".to_string(),
                 ("series", "equals") => {
                     params_vec.push(Box::new(rule.value.clone()));
                     "b.series = ?".to_string()
+                }
+                ("series", "contains") => {
+                    params_vec.push(Box::new(format!("%{}%", rule.value)));
+                    "b.series LIKE ?".to_string()
+                }
+                ("series", "is_empty") => "b.series IS NULL".to_string(),
+                ("series", "is_not_empty") => "b.series IS NOT NULL".to_string(),
+                ("title", "contains") => {
+                    params_vec.push(Box::new(format!("%{}%", rule.value)));
+                    "b.title LIKE ?".to_string()
+                }
+                ("title", "equals") => {
+                    params_vec.push(Box::new(rule.value.clone()));
+                    "b.title = ?".to_string()
+                }
+                ("title", "not_equals") => {
+                    params_vec.push(Box::new(rule.value.clone()));
+                    "b.title != ?".to_string()
+                }
+                ("title", "starts_with") => {
+                    params_vec.push(Box::new(format!("{}%", rule.value)));
+                    "b.title LIKE ?".to_string()
+                }
+                ("title", "ends_with") => {
+                    params_vec.push(Box::new(format!("%{}", rule.value)));
+                    "b.title LIKE ?".to_string()
+                }
+                ("publisher", "contains") => {
+                    params_vec.push(Box::new(format!("%{}%", rule.value)));
+                    "b.publisher LIKE ?".to_string()
+                }
+                ("publisher", "equals") => {
+                    params_vec.push(Box::new(rule.value.clone()));
+                    "b.publisher = ?".to_string()
+                }
+                ("publisher", "is_empty") => "b.publisher IS NULL".to_string(),
+                ("publisher", "is_not_empty") => "b.publisher IS NOT NULL".to_string(),
+                ("language", "equals") => {
+                    params_vec.push(Box::new(rule.value.clone()));
+                    "b.language = ?".to_string()
+                }
+                ("language", "not_equals") => {
+                    params_vec.push(Box::new(rule.value.clone()));
+                    "b.language != ?".to_string()
+                }
+                ("language", "is_empty") => "b.language IS NULL OR b.language = ''".to_string(),
+                ("reading_status", "equals") => {
+                    params_vec.push(Box::new(rule.value.clone()));
+                    "b.reading_status = ?".to_string()
+                }
+                ("reading_status", "not_equals") => {
+                    params_vec.push(Box::new(rule.value.clone()));
+                    "b.reading_status != ?".to_string()
+                }
+                ("reading_status", "is_one_of") => {
+                    let statuses: Vec<&str> = rule.value.split(',').collect();
+                    let placeholders = statuses.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+                    for status in statuses {
+                        params_vec.push(Box::new(status.to_string()));
+                    }
+                    format!("b.reading_status IN ({})", placeholders)
+                }
+                ("is_favorite", "equals") => {
+                    let is_fav = rule.value == "true";
+                    params_vec.push(Box::new(if is_fav { 1 } else { 0 }));
+                    "b.is_favorite = ?".to_string()
                 }
                 ("tag", "contains") => {
                     params_vec.push(Box::new(rule.value.clone()));
                     "EXISTS (SELECT 1 FROM books_tags bt JOIN tags t ON bt.tag_id = t.id WHERE bt.book_id = b.id AND t.name = ?)".to_string()
                 }
+                ("tag", "is_empty") => {
+                    "NOT EXISTS (SELECT 1 FROM books_tags WHERE book_id = b.id)".to_string()
+                }
                 ("author", "contains") => {
+                    params_vec.push(Box::new(format!("%{}%", rule.value)));
+                    "EXISTS (SELECT 1 FROM books_authors ba JOIN authors a ON ba.author_id = a.id WHERE ba.book_id = b.id AND a.name LIKE ?)".to_string()
+                }
+                ("author", "equals") => {
                     params_vec.push(Box::new(rule.value.clone()));
-                    "EXISTS (SELECT 1 FROM books_authors ba JOIN authors a ON ba.author_id = a.id WHERE ba.book_id = b.id AND a.name LIKE '%' || ? || '%')".to_string()
+                    "EXISTS (SELECT 1 FROM books_authors ba JOIN authors a ON ba.author_id = a.id WHERE ba.book_id = b.id AND a.name = ?)".to_string()
+                }
+                ("author", "not_equals") => {
+                    params_vec.push(Box::new(rule.value.clone()));
+                    "NOT EXISTS (SELECT 1 FROM books_authors ba JOIN authors a ON ba.author_id = a.id WHERE ba.book_id = b.id AND a.name = ?)".to_string()
+                }
+                ("author", "is_empty") => {
+                    "NOT EXISTS (SELECT 1 FROM books_authors WHERE book_id = b.id)".to_string()
+                }
+                ("author", "is_not_empty") => {
+                    "EXISTS (SELECT 1 FROM books_authors WHERE book_id = b.id)".to_string()
+                }
+                ("added_date", "in_last_days") => {
+                    if let Ok(days) = rule.value.parse::<i32>() {
+                        params_vec.push(Box::new(days));
+                        "CAST((julianday('now') - julianday(b.added_date)) AS INTEGER) <= ?"
+                            .to_string()
+                    } else {
+                        continue;
+                    }
                 }
                 _ => continue,
             };
@@ -293,8 +430,7 @@ impl CollectionService {
             return Ok(Vec::new());
         }
 
-        // Combine with AND or OR based on match_type (default: all/AND)
-        let connector = " AND ";
+        let connector = if match_type == "any" { " OR " } else { " AND " };
         let where_sql = where_clauses.join(connector);
 
         let query = format!(
@@ -345,6 +481,7 @@ impl CollectionService {
                     is_favorite: row.get::<_, i64>(27).unwrap_or(0) != 0,
                     reading_status: row.get(28)?,
                     domain: row.get(29).ok().flatten(),
+                    metadata_locked: None,
                     authors: Vec::new(),
                     tags: Vec::new(),
                 })
@@ -375,6 +512,40 @@ impl CollectionService {
         })
     }
 
+    fn collection_from_row_with_count(row: &Row) -> rusqlite::Result<Collection> {
+        Ok(Collection {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            description: row.get(2)?,
+            parent_id: row.get(3)?,
+            is_smart: row.get::<_, i64>(4)? == 1,
+            smart_rules: row.get(5)?,
+            icon: row.get(6)?,
+            color: row.get(7)?,
+            collection_type: row.get(8)?,
+            sort_order: row.get(9)?,
+            created_at: row.get(10)?,
+            updated_at: row.get(11)?,
+            book_count: row.get(12).ok(),
+            children: Vec::new(),
+        })
+    }
+
+    fn get_smart_collection_book_count(conn: &Connection, collection_id: i64) -> Result<i64> {
+        let smart_rules: Option<String> = conn.query_row(
+            "SELECT smart_rules FROM collections WHERE id = ?1 AND is_smart = 1",
+            params![collection_id],
+            |row| row.get(0),
+        )?;
+
+        if let Some(rules) = smart_rules {
+            let books = Self::get_books_by_smart_rules(conn, &rules)?;
+            Ok(books.len() as i64)
+        } else {
+            Ok(0)
+        }
+    }
+
     fn get_book_count(conn: &Connection, collection_id: i64) -> Result<i64> {
         let collection = conn.query_row(
             "SELECT is_smart, smart_rules FROM collections WHERE id = ?1",
@@ -383,7 +554,6 @@ impl CollectionService {
         )?;
 
         if collection.0 {
-            // Smart collection - count books matching rules
             if let Some(rules) = collection.1 {
                 let books = Self::get_books_by_smart_rules(conn, &rules)?;
                 Ok(books.len() as i64)
@@ -391,7 +561,6 @@ impl CollectionService {
                 Ok(0)
             }
         } else {
-            // Manual collection - count from junction
             let count: i64 = conn.query_row(
                 "SELECT COUNT(*) FROM collections_books WHERE collection_id = ?1",
                 params![collection_id],
@@ -435,26 +604,35 @@ impl CollectionService {
         collection_type: &str,
     ) -> Result<Vec<Collection>> {
         let mut stmt = conn.prepare(
-            "SELECT id, name, description, parent_id, is_smart, smart_rules, icon, color,
-                    collection_type, sort_order, created_at, updated_at
-             FROM collections
-             WHERE collection_type = ?1
-             ORDER BY sort_order ASC, name ASC",
+            "SELECT c.id, c.name, c.description, c.parent_id, c.is_smart, c.smart_rules, c.icon, c.color,
+                    c.collection_type, c.sort_order, c.created_at, c.updated_at,
+                    CASE 
+                        WHEN c.is_smart = 0 THEN (
+                            SELECT COUNT(*) FROM collections_books WHERE collection_id = c.id
+                        )
+                        ELSE NULL
+                    END as book_count
+             FROM collections c
+             WHERE c.collection_type = ?1
+             ORDER BY c.sort_order ASC, c.name ASC",
         )?;
 
-        let collections = stmt
+        let mut collections = stmt
             .query_map(params![collection_type], |row| {
-                Self::collection_from_row(row)
+                Self::collection_from_row_with_count(row)
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
 
-        let mut collections_with_counts = Vec::new();
-        for mut collection in collections {
-            collection.book_count = Some(Self::get_book_count(conn, collection.id.unwrap())?);
-            collections_with_counts.push(collection);
+        for collection in &mut collections {
+            if collection.is_smart && collection.book_count.is_none() {
+                collection.book_count = Some(Self::get_smart_collection_book_count(
+                    conn,
+                    collection.id.unwrap(),
+                )?);
+            }
         }
 
-        Ok(collections_with_counts)
+        Ok(collections)
     }
 
     pub fn get_favorites_collection(conn: &Connection) -> Result<Collection> {
@@ -522,5 +700,10 @@ impl CollectionService {
             .query_map([], |row| row.get(0))?
             .collect::<std::result::Result<Vec<_>, _>>()?;
         Ok(ids)
+    }
+
+    pub fn preview_smart_collection(conn: &Connection, smart_rules: &str) -> Result<i64> {
+        let books = Self::get_books_by_smart_rules(conn, smart_rules)?;
+        Ok(books.len() as i64)
     }
 }

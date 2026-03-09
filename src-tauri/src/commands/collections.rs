@@ -166,3 +166,9 @@ pub fn get_collections_by_type(
     let conn = state.db.get_connection()?;
     CollectionService::get_collections_by_type(&conn, &collection_type)
 }
+
+#[tauri::command]
+pub fn preview_smart_collection(smart_rules: String, state: State<AppState>) -> Result<i64> {
+    let conn = state.db.get_connection()?;
+    CollectionService::preview_smart_collection(&conn, &smart_rules)
+}

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { api } from '@/lib/tauri';
 import type { BookMetadata, Chapter } from '@/lib/tauri';
@@ -295,13 +296,12 @@ export function PremiumEpubReader({ bookPath, bookId, onClose }: PremiumEpubRead
   // ────────────────────────────────────────────────────────────
   // SCROLL PROGRESS TRACKING (optimized)
   // ────────────────────────────────────────────────────────────
-  // Debounced scroll-position save to database
   const saveScrollProgressRef = useRef<number | null>(null);
 
   const handleScroll = useMemo(() => {
     let ticking = false;
     let lastUpdateTime = 0;
-    const UPDATE_INTERVAL = 150; // Reduced frequency for less jank
+    const UPDATE_INTERVAL = 150;
 
     return () => {
       const now = Date.now();
@@ -319,7 +319,6 @@ export function PremiumEpubReader({ bookPath, bookId, onClose }: PremiumEpubRead
             setScrollProgress(Math.min(100, Math.max(0, progress)));
             lastUpdateTime = Date.now();
 
-            // Save scroll position to DB every 3s (debounced)
             if (saveScrollProgressRef.current) {
               clearTimeout(saveScrollProgressRef.current);
             }
@@ -327,14 +326,15 @@ export function PremiumEpubReader({ bookPath, bookId, onClose }: PremiumEpubRead
               const scrollRatio = scrollHeight > clientHeight
                 ? scrollTop / (scrollHeight - clientHeight)
                 : 0;
-              const progressPercent = metadata
-                ? ((currentIndex + 1) / metadata.total_chapters) * 100
-                : 0;
+              const totalChapters = metadata?.total_chapters ?? 1;
+              const chapterFraction = scrollRatio / totalChapters;
+              const progressPercent = ((currentIndex + chapterFraction) / totalChapters) * 100;
               const loc = scrollRatio > 0
-                ? `chapter_${currentIndex}:scroll_${scrollRatio.toFixed(4)}`
+                ? `chapter_${currentIndex}:scroll_${scrollRatio.toFixed(6)}`
                 : `chapter_${currentIndex}`;
-              api.saveReadingProgress(bookId, loc, progressPercent).catch(() => { });
-            }, 3000);
+              const cfi = `epubcfi(/0/${currentIndex}!/scroll/${scrollRatio.toFixed(6)})`;
+              api.saveReadingProgress(bookId, loc, Math.min(100, progressPercent), undefined, undefined, cfi).catch(() => { });
+            }, 2000);
           }
           ticking = false;
         });
@@ -373,19 +373,41 @@ export function PremiumEpubReader({ bookPath, bookId, onClose }: PremiumEpubRead
       let savedScrollRatio = 0;
       try {
         const progress = await api.getReadingProgress(bookId);
-        if (progress && progress.currentLocation) {
-          // Parse location format: "chapter_N" or "chapter_N:scroll_R"
-          const parts = progress.currentLocation.split(':');
-          if (parts[0].startsWith('chapter_')) {
-            const idx = parseInt(parts[0].replace('chapter_', ''), 10);
-            if (!isNaN(idx) && idx >= 0 && idx < bookMetadata.total_chapters) {
-              startIndex = idx;
+        if (progress) {
+          // Prefer CFI-based restore for precision, fall back to location string
+          if (progress.cfiLocation && progress.cfiLocation.startsWith('epubcfi(') && progress.cfiLocation.endsWith(')')) {
+            const cfiInner = progress.cfiLocation.slice(8, -1);
+            const cfiParts = cfiInner.split('!/');
+            if (cfiParts.length === 2) {
+              const pathParts = cfiParts[0].split('/').filter(Boolean);
+              if (pathParts.length >= 2) {
+                const idx = parseInt(pathParts[1], 10);
+                if (!isNaN(idx) && idx >= 0 && idx < bookMetadata.total_chapters) {
+                  startIndex = idx;
+                }
+              }
+              const scrollMatch = cfiParts[1].match(/^scroll\/([0-9.]+)/);
+              if (scrollMatch) {
+                const ratio = parseFloat(scrollMatch[1]);
+                if (!isNaN(ratio) && ratio >= 0 && ratio <= 1) {
+                  savedScrollRatio = ratio;
+                }
+              }
             }
-          }
-          if (parts[1] && parts[1].startsWith('scroll_')) {
-            const ratio = parseFloat(parts[1].replace('scroll_', ''));
-            if (!isNaN(ratio) && ratio >= 0 && ratio <= 1) {
-              savedScrollRatio = ratio;
+          } else if (progress.currentLocation) {
+            // Legacy location format: "chapter_N" or "chapter_N:scroll_R"
+            const parts = progress.currentLocation.split(':');
+            if (parts[0].startsWith('chapter_')) {
+              const idx = parseInt(parts[0].replace('chapter_', ''), 10);
+              if (!isNaN(idx) && idx >= 0 && idx < bookMetadata.total_chapters) {
+                startIndex = idx;
+              }
+            }
+            if (parts[1] && parts[1].startsWith('scroll_')) {
+              const ratio = parseFloat(parts[1].replace('scroll_', ''));
+              if (!isNaN(ratio) && ratio >= 0 && ratio <= 1) {
+                savedScrollRatio = ratio;
+              }
             }
           }
         }
@@ -416,7 +438,7 @@ export function PremiumEpubReader({ bookPath, bookId, onClose }: PremiumEpubRead
   useEffect(() => {
     loadBook();
     return () => {
-      api.closeBookRenderer(bookId).catch(console.error);
+      api.closeBookRenderer(bookId).catch(logger.error);
     };
     // loadBook is recreated each render - would cause infinite loop if added
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -473,15 +495,14 @@ export function PremiumEpubReader({ bookPath, bookId, onClose }: PremiumEpubRead
         ? ((index + 1) / metadata.total_chapters) * 100
         : 0;
 
-      // Compute scroll position for progress save
       const scrollRatio = scrollPositionsRef.current.get(index) || 0;
       const location = scrollRatio > 0
-        ? `chapter_${index}:scroll_${scrollRatio.toFixed(4)}`
+        ? `chapter_${index}:scroll_${scrollRatio.toFixed(6)}`
         : `chapter_${index}`;
+      const cfi = `epubcfi(/0/${index}!/scroll/${scrollRatio.toFixed(6)})`;
 
-      // Save progress to database (debounced, ignore errors)
       try {
-        await api.saveReadingProgress(bookId, location, progressPercent);
+        await api.saveReadingProgress(bookId, location, progressPercent, undefined, undefined, cfi);
       } catch {
         // Silently ignore database errors
       }

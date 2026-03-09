@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { useCallback } from 'react';
 import { useMangaContentStore, useMangaSettingsStore, type ReadingMode } from '@/store/mangaReaderStore';
 
@@ -168,7 +169,7 @@ export async function getMangaPageUrl(
             const url = convertFileSrc(filePath);
             return imageCache.setPath(cacheKey, url);
         } catch (error) {
-            console.error(`[MangaPreloader] Failed to load page ${pageIndex}:`, error);
+            logger.error(`[MangaPreloader] Failed to load page ${pageIndex}:`, error);
             throw error;
         } finally {
             pendingRequests.delete(cacheKey);

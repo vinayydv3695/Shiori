@@ -77,6 +77,7 @@ tokio-cron-scheduler = "0.10"   # Cron job scheduler
 lru = "0.12"
 bincode = "1.3"                 # Binary serialization
 zstd = "0.13"                   # Compression for cache
+tempfile = "3.10"               # Temporary file and directory management
 
 # Concurrency & utilities
 dashmap = "6.0"                 # Concurrent HashMap
@@ -98,6 +99,8 @@ parking_lot = "0.12"            # Faster mutexes
 lazy_static = "1.5"             # Static initialization
 natord = "1.0"                  # Natural sort ordering
 futures = "0.3.31"
+notify = "6.1"                  # File system notifications
+notify-debouncer-full = "0.3"   # Debouncer for notify
 
 [features]
 default = []

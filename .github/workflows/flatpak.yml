@@ -45,7 +45,7 @@ jobs:
                   CARGO_HOME: /run/build/shiori/cargo
                   NPM_CONFIG_CACHE: /run/build/shiori/npm-cache
               build-commands:
-                - npm install
+                - npm install --legacy-peer-deps
                 - npm run build
                 - install -Dm755 src-tauri/target/release/shiori /app/bin/shiori
                 - install -Dm644 src-tauri/icons/128x128.png /app/share/icons/hicolor/128x128/apps/io.github.vinayydv3695.Shiori.png

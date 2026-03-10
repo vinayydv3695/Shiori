@@ -212,8 +212,8 @@ export function LibraryGrid({
                   height: `${virtualRow.size}px`,
                   transform: `translateY(${virtualRow.start}px)`,
                   display: 'flex',
-                  gap: '16px',
-                  padding: '16px',
+                  gap: '12px',
+                  padding: '12px',
                 }}
                 role="row"
               >

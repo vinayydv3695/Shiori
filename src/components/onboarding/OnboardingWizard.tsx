@@ -27,11 +27,9 @@ import { SeriesManagementStep } from "./steps/SeriesManagementStep";
 import { ReadingGoalStep } from "./steps/ReadingGoalStep";
 import { ReadingStatusStep } from "./steps/ReadingStatusStep";
 import { TranslationStep } from "./steps/TranslationStep";
-import { PerformanceStep } from "./steps/PerformanceStep";
 import { MetadataStep } from "./steps/MetadataStep";
 import { MetadataSearchStep } from "./steps/MetadataSearchStep";
 import { InfoButtonTutorialStep } from "./steps/InfoButtonTutorialStep";
-import { LibrarySetupStep } from "./steps/LibrarySetupStep";
 import { UiScaleStep } from "./steps/UiScaleStep";
 import { ReviewStep } from "./steps/ReviewStep";
 
@@ -53,12 +51,10 @@ const STEP_NAMES: Record<StepId, string> = {
     'reading-goal': 'Reading Goal',
     'reading-status': 'Status',
     'translation': 'Translation',
-    'performance': 'Performance',
     'metadata': 'Metadata',
     'metadata-search': 'Metadata Search',
     'rss-setup': 'RSS',
     'info-button-tutorial': 'Info Button',
-    'library-setup': 'Library Setup',
     'ui-scale': 'UI Scale',
     'review': 'Review',
     'success': 'Success'
@@ -145,11 +141,9 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             case 'reading-goal': return <ReadingGoalStep />;
             case 'reading-status': return <ReadingStatusStep />;
             case 'translation': return <TranslationStep />;
-            case 'performance': return <PerformanceStep />;
             case 'metadata': return <MetadataStep />;
             case 'metadata-search': return <MetadataSearchStep />;
             case 'info-button-tutorial': return <InfoButtonTutorialStep />;
-            case 'library-setup': return <LibrarySetupStep />;
             case 'ui-scale': return <UiScaleStep />;
             case 'review': return <ReviewStep />;
             default: return null;

@@ -144,7 +144,7 @@ const defaultSettings = {
   margin: 0,
   twoPageView: false,
   brightness: 1.0,
-  pageFlipEnabled: false,
+  pageFlipEnabled: true,
   pageFlipSpeed: 400,
   animationStyle: 'slide' as const,
   paperTextureIntensity: 0.08,

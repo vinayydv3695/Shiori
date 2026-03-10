@@ -55,42 +55,21 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   }, [loadPreferences]);
 
   // Show minimal loading screen while theme loads
+  // Apply default theme early to avoid flash
+  if (!isReady && isTauri) {
+    // For Tauri mode: ensure default theme is set before showing loading screen
+    if (!document.documentElement.hasAttribute("data-theme")) {
+      document.documentElement.setAttribute("data-theme", "white");
+    }
+  }
+
   if (!isReady) {
     return (
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: "#000000", // Assume black while loading
-          color: "#ffffff",
-        }}
-      >
-        <div style={{ textAlign: "center" }}>
-          <div
-            style={{
-              width: "40px",
-              height: "40px",
-              border: "3px solid rgba(255, 255, 255, 0.2)",
-              borderTopColor: "#ffffff",
-              borderRadius: "50%",
-              animation: "spin 0.6s linear infinite",
-              margin: "0 auto 16px",
-            }}
-          />
-          <p style={{ fontSize: "14px", opacity: 0.8 }}>Loading Shiori...</p>
+      <div className="fixed inset-0 flex items-center justify-center bg-background text-foreground">
+        <div className="text-center">
+          <div className="w-10 h-10 border-3 border-muted border-t-foreground rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-sm opacity-80">Loading Shiori...</p>
         </div>
-        <style>
-          {`
-            @keyframes spin {
-              to {
-                transform: rotate(360deg);
-              }
-            }
-          `}
-        </style>
       </div>
     );
   }

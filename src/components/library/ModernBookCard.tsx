@@ -218,7 +218,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
             onLoad={() => setImgLoaded(true)}
             onError={() => setImgError(true)}
             className={cn(
-              'absolute inset-0 w-full h-full object-cover',
+              'absolute inset-0 w-full h-full object-contain bg-muted',
               'transition-opacity duration-300',
               imgLoaded ? 'opacity-100' : 'opacity-0',
             )}

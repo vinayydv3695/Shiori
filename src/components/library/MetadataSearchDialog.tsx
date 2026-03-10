@@ -772,7 +772,7 @@ export const MetadataSearchDialog = ({
                     if (isMangaResult(result)) {
                       return (
                         <div key={result.anilist_id} className="flex gap-4 p-4 border border-border rounded-lg hover:border-primary/50 transition-colors bg-card">
-                          <img src={result.cover_url_large} alt={result.title_romaji} className="w-24 h-36 object-cover rounded" />
+                          <img src={result.cover_url_large} alt={result.title_romaji} className="w-24 h-36 object-contain bg-muted rounded" />
                           <div className="flex-1 min-w-0">
                             <h3 className="font-semibold text-foreground mb-1 truncate">{result.title_english || result.title_romaji}</h3>
                             {result.title_english && result.title_romaji && <p className="text-sm text-muted-foreground mb-2">{result.title_romaji}</p>}
@@ -799,7 +799,7 @@ export const MetadataSearchDialog = ({
                       return (
                         <div key={bookResult.open_library_id || index} className="flex gap-4 p-4 border border-border rounded-lg hover:border-primary/50 transition-colors bg-card">
                           {bookResult.cover_url_medium ? (
-                            <img src={bookResult.cover_url_medium} alt={bookResult.title} className="w-24 h-36 object-cover rounded" />
+                            <img src={bookResult.cover_url_medium} alt={bookResult.title} className="w-24 h-36 object-contain bg-muted rounded" />
                           ) : (
                             <div className="w-24 h-36 bg-muted rounded flex items-center justify-center text-muted-foreground"><span className="text-3xl">📚</span></div>
                           )}
@@ -878,14 +878,14 @@ export const MetadataSearchDialog = ({
                   <div>
                     <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center justify-between"><span>Suggested Cover</span><span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full">New</span></p>
                     <div className="aspect-[2/3] w-full bg-muted rounded-lg overflow-hidden border-2 border-primary/30 shadow-sm relative group">
-                      {previewCoverUrl ? <img src={previewCoverUrl} alt="Preview Cover" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" /> : <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-2"><ImageIcon className="h-8 w-8 opacity-50" /><span className="text-xs font-medium">No cover found</span></div>}
+                      {previewCoverUrl ? <img src={previewCoverUrl} alt="Preview Cover" className="w-full h-full object-contain bg-muted transition-transform duration-500 group-hover:scale-105" /> : <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-2"><ImageIcon className="h-8 w-8 opacity-50" /><span className="text-xs font-medium">No cover found</span></div>}
                     </div>
                   </div>
                   {currentCoverUrl && (
                     <div>
                       <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center justify-between"><span>Current Cover</span><span className="text-[10px] bg-muted-foreground/20 px-2 py-0.5 rounded-full">Existing</span></p>
                       <div className="aspect-[2/3] w-2/3 mx-auto bg-muted rounded-md overflow-hidden border border-border opacity-70">
-                        <img src={currentCoverUrl} alt="Current Cover" className="w-full h-full object-cover grayscale-[0.2]" />
+                        <img src={currentCoverUrl} alt="Current Cover" className="w-full h-full object-contain bg-muted grayscale-[0.2]" />
                       </div>
                     </div>
                   )}

@@ -249,6 +249,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                 <MangaReadingSettings
                   preferences={preferences}
                   updateMangaDefaults={updateMangaDefaults}
+                  updateGeneralSettings={updateGeneralSettings}
                   isSettingVisible={isSettingVisible}
                   isSectionVisible={isSectionVisible}
                 />
@@ -1094,11 +1095,13 @@ const BookReadingSettings = ({
 const MangaReadingSettings = ({
   preferences,
   updateMangaDefaults,
+  updateGeneralSettings,
   isSettingVisible,
   isSectionVisible,
 }: {
   preferences: UserPreferences | null
   updateMangaDefaults: (updates: Partial<MangaPreferences>) => Promise<void>
+  updateGeneralSettings: (updates: Partial<UserPreferences>) => Promise<void>
   isSettingVisible: (label: string, description?: string, section?: string) => boolean
   isSectionVisible: (section: string, settings: string[]) => boolean
 }) => {
@@ -1159,6 +1162,24 @@ const MangaReadingSettings = ({
 
   return (
     <div className="space-y-8">
+      <SettingSection
+        title="Library Organization"
+        description="Manage how manga volumes are organized"
+      >
+        <SettingItem
+          label="Auto-Group Manga Volumes"
+          description={preferences.autoGroupManga ? 'Enabled - Automatically groups volumes by series' : 'Disabled - Manual organization'}
+        >
+          <input
+            type="checkbox"
+            checked={preferences.autoGroupManga}
+            onChange={(e) => updateGeneralSettings({ autoGroupManga: e.target.checked })}
+            className="w-5 h-5"
+            aria-label="Auto-group manga volumes"
+          />
+        </SettingItem>
+      </SettingSection>
+
       {isSectionVisible('Reading Mode', ['Reading Mode']) && (
         <SettingSection
           title="Reading Mode"

@@ -28,8 +28,8 @@
     --accent-foreground: 0 0% 10%;
     --destructive: 0 84% 55%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 88%;
-    --input: 0 0% 88%;
+    --border: 0 0% 52%;
+    --input: 0 0% 52%;
     --ring: 0 0% 7%;
     --radius: 0.5rem;
     /* UI Scaling — changed via preferencesStore.updateGeneralSettings */

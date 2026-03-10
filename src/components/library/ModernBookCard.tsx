@@ -23,6 +23,7 @@ import {
   IconCheck,
 } from '@/components/icons/ShioriIcons'
 import { useCoverImage } from '../common/hooks/useCoverImage'
+import { usePreferencesStore } from '@/store/preferencesStore'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { Edit2, Trash2, SplitSquareHorizontal, Layers } from 'lucide-react'
 import { SeriesAssignmentDialog } from './SeriesAssignmentDialog'
@@ -153,6 +154,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
   const [visible, setVisible] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
 
+  const coverSize = usePreferencesStore((s) => s.preferences?.coverSize ?? 'medium')
 
   const { coverUrl, loading: coverLoading } = useCoverImage(visible ? book.id : undefined, null)
 
@@ -185,6 +187,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
         <ContextMenu.Trigger asChild>
           <div
             ref={cardRef}
+      data-cover-size={coverSize}
       onClick={handleClick}
       style={{ animationDelay: `${animationDelay}ms` }}
       className={cn(
@@ -289,14 +292,32 @@ export const PremiumBookCard = memo(function PremiumBookCard({
       </div>
 
       {/* ── Info Strip ── */}
-      <div className="flex flex-col px-2 pt-2 pb-2.5 gap-0.5">
+      <div className={cn(
+        'flex flex-col gap-0.5',
+        coverSize === 'small' && 'px-1.5 pt-1.5 pb-2',
+        coverSize === 'medium' && 'px-2 pt-2 pb-2.5',
+        coverSize === 'large' && 'px-2.5 pt-2.5 pb-3',
+      )}>
         <h3
-          className="text-[11px] font-semibold leading-tight line-clamp-2 text-foreground"
+          className={cn(
+            'font-semibold leading-tight text-foreground',
+            coverSize === 'small' && 'text-[10px] line-clamp-1',
+            coverSize === 'medium' && 'text-[11px] line-clamp-2',
+            coverSize === 'large' && 'text-xs line-clamp-3',
+          )}
           title={book.title}
         >
           {book.title}
         </h3>
-        <p className="text-[10px] text-muted-foreground truncate" title={authorStr}>
+        <p
+          className={cn(
+            'text-muted-foreground',
+            coverSize === 'small' && 'text-[9px] truncate',
+            coverSize === 'medium' && 'text-[10px] truncate',
+            coverSize === 'large' && 'text-[11px] line-clamp-2',
+          )}
+          title={authorStr}
+        >
           {authorStr}
         </p>
       </div>

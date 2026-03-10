@@ -29,6 +29,7 @@ pub struct UserPreferences {
     pub auto_scan_enabled: bool,
     pub default_manga_path: Option<String>,
     pub translation_target_language: String,
+    pub auto_group_manga: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -104,7 +105,7 @@ pub async fn get_user_preferences(state: State<'_, AppState>) -> Result<UserPref
             preferred_content_type, ui_scale, performance_mode, 
             metadata_mode, auto_scan_enabled, default_manga_path,
             tts_voice, tts_rate, tts_auto_advance, tts_highlight_color,
-            translation_target_language
+            translation_target_language, auto_group_manga
         FROM user_preferences WHERE id = 1",
         [],
         |row| {
@@ -150,6 +151,7 @@ pub async fn get_user_preferences(state: State<'_, AppState>) -> Result<UserPref
                     highlight_color: row.get(33).unwrap_or_else(|_| "#f3a6a68c".to_string()),
                 },
                 translation_target_language: row.get(34).unwrap_or_else(|_| "en".to_string()),
+                auto_group_manga: row.get(35).unwrap_or(true),
             })
         },
     )?;
@@ -339,6 +341,11 @@ pub async fn update_user_preferences(
     if let Some(lang) = updates.get("translationTargetLanguage").and_then(|v| v.as_str()) {
         set_clauses.push("translation_target_language = ?".to_string());
         params.push(Box::new(lang.to_string()));
+    }
+
+    if let Some(auto_group) = updates.get("autoGroupManga").and_then(|v| v.as_bool()) {
+        set_clauses.push("auto_group_manga = ?".to_string());
+        params.push(Box::new(auto_group));
     }
     
     if set_clauses.is_empty() {

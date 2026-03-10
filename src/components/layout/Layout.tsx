@@ -11,22 +11,24 @@
  */
 
 import type { ReactNode } from 'react'
-import { useState, useMemo } from 'react'
-import { open } from '@tauri-apps/plugin-dialog'
+import { useState, useMemo, useCallback } from 'react'
 
 import { PremiumTopbar } from './ImprovedToolbar'
 import { FilterPanel } from '../sidebar/ModernSidebar'
 import { StatusBar } from './ModernToolbar'
 import { DuplicateFinderDialog } from '../library/DuplicateFinderDialog'
+import { ImportDialog } from '../library/ImportDialog'
 import { cn, formatFileSize } from '@/lib/utils'
 import { api } from '@/lib/tauri'
 import { useLibraryStore } from '@/store/libraryStore'
 import { useToast } from '@/store/toastStore'
 import type { CurrentView } from '@/store/uiStore'
+import { logger } from '@/lib/logger'
 
 interface LayoutProps {
   children: ReactNode
   onOpenSettings: () => void
+  onOpenShortcuts?: () => void
   onEditMetadata?: (bookId: number) => void
   onFetchMetadata?: () => void
   onDeleteBook?: (bookId: number) => void
@@ -51,6 +53,7 @@ interface LayoutProps {
 export function Layout({
   children,
   onOpenSettings,
+  onOpenShortcuts,
   onEditMetadata,
   onFetchMetadata,
   onDeleteBook,
@@ -69,6 +72,9 @@ export function Layout({
 }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [duplicateFinderOpen, setDuplicateFinderOpen] = useState(false)
+  const [isDragActive, setIsDragActive] = useState(false)
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [importDialogFilePaths, setImportDialogFilePaths] = useState<string[]>([])
   const toast = useToast()
 
   const {
@@ -142,199 +148,60 @@ export function Layout({
   }, [books])
 
   // ── Import handlers ────────────────────────────
-  const handleImportBooks = async () => {
-    try {
-      const result = await open({
-        multiple: true,
-        directory: false,
-        filters: [{ name: 'eBooks', extensions: ['epub', 'pdf', 'mobi', 'azw3', 'fb2', 'txt', 'docx', 'html'] }],
-      })
-      if (!result) return
-      const paths = Array.isArray(result) ? result : [result]
-      const importResult = await api.importBooks(paths)
-      const imported = importResult.success.length
-      const dupes = importResult.duplicates.length
-      const failed = importResult.failed.length
-
-      if (imported > 0) {
-        toast.success(
-          `Imported ${imported} book${imported > 1 ? 's' : ''}`,
-          dupes > 0 || failed > 0 ? `${dupes} duplicates, ${failed} failed` : undefined,
-        )
-        
-        await api.autoGroupMangaVolumes()
-        const updated = await api.getBooks()
-        setBooks(updated)
-      } else if (failed > 0) {
-        toast.error('Import failed', importResult.failed[0]?.[1] || 'Unknown error')
-      } else {
-        toast.warning('No books imported', 'All files were duplicates or failed.')
-      }
-    } catch (err) {
-      toast.error('Import failed', String(err))
-    }
+  const handleOpenImportFilesDialog = () => {
+    setImportDialogFilePaths([])
+    setImportDialogOpen(true)
   }
 
-  const handleImportManga = async () => {
-    try {
-      const result = await open({
-        multiple: true,
-        directory: false,
-        filters: [{ name: 'Manga Archives', extensions: ['cbz', 'cbr'] }],
-      })
-      if (!result) return
-      const paths = Array.isArray(result) ? result : [result]
-      const importResult = await api.importManga(paths)
-      const imported = importResult.success.length
-      const dupes = importResult.duplicates.length
-      const failed = importResult.failed.length
-
-      if (imported > 0) {
-        toast.success(
-          `Imported ${imported} manga${imported > 1 ? '' : ''}`,
-          dupes > 0 || failed > 0 ? `${dupes} duplicates, ${failed} failed` : undefined,
-        )
-        
-        await api.autoGroupMangaVolumes()
-        const updated = await api.getBooks()
-        setBooks(updated)
-      } else if (failed > 0) {
-        toast.error('Import failed', importResult.failed[0]?.[1] || 'Unknown error')
-      } else {
-        toast.warning('No manga imported', 'All files were duplicates or failed.')
-      }
-    } catch (err) {
-      toast.error('Import failed', String(err))
-    }
+  const handleOpenImportFolderDialog = () => {
+    setImportDialogFilePaths([])
+    setImportDialogOpen(true)
   }
 
-  const handleScanBooksFolder = async () => {
-    try {
-      const folderPath = await api.openFolderDialog()
-      if (!folderPath) return
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'copy'
+    setIsDragActive(true)
+  }, [])
 
-      // Let the user know the scan has started
-      toast.info('Scanning folder...', `Looking for eBooks in ${folderPath}`)
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragActive(false)
+  }, [])
 
-      const importResult = await api.scanFolderForBooks(folderPath)
-      const imported = importResult.success.length
-      const dupes = importResult.duplicates.length
-      const failed = importResult.failed.length
+  const handleDrop = useCallback(
+    async (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault()
+      e.stopPropagation()
+      setIsDragActive(false)
 
-      if (imported > 0) {
-        toast.success(
-          `Imported ${imported} book${imported > 1 ? 's' : ''}`,
-          dupes > 0 || failed > 0 ? `${dupes} duplicates, ${failed} failed` : undefined,
-        )
-        
-        await api.autoGroupMangaVolumes()
-        const updated = await api.getBooks()
-        setBooks(updated)
-      } else if (failed > 0) {
-        toast.error('Import failed', importResult.failed[0]?.[1] || 'Unknown error')
-      } else {
-        toast.warning('No books imported', 'All files were duplicates or failed.')
+      const files = e.dataTransfer.files
+      if (!files || files.length === 0) return
+
+      const filePaths: string[] = []
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        if (file && (file as any).path) {
+          filePaths.push((file as any).path)
+        } else if (file) {
+          logger.warn(`File ${i} (${file.name}) has no path property, skipping`)
+        }
       }
-    } catch (err) {
-      toast.error('Scan failed', String(err))
-    }
-  }
 
-  const handleScanMangaFolder = async () => {
-    try {
-      const folderPath = await api.openFolderDialog()
-      if (!folderPath) return
-
-      // Let the user know the scan has started
-      toast.info('Scanning folder...', `Looking for Manga in ${folderPath}`)
-
-      const importResult = await api.scanFolderForManga(folderPath)
-      const imported = importResult.success.length
-      const dupes = importResult.duplicates.length
-      const failed = importResult.failed.length
-
-      if (imported > 0) {
-        toast.success(
-          `Imported ${imported} manga${imported > 1 ? '' : ''}`,
-          dupes > 0 || failed > 0 ? `${dupes} duplicates, ${failed} failed` : undefined,
-        )
-        
-        await api.autoGroupMangaVolumes()
-        const updated = await api.getBooks()
-        setBooks(updated)
-      } else if (failed > 0) {
-        toast.error('Import failed', importResult.failed[0]?.[1] || 'Unknown error')
-      } else {
-        toast.warning('No manga imported', 'All files were duplicates or failed.')
+      if (filePaths.length === 0) {
+        toast.warning('No valid files', 'Could not extract file paths from dropped items')
+        return
       }
-    } catch (err) {
-      toast.error('Scan failed', String(err))
-    }
-  }
 
-  const handleImportComics = async () => {
-    try {
-      const result = await open({
-        multiple: true,
-        directory: false,
-        filters: [{ name: 'Comic Archives', extensions: ['cbz', 'cbr'] }],
-      })
-      if (!result) return
-      const paths = Array.isArray(result) ? result : [result]
-      const importResult = await api.importComics(paths)
-      const imported = importResult.success.length
-      const dupes = importResult.duplicates.length
-      const failed = importResult.failed.length
-
-      if (imported > 0) {
-        toast.success(
-          `Imported ${imported} comic${imported > 1 ? 's' : ''}`,
-          dupes > 0 || failed > 0 ? `${dupes} duplicates, ${failed} failed` : undefined,
-        )
-        
-        await api.autoGroupMangaVolumes()
-        const updated = await api.getBooks()
-        setBooks(updated)
-      } else if (failed > 0) {
-        toast.error('Import failed', importResult.failed[0]?.[1] || 'Unknown error')
-      } else {
-        toast.warning('No comics imported', 'All files were duplicates or failed.')
-      }
-    } catch (err) {
-      toast.error('Import failed', String(err))
-    }
-  }
-
-  const handleScanComicsFolder = async () => {
-    try {
-      const folderPath = await api.openFolderDialog()
-      if (!folderPath) return
-
-      toast.info('Scanning folder...', `Looking for Comics in ${folderPath}`)
-
-      const importResult = await api.scanFolderForComics(folderPath)
-      const imported = importResult.success.length
-      const dupes = importResult.duplicates.length
-      const failed = importResult.failed.length
-
-      if (imported > 0) {
-        toast.success(
-          `Imported ${imported} comic${imported > 1 ? 's' : ''}`,
-          dupes > 0 || failed > 0 ? `${dupes} duplicates, ${failed} failed` : undefined,
-        )
-        
-        await api.autoGroupMangaVolumes()
-        const updated = await api.getBooks()
-        setBooks(updated)
-      } else if (failed > 0) {
-        toast.error('Import failed', importResult.failed[0]?.[1] || 'Unknown error')
-      } else {
-        toast.warning('No comics imported', 'All files were duplicates or failed.')
-      }
-    } catch (err) {
-      toast.error('Scan failed', String(err))
-    }
-  }
+      // Trigger ImportDialog with the dropped files
+      setImportDialogFilePaths(filePaths)
+      setImportDialogOpen(true)
+    },
+    [toast]
+  )
 
   // ── Action handlers ────────────────────────────
   const handleDelete = () => {
@@ -381,35 +248,50 @@ export function Layout({
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">
       {/* ── Topbar ── */}
-      <PremiumTopbar
-        currentDomain={currentDomain}
-        onDomainChange={onDomainChange}
-        onImportBooks={handleImportBooks}
-        onImportManga={handleImportManga}
-        onImportComics={handleImportComics}
-        onScanBooksFolder={handleScanBooksFolder}
-        onScanMangaFolder={handleScanMangaFolder}
-        onScanComicsFolder={handleScanComicsFolder}
-        onOpenRSS={onOpenRSSFeeds}
-        onConvert={handleConvert}
-        onEditMetadata={handleEditMetadata}
-        onFetchMetadata={handleFetchMetadataClick}
-        onViewDetails={handleViewDetails}
-        onDelete={handleDelete}
-        onSearch={onSearchChange}
-        onOpenSettings={onOpenSettings}
-        onOpenDuplicateFinder={() => setDuplicateFinderOpen(true)}
-        onOpenAdvancedFilter={onOpenAdvancedFilter}
-        onToggleSidebar={() => setSidebarOpen((o) => !o)}
-        onGoHome={onGoHome}
-        onAutoGroupManga={onAutoGroupManga}
-        selectedCount={selectedBookIds.size}
-        activeFilterCount={activeFilterCount}
-        sidebarOpen={sidebarOpen}
-      />
+       <PremiumTopbar
+         currentDomain={currentDomain}
+         onDomainChange={onDomainChange}
+         onImportFiles={handleOpenImportFilesDialog}
+         onImportFolder={handleOpenImportFolderDialog}
+         onOpenRSS={onOpenRSSFeeds}
+         onConvert={handleConvert}
+         onEditMetadata={handleEditMetadata}
+         onFetchMetadata={handleFetchMetadataClick}
+         onViewDetails={handleViewDetails}
+         onDelete={handleDelete}
+         onSearch={onSearchChange}
+         onOpenSettings={onOpenSettings}
+         onOpenShortcuts={onOpenShortcuts}
+         onOpenDuplicateFinder={() => setDuplicateFinderOpen(true)}
+         onOpenAdvancedFilter={onOpenAdvancedFilter}
+         onToggleSidebar={() => setSidebarOpen((o) => !o)}
+         onGoHome={onGoHome}
+         onAutoGroupManga={onAutoGroupManga}
+         selectedCount={selectedBookIds.size}
+         activeFilterCount={activeFilterCount}
+         sidebarOpen={sidebarOpen}
+       />
 
       {/* ── Body ── */}
-      <div className="flex flex-1 overflow-hidden">
+      <div 
+        className="flex flex-1 overflow-hidden relative"
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {isDragActive && (
+          <div className="absolute inset-0 bg-blue-500/10 border-2 border-dashed border-blue-500 rounded-lg pointer-events-none z-40 flex items-center justify-center">
+            <div className="text-center">
+              <div className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+                Drop books here to import
+              </div>
+              <div className="text-sm text-blue-500 dark:text-blue-300 mt-1">
+                Supports EPUB, PDF, MOBI, CBZ, CBR and more
+              </div>
+            </div>
+          </div>
+        )}
+        
         {/* Sidebar — hidden on homepage */}
         {currentView !== 'home' && sidebarOpen && (
           <FilterPanel
@@ -451,6 +333,13 @@ export function Layout({
           const updated = await api.getBooks()
           setBooks(updated)
         }}
+      />
+
+      {/* ── Import Dialog ── */}
+      <ImportDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        initialFilePaths={importDialogFilePaths}
       />
     </div>
   )

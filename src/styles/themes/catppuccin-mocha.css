@@ -1,0 +1,70 @@
+/* catppuccin-mocha theme */
+[data-theme="catppuccin-mocha"] {
+  /* Tailwind requires H S L format without the function wrapper */
+  --background: 240 21% 15%;
+  --foreground: 226 64% 88%;
+
+  --surface-1: 237 16% 23%;
+  --surface-2: 233 12% 39%;
+  --surface-3: 332 68% 87%;
+  --surface-4: 267 84% 81%;
+
+  --card: 240 21% 15%;
+  --card-foreground: 226 64% 88%;
+
+  --popover: 240 21% 15%;
+  --popover-foreground: 226 64% 88%;
+
+  --primary: 267 84% 81%;
+  --primary-foreground: 240 21% 15%;
+
+  --secondary: 332 68% 87%;
+  --secondary-foreground: 240 21% 15%;
+
+  --muted: 233 12% 39%;
+  --muted-foreground: 226 64% 88%;
+
+  --accent: 217 92% 76%;
+  --accent-foreground: 240 21% 15%;
+
+  --destructive: 343 81% 75%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 237 16% 23%;
+  --input: 237 16% 23%;
+  --ring: 267 84% 81%;
+
+  /* Provide the --bg-primary etc. required by components/reader */
+  --bg-primary: oklch(0.20 0.01 260);
+  --bg-secondary: oklch(0.23 0.01 260);
+  --bg-tertiary: oklch(0.26 0.01 260);
+  --bg-elevated: oklch(0.29 0.01 260);
+  --bg-hover: oklch(0.26 0.01 260);
+  --bg-active: oklch(0.32 0.01 260);
+
+  --text-primary: oklch(0.85 0.01 260);
+  --text-secondary: oklch(0.85 0.01 260);
+  --text-tertiary: oklch(0.45 0.02 260);
+  --text-disabled: oklch(0.45 0.02 260);
+  --text-inverse: oklch(0.20 0.01 260);
+
+  --border-primary: oklch(0.30 0.02 260);
+  --border-secondary: oklch(0.30 0.02 260);
+  --border-focus: oklch(0.75 0.10 310);
+  --border-hover: oklch(0.75 0.10 310);
+
+  --scrollbar-track: oklch(0.23 0.01 260);
+  --scrollbar-thumb: oklch(0.29 0.01 260);
+  --scrollbar-thumb-hover: oklch(0.32 0.01 260);
+
+  --reader-bg: oklch(0.20 0.01 260);
+  --reader-text: oklch(0.85 0.01 260);
+  --reader-selection: oklch(0.75 0.10 310 / 0.3);
+
+
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.45), 0 1px 2px -1px rgb(0 0 0 / 0.35);
+  --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.35);
+  --shadow-lg: 0 12px 24px -4px rgb(0 0 0 / 0.55), 0 4px 8px -4px rgb(0 0 0 / 0.35);
+  --shadow-xl: 0 24px 48px -8px rgb(0 0 0 / 0.7);
+}

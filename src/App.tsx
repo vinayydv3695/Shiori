@@ -13,6 +13,7 @@ import { useToastStore } from "./store/toastStore"
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts"
 import { api, type Book } from "./lib/tauri"
 import type { SeriesGroup } from "./hooks/useGroupedLibrary"
+import { ShortcutsDialog } from "./components/dialogs/ShortcutsDialog"
 
 const ReaderLayout = lazy(() => import("./components/reader/ReaderLayout").then(m => ({ default: m.ReaderLayout })))
 const EditMetadataDialog = lazy(() => import("./components/library/EditMetadataDialog").then(m => ({ default: m.EditMetadataDialog })))
@@ -36,6 +37,7 @@ function App() {
   // Check if user has completed onboarding
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true);
+  const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false);
 
   useEffect(() => {
     // Check onboarding state from backend
@@ -242,6 +244,12 @@ function App() {
     },
     'cmd+shift+f': () => {
       setAdvancedFilterOpen(true)
+    },
+    '?': () => {
+      setShortcutsDialogOpen(true)
+    },
+    'ctrl+/': () => {
+      setShortcutsDialogOpen(true)
     }
   })
 
@@ -404,10 +412,31 @@ function App() {
   }
 
    // Handle onboarding completion
-   const handleOnboardingComplete = () => {
-     logger.debug('[App] Onboarding completed')
-    setShowOnboarding(false)
-  }
+   const handleOnboardingComplete = async () => {
+     console.log('[App] handleOnboardingComplete called');
+     logger.debug('[App] Onboarding completed');
+     
+     try {
+       // Verify the backend onboarding state was actually updated
+       console.log('[App] Checking backend onboarding state...');
+       const state = await api.getOnboardingState();
+       console.log('[App] Backend onboarding state:', state);
+       
+       if (!state.completed) {
+         console.error('[App] WARNING: Backend reports onboarding NOT completed!');
+         logger.error('[App] Onboarding completion mismatch - backend state not updated');
+       } else {
+         console.log('[App] ✓ Backend confirmed onboarding complete');
+       }
+     } catch (error) {
+       console.error('[App] Failed to verify onboarding state:', error);
+       logger.error('[App] Onboarding verification failed:', error);
+     }
+     
+     console.log('[App] Setting showOnboarding to false');
+     setShowOnboarding(false);
+     console.log('[App] Onboarding flow complete');
+   }
 
   // Show loading while checking onboarding state
   if (isCheckingOnboarding) {
@@ -426,8 +455,9 @@ function App() {
   return (
     <>
       <DevBanner />
-      <Layout
+       <Layout
         onOpenSettings={handleOpenSettings}
+        onOpenShortcuts={() => setShortcutsDialogOpen(true)}
         onEditMetadata={handleEditBook}
         onFetchMetadata={handleFetchMetadata}
         onDeleteBook={handleDeleteBook}
@@ -619,6 +649,11 @@ function App() {
           onOpenChange={setAdvancedFilterOpen}
         />
       </Suspense>
+      
+      <ShortcutsDialog
+        open={shortcutsDialogOpen}
+        onOpenChange={setShortcutsDialogOpen}
+      />
     </>
   )
 }

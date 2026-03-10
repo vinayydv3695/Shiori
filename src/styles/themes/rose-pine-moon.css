@@ -1,0 +1,70 @@
+/* rose-pine-moon theme */
+[data-theme="rose-pine-moon"] {
+  /* Tailwind requires H S L format without the function wrapper */
+  --background: 245 24% 17%;
+  --foreground: 245 41% 91%;
+
+  --surface-1: 245 21% 26%;
+  --surface-2: 245 12% 47%;
+  --surface-3: 343 65% 75%;
+  --surface-4: 211 48% 47%;
+
+  --card: 245 24% 17%;
+  --card-foreground: 245 41% 91%;
+
+  --popover: 245 24% 17%;
+  --popover-foreground: 245 41% 91%;
+
+  --primary: 211 48% 47%;
+  --primary-foreground: 245 24% 17%;
+
+  --secondary: 343 65% 75%;
+  --secondary-foreground: 245 24% 17%;
+
+  --muted: 245 12% 47%;
+  --muted-foreground: 245 41% 91%;
+
+  --accent: 267 57% 78%;
+  --accent-foreground: 245 24% 17%;
+
+  --destructive: 343 76% 68%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 245 21% 26%;
+  --input: 245 21% 26%;
+  --ring: 211 48% 47%;
+
+  /* Provide the --bg-primary etc. required by components/reader */
+  --bg-primary: oklch(0.24 0.02 280);
+  --bg-secondary: oklch(0.27 0.02 280);
+  --bg-tertiary: oklch(0.30 0.02 280);
+  --bg-elevated: oklch(0.33 0.02 280);
+  --bg-hover: oklch(0.30 0.02 280);
+  --bg-active: oklch(0.35 0.02 280);
+
+  --text-primary: oklch(0.90 0.02 280);
+  --text-secondary: oklch(0.90 0.02 280);
+  --text-tertiary: oklch(0.50 0.02 280);
+  --text-disabled: oklch(0.50 0.02 280);
+  --text-inverse: oklch(0.24 0.02 280);
+
+  --border-primary: oklch(0.30 0.02 280);
+  --border-secondary: oklch(0.30 0.02 280);
+  --border-focus: oklch(0.55 0.10 240);
+  --border-hover: oklch(0.55 0.10 240);
+
+  --scrollbar-track: oklch(0.27 0.02 280);
+  --scrollbar-thumb: oklch(0.33 0.02 280);
+  --scrollbar-thumb-hover: oklch(0.35 0.02 280);
+
+  --reader-bg: oklch(0.24 0.02 280);
+  --reader-text: oklch(0.90 0.02 280);
+  --reader-selection: oklch(0.55 0.10 240 / 0.3);
+
+
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.45), 0 1px 2px -1px rgb(0 0 0 / 0.35);
+  --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.35);
+  --shadow-lg: 0 12px 24px -4px rgb(0 0 0 / 0.55), 0 4px 8px -4px rgb(0 0 0 / 0.35);
+  --shadow-xl: 0 24px 48px -8px rgb(0 0 0 / 0.7);
+}

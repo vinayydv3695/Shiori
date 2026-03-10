@@ -1,13 +1,13 @@
 # Maintainer: Vinay Kumar <vinayydv343@gmail.com>
 pkgname=shiori
-pkgver=0.1.5
+pkgver=0.1.7
 pkgrel=1
 pkgdesc="Modern offline-first eBook library manager built with Tauri, React, and Rust"
 arch=('x86_64')
 url="https://github.com/vinayydv3695/Shiori"
 license=('MIT')
 depends=(
-    'webkit2gtk'
+    'webkit2gtk-4.1'
     'gtk3'
     'libayatana-appindicator'
     'librsvg'
@@ -20,7 +20,7 @@ makedepends=(
     'cargo'
     'nodejs'
     'npm'
-    'webkit2gtk'
+    'webkit2gtk-4.1'
     'base-devel'
     'curl'
     'wget'

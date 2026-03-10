@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X, Folder, Sparkles, BookMarked } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Folder, Sparkles, BookMarked, Loader2 } from 'lucide-react';
 import { api, Collection, SmartRule } from '../../lib/tauri';
 import { logger } from '@/lib/logger';
 import { useCollectionStore } from '../../store/collectionStore';
@@ -196,236 +197,284 @@ export const CreateCollectionDialog = ({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-[600px] max-h-[90vh] overflow-y-auto z-50">
-          <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-            <div className="flex items-center justify-between">
-              <Dialog.Title className="text-xl font-semibold">
-                {editCollection ? 'Edit Collection' : 'Create Collection'}
-              </Dialog.Title>
-               <Dialog.Close asChild>
-                 <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded" title="Close">
-                   <X className="w-5 h-5" />
-                 </button>
-               </Dialog.Close>
-            </div>
+        <Dialog.Overlay className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card/40 backdrop-blur-2xl border border-border/50 rounded-[2rem] shadow-2xl w-[600px] max-h-[90vh] overflow-y-auto z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-500 custom-scrollbar">
+          <div className="sticky top-0 bg-transparent backdrop-blur-xl border-b border-border/50 px-8 py-6 z-10 flex items-center justify-between">
+            <Dialog.Title className="text-3xl font-black tracking-tight text-foreground flex items-center gap-3">
+              {editCollection ? 'Edit Collection' : 'Create Collection'}
+            </Dialog.Title>
+            <Dialog.Close asChild>
+              <button className="p-2.5 bg-card/40 hover:bg-card/80 border border-border/50 rounded-2xl transition-all duration-300 text-muted-foreground hover:text-foreground" title="Close">
+                <X className="w-5 h-5" />
+              </button>
+            </Dialog.Close>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          <form onSubmit={handleSubmit} className="p-8 space-y-8">
             {/* Collection Type Toggle */}
             <div className="flex gap-4">
               <button
                 type="button"
                 onClick={() => setIsSmart(false)}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all ${!isSmart
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                  : 'border-gray-300 dark:border-gray-700 hover:border-gray-400'
+                className={`group flex-1 flex flex-col items-center text-center gap-6 px-6 py-8 rounded-3xl border transition-all duration-500 relative overflow-hidden ${!isSmart
+                  ? 'border-blue-500/50 bg-blue-500/10 shadow-[0_0_30px_rgba(59,130,246,0.15)]'
+                  : 'border-border/50 bg-card/40 backdrop-blur-md hover:border-blue-500/50 hover:bg-card/60'
                   }`}
               >
-                <Folder className="w-5 h-5" />
-                <div className="text-left">
-                  <div className="font-medium">Manual Collection</div>
-                  <div className="text-xs text-gray-500">Add books manually</div>
+                <div className={`absolute top-0 right-0 w-32 h-32 opacity-20 bg-gradient-to-bl from-blue-500 to-transparent rounded-bl-full -z-10 transition-transform duration-700 ${!isSmart ? 'scale-150' : 'group-hover:scale-150'}`} />
+                <div className={`p-4 rounded-2xl shadow-sm transition-transform duration-500 ${!isSmart ? 'bg-background/80 scale-110 text-blue-500' : 'bg-background/50 text-muted-foreground group-hover:text-blue-500 group-hover:scale-110'}`}>
+                  <Folder className="w-8 h-8" />
+                </div>
+                <div className="space-y-1">
+                  <div className="text-lg font-bold text-foreground">Manual</div>
+                  <div className="text-sm text-muted-foreground">Add books manually</div>
                 </div>
               </button>
               <button
                 type="button"
                 onClick={() => setIsSmart(true)}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all ${isSmart
-                  ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
-                  : 'border-gray-300 dark:border-gray-700 hover:border-gray-400'
+                className={`group flex-1 flex flex-col items-center text-center gap-6 px-6 py-8 rounded-3xl border transition-all duration-500 relative overflow-hidden ${isSmart
+                  ? 'border-purple-500/50 bg-purple-500/10 shadow-[0_0_30px_rgba(168,85,247,0.15)]'
+                  : 'border-border/50 bg-card/40 backdrop-blur-md hover:border-purple-500/50 hover:bg-card/60'
                   }`}
               >
-                <Sparkles className="w-5 h-5" />
-                <div className="text-left">
-                  <div className="font-medium">Smart Collection</div>
-                  <div className="text-xs text-gray-500">Auto-filter by rules</div>
+                <div className={`absolute top-0 right-0 w-32 h-32 opacity-20 bg-gradient-to-bl from-purple-500 to-transparent rounded-bl-full -z-10 transition-transform duration-700 ${isSmart ? 'scale-150' : 'group-hover:scale-150'}`} />
+                <div className={`p-4 rounded-2xl shadow-sm transition-transform duration-500 ${isSmart ? 'bg-background/80 scale-110 text-purple-500' : 'bg-background/50 text-muted-foreground group-hover:text-purple-500 group-hover:scale-110'}`}>
+                  <Sparkles className="w-8 h-8" />
+                </div>
+                <div className="space-y-1">
+                  <div className="text-lg font-bold text-foreground">Smart</div>
+                  <div className="text-sm text-muted-foreground">Auto-filter by rules</div>
                 </div>
               </button>
             </div>
 
             {/* Collection Type (Regular vs Shelf) */}
-            {!isSmart && (
+            <AnimatePresence>
+              {!isSmart && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }} 
+                  animate={{ opacity: 1, height: 'auto' }} 
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="pt-2">
+                    <label className="block text-sm font-semibold text-foreground tracking-tight mb-3">Structure Type</label>
+                    <div className="flex gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setCollectionType('regular')}
+                        className={`group flex-1 flex items-center justify-center gap-3 px-5 py-4 rounded-2xl border transition-all duration-300 ${collectionType === 'regular'
+                          ? 'border-primary/50 bg-primary/10 text-primary shadow-inner shadow-primary/5'
+                          : 'border-border/50 bg-card/40 backdrop-blur-md hover:bg-card/60 hover:border-primary/30 text-muted-foreground'
+                          }`}
+                      >
+                        <Folder className={`w-4 h-4 transition-transform duration-300 ${collectionType === 'regular' ? 'scale-110' : 'group-hover:scale-110'}`} />
+                        <span className="text-sm font-bold">Standard</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCollectionType('shelf')}
+                        className={`group flex-1 flex items-center justify-center gap-3 px-5 py-4 rounded-2xl border transition-all duration-300 ${collectionType === 'shelf'
+                          ? 'border-amber-500/50 bg-amber-500/10 text-amber-500 shadow-inner shadow-amber-500/5'
+                          : 'border-border/50 bg-card/40 backdrop-blur-md hover:bg-card/60 hover:border-amber-500/30 text-muted-foreground'
+                          }`}
+                      >
+                        <BookMarked className={`w-4 h-4 transition-transform duration-300 ${collectionType === 'shelf' ? 'scale-110' : 'group-hover:scale-110'}`} />
+                        <span className="text-sm font-bold">Bookshelf</span>
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="space-y-6 bg-card/40 backdrop-blur-md p-6 rounded-3xl border border-border/50 shadow-sm transition-all duration-500 hover:border-primary/20">
+              {/* Name */}
               <div>
-                <label className="block text-sm font-medium mb-2">Collection Type</label>
-                <div className="flex gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setCollectionType('regular')}
-                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all ${collectionType === 'regular'
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                      : 'border-gray-300 dark:border-gray-700 hover:border-gray-400'
-                      }`}
-                  >
-                    <Folder className="w-4 h-4" />
-                    <div className="text-left">
-                      <div className="text-sm font-medium">Collection</div>
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCollectionType('shelf')}
-                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all ${collectionType === 'shelf'
-                      ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20'
-                      : 'border-gray-300 dark:border-gray-700 hover:border-gray-400'
-                      }`}
-                  >
-                    <BookMarked className="w-4 h-4" />
-                    <div className="text-left">
-                      <div className="text-sm font-medium">Shelf</div>
-                    </div>
-                  </button>
+                <label className="block text-sm font-semibold text-foreground tracking-tight mb-2">
+                  Collection Name <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative group">
+                  <div className={`absolute inset-0 bg-primary/5 blur-md rounded-2xl transition-colors ${errors.name ? 'bg-rose-500/5' : 'group-hover:bg-primary/10'}`} />
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => {
+                      setName(e.target.value);
+                      setErrors(prev => ({ ...prev, name: undefined }));
+                    }}
+                    placeholder="e.g., Science Fiction, Favorites, To Read"
+                    className={`relative w-full px-5 py-4 rounded-2xl bg-background/50 backdrop-blur-md border outline-none transition-all placeholder:text-muted-foreground/50 text-foreground font-medium ${
+                      errors.name 
+                        ? 'border-rose-500/50 focus:ring-2 focus:ring-rose-500/30' 
+                        : 'border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 hover:border-primary/30'
+                    }`}
+                    required
+                  />
+                </div>
+                {errors.name && <p className="text-xs text-rose-500 mt-2 font-bold flex items-center gap-1.5"><X className="w-3.5 h-3.5"/> {errors.name}</p>}
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-semibold text-foreground tracking-tight mb-2">
+                  Description <span className="text-muted-foreground font-normal ml-1">(Optional)</span>
+                </label>
+                <div className="relative group">
+                  <div className="absolute inset-0 bg-primary/5 blur-md rounded-2xl transition-colors group-hover:bg-primary/10" />
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="What's this collection about?"
+                    rows={2}
+                    className="relative w-full px-5 py-4 rounded-2xl bg-background/50 backdrop-blur-md border border-border/50 outline-none transition-all placeholder:text-muted-foreground/50 text-foreground font-medium focus:border-primary/50 focus:ring-2 focus:ring-primary/20 hover:border-primary/30 resize-none"
+                  />
                 </div>
               </div>
-            )}
 
-            {/* Name */}
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Collection Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  setErrors(prev => ({ ...prev, name: undefined }));
-                }}
-                placeholder="e.g., Science Fiction, Favorites, To Read"
-                className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none ${
-                  errors.name 
-                    ? 'border-destructive focus:border-destructive focus:ring-destructive' 
-                    : 'border-gray-300 dark:border-gray-700'
-                }`}
-                required
-              />
-              {errors.name && <p className="text-xs text-destructive mt-1">{errors.name}</p>}
-            </div>
-
-            {/* Description */}
-            <div>
-              <label className="block text-sm font-medium mb-2">Description</label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Optional description"
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-              />
-            </div>
-
-            {/* Parent Collection */}
-            <div>
-              <label className="block text-sm font-medium mb-2">Parent Collection</label>
-              <select
-                value={selectedParentId || ''}
-                onChange={(e) => setSelectedParentId(e.target.value ? Number(e.target.value) : null)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
-              >
-                <option value="">None (Top Level)</option>
-                {getAvailableParentCollections().map((col) => (
-                  <option key={col.id} value={col.id}>
-                    {col.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Color Picker */}
-            <div>
-              <label className="block text-sm font-medium mb-2">Color</label>
-              <div className="flex gap-2">
-                {PRESET_COLORS.map((presetColor) => (
-                  <button
-                    key={presetColor}
-                    type="button"
-                    onClick={() => setColor(presetColor)}
-                    className={`w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 ${color === presetColor ? 'border-gray-900 dark:border-white scale-110' : 'border-transparent'
-                      }`}
-                    style={{ backgroundColor: presetColor }}
-                  />
-                ))}
-                <input
-                  type="color"
-                  value={color}
-                  onChange={(e) => setColor(e.target.value)}
-                  className="w-8 h-8 rounded-full cursor-pointer"
-                />
+              {/* Parent Collection */}
+              <div>
+                <label className="block text-sm font-semibold text-foreground tracking-tight mb-2">Parent Collection</label>
+                <div className="relative group">
+                  <div className="absolute inset-0 bg-primary/5 blur-md rounded-2xl transition-colors group-hover:bg-primary/10" />
+                  <select
+                    value={selectedParentId || ''}
+                    onChange={(e) => setSelectedParentId(e.target.value ? Number(e.target.value) : null)}
+                    className="relative w-full px-5 py-4 rounded-2xl bg-background/50 backdrop-blur-md border border-border/50 outline-none transition-all text-foreground font-medium focus:border-primary/50 focus:ring-2 focus:ring-primary/20 hover:border-primary/30 appearance-none cursor-pointer"
+                  >
+                    <option value="">None (Top Level)</option>
+                    {getAvailableParentCollections().map((col) => (
+                      <option key={col.id} value={col.id}>
+                        {col.name}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground transition-transform group-hover:translate-y-[-40%]">
+                    <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Icon Picker */}
-            <div>
-              <label className="block text-sm font-medium mb-2">Icon (Optional)</label>
-              <div className="flex gap-2 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => setIcon('')}
-                  className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center text-lg transition-all ${!icon
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                    : 'border-gray-300 dark:border-gray-700 hover:border-gray-400'
-                    }`}
-                >
-                  <X className="w-4 h-4 text-gray-400" />
-                </button>
-                {PRESET_ICONS.map((presetIcon) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 bg-card/40 backdrop-blur-md p-6 rounded-3xl border border-border/50 shadow-sm transition-all duration-500 hover:border-primary/20">
+              {/* Color Picker */}
+              <div>
+                <label className="block text-sm font-semibold text-foreground tracking-tight mb-4">Theme Color</label>
+                <div className="flex gap-3 items-center flex-wrap">
+                  {PRESET_COLORS.map((presetColor) => (
+                    <button
+                      key={presetColor}
+                      type="button"
+                      onClick={() => setColor(presetColor)}
+                      className={`relative w-8 h-8 rounded-full border-2 transition-all duration-300 hover:scale-110 group ${color === presetColor ? 'border-foreground scale-110 shadow-md' : 'border-transparent opacity-60 hover:opacity-100 hover:shadow-sm'
+                        }`}
+                      style={{ backgroundColor: presetColor }}
+                    >
+                      {color === presetColor && (
+                        <div className="absolute inset-0 rounded-full ring-4 ring-current opacity-20 pointer-events-none" style={{ color: presetColor }} />
+                      )}
+                    </button>
+                  ))}
+                  <div className="w-[2px] h-6 bg-border mx-1.5 rounded-full" />
+                  <div className="relative w-9 h-9 rounded-full overflow-hidden border-2 border-transparent hover:border-foreground/50 transition-all cursor-pointer shadow-sm hover:shadow-md hover:scale-110 duration-300">
+                    <input
+                      type="color"
+                      value={color}
+                      onChange={(e) => setColor(e.target.value)}
+                      className="absolute -inset-4 w-16 h-16 cursor-pointer opacity-0"
+                    />
+                    <div className="absolute inset-0 pointer-events-none" style={{ backgroundColor: color }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Icon Picker */}
+              <div>
+                <label className="block text-sm font-semibold text-foreground tracking-tight mb-4">Icon</label>
+                <div className="flex gap-2.5 flex-wrap">
                   <button
-                    key={presetIcon}
                     type="button"
-                    onClick={() => setIcon(presetIcon)}
-                    className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center text-lg transition-all ${icon === presetIcon
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                      : 'border-gray-300 dark:border-gray-700 hover:border-gray-400'
+                    onClick={() => setIcon('')}
+                    className={`w-11 h-11 rounded-2xl border transition-all duration-300 flex items-center justify-center text-lg shadow-sm ${!icon
+                      ? 'border-primary/50 bg-primary/10 text-primary scale-105 shadow-primary/20'
+                      : 'border-border/50 bg-background/50 hover:bg-card hover:border-primary/30 text-muted-foreground opacity-60 hover:opacity-100'
                       }`}
                   >
-                    {presetIcon}
+                    <X className="w-5 h-5" />
                   </button>
-                ))}
+                  {PRESET_ICONS.slice(0, 6).map((presetIcon) => (
+                    <button
+                      key={presetIcon}
+                      type="button"
+                      onClick={() => setIcon(presetIcon)}
+                      className={`w-11 h-11 rounded-2xl border transition-all duration-300 flex items-center justify-center text-xl shadow-sm ${icon === presetIcon
+                        ? 'border-primary/50 bg-primary/10 text-primary scale-110 shadow-primary/20'
+                        : 'border-border/50 bg-background/50 hover:bg-card hover:border-primary/30 opacity-60 hover:opacity-100 hover:scale-105'
+                        }`}
+                    >
+                      {presetIcon}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* Smart Collection Rules */}
-            {isSmart && (
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Filter Rules <span className="text-red-500">*</span>
-                </label>
-                <div className={errors.rules ? 'border border-destructive rounded-lg p-2' : ''}>
-                  <SmartCollectionEditor 
-                    rules={smartRules} 
-                    onChange={(rules) => {
-                      setSmartRules(rules);
-                      setErrors(prev => ({ ...prev, rules: undefined }));
-                      updatePreview(rules);
-                    }} 
-                  />
-                </div>
-                {errors.rules && <p className="text-xs text-destructive mt-1">{errors.rules}</p>}
-                
-                {previewLoading && (
-                  <div className="mt-3 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                    <p className="text-sm text-blue-700 dark:text-blue-300">
-                      🔄 Calculating preview...
-                    </p>
+            <AnimatePresence>
+              {isSmart && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }} 
+                  animate={{ opacity: 1, height: 'auto' }} 
+                  exit={{ opacity: 0, height: 0 }}
+                  className="space-y-4 overflow-hidden"
+                >
+                  <div className="pt-2">
+                    <label className="block text-sm font-semibold text-foreground tracking-tight mb-3">
+                      Filter Rules <span className="text-rose-500">*</span>
+                    </label>
+                    <div className={`transition-all duration-300 ${errors.rules ? 'ring-2 ring-rose-500/50 rounded-2xl' : ''}`}>
+                      <SmartCollectionEditor 
+                        rules={smartRules} 
+                        onChange={(rules) => {
+                          setSmartRules(rules);
+                          setErrors(prev => ({ ...prev, rules: undefined }));
+                          updatePreview(rules);
+                        }} 
+                      />
+                    </div>
+                    {errors.rules && <p className="text-xs text-rose-500 mt-3 font-bold flex items-center gap-1.5"><X className="w-3.5 h-3.5"/> {errors.rules}</p>}
+                    
+                    {previewLoading && (
+                      <div className="mt-5 px-6 py-4 bg-primary/5 backdrop-blur-md border border-primary/20 rounded-2xl flex items-center gap-4 shadow-sm">
+                        <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                        <p className="text-sm font-bold text-primary">Calculating library preview...</p>
+                      </div>
+                    )}
+                    
+                    {!previewLoading && previewCount !== null && (
+                      <div className="mt-5 px-6 py-4 bg-primary/5 backdrop-blur-md border border-primary/20 rounded-2xl flex items-center gap-4 shadow-inner shadow-primary/5">
+                        <div className="p-2.5 bg-primary/10 rounded-xl text-primary">
+                          <Sparkles className="w-5 h-5" />
+                        </div>
+                        <p className="text-sm font-medium text-foreground">
+                          This smart collection currently matches <strong className="text-primary text-lg ml-1 mr-1">{previewCount}</strong> {previewCount === 1 ? 'book' : 'books'}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                )}
-                
-                {!previewLoading && previewCount !== null && (
-                  <div className="mt-3 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                    <p className="text-sm text-blue-700 dark:text-blue-300">
-                      📊 This collection will contain <strong>{previewCount}</strong> {previewCount === 1 ? 'book' : 'books'}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Actions */}
-            <div className="flex justify-end gap-3 pt-4">
+            <div className="flex justify-end gap-3 pt-8 border-t border-border/50">
               <Dialog.Close asChild>
                 <button
                   type="button"
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  className="px-6 py-3 bg-card/40 backdrop-blur-md border border-border/50 rounded-2xl hover:bg-card/80 transition-all duration-300 font-medium text-muted-foreground hover:text-foreground"
                 >
                   Cancel
                 </button>
@@ -433,8 +482,9 @@ export const CreateCollectionDialog = ({
               <button
                 type="submit"
                 disabled={loading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-8 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-2xl shadow-[0_0_20px_rgba(var(--primary),0.2)] hover:shadow-[0_0_30px_rgba(var(--primary),0.4)] transition-all duration-300 font-bold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
+                {loading && <Loader2 className="w-5 h-5 animate-spin" />}
                 {loading ? 'Saving...' : editCollection ? 'Update Collection' : 'Create Collection'}
               </button>
             </div>

@@ -116,23 +116,49 @@ pub fn scan_folder_for_books(
 }
 
 #[tauri::command]
-pub fn import_manga(state: State<'_, AppState>, paths: Vec<String>) -> Result<ImportResult> {
+pub async fn import_manga(state: State<'_, AppState>, paths: Vec<String>) -> Result<ImportResult> {
     validate::require_non_empty_vec(&paths, "file paths")?;
     for path in &paths {
         validate::require_safe_path(path, "import path")?;
     }
     let db = &state.db;
-    library_service::import_manga(db, paths, &state.covers_dir)
+    let result = library_service::import_manga(db, paths, &state.covers_dir)?;
+    
+    let conn = db.get_connection()?;
+    let auto_group: bool = conn.query_row(
+        "SELECT auto_group_manga FROM user_preferences WHERE id = 1",
+        [],
+        |row| row.get(0)
+    ).unwrap_or(true);
+    
+    if auto_group {
+        let _ = crate::commands::manga::auto_group_manga_volumes(state).await;
+    }
+    
+    Ok(result)
 }
 
 #[tauri::command]
-pub fn scan_folder_for_manga(
+pub async fn scan_folder_for_manga(
     state: State<'_, AppState>,
     folder_path: String,
 ) -> Result<ImportResult> {
     validate::require_safe_path(&folder_path, "folder path")?;
     let db = &state.db;
-    library_service::scan_folder_for_manga(db, &folder_path, &state.covers_dir)
+    let result = library_service::scan_folder_for_manga(db, &folder_path, &state.covers_dir)?;
+    
+    let conn = db.get_connection()?;
+    let auto_group: bool = conn.query_row(
+        "SELECT auto_group_manga FROM user_preferences WHERE id = 1",
+        [],
+        |row| row.get(0)
+    ).unwrap_or(true);
+    
+    if auto_group {
+        let _ = crate::commands::manga::auto_group_manga_volumes(state).await;
+    }
+    
+    Ok(result)
 }
 
 #[tauri::command]

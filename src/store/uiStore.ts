@@ -1,7 +1,7 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
-export type CurrentView = "home" | "library" | "rss-feeds" | "rss-articles" | "annotations" | "statistics"
+export type CurrentView = "home" | "library" | "rss-feeds" | "rss-articles" | "annotations" | "statistics" | "online-books" | "online-manga"
 export type DomainView = "books" | "manga_comics"
 
 interface UIStore {

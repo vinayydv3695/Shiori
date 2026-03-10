@@ -2,12 +2,13 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as Tabs from '@radix-ui/react-tabs';
-import { X, Save, ImagePlus, Trash2, Split, Merge } from 'lucide-react';
+import { X, Save, ImagePlus, Trash2, Split, Merge, Search } from 'lucide-react';
 import { api, type MangaSeries, type Book } from '../../lib/tauri';
 import { logger } from '@/lib/logger';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useCoverImage } from '../common/hooks/useCoverImage';
+import { MetadataSearchDialog } from './MetadataSearchDialog';
 
 import { useToast } from '@/store/toastStore';
 
@@ -43,6 +44,9 @@ export const SeriesManagementDialog = ({
   const [targetSeriesId, setTargetSeriesId] = useState<number | null>(null);
   const [confirmMergeOpen, setConfirmMergeOpen] = useState(false);
   const [mergeTargetForConfirm, setMergeTargetForConfirm] = useState<number | null>(null);
+  
+  // Metadata Dialog State
+  const [metadataDialogOpen, setMetadataDialogOpen] = useState(false);
   
   const toast = useToast();
 
@@ -210,7 +214,7 @@ export const SeriesManagementDialog = ({
                     <div className="col-span-1 flex flex-col gap-3">
                       <div className="aspect-[2/3] rounded-lg border-2 border-dashed border-border/50 overflow-hidden relative bg-muted flex items-center justify-center group">
                         {coverPath ? (
-                          <img src={convertFileSrc(coverPath)} className="absolute inset-0 w-full h-full object-cover" alt="Cover" />
+                          <img src={convertFileSrc(coverPath)} className="absolute inset-0 w-full h-full object-contain bg-muted" alt="Cover" />
                         ) : (
                           <div className="text-muted-foreground text-center p-4">
                             <ImagePlus className="w-8 h-8 mx-auto mb-2 opacity-50" />
@@ -255,7 +259,16 @@ export const SeriesManagementDialog = ({
                     </div>
                   </div>
                   
-                  <div className="flex justify-end pt-4 border-t border-border">
+                  <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setMetadataDialogOpen(true)} 
+                      className="gap-2"
+                      disabled={!resolvedSeriesId || volumes.length === 0}
+                    >
+                      <Search className="w-4 h-4" />
+                      Find Metadata
+                    </Button>
                     <Button onClick={handleSave} className="gap-2">
                       <Save className="w-4 h-4" />
                       Save Changes
@@ -327,6 +340,21 @@ export const SeriesManagementDialog = ({
           )}
         </Dialog.Content>
       </Dialog.Portal>
+
+      {resolvedSeriesId && volumes.length > 0 && (
+        <MetadataSearchDialog
+          open={metadataDialogOpen}
+          onOpenChange={setMetadataDialogOpen}
+          bookIds={volumes.map(v => v.id!).filter(Boolean)}
+          bookTitle={title}
+          isManga={true}
+          isbn={null}
+          onMetadataSelected={async () => {
+            await loadData();
+            onUpdated?.();
+          }}
+        />
+      )}
 
       <Dialog.Root open={confirmMergeOpen} onOpenChange={setConfirmMergeOpen}>
         <Dialog.Portal>

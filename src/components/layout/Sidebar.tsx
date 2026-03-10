@@ -1,4 +1,5 @@
 import { Library, Tag, Settings, ChevronLeft, ChevronRight, FolderOpen, Highlighter, BarChart2 } from "../icons"
+import { Globe, BookOpen } from "lucide-react"
 import { useUIStore } from "../../store/uiStore"
 import { cn } from "../../lib/utils"
 import { Button } from "../ui/button"
@@ -23,6 +24,8 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
 
   const navItems = [
     { icon: Library, label: "Library", action: () => setCurrentView("library") },
+    { icon: Globe, label: "Online Books", action: () => setCurrentView("online-books") },
+    { icon: BookOpen, label: "Online Manga", action: () => setCurrentView("online-manga") },
     { icon: Highlighter, label: "Annotations", action: () => setCurrentView("annotations") },
     { icon: BarChart2, label: "Statistics", action: () => setCurrentView("statistics") },
     { icon: Tag, label: "Tags", action: () => setCurrentView("library") },
@@ -70,6 +73,8 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
                 "hover:bg-accent hover:text-accent-foreground",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 item.label === "Library" && currentView === "library" && "bg-accent text-accent-foreground",
+                item.label === "Online Books" && currentView === "online-books" && "bg-accent text-accent-foreground",
+                item.label === "Online Manga" && currentView === "online-manga" && "bg-accent text-accent-foreground",
                 item.label === "Annotations" && currentView === "annotations" && "bg-accent text-accent-foreground",
                 item.label === "Statistics" && currentView === "statistics" && "bg-accent text-accent-foreground"
               )}

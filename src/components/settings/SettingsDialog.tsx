@@ -365,16 +365,20 @@ const GeneralSettings = ({
   }
 
   const themeOptions: { value: Theme; label: string; icon: typeof Moon }[] = [
-    { value: 'dark', label: 'Dark', icon: Moon },
     { value: 'light', label: 'Light', icon: Sun },
-    { value: 'system', label: 'System', icon: Monitor },
+    { value: 'dark', label: 'Dark', icon: Moon },
+    { value: 'rose-pine-moon', label: 'Rosé Pine', icon: Palette },
+    { value: 'catppuccin-mocha', label: 'Catppuccin', icon: Palette },
+    { value: 'nord', label: 'Nord', icon: Palette },
+    { value: 'dracula', label: 'Dracula', icon: Palette },
+    { value: 'tokyo-night', label: 'Tokyo Night', icon: Palette },
   ]
 
   return (
     <div className="space-y-8">
       {isSectionVisible('Theme', ['Theme', 'Dark Theme', 'Light Theme', 'System Theme']) && (
         <SettingSection title="Theme" description="Choose how Shiori looks">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
             {themeOptions.map((option) => (
               <button
                 key={option.value}

@@ -24,12 +24,10 @@ export type StepId =
     | 'reading-goal'
     | 'reading-status'
     | 'translation'
-    | 'performance'
     | 'metadata'
     | 'metadata-search'
     | 'rss-setup'
     | 'info-button-tutorial'
-    | 'library-setup'
     | 'ui-scale'
     | 'review'
     | 'success';
@@ -59,9 +57,7 @@ export const ONBOARDING_STEPS: StepRegistryItem[] = [
     { id: 'theme' },
     { id: 'ui-scale' },
     { id: 'reading-prefs' },
-    { id: 'performance' },
     { id: 'metadata' },
-    { id: 'library-setup' },
     { id: 'review' }
 ];
 
@@ -174,10 +170,12 @@ export const useOnboardingStore = create<OnboardingState>()(
                     await api.completeOnboarding(skippedSteps);
                     console.log("✓ Onboarding marked complete in DB");
 
-                    // 3. Hydrate the main preferences store so the app catches up
-                    console.log("Step 3: Reloading preferences store...");
-                    await usePreferencesStore.getState().loadPreferences();
-                    console.log("✓ Preferences store reloaded");
+                    // 3. Hydrate the main preferences store so the app catches up (deferred to background)
+                    console.log("Step 3: Triggering background preferences reload...");
+                    usePreferencesStore.getState().loadPreferences().catch(err => {
+                        logger.error('Background preference load failed:', err);
+                    });
+                    console.log("✓ Background preferences reload triggered");
 
                     // 4. Reset our own state to clean up localStorage transient
                     console.log("Step 4: Resetting onboarding store state...");

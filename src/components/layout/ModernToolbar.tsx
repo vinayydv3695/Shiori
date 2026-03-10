@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import {
   Plus,
+  FolderOpen,
   FileEdit,
   RefreshCw,
   Eye,
@@ -83,7 +84,8 @@ const ToolbarDivider = () => (
 export type DomainView = 'books' | 'manga_comics'
 
 interface ModernToolbarProps {
-  onAddBook: () => void
+  onImportFiles: () => void
+  onImportFolder: () => void
   onEditMetadata: () => void
   onConvert: () => void
   onView: () => void
@@ -100,7 +102,8 @@ interface ModernToolbarProps {
 }
 
 export const ModernToolbar = ({
-  onAddBook,
+  onImportFiles,
+  onImportFolder,
   onEditMetadata,
   onConvert,
   onView,
@@ -160,9 +163,14 @@ export const ModernToolbar = ({
 
           <ToolbarButton
             icon={<Plus className="w-full h-full" />}
-            label={currentDomain === 'manga_comics' ? 'Import Manga & Comics' : 'Add Book'}
-            onClick={onAddBook}
+            label="Import Books/Manga/Comics"
+            onClick={onImportFiles}
             shortcut="⌘N"
+          />
+          <ToolbarButton
+            icon={<FolderOpen className="w-full h-full" />}
+            label="Import Folder"
+            onClick={onImportFolder}
           />
           <ToolbarButton
             icon={<FileEdit className="w-full h-full" />}

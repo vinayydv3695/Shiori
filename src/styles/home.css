@@ -217,7 +217,7 @@
 /* ─── Continue Reading Card ───────────────────────── */
 
 .continue-card {
-    flex: 0 0 160px;
+    flex: 0 0 180px;
     scroll-snap-align: start;
     display: flex;
     flex-direction: column;
@@ -227,6 +227,19 @@
     border: 1px solid hsl(var(--border));
     background: hsl(var(--card));
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Continue card — density overrides */
+.continue-card[data-density="compact"] {
+    flex: 0 0 140px;
+}
+
+.continue-card[data-density="comfortable"] {
+    flex: 0 0 180px;
+}
+
+.continue-card[data-density="spacious"] {
+    flex: 0 0 240px;
 }
 
 .continue-card:hover {
@@ -300,7 +313,7 @@
 /* ─── Recently Added Card ─────────────────────────── */
 
 .recent-card {
-    flex: 0 0 130px;
+    flex: 0 0 180px;
     scroll-snap-align: start;
     cursor: pointer;
     border-radius: 10px;
@@ -308,6 +321,18 @@
     border: 1px solid hsl(var(--border));
     background: hsl(var(--card));
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.recent-card[data-density="compact"] {
+    flex: 0 0 140px;
+}
+
+.recent-card[data-density="comfortable"] {
+    flex: 0 0 180px;
+}
+
+.recent-card[data-density="spacious"] {
+    flex: 0 0 240px;
 }
 
 .recent-card:hover {
@@ -342,6 +367,46 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* ─── Cover Size Overrides — Continue Card ────────── */
+
+.continue-card[data-cover-size="small"] .continue-card-info {
+    padding: 6px 8px 8px;
+    gap: 4px;
+}
+
+.continue-card[data-cover-size="small"] .continue-card-title {
+    font-size: 11px;
+}
+
+.continue-card[data-cover-size="small"] .continue-card-progress-label {
+    font-size: 9px;
+}
+
+.continue-card[data-cover-size="large"] .continue-card-info {
+    padding: 10px 12px 12px;
+    gap: 8px;
+}
+
+.continue-card[data-cover-size="large"] .continue-card-title {
+    font-size: 13px;
+}
+
+.continue-card[data-cover-size="large"] .continue-card-progress-label {
+    font-size: 11px;
+}
+
+/* ─── Cover Size Overrides — Recent Card ──────────── */
+
+.recent-card[data-cover-size="small"] .recent-card-title {
+    padding: 4px 6px;
+    font-size: 10px;
+}
+
+.recent-card[data-cover-size="large"] .recent-card-title {
+    padding: 8px 10px;
+    font-size: 12px;
 }
 
 /* ─── RSS Preview ─────────────────────────────────── */

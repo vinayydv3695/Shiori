@@ -22,6 +22,7 @@ import {
   IconImportManga,
 } from '@/components/icons/ShioriIcons'
 import { FeatureHint } from '@/components/ui/FeatureHint'
+import { usePreferencesStore } from '@/store/preferencesStore'
 
 interface LibraryGridProps {
   books: Book[]
@@ -31,8 +32,7 @@ interface LibraryGridProps {
   onEditBook?: (bookId: number) => void
   onDeleteBook?: (bookId: number) => void
   onConvertBook?: (bookId: number) => void
-  onImportBooks?: () => void
-  onImportManga?: () => void
+  onImport?: () => void
   onViewSeries?: (series: SeriesGroup) => void
 }
 
@@ -89,7 +89,7 @@ const EmptyState = ({ domain, hasFilters, onImport }: EmptyStateProps) => {
           className="flex items-center gap-2 h-8 px-4 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/85 transition-colors"
         >
           {isMangaComics ? <IconImportManga size={14} /> : <IconImportBook size={14} />}
-          {isMangaComics ? 'Import Manga & Comics' : 'Import Books'}
+          Import Books/Manga/Comics
         </button>
       )}
     </div>
@@ -105,8 +105,7 @@ export function LibraryGrid({
   onEditBook,
   onDeleteBook,
   onConvertBook,
-  onImportBooks,
-  onImportManga,
+  onImport,
   onViewSeries,
 }: LibraryGridProps) {
   const setSelectedBook = useLibraryStore(state => state.setSelectedBook)
@@ -117,6 +116,9 @@ export function LibraryGrid({
   const loadMoreBooks = useLibraryStore(state => state.loadMoreBooks)
   const favoriteBookIds = useLibraryStore(state => state.favoriteBookIds)
   const toggleFavorite = useLibraryStore(state => state.toggleFavorite)
+  const libraryDensity = usePreferencesStore(state => state.preferences?.libraryDensity)
+
+  const densityColumnSize = libraryDensity === 'compact' ? 140 : libraryDensity === 'spacious' ? 240 : 180
 
   const [selectedSeries, setSelectedSeries] = useState<SeriesGroup | null>(null)
   const [isFirstSeries, setIsFirstSeries] = useState(true)
@@ -148,7 +150,7 @@ export function LibraryGrid({
     const observer = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width
       if (width) {
-        setColumns(Math.max(2, Math.floor(width / 180)))
+        setColumns(Math.max(2, Math.floor(width / densityColumnSize)))
       }
     })
 
@@ -157,7 +159,7 @@ export function LibraryGrid({
     }
 
     return () => observer.disconnect()
-  }, [])
+  }, [densityColumnSize])
 
   const rowsCount = Math.ceil(groupedItems.length / columns)
 
@@ -187,7 +189,7 @@ export function LibraryGrid({
         <EmptyState
           domain={currentDomain}
           hasFilters={books.length > 0}
-          onImport={currentDomain === 'manga_comics' ? onImportManga : onImportBooks}
+          onImport={onImport}
         />
       ) : (
         <div

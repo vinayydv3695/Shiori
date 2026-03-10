@@ -2,9 +2,13 @@
  * PremiumTopbar — Shiori v3.0
  *
  * Layout zones (left → right):
- * [Logo] [Books|Manga tabs] [|] [Import Books] [Import Manga] [|] [RSS] [Convert] [EditMeta] [Delete]
+ * [Logo] [Books|Manga tabs] [|] [Import ▼] [|] [RSS] [Convert] [EditMeta] [Delete]
  *                   [────────── Search (center) ──────────]
  *                                                  [Theme] [Settings]
+ *
+ * Import dropdown has 2 unified options:
+ *   - "Import Books/Manga/Comics" (file picker)
+ *   - "Import Folder" (folder picker)
  */
 
 import { useState, useEffect, useRef } from 'react'
@@ -27,7 +31,7 @@ import {
   IconX,
   IconSidebarToggle,
 } from '@/components/icons/ShioriIcons'
-import { Layers, Copy, Filter } from 'lucide-react'
+import { Layers, Copy, Filter, HelpCircle } from 'lucide-react'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import {
   DropdownMenu,
@@ -44,12 +48,8 @@ export type DomainView = 'books' | 'manga_comics'
 interface PremiumTopbarProps {
   currentDomain: DomainView
   onDomainChange: (domain: DomainView) => void
-  onImportBooks: () => void
-  onImportManga: () => void
-  onImportComics: () => void
-  onScanBooksFolder: () => void
-  onScanMangaFolder: () => void
-  onScanComicsFolder: () => void
+  onImportFiles: () => void
+  onImportFolder: () => void
   onOpenRSS?: () => void
   onConvert?: () => void
   onEditMetadata?: () => void
@@ -63,6 +63,7 @@ interface PremiumTopbarProps {
   onToggleSidebar?: () => void
   onGoHome?: () => void
   onAutoGroupManga?: () => void
+  onOpenShortcuts?: () => void
   selectedCount?: number
   activeFilterCount?: number
   sidebarOpen?: boolean
@@ -201,12 +202,8 @@ const SearchBar = ({ onSearch, currentDomain }: SearchBarProps) => {
 export function PremiumTopbar({
   currentDomain,
   onDomainChange,
-  onImportBooks,
-  onImportManga,
-  onImportComics,
-  onScanBooksFolder,
-  onScanMangaFolder,
-  onScanComicsFolder,
+  onImportFiles,
+  onImportFolder,
   onOpenRSS,
   onConvert,
   onEditMetadata,
@@ -220,6 +217,7 @@ export function PremiumTopbar({
   onToggleSidebar,
   onGoHome,
   onAutoGroupManga,
+  onOpenShortcuts,
   selectedCount = 0,
   activeFilterCount = 0,
   sidebarOpen = true,
@@ -322,35 +320,14 @@ export function PremiumTopbar({
             <span>Import ▼</span>
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-48">
-          <DropdownMenuLabel className="text-xs text-muted-foreground">Books</DropdownMenuLabel>
-          <DropdownMenuItem onClick={onImportBooks} className="gap-2 cursor-pointer">
+        <DropdownMenuContent align="start" className="w-56">
+          <DropdownMenuItem onClick={onImportFiles} className="gap-2 cursor-pointer">
             <IconImportBook size={14} />
-            <span>Import Books</span>
+            <span>Import Books/Manga/Comics</span>
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={onScanBooksFolder} className="gap-2 cursor-pointer">
-            <IconImportBook size={14} />
-            <span>Scan Books Folder</span>
-          </DropdownMenuItem>
-
-          <DropdownMenuSeparator />
-
-          <DropdownMenuLabel className="text-xs text-muted-foreground">Manga & Comics</DropdownMenuLabel>
-          <DropdownMenuItem onClick={onImportManga} className="gap-2 cursor-pointer">
+          <DropdownMenuItem onClick={onImportFolder} className="gap-2 cursor-pointer">
             <IconImportManga size={14} />
-            <span>Import Manga</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onScanMangaFolder} className="gap-2 cursor-pointer">
-            <IconImportManga size={14} />
-            <span>Scan Manga Folder</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onImportComics} className="gap-2 cursor-pointer">
-            <IconImportManga size={14} />
-            <span>Import Comics</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onScanComicsFolder} className="gap-2 cursor-pointer">
-            <IconImportManga size={14} />
-            <span>Scan Comics Folder</span>
+            <span>Import Folder</span>
           </DropdownMenuItem>
 
           {currentDomain === 'manga_comics' && (
@@ -502,6 +479,19 @@ export function PremiumTopbar({
           )}
         >
           {isDark ? <IconSun size={16} /> : <IconMoon size={16} />}
+        </button>
+        <button
+          onClick={onOpenShortcuts}
+          title="Keyboard shortcuts (Press ?)"
+          aria-label="Keyboard shortcuts"
+          className={cn(
+            'flex items-center justify-center w-8 h-8 rounded-md',
+            'text-muted-foreground hover:text-foreground hover:bg-accent',
+            'transition-all duration-[120ms]',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          )}
+        >
+          <HelpCircle size={16} />
         </button>
         <button
           onClick={onOpenSettings}

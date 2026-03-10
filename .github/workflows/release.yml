@@ -45,46 +45,9 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
 
-  # ── Step 2: Create GitHub Release ──────────────────────────────────
-  create-release:
-    needs: check-version
-    if: needs.check-version.outputs.version_changed == 'true'
-    runs-on: ubuntu-latest
-    outputs:
-      release_id: ${{ steps.create_release.outputs.id }}
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Create Release
-        id: create_release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ needs.check-version.outputs.version }}
-          name: Shiori v${{ needs.check-version.outputs.version }}
-          body: |
-            ## Shiori v${{ needs.check-version.outputs.version }}
-
-            Download the appropriate installer for your platform:
-
-            | Platform | File |
-            |----------|------|
-            | **Windows** | `.exe` (NSIS installer) |
-            | **macOS (Apple Silicon)** | `.dmg` (aarch64) |
-            | **macOS (Intel)** | `.dmg` (x64) |
-            | **Linux (Debian/Ubuntu)** | `.deb` |
-            | **Linux (Fedora/RHEL)** | `.rpm` |
-            | **Linux (Universal)** | `.AppImage` |
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # ── Step 3: Build for all platforms ────────────────────────────────
+  # ── Step 2: Build for all platforms ────────────────────────────────
   build:
-    needs: [check-version, create-release]
+    needs: check-version
     if: needs.check-version.outputs.version_changed == 'true'
     permissions:
       contents: write
@@ -185,5 +148,21 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
         with:
-          releaseId: ${{ needs.create-release.outputs.release_id }}
+          tagName: v${{ needs.check-version.outputs.version }}
+          releaseName: 'Shiori v${{ needs.check-version.outputs.version }}'
+          releaseBody: |
+            ## Shiori v${{ needs.check-version.outputs.version }}
+
+            Download the appropriate installer for your platform:
+
+            | Platform | File |
+            |----------|------|
+            | **Windows** | `.exe` (NSIS installer) |
+            | **macOS (Apple Silicon)** | `.dmg` (aarch64) |
+            | **macOS (Intel)** | `.dmg` (x64) |
+            | **Linux (Debian/Ubuntu)** | `.deb` |
+            | **Linux (Fedora/RHEL)** | `.rpm` |
+            | **Linux (Universal)** | `.AppImage` |
+          releaseDraft: false
+          prerelease: false
           args: ${{ matrix.args }}

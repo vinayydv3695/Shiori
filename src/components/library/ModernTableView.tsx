@@ -277,7 +277,7 @@ export const ModernTableView = ({
                            alt={book.title}
                            loading="lazy"
                            decoding="async"
-                           className="w-full h-full object-cover"
+                            className="w-full h-full object-contain bg-muted"
                          />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/50">

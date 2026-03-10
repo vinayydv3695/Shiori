@@ -32,6 +32,8 @@ const StatisticsView = lazy(() => import("./components/statistics/StatisticsView
 const SeriesView = lazy(() => import("./components/library/SeriesView").then(m => ({ default: m.SeriesView })))
 const DuplicateFinderDialog = lazy(() => import("./components/library/DuplicateFinderDialog").then(m => ({ default: m.DuplicateFinderDialog })))
 const AdvancedFilterDialog = lazy(() => import("./components/library/AdvancedFilterDialog").then(m => ({ default: m.AdvancedFilterDialog })))
+const OnlineBooksView = lazy(() => import("./components/online/OnlineBooksView").then(m => ({ default: m.OnlineBooksView })))
+const OnlineMangaView = lazy(() => import("./components/online/OnlineMangaView").then(m => ({ default: m.OnlineMangaView })))
 
 function App() {
   // Check if user has completed onboarding
@@ -530,9 +532,18 @@ function App() {
           </Suspense>
         )}
 
-        {/* Show Statistics view */}
-        {currentView === 'statistics' && (
-          <StatisticsView onClose={handleBackToLibrary} />
+        {/* Show Online Books view */}
+        {currentView === 'online-books' && (
+          <Suspense fallback={<div className="flex items-center justify-center py-24"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+            <OnlineBooksView />
+          </Suspense>
+        )}
+
+        {/* Show Online Manga view */}
+        {currentView === 'online-manga' && (
+          <Suspense fallback={<div className="flex items-center justify-center py-24"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+            <OnlineMangaView />
+          </Suspense>
         )}
       </Layout>
 

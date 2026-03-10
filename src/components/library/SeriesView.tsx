@@ -53,7 +53,7 @@ const SeriesHeader = memo(function SeriesHeader({
 
       <div className="w-28 h-40 md:w-36 md:h-52 rounded-lg overflow-hidden shadow-xl border border-border/50 flex-shrink-0 bg-muted">
         {coverUrl ? (
-          <img src={coverUrl} alt={series.title} className="w-full h-full object-cover" />
+          <img src={coverUrl} alt={series.title} className="w-full h-full object-contain bg-muted" />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground/30">
             <BookOpen className="w-8 h-8 mb-2" />
@@ -157,7 +157,7 @@ const ListBookCard = memo(function ListBookCard({
     >
       <div className="w-12 h-16 rounded overflow-hidden bg-muted flex-shrink-0 relative">
         {coverUrl ? (
-          <img src={coverUrl} alt={book.title} className="w-full h-full object-cover" />
+          <img src={coverUrl} alt={book.title} className="w-full h-full object-contain bg-muted" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <BookOpen className="w-4 h-4 text-muted-foreground/30" />
@@ -408,7 +408,7 @@ export const SeriesView = memo(function SeriesView({
                 </div>
               ) : (
                 viewMode === 'grid' ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
                     {processedBooks.map((book, index) => (
                       <div 
                         key={book.id ?? book.uuid} 

@@ -67,7 +67,7 @@ function BookCoverThumb({ bookId }: { bookId?: number }) {
         No Cover
       </div>
     );
-  return <img src={coverUrl} alt="Cover" className="w-full h-full object-cover rounded" />;
+  return <img src={coverUrl} alt="Cover" className="w-full h-full object-contain bg-muted rounded" />;
 }
 
 export function DuplicateFinderDialog({

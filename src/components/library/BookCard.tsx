@@ -80,7 +80,7 @@ export function BookCard({ book, onClick }: BookCardProps) {
              alt={book.title}
              loading="lazy"
              decoding="async"
-             className="h-full w-full object-cover transition-transform group-hover:scale-105"
+              className="h-full w-full object-contain bg-muted transition-transform group-hover:scale-105"
            />
         ) : (
           <div className="flex h-full items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">

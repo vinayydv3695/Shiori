@@ -16,6 +16,12 @@ import { isTauri } from "../lib/tauri";
 import { logger } from "../lib/logger";
 import { usePreferencesStore } from "../store/preferencesStore";
 
+import '../styles/themes/rose-pine-moon.css';
+import '../styles/themes/catppuccin-mocha.css';
+import '../styles/themes/nord.css';
+import '../styles/themes/dracula.css';
+import '../styles/themes/tokyo-night.css';
+
 interface ThemeProviderProps {
   children: ReactNode;
 }
@@ -28,7 +34,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     const initializeTheme = async () => {
       if (!isTauri) {
         // Browser mode: use default theme
-        document.documentElement.setAttribute("data-theme", "light");
+        document.documentElement.setAttribute("data-theme", "white");
         setIsReady(true);
         return;
       }
@@ -40,7 +46,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
       } catch (error) {
         logger.error("Failed to initialize theme:", error);
         // Fallback to light theme on error
-        document.documentElement.setAttribute("data-theme", "light");
+        document.documentElement.setAttribute("data-theme", "white");
         setIsReady(true);
       }
     };

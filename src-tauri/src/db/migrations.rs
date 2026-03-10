@@ -84,6 +84,12 @@ impl<'a> MigrationManager<'a> {
         if current_version < 20 {
             self.run_in_savepoint("v20", |mgr| mgr.migrate_to_v20())?;
         }
+        if current_version < 21 {
+            self.run_in_savepoint("v21", |mgr| mgr.migrate_to_v21())?;
+        }
+        if current_version < 22 {
+            self.run_in_savepoint("v22", |mgr| mgr.migrate_to_v22())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -609,7 +615,7 @@ impl<'a> MigrationManager<'a> {
                 id INTEGER PRIMARY KEY CHECK (id = 1),
                 
                 -- Theme
-                theme TEXT DEFAULT 'black' CHECK(theme IN ('black', 'white')),
+                theme TEXT DEFAULT 'black' CHECK(theme IN ('black', 'white', 'rose-pine-moon', 'catppuccin-mocha', 'nord', 'dracula', 'tokyo-night', 'light', 'dark', 'system', 'sepia', 'high-contrast')),
                 
                 -- Book reading defaults
                 book_font_family TEXT DEFAULT 'Merriweather',
@@ -1583,6 +1589,57 @@ impl<'a> MigrationManager<'a> {
         self.record_migration(20, "cfi_location_tracking", &hash)?;
 
         log::info!("[Migration] v20 applied successfully");
+        Ok(())
+    }
+
+    /// Migration v21: Add auto_group_manga preference
+    fn migrate_to_v21(&self) -> Result<()> {
+        log::info!("[Migration] Applying v21: Auto-group manga preference");
+
+        // Add auto_group_manga column to user_preferences
+        if !self.column_exists("user_preferences", "auto_group_manga")? {
+            self.conn.execute(
+                "ALTER TABLE user_preferences ADD COLUMN auto_group_manga BOOLEAN DEFAULT 1",
+                [],
+            )?;
+        }
+
+        let hash = Self::calculate_checksum("v21_auto_group_manga_preference");
+        self.set_schema_version(21)?;
+        self.record_migration(21, "auto_group_manga_preference", &hash)?;
+
+        log::info!("[Migration] v21 applied successfully");
+        Ok(())
+    }
+
+    fn migrate_to_v22(&self) -> Result<()> {
+        log::info!("[Migration] Applying v22: Remove theme CHECK constraint");
+
+        self.conn.execute_batch(
+            r#"
+            PRAGMA foreign_keys=off;
+            
+            CREATE TABLE user_preferences_new AS SELECT * FROM user_preferences;
+            
+            DROP TABLE user_preferences;
+            
+            ALTER TABLE user_preferences_new RENAME TO user_preferences;
+            
+            CREATE TRIGGER IF NOT EXISTS user_preferences_update
+            AFTER UPDATE ON user_preferences
+            BEGIN
+                UPDATE user_preferences SET updated_at = CURRENT_TIMESTAMP WHERE id = 1;
+            END;
+            
+            PRAGMA foreign_keys=on;
+        "#,
+        )?;
+
+        let hash = Self::calculate_checksum("v22_remove_theme_check_constraint");
+        self.set_schema_version(22)?;
+        self.record_migration(22, "remove_theme_check_constraint", &hash)?;
+
+        log::info!("[Migration] v22 applied successfully - theme CHECK constraint removed");
         Ok(())
     }
 

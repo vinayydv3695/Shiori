@@ -10,6 +10,8 @@ import type {
 } from "../types/preferences";
 import { DEFAULT_USER_PREFERENCES } from "../types/preferences";
 
+const themeMap: Record<string, string> = { light: 'white', dark: 'black' };
+
 interface PreferencesStore {
   // State
   preferences: UserPreferences | null;
@@ -87,7 +89,7 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
       });
 
       // Apply theme and scale to DOM
-      document.documentElement.setAttribute("data-theme", preferences.theme);
+      document.documentElement.setAttribute("data-theme", themeMap[preferences.theme] ?? preferences.theme);
       const scale = preferences.uiScale ?? 1.0;
       document.documentElement.style.setProperty('--ui-scale', String(scale));
     } catch (error) {
@@ -106,7 +108,7 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
         ? { ...state.preferences, theme }
         : DEFAULT_USER_PREFERENCES,
     }));
-    document.documentElement.setAttribute("data-theme", theme);
+    document.documentElement.setAttribute("data-theme", themeMap[theme] ?? theme);
 
     try {
       await api.updateUserPreferences({ theme });
@@ -119,7 +121,7 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
             ? { ...state.preferences, theme: previousTheme }
             : DEFAULT_USER_PREFERENCES,
         }));
-        document.documentElement.setAttribute("data-theme", previousTheme);
+        document.documentElement.setAttribute("data-theme", themeMap[previousTheme] ?? previousTheme);
       }
     }
   },

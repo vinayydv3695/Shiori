@@ -1,5 +1,6 @@
 import { useCoverImage } from '../common/hooks/useCoverImage'
 import { BookOpen } from 'lucide-react'
+import { usePreferencesStore } from '@/store/preferencesStore'
 import type { Book } from '@/lib/tauri'
 
 interface ContinueReadingCardProps {
@@ -11,13 +12,15 @@ interface ContinueReadingCardProps {
 
 export function ContinueReadingCard({ book, progress, domain, onClick }: ContinueReadingCardProps) {
     const { coverUrl: coverSrc, loading: coverLoading } = useCoverImage(book.id, book.cover_path)
+    const libraryDensity = usePreferencesStore(s => s.preferences?.libraryDensity ?? 'comfortable')
+    const coverSize = usePreferencesStore(s => s.preferences?.coverSize ?? 'medium')
 
     const progressLabel = domain === 'manga_comics'
         ? `Page ${Math.round((progress / 100) * (book.page_count || 0))} of ${book.page_count || '?'}`
         : `${Math.round(progress)}%`
 
     return (
-        <div className="continue-card" onClick={() => onClick(book)}>
+        <div className="continue-card" data-density={libraryDensity} data-cover-size={coverSize} onClick={() => onClick(book)}>
             {coverSrc ? (
                 <img className="continue-card-cover" src={coverSrc} alt={book.title} loading="lazy" decoding="async" />
             ) : (
@@ -47,9 +50,11 @@ interface RecentlyAddedCardProps {
 
 export function RecentlyAddedCard({ book, onClick }: RecentlyAddedCardProps) {
     const { coverUrl: coverSrc, loading: coverLoading } = useCoverImage(book.id, book.cover_path)
+    const libraryDensity = usePreferencesStore(s => s.preferences?.libraryDensity ?? 'comfortable')
+    const coverSize = usePreferencesStore(s => s.preferences?.coverSize ?? 'medium')
 
     return (
-        <div className="recent-card" onClick={() => onClick(book)}>
+        <div className="recent-card" data-density={libraryDensity} data-cover-size={coverSize} onClick={() => onClick(book)}>
             {coverSrc ? (
                 <img className="recent-card-cover" src={coverSrc} alt={book.title} loading="lazy" decoding="async" />
             ) : (

@@ -22,7 +22,7 @@ import type { Book } from '@/lib/tauri'
 interface CommandPaletteProps {
   books: Book[]
   onOpenBook: (bookId: number) => void
-  onAddBook: () => void
+  onImportFiles: () => void
   onSettings: () => void
   onFetchMetadata?: () => void
   onFindDuplicates?: () => void
@@ -31,7 +31,7 @@ interface CommandPaletteProps {
 export const CommandPalette = ({
   books,
   onOpenBook,
-  onAddBook,
+  onImportFiles,
   onSettings,
   onFetchMetadata,
   onFindDuplicates,
@@ -162,7 +162,7 @@ export const CommandPalette = ({
           {/* Actions Section */}
           <Command.Group heading="Actions" className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
             <Command.Item
-              onSelect={() => handleCommand(onAddBook)}
+              onSelect={() => handleCommand(onImportFiles)}
               className={cn(
                 'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-2.5',
                 'text-sm outline-none',
@@ -171,7 +171,7 @@ export const CommandPalette = ({
               )}
             >
               <Plus className="w-4 h-4 mr-3" />
-              <span>Add Book</span>
+              <span>Import Books/Manga/Comics</span>
               <kbd className="ml-auto text-xs text-muted-foreground">⌘N</kbd>
             </Command.Item>
 

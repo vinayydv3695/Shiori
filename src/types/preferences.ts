@@ -3,7 +3,7 @@
  * Matches Rust backend types in src-tauri/src/commands/preferences.rs
  */
 
-export type Theme = 'light' | 'dark' | 'system' | 'sepia' | 'high-contrast';
+export type Theme = 'white' | 'black' | 'light' | 'dark' | 'system' | 'sepia' | 'high-contrast' | 'rose-pine-moon' | 'catppuccin-mocha' | 'nord' | 'dracula' | 'tokyo-night';
 export type ScrollMode = 'paged' | 'continuous';
 export type Justification = 'left' | 'justify';
 export type MangaMode = 'long-strip' | 'single' | 'double' | 'webtoon' | 'manhwa' | 'comic';
@@ -72,6 +72,7 @@ export interface UserPreferences {
   autoScanEnabled: boolean;
   defaultMangaPath: string | null;
   translationTargetLanguage: string;
+  autoGroupManga: boolean;
   dailyReadingGoalMinutes?: number;
   debugLogging?: boolean;
   uiFontFamily?: string;
@@ -151,6 +152,7 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   autoScanEnabled: true,
   defaultMangaPath: null,
   translationTargetLanguage: 'en',
+  autoGroupManga: true,
   dailyReadingGoalMinutes: 30,
   debugLogging: false,
   uiFontFamily: 'system',

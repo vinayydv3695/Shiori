@@ -80,7 +80,7 @@ export const ConversionDialog: React.FC<ConversionDialogProps> = ({
   const availableTargets = (): string[] => {
     if (!detectedFormat) return ['epub', 'pdf', 'txt'];
     const entry = supportedFormats.find(f => f.from === detectedFormat);
-    return entry?.to ?? ['epub'];
+    return entry?.to ?? [];
   };
 
   const handleSelectFile = async () => {
@@ -243,7 +243,7 @@ export const ConversionDialog: React.FC<ConversionDialogProps> = ({
             </Dialog.Close>
             <button
               onClick={handleSubmit}
-              disabled={isLoading || !bookPath || submitted}
+              disabled={isLoading || !bookPath || submitted || targets.length === 0}
               className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity flex items-center justify-center gap-2"
             >
               {isLoading ? (

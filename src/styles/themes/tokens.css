@@ -84,10 +84,10 @@
   --text-inverse: #ffffff; /* Text on dark backgrounds */
 
   /* Border Colors */
-  --border-primary: #d4d4c9; /* Subtle borders */
-  --border-secondary: #e5e5da; /* Faint borders */
+  --border-primary: #858578; /* Subtle borders — 3.5:1 on beige bg */
+  --border-secondary: #9a9a8e; /* Faint borders — 3:1 on beige bg */
   --border-focus: #3b82f6; /* Focus outline (blue) */
-  --border-hover: #c4c4b9; /* Hover border */
+  --border-hover: #75756a; /* Hover border */
 
   /* Accent Color (Blue) */
   --accent: #3b82f6; /* Primary blue */

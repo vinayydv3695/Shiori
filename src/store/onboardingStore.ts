@@ -7,8 +7,10 @@ import type { UserPreferences } from '../types/preferences';
 
 // The ID's of the possible steps in the Onboarding flow
 export type StepId =
+    | 'enhanced-welcome'
     | 'welcome'
     | 'features-overview'
+    | 'quick-import'
     | 'content-type'
     | 'comic-setup'
     | 'theme'
@@ -17,16 +19,20 @@ export type StepId =
     | 'manga-series-grouping'
     | 'auto-group-manga'
     | 'series-management'
+    | 'collections-tutorial'
+    | 'reader-modes'
     | 'reading-goal'
     | 'reading-status'
     | 'translation'
     | 'performance'
     | 'metadata'
     | 'metadata-search'
+    | 'rss-setup'
     | 'info-button-tutorial'
     | 'library-setup'
     | 'ui-scale'
-    | 'review';
+    | 'review'
+    | 'success';
 
 export interface StepRegistryItem {
     id: StepId;
@@ -37,48 +43,25 @@ export interface StepRegistryItem {
 // Global registry defining the logical order of steps
 export const ONBOARDING_STEPS: StepRegistryItem[] = [
     { id: 'welcome' },
-    { id: 'features-overview' },
     { id: 'content-type' },
-    {
-        id: 'comic-setup',
-        condition: (draft) => draft.preferredContentType === 'both' || draft.preferredContentType === 'manga'
+    { 
+        id: 'manga-prefs',
+        condition: (draft) => draft.preferredContentType === 'manga' || draft.preferredContentType === 'both'
+    },
+    { 
+        id: 'manga-series-grouping',
+        condition: (draft) => draft.preferredContentType === 'manga' || draft.preferredContentType === 'both'
+    },
+    { 
+        id: 'auto-group-manga',
+        condition: (draft) => draft.preferredContentType === 'manga' || draft.preferredContentType === 'both'
     },
     { id: 'theme' },
-    {
-        id: 'reading-prefs',
-        condition: (draft) => draft.preferredContentType === 'both' || draft.preferredContentType === 'books'
-    },
-    {
-        id: 'manga-prefs',
-        condition: (draft) => draft.preferredContentType === 'both' || draft.preferredContentType === 'manga'
-    },
-    {
-        id: 'manga-series-grouping',
-        condition: (draft) => draft.preferredContentType === 'both' || draft.preferredContentType === 'manga'
-    },
-    {
-        id: 'auto-group-manga',
-        condition: (draft) => draft.preferredContentType === 'both' || draft.preferredContentType === 'manga'
-    },
-    {
-        id: 'series-management',
-        condition: (draft) => draft.preferredContentType === 'both' || draft.preferredContentType === 'manga'
-    },
-    { id: 'reading-goal' },
-    { id: 'reading-status' },
-    { id: 'translation' },
-    { id: 'performance' },
-    {
-        id: 'metadata',
-        condition: () => navigator.onLine // Only ask about metadata if they have internet 
-    },
-    {
-        id: 'metadata-search',
-        condition: () => navigator.onLine
-    },
-    { id: 'info-button-tutorial' },
-    { id: 'library-setup' },
     { id: 'ui-scale' },
+    { id: 'reading-prefs' },
+    { id: 'performance' },
+    { id: 'metadata' },
+    { id: 'library-setup' },
     { id: 'review' }
 ];
 
@@ -162,16 +145,24 @@ export const useOnboardingStore = create<OnboardingState>()(
             },
 
             commit: async () => {
+                console.log("=== ONBOARDING COMMIT START ===");
                 set({ isCommitting: true });
                 try {
                     const { draftConfig } = get();
+                    console.log("Draft config:", draftConfig);
 
                     // 1. Send transient FSM config to Rust backend SQLite
+                    console.log("Step 1: Updating user preferences...");
                     await api.updateUserPreferences(draftConfig as Partial<UserPreferences>);
+                    console.log("✓ User preferences updated");
 
                     // 1b. Save reading goal separately (stored in reading_goals table, not user_preferences)
                     if (draftConfig.dailyReadingGoalMinutes) {
+                        console.log("Step 1b: Updating reading goal...", draftConfig.dailyReadingGoalMinutes);
                         await api.updateReadingGoal(draftConfig.dailyReadingGoalMinutes);
+                        console.log("✓ Reading goal updated");
+                    } else {
+                        console.log("Step 1b: No reading goal to update");
                     }
 
                     // 2. Mark onboarding as officially completed
@@ -179,14 +170,25 @@ export const useOnboardingStore = create<OnboardingState>()(
                     const skippedSteps = ONBOARDING_STEPS
                         .filter(step => step.condition && !step.condition(draftConfig))
                         .map(step => step.id);
+                    console.log("Step 2: Completing onboarding, skipped steps:", skippedSteps);
                     await api.completeOnboarding(skippedSteps);
+                    console.log("✓ Onboarding marked complete in DB");
 
                     // 3. Hydrate the main preferences store so the app catches up
+                    console.log("Step 3: Reloading preferences store...");
                     await usePreferencesStore.getState().loadPreferences();
+                    console.log("✓ Preferences store reloaded");
 
                     // 4. Reset our own state to clean up localStorage transient
+                    console.log("Step 4: Resetting onboarding store state...");
                     get().init({});
+                    console.log("✓ Onboarding store reset");
+
+                    // 5. Reset isCommitting flag on success
+                    set({ isCommitting: false });
+                    console.log("=== ONBOARDING COMMIT SUCCESS ===");
                 } catch (error) {
+                    console.error("=== ONBOARDING COMMIT FAILED ===", error);
                     logger.error("Failed to commit onboarding setup:", error);
                     set({ isCommitting: false });
                     throw error;
@@ -205,11 +207,33 @@ export const useOnboardingStore = create<OnboardingState>()(
         }),
         {
             name: 'shiori-onboarding-fsm',
+            version: 2,
             partialize: (state) => ({
-                // We persist draftConfig and currentStepId so users can resume if they close the app
                 currentStepId: state.currentStepId,
                 draftConfig: state.draftConfig
             }),
+            migrate: (persistedState: any, version: number) => {
+                console.log('[OnboardingStore] Migration check - version:', version, 'persistedState:', persistedState);
+                
+                if (version < 2) {
+                    console.log('[OnboardingStore] Migrating from version', version, 'to version 2');
+                    
+                    if (persistedState?.currentStepId === 'enhanced-welcome') {
+                        console.log('[OnboardingStore] Fixing invalid step: enhanced-welcome → welcome');
+                        persistedState.currentStepId = 'welcome';
+                    }
+                    
+                    const validStepIds = ONBOARDING_STEPS.map(s => s.id);
+                    if (persistedState?.currentStepId && !validStepIds.includes(persistedState.currentStepId)) {
+                        console.warn('[OnboardingStore] Invalid step ID detected:', persistedState.currentStepId, '- resetting to welcome');
+                        persistedState.currentStepId = 'welcome';
+                        persistedState.draftConfig = {};
+                    }
+                }
+                
+                console.log('[OnboardingStore] Migration complete - final state:', persistedState);
+                return persistedState;
+            },
         }
     )
 );

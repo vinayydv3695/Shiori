@@ -5,7 +5,7 @@
   <p><strong>Professional offline-first eBook library manager</strong></p>
   
   [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-  [![Version](https://img.shields.io/badge/version-0.1.7-green.svg)](https://github.com/vinayydv3695/Shiori/releases)
+  [![Version](https://img.shields.io/badge/version-0.1.9-green.svg)](https://github.com/vinayydv3695/Shiori/releases)
   
   <p>
     <a href="#key-features">Key Features</a> •
@@ -23,7 +23,7 @@
 
 Shiori (栞, Japanese for "bookmark") is a high-performance, offline-first eBook library manager designed for users who prioritize privacy and complete control over their digital collections. Built using Tauri 2.0, React 19, and Rust, Shiori provides a native-level desktop experience that remains lightning-fast even with libraries exceeding 10,000 titles.
 
-Unlike cloud-dependent services, Shiori operates entirely on local infrastructure. It utilizes an embedded SQLite database with FTS5 for instant full-text search and maintains all metadata and files on your local storage. The v0.1.7 release introduces a sophisticated multi-theme system, enhanced manga management, and a streamlined onboarding process for new users.
+Unlike cloud-dependent services, Shiori operates entirely on local infrastructure. It utilizes an embedded SQLite database with FTS5 for instant full-text search and maintains all metadata and files on your local storage. The v0.1.9 release introduces online content discovery (Open Library books, MangaDex manga), improved UI density, and a faster onboarding experience.
 
 ---
 
@@ -32,17 +32,19 @@ Unlike cloud-dependent services, Shiori operates entirely on local infrastructur
 ### Library Management
 *   **Multi-Format Support**: Comprehensive support for EPUB, PDF, MOBI, AZW3, DOCX, FB2, CBZ, and CBR.
 *   **Automatic Metadata Extraction**: Imports local files and automatically extracts titles, authors, and covers.
-*   **Manga Auto-Grouping**: New in v0.1.7, intelligently groups related manga volumes and chapters.
+*   **Manga Auto-Grouping**: Intelligently groups related manga volumes and chapters.
 *   **Duplicate Detection**: Uses content hashing and fuzzy matching to identify and manage duplicate entries.
 *   **Advanced Organization**: Support for hierarchical tags, ratings, and custom collections.
 *   **Metadata Editor**: Granular control over every aspect of book information and covers.
+*   **Online Discovery**: Browse and discover content from Open Library (books) and MangaDex (manga) without leaving the app.
 
 ### Reading Experience
-*   **Customizable Interface**: A 7-theme system featuring White, Black, Rose Pine Moon, Catppuccin Mocha, Nord, Dracula, and Tokyo Night.
-*   **Optimized Reader**: High-performance rendering engine with smooth scrolling and hardware acceleration.
+*   **Customizable Interface**: 7 professional themes (White, Black, Rose Pine Moon, Catppuccin Mocha, Nord, Dracula, Tokyo Night).
+*   **Optimized Reader**: High-performance rendering with smooth page transitions enabled by default.
 *   **Multiple View Modes**: Single-page, two-page spread, and continuous vertical scroll modes.
 *   **Progress Tracking**: Automatic synchronization of reading progress and detailed reading statistics.
 *   **Navigation**: Deeply integrated table of contents and instant chapter jumping.
+*   **Improved Layout**: Optimized grid spacing and cover display for better visual density.
 
 ### Smart Search and Conversion
 *   **Full-Text Indexing**: Search through your entire library in milliseconds using SQLite FTS5.
@@ -72,21 +74,21 @@ yay -S shiori
 #### Debian / Ubuntu
 Download the latest `.deb` package from the [Releases](https://github.com/vinayydv3695/Shiori/releases) page. Install via terminal:
 ```bash
-sudo apt install ./shiori_0.1.7_amd64.deb
+sudo apt install ./shiori_0.1.9_amd64.deb
 ```
 *Required dependency: `libwebkit2gtk-4.1-0`*
 
 #### Fedora
 Download the latest `.rpm` package from the [Releases](https://github.com/vinayydv3695/Shiori/releases) page. Install via terminal:
 ```bash
-sudo dnf install ./shiori-0.1.7.x86_64.rpm
+sudo dnf install ./shiori-0.1.9.x86_64.rpm
 ```
 
 ### Windows
-Download the `Shiori_0.1.7_x64_en-US.msi` installer from the [Releases](https://github.com/vinayydv3695/Shiori/releases) page and run the executable.
+Download the `Shiori_0.1.9_x64_en-US.msi` installer from the [Releases](https://github.com/vinayydv3695/Shiori/releases) page and run the executable.
 
 ### macOS
-Download the `Shiori_0.1.7_x64.dmg` (Intel) or `Shiori_0.1.7_aarch64.dmg` (Apple Silicon) from the [Releases](https://github.com/vinayydv3695/Shiori/releases) page. Drag the application to your Applications folder.
+Download the `Shiori_0.1.9_x64.dmg` (Intel) or `Shiori_0.1.9_aarch64.dmg` (Apple Silicon) from the [Releases](https://github.com/vinayydv3695/Shiori/releases) page. Drag the application to your Applications folder.
 
 ---
 
@@ -125,7 +127,7 @@ Download the `Shiori_0.1.7_x64.dmg` (Intel) or `Shiori_0.1.7_aarch64.dmg` (Apple
 ## Quick Start
 
 ### Onboarding
-Upon the first launch of v0.1.7, you will be guided through an enhanced onboarding process to configure your library path and initial preferences.
+Upon first launch, you will be guided through a streamlined onboarding process to configure your library path and initial preferences. The v0.1.9 release significantly improves onboarding speed.
 
 ### Core Workflow
 1.  **Importing**: Use the "Add Books" button or drag and drop files directly into the library view.

@@ -17,6 +17,7 @@ interface PremiumReaderKeyboardHandlers {
  * - Cmd/Ctrl + -: Decrease font size
  * - Cmd/Ctrl + \: Cycle width (narrow → medium → wide → full)
  * - f: Toggle focus mode
+ * - h: Toggle top bar visibility
  * - s: Toggle sidebar
  * - t: Open TOC sidebar
  * - Escape: Close sidebar or exit focus mode
@@ -30,6 +31,8 @@ export function usePremiumReaderKeyboard(handlers: PremiumReaderKeyboardHandlers
     toggleSidebar,
     closeSidebar,
     toggleFocusMode,
+    isTopBarVisible,
+    setTopBarVisible,
     isSidebarOpen,
     isFocusMode,
     setSidebarTab,
@@ -96,6 +99,13 @@ export function usePremiumReaderKeyboard(handlers: PremiumReaderKeyboardHandlers
       if (key === 'f' || key === 'F') {
         e.preventDefault();
         toggleFocusMode();
+        return;
+      }
+
+      // h: Toggle top bar visibility
+      if (key === 'h' || key === 'H') {
+        e.preventDefault();
+        setTopBarVisible(!isTopBarVisible);
         return;
       }
 
@@ -168,6 +178,8 @@ export function usePremiumReaderKeyboard(handlers: PremiumReaderKeyboardHandlers
     toggleSidebar,
     closeSidebar,
     toggleFocusMode,
+    isTopBarVisible,
+    setTopBarVisible,
     isSidebarOpen,
     isFocusMode,
     setSidebarTab,

@@ -14,7 +14,7 @@ import { SeriesCard } from './SeriesCard'
 import { useLibraryStore } from '@/store/libraryStore'
 import type { DomainView } from '@/store/uiStore'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useGroupedLibrary, type SeriesGroup, type GroupedItem } from '@/hooks/useGroupedLibrary'
+import { useGroupedLibrary, type SeriesGroup } from '@/hooks/useGroupedLibrary'
 import {
   IconBookOpen,
   IconManga,
@@ -117,10 +117,17 @@ export function LibraryGrid({
   const favoriteBookIds = useLibraryStore(state => state.favoriteBookIds)
   const toggleFavorite = useLibraryStore(state => state.toggleFavorite)
   const libraryDensity = usePreferencesStore(state => state.preferences?.libraryDensity)
+  const coverSize = usePreferencesStore(state => state.preferences?.coverSize ?? 'medium')
 
   const densityColumnSize = libraryDensity === 'compact' ? 140 : libraryDensity === 'spacious' ? 240 : 180
+  const estimatedRowHeight = useMemo(() => {
+    const coverHeight = densityColumnSize * 1.5 // 2:3 aspect ratio
+    const metadataHeight = coverSize === 'small' ? 42 : coverSize === 'large' ? 72 : 56
+    const rowPadding = 24 // 12px top + 12px bottom
+    const rowVerticalGap = 12
+    return Math.ceil(coverHeight + metadataHeight + rowPadding + rowVerticalGap)
+  }, [densityColumnSize, coverSize])
 
-  const [selectedSeries, setSelectedSeries] = useState<SeriesGroup | null>(null)
   const [isFirstSeries, setIsFirstSeries] = useState(true)
 
   // Hard domain filter — strict separation between books and manga & comics
@@ -168,7 +175,7 @@ export function LibraryGrid({
   const rowVirtualizer = useVirtualizer({
     count: rowsCount,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 300,
+    estimateSize: () => estimatedRowHeight,
     overscan: 2,
   })
 
@@ -256,9 +263,8 @@ export function LibraryGrid({
                                 series={item.data}
                                 isSelected={false}
                                 onSelect={() => {}}
-                                onOpen={(series) => {
+                               onOpen={(series) => {
                                   setIsFirstSeries(false)
-                                  setSelectedSeries(series)
                                   onViewSeries?.(series)
                                 }}
                                 animationDelay={Math.min(absoluteIndex * 10, 150)}
@@ -270,10 +276,9 @@ export function LibraryGrid({
                               series={item.data}
                               isSelected={false}
                               onSelect={() => {}}
-                              onOpen={(series) => {
-                                setSelectedSeries(series)
-                                onViewSeries?.(series)
-                              }}
+                               onOpen={(series) => {
+                                 onViewSeries?.(series)
+                               }}
                               animationDelay={Math.min(absoluteIndex * 10, 150)}
                               scrollRoot={parentRef.current}
                             />

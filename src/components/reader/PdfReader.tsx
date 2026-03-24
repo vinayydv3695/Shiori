@@ -14,6 +14,7 @@ import { DoodleToolbar } from './DoodleToolbar';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
 import { TTSControlBar } from './TTSControlBar';
 import { useReadingSession } from '@/hooks/useReadingSession';
+import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
 import '@/styles/premium-reader.css';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -32,6 +33,7 @@ interface PdfReaderProps {
 
 export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
   const isFocusMode = useUIStore(state => state.isFocusMode);
+  const isTopBarShortcutOnly = useUIStore(state => state.isTopBarShortcutOnly);
   const setTopBarVisible = useUIStore(state => state.setTopBarVisible);
   const { theme } = useReadingSettings();
 
@@ -69,12 +71,15 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
   // AUTO-HIDE TOP BAR LOGIC
   // ────────────────────────────────────────────────────────────
   const resetAutoHideTimer = useCallback(() => {
+    if (isTopBarShortcutOnly) {
+      return;
+    }
     if (!isFocusMode) {
       setTopBarVisible(true);
       if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
       autoHideTimerRef.current = window.setTimeout(() => setTopBarVisible(false), 3000);
     }
-  }, [isFocusMode, setTopBarVisible]);
+  }, [isFocusMode, setTopBarVisible, isTopBarShortcutOnly]);
 
   useEffect(() => {
     let throttleTimeout: number | null = null;
@@ -97,10 +102,14 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
       setTopBarVisible(false);
       if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
     } else {
-      setTopBarVisible(true);
-      resetAutoHideTimer();
+      if (isTopBarShortcutOnly) {
+        setTopBarVisible(false);
+      } else {
+        setTopBarVisible(true);
+        resetAutoHideTimer();
+      }
     }
-  }, [isFocusMode, setTopBarVisible, resetAutoHideTimer]);
+  }, [isFocusMode, setTopBarVisible, resetAutoHideTimer, isTopBarShortcutOnly]);
 
   const loadBook = async () => {
     try {
@@ -158,15 +167,16 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
   };
 
    useEffect(() => {
-     loadBook();
-     return () => {
-       // Cleanup
-       api.closeBookRenderer(bookId).catch(logger.error);
-       pageCache.current.clear();
-     };
-    // loadBook is recreated each render - would cause infinite loop if added
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookPath, bookId]);
+      const cache = pageCache.current;
+      loadBook();
+      return () => {
+        // Cleanup
+        api.closeBookRenderer(bookId).catch(logger.error);
+        cache.clear();
+      };
+     // loadBook is recreated each render - would cause infinite loop if added
+     // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, [bookPath, bookId]);
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     setNumPages(numPages);
@@ -338,6 +348,13 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
       setPageNumber(prev => prev - 1);
     }
   };
+
+  usePremiumReaderKeyboard({
+    onPrevChapter: prevPage,
+    onNextChapter: nextPage,
+    onPrevPage: prevPage,
+    onNextPage: nextPage,
+  });
 
   const zoomIn = () => {
     setScale((prev) => Math.min(prev + 0.25, 3.0));

@@ -10,8 +10,8 @@ export type StepId =
     | 'enhanced-welcome'
     | 'welcome'
     | 'features-overview'
-    | 'quick-import'
     | 'content-type'
+    | 'library-setup'
     | 'comic-setup'
     | 'theme'
     | 'reading-prefs'
@@ -28,6 +28,7 @@ export type StepId =
     | 'metadata-search'
     | 'rss-setup'
     | 'info-button-tutorial'
+    | 'shortcuts'
     | 'ui-scale'
     | 'review'
     | 'success';
@@ -42,6 +43,7 @@ export interface StepRegistryItem {
 export const ONBOARDING_STEPS: StepRegistryItem[] = [
     { id: 'welcome' },
     { id: 'content-type' },
+    { id: 'library-setup' },
     { 
         id: 'manga-prefs',
         condition: (draft) => draft.preferredContentType === 'manga' || draft.preferredContentType === 'both'
@@ -57,7 +59,9 @@ export const ONBOARDING_STEPS: StepRegistryItem[] = [
     { id: 'theme' },
     { id: 'ui-scale' },
     { id: 'reading-prefs' },
+    { id: 'translation' },
     { id: 'metadata' },
+    { id: 'shortcuts' },
     { id: 'review' }
 ];
 
@@ -210,27 +214,30 @@ export const useOnboardingStore = create<OnboardingState>()(
                 currentStepId: state.currentStepId,
                 draftConfig: state.draftConfig
             }),
-            migrate: (persistedState: any, version: number) => {
+            migrate: (persistedState: unknown, version: number) => {
+                const state = (persistedState && typeof persistedState === 'object'
+                    ? persistedState
+                    : {}) as { currentStepId?: StepId; draftConfig?: Partial<UserPreferences> };
                 console.log('[OnboardingStore] Migration check - version:', version, 'persistedState:', persistedState);
                 
                 if (version < 2) {
                     console.log('[OnboardingStore] Migrating from version', version, 'to version 2');
                     
-                    if (persistedState?.currentStepId === 'enhanced-welcome') {
+                    if (state.currentStepId === 'enhanced-welcome') {
                         console.log('[OnboardingStore] Fixing invalid step: enhanced-welcome → welcome');
-                        persistedState.currentStepId = 'welcome';
+                        state.currentStepId = 'welcome';
                     }
                     
                     const validStepIds = ONBOARDING_STEPS.map(s => s.id);
-                    if (persistedState?.currentStepId && !validStepIds.includes(persistedState.currentStepId)) {
-                        console.warn('[OnboardingStore] Invalid step ID detected:', persistedState.currentStepId, '- resetting to welcome');
-                        persistedState.currentStepId = 'welcome';
-                        persistedState.draftConfig = {};
+                    if (state.currentStepId && !validStepIds.includes(state.currentStepId)) {
+                        console.warn('[OnboardingStore] Invalid step ID detected:', state.currentStepId, '- resetting to welcome');
+                        state.currentStepId = 'welcome';
+                        state.draftConfig = {};
                     }
                 }
                 
-                console.log('[OnboardingStore] Migration complete - final state:', persistedState);
-                return persistedState;
+                console.log('[OnboardingStore] Migration complete - final state:', state);
+                return state;
             },
         }
     )

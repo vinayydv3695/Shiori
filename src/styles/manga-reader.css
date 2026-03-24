@@ -221,8 +221,7 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  padding-top: 52px;
-  /* topbar height */
+  padding-top: 0;
 }
 
 .manga-canvas::after {

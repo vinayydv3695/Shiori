@@ -188,6 +188,7 @@ function highlightSearchTerm(html: string, searchTerm: string): string {
 export function PremiumEpubReader({ bookPath, bookId, onClose }: PremiumEpubReaderProps) {
   // State management
   const isFocusMode = useUIStore(state => state.isFocusMode);
+  const isTopBarShortcutOnly = useUIStore(state => state.isTopBarShortcutOnly);
   const scrollProgress = useUIStore(state => state.scrollProgress);
   const setTopBarVisible = useUIStore(state => state.setTopBarVisible);
   const toggleSidebar = useUIStore(state => state.toggleSidebar);
@@ -238,6 +239,9 @@ export function PremiumEpubReader({ bookPath, bookId, onClose }: PremiumEpubRead
   // AUTO-HIDE TOP BAR LOGIC
   // ────────────────────────────────────────────────────────────
   const resetAutoHideTimer = useCallback(() => {
+    if (isTopBarShortcutOnly) {
+      return;
+    }
     // Always show top bar on mouse movement (unless in focus mode)
     if (!isFocusMode) {
       setTopBarVisible(true);
@@ -252,7 +256,7 @@ export function PremiumEpubReader({ bookPath, bookId, onClose }: PremiumEpubRead
         setTopBarVisible(false);
       }, 3000);
     }
-  }, [isFocusMode, setTopBarVisible]);
+  }, [isFocusMode, setTopBarVisible, isTopBarShortcutOnly]);
 
   // Track mouse movement for auto-hide (throttled to prevent excessive updates)
   useEffect(() => {
@@ -288,10 +292,14 @@ export function PremiumEpubReader({ bookPath, bookId, onClose }: PremiumEpubRead
         clearTimeout(autoHideTimerRef.current);
       }
     } else {
-      setTopBarVisible(true);
-      resetAutoHideTimer();
+      if (isTopBarShortcutOnly) {
+        setTopBarVisible(false);
+      } else {
+        setTopBarVisible(true);
+        resetAutoHideTimer();
+      }
     }
-  }, [isFocusMode, setTopBarVisible, resetAutoHideTimer]);
+  }, [isFocusMode, setTopBarVisible, resetAutoHideTimer, isTopBarShortcutOnly]);
 
   // ────────────────────────────────────────────────────────────
   // SCROLL PROGRESS TRACKING (optimized)
@@ -633,7 +641,9 @@ export function PremiumEpubReader({ bookPath, bookId, onClose }: PremiumEpubRead
         // Filter to annotations for the current chapter
         const chapterLocation = `chapter_${currentIndex}`;
         const chapterAnnotations = annotations.filter(
-          (a) => a.location === chapterLocation
+          (a) =>
+            a.location === chapterLocation ||
+            a.location.startsWith(`${chapterLocation}:`)
         );
 
         applyHighlightsToDOM(container, chapterAnnotations);

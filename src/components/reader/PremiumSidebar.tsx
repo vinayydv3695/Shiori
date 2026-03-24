@@ -139,12 +139,36 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
     };
   }, []);
   
+   const parseTocLocationToIndex = (location: string): number | null => {
+     // EPUB variants: epubcfi(/0/12), epubcfi(/12/), epubcfi(/12)
+     const cfiNestedMatch = location.match(/epubcfi\(\/\d+\/(\d+)\b/i);
+     if (cfiNestedMatch) return parseInt(cfiNestedMatch[1], 10);
+
+     const cfiSimpleMatch = location.match(/epubcfi\(\/(\d+)\b/i);
+     if (cfiSimpleMatch) return parseInt(cfiSimpleMatch[1], 10);
+
+     // Generic chapter formats
+    const chapterMatch = location.match(/(?:^|[^\w])(?:chapter|chapter_|chapter-|html-chapter-|md-chapter-|fb2-chapter-|docx-chapter-)(\d+)/i);
+     if (chapterMatch) return parseInt(chapterMatch[1], 10);
+
+     // Renderer fallback: "chapter:12"
+     const chapterColon = location.match(/^chapter:(\d+)/i);
+     if (chapterColon) return parseInt(chapterColon[1], 10);
+
+     // PDF TOC style: "page:12" / annotation style "page-12"
+    const pageMatch = location.match(/^page[:-](\d+)/i);
+     if (pageMatch) {
+       const pageNumber = parseInt(pageMatch[1], 10);
+       return Number.isNaN(pageNumber) ? null : pageNumber;
+     }
+
+     return null;
+   };
+
    const handleTocClick = (entry: TocEntry) => {
-     // Parse chapter index from location format: "epubcfi(/0/)", "epubcfi(/1/)", etc.
-     const match = entry.location.match(/epubcfi\(\/(\d+)\//);
-     if (match) {
-       const index = parseInt(match[1], 10);
-       logger.debug('[PremiumSidebar] Navigating to chapter:', index, 'from TOC entry:', entry.label);
+     const index = parseTocLocationToIndex(entry.location);
+     if (index !== null && !Number.isNaN(index)) {
+       logger.debug('[PremiumSidebar] Navigating to chapter/page:', index, 'from TOC entry:', entry.label);
        onNavigate(index);
        closeSidebar();
      } else {
@@ -182,10 +206,37 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
       return;
     }
 
+    // Parse "chapter:N" format
+    const chapterColonMatch = loc.match(/^chapter:(\d+)/);
+    if (chapterColonMatch) {
+      const index = parseInt(chapterColonMatch[1], 10);
+      onNavigate(index);
+      closeSidebar();
+      return;
+    }
+
+    // Parse "*-chapter-N" formats used by non-EPUB adapters
+    const genericChapterMatch = loc.match(/(?:^|[^\w])[a-z0-9]+-chapter-(\d+)/i);
+    if (genericChapterMatch) {
+      const index = parseInt(genericChapterMatch[1], 10);
+      onNavigate(index);
+      closeSidebar();
+      return;
+    }
+
     // Parse "page-N" format (PDF)
     const pageMatch = loc.match(/^page-(\d+)/);
     if (pageMatch) {
       const page = parseInt(pageMatch[1], 10);
+      onNavigate(page);
+      closeSidebar();
+      return;
+    }
+
+    // Parse "page:N" format (PDF TOC)
+    const pageColonMatch = loc.match(/^page:(\d+)/);
+    if (pageColonMatch) {
+      const page = parseInt(pageColonMatch[1], 10);
       onNavigate(page);
       closeSidebar();
       return;
@@ -292,8 +343,14 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
   const formatLocation = (loc: string): string => {
     const chapterMatch = loc.match(/^chapter_(\d+)/);
     if (chapterMatch) return `Chapter ${parseInt(chapterMatch[1], 10) + 1}`;
+    const chapterColonMatch = loc.match(/^chapter:(\d+)/);
+    if (chapterColonMatch) return `Chapter ${parseInt(chapterColonMatch[1], 10) + 1}`;
+    const genericChapterMatch = loc.match(/(?:^|[^\w])[a-z0-9]+-chapter-(\d+)/i);
+    if (genericChapterMatch) return `Chapter ${parseInt(genericChapterMatch[1], 10) + 1}`;
     const pageMatch = loc.match(/^page-(\d+)/);
     if (pageMatch) return `Page ${pageMatch[1]}`;
+    const pageColonMatch = loc.match(/^page:(\d+)/);
+    if (pageColonMatch) return `Page ${pageColonMatch[1]}`;
     if (loc === 'mobi-chapter-0') return 'Full text';
     return loc;
   };
@@ -647,8 +704,19 @@ interface TocItemProps {
 }
 
 function TocItem({ entry, onClick, currentIndex }: TocItemProps) {
-  const match = entry.location.match(/chapter[_-]?(\d+)/i);
-  const chapterIndex = match ? parseInt(match[1], 10) : -1;
+  const chapterMatch = entry.location.match(/chapter[_:-]?(\d+)/i);
+  const pageMatch = entry.location.match(/^page[:-](\d+)/i);
+  const cfiNestedMatch = entry.location.match(/epubcfi\(\/\d+\/(\d+)\b/i);
+  const cfiSimpleMatch = entry.location.match(/epubcfi\(\/(\d+)\b/i);
+  const chapterIndex = chapterMatch
+    ? parseInt(chapterMatch[1], 10)
+    : pageMatch
+      ? parseInt(pageMatch[1], 10)
+      : cfiNestedMatch
+        ? parseInt(cfiNestedMatch[1], 10)
+        : cfiSimpleMatch
+          ? parseInt(cfiSimpleMatch[1], 10)
+          : -1;
   const isCurrent = chapterIndex === currentIndex;
   
   return (

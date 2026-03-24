@@ -9,7 +9,6 @@ import { AnimatePresence, motion } from "framer-motion";
 
 // Steps
 import { EnhancedWelcomeStep } from "./steps/EnhancedWelcomeStep";
-import { QuickImportStep } from "./steps/QuickImportStep";
 import { CollectionsTutorialStep } from "./steps/CollectionsTutorialStep";
 import { ReaderModesStep } from "./steps/ReaderModesStep";
 import { RSSSetupStep } from "./steps/RSSSetupStep";
@@ -20,6 +19,7 @@ import { ContentTypeStep } from "./steps/ContentTypeStep";
 import { ComicSetupStep } from "./steps/ComicSetupStep";
 import { ThemeStep } from "./steps/ThemeStep";
 import { ReadingPrefsStep } from "./steps/ReadingPrefsStep";
+import { LibrarySetupStep } from "./steps/LibrarySetupStep";
 import { MangaPrefsStep } from "./steps/MangaPrefsStep";
 import { MangaSeriesGroupingStep } from "./steps/MangaSeriesGroupingStep";
 import { AutoGroupMangaStep } from "./steps/AutoGroupMangaStep";
@@ -30,6 +30,7 @@ import { TranslationStep } from "./steps/TranslationStep";
 import { MetadataStep } from "./steps/MetadataStep";
 import { MetadataSearchStep } from "./steps/MetadataSearchStep";
 import { InfoButtonTutorialStep } from "./steps/InfoButtonTutorialStep";
+import { ShortcutsStep } from "./steps/ShortcutsStep";
 import { UiScaleStep } from "./steps/UiScaleStep";
 import { ReviewStep } from "./steps/ReviewStep";
 
@@ -37,8 +38,8 @@ const STEP_NAMES: Record<StepId, string> = {
     'enhanced-welcome': 'Welcome',
     'welcome': 'Welcome',
     'features-overview': 'Features',
-    'quick-import': 'Quick Import',
     'content-type': 'Content Type',
+    'library-setup': 'Library Setup',
     'comic-setup': 'Comic Setup',
     'theme': 'Appearance',
     'reading-prefs': 'Reading',
@@ -55,6 +56,7 @@ const STEP_NAMES: Record<StepId, string> = {
     'metadata-search': 'Metadata Search',
     'rss-setup': 'RSS',
     'info-button-tutorial': 'Info Button',
+    'shortcuts': 'Shortcuts',
     'ui-scale': 'UI Scale',
     'review': 'Review',
     'success': 'Success'
@@ -123,7 +125,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     const renderStep = () => {
         switch (currentStepId) {
             case 'enhanced-welcome': return <EnhancedWelcomeStep />;
-            case 'quick-import': return <QuickImportStep />;
             case 'collections-tutorial': return <CollectionsTutorialStep />;
             case 'reader-modes': return <ReaderModesStep />;
             case 'rss-setup': return <RSSSetupStep />;
@@ -131,6 +132,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             case 'welcome': return <WelcomeStep />;
             case 'features-overview': return <FeaturesOverviewStep />;
             case 'content-type': return <ContentTypeStep />;
+            case 'library-setup': return <LibrarySetupStep />;
             case 'comic-setup': return <ComicSetupStep />;
             case 'theme': return <ThemeStep />;
             case 'reading-prefs': return <ReadingPrefsStep />;
@@ -144,6 +146,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             case 'metadata': return <MetadataStep />;
             case 'metadata-search': return <MetadataSearchStep />;
             case 'info-button-tutorial': return <InfoButtonTutorialStep />;
+            case 'shortcuts': return <ShortcutsStep />;
             case 'ui-scale': return <UiScaleStep />;
             case 'review': return <ReviewStep />;
             default: return null;

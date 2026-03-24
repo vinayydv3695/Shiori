@@ -4,6 +4,7 @@ import { useOpenLibrary, type OpenLibraryBook } from '@/hooks/useOpenLibrary';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { logger } from '@/lib/logger';
+import { useSourceStore } from '@/store/sourceStore';
 
 export function OnlineBooksView() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -11,10 +12,12 @@ export function OnlineBooksView() {
   const [totalResults, setTotalResults] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasSearched, setHasSearched] = useState(false);
+  const isOpenLibraryEnabled = useSourceStore((state) => state.isSourceEnabled('openlibrary'));
   
   const { searchBooks, getCoverUrl, getReadUrl, getBookDetailsUrl, loading, error } = useOpenLibrary();
 
   const handleSearch = async (page: number = 1) => {
+    if (!isOpenLibraryEnabled) return;
     if (!searchQuery.trim()) return;
 
     logger.info('Searching Open Library:', { query: searchQuery, page });
@@ -69,6 +72,12 @@ export function OnlineBooksView() {
             </Button>
           </div>
 
+          {!isOpenLibraryEnabled && (
+            <div className="p-3 rounded-lg bg-muted border border-border text-sm text-muted-foreground">
+              Open Library source is disabled. Enable it in <span className="font-medium">Settings → Online Sources</span>.
+            </div>
+          )}
+
           {error && (
             <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
               {error}
@@ -93,7 +102,7 @@ export function OnlineBooksView() {
             </div>
           )}
 
-          {!loading && !hasSearched && (
+          {!loading && !hasSearched && isOpenLibraryEnabled && (
             <div className="text-center py-12">
               <Search className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
               <p className="text-lg font-medium text-muted-foreground">Search for books</p>
@@ -101,7 +110,7 @@ export function OnlineBooksView() {
             </div>
           )}
 
-          {!loading && results.length > 0 && (
+          {!loading && results.length > 0 && isOpenLibraryEnabled && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">

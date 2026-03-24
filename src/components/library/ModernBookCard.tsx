@@ -25,7 +25,7 @@ import {
 import { useCoverImage } from '../common/hooks/useCoverImage'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import * as ContextMenu from '@radix-ui/react-context-menu'
-import { Edit2, Trash2, SplitSquareHorizontal, Layers } from 'lucide-react'
+import { Edit2, Trash2, Layers } from 'lucide-react'
 import { SeriesAssignmentDialog } from './SeriesAssignmentDialog'
 
 // ─── Format Badge ─────────────────────────────
@@ -218,7 +218,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
             onLoad={() => setImgLoaded(true)}
             onError={() => setImgError(true)}
             className={cn(
-              'absolute inset-0 w-full h-full object-contain bg-muted',
+              'absolute inset-0 w-full h-full object-cover bg-muted',
               'transition-opacity duration-300',
               imgLoaded ? 'opacity-100' : 'opacity-0',
             )}

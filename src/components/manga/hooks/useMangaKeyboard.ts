@@ -27,7 +27,6 @@ export function useMangaKeyboard(onClose: () => void) {
     const rtl = readingDirection === 'rtl';
     // Comic mode forces LTR behavior regardless of direction setting
     const effectiveRtl = readingMode === 'comic' ? false : rtl;
-    const step = 1;
     const isScrollMode = readingMode === 'strip' || readingMode === 'webtoon' || readingMode === 'manhwa';
 
     // Debounce boundary toasts to avoid spam (same pattern as NavigationOverlay)
@@ -68,39 +67,39 @@ export function useMangaKeyboard(onClose: () => void) {
             case 'ArrowRight':
                 e.preventDefault();
                 if (effectiveRtl) {
-                    goBackward(step);
+                    goBackward(1);
                 } else {
-                    goForward(step);
+                    goForward(1);
                 }
                 break;
             case 'ArrowLeft':
                 e.preventDefault();
                 if (effectiveRtl) {
-                    goForward(step);
+                    goForward(1);
                 } else {
-                    goBackward(step);
+                    goBackward(1);
                 }
                 break;
             case 'ArrowDown':
                 // In scroll modes, let the browser handle native vertical scrolling
                 if (isScrollMode) return;
                 e.preventDefault();
-                goForward(step);
+                goForward(1);
                 break;
             case 'ArrowUp':
                 // In scroll modes, let the browser handle native vertical scrolling
                 if (isScrollMode) return;
                 e.preventDefault();
-                goBackward(step);
+                goBackward(1);
                 break;
             case ' ':
                 // In scroll modes, let the browser handle native scroll (Space = page down)
                 if (isScrollMode) return;
                 e.preventDefault();
                 if (shift) {
-                    goBackward(step);
+                    goBackward(1);
                 } else {
-                    goForward(step);
+                    goForward(1);
                 }
                 break;
             case 'Home':
@@ -121,6 +120,8 @@ export function useMangaKeyboard(onClose: () => void) {
                     onClose();
                 }
                 break;
+            case 'h':
+            case 'H':
             case 's':
             case 'S':
                 if (!e.ctrlKey && !e.metaKey) {
@@ -175,7 +176,7 @@ export function useMangaKeyboard(onClose: () => void) {
                 break;
         }
     }, [
-        effectiveRtl, step, isScrollMode, goForward, goBackward, setCurrentPage, totalPages,
+        effectiveRtl, isScrollMode, goForward, goBackward, setCurrentPage, totalPages,
         toggleSidebar, closeSidebar, isSidebarOpen,
         toggleSettings, isSettingsOpen, closeSettings,
         setReadingMode, toggleTheme, onClose

@@ -73,13 +73,25 @@ function highlightTextInContainer(
   // Strategy 1: Try single text-node match (most common case)
   for (const textNode of textNodes) {
     const nodeText = textNode.textContent || '';
-    const index = nodeText.indexOf(searchText);
-    if (index === -1) continue;
+    const directIndex = nodeText.indexOf(searchText);
+    let matchStart = directIndex;
+    let matchLength = searchText.length;
+
+    // Fallback: ignore whitespace differences + case while preserving original ranges
+    if (matchStart === -1) {
+      const flexible = findFlexibleMatch(nodeText, searchText);
+      if (flexible) {
+        matchStart = flexible.start;
+        matchLength = flexible.length;
+      }
+    }
+
+    if (matchStart === -1) continue;
 
     try {
       const range = document.createRange();
-      range.setStart(textNode, index);
-      range.setEnd(textNode, index + searchText.length);
+      range.setStart(textNode, matchStart);
+      range.setEnd(textNode, matchStart + matchLength);
 
       const mark = createHighlightMark(annotation);
       range.surroundContents(mark);
@@ -101,10 +113,14 @@ function highlightTextInContainer(
     nodeMap.push({ node: textNode, start, end: fullText.length });
   }
 
-  const matchIndex = fullText.indexOf(searchText);
-  if (matchIndex === -1) return;
+  const directIndex = fullText.indexOf(searchText);
+  const match = directIndex !== -1
+    ? { start: directIndex, length: searchText.length }
+    : findFlexibleMatch(fullText, searchText);
+  if (!match) return;
 
-  const matchEnd = matchIndex + searchText.length;
+  const matchIndex = match.start;
+  const matchEnd = match.start + match.length;
 
   // Find which text nodes overlap with our match
   const affectedNodes = nodeMap.filter(
@@ -133,6 +149,28 @@ function highlightTextInContainer(
       // Skip this node portion if wrapping fails
     }
   }
+}
+
+function findFlexibleMatch(haystack: string, needle: string): { start: number; length: number } | null {
+  const normalizedNeedle = needle.trim();
+  if (!normalizedNeedle) return null;
+
+  const words = normalizedNeedle.split(/\s+/).map(escapeRegExp);
+  if (words.length === 0) return null;
+
+  const pattern = words.join('\\s+');
+  const regex = new RegExp(pattern, 'i');
+  const match = regex.exec(haystack);
+  if (!match || match.index === undefined) return null;
+
+  return {
+    start: match.index,
+    length: match[0].length,
+  };
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**

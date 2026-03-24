@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Search, BookOpen, ExternalLink, Calendar, User, Tag, Info } from 'lucide-react';
+import { Search, BookOpen, ExternalLink, Calendar, User, Info } from 'lucide-react';
 import { useMangaDex, type MangaDexManga, type MangaDexChapter } from '@/hooks/useMangaDex';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { logger } from '@/lib/logger';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
+import { useSourceStore } from '@/store/sourceStore';
 
 export function OnlineMangaView() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -16,10 +17,12 @@ export function OnlineMangaView() {
   const [selectedManga, setSelectedManga] = useState<MangaDexManga | null>(null);
   const [chapters, setChapters] = useState<MangaDexChapter[]>([]);
   const [chaptersDialogOpen, setChaptersDialogOpen] = useState(false);
+  const isMangaDexEnabled = useSourceStore((state) => state.isSourceEnabled('mangadex'));
   
   const { searchManga, getChapters, getMangaUrl, getChapterUrl, loading, error } = useMangaDex();
 
   const handleSearch = async (page: number = 1) => {
+    if (!isMangaDexEnabled) return;
     if (!searchQuery.trim()) return;
 
     logger.info('Searching MangaDex:', { query: searchQuery, page });
@@ -82,6 +85,12 @@ export function OnlineMangaView() {
             </Button>
           </div>
 
+          {!isMangaDexEnabled && (
+            <div className="p-3 rounded-lg bg-muted border border-border text-sm text-muted-foreground">
+              MangaDex source is disabled. Enable it in <span className="font-medium">Settings → Online Sources</span>.
+            </div>
+          )}
+
           {error && (
             <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
               {error}
@@ -106,7 +115,7 @@ export function OnlineMangaView() {
             </div>
           )}
 
-          {!loading && !hasSearched && (
+          {!loading && !hasSearched && isMangaDexEnabled && (
             <div className="text-center py-12">
               <Search className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
               <p className="text-lg font-medium text-muted-foreground">Search for manga</p>
@@ -114,7 +123,7 @@ export function OnlineMangaView() {
             </div>
           )}
 
-          {!loading && results.length > 0 && (
+          {!loading && results.length > 0 && isMangaDexEnabled && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">

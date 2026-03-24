@@ -54,7 +54,7 @@ export function AdvancedSettingsPanel() {
         { action: 'Webtoon Mode', key: '4' },
         { action: 'Manhwa Mode', key: '5' },
         { action: 'Comic Mode', key: '6' },
-        { action: 'Toggle Sidebar', key: 'S' },
+        { action: 'Toggle Sidebar', key: 'H / S' },
         { action: 'Toggle Settings', key: ',' },
         { action: 'Toggle Theme', key: 'D' },
         { action: 'Close / Back', key: 'Esc' },

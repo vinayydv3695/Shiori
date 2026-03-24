@@ -12,6 +12,7 @@ import { logger } from '@/lib/logger';
 // ────────────────────────────────────────────────────────────
 interface UIState {
   isTopBarVisible: boolean;
+  isTopBarShortcutOnly: boolean;
   isSidebarOpen: boolean;
   sidebarTab: 'toc' | 'highlights' | 'notes' | 'bookmarks' | 'search';
   isFocusMode: boolean;
@@ -21,6 +22,7 @@ interface UIState {
 
   // Actions
   setTopBarVisible: (visible: boolean) => void;
+  setTopBarShortcutOnly: (enabled: boolean) => void;
   toggleSidebar: (tab?: 'toc' | 'highlights' | 'notes' | 'bookmarks' | 'search') => void;
   closeSidebar: () => void;
   setSidebarTab: (tab: 'toc' | 'highlights' | 'notes' | 'bookmarks' | 'search') => void;
@@ -31,7 +33,8 @@ interface UIState {
 }
 
 export const useUIStore = create<UIState>((set) => ({
-  isTopBarVisible: true,
+  isTopBarVisible: false,
+  isTopBarShortcutOnly: true,
   isSidebarOpen: false,
   sidebarTab: 'toc',
   isFocusMode: false,
@@ -40,6 +43,7 @@ export const useUIStore = create<UIState>((set) => ({
   pendingAnnotationId: null,
 
   setTopBarVisible: (visible) => set({ isTopBarVisible: visible }),
+  setTopBarShortcutOnly: (enabled) => set({ isTopBarShortcutOnly: enabled }),
 
   toggleSidebar: (tab) => set((state) => {
     if (state.isSidebarOpen && tab === state.sidebarTab) {

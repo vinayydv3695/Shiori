@@ -25,6 +25,7 @@ interface GenericHtmlReaderProps {
 
 export function GenericHtmlReader({ bookPath, bookId, format, onClose }: GenericHtmlReaderProps) {
     const isFocusMode = useUIStore(state => state.isFocusMode);
+    const isTopBarShortcutOnly = useUIStore(state => state.isTopBarShortcutOnly);
     const setTopBarVisible = useUIStore(state => state.setTopBarVisible);
     const { theme, fontSize, fontFamily, lineHeight, width } = useReadingSettings();
 
@@ -58,6 +59,9 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
     // AUTO-HIDE TOP BAR LOGIC
     // ────────────────────────────────────────────────────────────
     const resetAutoHideTimer = () => {
+        if (isTopBarShortcutOnly) {
+            return;
+        }
         if (!isFocusMode) {
             setTopBarVisible(true);
             if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
@@ -102,11 +106,15 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
             setTopBarVisible(false);
             if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
         } else {
-            setTopBarVisible(true);
-            resetAutoHideTimer();
+            if (isTopBarShortcutOnly) {
+                setTopBarVisible(false);
+            } else {
+                setTopBarVisible(true);
+                resetAutoHideTimer();
+            }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isFocusMode, setTopBarVisible]);
+    }, [isFocusMode, setTopBarVisible, isTopBarShortcutOnly]);
 
     // Map font family IDs to CSS font-family strings
     const getFontFamily = (fontId: string): string => {

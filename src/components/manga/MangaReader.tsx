@@ -6,7 +6,6 @@ import {
 import { api } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
 import { useToastStore } from '@/store/toastStore';
-import { MangaTopBar } from './MangaTopBar';
 import { MangaCanvas } from './MangaCanvas';
 import { MangaSidebar } from './MangaSidebar';
 import { AdvancedSettingsPanel } from './AdvancedSettingsPanel';
@@ -249,7 +248,6 @@ export function MangaReader({
 
     return (
         <div className="manga-reader" tabIndex={-1}>
-            <MangaTopBar onClose={handleClose} />
             <MangaCanvas />
             <NavigationOverlay />
             <MangaSidebar />

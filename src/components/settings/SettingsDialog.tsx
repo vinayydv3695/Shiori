@@ -2,8 +2,8 @@ import { useState, useEffect, useMemo } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as Tabs from '@radix-ui/react-tabs'
 import {
-  X, Moon, Sun, Monitor, Palette, Database, Shield, BookOpen, FileText,
-  Volume2, Download, Upload, HardDrive, Archive, CheckCircle2, AlertTriangle,
+  X, Moon, Sun, Palette, Shield, BookOpen, FileText,
+  Download, Upload, HardDrive, Archive, CheckCircle2, AlertTriangle,
   Search, FolderOpen, ExternalLink, RefreshCw, Trash2, Info, BookMarked,
   RotateCcw, Play, Square, Folder, Plus,
 } from 'lucide-react'
@@ -21,6 +21,7 @@ import { TTSEngine } from '@/lib/ttsEngine'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { useToast } from '../../store/toastStore'
 import { logger } from '../../lib/logger'
+import { SourceManager } from './SourceManager'
 
 interface SettingsDialogProps {
   open: boolean
@@ -142,11 +143,11 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
     return settings.some(s => s.toLowerCase().includes(query))
   }
 
-  useEffect(() => {
-    if (searchQuery.trim() && matchingTabs && matchingTabs.size > 0 && !matchingTabs.has(activeTab)) {
-      setActiveTab(matchingTabs.values().next().value as SettingsTab)
-    }
-  }, [searchQuery, matchingTabs, activeTab])
+  const visibleTabSet = matchingTabs
+  const activeTabIsVisible = !visibleTabSet || visibleTabSet.has(activeTab) || activeTab === 'about'
+  const selectedTab = activeTabIsVisible
+    ? activeTab
+    : ((visibleTabSet?.values().next().value as SettingsTab | undefined) ?? 'general')
 
   const tabs = [
     { id: 'general' as const, name: 'General', icon: Palette },
@@ -165,7 +166,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-lg shadow-2xl w-[90vw] max-w-5xl h-[85vh] z-50 flex flex-col">
+        <Dialog.Content className="settings-dialog fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-lg shadow-2xl w-[90vw] max-w-5xl h-[85vh] z-50 flex flex-col">
           <div className="flex items-center justify-between p-6 border-b border-border">
             <Dialog.Title className="text-2xl font-semibold">Settings</Dialog.Title>
             <div className="flex items-center gap-3">
@@ -198,7 +199,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
           </div>
 
           <Tabs.Root
-            value={activeTab}
+            value={selectedTab}
             onValueChange={(val) => setActiveTab(val as SettingsTab)}
             className="flex flex-1 overflow-hidden"
             orientation="vertical"
@@ -215,11 +216,12 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                     'w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                     'data-[state=active]:bg-primary data-[state=active]:text-primary-foreground',
-                    'data-[state=inactive]:hover:bg-muted data-[state=inactive]:text-muted-foreground'
+                    'data-[state=inactive]:text-foreground/90 data-[state=inactive]:hover:bg-muted data-[state=inactive]:hover:text-foreground',
+                    'dark:data-[state=inactive]:text-zinc-100 dark:data-[state=inactive]:hover:bg-zinc-700 dark:data-[state=inactive]:hover:text-white'
                   )}
                 >
-                  <tab.icon className="w-5 h-5" />
-                  <span className="font-medium">{tab.name}</span>
+                  <tab.icon className="w-5 h-5 flex-shrink-0" />
+                  <span className="font-sans font-semibold tracking-wide">{tab.name}</span>
                 </Tabs.Trigger>
               ))}
             </Tabs.List>
@@ -268,8 +270,6 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
               <Tabs.Content value="watch-folders" className="focus-visible:outline-none">
                 <WatchFoldersSettings
                   preferences={preferences}
-                  updateGeneralSettings={updateGeneralSettings}
-                  isSettingVisible={isSettingVisible}
                   isSectionVisible={isSectionVisible}
                 />
               </Tabs.Content>
@@ -759,6 +759,10 @@ const GeneralSettings = ({
           )}
         </SettingSection>
       )}
+
+      <SettingSection title="Online Sources" description="Enable or disable online providers used by online sections">
+        <SourceManager />
+      </SettingSection>
     </div>
   )
 }
@@ -1830,13 +1834,9 @@ const AdvancedSettings = ({
 
 const WatchFoldersSettings = ({
   preferences,
-  updateGeneralSettings,
-  isSettingVisible,
   isSectionVisible,
 }: {
   preferences: UserPreferences | null
-  updateGeneralSettings: (updates: Partial<UserPreferences>) => Promise<void>
-  isSettingVisible: (label: string, description?: string, section?: string) => boolean
   isSectionVisible: (section: string, settings: string[]) => boolean
 }) => {
   const [watchFolders, setWatchFolders] = useState<WatchFolder[]>([])

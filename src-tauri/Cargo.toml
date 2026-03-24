@@ -1,6 +1,6 @@
 [package]
 name = "shiori"
-version = "0.1.0"
+version = "0.2.1"
 description = "Modern offline-first eBook library manager"
 authors = []
 license = "MIT"

@@ -31,6 +31,29 @@ interface PdfReaderProps {
   onClose: () => void;
 }
 
+const normalizeBookPath = (inputPath: string): string => {
+  let normalized = inputPath;
+
+  if (normalized.startsWith('file://')) {
+    try {
+      normalized = decodeURIComponent(new URL(normalized).pathname);
+    } catch {
+      // keep original path if URL parsing fails
+    }
+  }
+
+  // Handle accidentally URL-encoded absolute paths (e.g. %2Fhome%2Fuser%2F...)
+  if (/^%2F/i.test(normalized) || normalized.includes('%2F')) {
+    try {
+      normalized = decodeURIComponent(normalized);
+    } catch {
+      // keep original path if decoding fails
+    }
+  }
+
+  return normalized;
+};
+
 export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
   const isFocusMode = useUIStore(state => state.isFocusMode);
   const isTopBarShortcutOnly = useUIStore(state => state.isTopBarShortcutOnly);
@@ -122,8 +145,10 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
        const bookMetadata = await api.openBookRenderer(bookId, bookPath, 'pdf');
        setMetadata(bookMetadata);
 
-       // Load file directly via Tauri's asset protocol for frontend rendering component
-       const assetUrl = convertFileSrc(bookPath);
+       // Load file via Tauri's asset protocol for frontend rendering component
+       const normalizedPath = normalizeBookPath(bookPath);
+       const assetUrl = convertFileSrc(normalizedPath);
+       logger.debug('[PdfReader] Normalized PDF path:', normalizedPath);
        logger.debug('[PdfReader] Asset URL generated:', assetUrl);
        setPdfUrl(assetUrl);
 

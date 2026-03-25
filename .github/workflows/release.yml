@@ -284,7 +284,7 @@ jobs:
           pkgbuild = re.sub(r"^pkgver=.*$", f"pkgver={version}", pkgbuild, flags=re.MULTILINE)
           pkgbuild = re.sub(
               r"^source=.*$",
-              f"source=(\"{asset_name}::${{url}}/releases/download/v${{pkgver}}/{asset_name}\")",
+              f"source=(\"{asset_name}::" + "${url}" + "/releases/download/v" + "${pkgver}" + f"/{asset_name}\")",
               pkgbuild,
               flags=re.MULTILINE,
           )

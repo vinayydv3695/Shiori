@@ -44,6 +44,7 @@ jobs:
           else
             echo "Version unchanged"
             echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
           fi
 
   # ── Step 2: Build for all platforms ────────────────────────────────
@@ -172,7 +173,7 @@ jobs:
   update-aur:
     name: Update AUR packages
     needs: [check-version, build]
-    if: needs.check-version.outputs.version_changed == 'true'
+    if: (needs.check-version.outputs.version_changed == 'true' || github.event_name == 'workflow_dispatch') && (needs.build.result == 'success' || needs.build.result == 'skipped')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -200,7 +201,7 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${{ needs.check-version.outputs.version }}"
-          ASSET_NAME="shiori-${VERSION}-linux-x86_64.tar.gz"
+          ASSET_NAME="Shiori_${VERSION}_amd64.deb"
           SHA256=""
 
           for attempt in {1..30}; do
@@ -211,7 +212,7 @@ jobs:
               break
             fi
 
-            if gh release view "v${VERSION}" --json assets --jq ".assets[] | select(.name == \"${ASSET_NAME}\") | .name" >/dev/null 2>&1; then
+            if gh release view "v${VERSION}" --json assets --jq ".assets[] | select(.name == \"${ASSET_NAME}\") | .name" | grep -q "${ASSET_NAME}"; then
               gh release download "v${VERSION}" --pattern "${ASSET_NAME}" --dir /tmp --clobber
               SHA256="$(sha256sum "/tmp/${ASSET_NAME}" | cut -d' ' -f1)"
               if [ -n "$SHA256" ]; then
@@ -229,6 +230,7 @@ jobs:
           fi
 
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "asset_name=${ASSET_NAME}" >> "$GITHUB_OUTPUT"
           echo "sha256=${SHA256}" >> "$GITHUB_OUTPUT"
 
       - name: Update shiori-ebook (source package)
@@ -257,6 +259,7 @@ jobs:
       - name: Update shiori-ebook-bin (binary package)
         env:
           VERSION: ${{ steps.release-meta.outputs.version }}
+          ASSET_NAME: ${{ steps.release-meta.outputs.asset_name }}
           SHA256: ${{ steps.release-meta.outputs.sha256 }}
           GIT_SSH_COMMAND: ssh -i ~/.ssh/aur_id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes
         run: |
@@ -265,12 +268,50 @@ jobs:
           git clone "ssh://aur@aur.archlinux.org/shiori-ebook-bin.git"
           cd shiori-ebook-bin
 
-          sed -i -E "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
-          sed -i -E "s/^sha256sums=\('.*'\)/sha256sums=('${SHA256}')/" PKGBUILD
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
 
-          sed -i -E "s/^[[:space:]]*pkgver = .*/\tpkgver = ${VERSION}/" .SRCINFO
-          sed -i -E "s|^[[:space:]]*source = .*|\tsource = shiori-ebook-bin-${VERSION}.tar.gz::https://github.com/vinayydv3695/Shiori/releases/download/v${VERSION}/shiori-${VERSION}-linux-x86_64.tar.gz|" .SRCINFO
-          sed -i -E "s/^[[:space:]]*sha256sums = .*/\tsha256sums = ${SHA256}/" .SRCINFO
+          version = os.environ["VERSION"]
+          asset_name = os.environ["ASSET_NAME"]
+          sha256 = os.environ["SHA256"]
+
+          pkgbuild_path = Path("PKGBUILD")
+          srcinfo_path = Path(".SRCINFO")
+
+          pkgbuild = pkgbuild_path.read_text()
+          pkgbuild = re.sub(r"^pkgver=.*$", f"pkgver={version}", pkgbuild, flags=re.MULTILINE)
+          pkgbuild = re.sub(
+              r"^source=.*$",
+              f"source=(\"{asset_name}::${{url}}/releases/download/v${{pkgver}}/{asset_name}\")",
+              pkgbuild,
+              flags=re.MULTILINE,
+          )
+          pkgbuild = re.sub(r"^sha256sums=\('.*'\)$", f"sha256sums=('{sha256}')", pkgbuild, flags=re.MULTILINE)
+
+          package_block = """package() {
+              # Extract .deb package
+              bsdtar -xf \"Shiori_${pkgver}_amd64.deb\"
+              bsdtar -xf data.tar.* -C \"${pkgdir}\"
+
+              # Fix permissions
+              chmod -R u+rwX,go+rX,go-w \"${pkgdir}\"
+          }"""
+          pkgbuild = re.sub(r"package\(\)\s*\{[\s\S]*?\n\}", package_block, pkgbuild, flags=re.MULTILINE)
+          pkgbuild_path.write_text(pkgbuild)
+
+          srcinfo = srcinfo_path.read_text()
+          srcinfo = re.sub(r"^[ \t]*pkgver = .*$", f"\tpkgver = {version}", srcinfo, flags=re.MULTILINE)
+          srcinfo = re.sub(
+              r"^[ \t]*source = .*$",
+              f"\tsource = {asset_name}::https://github.com/vinayydv3695/Shiori/releases/download/v{version}/{asset_name}",
+              srcinfo,
+              flags=re.MULTILINE,
+          )
+          srcinfo = re.sub(r"^[ \t]*sha256sums = .*$", f"\tsha256sums = {sha256}", srcinfo, flags=re.MULTILINE)
+          srcinfo_path.write_text(srcinfo)
+          PY
 
           git add PKGBUILD .SRCINFO
           if git diff --cached --quiet; then

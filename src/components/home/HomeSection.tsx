@@ -9,19 +9,23 @@ interface HomeSectionProps {
 
 export function HomeSection({ icon, title, action, children }: HomeSectionProps) {
     return (
-        <div className="home-section">
+        <section className="home-section" aria-label={title}>
             <div className="home-section-header">
-                <div className="home-section-title">
+                <h2 className="home-section-title">
                     <span className="home-section-title-icon">{icon}</span>
                     {title}
-                </div>
+                </h2>
                 {action && (
-                    <button className="home-section-action" onClick={action.onClick}>
+                    <button
+                        type="button"
+                        className="home-section-action"
+                        onClick={action.onClick}
+                    >
                         {action.label} →
                     </button>
                 )}
             </div>
             {children}
-        </div>
+        </section>
     )
 }

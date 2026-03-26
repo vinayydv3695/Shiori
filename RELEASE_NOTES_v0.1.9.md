@@ -160,9 +160,9 @@ npm run build
 
 #### Arch Linux (AUR)
 ```bash
-yay -S shiori-ebook-bin  # Binary package (faster)
+yay -S shiori-rin-bin  # Binary package (faster)
 # OR
-yay -S shiori-ebook      # Build from source (latest)
+yay -S shiori-rin      # Build from source (latest)
 ```
 
 #### Debian / Ubuntu

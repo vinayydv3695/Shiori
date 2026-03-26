@@ -340,30 +340,63 @@ jobs:
           echo "asset_name=${ASSET_NAME}" >> "$GITHUB_OUTPUT"
           echo "sha256=${SHA256}" >> "$GITHUB_OUTPUT"
 
-      - name: Update shiori-ebook (source package)
+      - name: Update shiori-rin (source package)
         env:
           VERSION: ${{ steps.release-meta.outputs.version }}
           GIT_SSH_COMMAND: ssh -i ~/.ssh/aur_id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes
         run: |
           set -euo pipefail
 
-          git clone "ssh://aur@aur.archlinux.org/shiori-ebook.git"
-          cd shiori-ebook
+          if ! git clone "ssh://aur@aur.archlinux.org/shiori-rin.git"; then
+            echo "AUR repo shiori-rin not initialized yet; bootstrapping local repo"
+            mkdir -p shiori-rin
+            cd shiori-rin
+            git init
+            git remote add origin "ssh://aur@aur.archlinux.org/shiori-rin.git"
+          else
+            cd shiori-rin
+          fi
+
+          if [ ! -f PKGBUILD ]; then
+            cp "$GITHUB_WORKSPACE/PKGBUILD.src" PKGBUILD
+          fi
+
+          if [ ! -f .SRCINFO ]; then
+            if [ -f "$GITHUB_WORKSPACE/.SRCINFO.src" ]; then
+              cp "$GITHUB_WORKSPACE/.SRCINFO.src" .SRCINFO
+            else
+              cat > .SRCINFO <<EOF
+          pkgbase = shiori-rin
+            pkgdesc = Modern offline-first eBook library manager
+            pkgver = ${VERSION}
+            pkgrel = 1
+            url = https://github.com/vinayydv3695/Shiori
+            arch = x86_64
+            license = MIT
+            source = shiori-rin-${VERSION}.tar.gz::https://github.com/vinayydv3695/Shiori/archive/refs/tags/v${VERSION}.tar.gz
+            sha256sums = SKIP
+
+          pkgname = shiori-rin
+          EOF
+            fi
+          fi
+
+          sed -i 's/shiori-ebook/shiori-rin/g' PKGBUILD .SRCINFO
 
           sed -i -E "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
           sed -i -E "s/^[[:space:]]*pkgver = .*/\tpkgver = ${VERSION}/" .SRCINFO
-          sed -i -E "s|^[[:space:]]*source = .*|\tsource = shiori-ebook-${VERSION}.tar.gz::https://github.com/vinayydv3695/Shiori/archive/refs/tags/v${VERSION}.tar.gz|" .SRCINFO
+          sed -i -E "s|^[[:space:]]*source = .*|\tsource = shiori-rin-${VERSION}.tar.gz::https://github.com/vinayydv3695/Shiori/archive/refs/tags/v${VERSION}.tar.gz|" .SRCINFO
 
           git add PKGBUILD .SRCINFO
           if git diff --cached --quiet; then
-            echo "shiori-ebook already up to date"
+            echo "shiori-rin already up to date"
             exit 0
           fi
 
           git -c user.name="github-actions[bot]" -c user.email="github-actions[bot]@users.noreply.github.com" commit -m "Update to v${VERSION}"
-          git push origin master
+          git push origin HEAD:master
 
-      - name: Update shiori-ebook-bin (binary package)
+      - name: Update shiori-rin-bin (binary package)
         env:
           VERSION: ${{ steps.release-meta.outputs.version }}
           ASSET_NAME: ${{ steps.release-meta.outputs.asset_name }}
@@ -372,8 +405,41 @@ jobs:
         run: |
           set -euo pipefail
 
-          git clone "ssh://aur@aur.archlinux.org/shiori-ebook-bin.git"
-          cd shiori-ebook-bin
+          if ! git clone "ssh://aur@aur.archlinux.org/shiori-rin-bin.git"; then
+            echo "AUR repo shiori-rin-bin not initialized yet; bootstrapping local repo"
+            mkdir -p shiori-rin-bin
+            cd shiori-rin-bin
+            git init
+            git remote add origin "ssh://aur@aur.archlinux.org/shiori-rin-bin.git"
+          else
+            cd shiori-rin-bin
+          fi
+
+          if [ ! -f PKGBUILD ]; then
+            cp "$GITHUB_WORKSPACE/PKGBUILD.bin" PKGBUILD
+          fi
+
+          if [ ! -f .SRCINFO ]; then
+            if [ -f "$GITHUB_WORKSPACE/.SRCINFO.bin" ]; then
+              cp "$GITHUB_WORKSPACE/.SRCINFO.bin" .SRCINFO
+            else
+              cat > .SRCINFO <<EOF
+          pkgbase = shiori-rin-bin
+            pkgdesc = Modern offline-first eBook library manager
+            pkgver = ${VERSION}
+            pkgrel = 1
+            url = https://github.com/vinayydv3695/Shiori
+            arch = x86_64
+            license = MIT
+            source = ${ASSET_NAME}::https://github.com/vinayydv3695/Shiori/releases/download/v${VERSION}/${ASSET_NAME}
+            sha256sums = ${SHA256}
+
+          pkgname = shiori-rin-bin
+          EOF
+            fi
+          fi
+
+          sed -i 's/shiori-ebook-bin/shiori-rin-bin/g; s/shiori-ebook/shiori-rin/g' PKGBUILD .SRCINFO
 
           python3 - <<'PY'
           import os
@@ -421,12 +487,12 @@ jobs:
 
           git add PKGBUILD .SRCINFO
           if git diff --cached --quiet; then
-            echo "shiori-ebook-bin already up to date"
+            echo "shiori-rin-bin already up to date"
             exit 0
           fi
 
           git -c user.name="github-actions[bot]" -c user.email="github-actions[bot]@users.noreply.github.com" commit -m "Update to v${VERSION}"
-          git push origin master
+          git push origin HEAD:master
 
       - name: Verify AUR metadata is updated
         env:
@@ -436,10 +502,10 @@ jobs:
           EXPECTED="${VERSION}-1"
 
           for attempt in {1..30}; do
-            SRC_VERSION="$(curl -fsSL "https://aur.archlinux.org/rpc/v5/info/shiori-ebook" | python3 -c 'import json,sys; print(json.load(sys.stdin)["results"][0]["Version"])')"
-            BIN_VERSION="$(curl -fsSL "https://aur.archlinux.org/rpc/v5/info/shiori-ebook-bin" | python3 -c 'import json,sys; print(json.load(sys.stdin)["results"][0]["Version"])')"
+            SRC_VERSION="$(curl -fsSL "https://aur.archlinux.org/rpc/v5/info/shiori-rin" | python3 -c 'import json,sys; data=json.load(sys.stdin); results=data.get("results") or []; print(results[0].get("Version", "") if results else "")')"
+            BIN_VERSION="$(curl -fsSL "https://aur.archlinux.org/rpc/v5/info/shiori-rin-bin" | python3 -c 'import json,sys; data=json.load(sys.stdin); results=data.get("results") or []; print(results[0].get("Version", "") if results else "")')"
 
-            echo "Attempt ${attempt}/30 => shiori-ebook=${SRC_VERSION}, shiori-ebook-bin=${BIN_VERSION}, expected=${EXPECTED}"
+            echo "Attempt ${attempt}/30 => shiori-rin=${SRC_VERSION}, shiori-rin-bin=${BIN_VERSION}, expected=${EXPECTED}"
 
             if [ "$SRC_VERSION" = "$EXPECTED" ] && [ "$BIN_VERSION" = "$EXPECTED" ]; then
               echo "AUR packages updated successfully"

@@ -1,5 +1,5 @@
 # Maintainer: Vinay Kumar <vinayydv343@gmail.com>
-pkgname=shiori-ebook-bin
+pkgname=shiori-rin-bin
 pkgver=0.1.9
 pkgrel=1
 pkgdesc="Modern offline-first eBook library manager built with Tauri, React, and Rust (binary)"
@@ -13,21 +13,19 @@ depends=(
     'librsvg'
     'sqlite'
 )
-provides=('shiori-ebook')
-conflicts=('shiori-ebook')
-source_x86_64=("${url}/releases/download/v${pkgver}/Shiori_${pkgver}_amd64.deb")
-sha256sums_x86_64=('SKIP')
+provides=('shiori-rin')
+conflicts=(
+    'shiori-rin'
+    'shiori-ebook'
+    'shiori-ebook-bin'
+)
+source=("Shiori_${pkgver}_linux_amd64.tar.gz::${url}/releases/download/v${pkgver}/Shiori_${pkgver}_linux_amd64.tar.gz")
+sha256sums=('SKIP')
 
 package() {
-    # Extract .deb package
-    bsdtar -xf "Shiori_${pkgver}_amd64.deb"
-    bsdtar -xf data.tar.gz -C "${pkgdir}"
-    
+    # Extract release tarball directly into package directory
+    bsdtar -xf "Shiori_${pkgver}_linux_amd64.tar.gz" -C "${pkgdir}"
+
     # Fix permissions
     chmod -R u+rwX,go+rX,go-w "${pkgdir}"
-    
-    # The .deb already contains files in proper locations:
-    # /usr/bin/shiori
-    # /usr/share/applications/shiori.desktop
-    # /usr/share/icons/hicolor/*/apps/shiori.png
 }

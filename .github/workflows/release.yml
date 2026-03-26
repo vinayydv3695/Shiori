@@ -167,7 +167,8 @@ jobs:
             libappindicator3-dev \
             librsvg2-dev \
             patchelf \
-            libssl-dev
+            libssl-dev \
+            libarchive-tools
 
       # ── Install frontend dependencies ──
       - name: Install frontend dependencies
@@ -206,6 +207,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
+
+          if ! command -v bsdtar >/dev/null 2>&1; then
+            echo "bsdtar is required but not installed. Ensure libarchive-tools is available in this job."
+            exit 1
+          fi
 
           DEB_NAME="Shiori_${VERSION}_amd64.deb"
           TAR_NAME="Shiori_${VERSION}_linux_amd64.tar.gz"

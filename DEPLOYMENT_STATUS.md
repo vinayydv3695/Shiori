@@ -121,7 +121,7 @@
 
 ### Manual (Pending)
 - [ ] Wait for Windows build completion (~5-10 min remaining)
-- [ ] Update AUR packages (shiori-ebook-bin, shiori-ebook)
+- [ ] Update AUR packages (shiori-rin-bin, shiori-rin)
 - [ ] Test one binary installation
 - [ ] Announce release (optional)
 

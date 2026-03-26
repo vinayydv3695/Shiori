@@ -67,7 +67,9 @@ Unlike cloud-dependent services, Shiori operates entirely on local infrastructur
 #### Arch Linux (AUR)
 Install the package using an AUR helper such as `yay`:
 ```bash
-yay -S shiori
+yay -S shiori-rin-bin
+# OR
+yay -S shiori-rin
 ```
 *Required dependency: `webkit2gtk-4.1`*
 

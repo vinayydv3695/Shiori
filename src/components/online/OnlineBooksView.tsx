@@ -1,100 +1,145 @@
-import { useState } from 'react';
-import { Search, BookOpen, ExternalLink, Calendar, User, Globe } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import { BookOpen, ExternalLink, Calendar, User } from 'lucide-react';
 import { useOpenLibrary, type OpenLibraryBook } from '@/hooks/useOpenLibrary';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { logger } from '@/lib/logger';
 import { useSourceStore } from '@/store/sourceStore';
+import { OnlineSearchHeader } from './OnlineSearchHeader';
+import { useOnlineSearchStore } from '@/store/onlineSearchStore';
+
+let onlineBooksSearchTimeout: number | undefined;
 
 export function OnlineBooksView() {
-  const [searchQuery, setSearchQuery] = useState('');
+  const searchQuery = useOnlineSearchStore((state) => state.queries['online-books']);
+  const setSearchQuery = useOnlineSearchStore((state) => state.setQueryForKind);
   const [results, setResults] = useState<OpenLibraryBook[]>([]);
   const [totalResults, setTotalResults] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [hasSearched, setHasSearched] = useState(false);
-  const isOpenLibraryEnabled = useSourceStore((state) => state.isSourceEnabled('openlibrary'));
+  const [hasSearched, setHasSearched] = useState(Boolean(searchQuery.trim()));
+  const sources = useSourceStore((state) => state.sources);
+  const primarySourceByKind = useSourceStore((state) => state.primarySourceByKind);
+  const [lastSearchedQuery, setLastSearchedQuery] = useState('');
   
   const { searchBooks, getCoverUrl, getReadUrl, getBookDetailsUrl, loading, error } = useOpenLibrary();
 
-  const handleSearch = async (page: number = 1) => {
-    if (!isOpenLibraryEnabled) return;
-    if (!searchQuery.trim()) return;
+  const bookSources = useMemo(
+    () => sources.filter((source) => source.kind === 'books'),
+    [sources]
+  );
+  const enabledSources = useMemo(
+    () => bookSources.filter((source) => source.enabled && source.implemented),
+    [bookSources]
+  );
+  const activeSource = useMemo(() => {
+    const preferredId = primarySourceByKind.books;
+    const preferred = enabledSources.find((source) => source.id === preferredId);
+    return preferred ?? enabledSources[0];
+  }, [enabledSources, primarySourceByKind.books]);
 
-    logger.info('Searching Open Library:', { query: searchQuery, page });
+  const hasEnabledBookSource = enabledSources.length > 0;
+  const isOpenLibraryEnabled = activeSource?.id === 'openlibrary';
+
+  const handleSearch = useCallback(async (page: number = 1, queryOverride?: string) => {
+    if (!isOpenLibraryEnabled) return;
+
+    const query = (queryOverride ?? searchQuery).trim();
+    if (!query) return;
+
+    logger.info('Searching Open Library:', { query, page });
     
-    const result = await searchBooks(searchQuery, page, 20);
+    const result = await searchBooks(query, page, 20);
     
     if (result) {
       setResults(result.docs);
       setTotalResults(result.numFound);
       setCurrentPage(page);
       setHasSearched(true);
+      setLastSearchedQuery(query);
     }
-  };
+  }, [isOpenLibraryEnabled, searchBooks, searchQuery]);
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSearch(1);
-    }
-  };
+  const visibleResults = useMemo(() => {
+    if (!isOpenLibraryEnabled || searchQuery.trim().length === 0) return [];
+    return results;
+  }, [isOpenLibraryEnabled, searchQuery, results]);
+
+  const visibleTotalResults = searchQuery.trim().length === 0 || !isOpenLibraryEnabled ? 0 : totalResults;
+  const visibleCurrentPage = searchQuery.trim().length === 0 || !isOpenLibraryEnabled ? 1 : currentPage;
+  const hasVisibleSearched = hasSearched && searchQuery.trim().length > 0 && isOpenLibraryEnabled;
+  const totalPages = Math.ceil(visibleTotalResults / 20);
+
+  const scheduleSearch = useCallback(
+    (value: string) => {
+      setSearchQuery('books', value);
+
+      const trimmed = value.trim();
+      if (!trimmed || !isOpenLibraryEnabled) {
+        setHasSearched(false);
+        window.clearTimeout(onlineBooksSearchTimeout);
+        return;
+      }
+
+      window.clearTimeout(onlineBooksSearchTimeout);
+      onlineBooksSearchTimeout = window.setTimeout(() => {
+        if (trimmed === lastSearchedQuery) return;
+        void handleSearch(1, trimmed);
+      }, 300);
+    },
+    [handleSearch, isOpenLibraryEnabled, lastSearchedQuery, setSearchQuery]
+  );
 
   const openInBrowser = (url: string) => {
-    window.open(url, '_blank', 'noopener,noreferrer');
+    try {
+      const openedWindow = window.open(url, '_blank', 'noopener,noreferrer');
+      if (!openedWindow) {
+        window.location.assign(url);
+      }
+    } catch {
+      window.location.assign(url);
+    }
   };
-
-  const totalPages = Math.ceil(totalResults / 20);
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <div className="flex-shrink-0 border-b border-border bg-muted/30 p-6">
-        <div className="max-w-4xl mx-auto space-y-4">
-          <div className="flex items-center gap-3">
-            <Globe className="w-8 h-8 text-primary" />
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">Online Books</h1>
-              <p className="text-sm text-muted-foreground">Search and read books from Open Library</p>
-            </div>
+      <OnlineSearchHeader
+        kind="books"
+        title="Online Books"
+        subtitle="Search and read books from online providers"
+        searchValue={searchQuery}
+        loading={loading}
+        disabled={!hasEnabledBookSource}
+        disabledMessage="No active book source. Enable Open Library in Settings → Online Sources."
+        onSearchValueChange={scheduleSearch}
+        onSubmit={() => {
+          const q = searchQuery.trim();
+          if (!q) return;
+          void handleSearch(1, q);
+        }}
+      />
+
+      <div className="px-6 pt-3 max-w-5xl mx-auto w-full">
+        {!isOpenLibraryEnabled && hasEnabledBookSource && (
+          <div className="p-3 rounded-lg bg-muted border border-border text-sm text-muted-foreground">
+            Selected source is not wired yet. Switch to <span className="font-medium">Open Library</span> from source selector.
           </div>
+        )}
 
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Search by title, author, ISBN..."
-                className="pl-10"
-              />
-            </div>
-            <Button onClick={() => handleSearch(1)} disabled={loading || !searchQuery.trim()}>
-              {loading ? 'Searching...' : 'Search'}
-            </Button>
+        {error && (
+          <div className="mt-3 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+            {error}
           </div>
-
-          {!isOpenLibraryEnabled && (
-            <div className="p-3 rounded-lg bg-muted border border-border text-sm text-muted-foreground">
-              Open Library source is disabled. Enable it in <span className="font-medium">Settings → Online Sources</span>.
-            </div>
-          )}
-
-          {error && (
-            <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
-              {error}
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-5xl mx-auto">
           {loading && (
             <div className="flex items-center justify-center py-12">
               <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             </div>
           )}
 
-          {!loading && hasSearched && results.length === 0 && (
+          {!loading && hasVisibleSearched && visibleResults.length === 0 && hasEnabledBookSource && (
             <div className="text-center py-12">
               <BookOpen className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
               <p className="text-lg font-medium text-muted-foreground">No books found</p>
@@ -102,38 +147,38 @@ export function OnlineBooksView() {
             </div>
           )}
 
-          {!loading && !hasSearched && isOpenLibraryEnabled && (
+          {!loading && !hasVisibleSearched && hasEnabledBookSource && (
             <div className="text-center py-12">
-              <Search className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+              <BookOpen className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
               <p className="text-lg font-medium text-muted-foreground">Search for books</p>
               <p className="text-sm text-muted-foreground mt-1">Enter a title, author, or ISBN to get started</p>
             </div>
           )}
 
-          {!loading && results.length > 0 && isOpenLibraryEnabled && (
+          {!loading && visibleResults.length > 0 && isOpenLibraryEnabled && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
-                  Found <span className="font-medium text-foreground">{totalResults.toLocaleString()}</span> results
+                  Found <span className="font-medium text-foreground">{visibleTotalResults.toLocaleString()}</span> results
                 </p>
                 {totalPages > 1 && (
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleSearch(currentPage - 1)}
-                      disabled={currentPage === 1}
+                      onClick={() => handleSearch(visibleCurrentPage - 1)}
+                      disabled={visibleCurrentPage === 1}
                     >
                       Previous
                     </Button>
                     <span className="text-sm text-muted-foreground">
-                      Page {currentPage} of {totalPages}
+                      Page {visibleCurrentPage} of {totalPages}
                     </span>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleSearch(currentPage + 1)}
-                      disabled={currentPage === totalPages}
+                      onClick={() => handleSearch(visibleCurrentPage + 1)}
+                      disabled={visibleCurrentPage === totalPages}
                     >
                       Next
                     </Button>
@@ -142,7 +187,7 @@ export function OnlineBooksView() {
               </div>
 
               <div className="grid gap-4">
-                {results.map((book) => (
+                {visibleResults.map((book) => (
                   <div
                     key={book.key}
                     className="flex gap-4 p-4 rounded-lg border border-border bg-card hover:bg-accent/50 transition-colors"
@@ -220,23 +265,23 @@ export function OnlineBooksView() {
 
               {totalPages > 1 && (
                 <div className="flex items-center justify-center gap-2 pt-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => handleSearch(currentPage - 1)}
-                    disabled={currentPage === 1}
-                  >
-                    Previous
-                  </Button>
-                  <span className="text-sm text-muted-foreground px-4">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    onClick={() => handleSearch(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                  >
-                    Next
-                  </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => handleSearch(visibleCurrentPage - 1)}
+                      disabled={visibleCurrentPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground px-4">
+                      Page {visibleCurrentPage} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      onClick={() => handleSearch(visibleCurrentPage + 1)}
+                      disabled={visibleCurrentPage === totalPages}
+                    >
+                      Next
+                    </Button>
                 </div>
               )}
             </div>

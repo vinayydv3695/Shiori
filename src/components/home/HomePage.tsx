@@ -13,8 +13,8 @@ import { logger } from '@/lib/logger';
 import { useMemo, useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  BookOpen, Clock, Sparkles, Rss, Library, ArrowRight,
-  TrendingUp, BarChart3, Heart, History, CheckCircle2, PauseCircle
+  BookOpen, Clock, Sparkles, Rss, ArrowRight,
+  ListOrdered, Activity, HardDrive, Heart, History, CheckCircle2, PauseCircle
 } from 'lucide-react'
 import { HomeSection } from './HomeSection'
 import { ContinueReadingCard, RecentlyAddedCard } from './ContinueReadingCard'
@@ -74,6 +74,7 @@ function HeroSection({
   }, [])
 
   const greeting = `Good ${timeOfDay}`
+  const heroContextLabel = domain === 'manga_comics' ? 'Manga & Comics Dashboard' : 'Books Dashboard'
 
   return (
     <motion.div className="hero-section" variants={itemVariants}>
@@ -91,6 +92,7 @@ function HeroSection({
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         >
+          <span className="hero-eyebrow">{heroContextLabel}</span>
           <h1 className="hero-greeting">{greeting}</h1>
           <p className="hero-subtitle">
             {booksInProgress > 0
@@ -109,7 +111,7 @@ function HeroSection({
             transition={{ duration: 0.4, delay: 0.3 }}
           >
             <div className="glass-card-icon" data-domain={domain}>
-              <Library size={20} />
+              <ListOrdered size={20} />
             </div>
             <div className="glass-card-content">
               <span className="glass-card-value">{totalBooks + totalManga}</span>
@@ -125,7 +127,7 @@ function HeroSection({
             transition={{ duration: 0.4, delay: 0.4 }}
           >
             <div className="glass-card-icon" data-accent="progress">
-              <TrendingUp size={20} />
+              <Activity size={20} />
             </div>
             <div className="glass-card-content">
               <span className="glass-card-value">{booksInProgress}</span>
@@ -141,7 +143,7 @@ function HeroSection({
             transition={{ duration: 0.4, delay: 0.5 }}
           >
             <div className="glass-card-icon" data-accent="size">
-              <BarChart3 size={20} />
+              <HardDrive size={20} />
             </div>
             <div className="glass-card-content">
               <span className="glass-card-value">{formatFileSize(totalSize)}</span>
@@ -279,7 +281,7 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
       }
     }
     loadStatusBooks()
-  }, [allBooks])
+  }, [])
 
   const handleOpenBook = (book: Book) => {
     onOpenBook(book.id!)
@@ -287,6 +289,14 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
 
   const handleViewLibrary = () => {
     setCurrentView('library')
+  }
+
+  const handleViewOnlineBooks = () => {
+    setCurrentView('online-books')
+  }
+
+  const handleViewOnlineManga = () => {
+    setCurrentView('online-manga')
   }
 
   // ── Empty state ──────────────────────────────
@@ -337,6 +347,29 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
         domain={domain}
         onViewLibrary={handleViewLibrary}
       />
+
+      <motion.div
+        variants={itemVariants}
+        className="home-quick-access"
+      >
+        <span className="home-quick-access-label">
+          Quick access
+        </span>
+        <button
+          type="button"
+          onClick={handleViewOnlineBooks}
+          className="home-quick-access-button"
+        >
+          Online Books
+        </button>
+        <button
+          type="button"
+          onClick={handleViewOnlineManga}
+          className="home-quick-access-button"
+        >
+          Online Manga
+        </button>
+      </motion.div>
 
       {/* ── Continue Reading ── */}
       <AnimatePresence mode="wait">

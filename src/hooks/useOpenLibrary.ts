@@ -23,7 +23,6 @@ export interface OpenLibrarySearchResult {
 
 const BASE_URL = 'https://openlibrary.org';
 const COVER_BASE_URL = 'https://covers.openlibrary.org/b';
-const USER_AGENT = 'Shiori/0.1.8';
 const RATE_LIMIT_DELAY = 350;
 
 let lastRequestTime = 0;
@@ -38,11 +37,7 @@ async function rateLimitedFetch(url: string): Promise<Response> {
   
   lastRequestTime = Date.now();
   
-  return fetch(url, {
-    headers: {
-      'User-Agent': USER_AGENT,
-    },
-  });
+  return fetch(url);
 }
 
 export function useOpenLibrary() {

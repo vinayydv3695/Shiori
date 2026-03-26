@@ -14,6 +14,7 @@ import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts"
 import { api, type Book } from "./lib/tauri"
 import type { SeriesGroup } from "./hooks/useGroupedLibrary"
 import { ShortcutsDialog } from "./components/dialogs/ShortcutsDialog"
+import { useOnlineSearchStore } from "./store/onlineSearchStore"
 
 const ReaderLayout = lazy(() => import("./components/reader/ReaderLayout").then(m => ({ default: m.ReaderLayout })))
 const EditMetadataDialog = lazy(() => import("./components/library/EditMetadataDialog").then(m => ({ default: m.EditMetadataDialog })))
@@ -30,7 +31,6 @@ const HomePage = lazy(() => import("./components/home/HomePage").then(m => ({ de
 const AnnotationsView = lazy(() => import("./components/annotations/AnnotationsView").then(m => ({ default: m.AnnotationsView })))
 const StatisticsView = lazy(() => import("./components/statistics/StatisticsView").then(m => ({ default: m.StatisticsView })))
 const SeriesView = lazy(() => import("./components/library/SeriesView").then(m => ({ default: m.SeriesView })))
-const DuplicateFinderDialog = lazy(() => import("./components/library/DuplicateFinderDialog").then(m => ({ default: m.DuplicateFinderDialog })))
 const AdvancedFilterDialog = lazy(() => import("./components/library/AdvancedFilterDialog").then(m => ({ default: m.AdvancedFilterDialog })))
 const OnlineBooksView = lazy(() => import("./components/online/OnlineBooksView").then(m => ({ default: m.OnlineBooksView })))
 const OnlineMangaView = lazy(() => import("./components/online/OnlineMangaView").then(m => ({ default: m.OnlineMangaView })))
@@ -82,6 +82,9 @@ function App() {
   const [dialogBookTitle, setDialogBookTitle] = useState<string>("")
   const [deleteBookIds, setDeleteBookIds] = useState<number[]>([])
   const [searchQuery, setSearchQuery] = useState<string>("")
+  const onlineBooksQuery = useOnlineSearchStore((state) => state.queries['online-books'])
+  const onlineMangaQuery = useOnlineSearchStore((state) => state.queries['online-manga'])
+  const setOnlineQuery = useOnlineSearchStore((state) => state.setQuery)
   const [selectedSeries, setSelectedSeries] = useState<SeriesGroup | null>(null)
   const [seriesViewOpen, setSeriesViewOpen] = useState(false)
   
@@ -90,7 +93,6 @@ function App() {
 
   // New feature dialogs
   const [conversionDialogOpen, setConversionDialogOpen] = useState(false)
-  const [duplicateFinderOpen, setDuplicateFinderOpen] = useState(false)
   const [advancedFilterOpen, setAdvancedFilterOpen] = useState(false)
 
   // Theme is handled entirely by preferencesStore → [data-theme] attribute.
@@ -113,17 +115,6 @@ function App() {
       unlisten?.();
     };
   }, [])
-
-  useEffect(() => {
-    const handleOpenBookEvent = (e: Event) => {
-      const bookId = (e as CustomEvent<{ bookId: number }>).detail?.bookId;
-      if (bookId) {
-        handleOpenBook(bookId);
-      }
-    };
-    window.addEventListener('open-book', handleOpenBookEvent);
-    return () => window.removeEventListener('open-book', handleOpenBookEvent);
-  }, []);
 
   useEffect(() => {
     // Filter books when collection changes
@@ -167,6 +158,17 @@ function App() {
       })
     }
   }, [openBook])
+
+  useEffect(() => {
+    const handleOpenBookEvent = (e: Event) => {
+      const bookId = (e as CustomEvent<{ bookId: number }>).detail?.bookId;
+      if (bookId) {
+        handleOpenBook(bookId);
+      }
+    };
+    window.addEventListener('open-book', handleOpenBookEvent);
+    return () => window.removeEventListener('open-book', handleOpenBookEvent);
+  }, [handleOpenBook]);
 
   const handleEditBook = (bookId: number) => {
     setDialogBookId(bookId)
@@ -261,8 +263,25 @@ function App() {
   }
 
   const handleSearchChange = (query: string) => {
+    if (currentView === 'online-books') {
+      setOnlineQuery('online-books', query)
+      return
+    }
+
+    if (currentView === 'online-manga') {
+      setOnlineQuery('online-manga', query)
+      return
+    }
+
     setSearchQuery(query)
   }
+
+  const activeTopbarSearchQuery =
+    currentView === 'online-books'
+      ? onlineBooksQuery
+      : currentView === 'online-manga'
+        ? onlineMangaQuery
+        : searchQuery
 
   const handleConvertBook = (bookId: number) => {
     setDialogBookId(bookId)
@@ -473,12 +492,13 @@ function App() {
         onAutoGroupManga={handleAutoGroupManga}
         onOpenAdvancedFilter={() => setAdvancedFilterOpen(true)}
         activeFilterCount={countActiveFilterCriteria(activeFilters)}
-        searchQuery={searchQuery}
-        onSearchChange={handleSearchChange}
-        currentView={currentView}
-        onBackToLibrary={handleBackToLibrary}
-        currentDomain={currentDomain}
-        onDomainChange={setCurrentDomain}
+         searchQuery={activeTopbarSearchQuery}
+         onSearchChange={handleSearchChange}
+         currentView={currentView}
+         onNavigateToView={setCurrentView}
+         onBackToLibrary={handleBackToLibrary}
+         currentDomain={currentDomain}
+         onDomainChange={setCurrentDomain}
       >
         {/* Show Home dashboard view */}
         {currentView === 'home' && (
@@ -638,7 +658,7 @@ function App() {
             series={selectedSeries}
             isOpen={seriesViewOpen}
             onClose={() => setSeriesViewOpen(false)}
-            onSelectBook={(id) => {}}
+            onSelectBook={() => {}}
             onOpenBook={handleOpenBook}
             onViewDetailsBook={handleViewDetails}
             onEditBook={handleEditBook}

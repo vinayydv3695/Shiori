@@ -33,6 +33,7 @@ import {
 } from '@/components/icons/ShioriIcons'
 import { Layers, Copy, Filter, HelpCircle } from 'lucide-react'
 import { usePreferencesStore } from '@/store/preferencesStore'
+import type { CurrentView } from '@/store/uiStore'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -64,9 +65,13 @@ interface PremiumTopbarProps {
   onGoHome?: () => void
   onAutoGroupManga?: () => void
   onOpenShortcuts?: () => void
+  currentView?: CurrentView
+  onNavigateToView?: (view: CurrentView) => void
   selectedCount?: number
   activeFilterCount?: number
   sidebarOpen?: boolean
+  searchValue?: string
+  searchPlaceholder?: string
 }
 
 // ─── Separator ────────────────────────────────
@@ -84,6 +89,7 @@ interface TBtnProps {
   active?: boolean
   title?: string
   showLabel?: boolean
+  type?: 'button' | 'submit' | 'reset'
 }
 
 const TBtn = ({
@@ -95,8 +101,10 @@ const TBtn = ({
   active = false,
   title,
   showLabel = true,
+  type = 'button',
 }: TBtnProps) => (
   <button
+    type={type}
     onClick={onClick}
     disabled={disabled}
     title={title ?? label}
@@ -136,21 +144,35 @@ const TBtn = ({
 interface SearchBarProps {
   onSearch?: (query: string) => void
   currentDomain: DomainView
+  value?: string
+  placeholder?: string
 }
 
-const SearchBar = ({ onSearch, currentDomain }: SearchBarProps) => {
-  const [value, setValue] = useState('')
+const SearchBar = ({ onSearch, currentDomain, value: controlledValue, placeholder }: SearchBarProps) => {
+  const [internalValue, setInternalValue] = useState('')
   const [focused, setFocused] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  const value = controlledValue ?? internalValue
+  const setValue = (next: string) => {
+    if (controlledValue !== undefined) {
+      onSearch?.(next)
+      return
+    }
+    setInternalValue(next)
+  }
+
   useEffect(() => {
+    if (controlledValue !== undefined) return
     const timer = setTimeout(() => onSearch?.(value), 280)
     return () => clearTimeout(timer)
-  }, [value, onSearch])
+  }, [value, onSearch, controlledValue])
 
   const clear = () => {
     setValue('')
-    onSearch?.('')
+    if (controlledValue === undefined) {
+      onSearch?.('')
+    }
     inputRef.current?.focus()
   }
 
@@ -176,7 +198,7 @@ const SearchBar = ({ onSearch, currentDomain }: SearchBarProps) => {
         onChange={(e) => setValue(e.target.value)}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        placeholder={`Search ${currentDomain}…`}
+        placeholder={placeholder ?? `Search ${currentDomain}…`}
         className={cn(
           'w-full h-full pl-8 pr-7',
           'bg-transparent text-xs text-foreground placeholder:text-muted-foreground',
@@ -186,6 +208,7 @@ const SearchBar = ({ onSearch, currentDomain }: SearchBarProps) => {
       />
       {value && (
         <button
+          type="button"
           onClick={clear}
           className="absolute right-2 flex items-center text-muted-foreground hover:text-foreground transition-colors"
           tabIndex={-1}
@@ -221,6 +244,8 @@ export function PremiumTopbar({
   selectedCount = 0,
   activeFilterCount = 0,
   sidebarOpen = true,
+  searchValue,
+  searchPlaceholder,
 }: PremiumTopbarProps) {
   const preferences = usePreferencesStore((s) => s.preferences)
   const updateTheme = usePreferencesStore((s) => s.updateTheme)
@@ -247,14 +272,15 @@ export function PremiumTopbar({
       <TBtn
         onClick={onToggleSidebar}
         icon={<IconSidebarToggle size={16} />}
-        label="Toggle sidebar"
+        label="Toggle filters"
         showLabel={false}
         active={sidebarOpen}
-        title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+        title={sidebarOpen ? 'Hide filters panel' : 'Show filters panel'}
       />
 
       {/* ── Logo (clickable → home) ── */}
       <button
+        type="button"
         onClick={onGoHome}
         className="flex items-center pl-1 pr-3 shrink-0 hover:opacity-80 transition-opacity duration-150 cursor-pointer bg-transparent border-none"
         title="Go to Home"
@@ -273,6 +299,7 @@ export function PremiumTopbar({
         )}
       >
         <button
+          type="button"
           onClick={() => onDomainChange('books')}
           className={cn(
             'flex items-center gap-1.5 h-full px-3 rounded',
@@ -287,6 +314,7 @@ export function PremiumTopbar({
           Books
         </button>
         <button
+          type="button"
           onClick={() => onDomainChange('manga_comics')}
           className={cn(
             'flex items-center gap-1.5 h-full px-3 rounded',
@@ -308,6 +336,7 @@ export function PremiumTopbar({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
+            type="button"
             className={cn(
               'group relative flex items-center gap-1.5 h-8 rounded-md px-2.5',
               'text-xs font-medium select-none',
@@ -409,6 +438,7 @@ export function PremiumTopbar({
       />
 
       <button
+        type="button"
         onClick={onOpenAdvancedFilter}
         title="Advanced Filters (Ctrl+Shift+F)"
         aria-label="Advanced Filters"
@@ -435,6 +465,7 @@ export function PremiumTopbar({
       {/* ── Delete ── */}
       {hasSelection ? (
         <button
+          type="button"
           onClick={onDelete}
           title={`Delete ${selectedCount} selected`}
           className={cn(
@@ -462,12 +493,18 @@ export function PremiumTopbar({
       <div className="flex-1" />
 
       {/* ── Search (center-right) ── */}
-      <SearchBar onSearch={onSearch} currentDomain={currentDomain} />
+      <SearchBar
+        onSearch={onSearch}
+        currentDomain={currentDomain}
+        value={searchValue}
+        placeholder={searchPlaceholder}
+      />
 
       {/* ── Utility ── */}
       <div className="flex items-center gap-0.5 pl-2">
         <Sep />
         <button
+          type="button"
           onClick={toggleTheme}
           title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
           aria-label="Toggle theme"
@@ -481,6 +518,7 @@ export function PremiumTopbar({
           {isDark ? <IconSun size={16} /> : <IconMoon size={16} />}
         </button>
         <button
+          type="button"
           onClick={onOpenShortcuts}
           title="Keyboard shortcuts (Press ?)"
           aria-label="Keyboard shortcuts"
@@ -494,6 +532,7 @@ export function PremiumTopbar({
           <HelpCircle size={16} />
         </button>
         <button
+          type="button"
           onClick={onOpenSettings}
           title="Settings"
           aria-label="Settings"

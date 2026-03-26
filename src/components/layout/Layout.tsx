@@ -11,9 +11,10 @@
  */
 
 import type { ReactNode } from 'react'
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 
 import { PremiumTopbar } from './ImprovedToolbar'
+import { NavigationRail } from './NavigationRail'
 import { FilterPanel } from '../sidebar/ModernSidebar'
 import { StatusBar } from './ModernToolbar'
 import { DuplicateFinderDialog } from '../library/DuplicateFinderDialog'
@@ -24,6 +25,53 @@ import { useLibraryStore } from '@/store/libraryStore'
 import { useToast } from '@/store/toastStore'
 import type { CurrentView } from '@/store/uiStore'
 import { logger } from '@/lib/logger'
+
+type DragLayerProps = {
+  isDragActive: boolean
+  onDragOver: (e: DragEvent) => void
+  onDragLeave: (e: DragEvent) => void
+  onDrop: (e: DragEvent) => void
+  children: ReactNode
+}
+
+type DropFile = File & { path?: string }
+
+function DragLayer({ isDragActive, onDragOver, onDragLeave, onDrop, children }: DragLayerProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    el.addEventListener('dragover', onDragOver)
+    el.addEventListener('dragleave', onDragLeave)
+    el.addEventListener('drop', onDrop)
+
+    return () => {
+      el.removeEventListener('dragover', onDragOver)
+      el.removeEventListener('dragleave', onDragLeave)
+      el.removeEventListener('drop', onDrop)
+    }
+  }, [onDragOver, onDragLeave, onDrop])
+
+  return (
+    <div ref={containerRef} className="flex flex-1 overflow-hidden relative">
+      {isDragActive && (
+        <div className="absolute inset-0 bg-blue-500/10 border-2 border-dashed border-blue-500 rounded-lg pointer-events-none z-40 flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+              Drop books here to import
+            </div>
+            <div className="text-sm text-blue-500 dark:text-blue-300 mt-1">
+              Supports EPUB, PDF, MOBI, CBZ, CBR and more
+            </div>
+          </div>
+        </div>
+      )}
+      {children}
+    </div>
+  )
+}
 
 interface LayoutProps {
   children: ReactNode
@@ -46,6 +94,7 @@ interface LayoutProps {
   searchQuery?: string
   onSearchChange?: (query: string) => void
   currentView?: CurrentView
+  onNavigateToView?: (view: CurrentView) => void
   currentDomain?: 'books' | 'manga_comics'
   onDomainChange?: (domain: 'books' | 'manga_comics') => void
 }
@@ -65,8 +114,10 @@ export function Layout({
   onAutoGroupManga,
   onOpenAdvancedFilter,
   activeFilterCount = 0,
+  searchQuery = '',
   onSearchChange,
   currentView = 'home',
+  onNavigateToView,
   currentDomain = 'books',
   onDomainChange = () => { },
 }: LayoutProps) {
@@ -85,6 +136,14 @@ export function Layout({
     toggleFilter,
     clearFilters,
   } = useLibraryStore()
+
+  const isOnlineView = currentView === 'online-books' || currentView === 'online-manga'
+  const searchPlaceholder =
+    currentView === 'online-books'
+      ? 'Search online books...'
+      : currentView === 'online-manga'
+        ? 'Search online manga...'
+        : `Search ${currentDomain}...`
 
   // ── Library stats ──────────────────────────────
   const totalBooks = books.length
@@ -158,34 +217,39 @@ export function Layout({
     setImportDialogOpen(true)
   }
 
-  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragOver = useCallback((e: DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    e.dataTransfer.dropEffect = 'copy'
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'copy'
+    }
     setIsDragActive(true)
   }, [])
 
-  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragLeave = useCallback((e: DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
     setIsDragActive(false)
   }, [])
 
   const handleDrop = useCallback(
-    async (e: React.DragEvent<HTMLDivElement>) => {
+    async (e: DragEvent) => {
       e.preventDefault()
       e.stopPropagation()
       setIsDragActive(false)
 
-      const files = e.dataTransfer.files
+      const dataTransfer = e.dataTransfer
+      if (!dataTransfer) return
+
+      const files = dataTransfer.files
       if (!files || files.length === 0) return
 
       const filePaths: string[] = []
       
       for (let i = 0; i < files.length; i++) {
-        const file = files[i]
-        if (file && (file as any).path) {
-          filePaths.push((file as any).path)
+        const file = files[i] as DropFile
+        if (file && file.path) {
+          filePaths.push(file.path)
         } else if (file) {
           logger.warn(`File ${i} (${file.name}) has no path property, skipping`)
         }
@@ -259,41 +323,38 @@ export function Layout({
          onFetchMetadata={handleFetchMetadataClick}
          onViewDetails={handleViewDetails}
          onDelete={handleDelete}
-         onSearch={onSearchChange}
-         onOpenSettings={onOpenSettings}
+          onSearch={onSearchChange}
+          searchValue={searchQuery}
+          searchPlaceholder={searchPlaceholder}
+          onOpenSettings={onOpenSettings}
          onOpenShortcuts={onOpenShortcuts}
          onOpenDuplicateFinder={() => setDuplicateFinderOpen(true)}
          onOpenAdvancedFilter={onOpenAdvancedFilter}
          onToggleSidebar={() => setSidebarOpen((o) => !o)}
          onGoHome={onGoHome}
-         onAutoGroupManga={onAutoGroupManga}
-         selectedCount={selectedBookIds.size}
-         activeFilterCount={activeFilterCount}
-         sidebarOpen={sidebarOpen}
+          onAutoGroupManga={onAutoGroupManga}
+          currentView={currentView}
+          onNavigateToView={onNavigateToView}
+          selectedCount={selectedBookIds.size}
+          activeFilterCount={activeFilterCount}
+          sidebarOpen={sidebarOpen}
        />
 
       {/* ── Body ── */}
-      <div 
-        className="flex flex-1 overflow-hidden relative"
+      <DragLayer
+        isDragActive={isDragActive}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        {isDragActive && (
-          <div className="absolute inset-0 bg-blue-500/10 border-2 border-dashed border-blue-500 rounded-lg pointer-events-none z-40 flex items-center justify-center">
-            <div className="text-center">
-              <div className="text-lg font-semibold text-blue-600 dark:text-blue-400">
-                Drop books here to import
-              </div>
-              <div className="text-sm text-blue-500 dark:text-blue-300 mt-1">
-                Supports EPUB, PDF, MOBI, CBZ, CBR and more
-              </div>
-            </div>
-          </div>
-        )}
-        
+        <NavigationRail
+          currentView={currentView}
+          onNavigateToView={onNavigateToView}
+          onOpenSettings={onOpenSettings}
+        />
+
         {/* Sidebar — hidden on homepage */}
-        {currentView !== 'home' && sidebarOpen && (
+        {currentView !== 'home' && !isOnlineView && sidebarOpen && (
           <FilterPanel
             authors={filterItems.authors}
             languages={filterItems.languages}
@@ -311,10 +372,10 @@ export function Layout({
         )}
 
         {/* Main content */}
-        <main className={cn('flex-1 overflow-y-auto bg-background')}>
+        <main className={cn('flex-1 min-w-0 overflow-y-auto bg-background')}>
           {children}
         </main>
-      </div>
+      </DragLayer>
 
       {/* ── Status Bar ── */}
       <StatusBar

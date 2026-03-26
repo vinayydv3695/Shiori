@@ -1,4 +1,5 @@
 import { useSourceStore } from '@/store/sourceStore';
+import { ExternalLink } from 'lucide-react';
 
 export function SourceManager() {
   const sources = useSourceStore((state) => state.sources);
@@ -15,8 +16,26 @@ export function SourceManager() {
           {mangaSources.map((source) => (
             <div key={source.id} className="flex items-center justify-between rounded-lg border border-border p-3">
               <div>
-                <p className="font-medium">{source.name}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-medium">{source.name.replace(' (Planned)', '')}</p>
+                  {source.status === 'planned' && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Planned</span>
+                  )}
+                  {source.enabled && source.implemented && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">Enabled</span>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground">{source.description}</p>
+                {source.website && (
+                  <a
+                    href={source.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary inline-flex items-center gap-1 mt-1 hover:underline"
+                  >
+                    Visit source <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
               </div>
               <input
                 type="checkbox"
@@ -24,6 +43,7 @@ export function SourceManager() {
                 onChange={() => toggleSource(source.id)}
                 className="h-5 w-5"
                 aria-label={`Toggle ${source.name}`}
+                disabled={!source.implemented}
               />
             </div>
           ))}
@@ -36,8 +56,26 @@ export function SourceManager() {
           {bookSources.map((source) => (
             <div key={source.id} className="flex items-center justify-between rounded-lg border border-border p-3">
               <div>
-                <p className="font-medium">{source.name}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-medium">{source.name.replace(' (Planned)', '')}</p>
+                  {source.status === 'planned' && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Planned</span>
+                  )}
+                  {source.enabled && source.implemented && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">Enabled</span>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground">{source.description}</p>
+                {source.website && (
+                  <a
+                    href={source.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary inline-flex items-center gap-1 mt-1 hover:underline"
+                  >
+                    Visit source <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
               </div>
               <input
                 type="checkbox"
@@ -45,6 +83,7 @@ export function SourceManager() {
                 onChange={() => toggleSource(source.id)}
                 className="h-5 w-5"
                 aria-label={`Toggle ${source.name}`}
+                disabled={!source.implemented}
               />
             </div>
           ))}

@@ -181,6 +181,8 @@ jobs:
     permissions:
       contents: read
     steps:
+      - uses: actions/checkout@v4
+
       - name: Setup SSH for AUR
         env:
           AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
@@ -204,19 +206,46 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${{ needs.check-version.outputs.version }}"
-          ASSET_NAME="Shiori_${VERSION}_amd64.deb"
+          ASSET_NAME=""
           SHA256=""
 
           for attempt in {1..30}; do
-            DIGEST=""
-            DIGEST="$(gh release view "v${VERSION}" --json assets --jq ".assets[] | select(.name == \"${ASSET_NAME}\") | .digest" 2>/dev/null || true)"
+            RELEASE_JSON=""
+            RELEASE_JSON="$(gh release view "v${VERSION}" --repo "${GITHUB_REPOSITORY}" --json isDraft,assets 2>/dev/null || true)"
+            if [ -z "$RELEASE_JSON" ]; then
+              echo "Waiting for release v${VERSION} to exist (${attempt}/30)..."
+              sleep 20
+              continue
+            fi
+
+            IS_DRAFT="$(printf '%s' "$RELEASE_JSON" | python3 -c 'import json,sys; print(str(json.load(sys.stdin).get("isDraft", True)).lower())' 2>/dev/null || echo "true")"
+            if [ "$IS_DRAFT" = "true" ]; then
+              echo "Release v${VERSION} is still draft (${attempt}/30)..."
+              sleep 20
+              continue
+            fi
+
+            if ! printf '%s' "$RELEASE_JSON" | python3 -c 'import json,sys; a=[x.get("name","") for x in json.load(sys.stdin).get("assets",[])]; ok=any(n.endswith(".exe") for n in a) and any(n.endswith(".AppImage") for n in a) and any(n.endswith(".rpm") for n in a) and any(n.endswith("_amd64.deb") for n in a) and any(n.endswith(".dmg") for n in a); sys.exit(0 if ok else 1)'; then
+              echo "Waiting for all required release assets (.exe, .AppImage, .rpm, _amd64.deb, .dmg) (${attempt}/30)..."
+              sleep 20
+              continue
+            fi
+
+            ASSET_NAME="$(printf '%s' "$RELEASE_JSON" | python3 -c 'import json,sys; a=[x.get("name","") for x in json.load(sys.stdin).get("assets",[]) if x.get("name","").endswith("_amd64.deb")]; print(a[0] if a else "")')"
+            if [ -z "$ASSET_NAME" ]; then
+              echo "Waiting for _amd64.deb asset name (${attempt}/30)..."
+              sleep 20
+              continue
+            fi
+
+            DIGEST="$(gh release view "v${VERSION}" --repo "${GITHUB_REPOSITORY}" --json assets --jq ".assets[] | select(.name == \"${ASSET_NAME}\") | .digest" 2>/dev/null || true)"
             if [ -n "$DIGEST" ]; then
               SHA256="${DIGEST#sha256:}"
               break
             fi
 
-            if gh release view "v${VERSION}" --json assets --jq ".assets[] | select(.name == \"${ASSET_NAME}\") | .name" | grep -q "${ASSET_NAME}"; then
-              gh release download "v${VERSION}" --pattern "${ASSET_NAME}" --dir /tmp --clobber
+            if gh release view "v${VERSION}" --repo "${GITHUB_REPOSITORY}" --json assets --jq ".assets[] | select(.name == \"${ASSET_NAME}\") | .name" | grep -q "${ASSET_NAME}"; then
+              gh release download "v${VERSION}" --repo "${GITHUB_REPOSITORY}" --pattern "${ASSET_NAME}" --dir /tmp --clobber
               SHA256="$(sha256sum "/tmp/${ASSET_NAME}" | cut -d' ' -f1)"
               if [ -n "$SHA256" ]; then
                 break
@@ -227,7 +256,7 @@ jobs:
             sleep 20
           done
 
-          if [ -z "$SHA256" ]; then
+          if [ -z "$ASSET_NAME" ] || [ -z "$SHA256" ]; then
             echo "Could not find release asset ${ASSET_NAME} in release v${VERSION}"
             exit 1
           fi

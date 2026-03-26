@@ -32,7 +32,6 @@ export interface MangaDexSearchResult {
 }
 
 const BASE_URL = 'https://api.mangadex.org';
-const USER_AGENT = 'Shiori/0.1.8';
 const RATE_LIMIT_DELAY = 250;
 
 let lastRequestTime = 0;
@@ -47,11 +46,7 @@ async function rateLimitedFetch(url: string): Promise<Response> {
   
   lastRequestTime = Date.now();
   
-  return fetch(url, {
-    headers: {
-      'User-Agent': USER_AGENT,
-    },
-  });
+  return fetch(url);
 }
 
 export function useMangaDex() {
@@ -72,7 +67,18 @@ export function useMangaDex() {
 
     try {
       const offset = (page - 1) * limit;
-      const url = `${BASE_URL}/manga?title=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}&hasAvailableChapters=true&availableTranslatedLanguage[]=en&includes[]=cover_art&includes[]=author&includes[]=artist&order[relevance]=desc`;
+      const params = new URLSearchParams();
+      params.set('title', query);
+      params.set('limit', String(limit));
+      params.set('offset', String(offset));
+      params.set('hasAvailableChapters', 'true');
+      params.append('availableTranslatedLanguage[]', 'en');
+      params.append('includes[]', 'cover_art');
+      params.append('includes[]', 'author');
+      params.append('includes[]', 'artist');
+      params.set('order[relevance]', 'desc');
+
+      const url = `${BASE_URL}/manga?${params.toString()}`;
       
       logger.info('MangaDex search:', { query, page, limit });
       
@@ -135,7 +141,13 @@ export function useMangaDex() {
     setError(null);
 
     try {
-      const url = `${BASE_URL}/manga/${mangaId}/feed?translatedLanguage[]=en&limit=${limit}&order[chapter]=asc&includes[]=scanlation_group`;
+      const params = new URLSearchParams();
+      params.append('translatedLanguage[]', 'en');
+      params.set('limit', String(limit));
+      params.set('order[chapter]', 'asc');
+      params.append('includes[]', 'scanlation_group');
+
+      const url = `${BASE_URL}/manga/${mangaId}/feed?${params.toString()}`;
       
       logger.info('MangaDex chapters:', { mangaId, limit });
       

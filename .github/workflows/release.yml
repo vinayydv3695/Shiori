@@ -25,6 +25,36 @@ jobs:
         with:
           fetch-depth: 2
 
+      - name: Guard version consistency
+        run: |
+          python3 - <<'PY'
+          import json
+          import tomllib
+
+          with open('package.json', 'r', encoding='utf-8') as f:
+              package_version = json.load(f)['version']
+
+          with open('src-tauri/tauri.conf.json', 'r', encoding='utf-8') as f:
+              tauri_version = json.load(f)['version']
+
+          with open('src-tauri/Cargo.toml', 'rb') as f:
+              cargo_version = tomllib.load(f)['package']['version']
+
+          versions = {
+              'package.json': package_version,
+              'src-tauri/tauri.conf.json': tauri_version,
+              'src-tauri/Cargo.toml': cargo_version,
+          }
+
+          if len(set(versions.values())) != 1:
+              print('Version mismatch detected:')
+              for name, version in versions.items():
+                  print(f'  {name}: {version}')
+              raise SystemExit(1)
+
+          print(f"Versions are consistent: {package_version}")
+          PY
+
       - name: Check if version changed
         id: check
         run: |

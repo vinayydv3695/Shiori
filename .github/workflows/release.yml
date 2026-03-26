@@ -199,6 +199,45 @@ jobs:
           prerelease: false
           args: ${{ matrix.args }}
 
+      - name: Create and upload Linux AUR tarball
+        if: matrix.platform == 'ubuntu-22.04'
+        env:
+          VERSION: ${{ needs.check-version.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          DEB_NAME="Shiori_${VERSION}_amd64.deb"
+          TAR_NAME="Shiori_${VERSION}_linux_amd64.tar.gz"
+          STAGE_DIR="/tmp/shiori-aur-stage-${VERSION}"
+          DEB_EXTRACT_DIR="/tmp/shiori-deb-extract-${VERSION}"
+          TAR_PATH="/tmp/${TAR_NAME}"
+
+          rm -rf "${STAGE_DIR}" "${DEB_EXTRACT_DIR}" "${TAR_PATH}"
+          mkdir -p "${STAGE_DIR}" "${DEB_EXTRACT_DIR}"
+
+          DEB_PATH="$(find src-tauri/target -type f -name "${DEB_NAME}" | head -n 1)"
+          if [ -z "${DEB_PATH}" ]; then
+            echo "Could not locate ${DEB_NAME}"
+            exit 1
+          fi
+
+          bsdtar -xf "${DEB_PATH}" -C "${DEB_EXTRACT_DIR}"
+          DATA_TAR="$(find "${DEB_EXTRACT_DIR}" -maxdepth 1 -type f -name 'data.tar.*' | head -n 1)"
+          if [ -z "${DATA_TAR}" ]; then
+            echo "Could not locate data.tar.* in extracted deb payload"
+            exit 1
+          fi
+
+          bsdtar -xf "${DATA_TAR}" -C "${STAGE_DIR}"
+          if [ ! -d "${STAGE_DIR}/usr" ]; then
+            echo "Expected usr/ tree not found in deb payload"
+            exit 1
+          fi
+
+          tar -C "${STAGE_DIR}" -czf "${TAR_PATH}" usr
+          gh release upload "v${VERSION}" "${TAR_PATH}" --repo "${GITHUB_REPOSITORY}" --clobber
+
   # ── Step 3: Update AUR packages after release ──────────────────────
   update-aur:
     name: Update AUR packages
@@ -255,15 +294,15 @@ jobs:
               continue
             fi
 
-            if ! printf '%s' "$RELEASE_JSON" | python3 -c 'import json,sys; a=[x.get("name","") for x in json.load(sys.stdin).get("assets",[])]; ok=any(n.endswith(".exe") for n in a) and any(n.endswith(".AppImage") for n in a) and any(n.endswith(".rpm") for n in a) and any(n.endswith("_amd64.deb") for n in a) and any(n.endswith(".dmg") for n in a); sys.exit(0 if ok else 1)'; then
-              echo "Waiting for all required release assets (.exe, .AppImage, .rpm, _amd64.deb, .dmg) (${attempt}/30)..."
+            if ! printf '%s' "$RELEASE_JSON" | python3 -c 'import json,sys; a=[x.get("name","") for x in json.load(sys.stdin).get("assets",[])]; ok=any(n.endswith(".exe") for n in a) and any(n.endswith(".AppImage") for n in a) and any(n.endswith(".rpm") for n in a) and any(n.endswith("_linux_amd64.tar.gz") for n in a) and any(n.endswith(".dmg") for n in a); sys.exit(0 if ok else 1)'; then
+              echo "Waiting for all required release assets (.exe, .AppImage, .rpm, _linux_amd64.tar.gz, .dmg) (${attempt}/30)..."
               sleep 20
               continue
             fi
 
-            ASSET_NAME="$(printf '%s' "$RELEASE_JSON" | python3 -c 'import json,sys; a=[x.get("name","") for x in json.load(sys.stdin).get("assets",[]) if x.get("name","").endswith("_amd64.deb")]; print(a[0] if a else "")')"
+            ASSET_NAME="$(printf '%s' "$RELEASE_JSON" | python3 -c 'import json,sys; a=[x.get("name","") for x in json.load(sys.stdin).get("assets",[]) if x.get("name","").endswith("_linux_amd64.tar.gz")]; print(a[0] if a else "")')"
             if [ -z "$ASSET_NAME" ]; then
-              echo "Waiting for _amd64.deb asset name (${attempt}/30)..."
+              echo "Waiting for _linux_amd64.tar.gz asset name (${attempt}/30)..."
               sleep 20
               continue
             fi
@@ -353,9 +392,8 @@ jobs:
           pkgbuild = re.sub(r"^sha256sums=\('.*'\)$", f"sha256sums=('{sha256}')", pkgbuild, flags=re.MULTILINE)
 
           package_block = """package() {
-              # Extract .deb package
-              bsdtar -xf \"Shiori_${pkgver}_amd64.deb\"
-              bsdtar -xf data.tar.* -C \"${pkgdir}\"
+              # Extract release payload
+              bsdtar -xpf \"Shiori_${pkgver}_linux_amd64.tar.gz\" -C \"${pkgdir}\"
 
               # Fix permissions
               chmod -R u+rwX,go+rX,go-w \"${pkgdir}\"

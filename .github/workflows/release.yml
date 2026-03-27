@@ -6,7 +6,16 @@ on:
       - main
     paths:
       - 'package.json'
+      - 'src-tauri/tauri.conf.json'
+      - 'src-tauri/Cargo.toml'
+      - '.github/workflows/release.yml'
   workflow_dispatch:
+    inputs:
+      force_release:
+        description: 'Force release even if version/tag unchanged'
+        required: false
+        default: false
+        type: boolean
 
 # Prevent concurrent releases
 concurrency:
@@ -23,7 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Guard version consistency
         run: |
@@ -58,23 +67,43 @@ jobs:
       - name: Check if version changed
         id: check
         run: |
-          # Get current version from package.json
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           echo "Current version: $CURRENT_VERSION"
+          echo "version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
 
-          # Get previous version from the parent commit
-          git show HEAD~1:package.json > /tmp/prev-package.json 2>/dev/null || echo '{"version":"0.0.0"}' > /tmp/prev-package.json
-          PREV_VERSION=$(node -p "require('/tmp/prev-package.json').version")
-          echo "Previous version: $PREV_VERSION"
+          if [ "${{ github.event_name }}" = "push" ]; then
+            BEFORE_SHA="${{ github.event.before }}"
+            echo "Comparing against commit: $BEFORE_SHA"
 
-          if [ "$CURRENT_VERSION" != "$PREV_VERSION" ]; then
-            echo "Version changed from $PREV_VERSION to $CURRENT_VERSION"
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+            if git show "${BEFORE_SHA}:package.json" > /tmp/prev-package.json 2>/dev/null; then
+              PREV_VERSION=$(node -p "require('/tmp/prev-package.json').version")
+            else
+              PREV_VERSION="0.0.0"
+            fi
+
+            echo "Previous version: $PREV_VERSION"
+            if [ "$CURRENT_VERSION" != "$PREV_VERSION" ]; then
+              echo "Version changed from $PREV_VERSION to $CURRENT_VERSION"
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "Version unchanged"
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+            fi
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            FORCE_RELEASE="${{ github.event.inputs.force_release }}"
+            if [ "$FORCE_RELEASE" = "true" ]; then
+              echo "force_release=true, marking version as changed"
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+            elif git ls-remote --tags origin "refs/tags/v${CURRENT_VERSION}" | grep -q "refs/tags/v${CURRENT_VERSION}$"; then
+              echo "Release tag v${CURRENT_VERSION} already exists on origin"
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "Release tag v${CURRENT_VERSION} does not exist on origin"
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+            fi
           else
-            echo "Version unchanged"
+            echo "Unsupported event: ${{ github.event_name }}"
             echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
           fi
 
   # ── Step 2: Build for all platforms ────────────────────────────────
@@ -249,9 +278,8 @@ jobs:
     name: Update AUR packages
     needs: [check-version, build]
     if: |
-      always() &&
-      (needs.check-version.outputs.version_changed == 'true' || github.event_name == 'workflow_dispatch') &&
-      (needs.build.result == 'success' || needs.build.result == 'skipped')
+      needs.check-version.outputs.version_changed == 'true' &&
+      needs.build.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -381,8 +409,6 @@ jobs:
             fi
           fi
 
-          sed -i 's/shiori-ebook/shiori-rin/g' PKGBUILD .SRCINFO
-
           sed -i -E "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
           sed -i -E "s/^[[:space:]]*pkgver = .*/\tpkgver = ${VERSION}/" .SRCINFO
           sed -i -E "s|^[[:space:]]*source = .*|\tsource = shiori-rin-${VERSION}.tar.gz::https://github.com/vinayydv3695/Shiori/archive/refs/tags/v${VERSION}.tar.gz|" .SRCINFO
@@ -438,8 +464,6 @@ jobs:
           EOF
             fi
           fi
-
-          sed -i 's/shiori-ebook-bin/shiori-rin-bin/g; s/shiori-ebook/shiori-rin/g' PKGBUILD .SRCINFO
 
           python3 - <<'PY'
           import os

@@ -64,6 +64,137 @@ jobs:
           print(f"Versions are consistent: {package_version}")
           PY
 
+      - name: Guard AUR template integrity
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          def fail(msg: str) -> None:
+              print(f"AUR template integrity check failed: {msg}")
+              raise SystemExit(1)
+
+          def read_text(path: str) -> str:
+              p = Path(path)
+              if not p.exists():
+                  fail(f"missing required file: {path}")
+              return p.read_text(encoding='utf-8')
+
+          def parse_pkgbuild_value(text: str, key: str) -> str:
+              m = re.search(rf"(?m)^\s*{re.escape(key)}\s*=\s*(.+)$", text)
+              if not m:
+                  fail(f"{key} not found in PKGBUILD")
+              return m.group(1).strip()
+
+          def parse_pkgbuild_scalar(text: str, key: str) -> str:
+              val = parse_pkgbuild_value(text, key)
+              if (val.startswith("'") and val.endswith("'")) or (val.startswith('"') and val.endswith('"')):
+                  return val[1:-1]
+              return val
+
+          def parse_pkgbuild_array_quoted(text: str, key: str) -> list[str]:
+              m = re.search(rf"(?ms)^\s*{re.escape(key)}\s*=\s*\((.*?)\)", text)
+              if not m:
+                  fail(f"array {key} not found in PKGBUILD")
+              body = m.group(1)
+              values = [a or b for a, b in re.findall(r"'([^']+)'|\"([^\"]+)\"", body)]
+              return values
+
+          def parse_srcinfo(path: str) -> dict[str, list[str]]:
+              data: dict[str, list[str]] = {}
+              p = Path(path)
+              if not p.exists():
+                  return data
+              for raw in p.read_text(encoding='utf-8').splitlines():
+                  line = raw.strip()
+                  if not line or line.startswith('#') or '=' not in line:
+                      continue
+                  key, value = [x.strip() for x in line.split('=', 1)]
+                  data.setdefault(key, []).append(value)
+              return data
+
+          def ensure_no_duplicates(name: str, values: list[str]) -> None:
+              seen = set()
+              dupes = []
+              for v in values:
+                  if v in seen:
+                      dupes.append(v)
+                  seen.add(v)
+              if dupes:
+                  fail(f"duplicate {name} entries: {sorted(set(dupes))}")
+
+          def ensure_no_self_conflict(pkgname: str, conflicts: list[str], label: str) -> None:
+              if pkgname in conflicts:
+                  fail(f"{label} has self-conflict: {pkgname}")
+
+          pkgbuild_src = read_text('PKGBUILD.src')
+          pkgbuild_bin = read_text('PKGBUILD.bin')
+
+          src_pkgname = parse_pkgbuild_scalar(pkgbuild_src, 'pkgname')
+          bin_pkgname = parse_pkgbuild_scalar(pkgbuild_bin, 'pkgname')
+          src_provides = parse_pkgbuild_array_quoted(pkgbuild_src, 'provides')
+          src_conflicts = parse_pkgbuild_array_quoted(pkgbuild_src, 'conflicts')
+          bin_provides = parse_pkgbuild_array_quoted(pkgbuild_bin, 'provides')
+          bin_conflicts = parse_pkgbuild_array_quoted(pkgbuild_bin, 'conflicts')
+
+          ensure_no_duplicates('PKGBUILD.src provides', src_provides)
+          ensure_no_duplicates('PKGBUILD.src conflicts', src_conflicts)
+          ensure_no_duplicates('PKGBUILD.bin provides', bin_provides)
+          ensure_no_duplicates('PKGBUILD.bin conflicts', bin_conflicts)
+          ensure_no_self_conflict(src_pkgname, src_conflicts, 'PKGBUILD.src')
+          ensure_no_self_conflict(bin_pkgname, bin_conflicts, 'PKGBUILD.bin')
+
+          if src_pkgname != 'shiori-rin':
+              fail(f"PKGBUILD.src pkgname must be shiori-rin, got: {src_pkgname}")
+          if bin_pkgname != 'shiori-rin-bin':
+              fail(f"PKGBUILD.bin pkgname must be shiori-rin-bin, got: {bin_pkgname}")
+          if 'shiori-rin' not in bin_provides:
+              fail("PKGBUILD.bin provides must include shiori-rin")
+          if 'shiori-rin-bin' not in src_conflicts:
+              fail("PKGBUILD.src conflicts must include shiori-rin-bin")
+
+          bin_source = parse_pkgbuild_value(pkgbuild_bin, 'source')
+          if '/releases/download/v${pkgver}/' not in bin_source:
+              fail("PKGBUILD.bin source must contain /releases/download/v${pkgver}/")
+          filename_part = bin_source.split('::', 1)[0]
+          if '${pkgver}' not in filename_part:
+              fail("PKGBUILD.bin source filename must include ${pkgver}")
+
+          for srcinfo_name, pkgname_expected, pb_provides, pb_conflicts in [
+              ('.SRCINFO.src', 'shiori-rin', src_provides, src_conflicts),
+              ('.SRCINFO.bin', 'shiori-rin-bin', bin_provides, bin_conflicts),
+          ]:
+              srcinfo = parse_srcinfo(srcinfo_name)
+              if not srcinfo:
+                  continue
+              si_pkgname = srcinfo.get('pkgname', [])
+              si_provides = srcinfo.get('provides', [])
+              si_conflicts = srcinfo.get('conflicts', [])
+
+              if not si_pkgname:
+                  fail(f"{srcinfo_name} missing pkgname")
+              ensure_no_duplicates(f"{srcinfo_name} pkgname", si_pkgname)
+              ensure_no_duplicates(f"{srcinfo_name} provides", si_provides)
+              ensure_no_duplicates(f"{srcinfo_name} conflicts", si_conflicts)
+              ensure_no_self_conflict(si_pkgname[0], si_conflicts, srcinfo_name)
+
+              if si_pkgname[0] != pkgname_expected:
+                  fail(f"{srcinfo_name} pkgname must be {pkgname_expected}, got: {si_pkgname[0]}")
+
+              if set(si_provides) != set(pb_provides):
+                  fail(
+                      f"{srcinfo_name} provides mismatch with PKGBUILD: "
+                      f"srcinfo={sorted(set(si_provides))} pkgbuild={sorted(set(pb_provides))}"
+                  )
+              if set(si_conflicts) != set(pb_conflicts):
+                  fail(
+                      f"{srcinfo_name} conflicts mismatch with PKGBUILD: "
+                      f"srcinfo={sorted(set(si_conflicts))} pkgbuild={sorted(set(pb_conflicts))}"
+                  )
+
+          print('AUR template integrity checks passed')
+          PY
+
       - name: Check if version changed
         id: check
         run: |

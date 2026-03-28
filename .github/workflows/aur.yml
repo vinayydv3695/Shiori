@@ -22,6 +22,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          git fetch --tags --force
           VERSION=$(git describe --tags --abbrev=0 | sed 's/^v//')
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
@@ -30,7 +31,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          TARBALL_URL="https://github.com/vinayydv3695/Shiori/archive/refs/tags/v${VERSION}.tar.gz"
+          PKGBUILD_PATH="aur/shiorii-bin/PKGBUILD"
+          TARBALL_URL="https://github.com/vinayydv3695/Shiori/releases/download/v${VERSION}/Shiori_${VERSION}_linux_amd64.tar.gz"
           SHA256=$(curl -fsSL "$TARBALL_URL" | sha256sum | awk '{print $1}')
 
           awk -v version="$VERSION" -v sha="$SHA256" '
@@ -43,7 +45,7 @@ jobs:
               next
             }
             /^source=\(/ {
-              print "source=(\"https://github.com/vinayydv3695/Shiori/archive/refs/tags/v${pkgver}.tar.gz\")"
+              print "source=(\"Shiori_${pkgver}_linux_amd64.tar.gz::https://github.com/vinayydv3695/Shiori/releases/download/v${pkgver}/Shiori_${pkgver}_linux_amd64.tar.gz\")"
               next
             }
             /^sha256sums=\(/ {
@@ -51,15 +53,15 @@ jobs:
               next
             }
             { print }
-          ' PKGBUILD > PKGBUILD.new
+          ' "$PKGBUILD_PATH" > "$PKGBUILD_PATH.new"
 
-          mv PKGBUILD.new PKGBUILD
+          mv "$PKGBUILD_PATH.new" "$PKGBUILD_PATH"
 
-      - name: Generate .SRCINFO
+      - name: Generate AUR .SRCINFO files
         shell: bash
         run: |
           set -euo pipefail
-          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/pkg" -w /pkg archlinux:latest bash -c "makepkg --printsrcinfo > .SRCINFO"
+          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/pkg" -w /pkg archlinux:latest bash -c "cd aur/shiorii-git && makepkg --printsrcinfo > .SRCINFO && cd /pkg/aur/shiorii-bin && makepkg --printsrcinfo > .SRCINFO"
 
       - name: Commit and push PKGBUILD updates
         shell: bash
@@ -67,8 +69,6 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git fetch origin main
-          git checkout -B main origin/main
-          git add PKGBUILD .SRCINFO
+          git add aur/
           git diff --staged --quiet || git commit -m "chore: update AUR package to v$VERSION"
-          git push origin main
+          git push origin HEAD:main

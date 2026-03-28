@@ -535,11 +535,11 @@ jobs:
           pkgbuild = re.sub(
               r"package\(\)\s*\{[\s\S]*?^\}",
               """package() {
-    bsdtar -xpf \"${srcdir}/Shiori_${pkgver}_linux_amd64.tar.gz\" -C \"${pkgdir}\"
+           bsdtar -xpf \"${srcdir}/Shiori_${pkgver}_linux_amd64.tar.gz\" -C \"${pkgdir}\"
 
-    chmod -R u=rwX,go=rX \"${pkgdir}/usr\"
-    [[ -f \"${pkgdir}/usr/bin/shiori\" ]] && chmod 755 \"${pkgdir}/usr/bin/shiori\"
-}""",
+           chmod -R u=rwX,go=rX \"${pkgdir}/usr\"
+           [[ -f \"${pkgdir}/usr/bin/shiori\" ]] && chmod 755 \"${pkgdir}/usr/bin/shiori\"
+           }""",
               pkgbuild,
               flags=re.MULTILINE,
           )

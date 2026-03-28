@@ -18,3 +18,4 @@ pub mod doodle;
 pub mod backup;
 pub mod translation;
 pub mod folder_watch;
+pub mod sources;

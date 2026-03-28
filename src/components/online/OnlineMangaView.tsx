@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { BookOpen, ExternalLink, Calendar, User, Info } from 'lucide-react';
+import { BookOpen, Calendar, User, Info } from 'lucide-react';
 import { useMangaDex, type MangaDexManga, type MangaDexChapter } from '@/hooks/useMangaDex';
 import { Button } from '@/components/ui/button';
 import { logger } from '@/lib/logger';
@@ -8,6 +8,7 @@ import { X } from 'lucide-react';
 import { useSourceStore } from '@/store/sourceStore';
 import { useOnlineSearchStore } from '@/store/onlineSearchStore';
 import { OnlineSearchHeader } from './OnlineSearchHeader';
+import { pluginApi, type Chapter as PluginChapter, type Page as PluginPage, type SearchResult as PluginSearchResult } from '@/lib/pluginSources';
 
 let onlineMangaSearchTimeout: number | undefined;
 
@@ -20,13 +21,21 @@ export function OnlineMangaView() {
   const [hasSearched, setHasSearched] = useState(Boolean(searchQuery.trim()));
   const [selectedManga, setSelectedManga] = useState<MangaDexManga | null>(null);
   const [chapters, setChapters] = useState<MangaDexChapter[]>([]);
+  const [pluginResults, setPluginResults] = useState<PluginSearchResult[]>([]);
+  const [pluginChapters, setPluginChapters] = useState<PluginChapter[]>([]);
+  const [pluginPages, setPluginPages] = useState<PluginPage[]>([]);
+  const [selectedPluginManga, setSelectedPluginManga] = useState<PluginSearchResult | null>(null);
+  const [selectedPluginChapter, setSelectedPluginChapter] = useState<PluginChapter | null>(null);
+  const [selectedMangaDexChapter, setSelectedMangaDexChapter] = useState<MangaDexChapter | null>(null);
   const [chaptersDialogOpen, setChaptersDialogOpen] = useState(false);
   const [chaptersLoading, setChaptersLoading] = useState(false);
+  const [pluginPagesLoading, setPluginPagesLoading] = useState(false);
+  const [pluginError, setPluginError] = useState<string | null>(null);
   const sources = useSourceStore((state) => state.sources);
   const primarySourceByKind = useSourceStore((state) => state.primarySourceByKind);
   const [lastSearchedQuery, setLastSearchedQuery] = useState('');
   
-  const { searchManga, getChapters, getMangaUrl, getChapterUrl, loading, error } = useMangaDex();
+  const { searchManga, getChapters, loading, error } = useMangaDex();
 
   const mangaSources = useMemo(
     () => sources.filter((source) => source.kind === 'manga'),
@@ -44,34 +53,64 @@ export function OnlineMangaView() {
 
   const hasEnabledMangaSource = enabledSources.length > 0;
   const isMangaDexEnabled = activeSource?.id === 'mangadex';
+  const isPluginMangaSource = activeSource?.id === 'mangafire' || activeSource?.id === 'toongod';
+  const activePluginSourceId = isPluginMangaSource ? activeSource?.id : null;
 
   const handleSearch = useCallback(async (page: number = 1, queryOverride?: string) => {
-    if (!isMangaDexEnabled) return;
-
     const query = (queryOverride ?? searchQuery).trim();
     if (!query) return;
 
-    logger.info('Searching MangaDex:', { query, page });
-    
-    const result = await searchManga(query, page, 20);
-    
-    if (result) {
-      setResults(result.data);
-      setTotalResults(result.total);
-      setCurrentPage(page);
-      setHasSearched(true);
-      setLastSearchedQuery(query);
+    if (isMangaDexEnabled) {
+      logger.info('Searching MangaDex:', { query, page });
+
+      const result = await searchManga(query, page, 20);
+
+      if (result) {
+        setResults(result.data);
+        setTotalResults(result.total);
+        setCurrentPage(page);
+        setHasSearched(true);
+        setLastSearchedQuery(query);
+      }
+
+      return;
     }
-  }, [isMangaDexEnabled, searchManga, searchQuery]);
+
+    if (activePluginSourceId) {
+      setPluginError(null);
+      setChapters([]);
+      setResults([]);
+      setTotalResults(0);
+      setCurrentPage(1);
+
+      try {
+        logger.info('Searching plugin manga source:', { query, sourceId: activePluginSourceId });
+        const result = await pluginApi.search(activePluginSourceId, query, page);
+        setPluginResults(result);
+        setHasSearched(true);
+        setLastSearchedQuery(query);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to search plugin source';
+        logger.error('Plugin manga search failed:', err);
+        setPluginError(message);
+        setPluginResults([]);
+      }
+    }
+  }, [activePluginSourceId, isMangaDexEnabled, searchManga, searchQuery]);
 
   const visibleResults = useMemo(() => {
     if (!isMangaDexEnabled || searchQuery.trim().length === 0) return [];
     return results;
   }, [isMangaDexEnabled, searchQuery, results]);
 
+  const visiblePluginResults = useMemo(() => {
+    if (!isPluginMangaSource || searchQuery.trim().length === 0) return [];
+    return pluginResults;
+  }, [isPluginMangaSource, searchQuery, pluginResults]);
+
   const visibleTotalResults = searchQuery.trim().length === 0 || !isMangaDexEnabled ? 0 : totalResults;
   const visibleCurrentPage = searchQuery.trim().length === 0 || !isMangaDexEnabled ? 1 : currentPage;
-  const hasVisibleSearched = hasSearched && searchQuery.trim().length > 0 && isMangaDexEnabled;
+  const hasVisibleSearched = hasSearched && searchQuery.trim().length > 0 && (isMangaDexEnabled || isPluginMangaSource);
   const totalPages = Math.ceil(visibleTotalResults / 20);
 
   const scheduleSearch = useCallback(
@@ -79,7 +118,7 @@ export function OnlineMangaView() {
       setSearchQuery('manga', value);
 
       const trimmed = value.trim();
-      if (!trimmed || !isMangaDexEnabled) {
+      if (!trimmed || (!isMangaDexEnabled && !isPluginMangaSource)) {
         setHasSearched(false);
         window.clearTimeout(onlineMangaSearchTimeout);
         return;
@@ -91,11 +130,15 @@ export function OnlineMangaView() {
         void handleSearch(1, trimmed);
       }, 300);
     },
-    [handleSearch, isMangaDexEnabled, lastSearchedQuery, setSearchQuery]
+    [handleSearch, isMangaDexEnabled, isPluginMangaSource, lastSearchedQuery, setSearchQuery]
   );
 
   const handleViewChapters = async (manga: MangaDexManga) => {
     setSelectedManga(manga);
+    setSelectedPluginManga(null);
+    setSelectedPluginChapter(null);
+    setSelectedMangaDexChapter(null);
+    setPluginPages([]);
     setChaptersDialogOpen(true);
     setChapters([]);
     setChaptersLoading(true);
@@ -105,14 +148,72 @@ export function OnlineMangaView() {
     setChaptersLoading(false);
   };
 
-  const openInBrowser = (url: string) => {
+  const handleViewPluginChapters = async (manga: PluginSearchResult) => {
+    if (!activePluginSourceId) return;
+
+    setSelectedManga(null);
+    setSelectedMangaDexChapter(null);
+    setSelectedPluginManga(manga);
+    setSelectedPluginChapter(null);
+    setPluginPages([]);
+    setPluginChapters([]);
+    setChaptersDialogOpen(true);
+    setChaptersLoading(true);
+    setPluginError(null);
+
     try {
-      const openedWindow = window.open(url, '_blank', 'noopener,noreferrer');
-      if (!openedWindow) {
-        window.location.assign(url);
-      }
-    } catch {
-      window.location.assign(url);
+      const chapterList = await pluginApi.getChapters(activePluginSourceId, manga.id);
+      setPluginChapters(chapterList);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load plugin chapters';
+      logger.error('Plugin chapters load failed:', err);
+      setPluginError(message);
+      setPluginChapters([]);
+    } finally {
+      setChaptersLoading(false);
+    }
+  };
+
+  const handleOpenPluginChapter = async (chapter: PluginChapter) => {
+    if (!activePluginSourceId || !selectedPluginManga) return;
+
+    setSelectedPluginChapter(chapter);
+    setPluginPages([]);
+    setPluginPagesLoading(true);
+    setPluginError(null);
+
+    try {
+      const pages = await pluginApi.getPages(activePluginSourceId, selectedPluginManga.id, chapter.id);
+      setPluginPages(pages);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load chapter pages';
+      logger.error('Plugin pages load failed:', err);
+      setPluginError(message);
+      setPluginPages([]);
+    } finally {
+      setPluginPagesLoading(false);
+    }
+  };
+
+  const handleOpenMangaDexChapter = async (chapter: MangaDexChapter) => {
+    if (!selectedManga) return;
+
+    setSelectedMangaDexChapter(chapter);
+    setSelectedPluginChapter(null);
+    setPluginPages([]);
+    setPluginPagesLoading(true);
+    setPluginError(null);
+
+    try {
+      const pages = await pluginApi.getPages('mangadex', selectedManga.id, chapter.id);
+      setPluginPages(pages);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load chapter pages';
+      logger.error('MangaDex pages load failed:', err);
+      setPluginError(message);
+      setPluginPages([]);
+    } finally {
+      setPluginPagesLoading(false);
     }
   };
 
@@ -137,13 +238,21 @@ export function OnlineMangaView() {
       <div className="px-6 pt-3 max-w-5xl mx-auto w-full">
         {!isMangaDexEnabled && hasEnabledMangaSource && (
           <div className="p-3 rounded-lg bg-muted border border-border text-sm text-muted-foreground">
-            Selected source is not wired yet. Switch to <span className="font-medium">MangaDex</span> from source selector.
+            {isPluginMangaSource
+              ? 'Using plugin manga source with in-app chapter reader.'
+              : <>Selected source is not wired yet. Switch to <span className="font-medium">MangaDex</span> from source selector.</>}
           </div>
         )}
 
         {error && (
           <div className="mt-3 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
             {error}
+          </div>
+        )}
+
+        {pluginError && (
+          <div className="mt-3 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+            {pluginError}
           </div>
         )}
       </div>
@@ -157,6 +266,14 @@ export function OnlineMangaView() {
           )}
 
           {!loading && hasVisibleSearched && visibleResults.length === 0 && hasEnabledMangaSource && (
+            <div className="text-center py-12">
+              <BookOpen className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+              <p className="text-lg font-medium text-muted-foreground">No manga found</p>
+              <p className="text-sm text-muted-foreground mt-1">Try a different search query</p>
+            </div>
+          )}
+
+          {!loading && hasVisibleSearched && isPluginMangaSource && visiblePluginResults.length === 0 && hasEnabledMangaSource && (
             <div className="text-center py-12">
               <BookOpen className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
               <p className="text-lg font-medium text-muted-foreground">No manga found</p>
@@ -286,15 +403,6 @@ export function OnlineMangaView() {
                           <BookOpen className="w-3.5 h-3.5" />
                           View Chapters
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openInBrowser(getMangaUrl(manga.id))}
-                          className="gap-1.5"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                          Open on MangaDex
-                        </Button>
                       </div>
                     </div>
                   </div>
@@ -324,6 +432,62 @@ export function OnlineMangaView() {
               )}
             </div>
           )}
+
+          {!loading && visiblePluginResults.length > 0 && isPluginMangaSource && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Found <span className="font-medium text-foreground">{visiblePluginResults.length.toLocaleString()}</span> results
+                </p>
+              </div>
+
+              <div className="grid gap-4">
+                {visiblePluginResults.map((manga) => (
+                  <div
+                    key={manga.id}
+                    className="flex gap-4 p-4 rounded-lg border border-border bg-card hover:bg-accent/50 transition-colors"
+                  >
+                    <div className="w-32 h-48 flex-shrink-0 bg-muted rounded overflow-hidden">
+                      {(manga.coverUrl || manga.cover_url) ? (
+                        <img
+                          src={manga.coverUrl || manga.cover_url}
+                          alt={manga.title}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <BookOpen className="w-8 h-8 text-muted-foreground opacity-50" />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div>
+                        <h3 className="font-semibold text-lg line-clamp-2">{manga.title}</h3>
+                        {(manga.summary || manga.description) && (
+                          <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+                            {manga.summary || manga.description}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          size="sm"
+                          onClick={() => handleViewPluginChapters(manga)}
+                          className="gap-1.5"
+                        >
+                          <BookOpen className="w-3.5 h-3.5" />
+                          View Chapters
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -333,7 +497,7 @@ export function OnlineMangaView() {
           <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-2xl w-[90vw] max-w-2xl max-h-[85vh] flex flex-col z-50 overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <Dialog.Title className="text-lg font-semibold">
-                {selectedManga?.title || 'Chapters'}
+                {selectedManga?.title || selectedPluginManga?.title || 'Chapters'}
               </Dialog.Title>
               <Dialog.Close asChild>
                 <button type="button" className="text-muted-foreground hover:text-foreground p-1.5 rounded-md transition-colors">
@@ -349,21 +513,23 @@ export function OnlineMangaView() {
                 </div>
               )}
 
-              {!chaptersLoading && chapters.length === 0 && (
+              {!chaptersLoading && isMangaDexEnabled && chapters.length === 0 && (
                 <div className="text-center py-12">
                   <Info className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
                   <p className="text-muted-foreground">No chapters available</p>
                 </div>
               )}
 
-              {!chaptersLoading && chapters.length > 0 && (
+              {!chaptersLoading && isMangaDexEnabled && selectedMangaDexChapter === null && chapters.length > 0 && (
                 <div className="space-y-2">
                   {chapters.map((chapter) => (
                     <button
                       type="button"
                       key={chapter.id}
                       className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors cursor-pointer"
-                      onClick={() => openInBrowser(getChapterUrl(chapter.id))}
+                      onClick={() => {
+                        void handleOpenMangaDexChapter(chapter);
+                      }}
                     >
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-sm">
@@ -379,10 +545,139 @@ export function OnlineMangaView() {
                       </div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span>{chapter.pages} pages</span>
-                        <ExternalLink className="w-3.5 h-3.5" />
                       </div>
                     </button>
                   ))}
+                </div>
+              )}
+
+              {!chaptersLoading && isPluginMangaSource && selectedPluginChapter === null && pluginChapters.length > 0 && (
+                <div className="space-y-2">
+                  {pluginChapters.map((chapter) => (
+                    <button
+                      type="button"
+                      key={chapter.id}
+                      className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors cursor-pointer"
+                      onClick={() => {
+                        void handleOpenPluginChapter(chapter);
+                      }}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm line-clamp-2">
+                          {chapter.title || `Chapter ${chapter.number ?? ''}`}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {isPluginMangaSource && selectedPluginChapter !== null && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Reading</p>
+                      <p className="font-medium">{selectedPluginChapter.title || `Chapter ${selectedPluginChapter.number ?? ''}`}</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedPluginChapter(null);
+                        setSelectedMangaDexChapter(null);
+                        setPluginPages([]);
+                      }}
+                    >
+                      Back to chapters
+                    </Button>
+                  </div>
+
+                  {pluginPagesLoading && (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+
+                  {!pluginPagesLoading && pluginPages.length === 0 && (
+                    <div className="text-center py-12">
+                      <Info className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+                      <p className="text-muted-foreground">No pages available</p>
+                    </div>
+                  )}
+
+                  {!pluginPagesLoading && pluginPages.length > 0 && (
+                    <div className="space-y-4">
+                      {pluginPages
+                        .slice()
+                        .sort((a, b) => a.index - b.index)
+                        .map((page) => (
+                          <div key={`${selectedPluginChapter.id}-${page.index}`} className="rounded-lg overflow-hidden border border-border bg-muted/30">
+                            <img
+                              src={page.url}
+                              alt={`Page ${page.index + 1}`}
+                              className="w-full h-auto object-contain"
+                              loading="lazy"
+                            />
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {isMangaDexEnabled && selectedMangaDexChapter !== null && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Reading</p>
+                      <p className="font-medium">
+                        {selectedMangaDexChapter.volume && `Vol. ${selectedMangaDexChapter.volume} `}
+                        {selectedMangaDexChapter.chapter && `Ch. ${selectedMangaDexChapter.chapter}`}
+                        {selectedMangaDexChapter.title && ` - ${selectedMangaDexChapter.title}`}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedMangaDexChapter(null);
+                        setPluginPages([]);
+                      }}
+                    >
+                      Back to chapters
+                    </Button>
+                  </div>
+
+                  {pluginPagesLoading && (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+
+                  {!pluginPagesLoading && pluginPages.length === 0 && (
+                    <div className="text-center py-12">
+                      <Info className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+                      <p className="text-muted-foreground">No pages available</p>
+                    </div>
+                  )}
+
+                  {!pluginPagesLoading && pluginPages.length > 0 && (
+                    <div className="space-y-4">
+                      {pluginPages
+                        .slice()
+                        .sort((a, b) => a.index - b.index)
+                        .map((page) => (
+                          <div key={`${selectedMangaDexChapter.id}-${page.index}`} className="rounded-lg overflow-hidden border border-border bg-muted/30">
+                            <img
+                              src={page.url}
+                              alt={`Page ${page.index + 1}`}
+                              className="w-full h-auto object-contain"
+                              loading="lazy"
+                            />
+                          </div>
+                        ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -28,12 +28,24 @@ jobs:
 
       - name: Update PKGBUILD source metadata
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
           PKGBUILD_PATH="aur/shiorii-bin/PKGBUILD"
-          TARBALL_URL="https://github.com/vinayydv3695/Shiori/releases/download/v${VERSION}/Shiori_${VERSION}_linux_amd64.tar.gz"
-          SHA256=$(curl -fsSL "$TARBALL_URL" | sha256sum | awk '{print $1}')
+          TMP_DIR=$(mktemp -d)
+          trap 'rm -rf "$TMP_DIR"' EXIT
+
+          ASSET_NAME=$(gh release view "v${VERSION}" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name | select(endswith("_linux_amd64.tar.gz"))' | head -n1)
+
+          if [ -z "$ASSET_NAME" ]; then
+            echo "No linux amd64 tar.gz asset found for v${VERSION}" >&2
+            exit 1
+          fi
+
+          gh release download "v${VERSION}" --repo "$GITHUB_REPOSITORY" --pattern "$ASSET_NAME" --dir "$TMP_DIR" --clobber
+          SHA256=$(sha256sum "$TMP_DIR/$ASSET_NAME" | awk '{print $1}')
 
           awk -v version="$VERSION" -v sha="$SHA256" '
             /^pkgver=/ {

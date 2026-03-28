@@ -6,6 +6,7 @@ mod db;
 mod error;
 mod models;
 mod services;
+mod sources;
 mod utils;
 
 use std::sync::Arc;
@@ -31,6 +32,7 @@ use services::{
 pub struct AppState {
     db: db::Database,
     covers_dir: std::path::PathBuf,
+    pub plugin_registry: Arc<tokio::sync::RwLock<sources::registry::SourceRegistry>>,
 }
 
 pub struct MetadataState {
@@ -48,7 +50,8 @@ fn main() {
 
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
-        .plugin(tauri_plugin_dialog::init());
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_store::Builder::new().build());
     
     #[cfg(feature = "native-tts")]
     {
@@ -75,9 +78,19 @@ fn main() {
             let covers_dir = app_dir.join("covers");
             std::fs::create_dir_all(&covers_dir)?;
 
+            let mut registry = sources::registry::SourceRegistry::new();
+            registry.register(Arc::new(sources::mangadex::MangaDexSource::new()?));
+            registry.register(Arc::new(sources::mangafire::MangaFireSource::new()?));
+            registry.register(Arc::new(sources::toongod::ToonGodSource::new()?));
+            let anna_source = Arc::new(sources::annas_archive::AnnasArchiveSource::new()?);
+            tauri::async_runtime::block_on(anna_source.load_api_key_from_store(&app.handle().clone()))?;
+            registry.register(anna_source);
+            let plugin_registry = Arc::new(tokio::sync::RwLock::new(registry));
+
             app.manage(AppState {
                 db: database.clone(),
                 covers_dir: covers_dir.clone(),
+                plugin_registry,
             });
 
             // Initialize rendering service with 100MB cache
@@ -339,6 +352,13 @@ fn main() {
             commands::folder_watch::remove_watch_folder,
             commands::folder_watch::get_watch_folders,
             commands::folder_watch::get_watch_status,
+            commands::sources::list_sources,
+            commands::sources::list_sources_by_type,
+            commands::sources::plugin_search,
+            commands::sources::plugin_get_chapters,
+            commands::sources::plugin_get_pages,
+            commands::sources::plugin_download_chapter,
+            commands::sources::set_source_config,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

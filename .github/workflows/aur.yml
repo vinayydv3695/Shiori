@@ -1,0 +1,75 @@
+name: AUR
+
+on:
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+
+jobs:
+  aur:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version from latest tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(git describe --tags --abbrev=0 | sed 's/^v//')
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Update PKGBUILD source metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TARBALL_URL="https://github.com/vinayydv3695/Shiori/archive/refs/tags/v${VERSION}.tar.gz"
+          SHA256=$(curl -fsSL "$TARBALL_URL" | sha256sum | awk '{print $1}')
+
+          awk -v version="$VERSION" -v sha="$SHA256" '
+            /^pkgver=/ {
+              print "pkgver=" version
+              next
+            }
+            /^pkgrel=/ {
+              print "pkgrel=1"
+              next
+            }
+            /^source=\(/ {
+              print "source=(\"https://github.com/vinayydv3695/Shiori/archive/refs/tags/v${pkgver}.tar.gz\")"
+              next
+            }
+            /^sha256sums=\(/ {
+              print "sha256sums=(\"" sha "\")"
+              next
+            }
+            { print }
+          ' PKGBUILD > PKGBUILD.new
+
+          mv PKGBUILD.new PKGBUILD
+
+      - name: Generate .SRCINFO
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm -v "$PWD:/pkg" -w /pkg archlinux:latest bash -c \
+            "pacman -Sy --noconfirm base-devel && makepkg --printsrcinfo > .SRCINFO"
+
+      - name: Commit and push PKGBUILD updates
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout -B main origin/main
+          git add PKGBUILD .SRCINFO
+          git diff --staged --quiet || git commit -m "chore: update AUR package to v$VERSION"
+          git push origin main

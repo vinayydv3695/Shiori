@@ -46,8 +46,8 @@ Shiori eBook Manager now has automated builds for all major platforms via GitHub
 | | .deb | `sudo dpkg -i shiori.deb` |
 | | .tar.gz | Extract and run `./shiori` |
 | | Flatpak | `flatpak install shiori.flatpak` |
-| | AUR (source) | `yay -S shiori-rin` |
-| | AUR (binary) | `yay -S shiori-rin-bin` |
+| | AUR (source) | `yay -S shiorii-git` |
+| | AUR (binary) | `yay -S shiorii-bin` |
 | **Windows** | .exe | Run installer |
 | | .msi | Windows Installer |
 | **macOS** | .dmg | Drag to Applications |
@@ -55,15 +55,17 @@ Shiori eBook Manager now has automated builds for all major platforms via GitHub
 
 ## AUR Packages
 
-### shiori-rin (Source Package)
-- **Repository**: https://aur.archlinux.org/packages/shiori-rin
+### shiorii-git (Source Package)
+- **Repository**: https://aur.archlinux.org/packages/shiorii-git
 - **Type**: Builds from source
 - **Dependencies**: rust, cargo, nodejs, npm, webkit2gtk, sqlite, zstd
 - **Build Time**: ~10-15 minutes
 - **Status**: ✅ Fixed (added missing sqlite/zstd deps)
 
-### shiori-rin-bin (Binary Package)
-- **Repository**: https://aur.archlinux.org/packages/shiori-rin-bin
+Use package files under `aur/shiorii-git` in this repository as the source template.
+
+### shiorii-bin (Binary Package)
+- **Repository**: https://aur.archlinux.org/packages/shiorii-bin
 - **Type**: Pre-compiled binary
 - **Dependencies**: Runtime only (webkit2gtk, gtk3, sqlite, zstd)
 - **Install Time**: ~30 seconds
@@ -104,7 +106,7 @@ After GitHub Actions completes:
 
 1. **Update AUR bin package**:
    ```bash
-   cd ~/AUR/shiori-rin-bin
+   cd ~/AUR/shiorii-bin
    # Update PKGBUILD with new version and sha256sum
    makepkg --printsrcinfo > .SRCINFO
    git add PKGBUILD .SRCINFO
@@ -112,9 +114,11 @@ After GitHub Actions completes:
    git push
    ```
 
+   Use package files under `aur/shiorii-bin` in this repository as the source template.
+
 2. **Test installations**:
-   - Test AUR source: `yay -S shiori-rin`
-   - Test AUR binary: `yay -S shiori-rin-bin`
+   - Test AUR source: `yay -S shiorii-git`
+   - Test AUR binary: `yay -S shiorii-bin`
    - Test AppImage download
    - Test Flatpak install
 
@@ -171,8 +175,8 @@ After GitHub Actions completes:
 
 - **GitHub Actions**: https://github.com/vinayydv3695/Shiori/actions
 - **Releases**: https://github.com/vinayydv3695/Shiori/releases
-- **AUR Source**: https://aur.archlinux.org/packages/shiori-rin
-- **AUR Binary**: https://aur.archlinux.org/packages/shiori-rin-bin
+- **AUR Source**: https://aur.archlinux.org/packages/shiorii-git
+- **AUR Binary**: https://aur.archlinux.org/packages/shiorii-bin
 
 ## Troubleshooting
 
@@ -188,8 +192,8 @@ After GitHub Actions completes:
 
 ### Binary package checksum mismatch
 - Download artifact from GitHub release
-- Generate checksum: `sha256sum shiori-*-linux-x86_64.tar.gz`
-- Update PKGBUILD sha256sums array
+- Generate checksum: `sha256sum Shiori_1.0.0_amd64.AppImage`
+- Update `aur/shiorii-bin/PKGBUILD` sha256sums array
 
 ## Next Steps
 

@@ -121,7 +121,7 @@
 
 ### Manual (Pending)
 - [ ] Wait for Windows build completion (~5-10 min remaining)
-- [ ] Update AUR packages (shiori-rin-bin, shiori-rin)
+- [ ] Update AUR packages (shiorii-bin, shiorii-git)
 - [ ] Test one binary installation
 - [ ] Announce release (optional)
 

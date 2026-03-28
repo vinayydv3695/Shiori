@@ -60,7 +60,7 @@ jobs:
         run: |
           set -euo pipefail
           docker run --rm -v "$PWD:/pkg" -w /pkg archlinux:latest bash -c \
-            "pacman -Sy --noconfirm base-devel && makepkg --printsrcinfo > .SRCINFO"
+            "pacman -Sy --noconfirm base-devel && useradd -m builder && chown -R builder:builder /pkg && runuser -u builder -- bash -c 'makepkg --printsrcinfo > .SRCINFO'"
 
       - name: Commit and push PKGBUILD updates
         shell: bash

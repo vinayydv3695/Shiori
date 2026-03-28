@@ -1,6 +1,6 @@
 # Maintainer: Vinay Kumar <vinayydv343@gmail.com>
 pkgname=shiori
-pkgver=0.1.7
+pkgver=1.0.0
 pkgrel=1
 pkgdesc="Modern offline-first eBook library manager built with Tauri, React, and Rust"
 arch=('x86_64')
@@ -38,8 +38,8 @@ optdepends=(
 )
 provides=('shiori')
 conflicts=('shiori-git' 'shiori-bin')
-source=("${pkgname}-${pkgver}.tar.gz::${url}/archive/refs/tags/v${pkgver}.tar.gz")
-sha256sums=('SKIP')  # Will be updated after first release tag
+source=("https://github.com/vinayydv3695/Shiori/archive/refs/tags/v${pkgver}.tar.gz")
+sha256sums=("4fa4b92e1940a752ec26f91155e28a394deee4ac58c5a26ef6ac773fa7b180dc")
 
 prepare() {
     cd "${srcdir}/Shiori-${pkgver}"

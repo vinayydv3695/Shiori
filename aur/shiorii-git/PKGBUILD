@@ -1,6 +1,7 @@
 # Maintainer: Vinay Kumar <vinayydv343@gmail.com>
-pkgname=shiori
-pkgver=1.0.0
+pkgname=shiorii-git
+_pkgname=Shiori
+pkgver=1.0.0.r0.g0000000
 pkgrel=1
 pkgdesc="Modern offline-first eBook library manager built with Tauri, React, and Rust"
 arch=('x86_64')
@@ -16,6 +17,7 @@ depends=(
     'zstd'
 )
 makedepends=(
+    'git'
     'rust'
     'cargo'
     'nodejs'
@@ -36,39 +38,56 @@ makedepends=(
 optdepends=(
     'speech-dispatcher: Native TTS support (experimental)'
 )
-provides=('shiori')
-conflicts=('shiori-git' 'shiori-bin')
-source=("https://github.com/vinayydv3695/Shiori/archive/refs/tags/v${pkgver}.tar.gz")
-sha256sums=("4fa4b92e1940a752ec26f91155e28a394deee4ac58c5a26ef6ac773fa7b180dc")
+provides=(
+    'shiorii'
+    'shiori'
+    'shiori-git'
+    'shiori-rin'
+    'shiori-ebook'
+)
+conflicts=(
+    'shiorii'
+    'shiorii-bin'
+    'shiori'
+    'shiori-git'
+    'shiori-bin'
+    'shiori-rin'
+    'shiori-rin-bin'
+    'shiori-ebook'
+    'shiori-ebook-bin'
+)
+source=("git+https://github.com/vinayydv3695/Shiori.git")
+sha256sums=('SKIP')
+
+pkgver() {
+    cd "${srcdir}/${_pkgname}"
+    local tag rev
+    tag="$(git describe --tags --abbrev=0 | sed 's/^v//')"
+    rev="$(git rev-list --count "$(git describe --tags --abbrev=0)"..HEAD)"
+    printf '%s.r%s.g%s' "${tag}" "${rev}" "$(git rev-parse --short HEAD)"
+}
 
 prepare() {
-    cd "${srcdir}/Shiori-${pkgver}"
-    
-    # Install Node.js dependencies
+    cd "${srcdir}/${_pkgname}"
     npm install
 }
 
 build() {
-    cd "${srcdir}/Shiori-${pkgver}"
-    
-    # Build frontend and Tauri app
+    cd "${srcdir}/${_pkgname}"
     npm run build
 }
 
 package() {
-    cd "${srcdir}/Shiori-${pkgver}"
-    
-    # Install the binary
+    cd "${srcdir}/${_pkgname}"
+
     install -Dm755 "src-tauri/target/release/shiori" "${pkgdir}/usr/bin/shiori"
-    
-    # Install desktop file
-    install -Dm644 "${srcdir}/Shiori-${pkgver}/src-tauri/icons/128x128.png" \
+
+    install -Dm644 "src-tauri/icons/128x128.png" \
         "${pkgdir}/usr/share/icons/hicolor/128x128/apps/shiori.png"
-    install -Dm644 "${srcdir}/Shiori-${pkgver}/src-tauri/icons/32x32.png" \
+    install -Dm644 "src-tauri/icons/32x32.png" \
         "${pkgdir}/usr/share/icons/hicolor/32x32/apps/shiori.png"
-    
-    # Create desktop entry
-    cat > "${pkgdir}/usr/share/applications/shiori.desktop" <<EOF
+
+    install -Dm644 /dev/stdin "${pkgdir}/usr/share/applications/shiori.desktop" <<'EOF'
 [Desktop Entry]
 Name=Shiori
 GenericName=eBook Library Manager
@@ -82,10 +101,7 @@ Terminal=false
 StartupNotify=true
 MimeType=application/epub+zip;application/pdf;application/x-mobipocket-ebook;application/vnd.amazon.ebook;
 EOF
-    
-    # Install license
+
     install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
-    
-    # Install documentation
     install -Dm644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
 }

@@ -2,87 +2,580 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*.*.*"
+    branches:
+      - main
+    paths:
+      - 'package.json'
+      - 'src-tauri/tauri.conf.json'
+      - 'src-tauri/Cargo.toml'
+      - '.github/workflows/release.yml'
   workflow_dispatch:
+    inputs:
+      force_release:
+        description: 'Force release even if version/tag unchanged'
+        required: false
+        default: false
+        type: boolean
+
+# Prevent concurrent releases
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  release:
-    name: Build ${{ matrix.artifact_name }}
-    runs-on: ${{ matrix.platform }}
+  # ── Step 1: Check if version actually changed ──────────────────────
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version_changed: ${{ steps.check.outputs.changed }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Guard version consistency
+        run: |
+          python3 - <<'PY'
+          import json
+          import tomllib
+
+          with open('package.json', 'r', encoding='utf-8') as f:
+              package_version = json.load(f)['version']
+
+          with open('src-tauri/tauri.conf.json', 'r', encoding='utf-8') as f:
+              tauri_version = json.load(f)['version']
+
+          with open('src-tauri/Cargo.toml', 'rb') as f:
+              cargo_version = tomllib.load(f)['package']['version']
+
+          versions = {
+              'package.json': package_version,
+              'src-tauri/tauri.conf.json': tauri_version,
+              'src-tauri/Cargo.toml': cargo_version,
+          }
+
+          if len(set(versions.values())) != 1:
+              print('Version mismatch detected:')
+              for name, version in versions.items():
+                  print(f'  {name}: {version}')
+              raise SystemExit(1)
+
+          print(f"Versions are consistent: {package_version}")
+          PY
+
+      - name: Guard AUR template integrity
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          def fail(msg: str) -> None:
+              print(f"AUR template integrity check failed: {msg}")
+              raise SystemExit(1)
+
+          def read_text(path: str) -> str:
+              p = Path(path)
+              if not p.exists():
+                  fail(f"missing required file: {path}")
+              return p.read_text(encoding='utf-8')
+
+          def parse_pkgbuild_scalar(text: str, key: str) -> str:
+              m = re.search(rf"(?m)^\s*{re.escape(key)}\s*=\s*(.+)$", text)
+              if not m:
+                  fail(f"{key} not found in PKGBUILD")
+              val = m.group(1).strip()
+              if (val.startswith("'") and val.endswith("'")) or (val.startswith('"') and val.endswith('"')):
+                  return val[1:-1]
+              return val
+
+          required_templates = [
+              ('aur/shiorii-git/PKGBUILD', 'shiorii-git'),
+              ('aur/shiorii-bin/PKGBUILD', 'shiorii-bin'),
+          ]
+
+          for pkgbuild_path, expected_pkgname in required_templates:
+              text = read_text(pkgbuild_path)
+              if not text.strip():
+                  fail(f"empty template file: {pkgbuild_path}")
+
+              pkgname = parse_pkgbuild_scalar(text, 'pkgname')
+              if pkgname != expected_pkgname:
+                  fail(f"{pkgbuild_path} pkgname must be {expected_pkgname}, got: {pkgname}")
+
+              if 'pkgver=' not in text:
+                  fail(f"{pkgbuild_path} missing pkgver field")
+              if 'pkgrel=' not in text:
+                  fail(f"{pkgbuild_path} missing pkgrel field")
+
+          print('AUR template integrity checks passed')
+          PY
+
+      - name: Check if version changed
+        id: check
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "Current version: $CURRENT_VERSION"
+          echo "version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+
+          if [ "${{ github.event_name }}" = "push" ]; then
+            BEFORE_SHA="${{ github.event.before }}"
+            echo "Comparing against commit: $BEFORE_SHA"
+
+            if git show "${BEFORE_SHA}:package.json" > /tmp/prev-package.json 2>/dev/null; then
+              PREV_VERSION=$(node -p "require('/tmp/prev-package.json').version")
+            else
+              PREV_VERSION="0.0.0"
+            fi
+
+            echo "Previous version: $PREV_VERSION"
+            if [ "$CURRENT_VERSION" != "$PREV_VERSION" ]; then
+              echo "Version changed from $PREV_VERSION to $CURRENT_VERSION"
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "Version unchanged"
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+            fi
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            FORCE_RELEASE="${{ github.event.inputs.force_release }}"
+            if [ "$FORCE_RELEASE" = "true" ]; then
+              echo "force_release=true, marking version as changed"
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+            elif git ls-remote --tags origin "refs/tags/v${CURRENT_VERSION}" | grep -q "refs/tags/v${CURRENT_VERSION}$"; then
+              echo "Release tag v${CURRENT_VERSION} already exists on origin"
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "Release tag v${CURRENT_VERSION} does not exist on origin"
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "Unsupported event: ${{ github.event_name }}"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ── Step 2: Build for all platforms ────────────────────────────────
+  build:
+    needs: check-version
+    if: needs.check-version.outputs.version_changed == 'true'
     permissions:
       contents: write
     strategy:
       fail-fast: false
       matrix:
         include:
-          - platform: macos-latest
-            target: aarch64-apple-darwin
-            artifact_name: macos-arm64
-          - platform: macos-latest
-            target: x86_64-apple-darwin
-            artifact_name: macos-x64
-          - platform: windows-latest
-            target: x86_64-pc-windows-msvc
-            artifact_name: windows-x64
+          # Linux — builds deb, rpm, AppImage
           - platform: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-            artifact_name: linux-x64
+            rust_targets: ''
+            args: ''
 
+          # Windows — builds NSIS installer
+          - platform: windows-latest
+            rust_targets: ''
+            args: ''
+
+          # macOS — Apple Silicon (M1+)
+          - platform: macos-latest
+            rust_targets: aarch64-apple-darwin
+            args: '--target aarch64-apple-darwin'
+
+          # macOS — Intel
+          - platform: macos-latest
+            rust_targets: x86_64-apple-darwin
+            args: '--target x86_64-apple-darwin'
+
+    runs-on: ${{ matrix.platform }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-22.04'
+      # ── Sync versions: package.json → tauri.conf.json & Cargo.toml ──
+      - name: Sync version to Tauri config
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libwebkit2gtk-4.1-dev \
-            build-essential \
-            curl \
-            wget \
-            file \
-            libssl-dev \
-            libgtk-3-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            libfuse2
+          VERSION="${{ needs.check-version.outputs.version }}"
+          echo "Syncing version $VERSION across all config files"
 
-      - name: Add Rust target (macOS)
-        if: matrix.platform == 'macos-latest'
-        run: rustup target add ${{ matrix.target }}
+          # Update tauri.conf.json
+          if command -v python3 &> /dev/null; then
+            python3 -c "
+          import json
+          with open('src-tauri/tauri.conf.json', 'r') as f:
+              config = json.load(f)
+          config['version'] = '$VERSION'
+          with open('src-tauri/tauri.conf.json', 'w') as f:
+              json.dump(config, f, indent=2)
+              f.write('\n')
+          "
+          fi
 
-      - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+          # Update Cargo.toml version
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            sed -i "s/^version = \".*\"/version = \"$VERSION\"/" src-tauri/Cargo.toml
+          else
+            sed -i'' -e "s/^version = \".*\"/version = \"$VERSION\"/" src-tauri/Cargo.toml
+          fi
 
-      - name: Cache Rust dependencies
-        uses: swatinem/rust-cache@v2
-        with:
-          key: ${{ matrix.platform }}-${{ matrix.target }}
-
+      # ── Setup Node.js ──
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "lts/*"
-          cache: npm
+          node-version: 'lts/*'
+          cache: 'npm'
 
-      - name: Install npm dependencies
+      # ── Setup Rust ──
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_targets }}
+
+      # ── Cache Rust dependencies ──
+      - name: Cache Rust dependencies
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: 'src-tauri -> target'
+
+      # ── Linux system dependencies ──
+      - name: Install system dependencies (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev \
+            libarchive-tools
+
+      # ── Install frontend dependencies ──
+      - name: Install frontend dependencies
         run: npm ci
 
-      # TODO: add macOS code signing and notarization.
-      # TODO: add Windows code signing.
-      - name: Build and publish release artifacts
+      # ── Build with Tauri Action ──
+      - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
-          TAURI_BUNDLER_DMG_IGNORE_CI: false
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=4096'
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "Shiori ${{ github.ref_name }}"
+          tagName: v${{ needs.check-version.outputs.version }}
+          releaseName: 'Shiori v${{ needs.check-version.outputs.version }}'
           releaseBody: |
-            See the full changelog at https://github.com/vinayydv3695/Shiori/commits/${{ github.ref_name }}
+            ## Shiori v${{ needs.check-version.outputs.version }}
+
+            Download the appropriate installer for your platform:
+
+            | Platform | File |
+            |----------|------|
+            | **Windows** | `.exe` (NSIS installer) |
+            | **macOS (Apple Silicon)** | `.dmg` (aarch64) |
+            | **macOS (Intel)** | `.dmg` (x64) |
+            | **Linux (Debian/Ubuntu)** | `.deb` |
+            | **Linux (Fedora/RHEL)** | `.rpm` |
+            | **Linux (Universal)** | `.AppImage` |
           releaseDraft: false
           prerelease: false
-          args: --target ${{ matrix.target }}
+          args: ${{ matrix.args }}
+
+      - name: Create and upload Linux AUR tarball
+        if: matrix.platform == 'ubuntu-22.04'
+        env:
+          VERSION: ${{ needs.check-version.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if ! command -v bsdtar >/dev/null 2>&1; then
+            echo "bsdtar is required but not installed. Ensure libarchive-tools is available in this job."
+            exit 1
+          fi
+
+          DEB_NAME="Shiori_${VERSION}_amd64.deb"
+          TAR_NAME="Shiori_${VERSION}_linux_amd64.tar.gz"
+          STAGE_DIR="/tmp/shiori-aur-stage-${VERSION}"
+          DEB_EXTRACT_DIR="/tmp/shiori-deb-extract-${VERSION}"
+          TAR_PATH="/tmp/${TAR_NAME}"
+
+          rm -rf "${STAGE_DIR}" "${DEB_EXTRACT_DIR}" "${TAR_PATH}"
+          mkdir -p "${STAGE_DIR}" "${DEB_EXTRACT_DIR}"
+
+          DEB_PATH="$(find src-tauri/target -type f -name "${DEB_NAME}" | head -n 1)"
+          if [ -z "${DEB_PATH}" ]; then
+            echo "Could not locate ${DEB_NAME}"
+            exit 1
+          fi
+
+          bsdtar -xf "${DEB_PATH}" -C "${DEB_EXTRACT_DIR}"
+          DATA_TAR="$(find "${DEB_EXTRACT_DIR}" -maxdepth 1 -type f -name 'data.tar.*' | head -n 1)"
+          if [ -z "${DATA_TAR}" ]; then
+            echo "Could not locate data.tar.* in extracted deb payload"
+            exit 1
+          fi
+
+          bsdtar -xf "${DATA_TAR}" -C "${STAGE_DIR}"
+          if [ ! -d "${STAGE_DIR}/usr" ]; then
+            echo "Expected usr/ tree not found in deb payload"
+            exit 1
+          fi
+
+          tar -C "${STAGE_DIR}" -czf "${TAR_PATH}" usr
+          gh release upload "v${VERSION}" "${TAR_PATH}" --repo "${GITHUB_REPOSITORY}" --clobber
+
+  # ── Step 3: Update AUR packages after release ──────────────────────
+  update-aur:
+    name: Update AUR packages
+    needs: [check-version, build]
+    if: |
+      needs.check-version.outputs.version_changed == 'true' &&
+      needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH for AUR
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${AUR_SSH_PRIVATE_KEY:-}" ]; then
+            echo "Missing required secret: AUR_SSH_PRIVATE_KEY"
+            exit 1
+          fi
+
+          mkdir -p ~/.ssh
+          printf '%s\n' "${AUR_SSH_PRIVATE_KEY}" > ~/.ssh/aur_id_ed25519
+          chmod 600 ~/.ssh/aur_id_ed25519
+          ssh-keyscan aur.archlinux.org >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Monitor release AppImage asset with gh and capture checksum
+        id: release-meta
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ needs.check-version.outputs.version }}"
+          ASSET_NAME=""
+          SHA256=""
+
+          for attempt in {1..30}; do
+            RELEASE_JSON=""
+            RELEASE_JSON="$(gh release view "v${VERSION}" --repo "${GITHUB_REPOSITORY}" --json isDraft,assets 2>/dev/null || true)"
+            if [ -z "$RELEASE_JSON" ]; then
+              echo "Waiting for release v${VERSION} to exist (${attempt}/30)..."
+              sleep 20
+              continue
+            fi
+
+            IS_DRAFT="$(printf '%s' "$RELEASE_JSON" | python3 -c 'import json,sys; print(str(json.load(sys.stdin).get("isDraft", True)).lower())' 2>/dev/null || echo "true")"
+            if [ "$IS_DRAFT" = "true" ]; then
+              echo "Release v${VERSION} is still draft (${attempt}/30)..."
+              sleep 20
+              continue
+            fi
+
+            if ! printf '%s' "$RELEASE_JSON" | python3 -c 'import json,sys; a=[x.get("name","") for x in json.load(sys.stdin).get("assets",[])]; ok=any(n.endswith(".exe") for n in a) and any(n.endswith(".AppImage") for n in a) and any(n.endswith(".rpm") for n in a) and any(n.endswith(".dmg") for n in a); sys.exit(0 if ok else 1)'; then
+              echo "Waiting for all required release assets (.exe, .AppImage, .rpm, .dmg) (${attempt}/30)..."
+              sleep 20
+              continue
+            fi
+
+            ASSET_NAME="$(printf '%s' "$RELEASE_JSON" | python3 -c 'import json,sys; a=[x.get("name","") for x in json.load(sys.stdin).get("assets",[]) if x.get("name","").endswith("_amd64.AppImage")]; print(a[0] if a else "")')"
+            if [ -z "$ASSET_NAME" ]; then
+              echo "Waiting for AppImage asset name (${attempt}/30)..."
+              sleep 20
+              continue
+            fi
+
+            DIGEST="$(gh release view "v${VERSION}" --repo "${GITHUB_REPOSITORY}" --json assets --jq ".assets[] | select(.name == \"${ASSET_NAME}\") | .digest" 2>/dev/null || true)"
+            if [ -n "$DIGEST" ]; then
+              SHA256="${DIGEST#sha256:}"
+              break
+            fi
+
+            if gh release view "v${VERSION}" --repo "${GITHUB_REPOSITORY}" --json assets --jq ".assets[] | select(.name == \"${ASSET_NAME}\") | .name" | grep -q "${ASSET_NAME}"; then
+              gh release download "v${VERSION}" --repo "${GITHUB_REPOSITORY}" --pattern "${ASSET_NAME}" --dir /tmp --clobber
+              SHA256="$(sha256sum "/tmp/${ASSET_NAME}" | cut -d' ' -f1)"
+              if [ -n "$SHA256" ]; then
+                break
+              fi
+            fi
+
+            echo "Waiting for release asset ${ASSET_NAME} (${attempt}/30)..."
+            sleep 20
+          done
+
+          if [ -z "$ASSET_NAME" ] || [ -z "$SHA256" ]; then
+            echo "Could not find release asset ${ASSET_NAME} in release v${VERSION}"
+            exit 1
+          fi
+
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "asset_name=${ASSET_NAME}" >> "$GITHUB_OUTPUT"
+          echo "sha256=${SHA256}" >> "$GITHUB_OUTPUT"
+
+      - name: Update shiorii-git (source package)
+        env:
+          VERSION: ${{ steps.release-meta.outputs.version }}
+          GIT_SSH_COMMAND: ssh -i ~/.ssh/aur_id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes
+        run: |
+          set -euo pipefail
+
+          if ! git clone "ssh://aur@aur.archlinux.org/shiorii-git.git"; then
+            echo "AUR repo shiorii-git not initialized yet; bootstrapping local repo"
+            mkdir -p shiorii-git
+            cd shiorii-git
+            git init
+            git remote add origin "ssh://aur@aur.archlinux.org/shiorii-git.git"
+          else
+            cd shiorii-git
+          fi
+
+          if [ ! -f PKGBUILD ]; then
+            cp "$GITHUB_WORKSPACE/aur/shiorii-git/PKGBUILD" PKGBUILD
+          fi
+
+          if [ ! -f .SRCINFO ]; then
+            if [ -f "$GITHUB_WORKSPACE/aur/shiorii-git/.SRCINFO" ]; then
+              cp "$GITHUB_WORKSPACE/aur/shiorii-git/.SRCINFO" .SRCINFO
+            else
+              cat > .SRCINFO <<EOF
+          pkgbase = shiorii-git
+            pkgdesc = Modern offline-first eBook library manager
+            pkgver = ${VERSION}
+            pkgrel = 1
+            url = https://github.com/vinayydv3695/Shiori
+            arch = x86_64
+            license = MIT
+            source = git+https://github.com/vinayydv3695/Shiori.git
+            sha256sums = SKIP
+
+          pkgname = shiorii-git
+          EOF
+            fi
+          fi
+
+          sed -i -E "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
+          sed -i -E "s/^[[:space:]]*pkgver = .*/\tpkgver = ${VERSION}/" .SRCINFO
+          sed -i -E "s|^[[:space:]]*source = .*|\tsource = git+https://github.com/vinayydv3695/Shiori.git|" .SRCINFO
+
+          git add PKGBUILD .SRCINFO
+          if git diff --cached --quiet; then
+            echo "shiorii-git already up to date"
+            exit 0
+          fi
+
+          git -c user.name="github-actions[bot]" -c user.email="github-actions[bot]@users.noreply.github.com" commit -m "Update to v${VERSION}"
+          git push origin HEAD:master
+
+      - name: Update shiorii-bin (binary package)
+        env:
+          VERSION: ${{ steps.release-meta.outputs.version }}
+          ASSET_NAME: ${{ steps.release-meta.outputs.asset_name }}
+          SHA256: ${{ steps.release-meta.outputs.sha256 }}
+          GIT_SSH_COMMAND: ssh -i ~/.ssh/aur_id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes
+        run: |
+          set -euo pipefail
+
+          if ! git clone "ssh://aur@aur.archlinux.org/shiorii-bin.git"; then
+            echo "AUR repo shiorii-bin not initialized yet; bootstrapping local repo"
+            mkdir -p shiorii-bin
+            cd shiorii-bin
+            git init
+            git remote add origin "ssh://aur@aur.archlinux.org/shiorii-bin.git"
+          else
+            cd shiorii-bin
+          fi
+
+          if [ ! -f PKGBUILD ]; then
+            cp "$GITHUB_WORKSPACE/aur/shiorii-bin/PKGBUILD" PKGBUILD
+          fi
+
+          if [ ! -f .SRCINFO ]; then
+            if [ -f "$GITHUB_WORKSPACE/aur/shiorii-bin/.SRCINFO" ]; then
+              cp "$GITHUB_WORKSPACE/aur/shiorii-bin/.SRCINFO" .SRCINFO
+            else
+              cat > .SRCINFO <<EOF
+          pkgbase = shiorii-bin
+            pkgdesc = Modern offline-first eBook library manager
+            pkgver = ${VERSION}
+            pkgrel = 1
+            url = https://github.com/vinayydv3695/Shiori
+            arch = x86_64
+            license = MIT
+            source = ${ASSET_NAME}::https://github.com/vinayydv3695/Shiori/releases/download/v${VERSION}/${ASSET_NAME}
+            sha256sums = ${SHA256}
+
+          pkgname = shiorii-bin
+          EOF
+            fi
+          fi
+
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          version = os.environ["VERSION"]
+          asset_name = os.environ["ASSET_NAME"]
+          sha256 = os.environ["SHA256"]
+
+          pkgbuild_path = Path("PKGBUILD")
+          srcinfo_path = Path(".SRCINFO")
+
+          pkgbuild = pkgbuild_path.read_text()
+          pkgbuild = re.sub(r"^pkgver=.*$", f"pkgver={version}", pkgbuild, flags=re.MULTILINE)
+          pkgbuild = re.sub(
+              r"^source=.*$",
+              "source=(\"Shiori_${pkgver}_amd64.AppImage::" + "${url}" + "/releases/download/v" + "${pkgver}" + "/Shiori_${pkgver}_amd64.AppImage\")",
+              pkgbuild,
+              flags=re.MULTILINE,
+          )
+          pkgbuild = re.sub(r"^sha256sums=\('.*'\)$", f"sha256sums=('{sha256}')", pkgbuild, flags=re.MULTILINE)
+          pkgbuild_path.write_text(pkgbuild)
+
+          srcinfo = srcinfo_path.read_text()
+          srcinfo = re.sub(r"^[ \t]*pkgver = .*$", f"\tpkgver = {version}", srcinfo, flags=re.MULTILINE)
+          srcinfo = re.sub(
+              r"^[ \t]*source = .*$",
+              f"\tsource = {asset_name}::https://github.com/vinayydv3695/Shiori/releases/download/v{version}/{asset_name}",
+              srcinfo,
+              flags=re.MULTILINE,
+          )
+          srcinfo = re.sub(r"^[ \t]*sha256sums = .*$", f"\tsha256sums = {sha256}", srcinfo, flags=re.MULTILINE)
+          srcinfo_path.write_text(srcinfo)
+          PY
+
+          git add PKGBUILD .SRCINFO
+          if git diff --cached --quiet; then
+            echo "shiorii-bin already up to date"
+            exit 0
+          fi
+
+          git -c user.name="github-actions[bot]" -c user.email="github-actions[bot]@users.noreply.github.com" commit -m "Update to v${VERSION}"
+          git push origin HEAD:master
+
+      - name: Verify AUR metadata is updated
+        env:
+          VERSION: ${{ steps.release-meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          EXPECTED="${VERSION}-1"
+
+          for attempt in {1..30}; do
+            SRC_VERSION="$(curl -fsSL "https://aur.archlinux.org/rpc/v5/info/shiorii-git" | python3 -c 'import json,sys; data=json.load(sys.stdin); results=data.get("results") or []; print(results[0].get("Version", "") if results else "")')"
+            BIN_VERSION="$(curl -fsSL "https://aur.archlinux.org/rpc/v5/info/shiorii-bin" | python3 -c 'import json,sys; data=json.load(sys.stdin); results=data.get("results") or []; print(results[0].get("Version", "") if results else "")')"
+
+            echo "Attempt ${attempt}/30 => shiorii-git=${SRC_VERSION}, shiorii-bin=${BIN_VERSION}, expected=${EXPECTED}"
+
+            if [ "$SRC_VERSION" = "$EXPECTED" ] && [ "$BIN_VERSION" = "$EXPECTED" ]; then
+              echo "AUR packages updated successfully"
+              exit 0
+            fi
+
+            sleep 20
+          done
+
+          echo "Timed out waiting for AUR metadata to update"
+          exit 1

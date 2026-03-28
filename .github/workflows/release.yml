@@ -75,6 +75,8 @@ jobs:
       # TODO: add Windows code signing.
       - name: Build and publish release artifacts
         uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "Shiori ${{ github.ref_name }}"

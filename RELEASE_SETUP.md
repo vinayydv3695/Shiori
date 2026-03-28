@@ -192,7 +192,7 @@ After GitHub Actions completes:
 
 ### Binary package checksum mismatch
 - Download artifact from GitHub release
-- Generate checksum: `sha256sum Shiori_1.0.0_amd64.AppImage`
+- Generate checksum: `sha256sum Shiori_1.0.0_linux_amd64.tar.gz`
 - Update `aur/shiorii-bin/PKGBUILD` sha256sums array
 
 ## Next Steps

@@ -349,7 +349,7 @@ jobs:
           ssh-keyscan aur.archlinux.org >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
-      - name: Monitor release AppImage asset with gh and capture checksum
+      - name: Monitor release tarball asset with gh and capture checksum
         id: release-meta
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -375,15 +375,15 @@ jobs:
               continue
             fi
 
-            if ! printf '%s' "$RELEASE_JSON" | python3 -c 'import json,sys; a=[x.get("name","") for x in json.load(sys.stdin).get("assets",[])]; ok=any(n.endswith(".exe") for n in a) and any(n.endswith(".AppImage") for n in a) and any(n.endswith(".rpm") for n in a) and any(n.endswith(".dmg") for n in a); sys.exit(0 if ok else 1)'; then
-              echo "Waiting for all required release assets (.exe, .AppImage, .rpm, .dmg) (${attempt}/30)..."
+            if ! printf '%s' "$RELEASE_JSON" | python3 -c 'import json,sys; a=[x.get("name","") for x in json.load(sys.stdin).get("assets",[])]; ok=any(n.endswith(".exe") for n in a) and any(n.endswith("_linux_amd64.tar.gz") for n in a) and any(n.endswith(".rpm") for n in a) and any(n.endswith(".dmg") for n in a); sys.exit(0 if ok else 1)'; then
+              echo "Waiting for all required release assets (.exe, _linux_amd64.tar.gz, .rpm, .dmg) (${attempt}/30)..."
               sleep 20
               continue
             fi
 
-            ASSET_NAME="$(printf '%s' "$RELEASE_JSON" | python3 -c 'import json,sys; a=[x.get("name","") for x in json.load(sys.stdin).get("assets",[]) if x.get("name","").endswith("_amd64.AppImage")]; print(a[0] if a else "")')"
+            ASSET_NAME="$(printf '%s' "$RELEASE_JSON" | python3 -c 'import json,sys; a=[x.get("name","") for x in json.load(sys.stdin).get("assets",[]) if x.get("name","").endswith("_linux_amd64.tar.gz")]; print(a[0] if a else "")')"
             if [ -z "$ASSET_NAME" ]; then
-              echo "Waiting for AppImage asset name (${attempt}/30)..."
+              echo "Waiting for tarball asset name (${attempt}/30)..."
               sleep 20
               continue
             fi
@@ -528,7 +528,18 @@ jobs:
           pkgbuild = re.sub(r"^pkgver=.*$", f"pkgver={version}", pkgbuild, flags=re.MULTILINE)
           pkgbuild = re.sub(
               r"^source=.*$",
-              "source=(\"Shiori_${pkgver}_amd64.AppImage::" + "${url}" + "/releases/download/v" + "${pkgver}" + "/Shiori_${pkgver}_amd64.AppImage\")",
+              "source=(\"Shiori_${pkgver}_linux_amd64.tar.gz::" + "${url}" + "/releases/download/v" + "${pkgver}" + "/Shiori_${pkgver}_linux_amd64.tar.gz\")",
+              pkgbuild,
+              flags=re.MULTILINE,
+          )
+          pkgbuild = re.sub(
+              r"package\(\)\s*\{[\s\S]*?^\}",
+              """package() {
+    bsdtar -xpf \"${srcdir}/Shiori_${pkgver}_linux_amd64.tar.gz\" -C \"${pkgdir}\"
+
+    chmod -R u=rwX,go=rX \"${pkgdir}/usr\"
+    [[ -f \"${pkgdir}/usr/bin/shiori\" ]] && chmod 755 \"${pkgdir}/usr/bin/shiori\"
+}""",
               pkgbuild,
               flags=re.MULTILINE,
           )

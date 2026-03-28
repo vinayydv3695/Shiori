@@ -5,7 +5,7 @@
   <p><strong>Professional offline-first eBook library manager</strong></p>
   
   [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-  [![Version](https://img.shields.io/badge/version-0.1.9-green.svg)](https://github.com/vinayydv3695/Shiori/releases)
+[![Version](https://img.shields.io/badge/version-1.0.0-green.svg)](https://github.com/vinayydv3695/Shiori/releases)
   
   <p>
     <a href="#key-features">Key Features</a> •
@@ -67,9 +67,9 @@ Unlike cloud-dependent services, Shiori operates entirely on local infrastructur
 #### Arch Linux (AUR)
 Install the package using an AUR helper such as `yay`:
 ```bash
-yay -S shiori-rin-bin
+yay -S shiorii-bin
 # OR
-yay -S shiori-rin
+yay -S shiorii-git
 ```
 *Required dependency: `webkit2gtk-4.1`*
 

@@ -57,12 +57,12 @@ const DEFAULT_SOURCES: SourceConfig[] = [
   },
   {
     id: 'toongod',
-    name: 'ToonGod (Planned)',
+    name: 'ToonGod',
     kind: 'manga',
     enabled: false,
-    description: 'Plugin-based source planned in next phase.',
-    status: 'planned',
-    implemented: false,
+    description: 'Plugin-based source for online manga chapters.',
+    status: 'active',
+    implemented: true,
   },
   {
     id: 'mangareader',
@@ -75,12 +75,12 @@ const DEFAULT_SOURCES: SourceConfig[] = [
   },
   {
     id: 'mangafire',
-    name: 'MangaFire (Planned)',
+    name: 'MangaFire',
     kind: 'manga',
     enabled: false,
-    description: 'Plugin-based source planned in next phase.',
-    status: 'planned',
-    implemented: false,
+    description: 'Plugin-based source for online manga chapters.',
+    status: 'active',
+    implemented: true,
   },
 ];
 

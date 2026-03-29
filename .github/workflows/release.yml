@@ -432,15 +432,12 @@ jobs:
             cd shiorii-git
           fi
 
-          if [ ! -f PKGBUILD ]; then
-            cp "$GITHUB_WORKSPACE/aur/shiorii-git/PKGBUILD" PKGBUILD
-          fi
+          cp "$GITHUB_WORKSPACE/aur/shiorii-git/PKGBUILD" PKGBUILD
 
-          if [ ! -f .SRCINFO ]; then
-            if [ -f "$GITHUB_WORKSPACE/aur/shiorii-git/.SRCINFO" ]; then
-              cp "$GITHUB_WORKSPACE/aur/shiorii-git/.SRCINFO" .SRCINFO
-            else
-              cat > .SRCINFO <<EOF
+          if [ -f "$GITHUB_WORKSPACE/aur/shiorii-git/.SRCINFO" ]; then
+            cp "$GITHUB_WORKSPACE/aur/shiorii-git/.SRCINFO" .SRCINFO
+          elif [ ! -f .SRCINFO ]; then
+            cat > .SRCINFO <<EOF
           pkgbase = shiorii-git
             pkgdesc = Modern offline-first eBook library manager
             pkgver = ${VERSION}
@@ -453,7 +450,6 @@ jobs:
 
           pkgname = shiorii-git
           EOF
-            fi
           fi
 
           sed -i -E "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
@@ -488,15 +484,12 @@ jobs:
             cd shiorii-bin
           fi
 
-          if [ ! -f PKGBUILD ]; then
-            cp "$GITHUB_WORKSPACE/aur/shiorii-bin/PKGBUILD" PKGBUILD
-          fi
+          cp "$GITHUB_WORKSPACE/aur/shiorii-bin/PKGBUILD" PKGBUILD
 
-          if [ ! -f .SRCINFO ]; then
-            if [ -f "$GITHUB_WORKSPACE/aur/shiorii-bin/.SRCINFO" ]; then
-              cp "$GITHUB_WORKSPACE/aur/shiorii-bin/.SRCINFO" .SRCINFO
-            else
-              cat > .SRCINFO <<EOF
+          if [ -f "$GITHUB_WORKSPACE/aur/shiorii-bin/.SRCINFO" ]; then
+            cp "$GITHUB_WORKSPACE/aur/shiorii-bin/.SRCINFO" .SRCINFO
+          elif [ ! -f .SRCINFO ]; then
+            cat > .SRCINFO <<EOF
           pkgbase = shiorii-bin
             pkgdesc = Modern offline-first eBook library manager
             pkgver = ${VERSION}
@@ -509,7 +502,6 @@ jobs:
 
           pkgname = shiorii-bin
           EOF
-            fi
           fi
 
           python3 - <<'PY'

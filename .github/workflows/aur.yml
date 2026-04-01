@@ -1,13 +1,12 @@
 name: AUR
 
 on:
-  workflow_run:
-    workflows: ["Release"]
-    types: [completed]
+  # Manual emergency fallback only.
+  # The primary AUR publishing pipeline is release.yml -> update-aur.
+  workflow_dispatch:
 
 jobs:
   aur:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write

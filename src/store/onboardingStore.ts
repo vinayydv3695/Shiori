@@ -69,6 +69,25 @@ interface OnboardingState {
     currentStepId: StepId;
     draftConfig: Partial<UserPreferences>;
     isCommitting: boolean;
+    skipped: boolean;
+    scanComplete: boolean;
+    libraryPath: string;
+    contentType: string;
+    selectedTheme: string;
+    uiScale: number;
+    readingMode: string;
+    readingDirection: string;
+    autoGroupSeries: boolean;
+    imagePreloadCount: number;
+    reduceAnimations: boolean;
+    features: Record<string, boolean>;
+    readingGoal: number;
+    booksImportedCount: number;
+    booksDuplicateCount: number;
+    mangaImportedCount: number;
+    mangaDuplicateCount: number;
+    comicsImportedCount: number;
+    comicsDuplicateCount: number;
 
     // Actions
     /** Initializes the onboarding FSM. Pass existing prefs to re-run setup. */
@@ -89,6 +108,22 @@ interface OnboardingState {
 
     /** Returns the computed progress percentage (0 - 100) */
     getProgress: () => number;
+    setSkipped: (v: boolean) => void;
+    setScanComplete: (v: boolean) => void;
+    setLibraryPath: (path: string) => void;
+    setContentType: (type: string) => void;
+    setTheme: (theme: string) => void;
+    setUiScale: (scale: number) => void;
+    setReadingMode: (mode: string) => void;
+    setReadingDirection: (direction: string) => void;
+    setAutoGroupSeries: (enabled: boolean) => void;
+    setImagePreloadCount: (count: number) => void;
+    setReduceAnimations: (enabled: boolean) => void;
+    setFeatures: (features: Record<string, boolean>) => void;
+    setReadingGoal: (goal: number) => void;
+    setBooksImportSummary: (importedCount: number, duplicateCount: number) => void;
+    setMangaImportSummary: (importedCount: number, duplicateCount: number) => void;
+    setComicsImportSummary: (importedCount: number, duplicateCount: number) => void;
 }
 
 const getActiveSteps = (draft: Partial<UserPreferences>): StepId[] => {
@@ -103,12 +138,137 @@ export const useOnboardingStore = create<OnboardingState>()(
             currentStepId: 'welcome',
             draftConfig: {},
             isCommitting: false,
+            skipped: false,
+            scanComplete: false,
+            libraryPath: '',
+            contentType: 'Both',
+            selectedTheme: 'White',
+            uiScale: 100,
+            readingMode: 'single',
+            readingDirection: 'ltr',
+            autoGroupSeries: true,
+            imagePreloadCount: 2,
+            reduceAnimations: false,
+            features: {
+                metadata: true,
+                seriesGrouping: true,
+                smartCollections: true,
+                rss: false,
+                readingGoals: true,
+                translation: false,
+            },
+            readingGoal: 0,
+            booksImportedCount: 0,
+            booksDuplicateCount: 0,
+            mangaImportedCount: 0,
+            mangaDuplicateCount: 0,
+            comicsImportedCount: 0,
+            comicsDuplicateCount: 0,
 
             init: (initialPrefs = {}) => {
                 set({
                     currentStepId: 'welcome',
                     draftConfig: initialPrefs,
-                    isCommitting: false
+                    isCommitting: false,
+                    skipped: false,
+                    scanComplete: false,
+                    libraryPath: '',
+                    contentType: 'Both',
+                    selectedTheme: 'White',
+                    uiScale: 100,
+                    readingMode: 'single',
+                    readingDirection: 'ltr',
+                    autoGroupSeries: true,
+                    imagePreloadCount: 2,
+                    reduceAnimations: false,
+                    features: {
+                        metadata: true,
+                        seriesGrouping: true,
+                        smartCollections: true,
+                        rss: false,
+                        readingGoals: true,
+                        translation: false,
+                    },
+                    readingGoal: 0,
+                    booksImportedCount: 0,
+                    booksDuplicateCount: 0,
+                    mangaImportedCount: 0,
+                    mangaDuplicateCount: 0,
+                    comicsImportedCount: 0,
+                    comicsDuplicateCount: 0,
+                });
+            },
+
+            setSkipped: (v: boolean) => {
+                set({ skipped: v });
+            },
+
+            setScanComplete: (v: boolean) => {
+                set({ scanComplete: v });
+            },
+
+            setLibraryPath: (path: string) => {
+                set({ libraryPath: path });
+            },
+
+            setContentType: (type: string) => {
+                set({ contentType: type });
+            },
+
+            setTheme: (theme: string) => {
+                set({ selectedTheme: theme });
+            },
+
+            setUiScale: (scale: number) => {
+                set({ uiScale: scale });
+            },
+
+            setReadingMode: (mode: string) => {
+                set({ readingMode: mode });
+            },
+
+            setReadingDirection: (direction: string) => {
+                set({ readingDirection: direction });
+            },
+
+            setAutoGroupSeries: (enabled: boolean) => {
+                set({ autoGroupSeries: enabled });
+            },
+
+            setImagePreloadCount: (count: number) => {
+                set({ imagePreloadCount: count });
+            },
+
+            setReduceAnimations: (enabled: boolean) => {
+                set({ reduceAnimations: enabled });
+            },
+
+            setFeatures: (features: Record<string, boolean>) => {
+                set({ features });
+            },
+
+            setReadingGoal: (goal: number) => {
+                set({ readingGoal: goal });
+            },
+
+            setBooksImportSummary: (importedCount: number, duplicateCount: number) => {
+                set({
+                    booksImportedCount: Math.max(0, importedCount),
+                    booksDuplicateCount: Math.max(0, duplicateCount),
+                });
+            },
+
+            setMangaImportSummary: (importedCount: number, duplicateCount: number) => {
+                set({
+                    mangaImportedCount: Math.max(0, importedCount),
+                    mangaDuplicateCount: Math.max(0, duplicateCount),
+                });
+            },
+
+            setComicsImportSummary: (importedCount: number, duplicateCount: number) => {
+                set({
+                    comicsImportedCount: Math.max(0, importedCount),
+                    comicsDuplicateCount: Math.max(0, duplicateCount),
                 });
             },
 

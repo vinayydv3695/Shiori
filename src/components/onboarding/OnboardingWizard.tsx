@@ -1,257 +1,207 @@
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { logger } from '@/lib/logger';
-import { useOnboardingStore, ONBOARDING_STEPS } from "../../store/onboardingStore";
-import type { StepId } from "../../store/onboardingStore";
+import { useOnboardingStore } from '../../store/onboardingStore';
 import { useToast } from '../../store/toastStore';
-import { Button } from "../ui/button";
-import { Card } from "../ui/Card";
-import { ArrowRight, ArrowLeft, CheckCircle2, Sparkles } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
+import { Skeleton } from '../ui/skeleton';
+import { OnboardingShell } from './OnboardingShell';
 
-// Steps
-import { EnhancedWelcomeStep } from "./steps/EnhancedWelcomeStep";
-import { CollectionsTutorialStep } from "./steps/CollectionsTutorialStep";
-import { ReaderModesStep } from "./steps/ReaderModesStep";
-import { RSSSetupStep } from "./steps/RSSSetupStep";
-import { SuccessStep } from "./steps/SuccessStep";
-import { WelcomeStep } from "./steps/WelcomeStep";
-import { FeaturesOverviewStep } from "./steps/FeaturesOverviewStep";
-import { ContentTypeStep } from "./steps/ContentTypeStep";
-import { ComicSetupStep } from "./steps/ComicSetupStep";
-import { ThemeStep } from "./steps/ThemeStep";
-import { ReadingPrefsStep } from "./steps/ReadingPrefsStep";
-import { LibrarySetupStep } from "./steps/LibrarySetupStep";
-import { MangaPrefsStep } from "./steps/MangaPrefsStep";
-import { MangaSeriesGroupingStep } from "./steps/MangaSeriesGroupingStep";
-import { AutoGroupMangaStep } from "./steps/AutoGroupMangaStep";
-import { SeriesManagementStep } from "./steps/SeriesManagementStep";
-import { ReadingGoalStep } from "./steps/ReadingGoalStep";
-import { ReadingStatusStep } from "./steps/ReadingStatusStep";
-import { TranslationStep } from "./steps/TranslationStep";
-import { MetadataStep } from "./steps/MetadataStep";
-import { MetadataSearchStep } from "./steps/MetadataSearchStep";
-import { InfoButtonTutorialStep } from "./steps/InfoButtonTutorialStep";
-import { ShortcutsStep } from "./steps/ShortcutsStep";
-import { UiScaleStep } from "./steps/UiScaleStep";
-import { ReviewStep } from "./steps/ReviewStep";
+const stepNames = [
+  'WelcomeStep',
+  'ContentSetupStep',
+  'ImportBooksStep',
+  'ImportMangaStep',
+  'ImportComicsStep',
+  'ReadingPrefsStep',
+  'OptionalFeaturesStep',
+  'ScanProgressStep',
+  'DoneStep',
+] as const;
 
-const STEP_NAMES: Record<StepId, string> = {
-    'enhanced-welcome': 'Welcome',
-    'welcome': 'Welcome',
-    'features-overview': 'Features',
-    'content-type': 'Content Type',
-    'library-setup': 'Library Setup',
-    'comic-setup': 'Comic Setup',
-    'theme': 'Appearance',
-    'reading-prefs': 'Reading',
-    'manga-prefs': 'Manga',
-    'manga-series-grouping': 'Series Grouping',
-    'auto-group-manga': 'Auto Grouping',
-    'series-management': 'Series',
-    'collections-tutorial': 'Collections',
-    'reader-modes': 'Reader Modes',
-    'reading-goal': 'Reading Goal',
-    'reading-status': 'Status',
-    'translation': 'Translation',
-    'metadata': 'Metadata',
-    'metadata-search': 'Metadata Search',
-    'rss-setup': 'RSS',
-    'info-button-tutorial': 'Info Button',
-    'shortcuts': 'Shortcuts',
-    'ui-scale': 'UI Scale',
-    'review': 'Review',
-    'success': 'Success'
-};
+const stepLoaders = {
+  WelcomeStep: () => import('./steps/new/WelcomeStep'),
+  ContentSetupStep: () => import('./steps/new/ContentSetupStep'),
+  ImportBooksStep: () => import('./steps/new/ImportBooksStep'),
+  ImportMangaStep: () => import('./steps/new/ImportMangaStep'),
+  ImportComicsStep: () => import('./steps/new/ImportComicsStep'),
+  ReadingPrefsStep: () => import('./steps/new/ReadingPrefsStep'),
+  OptionalFeaturesStep: () => import('./steps/new/OptionalFeaturesStep'),
+  ScanProgressStep: () => import('./steps/new/ScanProgressStep'),
+  DoneStep: () => import('./steps/new/DoneStep'),
+} as const;
+
+const stepComponents = stepNames.map((name) => lazy(stepLoaders[name]));
 
 interface OnboardingWizardProps {
-    onComplete: () => void;
+  onComplete: () => void;
+}
+
+type StepNavConfig = {
+  nextDisabled?: boolean;
+  nextLabel?: string;
+  onNext?: () => void | boolean | Promise<void | boolean>;
+};
+
+function StepSkeleton() {
+  return (
+    <div className="space-y-3">
+      <Skeleton className="h-6 w-2/3" />
+      <Skeleton className="h-4 w-full" />
+      <Skeleton className="h-4 w-5/6" />
+    </div>
+  );
 }
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
-    const currentStepId = useOnboardingStore(state => state.currentStepId);
-    const nextStep = useOnboardingStore(state => state.nextStep);
-    const prevStep = useOnboardingStore(state => state.prevStep);
-    const commit = useOnboardingStore(state => state.commit);
-    const isCommitting = useOnboardingStore(state => state.isCommitting);
-    const getProgress = useOnboardingStore(state => state.getProgress);
-    const draftConfig = useOnboardingStore(state => state.draftConfig);
-    const toast = useToast();
+  const [currentStep, setCurrentStep] = useState<number>(0);
+  const [stepConfig, setStepConfig] = useState<StepNavConfig>({});
+  const [showSkipConfirm, setShowSkipConfirm] = useState(false);
+  const isHandlingNextRef = useRef(false);
+  const commit = useOnboardingStore((state) => state.commit);
+  const isCommitting = useOnboardingStore((state) => state.isCommitting);
+  const setSkipped = useOnboardingStore((state) => state.setSkipped);
+  const toast = useToast();
 
-    const progress = getProgress();
+  const isLastStep = currentStep === stepNames.length - 1;
+  const CurrentStep = stepComponents[currentStep];
 
-    const activeSteps = ONBOARDING_STEPS.filter(step => !step.condition || step.condition(draftConfig));
-    const currentIndex = activeSteps.findIndex(s => s.id === currentStepId);
-    const isLastStep = currentIndex === activeSteps.length - 1;
-    const isFirstStep = currentIndex === 0;
+  const stepLabels = useMemo(
+    () => [
+      'Welcome',
+      'Content Setup',
+      'Import Books',
+      'Import Manga',
+      'Import Comics',
+      'Reading Preferences',
+      'Optional Features',
+      'Library Scan',
+      'Done',
+    ],
+    [],
+  );
 
-    const handleNext = async () => {
-        console.log("=== HANDLE NEXT CALLED ===");
-        console.log("isLastStep:", isLastStep);
-        console.log("currentStepId:", currentStepId);
-        console.log("activeSteps:", activeSteps);
-        
-        if (isLastStep) {
-            try {
-                console.log("Last step detected - starting onboarding completion...");
-                logger.info("Starting onboarding completion...");
-                
-                console.log("Calling commit()...");
-                await commit();
-                console.log("commit() returned successfully");
-                
-                logger.info("Onboarding completed successfully");
-                toast.success(
-                    "Setup Complete!",
-                    "Your preferences have been saved. Ready to explore Shiori!"
-                );
-                
-                console.log("Calling onComplete callback...");
-                onComplete();
-                console.log("=== ONBOARDING FLOW COMPLETE ===");
-            } catch (error) {
-                const errorMessage = error instanceof Error ? error.message : String(error);
-                console.error("=== ONBOARDING FLOW FAILED ===", error);
-                logger.error("Failed to commit onboarding", error);
-                toast.error(
-                    "Setup Failed",
-                    `Unable to save your preferences: ${errorMessage}`
-                );
-            }
-        } else {
-            console.log("Not last step - calling nextStep()");
-            nextStep();
-        }
+  useEffect(() => {
+    const next = stepNames[currentStep + 1];
+    if (next) void stepLoaders[next]();
+  }, [currentStep]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setShowSkipConfirm(true);
+      }
     };
 
-    const renderStep = () => {
-        switch (currentStepId) {
-            case 'enhanced-welcome': return <EnhancedWelcomeStep />;
-            case 'collections-tutorial': return <CollectionsTutorialStep />;
-            case 'reader-modes': return <ReaderModesStep />;
-            case 'rss-setup': return <RSSSetupStep />;
-            case 'success': return <SuccessStep />;
-            case 'welcome': return <WelcomeStep />;
-            case 'features-overview': return <FeaturesOverviewStep />;
-            case 'content-type': return <ContentTypeStep />;
-            case 'library-setup': return <LibrarySetupStep />;
-            case 'comic-setup': return <ComicSetupStep />;
-            case 'theme': return <ThemeStep />;
-            case 'reading-prefs': return <ReadingPrefsStep />;
-            case 'manga-prefs': return <MangaPrefsStep />;
-            case 'manga-series-grouping': return <MangaSeriesGroupingStep />;
-            case 'auto-group-manga': return <AutoGroupMangaStep />;
-            case 'series-management': return <SeriesManagementStep />;
-            case 'reading-goal': return <ReadingGoalStep />;
-            case 'reading-status': return <ReadingStatusStep />;
-            case 'translation': return <TranslationStep />;
-            case 'metadata': return <MetadataStep />;
-            case 'metadata-search': return <MetadataSearchStep />;
-            case 'info-button-tutorial': return <InfoButtonTutorialStep />;
-            case 'shortcuts': return <ShortcutsStep />;
-            case 'ui-scale': return <UiScaleStep />;
-            case 'review': return <ReviewStep />;
-            default: return null;
-        }
-    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
-    return (
-        <div className="fixed inset-0 bg-background/90 backdrop-blur-xl z-50 flex items-center justify-center p-4 sm:p-6 overflow-hidden">
-            <div className="absolute top-1/4 -left-1/4 w-1/2 h-1/2 bg-primary/20 rounded-full blur-[120px] pointer-events-none" />
-            <div className="absolute bottom-1/4 -right-1/4 w-1/2 h-1/2 bg-accent/20 rounded-full blur-[120px] pointer-events-none" />
+  const handleComplete = async () => {
+    try {
+      await commit();
+      toast.success('Setup Complete!', 'Your preferences have been saved. Ready to explore Shiori!');
+      onComplete();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('Failed to commit onboarding', error);
+      toast.error('Setup Failed', `Unable to save your preferences: ${errorMessage}`);
+    }
+  };
 
-            <Card className="w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl border border-primary/20 relative overflow-hidden bg-card/80 backdrop-blur-3xl rounded-3xl">
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary/40 via-primary to-primary/40" />
+  const handleNext = async () => {
+    if (isCommitting || isHandlingNextRef.current) return;
 
-                {/* Progress indicator */}
-                <div className="flex-shrink-0 p-8 pb-6 space-y-4">
-                    <div className="flex justify-between items-end mb-2">
-                        <div className="space-y-1">
-                            <div className="flex items-center gap-2 text-primary">
-                                <Sparkles className="w-5 h-5" />
-                                <span className="font-semibold text-sm uppercase tracking-wider">Setup Wizard</span>
-                            </div>
-                            <h2 className="text-2xl font-bold tracking-tight">
-                                {STEP_NAMES[currentStepId as StepId] || 'Welcome'}
-                            </h2>
-                        </div>
-                        <div className="flex flex-col items-end gap-1">
-                            <span className="text-sm font-medium text-muted-foreground bg-muted/50 px-3 py-1 rounded-full">
-                                Step {currentIndex + 1} of {activeSteps.length}
-                            </span>
-                        </div>
-                    </div>
-                    
-                    <div className="h-2.5 bg-muted/50 rounded-full overflow-hidden backdrop-blur-sm border border-border/50">
-                        <motion.div
-                            className="h-full bg-gradient-to-r from-primary/80 to-primary rounded-full relative"
-                            initial={{ width: 0 }}
-                            animate={{ width: `${progress}%` }}
-                            transition={{ duration: 0.5, ease: "easeOut" }}
-                        >
-                            <div className="absolute inset-0 bg-white/20 animate-pulse" />
-                        </motion.div>
-                    </div>
-                </div>
+    isHandlingNextRef.current = true;
 
-                {/* Content Viewport with Animations - Scrollable */}
-                <div className="flex-1 overflow-y-auto px-8 py-2 min-h-[400px]">
-                    <AnimatePresence mode="wait">
-                        <motion.div
-                            key={currentStepId}
-                            initial={{ opacity: 0, y: 15, scale: 0.98 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: -15, scale: 0.98 }}
-                            transition={{ 
-                                duration: 0.4, 
-                                ease: [0.25, 0.1, 0.25, 1.0] 
-                            }}
-                            className="w-full h-full flex flex-col justify-center"
-                        >
-                            {renderStep()}
-                        </motion.div>
-                    </AnimatePresence>
-                </div>
+    try {
+      if (stepConfig.onNext) {
+        const result = await stepConfig.onNext();
+        if (result === false) return;
+      }
 
-                {/* Navigation Controls - Always Visible */}
-                <div className="flex-shrink-0 flex justify-between items-center p-8 pt-6 bg-gradient-to-t from-background via-background/95 to-transparent border-t border-border/50 mt-4">
-                    <Button
-                        variant="ghost"
-                        onClick={prevStep}
-                        disabled={isFirstStep || isCommitting}
-                        className="w-32 hover:bg-muted/50 transition-colors"
-                    >
-                        <ArrowLeft className="w-4 h-4 mr-2" />
-                        Back
-                    </Button>
+      if (isLastStep) {
+        await handleComplete();
+        return;
+      }
 
-                    <Button
-                        onClick={handleNext}
-                        disabled={isCommitting}
-                        size="lg"
-                        className="w-44 shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all hover:-translate-y-0.5"
-                    >
-                        {isCommitting ? (
-                            <span className="flex items-center">
-                                <motion.div
-                                    animate={{ rotate: 360 }}
-                                    transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-                                    className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full mr-2"
-                                />
-                                Saving...
-                            </span>
-                        ) : isLastStep ? (
-                            <>
-                                Finish Setup
-                                <CheckCircle2 className="w-5 h-5 ml-2" />
-                            </>
-                        ) : (
-                            <>
-                                Next Step
-                                <ArrowRight className="w-5 h-5 ml-2" />
-                            </>
-                        )}
-                    </Button>
-                </div>
-            </Card>
+      setStepConfig({});
+      setCurrentStep((prev) => Math.min(prev + 1, stepNames.length - 1));
+    } finally {
+      isHandlingNextRef.current = false;
+    }
+  };
+
+  const handleSkipConfirm = async () => {
+    if (isCommitting) return;
+    setSkipped(true);
+    setShowSkipConfirm(false);
+    await handleComplete();
+  };
+
+  const registerStep = useCallback((config: StepNavConfig) => {
+    setStepConfig(config);
+  }, []);
+
+  // Removed framer-motion: caused
+  // layout thrash across 26 mounted step components. Simple opacity fade instead.
+  return (
+    <>
+      <OnboardingShell
+        currentStep={currentStep}
+        totalSteps={stepNames.length}
+        onBack={() => {
+          setStepConfig({});
+          setCurrentStep((prev) => Math.max(0, prev - 1));
+        }}
+        onNext={handleNext}
+        nextLabel={stepConfig.nextLabel}
+        nextDisabled={Boolean(isCommitting || stepConfig.nextDisabled)}
+        stepNames={stepLabels}
+      >
+        <Suspense fallback={<StepSkeleton />}>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={currentStep}
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -24 }}
+              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <CurrentStep
+                onNext={handleNext}
+                onComplete={handleComplete}
+                registerStep={registerStep}
+              />
+            </motion.div>
+          </AnimatePresence>
+        </Suspense>
+      </OnboardingShell>
+
+      {showSkipConfirm ? (
+        <div className="fixed inset-0 z-[var(--z-modal,900)] flex items-center justify-center bg-black/65 p-4">
+          <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#16161a] p-5 text-white shadow-xl">
+            <h2 className="text-lg font-semibold">Skip onboarding?</h2>
+            <p className="mt-2 text-sm text-zinc-300">You can change everything later from Settings.</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowSkipConfirm(false)}
+                className="rounded-md border border-white/20 px-3 py-2 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSkipConfirm}
+                className="rounded-md bg-[var(--ob-accent,#7c3aed)] px-3 py-2 text-sm font-medium text-white"
+              >
+                Skip & finish
+              </button>
+            </div>
+          </div>
         </div>
-    );
+      ) : null}
+    </>
+  );
 }

@@ -5,7 +5,83 @@ use crate::{
     models::{Book, ImportResult},
     AppState,
 };
-use tauri::State;
+use serde::Serialize;
+use tauri::{Emitter, State};
+use walkdir::WalkDir;
+
+#[derive(Clone, Serialize)]
+struct ScanProgressPayload {
+    scanned: usize,
+    total: usize,
+    current_file: String,
+}
+
+#[derive(Clone, Serialize)]
+struct ScanCompletePayload {
+    total_indexed: usize,
+}
+
+fn allowed_extensions(content_type: &str) -> &'static [&'static str] {
+    match content_type.trim().to_lowercase().as_str() {
+        "manga" => &["cbz", "cbr", "zip"],
+        "book" | "books" => &["epub", "pdf", "mobi", "azw3"],
+        "both" => &["cbz", "cbr", "zip", "epub", "pdf", "mobi", "azw3"],
+        _ => &["cbz", "cbr", "zip", "epub", "pdf", "mobi", "azw3"],
+    }
+}
+
+#[tauri::command]
+pub fn start_background_scan(
+    app: tauri::AppHandle,
+    library_path: String,
+    content_type: String,
+) -> Result<()> {
+    tauri::async_runtime::spawn_blocking(move || {
+        use std::path::Path;
+
+        let root = Path::new(&library_path);
+        if !root.exists() || !root.is_dir() {
+            let _ = app.emit("scan_complete", ScanCompletePayload { total_indexed: 0 });
+            return;
+        }
+
+        let allowed = allowed_extensions(&content_type);
+        let matching_files: Vec<String> = WalkDir::new(root)
+            .into_iter()
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| entry.file_type().is_file())
+            .filter_map(|entry| {
+                let ext = entry.path().extension()?.to_str()?.to_lowercase();
+                if allowed.contains(&ext.as_str()) {
+                    Some(entry.path().to_string_lossy().to_string())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let total = matching_files.len();
+        for (idx, file) in matching_files.iter().enumerate() {
+            let _ = app.emit(
+                "scan_progress",
+                ScanProgressPayload {
+                    scanned: idx + 1,
+                    total,
+                    current_file: file.clone(),
+                },
+            );
+        }
+
+        let _ = app.emit(
+            "scan_complete",
+            ScanCompletePayload {
+                total_indexed: total,
+            },
+        );
+    });
+
+    Ok(())
+}
 
 #[tauri::command]
 pub fn get_books(state: State<AppState>, limit: u32, offset: u32) -> Result<Vec<Book>> {

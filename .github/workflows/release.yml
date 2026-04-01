@@ -108,6 +108,20 @@ jobs:
               if 'pkgrel=' not in text:
                   fail(f"{pkgbuild_path} missing pkgrel field")
 
+              if expected_pkgname == 'shiorii-bin':
+                  if 'Shiori_${pkgver}_linux_amd64.tar.gz' not in text:
+                      fail(f"{pkgbuild_path} must reference linux amd64 release tarball template")
+                  if '/releases/download/v${pkgver}/Shiori_${pkgver}_linux_amd64.tar.gz' not in text:
+                      fail(f"{pkgbuild_path} source URL must use versioned release asset template")
+                  if 'sha256sums=' not in text:
+                      fail(f"{pkgbuild_path} missing sha256sums field")
+                  if 'package()' not in text:
+                      fail(f"{pkgbuild_path} missing package() function")
+
+              if expected_pkgname == 'shiorii-git':
+                  if 'git+https://github.com/vinayydv3695/Shiori.git' not in text:
+                      fail(f"{pkgbuild_path} source must point to upstream git repository")
+
           print('AUR template integrity checks passed')
           PY
 
@@ -356,7 +370,7 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${{ needs.check-version.outputs.version }}"
-          ASSET_NAME=""
+          ASSET_NAME="Shiori_${VERSION}_linux_amd64.tar.gz"
           SHA256=""
 
           for attempt in {1..30}; do
@@ -375,15 +389,8 @@ jobs:
               continue
             fi
 
-            if ! printf '%s' "$RELEASE_JSON" | python3 -c 'import json,sys; a=[x.get("name","") for x in json.load(sys.stdin).get("assets",[])]; ok=any(n.endswith(".exe") for n in a) and any(n.endswith("_linux_amd64.tar.gz") for n in a) and any(n.endswith(".rpm") for n in a) and any(n.endswith(".dmg") for n in a); sys.exit(0 if ok else 1)'; then
-              echo "Waiting for all required release assets (.exe, _linux_amd64.tar.gz, .rpm, .dmg) (${attempt}/30)..."
-              sleep 20
-              continue
-            fi
-
-            ASSET_NAME="$(printf '%s' "$RELEASE_JSON" | python3 -c 'import json,sys; a=[x.get("name","") for x in json.load(sys.stdin).get("assets",[]) if x.get("name","").endswith("_linux_amd64.tar.gz")]; print(a[0] if a else "")')"
-            if [ -z "$ASSET_NAME" ]; then
-              echo "Waiting for tarball asset name (${attempt}/30)..."
+            if ! printf '%s' "$RELEASE_JSON" | ASSET_NAME="$ASSET_NAME" python3 -c 'import json,os,sys; names=[x.get("name","") for x in json.load(sys.stdin).get("assets",[])]; sys.exit(0 if os.environ["ASSET_NAME"] in names else 1)'; then
+              echo "Waiting for release asset ${ASSET_NAME} (${attempt}/30)..."
               sleep 20
               continue
             fi
@@ -394,20 +401,18 @@ jobs:
               break
             fi
 
-            if gh release view "v${VERSION}" --repo "${GITHUB_REPOSITORY}" --json assets --jq ".assets[] | select(.name == \"${ASSET_NAME}\") | .name" | grep -q "${ASSET_NAME}"; then
-              gh release download "v${VERSION}" --repo "${GITHUB_REPOSITORY}" --pattern "${ASSET_NAME}" --dir /tmp --clobber
-              SHA256="$(sha256sum "/tmp/${ASSET_NAME}" | cut -d' ' -f1)"
-              if [ -n "$SHA256" ]; then
-                break
-              fi
+            gh release download "v${VERSION}" --repo "${GITHUB_REPOSITORY}" --pattern "${ASSET_NAME}" --dir /tmp --clobber
+            SHA256="$(sha256sum "/tmp/${ASSET_NAME}" | cut -d' ' -f1)"
+            if [ -n "$SHA256" ]; then
+              break
             fi
 
-            echo "Waiting for release asset ${ASSET_NAME} (${attempt}/30)..."
+            echo "Waiting for checksum for ${ASSET_NAME} (${attempt}/30)..."
             sleep 20
           done
 
-          if [ -z "$ASSET_NAME" ] || [ -z "$SHA256" ]; then
-            echo "Could not find release asset ${ASSET_NAME} in release v${VERSION}"
+          if [ -z "$SHA256" ]; then
+            echo "Could not determine checksum for ${ASSET_NAME} in release v${VERSION}"
             exit 1
           fi
 
@@ -432,33 +437,23 @@ jobs:
             cd shiorii-git
           fi
 
-          if [ ! -f PKGBUILD ]; then
-            cp "$GITHUB_WORKSPACE/aur/shiorii-git/PKGBUILD" PKGBUILD
-          fi
+          cp "$GITHUB_WORKSPACE/aur/shiorii-git/PKGBUILD" PKGBUILD
 
-          if [ ! -f .SRCINFO ]; then
-            if [ -f "$GITHUB_WORKSPACE/aur/shiorii-git/.SRCINFO" ]; then
-              cp "$GITHUB_WORKSPACE/aur/shiorii-git/.SRCINFO" .SRCINFO
-            else
-              cat > .SRCINFO <<EOF
-          pkgbase = shiorii-git
-            pkgdesc = Modern offline-first eBook library manager
-            pkgver = ${VERSION}
-            pkgrel = 1
-            url = https://github.com/vinayydv3695/Shiori
-            arch = x86_64
-            license = MIT
-            source = git+https://github.com/vinayydv3695/Shiori.git
-            sha256sums = SKIP
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
 
-          pkgname = shiorii-git
-          EOF
-            fi
-          fi
+          version = os.environ["VERSION"]
+          pkgbuild_path = Path("PKGBUILD")
 
-          sed -i -E "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
-          sed -i -E "s/^[[:space:]]*pkgver = .*/\tpkgver = ${VERSION}/" .SRCINFO
-          sed -i -E "s|^[[:space:]]*source = .*|\tsource = git+https://github.com/vinayydv3695/Shiori.git|" .SRCINFO
+          pkgbuild = pkgbuild_path.read_text(encoding="utf-8")
+          pkgbuild = re.sub(r"^pkgver=.*$", f"pkgver={version}", pkgbuild, flags=re.MULTILINE)
+          pkgbuild = re.sub(r"^pkgrel=.*$", "pkgrel=1", pkgbuild, flags=re.MULTILINE)
+          pkgbuild_path.write_text(pkgbuild, encoding="utf-8")
+          PY
+
+          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/pkg" -w /pkg archlinux:latest bash -lc "makepkg --printsrcinfo > .SRCINFO"
 
           git add PKGBUILD .SRCINFO
           if git diff --cached --quiet; then
@@ -472,7 +467,6 @@ jobs:
       - name: Update shiorii-bin (binary package)
         env:
           VERSION: ${{ steps.release-meta.outputs.version }}
-          ASSET_NAME: ${{ steps.release-meta.outputs.asset_name }}
           SHA256: ${{ steps.release-meta.outputs.sha256 }}
           GIT_SSH_COMMAND: ssh -i ~/.ssh/aur_id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes
         run: |
@@ -488,29 +482,7 @@ jobs:
             cd shiorii-bin
           fi
 
-          if [ ! -f PKGBUILD ]; then
-            cp "$GITHUB_WORKSPACE/aur/shiorii-bin/PKGBUILD" PKGBUILD
-          fi
-
-          if [ ! -f .SRCINFO ]; then
-            if [ -f "$GITHUB_WORKSPACE/aur/shiorii-bin/.SRCINFO" ]; then
-              cp "$GITHUB_WORKSPACE/aur/shiorii-bin/.SRCINFO" .SRCINFO
-            else
-              cat > .SRCINFO <<EOF
-          pkgbase = shiorii-bin
-            pkgdesc = Modern offline-first eBook library manager
-            pkgver = ${VERSION}
-            pkgrel = 1
-            url = https://github.com/vinayydv3695/Shiori
-            arch = x86_64
-            license = MIT
-            source = ${ASSET_NAME}::https://github.com/vinayydv3695/Shiori/releases/download/v${VERSION}/${ASSET_NAME}
-            sha256sums = ${SHA256}
-
-          pkgname = shiorii-bin
-          EOF
-            fi
-          fi
+          cp "$GITHUB_WORKSPACE/aur/shiorii-bin/PKGBUILD" PKGBUILD
 
           python3 - <<'PY'
           import os
@@ -518,45 +490,22 @@ jobs:
           from pathlib import Path
 
           version = os.environ["VERSION"]
-          asset_name = os.environ["ASSET_NAME"]
           sha256 = os.environ["SHA256"]
 
           pkgbuild_path = Path("PKGBUILD")
-          srcinfo_path = Path(".SRCINFO")
 
-          pkgbuild = pkgbuild_path.read_text()
+          pkgbuild = pkgbuild_path.read_text(encoding="utf-8")
           pkgbuild = re.sub(r"^pkgver=.*$", f"pkgver={version}", pkgbuild, flags=re.MULTILINE)
-          pkgbuild = re.sub(
-              r"^source=.*$",
-              "source=(\"Shiori_${pkgver}_linux_amd64.tar.gz::" + "${url}" + "/releases/download/v" + "${pkgver}" + "/Shiori_${pkgver}_linux_amd64.tar.gz\")",
-              pkgbuild,
-              flags=re.MULTILINE,
-          )
-          pkgbuild = re.sub(
-              r"package\(\)\s*\{[\s\S]*?^\}",
-              """package() {
-           bsdtar -xpf \"${srcdir}/Shiori_${pkgver}_linux_amd64.tar.gz\" -C \"${pkgdir}\"
+          pkgbuild = re.sub(r"^pkgrel=.*$", "pkgrel=1", pkgbuild, flags=re.MULTILINE)
+          pkgbuild, replacements = re.subn(r"^sha256sums=\(.*\)$", f"sha256sums=('{sha256}')", pkgbuild, flags=re.MULTILINE)
 
-           chmod -R u=rwX,go=rX \"${pkgdir}/usr\"
-           [[ -f \"${pkgdir}/usr/bin/shiori\" ]] && chmod 755 \"${pkgdir}/usr/bin/shiori\"
-           }""",
-              pkgbuild,
-              flags=re.MULTILINE,
-          )
-          pkgbuild = re.sub(r"^sha256sums=\('.*'\)$", f"sha256sums=('{sha256}')", pkgbuild, flags=re.MULTILINE)
-          pkgbuild_path.write_text(pkgbuild)
+          if replacements != 1:
+              raise SystemExit("Expected exactly one sha256sums assignment in PKGBUILD")
 
-          srcinfo = srcinfo_path.read_text()
-          srcinfo = re.sub(r"^[ \t]*pkgver = .*$", f"\tpkgver = {version}", srcinfo, flags=re.MULTILINE)
-          srcinfo = re.sub(
-              r"^[ \t]*source = .*$",
-              f"\tsource = {asset_name}::https://github.com/vinayydv3695/Shiori/releases/download/v{version}/{asset_name}",
-              srcinfo,
-              flags=re.MULTILINE,
-          )
-          srcinfo = re.sub(r"^[ \t]*sha256sums = .*$", f"\tsha256sums = {sha256}", srcinfo, flags=re.MULTILINE)
-          srcinfo_path.write_text(srcinfo)
+          pkgbuild_path.write_text(pkgbuild, encoding="utf-8")
           PY
+
+          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/pkg" -w /pkg archlinux:latest bash -lc "makepkg --printsrcinfo > .SRCINFO"
 
           git add PKGBUILD .SRCINFO
           if git diff --cached --quiet; then

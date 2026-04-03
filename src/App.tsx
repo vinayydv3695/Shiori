@@ -10,6 +10,7 @@ import { useUIStore } from "./store/uiStore"
 import { useCollectionStore } from "./store/collectionStore"
 import { useConversionStore } from "./store/conversionStore"
 import { useToastStore } from "./store/toastStore"
+import { useOnboardingStore } from "./store/onboardingStore"
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts"
 import { api, type Book } from "./lib/tauri"
 import type { SeriesGroup } from "./hooks/useGroupedLibrary"
@@ -36,28 +37,11 @@ const OnlineBooksView = lazy(() => import("./components/online/OnlineBooksView")
 const OnlineMangaView = lazy(() => import("./components/online/OnlineMangaView").then(m => ({ default: m.OnlineMangaView })))
 
 function App() {
-  // Check if user has completed onboarding
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true);
   const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false);
-
-  useEffect(() => {
-    // Check onboarding state from backend
-    const checkOnboarding = async () => {
-      try {
-        const state = await api.getOnboardingState();
-        setShowOnboarding(!state.completed);
-      } catch (error) {
-         logger.error("Failed to check onboarding state:", error);
-         // Default to showing onboarding if check fails
-        setShowOnboarding(true);
-      } finally {
-        setIsCheckingOnboarding(false);
-      }
-    };
-
-    checkOnboarding();
-  }, []);
+  const onboardingComplete = useOnboardingStore((state) => state.onboardingComplete)
+  const isOnboardingHydrated = useOnboardingStore((state) => state.isHydrated)
+  const isOnboardingInitializing = useOnboardingStore((state) => state.isInitializing)
+  const initializeOnboarding = useOnboardingStore((state) => state.initialize)
   const books = useLibraryStore(state => state.books)
   const loadInitialBooks = useLibraryStore(state => state.loadInitialBooks)
   const clearSelection = useLibraryStore(state => state.clearSelection)
@@ -97,6 +81,10 @@ function App() {
 
   // Theme is handled entirely by preferencesStore → [data-theme] attribute.
   // The old uiStore.theme / .dark class system has been removed.
+
+  useEffect(() => {
+    void initializeOnboarding()
+  }, [initializeOnboarding])
 
   useEffect(() => {
     loadInitialBooks();
@@ -432,43 +420,20 @@ function App() {
     )
   }
 
-   // Handle onboarding completion
-   const handleOnboardingComplete = async () => {
-     console.log('[App] handleOnboardingComplete called');
-     logger.debug('[App] Onboarding completed');
-     
-     try {
-       // Verify the backend onboarding state was actually updated
-       console.log('[App] Checking backend onboarding state...');
-       const state = await api.getOnboardingState();
-       console.log('[App] Backend onboarding state:', state);
-       
-       if (!state.completed) {
-         console.error('[App] WARNING: Backend reports onboarding NOT completed!');
-         logger.error('[App] Onboarding completion mismatch - backend state not updated');
-       } else {
-         console.log('[App] ✓ Backend confirmed onboarding complete');
-       }
-     } catch (error) {
-       console.error('[App] Failed to verify onboarding state:', error);
-       logger.error('[App] Onboarding verification failed:', error);
-     }
-     
-     console.log('[App] Setting showOnboarding to false');
-     setShowOnboarding(false);
-     console.log('[App] Onboarding flow complete');
-   }
-
-  // Show loading while checking onboarding state
-  if (isCheckingOnboarding) {
-    return null;
+  // Show loading while onboarding state hydrates/initializes
+  if (!isOnboardingHydrated || isOnboardingInitializing) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    )
   }
 
   // Show onboarding if not completed
-  if (showOnboarding) {
+  if (!onboardingComplete) {
     return (
       <Suspense fallback={<div className="flex items-center justify-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>}>
-        <OnboardingWizard onComplete={handleOnboardingComplete} />
+        <OnboardingWizard />
       </Suspense>
     )
   }

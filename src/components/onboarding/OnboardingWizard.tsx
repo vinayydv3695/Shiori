@@ -1,207 +1,145 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { logger } from '@/lib/logger';
-import { useOnboardingStore } from '../../store/onboardingStore';
-import { useToast } from '../../store/toastStore';
-import { Skeleton } from '../ui/skeleton';
-import { OnboardingShell } from './OnboardingShell';
-
-const stepNames = [
-  'WelcomeStep',
-  'ContentSetupStep',
-  'ImportBooksStep',
-  'ImportMangaStep',
-  'ImportComicsStep',
-  'ReadingPrefsStep',
-  'OptionalFeaturesStep',
-  'ScanProgressStep',
-  'DoneStep',
-] as const;
-
-const stepLoaders = {
-  WelcomeStep: () => import('./steps/new/WelcomeStep'),
-  ContentSetupStep: () => import('./steps/new/ContentSetupStep'),
-  ImportBooksStep: () => import('./steps/new/ImportBooksStep'),
-  ImportMangaStep: () => import('./steps/new/ImportMangaStep'),
-  ImportComicsStep: () => import('./steps/new/ImportComicsStep'),
-  ReadingPrefsStep: () => import('./steps/new/ReadingPrefsStep'),
-  OptionalFeaturesStep: () => import('./steps/new/OptionalFeaturesStep'),
-  ScanProgressStep: () => import('./steps/new/ScanProgressStep'),
-  DoneStep: () => import('./steps/new/DoneStep'),
-} as const;
-
-const stepComponents = stepNames.map((name) => lazy(stepLoaders[name]));
+import { useEffect, useRef, useState } from 'react';
+import { useOnboardingState } from './hooks/useOnboardingState';
+import { THEME_OPTIONS } from '@/store/onboardingStore';
+import OnboardingProgress from '@/components/onboarding/OnboardingProgress';
+import { WelcomeStep } from './steps/WelcomeStep';
+import { ImportStep } from './steps/ImportStep';
+import { ThemeStep } from './steps/ThemeStep';
+import { PreferencesStep } from './steps/PreferencesStep';
+import { FinishStep } from './steps/FinishStep';
 
 interface OnboardingWizardProps {
-  onComplete: () => void;
+  onComplete?: () => void | Promise<void>;
 }
 
-type StepNavConfig = {
-  nextDisabled?: boolean;
-  nextLabel?: string;
-  onNext?: () => void | boolean | Promise<void | boolean>;
-};
-
-function StepSkeleton() {
-  return (
-    <div className="space-y-3">
-      <Skeleton className="h-6 w-2/3" />
-      <Skeleton className="h-4 w-full" />
-      <Skeleton className="h-4 w-5/6" />
-    </div>
-  );
-}
+type TransitionPhase = 'idle' | 'exiting' | 'entering';
+const TRANSITION_MS = 300;
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
-  const [currentStep, setCurrentStep] = useState<number>(0);
-  const [stepConfig, setStepConfig] = useState<StepNavConfig>({});
-  const [showSkipConfirm, setShowSkipConfirm] = useState(false);
-  const isHandlingNextRef = useRef(false);
-  const commit = useOnboardingStore((state) => state.commit);
-  const isCommitting = useOnboardingStore((state) => state.isCommitting);
-  const setSkipped = useOnboardingStore((state) => state.setSkipped);
-  const toast = useToast();
+  const {
+    state,
+    isHydrated,
+    isInitializing,
+    nextStep,
+    prevStep,
+    setLibraryPath,
+    setSelectedTheme,
+    setMangaPrefs,
+    setBookPrefs,
+    completeOnboarding,
+  } = useOnboardingState();
 
-  const isLastStep = currentStep === stepNames.length - 1;
-  const CurrentStep = stepComponents[currentStep];
-
-  const stepLabels = useMemo(
-    () => [
-      'Welcome',
-      'Content Setup',
-      'Import Books',
-      'Import Manga',
-      'Import Comics',
-      'Reading Preferences',
-      'Optional Features',
-      'Library Scan',
-      'Done',
-    ],
-    [],
-  );
+  const [renderedStep, setRenderedStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const [phase, setPhase] = useState<TransitionPhase>('idle');
+  const [isFinishing, setIsFinishing] = useState(false);
+  const transitionTimerRef = useRef<number | null>(null);
+  const enterAnimationFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const next = stepNames[currentStep + 1];
-    if (next) void stepLoaders[next]();
-  }, [currentStep]);
+    if (state.currentStep === renderedStep) return;
+    setPhase('exiting');
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        setShowSkipConfirm(true);
+    if (transitionTimerRef.current !== null) {
+      window.clearTimeout(transitionTimerRef.current);
+      transitionTimerRef.current = null;
+    }
+    if (enterAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(enterAnimationFrameRef.current);
+      enterAnimationFrameRef.current = null;
+    }
+
+    transitionTimerRef.current = window.setTimeout(() => {
+      setRenderedStep(state.currentStep);
+      setPhase('entering');
+      enterAnimationFrameRef.current = window.requestAnimationFrame(() => {
+        setPhase('idle');
+        enterAnimationFrameRef.current = null;
+      });
+      transitionTimerRef.current = null;
+    }, TRANSITION_MS);
+
+    return () => {
+      if (transitionTimerRef.current !== null) {
+        window.clearTimeout(transitionTimerRef.current);
+        transitionTimerRef.current = null;
+      }
+      if (enterAnimationFrameRef.current !== null) {
+        window.cancelAnimationFrame(enterAnimationFrameRef.current);
+        enterAnimationFrameRef.current = null;
       }
     };
+  }, [renderedStep, state.currentStep]);
 
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
-
-  const handleComplete = async () => {
-    try {
-      await commit();
-      toast.success('Setup Complete!', 'Your preferences have been saved. Ready to explore Shiori!');
-      onComplete();
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      logger.error('Failed to commit onboarding', error);
-      toast.error('Setup Failed', `Unable to save your preferences: ${errorMessage}`);
-    }
-  };
-
-  const handleNext = async () => {
-    if (isCommitting || isHandlingNextRef.current) return;
-
-    isHandlingNextRef.current = true;
-
-    try {
-      if (stepConfig.onNext) {
-        const result = await stepConfig.onNext();
-        if (result === false) return;
-      }
-
-      if (isLastStep) {
-        await handleComplete();
-        return;
-      }
-
-      setStepConfig({});
-      setCurrentStep((prev) => Math.min(prev + 1, stepNames.length - 1));
-    } finally {
-      isHandlingNextRef.current = false;
-    }
-  };
-
-  const handleSkipConfirm = async () => {
-    if (isCommitting) return;
-    setSkipped(true);
-    setShowSkipConfirm(false);
-    await handleComplete();
-  };
-
-  const registerStep = useCallback((config: StepNavConfig) => {
-    setStepConfig(config);
-  }, []);
-
-  // Removed framer-motion: caused
-  // layout thrash across 26 mounted step components. Simple opacity fade instead.
-  return (
-    <>
-      <OnboardingShell
-        currentStep={currentStep}
-        totalSteps={stepNames.length}
-        onBack={() => {
-          setStepConfig({});
-          setCurrentStep((prev) => Math.max(0, prev - 1));
-        }}
-        onNext={handleNext}
-        nextLabel={stepConfig.nextLabel}
-        nextDisabled={Boolean(isCommitting || stepConfig.nextDisabled)}
-        stepNames={stepLabels}
-      >
-        <Suspense fallback={<StepSkeleton />}>
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={currentStep}
-              initial={{ opacity: 0, x: 24 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -24 }}
-              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-            >
-              <CurrentStep
-                onNext={handleNext}
-                onComplete={handleComplete}
-                registerStep={registerStep}
-              />
-            </motion.div>
-          </AnimatePresence>
-        </Suspense>
-      </OnboardingShell>
-
-      {showSkipConfirm ? (
-        <div className="fixed inset-0 z-[var(--z-modal,900)] flex items-center justify-center bg-black/65 p-4">
-          <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#16161a] p-5 text-white shadow-xl">
-            <h2 className="text-lg font-semibold">Skip onboarding?</h2>
-            <p className="mt-2 text-sm text-zinc-300">You can change everything later from Settings.</p>
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowSkipConfirm(false)}
-                className="rounded-md border border-white/20 px-3 py-2 text-sm"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSkipConfirm}
-                className="rounded-md bg-[var(--ob-accent,#7c3aed)] px-3 py-2 text-sm font-medium text-white"
-              >
-                Skip & finish
-              </button>
-            </div>
-          </div>
+  if (!isHydrated || isInitializing) {
+    return (
+      <div className="min-h-screen w-full bg-background px-4 py-4 md:px-6 md:py-6 lg:px-8 lg:py-8">
+        <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-6xl items-center justify-center rounded-3xl border border-border/60 bg-card/30 p-3 backdrop-blur-sm md:min-h-[calc(100vh-3rem)] md:p-6">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         </div>
-      ) : null}
-    </>
+      </div>
+    );
+  }
+
+  const handleFinish = async () => {
+    if (isFinishing) return;
+    setIsFinishing(true);
+    try {
+      await completeOnboarding();
+      await onComplete?.();
+    } finally {
+      setIsFinishing(false);
+    }
+  };
+
+  const appVersion = import.meta.env.VITE_APP_VERSION ?? '1.0.2';
+
+  const transitionClass =
+    phase === 'exiting'
+      ? '-translate-x-8 opacity-0'
+      : phase === 'entering'
+        ? 'translate-x-8 opacity-0'
+        : 'translate-x-0 opacity-100';
+
+  return (
+    <div className="min-h-screen w-full bg-background px-4 py-4 md:px-6 md:py-6 lg:px-8 lg:py-8">
+      <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-6xl flex-col rounded-3xl border border-border/60 bg-card/30 p-3 backdrop-blur-sm md:min-h-[calc(100vh-3rem)] md:p-6">
+        {state.currentStep > 1 ? <OnboardingProgress currentStep={state.currentStep as 2 | 3 | 4 | 5} /> : null}
+
+        <div className={`flex-1 transition-all duration-300 ease-out ${transitionClass}`}>
+          {renderedStep === 1 ? <WelcomeStep appVersion={appVersion} onStart={nextStep} /> : null}
+          {renderedStep === 2 ? <ImportStep libraryPath={state.libraryPath} onSelectPath={setLibraryPath} onNext={nextStep} /> : null}
+          {renderedStep === 3 ? (
+            <ThemeStep
+              selectedTheme={state.selectedTheme}
+              themes={THEME_OPTIONS}
+              onSelectTheme={setSelectedTheme}
+              onBack={prevStep}
+              onNext={nextStep}
+            />
+          ) : null}
+          {renderedStep === 4 ? (
+            <PreferencesStep
+              mangaPrefs={state.mangaPrefs}
+              bookPrefs={state.bookPrefs}
+              onMangaChange={setMangaPrefs}
+              onBookChange={setBookPrefs}
+              onBack={prevStep}
+              onNext={nextStep}
+            />
+          ) : null}
+          {renderedStep === 5 ? (
+            <FinishStep
+              libraryPath={state.libraryPath}
+              selectedTheme={state.selectedTheme}
+              mangaPrefs={state.mangaPrefs}
+              bookPrefs={state.bookPrefs}
+              onBack={prevStep}
+              onOpenLibrary={handleFinish}
+              isFinishing={isFinishing}
+            />
+          ) : null}
+        </div>
+      </div>
+    </div>
   );
 }

@@ -1,5 +1,8 @@
 import { useMemo, useState, type CSSProperties } from 'react';
-import { AnimatedCheckmark } from '../components/index';
+import { CheckCircle2, FolderOpen, Palette, Settings } from 'lucide-react';
+import { AnimatedCheckmark, GlassCard } from '../components/index';
+import { useOnboardingState } from '../hooks/useOnboardingState';
+import { useOnboardingStore } from '@/store/onboardingStore';
 import type { BookPrefs, MangaPrefs, ThemeName } from '../../../store/onboardingStore';
 
 type FinishStepProps = {
@@ -7,9 +10,10 @@ type FinishStepProps = {
   selectedTheme: ThemeName;
   mangaPrefs: MangaPrefs;
   bookPrefs: BookPrefs;
-  onBack: () => void;
-  onOpenLibrary: () => Promise<void>;
-  isFinishing: boolean;
+  onBack?: () => void;
+  onOpenLibrary?: () => Promise<void>;
+  isFinishing?: boolean;
+  onFinished?: () => void | Promise<void>;
 };
 
 export function FinishStep({
@@ -17,11 +21,18 @@ export function FinishStep({
   selectedTheme,
   mangaPrefs,
   bookPrefs,
-  onBack,
   onOpenLibrary,
   isFinishing,
+  onFinished,
 }: FinishStepProps) {
   const [burst, setBurst] = useState(false);
+  const { completeOnboarding } = useOnboardingState();
+
+  const translationLanguage = useOnboardingStore((s) => s.translationLanguage);
+  const uiScale = useOnboardingStore((s) => s.uiScale);
+  const autoTranslate = useOnboardingStore((s) => s.autoTranslate);
+  const enableNotifications = useOnboardingStore((s) => s.enableNotifications);
+  const resetOnboarding = useOnboardingStore((s) => s.resetOnboarding);
 
   const particles = useMemo(
     () =>
@@ -37,56 +48,114 @@ export function FinishStep({
   );
 
   const handleOpen = async () => {
+    if (isFinishing) return;
     setBurst(true);
     window.setTimeout(() => setBurst(false), 1000);
-    await onOpenLibrary();
+
+    try {
+      if (onOpenLibrary) {
+        await onOpenLibrary();
+      } else {
+        await completeOnboarding();
+      }
+      await onFinished?.();
+    } finally {
+      // no-op
+    }
   };
 
+  const themePreview: Record<ThemeName, string> = {
+    White: '#ffffff',
+    Black: '#09090b',
+    'Rose Pine Moon': '#232136',
+    'Catppuccin Mocha': '#1e1e2e',
+    Nord: '#2e3440',
+    Dracula: '#282a36',
+    'Tokyo Night': '#1a1b26',
+  };
+
+  const readerHighlights = [
+    `Manga: ${mangaPrefs.readingDirection.toUpperCase()} ${mangaPrefs.readingMode} mode`,
+    `EPUB: ${bookPrefs.fontSize}px ${bookPrefs.scrollMode}`,
+    `Line height: ${bookPrefs.lineHeight}`,
+  ];
+
+  const appHighlights = [
+    `UI Scale: ${uiScale}%`,
+    `Translation: ${translationLanguage.toUpperCase()}${autoTranslate ? ' (Auto)' : ''}`,
+    `Notifications: ${enableNotifications ? 'On' : 'Off'}`,
+  ];
+
   return (
-    <section className="relative w-full overflow-hidden rounded-[2rem] border border-border/50 bg-card/50 p-8 shadow-xl backdrop-blur-xl md:p-12">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(16,185,129,0.1),transparent_70%)]" />
+    <section className="relative w-full overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950 p-8 text-white shadow-2xl md:p-12">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.03),transparent_70%)]" />
 
       <div className="relative z-10 flex flex-col items-center">
-        <div className="mb-8 flex justify-center drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]">
-          <AnimatedCheckmark className="h-32 w-32 md:h-40 md:w-40" />
-        </div>
-
-        <h2 className="text-center text-4xl font-bold tracking-tight md:text-5xl">Shiori is Ready</h2>
-        <p className="mt-4 text-center text-lg text-muted-foreground md:text-xl">Your library awaits.</p>
-
-        <div className="mt-10 w-full max-w-2xl overflow-hidden rounded-[1.5rem] border border-border/40 bg-background/50 backdrop-blur-md transition-all hover:border-border/60 hover:shadow-md">
-          <div className="grid grid-cols-1 divide-y divide-border/30 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-            <div className="p-6 text-center transition-colors hover:bg-muted/20">
-              <span className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground/70 mb-2">Library</span>
-              <span className="block truncate text-sm font-medium text-foreground" title={libraryPath || 'Not set — add later'}>
-                {libraryPath || 'Not set — add later'}
-              </span>
-            </div>
-            
-            <div className="p-6 text-center transition-colors hover:bg-muted/20">
-              <span className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground/70 mb-2">Theme</span>
-              <span className="block truncate text-sm font-medium text-foreground">
-                {selectedTheme}
-              </span>
-            </div>
-            
-            <div className="p-6 text-center transition-colors hover:bg-muted/20">
-              <span className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground/70 mb-2">Modes</span>
-              <span className="block text-sm font-medium text-foreground">
-                M: {mangaPrefs.viewMode} / B: {bookPrefs.pageMode}
-              </span>
-            </div>
+        <div className="mb-8 flex justify-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-white/20 bg-slate-900/50">
+            <CheckCircle2 className="h-10 w-10 text-white" />
           </div>
         </div>
 
-        <div className="mt-12 flex w-full max-w-2xl items-center justify-center border-t border-border/30 pt-8">
+        <h2 className="mt-4 text-center text-5xl font-black tracking-tight text-white md:text-6xl">
+          Setup Complete
+        </h2>
+        <p className="mt-4 text-center text-lg text-white/60 md:text-xl">Your reading space is ready</p>
+
+        <div className="mt-10 grid w-full max-w-4xl grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="rounded-2xl border border-white/10 bg-slate-900/50 p-6">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-white/80">
+              <Palette className="h-4 w-4" /> Theme
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="h-4 w-4 rounded-full ring-2 ring-white/30" style={{ background: themePreview[selectedTheme] }} />
+              <p className="text-base font-semibold text-white">{selectedTheme}</p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-slate-900/50 p-6">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-white/80">
+              <FolderOpen className="h-4 w-4" /> Library
+            </div>
+            <p className="text-base font-semibold text-white">
+              {libraryPath ? '1 source connected' : 'Setup skipped'}
+            </p>
+            <p className="mt-1 truncate text-xs text-white/50" title={libraryPath ?? undefined}>
+              {libraryPath ?? 'Import books later from Settings'}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-slate-900/50 p-6">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-white/80">
+              <Settings className="h-4 w-4" /> Reader Preferences
+            </div>
+            <ul className="space-y-1.5 text-sm text-white/70">
+              {readerHighlights.map((item) => (
+                <li key={item}>• {item}</li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-slate-900/50 p-6">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-white/80">
+              <Settings className="h-4 w-4" /> App Settings
+            </div>
+            <ul className="space-y-1.5 text-sm text-white/70">
+              {appHighlights.map((item) => (
+                <li key={item}>• {item}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        <div className="mt-12 flex w-full max-w-4xl flex-col items-center justify-center gap-4 border-t border-white/10 pt-8">
           <div className="relative">
             {burst ? (
               <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-1/2 z-50">
                 {particles.map((p) => (
                   <span
                     key={p.id}
-                    className="absolute h-2 w-2 rounded-full bg-emerald-400 [animation:burst_1s_cubic-bezier(0.16,1,0.3,1)_forwards] shadow-[0_0_10px_rgba(52,211,153,0.8)]"
+                    className="absolute h-2 w-2 rounded-full bg-white [animation:burst_1s_cubic-bezier(0.16,1,0.3,1)_forwards] shadow-[0_0_10px_rgba(255,255,255,0.8)]"
                     style={
                       {
                         '--tx': `${p.x}px`,
@@ -104,15 +173,20 @@ export function FinishStep({
             <button
               type="button"
               onClick={handleOpen}
-              disabled={isFinishing}
-              className="group relative overflow-hidden rounded-full bg-primary px-10 py-4 text-base font-bold text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:scale-105 hover:shadow-xl hover:shadow-primary/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95 disabled:pointer-events-none disabled:opacity-60"
+              disabled={Boolean(isFinishing)}
+              className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-black px-10 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-slate-950 hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              <span className="relative z-10 flex items-center gap-2">
-                {isFinishing ? 'Opening...' : 'Open My Library →'}
-              </span>
-              <div className="absolute inset-0 z-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] transition-transform duration-700 ease-in-out group-hover:translate-x-[100%]" />
+              {isFinishing ? 'Launching Shiori...' : 'Launch Shiori'}
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={resetOnboarding}
+            className="text-sm text-white/50 underline underline-offset-4 transition-colors hover:text-white/80"
+          >
+            Start from scratch
+          </button>
         </div>
       </div>
 

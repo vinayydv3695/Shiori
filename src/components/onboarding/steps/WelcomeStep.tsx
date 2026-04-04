@@ -46,7 +46,7 @@ export function WelcomeStep({ appVersion, onStart }: WelcomeStepProps) {
         <h1 className="animate-fade-up delay-100 mb-4 text-4xl font-light tracking-tight opacity-0 md:text-5xl">
           Welcome to your <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-white to-white/60">private reading home</span>
         </h1>
-        
+
         <p className="animate-fade-up delay-200 mb-12 max-w-2xl text-lg font-medium tracking-wide text-white/60 opacity-0 md:text-xl">
           Your library. Your rules. Offline forever.
         </p>

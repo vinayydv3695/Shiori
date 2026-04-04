@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { api } from '@/lib/tauri';
 import type { BookMetadata } from '@/lib/tauri';
 import { ChevronLeft, ChevronRight, Loader2, AlertCircle } from '@/components/icons';
@@ -9,6 +9,7 @@ import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
 import { useReadingSession } from '@/hooks/useReadingSession';
 import { ReaderTopBar } from './ReaderTopBar';
 import type { ReaderFormat } from './ReaderSettings';
+import type { ReaderContent } from './readerContent';
 import { PremiumSidebar } from './PremiumSidebar';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
 import { TTSControlBar } from './TTSControlBar';
@@ -20,10 +21,13 @@ interface GenericHtmlReaderProps {
     bookPath: string;
     bookId: number;
     format: ReaderFormat;
+    readerContent?: ReaderContent | null;
     onClose: () => void;
 }
 
-export function GenericHtmlReader({ bookPath, bookId, format, onClose }: GenericHtmlReaderProps) {
+type SidebarNavigateHandler = (chapterIndex: number, searchTerm?: string | null) => void;
+
+export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onClose }: GenericHtmlReaderProps) {
     const isFocusMode = useUIStore(state => state.isFocusMode);
     const isTopBarShortcutOnly = useUIStore(state => state.isTopBarShortcutOnly);
     const setTopBarVisible = useUIStore(state => state.setTopBarVisible);
@@ -46,6 +50,21 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
 
     const autoHideTimerRef = useRef<number | null>(null);
 
+    const isMobiFamilyFormat = format === 'mobi' || format === 'azw' || format === 'azw3';
+    const locationPrefix = isMobiFamilyFormat ? 'mobi' : 'generic';
+    const progressPrefix = `${locationPrefix}-progress-`;
+    const supportedProgressPrefixes = useMemo(
+        () => [progressPrefix, `${format}-progress-`, 'mobi-progress-', 'generic-progress-'],
+        [progressPrefix, format]
+    );
+    const sanitizedContent = useMemo(() => sanitizeBookContent(content), [content]);
+
+    useEffect(() => {
+        if (contentRef.current) {
+            contentRef.current.innerHTML = sanitizedContent;
+        }
+    }, [sanitizedContent]);
+
     // ────────────────────────────────────────────────────────────
     // READER THEME — scoped to this container, not global <html>
     // ────────────────────────────────────────────────────────────
@@ -58,7 +77,7 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
     // ────────────────────────────────────────────────────────────
     // AUTO-HIDE TOP BAR LOGIC
     // ────────────────────────────────────────────────────────────
-    const resetAutoHideTimer = () => {
+    const resetAutoHideTimer = useCallback(() => {
         if (isTopBarShortcutOnly) {
             return;
         }
@@ -67,7 +86,7 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
             if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
             autoHideTimerRef.current = window.setTimeout(() => setTopBarVisible(false), 3000);
         }
-    };
+    }, [isTopBarShortcutOnly, isFocusMode, setTopBarVisible]);
 
     useEffect(() => {
         let throttleTimeout: number | null = null;
@@ -98,8 +117,7 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
             if (throttleTimeout) clearTimeout(throttleTimeout);
             if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isFocusMode, setTopBarVisible]);
+    }, [resetAutoHideTimer]);
 
     useEffect(() => {
         if (isFocusMode) {
@@ -113,8 +131,7 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
                 resetAutoHideTimer();
             }
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isFocusMode, setTopBarVisible, isTopBarShortcutOnly]);
+    }, [isFocusMode, setTopBarVisible, isTopBarShortcutOnly, resetAutoHideTimer]);
 
     // Map font family IDs to CSS font-family strings
     const getFontFamily = (fontId: string): string => {
@@ -131,7 +148,59 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
         return fontMap[fontId] || fontMap.serif;
     };
 
-    const loadBook = async () => {
+    const restoreProgress = useCallback(async () => {
+        if (!containerRef.current) return;
+        try {
+            const savedProgress = await api.getReadingProgress(bookId);
+            if (!savedProgress) return;
+
+            let targetTop: number | null = null;
+
+            // Try CFI-based restore first (precise scroll position)
+            const cfi = savedProgress.cfiLocation;
+            if (cfi) {
+                const cfiMatch = cfi.match(/^epubcfi\(\/0\/(\d+)!\/scroll\/([\d.]+)\)$/);
+                if (cfiMatch) {
+                    const scrollRatio = parseFloat(cfiMatch[2]);
+                    if (!isNaN(scrollRatio) && scrollRatio > 0) {
+                        const { scrollHeight, clientHeight } = containerRef.current;
+                        const maxScroll = scrollHeight - clientHeight;
+                        targetTop = Math.round(scrollRatio * maxScroll);
+                    }
+                }
+            }
+
+            // Fallback to legacy percentage-based location
+            if (targetTop === null && savedProgress.currentLocation) {
+                const loc = savedProgress.currentLocation;
+                if (supportedProgressPrefixes.some(prefix => loc.startsWith(prefix))) {
+                    const pctMatch = loc.match(/(?:[a-z0-9]+)-progress-([\d.]+)-ch/i);
+                    if (pctMatch) {
+                        const pct = parseFloat(pctMatch[1]);
+                        if (!isNaN(pct) && pct > 0) {
+                            const { scrollHeight, clientHeight } = containerRef.current;
+                            const maxScroll = scrollHeight - clientHeight;
+                            targetTop = Math.round((pct / 100) * maxScroll);
+                        }
+                    }
+                }
+            }
+
+            if (targetTop !== null && targetTop > 0) {
+                containerRef.current.scrollTo({ top: targetTop, behavior: 'auto' });
+                useToastStore.getState().addToast({
+                    title: 'Resuming reading',
+                    description: `Restored to previous position`,
+                    variant: 'info',
+                    duration: 3000,
+                });
+            }
+        } catch {
+            // Silently ignore - start from top
+        }
+    }, [bookId, supportedProgressPrefixes]);
+
+    const loadBook = useCallback(async () => {
         try {
             setIsLoading(true);
             setError(null);
@@ -145,7 +214,7 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
             let initialChapter = 0;
             try {
                 const savedProgress = await api.getReadingProgress(bookId);
-                if (savedProgress?.currentLocation?.startsWith('generic-progress-')) {
+                if (savedProgress?.currentLocation && supportedProgressPrefixes.some(prefix => savedProgress.currentLocation.startsWith(prefix))) {
                     const match = savedProgress.currentLocation.match(/-ch(\d+)$/);
                     if (match) {
                         const parsed = parseInt(match[1], 10);
@@ -166,8 +235,8 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
             setIsLoading(false);
 
             // Restore scroll progress after brief render delay
-            setTimeout(() => {
-                restoreProgress();
+            window.setTimeout(() => {
+                void restoreProgress();
             }, 300);
 
          } catch (err) {
@@ -175,18 +244,18 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
              setError(err instanceof Error ? err.message : `Failed to load ${format.toUpperCase()} file`);
              setIsLoading(false);
          }
-    };
+    }, [bookId, bookPath, format, supportedProgressPrefixes, restoreProgress]);
 
      useEffect(() => {
+         // eslint-disable-next-line react-hooks/set-state-in-effect
          loadBook();
          return () => {
              // Cleanup
              api.closeBookRenderer(bookId).catch(logger.error);
          };
-         // eslint-disable-next-line react-hooks/exhaustive-deps
-     }, [bookPath, bookId, format]);
+     }, [loadBook, bookId]);
 
-    const goToChapter = async (index: number) => {
+    const goToChapter = async (index: number, searchTerm?: string | null) => {
         if (index < 0 || index >= totalChapters) return;
         try {
             const chapter = await api.getBookChapter(bookId, index);
@@ -196,10 +265,16 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
             if (containerRef.current) {
                 containerRef.current.scrollTo({ top: 0, behavior: 'auto' });
             }
-         } catch (err) {
-             logger.error('[GenericHtmlReader] Error loading chapter:', err);
-         }
-    };
+            if (searchTerm && searchTerm.trim()) {
+                setTimeout(() => {
+                    const firstHighlight = contentRef.current?.querySelector('mark.premium-search-highlight') as HTMLElement | null;
+                    firstHighlight?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 120);
+            }
+          } catch (err) {
+              logger.error('[GenericHtmlReader] Error loading chapter:', err);
+          }
+     };
 
     const nextChapter = () => goToChapter(currentChapter + 1);
     const prevChapter = () => goToChapter(currentChapter - 1);
@@ -232,10 +307,10 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
             const cfi = `epubcfi(/0/${currentChapter}!/scroll/${scrollRatio.toFixed(6)})`;
             api.saveReadingProgress(
                  bookId,
-                 `generic-progress-${progressPercent.toFixed(4)}-ch${currentChapter}`,
-                 progressPercent,
-                 currentChapter + 1,
-                 totalChapters,
+                  `${progressPrefix}${progressPercent.toFixed(4)}-ch${currentChapter}`,
+                  progressPercent,
+                  currentChapter + 1,
+                  totalChapters,
                  cfi
              ).catch(e => logger.error('[GenericHtmlReader] Error saving progress:', e));
         };
@@ -250,59 +325,7 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
             scrollElement.addEventListener('scroll', listener);
             return () => scrollElement.removeEventListener('scroll', listener);
         }
-    }, [handleScroll, bookId, currentChapter, totalChapters]);
-
-    const restoreProgress = async () => {
-        if (!containerRef.current) return;
-        try {
-            const savedProgress = await api.getReadingProgress(bookId);
-            if (!savedProgress) return;
-
-            let targetTop: number | null = null;
-
-            // Try CFI-based restore first (precise scroll position)
-            const cfi = savedProgress.cfiLocation;
-            if (cfi) {
-                const cfiMatch = cfi.match(/^epubcfi\(\/0\/(\d+)!\/scroll\/([\d.]+)\)$/);
-                if (cfiMatch) {
-                    const scrollRatio = parseFloat(cfiMatch[2]);
-                    if (!isNaN(scrollRatio) && scrollRatio > 0) {
-                        const { scrollHeight, clientHeight } = containerRef.current;
-                        const maxScroll = scrollHeight - clientHeight;
-                        targetTop = Math.round(scrollRatio * maxScroll);
-                    }
-                }
-            }
-
-            // Fallback to legacy percentage-based location
-            if (targetTop === null && savedProgress.currentLocation) {
-                const loc = savedProgress.currentLocation;
-                if (loc.startsWith('generic-progress-')) {
-                    const pctMatch = loc.match(/generic-progress-([\d.]+)-ch/);
-                    if (pctMatch) {
-                        const pct = parseFloat(pctMatch[1]);
-                        if (!isNaN(pct) && pct > 0) {
-                            const { scrollHeight, clientHeight } = containerRef.current;
-                            const maxScroll = scrollHeight - clientHeight;
-                            targetTop = Math.round((pct / 100) * maxScroll);
-                        }
-                    }
-                }
-            }
-
-            if (targetTop !== null && targetTop > 0) {
-                containerRef.current.scrollTo({ top: targetTop, behavior: 'auto' });
-                useToastStore.getState().addToast({
-                    title: 'Resuming reading',
-                    description: `Restored to previous position`,
-                    variant: 'info',
-                    duration: 3000,
-                });
-            }
-        } catch {
-            // Silently ignore - start from top
-        }
-    };
+    }, [handleScroll, bookId, currentChapter, totalChapters, progressPrefix]);
 
     // ────────────────────────────────────────────────────────────
     // ANNOTATION HIGHLIGHTS — render saved highlights into DOM
@@ -320,8 +343,14 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
                 const annotations = await api.getAnnotations(bookId);
                 if (cancelled) return;
 
+                const chapterLocations = new Set([
+                    `generic-chapter-${currentChapter}`,
+                    `mobi-chapter-${currentChapter}`,
+                    `${locationPrefix}-chapter-${currentChapter}`,
+                    `${format}-chapter-${currentChapter}`,
+                ]);
                 const chapterAnnotations = annotations.filter(
-                    (a) => a.location === `generic-chapter-${currentChapter}`
+                    (a) => chapterLocations.has(a.location)
                 );
 
                 applyHighlightsToDOM(container, chapterAnnotations);
@@ -342,7 +371,7 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
             window.clearTimeout(timerId);
             window.removeEventListener('annotation-changed', handleAnnotationChanged);
         };
-    }, [content, bookId, isLoading, currentChapter]);
+    }, [content, bookId, isLoading, currentChapter, locationPrefix, format]);
 
     // Keyboard navigation matching Premium UI
     const nextPage = useCallback(() => {
@@ -384,9 +413,9 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
                 <div className="premium-loading-container">
                     <Loader2 className="premium-loading-spinner" />
                     <p className="premium-loading-text">Loading {format.toUpperCase()} format...</p>
-                    {metadata && (
-                        <p className="premium-loading-subtitle">{metadata.title}</p>
-                    )}
+                     {(metadata || readerContent) && (
+                        <p className="premium-loading-subtitle">{metadata?.title ?? readerContent?.title}</p>
+                     )}
                 </div>
             </div>
         );
@@ -401,7 +430,7 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
             {/* Auto-hide Top Bar */}
             <ReaderTopBar
                 bookId={bookId}
-                title={metadata?.title || 'Loading...'}
+                title={metadata?.title || readerContent?.title || 'Loading...'}
                 subtitle={totalChapters > 1 ? `Chapter ${currentChapter + 1} / ${totalChapters}` : `${format.toUpperCase()} Render`}
                 progress={progressPercentage}
                 format={format}
@@ -424,7 +453,6 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
                                 fontSize: `${fontSize}px`,
                                 lineHeight: lineHeight,
                             }}
-                            dangerouslySetInnerHTML={{ __html: sanitizeBookContent(content) }}
                         />
                     </div>
                 </div>
@@ -441,10 +469,10 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
             {/* Floating Navigation Arrows */}
             {!isFocusMode && (
                 <>
-                    <button onClick={prevPage} className="premium-nav-arrow premium-nav-arrow--left">
+                    <button type="button" onClick={prevPage} className="premium-nav-arrow premium-nav-arrow--left">
                         <ChevronLeft className="premium-nav-icon" />
                     </button>
-                    <button onClick={nextPage} className="premium-nav-arrow premium-nav-arrow--right">
+                    <button type="button" onClick={nextPage} className="premium-nav-arrow premium-nav-arrow--right">
                         <ChevronRight className="premium-nav-icon" />
                     </button>
                 </>
@@ -454,13 +482,15 @@ export function GenericHtmlReader({ bookPath, bookId, format, onClose }: Generic
             <PremiumSidebar
                 bookId={bookId}
                 currentIndex={currentChapter}
-                onNavigate={totalChapters > 1 ? goToChapter : () => { /* no navigation needed */ }}
+                onNavigate={(totalChapters > 1
+                    ? goToChapter
+                    : (() => { /* no navigation needed */ })) as SidebarNavigateHandler}
             />
 
             {/* Text Selection Toolbar */}
             <TextSelectionToolbar
                 bookId={bookId}
-                currentLocation={`generic-chapter-${currentChapter}`}
+                currentLocation={`${locationPrefix}-chapter-${currentChapter}`}
             />
 
             {/* TTS Control Bar */}

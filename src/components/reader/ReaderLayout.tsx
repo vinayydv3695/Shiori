@@ -4,11 +4,11 @@ import { api } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
 import { PremiumEpubReader } from './PremiumEpubReader';
 import { PdfReader } from './PdfReader';
-import { MobiReader } from './MobiReader';
 import { GenericHtmlReader } from './GenericHtmlReader';
 import { MangaReader } from '@/components/manga/MangaReader';
 import { ReaderErrorBoundary, parseReaderError } from './ReaderErrorBoundary';
 import type { ReaderFormat } from './ReaderSettings';
+import type { ReaderContent } from './readerContent';
 
 interface ReaderLayoutProps {
   bookId: number;
@@ -32,6 +32,7 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
     setAnnotations,
     setSettings,
     closeBook,
+    currentContent,
   } = useReaderStore();
 
   const [loadingStage, setLoadingStage] = useState<LoadingStage>('idle');
@@ -39,9 +40,15 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
   const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
+    let currentStage: LoadingStage = 'idle';
+    const updateStage = (stage: LoadingStage) => {
+      currentStage = stage;
+      setLoadingStage(stage);
+    };
+
     const loadBookData = async () => {
       try {
-        setLoadingStage('fetching-path');
+        updateStage('fetching-path');
         setError(null);
 
         logger.debug('[ReaderLayout] Step 1: Getting file path for bookId:', bookId);
@@ -49,7 +56,7 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
         logger.debug('[ReaderLayout] Step 1 ✓ Got file path:', filePath);
 
         // Step 2: Detect and validate format
-         setLoadingStage('detecting-format');
+         updateStage('detecting-format');
          logger.debug('[ReaderLayout] Step 2: Detecting format...');
 
          let detectedFormat: string;
@@ -65,7 +72,7 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
          }
 
         // Step 3: Validate file integrity (skip validation if detection failed)
-         setLoadingStage('validating-file');
+          updateStage('validating-file');
          logger.debug('[ReaderLayout] Step 3: Validating file integrity...');
 
          try {
@@ -82,12 +89,7 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
 
         // Step 4: Open book in store (now that we know it's valid)
          logger.debug('[ReaderLayout] Step 4: Opening book in store...');
-         openBook(bookId, filePath, detectedFormat);
-         logger.debug('[ReaderLayout] Step 4 ✓ Book opened in store');
-
-         // Step 5: Load metadata (progress, annotations, settings)
-         setLoadingStage('loading-metadata');
-         logger.debug('[ReaderLayout] Step 5: Loading metadata...');
+         const normalizedFormat = detectedFormat.toLowerCase();
 
          const [book, progress, annotations, settings] = await Promise.all([
            api.getBook(bookId),
@@ -95,6 +97,24 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
            api.getAnnotations(bookId),
            api.getReaderSettings('default'),
          ]);
+
+         const content: ReaderContent = {
+           title: book.title,
+           author: book.authors?.[0]?.name,
+           cover: book.cover_path,
+           format: normalizedFormat,
+         };
+
+         if (normalizedFormat === 'pdf' && typeof book.page_count === 'number') {
+           content.pages = book.page_count;
+         }
+
+         openBook(bookId, filePath, normalizedFormat, content);
+         logger.debug('[ReaderLayout] Step 4 ✓ Book opened in store');
+
+         // Step 5: Load metadata (progress, annotations, settings)
+          updateStage('loading-metadata');
+         logger.debug('[ReaderLayout] Step 5: Loading metadata...');
 
          logger.debug('[ReaderLayout] Step 5 ✓ Loaded metadata:', {
            title: book.title,
@@ -109,21 +129,21 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
         setAnnotations(annotations);
         setSettings(settings);
 
-         setLoadingStage('complete');
-         logger.debug('[ReaderLayout] ✅ All steps complete!');
-       } catch (err) {
-         logger.error('[ReaderLayout] ❌ Error at stage:', loadingStage, err);
-        const parsedError = parseReaderError(err);
-        setError(parsedError);
-        setLoadingStage('idle');
-      }
-    };
+          updateStage('complete');
+          logger.debug('[ReaderLayout] ✅ All steps complete!');
+        } catch (err) {
+          logger.error('[ReaderLayout] ❌ Error at stage:', currentStage, err);
+         const parsedError = parseReaderError(err);
+         setError(parsedError);
+         updateStage('idle');
+       }
+     };
 
     // Add timeout fallback (10 seconds)
      const timeoutId = setTimeout(() => {
-       if (loadingStage !== 'complete' && loadingStage !== 'idle') {
-         logger.error('[ReaderLayout] ⏱️ Timeout - loading took too long at stage:', loadingStage);
-        setError({
+       if (currentStage !== 'complete' && currentStage !== 'idle') {
+          logger.error('[ReaderLayout] ⏱️ Timeout - loading took too long at stage:', currentStage);
+         setError({
           title: 'Loading Timeout',
           message: 'The book is taking too long to load. This may indicate a corrupted file or performance issue.',
           suggestions: [
@@ -132,11 +152,11 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
             'Check if the file is very large (>100MB)',
             'Re-import the book if the problem persists',
           ],
-          technicalDetails: `Timeout at stage: ${loadingStage}`,
-        });
-        setLoadingStage('idle');
-      }
-    }, 10000); // 10 second timeout
+           technicalDetails: `Timeout at stage: ${currentStage}`,
+         });
+         updateStage('idle');
+       }
+     }, 10000); // 10 second timeout
 
     logger.debug('[ReaderLayout] Starting load sequence (attempt', retryCount + 1, ')');
     loadBookData();
@@ -144,9 +164,7 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
     return () => {
       clearTimeout(timeoutId);
     };
-    // loadBookData and internal state setters are recreated each render - deps intentionally minimal
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookId, retryCount]);
+  }, [bookId, retryCount, openBook, setAnnotations, setProgress, setSettings]);
 
   const handleClose = () => {
     closeBook();
@@ -201,10 +219,10 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
     <div className="fixed inset-0 bg-white dark:bg-gray-900 z-50 flex flex-col">
       {/* Reader content */}
       {currentBookPath && currentBookFormat === 'epub' && (
-        <PremiumEpubReader bookPath={currentBookPath} bookId={bookId} onClose={handleClose} />
+        <PremiumEpubReader bookPath={currentBookPath} bookId={bookId} readerContent={currentContent} onClose={handleClose} />
       )}
       {currentBookPath && currentBookFormat === 'pdf' && (
-        <PdfReader bookPath={currentBookPath} bookId={bookId} onClose={handleClose} />
+        <PdfReader bookPath={currentBookPath} bookId={bookId} readerContent={currentContent} onClose={handleClose} />
       )}
       {currentBookPath && (currentBookFormat === 'cbz' || currentBookFormat === 'cbr') && (
         <MangaReader
@@ -213,11 +231,14 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
           onClose={handleClose}
         />
       )}
-      {currentBookPath && (currentBookFormat === 'mobi' || currentBookFormat === 'azw3') && (
-        <MobiReader bookPath={currentBookPath} bookId={bookId} onClose={handleClose} />
-      )}
-      {currentBookPath && (currentBookFormat === 'fb2' || currentBookFormat === 'docx' || currentBookFormat === 'html' || currentBookFormat === 'htm' || currentBookFormat === 'txt' || currentBookFormat === 'md' || currentBookFormat === 'markdown') && (
-        <GenericHtmlReader bookPath={currentBookPath} bookId={bookId} format={currentBookFormat as ReaderFormat} onClose={handleClose} />
+      {currentBookPath && (currentBookFormat === 'mobi' || currentBookFormat === 'azw' || currentBookFormat === 'azw3' || currentBookFormat === 'fb2' || currentBookFormat === 'docx' || currentBookFormat === 'html' || currentBookFormat === 'htm' || currentBookFormat === 'txt' || currentBookFormat === 'md' || currentBookFormat === 'markdown') && (
+        <GenericHtmlReader
+          bookPath={currentBookPath}
+          bookId={bookId}
+          format={currentBookFormat as ReaderFormat}
+          readerContent={currentContent}
+          onClose={handleClose}
+        />
       )}
       {!currentBookPath && (
         <div className="flex items-center justify-center h-full">

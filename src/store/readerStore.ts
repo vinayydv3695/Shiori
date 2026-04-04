@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { ReaderContent } from '@/components/reader/readerContent';
 
 export interface ReadingProgress {
   id?: number;
@@ -52,6 +53,7 @@ interface ReaderState {
   currentBookId: number | null;
   currentBookPath: string | null;
   currentBookFormat: string | null;
+  currentContent: ReaderContent | null;
   
   // Reading progress
   progress: ReadingProgress | null;
@@ -74,7 +76,7 @@ interface ReaderState {
   showControls: boolean;
   
   // Actions
-  openBook: (bookId: number, bookPath: string, format: string) => void;
+  openBook: (bookId: number, bookPath: string, format: string, content?: ReaderContent) => void;
   closeBook: () => void;
   setProgress: (progress: ReadingProgress) => void;
   setAnnotations: (annotations: Annotation[]) => void;
@@ -96,6 +98,7 @@ export const useReaderStore = create<ReaderState>((set) => ({
   currentBookId: null,
   currentBookPath: null,
   currentBookFormat: null,
+  currentContent: null,
   progress: null,
   currentSessionId: null,
   sessionStartTime: null,
@@ -117,11 +120,12 @@ export const useReaderStore = create<ReaderState>((set) => ({
   showControls: true,
 
   // Actions
-  openBook: (bookId, bookPath, format) =>
+  openBook: (bookId, bookPath, format, content) =>
     set({
       currentBookId: bookId,
       currentBookPath: bookPath,
       currentBookFormat: format,
+      currentContent: content ?? null,
       isReaderOpen: true,
     }),
 
@@ -130,6 +134,7 @@ export const useReaderStore = create<ReaderState>((set) => ({
       currentBookId: null,
       currentBookPath: null,
       currentBookFormat: null,
+      currentContent: null,
       isReaderOpen: false,
       progress: null,
       annotations: [],

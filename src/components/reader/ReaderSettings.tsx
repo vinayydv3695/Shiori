@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useReadingSettings, BG_COLOR_PRESETS, TEXT_COLOR_PRESETS, type ReaderTheme } from '@/store/premiumReaderStore';
 import { Settings, Columns, ChevronDown, ChevronUp } from '@/components/icons';
 
-export type ReaderFormat = 'epub' | 'pdf' | 'mobi' | 'manga' | 'fb2' | 'docx' | 'html' | 'htm' | 'txt' | 'md' | 'markdown';
+export type ReaderFormat = 'epub' | 'pdf' | 'mobi' | 'azw' | 'azw3' | 'manga' | 'fb2' | 'docx' | 'html' | 'htm' | 'txt' | 'md' | 'markdown';
 
 interface ReaderSettingsProps {
   /** Current book format — controls which settings are visible */
@@ -53,10 +53,13 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
     setTextAlign,
   } = useReadingSettings();
 
-  const showTypography = format === 'epub' || format === 'mobi';
+  const showTypography = format === 'epub' || format === 'mobi' || format === 'azw' || format === 'azw3';
   const showLayout = format === 'epub';
   const showPageTransition = format === 'epub';
   const isTextFormat = !['pdf', 'manga'].includes(format);
+  const isPdf = format === 'pdf';
+  const showWidthControls = showTypography || isPdf;
+  const showSpacingControls = isTextFormat || isPdf;
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -196,7 +199,7 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
             </div>
           </div>
 
-          {(isTextFormat || format === 'pdf') && (
+          {(isTextFormat || isPdf) && (
             <div className="premium-settings-section">
               <label className="premium-settings-label">Background Color</label>
               <div className="premium-settings-color-row">
@@ -213,7 +216,7 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
             </div>
           )}
 
-          {isTextFormat && (
+          {showSpacingControls && (
             <div className="premium-settings-section">
               <label className="premium-settings-label">Text Color</label>
               <div className="premium-settings-color-row">
@@ -263,7 +266,7 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
             </div>
           )}
 
-          {isTextFormat && (
+          {showSpacingControls && (
             <div className="premium-settings-section">
               <label className="premium-settings-label">
                 Margin
@@ -351,7 +354,7 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
             </div>
           )}
 
-          {showTypography && (
+          {showWidthControls && (
             <div className="premium-settings-section">
               <label className="premium-settings-label">Reading Width</label>
               <div className="premium-settings-segment-group">
@@ -369,7 +372,7 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
             </div>
           )}
 
-          {(isTextFormat || format === 'pdf') && (
+          {(isTextFormat || isPdf) && (
             <div className="premium-settings-section">
               <label className="premium-settings-label">
                 Brightness

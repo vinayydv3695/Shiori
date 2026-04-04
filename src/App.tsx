@@ -35,6 +35,7 @@ const SeriesView = lazy(() => import("./components/library/SeriesView").then(m =
 const AdvancedFilterDialog = lazy(() => import("./components/library/AdvancedFilterDialog").then(m => ({ default: m.AdvancedFilterDialog })))
 const OnlineBooksView = lazy(() => import("./components/online/OnlineBooksView").then(m => ({ default: m.OnlineBooksView })))
 const OnlineMangaView = lazy(() => import("./components/online/OnlineMangaView").then(m => ({ default: m.OnlineMangaView })))
+const OnlineMangaReader = lazy(() => import("./components/online/OnlineMangaReader").then(m => ({ default: m.OnlineMangaReader })))
 
 function App() {
   const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false);
@@ -528,6 +529,13 @@ function App() {
         {currentView === 'online-manga' && (
           <Suspense fallback={<div className="flex items-center justify-center py-24"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
             <OnlineMangaView />
+          </Suspense>
+        )}
+
+        {/* Show Online Manga Reader view */}
+        {currentView === 'online-manga-reader' && (
+          <Suspense fallback={<div className="flex items-center justify-center py-24"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+            <OnlineMangaReader />
           </Suspense>
         )}
       </Layout>

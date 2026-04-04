@@ -49,26 +49,26 @@ export const pluginApi = {
   },
 
   async listByType(type: ContentType): Promise<SourceMeta[]> {
-    return invoke<SourceMeta[]>('list_sources_by_type', { content_type: type });
+    return invoke<SourceMeta[]>('list_sources_by_type', { contentType: type });
   },
 
-  async search(source_id: string, query: string, page: number): Promise<SearchResult[]> {
-    return invoke<SearchResult[]>('plugin_search', { source_id, query, page });
+  async search(sourceId: string, query: string, page: number): Promise<SearchResult[]> {
+    return invoke<SearchResult[]>('plugin_search', { sourceId, query, page });
   },
 
-  async getChapters(source_id: string, content_id: string): Promise<Chapter[]> {
-    return invoke<Chapter[]>('plugin_get_chapters', { source_id, content_id });
+  async getChapters(sourceId: string, contentId: string): Promise<Chapter[]> {
+    return invoke<Chapter[]>('plugin_get_chapters', { sourceId, contentId });
   },
 
-  async getPages(source_id: string, content_id: string, chapter_id: string): Promise<Page[]> {
-    return invoke<Page[]>('plugin_get_pages', { source_id, content_id, chapter_id });
+  async getPages(sourceId: string, contentId: string, chapterId: string): Promise<Page[]> {
+    return invoke<Page[]>('plugin_get_pages', { sourceId, contentId, chapterId });
   },
 
-  async downloadChapter(source_id: string, chapter_id: string, dest_dir?: string): Promise<string[]> {
-    return invoke<string[]>('plugin_download_chapter', { source_id, chapter_id, dest_dir });
+  async downloadChapter(sourceId: string, chapterId: string, destDir?: string): Promise<string[]> {
+    return invoke<string[]>('plugin_download_chapter', { sourceId, chapterId, destDir });
   },
 
-  async setConfig(source_id: string, key: string, value: string): Promise<boolean> {
-    return invoke<boolean>('set_source_config', { source_id, key, value });
+  async setConfig(sourceId: string, key: string, value: string): Promise<boolean> {
+    return invoke<boolean>('set_source_config', { sourceId, key, value });
   },
 };

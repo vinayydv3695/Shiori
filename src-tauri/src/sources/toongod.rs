@@ -1,16 +1,17 @@
 use scraper::{Html, Selector};
 use std::collections::HashMap;
+use std::time::Duration;
 
 use crate::error::{Result, ShioriError};
 use crate::sources::{Chapter, ContentType, Page, SearchResult, Source, SourceMeta};
 
 const BASE_URL: &str = "https://www.toongod.org";
-const SEARCH_ITEM_SELECTOR: &str = ".listupd .bs";
-const SEARCH_TITLE_SELECTOR: &str = ".tt";
+const SEARCH_ITEM_SELECTOR: &str = "div.post-title, div.page-item-detail";
+const SEARCH_TITLE_SELECTOR: &str = ".post-title a, div.post-title a";
 const SEARCH_IMAGE_SELECTOR: &str = "img";
-const CHAPTER_SELECTOR: &str = "#chapterlist li";
+const CHAPTER_SELECTOR: &str = "li.wp-manga-chapter, #chapterlist li";
 const CHAPTER_LINK_SELECTOR: &str = "a";
-const PAGE_SELECTOR: &str = ".reading-content img";
+const PAGE_SELECTOR: &str = "div.page-break img, .reading-content img";
 
 pub struct ToonGodSource {
     client: reqwest::Client,
@@ -19,9 +20,60 @@ pub struct ToonGodSource {
 impl ToonGodSource {
     pub fn new() -> Result<Self> {
         let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(30))
+            .connect_timeout(Duration::from_secs(10))
             .build()
             .map_err(|e| ShioriError::Other(format!("Failed to create ToonGod client: {}", e)))?;
         Ok(Self { client })
+    }
+
+    fn detect_cloudflare_block(status: reqwest::StatusCode, html: &str) -> bool {
+        if status == reqwest::StatusCode::FORBIDDEN
+            || status == reqwest::StatusCode::SERVICE_UNAVAILABLE
+        {
+            return true;
+        }
+
+        let lower = html.to_lowercase();
+        lower.contains("cloudflare")
+            || lower.contains("attention required")
+            || lower.contains("cf-browser-verification")
+            || lower.contains("just a moment")
+    }
+
+    fn cloudflare_error(context: &str) -> ShioriError {
+        ShioriError::Other(format!(
+            "ToonGod {} blocked by Cloudflare. Open the site in a browser/VPN and try again later.",
+            context
+        ))
+    }
+
+    fn absolute_url(href: &str) -> String {
+        if href.starts_with("http://") || href.starts_with("https://") {
+            href.to_string()
+        } else {
+            format!("{}{}", BASE_URL, href)
+        }
+    }
+
+    fn extract_chapter_number(text: &str) -> Option<f32> {
+        let mut buf = String::new();
+        let mut started = false;
+
+        for c in text.chars() {
+            if c.is_ascii_digit() || (started && c == '.') {
+                buf.push(c);
+                started = true;
+            } else if started {
+                break;
+            }
+        }
+
+        if buf.is_empty() {
+            None
+        } else {
+            buf.parse::<f32>().ok()
+        }
     }
 }
 
@@ -42,16 +94,27 @@ impl Source for ToonGodSource {
     }
 
     async fn search(&self, query: &str, _page: u32) -> Result<Vec<SearchResult>> {
-        let url = format!("{}/?s={}", BASE_URL, urlencoding::encode(query));
-        let html = self
+        let url = format!(
+            "{}/?s={}&post_type=wp-manga",
+            BASE_URL,
+            urlencoding::encode(query)
+        );
+        let resp = self
             .client
             .get(url)
             .send()
             .await
-            .map_err(|e| ShioriError::Other(format!("ToonGod search request failed: {}", e)))?
+            .map_err(|e| ShioriError::Other(format!("ToonGod search request failed: {}", e)))?;
+
+        let status = resp.status();
+        let html = resp
             .text()
             .await
             .map_err(|e| ShioriError::Other(format!("ToonGod search parse failed: {}", e)))?;
+
+        if Self::detect_cloudflare_block(status, &html) {
+            return Err(Self::cloudflare_error("search"));
+        }
 
         let doc = Html::parse_document(&html);
         let item_sel = Selector::parse(SEARCH_ITEM_SELECTOR)
@@ -63,7 +126,13 @@ impl Source for ToonGodSource {
 
         let mut out = Vec::new();
         for item in doc.select(&item_sel) {
-            let title_el = item.select(&title_sel).next();
+            let title_el = item.select(&title_sel).next().or_else(|| {
+                if item.value().name() == "a" {
+                    Some(item)
+                } else {
+                    None
+                }
+            });
             let title = title_el
                 .as_ref()
                 .map(|e| e.text().collect::<String>().trim().to_string())
@@ -105,18 +174,25 @@ impl Source for ToonGodSource {
         let url = if content_id.starts_with("http") {
             content_id.to_string()
         } else {
-            format!("{}/{}/", BASE_URL, content_id)
+            format!("{}/webtoons/{}/", BASE_URL, content_id)
         };
 
-        let html = self
+        let resp = self
             .client
             .get(url)
             .send()
             .await
-            .map_err(|e| ShioriError::Other(format!("ToonGod chapter request failed: {}", e)))?
+            .map_err(|e| ShioriError::Other(format!("ToonGod chapter request failed: {}", e)))?;
+
+        let status = resp.status();
+        let html = resp
             .text()
             .await
             .map_err(|e| ShioriError::Other(format!("ToonGod chapter parse failed: {}", e)))?;
+
+        if Self::detect_cloudflare_block(status, &html) {
+            return Err(Self::cloudflare_error("chapter list request"));
+        }
 
         let doc = Html::parse_document(&html);
         let item_sel = Selector::parse(CHAPTER_SELECTOR)
@@ -127,21 +203,18 @@ impl Source for ToonGodSource {
         let mut chapters = Vec::new();
         for li in doc.select(&item_sel) {
             if let Some(a) = li.select(&link_sel).next() {
-                let href = a.value().attr("href").map(|s| s.to_string());
-                let id = href
-                    .as_ref()
-                    .and_then(|h| h.trim_end_matches('/').split('/').next_back())
-                    .unwrap_or_default()
-                    .to_string();
+                let href = a.value().attr("href").map(Self::absolute_url);
+                let id = href.unwrap_or_default();
                 if id.is_empty() {
                     continue;
                 }
 
                 let title = a.text().collect::<String>().trim().to_string();
+                let number = Self::extract_chapter_number(&title).unwrap_or(0.0);
                 chapters.push(Chapter {
                     id,
                     title: if title.is_empty() { "Chapter".to_string() } else { title },
-                    number: 0.0,
+                    number,
                     volume: None,
                     uploaded_at: None,
                     source_id: "toongod".to_string(),
@@ -156,18 +229,25 @@ impl Source for ToonGodSource {
         let url = if chapter_id.starts_with("http") {
             chapter_id.to_string()
         } else {
-            format!("{}/{}", BASE_URL, chapter_id)
+            Self::absolute_url(chapter_id)
         };
 
-        let html = self
+        let resp = self
             .client
             .get(url)
             .send()
             .await
-            .map_err(|e| ShioriError::Other(format!("ToonGod pages request failed: {}", e)))?
+            .map_err(|e| ShioriError::Other(format!("ToonGod pages request failed: {}", e)))?;
+
+        let status = resp.status();
+        let html = resp
             .text()
             .await
             .map_err(|e| ShioriError::Other(format!("ToonGod pages parse failed: {}", e)))?;
+
+        if Self::detect_cloudflare_block(status, &html) {
+            return Err(Self::cloudflare_error("pages request"));
+        }
 
         let doc = Html::parse_document(&html);
         let img_sel = Selector::parse(PAGE_SELECTOR)

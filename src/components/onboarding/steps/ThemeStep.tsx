@@ -1,5 +1,6 @@
+import { Check, Layout, Moon, Palette, Sun } from 'lucide-react';
 import type { ThemeName } from '../../../store/onboardingStore';
-import ThemeSwatch from '../components/ThemeSwatch';
+import GlowButton from '../components/GlowButton';
 
 type ThemeStepProps = {
   selectedTheme: ThemeName;
@@ -9,61 +10,160 @@ type ThemeStepProps = {
   onNext: () => void;
 };
 
+const previews: Record<ThemeName, { background: string; text: string; accent: string; surface: string; border: string }> = {
+  White: { background: '#ffffff', surface: '#f4f4f5', text: '#18181b', accent: '#4f46e5', border: '#e4e4e7' },
+  Black: { background: '#09090b', surface: '#18181b', text: '#fafafa', accent: '#6366f1', border: '#27272a' },
+  'Rose Pine Moon': { background: '#232136', surface: '#2a273f', text: '#e0def4', accent: '#c4a7e7', border: '#393552' },
+  'Catppuccin Mocha': { background: '#1e1e2e', surface: '#181825', text: '#cdd6f4', accent: '#cba6f7', border: '#313244' },
+  Nord: { background: '#2e3440', surface: '#3b4252', text: '#eceff4', accent: '#88c0d0', border: '#4c566a' },
+  Dracula: { background: '#282a36', surface: '#44475a', text: '#f8f8f2', accent: '#bd93f9', border: '#6272a4' },
+  'Tokyo Night': { background: '#1a1b26', surface: '#24283b', text: '#c0caf5', accent: '#7aa2f7', border: '#414868' },
+};
+
 export function ThemeStep({ selectedTheme, themes, onSelectTheme, onBack, onNext }: ThemeStepProps) {
-  const previews: Record<ThemeName, { background: string; text: string; accent: string }> = {
-    White: { background: '#ffffff', text: '#111', accent: '#d4d4d4' },
-    Black: { background: '#09090b', text: '#fafafa', accent: '#333' },
-    'Rose Pine Moon': { background: '#232136', text: '#e0def4', accent: '#c4a7e7' },
-    'Catppuccin Mocha': { background: '#1e1e2e', text: '#cdd6f4', accent: '#cba6f7' },
-    Nord: { background: '#2e3440', text: '#eceff4', accent: '#88c0d0' },
-    Dracula: { background: '#282a36', text: '#f8f8f2', accent: '#bd93f9' },
-    'Tokyo Night': { background: '#1a1b26', text: '#c0caf5', accent: '#7aa2f7' },
-  };
+  const isLightTheme = (themeName: ThemeName) => themeName === 'White';
 
   return (
-    <section className="relative w-full overflow-hidden rounded-[2rem] border border-border/50 bg-card/50 p-8 shadow-xl backdrop-blur-xl md:p-12">
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-50" />
-      
-      <div className="relative z-10">
-        <h2 className="text-3xl font-bold tracking-tight md:text-4xl">Make It Yours</h2>
-        <p className="mt-3 text-lg text-muted-foreground">
-          Choose a theme that fits your reading environment.
-        </p>
-
-        <div className="mt-10 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-3">
-          {themes.map((theme, index) => (
-            <div key={theme.name} className={index === 6 ? 'col-span-2 md:col-start-2 md:col-span-1' : ''}>
-              <ThemeSwatch
-                name={theme.name}
-                selected={selectedTheme === theme.name}
-                onSelect={onSelectTheme}
-                preview={previews[theme.name]}
-              />
+    <div className="flex h-full flex-col bg-slate-950">
+      <section className="flex w-full flex-col flex-1 rounded-[2rem] border border-white/5 bg-slate-950 p-6 sm:p-8 md:p-12 shadow-2xl">
+        <div className="flex-1 flex flex-col max-w-5xl mx-auto w-full">
+          <header className="flex flex-col gap-4 mb-8">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.2)]">
+                <Palette size={26} strokeWidth={1.5} />
+              </div>
+              <h2 className="text-3xl font-bold tracking-tight text-white md:text-5xl">Make It Yours</h2>
             </div>
-          ))}
-        </div>
+            <p className="text-lg text-slate-400 max-w-2xl leading-relaxed">
+              Select a premium theme for your reading environment. The interface will instantly adapt to match your aesthetic preference.
+            </p>
+          </header>
 
-        <div className="mt-12 flex items-center justify-between border-t border-border/30 pt-8">
-          <button
-            type="button"
-            onClick={onBack}
-            className="rounded-full px-6 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-muted"
-          >
-            ← Back
-          </button>
-          <button
-            type="button"
-            onClick={onNext}
-            className="group flex items-center gap-2 rounded-full bg-foreground px-8 py-3.5 text-sm font-bold text-background transition-all hover:bg-foreground/90 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          >
-            Continue
-            <svg className="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-            </svg>
-          </button>
+          <div className="flex-1 overflow-y-auto pr-2 pb-4 max-h-[60vh] [scrollbar-gutter:stable] [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-track]:bg-slate-900/50 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 hover:[&::-webkit-scrollbar-thumb]:bg-white/30">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {themes.map((theme) => {
+                const isSelected = selectedTheme === theme.name;
+                const colors = previews[theme.name];
+                
+                return (
+                  <button
+                    key={theme.name}
+                    type="button"
+                    onClick={() => onSelectTheme(theme.name)}
+                    className="group relative w-full text-left outline-none transition-all duration-300 ease-out"
+                    aria-pressed={isSelected}
+                    aria-label={`Select ${theme.name} theme`}
+                  >
+                    <div
+                      className={`relative overflow-hidden rounded-2xl border transition-all duration-300 ${
+                        isSelected
+                          ? 'border-indigo-500 bg-indigo-500/5 shadow-[0_0_30px_-5px_rgba(99,102,241,0.3)] ring-1 ring-indigo-500 scale-[1.02]'
+                          : 'border-white/10 bg-slate-900/40 hover:border-white/20 hover:bg-slate-900/60 hover:scale-[1.01]'
+                      }`}
+                    >
+                      {/* Theme Preview Window */}
+                      <div 
+                        className="relative h-40 w-full overflow-hidden border-b border-black/20 p-4 transition-transform duration-500 group-hover:scale-105" 
+                        style={{ background: colors.background }}
+                      >
+                        {/* Mini UI Layout representation */}
+                        <div className="absolute inset-0 flex flex-col opacity-90">
+                          {/* Header */}
+                          <div className="flex h-8 items-center gap-2 px-3 border-b" style={{ borderColor: colors.border, background: colors.surface }}>
+                            <div className="flex gap-1.5">
+                              <div className="h-2 w-2 rounded-full opacity-40" style={{ background: colors.text }} />
+                              <div className="h-2 w-2 rounded-full opacity-40" style={{ background: colors.text }} />
+                            </div>
+                            <div className="ml-auto h-2 w-12 rounded-full opacity-20" style={{ background: colors.text }} />
+                          </div>
+                          
+                          {/* Body */}
+                          <div className="flex flex-1 p-3 gap-3">
+                            {/* Sidebar */}
+                            <div className="w-12 h-full rounded-md opacity-50 flex flex-col gap-2" style={{ background: colors.surface }}>
+                              <div className="h-2 w-8 mx-auto mt-2 rounded-full" style={{ background: colors.text, opacity: 0.3 }} />
+                              <div className="h-2 w-6 mx-auto rounded-full" style={{ background: colors.text, opacity: 0.2 }} />
+                              <div className="h-2 w-8 mx-auto rounded-full" style={{ background: colors.text, opacity: 0.2 }} />
+                            </div>
+                            
+                            {/* Main Content */}
+                            <div className="flex-1 flex flex-col gap-2">
+                              <div className="flex items-center justify-between">
+                                <div className="h-3 w-20 rounded-md" style={{ background: colors.text, opacity: 0.8 }} />
+                                <div className="h-5 w-5 rounded-md flex items-center justify-center" style={{ background: colors.accent }}>
+                                  <Layout size={10} color={colors.background} />
+                                </div>
+                              </div>
+                              <div className="h-2 w-full rounded-full mt-1" style={{ background: colors.text, opacity: 0.4 }} />
+                              <div className="h-2 w-3/4 rounded-full" style={{ background: colors.text, opacity: 0.3 }} />
+                              <div className="h-2 w-5/6 rounded-full" style={{ background: colors.text, opacity: 0.3 }} />
+                              
+                              <div className="mt-auto flex gap-2">
+                                <div className="h-6 w-16 rounded-md opacity-80" style={{ background: colors.accent }} />
+                                <div className="h-6 w-16 rounded-md opacity-40 border" style={{ borderColor: colors.border, background: colors.surface }} />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Theme Info & Selection State */}
+                      <div className="relative flex items-center justify-between px-5 py-4 bg-slate-950/80 backdrop-blur-sm">
+                        <div className="flex items-center gap-3">
+                          <div 
+                            className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors duration-300 ${
+                              isSelected ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-800 text-slate-400 group-hover:text-slate-300'
+                            }`}
+                          >
+                            {isLightTheme(theme.name) ? <Sun size={16} /> : <Moon size={16} />}
+                          </div>
+                          <span className={`text-base font-medium transition-colors duration-300 ${
+                            isSelected ? 'text-white' : 'text-slate-300 group-hover:text-white'
+                          }`}>
+                            {theme.name}
+                          </span>
+                        </div>
+
+                        <div
+                          className={`flex h-6 w-6 items-center justify-center rounded-full transition-all duration-300 ${
+                            isSelected
+                              ? 'scale-100 bg-indigo-500 text-white shadow-[0_0_10px_rgba(99,102,241,0.5)]'
+                              : 'scale-75 bg-slate-800/50 text-transparent opacity-0 group-hover:scale-100 group-hover:opacity-100'
+                          }`}
+                        >
+                          <Check size={14} strokeWidth={3} />
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-6 flex items-center justify-between border-t border-white/5 pt-6">
+            <GlowButton 
+              theme="dark" 
+              variant="secondary" 
+              onClick={onBack} 
+              icon={<span aria-hidden>←</span>} 
+              className="border border-white/10 bg-slate-900/50 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+            >
+              Back
+            </GlowButton>
+            <GlowButton 
+              theme="dark" 
+              variant="primary" 
+              onClick={onNext} 
+              icon={<span aria-hidden>→</span>}
+              className="bg-indigo-600 hover:bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)]"
+            >
+              Continue
+            </GlowButton>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
   );
 }
 

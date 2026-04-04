@@ -6,6 +6,7 @@ import { WelcomeStep } from './steps/WelcomeStep';
 import { ImportStep } from './steps/ImportStep';
 import { ThemeStep } from './steps/ThemeStep';
 import { PreferencesStep } from './steps/PreferencesStep';
+import { AppSettingsStep } from './steps/AppSettingsStep';
 import { FinishStep } from './steps/FinishStep';
 
 interface OnboardingWizardProps {
@@ -29,7 +30,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     completeOnboarding,
   } = useOnboardingState();
 
-  const [renderedStep, setRenderedStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const [renderedStep, setRenderedStep] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
   const [phase, setPhase] = useState<TransitionPhase>('idle');
   const [isFinishing, setIsFinishing] = useState(false);
   const transitionTimerRef = useRef<number | null>(null);
@@ -72,9 +73,9 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
   if (!isHydrated || isInitializing) {
     return (
-      <div className="min-h-screen w-full bg-background px-4 py-4 md:px-6 md:py-6 lg:px-8 lg:py-8">
-        <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-6xl items-center justify-center rounded-3xl border border-border/60 bg-card/30 p-3 backdrop-blur-sm md:min-h-[calc(100vh-3rem)] md:p-6">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="min-h-screen w-full bg-slate-950 px-4 py-4 text-white md:px-6 md:py-6 lg:px-8 lg:py-8">
+        <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-6xl items-center justify-center rounded-3xl border border-white/5 bg-slate-950 p-3 md:min-h-[calc(100vh-3rem)] md:p-6">
+          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-white/70"></div>
         </div>
       </div>
     );
@@ -100,15 +101,22 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         ? 'translate-x-8 opacity-0'
         : 'translate-x-0 opacity-100';
 
+  // Apply 80% scale only for steps 2-6, keep step 1 at 100%
+  const scaleStyle = state.currentStep === 1 
+    ? {} 
+    : { transform: 'scale(0.8)', transformOrigin: 'top center' };
+
   return (
-    <div className="min-h-screen w-full bg-background px-4 py-4 md:px-6 md:py-6 lg:px-8 lg:py-8">
-      <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-6xl flex-col rounded-3xl border border-border/60 bg-card/30 p-3 backdrop-blur-sm md:min-h-[calc(100vh-3rem)] md:p-6">
-        {state.currentStep > 1 ? <OnboardingProgress currentStep={state.currentStep as 2 | 3 | 4 | 5} /> : null}
+    <div className="min-h-screen w-full bg-slate-950 px-4 py-4 text-white md:px-6 md:py-6 lg:px-8 lg:py-8">
+      <div 
+        className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-6xl flex-col overflow-y-auto rounded-3xl border border-white/5 bg-slate-950 p-3 md:min-h-[calc(100vh-3rem)] md:p-6"
+        style={scaleStyle}
+      >
+        <OnboardingProgress currentStep={state.currentStep as 1 | 2 | 3 | 4 | 5 | 6} />
 
         <div className={`flex-1 transition-all duration-300 ease-out ${transitionClass}`}>
           {renderedStep === 1 ? <WelcomeStep appVersion={appVersion} onStart={nextStep} /> : null}
-          {renderedStep === 2 ? <ImportStep libraryPath={state.libraryPath} onSelectPath={setLibraryPath} onNext={nextStep} /> : null}
-          {renderedStep === 3 ? (
+          {renderedStep === 2 ? (
             <ThemeStep
               selectedTheme={state.selectedTheme}
               themes={THEME_OPTIONS}
@@ -117,6 +125,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               onNext={nextStep}
             />
           ) : null}
+          {renderedStep === 3 ? <ImportStep libraryPath={state.libraryPath} onSelectPath={setLibraryPath} onNext={nextStep} /> : null}
           {renderedStep === 4 ? (
             <PreferencesStep
               mangaPrefs={state.mangaPrefs}
@@ -128,6 +137,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             />
           ) : null}
           {renderedStep === 5 ? (
+            <AppSettingsStep
+              onBack={prevStep}
+              onNext={nextStep}
+            />
+          ) : null}
+          {renderedStep === 6 ? (
             <FinishStep
               libraryPath={state.libraryPath}
               selectedTheme={state.selectedTheme}
@@ -136,6 +151,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               onBack={prevStep}
               onOpenLibrary={handleFinish}
               isFinishing={isFinishing}
+              onFinished={handleFinish}
             />
           ) : null}
         </div>

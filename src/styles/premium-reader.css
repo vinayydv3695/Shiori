@@ -1538,6 +1538,86 @@ select {
   pointer-events: none;
 }
 
+/* ────────────────────────────────────────────────────────────
+   PDF READER ENHANCEMENTS
+   ──────────────────────────────────────────────────────────── */
+.pdf-reading-canvas {
+  overscroll-behavior-y: contain;
+}
+
+.pdf-reading-canvas--scroll {
+  scroll-behavior: smooth;
+}
+
+.pdf-document-shell {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: var(--spacing-lg) 0 var(--spacing-xxl);
+}
+
+.pdf-scroll-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-lg);
+  width: 100%;
+}
+
+.pdf-page-frame {
+  background: var(--bg-elevated);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  width: fit-content;
+  max-width: 100%;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.pdf-reading-canvas--page .pdf-page-frame {
+  margin: 0 auto;
+}
+
+.pdf-page-frame:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-xl);
+}
+
+.pdf-page-surface {
+  transition: opacity var(--transition-fast);
+}
+
+.pdf-page-surface canvas {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  height: auto !important;
+}
+
+.pdf-page-surface .react-pdf__Page__textContent {
+  color: var(--text-primary);
+}
+
+.pdf-page-surface .react-pdf__Page__annotations {
+  color: var(--text-primary);
+}
+
+.pdf-page-placeholder {
+  width: min(100%, 900px);
+  background: linear-gradient(180deg, var(--bg-secondary), var(--bg-elevated));
+}
+
+.pdf-highlight {
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.pdf-highlight:hover {
+  filter: brightness(0.9);
+}
+
 /* Show on hover over reading area */
 .premium-reading-canvas:hover~.premium-nav-arrow {
   opacity: 0.6;

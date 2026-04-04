@@ -8,7 +8,10 @@ use crate::error::Result;
 pub mod annas_archive;
 pub mod mangadex;
 pub mod mangafire;
+pub mod mangasee123;
+pub mod mangakakalot;
 pub mod registry;
+pub mod tcbscans;
 pub mod toongod;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

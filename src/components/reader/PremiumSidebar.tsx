@@ -148,7 +148,7 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
      if (cfiSimpleMatch) return parseInt(cfiSimpleMatch[1], 10);
 
      // Generic chapter formats
-    const chapterMatch = location.match(/(?:^|[^\w])(?:chapter|chapter_|chapter-|html-chapter-|md-chapter-|fb2-chapter-|docx-chapter-)(\d+)/i);
+     const chapterMatch = location.match(/(?:^|[^\w])(?:chapter|chapter_|chapter-|html-chapter-|md-chapter-|fb2-chapter-|docx-chapter-|generic-chapter-|mobi-chapter-|[a-z0-9]+-chapter-)(\d+)/i);
      if (chapterMatch) return parseInt(chapterMatch[1], 10);
 
      // Renderer fallback: "chapter:12"
@@ -216,7 +216,7 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
     }
 
     // Parse "*-chapter-N" formats used by non-EPUB adapters
-    const genericChapterMatch = loc.match(/(?:^|[^\w])[a-z0-9]+-chapter-(\d+)/i);
+    const genericChapterMatch = loc.match(/(?:^|[^\w])(?:generic|mobi|[a-z0-9]+)-chapter-(\d+)/i);
     if (genericChapterMatch) {
       const index = parseInt(genericChapterMatch[1], 10);
       onNavigate(index);
@@ -345,7 +345,7 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
     if (chapterMatch) return `Chapter ${parseInt(chapterMatch[1], 10) + 1}`;
     const chapterColonMatch = loc.match(/^chapter:(\d+)/);
     if (chapterColonMatch) return `Chapter ${parseInt(chapterColonMatch[1], 10) + 1}`;
-    const genericChapterMatch = loc.match(/(?:^|[^\w])[a-z0-9]+-chapter-(\d+)/i);
+    const genericChapterMatch = loc.match(/(?:^|[^\w])(?:generic|mobi|[a-z0-9]+)-chapter-(\d+)/i);
     if (genericChapterMatch) return `Chapter ${parseInt(genericChapterMatch[1], 10) + 1}`;
     const pageMatch = loc.match(/^page-(\d+)/);
     if (pageMatch) return `Page ${pageMatch[1]}`;
@@ -704,7 +704,7 @@ interface TocItemProps {
 }
 
 function TocItem({ entry, onClick, currentIndex }: TocItemProps) {
-  const chapterMatch = entry.location.match(/chapter[_:-]?(\d+)/i);
+  const chapterMatch = entry.location.match(/(?:^|[^\w])(?:chapter[_:-]?|generic-chapter-|mobi-chapter-|[a-z0-9]+-chapter-)(\d+)/i);
   const pageMatch = entry.location.match(/^page[:-](\d+)/i);
   const cfiNestedMatch = entry.location.match(/epubcfi\(\/\d+\/(\d+)\b/i);
   const cfiSimpleMatch = entry.location.match(/epubcfi\(\/(\d+)\b/i);

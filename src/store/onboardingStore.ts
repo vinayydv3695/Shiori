@@ -16,39 +16,90 @@ export type ThemeName =
 
 export interface MangaPrefs {
   readingDirection: 'rtl' | 'ltr';
-  viewMode: 'single' | 'double' | 'scroll';
+  readingMode: 'single' | 'strip' | 'webtoon' | 'manhwa' | 'comic';
+  fitMode: 'width' | 'height' | 'contain';
+  stripMargin: number;
+  progressBarPosition: 'top' | 'bottom' | 'hidden';
+  stickyHeader: boolean;
+  showNavigationTips: boolean;
   autoGroupVolumes: boolean;
+  theme: 'light' | 'dark';
+  imageQuality: 'low' | 'medium' | 'high' | 'original';
+  preloadIntensity: number;
 }
 
 export interface BookPrefs {
+  fontFamily: string;
   fontSize: number;
-  lineSpacing: 'compact' | 'comfortable' | 'relaxed';
-  pageMode: 'paginated' | 'scroll';
+  lineHeight: number;
+  pageWidth: number;
+  scrollMode: 'paged' | 'continuous';
+  textJustification: 'off' | 'on' | 'auto';
+  hyphenation: boolean;
+  animationSpeed: number;
+  paragraphSpacing: number;
+  customCSS: string;
+  theme: 'light' | 'dark' | 'sepia';
+  backgroundColor: string;
+  textColor: string;
+  margin: number;
+  letterSpacing: number;
+  readingWidth: number;
+  brightness: number;
+  textAlignment: 'left' | 'center' | 'right' | 'justify';
+  twoPageView: boolean;
+  pageTransitionEnabled: boolean;
+  pageTransitionStyle: 'slide' | 'fade' | 'curl' | 'none';
+  pageTransitionSpeed: number;
+  paperTextureIntensity: number;
+  uiScale: number;
 }
 
 export interface OnboardingWizardState {
   onboardingComplete: boolean;
-  currentStep: 1 | 2 | 3 | 4 | 5;
+  currentStep: 1 | 2 | 3 | 4 | 5 | 6;
   libraryPath: string | null;
   selectedTheme: ThemeName;
   mangaPrefs: MangaPrefs;
   bookPrefs: BookPrefs;
+  translationLanguage: string;
+  autoTranslate: boolean;
+  cacheSizeMB: number;
+  librarySizeLimit: number;
+  sendAnalytics: boolean;
+  sendCrashReports: boolean;
+  debugLogging: boolean;
+  uiScale: number;
+  enableCloudSync: boolean;
+  enableNotifications: boolean;
   isHydrated: boolean;
   isInitializing: boolean;
 }
 
 interface OnboardingStore extends OnboardingWizardState {
   initialize: () => Promise<void>;
-  setCurrentStep: (step: 1 | 2 | 3 | 4 | 5) => void;
+  setCurrentStep: (step: 1 | 2 | 3 | 4 | 5 | 6) => void;
   nextStep: () => void;
   prevStep: () => void;
   setLibraryPath: (path: string | null) => void;
   setSelectedTheme: (theme: ThemeName) => void;
   setMangaPrefs: (updates: Partial<MangaPrefs>) => void;
   setBookPrefs: (updates: Partial<BookPrefs>) => void;
+  setTranslationLanguage: (translationLanguage: string) => void;
+  setAutoTranslate: (autoTranslate: boolean) => void;
+  setCacheSizeMB: (cacheSizeMB: number) => void;
+  setLibrarySizeLimit: (librarySizeLimit: number) => void;
+  setSendAnalytics: (sendAnalytics: boolean) => void;
+  setSendCrashReports: (sendCrashReports: boolean) => void;
+  setDebugLogging: (debugLogging: boolean) => void;
+  setUiScale: (uiScale: number) => void;
+  setEnableCloudSync: (enableCloudSync: boolean) => void;
+  setEnableNotifications: (enableNotifications: boolean) => void;
   completeOnboarding: () => Promise<void>;
   resetOnboarding: () => void;
 }
+
+const TOTAL_STEPS = 6;
 
 type ThemeOption = { name: ThemeName; value: Theme };
 
@@ -77,27 +128,9 @@ const getDefaultThemeName = (): ThemeName => {
   return 'White';
 };
 
-const mapBookLineHeightToSpacing = (lineHeight: number): BookPrefs['lineSpacing'] => {
-  if (lineHeight >= 1.75) return 'relaxed';
-  if (lineHeight <= 1.45) return 'compact';
-  return 'comfortable';
-};
-
-const mapBookSpacingToLineHeight = (lineSpacing: BookPrefs['lineSpacing']): number => {
-  if (lineSpacing === 'compact') return 1.4;
-  if (lineSpacing === 'relaxed') return 1.8;
-  return 1.6;
-};
-
-const mapMangaModeToViewMode = (mode: string): MangaPrefs['viewMode'] => {
-  if (mode === 'double') return 'double';
-  if (mode === 'webtoon') return 'scroll';
-  return 'single';
-};
-
-const mapViewModeToMangaMode = (viewMode: MangaPrefs['viewMode']): 'single' | 'double' | 'webtoon' => {
-  if (viewMode === 'double') return 'double';
-  if (viewMode === 'scroll') return 'webtoon';
+const mapMangaMode = (mode: string): MangaPrefs['readingMode'] => {
+  if (mode === 'webtoon' || mode === 'manhwa' || mode === 'comic' || mode === 'single') return mode;
+  if (mode === 'long-strip') return 'strip';
   return 'single';
 };
 
@@ -108,14 +141,53 @@ const createDefaultState = (): OnboardingWizardState => ({
   selectedTheme: getDefaultThemeName(),
   mangaPrefs: {
     readingDirection: 'rtl',
-    viewMode: 'single',
+    readingMode: 'single',
+    fitMode: 'width',
+    stripMargin: 0,
+    progressBarPosition: 'bottom',
+    stickyHeader: true,
+    showNavigationTips: true,
     autoGroupVolumes: true,
+    theme: 'dark',
+    imageQuality: 'high',
+    preloadIntensity: 3,
   },
   bookPrefs: {
+    fontFamily: 'Georgia, serif',
     fontSize: 18,
-    lineSpacing: 'comfortable',
-    pageMode: 'paginated',
+    lineHeight: 1.6,
+    pageWidth: 720,
+    scrollMode: 'paged',
+    textJustification: 'off',
+    hyphenation: false,
+    animationSpeed: 250,
+    paragraphSpacing: 1,
+    customCSS: '',
+    theme: 'light',
+    backgroundColor: '#ffffff',
+    textColor: '#111111',
+    margin: 24,
+    letterSpacing: 0,
+    readingWidth: 720,
+    brightness: 1,
+    textAlignment: 'left',
+    twoPageView: false,
+    pageTransitionEnabled: true,
+    pageTransitionStyle: 'slide',
+    pageTransitionSpeed: 250,
+    paperTextureIntensity: 0,
+    uiScale: 1,
   },
+  translationLanguage: 'en',
+  autoTranslate: false,
+  cacheSizeMB: 500,
+  librarySizeLimit: 10000,
+  sendAnalytics: false,
+  sendCrashReports: false,
+  debugLogging: false,
+  uiScale: 80,
+  enableCloudSync: false,
+  enableNotifications: true,
   isHydrated: false,
   isInitializing: false,
 });
@@ -135,7 +207,12 @@ const pushMangaPrefs = async (prefs: MangaPrefs): Promise<void> => {
   await Promise.all([
     usePreferencesStore.getState().updateMangaDefaults({
       direction: prefs.readingDirection,
-      mode: mapViewModeToMangaMode(prefs.viewMode),
+      mode: prefs.readingMode === 'strip' ? 'long-strip' : prefs.readingMode,
+      marginSize: prefs.stripMargin,
+      fitWidth: prefs.fitMode === 'width',
+      progressBar: prefs.progressBarPosition,
+      imageSmoothing: prefs.imageQuality !== 'low',
+      preloadCount: prefs.preloadIntensity,
     }),
     usePreferencesStore.getState().updateGeneralSettings({
       autoGroupManga: prefs.autoGroupVolumes,
@@ -145,9 +222,16 @@ const pushMangaPrefs = async (prefs: MangaPrefs): Promise<void> => {
 
 const pushBookPrefs = async (prefs: BookPrefs): Promise<void> => {
   await usePreferencesStore.getState().updateBookDefaults({
+    fontFamily: prefs.fontFamily,
     fontSize: prefs.fontSize,
-    lineHeight: mapBookSpacingToLineHeight(prefs.lineSpacing),
-    scrollMode: prefs.pageMode === 'scroll' ? 'continuous' : 'paged',
+    lineHeight: prefs.lineHeight,
+    pageWidth: prefs.pageWidth,
+    scrollMode: prefs.scrollMode,
+    justification: prefs.textJustification === 'on' ? 'justify' : 'left',
+    paragraphSpacing: prefs.paragraphSpacing,
+    animationSpeed: prefs.animationSpeed,
+    hyphenation: prefs.hyphenation,
+    customCSS: prefs.customCSS,
   });
 };
 
@@ -174,19 +258,48 @@ export const useOnboardingStore = create<OnboardingStore>()(
                 libraryPath: preferences.defaultImportPath ?? preferences.defaultMangaPath ?? state.libraryPath ?? null,
                 mangaPrefs: {
                   readingDirection: preferences.manga.direction,
-                  viewMode: mapMangaModeToViewMode(preferences.manga.mode),
+                  readingMode: mapMangaMode(preferences.manga.mode),
+                  fitMode: preferences.manga.fitWidth ? 'width' : 'contain',
+                  stripMargin: preferences.manga.marginSize,
+                  progressBarPosition: preferences.manga.progressBar,
+                  stickyHeader: true,
+                  showNavigationTips: preferences.autoGroupManga,
                   autoGroupVolumes: preferences.autoGroupManga,
+                  theme: preferences.theme === 'black' || preferences.theme === 'dark' ? 'dark' : 'light',
+                  imageQuality: preferences.manga.imageSmoothing ? 'high' : 'low',
+                  preloadIntensity: preferences.manga.preloadCount,
                 },
                 bookPrefs: {
+                  fontFamily: preferences.book.fontFamily,
                   fontSize: preferences.book.fontSize,
-                  lineSpacing: mapBookLineHeightToSpacing(preferences.book.lineHeight),
-                  pageMode: preferences.book.scrollMode === 'continuous' ? 'scroll' : 'paginated',
+                  lineHeight: preferences.book.lineHeight,
+                  pageWidth: preferences.book.pageWidth,
+                  scrollMode: preferences.book.scrollMode,
+                  textJustification: preferences.book.justification === 'justify' ? 'on' : 'off',
+                  hyphenation: preferences.book.hyphenation,
+                  animationSpeed: preferences.book.animationSpeed,
+                  paragraphSpacing: preferences.book.paragraphSpacing,
+                  customCSS: preferences.book.customCSS,
+                  theme: preferences.theme === 'black' || preferences.theme === 'dark' ? 'dark' : 'light',
+                  backgroundColor: '#ffffff',
+                  textColor: '#111111',
+                  margin: 24,
+                  letterSpacing: 0,
+                  readingWidth: preferences.book.pageWidth,
+                  brightness: 1,
+                  textAlignment: 'left',
+                  twoPageView: false,
+                  pageTransitionEnabled: true,
+                  pageTransitionStyle: 'slide',
+                  pageTransitionSpeed: preferences.book.animationSpeed,
+                  paperTextureIntensity: 0,
+                  uiScale: preferences.uiScale ?? 1,
                 },
                 onboardingComplete: true,
-                currentStep: 5,
+                currentStep: TOTAL_STEPS,
               }));
             } else {
-              set({ onboardingComplete: true, currentStep: 5 });
+              set({ onboardingComplete: true, currentStep: TOTAL_STEPS });
             }
           } else {
             if (preferences) {
@@ -209,10 +322,10 @@ export const useOnboardingStore = create<OnboardingStore>()(
       setCurrentStep: (step) => set({ currentStep: step }),
 
       nextStep: () =>
-        set((state) => ({ currentStep: Math.min(5, state.currentStep + 1) as 1 | 2 | 3 | 4 | 5 })),
+        set((state) => ({ currentStep: Math.min(TOTAL_STEPS, state.currentStep + 1) as 1 | 2 | 3 | 4 | 5 | 6 })),
 
       prevStep: () =>
-        set((state) => ({ currentStep: Math.max(1, state.currentStep - 1) as 1 | 2 | 3 | 4 | 5 })),
+        set((state) => ({ currentStep: Math.max(1, state.currentStep - 1) as 1 | 2 | 3 | 4 | 5 | 6 })),
 
       setLibraryPath: (path) => {
         set({ libraryPath: path });
@@ -244,6 +357,26 @@ export const useOnboardingStore = create<OnboardingStore>()(
         });
       },
 
+      setTranslationLanguage: (translationLanguage) => set({ translationLanguage }),
+
+      setAutoTranslate: (autoTranslate) => set({ autoTranslate }),
+
+      setCacheSizeMB: (cacheSizeMB) => set({ cacheSizeMB }),
+
+      setLibrarySizeLimit: (librarySizeLimit) => set({ librarySizeLimit }),
+
+      setSendAnalytics: (sendAnalytics) => set({ sendAnalytics }),
+
+      setSendCrashReports: (sendCrashReports) => set({ sendCrashReports }),
+
+      setDebugLogging: (debugLogging) => set({ debugLogging }),
+
+      setUiScale: (uiScale) => set({ uiScale }),
+
+      setEnableCloudSync: (enableCloudSync) => set({ enableCloudSync }),
+
+      setEnableNotifications: (enableNotifications) => set({ enableNotifications }),
+
       completeOnboarding: async () => {
         const state = get();
 
@@ -253,7 +386,7 @@ export const useOnboardingStore = create<OnboardingStore>()(
         await pushBookPrefs(state.bookPrefs);
 
         await api.completeOnboarding([]);
-        set({ onboardingComplete: true, currentStep: 5 });
+        set({ onboardingComplete: true, currentStep: TOTAL_STEPS });
       },
 
       resetOnboarding: () => {
@@ -269,6 +402,16 @@ export const useOnboardingStore = create<OnboardingStore>()(
         selectedTheme: state.selectedTheme,
         mangaPrefs: state.mangaPrefs,
         bookPrefs: state.bookPrefs,
+        translationLanguage: state.translationLanguage,
+        autoTranslate: state.autoTranslate,
+        cacheSizeMB: state.cacheSizeMB,
+        librarySizeLimit: state.librarySizeLimit,
+        sendAnalytics: state.sendAnalytics,
+        sendCrashReports: state.sendCrashReports,
+        debugLogging: state.debugLogging,
+        uiScale: state.uiScale,
+        enableCloudSync: state.enableCloudSync,
+        enableNotifications: state.enableNotifications,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {

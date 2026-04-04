@@ -1,15 +1,17 @@
 use reqwest::header::{HeaderMap, HeaderValue, REFERER, USER_AGENT};
 use scraper::{Html, Selector};
+use serde::Deserialize;
 use std::collections::HashMap;
+use std::time::Duration;
 
 use crate::error::{Result, ShioriError};
 use crate::sources::{Chapter, ContentType, Page, SearchResult, Source, SourceMeta};
 
 const BASE_URL: &str = "https://mangafire.to";
-const SEARCH_SELECTOR: &str = ".manga-list .unit";
-const TITLE_SELECTOR: &str = ".info .title";
-const IMAGE_SELECTOR: &str = "img";
-const CHAPTER_SELECTOR: &str = "li[data-id]";
+const SEARCH_SELECTOR: &str = ".original.card-lg .unit .inner";
+const TITLE_SELECTOR: &str = ".info > a";
+const IMAGE_SELECTOR: &str = ".poster img";
+const CHAPTER_SELECTOR: &str = "li.item[data-number]";
 const PAGE_SELECTOR: &str = ".page-img img, .chapter-imgs img";
 
 const USER_AGENTS: [&str; 3] = [
@@ -22,9 +24,16 @@ pub struct MangaFireSource {
     client: reqwest::Client,
 }
 
+#[derive(Debug, Deserialize)]
+struct AjaxHtmlResponse {
+    result: String,
+}
+
 impl MangaFireSource {
     pub fn new() -> Result<Self> {
         let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(30))
+            .connect_timeout(Duration::from_secs(10))
             .build()
             .map_err(|e| ShioriError::Other(format!("Failed to create MangaFire client: {}", e)))?;
         Ok(Self { client })
@@ -32,19 +41,46 @@ impl MangaFireSource {
 
     async fn get_with_ua_retry(&self, url: &str) -> Result<String> {
         let first = self.get_with_ua(url, 0).await?;
-        if first.0 != reqwest::StatusCode::FORBIDDEN {
+        if first.0 != reqwest::StatusCode::FORBIDDEN && !Self::is_cloudflare_challenge(&first.1) {
             return Ok(first.1);
         }
 
         let second = self.get_with_ua(url, 1).await?;
-        if second.0 == reqwest::StatusCode::FORBIDDEN {
-            // TODO: implement full CF bypass with cookie jar if 403s persist
+        if second.0 == reqwest::StatusCode::FORBIDDEN || Self::is_cloudflare_challenge(&second.1) {
             return Err(ShioriError::Other(
-                "MangaFire blocked by Cloudflare — try again later".to_string(),
+                "MangaFire request was blocked by Cloudflare challenge. Please retry later or use a browser-backed source session."
+                    .to_string(),
             ));
         }
 
         Ok(second.1)
+    }
+
+    fn is_cloudflare_challenge(body: &str) -> bool {
+        let lower = body.to_ascii_lowercase();
+        lower.contains("cloudflare")
+            && (lower.contains("challenge")
+                || lower.contains("checking your browser")
+                || lower.contains("cf-chl")
+                || lower.contains("cf-browser-verification"))
+    }
+
+    fn to_absolute_url(path_or_url: &str) -> String {
+        if path_or_url.starts_with("http") {
+            path_or_url.to_string()
+        } else {
+            format!("{}{}", BASE_URL, path_or_url)
+        }
+    }
+
+    fn extract_hid_from_content_id(content_id: &str) -> Option<String> {
+        let slug = content_id
+            .trim_end_matches('/')
+            .split('/')
+            .next_back()
+            .unwrap_or(content_id);
+
+        slug.rsplit_once('.').map(|(_, hid)| hid.to_string())
     }
 
     async fn get_with_ua(&self, url: &str, ua_index: usize) -> Result<(reqwest::StatusCode, String)> {
@@ -116,13 +152,7 @@ impl Source for MangaFireSource {
 
             let href = title_el
                 .and_then(|e| e.value().attr("href"))
-                .map(|h| {
-                    if h.starts_with("http") {
-                        h.to_string()
-                    } else {
-                        format!("{}{}", BASE_URL, h)
-                    }
-                });
+                .map(Self::to_absolute_url);
 
             let id = href
                 .as_ref()
@@ -138,13 +168,7 @@ impl Source for MangaFireSource {
                 .select(&image_sel)
                 .next()
                 .and_then(|img| img.value().attr("src").or_else(|| img.value().attr("data-src")))
-                .map(|src| {
-                    if src.starts_with("http") {
-                        src.to_string()
-                    } else {
-                        format!("{}{}", BASE_URL, src)
-                    }
-                });
+                .map(Self::to_absolute_url);
 
             results.push(SearchResult {
                 id,
@@ -160,28 +184,51 @@ impl Source for MangaFireSource {
     }
 
     async fn get_chapters(&self, content_id: &str) -> Result<Vec<Chapter>> {
-        let page_url = if content_id.starts_with("http") {
-            content_id.to_string()
-        } else {
-            format!("{}/manga/{}", BASE_URL, content_id)
-        };
+        let hid = Self::extract_hid_from_content_id(content_id).ok_or_else(|| {
+            ShioriError::Other(format!(
+                "Unable to extract MangaFire hid from content id '{}'. Expected slug like 'one-piecee.dkw'.",
+                content_id
+            ))
+        })?;
 
-        let html = self.get_with_ua_retry(&page_url).await?;
-        let doc = Html::parse_document(&html);
+        let chapter_url = format!("{}/ajax/manga/{}/chapter/en", BASE_URL, hid);
+        let raw = self.get_with_ua_retry(&chapter_url).await?;
+        let ajax: AjaxHtmlResponse = serde_json::from_str(&raw).map_err(|e| {
+            ShioriError::Other(format!(
+                "Failed to parse MangaFire chapter AJAX response for hid '{}': {}",
+                hid, e
+            ))
+        })?;
+
+        let doc = Html::parse_fragment(&ajax.result);
         let ch_sel = Selector::parse(CHAPTER_SELECTOR)
+            .map_err(|e| ShioriError::Other(format!("Selector error: {}", e)))?;
+        let a_sel = Selector::parse("a")
             .map_err(|e| ShioriError::Other(format!("Selector error: {}", e)))?;
 
         let mut chapters = Vec::new();
         for item in doc.select(&ch_sel) {
-            let id = item.value().attr("data-id").unwrap_or_default().to_string();
+            let id = item
+                .select(&a_sel)
+                .next()
+                .and_then(|a| a.value().attr("href"))
+                .map(Self::to_absolute_url)
+                .unwrap_or_default();
             if id.is_empty() {
                 continue;
             }
+
             let title = item.text().collect::<String>().trim().to_string();
+            let number = item
+                .value()
+                .attr("data-number")
+                .and_then(|n| n.parse::<f32>().ok())
+                .unwrap_or(0.0);
+
             chapters.push(Chapter {
                 id,
                 title: if title.is_empty() { "Chapter".to_string() } else { title },
-                number: 0.0,
+                number,
                 volume: None,
                 uploaded_at: None,
                 source_id: "mangafire".to_string(),
@@ -198,12 +245,16 @@ impl Source for MangaFireSource {
             format!("{}/read/{}", BASE_URL, chapter_id)
         };
 
+        // MangaFire's reader usually loads page images via AJAX endpoints protected by
+        // dynamic vrf tokens. A complete implementation needs browser/webview-backed
+        // execution to derive those tokens. As a fallback, we still try extracting any
+        // images already present in the initial HTML.
         let html = self.get_with_ua_retry(&page_url).await?;
         let doc = Html::parse_document(&html);
         let img_sel = Selector::parse(PAGE_SELECTOR)
             .map_err(|e| ShioriError::Other(format!("Selector error: {}", e)))?;
 
-        Ok(doc
+        let pages: Vec<Page> = doc
             .select(&img_sel)
             .enumerate()
             .filter_map(|(idx, img)| {
@@ -212,9 +263,18 @@ impl Source for MangaFireSource {
                     .or_else(|| img.value().attr("data-src"))
                     .map(|url| Page {
                         index: idx as u32,
-                        url: url.to_string(),
+                        url: Self::to_absolute_url(url),
                     })
             })
-            .collect())
+            .collect();
+
+        if pages.is_empty() {
+            return Err(ShioriError::Other(format!(
+                "Could not extract any manga pages from '{}'. MangaFire likely served an AJAX-only reader requiring vrf token flow.",
+                page_url
+            )));
+        }
+
+        Ok(pages)
     }
 }

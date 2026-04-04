@@ -17,6 +17,7 @@ import { sanitizeBookContent } from '@/lib/sanitize';
 import { applyHighlightsToDOM } from '@/lib/highlightAnnotations';
 import { useToastStore } from '@/store/toastStore';
 import { ReaderTopBar } from './ReaderTopBar';
+import type { ReaderContent } from './readerContent';
 import '@/styles/premium-reader.css';
 import '@/styles/themes/paper-theme.css';
 import '@/styles/page-flip.css';
@@ -24,6 +25,7 @@ import '@/styles/page-flip.css';
 interface PremiumEpubReaderProps {
   bookPath: string;
   bookId: number;
+  readerContent?: ReaderContent | null;
   onClose: () => void;
 }
 
@@ -185,7 +187,7 @@ function highlightSearchTerm(html: string, searchTerm: string): string {
   return doc.documentElement.outerHTML;
 }
 
-export function PremiumEpubReader({ bookPath, bookId, onClose }: PremiumEpubReaderProps) {
+export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: PremiumEpubReaderProps) {
   // State management
   const isFocusMode = useUIStore(state => state.isFocusMode);
   const isTopBarShortcutOnly = useUIStore(state => state.isTopBarShortcutOnly);
@@ -789,8 +791,8 @@ export function PremiumEpubReader({ bookPath, bookId, onClose }: PremiumEpubRead
           <p className="premium-loading-text">
             {isLoading && currentChapter ? 'Loading chapter...' : 'Loading book...'}
           </p>
-          {metadata && (
-            <p className="premium-loading-subtitle">{metadata.title}</p>
+          {(metadata || readerContent) && (
+            <p className="premium-loading-subtitle">{metadata?.title ?? readerContent?.title}</p>
           )}
         </div>
       </div>
@@ -806,7 +808,7 @@ export function PremiumEpubReader({ bookPath, bookId, onClose }: PremiumEpubRead
       {/* Auto-hide Top Bar */}
       <ReaderTopBar
         bookId={bookId}
-        title={metadata?.title || 'Loading...'}
+        title={metadata?.title || readerContent?.title || 'Loading...'}
         subtitle={currentChapter.title}
         progress={progressPercentage}
         format="epub"

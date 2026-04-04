@@ -1,10 +1,17 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { api } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
 import type { BookMetadata, Annotation } from '@/lib/tauri';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Loader2, AlertCircle } from '@/components/icons';
-import { useUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement } from '@/store/premiumReaderStore';
+import {
+  useUIStore,
+  useReadingSettings,
+  applyReaderThemeToElement,
+  removeReaderThemeFromElement,
+  BG_COLOR_PRESETS,
+  TEXT_COLOR_PRESETS,
+} from '@/store/premiumReaderStore';
 import { useDoodleStore } from '@/store/doodleStore';
 import { useToastStore } from '@/store/toastStore';
 import { ReaderTopBar } from './ReaderTopBar';
@@ -15,25 +22,30 @@ import { TextSelectionToolbar } from './TextSelectionToolbar';
 import { TTSControlBar } from './TTSControlBar';
 import { useReadingSession } from '@/hooks/useReadingSession';
 import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
+import type { ReaderContent } from './readerContent';
 import '@/styles/premium-reader.css';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
-// Set up the worker for pdf.js to use the local worker script compatible with the version
-// We use Vite's ?url syntax to properly bundle the worker file for offline Tauri support
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 interface PdfReaderProps {
   bookPath: string;
   bookId: number;
+  readerContent?: ReaderContent | null;
   onClose: () => void;
 }
 
+type SidebarNavigateHandler = (chapterIndex: number, searchTerm?: string | null) => void;
+
+type PdfViewMode = 'page' | 'scroll';
+type PdfZoomMode = 'manual' | 'fit-width' | 'fit-page';
+const SCROLL_RENDER_WINDOW_RADIUS = 3;
+
 const normalizeBookPath = (inputPath: string): string => {
   let normalized = inputPath;
-
   if (normalized.startsWith('file://')) {
     try {
       normalized = decodeURIComponent(new URL(normalized).pathname);
@@ -41,8 +53,6 @@ const normalizeBookPath = (inputPath: string): string => {
       // keep original path if URL parsing fails
     }
   }
-
-  // Handle accidentally URL-encoded absolute paths (e.g. %2Fhome%2Fuser%2F...)
   if (/^%2F/i.test(normalized) || normalized.includes('%2F')) {
     try {
       normalized = decodeURIComponent(normalized);
@@ -50,15 +60,61 @@ const normalizeBookPath = (inputPath: string): string => {
       // keep original path if decoding fails
     }
   }
-
   return normalized;
 };
 
-export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
+const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
+
+const PDF_PROGRESS_PREFIX = 'pdf-progress-v2';
+
+interface PdfProgressState {
+  page: number;
+  scale: number;
+  viewMode: PdfViewMode;
+  zoomMode: PdfZoomMode;
+}
+
+const parsePdfProgress = (location: string): PdfProgressState | null => {
+  if (!location) return null;
+
+  if (location.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(location) as Partial<PdfProgressState>;
+      if (typeof parsed.page !== 'number' || typeof parsed.scale !== 'number') return null;
+      return {
+        page: parsed.page,
+        scale: parsed.scale,
+        viewMode: parsed.viewMode === 'scroll' ? 'scroll' : 'page',
+        zoomMode: parsed.zoomMode === 'fit-width' || parsed.zoomMode === 'fit-page' ? parsed.zoomMode : 'manual',
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  if (!location.startsWith(`${PDF_PROGRESS_PREFIX}|`)) return null;
+  const payload = location.slice(PDF_PROGRESS_PREFIX.length + 1);
+  const parts = payload.split('|');
+  if (parts.length !== 4) return null;
+  const [pageRaw, scaleRaw, viewRaw, zoomRaw] = parts;
+  const page = parseInt(pageRaw, 10);
+  const scale = parseFloat(scaleRaw);
+  const viewMode: PdfViewMode = viewRaw === 'scroll' ? 'scroll' : 'page';
+  const zoomMode: PdfZoomMode = zoomRaw === 'fit-width' || zoomRaw === 'fit-page' ? zoomRaw : 'manual';
+  if (Number.isNaN(page) || page < 1 || Number.isNaN(scale)) return null;
+  return { page, scale, viewMode, zoomMode };
+};
+
+const encodePdfProgress = (state: PdfProgressState): string =>
+  `${PDF_PROGRESS_PREFIX}|${state.page}|${state.scale.toFixed(4)}|${state.viewMode}|${state.zoomMode}`;
+
+export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReaderProps) {
   const isFocusMode = useUIStore(state => state.isFocusMode);
   const isTopBarShortcutOnly = useUIStore(state => state.isTopBarShortcutOnly);
   const setTopBarVisible = useUIStore(state => state.setTopBarVisible);
-  const { theme } = useReadingSettings();
+  const pendingAnnotationId = useUIStore(state => state.pendingAnnotationId);
+  const setPendingAnnotationId = useUIStore(state => state.setPendingAnnotationId);
+  const { theme, width, margin, brightness, backgroundColor, textColor } = useReadingSettings();
 
   const isDoodleMode = useDoodleStore(state => state.isDoodleMode);
   const toggleDoodleMode = useDoodleStore(state => state.toggleDoodleMode);
@@ -70,309 +126,385 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState(1);
   const [scale, setScale] = useState<number>(1.0);
+  const [zoomMode, setZoomMode] = useState<PdfZoomMode>('fit-width');
+  const [viewMode, setViewMode] = useState<PdfViewMode>('page');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string>('');
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [docBaseWidth, setDocBaseWidth] = useState<number>(0);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const readerContainerRef = useRef<HTMLDivElement>(null);
+  const pageWrapperRef = useRef<HTMLDivElement>(null);
   const autoHideTimerRef = useRef<number | null>(null);
-  const pageCache = useRef<Map<number, ImageBitmap>>(new Map());
-  const MAX_CACHE_SIZE = 5;
+  const isProgrammaticScrollRef = useRef(false);
+  const programmaticScrollTimerRef = useRef<number | null>(null);
 
-  // ────────────────────────────────────────────────────────────
-  // READER THEME — scoped to this container, not global <html>
-  // ────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const el = readerContainerRef.current;
-    if (el) applyReaderThemeToElement(el, theme);
-    return () => { if (el) removeReaderThemeFromElement(el); };
-  }, [theme]);
-
-  // ────────────────────────────────────────────────────────────
-  // AUTO-HIDE TOP BAR LOGIC
-  // ────────────────────────────────────────────────────────────
-  const resetAutoHideTimer = useCallback(() => {
-    if (isTopBarShortcutOnly) {
-      return;
+  const widthFactor = useMemo(() => {
+    switch (width) {
+      case 'narrow':
+        return 0.58;
+      case 'medium':
+        return 0.68;
+      case 'wide':
+        return 0.78;
+      default:
+        return 0.92;
     }
+  }, [width]);
+
+  const resolvedBackgroundColor = useMemo(() => {
+    if (backgroundColor === 'default') return 'var(--bg-primary)';
+    const preset = BG_COLOR_PRESETS.find((p) => p.id === backgroundColor);
+    return preset?.color ?? backgroundColor;
+  }, [backgroundColor]);
+
+  const resolvedTextColor = useMemo(() => {
+    if (textColor === 'default') return 'var(--text-primary)';
+    const preset = TEXT_COLOR_PRESETS.find((p) => p.id === textColor);
+    return preset?.color ?? textColor;
+  }, [textColor]);
+
+  const resetAutoHideTimer = useCallback(() => {
+    if (isTopBarShortcutOnly) return;
     if (!isFocusMode) {
       setTopBarVisible(true);
       if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
       autoHideTimerRef.current = window.setTimeout(() => setTopBarVisible(false), 3000);
     }
-  }, [isFocusMode, setTopBarVisible, isTopBarShortcutOnly]);
+  }, [isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
+
+  useEffect(() => {
+    const el = readerContainerRef.current;
+    if (el) applyReaderThemeToElement(el, theme);
+    return () => {
+      if (el) removeReaderThemeFromElement(el);
+    };
+  }, [theme]);
 
   useEffect(() => {
     let throttleTimeout: number | null = null;
     const handleMouseMove = () => {
       if (!throttleTimeout) {
         resetAutoHideTimer();
-        throttleTimeout = window.setTimeout(() => { throttleTimeout = null; }, 100);
+        throttleTimeout = window.setTimeout(() => {
+          throttleTimeout = null;
+        }, 100);
       }
     };
+    const handleTouch = () => resetAutoHideTimer();
     document.addEventListener('mousemove', handleMouseMove, { passive: true });
+    document.addEventListener('touchstart', handleTouch, { passive: true });
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('touchstart', handleTouch);
       if (throttleTimeout) clearTimeout(throttleTimeout);
       if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
     };
-  }, [isFocusMode, setTopBarVisible, resetAutoHideTimer]);
+  }, [resetAutoHideTimer]);
 
   useEffect(() => {
     if (isFocusMode) {
       setTopBarVisible(false);
       if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
+    } else if (isTopBarShortcutOnly) {
+      setTopBarVisible(false);
     } else {
-      if (isTopBarShortcutOnly) {
-        setTopBarVisible(false);
-      } else {
-        setTopBarVisible(true);
-        resetAutoHideTimer();
-      }
+      setTopBarVisible(true);
+      resetAutoHideTimer();
     }
-  }, [isFocusMode, setTopBarVisible, resetAutoHideTimer, isTopBarShortcutOnly]);
+  }, [isFocusMode, isTopBarShortcutOnly, resetAutoHideTimer, setTopBarVisible]);
 
-  const loadBook = async () => {
+  const getViewportMetrics = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) {
+      return { widthPx: 900, heightPx: 1100 };
+    }
+    const horizontalPadding = 96 + margin * 2;
+    const verticalPadding = 120;
+    return {
+      widthPx: Math.max(320, Math.floor(container.clientWidth * widthFactor - horizontalPadding)),
+      heightPx: Math.max(420, Math.floor(container.clientHeight - verticalPadding)),
+    };
+  }, [margin, widthFactor]);
+
+  const computeAutoScale = useCallback((mode: Exclude<PdfZoomMode, 'manual'>): number => {
+    if (!docBaseWidth || !containerRef.current) {
+      return scale;
+    }
+    const { widthPx, heightPx } = getViewportMetrics();
+    if (mode === 'fit-width') {
+      return clamp(widthPx / docBaseWidth, 0.5, 3);
+    }
+    const fitWidth = widthPx / docBaseWidth;
+    const approxDocHeight = docBaseWidth * Math.sqrt(2);
+    const fitHeight = heightPx / approxDocHeight;
+    return clamp(Math.min(fitWidth, fitHeight), 0.5, 3);
+  }, [docBaseWidth, getViewportMetrics, scale]);
+
+  const persistProgress = useCallback(async (nextPage: number, nextScale: number, nextViewMode: PdfViewMode, nextZoomMode: PdfZoomMode) => {
+    if (numPages <= 0) return;
+    const progressPercent = (nextPage / numPages) * 100;
     try {
-       setIsLoading(true);
-       setError(null);
+      await api.saveReadingProgress(
+        bookId,
+        encodePdfProgress({
+          page: nextPage,
+          scale: nextScale,
+          viewMode: nextViewMode,
+          zoomMode: nextZoomMode,
+        }),
+        progressPercent,
+        nextPage,
+        numPages
+      );
+    } catch (err) {
+      logger.error('[PdfReader] Failed saving progress:', err);
+    }
+  }, [bookId, numPages]);
 
-       logger.debug('[PdfReader] Opening book:', bookId, bookPath);
+  const applyPDFHighlights = useCallback(() => {
+    const root = containerRef.current;
+    if (!root) return;
+    const textLayers = root.querySelectorAll('.react-pdf__Page__textContent');
+    if (textLayers.length === 0) return;
 
-       // Still open in backend to maintain standard reader tracking and metadata
-       const bookMetadata = await api.openBookRenderer(bookId, bookPath, 'pdf');
-       setMetadata(bookMetadata);
+    textLayers.forEach((layer) => {
+      const marks = layer.querySelectorAll('mark.pdf-highlight');
+      marks.forEach((mark) => {
+        const parent = mark.parentNode;
+        if (!parent) return;
+        const textNode = document.createTextNode(mark.textContent || '');
+        parent.replaceChild(textNode, mark);
+        parent.normalize();
+      });
+    });
 
-       // Load file via Tauri's asset protocol for frontend rendering component
-       const normalizedPath = normalizeBookPath(bookPath);
-       const assetUrl = convertFileSrc(normalizedPath);
-       logger.debug('[PdfReader] Normalized PDF path:', normalizedPath);
-       logger.debug('[PdfReader] Asset URL generated:', assetUrl);
-       setPdfUrl(assetUrl);
+    const targetAnnotations = annotations.filter(
+      (a) => (a.annotationType === 'highlight' || a.annotationType === 'note') && a.selectedText && a.selectedText.trim().length > 0
+    );
 
-       // Load annotations for this book
-       try {
-         const bookAnnotations = await api.getAnnotations(bookId);
-         setAnnotations(bookAnnotations);
-         logger.debug('[PdfReader] Loaded annotations:', bookAnnotations.length);
-       } catch (err) {
-         logger.error('[PdfReader] Failed to load annotations:', err);
-       }
+    if (targetAnnotations.length === 0) return;
 
-       // Load saved progress from database (persisted across restarts)
-       try {
-         const savedProgress = await api.getReadingProgress(bookId);
-         if (savedProgress?.currentLocation) {
-           const match = savedProgress.currentLocation.match(/page-(\d+)/);
-           if (match) {
-             const savedPage = parseInt(match[1], 10);
-             if (!isNaN(savedPage) && savedPage >= 1) {
-               setPageNumber(savedPage);
-               if (savedPage > 1) {
-                 useToastStore.getState().addToast({
-                   title: 'Resuming reading',
-                   description: `Page ${savedPage}`,
-                   variant: 'info',
-                   duration: 3000,
-                 });
-               }
-             }
-           }
-         }
-       } catch {
-         // Silently ignore - start from page 1
-       }
-     } catch (err) {
-       logger.error('[PdfReader] Error initializing PDF:', err);
+    textLayers.forEach((layer) => {
+      const layerPage = Number((layer.closest('[data-page-number]') as HTMLElement | null)?.dataset.pageNumber);
+      const effectivePage = Number.isNaN(layerPage) ? pageNumber : layerPage;
+      const pageAnnotations = targetAnnotations.filter((a) => a.location === `page-${effectivePage}`);
+      if (pageAnnotations.length === 0) return;
+
+      const walker = document.createTreeWalker(layer, NodeFilter.SHOW_TEXT, null);
+      const textNodes: Text[] = [];
+      let node: Text | null = walker.nextNode() as Text | null;
+      while (node) {
+        textNodes.push(node);
+        node = walker.nextNode() as Text | null;
+      }
+
+      for (const annotation of pageAnnotations) {
+        const searchText = annotation.selectedText;
+        if (!searchText) continue;
+        for (const textNode of textNodes) {
+          const nodeText = textNode.textContent || '';
+          const startIndex = nodeText.indexOf(searchText);
+          if (startIndex === -1) continue;
+          try {
+            const range = document.createRange();
+            range.setStart(textNode, startIndex);
+            range.setEnd(textNode, startIndex + searchText.length);
+            const mark = document.createElement('mark');
+            mark.className = 'pdf-highlight';
+            mark.style.backgroundColor = annotation.color || '#fbbf24';
+            mark.style.padding = '0';
+            mark.style.borderRadius = '2px';
+            mark.dataset.annotationId = String(annotation.id || '');
+            mark.dataset.annotationType = annotation.annotationType;
+            if (annotation.annotationType === 'note') {
+              mark.title = annotation.noteContent || '';
+            }
+            range.surroundContents(mark);
+            break;
+          } catch {
+            break;
+          }
+        }
+      }
+    });
+
+    if (pendingAnnotationId) {
+      const target = root.querySelector<HTMLElement>(`mark.pdf-highlight[data-annotation-id="${pendingAnnotationId}"]`);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      setPendingAnnotationId(null);
+    }
+  }, [annotations, pageNumber, pendingAnnotationId, setPendingAnnotationId]);
+
+  const scrollRenderWindow = useMemo(() => {
+    if (numPages <= 0) {
+      return { start: 1, end: 0 };
+    }
+    return {
+      start: clamp(pageNumber - SCROLL_RENDER_WINDOW_RADIUS, 1, numPages),
+      end: clamp(pageNumber + SCROLL_RENDER_WINDOW_RADIUS, 1, numPages),
+    };
+  }, [numPages, pageNumber]);
+
+  const placeholderHeight = useMemo(() => {
+    const baseWidth = docBaseWidth > 0 ? docBaseWidth : 900;
+    const renderedWidth = Math.max(240, baseWidth * scale);
+    return Math.max(320, Math.round(renderedWidth * Math.sqrt(2)));
+  }, [docBaseWidth, scale]);
+
+  const loadBook = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const bookMetadata = await api.openBookRenderer(bookId, bookPath, 'pdf');
+      setMetadata(bookMetadata);
+
+      const normalizedPath = normalizeBookPath(bookPath);
+      setPdfUrl(convertFileSrc(normalizedPath));
+
+      try {
+        const [bookAnnotations, savedProgress] = await Promise.all([
+          api.getAnnotations(bookId),
+          api.getReadingProgress(bookId),
+        ]);
+        setAnnotations(bookAnnotations);
+
+        const parsed = savedProgress?.currentLocation ? parsePdfProgress(savedProgress.currentLocation) : null;
+        if (parsed) {
+          setPageNumber(parsed.page);
+          setScale(clamp(parsed.scale, 0.5, 3));
+          setViewMode(parsed.viewMode);
+          setZoomMode(parsed.zoomMode);
+          if (parsed.page > 1) {
+            useToastStore.getState().addToast({
+              title: 'Resuming reading',
+              description: `Page ${parsed.page}`,
+              variant: 'info',
+              duration: 3000,
+            });
+          }
+        } else if (savedProgress?.currentLocation) {
+          const match = savedProgress.currentLocation.match(/page-(\d+)/);
+          if (match) {
+            const savedPage = parseInt(match[1], 10);
+            if (!Number.isNaN(savedPage) && savedPage >= 1) {
+              setPageNumber(savedPage);
+            }
+          }
+        }
+      } catch (innerError) {
+        logger.warn('[PdfReader] Best-effort restore failed:', innerError);
+      }
+    } catch (err) {
+      logger.error('[PdfReader] Error initializing PDF:', err);
       setError(err instanceof Error ? err.message : 'Failed to initialize PDF');
       setIsLoading(false);
     }
-  };
+  }, [bookId, bookPath]);
 
-   useEffect(() => {
-      const cache = pageCache.current;
-      loadBook();
-      return () => {
-        // Cleanup
-        api.closeBookRenderer(bookId).catch(logger.error);
-        cache.clear();
-      };
-     // loadBook is recreated each render - would cause infinite loop if added
-     // eslint-disable-next-line react-hooks/exhaustive-deps
-   }, [bookPath, bookId]);
+  useEffect(() => {
+    const task = window.setTimeout(() => {
+      void loadBook();
+    }, 0);
+    return () => {
+      window.clearTimeout(task);
+      api.closeBookRenderer(bookId).catch(logger.error);
+    };
+  }, [bookId, loadBook]);
+
+  useEffect(() => {
+    const onResize = () => {
+      if (zoomMode === 'fit-width' || zoomMode === 'fit-page') {
+        setScale(computeAutoScale(zoomMode));
+      }
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [computeAutoScale, zoomMode]);
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     setNumPages(numPages);
     setIsLoading(false);
+    setPageNumber((prev) => clamp(prev, 1, numPages));
   };
 
-   const onDocumentLoadError = (error: Error) => {
-     logger.error('[PdfReader] Error loading PDF document:', error);
-    setError(error.message || 'Failed to parse PDF document.');
+  const onDocumentLoadError = (documentError: Error) => {
+    logger.error('[PdfReader] Error loading PDF document:', documentError);
+    setError(documentError.message || 'Failed to parse PDF document.');
     setIsLoading(false);
-  }
-
-  const applyPDFHighlights = useCallback(() => {
-    const textLayer = containerRef.current?.querySelector('.react-pdf__Page__textContent');
-    if (!textLayer) return;
-
-    const pageAnnotations = annotations.filter(
-      (a) =>
-        (a.annotationType === 'highlight' || a.annotationType === 'note') &&
-        a.location === `page-${pageNumber}` &&
-        a.selectedText &&
-        a.selectedText.trim().length > 0
-    );
-
-    if (pageAnnotations.length === 0) return;
-
-    clearPDFHighlights();
-
-    for (const annotation of pageAnnotations) {
-      highlightTextInPDF(textLayer as HTMLElement, annotation);
-    }
-  }, [annotations, pageNumber]);
-
-  const clearPDFHighlights = () => {
-    const textLayer = containerRef.current?.querySelector('.react-pdf__Page__textContent');
-    if (!textLayer) return;
-
-    const marks = textLayer.querySelectorAll('mark.pdf-highlight');
-    marks.forEach((mark) => {
-      const parent = mark.parentNode;
-      if (!parent) return;
-      const textNode = document.createTextNode(mark.textContent || '');
-      parent.replaceChild(textNode, mark);
-      parent.normalize();
-    });
   };
 
-  const highlightTextInPDF = (textLayer: HTMLElement, annotation: Annotation) => {
-    const searchText = annotation.selectedText;
-    if (!searchText) return;
-
-    const walker = document.createTreeWalker(
-      textLayer,
-      NodeFilter.SHOW_TEXT,
-      null
-    );
-
-    const textNodes: Text[] = [];
-    let node: Text | null;
-    while ((node = walker.nextNode() as Text | null)) {
-      textNodes.push(node);
+  const onPageLoadSuccess = useCallback((page: { width: number }) => {
+    if (!docBaseWidth) {
+      setDocBaseWidth(page.width);
     }
-
-    for (const textNode of textNodes) {
-      const nodeText = textNode.textContent || '';
-      const index = nodeText.indexOf(searchText);
-      if (index === -1) continue;
-
-      try {
-        const range = document.createRange();
-        range.setStart(textNode, index);
-        range.setEnd(textNode, index + searchText.length);
-
-        const mark = document.createElement('mark');
-        mark.className = 'pdf-highlight';
-        mark.style.backgroundColor = annotation.color || '#fbbf24';
-        mark.style.padding = '0';
-        mark.style.borderRadius = '2px';
-        mark.dataset.annotationId = String(annotation.id || '');
-        mark.dataset.annotationType = annotation.annotationType;
-
-        if (annotation.annotationType === 'note') {
-          mark.title = annotation.noteContent || '';
-        }
-
-        range.surroundContents(mark);
-        return;
-      } catch {
-        break;
-      }
+    if (zoomMode === 'fit-width' || zoomMode === 'fit-page') {
+      const metrics = getViewportMetrics();
+      const nextScale = zoomMode === 'fit-width'
+        ? clamp(metrics.widthPx / page.width, 0.5, 3)
+        : clamp(Math.min(metrics.widthPx / page.width, metrics.heightPx / (page.width * Math.sqrt(2))), 0.5, 3);
+      setScale(nextScale);
     }
-  };
+  }, [docBaseWidth, getViewportMetrics, zoomMode]);
 
-  const onPageRenderSuccess = useCallback(() => {
-    setTimeout(() => {
+  useEffect(() => {
+    if (numPages <= 0) return;
+    const safePage = clamp(pageNumber, 1, numPages);
+    persistProgress(safePage, scale, viewMode, zoomMode);
+    resetDoodlePage();
+  }, [numPages, pageNumber, persistProgress, resetDoodlePage, scale, viewMode, zoomMode]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
       applyPDFHighlights();
     }, 100);
+    return () => window.clearTimeout(timer);
   }, [applyPDFHighlights]);
 
-  const prerenderAdjacentPages = useCallback(async (currentPage: number) => {
-    if (pageCache.current.size > MAX_CACHE_SIZE) {
-      const oldestKey = pageCache.current.keys().next().value;
-      if (oldestKey !== undefined) {
-        const bitmap = pageCache.current.get(oldestKey);
-        bitmap?.close();
-        pageCache.current.delete(oldestKey);
-      }
+  const scrollToPage = useCallback((targetPage: number) => {
+    const root = containerRef.current;
+    if (!root) return;
+
+    isProgrammaticScrollRef.current = true;
+    if (programmaticScrollTimerRef.current) {
+      window.clearTimeout(programmaticScrollTimerRef.current);
     }
+    const pageEl = root.querySelector<HTMLElement>(`[data-page-number="${targetPage}"]`);
+    pageEl?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    programmaticScrollTimerRef.current = window.setTimeout(() => {
+      isProgrammaticScrollRef.current = false;
+      programmaticScrollTimerRef.current = null;
+    }, 320);
+  }, []);
 
-    const pagesToPrerender = [currentPage - 1, currentPage + 1].filter(
-      (p) => p >= 1 && p <= numPages && !pageCache.current.has(p)
-    );
-
-    for (const page of pagesToPrerender) {
-      try {
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        if (!context) continue;
-
-        const dpr = window.devicePixelRatio || 1;
-        const adjustedScale = scale * dpr;
-
-        canvas.width = 595 * adjustedScale;
-        canvas.height = 842 * adjustedScale;
-
-         const bitmap = await createImageBitmap(canvas);
-         pageCache.current.set(page, bitmap);
-       } catch (err) {
-         logger.error(`[PdfReader] Failed to prerender page ${page}:`, err);
-      }
-    }
-  }, [scale, numPages]);
-
-  const updateProgress = async (pageIndex: number) => {
-    const progressPercent = numPages > 0 ? (pageIndex / numPages) * 100 : 0;
-
-    try {
-      await api.saveReadingProgress(
-        bookId,
-        `page-${pageIndex}`,
-        progressPercent,
-        pageIndex,
-        numPages
-       );
-     } catch (err) {
-       logger.error('[PdfReader] Failed saving progress:', err);
-    }
-  }
-
-  // Effect to update progress whenever page changes
-  useEffect(() => {
-    if (numPages > 0) {
-      updateProgress(pageNumber);
-      prerenderAdjacentPages(pageNumber);
-      resetDoodlePage();
-    }
-    // updateProgress is recreated each render - would cause infinite loop if added
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageNumber, numPages, resetDoodlePage]);
-
-  const nextPage = () => {
+  const nextPage = useCallback(() => {
     if (pageNumber < numPages) {
-      setPageNumber(prev => prev + 1);
+      const target = pageNumber + 1;
+      setPageNumber(target);
+      if (viewMode === 'scroll') {
+        scrollToPage(target);
+      } else {
+        pageWrapperRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     }
-  };
+  }, [numPages, pageNumber, scrollToPage, viewMode]);
 
-  const prevPage = () => {
+  const prevPage = useCallback(() => {
     if (pageNumber > 1) {
-      setPageNumber(prev => prev - 1);
+      const target = pageNumber - 1;
+      setPageNumber(target);
+      if (viewMode === 'scroll') {
+        scrollToPage(target);
+      } else {
+        pageWrapperRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     }
-  };
+  }, [pageNumber, scrollToPage, viewMode]);
 
   usePremiumReaderKeyboard({
     onPrevChapter: prevPage,
@@ -382,52 +514,95 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
   });
 
   const zoomIn = () => {
-    setScale((prev) => Math.min(prev + 0.25, 3.0));
+    setZoomMode('manual');
+    setScale((prev) => clamp(prev + 0.15, 0.5, 3));
   };
 
   const zoomOut = () => {
-    setScale((prev) => Math.max(prev - 0.25, 0.5));
+    setZoomMode('manual');
+    setScale((prev) => clamp(prev - 0.15, 0.5, 3));
   };
 
-  const resetZoom = () => {
-    setScale(1.0);
+  const setFitWidth = () => {
+    setZoomMode('fit-width');
+    setScale(computeAutoScale('fit-width'));
   };
 
-  // Navigate to a page from sidebar annotation clicks
-  const handleSidebarNavigate = useCallback((chapterIndex: number) => {
-    // For PDF, annotations use "page-N" location format.
-    // The sidebar's handleAnnotationClick parses "chapter_N" → index N,
-    // but PDF uses page numbers. We handle this in the sidebar click.
-    // This callback receives the parsed index which for PDF IS the page number.
-    // However, sidebar also passes raw chapter indices for TOC — we need
-    // to ensure the page number is valid.
+  const setFitPage = () => {
+    setZoomMode('fit-page');
+    setScale(computeAutoScale('fit-page'));
+  };
+
+  const toggleViewMode = () => {
+    setViewMode((prev) => {
+      const nextMode: PdfViewMode = prev === 'page' ? 'scroll' : 'page';
+      window.setTimeout(() => {
+        if (nextMode === 'scroll') {
+          scrollToPage(pageNumber);
+        } else {
+          pageWrapperRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 0);
+      return nextMode;
+    });
+  };
+
+  const handleSidebarNavigate = useCallback<SidebarNavigateHandler>((chapterIndex) => {
     const page = chapterIndex;
     if (page >= 1 && page <= numPages) {
       setPageNumber(page);
-    }
-  }, [numPages]);
-
-  // Keyboard navigation
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        prevPage();
-      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        nextPage();
-      } else if (e.key === '+' || e.key === '=') {
-        zoomIn();
-      } else if (e.key === '-') {
-        zoomOut();
-      } else if (e.key === '0') {
-        resetZoom();
+      if (viewMode === 'scroll') {
+        scrollToPage(page);
+      } else {
+        pageWrapperRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
-    };
+    }
+  }, [numPages, scrollToPage, viewMode]);
 
-    document.addEventListener('keydown', handleKeyPress);
-    return () => document.removeEventListener('keydown', handleKeyPress);
-    // Navigation functions are recreated each render - would cause infinite loop if added
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageNumber, numPages]);
+  const handleScrollSync = useCallback(() => {
+    if (viewMode !== 'scroll') return;
+    if (isProgrammaticScrollRef.current) return;
+    const root = containerRef.current;
+    if (!root) return;
+    const pageEls = Array.from(root.querySelectorAll<HTMLElement>('[data-page-number]'));
+    if (pageEls.length === 0) return;
+    const viewportTop = root.getBoundingClientRect().top + 140;
+    let closestPage = pageNumber;
+    let closestDistance = Number.POSITIVE_INFINITY;
+    for (const el of pageEls) {
+      const rect = el.getBoundingClientRect();
+      const distance = Math.abs(rect.top - viewportTop);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        const raw = Number(el.dataset.pageNumber);
+        if (!Number.isNaN(raw)) closestPage = raw;
+      }
+    }
+    if (closestPage !== pageNumber) {
+      setPageNumber(closestPage);
+    }
+  }, [pageNumber, viewMode]);
+
+  useEffect(() => {
+    const root = containerRef.current;
+    if (!root || viewMode !== 'scroll') return;
+    let timeoutId: number | null = null;
+    const onScroll = () => {
+      if (timeoutId) window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(handleScrollSync, 60);
+    };
+    root.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      root.removeEventListener('scroll', onScroll);
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
+  }, [handleScrollSync, viewMode]);
+
+  useEffect(() => () => {
+    if (programmaticScrollTimerRef.current) {
+      window.clearTimeout(programmaticScrollTimerRef.current);
+    }
+  }, []);
 
   if (error) {
     return (
@@ -443,37 +618,40 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
 
   return (
     <div ref={readerContainerRef} className={`premium-reader ${isFocusMode ? 'premium-reader--focus-mode' : ''}`}>
-      {/* Auto-hide Top Bar */}
       <ReaderTopBar
         bookId={bookId}
-        title={metadata?.title || 'Loading...'}
-        subtitle={`Page ${pageNumber} of ${numPages}`}
+        title={metadata?.title || readerContent?.title || 'Loading...'}
+        subtitle={`Page ${pageNumber} of ${numPages || '-'}`}
         progress={Math.round((pageNumber / numPages) * 100 || 0)}
         format="pdf"
         onClose={onClose}
         centerExtra={
-          <div className="flex items-center gap-2 ml-4">
-            <button onClick={zoomOut} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors" title="Zoom out">
-              <ZoomOut className="w-4 h-4" />
+          <div className="flex items-center gap-1 ml-3">
+            <button type="button" onClick={zoomOut} className="premium-control-button" title="Zoom out">
+              <ZoomOut className="premium-control-icon" />
             </button>
-            <span className="text-xs font-medium min-w-[40px] text-center">{Math.round(scale * 100)}%</span>
-            <button onClick={zoomIn} className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors" title="Zoom in">
-              <ZoomIn className="w-4 h-4" />
+            <span className="text-xs font-medium min-w-[52px] text-center" style={{ color: 'var(--text-secondary)' }}>
+              {Math.round(scale * 100)}%
+            </span>
+            <button type="button" onClick={zoomIn} className="premium-control-button" title="Zoom in">
+              <ZoomIn className="premium-control-icon" />
             </button>
-            <button onClick={resetZoom} className="px-2 py-1 text-xs hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors" title="Reset zoom">
-              Reset
+            <button type="button" onClick={setFitWidth} className={`premium-btn ${zoomMode === 'fit-width' ? 'premium-btn--active' : ''}`} title="Fit width">
+              Fit W
             </button>
-            <div className="h-4 w-px bg-gray-300 dark:bg-gray-600 mx-1" />
+            <button type="button" onClick={setFitPage} className={`premium-btn ${zoomMode === 'fit-page' ? 'premium-btn--active' : ''}`} title="Fit page">
+              Fit P
+            </button>
+            <button type="button" onClick={toggleViewMode} className={`premium-btn ${viewMode === 'scroll' ? 'premium-btn--active' : ''}`} title="Toggle page/scroll mode">
+              {viewMode === 'scroll' ? 'Scroll' : 'Page'}
+            </button>
             <button
+              type="button"
               onClick={toggleDoodleMode}
-              className={`p-1 rounded transition-colors ${
-                isDoodleMode 
-                  ? 'bg-blue-500 text-white hover:bg-blue-600' 
-                  : 'hover:bg-gray-200 dark:hover:bg-gray-700'
-              }`}
+              className={`premium-control-button ${isDoodleMode ? 'premium-control-button--active' : ''}`}
               title="Toggle drawing mode"
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M12 20h9" />
                 <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
               </svg>
@@ -482,12 +660,16 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
         }
       />
 
-      {/* PDF Canvas Viewport */}
       <div
         ref={containerRef}
-        className={`premium-reading-canvas ${isFocusMode ? 'premium-reading-canvas--focus-mode' : ''} flex justify-center`}
+        className={`premium-reading-canvas ${isFocusMode ? 'premium-reading-canvas--focus-mode' : ''} pdf-reading-canvas pdf-reading-canvas--${viewMode}`}
         style={{
-          backgroundColor: 'var(--bg-primary)',
+          backgroundColor: resolvedBackgroundColor,
+          color: resolvedTextColor,
+          filter: `brightness(${brightness})`,
+          paddingLeft: `${margin + 24}px`,
+          paddingRight: `${margin + 24}px`,
+          scrollBehavior: 'smooth',
         }}
       >
         {isLoading && (
@@ -498,38 +680,65 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
         )}
 
         {pdfUrl && (
-          <div className="my-6 shadow-xl transition-transform duration-200" style={{ transformOrigin: 'top center' }}>
+          <div className="pdf-document-shell" ref={pageWrapperRef}>
             <Document
               file={pdfUrl}
               onLoadSuccess={onDocumentLoadSuccess}
               onLoadError={onDocumentLoadError}
               loading={null}
             >
-              <Page
-                pageNumber={pageNumber}
-                scale={scale * (window.devicePixelRatio || 1)}
-                renderTextLayer={true}
-                renderAnnotationLayer={true}
-                className="bg-white"
-                onRenderSuccess={onPageRenderSuccess}
-              />
+              {viewMode === 'page' ? (
+                <div className="pdf-page-frame" data-page-number={pageNumber}>
+                  <Page
+                    pageNumber={pageNumber}
+                    scale={scale}
+                    renderTextLayer={true}
+                    renderAnnotationLayer={true}
+                    className="pdf-page-surface"
+                    onLoadSuccess={onPageLoadSuccess}
+                  />
+                </div>
+              ) : (
+                <div className="pdf-scroll-stack">
+                  {Array.from({ length: numPages }, (_, index) => {
+                    const page = index + 1;
+                    const shouldRenderPage = page >= scrollRenderWindow.start && page <= scrollRenderWindow.end;
+                    return (
+                      <div key={page} className="pdf-page-frame" data-page-number={page}>
+                        {shouldRenderPage ? (
+                          <Page
+                            pageNumber={page}
+                            scale={scale}
+                            renderTextLayer={true}
+                            renderAnnotationLayer={true}
+                            className="pdf-page-surface"
+                            onLoadSuccess={onPageLoadSuccess}
+                          />
+                        ) : (
+                          <div
+                            className="pdf-page-placeholder"
+                            style={{ height: `${placeholderHeight}px`, width: '100%' }}
+                            aria-hidden="true"
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </Document>
           </div>
         )}
       </div>
 
-      {/* Bottom Progress Bar */}
       <div className="premium-progress-bar">
-        <div
-          className="premium-progress-bar-fill"
-          style={{ width: `${(pageNumber / numPages) * 100 || 0}%` }}
-        />
+        <div className="premium-progress-bar-fill" style={{ width: `${(pageNumber / numPages) * 100 || 0}%` }} />
       </div>
 
-      {/* Floating Navigation Arrows */}
-      {!isFocusMode && (
+      {!isFocusMode && viewMode === 'page' && (
         <>
           <button
+            type="button"
             onClick={prevPage}
             disabled={pageNumber <= 1}
             className="premium-nav-arrow premium-nav-arrow--left"
@@ -539,6 +748,7 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
           </button>
 
           <button
+            type="button"
             onClick={nextPage}
             disabled={pageNumber >= numPages}
             className="premium-nav-arrow premium-nav-arrow--right"
@@ -549,26 +759,22 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
         </>
       )}
 
-      {/* Sidebar (bookmarks, highlights, notes, search) */}
       <PremiumSidebar
         bookId={bookId}
         currentIndex={pageNumber}
         onNavigate={handleSidebarNavigate}
       />
 
-      {/* Text Selection Toolbar */}
       <TextSelectionToolbar
         bookId={bookId}
         currentLocation={`page-${pageNumber}`}
       />
 
-      {/* TTS Control Bar */}
       <TTSControlBar
         contentRef={containerRef}
         onChapterEnd={nextPage}
       />
 
-      {/* Doodle Canvas Overlay */}
       {isDoodleMode && (
         <DoodleCanvas
           bookId={bookId}
@@ -577,7 +783,6 @@ export function PdfReader({ bookPath, bookId, onClose }: PdfReaderProps) {
         />
       )}
 
-      {/* Doodle Toolbar */}
       {isDoodleMode && <DoodleToolbar />}
     </div>
   );

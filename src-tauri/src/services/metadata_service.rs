@@ -39,8 +39,231 @@ pub fn extract_cover(
         "epub" => extract_epub_cover(file_path, book_uuid, covers_dir),
         "cbz" | "cbr" => extract_cbz_cover(file_path, book_uuid, covers_dir),
         "pdf" => extract_pdf_cover(file_path, book_uuid, covers_dir),
+        "mobi" | "azw3" => extract_mobi_cover(file_path, book_uuid, covers_dir),
         _ => Ok(None),
     }
+}
+
+fn read_be_u16(data: &[u8], offset: usize) -> Option<u16> {
+    data.get(offset..offset + 2)
+        .map(|b| u16::from_be_bytes([b[0], b[1]]))
+}
+
+fn read_be_u32(data: &[u8], offset: usize) -> Option<u32> {
+    data.get(offset..offset + 4)
+        .map(|b| u32::from_be_bytes([b[0], b[1], b[2], b[3]]))
+}
+
+fn parse_pdb_record_offsets(data: &[u8]) -> Option<Vec<usize>> {
+    let num_records = read_be_u16(data, 76)? as usize;
+    let record_table_start = 78usize;
+    let table_bytes = num_records.checked_mul(8)?;
+    if data.len() < record_table_start.checked_add(table_bytes)? {
+        return None;
+    }
+
+    let mut offsets = Vec::with_capacity(num_records);
+    let mut prev_offset = None;
+    for i in 0..num_records {
+        let offset = read_be_u32(data, record_table_start + (i * 8))? as usize;
+        if offset >= data.len() {
+            return None;
+        }
+        if let Some(prev) = prev_offset {
+            if offset < prev {
+                return None;
+            }
+        }
+        prev_offset = Some(offset);
+        offsets.push(offset);
+    }
+    Some(offsets)
+}
+
+fn append_fallback_cover_candidates(offsets: &[usize], candidates: &mut Vec<usize>) {
+    if offsets.len() <= 1 {
+        return;
+    }
+
+    let mut push_unique = |idx: usize| {
+        if idx < offsets.len() && !candidates.contains(&idx) {
+            candidates.push(idx);
+        }
+    };
+
+    for idx in 1..offsets.len().min(8) {
+        push_unique(idx);
+    }
+}
+
+fn parse_mobi_cover_record_candidates(data: &[u8]) -> Vec<usize> {
+    let mut candidates = Vec::new();
+    let offsets = match parse_pdb_record_offsets(data) {
+        Some(v) if !v.is_empty() => v,
+        _ => return candidates,
+    };
+
+    let record0 = offsets[0];
+    let mobi_start = record0.saturating_add(16);
+    if data.get(mobi_start..mobi_start + 4) != Some(b"MOBI") {
+        append_fallback_cover_candidates(&offsets, &mut candidates);
+        return candidates;
+    }
+
+    let mobi_header_len = read_be_u32(data, mobi_start + 4).unwrap_or(0) as usize;
+    let first_image_index = read_be_u32(data, mobi_start + 92).unwrap_or(0) as usize;
+
+    let mut push_unique = |idx: usize| {
+        if idx < offsets.len() && !candidates.contains(&idx) {
+            candidates.push(idx);
+        }
+    };
+
+    let mut found_exth_cover_refs = false;
+
+    if first_image_index > 0 {
+        push_unique(first_image_index);
+    }
+
+    let exth_flags = read_be_u32(data, mobi_start + 112).unwrap_or(0);
+    if (exth_flags & 0x40) != 0 {
+        let exth_start = mobi_start.saturating_add(mobi_header_len);
+        if data.get(exth_start..exth_start + 4) == Some(b"EXTH") {
+            let exth_len = read_be_u32(data, exth_start + 4).unwrap_or(0) as usize;
+            let exth_count = read_be_u32(data, exth_start + 8).unwrap_or(0) as usize;
+            let exth_end = exth_start.saturating_add(exth_len).min(data.len());
+            let mut cursor = exth_start + 12;
+
+            for _ in 0..exth_count {
+                if cursor + 8 > exth_end {
+                    break;
+                }
+                let rec_type = read_be_u32(data, cursor).unwrap_or(0);
+                let rec_len = read_be_u32(data, cursor + 4).unwrap_or(0) as usize;
+                if rec_len < 8 || cursor + rec_len > exth_end {
+                    break;
+                }
+
+                let payload = &data[cursor + 8..cursor + rec_len];
+                if payload.len() >= 4 {
+                    let offset_value =
+                        u32::from_be_bytes([payload[0], payload[1], payload[2], payload[3]])
+                            as usize;
+                    if rec_type == 201 || rec_type == 202 {
+                        let base = if first_image_index > 0 {
+                            first_image_index
+                        } else {
+                            0
+                        };
+                        push_unique(base.saturating_add(offset_value));
+                        found_exth_cover_refs = true;
+                    }
+                }
+
+                cursor += rec_len;
+            }
+        }
+    }
+
+    if first_image_index > 0 {
+        for idx in first_image_index..offsets.len().min(first_image_index.saturating_add(6)) {
+            push_unique(idx);
+        }
+    }
+
+    if candidates.is_empty() || (first_image_index == 0 && !found_exth_cover_refs) {
+        append_fallback_cover_candidates(&offsets, &mut candidates);
+    }
+
+    candidates
+}
+
+fn detect_image_format(data: &[u8]) -> Option<(&'static str, usize)> {
+    for start in 0..data.len().min(32) {
+        let tail = &data[start..];
+        if tail.len() >= 3 && tail[0..3] == [0xFF, 0xD8, 0xFF] {
+            return Some(("jpg", start));
+        }
+        if tail.len() >= 8 && tail[0..8] == [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A] {
+            return Some(("png", start));
+        }
+        if tail.len() >= 6 && (&tail[0..6] == b"GIF87a" || &tail[0..6] == b"GIF89a") {
+            return Some(("gif", start));
+        }
+        if tail.len() >= 12 && &tail[0..4] == b"RIFF" && &tail[8..12] == b"WEBP" {
+            return Some(("webp", start));
+        }
+        if tail.len() >= 2 && &tail[0..2] == b"BM" {
+            return Some(("bmp", start));
+        }
+    }
+    None
+}
+
+fn extract_mobi_cover(
+    file_path: &str,
+    book_uuid: &str,
+    covers_dir: &Path,
+) -> Result<Option<String>> {
+    log::info!("[extract_mobi_cover] Extracting cover from: {}", file_path);
+
+    let data = fs::read(file_path).map_err(|e| {
+        ShioriError::MetadataExtraction(format!("Failed to read MOBI/AZW3 file: {}", e))
+    })?;
+
+    let offsets = match parse_pdb_record_offsets(&data) {
+        Some(v) if !v.is_empty() => v,
+        _ => {
+            log::warn!("[extract_mobi_cover] Invalid PDB record table");
+            return Ok(None);
+        }
+    };
+
+    let candidates = parse_mobi_cover_record_candidates(&data);
+    for record_idx in candidates {
+        if record_idx >= offsets.len() {
+            continue;
+        }
+
+        let start = offsets[record_idx];
+        let end = offsets.get(record_idx + 1).copied().unwrap_or(data.len());
+        if start >= end || end > data.len() {
+            continue;
+        }
+
+        let record_data = &data[start..end];
+        let Some((ext, img_start)) = detect_image_format(record_data) else {
+            continue;
+        };
+
+        let image_bytes = record_data[img_start..].to_vec();
+        if image_bytes.len() < 64 {
+            continue;
+        }
+
+        fs::create_dir_all(covers_dir).map_err(|e| {
+            ShioriError::MetadataExtraction(format!("Failed to create covers dir: {}", e))
+        })?;
+
+        let cover_filename = format!("{}.{}", book_uuid, ext);
+        let cover_path = covers_dir.join(&cover_filename);
+        let mut file = fs::File::create(&cover_path).map_err(|e| {
+            ShioriError::MetadataExtraction(format!("Failed to create cover file: {}", e))
+        })?;
+        file.write_all(&image_bytes).map_err(|e| {
+            ShioriError::MetadataExtraction(format!("Failed to write cover data: {}", e))
+        })?;
+
+        log::info!(
+            "[extract_mobi_cover] ✅ Cover extracted to: {} (record #{})",
+            cover_path.display(),
+            record_idx
+        );
+        return Ok(Some(cover_path.to_string_lossy().to_string()));
+    }
+
+    log::warn!("[extract_mobi_cover] No suitable image record found");
+    Ok(None)
 }
 
 fn extract_epub_cover(
@@ -449,9 +672,19 @@ fn extract_mobi_metadata(file_path: &str) -> Result<Metadata> {
         page_count: None,
     };
 
-    // Title
-    let title = m.title();
-    if !title.is_empty() && title != "Unknown" {
+    let clean_opt = |value: Option<String>| -> Option<String> {
+        value.and_then(|s| {
+            let trimmed = s.trim().to_string();
+            if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("unknown") {
+                None
+            } else {
+                Some(trimmed)
+            }
+        })
+    };
+
+    let title = m.title().trim().to_string();
+    if !title.is_empty() && !title.eq_ignore_ascii_case("unknown") {
         metadata.title = Some(title);
     }
 
@@ -465,14 +698,18 @@ fn extract_mobi_metadata(file_path: &str) -> Result<Metadata> {
         metadata.authors = authors;
     }
 
-    metadata.publisher = m.publisher();
-    metadata.description = m.description();
-    metadata.isbn = m.isbn();
-    metadata.pubdate = m.publish_date();
+    metadata.publisher = clean_opt(m.publisher());
+    metadata.description = clean_opt(m.description());
+    metadata.isbn = clean_opt(m.isbn());
+    metadata.pubdate = clean_opt(m.publish_date());
 
     // Language — mobi crate returns Language enum directly
-    let lang = m.language();
-    metadata.language = Some(format!("{:?}", lang));
+    let lang = format!("{:?}", m.language()).trim().to_string();
+    metadata.language = if lang.is_empty() || lang.eq_ignore_ascii_case("unknown") {
+        None
+    } else {
+        Some(lang)
+    };
 
     // Word count / page estimate
     if let Ok(content) = m.content_as_string() {
@@ -483,10 +720,101 @@ fn extract_mobi_metadata(file_path: &str) -> Result<Metadata> {
     // Fallback title from filename
     if metadata.title.is_none() {
         let path = Path::new(file_path);
-        metadata.title = path.file_stem().and_then(|s| s.to_str()).map(String::from);
+        metadata.title = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .map(|s| s.replace('_', " ").replace('-', " "));
     }
 
     Ok(metadata)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_mobi_cover_record_candidates;
+
+    #[test]
+    fn parses_cover_candidates_from_exth_and_first_image() {
+        let mut data = vec![0u8; 1024];
+        data[76..78].copy_from_slice(&3u16.to_be_bytes());
+
+        data[78..82].copy_from_slice(&200u32.to_be_bytes());
+        data[86..90].copy_from_slice(&600u32.to_be_bytes());
+        data[94..98].copy_from_slice(&800u32.to_be_bytes());
+
+        data[216..220].copy_from_slice(b"MOBI");
+        data[220..224].copy_from_slice(&232u32.to_be_bytes()); // header len (@ +4)
+        data[308..312].copy_from_slice(&1u32.to_be_bytes()); // first image index (@ +92)
+        data[328..332].copy_from_slice(&0x40u32.to_be_bytes()); // EXTH flag
+
+        let exth_start = 216 + 232;
+        data[exth_start..exth_start + 4].copy_from_slice(b"EXTH");
+        data[exth_start + 4..exth_start + 8].copy_from_slice(&24u32.to_be_bytes());
+        data[exth_start + 8..exth_start + 12].copy_from_slice(&1u32.to_be_bytes());
+        data[exth_start + 12..exth_start + 16].copy_from_slice(&201u32.to_be_bytes());
+        data[exth_start + 16..exth_start + 20].copy_from_slice(&12u32.to_be_bytes());
+        data[exth_start + 20..exth_start + 24].copy_from_slice(&1u32.to_be_bytes());
+
+        let candidates = parse_mobi_cover_record_candidates(&data);
+        assert!(candidates.contains(&1));
+        assert!(candidates.contains(&2));
+    }
+
+    #[test]
+    fn keeps_fallback_candidates_when_exth_is_missing() {
+        let mut data = vec![0u8; 1200];
+        data[76..78].copy_from_slice(&8u16.to_be_bytes());
+
+        for i in 0..8usize {
+            let offset = 200 + (i * 100);
+            let table_offset = 78 + (i * 8);
+            data[table_offset..table_offset + 4].copy_from_slice(&(offset as u32).to_be_bytes());
+        }
+
+        let mobi_start = 200 + 16;
+        data[mobi_start..mobi_start + 4].copy_from_slice(b"MOBI");
+        data[mobi_start + 4..mobi_start + 8].copy_from_slice(&232u32.to_be_bytes());
+        data[mobi_start + 92..mobi_start + 96].copy_from_slice(&3u32.to_be_bytes());
+
+        let candidates = parse_mobi_cover_record_candidates(&data);
+        assert!(candidates.contains(&3));
+        assert!(candidates.contains(&4));
+        assert!(candidates.contains(&5));
+    }
+
+    #[test]
+    fn rejects_non_monotonic_pdb_offsets() {
+        let mut data = vec![0u8; 1024];
+        data[76..78].copy_from_slice(&3u16.to_be_bytes());
+        data[78..82].copy_from_slice(&500u32.to_be_bytes());
+        data[86..90].copy_from_slice(&300u32.to_be_bytes());
+        data[94..98].copy_from_slice(&700u32.to_be_bytes());
+
+        let candidates = parse_mobi_cover_record_candidates(&data);
+        assert!(candidates.is_empty());
+    }
+
+    #[test]
+    fn falls_back_to_early_records_when_header_hints_missing() {
+        let mut data = vec![0u8; 1600];
+        data[76..78].copy_from_slice(&10u16.to_be_bytes());
+
+        for i in 0..10usize {
+            let offset = 200 + (i * 100);
+            let table_offset = 78 + (i * 8);
+            data[table_offset..table_offset + 4].copy_from_slice(&(offset as u32).to_be_bytes());
+        }
+
+        let mobi_start = 200 + 16;
+        data[mobi_start..mobi_start + 4].copy_from_slice(b"MOBI");
+        data[mobi_start + 4..mobi_start + 8].copy_from_slice(&232u32.to_be_bytes());
+        // first image index = 0, no EXTH flag
+
+        let candidates = parse_mobi_cover_record_candidates(&data);
+        assert!(candidates.contains(&1));
+        assert!(candidates.contains(&2));
+        assert!(candidates.contains(&7));
+    }
 }
 
 fn extract_fb2_metadata(file_path: &str) -> Result<Metadata> {

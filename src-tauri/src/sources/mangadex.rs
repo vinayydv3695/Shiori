@@ -1,6 +1,7 @@
 use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
 use serde::Deserialize;
 use std::collections::HashMap;
+use std::time::Duration;
 
 use crate::error::{Result, ShioriError};
 use crate::sources::{Chapter, ContentType, Page, SearchResult, Source, SourceMeta};
@@ -21,6 +22,8 @@ impl MangaDexSource {
 
         let client = reqwest::Client::builder()
             .default_headers(headers)
+            .timeout(Duration::from_secs(30))
+            .connect_timeout(Duration::from_secs(10))
             .build()
             .map_err(|e| ShioriError::Other(format!("Failed to create MangaDex client: {}", e)))?;
 

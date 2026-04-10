@@ -41,7 +41,8 @@ impl BookFormatAdapter for TxtFormatAdapter {
                 let mut result = ValidationResult::valid(file_size);
                 
                 // Estimate word and page count
-                let content = fs::read_to_string(path).await?;
+                let file_data = fs::read(path).await?;
+                let content = String::from_utf8_lossy(&file_data).into_owned();
                 result.word_count = Some(count_words(&content));
                 result.page_count = Some(estimate_pages(&content));
                 
@@ -57,7 +58,8 @@ impl BookFormatAdapter for TxtFormatAdapter {
     
     async fn extract_metadata(&self, path: &Path) -> FormatResult<BookMetadata> {
         let file_size = fs::metadata(path).await?.len();
-        let content = fs::read_to_string(path).await?;
+        let file_data = fs::read(path).await?;
+        let content = String::from_utf8_lossy(&file_data).into_owned();
         
         // Infer title from filename
         let title = path.file_stem()

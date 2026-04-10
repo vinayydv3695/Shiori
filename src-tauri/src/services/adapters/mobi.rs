@@ -58,7 +58,7 @@ impl MobiFormatAdapter {
         let file_data = fs::read(path).await?;
         let m = Mobi::from_read(&mut &file_data[..])
             .map_err(|e| FormatError::ConversionError(format!("Failed to parse MOBI: {}", e)))?;
-        m.content_as_string()
+        m.content_as_string_lossy()
             .map_err(|e| FormatError::ConversionError(format!("Failed to read MOBI content: {}", e)))
     }
 }
@@ -99,7 +99,7 @@ impl BookFormatAdapter for MobiFormatAdapter {
         // Note: DRM detection not available in public API
         
         // Get text content to estimate word count
-        if let Ok(content) = m.content_as_string() {
+        if let Ok(content) = m.content_as_string_lossy() {
             let word_count = content.split_whitespace().count() as u32;
             result.word_count = Some(word_count);
             
@@ -148,7 +148,7 @@ impl BookFormatAdapter for MobiFormatAdapter {
         book_meta.language = Some(format!("{:?}", m.language()));
         
         // Extract word count
-        if let Ok(content) = m.content_as_string() {
+        if let Ok(content) = m.content_as_string_lossy() {
             let word_count = content.split_whitespace().count() as u32;
             book_meta.word_count = Some(word_count);
             book_meta.page_count = Some((word_count + 249) / 250);

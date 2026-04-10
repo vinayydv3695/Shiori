@@ -506,7 +506,8 @@ impl ConversionEngine {
     async fn html_to_epub(source: &Path, target: &Path) -> FormatResult<()> {
         let adapter = HtmlFormatAdapter::new();
         let metadata = adapter.extract_metadata(source).await?;
-        let content = tokio::fs::read_to_string(source).await?;
+        let content_bytes = tokio::fs::read(source).await?;
+        let content = String::from_utf8_lossy(&content_bytes).into_owned();
         let mut builder = EpubBuilder::new();
         builder = builder.metadata(EpubMetadata {
             title: metadata.title.clone(),
@@ -522,7 +523,8 @@ impl ConversionEngine {
     }
 
     async fn html_to_txt(source: &Path, target: &Path) -> FormatResult<()> {
-        let content = tokio::fs::read_to_string(source).await?;
+        let content_bytes = tokio::fs::read(source).await?;
+        let content = String::from_utf8_lossy(&content_bytes).into_owned();
         let text = content
             .replace("<br>", "\n").replace("<br/>", "\n")
             .replace("<p>", "\n").replace("</p>", "\n");
@@ -635,7 +637,8 @@ impl ConversionEngine {
     async fn fb2_to_epub(source: &Path, target: &Path) -> FormatResult<()> {
         let adapter = Fb2FormatAdapter::new();
         let metadata = adapter.extract_metadata(source).await?;
-        let content = tokio::fs::read_to_string(source).await?;
+        let content_bytes = tokio::fs::read(source).await?;
+        let content = String::from_utf8_lossy(&content_bytes).into_owned();
         let text = Fb2FormatAdapter::extract_text(&content);
         let mut builder = EpubBuilder::new();
         builder = builder.metadata(EpubMetadata {
@@ -654,7 +657,8 @@ impl ConversionEngine {
     }
 
     async fn fb2_to_txt(source: &Path, target: &Path) -> FormatResult<()> {
-        let content = tokio::fs::read_to_string(source).await?;
+        let content_bytes = tokio::fs::read(source).await?;
+        let content = String::from_utf8_lossy(&content_bytes).into_owned();
         let text = Fb2FormatAdapter::extract_text(&content);
         tokio::fs::write(target, text).await?;
         log::info!("[Conversion] FB2 → TXT: {}", target.display());

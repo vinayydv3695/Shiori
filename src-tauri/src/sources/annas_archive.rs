@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use scraper::{Html, Selector};
 use std::collections::HashMap;
 use std::time::Duration;

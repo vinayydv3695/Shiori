@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 /// TXT Format Adapter - Plain text file support
 /// 
 /// Provides basic support for plain text files including metadata inference,

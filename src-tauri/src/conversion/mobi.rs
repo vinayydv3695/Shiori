@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 /// MOBI / AZW3 → EPUB converter inspired by calibre's mobi reader.
 ///
 /// Implements:
@@ -9,6 +10,7 @@
 /// - KF8 (AZW3) detection via BOUNDARY record
 /// - Image extraction (JPEG/PNG by magic bytes)
 /// - TOC/chapter extraction from HTML content
+
 
 use std::path::Path;
 use byteorder::{BigEndian, ReadBytesExt};

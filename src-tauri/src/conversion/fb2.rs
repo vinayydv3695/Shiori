@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 /// FB2 → EPUB converter inspired by calibre's fb2_input.py.
 ///
 /// Handles:
@@ -6,6 +7,7 @@
 /// - Binary image extraction (base64-decoded)
 /// - Full body walk with FB2→XHTML element mapping
 /// - Notes body handling (<body name="notes">)
+
 
 use std::collections::HashMap;
 use std::path::Path;

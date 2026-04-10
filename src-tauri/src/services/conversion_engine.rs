@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 /// Conversion Engine v2.0
 ///
 /// Background worker queue with:

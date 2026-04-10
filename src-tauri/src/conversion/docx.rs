@@ -52,7 +52,7 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
 
     // Track list state
     let mut in_list = false;
-    let mut list_type = "ul"; // "ul" or "ol"
+    let list_type = "ul"; // "ul" or "ol"
 
     let mut reader = quick_xml::Reader::from_str(&doc_xml);
     reader.config_mut().trim_text(false);

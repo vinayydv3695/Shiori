@@ -37,6 +37,7 @@ pub struct EpubOutput {
 }
 
 /// Source format for conversion
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SourceFormat {
     Mobi,
@@ -49,6 +50,7 @@ pub enum SourceFormat {
 
 impl SourceFormat {
     /// Parse from file extension string
+    #[allow(dead_code)]
     pub fn from_extension(ext: &str) -> Option<Self> {
         match ext.to_lowercase().as_str() {
             "mobi" => Some(Self::Mobi),
@@ -63,6 +65,7 @@ impl SourceFormat {
 }
 
 /// Conversion error types
+#[allow(dead_code)]
 #[derive(Debug, thiserror::Error)]
 pub enum ConversionError {
     #[error("IO error: {0}")]

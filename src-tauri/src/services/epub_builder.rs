@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::io::{Cursor, Write};
 use std::path::Path;
 use tokio::fs;

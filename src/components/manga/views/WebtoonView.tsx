@@ -4,14 +4,18 @@ import { useMangaContentStore, useMangaUIStore, useMangaSettingsStore } from '@/
 import { MangaPageImage } from '../MangaPageImage';
 import { useMangaScroll } from '../hooks/useMangaScroll';
 import { preloadPages } from '../hooks/useMangaPreloader';
+import { preloadOnlinePages } from '../hooks/useUnifiedImageDecode';
 
 /**
  * Webtoon/Manhwa virtualized scroll view.
  * Key differences from LongStripView: zero gap (seamless stitching),
  * full viewport width, and aggressive preloading (8 ahead, 3 behind).
+ * Works with both local and online sources.
  */
 export function WebtoonView() {
+    const sourceType = useMangaContentStore(s => s.sourceType);
     const bookId = useMangaContentStore(s => s.bookId);
+    const onlineSource = useMangaContentStore(s => s.onlineSource);
     const totalPages = useMangaContentStore(s => s.totalPages);
     const currentPage = useMangaContentStore(s => s.currentPage);
     const pageDimensions = useMangaContentStore(s => s.pageDimensions);
@@ -25,6 +29,7 @@ export function WebtoonView() {
     const hasScrolledToResume = useRef(false);
 
     const isManhwa = readingMode === 'manhwa';
+    const hasSource = sourceType === 'local' ? bookId !== null : onlineSource !== null;
 
     const estimateSize = useCallback((index: number): number => {
         if (pageDimensions[index]) {
@@ -97,26 +102,36 @@ export function WebtoonView() {
         }
     }, [currentPage, totalPages]);
 
+    // Preload pages - works for both local and online
     useEffect(() => {
-        if (!bookId || totalPages === 0) return;
+        if (!hasSource || totalPages === 0) return;
 
         const behind = preloadIntensity === 'light' ? 2 : preloadIntensity === 'aggressive' ? 4 : 3;
         const ahead = preloadIntensity === 'light' ? 5 : preloadIntensity === 'aggressive' ? 12 : 8;
 
-        const pagesToPreload: number[] = [];
-        for (let i = -behind; i <= ahead; i++) {
-            const target = currentPage + i;
-            if (target >= 0 && target < totalPages && target !== currentPage) {
-                pagesToPreload.push(target);
+        if (sourceType === 'local' && bookId) {
+            const pagesToPreload: number[] = [];
+            for (let i = -behind; i <= ahead; i++) {
+                const target = currentPage + i;
+                if (target >= 0 && target < totalPages && target !== currentPage) {
+                    pagesToPreload.push(target);
+                }
             }
+            if (pagesToPreload.length > 0) {
+                preloadPages(bookId, pagesToPreload);
+            }
+        } else if (sourceType === 'online' && onlineSource) {
+            preloadOnlinePages(
+                onlineSource.sourceId,
+                onlineSource.chapterId,
+                onlineSource.pageUrls,
+                currentPage,
+                Math.max(behind, ahead)
+            );
         }
+    }, [sourceType, bookId, onlineSource, currentPage, totalPages, preloadIntensity, hasSource]);
 
-        if (pagesToPreload.length > 0) {
-            preloadPages(bookId, pagesToPreload);
-        }
-    }, [bookId, currentPage, totalPages, preloadIntensity]);
-
-    if (!bookId) return null;
+    if (!hasSource) return null;
 
     return (
         <div
@@ -142,7 +157,6 @@ export function WebtoonView() {
                         }}
                     >
                         <MangaPageImage
-                            bookId={bookId}
                             pageIndex={virtualItem.index}
                             onLoad={() => virtualizer.measure()}
                         />

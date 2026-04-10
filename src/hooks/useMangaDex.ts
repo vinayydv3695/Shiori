@@ -31,6 +31,8 @@ export interface MangaDexSearchResult {
   limit: number;
 }
 
+export type BrowseMode = 'popular' | 'latest' | 'recent' | 'top-rated';
+
 const BASE_URL = 'https://api.mangadex.org';
 const RATE_LIMIT_DELAY = 250;
 
@@ -47,6 +49,39 @@ async function rateLimitedFetch(url: string): Promise<Response> {
   lastRequestTime = Date.now();
   
   return fetch(url);
+}
+
+// Helper to parse MangaDex API response into our manga format
+function parseMangaResponse(data: any): MangaDexManga[] {
+  return (data.data || []).map((item: any) => {
+    const titleObj = item.attributes?.title || {};
+    const title = titleObj.en || titleObj['ja-ro'] || Object.values(titleObj)[0] || 'Unknown Title';
+    
+    const descObj = item.attributes?.description || {};
+    const description = descObj.en || Object.values(descObj)[0] || '';
+    
+    let coverUrl: string | undefined;
+    const coverRel = (item.relationships || []).find((rel: any) => rel.type === 'cover_art');
+    if (coverRel?.attributes?.fileName) {
+      coverUrl = `https://uploads.mangadex.org/covers/${item.id}/${coverRel.attributes.fileName}.256.jpg`;
+    }
+    
+    const authorRel = (item.relationships || []).find((rel: any) => rel.type === 'author');
+    const artistRel = (item.relationships || []).find((rel: any) => rel.type === 'artist');
+    
+    return {
+      id: item.id,
+      title,
+      description,
+      status: item.attributes?.status,
+      coverUrl,
+      tags: (item.attributes?.tags || []).map((tag: any) => tag.attributes?.name?.en).filter(Boolean),
+      contentRating: item.attributes?.contentRating,
+      year: item.attributes?.year,
+      author: authorRel?.attributes?.name,
+      artist: artistRel?.attributes?.name,
+    };
+  });
 }
 
 export function useMangaDex() {
@@ -89,36 +124,7 @@ export function useMangaDex() {
       }
 
       const data = await response.json();
-      
-      const mangaList: MangaDexManga[] = (data.data || []).map((item: any) => {
-        const titleObj = item.attributes?.title || {};
-        const title = titleObj.en || titleObj['ja-ro'] || Object.values(titleObj)[0] || 'Unknown Title';
-        
-        const descObj = item.attributes?.description || {};
-        const description = descObj.en || Object.values(descObj)[0] || '';
-        
-        let coverUrl: string | undefined;
-        const coverRel = (item.relationships || []).find((rel: any) => rel.type === 'cover_art');
-        if (coverRel?.attributes?.fileName) {
-          coverUrl = `https://uploads.mangadex.org/covers/${item.id}/${coverRel.attributes.fileName}.256.jpg`;
-        }
-        
-        const authorRel = (item.relationships || []).find((rel: any) => rel.type === 'author');
-        const artistRel = (item.relationships || []).find((rel: any) => rel.type === 'artist');
-        
-        return {
-          id: item.id,
-          title,
-          description,
-          status: item.attributes?.status,
-          coverUrl,
-          tags: (item.attributes?.tags || []).map((tag: any) => tag.attributes?.name?.en).filter(Boolean),
-          contentRating: item.attributes?.contentRating,
-          year: item.attributes?.year,
-          author: authorRel?.attributes?.name,
-          artist: artistRel?.attributes?.name,
-        };
-      });
+      const mangaList = parseMangaResponse(data);
       
       return {
         data: mangaList,
@@ -131,6 +137,66 @@ export function useMangaDex() {
       logger.error('MangaDex search failed:', err);
       setError(errorMessage);
       return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Browse manga by different modes (popular, latest, recent, top-rated)
+   */
+  const browseManga = async (
+    mode: BrowseMode,
+    limit: number = 20
+  ): Promise<MangaDexManga[]> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const params = new URLSearchParams();
+      params.set('limit', String(limit));
+      params.set('hasAvailableChapters', 'true');
+      params.append('availableTranslatedLanguage[]', 'en');
+      params.append('includes[]', 'cover_art');
+      params.append('includes[]', 'author');
+      params.append('includes[]', 'artist');
+      // Exclude adult content by default for browse
+      params.append('contentRating[]', 'safe');
+      params.append('contentRating[]', 'suggestive');
+
+      // Set ordering based on mode
+      switch (mode) {
+        case 'popular':
+          params.set('order[followedCount]', 'desc');
+          break;
+        case 'latest':
+          params.set('order[latestUploadedChapter]', 'desc');
+          break;
+        case 'recent':
+          params.set('order[createdAt]', 'desc');
+          break;
+        case 'top-rated':
+          params.set('order[rating]', 'desc');
+          break;
+      }
+
+      const url = `${BASE_URL}/manga?${params.toString()}`;
+      
+      logger.info('MangaDex browse:', { mode, limit });
+      
+      const response = await rateLimitedFetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`MangaDex API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return parseMangaResponse(data);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to browse MangaDex';
+      logger.error('MangaDex browse failed:', err);
+      setError(errorMessage);
+      return [];
     } finally {
       setLoading(false);
     }
@@ -192,6 +258,7 @@ export function useMangaDex() {
 
   return {
     searchManga,
+    browseManga,
     getChapters,
     getMangaUrl,
     getChapterUrl,

@@ -6,14 +6,19 @@ import { useMangaPreloader } from '../hooks/useMangaPreloader';
 /**
  * Double page (spread) reading mode.
  * Displays two pages side by side, RTL-aware.
+ * Works with both local and online sources.
  */
 export function DoublePageView() {
+    const sourceType = useMangaContentStore(s => s.sourceType);
     const bookId = useMangaContentStore(s => s.bookId);
+    const onlineSource = useMangaContentStore(s => s.onlineSource);
     const currentPage = useMangaContentStore(s => s.currentPage);
     const totalPages = useMangaContentStore(s => s.totalPages);
     const readingDirection = useMangaSettingsStore(s => s.readingDirection);
     const { preloadAround } = useMangaPreloader();
     const rtl = readingDirection === 'rtl';
+
+    const hasSource = sourceType === 'local' ? bookId !== null : onlineSource !== null;
 
     // In double page mode, pages are shown in pairs: [0,1], [2,3], etc.
     // Ensure currentPage is always even (the left page of a spread)
@@ -39,20 +44,18 @@ export function DoublePageView() {
         }
     }, [spreadStart, totalPages]);
 
-    if (!bookId) return null;
+    if (!hasSource) return null;
 
     return (
         <div className={`manga-double-view ${rtl ? 'manga-double-view--rtl' : ''}`}>
             <div className="manga-double-page">
                 <MangaPageImage
-                    bookId={bookId}
                     pageIndex={leftPage}
                 />
             </div>
             {rightPage < totalPages && (
                 <div className="manga-double-page">
                     <MangaPageImage
-                        bookId={bookId}
                         pageIndex={rightPage}
                     />
                 </div>

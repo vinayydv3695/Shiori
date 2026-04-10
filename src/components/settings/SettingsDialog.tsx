@@ -22,6 +22,7 @@ import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { useToast } from '../../store/toastStore'
 import { logger } from '../../lib/logger'
 import { SourceManager } from './SourceManager'
+import { TorboxSettings } from './TorboxSettings'
 
 interface SettingsDialogProps {
   open: boolean
@@ -759,6 +760,15 @@ const GeneralSettings = ({
           )}
         </SettingSection>
       )}
+
+      <SettingSection title="Download Services" description="Configure cloud torrent and download services">
+        <div className="space-y-4">
+          <div>
+            <h4 className="text-sm font-semibold mb-2">Torbox</h4>
+            <TorboxSettings />
+          </div>
+        </div>
+      </SettingSection>
 
       <SettingSection title="Online Sources" description="Enable or disable online providers used by online sections">
         <SourceManager />

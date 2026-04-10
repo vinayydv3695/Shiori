@@ -32,7 +32,7 @@ interface UIState {
   setPendingAnnotationId: (id: number | null) => void;
 }
 
-export const useUIStore = create<UIState>((set) => ({
+export const useReaderUIStore = create<UIState>((set) => ({
   isTopBarVisible: false,
   isTopBarShortcutOnly: true,
   isSidebarOpen: false,

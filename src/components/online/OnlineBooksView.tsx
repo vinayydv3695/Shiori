@@ -1,12 +1,14 @@
-import { useCallback, useMemo, useState } from 'react';
-import { BookOpen, ExternalLink, Calendar, User } from 'lucide-react';
-import { useOpenLibrary, type OpenLibraryBook } from '@/hooks/useOpenLibrary';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { BookOpen, ExternalLink, Calendar, User, Download, Loader2 } from 'lucide-react';
+import { useOpenLibrary, type OpenLibraryBook, type BookBrowseMode } from '@/hooks/useOpenLibrary';
 import { Button } from '@/components/ui/button';
 import { logger } from '@/lib/logger';
 import { useSourceStore } from '@/store/sourceStore';
 import { OnlineSearchHeader } from './OnlineSearchHeader';
 import { useOnlineSearchStore } from '@/store/onlineSearchStore';
 import { pluginApi, type SearchResult as PluginSearchResult } from '@/lib/pluginSources';
+import { api } from '@/lib/tauri';
+import { ContentCarousel, type CarouselItem } from './ContentCarousel';
 
 let onlineBooksSearchTimeout: number | undefined;
 
@@ -23,8 +25,32 @@ export function OnlineBooksView() {
   const sources = useSourceStore((state) => state.sources);
   const primarySourceByKind = useSourceStore((state) => state.primarySourceByKind);
   const [lastSearchedQuery, setLastSearchedQuery] = useState('');
+  const [downloadingBooks, setDownloadingBooks] = useState<Record<string, string>>({});
+  const [hasTorboxKey, setHasTorboxKey] = useState(false);
   
-  const { searchBooks, getCoverUrl, getReadUrl, getBookDetailsUrl, loading, error } = useOpenLibrary();
+  // Browse mode state
+  const [browseData, setBrowseData] = useState<Record<BookBrowseMode, OpenLibraryBook[]>>({
+    trending: [],
+    'want-to-read': [],
+    'currently-reading': [],
+    'already-read': [],
+  });
+  const [browseLoading, setBrowseLoading] = useState<Record<BookBrowseMode, boolean>>({
+    trending: false,
+    'want-to-read': false,
+    'currently-reading': false,
+    'already-read': false,
+  });
+  const [browseInitialized, setBrowseInitialized] = useState(false);
+  
+  const { searchBooks, browseTrending, getCoverUrl, getReadUrl, getBookDetailsUrl, loading, error } = useOpenLibrary();
+
+  // Check for Torbox API key on mount
+  useEffect(() => {
+    api.torboxGetApiKey()
+      .then(key => setHasTorboxKey(!!key))
+      .catch(() => setHasTorboxKey(false));
+  }, []);
 
   const bookSources = useMemo(
     () => sources.filter((source) => source.kind === 'books'),
@@ -44,6 +70,52 @@ export function OnlineBooksView() {
   const isOpenLibraryEnabled = activeSource?.id === 'openlibrary';
   const isPluginBookSource = activeSource?.id === 'anna-archive' && activeSource?.kind === 'books';
   const activePluginSourceId = isPluginBookSource ? activeSource?.id : null;
+
+  // Load browse data on mount for Open Library
+  useEffect(() => {
+    if (!isOpenLibraryEnabled || browseInitialized) return;
+    
+    const loadBrowseData = async (mode: BookBrowseMode) => {
+      setBrowseLoading((prev) => ({ ...prev, [mode]: true }));
+      try {
+        const data = await browseTrending(mode, 20);
+        setBrowseData((prev) => ({ ...prev, [mode]: data }));
+      } catch (err) {
+        logger.error(`Failed to load ${mode} books:`, err);
+      } finally {
+        setBrowseLoading((prev) => ({ ...prev, [mode]: false }));
+      }
+    };
+    
+    setBrowseInitialized(true);
+    // Load browse modes in parallel
+    void loadBrowseData('trending');
+    void loadBrowseData('want-to-read');
+    void loadBrowseData('currently-reading');
+  }, [isOpenLibraryEnabled, browseInitialized, browseTrending]);
+
+  // Convert OpenLibraryBook to CarouselItem
+  const toCarouselItems = useCallback((books: OpenLibraryBook[]): CarouselItem[] => {
+    return books.map((b) => ({
+      id: b.key,
+      title: b.title,
+      coverUrl: b.cover_i ? getCoverUrl(b.cover_i, 'M') || undefined : undefined,
+      subtitle: b.author_name?.join(', ') || (b.first_publish_year ? String(b.first_publish_year) : undefined),
+    }));
+  }, [getCoverUrl]);
+
+  // Handle carousel item click - open book details
+  const handleCarouselItemClick = useCallback((item: CarouselItem) => {
+    const url = getBookDetailsUrl(item.id);
+    try {
+      const openedWindow = window.open(url, '_blank', 'noopener,noreferrer');
+      if (!openedWindow) {
+        window.location.assign(url);
+      }
+    } catch {
+      window.location.assign(url);
+    }
+  }, [getBookDetailsUrl]);
 
   const handleSearch = useCallback(async (page: number = 1, queryOverride?: string) => {
     const query = (queryOverride ?? searchQuery).trim();
@@ -137,6 +209,103 @@ export function OnlineBooksView() {
     }
   };
 
+  const handleDirectDownload = useCallback(async (book: PluginSearchResult) => {
+    if (!book.id) return;
+    
+    setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Downloading...' }));
+    
+    try {
+      // Try direct download via backend
+      await api.annasArchiveDownload(book.id, book.title);
+      
+      setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Imported to library!' }));
+      
+      // Clear status after 3 seconds
+      setTimeout(() => {
+        setDownloadingBooks(prev => {
+          const copy = { ...prev };
+          delete copy[book.id];
+          return copy;
+        });
+      }, 3000);
+      
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Download failed';
+      
+      // If direct download fails, offer to open in browser
+      setDownloadingBooks(prev => ({ ...prev, [book.id]: `Failed: ${message}` }));
+      
+      setTimeout(() => {
+        setDownloadingBooks(prev => {
+          const copy = { ...prev };
+          delete copy[book.id];
+          return copy;
+        });
+      }, 5000);
+    }
+  }, []);
+
+  const handleTorboxDownload = useCallback(async (book: PluginSearchResult) => {
+    if (!book.id) return;
+    
+    setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Getting download links...' }));
+    
+    try {
+      // Get download options (chapters represent download links for books)
+      const chapters = await pluginApi.getChapters('anna-archive', book.id);
+      
+      if (chapters.length === 0) {
+        throw new Error('No download options available for this book.');
+      }
+      
+      // Get pages for the first chapter (download option)
+      const pages = await pluginApi.getPages('anna-archive', book.id, chapters[0].id);
+      
+      // Find magnet link (format is "type|url")
+      const magnetPage = pages.find(p => p.url.startsWith('magnet|'));
+      const torrentPage = pages.find(p => p.url.startsWith('torrent|'));
+      
+      if (!magnetPage && !torrentPage) {
+        throw new Error('No magnet or torrent link available for this book. Try opening the detail page manually.');
+      }
+      
+      const downloadUrl = magnetPage?.url.split('|')[1] || torrentPage?.url.split('|')[1];
+      
+      if (!downloadUrl) {
+        throw new Error('Failed to extract download URL.');
+      }
+      
+      setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Downloading via Torbox...' }));
+      
+      // Download and import via Torbox
+      const filename = `${book.title.replace(/[^a-zA-Z0-9]/g, '_')}.epub`;
+      await api.torboxDownloadAndImport(downloadUrl, filename);
+      
+      setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Imported to library!' }));
+      
+      // Clear status after 3 seconds
+      setTimeout(() => {
+        setDownloadingBooks(prev => {
+          const copy = { ...prev };
+          delete copy[book.id];
+          return copy;
+        });
+      }, 3000);
+      
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Download failed';
+      setDownloadingBooks(prev => ({ ...prev, [book.id]: `Error: ${message}` }));
+      
+      setTimeout(() => {
+        setDownloadingBooks(prev => {
+          const copy = { ...prev };
+          delete copy[book.id];
+          return copy;
+        });
+      }, 5000);
+    }
+  }, []);
+
   return (
     <div className="flex flex-col h-full bg-background">
       <OnlineSearchHeader
@@ -201,7 +370,35 @@ export function OnlineBooksView() {
             </div>
           )}
 
-          {!loading && !pluginLoading && !hasVisibleSearched && hasEnabledBookSource && (
+          {!loading && !pluginLoading && !hasVisibleSearched && hasEnabledBookSource && isOpenLibraryEnabled && (
+            <div className="space-y-8">
+              {/* Trending Books Carousel */}
+              <ContentCarousel
+                title="Trending Today"
+                items={toCarouselItems(browseData.trending)}
+                loading={browseLoading.trending}
+                onItemClick={handleCarouselItemClick}
+              />
+              
+              {/* Want to Read Carousel */}
+              <ContentCarousel
+                title="Want to Read"
+                items={toCarouselItems(browseData['want-to-read'])}
+                loading={browseLoading['want-to-read']}
+                onItemClick={handleCarouselItemClick}
+              />
+              
+              {/* Currently Reading Carousel */}
+              <ContentCarousel
+                title="Currently Reading"
+                items={toCarouselItems(browseData['currently-reading'])}
+                loading={browseLoading['currently-reading']}
+                onItemClick={handleCarouselItemClick}
+              />
+            </div>
+          )}
+
+          {!loading && !pluginLoading && !hasVisibleSearched && hasEnabledBookSource && !isOpenLibraryEnabled && (
             <div className="text-center py-12">
               <BookOpen className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
               <p className="text-lg font-medium text-muted-foreground">Search for books</p>
@@ -354,7 +551,14 @@ export function OnlineBooksView() {
               </div>
 
               <div className="grid gap-4">
-                {visiblePluginResults.map((book) => (
+                {visiblePluginResults.map((book) => {
+                  // Extract metadata from extra
+                  const format = book.extra?.format as string | undefined;
+                  const author = book.extra?.author as string | undefined;
+                  const fileSize = book.extra?.file_size as string | undefined;
+                  const language = book.extra?.language as string | undefined;
+                  
+                  return (
                   <div
                     key={book.id}
                     className="flex gap-4 p-4 rounded-lg border border-border bg-card hover:bg-accent/50 transition-colors"
@@ -377,32 +581,95 @@ export function OnlineBooksView() {
                     <div className="flex-1 min-w-0 space-y-2">
                       <div>
                         <h3 className="font-semibold text-lg line-clamp-2">{book.title}</h3>
+                        {author && (
+                          <p className="text-sm text-muted-foreground mt-0.5">
+                            {author}
+                          </p>
+                        )}
+                        
+                        {/* Format badge and metadata row */}
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                          {format && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary/20 text-primary border border-primary/30">
+                              {format}
+                            </span>
+                          )}
+                          {fileSize && (
+                            <span className="text-xs text-muted-foreground">
+                              {fileSize}
+                            </span>
+                          )}
+                          {language && (
+                            <span className="text-xs text-muted-foreground">
+                              {language}
+                            </span>
+                          )}
+                        </div>
+                        
                         {(book.summary || book.description) && (
-                          <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+                          <p className="text-sm text-muted-foreground line-clamp-2 mt-2">
                             {book.summary || book.description}
                           </p>
                         )}
                       </div>
 
-                      {book.url && (
-                        <div className="flex gap-2 pt-2">
+                      {/* Show buttons if we have a detail URL (in extra) or a direct url */}
+                      {(book.extra?.detail_url || book.url) && (
+                        <div className="flex flex-wrap gap-2 pt-2">
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              if (!book.url) return;
-                              openInBrowser(book.url);
+                              // Use detail_url from extra if available, otherwise fall back to url
+                              const detailUrl = (book.extra?.detail_url as string) || book.url;
+                              if (!detailUrl) return;
+                              openInBrowser(detailUrl);
                             }}
                             className="gap-1.5"
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
                             View Details
                           </Button>
+                          {activePluginSourceId === 'anna-archive' && (
+                            <>
+                              <Button
+                                variant={downloadingBooks[book.id] ? "secondary" : "default"}
+                                size="sm"
+                                onClick={() => handleDirectDownload(book)}
+                                disabled={!!downloadingBooks[book.id]}
+                                className="gap-1.5"
+                              >
+                                {downloadingBooks[book.id] ? (
+                                  <>
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    {downloadingBooks[book.id]}
+                                  </>
+                                ) : (
+                                  <>
+                                    <Download className="w-3.5 h-3.5" />
+                                    Download
+                                  </>
+                                )}
+                              </Button>
+                              {hasTorboxKey && !downloadingBooks[book.id] && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleTorboxDownload(book)}
+                                  className="gap-1.5"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                  Torbox
+                                </Button>
+                              )}
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

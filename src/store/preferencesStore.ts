@@ -90,6 +90,12 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
 
       // Apply theme and scale to DOM
       document.documentElement.setAttribute("data-theme", themeMap[preferences.theme] ?? preferences.theme);
+      // Also toggle 'dark' class for Tailwind dark: variants
+      if (preferences.theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
       const scale = preferences.uiScale ?? 1.0;
       document.documentElement.style.setProperty('--ui-scale', String(scale));
     } catch (error) {
@@ -109,6 +115,12 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
         : DEFAULT_USER_PREFERENCES,
     }));
     document.documentElement.setAttribute("data-theme", themeMap[theme] ?? theme);
+    // Also toggle 'dark' class for Tailwind dark: variants
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
 
     try {
       await api.updateUserPreferences({ theme });
@@ -122,6 +134,12 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
             : DEFAULT_USER_PREFERENCES,
         }));
         document.documentElement.setAttribute("data-theme", themeMap[previousTheme] ?? previousTheme);
+        // Also rollback 'dark' class
+        if (previousTheme === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
       }
     }
   },

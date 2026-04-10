@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useUIStore, useReadingSettings } from '@/store/premiumReaderStore';
+import { useReaderUIStore, useReadingSettings } from '@/store/premiumReaderStore';
 
 interface PremiumReaderKeyboardHandlers {
   onPrevChapter?: () => void;
@@ -36,7 +36,7 @@ export function usePremiumReaderKeyboard(handlers: PremiumReaderKeyboardHandlers
     isSidebarOpen,
     isFocusMode,
     setSidebarTab,
-  } = useUIStore();
+  } = useReaderUIStore();
 
   const {
     toggleTheme,

@@ -1,6 +1,6 @@
 import { logger } from '@/lib/logger';
 import React, { useState, useEffect } from 'react';
-import { useUIStore } from '@/store/premiumReaderStore';
+import { useReaderUIStore } from '@/store/premiumReaderStore';
 import { useBookReadingTime } from '@/hooks/useBookReadingTime';
 import { ArrowLeft, Clock, Maximize2, Minimize2, Bookmark } from '@/components/icons';
 import { ReaderSettings, type ReaderFormat } from './ReaderSettings';
@@ -26,8 +26,8 @@ export function ReaderTopBar({
   centerExtra,
   rightExtra,
 }: ReaderTopBarProps) {
-  const isTopBarVisible = useUIStore(state => state.isTopBarVisible);
-  const toggleSidebar = useUIStore(state => state.toggleSidebar);
+  const isTopBarVisible = useReaderUIStore(state => state.isTopBarVisible);
+  const toggleSidebar = useReaderUIStore(state => state.toggleSidebar);
   const { formattedTime } = useBookReadingTime(bookId);
   const [isFullscreen, setIsFullscreen] = useState(false);
 

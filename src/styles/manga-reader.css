@@ -1217,3 +1217,33 @@
   width: 16px;
   height: 16px;
 }
+
+/* ────────────────────────────────────────────────────────────
+   HEADER TYPOGRAPHY
+   ──────────────────────────────────────────────────────────── */
+.manga-header-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--manga-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+
+.manga-header-chapter {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--manga-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 250px;
+}
+
+.manga-header-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}

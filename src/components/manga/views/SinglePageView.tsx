@@ -6,12 +6,18 @@ import { useMangaPreloader } from '../hooks/useMangaPreloader';
 /**
  * Single page reading mode.
  * Displays one manga page centered in the canvas.
+ * Works with both local and online sources.
  */
 export function SinglePageView() {
+    const sourceType = useMangaContentStore(s => s.sourceType);
     const bookId = useMangaContentStore(s => s.bookId);
+    const onlineSource = useMangaContentStore(s => s.onlineSource);
     const currentPage = useMangaContentStore(s => s.currentPage);
     const totalPages = useMangaContentStore(s => s.totalPages);
     const { preloadAround } = useMangaPreloader();
+
+    // Check if we have a valid source
+    const hasSource = sourceType === 'local' ? bookId !== null : onlineSource !== null;
 
     // Preload adjacent pages when current page changes
     useEffect(() => {
@@ -32,13 +38,12 @@ export function SinglePageView() {
         }
     }, [currentPage, totalPages]);
 
-    if (!bookId) return null;
+    if (!hasSource) return null;
 
     return (
         <div className="manga-single-view">
             <div className="manga-page-container">
                 <MangaPageImage
-                    bookId={bookId}
                     pageIndex={currentPage}
                 />
             </div>

@@ -5,10 +5,8 @@ import type { BookMetadata, Annotation } from '@/lib/tauri';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Loader2, AlertCircle } from '@/components/icons';
 import {
-  useUIStore,
+  useReaderUIStore,
   useReadingSettings,
-  applyReaderThemeToElement,
-  removeReaderThemeFromElement,
   BG_COLOR_PRESETS,
   TEXT_COLOR_PRESETS,
 } from '@/store/premiumReaderStore';
@@ -22,6 +20,8 @@ import { TextSelectionToolbar } from './TextSelectionToolbar';
 import { TTSControlBar } from './TTSControlBar';
 import { useReadingSession } from '@/hooks/useReadingSession';
 import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
+import { useReaderAutoHide } from '@/hooks/useReaderAutoHide';
+import { useReaderTheme } from '@/hooks/useReaderTheme';
 import type { ReaderContent } from './readerContent';
 import '@/styles/premium-reader.css';
 import { Document, Page, pdfjs } from 'react-pdf';
@@ -30,6 +30,55 @@ import 'react-pdf/dist/Page/TextLayer.css';
 
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
+
+// ── Page Input Component ──
+function PageInput({ pageNumber, numPages, onNavigate }: { pageNumber: number; numPages: number; onNavigate: (p: number) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [inputVal, setInputVal] = useState(String(pageNumber));
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setInputVal(String(pageNumber)); }, [pageNumber]);
+  useEffect(() => { if (editing) inputRef.current?.select(); }, [editing]);
+
+  const commit = () => {
+    setEditing(false);
+    const p = parseInt(inputVal, 10);
+    if (!Number.isNaN(p) && p >= 1 && p <= numPages && p !== pageNumber) {
+      onNavigate(p);
+    } else {
+      setInputVal(String(pageNumber));
+    }
+  };
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className="text-xs font-medium px-2 py-0.5 rounded hover:bg-white/10 transition-colors cursor-text"
+        style={{ color: 'var(--text-secondary)' }}
+        title="Click to jump to page"
+      >
+        {pageNumber} / {numPages}
+      </button>
+    );
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      type="number"
+      min={1}
+      max={numPages}
+      value={inputVal}
+      onChange={(e) => setInputVal(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setEditing(false); setInputVal(String(pageNumber)); } }}
+      className="w-16 text-xs text-center rounded border px-1 py-0.5 outline-none"
+      style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', borderColor: 'var(--border-color)' }}
+    />
+  );
+}
 
 interface PdfReaderProps {
   bookPath: string;
@@ -109,11 +158,10 @@ const encodePdfProgress = (state: PdfProgressState): string =>
   `${PDF_PROGRESS_PREFIX}|${state.page}|${state.scale.toFixed(4)}|${state.viewMode}|${state.zoomMode}`;
 
 export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReaderProps) {
-  const isFocusMode = useUIStore(state => state.isFocusMode);
-  const isTopBarShortcutOnly = useUIStore(state => state.isTopBarShortcutOnly);
-  const setTopBarVisible = useUIStore(state => state.setTopBarVisible);
-  const pendingAnnotationId = useUIStore(state => state.pendingAnnotationId);
-  const setPendingAnnotationId = useUIStore(state => state.setPendingAnnotationId);
+  const { isFocusMode } = useReaderAutoHide();
+  const setScrollProgress = useReaderUIStore(state => state.setScrollProgress);
+  const pendingAnnotationId = useReaderUIStore(state => state.pendingAnnotationId);
+  const setPendingAnnotationId = useReaderUIStore(state => state.setPendingAnnotationId);
   const { theme, width, margin, brightness, backgroundColor, textColor } = useReadingSettings();
 
   const isDoodleMode = useDoodleStore(state => state.isDoodleMode);
@@ -137,9 +185,12 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
   const containerRef = useRef<HTMLDivElement>(null);
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const pageWrapperRef = useRef<HTMLDivElement>(null);
-  const autoHideTimerRef = useRef<number | null>(null);
   const isProgrammaticScrollRef = useRef(false);
   const programmaticScrollTimerRef = useRef<number | null>(null);
+  const saveProgressTimerRef = useRef<number | null>(null);
+
+  // ── Reader Theme ──
+  useReaderTheme(readerContainerRef, theme);
 
   const widthFactor = useMemo(() => {
     switch (width) {
@@ -166,56 +217,6 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
     return preset?.color ?? textColor;
   }, [textColor]);
 
-  const resetAutoHideTimer = useCallback(() => {
-    if (isTopBarShortcutOnly) return;
-    if (!isFocusMode) {
-      setTopBarVisible(true);
-      if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
-      autoHideTimerRef.current = window.setTimeout(() => setTopBarVisible(false), 3000);
-    }
-  }, [isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
-
-  useEffect(() => {
-    const el = readerContainerRef.current;
-    if (el) applyReaderThemeToElement(el, theme);
-    return () => {
-      if (el) removeReaderThemeFromElement(el);
-    };
-  }, [theme]);
-
-  useEffect(() => {
-    let throttleTimeout: number | null = null;
-    const handleMouseMove = () => {
-      if (!throttleTimeout) {
-        resetAutoHideTimer();
-        throttleTimeout = window.setTimeout(() => {
-          throttleTimeout = null;
-        }, 100);
-      }
-    };
-    const handleTouch = () => resetAutoHideTimer();
-    document.addEventListener('mousemove', handleMouseMove, { passive: true });
-    document.addEventListener('touchstart', handleTouch, { passive: true });
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('touchstart', handleTouch);
-      if (throttleTimeout) clearTimeout(throttleTimeout);
-      if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
-    };
-  }, [resetAutoHideTimer]);
-
-  useEffect(() => {
-    if (isFocusMode) {
-      setTopBarVisible(false);
-      if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
-    } else if (isTopBarShortcutOnly) {
-      setTopBarVisible(false);
-    } else {
-      setTopBarVisible(true);
-      resetAutoHideTimer();
-    }
-  }, [isFocusMode, isTopBarShortcutOnly, resetAutoHideTimer, setTopBarVisible]);
-
   const getViewportMetrics = useCallback(() => {
     const container = containerRef.current;
     if (!container) {
@@ -231,7 +232,7 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
 
   const computeAutoScale = useCallback((mode: Exclude<PdfZoomMode, 'manual'>): number => {
     if (!docBaseWidth || !containerRef.current) {
-      return scale;
+      return 1.0;
     }
     const { widthPx, heightPx } = getViewportMetrics();
     if (mode === 'fit-width') {
@@ -241,7 +242,7 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
     const approxDocHeight = docBaseWidth * Math.sqrt(2);
     const fitHeight = heightPx / approxDocHeight;
     return clamp(Math.min(fitWidth, fitHeight), 0.5, 3);
-  }, [docBaseWidth, getViewportMetrics, scale]);
+  }, [docBaseWidth, getViewportMetrics]);
 
   const persistProgress = useCallback(async (nextPage: number, nextScale: number, nextViewMode: PdfViewMode, nextZoomMode: PdfZoomMode) => {
     if (numPages <= 0) return;
@@ -448,16 +449,29 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
       const nextScale = zoomMode === 'fit-width'
         ? clamp(metrics.widthPx / page.width, 0.5, 3)
         : clamp(Math.min(metrics.widthPx / page.width, metrics.heightPx / (page.width * Math.sqrt(2))), 0.5, 3);
-      setScale(nextScale);
+      // Only update if meaningfully different to prevent infinite re-render loops
+      setScale((prev) => Math.abs(prev - nextScale) > 0.001 ? nextScale : prev);
     }
   }, [docBaseWidth, getViewportMetrics, zoomMode]);
 
   useEffect(() => {
     if (numPages <= 0) return;
-    const safePage = clamp(pageNumber, 1, numPages);
-    persistProgress(safePage, scale, viewMode, zoomMode);
     resetDoodlePage();
-  }, [numPages, pageNumber, persistProgress, resetDoodlePage, scale, viewMode, zoomMode]);
+
+    // Update global progress
+    setScrollProgress(Math.min(100, (pageNumber / numPages) * 100));
+
+    // Debounce progress persistence to reduce DB writes
+    if (saveProgressTimerRef.current) clearTimeout(saveProgressTimerRef.current);
+    saveProgressTimerRef.current = window.setTimeout(() => {
+      const safePage = clamp(pageNumber, 1, numPages);
+      persistProgress(safePage, scale, viewMode, zoomMode);
+    }, 1500);
+
+    return () => {
+      if (saveProgressTimerRef.current) clearTimeout(saveProgressTimerRef.current);
+    };
+  }, [numPages, pageNumber, persistProgress, resetDoodlePage, scale, setScrollProgress, viewMode, zoomMode]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -611,6 +625,15 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
           <AlertCircle className="premium-error-icon" />
           <p className="premium-error-title">{error}</p>
           <p className="premium-error-subtitle">Try opening a different book or check the file format.</p>
+          <button
+            onClick={() => {
+              setError(null);
+              void loadBook();
+            }}
+            className="premium-error-button"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
@@ -621,16 +644,21 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
       <ReaderTopBar
         bookId={bookId}
         title={metadata?.title || readerContent?.title || 'Loading...'}
-        subtitle={`Page ${pageNumber} of ${numPages || '-'}`}
+        subtitle={numPages > 0 ? '' : 'Loading...'}
         progress={Math.round((pageNumber / numPages) * 100 || 0)}
         format="pdf"
         onClose={onClose}
         centerExtra={
           <div className="flex items-center gap-1 ml-3">
+            <PageInput pageNumber={pageNumber} numPages={numPages} onNavigate={(p) => {
+              setPageNumber(p);
+              if (viewMode === 'scroll') scrollToPage(p);
+            }} />
+            <span className="text-xs opacity-50 mx-1" style={{ color: 'var(--text-secondary)' }}>|</span>
             <button type="button" onClick={zoomOut} className="premium-control-button" title="Zoom out">
               <ZoomOut className="premium-control-icon" />
             </button>
-            <span className="text-xs font-medium min-w-[52px] text-center" style={{ color: 'var(--text-secondary)' }}>
+            <span className="text-xs font-medium min-w-[40px] text-center" style={{ color: 'var(--text-secondary)' }}>
               {Math.round(scale * 100)}%
             </span>
             <button type="button" onClick={zoomIn} className="premium-control-button" title="Zoom in">
@@ -673,9 +701,9 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
         }}
       >
         {isLoading && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-gray-50/80 dark:bg-gray-900/80 backdrop-blur-sm">
-            <Loader2 className="w-12 h-12 text-blue-500 animate-spin mb-4" />
-            <p className="text-gray-700 dark:text-gray-300 font-medium">Rendering PDF Document...</p>
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center backdrop-blur-sm" style={{ backgroundColor: 'var(--overlay-bg)' }}>
+            <Loader2 className="w-12 h-12 animate-spin mb-4" style={{ color: 'var(--loading-spinner)' }} />
+            <p className="font-medium" style={{ color: 'var(--text-secondary)' }}>Rendering PDF Document...</p>
           </div>
         )}
 

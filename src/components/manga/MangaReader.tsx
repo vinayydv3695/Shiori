@@ -2,6 +2,7 @@ import React, { useEffect, useCallback, useRef } from 'react';
 import {
     useMangaContentStore,
     useMangaSettingsStore,
+    type OnlineSourceConfig,
 } from '@/store/mangaReaderStore';
 import { api } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
@@ -11,15 +12,19 @@ import { MangaSidebar } from './MangaSidebar';
 import { AdvancedSettingsPanel } from './AdvancedSettingsPanel';
 import { MangaProgressBar } from './MangaProgressBar';
 import { NavigationOverlay } from './NavigationOverlay';
+import { MangaReaderHeader } from './MangaReaderHeader';
 import { useMangaKeyboard } from './hooks/useMangaKeyboard';
 import { imageCache } from './hooks/useMangaPreloader';
+import { clearOnlineImageCache } from './hooks/useUnifiedImageDecode';
 
 // Import manga reader styles
 import '@/styles/manga-reader.css';
 
 const PLACEHOLDER: [number, number] = [800, 1200];
 
-interface MangaReaderProps {
+// Props for local manga
+interface LocalMangaReaderProps {
+    mode: 'local';
     bookId: number;
     bookPath: string;
     title?: string;
@@ -27,19 +32,29 @@ interface MangaReaderProps {
     onClose: () => void;
 }
 
+// Props for online manga
+interface OnlineMangaReaderProps {
+    mode: 'online';
+    sourceConfig: OnlineSourceConfig;
+    onClose: () => void;
+    onChapterChange?: (chapterId: string) => Promise<{ pageUrls: string[]; chapterTitle: string }>;
+}
+
+export type MangaReaderProps = LocalMangaReaderProps | OnlineMangaReaderProps;
+
 /**
  * Root manga reader component.
  * Full-screen overlay orchestrating all sub-components.
+ * Supports both local files and online sources.
  */
-export function MangaReader({
-    bookId,
-    bookPath,
-    title = '',
-    totalPages = 0,
-    onClose,
-}: MangaReaderProps) {
+export function MangaReader(props: MangaReaderProps) {
+    const { onClose } = props;
+    const mode = props.mode;
+    
     const openManga = useMangaContentStore(s => s.openManga);
+    const openOnlineManga = useMangaContentStore(s => s.openOnlineManga);
     const closeManga = useMangaContentStore(s => s.closeManga);
+    const sourceType = useMangaContentStore(s => s.sourceType);
     const currentPage = useMangaContentStore(s => s.currentPage);
     const setCurrentPage = useMangaContentStore(s => s.setCurrentPage);
     const mangaTotalPages = useMangaContentStore(s => s.totalPages);
@@ -49,16 +64,27 @@ export function MangaReader({
     const error = useMangaContentStore(s => s.error);
     const setLoading = useMangaContentStore(s => s.setLoading);
     const setError = useMangaContentStore(s => s.setError);
+    const bookId = useMangaContentStore(s => s.bookId);
+    const onlineSource = useMangaContentStore(s => s.onlineSource);
     const theme = useMangaSettingsStore(s => s.theme);
 
     // Guard: don't save progress until initialization + resume is complete
     const initCompleteRef = useRef(false);
 
-    // Initialize manga state and load reading progress
+    // Extract stable values from props for dependencies
+    const localBookId = mode === 'local' ? props.bookId : null;
+    const localBookPath = mode === 'local' ? props.bookPath : null;
+    const localTitle = mode === 'local' ? (props.title ?? '') : '';
+    const localTotalPages = mode === 'local' ? (props.totalPages ?? 0) : 0;
+    const onlineConfig = mode === 'online' ? props.sourceConfig : null;
+
+    // Initialize manga state based on mode
     useEffect(() => {
         let cancelled = false;
 
-        const init = async () => {
+        const initLocal = async () => {
+            if (localBookId === null || localBookPath === null) return;
+            
             setLoading(true);
             setError(null);
             try {
@@ -68,79 +94,131 @@ export function MangaReader({
                     title: string;
                     page_count: number;
                     page_dimensions?: [number, number][];
-                }>('open_manga', { bookId, path: bookPath });
+                }>('open_manga', { bookId: localBookId, path: localBookPath });
 
                 if (cancelled) return;
 
                 openManga(
-                    bookId,
-                    bookPath,
-                    metadata.title || title,
-                    metadata.page_count || totalPages,
+                    localBookId,
+                    localBookPath,
+                    metadata.title || localTitle,
+                    metadata.page_count || localTotalPages,
                     metadata.page_dimensions
                 );
 
                 // Load reading progress and resume from last page
-                 try {
-                     const progress = await api.getReadingProgress(bookId);
-                     if (cancelled) return;
-                     if (progress && progress.currentPage !== undefined) {
-                         logger.debug('[MangaReader] Resuming from page:', progress.currentPage);
-                         setCurrentPage(progress.currentPage);
-                         if (progress.currentPage > 0) {
-                             useToastStore.getState().addToast({
-                                 title: 'Resuming reading',
-                                 description: `Page ${progress.currentPage + 1} of ${metadata.page_count}`,
-                                 variant: 'info',
-                                 duration: 3000,
-                             });
-                         }
-                     }
-                 } catch (progressErr) {
-                     logger.warn('[MangaReader] Failed to load reading progress:', progressErr);
-                 }
+                try {
+                    const progress = await api.getReadingProgress(localBookId);
+                    if (cancelled) return;
+                    if (progress && progress.currentPage !== undefined) {
+                        logger.debug('[MangaReader] Resuming from page:', progress.currentPage);
+                        setCurrentPage(progress.currentPage);
+                        if (progress.currentPage > 0) {
+                            useToastStore.getState().addToast({
+                                title: 'Resuming reading',
+                                description: `Page ${progress.currentPage + 1} of ${metadata.page_count}`,
+                                variant: 'info',
+                                duration: 3000,
+                            });
+                        }
+                    }
+                } catch (progressErr) {
+                    logger.warn('[MangaReader] Failed to load reading progress:', progressErr);
+                }
 
-                 if (!cancelled) {
-                     initCompleteRef.current = true;
-                 }
-             } catch (err) {
-                 if (cancelled) return;
-                 // Fallback: use provided props if IPC not available yet
-                 logger.warn('[MangaReader] IPC open_manga not available, using props:', err);
-                 openManga(bookId, bookPath, title, totalPages);
-                 initCompleteRef.current = true;
-             }
+                if (!cancelled) {
+                    initCompleteRef.current = true;
+                }
+            } catch (err) {
+                if (cancelled) return;
+                // Fallback: use provided props if IPC not available yet
+                logger.warn('[MangaReader] IPC open_manga not available, using props:', err);
+                openManga(localBookId, localBookPath, localTitle, localTotalPages);
+                initCompleteRef.current = true;
+            }
             if (!cancelled) {
                 setLoading(false);
             }
         };
 
-        init();
+        const initOnline = async () => {
+            if (!onlineConfig) return;
+            
+            setLoading(true);
+            setError(null);
+            
+            try {
+                openOnlineManga(onlineConfig);
+                
+                // Try to load saved progress for this online manga
+                const progressKey = `online:${onlineConfig.sourceId}:${onlineConfig.contentId}`;
+                try {
+                    const savedProgress = localStorage.getItem(`shiori-manga-progress:${progressKey}`);
+                    if (savedProgress) {
+                        const { chapterId, page } = JSON.parse(savedProgress);
+                        if (chapterId === onlineConfig.chapterId && page > 0) {
+                            setCurrentPage(page);
+                            useToastStore.getState().addToast({
+                                title: 'Resuming reading',
+                                description: `Page ${page + 1} of ${onlineConfig.pageUrls.length}`,
+                                variant: 'info',
+                                duration: 3000,
+                            });
+                        }
+                    }
+                } catch {
+                    // Ignore progress load errors
+                }
+                
+                initCompleteRef.current = true;
+            } catch (err) {
+                if (cancelled) return;
+                setError(err instanceof Error ? err.message : 'Failed to load online manga');
+            }
+            
+            if (!cancelled) {
+                setLoading(false);
+            }
+        };
+
+        if (mode === 'local') {
+            initLocal();
+        } else {
+            initOnline();
+        }
 
         return () => {
             cancelled = true;
             initCompleteRef.current = false;
-             // Release the backend ZIP archive to free ~200MB/book
-             api.closeManga(bookId).catch(err =>
-                 logger.warn('[MangaReader] Failed to close manga backend:', err)
-             );
+            
+            // Cleanup based on mode
+            if (mode === 'local' && localBookId !== null) {
+                // Release the backend ZIP archive to free ~200MB/book
+                api.closeManga(localBookId).catch(err =>
+                    logger.warn('[MangaReader] Failed to close manga backend:', err)
+                );
+                imageCache.clear();
+            } else {
+                // Clear online image cache
+                clearOnlineImageCache();
+            }
+            
             // Cleanup frontend state
             closeManga();
-            imageCache.clear();
         };
-    }, [bookId, bookPath, title, totalPages, openManga, closeManga, setLoading, setError, setCurrentPage]);
+    }, [mode, localBookId, localBookPath, localTitle, localTotalPages, onlineConfig, 
+        openManga, openOnlineManga, closeManga, setLoading, setError, setCurrentPage]);
 
     // Apply theme on mount
     useEffect(() => {
         document.documentElement.setAttribute('data-manga-theme', theme);
     }, [theme]);
 
-    // Progressively fetch real page dimensions (backend returns placeholder 800x1200 on open).
-    // On each page change, request dimensions for a window of ±10 pages around the viewport.
+    // Progressively fetch real page dimensions (local only)
     const fetchedDimsRef = useRef(new Set<number>());
 
     useEffect(() => {
-        if (!bookId || mangaTotalPages === 0 || !initCompleteRef.current) return;
+        if (sourceType !== 'local' || !bookId || mangaTotalPages === 0 || !initCompleteRef.current) return;
 
         const start = Math.max(0, currentPage - 10);
         const end = Math.min(mangaTotalPages, currentPage + 20);
@@ -166,12 +244,12 @@ export function MangaReader({
             if (cancelled) return;
             for (const idx of needed) fetchedDimsRef.current.add(idx);
             mergePageDimensions(needed, dims);
-         }).catch(err => {
-             logger.warn('[MangaReader] Failed to fetch page dimensions:', err);
-         });
+        }).catch(err => {
+            logger.warn('[MangaReader] Failed to fetch page dimensions:', err);
+        });
 
         return () => { cancelled = true; };
-    }, [bookId, currentPage, mangaTotalPages, pageDimensions, mergePageDimensions]);
+    }, [sourceType, bookId, currentPage, mangaTotalPages, pageDimensions, mergePageDimensions]);
 
     // Save reading progress when page changes
     useEffect(() => {
@@ -188,34 +266,55 @@ export function MangaReader({
                     ? ((currentPage + 1) / mangaTotalPages) * 100 
                     : 0;
                 
-                await api.saveReadingProgress(
-                    bookId,
-                    `page_${currentPage}`,
-                    progressPercent,
-                    currentPage,
-                    mangaTotalPages
-                 );
-                 logger.debug('[MangaReader] Saved progress:', { currentPage, total: mangaTotalPages, percent: progressPercent });
-             } catch (err) {
-                 logger.warn('[MangaReader] Failed to save reading progress:', err);
+                if (sourceType === 'local' && bookId) {
+                    await api.saveReadingProgress(
+                        bookId,
+                        `page_${currentPage}`,
+                        progressPercent,
+                        currentPage,
+                        mangaTotalPages
+                    );
+                    logger.debug('[MangaReader] Saved local progress:', { currentPage, total: mangaTotalPages, percent: progressPercent });
+                } else if (sourceType === 'online' && onlineSource) {
+                    // Save online progress to localStorage
+                    const progressKey = `online:${onlineSource.sourceId}:${onlineSource.contentId}`;
+                    localStorage.setItem(`shiori-manga-progress:${progressKey}`, JSON.stringify({
+                        chapterId: onlineSource.chapterId,
+                        page: currentPage,
+                        timestamp: Date.now(),
+                    }));
+                    logger.debug('[MangaReader] Saved online progress:', { 
+                        sourceId: onlineSource.sourceId,
+                        contentId: onlineSource.contentId,
+                        chapterId: onlineSource.chapterId,
+                        currentPage, 
+                        total: mangaTotalPages 
+                    });
+                }
+            } catch (err) {
+                logger.warn('[MangaReader] Failed to save reading progress:', err);
             }
         };
 
         // Debounce saves to avoid excessive calls
         const timeoutId = setTimeout(saveProgress, 1000);
         return () => clearTimeout(timeoutId);
-    }, [bookId, currentPage, mangaTotalPages]);
+    }, [sourceType, bookId, onlineSource, currentPage, mangaTotalPages]);
 
-     // Close handler
-     const handleClose = useCallback(() => {
-         // Release the backend ZIP archive to free memory
-         api.closeManga(bookId).catch(err =>
-             logger.warn('[MangaReader] Failed to close manga backend:', err)
-         );
+    // Close handler
+    const handleClose = useCallback(() => {
+        if (sourceType === 'local' && bookId) {
+            // Release the backend ZIP archive to free memory
+            api.closeManga(bookId).catch(err =>
+                logger.warn('[MangaReader] Failed to close manga backend:', err)
+            );
+            imageCache.clear();
+        } else {
+            clearOnlineImageCache();
+        }
         closeManga();
-        imageCache.clear();
         onClose();
-    }, [bookId, closeManga, onClose]);
+    }, [sourceType, bookId, closeManga, onClose]);
 
     // Register keyboard shortcuts
     useMangaKeyboard(handleClose);
@@ -238,7 +337,7 @@ export function MangaReader({
                     <span className="manga-loading-text" style={{ color: 'var(--manga-accent)' }}>
                         Error: {error}
                     </span>
-                    <button className="manga-btn-done" onClick={handleClose}>
+                    <button type="button" className="manga-btn-done" onClick={handleClose}>
                         Close
                     </button>
                 </div>
@@ -246,8 +345,15 @@ export function MangaReader({
         );
     }
 
+    // Get onChapterChange from props if online mode
+    const onChapterChange = props.mode === 'online' ? props.onChapterChange : undefined;
+
     return (
         <div className="manga-reader" tabIndex={-1}>
+            <MangaReaderHeader 
+                onClose={handleClose} 
+                onChapterChange={onChapterChange}
+            />
             <MangaCanvas />
             <NavigationOverlay />
             <MangaSidebar />

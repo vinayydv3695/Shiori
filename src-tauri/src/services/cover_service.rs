@@ -549,14 +549,14 @@ impl CoverService {
         
         let full = image.image.clone();
         
-        // Save to disk
+        // Save to disk — JPEG doesn't support alpha, so convert RGBA to RGB
         let thumb_path = cover_dir.join("thumb.jpg");
         let medium_path = cover_dir.join("medium.jpg");
         let full_path = cover_dir.join("full.jpg");
         
-        thumb.save(&thumb_path)?;
-        medium.save(&medium_path)?;
-        full.save(&full_path)?;
+        DynamicImage::ImageRgba8(thumb).to_rgb8().save(&thumb_path)?;
+        DynamicImage::ImageRgba8(medium).to_rgb8().save(&medium_path)?;
+        full.to_rgb8().save(&full_path)?;
         
         let cover_set = CoverSet {
             uuid: book_id,

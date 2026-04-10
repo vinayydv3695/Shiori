@@ -33,6 +33,16 @@ impl MobiAdapter {
 
         let normalized = Self::trim_garbage_tail(&normalized);
 
+        // If content looks garbled, strip all HTML and present as plain text
+        if Self::is_content_garbled(&normalized) {
+            let plain = Self::strip_html_tags(&normalized);
+            let clean_plain = Self::clean_garbled_plain_text(&plain);
+            if clean_plain.trim().is_empty() {
+                return Self::text_to_html("[This MOBI file could not be decoded. The content may be DRM-protected or use an unsupported encoding.]");
+            }
+            return Self::text_to_html(&clean_plain);
+        }
+
         if normalized.contains('<') {
             let html = Self::extract_html_body_or_document(&normalized)
                 .unwrap_or_else(|| normalized.to_string());
@@ -45,6 +55,76 @@ impl MobiAdapter {
         } else {
             Self::text_to_html(&normalized)
         }
+    }
+
+    /// Detect if extracted MOBI content is garbled/corrupted.
+    /// Checks for: low alpha ratio, broken HTML tags, excessive uppercase gibberish,
+    /// and high density of control-like patterns.
+    fn is_content_garbled(content: &str) -> bool {
+        if content.len() < 100 {
+            return false;
+        }
+
+        // Sample the first 2000 chars for performance
+        let sample: String = content.chars().take(2000).collect();
+        let sample_len = sample.len() as f64;
+        if sample_len < 50.0 {
+            return false;
+        }
+
+        let plain = Self::strip_html_tags(&sample);
+        let plain_len = plain.len() as f64;
+        if plain_len < 20.0 {
+            return false;
+        }
+
+        // Check 1: Alpha ratio — readable text should have > 40% alphabetic chars
+        let alpha_count = plain.chars().filter(|c| c.is_alphabetic()).count() as f64;
+        let alpha_ratio = alpha_count / plain_len;
+
+        // Check 2: Space ratio — readable text has reasonable spacing (> 8% spaces)
+        let space_count = plain.chars().filter(|c| *c == ' ').count() as f64;
+        let space_ratio = space_count / plain_len;
+
+        // Check 3: Broken tag fragments like "tocrecinde>", "cinde>", ">NOT"
+        let broken_tag_count = {
+            let re = Regex::new(r"[a-z]{2,10}>").ok();
+            re.map(|r| r.find_iter(&sample).count()).unwrap_or(0)
+        };
+        let broken_tag_density = broken_tag_count as f64 / (sample_len / 100.0);
+
+        // Check 4: Very long "words" (>30 chars without space) indicate garbled data
+        let long_word_count = plain
+            .split_whitespace()
+            .filter(|w| w.len() > 30)
+            .count();
+        let word_count = plain.split_whitespace().count().max(1);
+        let long_word_ratio = long_word_count as f64 / word_count as f64;
+
+        // Garbled if: poor alpha ratio + poor spacing, or lots of broken tags, or lots of gibberish words
+        (alpha_ratio < 0.35 && space_ratio < 0.08)
+            || broken_tag_density > 3.0
+            || long_word_ratio > 0.3
+            || (alpha_ratio < 0.45 && broken_tag_density > 1.5)
+    }
+
+    /// Clean garbled plain text by removing obvious binary/tag debris
+    fn clean_garbled_plain_text(text: &str) -> String {
+        // Remove fragments that look like broken tags
+        let cleaned = if let Ok(re) = Regex::new(r"[a-zA-Z]{1,5}>") {
+            re.replace_all(text, " ").to_string()
+        } else {
+            text.to_string()
+        };
+
+        // Collapse excessive whitespace
+        let collapsed = if let Ok(re) = Regex::new(r"\s{3,}") {
+            re.replace_all(&cleaned, "\n\n").to_string()
+        } else {
+            cleaned
+        };
+
+        collapsed.trim().to_string()
     }
 
     fn text_to_html(text: &str) -> String {
@@ -977,11 +1057,41 @@ impl BookReaderAdapter for MobiAdapter {
         let m = Mobi::from_read(&mut &file_data[..])
             .map_err(|e| ShioriError::Other(format!("Invalid MOBI file: {}", e)))?;
         
-        let html = match Self::extract_html_from_records(&file_data) {
-            Some(content) if !content.trim().is_empty() => content,
-            _ => m.content_as_string_lossy()
-                .map_err(|e| ShioriError::Other(format!("Failed to read MOBI content: {}", e)))?,
-        };
+        // ── Multi-strategy content extraction ──
+        // Try all methods and pick the best result using readability scoring.
+        let mut candidates: Vec<String> = Vec::new();
+
+        // Strategy 1: Custom PDB record extraction (handles compression, extra bytes, encoding)
+        if let Some(content) = Self::extract_html_from_records(&file_data) {
+            if !content.trim().is_empty() {
+                candidates.push(content);
+            }
+        }
+
+        // Strategy 2: mobi crate strict UTF-8
+        if let Ok(content) = m.content_as_string() {
+            if !content.trim().is_empty() {
+                candidates.push(content);
+            }
+        }
+
+        // Strategy 3: mobi crate lossy (replacement chars for invalid bytes)
+        if let Ok(content) = m.content_as_string_lossy() {
+            if !content.trim().is_empty() {
+                candidates.push(content);
+            }
+        }
+
+        if candidates.is_empty() {
+            return Err(ShioriError::Other(
+                "Failed to extract any readable content from this MOBI file. It may be DRM-protected or corrupted.".to_string()
+            ));
+        }
+
+        // Pick the best candidate by readability score
+        let html = Self::pick_best_decoded_candidate(candidates)
+            .unwrap_or_else(|| "<p>Unable to decode MOBI content.</p>".to_string());
+
         let image_map = Self::build_mobi_image_map(&file_data);
         let normalized_html = Self::normalize_mobi_content(&html);
         let normalized_html = Self::inline_mobi_images(&normalized_html, &image_map);

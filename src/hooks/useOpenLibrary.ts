@@ -21,6 +21,21 @@ export interface OpenLibrarySearchResult {
   q: string;
 }
 
+export interface OpenLibraryTrendingWork {
+  key: string;
+  title: string;
+  author_key?: string[];
+  author_name?: string[];
+  first_publish_year?: number;
+  cover_i?: number;
+  cover_edition_key?: string;
+  edition_count?: number;
+  has_fulltext?: boolean;
+  ia?: string[];
+}
+
+export type BookBrowseMode = 'trending' | 'want-to-read' | 'currently-reading' | 'already-read';
+
 const BASE_URL = 'https://openlibrary.org';
 const COVER_BASE_URL = 'https://covers.openlibrary.org/b';
 const RATE_LIMIT_DELAY = 350;
@@ -112,8 +127,65 @@ export function useOpenLibrary() {
     return `${BASE_URL}${bookKey}`;
   };
 
+  /**
+   * Browse trending books from Open Library
+   * Uses the trending API endpoint
+   */
+  const browseTrending = async (
+    mode: BookBrowseMode = 'trending',
+    limit: number = 20
+  ): Promise<OpenLibraryBook[]> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Open Library trending API endpoints
+      const modeEndpoints: Record<BookBrowseMode, string> = {
+        'trending': '/trending/daily.json',
+        'want-to-read': '/trending/want-to-read.json',
+        'currently-reading': '/trending/now.json',
+        'already-read': '/trending/daily.json', // fallback to daily
+      };
+
+      const endpoint = modeEndpoints[mode];
+      const url = `${BASE_URL}${endpoint}?limit=${limit}`;
+      
+      logger.info('Open Library browse:', { mode, limit, url });
+      
+      const response = await rateLimitedFetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`Open Library API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      // Convert trending works to our book format
+      const works: OpenLibraryTrendingWork[] = data.works || [];
+      
+      return works.map((work) => ({
+        key: work.key,
+        title: work.title,
+        author_name: work.author_name,
+        first_publish_year: work.first_publish_year,
+        cover_i: work.cover_i,
+        edition_count: work.edition_count,
+        has_fulltext: work.has_fulltext,
+        ia: work.ia,
+      }));
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to browse Open Library';
+      logger.error('Open Library browse failed:', err);
+      setError(errorMessage);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     searchBooks,
+    browseTrending,
     getCoverUrl,
     getReadUrl,
     getBookDetailsUrl,

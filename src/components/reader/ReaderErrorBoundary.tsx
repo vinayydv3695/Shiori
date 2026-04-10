@@ -38,25 +38,25 @@ ${error.technicalDetails ? `\nTechnical Details:\n${error.technicalDetails}` : '
   };
 
   return (
-    <div className="flex items-center justify-center h-full bg-gray-50 dark:bg-gray-900 p-8">
-      <div className="max-w-2xl w-full bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
+    <div className="flex items-center justify-center h-full p-8" style={{ backgroundColor: 'var(--reader-bg)' }}>
+      <div className="max-w-2xl w-full rounded-lg shadow-lg p-8" style={{ backgroundColor: 'hsl(var(--card))', color: 'hsl(var(--card-foreground))' }}>
         {/* Error Icon & Title */}
         <div className="flex items-start gap-4 mb-6">
           <div className="flex-shrink-0">
-            <XCircle className="w-12 h-12 text-red-500" />
+            <XCircle className="w-12 h-12" style={{ color: 'var(--color-error)' }} />
           </div>
           <div className="flex-1">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+            <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--reader-fg)' }}>
               {error.title}
             </h2>
-            <p className="text-gray-700 dark:text-gray-300 text-lg">
+            <p className="text-lg" style={{ color: 'var(--text-secondary)' }}>
               {error.message}
             </p>
           </div>
           {onClose && (
             <button
               onClick={onClose}
-              className="flex-shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              className="flex-shrink-0" style={{ color: 'var(--text-tertiary)' }}
             >
               <X className="w-6 h-6" />
             </button>
@@ -66,16 +66,16 @@ ${error.technicalDetails ? `\nTechnical Details:\n${error.technicalDetails}` : '
         {/* Recovery Suggestions */}
         {error.suggestions && error.suggestions.length > 0 && (
           <div className="mb-6">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
+            <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--reader-fg)' }}>
               What you can try:
             </h3>
             <ul className="space-y-2">
               {error.suggestions.map((suggestion, index) => (
                 <li
                   key={index}
-                  className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400"
+                  className="flex items-start gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}
                 >
-                  <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 flex items-center justify-center text-xs font-medium mt-0.5">
+                  <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium mt-0.5" style={{ backgroundColor: 'hsl(var(--accent))', color: 'var(--interactive-accent)' }}>
                     {index + 1}
                   </span>
                   <span>{suggestion}</span>
@@ -87,11 +87,11 @@ ${error.technicalDetails ? `\nTechnical Details:\n${error.technicalDetails}` : '
 
         {/* Technical Details (Collapsible) */}
         {error.technicalDetails && (
-          <details className="mb-6 bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
-            <summary className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+          <details className="mb-6 rounded-lg p-4" style={{ backgroundColor: 'hsl(var(--surface-1))' }}>
+            <summary className="text-sm font-medium cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
               Technical Details
             </summary>
-            <pre className="mt-3 text-xs text-gray-600 dark:text-gray-400 overflow-x-auto whitespace-pre-wrap">
+            <pre className="mt-3 text-xs overflow-x-auto whitespace-pre-wrap" style={{ color: 'var(--text-tertiary)' }}>
               {error.technicalDetails}
             </pre>
           </details>

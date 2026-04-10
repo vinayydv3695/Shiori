@@ -91,21 +91,21 @@ export function AnnotationExportDialog({ open, onOpenChange, bookId }: Annotatio
         className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity" 
         onClick={() => onOpenChange(false)} 
       />
-      <div className="relative bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-2xl flex flex-col max-h-[85vh] overflow-hidden border border-gray-200 dark:border-gray-800">
+      <div className="relative rounded-lg shadow-xl w-full max-w-2xl flex flex-col max-h-[85vh] overflow-hidden" style={{ backgroundColor: 'hsl(var(--card))', color: 'hsl(var(--card-foreground))', borderWidth: 1, borderColor: 'hsl(var(--border))' }}>
         
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottomWidth: 1, borderColor: 'hsl(var(--border))' }}>
           <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--reader-fg)' }}>
               Export Annotations
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               {bookId ? 'Exporting annotations for this book' : 'Exporting all annotations in library'}
             </p>
           </div>
           <button
             onClick={() => onOpenChange(false)}
-            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="p-2 rounded-full transition-colors" style={{ color: 'var(--text-tertiary)' }}
           >
             <X size={20} />
           </button>
@@ -115,7 +115,7 @@ export function AnnotationExportDialog({ open, onOpenChange, bookId }: Annotatio
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Format Selection */}
           <div className="space-y-3">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Format</label>
+            <label className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>Format</label>
             <div className="flex gap-4">
               {['markdown', 'json', 'text'].map((f) => (
                 <label key={f} className="flex items-center gap-2 cursor-pointer">
@@ -127,7 +127,7 @@ export function AnnotationExportDialog({ open, onOpenChange, bookId }: Annotatio
                     onChange={(e) => setFormat(e.target.value)}
                     className="text-accent focus:ring-accent w-4 h-4"
                   />
-                  <span className="text-gray-700 dark:text-gray-300 capitalize">{f}</span>
+                  <span className="capitalize" style={{ color: 'var(--text-secondary)' }}>{f}</span>
                 </label>
               ))}
             </div>
@@ -136,19 +136,19 @@ export function AnnotationExportDialog({ open, onOpenChange, bookId }: Annotatio
           {/* Preview */}
           <div className="space-y-3 flex-1 flex flex-col min-h-[300px]">
             <div className="flex justify-between items-center">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
                 Preview
               </label>
               {exportData && (
-                <span className="text-xs text-gray-500 dark:text-gray-400">
+                <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                   {exportData.annotation_count} annotation(s)
                 </span>
               )}
             </div>
             
-            <div className="flex-1 bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-md p-4 overflow-y-auto relative font-mono text-sm text-gray-800 dark:text-gray-300">
+            <div className="flex-1 rounded-md p-4 overflow-y-auto relative font-mono text-sm" style={{ backgroundColor: 'hsl(var(--surface-1))', borderWidth: 1, borderColor: 'hsl(var(--border))', color: 'var(--text-secondary)' }}>
               {loading ? (
-                <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-gray-900/50">
+                <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: 'var(--overlay-bg)' }}>
                   <span className="animate-pulse">Loading preview...</span>
                 </div>
               ) : exportData ? (
@@ -158,7 +158,7 @@ export function AnnotationExportDialog({ open, onOpenChange, bookId }: Annotatio
                     : exportData.content}
                 </pre>
               ) : (
-                <div className="text-gray-400 dark:text-gray-600 text-center mt-10">
+                <div className="text-center mt-10" style={{ color: 'var(--text-tertiary)' }}>
                   No preview available
                 </div>
               )}
@@ -167,24 +167,24 @@ export function AnnotationExportDialog({ open, onOpenChange, bookId }: Annotatio
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
+        <div className="flex items-center justify-end gap-3 px-6 py-4" style={{ borderTopWidth: 1, borderColor: 'hsl(var(--border))', backgroundColor: 'hsl(var(--surface-1))' }}>
           <button
             onClick={() => onOpenChange(false)}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+            className="px-4 py-2 text-sm font-medium rounded-md transition-colors" style={{ color: 'var(--btn-secondary-fg)' }}
           >
             Cancel
           </button>
           <button
             onClick={handleCopy}
             disabled={!exportData || loading}
-            className="px-4 py-2 text-sm font-medium border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-sm font-medium rounded-md transition-colors disabled:opacity-50" style={{ borderWidth: 1, borderColor: 'hsl(var(--border))', color: 'var(--btn-secondary-fg)' }}
           >
             Copy to Clipboard
           </button>
           <button
             onClick={handleSave}
             disabled={!exportData || loading}
-            className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-sm font-medium rounded-md transition-colors disabled:opacity-50" style={{ backgroundColor: 'var(--btn-primary-bg)', color: 'var(--btn-primary-fg)' }}
           >
             Save to File
           </button>

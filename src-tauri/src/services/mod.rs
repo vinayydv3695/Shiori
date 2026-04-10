@@ -44,3 +44,6 @@ pub mod translation_service;
 // Folder watch service
 pub mod folder_watch;
 
+// Torbox service
+pub mod torbox;
+

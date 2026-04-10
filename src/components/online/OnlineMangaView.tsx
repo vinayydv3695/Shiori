@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BookOpen, Calendar, User, Info } from 'lucide-react';
-import { useMangaDex, type MangaDexManga, type MangaDexChapter } from '@/hooks/useMangaDex';
+import { useMangaDex, type MangaDexManga, type MangaDexChapter, type BrowseMode } from '@/hooks/useMangaDex';
 import { Button } from '@/components/ui/button';
 import { logger } from '@/lib/logger';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -11,6 +11,7 @@ import { OnlineSearchHeader } from './OnlineSearchHeader';
 import { pluginApi, type Chapter as PluginChapter, type SearchResult as PluginSearchResult } from '@/lib/pluginSources';
 import { useUIStore } from '@/store/uiStore';
 import { useOnlineMangaReaderStore } from '@/store/onlineMangaReaderStore';
+import { ContentCarousel, type CarouselItem } from './ContentCarousel';
 
 let onlineMangaSearchTimeout: number | undefined;
 
@@ -37,7 +38,22 @@ export function OnlineMangaView() {
   const primarySourceByKind = useSourceStore((state) => state.primarySourceByKind);
   const [lastSearchedQuery, setLastSearchedQuery] = useState('');
   
-  const { searchManga, getChapters, loading, error } = useMangaDex();
+  // Browse mode state
+  const [browseData, setBrowseData] = useState<Record<BrowseMode, MangaDexManga[]>>({
+    popular: [],
+    latest: [],
+    recent: [],
+    'top-rated': [],
+  });
+  const [browseLoading, setBrowseLoading] = useState<Record<BrowseMode, boolean>>({
+    popular: false,
+    latest: false,
+    recent: false,
+    'top-rated': false,
+  });
+  const [browseInitialized, setBrowseInitialized] = useState(false);
+  
+  const { searchManga, browseManga, getChapters, loading, error } = useMangaDex();
 
   const mangaSources = useMemo(
     () => sources.filter((source) => source.kind === 'manga'),
@@ -57,6 +73,39 @@ export function OnlineMangaView() {
   const isMangaDexEnabled = activeSource?.id === 'mangadex';
   const isPluginMangaSource = activeSource?.id !== 'mangadex' && activeSource?.kind === 'manga';
   const activePluginSourceId = isPluginMangaSource ? activeSource?.id : null;
+
+  // Load browse data on mount for MangaDex
+  useEffect(() => {
+    if (!isMangaDexEnabled || browseInitialized) return;
+    
+    const loadBrowseData = async (mode: BrowseMode) => {
+      setBrowseLoading((prev) => ({ ...prev, [mode]: true }));
+      try {
+        const data = await browseManga(mode, 20);
+        setBrowseData((prev) => ({ ...prev, [mode]: data }));
+      } catch (err) {
+        logger.error(`Failed to load ${mode} manga:`, err);
+      } finally {
+        setBrowseLoading((prev) => ({ ...prev, [mode]: false }));
+      }
+    };
+    
+    setBrowseInitialized(true);
+    // Load all browse modes in parallel
+    void loadBrowseData('popular');
+    void loadBrowseData('latest');
+    void loadBrowseData('recent');
+  }, [isMangaDexEnabled, browseInitialized, browseManga]);
+
+  // Convert MangaDexManga to CarouselItem
+  const toCarouselItems = useCallback((manga: MangaDexManga[]): CarouselItem[] => {
+    return manga.map((m) => ({
+      id: m.id,
+      title: m.title,
+      coverUrl: m.coverUrl,
+      subtitle: m.author || m.status,
+    }));
+  }, []);
 
   const handleSearch = useCallback(async (page: number = 1, queryOverride?: string) => {
     const query = (queryOverride ?? searchQuery).trim();
@@ -135,7 +184,7 @@ export function OnlineMangaView() {
     [handleSearch, isMangaDexEnabled, isPluginMangaSource, lastSearchedQuery, setSearchQuery]
   );
 
-  const handleViewChapters = async (manga: MangaDexManga) => {
+  const handleViewChapters = useCallback(async (manga: MangaDexManga) => {
     setSelectedManga(manga);
     setSelectedPluginManga(null);
     setChaptersDialogOpen(true);
@@ -145,7 +194,22 @@ export function OnlineMangaView() {
     const chapterList = await getChapters(manga.id);
     setChapters(chapterList);
     setChaptersLoading(false);
-  };
+  }, [getChapters]);
+
+  // Handle carousel item click - find manga in browse data and show chapters
+  const handleCarouselItemClick = useCallback((item: CarouselItem) => {
+    // Find the full manga data from browse data
+    const allBrowseManga = [
+      ...browseData.popular,
+      ...browseData.latest,
+      ...browseData.recent,
+      ...browseData['top-rated'],
+    ];
+    const manga = allBrowseManga.find((m) => m.id === item.id);
+    if (manga) {
+      void handleViewChapters(manga);
+    }
+  }, [browseData, handleViewChapters]);
 
   const handleViewPluginChapters = async (manga: PluginSearchResult) => {
     if (!activePluginSourceId) return;
@@ -264,7 +328,35 @@ export function OnlineMangaView() {
             </div>
           )}
 
-          {!loading && !hasVisibleSearched && hasEnabledMangaSource && (
+          {!loading && !hasVisibleSearched && hasEnabledMangaSource && isMangaDexEnabled && (
+            <div className="space-y-8">
+              {/* Popular Manga Carousel */}
+              <ContentCarousel
+                title="Popular Manga"
+                items={toCarouselItems(browseData.popular)}
+                loading={browseLoading.popular}
+                onItemClick={handleCarouselItemClick}
+              />
+              
+              {/* Latest Updates Carousel */}
+              <ContentCarousel
+                title="Latest Updates"
+                items={toCarouselItems(browseData.latest)}
+                loading={browseLoading.latest}
+                onItemClick={handleCarouselItemClick}
+              />
+              
+              {/* Recently Added Carousel */}
+              <ContentCarousel
+                title="Recently Added"
+                items={toCarouselItems(browseData.recent)}
+                loading={browseLoading.recent}
+                onItemClick={handleCarouselItemClick}
+              />
+            </div>
+          )}
+
+          {!loading && !hasVisibleSearched && hasEnabledMangaSource && !isMangaDexEnabled && (
             <div className="text-center py-12">
               <BookOpen className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
               <p className="text-lg font-medium text-muted-foreground">Search for manga</p>
@@ -496,7 +588,22 @@ export function OnlineMangaView() {
                 </div>
               )}
 
+              {!chaptersLoading && pluginError && isPluginMangaSource && (
+                <div className="text-center py-12">
+                  <Info className="w-12 h-12 mx-auto mb-3 text-destructive opacity-50" />
+                  <p className="text-destructive font-medium mb-2">Failed to load chapters</p>
+                  <p className="text-sm text-muted-foreground">{pluginError}</p>
+                </div>
+              )}
+
               {!chaptersLoading && isMangaDexEnabled && chapters.length === 0 && (
+                <div className="text-center py-12">
+                  <Info className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+                  <p className="text-muted-foreground">No chapters available</p>
+                </div>
+              )}
+
+              {!chaptersLoading && isPluginMangaSource && !pluginError && pluginChapters.length === 0 && (
                 <div className="text-center py-12">
                   <Info className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
                   <p className="text-muted-foreground">No chapters available</p>

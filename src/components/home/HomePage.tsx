@@ -16,7 +16,7 @@ import {
   BookOpen, Clock, Sparkles, Rss, ArrowRight,
   ListOrdered, Activity, HardDrive, Heart, History, CheckCircle2, PauseCircle
 } from 'lucide-react'
-import { HomeSection } from './HomeSection'
+import { HomeSection, ScrollStrip } from './HomeSection'
 import { ContinueReadingCard, RecentlyAddedCard } from './ContinueReadingCard'
 import { useLibraryStore } from '@/store/libraryStore'
 import { useUIStore, type DomainView } from '@/store/uiStore'
@@ -379,8 +379,9 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
               icon={<Clock size={18} />}
               title="Continue Reading"
               action={{ label: 'View All', onClick: handleViewLibrary }}
+              sectionType="continue"
             >
-              <div className="scroll-strip">
+              <ScrollStrip>
                 {continueReading.map((book, i) => (
                   <motion.div
                     key={book.id}
@@ -396,7 +397,7 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
                     />
                   </motion.div>
                 ))}
-              </div>
+              </ScrollStrip>
             </HomeSection>
           </motion.div>
         )}
@@ -409,8 +410,9 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
             icon={<Heart size={18} />}
             title="Favorites"
             action={{ label: 'View All', onClick: handleViewLibrary }}
+            sectionType="favorites"
           >
-            <div className="scroll-strip">
+            <ScrollStrip>
               {favoriteBooks.map((book, i) => (
                 <motion.div
                   key={book.id}
@@ -426,7 +428,7 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
                   />
                 </motion.div>
               ))}
-            </div>
+            </ScrollStrip>
           </HomeSection>
         </motion.div>
       )}
@@ -438,8 +440,9 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
             icon={<CheckCircle2 size={18} />}
             title="Completed"
             action={{ label: 'View All', onClick: handleViewLibrary }}
+            sectionType="completed"
           >
-            <div className="scroll-strip">
+            <ScrollStrip>
               {completedBooks.map((book, i) => (
                 <motion.div
                   key={book.id}
@@ -455,7 +458,7 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
                   />
                 </motion.div>
               ))}
-            </div>
+            </ScrollStrip>
           </HomeSection>
         </motion.div>
       )}
@@ -467,8 +470,9 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
             icon={<PauseCircle size={18} />}
             title="On Hold"
             action={{ label: 'View All', onClick: handleViewLibrary }}
+            sectionType="on-hold"
           >
-            <div className="scroll-strip">
+            <ScrollStrip>
               {onHoldBooks.map((book, i) => (
                 <motion.div
                   key={book.id}
@@ -484,7 +488,7 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
                   />
                 </motion.div>
               ))}
-            </div>
+            </ScrollStrip>
           </HomeSection>
         </motion.div>
       )}
@@ -496,8 +500,9 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
             icon={<History size={18} />}
             title="Last Read"
             action={{ label: 'View All', onClick: handleViewLibrary }}
+            sectionType="history"
           >
-            <div className="scroll-strip">
+            <ScrollStrip>
               {lastReadBooks.map((book, i) => (
                 <motion.div
                   key={book.id}
@@ -513,7 +518,7 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
                   />
                 </motion.div>
               ))}
-            </div>
+            </ScrollStrip>
           </HomeSection>
         </motion.div>
       )}
@@ -524,8 +529,9 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
           icon={<Sparkles size={18} />}
           title="Recently Added"
           action={{ label: 'View All', onClick: handleViewLibrary }}
+          sectionType="recent"
         >
-          <div className="scroll-strip">
+          <ScrollStrip>
             {recentlyAdded.map((book, i) => (
               <motion.div
                 key={book.id}
@@ -539,7 +545,7 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
                 />
               </motion.div>
             ))}
-          </div>
+          </ScrollStrip>
         </HomeSection>
       </motion.div>
 

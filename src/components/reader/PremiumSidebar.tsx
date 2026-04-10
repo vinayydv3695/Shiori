@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useUIStore } from '@/store/premiumReaderStore';
+import { useReaderUIStore } from '@/store/premiumReaderStore';
 import { api } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
 import type { TocEntry, Annotation, BookSearchResult, AnnotationCategory } from '@/lib/tauri';
@@ -40,11 +40,11 @@ function escapeHtml(str: string): string {
 }
 
 export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSidebarProps) {
-  const isSidebarOpen = useUIStore(state => state.isSidebarOpen);
-  const sidebarTab = useUIStore(state => state.sidebarTab);
-  const closeSidebar = useUIStore(state => state.closeSidebar);
-  const setSidebarTab = useUIStore(state => state.setSidebarTab);
-  const setPendingAnnotationId = useUIStore(state => state.setPendingAnnotationId);
+  const isSidebarOpen = useReaderUIStore(state => state.isSidebarOpen);
+  const sidebarTab = useReaderUIStore(state => state.sidebarTab);
+  const closeSidebar = useReaderUIStore(state => state.closeSidebar);
+  const setSidebarTab = useReaderUIStore(state => state.setSidebarTab);
+  const setPendingAnnotationId = useReaderUIStore(state => state.setPendingAnnotationId);
   
   // Tab data states
   const [toc, setToc] = useState<TocEntry[]>([]);
@@ -75,6 +75,21 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
     // loadAnnotations is recreated each render - would cause infinite loop if added
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSidebarOpen, bookId]);
+
+  // Listen for annotation-changed events to refresh the list in real-time
+  useEffect(() => {
+    const handleAnnotationChanged = () => {
+      if (bookId) {
+        loadAnnotations();
+      }
+    };
+    
+    window.addEventListener('annotation-changed', handleAnnotationChanged);
+    return () => {
+      window.removeEventListener('annotation-changed', handleAnnotationChanged);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookId]);
 
   // Auto-focus search input when switching to search tab
   useEffect(() => {

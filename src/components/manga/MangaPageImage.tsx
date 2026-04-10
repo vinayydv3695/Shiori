@@ -1,11 +1,10 @@
 import React, { memo, useCallback, useRef, useState } from 'react';
-import { useImageDecode } from './hooks/useImageDecode';
+import { useUnifiedImageDecode } from './hooks/useUnifiedImageDecode';
 import { useMangaSettingsStore } from '@/store/mangaReaderStore';
 import { getEffectiveMaxDimension } from './hooks/useMangaPreloader';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface MangaPageImageProps {
-    bookId: number;
     pageIndex: number;
     maxDimension?: number;
     className?: string;
@@ -16,11 +15,11 @@ interface MangaPageImageProps {
 
 /**
  * Core manga page image component.
+ * Works with both local (IPC) and online (URL) sources via unified hook.
  * Handles loading states, error states, and fit-mode rendering.
  * Memoized to prevent re-renders when parent state changes.
  */
 export const MangaPageImage = memo(function MangaPageImage({
-    bookId,
     pageIndex,
     maxDimension,
     className = '',
@@ -33,20 +32,20 @@ export const MangaPageImage = memo(function MangaPageImage({
     // Use the centralized maxDimension calculation so cache keys match preloading
     const effectiveMaxDimension = maxDimension ?? getEffectiveMaxDimension();
 
-    const { url, loading, error, retry } = useImageDecode(bookId, pageIndex, effectiveMaxDimension);
+    // Unified hook handles both local and online sources
+    const { url, loading, error, retry } = useUnifiedImageDecode(pageIndex, effectiveMaxDimension);
     const [imgLoaded, setImgLoaded] = useState(false);
     const imgRef = useRef<HTMLImageElement>(null);
 
     // Combine internal ref (for decode) and external ref (for virtualization)
-    // Moved to top to follow Rules of Hooks
     const setRefs = useCallback(
         (node: HTMLImageElement | null) => {
             imgRef.current = node;
             if (typeof imageRef === 'function') {
                 imageRef(node);
-            } else if (imageRef && typeof imageRef === 'object' && 'current' in imageRef) {
-                // eslint-disable-next-line react-hooks/immutability -- ref callback pattern requires mutable assignment
-                (imageRef as React.MutableRefObject<HTMLImageElement | null>).current = node;
+            } else if (imageRef && typeof imageRef === 'object') {
+                // Use Object.assign to avoid direct mutation warning
+                Object.assign(imageRef, { current: node });
             }
         },
         [imageRef]
@@ -70,6 +69,7 @@ export const MangaPageImage = memo(function MangaPageImage({
                 <span>Failed to load page {pageIndex + 1}</span>
                 <span style={{ fontSize: '11px', opacity: 0.6 }}>{error}</span>
                 <button
+                    type="button"
                     onClick={retry}
                     className="manga-page-retry-btn"
                     title="Retry loading this page"

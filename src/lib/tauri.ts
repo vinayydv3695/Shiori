@@ -1075,4 +1075,63 @@ export const api = {
   async getWatchStatus(): Promise<{ is_running: boolean; watched_folders_count: number; enabled_folders_count: number }> {
     return invoke("get_watch_status")
   },
+
+  // Torbox Integration
+  async torboxSetApiKey(apiKey: string | null): Promise<void> {
+    return invoke("torbox_set_api_key", { apiKey })
+  },
+
+  async torboxGetApiKey(): Promise<string | null> {
+    return invoke("torbox_get_api_key")
+  },
+
+  async torboxAddMagnet(magnet: string): Promise<number> {
+    return invoke("torbox_add_magnet", { magnet })
+  },
+
+  async torboxGetStatus(torrentId: number): Promise<{ name: string; progress: number; download_state: string; files: { id: number; name: string }[] | null }> {
+    return invoke("torbox_get_status", { torrentId })
+  },
+
+  async torboxGetDownloadLink(torrentId: number, fileId?: number): Promise<string> {
+    return invoke("torbox_get_download_link", { torrentId, fileId })
+  },
+
+  async torboxDownloadAndImport(magnet: string, filenameHint?: string): Promise<string> {
+    return invoke("torbox_download_and_import", { magnet, filenameHint })
+  },
+
+  async annasArchiveDownload(contentId: string, titleHint?: string): Promise<string> {
+    return invoke("annas_archive_download", { contentId, titleHint })
+  },
+
+  async proxyMangaImage(sourceId: string, imageUrl: string): Promise<Uint8Array> {
+    return invoke<number[]>('proxy_manga_image', { sourceId, imageUrl }).then(arr => new Uint8Array(arr))
+  },
+
+  // Calibre Conversion
+  async checkCalibreAvailable(): Promise<boolean> {
+    return invoke("check_calibre_available")
+  },
+
+  async convertWithCalibre(
+    inputPath: string,
+    outputFormat: string,
+    replaceOriginal: boolean,
+    bookId?: number
+  ): Promise<{ success: boolean; output_path: string; message: string }> {
+    return invoke("convert_with_calibre", {
+      inputPath,
+      outputFormat,
+      replaceOriginal,
+      bookId,
+    })
+  },
+
+  // Auto-Convert on Open
+  async convertAndReplaceBook(
+    bookId: number
+  ): Promise<{ new_path: string; new_format: string; title: string; cover_path: string | null }> {
+    return invoke("convert_and_replace_book", { bookId })
+  },
 }

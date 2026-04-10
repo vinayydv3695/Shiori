@@ -461,16 +461,35 @@ impl ConversionEngine {
         check_cancel()?;
 
         match (source_fmt, target_fmt) {
-            ("txt",  "epub") => Self::txt_to_epub(source, target).await,
+            // ── New calibre-quality converters (format → EPUB) ──
+            ("txt",  "epub") => {
+                crate::conversion::convert_to_epub(source, target, crate::conversion::SourceFormat::Txt)
+                    .await.map(|_| ()).map_err(|e| e.into())
+            }
+            ("mobi", "epub") | ("azw3", "epub") => {
+                let fmt = if source_fmt == "azw3" { crate::conversion::SourceFormat::Azw3 } else { crate::conversion::SourceFormat::Mobi };
+                crate::conversion::convert_to_epub(source, target, fmt)
+                    .await.map(|_| ()).map_err(|e| e.into())
+            }
+            ("docx", "epub") => {
+                crate::conversion::convert_to_epub(source, target, crate::conversion::SourceFormat::Docx)
+                    .await.map(|_| ()).map_err(|e| e.into())
+            }
+            ("fb2",  "epub") => {
+                crate::conversion::convert_to_epub(source, target, crate::conversion::SourceFormat::Fb2)
+                    .await.map(|_| ()).map_err(|e| e.into())
+            }
+            ("pdf",  "epub") => {
+                check_cancel()?;
+                crate::conversion::convert_to_epub(source, target, crate::conversion::SourceFormat::Pdf)
+                    .await.map(|_| ()).map_err(|e| e.into())
+            }
+            // ── Legacy paths (format → TXT, EPUB → PDF, HTML) ──
             ("html", "epub") => Self::html_to_epub(source, target).await,
             ("html", "txt")  => Self::html_to_txt(source, target).await,
-            ("mobi", "epub") | ("azw3", "epub") => Self::mobi_to_epub(source, target).await,
             ("mobi", "txt")  | ("azw3", "txt")  => Self::mobi_to_txt(source, target).await,
-            ("docx", "epub") => Self::docx_to_epub(source, target).await,
             ("docx", "txt")  => Self::docx_to_txt(source, target).await,
-            ("fb2",  "epub") => Self::fb2_to_epub(source, target).await,
             ("fb2",  "txt")  => Self::fb2_to_txt(source, target).await,
-            ("pdf",  "epub") => { check_cancel()?; Self::pdf_to_epub(source, target).await },
             ("pdf",  "txt")  => Self::pdf_to_txt(source, target).await,
             ("epub", "pdf")  => { check_cancel()?; Self::epub_to_pdf(source, target).await },
             _ => Err(FormatError::ConversionNotSupported {

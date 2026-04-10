@@ -1,19 +1,19 @@
-import { useEffect, useState, useMemo, useCallback, lazy, Suspense } from "react"
+import { useEffect, useState, lazy, Suspense } from "react"
 import { Layout } from "./components/layout/Layout"
 import { LibraryGrid } from "./components/library/LibraryGrid"
 import { ToastContainer } from "./components/ui/ToastContainer"
 import { DevBanner } from "./components/DevBanner"
 import { logger } from "./lib/logger"
-import { useLibraryStore, matchesAdvancedFilters, countActiveFilterCriteria } from "./store/libraryStore"
+import { useLibraryStore, countActiveFilterCriteria } from "./store/libraryStore"
 import { useReaderStore } from "./store/readerStore"
 import { useUIStore } from "./store/uiStore"
-import { useCollectionStore } from "./store/collectionStore"
 import { useConversionStore } from "./store/conversionStore"
-import { useToastStore } from "./store/toastStore"
 import { useOnboardingStore } from "./store/onboardingStore"
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts"
-import { api, type Book } from "./lib/tauri"
-import type { SeriesGroup } from "./hooks/useGroupedLibrary"
+import { useDialogManager } from "./hooks/useDialogManager"
+import { useBookActions } from "./hooks/useBookActions"
+import { useLibraryFilter } from "./hooks/useLibraryFilter"
+import { api } from "./lib/tauri"
 import { ShortcutsDialog } from "./components/dialogs/ShortcutsDialog"
 import { useOnlineSearchStore } from "./store/onlineSearchStore"
 
@@ -23,6 +23,7 @@ const DeleteBookDialog = lazy(() => import("./components/library/DeleteBookDialo
 const SettingsDialog = lazy(() => import("./components/settings/SettingsDialog").then(m => ({ default: m.SettingsDialog })))
 const BookDetailsDialog = lazy(() => import("./components/library/BookDetailsDialog").then(m => ({ default: m.BookDetailsDialog })))
 const ConversionDialog = lazy(() => import("./components/conversion/ConversionDialog").then(m => ({ default: m.ConversionDialog })))
+const AutoConvertDialog = lazy(() => import("./components/conversion/AutoConvertDialog").then(m => ({ default: m.AutoConvertDialog })))
 const ConversionJobTracker = lazy(() => import("./components/conversion/ConversionJobTracker"))
 const MetadataSearchDialog = lazy(() => import("./components/library/MetadataSearchDialog").then(m => ({ default: m.MetadataSearchDialog })))
 const RSSFeedManager = lazy(() => import("./components/rss/RSSFeedManager"))
@@ -37,383 +38,103 @@ const OnlineBooksView = lazy(() => import("./components/online/OnlineBooksView")
 const OnlineMangaView = lazy(() => import("./components/online/OnlineMangaView").then(m => ({ default: m.OnlineMangaView })))
 const OnlineMangaReader = lazy(() => import("./components/online/OnlineMangaReader").then(m => ({ default: m.OnlineMangaReader })))
 
+const LoadingSpinner = ({ className = "h-screen" }: { className?: string }) => (
+  <div className={`flex items-center justify-center ${className}`}>
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+  </div>
+)
+
 function App() {
-  const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false);
-  const onboardingComplete = useOnboardingStore((state) => state.onboardingComplete)
-  const isOnboardingHydrated = useOnboardingStore((state) => state.isHydrated)
-  const isOnboardingInitializing = useOnboardingStore((state) => state.isInitializing)
-  const initializeOnboarding = useOnboardingStore((state) => state.initialize)
-  const books = useLibraryStore(state => state.books)
-  const loadInitialBooks = useLibraryStore(state => state.loadInitialBooks)
-  const clearSelection = useLibraryStore(state => state.clearSelection)
-  const selectedFilters = useLibraryStore(state => state.selectedFilters)
-  const activeFilters = useLibraryStore(state => state.activeFilters)
-  const isReaderOpen = useReaderStore(state => state.isReaderOpen)
-  const openBook = useReaderStore(state => state.openBook)
-  const closeBook = useReaderStore(state => state.closeBook)
-  const currentView = useUIStore(state => state.currentView)
-  const currentDomain = useUIStore(state => state.currentDomain)
-  const setCurrentView = useUIStore(state => state.setCurrentView)
-  const setCurrentDomain = useUIStore(state => state.setCurrentDomain)
-  const resetToHome = useUIStore(state => state.resetToHome)
-  const selectedCollection = useCollectionStore(state => state.selectedCollection)
-  const [selectedBookId, setSelectedBookId] = useState<number | null>(null)
-  const [filteredBooks, setFilteredBooks] = useState<Book[]>([])
-  const [editDialogOpen, setEditDialogOpen] = useState(false)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false)
-  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false)
-  const [dialogBookId, setDialogBookId] = useState<number | null>(null)
-  const [dialogBookTitle, setDialogBookTitle] = useState<string>("")
-  const [deleteBookIds, setDeleteBookIds] = useState<number[]>([])
-  const [searchQuery, setSearchQuery] = useState<string>("")
-  const onlineBooksQuery = useOnlineSearchStore((state) => state.queries['online-books'])
-  const onlineMangaQuery = useOnlineSearchStore((state) => state.queries['online-manga'])
-  const setOnlineQuery = useOnlineSearchStore((state) => state.setQuery)
-  const [selectedSeries, setSelectedSeries] = useState<SeriesGroup | null>(null)
-  const [seriesViewOpen, setSeriesViewOpen] = useState(false)
-  
-  const [batchMetadataDialogOpen, setBatchMetadataDialogOpen] = useState(false)
-  const [batchMetadataBookIds, setBatchMetadataBookIds] = useState<number[]>([])
+  // ── Onboarding ──
+  const onboardingComplete = useOnboardingStore(s => s.onboardingComplete)
+  const isOnboardingHydrated = useOnboardingStore(s => s.isHydrated)
+  const isOnboardingInitializing = useOnboardingStore(s => s.isInitializing)
+  const initializeOnboarding = useOnboardingStore(s => s.initialize)
 
-  // New feature dialogs
-  const [conversionDialogOpen, setConversionDialogOpen] = useState(false)
-  const [advancedFilterOpen, setAdvancedFilterOpen] = useState(false)
+  // ── Navigation ──
+  const currentView = useUIStore(s => s.currentView)
+  const currentDomain = useUIStore(s => s.currentDomain)
+  const setCurrentView = useUIStore(s => s.setCurrentView)
+  const setCurrentDomain = useUIStore(s => s.setCurrentDomain)
+  const resetToHome = useUIStore(s => s.resetToHome)
 
-  // Theme is handled entirely by preferencesStore → [data-theme] attribute.
-  // The old uiStore.theme / .dark class system has been removed.
+  // ── Library ──
+  const loadInitialBooks = useLibraryStore(s => s.loadInitialBooks)
+  const clearSelection = useLibraryStore(s => s.clearSelection)
+  const activeFilters = useLibraryStore(s => s.activeFilters)
+  const isReaderOpen = useReaderStore(s => s.isReaderOpen)
+
+  // ── Search ──
+  const [searchQuery, setSearchQuery] = useState("")
+  const onlineBooksQuery = useOnlineSearchStore(s => s.queries['online-books'])
+  const onlineMangaQuery = useOnlineSearchStore(s => s.queries['online-manga'])
+  const setOnlineQuery = useOnlineSearchStore(s => s.setQuery)
+
+  // ── Extracted hooks ──
+  const { displayBooks, books } = useLibraryFilter(searchQuery)
+  const { selectedBookId, handleOpenBook, handleCloseReader, handleDownloadBook, handleAutoGroupManga, autoConvert } = useBookActions(books)
+  const dialogs = useDialogManager()
+
+  // ── Initialization ──
+  useEffect(() => { void initializeOnboarding() }, [initializeOnboarding])
 
   useEffect(() => {
-    void initializeOnboarding()
-  }, [initializeOnboarding])
-
-  useEffect(() => {
-    loadInitialBooks();
+    loadInitialBooks()
     api.getFavoriteBookIds().then(ids => {
       useLibraryStore.getState().setFavoriteBookIds(ids)
     }).catch(logger.error)
   }, [loadInitialBooks])
 
-  // Initialize conversion event listeners once at app startup
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    useConversionStore.getState().initEventListeners().then((fn) => {
-      unlisten = fn;
-    });
-    return () => {
-      unlisten?.();
-    };
+    let unlisten: (() => void) | undefined
+    useConversionStore.getState().initEventListeners().then(fn => { unlisten = fn })
+    return () => { unlisten?.() }
   }, [])
 
-  useEffect(() => {
-    // Filter books when collection changes
-    let aborted = false;
-
-    const filterByCollection = async () => {
-      if (!selectedCollection) {
-        if (!aborted) setFilteredBooks(books)
-        return
-      }
-
-       try {
-         const collectionBooks = await api.getCollectionBooks(selectedCollection.id!)
-         if (!aborted) setFilteredBooks(collectionBooks)
-       } catch (error) {
-         logger.error("Failed to load collection books:", error)
-         if (!aborted) setFilteredBooks([])
-       }
-    }
-
-    filterByCollection()
-    return () => { aborted = true }
-  }, [selectedCollection, books])
-
-   const handleOpenBook = useCallback(async (bookId: number) => {
-     logger.debug('[App] Opening book:', bookId)
-     try {
-       const book = await api.getBook(bookId)
-       logger.debug('[App] Got book:', book)
-       const filePath = await api.getBookFilePath(bookId)
-       logger.debug('[App] Got file path:', filePath)
-       openBook(bookId, filePath, book.file_format)
-       setSelectedBookId(bookId)
-       logger.debug('[App] Book opened successfully')
-     } catch (error) {
-       logger.error("[App] Failed to open book:", error)
-      useToastStore.getState().addToast({
-        title: "Failed to open book",
-        description: String(error),
-        variant: "error",
-      })
-    }
-  }, [openBook])
-
-  useEffect(() => {
-    const handleOpenBookEvent = (e: Event) => {
-      const bookId = (e as CustomEvent<{ bookId: number }>).detail?.bookId;
-      if (bookId) {
-        handleOpenBook(bookId);
-      }
-    };
-    window.addEventListener('open-book', handleOpenBookEvent);
-    return () => window.removeEventListener('open-book', handleOpenBookEvent);
-  }, [handleOpenBook]);
-
-  const handleEditBook = (bookId: number) => {
-    setDialogBookId(bookId)
-    setEditDialogOpen(true)
+  // ── Search routing ──
+  const handleSearchChange = (query: string) => {
+    if (currentView === 'online-books') { setOnlineQuery('online-books', query); return }
+    if (currentView === 'online-manga') { setOnlineQuery('online-manga', query); return }
+    setSearchQuery(query)
   }
 
-  const handleFetchMetadata = () => {
-    const lib = useLibraryStore.getState()
-    if (lib.selectedBookIds.size > 0) {
-      setBatchMetadataBookIds(Array.from(lib.selectedBookIds))
-      setBatchMetadataDialogOpen(true)
-    }
-  }
+  const activeTopbarSearchQuery =
+    currentView === 'online-books' ? onlineBooksQuery
+    : currentView === 'online-manga' ? onlineMangaQuery
+    : searchQuery
 
-   const handleDeleteBook = (bookId: number) => {
-     logger.debug('[App] Delete book called:', bookId)
-     const book = books.find(b => b.id === bookId)
-     logger.debug('[App] Found book:', book)
-     setDeleteBookIds([bookId])
-     setDialogBookTitle(book?.title || "this book")
-     setDeleteDialogOpen(true)
-     logger.debug('[App] Delete dialog should open')
-   }
-
-   const handleDeleteBooks = (bookIds: number[]) => {
-     logger.debug('[App] Delete multiple books called:', bookIds.length)
-    setDeleteBookIds(bookIds)
-    setDialogBookTitle("") // Not used for multiple
-    setDeleteDialogOpen(true)
-  }
-
-  const handleDownloadBook = (bookId: number) => {
-    const book = books.find(b => b.id === bookId)
-    if (book) {
-      // Copy file path to clipboard and notify via toast
-      navigator.clipboard.writeText(book.file_path).then(
-        () => {
-          useToastStore.getState().addToast({
-            title: "File path copied",
-            description: book.file_path,
-            variant: "info",
-          })
-        },
-        () => {
-          useToastStore.getState().addToast({
-            title: "Book file location",
-            description: book.file_path,
-            variant: "info",
-          })
-        }
-      )
-    }
-  }
-
-  const handleOpenSettings = () => {
-    setSettingsDialogOpen(true)
-  }
-
-   const handleViewDetails = (bookId: number) => {
-     logger.debug('[App] View details for book:', bookId)
-    setDialogBookId(bookId)
-    setDetailsDialogOpen(true)
-  }
-
-  // Global keyboard shortcut: Cmd/Ctrl+I to view details of selected book
+  // ── Keyboard shortcuts ──
   useKeyboardShortcuts({
     'cmd+i': () => {
       const lib = useLibraryStore.getState()
       const selected = lib.selectedBook ?? (
         lib.selectedBookIds.size ? lib.books.find(b => lib.selectedBookIds.has(b.id!)) : null
       )
-      if (!selected?.id) return
-      handleViewDetails(selected.id)
+      if (selected?.id) dialogs.openDetailsDialog(selected.id)
     },
-    'cmd+shift+m': () => {
-      handleFetchMetadata()
-    },
-    'cmd+shift+f': () => {
-      setAdvancedFilterOpen(true)
-    },
-    '?': () => {
-      setShortcutsDialogOpen(true)
-    },
-    'ctrl+/': () => {
-      setShortcutsDialogOpen(true)
-    }
+    'cmd+shift+m': () => dialogs.openBatchMetadataDialog(),
+    'cmd+shift+f': () => dialogs.setAdvancedFilterOpen(true),
+    '?': () => dialogs.setShortcutsDialogOpen(true),
+    'ctrl+/': () => dialogs.setShortcutsDialogOpen(true),
   })
 
-  const handleCloseReader = () => {
-    closeBook()
-    setSelectedBookId(null)
+  // ── Book action handlers (thin wrappers that connect dialogs to actions) ──
+  const handleEditBook = (bookId: number) => dialogs.openEditDialog(bookId)
+
+  const handleDeleteBook = (bookId: number) => {
+    const book = books.find(b => b.id === bookId)
+    dialogs.openDeleteDialog(bookId, book?.title || "this book")
   }
 
-  const handleSearchChange = (query: string) => {
-    if (currentView === 'online-books') {
-      setOnlineQuery('online-books', query)
-      return
-    }
+  const handleDeleteBooks = (bookIds: number[]) => dialogs.openDeleteMultipleDialog(bookIds)
+  const handleViewDetails = (bookId: number) => dialogs.openDetailsDialog(bookId)
+  const handleConvertBook = (bookId: number) => dialogs.openConversionDialog(bookId)
 
-    if (currentView === 'online-manga') {
-      setOnlineQuery('online-manga', query)
-      return
-    }
-
-    setSearchQuery(query)
-  }
-
-  const activeTopbarSearchQuery =
-    currentView === 'online-books'
-      ? onlineBooksQuery
-      : currentView === 'online-manga'
-        ? onlineMangaQuery
-        : searchQuery
-
-  const handleConvertBook = (bookId: number) => {
-    setDialogBookId(bookId)
-    setConversionDialogOpen(true)
-  }
-
-  const handleOpenRSSFeeds = () => {
-    setCurrentView('rss-feeds')
-  }
-
-  const handleOpenRSSArticles = () => {
-    setCurrentView('rss-articles')
-  }
-
-  const handleBackToLibrary = () => {
-    setCurrentView('library')
-  }
-
-  const handleViewSeries = (series: SeriesGroup) => {
-    setSelectedSeries(series)
-    setSeriesViewOpen(true)
-  }
-
-  const handleGoHome = () => {
-    resetToHome()
-  }
-
-  const handleAutoGroupManga = async () => {
-    try {
-      const count = await api.autoGroupMangaVolumes()
-      if (count > 0) {
-        useToastStore.getState().addToast({
-          title: "Auto-grouping complete",
-          description: `Grouped ${count} manga volume${count > 1 ? 's' : ''} into series`,
-          variant: "success",
-        })
-        // Refresh library to show grouped series
-        await loadInitialBooks()
-      } else {
-        useToastStore.getState().addToast({
-          title: "No volumes grouped",
-          description: "No manga volumes matched the auto-grouping pattern",
-          variant: "info",
-        })
-      }
-     } catch (error) {
-       logger.error("Auto-grouping failed:", error)
-      useToastStore.getState().addToast({
-        title: "Auto-grouping failed",
-        description: String(error),
-        variant: "error",
-      })
-    }
-  }
-
-  // Filter books based on search query and selected filters
-  const displayBooks = useMemo(() => {
-    const sourceBooks = filteredBooks.length > 0 || selectedCollection ? filteredBooks : books;
-    let result = sourceBooks;
-
-    // 1. Search Query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase()
-      result = result.filter(book =>
-        book.title.toLowerCase().includes(query) ||
-        book.authors?.some(a => a.name.toLowerCase().includes(query)) ||
-        book.tags?.some(t => t.name.toLowerCase().includes(query)) ||
-        book.publisher?.toLowerCase().includes(query) ||
-        book.series?.toLowerCase().includes(query)
-      )
-    }
-
-    // 2. Filters
-    const {
-      authors, languages, series, formats,
-      publishers, ratings, tags, identifiers
-    } = selectedFilters;
-
-    if (authors.length > 0) {
-      result = result.filter(book =>
-        book.authors?.some(a => a.name && authors.includes(a.name))
-      )
-    }
-
-    if (languages.length > 0) {
-      result = result.filter(book =>
-        book.language && languages.includes(book.language)
-      )
-    }
-
-    if (series.length > 0) {
-      result = result.filter(book =>
-        book.series && series.includes(book.series)
-      )
-    }
-
-    if (formats.length > 0) {
-      result = result.filter(book =>
-        book.file_format && formats.includes(book.file_format.toUpperCase())
-      )
-    }
-
-    if (publishers.length > 0) {
-      result = result.filter(book =>
-        book.publisher && publishers.includes(book.publisher)
-      )
-    }
-
-    if (ratings.length > 0) {
-      result = result.filter(book => {
-        if (!book.rating) return false;
-        const roundedRating = (Math.round(book.rating * 2) / 2).toString();
-        return ratings.includes(roundedRating);
-      })
-    }
-
-    if (tags.length > 0) {
-      result = result.filter(book =>
-        book.tags?.some(t => t.name && tags.includes(t.name))
-      )
-    }
-
-    if (identifiers.length > 0) {
-      result = result.filter(book => {
-        const ids = [];
-        if (book.isbn) ids.push(`ISBN: ${book.isbn}`);
-        if (book.isbn13) ids.push(`ISBN13: ${book.isbn13}`);
-        return ids.some(id => identifiers.includes(id));
-      })
-    }
-
-    if (activeFilters) {
-      result = result.filter(book => matchesAdvancedFilters(book, activeFilters))
-    }
-
-    return result;
-  }, [books, searchQuery, selectedFilters, selectedCollection, filteredBooks, activeFilters]);
-
-  // Show reader if open
+  // ── Render ──
   if (isReaderOpen && selectedBookId) {
     return (
       <>
-        <Suspense fallback={<div className="flex items-center justify-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>}>
+        <Suspense fallback={<LoadingSpinner />}>
           <ReaderLayout bookId={selectedBookId} onClose={handleCloseReader} />
         </Suspense>
         <ToastContainer />
@@ -421,19 +142,13 @@ function App() {
     )
   }
 
-  // Show loading while onboarding state hydrates/initializes
   if (!isOnboardingHydrated || isOnboardingInitializing) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    )
+    return <LoadingSpinner />
   }
 
-  // Show onboarding if not completed
   if (!onboardingComplete) {
     return (
-      <Suspense fallback={<div className="flex items-center justify-center h-screen"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>}>
+      <Suspense fallback={<LoadingSpinner />}>
         <OnboardingWizard />
       </Suspense>
     )
@@ -442,55 +157,48 @@ function App() {
   return (
     <>
       <DevBanner />
-       <Layout
-        onOpenSettings={handleOpenSettings}
-        onOpenShortcuts={() => setShortcutsDialogOpen(true)}
+      <Layout
+        onOpenSettings={() => dialogs.setSettingsDialogOpen(true)}
+        onOpenShortcuts={() => dialogs.setShortcutsDialogOpen(true)}
         onEditMetadata={handleEditBook}
-        onFetchMetadata={handleFetchMetadata}
+        onFetchMetadata={dialogs.openBatchMetadataDialog}
         onDeleteBook={handleDeleteBook}
         onDeleteBooks={handleDeleteBooks}
         onDownloadBook={handleDownloadBook}
         onViewDetails={handleViewDetails}
         onConvertBook={handleConvertBook}
-        onOpenRSSFeeds={handleOpenRSSFeeds}
-        onOpenRSSArticles={handleOpenRSSArticles}
-        onGoHome={handleGoHome}
+        onOpenRSSFeeds={() => setCurrentView('rss-feeds')}
+        onOpenRSSArticles={() => setCurrentView('rss-articles')}
+        onGoHome={resetToHome}
         onAutoGroupManga={handleAutoGroupManga}
-        onOpenAdvancedFilter={() => setAdvancedFilterOpen(true)}
+        onOpenAdvancedFilter={() => dialogs.setAdvancedFilterOpen(true)}
         activeFilterCount={countActiveFilterCriteria(activeFilters)}
-         searchQuery={activeTopbarSearchQuery}
-         onSearchChange={handleSearchChange}
-         currentView={currentView}
-         onNavigateToView={setCurrentView}
-         onBackToLibrary={handleBackToLibrary}
-         currentDomain={currentDomain}
-         onDomainChange={setCurrentDomain}
+        searchQuery={activeTopbarSearchQuery}
+        onSearchChange={handleSearchChange}
+        currentView={currentView}
+        onNavigateToView={setCurrentView}
+        onBackToLibrary={() => setCurrentView('library')}
+        currentDomain={currentDomain}
+        onDomainChange={setCurrentDomain}
       >
-        {/* Show Home dashboard view */}
         {currentView === 'home' && (
-          <Suspense fallback={<div className="flex items-center justify-center py-24"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
-            <HomePage
-              onOpenBook={handleOpenBook}
-              onViewRSS={handleOpenRSSArticles}
-            />
+          <Suspense fallback={<LoadingSpinner className="py-24" />}>
+            <HomePage onOpenBook={handleOpenBook} onViewRSS={() => setCurrentView('rss-articles')} />
           </Suspense>
         )}
 
-        {/* Show RSS Feeds view */}
         {currentView === 'rss-feeds' && (
-          <Suspense fallback={<div className="flex items-center justify-center py-24"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
-            <RSSFeedManager onClose={handleBackToLibrary} />
+          <Suspense fallback={<LoadingSpinner className="py-24" />}>
+            <RSSFeedManager onClose={() => setCurrentView('library')} />
           </Suspense>
         )}
 
-        {/* Show RSS Articles view */}
         {currentView === 'rss-articles' && (
-          <Suspense fallback={<div className="flex items-center justify-center py-24"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
-            <RSSArticleList onClose={handleBackToLibrary} />
+          <Suspense fallback={<LoadingSpinner className="py-24" />}>
+            <RSSArticleList onClose={() => setCurrentView('library')} />
           </Suspense>
         )}
 
-        {/* Show Library view */}
         {currentView === 'library' && (
           <LibraryGrid
             books={displayBooks}
@@ -500,137 +208,115 @@ function App() {
             onEditBook={handleEditBook}
             onDeleteBook={handleDeleteBook}
             onConvertBook={handleConvertBook}
-            onViewSeries={handleViewSeries}
+            onViewSeries={dialogs.openSeriesView}
           />
         )}
 
-        {/* Show Annotations view */}
         {currentView === 'annotations' && (
-          <Suspense fallback={<div className="flex items-center justify-center py-24"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
-            <AnnotationsView onClose={handleBackToLibrary} />
+          <Suspense fallback={<LoadingSpinner className="py-24" />}>
+            <AnnotationsView onClose={() => setCurrentView('library')} />
           </Suspense>
         )}
 
-        {/* Show Statistics view */}
         {currentView === 'statistics' && (
-          <Suspense fallback={<div className="flex items-center justify-center py-24"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
-            <StatisticsView onClose={handleBackToLibrary} />
+          <Suspense fallback={<LoadingSpinner className="py-24" />}>
+            <StatisticsView onClose={() => setCurrentView('library')} />
           </Suspense>
         )}
 
-        {/* Show Online Books view */}
         {currentView === 'online-books' && (
-          <Suspense fallback={<div className="flex items-center justify-center py-24"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
-            <OnlineBooksView />
-          </Suspense>
+          <Suspense fallback={<LoadingSpinner className="py-24" />}><OnlineBooksView /></Suspense>
         )}
 
-        {/* Show Online Manga view */}
         {currentView === 'online-manga' && (
-          <Suspense fallback={<div className="flex items-center justify-center py-24"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
-            <OnlineMangaView />
-          </Suspense>
+          <Suspense fallback={<LoadingSpinner className="py-24" />}><OnlineMangaView /></Suspense>
         )}
 
-        {/* Show Online Manga Reader view */}
         {currentView === 'online-manga-reader' && (
-          <Suspense fallback={<div className="flex items-center justify-center py-24"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
-            <OnlineMangaReader />
-          </Suspense>
+          <Suspense fallback={<LoadingSpinner className="py-24" />}><OnlineMangaReader /></Suspense>
         )}
       </Layout>
 
       {/* Global Overlays */}
-      <Suspense fallback={null}>
-        <ConversionJobTracker />
-      </Suspense>
-
+      <Suspense fallback={null}><ConversionJobTracker /></Suspense>
       <ToastContainer />
 
-      {/* Dialogs — only render when we have a valid bookId */}
-      {dialogBookId !== null && (
+      {/* Dialogs */}
+      {dialogs.dialogBookId !== null && (
         <Suspense fallback={null}>
-          <EditMetadataDialog
-            open={editDialogOpen}
-            onOpenChange={setEditDialogOpen}
-            bookId={dialogBookId}
-          />
+          <EditMetadataDialog open={dialogs.editDialogOpen} onOpenChange={dialogs.setEditDialogOpen} bookId={dialogs.dialogBookId} />
         </Suspense>
       )}
+
       <Suspense fallback={null}>
         <DeleteBookDialog
-          open={deleteDialogOpen}
-          onOpenChange={(open) => {
-            setDeleteDialogOpen(open)
-            if (!open) clearSelection()
-          }}
-          bookIds={deleteBookIds}
-          bookTitle={dialogBookTitle}
+          open={dialogs.deleteDialogOpen}
+          onOpenChange={(open) => { dialogs.setDeleteDialogOpen(open); if (!open) clearSelection() }}
+          bookIds={dialogs.deleteBookIds}
+          bookTitle={dialogs.dialogBookTitle}
         />
       </Suspense>
+
       <Suspense fallback={null}>
         <MetadataSearchDialog
-          open={batchMetadataDialogOpen}
+          open={dialogs.batchMetadataDialogOpen}
           onOpenChange={(open) => {
-            setBatchMetadataDialogOpen(open)
-            if (!open) {
-              setBatchMetadataBookIds([])
-              loadInitialBooks()
-            }
+            dialogs.setBatchMetadataDialogOpen(open)
+            if (!open) { dialogs.setBatchMetadataBookIds([]); loadInitialBooks() }
           }}
-          bookIds={batchMetadataBookIds}
-          onMetadataSelected={() => {
-            loadInitialBooks()
-          }}
+          bookIds={dialogs.batchMetadataBookIds}
+          onMetadataSelected={() => loadInitialBooks()}
         />
       </Suspense>
-      {dialogBookId !== null && (
+
+      {dialogs.dialogBookId !== null && (
         <Suspense fallback={null}>
           <BookDetailsDialog
-            open={detailsDialogOpen}
-            onOpenChange={setDetailsDialogOpen}
-            bookId={dialogBookId}
-            onEdit={() => {
-              setDetailsDialogOpen(false)
-              setEditDialogOpen(true)
-            }}
+            open={dialogs.detailsDialogOpen}
+            onOpenChange={dialogs.setDetailsDialogOpen}
+            bookId={dialogs.dialogBookId}
+            onEdit={() => { dialogs.setDetailsDialogOpen(false); dialogs.setEditDialogOpen(true) }}
             onDelete={() => {
-              const book = books.find(b => b.id === dialogBookId)
-              setDialogBookTitle(book?.title || "this book")
-              setDetailsDialogOpen(false)
-              setDeleteDialogOpen(true)
+              const book = books.find(b => b.id === dialogs.dialogBookId)
+              dialogs.openDeleteDialog(dialogs.dialogBookId!, book?.title || "this book")
+              dialogs.setDetailsDialogOpen(false)
             }}
-            onRead={() => {
-              setDetailsDialogOpen(false)
-              handleOpenBook(dialogBookId)
-            }}
+            onRead={() => { dialogs.setDetailsDialogOpen(false); handleOpenBook(dialogs.dialogBookId!) }}
           />
         </Suspense>
       )}
+
       <Suspense fallback={null}>
-        <SettingsDialog
-          open={settingsDialogOpen}
-          onOpenChange={setSettingsDialogOpen}
-        />
+        <SettingsDialog open={dialogs.settingsDialogOpen} onOpenChange={dialogs.setSettingsDialogOpen} />
       </Suspense>
-      {/* Conversion Dialog */}
-      {dialogBookId !== null && (
+
+      {/* Auto-Convert on Open dialog */}
+      {autoConvert.pendingBook && (
         <Suspense fallback={null}>
-          <ConversionDialog
-            open={conversionDialogOpen}
-            onOpenChange={(open) => setConversionDialogOpen(open)}
-            bookId={dialogBookId}
+          <AutoConvertDialog
+            isOpen={autoConvert.showDialog}
+            onOpenChange={autoConvert.onDialogOpenChange}
+            bookTitle={autoConvert.pendingBook.title}
+            currentFormat={autoConvert.pendingBook.file_format}
+            onConfirm={autoConvert.onConfirm}
+            onCancel={autoConvert.onCancel}
+            isConverting={autoConvert.isConverting}
           />
         </Suspense>
       )}
-      
-      {/* Series View Dialog */}
-      {selectedSeries && (
+
+      {dialogs.dialogBookId !== null && (
+        <Suspense fallback={null}>
+          <ConversionDialog open={dialogs.conversionDialogOpen} onOpenChange={dialogs.setConversionDialogOpen} bookId={dialogs.dialogBookId} />
+        </Suspense>
+      )}
+
+      {dialogs.selectedSeries && (
         <Suspense fallback={null}>
           <SeriesView
-            series={selectedSeries}
-            isOpen={seriesViewOpen}
-            onClose={() => setSeriesViewOpen(false)}
+            series={dialogs.selectedSeries}
+            isOpen={dialogs.seriesViewOpen}
+            onClose={() => dialogs.setSeriesViewOpen(false)}
             onSelectBook={() => {}}
             onOpenBook={handleOpenBook}
             onViewDetailsBook={handleViewDetails}
@@ -648,16 +334,10 @@ function App() {
       )}
 
       <Suspense fallback={null}>
-        <AdvancedFilterDialog
-          open={advancedFilterOpen}
-          onOpenChange={setAdvancedFilterOpen}
-        />
+        <AdvancedFilterDialog open={dialogs.advancedFilterOpen} onOpenChange={dialogs.setAdvancedFilterOpen} />
       </Suspense>
-      
-      <ShortcutsDialog
-        open={shortcutsDialogOpen}
-        onOpenChange={setShortcutsDialogOpen}
-      />
+
+      <ShortcutsDialog open={dialogs.shortcutsDialogOpen} onOpenChange={dialogs.setShortcutsDialogOpen} />
     </>
   )
 }

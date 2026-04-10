@@ -158,6 +158,14 @@ impl ConversionEngine {
     ) -> FormatResult<String> {
         self.ensure_workers();
 
+        // Verify source file exists before queueing
+        if !source.exists() {
+            return Err(FormatError::ConversionError(format!(
+                "Source file not found: {}",
+                source.display()
+            )));
+        }
+
         let fmt_info = detect_format(&source).await?;
         let source_format = fmt_info.format.clone();
 
@@ -271,6 +279,20 @@ impl ConversionEngine {
                 log::info!("[ConversionEngine] Restoring {} jobs from DB", jobs.len());
                 let rt_handle = tauri::async_runtime::handle();
                 for job in jobs {
+                    // Skip jobs whose source file no longer exists
+                    if !std::path::Path::new(&job.source_path).exists() {
+                        log::warn!(
+                            "[ConversionEngine] Skipping stale job {} — source file missing: {}",
+                            job.id,
+                            job.source_path
+                        );
+                        // Mark as failed in DB so it's not retried again
+                        let _ = conn.execute(
+                            "UPDATE conversion_jobs SET status = 'Failed', error_message = 'Source file no longer exists', updated_at = CURRENT_TIMESTAMP WHERE id = ?1",
+                            rusqlite::params![job.id],
+                        );
+                        continue;
+                    }
                     let id = job.id.clone();
                     self.tracker.insert(id.clone(), job);
                     let queue = self.queue.clone();
@@ -810,6 +832,29 @@ impl ConversionEngine {
 
         log::info!("[Conversion] EPUB → PDF: {}", target.display());
         Ok(())
+    }
+
+    // ── Direct (non-queued) conversion ──────────────────────────────────
+
+    /// Execute a format conversion directly without going through the job queue.
+    /// Used for auto-convert-on-open where we need synchronous completion.
+    pub async fn convert_direct(
+        source: &Path,
+        target: &Path,
+        source_format: &str,
+        target_format: &str,
+    ) -> FormatResult<()> {
+        let dummy_cancelled = DashSet::new();
+        let dummy_job_id = "direct";
+        Self::execute_conversion(
+            source_format,
+            target_format,
+            source,
+            target,
+            &dummy_cancelled,
+            dummy_job_id,
+        )
+        .await
     }
 }
 

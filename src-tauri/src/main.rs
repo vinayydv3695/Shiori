@@ -80,10 +80,6 @@ fn main() {
 
             let mut registry = sources::registry::SourceRegistry::new();
             registry.register(Arc::new(sources::mangadex::MangaDexSource::new()?));
-            registry.register(Arc::new(sources::mangafire::MangaFireSource::new()?));
-            registry.register(Arc::new(sources::mangasee123::MangaSee123Source::new()?));
-            registry.register(Arc::new(sources::mangakakalot::MangakakalotSource::new()?));
-            registry.register(Arc::new(sources::tcbscans::TCBScansSource::new()?));
             registry.register(Arc::new(sources::toongod::ToonGodSource::new()?));
             let anna_source = Arc::new(sources::annas_archive::AnnasArchiveSource::new()?);
             tauri::async_runtime::block_on(anna_source.load_api_key_from_store(&app.handle().clone()))?;
@@ -95,6 +91,11 @@ fn main() {
                 covers_dir: covers_dir.clone(),
                 plugin_registry,
             });
+
+            // Initialize Torbox service
+            let torbox_state = commands::torbox::TorboxState::new()?;
+            tauri::async_runtime::block_on(torbox_state.service.load_api_key_from_store(&app.handle().clone()))?;
+            app.manage(torbox_state);
 
             // Initialize rendering service with 100MB cache
             app.manage(commands::rendering::RenderingState::new(100));
@@ -281,6 +282,9 @@ fn main() {
             commands::conversion::list_conversion_jobs,
             commands::conversion::cancel_conversion,
             commands::conversion::get_supported_conversions,
+            commands::conversion::check_calibre_available,
+            commands::conversion::convert_with_calibre,
+            commands::conversion::convert_and_replace_book,
             commands::cover::generate_cover,
             commands::cover::get_book_cover,
             commands::cover::get_book_cover_bytes,
@@ -363,6 +367,15 @@ fn main() {
             commands::sources::plugin_get_pages,
             commands::sources::plugin_download_chapter,
             commands::sources::set_source_config,
+            commands::sources::annas_archive_download,
+            commands::sources::proxy_manga_image,
+            // Torbox commands
+            commands::torbox::torbox_set_api_key,
+            commands::torbox::torbox_get_api_key,
+            commands::torbox::torbox_add_magnet,
+            commands::torbox::torbox_get_status,
+            commands::torbox::torbox_get_download_link,
+            commands::torbox::torbox_download_and_import,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

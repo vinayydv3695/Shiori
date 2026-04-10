@@ -260,6 +260,25 @@ pub fn get_book_file_path(book_id: i64, state: State<AppState>) -> Result<String
         rusqlite::params![book_id],
         |row| row.get::<_, String>(0),
     )?;
+
+    // Self-healing: if stored path doesn't exist, check for converted .epub
+    let path = std::path::Path::new(&file_path);
+    if !path.exists() {
+        let epub_path = path.with_extension("epub");
+        if epub_path.exists() {
+            let new_path = epub_path.to_string_lossy().to_string();
+            log::info!(
+                "[Reader] Auto-fixing stale path for book {}: {} → {}",
+                book_id, file_path, new_path
+            );
+            let _ = conn.execute(
+                "UPDATE books SET file_path = ?1, file_format = 'epub', modified_date = CURRENT_TIMESTAMP WHERE id = ?2",
+                rusqlite::params![new_path, book_id],
+            );
+            return Ok(new_path);
+        }
+    }
+
     Ok(file_path)
 }
 

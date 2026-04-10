@@ -126,7 +126,8 @@ impl BookFormatAdapter for HtmlFormatAdapter {
     }
     
     async fn validate(&self, path: &Path) -> FormatResult<ValidationResult> {
-        let content = fs::read_to_string(path).await?;
+        let file_data = fs::read(path).await?;
+        let content = String::from_utf8_lossy(&file_data).into_owned();
         let metadata = fs::metadata(path).await?;
         let file_size = metadata.len();
         
@@ -163,7 +164,8 @@ impl BookFormatAdapter for HtmlFormatAdapter {
     }
     
     async fn extract_metadata(&self, path: &Path) -> FormatResult<BookMetadata> {
-        let content = fs::read_to_string(path).await?;
+        let file_data = fs::read(path).await?;
+        let content = String::from_utf8_lossy(&file_data).into_owned();
         let metadata = fs::metadata(path).await?;
         let file_size = metadata.len();
         

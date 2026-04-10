@@ -325,6 +325,15 @@ pub async fn convert_and_replace_book(
 
     // 9. Update DB
     let conn = state.db.get_connection()?;
+    
+    // Check if the filesystem watcher already added the new file to the DB.
+    // If so, delete that new row to preempt a UNIQUE constraint failure.
+    // We want to retain the original book_id (so progress is preserved).
+    conn.execute(
+        "DELETE FROM books WHERE file_path = ?1 AND id != ?2",
+        rusqlite::params![new_path_str, book_id],
+    )?;
+
     conn.execute(
         "UPDATE books SET file_path = ?1, file_format = 'epub', modified_date = CURRENT_TIMESTAMP WHERE id = ?2",
         rusqlite::params![new_path_str, book_id],

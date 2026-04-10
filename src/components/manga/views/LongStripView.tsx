@@ -4,14 +4,18 @@ import { useMangaContentStore, useMangaUIStore, useMangaSettingsStore } from '@/
 import { MangaPageImage } from '../MangaPageImage';
 import { useMangaScroll } from '../hooks/useMangaScroll';
 import { preloadPages } from '../hooks/useMangaPreloader';
+import { preloadOnlinePages } from '../hooks/useUnifiedImageDecode';
 
 /**
  * Long strip (webtoon-style) virtualized scroll view.
  * Uses @tanstack/react-virtual for efficient rendering.
  * Only pages within viewport + overscan are rendered.
+ * Works with both local and online sources.
  */
 export function LongStripView() {
+    const sourceType = useMangaContentStore(s => s.sourceType);
     const bookId = useMangaContentStore(s => s.bookId);
+    const onlineSource = useMangaContentStore(s => s.onlineSource);
     const totalPages = useMangaContentStore(s => s.totalPages);
     const currentPage = useMangaContentStore(s => s.currentPage);
     const pageDimensions = useMangaContentStore(s => s.pageDimensions);
@@ -24,6 +28,8 @@ export function LongStripView() {
     const containerRef = useRef<HTMLDivElement>(null);
     // Track whether we've done the initial scroll-to-resume
     const hasScrolledToResume = useRef(false);
+
+    const hasSource = sourceType === 'local' ? bookId !== null : onlineSource !== null;
 
     // Estimate page height based on dimensions or fallback
     const estimateSize = useCallback((index: number): number => {
@@ -111,25 +117,34 @@ export function LongStripView() {
 
     // Preload pages ahead of the current visible range
     useEffect(() => {
-        if (!bookId || totalPages === 0) return;
+        if (!hasSource || totalPages === 0) return;
 
         const behind = preloadIntensity === 'light' ? 1 : preloadIntensity === 'aggressive' ? 3 : 2;
         const ahead = preloadIntensity === 'light' ? 3 : preloadIntensity === 'aggressive' ? 8 : 5;
 
-        const pagesToPreload: number[] = [];
-        for (let i = -behind; i <= ahead; i++) {
-            const target = currentPage + i;
-            if (target >= 0 && target < totalPages && target !== currentPage) {
-                pagesToPreload.push(target);
+        if (sourceType === 'local' && bookId) {
+            const pagesToPreload: number[] = [];
+            for (let i = -behind; i <= ahead; i++) {
+                const target = currentPage + i;
+                if (target >= 0 && target < totalPages && target !== currentPage) {
+                    pagesToPreload.push(target);
+                }
             }
+            if (pagesToPreload.length > 0) {
+                preloadPages(bookId, pagesToPreload);
+            }
+        } else if (sourceType === 'online' && onlineSource) {
+            preloadOnlinePages(
+                onlineSource.sourceId,
+                onlineSource.chapterId,
+                onlineSource.pageUrls,
+                currentPage,
+                Math.max(behind, ahead)
+            );
         }
+    }, [sourceType, bookId, onlineSource, currentPage, totalPages, preloadIntensity, hasSource]);
 
-        if (pagesToPreload.length > 0) {
-            preloadPages(bookId, pagesToPreload);
-        }
-    }, [bookId, currentPage, totalPages, preloadIntensity]);
-
-    if (!bookId) return null;
+    if (!hasSource) return null;
 
     return (
         <div
@@ -155,7 +170,6 @@ export function LongStripView() {
                         }}
                     >
                         <MangaPageImage
-                            bookId={bookId}
                             pageIndex={virtualItem.index}
                             onLoad={() => virtualizer.measure()}
                         />

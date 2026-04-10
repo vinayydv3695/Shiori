@@ -1,17 +1,46 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { Chapter } from '@/lib/pluginSources';
 
 // ═══════════════════════════════════════════════════════════
 // MANGA READER STATE MANAGEMENT
-// Three slices: Content (ephemeral), UI (ephemeral), Settings (persisted)
+// Four slices: Content (ephemeral), UI (ephemeral), Settings (persisted), Source (ephemeral)
 // ═══════════════════════════════════════════════════════════
+
+// ────────────────────────────────────────────────────────────
+// MANGA SOURCE TYPES - Unified interface for local/online
+// ────────────────────────────────────────────────────────────
+
+export type MangaSourceType = 'local' | 'online';
+
+export interface OnlineSourceConfig {
+    sourceId: string;       // e.g., 'mangadex', 'toongod'
+    contentId: string;      // manga ID from the source
+    contentTitle: string;   // manga title
+    chapterId: string;      // current chapter ID
+    chapterTitle: string;   // current chapter title
+    chapters: Chapter[];    // all available chapters
+    pageUrls: string[];     // URLs for all pages in current chapter
+}
+
+export interface LocalSourceConfig {
+    bookId: number;
+    bookPath: string;
+}
 
 // ────────────────────────────────────────────────────────────
 // SLICE 1: Content State (not persisted — changes per book)
 // ────────────────────────────────────────────────────────────
 interface MangaContentState {
+    // Source type and configuration
+    sourceType: MangaSourceType;
+    localSource: LocalSourceConfig | null;
+    onlineSource: OnlineSourceConfig | null;
+    
+    // Legacy fields for backward compatibility
     bookId: number | null;
     bookPath: string | null;
+    
     title: string;
     totalPages: number;
     currentPage: number;
@@ -21,8 +50,14 @@ interface MangaContentState {
     isLoading: boolean;
     error: string | null;
 
-    // Actions
+    // Actions - Local manga (existing API)
     openManga: (bookId: number, path: string, title: string, totalPages: number, pageDimensions?: [number, number][]) => void;
+    
+    // Actions - Online manga (new API)
+    openOnlineManga: (config: OnlineSourceConfig) => void;
+    setOnlineChapter: (chapterId: string, chapterTitle: string, pageUrls: string[]) => void;
+    
+    // Common actions
     closeManga: () => void;
     setCurrentPage: (page: number) => void;
     setCurrentChapter: (chapter: number) => void;
@@ -33,9 +68,19 @@ interface MangaContentState {
     setTotalPages: (total: number) => void;
     setPageDimensions: (dims: [number, number][]) => void;
     mergePageDimensions: (indices: number[], dims: [number, number][]) => void;
+    
+    // Helpers
+    isOnline: () => boolean;
+    getPageUrl: (pageIndex: number) => string | null;
 }
 
 export const useMangaContentStore = create<MangaContentState>((set, get) => ({
+    // Source type and configuration
+    sourceType: 'local' as MangaSourceType,
+    localSource: null,
+    onlineSource: null,
+    
+    // Legacy fields for backward compatibility
     bookId: null,
     bookPath: null,
     title: '',
@@ -47,7 +92,11 @@ export const useMangaContentStore = create<MangaContentState>((set, get) => ({
     isLoading: false,
     error: null,
 
+    // Open local manga (existing API - maintains backward compatibility)
     openManga: (bookId, path, title, totalPages, pageDimensions) => set({
+        sourceType: 'local',
+        localSource: { bookId, bookPath: path },
+        onlineSource: null,
         bookId,
         bookPath: path,
         title,
@@ -59,7 +108,48 @@ export const useMangaContentStore = create<MangaContentState>((set, get) => ({
         error: null,
     }),
 
+    // Open online manga (new API)
+    openOnlineManga: (config) => set({
+        sourceType: 'online',
+        localSource: null,
+        onlineSource: config,
+        bookId: null,
+        bookPath: null,
+        title: config.contentTitle,
+        totalPages: config.pageUrls.length,
+        currentPage: 0,
+        currentChapter: config.chapters.findIndex(c => c.id === config.chapterId),
+        totalChapters: config.chapters.length,
+        pageDimensions: config.pageUrls.map(() => [800, 1200] as [number, number]), // Default dimensions for online
+        isLoading: false,
+        error: null,
+    }),
+
+    // Update chapter for online manga
+    setOnlineChapter: (chapterId, chapterTitle, pageUrls) => {
+        const state = get();
+        if (state.sourceType !== 'online' || !state.onlineSource) return;
+        
+        const chapterIndex = state.onlineSource.chapters.findIndex(c => c.id === chapterId);
+        
+        set({
+            onlineSource: {
+                ...state.onlineSource,
+                chapterId,
+                chapterTitle,
+                pageUrls,
+            },
+            totalPages: pageUrls.length,
+            currentPage: 0,
+            currentChapter: chapterIndex >= 0 ? chapterIndex : 0,
+            pageDimensions: pageUrls.map(() => [800, 1200] as [number, number]),
+        });
+    },
+
     closeManga: () => set({
+        sourceType: 'local',
+        localSource: null,
+        onlineSource: null,
         bookId: null,
         bookPath: null,
         title: '',
@@ -113,6 +203,17 @@ export const useMangaContentStore = create<MangaContentState>((set, get) => ({
         }
         return { pageDimensions: updated };
     }),
+    
+    // Helpers
+    isOnline: () => get().sourceType === 'online',
+    
+    getPageUrl: (pageIndex) => {
+        const state = get();
+        if (state.sourceType === 'online' && state.onlineSource) {
+            return state.onlineSource.pageUrls[pageIndex] || null;
+        }
+        return null; // Local pages use IPC, not URLs
+    },
 }));
 
 

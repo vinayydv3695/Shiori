@@ -3,9 +3,11 @@ import { api } from '@/lib/tauri';
 import type { BookMetadata } from '@/lib/tauri';
 import { ChevronLeft, ChevronRight, Loader2, AlertCircle } from '@/components/icons';
 import { logger } from '@/lib/logger';
-import { useUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement } from '@/store/premiumReaderStore';
+import { useReadingSettings } from '@/store/premiumReaderStore';
 import { useToastStore } from '@/store/toastStore';
 import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
+import { useReaderAutoHide } from '@/hooks/useReaderAutoHide';
+import { useReaderTheme } from '@/hooks/useReaderTheme';
 import { useReadingSession } from '@/hooks/useReadingSession';
 import { ReaderTopBar } from './ReaderTopBar';
 import type { ReaderFormat } from './ReaderSettings';
@@ -28,9 +30,7 @@ interface GenericHtmlReaderProps {
 type SidebarNavigateHandler = (chapterIndex: number, searchTerm?: string | null) => void;
 
 export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onClose }: GenericHtmlReaderProps) {
-    const isFocusMode = useUIStore(state => state.isFocusMode);
-    const isTopBarShortcutOnly = useUIStore(state => state.isTopBarShortcutOnly);
-    const setTopBarVisible = useUIStore(state => state.setTopBarVisible);
+    const { isFocusMode } = useReaderAutoHide();
     const { theme, fontSize, fontFamily, lineHeight, width } = useReadingSettings();
 
     useReadingSession(bookId);
@@ -48,8 +48,6 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
     const contentRef = useRef<HTMLDivElement>(null);
     const readerContainerRef = useRef<HTMLDivElement>(null);
 
-    const autoHideTimerRef = useRef<number | null>(null);
-
     const isMobiFamilyFormat = format === 'mobi' || format === 'azw' || format === 'azw3';
     const locationPrefix = isMobiFamilyFormat ? 'mobi' : 'generic';
     const progressPrefix = `${locationPrefix}-progress-`;
@@ -65,73 +63,8 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
         }
     }, [sanitizedContent]);
 
-    // ────────────────────────────────────────────────────────────
-    // READER THEME — scoped to this container, not global <html>
-    // ────────────────────────────────────────────────────────────
-    useEffect(() => {
-        const el = readerContainerRef.current;
-        if (el) applyReaderThemeToElement(el, theme);
-        return () => { if (el) removeReaderThemeFromElement(el); };
-    }, [theme]);
-
-    // ────────────────────────────────────────────────────────────
-    // AUTO-HIDE TOP BAR LOGIC
-    // ────────────────────────────────────────────────────────────
-    const resetAutoHideTimer = useCallback(() => {
-        if (isTopBarShortcutOnly) {
-            return;
-        }
-        if (!isFocusMode) {
-            setTopBarVisible(true);
-            if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
-            autoHideTimerRef.current = window.setTimeout(() => setTopBarVisible(false), 3000);
-        }
-    }, [isTopBarShortcutOnly, isFocusMode, setTopBarVisible]);
-
-    useEffect(() => {
-        let throttleTimeout: number | null = null;
-        
-        const handleMouseMove = () => {
-            if (!throttleTimeout) {
-                resetAutoHideTimer();
-                throttleTimeout = window.setTimeout(() => { throttleTimeout = null; }, 100);
-            }
-        };
-        
-        const handleTouch = () => {
-            resetAutoHideTimer();
-        };
-        
-        const handleKeyDown = () => {
-            resetAutoHideTimer();
-        };
-        
-        document.addEventListener('mousemove', handleMouseMove, { passive: true });
-        document.addEventListener('touchstart', handleTouch, { passive: true });
-        document.addEventListener('keydown', handleKeyDown, { passive: true });
-        
-        return () => {
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('touchstart', handleTouch);
-            document.removeEventListener('keydown', handleKeyDown);
-            if (throttleTimeout) clearTimeout(throttleTimeout);
-            if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
-        };
-    }, [resetAutoHideTimer]);
-
-    useEffect(() => {
-        if (isFocusMode) {
-            setTopBarVisible(false);
-            if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
-        } else {
-            if (isTopBarShortcutOnly) {
-                setTopBarVisible(false);
-            } else {
-                setTopBarVisible(true);
-                resetAutoHideTimer();
-            }
-        }
-    }, [isFocusMode, setTopBarVisible, isTopBarShortcutOnly, resetAutoHideTimer]);
+    // ── Reader Theme ──
+    useReaderTheme(readerContainerRef, theme);
 
     // Map font family IDs to CSS font-family strings
     const getFontFamily = (fontId: string): string => {

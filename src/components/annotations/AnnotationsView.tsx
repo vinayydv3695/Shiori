@@ -69,31 +69,31 @@ export function AnnotationsView({ onClose }: AnnotationsViewProps) {
   const getAnnotationIcon = (type: string) => {
     switch (type) {
       case 'highlight':
-        return <Highlighter className="w-5 h-5 text-yellow-600" />;
+        return <Highlighter className="w-5 h-5 text-yellow-500" />;
       case 'note':
-        return <StickyNote className="w-5 h-5 text-blue-600" />;
+        return <StickyNote className="w-5 h-5 text-blue-500" />;
       case 'bookmark':
-        return <Bookmark className="w-5 h-5 text-blue-600" />;
+        return <Bookmark className="w-5 h-5 text-blue-500" />;
       default:
-        return <Highlighter className="w-5 h-5 text-gray-500" />;
+        return <Highlighter className="w-5 h-5 text-muted-foreground" />;
     }
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden">
+    <div className="flex flex-col h-full bg-background text-foreground overflow-hidden">
       
-      <div className="flex-none p-6 border-b border-gray-200 dark:border-gray-800">
+      <div className="flex-none p-6 border-b border-border">
         <div className="max-w-5xl mx-auto flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold">Annotations</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Browse and search all your highlights, notes, and bookmarks
             </p>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setExportDialogOpen(true)}
-              className="px-4 py-2 text-sm font-medium border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md transition-colors flex items-center gap-2"
+              className="px-4 py-2 text-sm font-medium border border-border hover:bg-muted rounded-md transition-colors flex items-center gap-2"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -104,7 +104,7 @@ export function AnnotationsView({ onClose }: AnnotationsViewProps) {
             </button>
             <button
               onClick={onClose}
-              className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+              className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
               title="Close annotations"
             >
               <X size={20} />
@@ -114,7 +114,7 @@ export function AnnotationsView({ onClose }: AnnotationsViewProps) {
 
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
-            <svg className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
@@ -122,7 +122,7 @@ export function AnnotationsView({ onClose }: AnnotationsViewProps) {
               placeholder="Search in all annotations..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              className="w-full pl-10 pr-4 py-2 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary transition-all text-foreground placeholder:text-muted-foreground"
             />
           </div>
           
@@ -130,7 +130,7 @@ export function AnnotationsView({ onClose }: AnnotationsViewProps) {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
             >
               <option value="all">All Types</option>
               <option value="highlight">Highlights</option>
@@ -141,7 +141,7 @@ export function AnnotationsView({ onClose }: AnnotationsViewProps) {
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-              className="px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[150px]"
+              className="px-3 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary min-w-[150px] text-foreground"
             >
               <option value="all">All Categories</option>
               {categories.map((c) => (
@@ -152,24 +152,24 @@ export function AnnotationsView({ onClose }: AnnotationsViewProps) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50 dark:bg-gray-950">
+      <div className="flex-1 overflow-y-auto p-6 bg-background">
         <div className="max-w-5xl mx-auto space-y-4 pb-20">
           {loading && annotations.length === 0 ? (
-            <div className="flex items-center justify-center py-20 text-gray-500">
+            <div className="flex items-center justify-center py-20 text-muted-foreground">
               <span className="animate-pulse">Loading annotations...</span>
             </div>
           ) : annotations.length === 0 ? (
-            <div className="text-center py-20 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 border-dashed">
-              <p className="text-gray-500 dark:text-gray-400 text-lg">No annotations found.</p>
+            <div className="text-center py-20 bg-card rounded-lg border border-border border-dashed">
+              <p className="text-muted-foreground text-lg">No annotations found.</p>
               {searchQuery && (
-                <p className="text-sm mt-2 text-gray-400">Try adjusting your search or filters.</p>
+                <p className="text-sm mt-2 text-muted-foreground/70">Try adjusting your search or filters.</p>
               )}
             </div>
           ) : (
             annotations.map((result, idx) => (
               <div 
                 key={result.annotation.id || idx}
-                className="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 hover:shadow-md transition-shadow cursor-pointer relative"
+                className="group bg-card border border-border rounded-xl p-5 hover:shadow-md transition-shadow cursor-pointer relative"
                 onClick={() => {
                   if (result.annotation.bookId) {
                     window.dispatchEvent(new CustomEvent('open-book', {
@@ -183,7 +183,7 @@ export function AnnotationsView({ onClose }: AnnotationsViewProps) {
                     {getAnnotationIcon(result.annotation.annotationType)}
                     {result.annotation.annotationType === 'highlight' && result.annotation.color && (
                       <div 
-                        className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white dark:border-gray-900"
+                        className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-card"
                         style={{ backgroundColor: result.annotation.color }}
                       />
                     )}
@@ -191,25 +191,25 @@ export function AnnotationsView({ onClose }: AnnotationsViewProps) {
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
-                      <span className="font-medium text-gray-900 dark:text-gray-100 truncate max-w-[200px] sm:max-w-xs">
+                      <span className="font-medium text-foreground truncate max-w-[200px] sm:max-w-xs">
                         {result.book_title}
                       </span>
-                      <span className="text-gray-400 dark:text-gray-500 text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">
+                      <span className="text-muted-foreground text-xs px-2 py-0.5 bg-muted rounded-full">
                         {result.book_author}
                       </span>
                       {result.annotation.chapterTitle && (
-                        <span className="text-gray-400 dark:text-gray-500 text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full truncate max-w-[150px]">
+                        <span className="text-muted-foreground text-xs px-2 py-0.5 bg-muted rounded-full truncate max-w-[150px]">
                           {result.annotation.chapterTitle}
                         </span>
                       )}
-                      <span className="text-gray-400 text-xs ml-auto whitespace-nowrap">
+                      <span className="text-muted-foreground text-xs ml-auto whitespace-nowrap">
                         {formatDate(result.annotation.createdAt)}
                       </span>
                     </div>
 
                     {result.annotation.selectedText && (
                       <div 
-                        className="text-gray-800 dark:text-gray-200 mb-3 px-3 py-2 rounded-md text-[15px] leading-relaxed relative"
+                        className="text-foreground mb-3 px-3 py-2 rounded-md text-[15px] leading-relaxed relative"
                       >
                         <div 
                           className="absolute inset-0 rounded-md opacity-20 pointer-events-none"
@@ -222,7 +222,7 @@ export function AnnotationsView({ onClose }: AnnotationsViewProps) {
                     )}
 
                     {result.annotation.noteContent && (
-                      <div className="text-gray-600 dark:text-gray-400 text-sm mt-2 flex items-start gap-2 bg-gray-50 dark:bg-gray-800/50 p-3 rounded-md">
+                      <div className="text-muted-foreground text-sm mt-2 flex items-start gap-2 bg-muted/50 p-3 rounded-md">
                         <StickyNote className="w-4 h-4 mt-0.5 shrink-0 text-blue-500/70" />
                         <p>{result.annotation.noteContent}</p>
                       </div>

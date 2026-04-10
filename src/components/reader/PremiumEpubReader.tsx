@@ -2,7 +2,7 @@ import { logger } from '@/lib/logger';
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { api } from '@/lib/tauri';
 import type { BookMetadata, Chapter } from '@/lib/tauri';
-import { useUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement } from '@/store/premiumReaderStore';
+import { useReaderUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement } from '@/store/premiumReaderStore';
 import { useDoodleStore } from '@/store/doodleStore';
 import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
 import { useReadingSession } from '@/hooks/useReadingSession';
@@ -189,12 +189,12 @@ function highlightSearchTerm(html: string, searchTerm: string): string {
 
 export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: PremiumEpubReaderProps) {
   // State management
-  const isFocusMode = useUIStore(state => state.isFocusMode);
-  const isTopBarShortcutOnly = useUIStore(state => state.isTopBarShortcutOnly);
-  const scrollProgress = useUIStore(state => state.scrollProgress);
-  const setTopBarVisible = useUIStore(state => state.setTopBarVisible);
-  const toggleSidebar = useUIStore(state => state.toggleSidebar);
-  const setScrollProgress = useUIStore(state => state.setScrollProgress);
+  const isFocusMode = useReaderUIStore(state => state.isFocusMode);
+  const isTopBarShortcutOnly = useReaderUIStore(state => state.isTopBarShortcutOnly);
+  const scrollProgress = useReaderUIStore(state => state.scrollProgress);
+  const setTopBarVisible = useReaderUIStore(state => state.setTopBarVisible);
+  const toggleSidebar = useReaderUIStore(state => state.toggleSidebar);
+  const setScrollProgress = useReaderUIStore(state => state.setScrollProgress);
 
   const { theme, width, twoPageView, toggleTwoPageView, pageFlipEnabled, pageFlipSpeed, animationStyle } = useReadingSettings();
   const isDoodleMode = useDoodleStore(state => state.isDoodleMode);
@@ -651,13 +651,13 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         applyHighlightsToDOM(container, chapterAnnotations);
 
         // Scroll to pending annotation if set (from sidebar click)
-        const pendingId = useUIStore.getState().pendingAnnotationId;
+        const pendingId = useReaderUIStore.getState().pendingAnnotationId;
         if (pendingId) {
           const mark = container.querySelector(`mark.epub-highlight[data-annotation-id="${pendingId}"]`);
           if (mark) {
             mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
           }
-          useUIStore.getState().setPendingAnnotationId(null);
+          useReaderUIStore.getState().setPendingAnnotationId(null);
         }
       } catch {
         // Silently ignore — highlights are non-critical

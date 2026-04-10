@@ -19,9 +19,14 @@ type LoadingStage =
   | 'idle'
   | 'fetching-path'
   | 'detecting-format'
+  | 'checking-calibre'
+  | 'converting'
   | 'validating-file'
   | 'loading-metadata'
   | 'complete';
+
+// Formats that should be converted to EPUB for better reading experience
+const FORMATS_TO_CONVERT = ['pdf', 'mobi', 'azw', 'azw3'];
 
 export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
   const {
@@ -71,12 +76,50 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
            detectedFormat = extension;
          }
 
+        // Step 2.5: Check if format needs Calibre conversion for better reading
+        let finalFilePath = filePath;
+        let finalFormat = detectedFormat.toLowerCase();
+        
+        if (FORMATS_TO_CONVERT.includes(finalFormat)) {
+          logger.debug('[ReaderLayout] Format', finalFormat, 'can be converted to EPUB for better reading');
+          
+          updateStage('checking-calibre');
+          const calibreAvailable = await api.checkCalibreAvailable();
+          
+          if (calibreAvailable) {
+            logger.debug('[ReaderLayout] Calibre is available, converting to EPUB...');
+            updateStage('converting');
+            
+            try {
+              const result = await api.convertWithCalibre(
+                filePath,
+                'epub',
+                true, // Replace original with converted EPUB
+                bookId
+              );
+              
+              if (result.success) {
+                logger.info('[ReaderLayout] ✓ Converted to EPUB:', result.output_path);
+                finalFilePath = result.output_path;
+                finalFormat = 'epub';
+              } else {
+                logger.warn('[ReaderLayout] Conversion failed, using original format:', result.message);
+              }
+            } catch (conversionError) {
+              logger.warn('[ReaderLayout] Calibre conversion failed, falling back to original format:', conversionError);
+              // Continue with original format - don't block the user
+            }
+          } else {
+            logger.debug('[ReaderLayout] Calibre not available, using original format');
+          }
+        }
+
         // Step 3: Validate file integrity (skip validation if detection failed)
           updateStage('validating-file');
          logger.debug('[ReaderLayout] Step 3: Validating file integrity...');
 
          try {
-           const isValid = await api.validateBookFile(filePath, detectedFormat);
+           const isValid = await api.validateBookFile(finalFilePath, finalFormat);
            if (!isValid) {
              logger.warn('[ReaderLayout] File validation returned false, but continuing anyway');
            }
@@ -89,7 +132,6 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
 
         // Step 4: Open book in store (now that we know it's valid)
          logger.debug('[ReaderLayout] Step 4: Opening book in store...');
-         const normalizedFormat = detectedFormat.toLowerCase();
 
          const [book, progress, annotations, settings] = await Promise.all([
            api.getBook(bookId),
@@ -102,14 +144,14 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
            title: book.title,
            author: book.authors?.[0]?.name,
            cover: book.cover_path,
-           format: normalizedFormat,
+           format: finalFormat,
          };
 
-         if (normalizedFormat === 'pdf' && typeof book.page_count === 'number') {
+         if (finalFormat === 'pdf' && typeof book.page_count === 'number') {
            content.pages = book.page_count;
          }
 
-         openBook(bookId, filePath, normalizedFormat, content);
+         openBook(bookId, finalFilePath, finalFormat, content);
          logger.debug('[ReaderLayout] Step 4 ✓ Book opened in store');
 
          // Step 5: Load metadata (progress, annotations, settings)
@@ -139,13 +181,16 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
        }
      };
 
-    // Add timeout fallback (10 seconds)
+    // Add timeout fallback (60 seconds for conversion, 10 seconds otherwise)
+     const timeoutMs = 60000; // 60 seconds to allow for Calibre conversion
      const timeoutId = setTimeout(() => {
        if (currentStage !== 'complete' && currentStage !== 'idle') {
           logger.error('[ReaderLayout] ⏱️ Timeout - loading took too long at stage:', currentStage);
          setError({
           title: 'Loading Timeout',
-          message: 'The book is taking too long to load. This may indicate a corrupted file or performance issue.',
+          message: currentStage === 'converting' 
+            ? 'The conversion is taking too long. The file may be very large or corrupted.'
+            : 'The book is taking too long to load. This may indicate a corrupted file or performance issue.',
           suggestions: [
             'Try closing and reopening the book',
             'Restart the application',
@@ -156,7 +201,7 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
          });
          updateStage('idle');
        }
-     }, 10000); // 10 second timeout
+     }, timeoutMs);
 
     logger.debug('[ReaderLayout] Starting load sequence (attempt', retryCount + 1, ')');
     loadBookData();
@@ -183,18 +228,21 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
       idle: 'Preparing...',
       'fetching-path': 'Locating book file...',
       'detecting-format': 'Detecting file format...',
+      'checking-calibre': 'Checking conversion tools...',
+      'converting': 'Converting to EPUB for better reading...',
       'validating-file': 'Validating file integrity...',
       'loading-metadata': 'Loading book data...',
       complete: 'Complete',
     };
 
     return (
-      <div className="fixed inset-0 bg-white dark:bg-gray-900 z-50 flex items-center justify-center">
+      <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'var(--reader-bg)' }}>
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4 mx-auto"></div>
-          <p className="text-gray-600 dark:text-gray-400">{stageMessages[loadingStage]}</p>
-          <p className="text-xs text-gray-400 dark:text-gray-600 mt-2">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mb-4 mx-auto" style={{ borderColor: 'var(--loading-spinner)' }}></div>
+          <p style={{ color: 'var(--text-secondary)' }}>{stageMessages[loadingStage]}</p>
+          <p className="text-xs mt-2" style={{ color: 'var(--text-tertiary)' }}>
             {loadingStage === 'validating-file' && 'This may take a moment for large files...'}
+            {loadingStage === 'converting' && 'This may take a minute for large files...'}
           </p>
         </div>
       </div>
@@ -216,7 +264,7 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
 
   // Show reader
   return (
-    <div className="fixed inset-0 bg-white dark:bg-gray-900 z-50 flex flex-col">
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: 'var(--reader-bg)' }}>
       {/* Reader content */}
       {currentBookPath && currentBookFormat === 'epub' && (
         <PremiumEpubReader bookPath={currentBookPath} bookId={bookId} readerContent={currentContent} onClose={handleClose} />
@@ -226,6 +274,7 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
       )}
       {currentBookPath && (currentBookFormat === 'cbz' || currentBookFormat === 'cbr') && (
         <MangaReader
+          mode="local"
           bookId={bookId}
           bookPath={currentBookPath}
           onClose={handleClose}
@@ -242,7 +291,7 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
       )}
       {!currentBookPath && (
         <div className="flex items-center justify-center h-full">
-          <p className="text-gray-500 dark:text-gray-400">No book loaded</p>
+          <p style={{ color: 'var(--text-secondary)' }}>No book loaded</p>
         </div>
       )}
     </div>

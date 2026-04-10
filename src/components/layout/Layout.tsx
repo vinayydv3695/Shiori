@@ -312,33 +312,35 @@ export function Layout({
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">
       {/* ── Topbar ── */}
-       <PremiumTopbar
-         currentDomain={currentDomain}
-         onDomainChange={onDomainChange}
-         onImportFiles={handleOpenImportFilesDialog}
-         onImportFolder={handleOpenImportFolderDialog}
-         onOpenRSS={onOpenRSSFeeds}
-         onConvert={handleConvert}
-         onEditMetadata={handleEditMetadata}
-         onFetchMetadata={handleFetchMetadataClick}
-         onViewDetails={handleViewDetails}
-         onDelete={handleDelete}
+      {currentView !== 'online-manga-reader' && (
+        <PremiumTopbar
+          currentDomain={currentDomain}
+          onDomainChange={onDomainChange}
+          onImportFiles={handleOpenImportFilesDialog}
+          onImportFolder={handleOpenImportFolderDialog}
+          onOpenRSS={onOpenRSSFeeds}
+          onConvert={handleConvert}
+          onEditMetadata={handleEditMetadata}
+          onFetchMetadata={handleFetchMetadataClick}
+          onViewDetails={handleViewDetails}
+          onDelete={handleDelete}
           onSearch={onSearchChange}
           searchValue={searchQuery}
           searchPlaceholder={searchPlaceholder}
           onOpenSettings={onOpenSettings}
-         onOpenShortcuts={onOpenShortcuts}
-         onOpenDuplicateFinder={() => setDuplicateFinderOpen(true)}
-         onOpenAdvancedFilter={onOpenAdvancedFilter}
-         onToggleSidebar={() => setSidebarOpen((o) => !o)}
-         onGoHome={onGoHome}
+          onOpenShortcuts={onOpenShortcuts}
+          onOpenDuplicateFinder={() => setDuplicateFinderOpen(true)}
+          onOpenAdvancedFilter={onOpenAdvancedFilter}
+          onToggleSidebar={() => setSidebarOpen((o) => !o)}
+          onGoHome={onGoHome}
           onAutoGroupManga={onAutoGroupManga}
           currentView={currentView}
           onNavigateToView={onNavigateToView}
           selectedCount={selectedBookIds.size}
           activeFilterCount={activeFilterCount}
           sidebarOpen={sidebarOpen}
-       />
+        />
+      )}
 
       {/* ── Body ── */}
       <DragLayer

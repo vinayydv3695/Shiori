@@ -66,7 +66,7 @@ export const MangaTopBar = memo(function MangaTopBar({ onClose }: MangaTopBarPro
                     <button
                         className="manga-topbar-btn"
                         onClick={toggleSidebar}
-                        title="Toggle sidebar (H / S)"
+                        title="Toggle sidebar (S)"
                     >
                         <PanelRightOpen />
                     </button>

@@ -1,6 +1,7 @@
 import React, { useEffect, useCallback, useRef } from 'react';
 import {
     useMangaContentStore,
+    useMangaUIStore,
     useMangaSettingsStore,
     type OnlineSourceConfig,
 } from '@/store/mangaReaderStore';
@@ -66,6 +67,7 @@ export function MangaReader(props: MangaReaderProps) {
     const setError = useMangaContentStore(s => s.setError);
     const bookId = useMangaContentStore(s => s.bookId);
     const onlineSource = useMangaContentStore(s => s.onlineSource);
+    const resetUI = useMangaUIStore(s => s.resetUI);
     const theme = useMangaSettingsStore(s => s.theme);
 
     // Guard: don't save progress until initialization + resume is complete
@@ -77,6 +79,11 @@ export function MangaReader(props: MangaReaderProps) {
     const localTitle = mode === 'local' ? (props.title ?? '') : '';
     const localTotalPages = mode === 'local' ? (props.totalPages ?? 0) : 0;
     const onlineConfig = mode === 'online' ? props.sourceConfig : null;
+
+    // Always start each reader session with a clean UI state.
+    useEffect(() => {
+        resetUI();
+    }, [resetUI]);
 
     // Initialize manga state based on mode
     useEffect(() => {

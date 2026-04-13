@@ -21,7 +21,7 @@ export function WebtoonView() {
     const pageDimensions = useMangaContentStore(s => s.pageDimensions);
     const setCurrentPage = useMangaContentStore(s => s.setCurrentPage);
     const setScrollProgress = useMangaUIStore(s => s.setScrollProgress);
-    const setTopBarVisible = useMangaUIStore(s => s.setTopBarVisible);
+    const markScrollActivity = useMangaUIStore(s => s.markScrollActivity);
     const readingMode = useMangaSettingsStore(s => s.readingMode);
     const preloadIntensity = useMangaSettingsStore(s => s.preloadIntensity);
 
@@ -83,11 +83,11 @@ export function WebtoonView() {
         setCurrentPageRef.current(closestPage);
     }, [setScrollProgress]);
 
-    const handleScrollDirection = useCallback((direction: 'up' | 'down') => {
-        setTopBarVisible(direction === 'up');
-    }, [setTopBarVisible]);
+    const handleScrollActivity = useCallback(() => {
+        markScrollActivity();
+    }, [markScrollActivity]);
 
-    useMangaScroll(containerRef, handleProgressChange, handleScrollDirection);
+    useMangaScroll(containerRef, handleProgressChange, handleScrollActivity);
 
     useEffect(() => {
         if (hasScrolledToResume.current) return;

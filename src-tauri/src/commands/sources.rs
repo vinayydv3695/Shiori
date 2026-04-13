@@ -4,7 +4,48 @@ use tauri::{Manager, State};
 use tauri_plugin_store::StoreExt;
 
 use crate::error::{Result, ShioriError};
-use crate::sources::{Chapter, ContentType, Page, SearchResult, SourceMeta};
+use crate::sources::{Chapter, ContentType, Page, SearchResponse, SearchResult, SourceMeta};
+use crate::sources::annas_archive::{AnnasArchiveConfig, AnnasArchiveSource};
+
+#[tauri::command]
+pub async fn anna_archive_get_config(
+    state: State<'_, crate::AppState>,
+) -> Result<AnnasArchiveConfig> {
+    let source = {
+        let registry = state.plugin_registry.read().await;
+        registry
+            .get("anna-archive")
+            .ok_or_else(|| ShioriError::Validation("Unknown source: anna-archive".to_string()))?
+    };
+
+    let source = source
+        .as_any()
+        .downcast_ref::<AnnasArchiveSource>()
+        .ok_or_else(|| ShioriError::Other("Anna source type mismatch".to_string()))?;
+
+    Ok(source.get_config().await)
+}
+
+#[tauri::command]
+pub async fn anna_archive_set_config(
+    app_handle: tauri::AppHandle,
+    state: State<'_, crate::AppState>,
+    config: AnnasArchiveConfig,
+) -> Result<()> {
+    let source = {
+        let registry = state.plugin_registry.read().await;
+        registry
+            .get("anna-archive")
+            .ok_or_else(|| ShioriError::Validation("Unknown source: anna-archive".to_string()))?
+    };
+
+    let source = source
+        .as_any()
+        .downcast_ref::<AnnasArchiveSource>()
+        .ok_or_else(|| ShioriError::Other("Anna source type mismatch".to_string()))?;
+
+    source.save_config_to_store(&app_handle, config).await
+}
 
 #[tauri::command]
 pub async fn list_sources(state: State<'_, crate::AppState>) -> Result<Vec<SourceMeta>> {
@@ -48,6 +89,46 @@ pub async fn plugin_search(
     };
 
     source.search(&query, page.unwrap_or(1)).await
+}
+
+#[tauri::command]
+pub async fn plugin_search_with_meta(
+    state: State<'_, crate::AppState>,
+    source_id: String,
+    query: String,
+    page: Option<u32>,
+    limit: Option<u32>,
+) -> Result<SearchResponse> {
+    let source = {
+        let registry = state.plugin_registry.read().await;
+        registry
+            .get(&source_id)
+            .ok_or_else(|| ShioriError::Validation(format!("Unknown source: {}", source_id)))?
+    };
+
+    source
+        .search_with_meta(&query, page.unwrap_or(1), limit.unwrap_or(20))
+        .await
+}
+
+#[tauri::command]
+pub async fn plugin_browse(
+    state: State<'_, crate::AppState>,
+    source_id: String,
+    mode: String,
+    page: Option<u32>,
+    limit: Option<u32>,
+) -> Result<Vec<SearchResult>> {
+    let source = {
+        let registry = state.plugin_registry.read().await;
+        registry
+            .get(&source_id)
+            .ok_or_else(|| ShioriError::Validation(format!("Unknown source: {}", source_id)))?
+    };
+
+    source
+        .browse(&mode, page.unwrap_or(1), limit.unwrap_or(20))
+        .await
 }
 
 #[tauri::command]
@@ -176,11 +257,12 @@ pub async fn annas_archive_download(
     use crate::models::Book;
     use crate::services::library_service;
     use crate::services::metadata_service;
-    use crate::sources::annas_archive::AnnasArchiveSource;
     use uuid::Uuid;
 
     // Create Anna's Archive source
     let source = AnnasArchiveSource::new()?;
+    source.load_config_from_store(&app_handle).await?;
+    let anna_config = source.get_config().await;
     
     // Get download options from the detail page
     let options = source.get_download_options(&content_id).await?;
@@ -229,7 +311,17 @@ pub async fn annas_archive_download(
         .build()
         .map_err(|e| ShioriError::Other(format!("Failed to create download client: {}", e)))?;
     
-    let response = client.get(&download_url)
+    let mut request = client.get(&download_url);
+    if let Some(auth_key) = anna_config.auth_key {
+        let value = if auth_key.starts_with("Bearer ") {
+            auth_key
+        } else {
+            format!("Bearer {}", auth_key)
+        };
+        request = request.header("Authorization", value);
+    }
+
+    let response = request
         .send()
         .await
         .map_err(|e| ShioriError::Other(format!("Download request failed: {}", e)))?;

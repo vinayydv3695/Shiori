@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { logger } from '@/lib/logger';
+import { pluginApi, type Chapter as PluginChapter, type SearchResult as PluginSearchResult } from '@/lib/pluginSources';
 
 export interface MangaDexManga {
   id: string;
@@ -33,55 +34,24 @@ export interface MangaDexSearchResult {
 
 export type BrowseMode = 'popular' | 'latest' | 'recent' | 'top-rated';
 
-const BASE_URL = 'https://api.mangadex.org';
-const RATE_LIMIT_DELAY = 250;
-
-let lastRequestTime = 0;
-
-async function rateLimitedFetch(url: string): Promise<Response> {
-  const now = Date.now();
-  const timeSinceLastRequest = now - lastRequestTime;
-  
-  if (timeSinceLastRequest < RATE_LIMIT_DELAY) {
-    await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY - timeSinceLastRequest));
-  }
-  
-  lastRequestTime = Date.now();
-  
-  return fetch(url);
+function parsePluginSearchResults(results: PluginSearchResult[]): MangaDexManga[] {
+  return results.map((item) => ({
+    id: item.id,
+    title: item.title,
+    description: item.summary || item.description || '',
+    coverUrl: item.coverUrl || item.cover_url,
+  }));
 }
 
-// Helper to parse MangaDex API response into our manga format
-function parseMangaResponse(data: any): MangaDexManga[] {
-  return (data.data || []).map((item: any) => {
-    const titleObj = item.attributes?.title || {};
-    const title = titleObj.en || titleObj['ja-ro'] || Object.values(titleObj)[0] || 'Unknown Title';
-    
-    const descObj = item.attributes?.description || {};
-    const description = descObj.en || Object.values(descObj)[0] || '';
-    
-    let coverUrl: string | undefined;
-    const coverRel = (item.relationships || []).find((rel: any) => rel.type === 'cover_art');
-    if (coverRel?.attributes?.fileName) {
-      coverUrl = `https://uploads.mangadex.org/covers/${item.id}/${coverRel.attributes.fileName}.256.jpg`;
-    }
-    
-    const authorRel = (item.relationships || []).find((rel: any) => rel.type === 'author');
-    const artistRel = (item.relationships || []).find((rel: any) => rel.type === 'artist');
-    
-    return {
-      id: item.id,
-      title,
-      description,
-      status: item.attributes?.status,
-      coverUrl,
-      tags: (item.attributes?.tags || []).map((tag: any) => tag.attributes?.name?.en).filter(Boolean),
-      contentRating: item.attributes?.contentRating,
-      year: item.attributes?.year,
-      author: authorRel?.attributes?.name,
-      artist: artistRel?.attributes?.name,
-    };
-  });
+function parsePluginChapters(chapters: PluginChapter[]): MangaDexChapter[] {
+  return chapters.map((chapter) => ({
+    id: chapter.id,
+    title: chapter.title,
+    chapter: typeof chapter.number === 'number' && chapter.number > 0 ? String(chapter.number) : undefined,
+    volume: chapter.volume,
+    pages: 0,
+    publishAt: chapter.uploaded_at || '',
+  }));
 }
 
 export function useMangaDex() {
@@ -102,35 +72,20 @@ export function useMangaDex() {
 
     try {
       const offset = (page - 1) * limit;
-      const params = new URLSearchParams();
-      params.set('title', query);
-      params.set('limit', String(limit));
-      params.set('offset', String(offset));
-      params.set('hasAvailableChapters', 'true');
-      params.append('availableTranslatedLanguage[]', 'en');
-      params.append('includes[]', 'cover_art');
-      params.append('includes[]', 'author');
-      params.append('includes[]', 'artist');
-      params.set('order[relevance]', 'desc');
+      logger.info('MangaDex search via plugin:', { query, page, limit });
 
-      const url = `${BASE_URL}/manga?${params.toString()}`;
-      
-      logger.info('MangaDex search:', { query, page, limit });
-      
-      const response = await rateLimitedFetch(url);
-      
-      if (!response.ok) {
-        throw new Error(`MangaDex API error: ${response.status} ${response.statusText}`);
-      }
+      const searchResponse = await pluginApi.searchWithMeta('mangadex', query, page, limit);
+      const mangaList = parsePluginSearchResults(searchResponse.items);
+      const responseOffset = searchResponse.offset ?? offset;
+      const responseLimit = searchResponse.limit ?? limit;
+      const estimatedTotal =
+        responseOffset + mangaList.length + (mangaList.length >= responseLimit ? 1 : 0);
 
-      const data = await response.json();
-      const mangaList = parseMangaResponse(data);
-      
       return {
         data: mangaList,
-        total: data.total || 0,
-        offset,
-        limit,
+        total: searchResponse.total ?? estimatedTotal,
+        offset: responseOffset,
+        limit: responseLimit,
       };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to search MangaDex';
@@ -153,45 +108,9 @@ export function useMangaDex() {
     setError(null);
 
     try {
-      const params = new URLSearchParams();
-      params.set('limit', String(limit));
-      params.set('hasAvailableChapters', 'true');
-      params.append('availableTranslatedLanguage[]', 'en');
-      params.append('includes[]', 'cover_art');
-      params.append('includes[]', 'author');
-      params.append('includes[]', 'artist');
-      // Exclude adult content by default for browse
-      params.append('contentRating[]', 'safe');
-      params.append('contentRating[]', 'suggestive');
-
-      // Set ordering based on mode
-      switch (mode) {
-        case 'popular':
-          params.set('order[followedCount]', 'desc');
-          break;
-        case 'latest':
-          params.set('order[latestUploadedChapter]', 'desc');
-          break;
-        case 'recent':
-          params.set('order[createdAt]', 'desc');
-          break;
-        case 'top-rated':
-          params.set('order[rating]', 'desc');
-          break;
-      }
-
-      const url = `${BASE_URL}/manga?${params.toString()}`;
-      
-      logger.info('MangaDex browse:', { mode, limit });
-      
-      const response = await rateLimitedFetch(url);
-      
-      if (!response.ok) {
-        throw new Error(`MangaDex API error: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      return parseMangaResponse(data);
+      logger.info('MangaDex browse via plugin:', { mode, limit });
+      const browseResults = await pluginApi.browse('mangadex', mode, 1, limit);
+      return parsePluginSearchResults(browseResults);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to browse MangaDex';
       logger.error('MangaDex browse failed:', err);
@@ -207,37 +126,9 @@ export function useMangaDex() {
     setError(null);
 
     try {
-      const params = new URLSearchParams();
-      params.append('translatedLanguage[]', 'en');
-      params.set('limit', String(limit));
-      params.set('order[chapter]', 'asc');
-      params.append('includes[]', 'scanlation_group');
-
-      const url = `${BASE_URL}/manga/${mangaId}/feed?${params.toString()}`;
-      
-      logger.info('MangaDex chapters:', { mangaId, limit });
-      
-      const response = await rateLimitedFetch(url);
-      
-      if (!response.ok) {
-        throw new Error(`MangaDex API error: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      
-      return (data.data || []).map((item: any) => {
-        const scanlationRel = (item.relationships || []).find((rel: any) => rel.type === 'scanlation_group');
-        
-        return {
-          id: item.id,
-          title: item.attributes?.title || '',
-          chapter: item.attributes?.chapter,
-          volume: item.attributes?.volume,
-          pages: item.attributes?.pages || 0,
-          publishAt: item.attributes?.publishAt,
-          scanlationGroup: scanlationRel?.attributes?.name,
-        };
-      });
+      logger.info('MangaDex chapters via plugin:', { mangaId, limit });
+      const chapterList = await pluginApi.getChapters('mangadex', mangaId);
+      return parsePluginChapters(chapterList).slice(0, limit);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to get chapters';
       logger.error('MangaDex chapters failed:', err);

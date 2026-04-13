@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 
 export type SourceKind = 'manga' | 'books';
 export type SourceStatus = 'active' | 'planned';
+export type DebridProviderPreference = 'auto' | 'torbox';
 
 export interface SourceConfig {
   id: string;
@@ -103,12 +104,14 @@ function normalizePrimarySource(
 interface SourceStore {
   sources: SourceConfig[];
   primarySourceByKind: Record<SourceKind, string>;
+  preferredDebridProvider: DebridProviderPreference;
   getSourcesByKind: (kind: SourceKind) => SourceConfig[];
   getEnabledSourcesByKind: (kind: SourceKind) => SourceConfig[];
   getPrimarySource: (kind: SourceKind) => SourceConfig | undefined;
   isSourceEnabled: (id: string) => boolean;
   toggleSource: (id: string) => void;
   setPrimarySource: (kind: SourceKind, id: string) => void;
+  setPreferredDebridProvider: (provider: DebridProviderPreference) => void;
 }
 
 export const useSourceStore = create<SourceStore>()(
@@ -116,6 +119,7 @@ export const useSourceStore = create<SourceStore>()(
     (set, get) => ({
       sources: DEFAULT_SOURCES,
       primarySourceByKind: DEFAULT_PRIMARY_SOURCE_BY_KIND,
+      preferredDebridProvider: 'auto',
       getSourcesByKind: (kind) => get().sources.filter((source) => source.kind === kind),
       getEnabledSourcesByKind: (kind) =>
         get().sources.filter((source) => source.kind === kind && source.enabled && source.implemented),
@@ -190,6 +194,10 @@ export const useSourceStore = create<SourceStore>()(
             },
           };
         }),
+      setPreferredDebridProvider: (provider) =>
+        set(() => ({
+          preferredDebridProvider: provider,
+        })),
     }),
     {
       name: 'shiori-source-store',

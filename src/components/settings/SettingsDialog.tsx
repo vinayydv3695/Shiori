@@ -21,8 +21,11 @@ import { TTSEngine } from '@/lib/ttsEngine'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { useToast } from '../../store/toastStore'
 import { logger } from '../../lib/logger'
+import { useSourceStore } from '../../store/sourceStore'
 import { SourceManager } from './SourceManager'
 import { TorboxSettings } from './TorboxSettings'
+import { AnnaArchiveSettings } from './AnnaArchiveSettings'
+import { READING_FONTS, normalizeLegacyFontPreference, resolveReadingFontCss } from '@/lib/readingFonts'
 
 interface SettingsDialogProps {
   open: boolean
@@ -346,6 +349,8 @@ const GeneralSettings = ({
   isSectionVisible: (section: string, settings: string[]) => boolean
 }) => {
   const toast = useToast()
+  const preferredDebridProvider = useSourceStore((state) => state.preferredDebridProvider)
+  const setPreferredDebridProvider = useSourceStore((state) => state.setPreferredDebridProvider)
 
   if (!preferences) return null
 
@@ -763,6 +768,24 @@ const GeneralSettings = ({
 
       <SettingSection title="Download Services" description="Configure cloud torrent and download services">
         <div className="space-y-4">
+          <SettingItem
+            label="Debrid Provider"
+            description="Choose which debrid provider to use for online downloads. Auto currently falls back to Torbox."
+          >
+            <select
+              value={preferredDebridProvider}
+              onChange={(e) => setPreferredDebridProvider(e.target.value as 'auto' | 'torbox')}
+              className="px-3 py-2 rounded-md border border-border bg-background"
+              aria-label="Preferred debrid provider"
+            >
+              <option value="auto">Auto (fallback to Torbox)</option>
+              <option value="torbox">Torbox</option>
+            </select>
+          </SettingItem>
+          <div>
+            <h4 className="text-sm font-semibold mb-2">Anna Archive</h4>
+            <AnnaArchiveSettings />
+          </div>
           <div>
             <h4 className="text-sm font-semibold mb-2">Torbox</h4>
             <TorboxSettings />
@@ -806,6 +829,8 @@ const BookReadingSettings = ({
 
   if (!preferences) return null
 
+  const normalizedBookFontFamily = normalizeLegacyFontPreference(preferences.book.fontFamily)
+
   const previewText =
     'The quick brown fox jumps over the lazy dog. This is a sample text to preview your reading settings in real-time.'
 
@@ -824,20 +849,16 @@ const BookReadingSettings = ({
           }}
         >
           {isSettingVisible('Font Family', 'Book reader font', 'Font Settings') && (
-            <SettingItem label="Font Family" description={preferences.book.fontFamily}>
+            <SettingItem label="Font Family" description={normalizedBookFontFamily}>
               <select
-                value={preferences.book.fontFamily}
-                onChange={(e) => updateBookDefaults({ fontFamily: e.target.value })}
+                value={normalizedBookFontFamily}
+                onChange={(e) => updateBookDefaults({ fontFamily: normalizeLegacyFontPreference(e.target.value) })}
                 className="px-3 py-2 rounded-md border border-border bg-background"
                 aria-label="Font family"
               >
-                <option value="Georgia, serif">Georgia</option>
-                <option value="Arial">Arial</option>
-                <option value="Times New Roman">Times New Roman</option>
-                <option value="Courier New">Courier New</option>
-                <option value="Verdana">Verdana</option>
-                <option value="Palatino Linotype">Palatino</option>
-                <option value="Bookman Old Style">Bookman</option>
+                {READING_FONTS.map((font) => (
+                  <option key={font.id} value={font.id}>{font.label}</option>
+                ))}
               </select>
             </SettingItem>
           )}
@@ -875,7 +896,7 @@ const BookReadingSettings = ({
             <p className="text-xs font-medium text-muted-foreground mb-3">Font Preview</p>
             <div
               style={{
-                fontFamily: preferences.book.fontFamily,
+                fontFamily: resolveReadingFontCss(normalizedBookFontFamily),
                 fontSize: `${preferences.book.fontSize}px`,
                 lineHeight: preferences.book.lineHeight,
                 textAlign: preferences.book.justification,

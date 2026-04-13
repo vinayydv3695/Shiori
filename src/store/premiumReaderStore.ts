@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { logger } from '@/lib/logger';
+import { DEFAULT_READING_FONT_ID, normalizeLegacyFontPreference, resolveReadingFontCss } from '@/lib/readingFonts';
 
 // ═══════════════════════════════════════════════════════════
 // PREMIUM READER STATE MANAGEMENT
@@ -136,7 +137,7 @@ interface ReadingSettings {
 
 const defaultSettings = {
   theme: 'light' as ReaderTheme,
-  fontFamily: 'literata',
+  fontFamily: DEFAULT_READING_FONT_ID,
   fontSize: 18,
   lineHeight: 1.6,
   paragraphSpacing: '1em',
@@ -198,8 +199,9 @@ export const useReadingSettings = create<ReadingSettings>()(
       },
 
       setFontFamily: (family) => {
-        set({ fontFamily: family });
-        applyFontToDOM(family);
+        const normalized = normalizeLegacyFontPreference(family);
+        set({ fontFamily: normalized });
+        applyFontToDOM(normalized);
       },
 
       setFontSize: (size) => {
@@ -416,18 +418,7 @@ const applyUiScaleToDOM = (scale: number) => {
 };
 
 const applyFontToDOM = (fontFamily: string) => {
-  const fontMap: Record<string, string> = {
-    serif: 'Georgia, serif',
-    sans: 'Arial, sans-serif',
-    system: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    literata: '"Literata", Georgia, serif',
-    merriweather: '"Merriweather", Georgia, serif',
-    opensans: '"Open Sans", Arial, sans-serif',
-    lora: '"Lora", Georgia, serif',
-    mono: 'Courier, "Courier New", monospace',
-  };
-
-  const fontValue = fontMap[fontFamily] || fontMap.literata;
+  const fontValue = resolveReadingFontCss(fontFamily);
   requestAnimationFrame(() => {
     document.documentElement.style.setProperty('--reading-font-family', fontValue);
   });
@@ -525,7 +516,7 @@ if (typeof window !== 'undefined') {
 
   if (parsed?.state) {
     const s = parsed.state;
-    applyFontToDOM(s.fontFamily || 'literata');
+    applyFontToDOM(normalizeLegacyFontPreference(s.fontFamily || DEFAULT_READING_FONT_ID));
     applyFontSizeToDOM(s.fontSize || 18);
     applyLineHeightToDOM(s.lineHeight || 1.6);
     applyParagraphSpacingToDOM(s.paragraphSpacing || '1em');
@@ -538,7 +529,7 @@ if (typeof window !== 'undefined') {
     applyBrightnessToDOM(s.brightness ?? 1.0);
   } else {
     // Apply defaults
-    applyFontToDOM('literata');
+    applyFontToDOM(DEFAULT_READING_FONT_ID);
     applyFontSizeToDOM(18);
     applyLineHeightToDOM(1.6);
     applyParagraphSpacingToDOM('1em');

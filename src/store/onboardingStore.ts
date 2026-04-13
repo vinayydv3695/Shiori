@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/tauri';
+import { DEFAULT_READING_FONT_ID, normalizeLegacyFontPreference } from '@/lib/readingFonts';
 import type { Theme } from '@/types/preferences';
 import { usePreferencesStore } from './preferencesStore';
 
@@ -153,7 +154,7 @@ const createDefaultState = (): OnboardingWizardState => ({
     preloadIntensity: 3,
   },
   bookPrefs: {
-    fontFamily: 'Georgia, serif',
+    fontFamily: DEFAULT_READING_FONT_ID,
     fontSize: 18,
     lineHeight: 1.6,
     pageWidth: 720,
@@ -222,7 +223,7 @@ const pushMangaPrefs = async (prefs: MangaPrefs): Promise<void> => {
 
 const pushBookPrefs = async (prefs: BookPrefs): Promise<void> => {
   await usePreferencesStore.getState().updateBookDefaults({
-    fontFamily: prefs.fontFamily,
+    fontFamily: normalizeLegacyFontPreference(prefs.fontFamily),
     fontSize: prefs.fontSize,
     lineHeight: prefs.lineHeight,
     pageWidth: prefs.pageWidth,
@@ -270,7 +271,7 @@ export const useOnboardingStore = create<OnboardingStore>()(
                   preloadIntensity: preferences.manga.preloadCount,
                 },
                 bookPrefs: {
-                  fontFamily: preferences.book.fontFamily,
+                  fontFamily: normalizeLegacyFontPreference(preferences.book.fontFamily),
                   fontSize: preferences.book.fontSize,
                   lineHeight: preferences.book.lineHeight,
                   pageWidth: preferences.book.pageWidth,
@@ -350,7 +351,11 @@ export const useOnboardingStore = create<OnboardingStore>()(
       },
 
       setBookPrefs: (updates) => {
-        const merged = { ...get().bookPrefs, ...updates };
+        const merged = {
+          ...get().bookPrefs,
+          ...updates,
+          ...(updates.fontFamily ? { fontFamily: normalizeLegacyFontPreference(updates.fontFamily) } : {}),
+        };
         set({ bookPrefs: merged });
         void pushBookPrefs(merged).catch((error) => {
           logger.error('Failed to persist book preferences:', error);

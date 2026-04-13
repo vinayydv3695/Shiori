@@ -17,6 +17,7 @@ import { TextSelectionToolbar } from './TextSelectionToolbar';
 import { TTSControlBar } from './TTSControlBar';
 import { sanitizeBookContent } from '@/lib/sanitize';
 import { applyHighlightsToDOM } from '@/lib/highlightAnnotations';
+import { resolveReadingFontCss } from '@/lib/readingFonts';
 import '@/styles/premium-reader.css';
 
 interface GenericHtmlReaderProps {
@@ -65,21 +66,6 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
 
     // ── Reader Theme ──
     useReaderTheme(readerContainerRef, theme);
-
-    // Map font family IDs to CSS font-family strings
-    const getFontFamily = (fontId: string): string => {
-        const fontMap: Record<string, string> = {
-            serif: 'Georgia, serif',
-            sans: 'Arial, sans-serif',
-            system: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-            literata: 'Literata, Georgia, serif',
-            merriweather: 'Merriweather, Georgia, serif',
-            opensans: 'Open Sans, Arial, sans-serif',
-            lora: 'Lora, Georgia, serif',
-            mono: 'Courier, "Courier New", monospace',
-        };
-        return fontMap[fontId] || fontMap.serif;
-    };
 
     const restoreProgress = useCallback(async () => {
         if (!containerRef.current) return;
@@ -380,12 +366,12 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
                     <div className="premium-chapter-page" style={{ height: 'auto', minHeight: '100%' }}>
                         <div
                             ref={contentRef}
-                            className="premium-chapter-content"
-                            style={{
-                                fontFamily: getFontFamily(fontFamily),
+                             className="premium-chapter-content"
+                             style={{
+                                fontFamily: resolveReadingFontCss(fontFamily),
                                 fontSize: `${fontSize}px`,
                                 lineHeight: lineHeight,
-                            }}
+                             }}
                         />
                     </div>
                 </div>

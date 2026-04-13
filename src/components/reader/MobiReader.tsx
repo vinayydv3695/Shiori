@@ -18,6 +18,7 @@ import { DoodleCanvas } from './DoodleCanvas';
 import { DoodleToolbar } from './DoodleToolbar';
 import { sanitizeBookContent } from '@/lib/sanitize';
 import { applyHighlightsToDOM } from '@/lib/highlightAnnotations';
+import { resolveReadingFontCss } from '@/lib/readingFonts';
 import '@/styles/premium-reader.css';
 
 interface MobiReaderProps {
@@ -56,21 +57,6 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
 
     // ── Reader Theme ──
     useReaderTheme(readerContainerRef, theme);
-
-    // Map font family IDs to CSS font-family strings
-    const getFontFamily = (fontId: string): string => {
-        const fontMap: Record<string, string> = {
-            serif: 'Georgia, serif',
-            sans: 'Arial, sans-serif',
-            system: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-            literata: 'Literata, Georgia, serif',
-            merriweather: 'Merriweather, Georgia, serif',
-            opensans: 'Open Sans, Arial, sans-serif',
-            lora: 'Lora, Georgia, serif',
-            mono: 'Courier, "Courier New", monospace',
-        };
-        return fontMap[fontId] || fontMap.serif;
-    };
 
     const sanitizedContent = useMemo(
         () => (currentChapter ? sanitizeBookContent(currentChapter.content) : ''),
@@ -462,7 +448,7 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
                             ref={contentRef}
                             className="premium-chapter-content"
                             style={{
-                                fontFamily: getFontFamily(fontFamily),
+                                fontFamily: resolveReadingFontCss(fontFamily),
                                 fontSize: `${fontSize}px`,
                                 lineHeight: lineHeight,
                             }}

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useReadingSettings, BG_COLOR_PRESETS, TEXT_COLOR_PRESETS, type ReaderTheme } from '@/store/premiumReaderStore';
 import { Settings, Columns, ChevronDown, ChevronUp } from '@/components/icons';
+import { READING_FONTS, normalizeLegacyFontPreference } from '@/lib/readingFonts';
 
 export type ReaderFormat = 'epub' | 'pdf' | 'mobi' | 'azw' | 'azw3' | 'manga' | 'fb2' | 'docx' | 'html' | 'htm' | 'txt' | 'md' | 'markdown';
 
@@ -90,16 +91,7 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen]);
 
-  const fontOptions = [
-    { id: 'literata', name: 'Literata', label: 'Literata (Serif)' },
-    { id: 'merriweather', name: 'Merriweather', label: 'Merriweather (Serif)' },
-    { id: 'lora', name: 'Lora', label: 'Lora (Serif)' },
-    { id: 'serif', name: 'Georgia', label: 'Georgia (Serif)' },
-    { id: 'opensans', name: 'Open Sans', label: 'Open Sans (Sans)' },
-    { id: 'sans', name: 'Arial', label: 'Arial (Sans)' },
-    { id: 'system', name: 'System', label: 'System Font' },
-    { id: 'mono', name: 'Monospace', label: 'Monospace' },
-  ];
+  const normalizedFontFamily = normalizeLegacyFontPreference(fontFamily);
 
   const letterSpacingOptions = [
     { id: 'tight', label: 'Tight' },
@@ -404,12 +396,12 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
             <div className="premium-settings-section">
               <label className="premium-settings-label">Font Family</label>
               <div className="premium-settings-font-grid">
-                {fontOptions.map((font) => (
+                {READING_FONTS.map((font) => (
                   <button
                     key={font.id}
                     onClick={() => setFontFamily(font.id)}
-                    className={`premium-settings-font-option ${fontFamily === font.id ? 'premium-settings-font-option--active' : ''}`}
-                    style={{ fontFamily: font.name }}
+                    className={`premium-settings-font-option ${normalizedFontFamily === font.id ? 'premium-settings-font-option--active' : ''}`}
+                    style={{ fontFamily: font.previewFamily }}
                   >
                     {font.label}
                   </button>

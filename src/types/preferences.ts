@@ -1,3 +1,5 @@
+import { DEFAULT_READING_FONT_ID } from '@/lib/readingFonts';
+
 /**
  * Preference Types for Shiori v2.0
  * Matches Rust backend types in src-tauri/src/commands/preferences.rs
@@ -105,7 +107,7 @@ export interface OnboardingState {
 
 // Default preferences for initialization
 export const DEFAULT_BOOK_PREFERENCES: BookPreferences = {
-  fontFamily: 'Georgia, serif',
+  fontFamily: DEFAULT_READING_FONT_ID,
   fontSize: 18,
   lineHeight: 1.6,
   pageWidth: 720,

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use crate::error::{Result, ShioriError};
-use crate::sources::{Chapter, ContentType, Page, SearchResult, Source, SourceMeta};
+use crate::sources::{Chapter, ContentType, Page, SearchResponse, SearchResult, Source, SourceMeta};
 
 const MANGADEX_API_BASE: &str = "https://api.mangadex.org";
 const SHIORI_UA: &str = "Shiori/1.0 (github.com/vinayydv3695/Shiori)";
@@ -33,6 +33,10 @@ impl MangaDexSource {
 
 #[async_trait::async_trait]
 impl Source for MangaDexSource {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
     fn meta(&self) -> SourceMeta {
         SourceMeta {
             id: "mangadex".to_string(),
@@ -48,11 +52,17 @@ impl Source for MangaDexSource {
     }
 
     async fn search(&self, query: &str, page: u32) -> Result<Vec<SearchResult>> {
+        Ok(self.search_with_meta(query, page, 20).await?.items)
+    }
+
+    async fn search_with_meta(&self, query: &str, page: u32, limit: u32) -> Result<SearchResponse> {
+        let safe_page = page.max(1);
+        let safe_limit = limit.max(1).min(100);
         let q = urlencoding::encode(query);
-        let offset = page.saturating_sub(1) * 20;
+        let offset = (safe_page - 1) * safe_limit;
         let url = format!(
-            "{}/manga?title={}&limit=20&offset={}&includes[]=cover_art&order[relevance]=desc",
-            MANGADEX_API_BASE, q, offset
+            "{}/manga?title={}&limit={}&offset={}&includes[]=cover_art&order[relevance]=desc",
+            MANGADEX_API_BASE, q, safe_limit, offset
         );
 
         let response: MangaDexMangaResponse = self
@@ -64,6 +74,86 @@ impl Source for MangaDexSource {
             .json()
             .await
             .map_err(|e| ShioriError::Other(format!("MangaDex search parse failed: {}", e)))?;
+
+        let items = response
+            .data
+            .into_iter()
+            .map(|item| {
+                let title = item
+                    .attributes
+                    .title
+                    .get("en")
+                    .cloned()
+                    .or_else(|| item.attributes.title.values().next().cloned())
+                    .unwrap_or_else(|| "Untitled".to_string());
+
+                let summary = item
+                    .attributes
+                    .description
+                    .as_ref()
+                    .and_then(|d| d.get("en").cloned().or_else(|| d.values().next().cloned()));
+
+                let cover_file = item
+                    .relationships
+                    .as_ref()
+                    .and_then(|rels| rels.iter().find(|r| r.r#type == "cover_art"))
+                    .and_then(|r| r.attributes.as_ref())
+                    .and_then(|a| a.file_name.clone());
+
+                let cover_url =
+                    cover_file.map(|f| format!("https://uploads.mangadex.org/covers/{}/{}", item.id, f));
+
+                SearchResult {
+                    id: item.id.clone(),
+                    title,
+                    cover_url,
+                    description: summary,
+                    source_id: "mangadex".to_string(),
+                    extra: HashMap::new(),
+                }
+            })
+            .collect();
+
+        Ok(SearchResponse {
+            items,
+            total: response.total,
+            offset: response.offset,
+            limit: response.limit,
+        })
+    }
+
+    async fn browse(&self, mode: &str, page: u32, limit: u32) -> Result<Vec<SearchResult>> {
+        let safe_page = page.max(1);
+        let safe_limit = limit.max(1).min(100);
+        let offset = (safe_page - 1) * safe_limit;
+
+        let order_param = match mode {
+            "popular" => "order[followedCount]=desc",
+            "latest" => "order[latestUploadedChapter]=desc",
+            "recent" => "order[createdAt]=desc",
+            "top-rated" => "order[rating]=desc",
+            _ => {
+                return Err(ShioriError::Validation(format!(
+                    "Unsupported browse mode: {}",
+                    mode
+                )))
+            }
+        };
+
+        let url = format!(
+            "{}/manga?limit={}&offset={}&hasAvailableChapters=true&availableTranslatedLanguage[]=en&includes[]=cover_art&includes[]=author&includes[]=artist&contentRating[]=safe&contentRating[]=suggestive&{}",
+            MANGADEX_API_BASE, safe_limit, offset, order_param
+        );
+
+        let response: MangaDexMangaResponse = self
+            .client
+            .get(url)
+            .send()
+            .await
+            .map_err(|e| ShioriError::Other(format!("MangaDex browse request failed: {}", e)))?
+            .json()
+            .await
+            .map_err(|e| ShioriError::Other(format!("MangaDex browse parse failed: {}", e)))?;
 
         Ok(response
             .data
@@ -90,8 +180,8 @@ impl Source for MangaDexSource {
                     .and_then(|r| r.attributes.as_ref())
                     .and_then(|a| a.file_name.clone());
 
-                let cover_url = cover_file
-                    .map(|f| format!("https://uploads.mangadex.org/covers/{}/{}", item.id, f));
+                let cover_url =
+                    cover_file.map(|f| format!("https://uploads.mangadex.org/covers/{}/{}", item.id, f));
 
                 SearchResult {
                     id: item.id.clone(),
@@ -183,6 +273,9 @@ impl Source for MangaDexSource {
 #[derive(Debug, Deserialize)]
 struct MangaDexMangaResponse {
     data: Vec<MangaDexManga>,
+    total: Option<u32>,
+    offset: Option<u32>,
+    limit: Option<u32>,
 }
 
 #[derive(Debug, Deserialize)]

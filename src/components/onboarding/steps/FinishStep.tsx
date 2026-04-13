@@ -1,6 +1,5 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { CheckCircle2, FolderOpen, Palette, Settings } from 'lucide-react';
-import { AnimatedCheckmark, GlassCard } from '../components/index';
 import { useOnboardingState } from '../hooks/useOnboardingState';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import type { BookPrefs, MangaPrefs, ThemeName } from '../../../store/onboardingStore';
@@ -13,7 +12,6 @@ type FinishStepProps = {
   onBack?: () => void;
   onOpenLibrary?: () => Promise<void>;
   isFinishing?: boolean;
-  onFinished?: () => void | Promise<void>;
 };
 
 export function FinishStep({
@@ -23,7 +21,6 @@ export function FinishStep({
   bookPrefs,
   onOpenLibrary,
   isFinishing,
-  onFinished,
 }: FinishStepProps) {
   const [burst, setBurst] = useState(false);
   const { completeOnboarding } = useOnboardingState();
@@ -58,7 +55,6 @@ export function FinishStep({
       } else {
         await completeOnboarding();
       }
-      await onFinished?.();
     } finally {
       // no-op
     }

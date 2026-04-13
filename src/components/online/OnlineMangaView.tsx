@@ -234,13 +234,24 @@ export function OnlineMangaView() {
     }
   };
 
-  const handleReadChapter = async (sourceId: string, contentId: string, chapter: PluginChapter, allChapters: PluginChapter[]) => {
+  const handleReadChapter = async (sourceId: string, contentId: string, chapter: PluginChapter, allChapters: PluginChapter[], contentTitle?: string) => {
     setSource(sourceId);
-    setContent(contentId, allChapters);
+    setContent(contentId, allChapters, contentTitle);
     await setChapter(chapter.id);
     setChaptersDialogOpen(false);
     setCurrentView('online-manga-reader');
   };
+
+  const mapMangaDexChapterToPlugin = useCallback((chapter: MangaDexChapter): PluginChapter => ({
+    id: chapter.id,
+    title: chapter.title || (chapter.chapter ? `Chapter ${chapter.chapter}` : 'Chapter'),
+    number: chapter.chapter ? Number(chapter.chapter) : undefined,
+  }), []);
+
+  const mangaDexPluginChapters = useMemo(
+    () => chapters.map(mapMangaDexChapterToPlugin),
+    [chapters, mapMangaDexChapterToPlugin]
+  );
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -635,7 +646,8 @@ export function OnlineMangaView() {
                           <Button
                             size="sm"
                             onClick={() => {
-                              void handleReadChapter('mangadex', selectedManga.id, chapter as unknown as PluginChapter, chapters as unknown as PluginChapter[]);
+                              const pluginChapter = mapMangaDexChapterToPlugin(chapter);
+                              void handleReadChapter('mangadex', selectedManga.id, pluginChapter, mangaDexPluginChapters, selectedManga.title);
                             }}
                           >
                             Read
@@ -663,7 +675,7 @@ export function OnlineMangaView() {
                         <Button
                           size="sm"
                           onClick={() => {
-                            void handleReadChapter(activePluginSourceId, selectedPluginManga.id, chapter, pluginChapters);
+                            void handleReadChapter(activePluginSourceId, selectedPluginManga.id, chapter, pluginChapters, selectedPluginManga.title);
                           }}
                         >
                           Read

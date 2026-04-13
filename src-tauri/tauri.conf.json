@@ -64,7 +64,7 @@
   },
   "app": {
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https: blob: data:; font-src 'self' asset: data:; connect-src 'self' ipc: http://ipc.localhost https://openlibrary.org https://covers.openlibrary.org https://graphql.anilist.co",
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https: blob: data:; font-src 'self' asset: data:; connect-src 'self' ipc: http://ipc.localhost https://openlibrary.org https://covers.openlibrary.org https://graphql.anilist.co https://api.mangadex.org",
       "assetProtocol": {
         "enable": true,
         "scope": [

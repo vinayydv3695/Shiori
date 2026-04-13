@@ -83,7 +83,7 @@ fn main() {
             registry.register(Arc::new(sources::mangadex::MangaDexSource::new()?));
             registry.register(Arc::new(sources::toongod::ToonGodSource::new()?));
             let anna_source = Arc::new(sources::annas_archive::AnnasArchiveSource::new()?);
-            tauri::async_runtime::block_on(anna_source.load_api_key_from_store(&app.handle().clone()))?;
+            tauri::async_runtime::block_on(anna_source.load_config_from_store(&app.handle().clone()))?;
             registry.register(anna_source);
             let plugin_registry = Arc::new(tokio::sync::RwLock::new(registry));
 
@@ -364,12 +364,17 @@ fn main() {
             commands::sources::list_sources,
             commands::sources::list_sources_by_type,
             commands::sources::plugin_search,
+            commands::sources::plugin_search_with_meta,
+            commands::sources::plugin_browse,
             commands::sources::plugin_get_chapters,
             commands::sources::plugin_get_pages,
             commands::sources::plugin_download_chapter,
             commands::sources::set_source_config,
+            commands::sources::anna_archive_get_config,
+            commands::sources::anna_archive_set_config,
             commands::sources::annas_archive_download,
             commands::sources::proxy_manga_image,
+            commands::debrid::debrid_resolve_and_import,
             // Torbox commands
             commands::torbox::torbox_set_api_key,
             commands::torbox::torbox_get_api_key,

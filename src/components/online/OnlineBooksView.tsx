@@ -24,6 +24,7 @@ export function OnlineBooksView() {
   const [pluginError, setPluginError] = useState<string | null>(null);
   const sources = useSourceStore((state) => state.sources);
   const primarySourceByKind = useSourceStore((state) => state.primarySourceByKind);
+  const preferredDebridProvider = useSourceStore((state) => state.preferredDebridProvider);
   const [lastSearchedQuery, setLastSearchedQuery] = useState('');
   const [downloadingBooks, setDownloadingBooks] = useState<Record<string, string>>({});
   const [hasTorboxKey, setHasTorboxKey] = useState(false);
@@ -259,27 +260,23 @@ export function OnlineBooksView() {
       }
       
       // Get pages for the first chapter (download option)
-      const pages = await pluginApi.getPages('anna-archive', book.id, chapters[0].id);
+      const pages = await pluginApi.getPages('anna-archive', chapters[0].id);
       
-      // Find magnet link (format is "type|url")
-      const magnetPage = pages.find(p => p.url.startsWith('magnet|'));
-      const torrentPage = pages.find(p => p.url.startsWith('torrent|'));
-      
-      if (!magnetPage && !torrentPage) {
+      // Build debrid candidate links (format is "type|url")
+      const candidateLinks = pages
+        .filter((p) => p.url.startsWith('magnet|') || p.url.startsWith('torrent|'))
+        .map((p) => p.url.split('|')[1])
+        .filter((v): v is string => Boolean(v));
+
+      if (candidateLinks.length === 0) {
         throw new Error('No magnet or torrent link available for this book. Try opening the detail page manually.');
-      }
-      
-      const downloadUrl = magnetPage?.url.split('|')[1] || torrentPage?.url.split('|')[1];
-      
-      if (!downloadUrl) {
-        throw new Error('Failed to extract download URL.');
       }
       
       setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Downloading via Torbox...' }));
       
-      // Download and import via Torbox
+      // Resolve/import via debrid provider layer
       const filename = `${book.title.replace(/[^a-zA-Z0-9]/g, '_')}.epub`;
-      await api.torboxDownloadAndImport(downloadUrl, filename);
+      await api.debridResolveAndImport(preferredDebridProvider, candidateLinks, filename);
       
       setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Imported to library!' }));
       
@@ -304,7 +301,7 @@ export function OnlineBooksView() {
         });
       }, 5000);
     }
-  }, []);
+  }, [preferredDebridProvider]);
 
   return (
     <div className="flex flex-col h-full bg-background">

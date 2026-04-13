@@ -183,6 +183,10 @@ impl ToonGodSource {
 
 #[async_trait::async_trait]
 impl Source for ToonGodSource {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
     fn meta(&self) -> SourceMeta {
         SourceMeta {
             id: "toongod".to_string(),

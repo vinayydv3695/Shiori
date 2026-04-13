@@ -212,7 +212,7 @@ export const SeriesManagementDialog = ({
                 <Tabs.Content value="edit" className="space-y-6 outline-none">
                   <div className="grid grid-cols-3 gap-8">
                     <div className="col-span-1 flex flex-col gap-3">
-                      <div className="aspect-[2/3] rounded-lg border-2 border-dashed border-border/50 overflow-hidden relative bg-muted flex items-center justify-center group">
+                      <div className="aspect-[2/3] bg-muted rounded-lg overflow-hidden border border-border relative flex items-center justify-center group">
                         {coverPath ? (
                           <img src={convertFileSrc(coverPath)} className="absolute inset-0 w-full h-full object-contain bg-muted" alt="Cover" />
                         ) : (
@@ -248,7 +248,7 @@ export const SeriesManagementDialog = ({
                         <select 
                           value={status} 
                           onChange={e => setStatus(e.target.value)}
-                          className="w-full px-3 py-2 text-sm bg-muted/50 border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                          className="w-full px-3 py-2 text-sm bg-muted/50 border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 dark:[color-scheme:dark] [&>option]:bg-popover [&>option]:text-popover-foreground"
                         >
                           <option value="ongoing">Ongoing</option>
                           <option value="completed">Completed</option>
@@ -314,7 +314,7 @@ export const SeriesManagementDialog = ({
                     <select 
                       value={targetSeriesId || ''} 
                       onChange={e => setTargetSeriesId(Number(e.target.value))}
-                      className="w-full px-3 py-2.5 text-sm bg-muted/50 border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      className="w-full px-3 py-2.5 text-sm bg-muted/50 border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 dark:[color-scheme:dark] [&>option]:bg-popover [&>option]:text-popover-foreground"
                     >
                       <option value="">-- Select a series --</option>
                       {allSeries.filter(s => s.id !== resolvedSeriesId).map(s => (

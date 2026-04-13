@@ -41,7 +41,8 @@ export const SHORTCUTS_CATALOG: ShortcutCategory[] = [
   {
     title: "Manga Reader",
     shortcuts: [
-      { keys: "H or S", action: "Toggle sidebar", context: "Manga reader" },
+      { keys: "H", action: "Toggle top bar", context: "Manga reader" },
+      { keys: "S", action: "Toggle sidebar", context: "Manga reader" },
       { keys: "1 / 3 / 4 / 5 / 6", action: "Switch reading mode", context: "Manga reader" },
       { keys: "D", action: "Toggle manga light/dark", context: "Manga reader" },
       { keys: ",", action: "Open manga settings", context: "Manga reader" },

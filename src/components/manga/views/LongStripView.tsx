@@ -21,7 +21,7 @@ export function LongStripView() {
     const pageDimensions = useMangaContentStore(s => s.pageDimensions);
     const setCurrentPage = useMangaContentStore(s => s.setCurrentPage);
     const setScrollProgress = useMangaUIStore(s => s.setScrollProgress);
-    const setTopBarVisible = useMangaUIStore(s => s.setTopBarVisible);
+    const markScrollActivity = useMangaUIStore(s => s.markScrollActivity);
     const stripMargin = useMangaSettingsStore(s => s.stripMargin);
     const preloadIntensity = useMangaSettingsStore(s => s.preloadIntensity);
 
@@ -93,12 +93,11 @@ export function LongStripView() {
         setCurrentPageRef.current(closestPage);
     }, [setScrollProgress]);
 
-    // Auto-hide top bar on scroll down, show on scroll up
-    const handleScrollDirection = useCallback((direction: 'up' | 'down') => {
-        setTopBarVisible(direction === 'up');
-    }, [setTopBarVisible]);
+    const handleScrollActivity = useCallback(() => {
+        markScrollActivity();
+    }, [markScrollActivity]);
 
-    useMangaScroll(containerRef, handleProgressChange, handleScrollDirection);
+    useMangaScroll(containerRef, handleProgressChange, handleScrollActivity);
 
     // On mount, scroll to the resumed page (if any). Run once after virtualizer is ready.
     useEffect(() => {

@@ -6,6 +6,8 @@ import {
 } from '@/store/mangaReaderStore';
 import { X, Settings, ChevronLeft, ChevronRight, Maximize, Minimize } from 'lucide-react';
 
+const TOPBAR_AUTO_HIDE_MS = 10_000;
+
 export function MangaReaderHeader({ 
     onClose, 
     onChapterChange 
@@ -24,46 +26,65 @@ export function MangaReaderHeader({
 
     const isTopBarVisible = useMangaUIStore(s => s.isTopBarVisible);
     const setTopBarVisible = useMangaUIStore(s => s.setTopBarVisible);
+    const lastScrollActivityAt = useMangaUIStore(s => s.lastScrollActivityAt);
     const toggleSidebar = useMangaUIStore(s => s.toggleSidebar);
     const isSidebarOpen = useMangaUIStore(s => s.isSidebarOpen);
     const isSettingsOpen = useMangaUIStore(s => s.isSettingsOpen);
     
     const stickyHeader = useMangaSettingsStore(s => s.stickyHeader);
+    const readingMode = useMangaSettingsStore(s => s.readingMode);
+    const isScrollMode = readingMode === 'strip' || readingMode === 'webtoon' || readingMode === 'manhwa';
 
     const [isFullscreen, setIsFullscreen] = useState(false);
     const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Auto-hide logic
+    // Keep the top bar visible while sidebar/settings panels are open.
     useEffect(() => {
-        const handleMouseMove = (e: MouseEvent) => {
-            // Clear any pending hide timeout
-            if (hideTimeoutRef.current) {
-                clearTimeout(hideTimeoutRef.current);
-            }
-            
-            if (e.clientY < 100) {
-                setTopBarVisible(true);
-            } else if (!stickyHeader && !isSidebarOpen && !isSettingsOpen) {
-                // Only auto-hide if we're not interacting with sidebars and sticky is off
-                hideTimeoutRef.current = setTimeout(() => setTopBarVisible(false), 2000);
-            }
-        };
-
-        if (!stickyHeader) {
-            window.addEventListener('mousemove', handleMouseMove);
-            // Hide initially if not sticky
-            hideTimeoutRef.current = setTimeout(() => setTopBarVisible(false), 2000);
-        } else {
+        if (isSidebarOpen || isSettingsOpen) {
             setTopBarVisible(true);
         }
 
         return () => {
-            window.removeEventListener('mousemove', handleMouseMove);
             if (hideTimeoutRef.current) {
                 clearTimeout(hideTimeoutRef.current);
+                hideTimeoutRef.current = null;
             }
         };
-    }, [stickyHeader, isSidebarOpen, isSettingsOpen, setTopBarVisible]);
+    }, [isSidebarOpen, isSettingsOpen, setTopBarVisible]);
+
+    // In scrolling modes, keep top bar visible while user scrolls,
+    // then hide it after a longer quiet period for less distraction.
+    useEffect(() => {
+        if (hideTimeoutRef.current) {
+            clearTimeout(hideTimeoutRef.current);
+            hideTimeoutRef.current = null;
+        }
+
+        if (!isScrollMode || stickyHeader || isSidebarOpen || isSettingsOpen || lastScrollActivityAt === 0) {
+            return;
+        }
+
+        if (Date.now() - lastScrollActivityAt > TOPBAR_AUTO_HIDE_MS) {
+            return;
+        }
+
+        setTopBarVisible(true);
+        hideTimeoutRef.current = setTimeout(() => {
+            const uiState = useMangaUIStore.getState();
+            const settingsState = useMangaSettingsStore.getState();
+
+            if (!settingsState.stickyHeader && !uiState.isSidebarOpen && !uiState.isSettingsOpen) {
+                setTopBarVisible(false);
+            }
+        }, TOPBAR_AUTO_HIDE_MS);
+
+        return () => {
+            if (hideTimeoutRef.current) {
+                clearTimeout(hideTimeoutRef.current);
+                hideTimeoutRef.current = null;
+            }
+        };
+    }, [isScrollMode, stickyHeader, isSidebarOpen, isSettingsOpen, lastScrollActivityAt, setTopBarVisible]);
 
     useEffect(() => {
         const handleFullscreenChange = () => {
@@ -182,7 +203,7 @@ export function MangaReaderHeader({
                         type="button"
                         className={`manga-topbar-btn ${isSidebarOpen ? 'manga-topbar-btn--active' : ''}`}
                         onClick={toggleSidebar}
-                        title="Settings (S)"
+                        title="Toggle Sidebar (S)"
                     >
                         <Settings size={18} />
                     </button>

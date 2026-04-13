@@ -345,6 +345,18 @@ export interface TranslationResponse {
   provider: string
 }
 
+export interface AnnaArchiveConfig {
+  baseUrl: string | null
+  authKey: string | null
+  apiKey: string | null
+}
+
+export interface DebridResolveResult {
+  provider: string
+  selectedLink: string
+  importedPath: string
+}
+
 // Mock data for development (when not in Tauri)
 const mockBooks: Book[] = [
   {
@@ -1103,6 +1115,18 @@ export const api = {
 
   async annasArchiveDownload(contentId: string, titleHint?: string): Promise<string> {
     return invoke("annas_archive_download", { contentId, titleHint })
+  },
+
+  async annaArchiveGetConfig(): Promise<AnnaArchiveConfig> {
+    return invoke("anna_archive_get_config")
+  },
+
+  async annaArchiveSetConfig(config: AnnaArchiveConfig): Promise<void> {
+    return invoke("anna_archive_set_config", { config })
+  },
+
+  async debridResolveAndImport(provider: 'auto' | 'torbox', candidateLinks: string[], filenameHint?: string): Promise<DebridResolveResult> {
+    return invoke("debrid_resolve_and_import", { provider, candidateLinks, filenameHint })
   },
 
   async proxyMangaImage(sourceId: string, imageUrl: string): Promise<Uint8Array> {

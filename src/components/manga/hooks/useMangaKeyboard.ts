@@ -18,6 +18,7 @@ export function useMangaKeyboard(onClose: () => void) {
     const toggleSettings = useMangaUIStore(s => s.toggleSettings);
     const isSettingsOpen = useMangaUIStore(s => s.isSettingsOpen);
     const closeSettings = useMangaUIStore(s => s.closeSettings);
+    const toggleTopBar = useMangaUIStore(s => s.toggleTopBar);
 
     const readingDirection = useMangaSettingsStore(s => s.readingDirection);
     const readingMode = useMangaSettingsStore(s => s.readingMode);
@@ -122,6 +123,11 @@ export function useMangaKeyboard(onClose: () => void) {
                 break;
             case 'h':
             case 'H':
+                if (!e.ctrlKey && !e.metaKey) {
+                    e.preventDefault();
+                    toggleTopBar();
+                }
+                break;
             case 's':
             case 'S':
                 if (!e.ctrlKey && !e.metaKey) {
@@ -179,6 +185,7 @@ export function useMangaKeyboard(onClose: () => void) {
         effectiveRtl, isScrollMode, goForward, goBackward, setCurrentPage, totalPages,
         toggleSidebar, closeSidebar, isSidebarOpen,
         toggleSettings, isSettingsOpen, closeSettings,
+        toggleTopBar,
         setReadingMode, toggleTheme, onClose
     ]);
 

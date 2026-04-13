@@ -225,13 +225,17 @@ interface MangaUIState {
     isSidebarOpen: boolean;
     isSettingsOpen: boolean;
     scrollProgress: number; // 0–100
+    lastScrollActivityAt: number;
 
     setTopBarVisible: (visible: boolean) => void;
+    toggleTopBar: () => void;
+    markScrollActivity: () => void;
     toggleSidebar: () => void;
     closeSidebar: () => void;
     toggleSettings: () => void;
     closeSettings: () => void;
     setScrollProgress: (progress: number) => void;
+    resetUI: () => void;
 }
 
 export const useMangaUIStore = create<MangaUIState>((set) => ({
@@ -239,8 +243,11 @@ export const useMangaUIStore = create<MangaUIState>((set) => ({
     isSidebarOpen: false,
     isSettingsOpen: false,
     scrollProgress: 0,
+    lastScrollActivityAt: 0,
 
     setTopBarVisible: (visible) => set({ isTopBarVisible: visible }),
+    toggleTopBar: () => set((s) => ({ isTopBarVisible: !s.isTopBarVisible })),
+    markScrollActivity: () => set({ lastScrollActivityAt: Date.now() }),
     toggleSidebar: () => set((s) => ({
         isSidebarOpen: !s.isSidebarOpen,
         isSettingsOpen: false, // close settings when sidebar toggles
@@ -252,6 +259,13 @@ export const useMangaUIStore = create<MangaUIState>((set) => ({
     })),
     closeSettings: () => set({ isSettingsOpen: false }),
     setScrollProgress: (progress) => set({ scrollProgress: progress }),
+    resetUI: () => set({
+        isTopBarVisible: true,
+        isSidebarOpen: false,
+        isSettingsOpen: false,
+        scrollProgress: 0,
+        lastScrollActivityAt: 0,
+    }),
 }));
 
 

@@ -1,16 +1,16 @@
 import { useEffect, useRef, useCallback } from 'react';
 
 /**
- * Hook for scroll-based progress tracking and auto-hide top bar.
+ * Hook for scroll-based progress tracking and scroll activity callbacks.
  * Uses requestAnimationFrame and passive listeners for zero jank.
  */
 export function useMangaScroll(
     containerRef: React.RefObject<HTMLElement | null>,
     onProgressChange: (progress: number) => void,
-    onScrollDirectionChange?: (direction: 'up' | 'down') => void,
+    onScrollActivity?: () => void,
 ) {
-    const lastScrollY = useRef(0);
     const ticking = useRef(false);
+    const lastActivityMark = useRef(0);
 
     const onScroll = useCallback(() => {
         if (!ticking.current) {
@@ -36,18 +36,20 @@ export function useMangaScroll(
                     );
                 }
 
-                // Detect scroll direction
-                if (onScrollDirectionChange) {
-                    const direction = scrollTop > lastScrollY.current ? 'down' : 'up';
-                    onScrollDirectionChange(direction);
+                // Mark user scroll activity, but throttle store updates.
+                if (onScrollActivity) {
+                    const now = Date.now();
+                    if (now - lastActivityMark.current >= 250) {
+                        lastActivityMark.current = now;
+                        onScrollActivity();
+                    }
                 }
 
-                lastScrollY.current = scrollTop;
                 ticking.current = false;
             });
             ticking.current = true;
         }
-    }, [containerRef, onProgressChange, onScrollDirectionChange]);
+    }, [containerRef, onProgressChange, onScrollActivity]);
 
     useEffect(() => {
         const el = containerRef.current;

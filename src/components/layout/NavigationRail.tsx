@@ -8,7 +8,6 @@ import {
   Highlighter,
   Home,
   Library,
-  Rss,
   Settings,
 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -63,13 +62,8 @@ const NAV_ITEMS: NavItem[] = [
     isActive: (view) => view === "statistics",
     icon: BarChart3,
   },
-  {
-    label: "RSS",
-    targetView: "rss-feeds",
-    isActive: (view) => view === "rss-feeds" || view === "rss-articles",
-    icon: Rss,
-  },
 ]
+
 
 export function NavigationRail({ currentView, onNavigateToView, onOpenSettings }: NavigationRailProps) {
   const sidebarCollapsed = useUIStore((state) => state.sidebarCollapsed)

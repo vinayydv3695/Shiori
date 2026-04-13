@@ -35,8 +35,12 @@ export function ThemeStep({ selectedTheme, themes, onSelectTheme, onBack, onNext
               <h2 className="text-3xl font-bold tracking-tight text-white md:text-5xl">Make It Yours</h2>
             </div>
             <p className="text-lg text-slate-400 max-w-2xl leading-relaxed">
-              Select a premium theme for your reading environment. The interface will instantly adapt to match your aesthetic preference.
+              Choose a theme for your reading environment. You can fine-tune app appearance later in Settings.
             </p>
+            <div className="inline-flex w-fit items-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-sm text-indigo-200">
+              <span className="text-indigo-300/80">Current selection:</span>
+              <span className="font-semibold text-white">{selectedTheme}</span>
+            </div>
           </header>
 
           <div className="flex-1 overflow-y-auto pr-2 pb-4 max-h-[60vh] [scrollbar-gutter:stable] [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-track]:bg-slate-900/50 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 hover:[&::-webkit-scrollbar-thumb]:bg-white/30">
@@ -50,16 +54,16 @@ export function ThemeStep({ selectedTheme, themes, onSelectTheme, onBack, onNext
                     key={theme.name}
                     type="button"
                     onClick={() => onSelectTheme(theme.name)}
-                    className="group relative w-full text-left outline-none transition-all duration-300 ease-out"
+                    className="group relative w-full rounded-2xl text-left outline-none transition-all duration-300 ease-out focus-visible:ring-2 focus-visible:ring-indigo-400/80 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
                     aria-pressed={isSelected}
                     aria-label={`Select ${theme.name} theme`}
                   >
                     <div
                       className={`relative overflow-hidden rounded-2xl border transition-all duration-300 ${
                         isSelected
-                          ? 'border-indigo-500 bg-indigo-500/5 shadow-[0_0_30px_-5px_rgba(99,102,241,0.3)] ring-1 ring-indigo-500 scale-[1.02]'
+                          ? 'border-indigo-400/90 bg-indigo-500/10 shadow-[0_0_36px_-5px_rgba(99,102,241,0.45)] ring-2 ring-indigo-400/70 scale-[1.02]'
                           : 'border-white/10 bg-slate-900/40 hover:border-white/20 hover:bg-slate-900/60 hover:scale-[1.01]'
-                      }`}
+                       }`}
                     >
                       {/* Theme Preview Window */}
                       <div 
@@ -133,6 +137,12 @@ export function ThemeStep({ selectedTheme, themes, onSelectTheme, onBack, onNext
                         >
                           <Check size={14} strokeWidth={3} />
                         </div>
+
+                        {isSelected ? (
+                          <span className="absolute right-4 top-3 rounded-full border border-indigo-300/40 bg-indigo-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-100">
+                            Selected
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   </button>

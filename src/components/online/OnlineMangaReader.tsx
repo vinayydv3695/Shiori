@@ -13,11 +13,13 @@ export function OnlineMangaReader() {
   const setCurrentView = useUIStore((s) => s.setCurrentView);
   const sourceId = useOnlineMangaReaderStore((s) => s.sourceId);
   const contentId = useOnlineMangaReaderStore((s) => s.contentId);
+  const contentTitle = useOnlineMangaReaderStore((s) => s.contentTitle);
   const chapterId = useOnlineMangaReaderStore((s) => s.chapterId);
   const chapters = useOnlineMangaReaderStore((s) => s.chapters);
   const pages = useOnlineMangaReaderStore((s) => s.pages);
   const isLoading = useOnlineMangaReaderStore((s) => s.isLoading);
   const reset = useOnlineMangaReaderStore((s) => s.reset);
+  const setChapter = useOnlineMangaReaderStore((s) => s.setChapter);
   
   // Derive ready state from loading and pages - no effect needed
   const isReady = pages.length > 0 && !isLoading;
@@ -26,6 +28,17 @@ export function OnlineMangaReader() {
     reset();
     setCurrentView('online-manga');
   }, [reset, setCurrentView]);
+
+  const handleChapterChange = useCallback(async (nextChapterId: string) => {
+    await setChapter(nextChapterId);
+    const state = useOnlineMangaReaderStore.getState();
+    const nextChapter = state.chapters.find((c) => c.id === nextChapterId);
+
+    return {
+      pageUrls: state.pages.map((p) => p.url),
+      chapterTitle: nextChapter?.title || `Chapter ${nextChapter?.number ?? ''}`,
+    };
+  }, [setChapter]);
 
   // Build the source config for the unified reader
   const sourceConfig = useMemo((): OnlineSourceConfig | null => {
@@ -38,13 +51,13 @@ export function OnlineMangaReader() {
     return {
       sourceId,
       contentId,
-      contentTitle: '', // TODO: Store content title in onlineMangaReaderStore
+      contentTitle,
       chapterId,
       chapterTitle: currentChapter?.title || `Chapter ${currentChapter?.number ?? ''}`,
       chapters,
       pageUrls: pages.map(p => p.url),
     };
-  }, [sourceId, contentId, chapterId, chapters, pages]);
+  }, [sourceId, contentId, contentTitle, chapterId, chapters, pages]);
 
   // Show loading while waiting for pages
   if (!sourceId || !contentId || !chapterId) {
@@ -74,6 +87,7 @@ export function OnlineMangaReader() {
       mode="online"
       sourceConfig={sourceConfig}
       onClose={handleClose}
+      onChapterChange={handleChapterChange}
     />
   );
 }

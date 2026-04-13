@@ -47,3 +47,5 @@ pub mod folder_watch;
 // Torbox service
 pub mod torbox;
 
+// Debrid provider service
+pub mod debrid;

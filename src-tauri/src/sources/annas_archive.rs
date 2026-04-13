@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 use scraper::{Html, Selector};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
 use tokio::sync::RwLock;
@@ -66,7 +67,17 @@ impl DownloadType {
 pub struct AnnasArchiveSource {
     client: reqwest::Client,
     api_key: RwLock<Option<String>>,
+    auth_key: RwLock<Option<String>>,
+    base_url: RwLock<Option<String>>,
     working_mirror: RwLock<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnnasArchiveConfig {
+    pub base_url: Option<String>,
+    pub auth_key: Option<String>,
+    pub api_key: Option<String>,
 }
 
 impl AnnasArchiveSource {
@@ -80,8 +91,49 @@ impl AnnasArchiveSource {
         Ok(Self {
             client,
             api_key: RwLock::new(None),
+            auth_key: RwLock::new(None),
+            base_url: RwLock::new(None),
             working_mirror: RwLock::new(MIRROR_URLS[0].to_string()),
         })
+    }
+
+    fn normalize_base_url(&self, value: Option<String>) -> Option<String> {
+        value
+            .map(|v| v.trim().trim_end_matches('/').to_string())
+            .filter(|v| !v.is_empty())
+    }
+
+    pub async fn get_config(&self) -> AnnasArchiveConfig {
+        AnnasArchiveConfig {
+            base_url: self.base_url.read().await.clone(),
+            auth_key: self.auth_key.read().await.clone(),
+            api_key: self.api_key.read().await.clone(),
+        }
+    }
+
+    pub async fn set_config(&self, config: AnnasArchiveConfig) {
+        let normalized_base = self.normalize_base_url(config.base_url);
+        {
+            let mut guard = self.base_url.write().await;
+            *guard = normalized_base.clone();
+        }
+        {
+            let mut guard = self.auth_key.write().await;
+            *guard = config.auth_key.and_then(|v| {
+                let trimmed = v.trim().to_string();
+                if trimmed.is_empty() { None } else { Some(trimmed) }
+            });
+        }
+        {
+            let mut guard = self.api_key.write().await;
+            *guard = config.api_key.and_then(|v| {
+                let trimmed = v.trim().to_string();
+                if trimmed.is_empty() { None } else { Some(trimmed) }
+            });
+        }
+
+        let mut mirror_guard = self.working_mirror.write().await;
+        *mirror_guard = normalized_base.unwrap_or_else(|| MIRROR_URLS[0].to_string());
     }
 
     pub async fn set_api_key(&self, key: Option<String>) {
@@ -89,57 +141,143 @@ impl AnnasArchiveSource {
         *guard = key;
     }
 
-    pub async fn load_api_key_from_store(&self, app_handle: &tauri::AppHandle) -> Result<()> {
+    fn with_auth_if_needed(&self, req: reqwest::RequestBuilder, auth_key: &Option<String>) -> reqwest::RequestBuilder {
+        if let Some(key) = auth_key {
+            if key.starts_with("Bearer ") {
+                req.header("Authorization", key)
+            } else {
+                req.header("Authorization", format!("Bearer {}", key))
+            }
+        } else {
+            req
+        }
+    }
+
+    async fn get_auth_key(&self) -> Option<String> {
+        self.auth_key.read().await.clone()
+    }
+
+    async fn candidate_mirrors(&self) -> Vec<String> {
+        let mut mirrors = Vec::new();
+
+        let current_mirror = self.working_mirror.read().await.clone();
+        if !current_mirror.trim().is_empty() {
+            mirrors.push(current_mirror);
+        }
+
+        if let Some(configured) = self.base_url.read().await.clone() {
+            if !mirrors.iter().any(|m| m == &configured) {
+                mirrors.push(configured);
+            }
+        }
+
+        for mirror in MIRROR_URLS {
+            let mirror = mirror.to_string();
+            if !mirrors.iter().any(|m| m == &mirror) {
+                mirrors.push(mirror);
+            }
+        }
+
+        mirrors
+    }
+
+    pub async fn load_config_from_store(&self, app_handle: &tauri::AppHandle) -> Result<()> {
         use tauri_plugin_store::StoreExt;
 
         let store = app_handle
             .store("sources.json")
             .map_err(|e| ShioriError::Other(format!("Failed to open source store: {}", e)))?;
-        let value = store
+
+        let api_key = store
             .get("anna-archive.api_key")
             .and_then(|v| v.as_str().map(ToString::to_string));
-        self.set_api_key(value).await;
+
+        let base_url = store
+            .get("anna-archive.base_url")
+            .and_then(|v| v.as_str().map(ToString::to_string));
+
+        let auth_key = store
+            .get("anna-archive.auth_key")
+            .and_then(|v| v.as_str().map(ToString::to_string));
+
+        self.set_config(AnnasArchiveConfig {
+            base_url,
+            auth_key,
+            api_key,
+        }).await;
+
         Ok(())
     }
 
-    async fn request_with_mirrors(&self, path: &str) -> Result<(String, String)> {
-        let current_mirror = self.working_mirror.read().await.clone();
-        
-        // Try current mirror first
-        let url = format!("{}{}", current_mirror, path);
-        match self.client.get(&url).send().await {
-            Ok(resp) if resp.status().is_success() => {
-                let text = resp.text().await.map_err(|e| 
-                    ShioriError::Other(format!("Failed to read response: {}", e))
-                )?;
-                return Ok((text, current_mirror));
+    pub async fn save_config_to_store(&self, app_handle: &tauri::AppHandle, config: AnnasArchiveConfig) -> Result<()> {
+        use tauri_plugin_store::StoreExt;
+
+        let store = app_handle
+            .store("sources.json")
+            .map_err(|e| ShioriError::Other(format!("Failed to open source store: {}", e)))?;
+
+        let normalized_base = self.normalize_base_url(config.base_url.clone());
+        match normalized_base {
+            Some(v) => {
+                store.set("anna-archive.base_url", serde_json::json!(v));
             }
-            _ => {}
+            None => {
+                let _ = store.delete("anna-archive.base_url");
+            }
         }
-        
-        // Try other mirrors
-        for mirror in MIRROR_URLS.iter() {
-            if *mirror == current_mirror {
-                continue;
+
+        match config.auth_key.as_ref().map(|v| v.trim()).filter(|v| !v.is_empty()) {
+            Some(v) => {
+                store.set("anna-archive.auth_key", serde_json::json!(v));
             }
-            
+            None => {
+                let _ = store.delete("anna-archive.auth_key");
+            }
+        }
+
+        match config.api_key.as_ref().map(|v| v.trim()).filter(|v| !v.is_empty()) {
+            Some(v) => {
+                store.set("anna-archive.api_key", serde_json::json!(v));
+            }
+            None => {
+                let _ = store.delete("anna-archive.api_key");
+            }
+        }
+
+        store
+            .save()
+            .map_err(|e| ShioriError::Other(format!("Failed to save source config: {}", e)))?;
+
+        self.set_config(config).await;
+        Ok(())
+    }
+
+    pub async fn load_api_key_from_store(&self, app_handle: &tauri::AppHandle) -> Result<()> {
+        self.load_config_from_store(app_handle).await
+    }
+
+    async fn request_with_mirrors(&self, path: &str) -> Result<(String, String)> {
+        let auth_key = self.get_auth_key().await;
+        let mirrors = self.candidate_mirrors().await;
+
+        for mirror in mirrors {
             let url = format!("{}{}", mirror, path);
-            match self.client.get(&url).send().await {
+            let req = self.with_auth_if_needed(self.client.get(&url), &auth_key);
+            match req.send().await {
                 Ok(resp) if resp.status().is_success() => {
-                    // Update working mirror
-                    let mut guard = self.working_mirror.write().await;
-                    *guard = mirror.to_string();
-                    drop(guard);
-                    
-                    let text = resp.text().await.map_err(|e| 
+                    let text = resp.text().await.map_err(|e|
                         ShioriError::Other(format!("Failed to read response: {}", e))
                     )?;
-                    return Ok((text, mirror.to_string()));
+
+                    let mut guard = self.working_mirror.write().await;
+                    *guard = mirror.clone();
+
+                    return Ok((text, mirror));
                 }
                 _ => continue,
             }
         }
-        
+
         Err(ShioriError::Other(
             "All Anna's Archive mirrors are unavailable. Check your network connection or try again later.".to_string()
         ))
@@ -155,15 +293,15 @@ impl AnnasArchiveSource {
 
     fn classify_download_url(&self, href: &str) -> Option<DownloadType> {
         let href_l = href.to_ascii_lowercase();
-        
+
         if href_l.starts_with("magnet:") {
             return Some(DownloadType::Magnet);
         }
-        
+
         if href_l.contains(".torrent") || href_l.contains("/torrent") {
             return Some(DownloadType::Torrent);
         }
-        
+
         let direct_patterns = [
             "/fast_download/",
             "/slow_download/",
@@ -173,7 +311,7 @@ impl AnnasArchiveSource {
         if direct_patterns.iter().any(|p| href_l.contains(p)) {
             return Some(DownloadType::Direct);
         }
-        
+
         let external_patterns = [
             "libgen",
             "ipfs",
@@ -184,7 +322,7 @@ impl AnnasArchiveSource {
         if external_patterns.iter().any(|p| href_l.contains(p)) {
             return Some(DownloadType::External);
         }
-        
+
         None
     }
 
@@ -201,9 +339,11 @@ impl AnnasArchiveSource {
 
     async fn request_text_with_retry(&self, url: &str, context: &str) -> Result<String> {
         let mut last_error = None;
+        let auth_key = self.get_auth_key().await;
 
         for attempt in 1..=DOWNLOAD_RETRY_ATTEMPTS {
-            match self.client.get(url).send().await {
+            let req = self.with_auth_if_needed(self.client.get(url), &auth_key);
+            match req.send().await {
                 Ok(resp) => {
                     let status = resp.status();
                     if status.is_success() {
@@ -264,8 +404,10 @@ impl AnnasArchiveSource {
             urlencoding::encode(key)
         );
 
+        let auth_key = self.get_auth_key().await;
         for attempt in 1..=DOWNLOAD_RETRY_ATTEMPTS {
-            match self.client.get(&fast_url).send().await {
+            let req = self.with_auth_if_needed(self.client.get(&fast_url), &auth_key);
+            match req.send().await {
                 Ok(resp) if resp.status().is_success() => return Ok(Some(fast_url)),
                 Ok(resp) => {
                     if resp.status() == reqwest::StatusCode::UNAUTHORIZED
@@ -347,6 +489,10 @@ impl AnnasArchiveSource {
 
 #[async_trait::async_trait]
 impl Source for AnnasArchiveSource {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
     fn meta(&self) -> SourceMeta {
         SourceMeta {
             id: "anna-archive".to_string(),

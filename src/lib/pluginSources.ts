@@ -26,10 +26,18 @@ export interface SearchResult {
   url?: string;
 }
 
+export interface SearchResponse {
+  items: SearchResult[];
+  total?: number;
+  offset?: number;
+  limit?: number;
+}
+
 export interface Chapter {
   id: string;
   title: string;
   number?: number;
+  volume?: string;
   url?: string;
   uploaded_at?: string;
   source_id?: string;
@@ -42,6 +50,8 @@ export interface Page {
   imageUrl?: string;
   image_url?: string;
 }
+
+export type BrowseMode = 'popular' | 'latest' | 'recent' | 'top-rated';
 
 export const pluginApi = {
   async listSources(): Promise<SourceMeta[]> {
@@ -56,12 +66,25 @@ export const pluginApi = {
     return invoke<SearchResult[]>('plugin_search', { sourceId, query, page });
   },
 
+  async searchWithMeta(
+    sourceId: string,
+    query: string,
+    page: number = 1,
+    limit: number = 20
+  ): Promise<SearchResponse> {
+    return invoke<SearchResponse>('plugin_search_with_meta', { sourceId, query, page, limit });
+  },
+
+  async browse(sourceId: string, mode: BrowseMode, page: number = 1, limit: number = 20): Promise<SearchResult[]> {
+    return invoke<SearchResult[]>('plugin_browse', { sourceId, mode, page, limit });
+  },
+
   async getChapters(sourceId: string, contentId: string): Promise<Chapter[]> {
     return invoke<Chapter[]>('plugin_get_chapters', { sourceId, contentId });
   },
 
-  async getPages(sourceId: string, contentId: string, chapterId: string): Promise<Page[]> {
-    return invoke<Page[]>('plugin_get_pages', { sourceId, contentId, chapterId });
+  async getPages(sourceId: string, chapterId: string): Promise<Page[]> {
+    return invoke<Page[]>('plugin_get_pages', { sourceId, chapterId });
   },
 
   async downloadChapter(sourceId: string, chapterId: string, destDir?: string): Promise<string[]> {

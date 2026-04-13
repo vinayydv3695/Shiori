@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Book, BookOpen, Image, Settings, Sliders } from 'lucide-react';
 import type { BookPrefs, MangaPrefs } from '../../../store/onboardingStore';
+import { DEFAULT_READING_FONT_ID, READING_FONTS, normalizeLegacyFontPreference } from '../../../lib/readingFonts';
 import GlowButton from '../components/GlowButton';
 import SettingControl from '../components/SettingControl';
 import SettingGroup from '../components/SettingGroup';
@@ -25,6 +26,10 @@ const tabButtonClass = (active: boolean) =>
 
 export function PreferencesStep({ mangaPrefs, bookPrefs, onMangaChange, onBookChange, onBack, onNext }: PreferencesStepProps) {
   const [activeTab, setActiveTab] = useState<ReaderTab>('manga');
+  const normalizedBookFontFamily = normalizeLegacyFontPreference(bookPrefs.fontFamily);
+  const selectedBookFontFamily = READING_FONTS.some((font) => font.id === normalizedBookFontFamily)
+    ? normalizedBookFontFamily
+    : DEFAULT_READING_FONT_ID;
 
   return (
     <section className="relative w-full overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950 p-8 shadow-xl md:p-10">
@@ -234,7 +239,18 @@ export function PreferencesStep({ mangaPrefs, bookPrefs, onMangaChange, onBookCh
                   description="Font and text rendering preferences."
                   icon={<Book size={18} />}
                 >
-                    <SettingControl theme="darkSlate" label="Font Family" type="input" value={bookPrefs.fontFamily} onChange={(value) => onBookChange({ fontFamily: String(value) })} />
+                    <SettingControl
+                      theme="darkSlate"
+                      label="Font Family"
+                      type="select"
+                      value={selectedBookFontFamily}
+                      onChange={(value) => {
+                        const normalized = normalizeLegacyFontPreference(String(value));
+                        const canonicalId = READING_FONTS.some((font) => font.id === normalized) ? normalized : DEFAULT_READING_FONT_ID;
+                        onBookChange({ fontFamily: canonicalId });
+                      }}
+                      options={READING_FONTS.map((font) => ({ label: font.label, value: font.id }))}
+                    />
                     <SettingControl theme="darkSlate" label="Font Size" type="slider" value={bookPrefs.fontSize} onChange={(value) => onBookChange({ fontSize: Number(value) })} min={10} max={40} step={1} />
                     <SettingControl theme="darkSlate" label="Line Height" type="slider" value={bookPrefs.lineHeight} onChange={(value) => onBookChange({ lineHeight: Number(value) })} min={1} max={2.4} step={0.05} />
                     <SettingControl theme="darkSlate" label="Letter Spacing" type="slider" value={bookPrefs.letterSpacing} onChange={(value) => onBookChange({ letterSpacing: Number(value) })} min={-1} max={8} step={0.1} />

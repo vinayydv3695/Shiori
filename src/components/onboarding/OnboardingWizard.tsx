@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useOnboardingState } from './hooks/useOnboardingState';
 import { THEME_OPTIONS } from '@/store/onboardingStore';
+import { useLibraryStore } from '@/store/libraryStore';
 import OnboardingProgress from '@/components/onboarding/OnboardingProgress';
 import { WelcomeStep } from './steps/WelcomeStep';
 import { ImportStep } from './steps/ImportStep';
@@ -29,6 +30,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setBookPrefs,
     completeOnboarding,
   } = useOnboardingState();
+  const loadInitialBooks = useLibraryStore((s) => s.loadInitialBooks);
 
   const [renderedStep, setRenderedStep] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
   const [phase, setPhase] = useState<TransitionPhase>('idle');
@@ -86,6 +88,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setIsFinishing(true);
     try {
       await completeOnboarding();
+      await loadInitialBooks();
       await onComplete?.();
     } finally {
       setIsFinishing(false);
@@ -151,7 +154,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               onBack={prevStep}
               onOpenLibrary={handleFinish}
               isFinishing={isFinishing}
-              onFinished={handleFinish}
             />
           ) : null}
         </div>

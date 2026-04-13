@@ -216,7 +216,7 @@ export const BookDetailsDialog = ({
                           setReadingStatus(book?.reading_status || 'planning')
                         }
                       }}
-                      className="w-full px-3 py-1.5 text-sm bg-muted border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      className="w-full px-3 py-1.5 text-sm bg-muted border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 dark:[color-scheme:dark] [&>option]:bg-popover [&>option]:text-popover-foreground"
                     >
                       <option value="planning">Planning to Read</option>
                       <option value="reading">Currently Reading</option>

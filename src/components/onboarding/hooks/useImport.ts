@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { api, type ImportResult as ApiImportResult } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
+import { useLibraryStore } from '@/store/libraryStore';
 
 type ImportStatus = 'idle' | 'scanning' | 'importing' | 'completed' | 'error';
 
@@ -52,6 +53,7 @@ const mergeResults = (results: ApiImportResult[]): ApiImportResult => {
 
 export function useImport(): UseImportResult {
   const [state, setState] = useState<UseImportState>(INITIAL_STATE);
+  const setBooks = useLibraryStore((s) => s.setBooks);
 
   const reset = useCallback(() => {
     setState(INITIAL_STATE);
@@ -112,6 +114,11 @@ export function useImport(): UseImportResult {
       const merged = mergeResults(scanResults);
       const counted = toCountResult(merged);
 
+      if (counted.success > 0) {
+        const books = await api.getBooks();
+        setBooks(books);
+      }
+
       setState({
         status: 'completed',
         progress: 100,
@@ -129,7 +136,7 @@ export function useImport(): UseImportResult {
         error: error instanceof Error ? error.message : 'Import failed. Please try again.',
       });
     }
-  }, []);
+  }, [setBooks]);
 
   const selectAndImportFolder = useCallback(async () => {
     try {

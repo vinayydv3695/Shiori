@@ -1,213 +1,284 @@
 <div align="center">
-  <img src="public/banner.svg" alt="Shiori Banner" width="100%">
-  
+  <img src="public/banner.svg" alt="Shiori Banner" width="100%" />
+
   <h1>Shiori</h1>
-  <p><strong>Professional offline-first eBook library manager</strong></p>
-  
-  [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.0.0-green.svg)](https://github.com/vinayydv3695/Shiori/releases)
-  
+  <p><strong>Offline-first desktop library and reading platform for serious personal collections.</strong></p>
+
+  [![Release](https://img.shields.io/github/v/release/vinayydv3695/Shiori?display_name=tag&sort=semver)](https://github.com/vinayydv3695/Shiori/releases)
+  [![Build](https://img.shields.io/github/actions/workflow/status/vinayydv3695/Shiori/release.yml?branch=main)](https://github.com/vinayydv3695/Shiori/actions/workflows/release.yml)
+  [![AUR](https://img.shields.io/aur/version/shiorii-bin)](https://aur.archlinux.org/packages/shiorii-bin)
+  [![License](https://img.shields.io/github/license/vinayydv3695/Shiori)](LICENSE)
+  [![Stars](https://img.shields.io/github/stars/vinayydv3695/Shiori?style=social)](https://github.com/vinayydv3695/Shiori)
+
   <p>
-    <a href="#key-features">Key Features</a> •
+    <a href="#product-overview">Overview</a> •
+    <a href="#why-shiori">Why Shiori</a> •
+    <a href="#feature-showcase">Features</a> •
     <a href="#installation">Installation</a> •
-    <a href="#quick-start">Quick Start</a> •
-    <a href="#technology-stack">Technology Stack</a> •
-    <a href="#contributing">Contributing</a> •
-    <a href="#license">License</a>
+    <a href="#architecture--tech-stack">Architecture</a> •
+    <a href="#contributing">Contributing</a>
   </p>
 </div>
 
 ---
 
-## Project Description
+## Product Overview
 
-Shiori (栞, Japanese for "bookmark") is a high-performance, offline-first eBook library manager designed for users who prioritize privacy and complete control over their digital collections. Built using Tauri 2.0, React 19, and Rust, Shiori provides a native-level desktop experience that remains lightning-fast even with libraries exceeding 10,000 titles.
+Shiori is a production-grade desktop application for managing and reading large personal libraries across books, manga, comics, and RSS-fed long-form content. It combines a Rust + Tauri backend with a modern React interface to deliver a fast local-first workflow: import, organize, search, annotate, convert, and read without depending on a cloud account.
 
-Unlike cloud-dependent services, Shiori operates entirely on local infrastructure. It utilizes an embedded SQLite database with FTS5 for instant full-text search and maintains all metadata and files on your local storage. The v0.1.9 release introduces online content discovery (Open Library books, MangaDex manga), improved UI density, and a faster onboarding experience.
+The platform is designed around practical reliability: SQLite with FTS5 indexing, versioned migrations, background job persistence, and native packaging for Linux, macOS, and Windows.
+
+> [!NOTE]
+> Core library and reading workflows run locally. Online discovery and metadata integrations are optional.
 
 ---
 
-## Key Features
+## Why Shiori?
+
+| What teams and power users expect | How Shiori delivers |
+|---|---|
+| Local ownership of data | Library, metadata, covers, and preferences are stored locally in app data. |
+| Responsive experience at scale | Virtualized rendering, lazy-loaded views, indexed search, and background workers keep UI interactions fast. |
+| Mature reading workflows | Dedicated readers, annotations, translation, dictionary lookup, TTS controls, and progress analytics. |
+| Practical extensibility | Source registry architecture with configurable online providers and debrid integration paths. |
+| Reliability under change | Schema migrations with rollback safety, persisted conversion jobs, and reproducible multi-platform release workflows. |
+
+---
+
+## Feature Showcase
 
 ### Library Management
-*   **Multi-Format Support**: Comprehensive support for EPUB, PDF, MOBI, AZW3, DOCX, FB2, CBZ, and CBR.
-*   **Automatic Metadata Extraction**: Imports local files and automatically extracts titles, authors, and covers.
-*   **Manga Auto-Grouping**: Intelligently groups related manga volumes and chapters.
-*   **Duplicate Detection**: Uses content hashing and fuzzy matching to identify and manage duplicate entries.
-*   **Advanced Organization**: Support for hierarchical tags, ratings, and custom collections.
-*   **Metadata Editor**: Granular control over every aspect of book information and covers.
-*   **Online Discovery**: Browse and discover content from Open Library (books) and MangaDex (manga) without leaving the app.
 
-### Reading Experience
-*   **Customizable Interface**: 7 professional themes (White, Black, Rose Pine Moon, Catppuccin Mocha, Nord, Dracula, Tokyo Night).
-*   **Optimized Reader**: High-performance rendering with smooth page transitions enabled by default.
-*   **Multiple View Modes**: Single-page, two-page spread, and continuous vertical scroll modes.
-*   **Progress Tracking**: Automatic synchronization of reading progress and detailed reading statistics.
-*   **Navigation**: Deeply integrated table of contents and instant chapter jumping.
-*   **Improved Layout**: Optimized grid spacing and cover display for better visual density.
+- Multi-format library support with formats across EPUB, PDF, MOBI, AZW3, DOCX, FB2, TXT, HTML, CBZ, and CBR.
+- Import pipelines for books, manga, and comics, with folder scanning and watch-folder automation.
+- Metadata tooling: extraction, manual editing, online lookup, ISBN search, and cover preview/application.
+- Organization primitives: tags, favorites, collections (including nested and smart collection previews), and domain-aware library views.
+- Series operations for manga/comics, including assignment, management dialogs, and auto-grouping workflows.
+- Duplicate discovery tools to identify and resolve duplicate entries.
+- Backup and restore commands for operational recovery.
 
-### Smart Search and Conversion
-*   **Full-Text Indexing**: Search through your entire library in milliseconds using SQLite FTS5.
-*   **Keyword Highlighting**: Visual indicators for search matches within book content and metadata.
-*   **Format Conversion**: Built-in tools for converting between major formats (EPUB to PDF and vice versa).
-*   **RSS Integration**: Subscribe to feeds and save articles directly into your library for offline reading.
+### Reader Experience
 
-### Technical Excellence
-*   **Virtual Scrolling**: Efficient UI rendering capable of handling massive libraries without performance degradation.
-*   **Parallel Processing**: Utilizes Rust's concurrency model for CPU-intensive tasks like indexing and conversion.
-*   **Smart Caching**: Implements LRU caching with zstd compression to optimize disk and memory usage.
-*   **Offline-First**: Zero external dependencies or mandatory cloud synchronization.
+- Dedicated reading surfaces for EPUB, PDF, MOBI/HTML, plus manga/comic chapter flows.
+- Configurable reading preferences for typography, layout, animations, scroll mode, direction, and display density.
+- Annotation system with categories, global annotation search, and annotation export.
+- Integrated translation popup and dictionary lookup commands for in-context reading support.
+- Built-in text-to-speech controls with voice/rate options and playback navigation.
+- Reading session telemetry for personal insights: daily time, streaks, per-book stats, and goals.
+- Multiple theme options and customizable UI density/scale.
+
+### Search and Indexing
+
+- SQLite FTS5 indexing for fast full-text queries across core library metadata.
+- Additional full-text search support for annotations.
+- Advanced filtering workflows with structured criteria and saved filter presets.
+- Global search routing across library and online content views.
+- Command palette and keyboard shortcuts for high-speed, keyboard-driven navigation.
+
+### Performance
+
+- Virtualized library rendering using `@tanstack/react-virtual` for large collections.
+- Lazy-loaded routes and dialogs for faster startup and reduced initial UI overhead.
+- Conversion engine with queued background workers, cancellation, progress events, and restart-safe job persistence.
+- Renderer and cover caching strategies to reduce repeated I/O and improve reader responsiveness.
+- Asynchronous Rust services (Tokio) for concurrent metadata, conversion, and content workflows.
+
+### Offline-First and Privacy
+
+- Local-first architecture with no required account and no mandatory cloud sync.
+- User preferences default to analytics/crash reporting disabled.
+- Strict desktop security posture via Tauri configuration and explicit network allowlists.
+- Local share service supports password-protected links, expiration windows, and access limits.
+- Password-protected share verification uses Argon2 hashing.
+
+### Online Integrations
+
+- **Open Library**: online book discovery, metadata, covers, and external reading/detail links.
+- **MangaDex**: manga search, chapter retrieval, and in-app chapter reader flow.
+- **ToonGod**: additional manga source through the source registry.
+- **Anna’s Archive connector**: optional plugin source for book discovery and download workflows.
+- **Torbox integration**: optional debrid-assisted import flows.
+- **AniList + Open Library metadata providers**: online enrichment worker support.
+- **RSS ingestion**: feed management, unread tracking, and daily EPUB generation.
+
+> [!IMPORTANT]
+> Third-party online sources and connectors may have jurisdictional or service-specific constraints. Users are responsible for compliant usage.
 
 ---
 
 ## Installation
 
-### Linux
+### Install prebuilt binaries
+
+Download the latest release from:  
+**https://github.com/vinayydv3695/Shiori/releases**
+
+| Platform | Distribution | Notes |
+|---|---|---|
+| Linux (Arch) | `shiorii-bin` / `shiorii-git` (AUR) | Community-maintained AUR packages |
+| Linux (Debian/Ubuntu) | `.deb` | Requires WebKitGTK runtime |
+| Linux (Fedora/RHEL) | `.rpm` | RPM package available in releases |
+| Linux (Universal) | `.AppImage` | Portable binary |
+| Windows | `.exe` installer (NSIS) | Standard installer flow |
+| macOS | `.dmg` | Intel and Apple Silicon builds |
 
 #### Arch Linux (AUR)
-Install the package using an AUR helper such as `yay`:
+
 ```bash
 yay -S shiorii-bin
-# OR
+# or
 yay -S shiorii-git
 ```
-*Required dependency: `webkit2gtk-4.1`*
 
 #### Debian / Ubuntu
-Download the latest `.deb` package from the [Releases](https://github.com/vinayydv3695/Shiori/releases) page. Install via terminal:
-```bash
-sudo apt install ./shiori_0.1.9_amd64.deb
-```
-*Required dependency: `libwebkit2gtk-4.1-0`*
 
-#### Fedora
-Download the latest `.rpm` package from the [Releases](https://github.com/vinayydv3695/Shiori/releases) page. Install via terminal:
 ```bash
-sudo dnf install ./shiori-0.1.9.x86_64.rpm
+sudo apt install ./Shiori_<version>_amd64.deb
 ```
 
-### Windows
-Download the `Shiori_0.1.9_x64_en-US.msi` installer from the [Releases](https://github.com/vinayydv3695/Shiori/releases) page and run the executable.
+#### Fedora / RHEL
 
-### macOS
-Download the `Shiori_0.1.9_x64.dmg` (Intel) or `Shiori_0.1.9_aarch64.dmg` (Apple Silicon) from the [Releases](https://github.com/vinayydv3695/Shiori/releases) page. Drag the application to your Applications folder.
+```bash
+sudo dnf install ./Shiori-<version>-1.x86_64.rpm
+```
 
----
+#### AppImage
 
-## Build from Source
+```bash
+chmod +x Shiori_<version>_amd64.AppImage
+./Shiori_<version>_amd64.AppImage
+```
 
-### Prerequisites
-*   **Node.js**: v18 or higher.
-*   **Rust**: v1.70 or higher (installed via rustup).
-*   **System Dependencies**:
-    *   **Linux**: `libwebkit2gtk-4.1-dev`, `build-essential`, `curl`, `wget`, `file`, `libssl-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`.
-    *   **macOS**: Xcode Command Line Tools (`xcode-select --install`).
-    *   **Windows**: Microsoft C++ Build Tools.
+### Build from source
 
-### Build Steps
-1.  **Clone the repository**:
-    ```bash
-    git clone https://github.com/vinayydv3695/Shiori.git
-    cd Shiori
-    ```
-2.  **Install frontend dependencies**:
-    ```bash
-    npm install
-    ```
-3.  **Run in development mode**:
-    ```bash
-    npm run dev
-    ```
-4.  **Build production binary**:
-    ```bash
-    npm run build
-    ```
-    The generated installer will be located in `src-tauri/target/release/bundle/`.
+#### Prerequisites
 
----
+- Node.js 18+
+- Rust stable toolchain
+- Platform build dependencies for Tauri
 
-## Quick Start
+Linux build dependencies (Ubuntu example):
 
-### Onboarding
-Upon first launch, you will be guided through a streamlined onboarding process to configure your library path and initial preferences. The v0.1.9 release significantly improves onboarding speed.
+```bash
+sudo apt update
+sudo apt install -y \
+  libwebkit2gtk-4.1-dev \
+  libappindicator3-dev \
+  librsvg2-dev \
+  libssl-dev \
+  patchelf
+```
 
-### Core Workflow
-1.  **Importing**: Use the "Add Books" button or drag and drop files directly into the library view.
-2.  **Organizing**: Apply tags and edit metadata via the right-click context menu.
-3.  **Reading**: Double-click any title to open the integrated reader.
-4.  **Theming**: Access the settings menu or use shortcuts to switch between the 7 available professional themes.
+#### Build steps
 
-### Essential Keyboard Shortcuts
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl/Cmd + O` | Import books |
-| `Ctrl/Cmd + F` | Global search |
-| `Ctrl/Cmd + T` | Cycle themes |
-| `Ctrl/Cmd + ,` | Open settings |
-| `Arrow Keys` | Navigate pages |
-| `Escape` | Close reader/dialogs |
-| `F11` | Toggle fullscreen |
+```bash
+git clone https://github.com/vinayydv3695/Shiori.git
+cd Shiori
+npm install
+npm run dev
+```
+
+Production build:
+
+```bash
+npm run build
+```
 
 ---
 
-## Technology Stack
+## Screenshots / Preview
 
-### Frontend
-*   **React 19**: Modern UI framework utilizing concurrent rendering.
-*   **TypeScript**: Ensures type safety across the application.
-*   **Tailwind CSS**: Utility-first styling for a responsive interface.
-*   **Radix UI**: Accessible, unstyled component primitives.
-*   **Zustand**: Lightweight and efficient state management.
-*   **TanStack Query**: Robust asynchronous data synchronization.
+| Library Home | Reader |
+|---|---|
+| ![Library Home](public/Screenshots/lightmodehome.png) | ![Reader](public/Screenshots/darkreadingmode.png) |
 
-### Backend (Rust)
-*   **Tauri 2.0**: Secure and lightweight desktop application framework.
-*   **SQLite FTS5**: High-performance full-text search engine.
-*   **Tokio**: Asynchronous runtime for non-blocking operations.
-*   **Axum**: Integrated HTTP server for local book sharing features.
+| Search & Discovery | RSS Workspace |
+|---|---|
+| ![Search](public/Screenshots/searchbook.png) | ![RSS](public/Screenshots/RSSfeeds.png) |
 
-### Format Support Libraries
-*   **epub-rs**: EPUB parsing and metadata management.
-*   **lopdf**: PDF processing and manipulation.
-*   **mobi**: Support for MOBI and AZW3 formats.
-*   **docx-rs**: DOCX format parsing.
-*   **feed-rs**: RSS and Atom feed integration.
+| Metadata Editing | Two-Page Reading |
+|---|---|
+| ![Metadata](public/Screenshots/editmetadata.png) | ![Two Page View](public/Screenshots/twopageview.png) |
+
+---
+
+## Architecture / Tech Stack
+
+| Layer | Primary Technologies | Responsibility |
+|---|---|---|
+| Desktop Runtime | Tauri 2, Rust | Native desktop shell, secure IPC, OS packaging |
+| Frontend | React 19, TypeScript, Vite | UI composition, view routing, user workflows |
+| UI System | Tailwind CSS, Radix UI, Framer Motion | Accessible components, theming, interaction polish |
+| State & Data | Zustand, TanStack Query | Local app state and async data orchestration |
+| Storage | SQLite + FTS5 | Persistent library state, full-text indexing, metadata relations |
+| Reader & Content Services | Rust adapters/renderers | Format detection, rendering, conversion, chapter/content loading |
+| Network Services | Reqwest, Axum | Metadata providers, source integrations, local sharing endpoints |
+| Delivery | GitHub Actions, Tauri bundling, AUR automation | Multi-platform release and distribution pipeline |
+
+---
+
+## Performance Highlights
+
+| Area | Implementation | Practical Impact |
+|---|---|---|
+| Large library browsing | Virtualized grid/list rendering | Smooth scrolling and responsive selection on large collections |
+| Search responsiveness | SQLite FTS5 indexes and triggers | Fast lookup across metadata and annotation content |
+| Conversion throughput | Multi-worker queued conversion engine | Concurrent background conversion without blocking UI |
+| Startup and route loading | Lazy-loaded heavy views/dialogs | Faster initial load and reduced startup overhead |
+| Reliability on restart | Persisted conversion jobs + restore | Long-running tasks survive app restarts |
+| Migration safety | Savepoint-based schema migrations | Lower risk of partial schema corruption during upgrades |
+| Onboarding flow | Streamlined setup path | Documented onboarding time reduction in recent releases |
+
+---
+
+## Roadmap / Upcoming Work
+
+The roadmap is actively refined through issues and discussions. Current focus areas include:
+
+- [ ] Complete import-from-export dataset workflow support
+- [ ] Continue chunk-size and route-splitting optimizations for heavy views
+- [ ] Improve format adapter fidelity (including richer DOCX/FB2/PDF extraction paths)
+- [ ] Expand and harden source connector reliability
+- [ ] Strengthen RSS-to-library handoff workflows
 
 ---
 
 ## Contributing
 
-We welcome technical contributions, bug reports, and feature proposals. To contribute:
-1.  Fork the repository.
-2.  Create a feature branch: `git checkout -b feature/name`.
-3.  Implement changes following the established code style.
-4.  Ensure all tests pass.
-5.  Submit a pull request with a detailed description of the changes.
+Shiori follows a contributor-friendly workflow with clear quality gates.
 
-Refer to `CONTRIBUTING.md` for comprehensive development guidelines.
+1. Fork the repository
+2. Create a focused branch (`feat/...`, `fix/...`, `docs/...`)
+3. Implement changes with tests or validation steps where applicable
+4. Run local checks
+5. Open a pull request with a clear problem statement and impact summary
+
+Recommended local checks:
+
+```bash
+npm run lint
+npm run build
+```
+
+For full contributor guidance, review [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ---
 
 ## License
 
-Shiori is released under the **MIT License**.
-
-```text
-Copyright (c) 2026 Shiori Contributors
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-```
+Shiori is released under the [MIT License](LICENSE).
 
 ---
 
+## Support
+
+If Shiori is useful to your workflow, star the repository and follow releases.
+
+- Repository: https://github.com/vinayydv3695/Shiori
+- Issues: https://github.com/vinayydv3695/Shiori/issues
+- Discussions: https://github.com/vinayydv3695/Shiori/discussions
+- Releases: https://github.com/vinayydv3695/Shiori/releases
+
 <div align="center">
-  <p>Shiori — Managed locally, read universally.</p>
+  <strong>Shiori — local ownership, modern reading workflow, production-grade desktop reliability.</strong>
 </div>

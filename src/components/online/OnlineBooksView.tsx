@@ -4,11 +4,13 @@ import { useOpenLibrary, type OpenLibraryBook, type BookBrowseMode } from '@/hoo
 import { Button } from '@/components/ui/button';
 import { logger } from '@/lib/logger';
 import { useSourceStore } from '@/store/sourceStore';
+import { useUIStore } from '@/store/uiStore';
 import { OnlineSearchHeader } from './OnlineSearchHeader';
 import { useOnlineSearchStore } from '@/store/onlineSearchStore';
 import { pluginApi, type SearchResult as PluginSearchResult } from '@/lib/pluginSources';
 import { api } from '@/lib/tauri';
 import { ContentCarousel, type CarouselItem } from './ContentCarousel';
+import { useTorboxStore } from '@/stores/useTorboxStore';
 
 let onlineBooksSearchTimeout: number | undefined;
 
@@ -22,9 +24,10 @@ export function OnlineBooksView() {
   const [hasSearched, setHasSearched] = useState(Boolean(searchQuery.trim()));
   const [pluginLoading, setPluginLoading] = useState(false);
   const [pluginError, setPluginError] = useState<string | null>(null);
+  const setCurrentView = useUIStore((state) => state.setCurrentView);
+  const enqueueFromAnna = useTorboxStore((state) => state.enqueueFromAnna);
   const sources = useSourceStore((state) => state.sources);
   const primarySourceByKind = useSourceStore((state) => state.primarySourceByKind);
-  const preferredDebridProvider = useSourceStore((state) => state.preferredDebridProvider);
   const [lastSearchedQuery, setLastSearchedQuery] = useState('');
   const [downloadingBooks, setDownloadingBooks] = useState<Record<string, string>>({});
   const [hasTorboxKey, setHasTorboxKey] = useState(false);
@@ -48,7 +51,7 @@ export function OnlineBooksView() {
 
   // Check for Torbox API key on mount
   useEffect(() => {
-    api.torboxGetApiKey()
+    api.getTorboxKey()
       .then(key => setHasTorboxKey(!!key))
       .catch(() => setHasTorboxKey(false));
   }, []);
@@ -251,9 +254,9 @@ export function OnlineBooksView() {
     
     setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Getting download links...' }));
     
-    try {
-      // Get download options (chapters represent download links for books)
-      const chapters = await pluginApi.getChapters('anna-archive', book.id);
+      try {
+        // Get download options (chapters represent download links for books)
+        const chapters = await pluginApi.getChapters('anna-archive', book.id);
       
       if (chapters.length === 0) {
         throw new Error('No download options available for this book.');
@@ -266,19 +269,27 @@ export function OnlineBooksView() {
       const candidateLinks = pages
         .filter((p) => p.url.startsWith('magnet|') || p.url.startsWith('torrent|'))
         .map((p) => p.url.split('|')[1])
-        .filter((v): v is string => Boolean(v));
+        .filter((v): v is string => Boolean(v))
+        .filter((v) => {
+          const normalized = v.trim().toLowerCase();
+          return normalized.startsWith('magnet:') || normalized.includes('.torrent');
+        });
 
       if (candidateLinks.length === 0) {
         throw new Error('No magnet or torrent link available for this book. Try opening the detail page manually.');
       }
       
-      setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Downloading via Torbox...' }));
-      
-      // Resolve/import via debrid provider layer
-      const filename = `${book.title.replace(/[^a-zA-Z0-9]/g, '_')}.epub`;
-      await api.debridResolveAndImport(preferredDebridProvider, candidateLinks, filename);
-      
+      const firstCandidate = candidateLinks[0];
+      if (!firstCandidate) {
+        throw new Error('No valid magnet/torrent candidate found.');
+      }
+
+      setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Queued in Torbox...' }));
+
+      await enqueueFromAnna({ title: book.title, magnetLink: firstCandidate });
+
       setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Imported to library!' }));
+      setCurrentView('torbox-books');
       
       // Clear status after 3 seconds
       setTimeout(() => {
@@ -301,7 +312,7 @@ export function OnlineBooksView() {
         });
       }, 5000);
     }
-  }, [preferredDebridProvider]);
+  }, [enqueueFromAnna, setCurrentView]);
 
   return (
     <div className="flex flex-col h-full bg-background">

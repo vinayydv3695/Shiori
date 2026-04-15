@@ -4,6 +4,7 @@ import {
   BookOpen,
   ChevronLeft,
   ChevronRight,
+  Cloud,
   Globe,
   Highlighter,
   Home,
@@ -49,6 +50,12 @@ const NAV_ITEMS: NavItem[] = [
     targetView: "online-manga",
     isActive: (view) => view === "online-manga",
     icon: BookOpen,
+  },
+  {
+    label: "Torbox",
+    targetView: "torbox-discover",
+    isActive: (view) => view === "torbox-discover" || view === "torbox-books" || view === "torbox-manga",
+    icon: Cloud,
   },
   {
     label: "Annotations",

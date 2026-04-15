@@ -19,16 +19,13 @@ pub async fn torbox_download_and_import_impl(
     app_handle: &tauri::AppHandle,
     service: &TorboxService,
     app_state: &crate::AppState,
-    magnet: String,
+    source_link: String,
     filename_hint: Option<String>,
 ) -> Result<String> {
-    use crate::models::Book;
     use crate::services::library_service;
-    use crate::services::metadata_service;
-    use uuid::Uuid;
 
-    // Add magnet to Torbox
-    let torrent_id = service.add_magnet(&magnet).await?;
+    // Add magnet URI or torrent URL to Torbox
+    let torrent_id = service.add_download_target(&source_link).await?;
 
     // Wait for completion (max 5 minutes)
     let info = service.wait_for_completion(torrent_id, 300).await?;
@@ -55,66 +52,34 @@ pub async fn torbox_download_and_import_impl(
     // Download the file
     service.download_file(&download_url, &dest_path).await?;
 
-    // Import to library
     let path_str = dest_path.to_string_lossy().to_string();
 
-    // Extract basic metadata
-    let title = std::path::Path::new(&filename)
-        .file_stem()
-        .map(|s| s.to_string_lossy().to_string())
-        .unwrap_or_else(|| filename.clone());
-
-    let format = std::path::Path::new(&filename)
+    let extension = std::path::Path::new(&filename)
         .extension()
         .and_then(|e| e.to_str())
-        .unwrap_or("unknown")
-        .to_lowercase();
+        .unwrap_or_default()
+        .to_ascii_lowercase();
 
-    let file_size = std::fs::metadata(&dest_path).ok().map(|m| m.len() as i64);
-    let book_uuid = Uuid::new_v4().to_string();
-
-    // Try to extract cover
-    let cover_path = metadata_service::extract_cover(&path_str, &book_uuid, &app_state.covers_dir)
-        .ok()
-        .flatten();
-
-    let new_book = Book {
-        id: None,
-        uuid: book_uuid,
-        title,
-        sort_title: None,
-        isbn: None,
-        isbn13: None,
-        publisher: None,
-        pubdate: None,
-        series: None,
-        series_index: None,
-        rating: None,
-        file_path: path_str.clone(),
-        file_format: format,
-        file_size,
-        file_hash: None,
-        cover_path,
-        page_count: None,
-        word_count: None,
-        language: "eng".to_string(),
-        added_date: chrono::Utc::now().to_rfc3339(),
-        modified_date: chrono::Utc::now().to_rfc3339(),
-        last_opened: None,
-        notes: None,
-        online_metadata_fetched: false,
-        metadata_source: None,
-        metadata_last_sync: None,
-        anilist_id: None,
-        is_favorite: false,
-        reading_status: "planning".to_string(),
-        domain: Some("books".to_string()),
-        metadata_locked: None,
-        authors: vec![],
-        tags: vec![],
+    let import_result = if extension == "cbz" || extension == "cbr" {
+        library_service::import_manga(&app_state.db, vec![path_str.clone()], &app_state.covers_dir)?
+    } else {
+        library_service::import_books(&app_state.db, vec![path_str.clone()], &app_state.covers_dir)?
     };
 
-    let _book_id = library_service::add_book(&app_state.db, new_book)?;
+    if let Some((failed_path, reason)) = import_result.failed.first() {
+        return Err(crate::error::ShioriError::Other(format!(
+            "Downloaded file could not be imported ({}): {}",
+            failed_path, reason
+        )));
+    }
+
+    if let Some(imported_path) = import_result.success.first() {
+        return Ok(imported_path.clone());
+    }
+
+    if let Some(duplicate_path) = import_result.duplicates.first() {
+        return Ok(duplicate_path.clone());
+    }
 
     Ok(path_str)
 }

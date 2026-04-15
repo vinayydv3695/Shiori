@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
+mod torbox;
 mod conversion;
 mod db;
 mod error;
@@ -382,6 +383,16 @@ fn main() {
             commands::torbox::torbox_get_status,
             commands::torbox::torbox_get_download_link,
             commands::torbox::torbox_download_and_import,
+            // SHIORI x TORBOX commands
+            torbox::verify_torbox_key,
+            torbox::send_to_torbox,
+            torbox::get_torbox_instant,
+            torbox::add_to_torbox_queue,
+            torbox::save_torbox_key,
+            torbox::get_torbox_key,
+            torbox::import_from_torbox,
+            torbox::resolve_torbox_download,
+            torbox::wait_for_torbox_completion,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

@@ -770,15 +770,16 @@ const GeneralSettings = ({
         <div className="space-y-4">
           <SettingItem
             label="Debrid Provider"
-            description="Choose which debrid provider to use for online downloads. Auto currently falls back to Torbox."
+            description="Torbox is the active SHIORI x TORBOX provider for online downloads in this build."
           >
             <select
               value={preferredDebridProvider}
               onChange={(e) => setPreferredDebridProvider(e.target.value as 'auto' | 'torbox')}
               className="px-3 py-2 rounded-md border border-border bg-background"
               aria-label="Preferred debrid provider"
+              disabled
             >
-              <option value="auto">Auto (fallback to Torbox)</option>
+              <option value="auto">Auto (Torbox)</option>
               <option value="torbox">Torbox</option>
             </select>
           </SettingItem>

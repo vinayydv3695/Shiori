@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { SourceKind } from './sourceStore';
 
-type OnlineView = 'online-books' | 'online-manga';
+type OnlineView = 'online-books' | 'online-manga' | 'torbox';
 
 interface OnlineSearchStore {
   queries: Record<OnlineView, string>;
@@ -19,6 +19,7 @@ export const useOnlineSearchStore = create<OnlineSearchStore>((set, get) => ({
   queries: {
     'online-books': '',
     'online-manga': '',
+    'torbox': '',
   },
   setQuery: (view, query) =>
     set((state) => ({

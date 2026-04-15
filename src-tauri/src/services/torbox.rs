@@ -7,6 +7,29 @@ use crate::error::{Result, ShioriError};
 
 const TORBOX_API_BASE: &str = "https://api.torbox.app/v1/api";
 
+fn extract_error_message(payload: &serde_json::Value) -> Option<String> {
+    payload
+        .get("detail")
+        .and_then(|v| v.as_str())
+        .or_else(|| payload.get("error").and_then(|v| v.as_str()))
+        .or_else(|| payload.get("message").and_then(|v| v.as_str()))
+        .map(ToString::to_string)
+}
+
+fn summarize_response_body(raw_body: &str) -> String {
+    let trimmed = raw_body.trim();
+    if trimmed.is_empty() {
+        return "empty response body".to_string();
+    }
+
+    const MAX_LEN: usize = 180;
+    if trimmed.len() <= MAX_LEN {
+        return trimmed.to_string();
+    }
+
+    format!("{}...", &trimmed[..MAX_LEN])
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TorboxConfig {
     pub api_key: Option<String>,
@@ -116,17 +139,128 @@ impl TorboxService {
         Ok(())
     }
 
+    pub async fn verify_api_key(&self, candidate_key: &str) -> Result<()> {
+        let key = candidate_key.trim();
+        if key.is_empty() {
+            return Err(ShioriError::Validation(
+                "Torbox API key cannot be empty".to_string(),
+            ));
+        }
+
+        let response = self
+            .client
+            .get(format!("{}/torrents/mylist?bypassCache=true", TORBOX_API_BASE))
+            .header("Authorization", self.get_auth_header(key))
+            .send()
+            .await
+            .map_err(|e| ShioriError::Other(format!("Torbox key verification failed: {}", e)))?;
+
+        let status = response.status();
+        let raw_body = response
+            .text()
+            .await
+            .map_err(|e| ShioriError::Other(format!("Torbox key verification parse failed: {}", e)))?;
+
+        if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
+            return Err(ShioriError::Other(
+                "Torbox rejected this API key (401/403).".to_string(),
+            ));
+        }
+
+        let parsed = serde_json::from_str::<serde_json::Value>(&raw_body).ok();
+
+        if !status.is_success() {
+            let detail = parsed
+                .as_ref()
+                .and_then(extract_error_message)
+                .unwrap_or_else(|| summarize_response_body(&raw_body));
+            return Err(ShioriError::Other(format!(
+                "Torbox verification failed (status {}): {}",
+                status, detail
+            )));
+        }
+
+        if let Some(payload) = parsed {
+            let success = payload.get("success").and_then(|v| v.as_bool());
+            if success == Some(false) {
+                let detail = extract_error_message(&payload)
+                    .unwrap_or_else(|| "Unknown verification error".to_string());
+                return Err(ShioriError::Other(format!(
+                    "Torbox verification failed: {}",
+                    detail
+                )));
+            }
+        }
+
+        Ok(())
+    }
+
     fn get_auth_header(&self, key: &str) -> String {
         format!("Bearer {}", key)
     }
 
-    /// Add a magnet link or torrent to Torbox
-    pub async fn add_magnet(&self, magnet: &str) -> Result<i64> {
+    /// Add a magnet URI or torrent URL to Torbox.
+    pub async fn add_download_target(&self, source_link: &str) -> Result<i64> {
         let api_key = self.api_key.read().await.clone()
             .ok_or_else(|| ShioriError::Other("Torbox API key not configured. Set it in Settings → Online Sources.".to_string()))?;
 
-        let form = reqwest::multipart::Form::new()
-            .text("magnet", magnet.to_string());
+        let normalized = source_link.trim();
+        if normalized.is_empty() {
+            return Err(ShioriError::Validation("Torbox source link cannot be empty".to_string()));
+        }
+
+        let mut form = reqwest::multipart::Form::new();
+        if normalized.starts_with("magnet:") {
+            form = form.text("magnet", normalized.to_string());
+        } else if normalized.starts_with("http://") || normalized.starts_with("https://") {
+            let torrent_resp = self
+                .client
+                .get(normalized)
+                .send()
+                .await
+                .map_err(|e| ShioriError::Other(format!("Failed to fetch torrent URL: {}", e)))?;
+
+            let status = torrent_resp.status();
+            if !status.is_success() {
+                return Err(ShioriError::Other(format!(
+                    "Torrent URL returned non-success status: {}",
+                    status
+                )));
+            }
+
+            let torrent_bytes = torrent_resp
+                .bytes()
+                .await
+                .map_err(|e| ShioriError::Other(format!("Failed to read torrent file bytes: {}", e)))?;
+
+            if torrent_bytes.is_empty() {
+                return Err(ShioriError::Other(
+                    "Torrent URL returned an empty file".to_string(),
+                ));
+            }
+
+            let file_name = reqwest::Url::parse(normalized)
+                .ok()
+                .and_then(|url| {
+                    url.path_segments()
+                        .and_then(|mut segs| segs.next_back().map(ToString::to_string))
+                })
+                .filter(|name| !name.trim().is_empty())
+                .unwrap_or_else(|| "download.torrent".to_string());
+
+            let file_part = reqwest::multipart::Part::bytes(torrent_bytes.to_vec())
+                .file_name(file_name)
+                .mime_str("application/x-bittorrent")
+                .map_err(|e| {
+                    ShioriError::Other(format!("Failed to build torrent upload part: {}", e))
+                })?;
+
+            form = form.part("file", file_part);
+        } else {
+            return Err(ShioriError::Validation(
+                "Torbox source link must be a magnet URI or torrent URL".to_string(),
+            ));
+        }
 
         let resp = self.client
             .post(format!("{}/torrents/createtorrent", TORBOX_API_BASE))
@@ -134,20 +268,33 @@ impl TorboxService {
             .multipart(form)
             .send()
             .await
-            .map_err(|e| ShioriError::Other(format!("Torbox add magnet failed: {}", e)))?;
+            .map_err(|e| ShioriError::Other(format!("Torbox add target failed: {}", e)))?;
 
         let status = resp.status();
-        let body: TorboxResponse<CreateTorrentData> = resp.json().await
-            .map_err(|e| ShioriError::Other(format!("Torbox response parse failed: {}", e)))?;
+        let raw_body = resp
+            .text()
+            .await
+            .map_err(|e| ShioriError::Other(format!("Torbox add target parse failed: {}", e)))?;
+
+        let body = serde_json::from_str::<TorboxResponse<CreateTorrentData>>(&raw_body)
+            .map_err(|e| ShioriError::Other(format!("Torbox add target response parse failed: {}", e)))?;
 
         if !status.is_success() || !body.success {
-            let msg = body.detail.or(body.error).unwrap_or_else(|| "Unknown error".to_string());
+            let msg = body
+                .detail
+                .or(body.error)
+                .unwrap_or_else(|| summarize_response_body(&raw_body));
             return Err(ShioriError::Other(format!("Torbox error: {}", msg)));
         }
 
         body.data
             .map(|d| d.torrent_id)
             .ok_or_else(|| ShioriError::Other("Torbox response missing torrent_id".to_string()))
+    }
+
+    /// Backwards-compatible alias.
+    pub async fn add_magnet(&self, magnet: &str) -> Result<i64> {
+        self.add_download_target(magnet).await
     }
 
     /// Get the status of a torrent

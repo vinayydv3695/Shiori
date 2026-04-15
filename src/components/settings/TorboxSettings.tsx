@@ -19,7 +19,7 @@ export function TorboxSettings() {
     if (!isTauri) return;
     
     try {
-      const key = await api.torboxGetApiKey();
+      const key = await api.getTorboxKey();
       setSavedApiKey(key);
       if (key) {
         setApiKey(key);
@@ -43,9 +43,9 @@ export function TorboxSettings() {
       setIsLoading(true);
       setTestResult(null);
 
-      const keyToSave = apiKey.trim() || null;
-      await api.torboxSetApiKey(keyToSave);
-      setSavedApiKey(keyToSave);
+      const keyToSave = apiKey.trim();
+      await api.saveTorboxKey(keyToSave);
+      setSavedApiKey(keyToSave || null);
       
       if (keyToSave) {
         toast.success('Torbox API key saved successfully');
@@ -75,23 +75,13 @@ export function TorboxSettings() {
       setIsTesting(true);
       setTestResult(null);
 
-      // Save the key first if it's different
-      if (apiKey !== savedApiKey) {
-        await api.torboxSetApiKey(apiKey.trim());
-        setSavedApiKey(apiKey.trim());
-      }
-
-      // Test by trying to get user info or a simple API call
-      // Since we don't have a dedicated test endpoint, we can check if the key is valid
-      // by attempting a simple operation that requires authentication
-      
-      // For now, we'll just verify the key format and save it
-      // A proper test would require calling the Torbox API
+      const verify = await api.verifyTorboxKey(apiKey.trim());
+      setSavedApiKey(apiKey.trim());
       setTestResult({ 
-        success: true, 
-        message: 'API key saved. Test by downloading a torrent to verify it works.' 
+        success: verify.valid,
+        message: verify.message,
       });
-      toast.success('API key configured');
+      toast.success('API key verified and configured');
     } catch (err) {
       logger.error('Failed to test Torbox API key:', err);
       setTestResult({ 
@@ -108,7 +98,7 @@ export function TorboxSettings() {
     
     try {
       setIsLoading(true);
-      await api.torboxSetApiKey(null);
+      await api.saveTorboxKey('');
       setApiKey('');
       setSavedApiKey(null);
       setTestResult(null);

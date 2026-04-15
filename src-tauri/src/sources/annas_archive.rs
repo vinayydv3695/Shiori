@@ -68,6 +68,7 @@ pub struct AnnasArchiveSource {
     client: reqwest::Client,
     api_key: RwLock<Option<String>>,
     auth_key: RwLock<Option<String>>,
+    auth_cookie: RwLock<Option<String>>,
     base_url: RwLock<Option<String>>,
     working_mirror: RwLock<String>,
 }
@@ -77,6 +78,7 @@ pub struct AnnasArchiveSource {
 pub struct AnnasArchiveConfig {
     pub base_url: Option<String>,
     pub auth_key: Option<String>,
+    pub auth_cookie: Option<String>,
     pub api_key: Option<String>,
 }
 
@@ -92,6 +94,7 @@ impl AnnasArchiveSource {
             client,
             api_key: RwLock::new(None),
             auth_key: RwLock::new(None),
+            auth_cookie: RwLock::new(None),
             base_url: RwLock::new(None),
             working_mirror: RwLock::new(MIRROR_URLS[0].to_string()),
         })
@@ -107,6 +110,7 @@ impl AnnasArchiveSource {
         AnnasArchiveConfig {
             base_url: self.base_url.read().await.clone(),
             auth_key: self.auth_key.read().await.clone(),
+            auth_cookie: self.auth_cookie.read().await.clone(),
             api_key: self.api_key.read().await.clone(),
         }
     }
@@ -120,6 +124,13 @@ impl AnnasArchiveSource {
         {
             let mut guard = self.auth_key.write().await;
             *guard = config.auth_key.and_then(|v| {
+                let trimmed = v.trim().to_string();
+                if trimmed.is_empty() { None } else { Some(trimmed) }
+            });
+        }
+        {
+            let mut guard = self.auth_cookie.write().await;
+            *guard = config.auth_cookie.and_then(|v| {
                 let trimmed = v.trim().to_string();
                 if trimmed.is_empty() { None } else { Some(trimmed) }
             });
@@ -141,8 +152,13 @@ impl AnnasArchiveSource {
         *guard = key;
     }
 
-    fn with_auth_if_needed(&self, req: reqwest::RequestBuilder, auth_key: &Option<String>) -> reqwest::RequestBuilder {
-        if let Some(key) = auth_key {
+    fn with_auth_if_needed(
+        &self,
+        req: reqwest::RequestBuilder,
+        auth_key: &Option<String>,
+        auth_cookie: &Option<String>,
+    ) -> reqwest::RequestBuilder {
+        let req = if let Some(key) = auth_key {
             if key.starts_with("Bearer ") {
                 req.header("Authorization", key)
             } else {
@@ -150,11 +166,21 @@ impl AnnasArchiveSource {
             }
         } else {
             req
+        };
+
+        if let Some(cookie) = auth_cookie {
+            req.header("Cookie", cookie)
+        } else {
+            req
         }
     }
 
     async fn get_auth_key(&self) -> Option<String> {
         self.auth_key.read().await.clone()
+    }
+
+    async fn get_auth_cookie(&self) -> Option<String> {
+        self.auth_cookie.read().await.clone()
     }
 
     async fn candidate_mirrors(&self) -> Vec<String> {
@@ -200,9 +226,14 @@ impl AnnasArchiveSource {
             .get("anna-archive.auth_key")
             .and_then(|v| v.as_str().map(ToString::to_string));
 
+        let auth_cookie = store
+            .get("anna-archive.auth_cookie")
+            .and_then(|v| v.as_str().map(ToString::to_string));
+
         self.set_config(AnnasArchiveConfig {
             base_url,
             auth_key,
+            auth_cookie,
             api_key,
         }).await;
 
@@ -235,6 +266,20 @@ impl AnnasArchiveSource {
             }
         }
 
+        match config
+            .auth_cookie
+            .as_ref()
+            .map(|v| v.trim())
+            .filter(|v| !v.is_empty())
+        {
+            Some(v) => {
+                store.set("anna-archive.auth_cookie", serde_json::json!(v));
+            }
+            None => {
+                let _ = store.delete("anna-archive.auth_cookie");
+            }
+        }
+
         match config.api_key.as_ref().map(|v| v.trim()).filter(|v| !v.is_empty()) {
             Some(v) => {
                 store.set("anna-archive.api_key", serde_json::json!(v));
@@ -258,11 +303,12 @@ impl AnnasArchiveSource {
 
     async fn request_with_mirrors(&self, path: &str) -> Result<(String, String)> {
         let auth_key = self.get_auth_key().await;
+        let auth_cookie = self.get_auth_cookie().await;
         let mirrors = self.candidate_mirrors().await;
 
         for mirror in mirrors {
             let url = format!("{}{}", mirror, path);
-            let req = self.with_auth_if_needed(self.client.get(&url), &auth_key);
+            let req = self.with_auth_if_needed(self.client.get(&url), &auth_key, &auth_cookie);
             match req.send().await {
                 Ok(resp) if resp.status().is_success() => {
                     let text = resp.text().await.map_err(|e|
@@ -340,9 +386,10 @@ impl AnnasArchiveSource {
     async fn request_text_with_retry(&self, url: &str, context: &str) -> Result<String> {
         let mut last_error = None;
         let auth_key = self.get_auth_key().await;
+        let auth_cookie = self.get_auth_cookie().await;
 
         for attempt in 1..=DOWNLOAD_RETRY_ATTEMPTS {
-            let req = self.with_auth_if_needed(self.client.get(url), &auth_key);
+            let req = self.with_auth_if_needed(self.client.get(url), &auth_key, &auth_cookie);
             match req.send().await {
                 Ok(resp) => {
                     let status = resp.status();
@@ -405,8 +452,9 @@ impl AnnasArchiveSource {
         );
 
         let auth_key = self.get_auth_key().await;
+        let auth_cookie = self.get_auth_cookie().await;
         for attempt in 1..=DOWNLOAD_RETRY_ATTEMPTS {
-            let req = self.with_auth_if_needed(self.client.get(&fast_url), &auth_key);
+            let req = self.with_auth_if_needed(self.client.get(&fast_url), &auth_key, &auth_cookie);
             match req.send().await {
                 Ok(resp) if resp.status().is_success() => return Ok(Some(fast_url)),
                 Ok(resp) => {

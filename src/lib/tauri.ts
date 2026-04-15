@@ -348,7 +348,23 @@ export interface TranslationResponse {
 export interface AnnaArchiveConfig {
   baseUrl: string | null
   authKey: string | null
+  authCookie: string | null
   apiKey: string | null
+}
+
+export interface VerifyTorboxKeyResult {
+  valid: boolean
+  message: string
+}
+
+export interface SendToTorboxResult {
+  importedPath: string
+  filename?: string | null
+  importResult: ImportResult
+}
+
+export interface AddToTorboxQueueResult {
+  torrentId: number
 }
 
 export interface DebridResolveResult {
@@ -1111,6 +1127,42 @@ export const api = {
 
   async torboxDownloadAndImport(magnet: string, filenameHint?: string): Promise<string> {
     return invoke("torbox_download_and_import", { magnet, filenameHint })
+  },
+
+  async verifyTorboxKey(apiKey: string): Promise<VerifyTorboxKeyResult> {
+    return invoke<VerifyTorboxKeyResult>("verify_torbox_key", { apiKey })
+  },
+
+  async sendToTorbox(magnetLink: string, filenameHint?: string): Promise<SendToTorboxResult> {
+    return invoke<SendToTorboxResult>("send_to_torbox", { magnetLink, filenameHint })
+  },
+
+  async getTorboxInstant(torrentId: number): Promise<{ id: number; name: string; size: number; progress: number; downloadSpeed: number; status: string; files: { id: number; name: string; size: number }[] | null }> {
+    return invoke("get_torbox_instant", { torrentId })
+  },
+
+  async addToTorboxQueue(magnetLink: string): Promise<AddToTorboxQueueResult> {
+    return invoke<AddToTorboxQueueResult>("add_to_torbox_queue", { magnetLink })
+  },
+
+  async saveTorboxKey(apiKey: string): Promise<void> {
+    return invoke("save_torbox_key", { apiKey })
+  },
+
+  async getTorboxKey(): Promise<string | null> {
+    return invoke("get_torbox_key")
+  },
+
+  async importFromTorbox(magnetLink: string, filenameHint?: string): Promise<string> {
+    return invoke("import_from_torbox", { magnetLink, filenameHint })
+  },
+
+  async resolveTorboxDownload(torrentId: number, fileId?: number): Promise<string> {
+    return invoke("resolve_torbox_download", { torrentId, fileId })
+  },
+
+  async waitForTorboxCompletion(torrentId: number, maxWaitSeconds?: number): Promise<{ id: number; name: string; size: number; progress: number; downloadSpeed: number; status: string; files: { id: number; name: string; size: number }[] | null }> {
+    return invoke("wait_for_torbox_completion", { torrentId, maxWaitSeconds })
   },
 
   async annasArchiveDownload(contentId: string, titleHint?: string): Promise<string> {

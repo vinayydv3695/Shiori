@@ -37,6 +37,7 @@ const AdvancedFilterDialog = lazy(() => import("./components/library/AdvancedFil
 const OnlineBooksView = lazy(() => import("./components/online/OnlineBooksView").then(m => ({ default: m.OnlineBooksView })))
 const OnlineMangaView = lazy(() => import("./components/online/OnlineMangaView").then(m => ({ default: m.OnlineMangaView })))
 const OnlineMangaReader = lazy(() => import("./components/online/OnlineMangaReader").then(m => ({ default: m.OnlineMangaReader })))
+const TorboxHubView = lazy(() => import("./components/online/TorboxHubView").then(m => ({ default: m.TorboxHubView })))
 
 const LoadingSpinner = ({ className = "h-screen" }: { className?: string }) => (
   <div className={`flex items-center justify-center ${className}`}>
@@ -68,6 +69,7 @@ function App() {
   const [searchQuery, setSearchQuery] = useState("")
   const onlineBooksQuery = useOnlineSearchStore(s => s.queries['online-books'])
   const onlineMangaQuery = useOnlineSearchStore(s => s.queries['online-manga'])
+  const torboxQuery = useOnlineSearchStore(s => s.queries.torbox)
   const setOnlineQuery = useOnlineSearchStore(s => s.setQuery)
 
   // ── Extracted hooks ──
@@ -95,12 +97,17 @@ function App() {
   const handleSearchChange = (query: string) => {
     if (currentView === 'online-books') { setOnlineQuery('online-books', query); return }
     if (currentView === 'online-manga') { setOnlineQuery('online-manga', query); return }
+    if (currentView === 'torbox-discover' || currentView === 'torbox-books' || currentView === 'torbox-manga') {
+      setOnlineQuery('torbox', query)
+      return
+    }
     setSearchQuery(query)
   }
 
   const activeTopbarSearchQuery =
     currentView === 'online-books' ? onlineBooksQuery
     : currentView === 'online-manga' ? onlineMangaQuery
+    : currentView === 'torbox-discover' || currentView === 'torbox-books' || currentView === 'torbox-manga' ? torboxQuery
     : searchQuery
 
   // ── Keyboard shortcuts ──
@@ -234,6 +241,18 @@ function App() {
 
         {currentView === 'online-manga-reader' && (
           <Suspense fallback={<LoadingSpinner className="py-24" />}><OnlineMangaReader /></Suspense>
+        )}
+
+        {currentView === 'torbox-discover' && (
+          <Suspense fallback={<LoadingSpinner className="py-24" />}><TorboxHubView initialTab="discover" /></Suspense>
+        )}
+
+        {currentView === 'torbox-books' && (
+          <Suspense fallback={<LoadingSpinner className="py-24" />}><TorboxHubView initialTab="books" /></Suspense>
+        )}
+
+        {currentView === 'torbox-manga' && (
+          <Suspense fallback={<LoadingSpinner className="py-24" />}><TorboxHubView initialTab="manga" /></Suspense>
         )}
       </Layout>
 

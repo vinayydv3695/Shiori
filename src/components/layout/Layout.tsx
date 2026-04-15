@@ -137,12 +137,19 @@ export function Layout({
     clearFilters,
   } = useLibraryStore()
 
-  const isOnlineView = currentView === 'online-books' || currentView === 'online-manga'
+  const isOnlineView =
+    currentView === 'online-books' ||
+    currentView === 'online-manga' ||
+    currentView === 'torbox-books' ||
+    currentView === 'torbox-manga' ||
+    currentView === 'torbox-discover'
   const searchPlaceholder =
     currentView === 'online-books'
       ? 'Search online books...'
       : currentView === 'online-manga'
         ? 'Search online manga...'
+        : currentView === 'torbox-discover' || currentView === 'torbox-books' || currentView === 'torbox-manga'
+          ? 'Search Torbox content...'
         : `Search ${currentDomain}...`
 
   // ── Library stats ──────────────────────────────

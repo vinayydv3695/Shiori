@@ -16,6 +16,12 @@ export interface SourceConfig {
   website?: string;
 }
 
+const MANDATORY_SOURCE_IDS = new Set(['mangadex', 'anna-archive']);
+
+function isMandatorySource(sourceId: string): boolean {
+  return MANDATORY_SOURCE_IDS.has(sourceId);
+}
+
 const DEFAULT_SOURCES: SourceConfig[] = [
   {
     id: 'mangadex',
@@ -75,7 +81,9 @@ function mergeSources(persistedSources?: Partial<SourceConfig>[]): SourceConfig[
 
     return {
       ...source,
-      enabled: source.implemented ? Boolean(stored.enabled ?? source.enabled) : false,
+      enabled: source.implemented
+        ? (isMandatorySource(source.id) ? true : Boolean(stored.enabled ?? source.enabled))
+        : false,
     };
   });
 }
@@ -144,7 +152,7 @@ export const useSourceStore = create<SourceStore>()(
       toggleSource: (id) =>
         set((state) => {
           const target = state.sources.find((source) => source.id === id);
-          if (!target || !target.implemented) return state;
+          if (!target || !target.implemented || isMandatorySource(id)) return state;
 
           const nextSources = state.sources.map((source) =>
             source.id === id ? { ...source, enabled: !source.enabled } : source

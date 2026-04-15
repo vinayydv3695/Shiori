@@ -9,6 +9,7 @@ import { logger } from '@/lib/logger';
 const emptyConfig: AnnaArchiveConfig = {
   baseUrl: null,
   authKey: null,
+  authCookie: null,
   apiKey: null,
 };
 
@@ -46,6 +47,7 @@ export function AnnaArchiveSettings() {
       const normalized: AnnaArchiveConfig = {
         baseUrl: config.baseUrl?.trim() || null,
         authKey: config.authKey?.trim() || null,
+        authCookie: config.authCookie?.trim() || null,
         apiKey: config.apiKey?.trim() || null,
       };
       await api.annaArchiveSetConfig(normalized);
@@ -117,6 +119,18 @@ export function AnnaArchiveSettings() {
             {showAuthKey ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
         </div>
+      </div>
+
+      <div>
+        <label htmlFor="anna-auth-cookie" className="text-sm font-medium mb-2 block">Auth Cookie (optional)</label>
+        <Input
+          id="anna-auth-cookie"
+          type="text"
+          value={config.authCookie ?? ''}
+          onChange={(e) => setConfig((prev) => ({ ...prev, authCookie: e.target.value }))}
+          placeholder="session=...; member_id=..."
+          disabled={isLoading}
+        />
       </div>
 
       <div>

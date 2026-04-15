@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BookOpen, Calendar, User, Info } from 'lucide-react';
+import { BookOpen, Calendar, User, Info, Download, Loader2, X } from 'lucide-react';
 import { useMangaDex, type MangaDexManga, type MangaDexChapter, type BrowseMode } from '@/hooks/useMangaDex';
 import { Button } from '@/components/ui/button';
 import { logger } from '@/lib/logger';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X } from 'lucide-react';
 import { useSourceStore } from '@/store/sourceStore';
 import { useOnlineSearchStore } from '@/store/onlineSearchStore';
 import { OnlineSearchHeader } from './OnlineSearchHeader';
@@ -12,6 +11,8 @@ import { pluginApi, type Chapter as PluginChapter, type SearchResult as PluginSe
 import { useUIStore } from '@/store/uiStore';
 import { useOnlineMangaReaderStore } from '@/store/onlineMangaReaderStore';
 import { ContentCarousel, type CarouselItem } from './ContentCarousel';
+import { api } from '@/lib/tauri';
+import { useTorboxStore } from '@/stores/useTorboxStore';
 
 let onlineMangaSearchTimeout: number | undefined;
 
@@ -30,10 +31,13 @@ export function OnlineMangaView() {
   const [chaptersDialogOpen, setChaptersDialogOpen] = useState(false);
   const [chaptersLoading, setChaptersLoading] = useState(false);
   const [pluginError, setPluginError] = useState<string | null>(null);
+  const [queueingManga, setQueueingManga] = useState<Record<string, boolean>>({});
+  const [hasTorboxKey, setHasTorboxKey] = useState(false);
   const setCurrentView = useUIStore((state) => state.setCurrentView);
   const setSource = useOnlineMangaReaderStore((state) => state.setSource);
   const setContent = useOnlineMangaReaderStore((state) => state.setContent);
   const setChapter = useOnlineMangaReaderStore((state) => state.setChapter);
+  const enqueueFromMangadex = useTorboxStore((state) => state.enqueueFromMangadex);
   const sources = useSourceStore((state) => state.sources);
   const primarySourceByKind = useSourceStore((state) => state.primarySourceByKind);
   const [lastSearchedQuery, setLastSearchedQuery] = useState('');
@@ -54,6 +58,13 @@ export function OnlineMangaView() {
   const [browseInitialized, setBrowseInitialized] = useState(false);
   
   const { searchManga, browseManga, getChapters, loading, error } = useMangaDex();
+
+  useEffect(() => {
+    api
+      .getTorboxKey()
+      .then((key) => setHasTorboxKey(Boolean(key)))
+      .catch(() => setHasTorboxKey(false));
+  }, []);
 
   const mangaSources = useMemo(
     () => sources.filter((source) => source.kind === 'manga'),
@@ -233,6 +244,63 @@ export function OnlineMangaView() {
       setChaptersLoading(false);
     }
   };
+
+  const extractMagnetLink = useCallback((manga: PluginSearchResult): string | null => {
+    const extra = manga.extra ?? {};
+    const candidates = [
+      extra.magnet,
+      extra.magnet_link,
+      extra.magnetLink,
+      extra.torrent,
+      extra.torrent_link,
+      extra.torrentLink,
+      manga.url,
+    ];
+
+    for (const value of candidates) {
+      if (typeof value !== 'string') continue;
+      const trimmed = value.trim();
+      const normalized = trimmed.toLowerCase();
+      if (normalized.startsWith('magnet:') || normalized.includes('.torrent')) {
+        return trimmed;
+      }
+    }
+
+    return null;
+  }, []);
+
+  const pluginResultWithMagnet = useMemo(
+    () =>
+      visiblePluginResults.map((item) => ({
+        item,
+        magnetLink: extractMagnetLink(item),
+      })),
+    [extractMagnetLink, visiblePluginResults]
+  );
+
+  const handleQueueInTorbox = useCallback(async (manga: PluginSearchResult) => {
+    const magnetLink = extractMagnetLink(manga);
+    if (!magnetLink) {
+      setPluginError('No magnet/torrent link found for this manga result.');
+      return;
+    }
+
+    setQueueingManga((prev) => ({ ...prev, [manga.id]: true }));
+    setPluginError(null);
+    try {
+      await enqueueFromMangadex({ title: manga.title, magnetLink });
+      setCurrentView('torbox-manga');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to queue manga in Torbox';
+      setPluginError(message);
+    } finally {
+      setQueueingManga((prev) => {
+        const next = { ...prev };
+        delete next[manga.id];
+        return next;
+      });
+    }
+  }, [enqueueFromMangadex, extractMagnetLink, setCurrentView]);
 
   const handleReadChapter = async (sourceId: string, contentId: string, chapter: PluginChapter, allChapters: PluginChapter[], contentTitle?: string) => {
     setSource(sourceId);
@@ -528,7 +596,7 @@ export function OnlineMangaView() {
               </div>
 
               <div className="grid gap-4">
-                {visiblePluginResults.map((manga) => (
+                {pluginResultWithMagnet.map(({ item: manga, magnetLink }) => (
                   <div
                     key={manga.id}
                     className="flex gap-4 p-4 rounded-lg border border-border bg-card hover:bg-accent/50 transition-colors"
@@ -567,6 +635,29 @@ export function OnlineMangaView() {
                           <BookOpen className="w-3.5 h-3.5" />
                           View Chapters
                         </Button>
+                        {hasTorboxKey && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              void handleQueueInTorbox(manga);
+                            }}
+                            disabled={queueingManga[manga.id] || !magnetLink}
+                            className="gap-1.5"
+                          >
+                            {queueingManga[manga.id] ? (
+                              <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                Queueing...
+                              </>
+                            ) : (
+                              <>
+                                <Download className="w-3.5 h-3.5" />
+                                Send to Torbox
+                              </>
+                            )}
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>

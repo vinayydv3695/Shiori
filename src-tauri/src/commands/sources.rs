@@ -320,6 +320,9 @@ pub async fn annas_archive_download(
         };
         request = request.header("Authorization", value);
     }
+    if let Some(auth_cookie) = anna_config.auth_cookie {
+        request = request.header("Cookie", auth_cookie);
+    }
 
     let response = request
         .send()

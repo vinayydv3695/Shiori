@@ -26,6 +26,9 @@ export function SourceManager() {
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">{source.description}</p>
+                {source.id === 'mangadex' && (
+                  <p className="text-[11px] text-muted-foreground mt-1">Required for SHIORI x Torbox manga workflow.</p>
+                )}
                 {source.website && (
                   <a
                     href={source.website}
@@ -43,7 +46,7 @@ export function SourceManager() {
                 onChange={() => toggleSource(source.id)}
                 className="h-5 w-5"
                 aria-label={`Toggle ${source.name}`}
-                disabled={!source.implemented}
+                disabled={!source.implemented || source.id === 'mangadex'}
               />
             </div>
           ))}
@@ -66,6 +69,9 @@ export function SourceManager() {
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">{source.description}</p>
+                {source.id === 'anna-archive' && (
+                  <p className="text-[11px] text-muted-foreground mt-1">Required for SHIORI x Torbox books workflow.</p>
+                )}
                 {source.website && (
                   <a
                     href={source.website}
@@ -83,7 +89,7 @@ export function SourceManager() {
                 onChange={() => toggleSource(source.id)}
                 className="h-5 w-5"
                 aria-label={`Toggle ${source.name}`}
-                disabled={!source.implemented}
+                disabled={!source.implemented || source.id === 'anna-archive'}
               />
             </div>
           ))}

@@ -249,6 +249,24 @@ export function OnlineBooksView() {
     }
   }, []);
 
+  const annaAccountHint = useMemo(() => {
+    if (!pluginError) return null;
+    const lower = pluginError.toLowerCase();
+    if (lower.includes('rapidapi')) {
+      return 'Anna RapidAPI request failed. Verify the API key in Settings -> Online Sources -> Anna API Key.';
+    }
+    const mentionsAccess =
+      lower.includes('account') ||
+      lower.includes('members') ||
+      lower.includes('restricted') ||
+      lower.includes('auth') ||
+      lower.includes('cookie') ||
+      lower.includes('login');
+
+    if (!mentionsAccess) return null;
+    return 'Anna account access may be required for this title. In Settings -> Online Sources -> Anna, set Auth Cookie (and Auth Key/API key if available).';
+  }, [pluginError]);
+
   const handleTorboxDownload = useCallback(async (book: PluginSearchResult) => {
     if (!book.id) return;
     
@@ -265,18 +283,58 @@ export function OnlineBooksView() {
       // Get pages for the first chapter (download option)
       const pages = await pluginApi.getPages('anna-archive', chapters[0].id);
       
-      // Build debrid candidate links (format is "type|url")
-      const candidateLinks = pages
-        .filter((p) => p.url.startsWith('magnet|') || p.url.startsWith('torrent|'))
-        .map((p) => p.url.split('|')[1])
-        .filter((v): v is string => Boolean(v))
-        .filter((v) => {
-          const normalized = v.trim().toLowerCase();
-          return normalized.startsWith('magnet:') || normalized.includes('.torrent');
-        });
+      const parseCandidate = (rawValue: string): { type: string; url: string } | null => {
+        const raw = rawValue.trim();
+        if (!raw) return null;
+        const splitIndex = raw.indexOf('|');
+        if (splitIndex > 0) {
+          const type = raw.slice(0, splitIndex).trim().toLowerCase();
+          const url = raw.slice(splitIndex + 1).trim();
+          if (!url) return null;
+          return { type, url };
+        }
+        return { type: 'unknown', url: raw };
+      };
+
+      const isHttp = (value: string): boolean => {
+        const normalized = value.trim().toLowerCase();
+        return normalized.startsWith('http://') || normalized.startsWith('https://');
+      };
+
+      const isTorrentish = (value: string): boolean => {
+        const normalized = value.trim().toLowerCase();
+        return normalized.startsWith('magnet:') || normalized.includes('.torrent') || normalized.includes('/torrent');
+      };
+
+      const getPriority = (type: string, url: string): number => {
+        if (type === 'anna') return 0;
+        if (type === 'magnet') return 0;
+        if (type === 'torrent') return 1;
+        if (type === 'direct') return 2;
+        if (type === 'external') return 3;
+        if (isTorrentish(url)) return 4;
+        return 5;
+      };
+
+      const candidatePriority = new Map<string, number>();
+
+      pages.forEach((p) => {
+        const parsed = parseCandidate(p.url);
+        if (!parsed) return;
+        if (!isTorrentish(parsed.url) && !isHttp(parsed.url)) return;
+        const priority = getPriority(parsed.type, parsed.url);
+        const existing = candidatePriority.get(parsed.url);
+        if (existing === undefined || priority < existing) {
+          candidatePriority.set(parsed.url, priority);
+        }
+      });
+
+      const candidateLinks = Array.from(candidatePriority.entries())
+        .sort((a, b) => a[1] - b[1])
+        .map(([url]) => url);
 
       if (candidateLinks.length === 0) {
-        throw new Error('No magnet or torrent link available for this book. Try opening the detail page manually.');
+        throw new Error('No compatible download link available for this book. Try opening the detail page manually.');
       }
       
       const firstCandidate = candidateLinks[0];
@@ -350,6 +408,9 @@ export function OnlineBooksView() {
         {pluginError && (
           <div className="mt-3 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
             {pluginError}
+            {annaAccountHint && (
+              <div className="mt-2 text-xs text-muted-foreground">{annaAccountHint}</div>
+            )}
           </div>
         )}
       </div>

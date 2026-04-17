@@ -1,0 +1,361 @@
+/* Torbox Cloud workspace visuals */
+
+.torbox-cloud {
+  --torbox-accent: 196 92% 44%;
+  --torbox-accent-soft: 193 88% 95%;
+  --torbox-accent-muted: 194 40% 40%;
+  --torbox-glow: 196 92% 44%;
+  --torbox-success: 152 64% 40%;
+  --torbox-warning: 36 90% 49%;
+  --torbox-danger: 0 72% 52%;
+  position: relative;
+  isolation: isolate;
+}
+
+[data-theme="black"] .torbox-cloud {
+  --torbox-accent: 191 88% 62%;
+  --torbox-accent-soft: 192 52% 12%;
+  --torbox-accent-muted: 191 54% 74%;
+  --torbox-glow: 191 94% 62%;
+  --torbox-success: 152 64% 50%;
+  --torbox-warning: 37 92% 58%;
+  --torbox-danger: 0 82% 64%;
+}
+
+.torbox-cloud::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(720px circle at 12% -8%, hsl(var(--torbox-accent) / 0.22), transparent 55%),
+    radial-gradient(560px circle at 88% 2%, hsl(var(--torbox-glow) / 0.12), transparent 58%);
+}
+
+.torbox-cloud::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: linear-gradient(
+    to bottom,
+    transparent,
+    hsl(var(--background) / 0.74) 12%,
+    hsl(var(--background) / 0.97)
+  );
+}
+
+.torbox-layer {
+  position: relative;
+  z-index: 1;
+}
+
+.torbox-hero-panel {
+  border: 1px solid hsl(var(--border) / 0.8);
+  background:
+    linear-gradient(135deg, hsl(var(--card) / 0.94), hsl(var(--card) / 0.72)),
+    linear-gradient(90deg, hsl(var(--torbox-accent-soft) / 0.5), transparent 52%);
+  box-shadow:
+    inset 0 1px 0 hsl(var(--background) / 0.65),
+    0 14px 30px -24px hsl(var(--torbox-glow) / 0.45);
+  backdrop-filter: blur(6px);
+}
+
+.torbox-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 9999px;
+  border: 1px solid hsl(var(--torbox-accent) / 0.35);
+  background: hsl(var(--torbox-accent-soft) / 0.55);
+  color: hsl(var(--torbox-accent-muted));
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.22rem 0.62rem;
+}
+
+.torbox-stat-grid {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.torbox-stat-card {
+  border-radius: 0.95rem;
+  border: 1px solid hsl(var(--border) / 0.72);
+  background:
+    linear-gradient(165deg, hsl(var(--card) / 0.92), hsl(var(--card) / 0.74));
+  padding: 0.8rem 0.86rem;
+  box-shadow: 0 7px 22px -19px hsl(var(--foreground) / 0.42);
+}
+
+.torbox-stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: hsl(var(--muted-foreground));
+}
+
+.torbox-stat-value {
+  margin-top: 0.2rem;
+  font-size: 1.58rem;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.torbox-stat-value--accent {
+  color: hsl(var(--torbox-accent));
+}
+
+.torbox-stat-value--success {
+  color: hsl(var(--torbox-success));
+}
+
+.torbox-stat-value--danger {
+  color: hsl(var(--torbox-danger));
+}
+
+.torbox-tab {
+  border-radius: 0.68rem;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--background) / 0.7);
+  color: hsl(var(--muted-foreground));
+  transition: all 0.2s ease;
+}
+
+.torbox-tab:hover {
+  color: hsl(var(--foreground));
+  background: hsl(var(--accent) / 0.62);
+}
+
+.torbox-tab[data-active="true"] {
+  border-color: hsl(var(--torbox-accent) / 0.4);
+  background: hsl(var(--torbox-accent-soft) / 0.55);
+  color: hsl(var(--foreground));
+  box-shadow: 0 7px 20px -18px hsl(var(--torbox-glow) / 0.45);
+}
+
+.torbox-toolbar {
+  border-radius: 0.95rem;
+  border: 1px solid hsl(var(--border) / 0.75);
+  background: hsl(var(--card) / 0.85);
+  backdrop-filter: blur(6px);
+  padding: 0.58rem;
+}
+
+.torbox-discover-card {
+  border-radius: 1rem;
+  border: 1px solid hsl(var(--border) / 0.72);
+  background:
+    linear-gradient(165deg, hsl(var(--card) / 0.9), hsl(var(--card) / 0.72));
+  box-shadow: 0 10px 22px -18px hsl(var(--foreground) / 0.55);
+}
+
+.torbox-job-card {
+  border-radius: 1rem;
+  border: 1px solid hsl(var(--border) / 0.72);
+  background:
+    linear-gradient(170deg, hsl(var(--card) / 0.95), hsl(var(--card) / 0.76));
+  box-shadow: 0 14px 28px -24px hsl(var(--foreground) / 0.55);
+  transition: all 0.22s ease;
+}
+
+.torbox-job-card:hover {
+  border-color: hsl(var(--border));
+  transform: translateY(-1px);
+  box-shadow: 0 16px 34px -22px hsl(var(--torbox-glow) / 0.28);
+}
+
+.torbox-status {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  padding: 0.18rem 0.56rem;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.torbox-status--queued {
+  border-color: hsl(var(--muted-foreground) / 0.2);
+  background: hsl(var(--muted) / 0.85);
+  color: hsl(var(--muted-foreground));
+}
+
+.torbox-status--verifying {
+  border-color: hsl(var(--torbox-accent) / 0.32);
+  background: hsl(var(--torbox-accent-soft) / 0.8);
+  color: hsl(var(--torbox-accent-muted));
+}
+
+.torbox-status--downloading {
+  border-color: hsl(var(--torbox-accent) / 0.35);
+  background: hsl(var(--torbox-accent-soft) / 0.82);
+  color: hsl(var(--torbox-accent));
+}
+
+.torbox-status--importing {
+  border-color: hsl(var(--torbox-warning) / 0.34);
+  background: hsl(var(--torbox-warning) / 0.14);
+  color: hsl(var(--torbox-warning));
+}
+
+.torbox-status--completed {
+  border-color: hsl(var(--torbox-success) / 0.3);
+  background: hsl(var(--torbox-success) / 0.12);
+  color: hsl(var(--torbox-success));
+}
+
+.torbox-status--failed {
+  border-color: hsl(var(--torbox-danger) / 0.32);
+  background: hsl(var(--torbox-danger) / 0.1);
+  color: hsl(var(--torbox-danger));
+}
+
+.torbox-progress-track {
+  height: 0.46rem;
+  border-radius: 9999px;
+  background: hsl(var(--muted) / 0.85);
+  overflow: hidden;
+}
+
+.torbox-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.48s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.torbox-progress--queued {
+  background: linear-gradient(90deg, hsl(var(--muted-foreground) / 0.52), hsl(var(--muted-foreground) / 0.85));
+}
+
+.torbox-progress--verifying,
+.torbox-progress--downloading {
+  background: linear-gradient(90deg, hsl(var(--torbox-accent) / 0.65), hsl(var(--torbox-accent)));
+}
+
+.torbox-progress--importing {
+  background: linear-gradient(90deg, hsl(var(--torbox-warning) / 0.6), hsl(var(--torbox-warning)));
+}
+
+.torbox-progress--completed {
+  background: linear-gradient(90deg, hsl(var(--torbox-success) / 0.7), hsl(var(--torbox-success)));
+}
+
+.torbox-progress--failed {
+  background: linear-gradient(90deg, hsl(var(--torbox-danger) / 0.75), hsl(var(--torbox-danger)));
+}
+
+.torbox-empty {
+  border-radius: 1rem;
+  border: 1px dashed hsl(var(--border));
+  background: hsl(var(--card) / 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-height: 172px;
+  text-align: center;
+  padding: 1.5rem;
+}
+
+.torbox-empty__icon {
+  width: 1.2rem;
+  height: 1.2rem;
+  color: hsl(var(--torbox-accent));
+}
+
+.torbox-result-card {
+  border-radius: 1rem;
+  border: 1px solid hsl(var(--border) / 0.72);
+  background: linear-gradient(160deg, hsl(var(--card) / 0.92), hsl(var(--card) / 0.76));
+  box-shadow: 0 13px 24px -22px hsl(var(--foreground) / 0.55);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.torbox-result-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 30px -20px hsl(var(--torbox-glow) / 0.28);
+}
+
+.torbox-animate-in {
+  animation: torbox-rise 0.32s ease both;
+}
+
+.torbox-cover-shell {
+  width: 5rem;
+  height: 7rem;
+  border-radius: 0.6rem;
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 1px solid hsl(var(--border) / 0.55);
+  background: hsl(var(--muted) / 0.65);
+  box-shadow: inset 0 1px 0 hsl(var(--background) / 0.55);
+}
+
+.torbox-cover-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  color: hsl(var(--torbox-accent-muted));
+  background:
+    linear-gradient(160deg, hsl(var(--muted) / 0.82), hsl(var(--card) / 0.75));
+}
+
+.torbox-cover-fallback__label {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+@keyframes torbox-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 1024px) {
+  .torbox-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .torbox-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .torbox-toolbar {
+    padding: 0.5rem;
+  }
+
+  .torbox-mobile-stack {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .torbox-mobile-stack > * {
+    width: 100%;
+  }
+
+  .torbox-cover-shell {
+    width: 4.4rem;
+    height: 6.2rem;
+  }
+}

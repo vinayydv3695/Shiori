@@ -83,6 +83,8 @@ fn main() {
             let mut registry = sources::registry::SourceRegistry::new();
             registry.register(Arc::new(sources::mangadex::MangaDexSource::new()?));
             registry.register(Arc::new(sources::toongod::ToonGodSource::new()?));
+            registry.register(Arc::new(sources::nyaa::NyaaSource::new()?));
+            registry.register(Arc::new(sources::animetosho::AnimeToshoSource::new()?));
             let anna_source = Arc::new(sources::annas_archive::AnnasArchiveSource::new()?);
             tauri::async_runtime::block_on(anna_source.load_config_from_store(&app.handle().clone()))?;
             registry.register(anna_source);

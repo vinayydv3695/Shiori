@@ -1,6 +1,7 @@
 /* Shiori Global Styles v3.0 */
 @import './styles/tokens.css';
 @import './styles/home.css';
+@import './styles/torbox.css';
 
 @tailwind base;
 @tailwind components;

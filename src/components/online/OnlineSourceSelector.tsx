@@ -77,6 +77,9 @@ export function OnlineSourceSelector({ kind }: OnlineSourceSelectorProps) {
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-medium truncate">{source.name.replace(' (Planned)', '')}</p>
+                  {source.torboxCompatible && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-700 dark:text-cyan-300">Torbox-ready</span>
+                  )}
                   {!source.enabled && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Disabled</span>
                   )}

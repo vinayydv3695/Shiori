@@ -84,6 +84,7 @@ export function OnlineMangaView() {
   const isMangaDexEnabled = activeSource?.id === 'mangadex';
   const isPluginMangaSource = activeSource?.id !== 'mangadex' && activeSource?.kind === 'manga';
   const activePluginSourceId = isPluginMangaSource ? activeSource?.id : null;
+  const sourceSupportsTorboxTorrents = Boolean(activeSource?.torboxCompatible);
 
   // Load browse data on mount for MangaDex
   useEffect(() => {
@@ -642,7 +643,7 @@ export function OnlineMangaView() {
                             onClick={() => {
                               void handleQueueInTorbox(manga);
                             }}
-                            disabled={queueingManga[manga.id] || !magnetLink}
+                            disabled={queueingManga[manga.id] || !magnetLink || !sourceSupportsTorboxTorrents}
                             className="gap-1.5"
                           >
                             {queueingManga[manga.id] ? (
@@ -653,10 +654,15 @@ export function OnlineMangaView() {
                             ) : (
                               <>
                                 <Download className="w-3.5 h-3.5" />
-                                Send to Torbox
+                                {sourceSupportsTorboxTorrents ? 'Send to Torbox' : 'Torbox unavailable'}
                               </>
                             )}
                           </Button>
+                        )}
+                        {!sourceSupportsTorboxTorrents && hasTorboxKey && (
+                          <p className="text-xs text-muted-foreground">
+                            This source does not expose magnet/torrent links for Torbox. Switch manga source to Nyaa.
+                          </p>
                         )}
                       </div>
                     </div>

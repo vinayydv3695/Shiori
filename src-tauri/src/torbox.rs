@@ -59,10 +59,10 @@ pub async fn send_to_torbox(
     magnet_link: String,
     filename_hint: Option<String>,
 ) -> Result<SendToTorboxResult> {
-    let trimmed_magnet = magnet_link.trim();
-    if trimmed_magnet.is_empty() {
+    let trimmed_link = magnet_link.trim();
+    if trimmed_link.is_empty() {
         return Err(ShioriError::Validation(
-            "Magnet link cannot be empty".to_string(),
+            "Source link cannot be empty".to_string(),
         ));
     }
 
@@ -70,7 +70,7 @@ pub async fn send_to_torbox(
         &app_handle,
         &state.service,
         &app_state,
-        trimmed_magnet.to_string(),
+        trimmed_link.to_string(),
         filename_hint,
     )
     .await?;
@@ -109,14 +109,14 @@ pub async fn add_to_torbox_queue(
     state: State<'_, TorboxState>,
     magnet_link: String,
 ) -> Result<AddToTorboxQueueResult> {
-    let trimmed_magnet = magnet_link.trim();
-    if trimmed_magnet.is_empty() {
+    let trimmed_link = magnet_link.trim();
+    if trimmed_link.is_empty() {
         return Err(ShioriError::Validation(
-            "Magnet link cannot be empty".to_string(),
+            "Source link cannot be empty".to_string(),
         ));
     }
 
-    let torrent_id = state.service.add_download_target(trimmed_magnet).await?;
+    let torrent_id = state.service.add_download_target(trimmed_link).await?;
     Ok(AddToTorboxQueueResult { torrent_id })
 }
 

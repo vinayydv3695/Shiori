@@ -6,7 +6,7 @@ export type TorboxJobStatus = 'queued' | 'verifying' | 'downloading' | 'importin
 export interface TorboxQueueItem {
   id: string;
   title: string;
-  source: 'anna' | 'mangadex';
+  source: 'anna' | 'manga';
   magnetLink: string;
   status: TorboxJobStatus;
   progress: number;
@@ -109,7 +109,7 @@ export const useTorboxStore = create<TorboxStoreState>((set, get) => ({
     const job: TorboxQueueItem = {
       id,
       title,
-      source: 'mangadex',
+      source: 'manga',
       magnetLink,
       status: 'queued',
       progress: 0,

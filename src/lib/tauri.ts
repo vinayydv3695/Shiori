@@ -348,6 +348,7 @@ export interface TranslationResponse {
 export interface AnnaArchiveConfig {
   baseUrl: string | null
   authKey: string | null
+  membershipKey: string | null
   authCookie: string | null
   apiKey: string | null
 }

@@ -21,13 +21,19 @@ export function SourceManager() {
                   {source.status === 'planned' && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Planned</span>
                   )}
+                  {source.torboxCompatible && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-700 dark:text-cyan-300">Torbox-ready</span>
+                  )}
                   {source.enabled && source.implemented && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">Enabled</span>
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">{source.description}</p>
                 {source.id === 'mangadex' && (
-                  <p className="text-[11px] text-muted-foreground mt-1">Required for SHIORI x Torbox manga workflow.</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">Required for SHIORI manga reader workflow.</p>
+                )}
+                {source.id === 'nyaa' && (
+                  <p className="text-[11px] text-muted-foreground mt-1">Recommended for SHIORI x Torbox manga torrent workflow.</p>
                 )}
                 {source.website && (
                   <a
@@ -63,6 +69,9 @@ export function SourceManager() {
                   <p className="font-medium">{source.name.replace(' (Planned)', '')}</p>
                   {source.status === 'planned' && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Planned</span>
+                  )}
+                  {source.torboxCompatible && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-700 dark:text-cyan-300">Torbox-ready</span>
                   )}
                   {source.enabled && source.implemented && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">Enabled</span>

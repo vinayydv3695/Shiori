@@ -9,6 +9,7 @@ import { logger } from '@/lib/logger';
 const emptyConfig: AnnaArchiveConfig = {
   baseUrl: null,
   authKey: null,
+  membershipKey: null,
   authCookie: null,
   apiKey: null,
 };
@@ -47,6 +48,7 @@ export function AnnaArchiveSettings() {
       const normalized: AnnaArchiveConfig = {
         baseUrl: config.baseUrl?.trim() || null,
         authKey: config.authKey?.trim() || null,
+        membershipKey: config.membershipKey?.trim() || null,
         authCookie: config.authCookie?.trim() || null,
         apiKey: config.apiKey?.trim() || null,
       };
@@ -83,7 +85,7 @@ export function AnnaArchiveSettings() {
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Optional hosted Anna Archive configuration. Set mirror base URL/auth key when using private mirrors.
+        Account-first Anna setup: base URL + membership key + auth cookie improve access to fast/member download links.
       </p>
 
       <div>
@@ -122,6 +124,18 @@ export function AnnaArchiveSettings() {
       </div>
 
       <div>
+        <label htmlFor="anna-membership-key" className="text-sm font-medium mb-2 block">Membership Key (optional)</label>
+        <Input
+          id="anna-membership-key"
+          type="text"
+          value={config.membershipKey ?? ''}
+          onChange={(e) => setConfig((prev) => ({ ...prev, membershipKey: e.target.value }))}
+          placeholder="Used for /dyn/api/fast_download.json"
+          disabled={isLoading}
+        />
+      </div>
+
+      <div>
         <label htmlFor="anna-auth-cookie" className="text-sm font-medium mb-2 block">Auth Cookie (optional)</label>
         <Input
           id="anna-auth-cookie"
@@ -154,6 +168,9 @@ export function AnnaArchiveSettings() {
             {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
         </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          RapidAPI key for Anna endpoint (used for /download by MD5). If this is set, cookie/auth key is optional.
+        </p>
       </div>
 
       <div className="flex gap-2">

@@ -37,6 +37,29 @@ const RETRYABLE_STATUS_CODES: [reqwest::StatusCode; 4] = [
 ];
 
 const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+const RAPIDAPI_HOST: &str = "annas-archive-api.p.rapidapi.com";
+const RAPIDAPI_BASE_URL: &str = "https://annas-archive-api.p.rapidapi.com";
+
+fn looks_like_md5(value: &str) -> bool {
+    let trimmed = value.trim();
+    trimmed.len() == 32 && trimmed.chars().all(|c| c.is_ascii_hexdigit())
+}
+
+fn looks_like_download_link(value: &str) -> bool {
+    let lowered = value.trim().to_ascii_lowercase();
+    lowered.starts_with("magnet:")
+        || lowered.starts_with("http://")
+        || lowered.starts_with("https://")
+}
+
+fn extract_error_message(payload: &serde_json::Value) -> Option<String> {
+    payload
+        .get("detail")
+        .and_then(|v| v.as_str())
+        .or_else(|| payload.get("error").and_then(|v| v.as_str()))
+        .or_else(|| payload.get("message").and_then(|v| v.as_str()))
+        .map(ToString::to_string)
+}
 
 #[derive(Debug, Clone)]
 pub struct DownloadOption {
@@ -68,6 +91,7 @@ pub struct AnnasArchiveSource {
     client: reqwest::Client,
     api_key: RwLock<Option<String>>,
     auth_key: RwLock<Option<String>>,
+    membership_key: RwLock<Option<String>>,
     auth_cookie: RwLock<Option<String>>,
     base_url: RwLock<Option<String>>,
     working_mirror: RwLock<String>,
@@ -78,6 +102,7 @@ pub struct AnnasArchiveSource {
 pub struct AnnasArchiveConfig {
     pub base_url: Option<String>,
     pub auth_key: Option<String>,
+    pub membership_key: Option<String>,
     pub auth_cookie: Option<String>,
     pub api_key: Option<String>,
 }
@@ -94,6 +119,7 @@ impl AnnasArchiveSource {
             client,
             api_key: RwLock::new(None),
             auth_key: RwLock::new(None),
+            membership_key: RwLock::new(None),
             auth_cookie: RwLock::new(None),
             base_url: RwLock::new(None),
             working_mirror: RwLock::new(MIRROR_URLS[0].to_string()),
@@ -110,6 +136,7 @@ impl AnnasArchiveSource {
         AnnasArchiveConfig {
             base_url: self.base_url.read().await.clone(),
             auth_key: self.auth_key.read().await.clone(),
+            membership_key: self.membership_key.read().await.clone(),
             auth_cookie: self.auth_cookie.read().await.clone(),
             api_key: self.api_key.read().await.clone(),
         }
@@ -124,6 +151,13 @@ impl AnnasArchiveSource {
         {
             let mut guard = self.auth_key.write().await;
             *guard = config.auth_key.and_then(|v| {
+                let trimmed = v.trim().to_string();
+                if trimmed.is_empty() { None } else { Some(trimmed) }
+            });
+        }
+        {
+            let mut guard = self.membership_key.write().await;
+            *guard = config.membership_key.and_then(|v| {
                 let trimmed = v.trim().to_string();
                 if trimmed.is_empty() { None } else { Some(trimmed) }
             });
@@ -183,6 +217,110 @@ impl AnnasArchiveSource {
         self.auth_cookie.read().await.clone()
     }
 
+    async fn rapidapi_download_links(&self, content_id: &str) -> Result<Vec<String>> {
+        let api_key = self
+            .api_key
+            .read()
+            .await
+            .clone()
+            .ok_or_else(|| {
+                ShioriError::Other(
+                    "Anna RapidAPI key not configured. Set it in Settings -> Online Sources -> Anna API Key."
+                        .to_string(),
+                )
+            })?;
+
+        if !looks_like_md5(content_id) {
+            return Ok(vec![]);
+        }
+
+        let resp = self
+            .client
+            .get(format!(
+                "{}/download?md5={}",
+                RAPIDAPI_BASE_URL,
+                urlencoding::encode(content_id)
+            ))
+            .header("x-rapidapi-host", RAPIDAPI_HOST)
+            .header("x-rapidapi-key", api_key)
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
+            .send()
+            .await
+            .map_err(|e| {
+                ShioriError::Other(format!("Anna RapidAPI request failed: {}", e))
+            })?;
+
+        let status = resp.status();
+        let raw_body = resp.text().await.map_err(|e| {
+            ShioriError::Other(format!("Anna RapidAPI response read failed: {}", e))
+        })?;
+
+        if !status.is_success() {
+            let parsed = serde_json::from_str::<serde_json::Value>(&raw_body).ok();
+            let detail = parsed
+                .as_ref()
+                .and_then(extract_error_message)
+                .unwrap_or_else(|| {
+                    let trimmed = raw_body.trim();
+                    if trimmed.is_empty() {
+                        "empty response body".to_string()
+                    } else {
+                        trimmed.chars().take(180).collect()
+                    }
+                });
+
+            return Err(ShioriError::Other(format!(
+                "Anna RapidAPI download lookup failed (status {}): {}",
+                status, detail
+            )));
+        }
+
+        let payload: serde_json::Value = serde_json::from_str(&raw_body).map_err(|e| {
+            ShioriError::Other(format!("Anna RapidAPI JSON parse failed: {}", e))
+        })?;
+
+        let mut links: Vec<String> = Vec::new();
+
+        fn collect_links(value: &serde_json::Value, out: &mut Vec<String>) {
+            match value {
+                serde_json::Value::String(s) => {
+                    if looks_like_download_link(s) {
+                        out.push(s.trim().to_string());
+                    }
+                }
+                serde_json::Value::Array(items) => {
+                    for item in items {
+                        collect_links(item, out);
+                    }
+                }
+                serde_json::Value::Object(map) => {
+                    for (key, v) in map {
+                        if let Some(s) = v.as_str() {
+                            let key_lower = key.to_ascii_lowercase();
+                            if (key_lower.contains("link")
+                                || key_lower.contains("url")
+                                || key_lower.contains("download")
+                                || key_lower.contains("magnet"))
+                                && looks_like_download_link(s)
+                            {
+                                out.push(s.trim().to_string());
+                                continue;
+                            }
+                        }
+                        collect_links(v, out);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        collect_links(&payload, &mut links);
+        links.sort();
+        links.dedup();
+
+        Ok(links)
+    }
+
     async fn candidate_mirrors(&self) -> Vec<String> {
         let mut mirrors = Vec::new();
 
@@ -226,6 +364,10 @@ impl AnnasArchiveSource {
             .get("anna-archive.auth_key")
             .and_then(|v| v.as_str().map(ToString::to_string));
 
+        let membership_key = store
+            .get("anna-archive.membership_key")
+            .and_then(|v| v.as_str().map(ToString::to_string));
+
         let auth_cookie = store
             .get("anna-archive.auth_cookie")
             .and_then(|v| v.as_str().map(ToString::to_string));
@@ -233,6 +375,7 @@ impl AnnasArchiveSource {
         self.set_config(AnnasArchiveConfig {
             base_url,
             auth_key,
+            membership_key,
             auth_cookie,
             api_key,
         }).await;
@@ -263,6 +406,20 @@ impl AnnasArchiveSource {
             }
             None => {
                 let _ = store.delete("anna-archive.auth_key");
+            }
+        }
+
+        match config
+            .membership_key
+            .as_ref()
+            .map(|v| v.trim())
+            .filter(|v| !v.is_empty())
+        {
+            Some(v) => {
+                store.set("anna-archive.membership_key", serde_json::json!(v));
+            }
+            None => {
+                let _ = store.delete("anna-archive.membership_key");
             }
         }
 
@@ -469,6 +626,76 @@ impl AnnasArchiveSource {
                     if RETRYABLE_STATUS_CODES.contains(&resp.status()) && attempt < DOWNLOAD_RETRY_ATTEMPTS {
                         tokio::time::sleep(Duration::from_millis((attempt as u64) * 350)).await;
                         continue;
+                    }
+
+                    return Ok(None);
+                }
+                Err(_) if attempt < DOWNLOAD_RETRY_ATTEMPTS => {
+                    tokio::time::sleep(Duration::from_millis((attempt as u64) * 350)).await;
+                    continue;
+                }
+                Err(_) => return Ok(None),
+            }
+        }
+
+        Ok(None)
+    }
+
+    async fn build_fast_download_url(&self, content_id: &str, key: &str) -> String {
+        let mirror = self.working_mirror.read().await.clone();
+        format!(
+            "{}/fast_download/{}?key={}",
+            mirror,
+            content_id,
+            urlencoding::encode(key)
+        )
+    }
+
+    async fn probe_member_fast_download_with_retry(&self, content_id: &str, key: &str) -> Result<Option<String>> {
+        let mirror = self.working_mirror.read().await.clone();
+        let endpoint = format!(
+            "{}/dyn/api/fast_download.json?md5={}&key={}",
+            mirror,
+            urlencoding::encode(content_id),
+            urlencoding::encode(key)
+        );
+
+        let auth_key = self.get_auth_key().await;
+        let auth_cookie = self.get_auth_cookie().await;
+        for attempt in 1..=DOWNLOAD_RETRY_ATTEMPTS {
+            let req = self.with_auth_if_needed(self.client.get(&endpoint), &auth_key, &auth_cookie);
+            match req.send().await {
+                Ok(resp) => {
+                    if resp.status() == reqwest::StatusCode::UNAUTHORIZED
+                        || resp.status() == reqwest::StatusCode::FORBIDDEN
+                    {
+                        return Err(ShioriError::Other(
+                            "Your Anna membership key was rejected (401/403). Verify it in source settings."
+                                .to_string(),
+                        ));
+                    }
+
+                    if !resp.status().is_success() {
+                        if RETRYABLE_STATUS_CODES.contains(&resp.status()) && attempt < DOWNLOAD_RETRY_ATTEMPTS {
+                            tokio::time::sleep(Duration::from_millis((attempt as u64) * 350)).await;
+                            continue;
+                        }
+                        return Ok(None);
+                    }
+
+                    let body: serde_json::Value = match resp.json().await {
+                        Ok(v) => v,
+                        Err(_) => return Ok(None),
+                    };
+
+                    let fast = body
+                        .get("download_url")
+                        .and_then(|v| v.as_str())
+                        .or_else(|| body.get("fast").and_then(|v| v.as_str()))
+                        .map(ToString::to_string);
+
+                    if fast.is_some() {
+                        return Ok(fast);
                     }
 
                     return Ok(None);
@@ -745,15 +972,88 @@ impl Source for AnnasArchiveSource {
     async fn get_pages(&self, chapter_id: &str) -> Result<Vec<Page>> {
         let content_id = chapter_id;
         let api_key = self.api_key.read().await.clone();
+        let membership_key = self.membership_key.read().await.clone();
+        let mirror = self.working_mirror.read().await.clone();
+        let anna_detail_link = format!("{}/md5/{}", mirror, content_id);
 
-        // Try fast_download with API key first
-        if let Some(key) = api_key {
-            if let Some(fast_url) = self.probe_fast_download_with_retry(content_id, &key).await? {
-                return Ok(vec![Page {
-                    index: 0,
-                    url: fast_url,
-                }]);
+        // Try member fast_download API first
+        if let Some(key) = membership_key {
+            if let Some(member_fast_url) = self
+                .probe_member_fast_download_with_retry(content_id, &key)
+                .await?
+            {
+                return Ok(vec![
+                    Page {
+                        index: 0,
+                        url: format!("anna|{}", anna_detail_link),
+                    },
+                    Page {
+                        index: 1,
+                        url: format!("direct|{}", member_fast_url),
+                    },
+                ]);
             }
+        }
+
+        // Try fast_download with API key first. If probing is inconclusive,
+        // still return the fast_download URL as a best-effort direct candidate.
+        if let Some(key) = api_key {
+            if let Ok(rapid_links) = self.rapidapi_download_links(content_id).await {
+                if !rapid_links.is_empty() {
+                    let mut pages = vec![Page {
+                        index: 0,
+                        url: format!("anna|{}", anna_detail_link),
+                    }];
+
+                    pages.extend(
+                        rapid_links
+                            .iter()
+                            .enumerate()
+                            .map(|(i, link)| {
+                                let lowered = link.to_ascii_lowercase();
+                                let kind = if lowered.starts_with("magnet:") {
+                                    "magnet"
+                                } else if lowered.contains(".torrent") || lowered.contains("/torrent") {
+                                    "torrent"
+                                } else {
+                                    "direct"
+                                };
+
+                                Page {
+                                    index: (i + 1) as u32,
+                                    url: format!("{}|{}", kind, link),
+                                }
+                            }),
+                    );
+
+                    return Ok(pages);
+                }
+            }
+
+            if let Some(fast_url) = self.probe_fast_download_with_retry(content_id, &key).await? {
+                return Ok(vec![
+                    Page {
+                        index: 0,
+                        url: format!("anna|{}", anna_detail_link),
+                    },
+                    Page {
+                        index: 1,
+                        url: format!("direct|{}", fast_url),
+                    },
+                ]);
+            }
+
+            let optimistic_fast_url = self.build_fast_download_url(content_id, &key).await;
+            return Ok(vec![
+                Page {
+                    index: 0,
+                    url: format!("anna|{}", anna_detail_link),
+                },
+                Page {
+                    index: 1,
+                    url: format!("direct|{}", optimistic_fast_url),
+                },
+            ]);
         }
 
         // Get all download options from detail page

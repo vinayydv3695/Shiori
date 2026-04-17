@@ -13,8 +13,11 @@ export interface SourceConfig {
   description: string;
   status: SourceStatus;
   implemented: boolean;
+  torboxCompatible?: boolean;
   website?: string;
 }
+
+const SOURCE_STORE_VERSION = 4;
 
 const MANDATORY_SOURCE_IDS = new Set(['mangadex', 'anna-archive']);
 
@@ -31,6 +34,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     description: 'Official API with huge catalog - Most reliable manga source.',
     status: 'active',
     implemented: true,
+    torboxCompatible: false,
     website: 'https://mangadex.org',
   },
   {
@@ -41,7 +45,30 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     description: 'Manhwa/Webtoons focus with large collection.',
     status: 'active',
     implemented: true,
+    torboxCompatible: false,
     website: 'https://www.toongod.org',
+  },
+  {
+    id: 'nyaa',
+    name: 'Nyaa (Torrents)',
+    kind: 'manga',
+    enabled: true,
+    description: 'Torrent-first manga/anime source for SHIORI x Torbox workflows.',
+    status: 'active',
+    implemented: true,
+    torboxCompatible: true,
+    website: 'https://nyaa.si',
+  },
+  {
+    id: 'animetosho',
+    name: 'AnimeTosho (Torrents)',
+    kind: 'manga',
+    enabled: true,
+    description: 'Alternative anime/manga torrent index with magnet + torrent links for Torbox.',
+    status: 'active',
+    implemented: true,
+    torboxCompatible: true,
+    website: 'https://animetosho.org',
   },
   {
     id: 'openlibrary',
@@ -51,6 +78,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     description: 'Book metadata provider - covers, descriptions, and author info.',
     status: 'active',
     implemented: true,
+    torboxCompatible: false,
     website: 'https://openlibrary.org',
   },
   {
@@ -61,6 +89,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     description: '⚠️ Community Plugin - Search and download books via Torbox. Users are responsible for compliance with local laws.',
     status: 'active',
     implemented: true,
+    torboxCompatible: true,
     website: 'https://annas-archive.org',
   },
 ];
@@ -209,7 +238,25 @@ export const useSourceStore = create<SourceStore>()(
     }),
     {
       name: 'shiori-source-store',
-      version: 2,
+      version: SOURCE_STORE_VERSION,
+      migrate: (persistedState) => {
+        const typedPersisted = (persistedState ?? {}) as Partial<SourceStore>;
+        const mergedSources = mergeSources(typedPersisted.sources as Partial<SourceConfig>[] | undefined);
+        const mergedPrimary = {
+          ...DEFAULT_PRIMARY_SOURCE_BY_KIND,
+          ...(typedPersisted.primarySourceByKind ?? {}),
+        } as Record<SourceKind, string>;
+
+        return {
+          ...typedPersisted,
+          sources: mergedSources,
+          primarySourceByKind: {
+            books: normalizePrimarySource('books', mergedSources, mergedPrimary),
+            manga: normalizePrimarySource('manga', mergedSources, mergedPrimary),
+          },
+          preferredDebridProvider: typedPersisted.preferredDebridProvider ?? 'auto',
+        } as Partial<SourceStore>;
+      },
       merge: (persistedState, currentState) => {
         const typedPersisted = (persistedState ?? {}) as Partial<SourceStore>;
         const mergedSources = mergeSources(typedPersisted.sources as Partial<SourceConfig>[] | undefined);

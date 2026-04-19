@@ -312,13 +312,10 @@ pub async fn annas_archive_download(
         .map_err(|e| ShioriError::Other(format!("Failed to create download client: {}", e)))?;
     
     let mut request = client.get(&download_url);
-    if let Some(auth_key) = anna_config.auth_key {
-        let value = if auth_key.starts_with("Bearer ") {
-            auth_key
-        } else {
-            format!("Bearer {}", auth_key)
-        };
-        request = request.header("Authorization", value);
+    if let Some(api_key) = anna_config.api_key {
+        request = request
+            .header("x-rapidapi-host", "annas-archive-api.p.rapidapi.com")
+            .header("x-rapidapi-key", api_key);
     }
     if let Some(auth_cookie) = anna_config.auth_cookie {
         request = request.header("Cookie", auth_cookie);

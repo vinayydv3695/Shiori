@@ -2,10 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { useOnboardingState } from './hooks/useOnboardingState';
 import { THEME_OPTIONS } from '@/store/onboardingStore';
 import { useLibraryStore } from '@/store/libraryStore';
+import { ShioriMark } from '@/components/icons/ShioriIcons';
+import { ParticleCanvas } from '@/components/onboarding/components';
 import OnboardingProgress from '@/components/onboarding/OnboardingProgress';
 import { WelcomeStep } from './steps/WelcomeStep';
 import { ImportStep } from './steps/ImportStep';
 import { ThemeStep } from './steps/ThemeStep';
+import { TorboxIntegrationStep } from './steps/TorboxIntegrationStep';
+import { CloudIntegrationStep } from './steps/CloudIntegrationStep';
 import { PreferencesStep } from './steps/PreferencesStep';
 import { AppSettingsStep } from './steps/AppSettingsStep';
 import { FinishStep } from './steps/FinishStep';
@@ -32,7 +36,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   } = useOnboardingState();
   const loadInitialBooks = useLibraryStore((s) => s.loadInitialBooks);
 
-  const [renderedStep, setRenderedStep] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
+  const [renderedStep, setRenderedStep] = useState<1 | 2 | 3 | 4 | 5 | 6 | 7 | 8>(1);
   const [phase, setPhase] = useState<TransitionPhase>('idle');
   const [isFinishing, setIsFinishing] = useState(false);
   const transitionTimerRef = useRef<number | null>(null);
@@ -77,7 +81,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     return (
       <div className="min-h-screen w-full bg-slate-950 px-4 py-4 text-white md:px-6 md:py-6 lg:px-8 lg:py-8">
         <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-6xl items-center justify-center rounded-3xl border border-white/5 bg-slate-950 p-3 md:min-h-[calc(100vh-3rem)] md:p-6">
-          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-white/70"></div>
+          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-indigo-300/80"></div>
         </div>
       </div>
     );
@@ -104,20 +108,22 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         ? 'translate-x-8 opacity-0'
         : 'translate-x-0 opacity-100';
 
-  // Apply 80% scale only for steps 2-6, keep step 1 at 100%
-  const scaleStyle = state.currentStep === 1 
-    ? {} 
-    : { transform: 'scale(0.8)', transformOrigin: 'top center' };
-
   return (
-    <div className="min-h-screen w-full bg-slate-950 px-4 py-4 text-white md:px-6 md:py-6 lg:px-8 lg:py-8">
-      <div 
-        className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-6xl flex-col overflow-y-auto rounded-3xl border border-white/5 bg-slate-950 p-3 md:min-h-[calc(100vh-3rem)] md:p-6"
-        style={scaleStyle}
-      >
-        <OnboardingProgress currentStep={state.currentStep as 1 | 2 | 3 | 4 | 5 | 6} />
+    <div className="relative flex h-screen w-full flex-col bg-slate-950 p-4 text-white md:p-6 lg:p-8">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(79,70,229,0.15),transparent_70%)]" />
+      <ParticleCanvas />
 
-        <div className={`flex-1 transition-all duration-300 ease-out ${transitionClass}`}>
+      <div className="relative z-10 mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden rounded-3xl border border-white/5 bg-slate-950 p-3 md:p-6">
+        <header className="mb-2 flex shrink-0 items-center gap-2 border-b border-white/5 px-2 pb-4 pt-1">
+          <ShioriMark size={28} className="text-white" aria-hidden="true" />
+          <span className="text-lg font-semibold tracking-tight text-white">Shiori</span>
+        </header>
+
+        <div className="shrink-0">
+          <OnboardingProgress currentStep={state.currentStep as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8} />
+        </div>
+
+        <div className={`flex flex-1 min-h-0 flex-col overflow-hidden transition-all duration-300 ease-out ${transitionClass}`}>
           {renderedStep === 1 ? <WelcomeStep appVersion={appVersion} onStart={nextStep} /> : null}
           {renderedStep === 2 ? (
             <ThemeStep
@@ -128,8 +134,20 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               onNext={nextStep}
             />
           ) : null}
-          {renderedStep === 3 ? <ImportStep libraryPath={state.libraryPath} onSelectPath={setLibraryPath} onNext={nextStep} /> : null}
+          {renderedStep === 3 ? <ImportStep libraryPath={state.libraryPath} onSelectPath={setLibraryPath} onBack={prevStep} onNext={nextStep} /> : null}
           {renderedStep === 4 ? (
+            <TorboxIntegrationStep
+              onBack={prevStep}
+              onNext={nextStep}
+            />
+          ) : null}
+          {renderedStep === 5 ? (
+            <CloudIntegrationStep
+              onBack={prevStep}
+              onNext={nextStep}
+            />
+          ) : null}
+          {renderedStep === 6 ? (
             <PreferencesStep
               mangaPrefs={state.mangaPrefs}
               bookPrefs={state.bookPrefs}
@@ -139,13 +157,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               onNext={nextStep}
             />
           ) : null}
-          {renderedStep === 5 ? (
+          {renderedStep === 7 ? (
             <AppSettingsStep
               onBack={prevStep}
               onNext={nextStep}
             />
           ) : null}
-          {renderedStep === 6 ? (
+          {renderedStep === 8 ? (
             <FinishStep
               libraryPath={state.libraryPath}
               selectedTheme={state.selectedTheme}

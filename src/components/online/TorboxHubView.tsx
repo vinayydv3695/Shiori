@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import {
   Activity,
   AlertCircle,
@@ -6,9 +7,7 @@ import {
   CheckCircle2,
   Cloud,
   Clock3,
-  Compass,
   Loader2,
-  ArrowUpRight,
   Search,
   Sparkles,
   Trash2,
@@ -21,15 +20,28 @@ import { pluginApi, type SearchResult as PluginSearchResult } from '@/lib/plugin
 import { useTorboxStore, type TorboxJobStatus, type TorboxQueueItem } from '@/stores/useTorboxStore';
 import { useOnlineSearchStore } from '@/store/onlineSearchStore';
 import { useSourceStore } from '@/store/sourceStore';
+import { parsePageUrl } from '@/lib/utils';
 
-type TorboxTab = 'discover' | 'books' | 'manga' | 'search';
-type SearchKind = 'all' | 'books' | 'manga';
+type TorboxTab = 'books' | 'manga' | 'search';
+type SearchKind = 'all' | 'books' | 'manga' | 'comics';
 type TorboxResultSource = 'books' | 'manga';
-type TorboxSearchResult = PluginSearchResult & { _source: TorboxResultSource };
+type TorboxSearchResult = PluginSearchResult & { _source: TorboxResultSource; _sourceId?: string };
 const TORBOX_MANGA_SOURCE_IDS = ['nyaa', 'animetosho'] as const;
 
+type SendState = 'idle' | 'sending' | 'success' | 'failed';
+
+const SOURCE_BADGE_MAP: Record<string, { label: string; className: string }> = {
+  'anna-archive': { label: "Anna's Archive", className: 'torbox-source-badge--anna' },
+  'nyaa': { label: 'Nyaa', className: 'torbox-source-badge--nyaa' },
+  'animetosho': { label: 'AnimeTosho', className: 'torbox-source-badge--animetosho' },
+  'mangadex': { label: 'MangaDex', className: 'torbox-source-badge--mangadex' },
+  'libgen': { label: 'LibGen', className: 'torbox-source-badge--libgen' },
+  'openlibrary': { label: 'Open Library', className: 'torbox-source-badge--generic' },
+  'toongod': { label: 'ToonGod', className: 'torbox-source-badge--generic' },
+};
+
 interface TorboxHubViewProps {
-  initialTab?: Exclude<TorboxTab, 'search'>;
+  initialTab?: 'discover' | 'books' | 'manga';
 }
 
 const statusLabel: Record<string, string> = {
@@ -41,8 +53,72 @@ const statusLabel: Record<string, string> = {
   failed: 'Failed',
 };
 
+function statusPhaseText(status: TorboxJobStatus): string {
+  switch (status) {
+    case 'queued':
+      return 'Queued in Torbox';
+    case 'verifying':
+      return 'Preparing transfer';
+    case 'downloading':
+      return 'Downloading from Torbox';
+    case 'importing':
+      return 'Cloud complete - downloading to this device and importing';
+    case 'completed':
+      return 'Downloaded and imported to library';
+    case 'failed':
+      return 'Transfer failed';
+    default:
+      return 'Processing';
+  }
+}
+
+function formatEta(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return 'ETA --';
+
+  const rounded = Math.round(seconds);
+  if (rounded < 60) return `ETA ${rounded}s`;
+
+  const minutes = Math.floor(rounded / 60);
+  const secs = rounded % 60;
+  if (minutes < 60) return secs === 0 ? `ETA ${minutes}m` : `ETA ${minutes}m ${secs}s`;
+
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins === 0 ? `ETA ${hours}h` : `ETA ${hours}h ${mins}m`;
+}
+
+function estimateEta(size: number, progressPercent: number, speed: number, status: TorboxJobStatus): string | null {
+  if (status !== 'downloading') return null;
+  if (!Number.isFinite(size) || size <= 0) return null;
+  if (!Number.isFinite(speed) || speed <= 0) return null;
+
+  const clampedProgress = Math.max(0, Math.min(100, progressPercent));
+  if (clampedProgress >= 100) return null;
+
+  const downloadedBytes = size * (clampedProgress / 100);
+  const remainingBytes = Math.max(0, size - downloadedBytes);
+  if (remainingBytes <= 0) return null;
+
+  return formatEta(remainingBytes / speed);
+}
+
+function formatBytes(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let size = value;
+  let unitIndex = 0;
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+
+  const precision = size >= 10 || unitIndex === 0 ? 0 : 1;
+  return `${size.toFixed(precision)} ${units[unitIndex]}`;
+}
+
 const TORBOX_SEARCH_LIMIT = 20;
-const SEARCH_TIMEOUT_MS = 8000;
+const SEARCH_TIMEOUT_MS = 20000;
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -114,39 +190,105 @@ function isHttpLink(link: string): boolean {
   return normalized.startsWith('http://') || normalized.startsWith('https://');
 }
 
-function isTorboxBookLink(link: string): boolean {
+function isTorboxSendableLink(link: string): boolean {
+  // Accept both torrent-style links AND plain HTTP URLs (for web download)
   return isTorboxCompatibleLink(link) || isHttpLink(link);
 }
 
-function parseAnnaCandidate(rawValue: string): { type: string; url: string } | null {
-  const raw = rawValue.trim();
-  if (!raw) return null;
+function detectLinkMethod(link: string): 'magnet' | 'torrent' | 'webdl' {
+  const normalized = link.trim().toLowerCase();
+  if (normalized.startsWith('magnet:')) return 'magnet';
+  if (normalized.includes('.torrent') || normalized.includes('/torrent')) return 'torrent';
+  return 'webdl';
+}
 
-  const splitIndex = raw.indexOf('|');
-  if (splitIndex > 0) {
-    const type = raw.slice(0, splitIndex).trim().toLowerCase();
-    const url = raw.slice(splitIndex + 1).trim();
-    if (url) {
-      return { type, url };
+function getUiErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message.trim()) return error.message;
+  if (typeof error === 'string' && error.trim()) return error;
+  if (error && typeof error === 'object') {
+    const asObj = error as Record<string, unknown>;
+    const maybeMessage = asObj.message;
+    if (typeof maybeMessage === 'string' && maybeMessage.trim()) return maybeMessage;
+    const maybeError = asObj.error;
+    if (typeof maybeError === 'string' && maybeError.trim()) return maybeError;
+    const maybeData = asObj.data;
+    if (maybeData && typeof maybeData === 'object') {
+      const nested = maybeData as Record<string, unknown>;
+      if (typeof nested.message === 'string' && nested.message.trim()) return nested.message;
+      if (typeof nested.error === 'string' && nested.error.trim()) return nested.error;
     }
   }
-
-  return { type: 'unknown', url: raw };
+  return fallback;
 }
 
-function getAnnaCandidatePriority(type: string, url: string): number {
-  if (type === 'anna') return 0;
-  if (type === 'magnet') return 0;
-  if (type === 'torrent') return 1;
-  if (type === 'direct') return 2;
-  if (type === 'external') return 3;
-  if (isTorboxCompatibleLink(url)) return 4;
-  return 5;
+function normalizeKindFromUrl(kind: string, url: string): string {
+  if (kind === 'direct') {
+    const normalized = url.trim().toLowerCase();
+    if (normalized.startsWith('magnet:')) return 'magnet';
+    if (normalized.includes('.torrent') || normalized.includes('/torrent')) return 'torrent';
+  }
+  return kind;
 }
 
-function extractMagnetFromResult(item: PluginSearchResult): string | null {
+function getSourceBadgeInfo(sourceId?: string, fallbackSource?: TorboxResultSource): { label: string; className: string } {
+  if (sourceId && SOURCE_BADGE_MAP[sourceId]) {
+    return SOURCE_BADGE_MAP[sourceId];
+  }
+  if (fallbackSource === 'books') {
+    return SOURCE_BADGE_MAP['anna-archive'];
+  }
+  return { label: fallbackSource === 'manga' ? 'Manga' : 'Unknown', className: 'torbox-source-badge--generic' };
+}
+
+function parseAnnaCandidate(rawValue: string): { kind: string; url: string } | null {
+  const parsed = parsePageUrl(rawValue);
+  if (!parsed.url) return null;
+
+  if (parsed.kind === 'direct' && isTorboxCompatibleLink(parsed.url)) {
+    const normalized = parsed.url.trim().toLowerCase();
+    return {
+      kind: normalized.startsWith('magnet:') ? 'magnet' : 'torrent',
+      url: parsed.url,
+    };
+  }
+
+  if (parsed.kind === 'anna' && parsed.url.toLowerCase().includes('/md5/')) {
+    const md5Index = parsed.url.toLowerCase().indexOf('/md5/');
+    const sliced = parsed.url.slice(md5Index);
+    const hashMatch = sliced.match(/^\/md5\/([a-fA-F0-9]{32})/);
+    if (hashMatch) {
+      return { kind: 'anna', url: `https://annas-archive.org/md5/${hashMatch[1]}` };
+    }
+    return { kind: 'anna', url: 'https://annas-archive.org' + sliced.split('?')[0] };
+  }
+
+  return parsed;
+}
+
+function getAnnaCandidatePriority(kind: string, url: string): number {
+  // 1. Highest priority: Actual torrents/magnets if they miraculously exist 
+  if (kind === 'magnet') return 0;
+  if (kind === 'torrent') return 1;
+  
+  // 2. Medium priority: Anna's Archive detail page (TorBox has a native webDL python scraper exclusively for this)
+  if (kind === 'anna') return 2;
+  
+  // 3. Low priority: External direct mirrors (like libgen direct pdfs)
+  if (kind === 'external') return 3;
+  
+  // 4. Excluded priority: RapidAPI direct HTTP download links 
+  // (TorBox cannot use these because it lacks the 'x-rapidapi-key' headers required!)
+  if (kind === 'direct') return 100;
+  
+  if (isTorboxCompatibleLink(url)) return 5;
+  return 101;
+}
+
+function extractTorboxSourceFromResult(item: PluginSearchResult): { kind: string; url: string } | null {
   const extra = item.extra ?? {};
   const candidates = [
+    extra.magnet_url,
+    extra.torrent_url,
     extra.magnet,
     extra.magnet_link,
     extra.magnetLink,
@@ -158,10 +300,18 @@ function extractMagnetFromResult(item: PluginSearchResult): string | null {
 
   for (const value of candidates) {
     if (typeof value !== 'string') continue;
-    const trimmed = value.trim();
-    if (isTorboxCompatibleLink(trimmed)) {
-      return trimmed;
+    const parsed = parsePageUrl(value);
+    if (!parsed.url) continue;
+
+    if (parsed.kind === 'direct' && isTorboxCompatibleLink(parsed.url)) {
+      const normalized = parsed.url.trim().toLowerCase();
+      return {
+        kind: normalized.startsWith('magnet:') ? 'magnet' : 'torrent',
+        url: parsed.url,
+      };
     }
+
+    return parsed;
   }
 
   return null;
@@ -200,11 +350,98 @@ function TabButton({
   );
 }
 
-function SearchResultSourceBadge({ source }: { source: TorboxResultSource }) {
+function SearchResultSourceBadge({ sourceId, fallbackSource }: { sourceId?: string; fallbackSource: TorboxResultSource }) {
+  const info = getSourceBadgeInfo(sourceId, fallbackSource);
   return (
-    <span className="inline-flex items-center rounded-full border border-border/70 bg-muted/60 px-2 py-0.5 text-[11px] text-muted-foreground">
-      {source === 'books' ? 'Books' : 'Manga'}
+    <span className={`torbox-source-badge ${info.className}`}>
+      {info.label}
     </span>
+  );
+}
+
+function MetadataRow({ item }: { item: TorboxSearchResult }) {
+  const extra = item.extra ?? {};
+  const format = typeof extra.format === 'string' ? extra.format : undefined;
+  const fileSize = typeof extra.file_size === 'string' ? extra.file_size : undefined;
+  const author = typeof extra.author === 'string' ? extra.author : undefined;
+  const seeders = typeof extra.seeders === 'string' || typeof extra.seeders === 'number'
+    ? Number(extra.seeders)
+    : undefined;
+
+  const hasMeta = format || fileSize || author || (seeders !== undefined && !isNaN(seeders));
+  if (!hasMeta) return null;
+
+  const seedPercent = seeders !== undefined && !isNaN(seeders)
+    ? Math.min(100, Math.round((seeders / 100) * 100))
+    : 0;
+
+  return (
+    <div className="torbox-meta-row">
+      {author && <span>{author}</span>}
+      {author && (format || fileSize) && <span className="torbox-meta-dot" />}
+      {format && <span className="torbox-meta-pill torbox-meta-pill--format">{format}</span>}
+      {fileSize && <span className="torbox-meta-pill">{fileSize}</span>}
+      {seeders !== undefined && !isNaN(seeders) && seeders > 0 && (
+        <span className="torbox-seed-bar">
+          <span className="torbox-seed-bar__track">
+            <span className="torbox-seed-bar__fill" style={{ width: `${seedPercent}%` }} />
+          </span>
+          <span className="torbox-seed-bar__label">S: {seeders}</span>
+        </span>
+      )}
+    </div>
+  );
+}
+
+function SendButton({
+  sendState,
+  errorMsg,
+  disabled,
+  onClick,
+  variant,
+  label,
+}: {
+  sendState: SendState;
+  errorMsg?: string;
+  disabled: boolean;
+  onClick: () => void;
+  variant?: 'default' | 'outline';
+  label: string;
+}) {
+  const stateClass =
+    sendState === 'success'
+      ? 'torbox-send-btn torbox-send-btn--success'
+      : sendState === 'failed'
+      ? 'torbox-send-btn torbox-send-btn--failed'
+      : 'torbox-send-btn';
+
+  return (
+    <Button
+      size="sm"
+      className={`gap-1.5 ${stateClass}`}
+      onClick={onClick}
+      disabled={disabled || sendState === 'success'}
+      variant={variant ?? 'default'}
+    >
+      {sendState === 'sending' ? (
+        <>
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          Sending...
+        </>
+      ) : sendState === 'success' ? (
+        <>
+          <CheckCircle2 className="w-3.5 h-3.5" />
+          Added to TorBox
+        </>
+      ) : sendState === 'failed' ? (
+        <>
+          <AlertCircle className="w-3.5 h-3.5" />
+          {errorMsg ? `Failed — ${errorMsg.slice(0, 40)}` : 'Failed — retry'}
+        </>
+      ) : (
+        label
+      )}
+    </Button>
   );
 }
 
@@ -218,9 +455,34 @@ function StatusBadge({ status }: { status: TorboxJobStatus }) {
 }
 
 function ResultCover({ item }: { item: TorboxSearchResult }) {
+  type MangaMetadata = { cover_url_large?: string };
+
   const [hasImageError, setHasImageError] = useState(false);
-  const cover = getResultCover(item);
+  const [asyncCover, setAsyncCover] = useState<string | null>(null);
+  const baseCover = getResultCover(item);
+  const cover = baseCover || asyncCover;
+  
   const SourceIcon = item._source === 'books' ? BookOpen : Activity;
+
+  useEffect(() => {
+    let active = true;
+    if (!baseCover && item._source === 'manga' && item.title) {
+      // 500ms debounce to prevent rate-limiting on quick scrolls
+      const timer = setTimeout(() => {
+        invoke<MangaMetadata[]>('search_manga_metadata', { title: item.title })
+          .then((results) => {
+            if (active && results && results.length > 0 && results[0].cover_url_large) {
+              setAsyncCover(results[0].cover_url_large);
+            }
+          })
+          .catch((err) => console.warn('Failed to fetch anilist cover:', err));
+      }, 500);
+      return () => {
+        active = false;
+        clearTimeout(timer);
+      };
+    }
+  }, [baseCover, item._source, item.title]);
 
   return (
     <div className="torbox-cover-shell">
@@ -252,6 +514,14 @@ function TorboxJobCard({
   onRemove: (id: string) => void;
 }) {
   const progressClass = `torbox-progress-fill torbox-progress--${job.status}`;
+  const clampedProgress = Math.max(0, Math.min(100, job.progress));
+  const eta = estimateEta(Number(job.size || 0), clampedProgress, job.status === 'downloading' ? Number(job.downloadSpeed || 0) : 0, job.status);
+  const localProgress = typeof job.localProgress === 'number' ? Math.max(0, Math.min(100, job.localProgress)) : null;
+  const localDownloaded = typeof job.localDownloadedBytes === 'number' ? job.localDownloadedBytes : null;
+  const localTotal = typeof job.localTotalBytes === 'number' ? job.localTotalBytes : null;
+  const localFileIndex = typeof job.localFileIndex === 'number' ? job.localFileIndex : null;
+  const localFileTotal = typeof job.localFileTotal === 'number' ? job.localFileTotal : null;
+  const localFileName = typeof job.localFileName === 'string' ? job.localFileName : null;
 
   return (
     <div className="torbox-job-card torbox-animate-in p-4" style={{ animationDelay: `${index * 45}ms` }}>
@@ -275,18 +545,37 @@ function TorboxJobCard({
           <Loader2 className="h-4 w-4 animate-spin text-primary" />
         )}
         <StatusBadge status={job.status} />
-        <span className="text-xs text-muted-foreground">{job.progress}%</span>
+        <span className="text-xs text-muted-foreground">{clampedProgress.toFixed(1)}%</span>
       </div>
+
+      <p className="mt-1 text-[11px] text-muted-foreground/90">{statusPhaseText(job.status)}</p>
+      {eta && <p className="mt-0.5 text-[11px] text-muted-foreground/90">{eta}</p>}
 
       <div className="torbox-progress-track mt-3">
         <div
           className={progressClass}
-          style={{ width: `${Math.max(0, Math.min(100, job.progress))}%` }}
+          style={{ width: `${clampedProgress}%` }}
         />
       </div>
 
       <div className="mt-3 space-y-1 text-xs text-muted-foreground">
         {job.torrentId && <p>Torrent ID: {job.torrentId}</p>}
+        {job.status === 'importing' && (
+          <p className="space-y-0.5">
+            <span className="block">
+              Local download:{' '}
+            {localProgress !== null ? `${localProgress.toFixed(1)}%` : 'in progress'}
+            {localDownloaded !== null ? ` (${formatBytes(localDownloaded)}` : ''}
+            {localDownloaded !== null && localTotal !== null ? ` / ${formatBytes(localTotal)})` : localDownloaded !== null ? ')' : ''}
+            </span>
+            {localFileIndex !== null && localFileTotal !== null && localFileTotal > 1 && (
+              <span className="block text-[11px] text-muted-foreground/90">
+                Volume {localFileIndex} of {localFileTotal}
+                {localFileName ? ` - ${localFileName}` : ''}
+              </span>
+            )}
+          </p>
+        )}
         {job.importedPath && <p className="truncate">Imported: {job.importedPath}</p>}
         {job.error && <p className="text-destructive">{job.error}</p>}
       </div>
@@ -303,15 +592,45 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
   const enqueueFromAnna = useTorboxStore((state) => state.enqueueFromAnna);
   const enqueueFromMangadex = useTorboxStore((state) => state.enqueueFromMangadex);
 
-  const [activeTab, setActiveTab] = useState<TorboxTab>(initialTab);
+  const [activeTab, setActiveTab] = useState<TorboxTab>(
+    initialTab === 'books' || initialTab === 'manga' ? initialTab : 'search'
+  );
   const [searchKind, setSearchKind] = useState<SearchKind>('all');
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<TorboxSearchResult[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [partialSearchWarning, setPartialSearchWarning] = useState<string | null>(null);
-  const [queueing, setQueueing] = useState<Record<string, boolean>>({});
+  const [sendStates, setSendStates] = useState<Record<string, { state: SendState; error?: string }>>({});
   const searchQuery = useOnlineSearchStore((state) => state.queries.torbox);
   const setSearchQuery = useOnlineSearchStore((state) => state.setQuery);
+
+  const setSendState = useCallback((itemId: string, state: SendState, error?: string) => {
+    setSendStates((prev) => ({ ...prev, [itemId]: { state, error } }));
+    if (state === 'success') {
+      window.setTimeout(() => {
+        setSendStates((prev) => {
+          const current = prev[itemId];
+          if (current?.state === 'success') {
+            const next = { ...prev };
+            delete next[itemId];
+            return next;
+          }
+          return prev;
+        });
+      }, 3000);
+    }
+  }, []);
+
+  const openInBrowser = useCallback((url: string) => {
+    try {
+      const openedWindow = window.open(url, '_blank', 'noopener,noreferrer');
+      if (!openedWindow) {
+        window.location.assign(url);
+      }
+    } catch {
+      window.location.assign(url);
+    }
+  }, []);
 
   const torboxMangaSource = useMemo(() => {
     const enabledMangaSources = sources.filter((source) => source.kind === 'manga' && source.enabled && source.implemented);
@@ -345,7 +664,7 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
   const mangaSourceHasTorboxLinks = torboxMangaSource?.torboxCompatible === true;
 
   useEffect(() => {
-    setActiveTab(initialTab);
+    setActiveTab(initialTab === 'books' || initialTab === 'manga' ? initialTab : 'search');
   }, [initialTab]);
 
   const bookJobs = useMemo(() => jobs.filter((job) => job.source === 'anna'), [jobs]);
@@ -453,14 +772,14 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
           setPartialSearchWarning('One source failed to search; showing partial results.');
         }
       } else {
-        if (searchKind === 'books') {
+        if (searchKind === 'books' || searchKind === 'comics') {
           const results = await withTimeout(
             pluginApi.searchWithMeta('anna-archive', q, 1, TORBOX_SEARCH_LIMIT),
             SEARCH_TIMEOUT_MS,
-            'Book search'
+            searchKind === 'comics' ? 'Comics search' : 'Book search'
           );
           setSearchResults(results.items.map((item) => ({ ...item, _source: 'books' as const })));
-        } else {
+        } else if (searchKind === 'manga') {
           const candidateIds = torboxCompatibleMangaSourceIds.length > 0
             ? torboxCompatibleMangaSourceIds
             : [mangaSourceHasTorboxLinks ? torboxMangaSource?.id ?? 'mangadex' : 'mangadex'];
@@ -540,65 +859,79 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
   const handleSendBookResult = useCallback(
     async (item: PluginSearchResult) => {
       if (!item.id) return;
-      setQueueing((prev) => ({ ...prev, [item.id]: true }));
+      setSendState(item.id, 'sending');
       setSearchError(null);
       setPartialSearchWarning(null);
 
       try {
-        const candidatePriority = new Map<string, number>();
+        const candidatePriority = new Map<string, { kind: string; priority: number }>();
 
         const addCandidate = (rawCandidate: string, hintedType?: string) => {
           const parsed = parseAnnaCandidate(rawCandidate);
           if (!parsed) return;
 
-          const type = hintedType ?? parsed.type;
+          const kind = normalizeKindFromUrl(hintedType ?? parsed.kind, parsed.url);
           const url = parsed.url;
-          if (!isTorboxBookLink(url)) return;
+          // Accept BOTH torrent-style links AND plain HTTP URLs (for TorBox web download)
+          if (!isTorboxSendableLink(url)) return;
 
-          const priority = getAnnaCandidatePriority(type, url);
+          const priority = getAnnaCandidatePriority(kind, url);
           const existing = candidatePriority.get(url);
-          if (existing === undefined || priority < existing) {
-            candidatePriority.set(url, priority);
+          if (existing === undefined || priority < existing.priority) {
+            candidatePriority.set(url, { kind, priority });
           }
         };
 
         const chapters = await pluginApi.getChapters('anna-archive', item.id);
         if (chapters.length > 0) {
           const pages = await pluginApi.getPages('anna-archive', chapters[0].id);
+          console.log('[TorBox] Anna pages response:', JSON.stringify(pages, null, 2));
           pages.forEach((page) => {
             addCandidate(page.url);
           });
         }
 
+        // Also accept plain HTTP URLs as fallback (web download)
         const fallbackUrl = getResultUrl(item);
-        if (fallbackUrl && isTorboxCompatibleLink(fallbackUrl)) {
-          addCandidate(fallbackUrl, 'torrent');
+        if (fallbackUrl && isTorboxSendableLink(fallbackUrl)) {
+          const hintType = isTorboxCompatibleLink(fallbackUrl) ? 'torrent' : 'direct';
+          addCandidate(fallbackUrl, hintType);
         }
 
         const firstCandidate = Array.from(candidatePriority.entries())
-          .sort((a, b) => a[1] - b[1])
-          .map(([url]) => url)[0];
+          .map(([url, meta]) => ({ url, kind: meta.kind, priority: meta.priority }))
+          .sort((a, b) => a.priority - b.priority)[0];
 
         if (!firstCandidate) {
-          throw new Error('No Torbox-compatible download link available for this result.');
+          throw new Error('No download link found. Verify Anna\'s Archive keys in Settings → Online Sources.');
         }
 
-        await enqueueFromAnna({
-          title: item.title,
-          magnetLink: firstCandidate,
-        });
-        switchTab('books');
+        if (firstCandidate.kind === 'anna' || firstCandidate.kind === 'external') {
+          openInBrowser(firstCandidate.url);
+          setSendState(item.id, 'success');
+        } else if (
+          firstCandidate.kind === 'magnet' ||
+          firstCandidate.kind === 'torrent' ||
+          firstCandidate.kind === 'direct'
+        ) {
+          const method = detectLinkMethod(firstCandidate.url);
+          console.log(`[TorBox] Sending book via ${method}:`, firstCandidate.url.slice(0, 80));
+
+          await enqueueFromAnna({
+            title: item.title,
+            sourceLink: firstCandidate.url,
+          });
+          setSendState(item.id, 'success');
+        } else {
+          throw new Error(`Unsupported source kind '${firstCandidate.kind}' for Torbox send.`);
+        }
       } catch (error) {
-        setSearchError(error instanceof Error ? error.message : 'Failed to send book to Torbox');
-      } finally {
-        setQueueing((prev) => {
-          const next = { ...prev };
-          delete next[item.id];
-          return next;
-        });
+        const msg = getUiErrorMessage(error, 'Failed to send book to Torbox');
+        setSendState(item.id, 'failed', msg);
+        setSearchError(msg);
       }
     },
-    [enqueueFromAnna, switchTab]
+    [enqueueFromAnna, openInBrowser, setSendState]
   );
 
   const handleSendMangaResult = useCallback(
@@ -610,35 +943,46 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
         );
         return;
       }
-      const magnet = extractMagnetFromResult(item);
-      if (!magnet) {
+      const torboxSource = extractTorboxSourceFromResult(item);
+      if (!torboxSource) {
         setSearchError('This manga result does not expose a magnet/torrent link.');
         return;
       }
 
-      setQueueing((prev) => ({ ...prev, [item.id]: true }));
+      const normalizedKind = normalizeKindFromUrl(torboxSource.kind, torboxSource.url);
+
+      setSendState(item.id, 'sending');
       setSearchError(null);
       setPartialSearchWarning(null);
       try {
-        await enqueueFromMangadex({
-          title: item.title,
-          magnetLink: magnet,
-        });
-        switchTab('manga');
+        if (normalizedKind === 'anna' || normalizedKind === 'external') {
+          openInBrowser(torboxSource.url);
+          setSendState(item.id, 'success');
+        } else if (
+          normalizedKind === 'magnet' ||
+          normalizedKind === 'torrent' ||
+          normalizedKind === 'direct'
+        ) {
+          console.log(`[TorBox] Sending manga via ${detectLinkMethod(torboxSource.url)}:`, torboxSource.url.slice(0, 80));
+          await enqueueFromMangadex({
+            title: item.title,
+            sourceLink: torboxSource.url,
+          });
+          setSendState(item.id, 'success');
+        } else {
+          throw new Error(`Unsupported source kind '${normalizedKind}' for Torbox send.`);
+        }
       } catch (error) {
-        setSearchError(error instanceof Error ? error.message : 'Failed to send manga to Torbox');
-      } finally {
-        setQueueing((prev) => {
-          const next = { ...prev };
-          delete next[item.id];
-          return next;
-        });
+        const msg = getUiErrorMessage(error, 'Failed to send manga to Torbox');
+        setSendState(item.id, 'failed', msg);
+        setSearchError(msg);
       }
     },
     [
       enqueueFromMangadex,
       mangaSourceHasTorboxLinks,
-      switchTab,
+      openInBrowser,
+      setSendState,
       torboxMangaSource,
       torboxRecommendedMangaSourceLabel,
     ]
@@ -687,10 +1031,10 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
 
           <div className="torbox-toolbar torbox-mobile-stack flex items-center gap-2 flex-wrap">
             <TabButton
-              label="Discover"
-              icon={Sparkles}
-              active={activeTab === 'discover'}
-              onClick={() => switchTab('discover')}
+              label="Search"
+              icon={Search}
+              active={activeTab === 'search'}
+              onClick={() => switchTab('search')}
             />
             <TabButton
               label="Books Queue"
@@ -705,12 +1049,6 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
               count={mangaJobs.length}
               active={activeTab === 'manga'}
               onClick={() => switchTab('manga')}
-            />
-            <TabButton
-              label="Search"
-              icon={Search}
-              active={activeTab === 'search'}
-              onClick={() => switchTab('search')}
             />
           </div>
 
@@ -750,43 +1088,6 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
 
       <div className="torbox-layer flex-1 overflow-y-auto p-6">
         <div className="max-w-5xl mx-auto space-y-4 torbox-animate-in">
-          {activeTab === 'discover' && (
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="torbox-discover-card p-5">
-                <div className="flex items-center gap-2 text-foreground">
-                  <Compass className="w-4 h-4" />
-                  <h2 className="font-semibold">Books Workflow</h2>
-                </div>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Search Anna results and send torrents/magnets to Torbox, then track progress in Books Queue.
-                </p>
-                <Button variant="outline" size="sm" className="mt-3 gap-1" onClick={() => switchTab('search')}>
-                  Search Books
-                  <ArrowUpRight className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-
-              <div className="torbox-discover-card p-5">
-                <div className="flex items-center gap-2 text-foreground">
-                  <BookOpen className="w-4 h-4" />
-                  <h2 className="font-semibold">Manga Workflow</h2>
-                </div>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Manage manga jobs in one place and inspect status, progress, and imported paths.
-                </p>
-                {!mangaSourceHasTorboxLinks && (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Current manga source is <span className="font-medium">{torboxMangaSource?.name ?? 'unknown'}</span>, which does not expose torrent/magnet links. Switch manga source to <span className="font-medium">{torboxRecommendedMangaSourceLabel}</span> for Torbox queueing.
-                  </p>
-                )}
-                <Button variant="outline" size="sm" className="mt-3 gap-1" onClick={() => switchTab('manga')}>
-                  Open Manga Queue
-                  <ArrowUpRight className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-          )}
-
           {activeTab === 'books' && (
             <>
               {filteredBookJobs.length === 0 && (
@@ -828,7 +1129,7 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
                 />
                 <TabButton
                   icon={BookOpen}
-                  label="Books (Anna)"
+                  label="Books"
                   active={searchKind === 'books'}
                   onClick={() => setSearchKind('books')}
                 />
@@ -837,6 +1138,12 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
                   label="Manga"
                   active={searchKind === 'manga'}
                   onClick={() => setSearchKind('manga')}
+                />
+                <TabButton
+                  icon={BookOpen}
+                  label="Comics"
+                  active={searchKind === 'comics'}
+                  onClick={() => setSearchKind('comics')}
                 />
               </div>
 
@@ -861,9 +1168,12 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
 
               <div className="grid gap-4">
                 {searchResults.map((item, index) => {
-                  const canSendManga = Boolean(extractMagnetFromResult(item));
-                  const queueingItem = queueing[item.id] ?? false;
+                  const canSendManga = Boolean(extractTorboxSourceFromResult(item));
                   const isBookResult = item._source === 'books';
+                  const itemSendState = sendStates[item.id];
+                  const currentSendState: SendState = itemSendState?.state ?? 'idle';
+                  const sendError = itemSendState?.error;
+                  const sourceId = item._sourceId ?? (typeof item.source_id === 'string' ? item.source_id : undefined);
 
                   return (
                     <div
@@ -875,66 +1185,47 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
                         <ResultCover item={item} />
 
                         <div className="min-w-0 flex-1 space-y-2">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="font-semibold text-base line-clamp-2">{item.title}</h3>
-                            <SearchResultSourceBadge source={item._source} />
+                            <SearchResultSourceBadge sourceId={sourceId} fallbackSource={item._source} />
                           </div>
+
+                          <MetadataRow item={item} />
+
                           {(item.summary || item.description) && (
                             <p className="text-sm text-muted-foreground line-clamp-2">{item.summary || item.description}</p>
                           )}
 
-                          {isBookResult ? (
-                            <Button
-                              size="sm"
-                              className="gap-1.5"
-                              onClick={() => {
-                                void handleSendBookResult(item);
-                              }}
-                              disabled={queueingItem}
-                            >
-                              {queueingItem ? (
-                                <>
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  Sending...
-                                </>
-                              ) : (
-                                'Send to Torbox'
-                              )}
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              className="gap-1.5"
-                              onClick={() => {
-                                void handleSendMangaResult(item);
-                              }}
-                              disabled={queueingItem || !canSendManga || !mangaSourceHasTorboxLinks}
-                              variant={canSendManga ? 'default' : 'outline'}
-                            >
-                              {queueingItem ? (
-                                <>
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  Sending...
-                                </>
-                              ) : !mangaSourceHasTorboxLinks ? (
-                                'Enable torrent source'
-                              ) : canSendManga ? (
-                                'Send to Torbox'
-                              ) : (
-                                'No torrent link'
-                              )}
-                            </Button>
-                          )}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {isBookResult ? (
+                              <SendButton
+                                sendState={currentSendState}
+                                errorMsg={sendError}
+                                disabled={false}
+                                onClick={() => { void handleSendBookResult(item); }}
+                                label="Send to TorBox"
+                              />
+                            ) : (
+                              <SendButton
+                                sendState={currentSendState}
+                                errorMsg={sendError}
+                                disabled={!canSendManga || !mangaSourceHasTorboxLinks}
+                                onClick={() => { void handleSendMangaResult(item); }}
+                                variant={canSendManga ? 'default' : 'outline'}
+                                label={!mangaSourceHasTorboxLinks ? 'Enable torrent source' : canSendManga ? 'Send to TorBox' : 'No torrent link'}
+                              />
+                            )}
+
+                            {currentSendState === 'success' && (
+                              <span className="torbox-method-hint">
+                                ✓ Sent via {isBookResult ? 'web download' : 'magnet'}
+                              </span>
+                            )}
+                          </div>
 
                           {!isBookResult && !mangaSourceHasTorboxLinks && (
                             <p className="text-[11px] text-muted-foreground">
                               Active manga source (<span className="font-medium">{torboxMangaSource?.name ?? 'unknown'}</span>) is not Torbox-compatible. Switch to {torboxRecommendedMangaSourceLabel} in source selector.
-                            </p>
-                          )}
-
-                          {isBookResult && !isTorboxCompatibleLink(getResultUrl(item) ?? '') && (
-                            <p className="text-[11px] text-muted-foreground">
-                              This entry may require opening the detail page to locate a download link.
                             </p>
                           )}
                         </div>

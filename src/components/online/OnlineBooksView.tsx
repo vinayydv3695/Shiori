@@ -11,6 +11,7 @@ import { pluginApi, type SearchResult as PluginSearchResult } from '@/lib/plugin
 import { api } from '@/lib/tauri';
 import { ContentCarousel, type CarouselItem } from './ContentCarousel';
 import { useTorboxStore } from '@/stores/useTorboxStore';
+import { parsePageUrl } from '@/lib/utils';
 
 let onlineBooksSearchTimeout: number | undefined;
 
@@ -202,7 +203,7 @@ export function OnlineBooksView() {
     [handleSearch, isOpenLibraryEnabled, isPluginBookSource, lastSearchedQuery, setSearchQuery]
   );
 
-  const openInBrowser = (url: string) => {
+  const openInBrowser = useCallback((url: string) => {
     try {
       const openedWindow = window.open(url, '_blank', 'noopener,noreferrer');
       if (!openedWindow) {
@@ -211,7 +212,7 @@ export function OnlineBooksView() {
     } catch {
       window.location.assign(url);
     }
-  };
+  }, []);
 
   const handleDirectDownload = useCallback(async (book: PluginSearchResult) => {
     if (!book.id) return;
@@ -283,17 +284,25 @@ export function OnlineBooksView() {
       // Get pages for the first chapter (download option)
       const pages = await pluginApi.getPages('anna-archive', chapters[0].id);
       
-      const parseCandidate = (rawValue: string): { type: string; url: string } | null => {
-        const raw = rawValue.trim();
-        if (!raw) return null;
-        const splitIndex = raw.indexOf('|');
-        if (splitIndex > 0) {
-          const type = raw.slice(0, splitIndex).trim().toLowerCase();
-          const url = raw.slice(splitIndex + 1).trim();
-          if (!url) return null;
-          return { type, url };
+      const parseCandidate = (rawValue: string): { kind: string; url: string } | null => {
+        const parsed = parsePageUrl(rawValue);
+        if (!parsed.url) return null;
+
+        if (parsed.kind === 'direct' && isTorrentish(parsed.url)) {
+          const normalized = parsed.url.trim().toLowerCase();
+          return {
+            kind: normalized.startsWith('magnet:') ? 'magnet' : 'torrent',
+            url: parsed.url,
+          };
         }
-        return { type: 'unknown', url: raw };
+
+        if (parsed.kind === 'anna' && parsed.url.toLowerCase().includes('/md5/')) {
+          const md5Index = parsed.url.toLowerCase().indexOf('/md5/');
+          const normalizedUrl = 'https://annas-archive.org' + parsed.url.slice(md5Index);
+          return { kind: 'anna', url: normalizedUrl };
+        }
+
+        return parsed;
       };
 
       const isHttp = (value: string): boolean => {
@@ -306,48 +315,55 @@ export function OnlineBooksView() {
         return normalized.startsWith('magnet:') || normalized.includes('.torrent') || normalized.includes('/torrent');
       };
 
-      const getPriority = (type: string, url: string): number => {
-        if (type === 'anna') return 0;
-        if (type === 'magnet') return 0;
-        if (type === 'torrent') return 1;
-        if (type === 'direct') return 2;
-        if (type === 'external') return 3;
-        if (isTorrentish(url)) return 4;
-        return 5;
+      const getPriority = (kind: string, url: string): number => {
+        if (kind === 'magnet') return 0;
+        if (kind === 'torrent') return 1;
+        if (kind === 'anna') return 2;
+        if (kind === 'external') return 3;
+        if (kind === 'direct') return 100;
+        if (isTorrentish(url)) return 5;
+        return 101;
       };
 
-      const candidatePriority = new Map<string, number>();
+      const candidatePriority = new Map<string, { kind: string; priority: number }>();
 
       pages.forEach((p) => {
         const parsed = parseCandidate(p.url);
         if (!parsed) return;
         if (!isTorrentish(parsed.url) && !isHttp(parsed.url)) return;
-        const priority = getPriority(parsed.type, parsed.url);
+        const priority = getPriority(parsed.kind, parsed.url);
         const existing = candidatePriority.get(parsed.url);
-        if (existing === undefined || priority < existing) {
-          candidatePriority.set(parsed.url, priority);
+        if (existing === undefined || priority < existing.priority) {
+          candidatePriority.set(parsed.url, { kind: parsed.kind, priority });
         }
       });
 
       const candidateLinks = Array.from(candidatePriority.entries())
-        .sort((a, b) => a[1] - b[1])
-        .map(([url]) => url);
+        .map(([url, meta]) => ({ url, kind: meta.kind, priority: meta.priority }))
+        .sort((a, b) => a.priority - b.priority);
 
       if (candidateLinks.length === 0) {
         throw new Error('No compatible download link available for this book. Try opening the detail page manually.');
       }
-      
+
       const firstCandidate = candidateLinks[0];
       if (!firstCandidate) {
         throw new Error('No valid magnet/torrent candidate found.');
       }
 
-      setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Queued in Torbox...' }));
-
-      await enqueueFromAnna({ title: book.title, magnetLink: firstCandidate });
-
-      setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Imported to library!' }));
-      setCurrentView('torbox-books');
+      if (firstCandidate.kind === 'anna' || firstCandidate.kind === 'external') {
+        setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Opening source in browser...' }));
+        openInBrowser(firstCandidate.url);
+      } else if (
+        firstCandidate.kind === 'magnet' ||
+        firstCandidate.kind === 'torrent' ||
+        firstCandidate.kind === 'direct'
+      ) {
+        setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Queued in Torbox...' }));
+        await enqueueFromAnna({ title: book.title, sourceLink: firstCandidate.url });
+        setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Imported to library!' }));
+        setCurrentView('torbox-books');
+      }
       
       // Clear status after 3 seconds
       setTimeout(() => {
@@ -370,7 +386,7 @@ export function OnlineBooksView() {
         });
       }, 5000);
     }
-  }, [enqueueFromAnna, setCurrentView]);
+  }, [enqueueFromAnna, openInBrowser, setCurrentView]);
 
   return (
     <div className="flex flex-col h-full bg-background">

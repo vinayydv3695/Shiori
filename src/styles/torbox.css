@@ -359,3 +359,190 @@
     height: 6.2rem;
   }
 }
+
+/* ── Source Badges ── */
+.torbox-source-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 9999px;
+  padding: 0.15rem 0.52rem;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.torbox-source-badge--anna {
+  border-color: hsl(270 60% 60% / 0.35);
+  background: hsl(270 60% 60% / 0.12);
+  color: hsl(270 55% 55%);
+}
+
+[data-theme="black"] .torbox-source-badge--anna {
+  border-color: hsl(270 60% 70% / 0.35);
+  background: hsl(270 60% 70% / 0.14);
+  color: hsl(270 60% 72%);
+}
+
+.torbox-source-badge--nyaa {
+  border-color: hsl(210 80% 55% / 0.35);
+  background: hsl(210 80% 55% / 0.12);
+  color: hsl(210 75% 50%);
+}
+
+[data-theme="black"] .torbox-source-badge--nyaa {
+  border-color: hsl(210 80% 65% / 0.35);
+  background: hsl(210 80% 65% / 0.14);
+  color: hsl(210 80% 68%);
+}
+
+.torbox-source-badge--animetosho {
+  border-color: hsl(175 65% 42% / 0.35);
+  background: hsl(175 65% 42% / 0.12);
+  color: hsl(175 60% 38%);
+}
+
+[data-theme="black"] .torbox-source-badge--animetosho {
+  border-color: hsl(175 65% 55% / 0.35);
+  background: hsl(175 65% 55% / 0.14);
+  color: hsl(175 65% 58%);
+}
+
+.torbox-source-badge--mangadex {
+  border-color: hsl(25 85% 52% / 0.35);
+  background: hsl(25 85% 52% / 0.12);
+  color: hsl(25 80% 48%);
+}
+
+[data-theme="black"] .torbox-source-badge--mangadex {
+  border-color: hsl(25 85% 62% / 0.35);
+  background: hsl(25 85% 62% / 0.14);
+  color: hsl(25 85% 65%);
+}
+
+.torbox-source-badge--libgen {
+  border-color: hsl(140 55% 42% / 0.35);
+  background: hsl(140 55% 42% / 0.12);
+  color: hsl(140 50% 38%);
+}
+
+[data-theme="black"] .torbox-source-badge--libgen {
+  border-color: hsl(140 55% 55% / 0.35);
+  background: hsl(140 55% 55% / 0.14);
+  color: hsl(140 55% 58%);
+}
+
+.torbox-source-badge--generic {
+  border-color: hsl(var(--border) / 0.7);
+  background: hsl(var(--muted) / 0.6);
+  color: hsl(var(--muted-foreground));
+}
+
+/* ── Send Button States ── */
+.torbox-send-btn {
+  position: relative;
+  transition: all 0.28s ease;
+}
+
+.torbox-send-btn--success {
+  background: hsl(var(--torbox-success)) !important;
+  border-color: hsl(var(--torbox-success)) !important;
+  color: white !important;
+  animation: torbox-pulse-success 0.45s ease;
+}
+
+.torbox-send-btn--failed {
+  background: hsl(var(--torbox-danger) / 0.12) !important;
+  border-color: hsl(var(--torbox-danger) / 0.4) !important;
+  color: hsl(var(--torbox-danger)) !important;
+}
+
+@keyframes torbox-pulse-success {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+
+/* ── Metadata Row ── */
+.torbox-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 11.5px;
+  color: hsl(var(--muted-foreground));
+}
+
+.torbox-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  border-radius: 0.4rem;
+  border: 1px solid hsl(var(--border) / 0.65);
+  background: hsl(var(--muted) / 0.5);
+  padding: 0.1rem 0.4rem;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.torbox-meta-pill--format {
+  border-color: hsl(var(--torbox-accent) / 0.3);
+  background: hsl(var(--torbox-accent-soft) / 0.5);
+  color: hsl(var(--torbox-accent));
+}
+
+.torbox-meta-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: hsl(var(--muted-foreground) / 0.45);
+  flex-shrink: 0;
+}
+
+/* ── Seed Count Bar ── */
+.torbox-seed-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 11px;
+}
+
+.torbox-seed-bar__track {
+  width: 3.2rem;
+  height: 0.3rem;
+  border-radius: 9999px;
+  background: hsl(var(--muted) / 0.8);
+  overflow: hidden;
+}
+
+.torbox-seed-bar__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, hsl(var(--torbox-success) / 0.65), hsl(var(--torbox-success)));
+  transition: width 0.3s ease;
+}
+
+.torbox-seed-bar__label {
+  color: hsl(var(--torbox-success));
+  font-weight: 600;
+}
+
+/* ── Download Method Hint ── */
+.torbox-method-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 10.5px;
+  color: hsl(var(--muted-foreground));
+  font-style: italic;
+}
+
+.torbox-method-hint--webdl {
+  color: hsl(var(--torbox-warning));
+}
+

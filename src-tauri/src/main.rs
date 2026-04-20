@@ -85,6 +85,18 @@ fn main() {
             registry.register(Arc::new(sources::toongod::ToonGodSource::new()?));
             registry.register(Arc::new(sources::nyaa::NyaaSource::new()?));
             registry.register(Arc::new(sources::animetosho::AnimeToshoSource::new()?));
+            let bitsearch_source = Arc::new(sources::bitsearch::BitsearchSource::new()?);
+            tauri::async_runtime::block_on(bitsearch_source.load_config_from_store(&app.handle().clone()))?;
+            registry.register(bitsearch_source);
+            let x1337_source = Arc::new(sources::x1337::X1337Source::new()?);
+            tauri::async_runtime::block_on(x1337_source.load_config_from_store(&app.handle().clone()))?;
+            registry.register(x1337_source);
+            let tpb_api_source = Arc::new(sources::tpb_api::TpbApiSource::new()?);
+            tauri::async_runtime::block_on(tpb_api_source.load_config_from_store(&app.handle().clone()))?;
+            registry.register(tpb_api_source);
+            let rutracker_source = Arc::new(sources::rutracker::RutrackerSource::new()?);
+            tauri::async_runtime::block_on(rutracker_source.load_config_from_store(&app.handle().clone()))?;
+            registry.register(rutracker_source);
             let anna_source = Arc::new(sources::annas_archive::AnnasArchiveSource::new()?);
             tauri::async_runtime::block_on(anna_source.load_config_from_store(&app.handle().clone()))?;
             registry.register(anna_source);
@@ -375,6 +387,10 @@ fn main() {
             commands::sources::set_source_config,
             commands::sources::anna_archive_get_config,
             commands::sources::anna_archive_set_config,
+            commands::sources::torrent_network_get_config,
+            commands::sources::torrent_network_set_config,
+            commands::sources::rutracker_get_config,
+            commands::sources::rutracker_set_config,
             commands::sources::annas_archive_download,
             commands::sources::proxy_manga_image,
             commands::debrid::debrid_resolve_and_import,

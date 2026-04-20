@@ -17,7 +17,7 @@ export interface SourceConfig {
   website?: string;
 }
 
-const SOURCE_STORE_VERSION = 4;
+const SOURCE_STORE_VERSION = 5;
 
 const MANDATORY_SOURCE_IDS = new Set(['mangadex', 'anna-archive']);
 
@@ -69,6 +69,50 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     implemented: true,
     torboxCompatible: true,
     website: 'https://animetosho.org',
+  },
+  {
+    id: 'rutracker',
+    name: 'RuTracker (Direct)',
+    kind: 'books',
+    enabled: true,
+    description: 'Direct torrent search via RuTracker. Works without cookie when anonymous search is available; optional cookie improves access.',
+    status: 'active',
+    implemented: true,
+    torboxCompatible: true,
+    website: 'https://rutracker.org',
+  },
+  {
+    id: 'bitsearch',
+    name: 'Bitsearch (Torrents)',
+    kind: 'books',
+    enabled: true,
+    description: 'Anonymous torrent index with magnet-first links for Torbox Add to Cloud.',
+    status: 'active',
+    implemented: true,
+    torboxCompatible: true,
+    website: 'https://bitsearch.to',
+  },
+  {
+    id: 'x1337',
+    name: '1337x (Torrents)',
+    kind: 'books',
+    enabled: true,
+    description: 'Anonymous torrent index used for fallback mirrors when other sources have no links.',
+    status: 'active',
+    implemented: true,
+    torboxCompatible: true,
+    website: 'https://1337x.to',
+  },
+  {
+    id: 'tpb-api',
+    name: 'TPB API (Torrents)',
+    kind: 'books',
+    enabled: true,
+    description: 'Anonymous API fallback that returns info-hash results for magnet and torrent generation.',
+    status: 'active',
+    implemented: true,
+    torboxCompatible: true,
+    website: 'https://apibay.org',
   },
   {
     id: 'openlibrary',

@@ -25,6 +25,8 @@ import { useSourceStore } from '../../store/sourceStore'
 import { SourceManager } from './SourceManager'
 import { TorboxSettings } from './TorboxSettings'
 import { AnnaArchiveSettings } from './AnnaArchiveSettings'
+import { RuTrackerSettings } from './RuTrackerSettings'
+import { TorrentNetworkSettings } from './TorrentNetworkSettings'
 import { READING_FONTS, normalizeLegacyFontPreference, resolveReadingFontCss } from '@/lib/readingFonts'
 
 interface SettingsDialogProps {
@@ -786,6 +788,14 @@ const GeneralSettings = ({
           <div>
             <h4 className="text-sm font-semibold mb-2">Anna Archive</h4>
             <AnnaArchiveSettings />
+          </div>
+          <div>
+            <h4 className="text-sm font-semibold mb-2">RuTracker</h4>
+            <RuTrackerSettings />
+          </div>
+          <div>
+            <h4 className="text-sm font-semibold mb-2">Torrent Network</h4>
+            <TorrentNetworkSettings />
           </div>
           <div>
             <h4 className="text-sm font-semibold mb-2">Torbox</h4>

@@ -11,6 +11,15 @@ import { pluginApi, type SearchResult as PluginSearchResult } from '@/lib/plugin
 import { api } from '@/lib/tauri';
 import { ContentCarousel, type CarouselItem } from './ContentCarousel';
 import { useTorboxStore } from '@/stores/useTorboxStore';
+import { parsePageUrl } from '@/lib/utils';
+
+type AnnaCandidate = {
+  url: string;
+  kind: 'magnet' | 'torrent' | 'direct' | 'anna' | 'external';
+  priority: number;
+  source: string;
+  label?: string;
+};
 
 let onlineBooksSearchTimeout: number | undefined;
 
@@ -202,7 +211,7 @@ export function OnlineBooksView() {
     [handleSearch, isOpenLibraryEnabled, isPluginBookSource, lastSearchedQuery, setSearchQuery]
   );
 
-  const openInBrowser = (url: string) => {
+  const openInBrowser = useCallback((url: string) => {
     try {
       const openedWindow = window.open(url, '_blank', 'noopener,noreferrer');
       if (!openedWindow) {
@@ -211,7 +220,7 @@ export function OnlineBooksView() {
     } catch {
       window.location.assign(url);
     }
-  };
+  }, []);
 
   const handleDirectDownload = useCallback(async (book: PluginSearchResult) => {
     if (!book.id) return;
@@ -252,9 +261,6 @@ export function OnlineBooksView() {
   const annaAccountHint = useMemo(() => {
     if (!pluginError) return null;
     const lower = pluginError.toLowerCase();
-    if (lower.includes('rapidapi')) {
-      return 'Anna RapidAPI request failed. Verify the API key in Settings -> Online Sources -> Anna API Key.';
-    }
     const mentionsAccess =
       lower.includes('account') ||
       lower.includes('members') ||
@@ -264,7 +270,7 @@ export function OnlineBooksView() {
       lower.includes('login');
 
     if (!mentionsAccess) return null;
-    return 'Anna account access may be required for this title. In Settings -> Online Sources -> Anna, set Auth Cookie (and Auth Key/API key if available).';
+    return 'Anna access may be required for this title. Try RuTracker mirrors or another source in Torbox Hub.';
   }, [pluginError]);
 
   const handleTorboxDownload = useCallback(async (book: PluginSearchResult) => {
@@ -283,22 +289,25 @@ export function OnlineBooksView() {
       // Get pages for the first chapter (download option)
       const pages = await pluginApi.getPages('anna-archive', chapters[0].id);
       
-      const parseCandidate = (rawValue: string): { type: string; url: string } | null => {
-        const raw = rawValue.trim();
-        if (!raw) return null;
-        const splitIndex = raw.indexOf('|');
-        if (splitIndex > 0) {
-          const type = raw.slice(0, splitIndex).trim().toLowerCase();
-          const url = raw.slice(splitIndex + 1).trim();
-          if (!url) return null;
-          return { type, url };
-        }
-        return { type: 'unknown', url: raw };
-      };
+      const parseCandidate = (rawValue: string): { kind: string; url: string } | null => {
+        const parsed = parsePageUrl(rawValue);
+        if (!parsed.url) return null;
 
-      const isHttp = (value: string): boolean => {
-        const normalized = value.trim().toLowerCase();
-        return normalized.startsWith('http://') || normalized.startsWith('https://');
+        if (parsed.kind === 'direct' && isTorrentish(parsed.url)) {
+          const normalized = parsed.url.trim().toLowerCase();
+          return {
+            kind: normalized.startsWith('magnet:') ? 'magnet' : 'torrent',
+            url: parsed.url,
+          };
+        }
+
+        if (parsed.kind === 'anna' && parsed.url.toLowerCase().includes('/md5/')) {
+          const md5Index = parsed.url.toLowerCase().indexOf('/md5/');
+          const normalizedUrl = 'https://annas-archive.org' + parsed.url.slice(md5Index);
+          return { kind: 'anna', url: normalizedUrl };
+        }
+
+        return parsed;
       };
 
       const isTorrentish = (value: string): boolean => {
@@ -306,46 +315,108 @@ export function OnlineBooksView() {
         return normalized.startsWith('magnet:') || normalized.includes('.torrent') || normalized.includes('/torrent');
       };
 
-      const getPriority = (type: string, url: string): number => {
-        if (type === 'anna') return 0;
-        if (type === 'magnet') return 0;
-        if (type === 'torrent') return 1;
-        if (type === 'direct') return 2;
-        if (type === 'external') return 3;
-        if (isTorrentish(url)) return 4;
-        return 5;
+      const getPriority = (kind: string, url: string): number => {
+        if (kind === 'magnet') return 0;
+        if (kind === 'torrent') return 1;
+        if (kind === 'anna') return 2;
+        if (kind === 'external') return 3;
+        if (kind === 'direct') return 100;
+        if (isTorrentish(url)) return 5;
+        return 101;
       };
 
-      const candidatePriority = new Map<string, number>();
+      const candidatePriority = new Map<string, { kind: string; priority: number }>();
+
+      const extractMagnetOrTorrentLinks = (value: unknown): string[] => {
+        if (typeof value !== 'string') return [];
+        const matches = value.match(/magnet:\?[^\s"'<>]+|https?:\/\/[^\s"'<>]+(?:\.torrent[^\s"'<>]*)?/gi);
+        if (!matches) return [];
+        return matches.map((entry) => entry.trim());
+      };
 
       pages.forEach((p) => {
         const parsed = parseCandidate(p.url);
         if (!parsed) return;
-        if (!isTorrentish(parsed.url) && !isHttp(parsed.url)) return;
-        const priority = getPriority(parsed.type, parsed.url);
+        if (!isTorrentish(parsed.url)) return;
+        const priority = getPriority(parsed.kind, parsed.url);
         const existing = candidatePriority.get(parsed.url);
-        if (existing === undefined || priority < existing) {
-          candidatePriority.set(parsed.url, priority);
+        if (existing === undefined || priority < existing.priority) {
+          candidatePriority.set(parsed.url, { kind: parsed.kind, priority });
         }
       });
 
-      const candidateLinks = Array.from(candidatePriority.entries())
-        .sort((a, b) => a[1] - b[1])
-        .map(([url]) => url);
+      const extra = book.extra ?? {};
+      const extraKeys = [
+        'magnet',
+        'magnet_link',
+        'magnetLink',
+        'magnet_url',
+        'torrent',
+        'torrent_link',
+        'torrentLink',
+        'torrent_url',
+        'links',
+      ];
 
-      if (candidateLinks.length === 0) {
+      extraKeys.forEach((key) => {
+        const value = extra[key as keyof typeof extra];
+        const entries = Array.isArray(value) ? value : [value];
+
+        entries.forEach((entry) => {
+          if (typeof entry === 'string') {
+            const parsed = parseCandidate(entry);
+            if (parsed && isTorrentish(parsed.url)) {
+              const priority = getPriority(parsed.kind, parsed.url);
+              const existing = candidatePriority.get(parsed.url);
+              if (existing === undefined || priority < existing.priority) {
+                candidatePriority.set(parsed.url, { kind: parsed.kind, priority });
+              }
+            }
+
+            extractMagnetOrTorrentLinks(entry).forEach((extracted) => {
+              const parsedExtracted = parseCandidate(extracted);
+              if (!parsedExtracted || !isTorrentish(parsedExtracted.url)) return;
+              const priority = getPriority(parsedExtracted.kind, parsedExtracted.url);
+              const existing = candidatePriority.get(parsedExtracted.url);
+              if (existing === undefined || priority < existing.priority) {
+                candidatePriority.set(parsedExtracted.url, { kind: parsedExtracted.kind, priority });
+              }
+            });
+          }
+        });
+      });
+
+      const candidateLinks = Array.from(candidatePriority.entries())
+        .map(([url, meta]) => ({ url, kind: meta.kind, priority: meta.priority }))
+        .sort((a, b) => a.priority - b.priority);
+
+      const normalizedCandidates: AnnaCandidate[] = candidateLinks.map((candidate) => ({
+        url: candidate.url,
+        kind:
+          candidate.kind === 'magnet' ||
+          candidate.kind === 'torrent' ||
+          candidate.kind === 'direct' ||
+          candidate.kind === 'anna' ||
+          candidate.kind === 'external'
+            ? candidate.kind
+            : 'external',
+        priority: candidate.priority,
+        source: candidate.kind === 'anna' ? 'anna-md5' : 'source-page',
+      }));
+
+      const torboxCandidates = normalizedCandidates.filter(
+        (candidate) => candidate.kind === 'magnet' || candidate.kind === 'torrent',
+      );
+
+      if (torboxCandidates.length === 0) {
         throw new Error('No compatible download link available for this book. Try opening the detail page manually.');
-      }
-      
-      const firstCandidate = candidateLinks[0];
-      if (!firstCandidate) {
-        throw new Error('No valid magnet/torrent candidate found.');
       }
 
       setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Queued in Torbox...' }));
-
-      await enqueueFromAnna({ title: book.title, magnetLink: firstCandidate });
-
+      await enqueueFromAnna({
+        title: book.title,
+        sourceLinks: torboxCandidates,
+      });
       setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Imported to library!' }));
       setCurrentView('torbox-books');
       
@@ -360,7 +431,11 @@ export function OnlineBooksView() {
       
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Download failed';
-      setDownloadingBooks(prev => ({ ...prev, [book.id]: `Error: ${message}` }));
+      if (message.toLowerCase().includes('no compatible download link')) {
+        setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Error: No magnet/torrent link found for this title' }));
+      } else {
+        setDownloadingBooks(prev => ({ ...prev, [book.id]: `Error: ${message}` }));
+      }
       
       setTimeout(() => {
         setDownloadingBooks(prev => {

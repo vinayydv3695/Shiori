@@ -284,6 +284,20 @@
   box-shadow: 0 16px 30px -20px hsl(var(--torbox-glow) / 0.28);
 }
 
+.torbox-result-card--book {
+  cursor: pointer;
+}
+
+button.torbox-result-card--book {
+  border: 1px solid hsl(var(--border) / 0.72);
+  background: linear-gradient(160deg, hsl(var(--card) / 0.92), hsl(var(--card) / 0.76));
+}
+
+button.torbox-result-card--book:focus-visible {
+  outline: 2px solid hsl(var(--torbox-accent));
+  outline-offset: 2px;
+}
+
 .torbox-animate-in {
   animation: torbox-rise 0.32s ease both;
 }
@@ -357,5 +371,428 @@
   .torbox-cover-shell {
     width: 4.4rem;
     height: 6.2rem;
+  }
+}
+
+/* ── Source Badges ── */
+.torbox-source-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 9999px;
+  padding: 0.15rem 0.52rem;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.torbox-source-badge--anna {
+  border-color: hsl(270 60% 60% / 0.35);
+  background: hsl(270 60% 60% / 0.12);
+  color: hsl(270 55% 55%);
+}
+
+[data-theme="black"] .torbox-source-badge--anna {
+  border-color: hsl(270 60% 70% / 0.35);
+  background: hsl(270 60% 70% / 0.14);
+  color: hsl(270 60% 72%);
+}
+
+.torbox-source-badge--nyaa {
+  border-color: hsl(210 80% 55% / 0.35);
+  background: hsl(210 80% 55% / 0.12);
+  color: hsl(210 75% 50%);
+}
+
+[data-theme="black"] .torbox-source-badge--nyaa {
+  border-color: hsl(210 80% 65% / 0.35);
+  background: hsl(210 80% 65% / 0.14);
+  color: hsl(210 80% 68%);
+}
+
+.torbox-source-badge--animetosho {
+  border-color: hsl(175 65% 42% / 0.35);
+  background: hsl(175 65% 42% / 0.12);
+  color: hsl(175 60% 38%);
+}
+
+[data-theme="black"] .torbox-source-badge--animetosho {
+  border-color: hsl(175 65% 55% / 0.35);
+  background: hsl(175 65% 55% / 0.14);
+  color: hsl(175 65% 58%);
+}
+
+.torbox-source-badge--mangadex {
+  border-color: hsl(25 85% 52% / 0.35);
+  background: hsl(25 85% 52% / 0.12);
+  color: hsl(25 80% 48%);
+}
+
+[data-theme="black"] .torbox-source-badge--mangadex {
+  border-color: hsl(25 85% 62% / 0.35);
+  background: hsl(25 85% 62% / 0.14);
+  color: hsl(25 85% 65%);
+}
+
+.torbox-source-badge--libgen {
+  border-color: hsl(140 55% 42% / 0.35);
+  background: hsl(140 55% 42% / 0.12);
+  color: hsl(140 50% 38%);
+}
+
+[data-theme="black"] .torbox-source-badge--libgen {
+  border-color: hsl(140 55% 55% / 0.35);
+  background: hsl(140 55% 55% / 0.14);
+  color: hsl(140 55% 58%);
+}
+
+.torbox-source-badge--generic {
+  border-color: hsl(var(--border) / 0.7);
+  background: hsl(var(--muted) / 0.6);
+  color: hsl(var(--muted-foreground));
+}
+
+.torbox-source-badge--rutracker {
+  border-color: hsl(38 90% 52% / 0.45);
+  background: hsl(38 90% 52% / 0.14);
+  color: hsl(35 88% 52%);
+}
+
+[data-theme="black"] .torbox-source-badge--rutracker {
+  border-color: hsl(38 90% 62% / 0.45);
+  background: hsl(38 90% 62% / 0.16);
+  color: hsl(38 90% 66%);
+}
+
+/* ── Send Button States ── */
+.torbox-send-btn {
+  position: relative;
+  transition: all 0.28s ease;
+}
+
+.torbox-send-btn--success {
+  background: hsl(var(--torbox-success)) !important;
+  border-color: hsl(var(--torbox-success)) !important;
+  color: white !important;
+  animation: torbox-pulse-success 0.45s ease;
+}
+
+.torbox-send-btn--failed {
+  background: hsl(var(--torbox-danger) / 0.12) !important;
+  border-color: hsl(var(--torbox-danger) / 0.4) !important;
+  color: hsl(var(--torbox-danger)) !important;
+}
+
+@keyframes torbox-pulse-success {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+
+/* ── Metadata Row ── */
+.torbox-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 11.5px;
+  color: hsl(var(--muted-foreground));
+}
+
+.torbox-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  border-radius: 0.4rem;
+  border: 1px solid hsl(var(--border) / 0.65);
+  background: hsl(var(--muted) / 0.5);
+  padding: 0.1rem 0.4rem;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.torbox-meta-pill--format {
+  border-color: hsl(var(--torbox-accent) / 0.3);
+  background: hsl(var(--torbox-accent-soft) / 0.5);
+  color: hsl(var(--torbox-accent));
+}
+
+.torbox-meta-pill--best {
+  border-color: hsl(38 90% 55% / 0.48);
+  background: hsl(38 90% 55% / 0.14);
+  color: hsl(35 88% 50%);
+}
+
+[data-theme="black"] .torbox-meta-pill--best {
+  border-color: hsl(38 90% 64% / 0.46);
+  background: hsl(38 90% 64% / 0.16);
+  color: hsl(38 90% 68%);
+}
+
+.torbox-meta-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: hsl(var(--muted-foreground) / 0.45);
+  flex-shrink: 0;
+}
+
+/* ── Seed Count Bar ── */
+.torbox-seed-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 11px;
+}
+
+.torbox-seed-bar__track {
+  width: 3.2rem;
+  height: 0.3rem;
+  border-radius: 9999px;
+  background: hsl(var(--muted) / 0.8);
+  overflow: hidden;
+}
+
+.torbox-seed-bar__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, hsl(var(--torbox-success) / 0.65), hsl(var(--torbox-success)));
+  transition: width 0.3s ease;
+}
+
+.torbox-seed-bar__label {
+  color: hsl(var(--torbox-success));
+  font-weight: 600;
+}
+
+/* ── Download Method Hint ── */
+.torbox-method-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 10.5px;
+  color: hsl(var(--muted-foreground));
+  font-style: italic;
+}
+
+.torbox-method-hint--webdl {
+  color: hsl(var(--torbox-warning));
+}
+
+.torbox-mirrors-header {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 12;
+  border-bottom: 1px solid hsl(var(--border) / 0.65);
+  background: linear-gradient(180deg, hsl(var(--background) / 0.95), hsl(var(--background) / 0.88));
+  backdrop-filter: blur(8px);
+}
+
+.torbox-mirrors-inner {
+  width: min(100%, 72rem);
+  margin-inline: auto;
+  padding-inline: 1rem;
+}
+
+.torbox-mirrors-header__inner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  padding-bottom: 0.9rem;
+}
+
+.torbox-mirrors-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.torbox-mirrors-list__inner {
+  display: grid;
+  gap: 0.65rem;
+  padding-top: 0.8rem;
+  padding-bottom: 5.8rem;
+}
+
+.torbox-mirror-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.85rem;
+  border-radius: 0.75rem;
+  border: 1px solid hsl(var(--border) / 0.7);
+  background: hsl(var(--muted) / 0.25);
+  padding: 0.75rem 0.85rem;
+  transition: background-color 0.22s ease, border-color 0.22s ease, transform 0.22s ease;
+}
+
+.torbox-mirror-row:hover {
+  background: hsl(var(--muted) / 0.38);
+  border-color: hsl(var(--torbox-accent) / 0.28);
+  transform: translateX(1px);
+}
+
+.torbox-mirror-row--featured {
+  border-color: hsl(38 90% 56% / 0.55);
+  background:
+    linear-gradient(120deg, hsl(38 90% 56% / 0.08), transparent 35%),
+    hsl(var(--muted) / 0.34);
+  box-shadow: inset 0 0 0 1px hsl(38 90% 56% / 0.18);
+}
+
+[data-theme="black"] .torbox-mirror-row--featured {
+  border-color: hsl(38 90% 64% / 0.58);
+  background:
+    linear-gradient(120deg, hsl(38 90% 64% / 0.11), transparent 35%),
+    hsl(var(--muted) / 0.34);
+  box-shadow: inset 0 0 0 1px hsl(38 90% 64% / 0.24);
+}
+
+.torbox-mirror-actions {
+  align-self: center;
+}
+
+.torbox-add-cloud-btn {
+  background: linear-gradient(135deg, hsl(var(--torbox-accent)), hsl(var(--torbox-accent) / 0.82));
+  border: 1px solid hsl(var(--torbox-accent) / 0.55);
+  color: hsl(var(--primary-foreground));
+}
+
+.torbox-add-cloud-btn:hover {
+  filter: brightness(1.04);
+}
+
+.torbox-add-cloud-btn:disabled {
+  opacity: 0.85;
+}
+
+.torbox-mirrors-help {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  backdrop-filter: blur(8px);
+}
+
+.torbox-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid hsl(var(--border) / 0.7);
+  border-radius: 999px;
+  padding: 0.25rem 0.6rem;
+  font-size: 11px;
+  font-weight: 600;
+  background: hsl(var(--muted) / 0.32);
+  color: hsl(var(--muted-foreground));
+  transition: all 0.18s ease;
+}
+
+.torbox-filter-chip:hover {
+  border-color: hsl(var(--torbox-accent) / 0.36);
+  color: hsl(var(--foreground));
+}
+
+.torbox-filter-chip--active {
+  border-color: hsl(var(--torbox-accent) / 0.6);
+  background: hsl(var(--torbox-accent-soft) / 0.55);
+  color: hsl(var(--torbox-accent));
+}
+
+.torbox-filter-chip--warning {
+  border-color: hsl(35 86% 52% / 0.45);
+  background: hsl(35 86% 52% / 0.12);
+}
+
+.torbox-filter-chip--timeout {
+  border-color: hsl(18 86% 54% / 0.5);
+  background: hsl(18 86% 54% / 0.14);
+}
+
+.torbox-filter-chip--blocked {
+  border-color: hsl(0 76% 54% / 0.5);
+  background: hsl(0 76% 54% / 0.14);
+}
+
+.torbox-filter-chip__count {
+  border-radius: 999px;
+  background: hsl(var(--card) / 0.65);
+  border: 1px solid hsl(var(--border) / 0.65);
+  font-size: 10px;
+  min-width: 1.15rem;
+  text-align: center;
+  padding: 0 0.26rem;
+}
+
+.torbox-mirrors-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  padding: 0;
+  border-top: 1px solid hsl(var(--border) / 0.7);
+  background: linear-gradient(180deg, hsl(var(--background) / 0.85), hsl(var(--background) / 0.96));
+  backdrop-filter: blur(10px);
+}
+
+.torbox-mirrors-footer__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 0.65rem;
+  padding-bottom: 0.75rem;
+}
+
+@media (max-width: 768px) {
+  .torbox-mirrors-header__inner {
+    padding-top: 0.8rem;
+    padding-bottom: 0.75rem;
+  }
+
+  .torbox-mirrors-list__inner {
+    padding-top: 0.65rem;
+    padding-bottom: 6.2rem;
+  }
+
+  .torbox-mirror-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    gap: 0.5rem;
+    padding: 0.65rem;
+  }
+
+  .torbox-mirror-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .torbox-mirrors-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .torbox-mirrors-footer__inner > div {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 1024px) {
+  .torbox-mirrors-inner {
+    padding-inline: 1.5rem;
+  }
+
+  .torbox-mirror-row {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 }

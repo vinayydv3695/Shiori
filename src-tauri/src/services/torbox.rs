@@ -207,6 +207,37 @@ fn extract_webdl_entry(payload: &Value, web_id: i64) -> Option<Value> {
     None
 }
 
+fn extract_created_target_id(payload: &Value) -> Option<i64> {
+    payload
+        .get("data")
+        .and_then(|data| {
+            data.get("torrent_id")
+                .or_else(|| data.get("id"))
+                .or_else(|| data.get("web_id"))
+                .or_else(|| data.get("download_id"))
+                .and_then(value_to_i64)
+                .or_else(|| {
+                    data.as_array().and_then(|items| {
+                        items.iter().find_map(|item| {
+                            item.get("torrent_id")
+                                .or_else(|| item.get("id"))
+                                .or_else(|| item.get("web_id"))
+                                .or_else(|| item.get("download_id"))
+                                .and_then(value_to_i64)
+                        })
+                    })
+                })
+                .or_else(|| value_to_i64(data))
+        })
+        .or_else(|| {
+            payload
+                .get("torrent_id")
+                .or_else(|| payload.get("id"))
+                .or_else(|| payload.get("web_id"))
+                .and_then(value_to_i64)
+        })
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TorboxConfig {
     pub api_key: Option<String>,
@@ -238,11 +269,6 @@ struct TorboxResponse<T> {
     data: Option<T>,
     detail: Option<String>,
     error: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct CreateTorrentData {
-    torrent_id: i64,
 }
 
 #[derive(Debug)]
@@ -380,6 +406,142 @@ impl TorboxService {
         format!("Bearer {}", key)
     }
 
+    fn resolve_redirect_url(current_url: &str, location: &str) -> Result<String> {
+        if location.trim().is_empty() {
+            return Err(ShioriError::Other(
+                "Torrent URL redirected without a Location header".to_string(),
+            ));
+        }
+
+        if location.starts_with("magnet:") {
+            return Ok(location.to_string());
+        }
+
+        let current = reqwest::Url::parse(current_url).map_err(|e| {
+            ShioriError::Other(format!("Failed to parse torrent redirect source URL: {}", e))
+        })?;
+
+        current
+            .join(location)
+            .map(|url| url.to_string())
+            .map_err(|e| ShioriError::Other(format!("Failed to resolve torrent redirect URL: {}", e)))
+    }
+
+    async fn resolve_torrent_input(
+        &self,
+        initial_link: &str,
+    ) -> Result<(Option<String>, Option<(Vec<u8>, String)>)> {
+        if initial_link.starts_with("magnet:") {
+            return Ok((Some(initial_link.to_string()), None));
+        }
+
+        let mut current_url = initial_link.to_string();
+
+        for _ in 0..5 {
+            let torrent_resp = self
+                .client
+                .get(&current_url)
+                .send()
+                .await
+                .map_err(|e| ShioriError::Other(format!("Failed to fetch torrent URL: {}", e)))?;
+
+            let status = torrent_resp.status();
+
+            if status.is_redirection() {
+                let location = torrent_resp
+                    .headers()
+                    .get(reqwest::header::LOCATION)
+                    .and_then(|v| v.to_str().ok())
+                    .map(ToString::to_string)
+                    .ok_or_else(|| {
+                        ShioriError::Other(format!(
+                            "Torrent URL returned redirect status without location: {}",
+                            status
+                        ))
+                    })?;
+
+                current_url = Self::resolve_redirect_url(&current_url, &location)?;
+                if current_url.starts_with("magnet:") {
+                    return Ok((Some(current_url), None));
+                }
+                continue;
+            }
+
+            if !status.is_success() {
+                return Err(ShioriError::Other(format!(
+                    "Torrent URL returned non-success status: {}",
+                    status
+                )));
+            }
+
+            let content_type = torrent_resp
+                .headers()
+                .get(reqwest::header::CONTENT_TYPE)
+                .and_then(|v| v.to_str().ok())
+                .map(|v| v.to_ascii_lowercase())
+                .unwrap_or_default();
+
+            let content_disposition = torrent_resp
+                .headers()
+                .get(reqwest::header::CONTENT_DISPOSITION)
+                .and_then(|v| v.to_str().ok())
+                .map(ToString::to_string);
+
+            let torrent_bytes = torrent_resp
+                .bytes()
+                .await
+                .map_err(|e| ShioriError::Other(format!("Failed to read torrent file bytes: {}", e)))?;
+
+            if torrent_bytes.is_empty() {
+                return Err(ShioriError::Other(
+                    "Torrent URL returned an empty file".to_string(),
+                ));
+            }
+
+            let looks_like_html = content_type.contains("text/html")
+                || torrent_bytes.starts_with(b"<")
+                || torrent_bytes
+                    .windows(5)
+                    .any(|chunk| chunk.eq_ignore_ascii_case(b"<html"));
+            if looks_like_html {
+                let hint = if current_url.contains("annas-archive") || current_url.contains("/md5/") {
+                    " The source returned an HTML page instead of a torrent file. For Anna's Archive, verify auth cookie/key in Settings."
+                } else {
+                    " The source returned an HTML page instead of a torrent file."
+                };
+                return Err(ShioriError::Other(format!(
+                    "Torrent URL is not a direct .torrent file.{}",
+                    hint
+                )));
+            }
+
+            let file_name = content_disposition
+                .as_deref()
+                .and_then(|value| {
+                    value
+                        .split(';')
+                        .find_map(|part| part.trim().strip_prefix("filename="))
+                        .map(|name| name.trim_matches('"').to_string())
+                })
+                .or_else(|| {
+                    reqwest::Url::parse(&current_url)
+                        .ok()
+                        .and_then(|url| {
+                            url.path_segments()
+                                .and_then(|mut segs| segs.next_back().map(ToString::to_string))
+                        })
+                        .filter(|name| !name.trim().is_empty())
+                })
+                .unwrap_or_else(|| "download.torrent".to_string());
+
+            return Ok((None, Some((torrent_bytes.to_vec(), file_name))));
+        }
+
+        Err(ShioriError::Other(
+            "Torrent URL redirected too many times before resolving a torrent file".to_string(),
+        ))
+    }
+
     async fn remember_target_kind(&self, id: i64, kind: DownloadTargetKind) {
         let mut guard = self.target_kinds.write().await;
         guard.insert(id, kind);
@@ -400,73 +562,24 @@ impl TorboxService {
                 ));
             }
 
-            let torrent_resp = self
-                .client
-                .get(source_link)
-                .send()
-                .await
-                .map_err(|e| ShioriError::Other(format!("Failed to fetch torrent URL: {}", e)))?;
+            let (resolved_magnet, resolved_torrent) = self.resolve_torrent_input(source_link).await?;
 
-            let status = torrent_resp.status();
-            if !status.is_success() {
-                return Err(ShioriError::Other(format!(
-                    "Torrent URL returned non-success status: {}",
-                    status
-                )));
-            }
+            if let Some(magnet) = resolved_magnet {
+                form = form.text("magnet", magnet);
+            } else {
+                let (torrent_bytes, file_name) = resolved_torrent.ok_or_else(|| {
+                    ShioriError::Other("Torrent URL did not resolve to a magnet or torrent file".to_string())
+                })?;
 
-            let content_type = torrent_resp
-                .headers()
-                .get(reqwest::header::CONTENT_TYPE)
-                .and_then(|v| v.to_str().ok())
-                .map(|v| v.to_ascii_lowercase())
-                .unwrap_or_default();
-
-            let torrent_bytes = torrent_resp
-                .bytes()
-                .await
-                .map_err(|e| ShioriError::Other(format!("Failed to read torrent file bytes: {}", e)))?;
-
-            if torrent_bytes.is_empty() {
-                return Err(ShioriError::Other(
-                    "Torrent URL returned an empty file".to_string(),
-                ));
-            }
-
-            let looks_like_html = content_type.contains("text/html")
-                || torrent_bytes.starts_with(b"<")
-                || torrent_bytes
-                    .windows(5)
-                    .any(|chunk| chunk.eq_ignore_ascii_case(b"<html"));
-            if looks_like_html {
-                let hint = if source_link.contains("annas-archive") || source_link.contains("/md5/") {
-                    " The source returned an HTML page instead of a torrent file. For Anna's Archive, verify auth cookie/key in Settings."
-                } else {
-                    " The source returned an HTML page instead of a torrent file."
-                };
-                return Err(ShioriError::Other(format!(
-                    "Torrent URL is not a direct .torrent file.{}",
-                    hint
-                )));
-            }
-
-            let file_name = reqwest::Url::parse(source_link)
-                .ok()
-                .and_then(|url| {
-                    url.path_segments()
-                        .and_then(|mut segs| segs.next_back().map(ToString::to_string))
-                })
-                .filter(|name| !name.trim().is_empty())
-                .unwrap_or_else(|| "download.torrent".to_string());
-
-            let file_part = reqwest::multipart::Part::bytes(torrent_bytes.to_vec())
+                let file_part = reqwest::multipart::Part::bytes(torrent_bytes)
                 .file_name(file_name)
                 .mime_str("application/x-bittorrent")
                 .map_err(|e| {
                     ShioriError::Other(format!("Failed to build torrent upload part: {}", e))
                 })?;
 
-            form = form.part("file", file_part);
+                form = form.part("file", file_part);
+            }
         } else {
             return Err(ShioriError::Validation(
                 "Torrent target must be a magnet URI or torrent URL".to_string(),
@@ -488,21 +601,26 @@ impl TorboxService {
             .await
             .map_err(|e| ShioriError::Other(format!("Torbox add target parse failed: {}", e)))?;
 
-        let body = serde_json::from_str::<TorboxResponse<CreateTorrentData>>(&raw_body)
-            .map_err(|e| ShioriError::Other(format!("Torbox add target response parse failed: {}", e)))?;
+        let payload: Value = serde_json::from_str(&raw_body)
+            .map_err(|e| ShioriError::Other(format!("Torbox add target response JSON parse failed: {}", e)))?;
 
-        if !status.is_success() || !body.success {
-            let msg = body
-                .detail
-                .or(body.error)
+        let success = payload
+            .get("success")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(status.is_success());
+
+        if !status.is_success() || !success {
+            let msg = extract_error_message(&payload)
                 .unwrap_or_else(|| summarize_response_body(&raw_body));
             return Err(ShioriError::Other(format!("Torbox error: {}", msg)));
         }
 
-        let id = body
-            .data
-            .map(|d| d.torrent_id)
-            .ok_or_else(|| ShioriError::Other("Torbox response missing torrent_id".to_string()))?;
+        let id = extract_created_target_id(&payload).ok_or_else(|| {
+            ShioriError::Other(format!(
+                "Torbox response missing created target id: {}",
+                summarize_response_body(&raw_body)
+            ))
+        })?;
 
         self.remember_target_kind(id, DownloadTargetKind::Torrent).await;
         Ok(id)

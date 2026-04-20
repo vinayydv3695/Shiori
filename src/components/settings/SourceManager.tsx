@@ -6,7 +6,7 @@ export function SourceManager() {
   const toggleSource = useSourceStore((state) => state.toggleSource);
 
   const mangaSources = sources.filter((source) => source.kind === 'manga');
-  const bookSources = sources.filter((source) => source.kind === 'books');
+  const bookSources = sources.filter((source) => source.kind === 'books' && source.id !== 'jackett');
 
   return (
     <div className="space-y-6">
@@ -80,6 +80,15 @@ export function SourceManager() {
                 <p className="text-xs text-muted-foreground">{source.description}</p>
                 {source.id === 'anna-archive' && (
                   <p className="text-[11px] text-muted-foreground mt-1">Required for SHIORI x Torbox books workflow.</p>
+                )}
+                {source.id === 'rutracker' && (
+                  <p className="text-[11px] text-muted-foreground mt-1">Recommended for SHIORI x Torbox direct torrent mirror workflow.</p>
+                )}
+                {source.id === 'bitsearch' && (
+                  <p className="text-[11px] text-muted-foreground mt-1">Anonymous magnet-first source. Recommended fallback when other mirrors are sparse.</p>
+                )}
+                {source.id === 'x1337' && (
+                  <p className="text-[11px] text-muted-foreground mt-1">Anonymous torrent index used as additional mirror fallback for books.</p>
                 )}
                 {source.website && (
                   <a

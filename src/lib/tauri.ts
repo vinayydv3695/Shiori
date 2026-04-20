@@ -346,11 +346,22 @@ export interface TranslationResponse {
 }
 
 export interface AnnaArchiveConfig {
-  baseUrl: string | null
-  authKey: string | null
-  membershipKey: string | null
-  authCookie: string | null
+  baseUrl?: string | null
+  authKey?: string | null
+  membershipKey?: string | null
+  authCookie?: string | null
   apiKey: string | null
+}
+
+export interface RutrackerConfig {
+  baseUrl: string | null
+  cookie: string | null
+}
+
+export interface TorrentNetworkConfig {
+  proxyUrl: string | null
+  timeoutSeconds: number
+  maxRetries: number
 }
 
 export interface VerifyTorboxKeyResult {
@@ -1176,6 +1187,22 @@ export const api = {
 
   async annaArchiveSetConfig(config: AnnaArchiveConfig): Promise<void> {
     return invoke("anna_archive_set_config", { config })
+  },
+
+  async rutrackerGetConfig(): Promise<RutrackerConfig> {
+    return invoke("rutracker_get_config")
+  },
+
+  async rutrackerSetConfig(config: RutrackerConfig): Promise<void> {
+    return invoke("rutracker_set_config", { config })
+  },
+
+  async torrentNetworkGetConfig(): Promise<TorrentNetworkConfig> {
+    return invoke("torrent_network_get_config")
+  },
+
+  async torrentNetworkSetConfig(config: TorrentNetworkConfig): Promise<void> {
+    return invoke("torrent_network_set_config", { config })
   },
 
   async debridResolveAndImport(provider: 'auto' | 'torbox', candidateLinks: string[], filenameHint?: string): Promise<DebridResolveResult> {

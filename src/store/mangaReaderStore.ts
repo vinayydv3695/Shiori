@@ -317,6 +317,40 @@ const defaultMangaSettings = {
     preloadIntensity: 'normal' as const,
 };
 
+const READING_MODE_OPTIONS: ReadingMode[] = ['single', 'strip', 'webtoon', 'manhwa', 'comic'];
+const READING_DIRECTION_OPTIONS: ReadingDirection[] = ['ltr', 'rtl'];
+const FIT_MODE_OPTIONS: FitMode[] = ['width', 'height', 'contain', 'original'];
+const PROGRESS_BAR_POSITION_OPTIONS: ProgressBarPosition[] = ['top', 'bottom', 'left', 'right', 'none'];
+const PRELOAD_INTENSITY_OPTIONS: Array<MangaSettingsState['preloadIntensity']> = ['light', 'normal', 'aggressive'];
+const MANGA_THEME_OPTIONS: Array<MangaSettingsState['theme']> = ['light', 'dark'];
+
+const clampNumber = (value: unknown, fallback: number, min: number, max: number): number => {
+    if (typeof value !== 'number' || Number.isNaN(value)) return fallback;
+    return Math.max(min, Math.min(max, value));
+};
+
+const clampStringEnum = <T extends string>(value: unknown, fallback: T, allowed: readonly T[]): T => {
+    if (typeof value !== 'string') return fallback;
+    return allowed.includes(value as T) ? (value as T) : fallback;
+};
+
+const normalizeMangaSettingsState = (raw: unknown) => {
+    const source = (raw && typeof raw === 'object') ? (raw as Partial<typeof defaultMangaSettings>) : {};
+
+    return {
+        readingMode: clampStringEnum(source.readingMode, defaultMangaSettings.readingMode, READING_MODE_OPTIONS),
+        readingDirection: clampStringEnum(source.readingDirection, defaultMangaSettings.readingDirection, READING_DIRECTION_OPTIONS),
+        fitMode: clampStringEnum(source.fitMode, defaultMangaSettings.fitMode, FIT_MODE_OPTIONS),
+        stripMargin: clampNumber(source.stripMargin, defaultMangaSettings.stripMargin, 0, 32),
+        progressBarPosition: clampStringEnum(source.progressBarPosition, defaultMangaSettings.progressBarPosition, PROGRESS_BAR_POSITION_OPTIONS),
+        stickyHeader: typeof source.stickyHeader === 'boolean' ? source.stickyHeader : defaultMangaSettings.stickyHeader,
+        showNavigationTips: typeof source.showNavigationTips === 'boolean' ? source.showNavigationTips : defaultMangaSettings.showNavigationTips,
+        theme: clampStringEnum(source.theme, defaultMangaSettings.theme, MANGA_THEME_OPTIONS),
+        imageQuality: clampNumber(source.imageQuality, defaultMangaSettings.imageQuality, 0.5, 1.0),
+        preloadIntensity: clampStringEnum(source.preloadIntensity, defaultMangaSettings.preloadIntensity, PRELOAD_INTENSITY_OPTIONS),
+    };
+};
+
 export const useMangaSettingsStore = create<MangaSettingsState>()(
     persist(
         (set, get) => ({
@@ -364,6 +398,19 @@ export const useMangaSettingsStore = create<MangaSettingsState>()(
         {
             name: 'shiori-manga-settings',
             version: 1,
+            migrate: (persistedState) => {
+                if (!persistedState || typeof persistedState !== 'object') {
+                    return defaultMangaSettings;
+                }
+                return normalizeMangaSettingsState(persistedState);
+            },
+            merge: (persistedState, currentState) => {
+                const normalized = normalizeMangaSettingsState(persistedState);
+                return {
+                    ...currentState,
+                    ...normalized,
+                };
+            },
         }
     )
 );

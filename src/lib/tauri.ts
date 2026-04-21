@@ -1169,6 +1169,10 @@ export const api = {
     return invoke("import_from_torbox", { magnetLink, filenameHint })
   },
 
+  async importExistingTorboxTarget(torrentId: number, fileId?: number, filenameHint?: string): Promise<string> {
+    return invoke("import_existing_torbox_target", { torrentId, fileId, filenameHint })
+  },
+
   async resolveTorboxDownload(torrentId: number, fileId?: number): Promise<string> {
     return invoke("resolve_torbox_download", { torrentId, fileId })
   },

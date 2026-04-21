@@ -409,6 +409,7 @@ fn main() {
             torbox::save_torbox_key,
             torbox::get_torbox_key,
             torbox::import_from_torbox,
+            torbox::import_existing_torbox_target,
             torbox::resolve_torbox_download,
             torbox::wait_for_torbox_completion,
         ])

@@ -118,3 +118,20 @@ export function getShortcutDisplay(shortcut: string): string {
     .replace('ctrl', mac ? '⌃' : 'Ctrl')
     .toUpperCase()
 }
+
+/**
+ * Parse prefixed page URL payloads in the format "kind|url".
+ * Defaults to kind "direct" when no prefix is present.
+ */
+export function parsePageUrl(raw: string): { kind: string; url: string } {
+  const value = raw.trim()
+  const delimiterIndex = value.indexOf('|')
+
+  if (delimiterIndex === -1) {
+    return { kind: 'direct', url: value }
+  }
+
+  const kind = value.slice(0, delimiterIndex).trim().toLowerCase() || 'direct'
+  const url = value.slice(delimiterIndex + 1).trim()
+  return { kind, url }
+}

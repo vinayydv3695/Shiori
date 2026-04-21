@@ -12,7 +12,7 @@
 - [x] Online Books (Open Library API integration)
   - Search functionality with pagination
   - Cover images, metadata display
-  - Direct links to Internet Archive (readable books)
+  - Direct links to public online sources (readable books)
   - Rate limiting (350ms delay)
   
 - [x] Online Manga (MangaDex API integration)

@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+use once_cell::sync::Lazy;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -29,37 +30,21 @@ const COVER_SELECTOR: &str = r#"img"#;
 // Metadata text (author, format, size) - usually in smaller gray text
 const META_TEXT_SELECTOR: &str = r#".text-xs, .text-sm"#;
 const DOWNLOAD_RETRY_ATTEMPTS: usize = 3;
-const RETRYABLE_STATUS_CODES: [reqwest::StatusCode; 4] = [
-    reqwest::StatusCode::TOO_MANY_REQUESTS,
-    reqwest::StatusCode::BAD_GATEWAY,
-    reqwest::StatusCode::SERVICE_UNAVAILABLE,
-    reqwest::StatusCode::GATEWAY_TIMEOUT,
-];
 
 const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-const RAPIDAPI_HOST: &str = "annas-archive-api.p.rapidapi.com";
-const RAPIDAPI_BASE_URL: &str = "https://annas-archive-api.p.rapidapi.com";
+static SIZE_RE: Lazy<regex::Regex> = Lazy::new(|| {
+    regex::Regex::new(r"(\d+(?:\.\d+)?\s*(?:MB|KB|GB|bytes))")
+        .expect("valid Anna's Archive size regex")
+});
+static MAGNET_RE: Lazy<regex::Regex> = Lazy::new(|| {
+    regex::Regex::new(r#"magnet:\?[^\s"'<>]+"#)
+        .expect("valid magnet regex")
+});
+static TORRENT_URL_RE: Lazy<regex::Regex> = Lazy::new(|| {
+    regex::Regex::new(r#"(?:https?://[^\s"'<>]+|/[^\s"'<>]+)(?:\.torrent[^\s"'<>]*)"#)
+        .expect("valid torrent url regex")
+});
 
-fn looks_like_md5(value: &str) -> bool {
-    let trimmed = value.trim();
-    trimmed.len() == 32 && trimmed.chars().all(|c| c.is_ascii_hexdigit())
-}
-
-fn looks_like_download_link(value: &str) -> bool {
-    let lowered = value.trim().to_ascii_lowercase();
-    lowered.starts_with("magnet:")
-        || lowered.starts_with("http://")
-        || lowered.starts_with("https://")
-}
-
-fn extract_error_message(payload: &serde_json::Value) -> Option<String> {
-    payload
-        .get("detail")
-        .and_then(|v| v.as_str())
-        .or_else(|| payload.get("error").and_then(|v| v.as_str()))
-        .or_else(|| payload.get("message").and_then(|v| v.as_str()))
-        .map(ToString::to_string)
-}
 
 #[derive(Debug, Clone)]
 pub struct DownloadOption {
@@ -89,21 +74,12 @@ impl DownloadType {
 
 pub struct AnnasArchiveSource {
     client: reqwest::Client,
-    api_key: RwLock<Option<String>>,
-    auth_key: RwLock<Option<String>>,
-    membership_key: RwLock<Option<String>>,
-    auth_cookie: RwLock<Option<String>>,
-    base_url: RwLock<Option<String>>,
     working_mirror: RwLock<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AnnasArchiveConfig {
-    pub base_url: Option<String>,
-    pub auth_key: Option<String>,
-    pub membership_key: Option<String>,
-    pub auth_cookie: Option<String>,
     pub api_key: Option<String>,
 }
 
@@ -117,208 +93,18 @@ impl AnnasArchiveSource {
             .map_err(|e| ShioriError::Other(format!("Failed to create Anna's Archive client: {}", e)))?;
         Ok(Self {
             client,
-            api_key: RwLock::new(None),
-            auth_key: RwLock::new(None),
-            membership_key: RwLock::new(None),
-            auth_cookie: RwLock::new(None),
-            base_url: RwLock::new(None),
             working_mirror: RwLock::new(MIRROR_URLS[0].to_string()),
         })
     }
 
-    fn normalize_base_url(&self, value: Option<String>) -> Option<String> {
-        value
-            .map(|v| v.trim().trim_end_matches('/').to_string())
-            .filter(|v| !v.is_empty())
-    }
-
     pub async fn get_config(&self) -> AnnasArchiveConfig {
         AnnasArchiveConfig {
-            base_url: self.base_url.read().await.clone(),
-            auth_key: self.auth_key.read().await.clone(),
-            membership_key: self.membership_key.read().await.clone(),
-            auth_cookie: self.auth_cookie.read().await.clone(),
-            api_key: self.api_key.read().await.clone(),
+            api_key: None,
         }
     }
 
     pub async fn set_config(&self, config: AnnasArchiveConfig) {
-        let normalized_base = self.normalize_base_url(config.base_url);
-        {
-            let mut guard = self.base_url.write().await;
-            *guard = normalized_base.clone();
-        }
-        {
-            let mut guard = self.auth_key.write().await;
-            *guard = config.auth_key.and_then(|v| {
-                let trimmed = v.trim().to_string();
-                if trimmed.is_empty() { None } else { Some(trimmed) }
-            });
-        }
-        {
-            let mut guard = self.membership_key.write().await;
-            *guard = config.membership_key.and_then(|v| {
-                let trimmed = v.trim().to_string();
-                if trimmed.is_empty() { None } else { Some(trimmed) }
-            });
-        }
-        {
-            let mut guard = self.auth_cookie.write().await;
-            *guard = config.auth_cookie.and_then(|v| {
-                let trimmed = v.trim().to_string();
-                if trimmed.is_empty() { None } else { Some(trimmed) }
-            });
-        }
-        {
-            let mut guard = self.api_key.write().await;
-            *guard = config.api_key.and_then(|v| {
-                let trimmed = v.trim().to_string();
-                if trimmed.is_empty() { None } else { Some(trimmed) }
-            });
-        }
-
-        let mut mirror_guard = self.working_mirror.write().await;
-        *mirror_guard = normalized_base.unwrap_or_else(|| MIRROR_URLS[0].to_string());
-    }
-
-    pub async fn set_api_key(&self, key: Option<String>) {
-        let mut guard = self.api_key.write().await;
-        *guard = key;
-    }
-
-    fn with_auth_if_needed(
-        &self,
-        req: reqwest::RequestBuilder,
-        auth_key: &Option<String>,
-        auth_cookie: &Option<String>,
-    ) -> reqwest::RequestBuilder {
-        let req = if let Some(key) = auth_key {
-            if key.starts_with("Bearer ") {
-                req.header("Authorization", key)
-            } else {
-                req.header("Authorization", format!("Bearer {}", key))
-            }
-        } else {
-            req
-        };
-
-        if let Some(cookie) = auth_cookie {
-            req.header("Cookie", cookie)
-        } else {
-            req
-        }
-    }
-
-    async fn get_auth_key(&self) -> Option<String> {
-        self.auth_key.read().await.clone()
-    }
-
-    async fn get_auth_cookie(&self) -> Option<String> {
-        self.auth_cookie.read().await.clone()
-    }
-
-    async fn rapidapi_download_links(&self, content_id: &str) -> Result<Vec<String>> {
-        let api_key = self
-            .api_key
-            .read()
-            .await
-            .clone()
-            .ok_or_else(|| {
-                ShioriError::Other(
-                    "Anna RapidAPI key not configured. Set it in Settings -> Online Sources -> Anna API Key."
-                        .to_string(),
-                )
-            })?;
-
-        if !looks_like_md5(content_id) {
-            return Ok(vec![]);
-        }
-
-        let resp = self
-            .client
-            .get(format!(
-                "{}/download?md5={}",
-                RAPIDAPI_BASE_URL,
-                urlencoding::encode(content_id)
-            ))
-            .header("x-rapidapi-host", RAPIDAPI_HOST)
-            .header("x-rapidapi-key", api_key)
-            .header(reqwest::header::CONTENT_TYPE, "application/json")
-            .send()
-            .await
-            .map_err(|e| {
-                ShioriError::Other(format!("Anna RapidAPI request failed: {}", e))
-            })?;
-
-        let status = resp.status();
-        let raw_body = resp.text().await.map_err(|e| {
-            ShioriError::Other(format!("Anna RapidAPI response read failed: {}", e))
-        })?;
-
-        if !status.is_success() {
-            let parsed = serde_json::from_str::<serde_json::Value>(&raw_body).ok();
-            let detail = parsed
-                .as_ref()
-                .and_then(extract_error_message)
-                .unwrap_or_else(|| {
-                    let trimmed = raw_body.trim();
-                    if trimmed.is_empty() {
-                        "empty response body".to_string()
-                    } else {
-                        trimmed.chars().take(180).collect()
-                    }
-                });
-
-            return Err(ShioriError::Other(format!(
-                "Anna RapidAPI download lookup failed (status {}): {}",
-                status, detail
-            )));
-        }
-
-        let payload: serde_json::Value = serde_json::from_str(&raw_body).map_err(|e| {
-            ShioriError::Other(format!("Anna RapidAPI JSON parse failed: {}", e))
-        })?;
-
-        let mut links: Vec<String> = Vec::new();
-
-        fn collect_links(value: &serde_json::Value, out: &mut Vec<String>) {
-            match value {
-                serde_json::Value::String(s) => {
-                    if looks_like_download_link(s) {
-                        out.push(s.trim().to_string());
-                    }
-                }
-                serde_json::Value::Array(items) => {
-                    for item in items {
-                        collect_links(item, out);
-                    }
-                }
-                serde_json::Value::Object(map) => {
-                    for (key, v) in map {
-                        if let Some(s) = v.as_str() {
-                            let key_lower = key.to_ascii_lowercase();
-                            if (key_lower.contains("link")
-                                || key_lower.contains("url")
-                                || key_lower.contains("download")
-                                || key_lower.contains("magnet"))
-                                && looks_like_download_link(s)
-                            {
-                                out.push(s.trim().to_string());
-                                continue;
-                            }
-                        }
-                        collect_links(v, out);
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        collect_links(&payload, &mut links);
-        links.sort();
-        links.dedup();
-
-        Ok(links)
+        let _ = config;
     }
 
     async fn candidate_mirrors(&self) -> Vec<String> {
@@ -327,12 +113,6 @@ impl AnnasArchiveSource {
         let current_mirror = self.working_mirror.read().await.clone();
         if !current_mirror.trim().is_empty() {
             mirrors.push(current_mirror);
-        }
-
-        if let Some(configured) = self.base_url.read().await.clone() {
-            if !mirrors.iter().any(|m| m == &configured) {
-                mirrors.push(configured);
-            }
         }
 
         for mirror in MIRROR_URLS {
@@ -345,6 +125,60 @@ impl AnnasArchiveSource {
         mirrors
     }
 
+    async fn scrape_detail_torrent_links(&self, content_id: &str) -> Result<Vec<String>> {
+        if content_id.trim().is_empty() {
+            return Ok(vec![]);
+        }
+
+        let path = format!("/md5/{}", content_id);
+        let (html, mirror) = self.request_with_mirrors(&path).await?;
+        let document = Html::parse_document(&html);
+        let link_selector = Selector::parse("a[href]")
+            .map_err(|e| ShioriError::Other(format!("Selector error: {:?}", e)))?;
+
+        let mut links: Vec<String> = Vec::new();
+
+        for anchor in document.select(&link_selector) {
+            if let Some(href) = anchor.value().attr("href") {
+                let normalized = self.normalize_href(href, &mirror);
+                if matches!(
+                    self.classify_download_url(&normalized),
+                    Some(DownloadType::Magnet | DownloadType::Torrent)
+                ) {
+                    links.push(normalized);
+                }
+            }
+        }
+
+        for matched in MAGNET_RE.find_iter(&html) {
+            links.push(matched.as_str().to_string());
+        }
+
+        for matched in TORRENT_URL_RE.find_iter(&html) {
+            let raw = matched
+                .as_str()
+                .trim_matches('"')
+                .trim_matches('\'')
+                .trim();
+
+            if raw.is_empty() {
+                continue;
+            }
+
+            let normalized = self.normalize_href(raw, &mirror);
+            if matches!(
+                self.classify_download_url(&normalized),
+                Some(DownloadType::Magnet | DownloadType::Torrent)
+            ) {
+                links.push(normalized);
+            }
+        }
+
+        links.sort();
+        links.dedup();
+        Ok(links)
+    }
+
     pub async fn load_config_from_store(&self, app_handle: &tauri::AppHandle) -> Result<()> {
         use tauri_plugin_store::StoreExt;
 
@@ -352,33 +186,10 @@ impl AnnasArchiveSource {
             .store("sources.json")
             .map_err(|e| ShioriError::Other(format!("Failed to open source store: {}", e)))?;
 
-        let api_key = store
-            .get("anna-archive.api_key")
-            .and_then(|v| v.as_str().map(ToString::to_string));
+        let _ = store.delete("anna-archive.api_key");
+        let _ = store.save();
 
-        let base_url = store
-            .get("anna-archive.base_url")
-            .and_then(|v| v.as_str().map(ToString::to_string));
-
-        let auth_key = store
-            .get("anna-archive.auth_key")
-            .and_then(|v| v.as_str().map(ToString::to_string));
-
-        let membership_key = store
-            .get("anna-archive.membership_key")
-            .and_then(|v| v.as_str().map(ToString::to_string));
-
-        let auth_cookie = store
-            .get("anna-archive.auth_cookie")
-            .and_then(|v| v.as_str().map(ToString::to_string));
-
-        self.set_config(AnnasArchiveConfig {
-            base_url,
-            auth_key,
-            membership_key,
-            auth_cookie,
-            api_key,
-        }).await;
+        self.set_config(AnnasArchiveConfig { api_key: None }).await;
 
         Ok(())
     }
@@ -390,61 +201,12 @@ impl AnnasArchiveSource {
             .store("sources.json")
             .map_err(|e| ShioriError::Other(format!("Failed to open source store: {}", e)))?;
 
-        let normalized_base = self.normalize_base_url(config.base_url.clone());
-        match normalized_base {
-            Some(v) => {
-                store.set("anna-archive.base_url", serde_json::json!(v));
-            }
-            None => {
-                let _ = store.delete("anna-archive.base_url");
-            }
-        }
+        let _ = store.delete("anna-archive.base_url");
+        let _ = store.delete("anna-archive.auth_key");
+        let _ = store.delete("anna-archive.membership_key");
+        let _ = store.delete("anna-archive.auth_cookie");
 
-        match config.auth_key.as_ref().map(|v| v.trim()).filter(|v| !v.is_empty()) {
-            Some(v) => {
-                store.set("anna-archive.auth_key", serde_json::json!(v));
-            }
-            None => {
-                let _ = store.delete("anna-archive.auth_key");
-            }
-        }
-
-        match config
-            .membership_key
-            .as_ref()
-            .map(|v| v.trim())
-            .filter(|v| !v.is_empty())
-        {
-            Some(v) => {
-                store.set("anna-archive.membership_key", serde_json::json!(v));
-            }
-            None => {
-                let _ = store.delete("anna-archive.membership_key");
-            }
-        }
-
-        match config
-            .auth_cookie
-            .as_ref()
-            .map(|v| v.trim())
-            .filter(|v| !v.is_empty())
-        {
-            Some(v) => {
-                store.set("anna-archive.auth_cookie", serde_json::json!(v));
-            }
-            None => {
-                let _ = store.delete("anna-archive.auth_cookie");
-            }
-        }
-
-        match config.api_key.as_ref().map(|v| v.trim()).filter(|v| !v.is_empty()) {
-            Some(v) => {
-                store.set("anna-archive.api_key", serde_json::json!(v));
-            }
-            None => {
-                let _ = store.delete("anna-archive.api_key");
-            }
-        }
+        let _ = store.delete("anna-archive.api_key");
 
         store
             .save()
@@ -454,19 +216,12 @@ impl AnnasArchiveSource {
         Ok(())
     }
 
-    pub async fn load_api_key_from_store(&self, app_handle: &tauri::AppHandle) -> Result<()> {
-        self.load_config_from_store(app_handle).await
-    }
-
     async fn request_with_mirrors(&self, path: &str) -> Result<(String, String)> {
-        let auth_key = self.get_auth_key().await;
-        let auth_cookie = self.get_auth_cookie().await;
         let mirrors = self.candidate_mirrors().await;
 
         for mirror in mirrors {
             let url = format!("{}{}", mirror, path);
-            let req = self.with_auth_if_needed(self.client.get(&url), &auth_key, &auth_cookie);
-            match req.send().await {
+            match self.client.get(&url).send().await {
                 Ok(resp) if resp.status().is_success() => {
                     let text = resp.text().await.map_err(|e|
                         ShioriError::Other(format!("Failed to read response: {}", e))
@@ -529,234 +284,43 @@ impl AnnasArchiveSource {
         None
     }
 
-    fn is_access_restricted_page(&self, html: &str) -> bool {
-        let body = html.to_ascii_lowercase();
-        body.contains("login")
-            || body.contains("sign in")
-            || body.contains("account required")
-            || body.contains("members only")
-            || body.contains("access denied")
-            || body.contains("waitlist")
-            || body.contains("premium")
-    }
-
-    async fn request_text_with_retry(&self, url: &str, context: &str) -> Result<String> {
-        let mut last_error = None;
-        let auth_key = self.get_auth_key().await;
-        let auth_cookie = self.get_auth_cookie().await;
-
-        for attempt in 1..=DOWNLOAD_RETRY_ATTEMPTS {
-            let req = self.with_auth_if_needed(self.client.get(url), &auth_key, &auth_cookie);
-            match req.send().await {
-                Ok(resp) => {
-                    let status = resp.status();
-                    if status.is_success() {
-                        return resp.text().await.map_err(|e| {
-                            ShioriError::Other(format!(
-                                "Anna's {} response could not be read: {}",
-                                context, e
-                            ))
-                        });
-                    }
-
-                    let should_retry = RETRYABLE_STATUS_CODES.contains(&status)
-                        || status.is_server_error();
-                    let status_msg = format!(
-                        "Anna's {} request failed (status {}{})",
-                        context,
-                        status,
-                        if attempt < DOWNLOAD_RETRY_ATTEMPTS {
-                            format!(", retry {}/{}", attempt, DOWNLOAD_RETRY_ATTEMPTS)
-                        } else {
-                            String::new()
-                        }
-                    );
-
-                    if should_retry && attempt < DOWNLOAD_RETRY_ATTEMPTS {
-                        tokio::time::sleep(Duration::from_millis((attempt as u64) * 350)).await;
-                        last_error = Some(status_msg);
-                        continue;
-                    }
-
-                    return Err(ShioriError::Other(status_msg));
-                }
-                Err(e) => {
-                    let msg = format!(
-                        "Anna's {} request error (attempt {}/{}): {}",
-                        context, attempt, DOWNLOAD_RETRY_ATTEMPTS, e
-                    );
-                    last_error = Some(msg);
-                    if attempt < DOWNLOAD_RETRY_ATTEMPTS {
-                        tokio::time::sleep(Duration::from_millis((attempt as u64) * 350)).await;
-                        continue;
-                    }
-                }
-            }
-        }
-
-        Err(ShioriError::Other(last_error.unwrap_or_else(|| {
-            format!("Anna's {} request failed after retries", context)
-        })))
-    }
-
-    async fn probe_fast_download_with_retry(&self, content_id: &str, key: &str) -> Result<Option<String>> {
-        let mirror = self.working_mirror.read().await.clone();
-        let fast_url = format!(
-            "{}/fast_download/{}?key={}",
-            mirror,
-            content_id,
-            urlencoding::encode(key)
-        );
-
-        let auth_key = self.get_auth_key().await;
-        let auth_cookie = self.get_auth_cookie().await;
-        for attempt in 1..=DOWNLOAD_RETRY_ATTEMPTS {
-            let req = self.with_auth_if_needed(self.client.get(&fast_url), &auth_key, &auth_cookie);
-            match req.send().await {
-                Ok(resp) if resp.status().is_success() => return Ok(Some(fast_url)),
-                Ok(resp) => {
-                    if resp.status() == reqwest::StatusCode::UNAUTHORIZED
-                        || resp.status() == reqwest::StatusCode::FORBIDDEN
-                    {
-                        return Err(ShioriError::Other(
-                            "Your Anna's Archive API key was rejected (401/403). Verify the key in source settings.".to_string(),
-                        ));
-                    }
-
-                    if RETRYABLE_STATUS_CODES.contains(&resp.status()) && attempt < DOWNLOAD_RETRY_ATTEMPTS {
-                        tokio::time::sleep(Duration::from_millis((attempt as u64) * 350)).await;
-                        continue;
-                    }
-
-                    return Ok(None);
-                }
-                Err(_) if attempt < DOWNLOAD_RETRY_ATTEMPTS => {
-                    tokio::time::sleep(Duration::from_millis((attempt as u64) * 350)).await;
-                    continue;
-                }
-                Err(_) => return Ok(None),
-            }
-        }
-
-        Ok(None)
-    }
-
-    async fn build_fast_download_url(&self, content_id: &str, key: &str) -> String {
-        let mirror = self.working_mirror.read().await.clone();
-        format!(
-            "{}/fast_download/{}?key={}",
-            mirror,
-            content_id,
-            urlencoding::encode(key)
-        )
-    }
-
-    async fn probe_member_fast_download_with_retry(&self, content_id: &str, key: &str) -> Result<Option<String>> {
-        let mirror = self.working_mirror.read().await.clone();
-        let endpoint = format!(
-            "{}/dyn/api/fast_download.json?md5={}&key={}",
-            mirror,
-            urlencoding::encode(content_id),
-            urlencoding::encode(key)
-        );
-
-        let auth_key = self.get_auth_key().await;
-        let auth_cookie = self.get_auth_cookie().await;
-        for attempt in 1..=DOWNLOAD_RETRY_ATTEMPTS {
-            let req = self.with_auth_if_needed(self.client.get(&endpoint), &auth_key, &auth_cookie);
-            match req.send().await {
-                Ok(resp) => {
-                    if resp.status() == reqwest::StatusCode::UNAUTHORIZED
-                        || resp.status() == reqwest::StatusCode::FORBIDDEN
-                    {
-                        return Err(ShioriError::Other(
-                            "Your Anna membership key was rejected (401/403). Verify it in source settings."
-                                .to_string(),
-                        ));
-                    }
-
-                    if !resp.status().is_success() {
-                        if RETRYABLE_STATUS_CODES.contains(&resp.status()) && attempt < DOWNLOAD_RETRY_ATTEMPTS {
-                            tokio::time::sleep(Duration::from_millis((attempt as u64) * 350)).await;
-                            continue;
-                        }
-                        return Ok(None);
-                    }
-
-                    let body: serde_json::Value = match resp.json().await {
-                        Ok(v) => v,
-                        Err(_) => return Ok(None),
-                    };
-
-                    let fast = body
-                        .get("download_url")
-                        .and_then(|v| v.as_str())
-                        .or_else(|| body.get("fast").and_then(|v| v.as_str()))
-                        .map(ToString::to_string);
-
-                    if fast.is_some() {
-                        return Ok(fast);
-                    }
-
-                    return Ok(None);
-                }
-                Err(_) if attempt < DOWNLOAD_RETRY_ATTEMPTS => {
-                    tokio::time::sleep(Duration::from_millis((attempt as u64) * 350)).await;
-                    continue;
-                }
-                Err(_) => return Ok(None),
-            }
-        }
-
-        Ok(None)
-    }
-
-    /// Extract all download options from the detail page
+    /// Extract all download options from RapidAPI download endpoint.
     pub async fn get_download_options(&self, content_id: &str) -> Result<Vec<DownloadOption>> {
-        let mirror = self.working_mirror.read().await.clone();
-        let detail_url = format!("{}/md5/{}", mirror, content_id);
-        let html = self.request_text_with_retry(&detail_url, "detail").await?;
-
-        let doc = Html::parse_document(&html);
-        let link_sel = Selector::parse("a[href], [data-href], [data-download]")
-            .map_err(|e| ShioriError::Other(format!("Selector error: {:?}", e)))?;
-
+        let links = self
+            .scrape_detail_torrent_links(content_id)
+            .await
+            .unwrap_or_default();
         let mut options = Vec::new();
-        let mut seen_urls = std::collections::HashSet::new();
 
-        for el in doc.select(&link_sel) {
-            let href = el.value()
-                .attr("href")
-                .or_else(|| el.value().attr("data-href"))
-                .or_else(|| el.value().attr("data-download"));
-
-            if let Some(h) = href {
-                let normalized = self.normalize_href(h, &mirror);
-                
-                if seen_urls.contains(&normalized) {
-                    continue;
-                }
-
-                if let Some(download_type) = self.classify_download_url(&normalized) {
-                    seen_urls.insert(normalized.clone());
-                    
-                    let label = el.text().collect::<String>().trim().to_string();
-                    options.push(DownloadOption {
-                        url: normalized,
-                        download_type,
-                        label: if label.is_empty() { None } else { Some(label) },
-                    });
-                }
+        for link in links {
+            if let Some(download_type) = self.classify_download_url(&link) {
+                options.push(DownloadOption {
+                    url: link,
+                    download_type,
+                    label: None,
+                });
             }
         }
 
-        // Sort by preference: magnet > torrent > direct > external
         options.sort_by_key(|o| match o.download_type {
             DownloadType::Magnet => 0,
             DownloadType::Torrent => 1,
             DownloadType::Direct => 2,
             DownloadType::External => 3,
         });
+
+        if !options
+            .iter()
+            .any(|o| matches!(o.download_type, DownloadType::Magnet | DownloadType::Torrent | DownloadType::Direct | DownloadType::External))
+        {
+            let mirror = self.working_mirror.read().await.clone();
+            let detail_url = format!("{}/md5/{}", mirror, content_id);
+            options.push(DownloadOption {
+                url: detail_url,
+                download_type: DownloadType::External,
+                label: Some("Anna detail fallback".to_string()),
+            });
+        }
 
         Ok(options)
     }
@@ -777,7 +341,7 @@ impl Source for AnnasArchiveSource {
             content_type: ContentType::Book,
             supports_search: true,
             supports_download: true,
-            requires_api_key: false, // API key optional, Torbox key is separate
+            requires_api_key: false,
             nsfw: false,
         }
     }
@@ -884,11 +448,8 @@ impl Source for AnnasArchiveSource {
                 
                 // Detect file size (e.g., "2.5MB", "500KB")
                 if file_size.is_none() {
-                    let size_pattern = regex::Regex::new(r"(\d+(?:\.\d+)?\s*(?:MB|KB|GB|bytes))").ok();
-                    if let Some(re) = size_pattern {
-                        if let Some(caps) = re.captures(&meta_text) {
-                            file_size = Some(caps[1].to_string());
-                        }
+                    if let Some(caps) = SIZE_RE.captures(&meta_text) {
+                        file_size = Some(caps[1].to_string());
                     }
                 }
                 
@@ -971,119 +532,39 @@ impl Source for AnnasArchiveSource {
 
     async fn get_pages(&self, chapter_id: &str) -> Result<Vec<Page>> {
         let content_id = chapter_id;
-        let api_key = self.api_key.read().await.clone();
-        let membership_key = self.membership_key.read().await.clone();
         let mirror = self.working_mirror.read().await.clone();
         let anna_detail_link = format!("{}/md5/{}", mirror, content_id);
 
-        // Try member fast_download API first
-        if let Some(key) = membership_key {
-            if let Some(member_fast_url) = self
-                .probe_member_fast_download_with_retry(content_id, &key)
-                .await?
-            {
-                return Ok(vec![
-                    Page {
-                        index: 0,
-                        url: format!("anna|{}", anna_detail_link),
-                    },
-                    Page {
-                        index: 1,
-                        url: format!("direct|{}", member_fast_url),
-                    },
-                ]);
-            }
+        let mut pages = vec![Page {
+            index: 0,
+            url: format!("anna|{}", anna_detail_link),
+        }];
+
+        let scraped_links = self
+            .scrape_detail_torrent_links(content_id)
+            .await
+            .unwrap_or_default();
+
+        for link in scraped_links {
+            let lowered = link.to_ascii_lowercase();
+            let kind = if lowered.starts_with("magnet:") {
+                "magnet"
+            } else if lowered.contains(".torrent") || lowered.contains("/torrent") {
+                "torrent"
+            } else {
+                continue;
+            };
+
+            let idx = pages.len();
+            pages.push(Page {
+                index: idx as u32,
+                url: format!("{}|{}", kind, link),
+            });
         }
 
-        // Try fast_download with API key first. If probing is inconclusive,
-        // still return the fast_download URL as a best-effort direct candidate.
-        if let Some(key) = api_key {
-            if let Ok(rapid_links) = self.rapidapi_download_links(content_id).await {
-                if !rapid_links.is_empty() {
-                    let mut pages = vec![Page {
-                        index: 0,
-                        url: format!("anna|{}", anna_detail_link),
-                    }];
+        let mut unique = std::collections::HashSet::new();
+        pages.retain(|page| unique.insert(page.url.clone()));
 
-                    pages.extend(
-                        rapid_links
-                            .iter()
-                            .enumerate()
-                            .map(|(i, link)| {
-                                let lowered = link.to_ascii_lowercase();
-                                let kind = if lowered.starts_with("magnet:") {
-                                    "magnet"
-                                } else if lowered.contains(".torrent") || lowered.contains("/torrent") {
-                                    "torrent"
-                                } else {
-                                    "direct"
-                                };
-
-                                Page {
-                                    index: (i + 1) as u32,
-                                    url: format!("{}|{}", kind, link),
-                                }
-                            }),
-                    );
-
-                    return Ok(pages);
-                }
-            }
-
-            if let Some(fast_url) = self.probe_fast_download_with_retry(content_id, &key).await? {
-                return Ok(vec![
-                    Page {
-                        index: 0,
-                        url: format!("anna|{}", anna_detail_link),
-                    },
-                    Page {
-                        index: 1,
-                        url: format!("direct|{}", fast_url),
-                    },
-                ]);
-            }
-
-            let optimistic_fast_url = self.build_fast_download_url(content_id, &key).await;
-            return Ok(vec![
-                Page {
-                    index: 0,
-                    url: format!("anna|{}", anna_detail_link),
-                },
-                Page {
-                    index: 1,
-                    url: format!("direct|{}", optimistic_fast_url),
-                },
-            ]);
-        }
-
-        // Get all download options from detail page
-        let options = self.get_download_options(content_id).await?;
-
-        if options.is_empty() {
-            let mirror = self.working_mirror.read().await.clone();
-            let detail_url = format!("{}/md5/{}", mirror, content_id);
-            let html = self.request_text_with_retry(&detail_url, "detail").await?;
-            
-            if self.is_access_restricted_page(&html) {
-                return Err(ShioriError::Other(format!(
-                    "This book requires account access. Open the detail page manually: {}",
-                    detail_url
-                )));
-            }
-
-            return Err(ShioriError::Other(format!(
-                "No download links found. Open detail page manually: {}",
-                detail_url
-            )));
-        }
-
-        // Return pages with download type info in the URL (frontend will parse this)
-        // Format: type|url for frontend to handle appropriately
-        Ok(options.iter().enumerate().map(|(i, opt)| {
-            Page {
-                index: i as u32,
-                url: format!("{}|{}", opt.download_type.as_str(), opt.url),
-            }
-        }).collect())
+        Ok(pages)
     }
 }

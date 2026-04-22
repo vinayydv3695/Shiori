@@ -48,6 +48,7 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
     const containerRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
     const readerContainerRef = useRef<HTMLDivElement>(null);
+    const saveProgressTimerRef = useRef<number | null>(null);
 
     const isMobiFamilyFormat = format === 'mobi' || format === 'azw' || format === 'azw3';
     const locationPrefix = isMobiFamilyFormat ? 'mobi' : 'generic';
@@ -81,7 +82,7 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
                 const cfiMatch = cfi.match(/^epubcfi\(\/0\/(\d+)!\/scroll\/([\d.]+)\)$/);
                 if (cfiMatch) {
                     const scrollRatio = parseFloat(cfiMatch[2]);
-                    if (!isNaN(scrollRatio) && scrollRatio > 0) {
+                    if (!Number.isNaN(scrollRatio) && scrollRatio > 0) {
                         const { scrollHeight, clientHeight } = containerRef.current;
                         const maxScroll = scrollHeight - clientHeight;
                         targetTop = Math.round(scrollRatio * maxScroll);
@@ -96,7 +97,7 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
                     const pctMatch = loc.match(/(?:[a-z0-9]+)-progress-([\d.]+)-ch/i);
                     if (pctMatch) {
                         const pct = parseFloat(pctMatch[1]);
-                        if (!isNaN(pct) && pct > 0) {
+                        if (!Number.isNaN(pct) && pct > 0) {
                             const { scrollHeight, clientHeight } = containerRef.current;
                             const maxScroll = scrollHeight - clientHeight;
                             targetTop = Math.round((pct / 100) * maxScroll);
@@ -137,7 +138,7 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
                     const match = savedProgress.currentLocation.match(/-ch(\d+)$/);
                     if (match) {
                         const parsed = parseInt(match[1], 10);
-                        if (!isNaN(parsed) && parsed >= 0 && parsed < bookMetadata.total_chapters) {
+                        if (!Number.isNaN(parsed) && parsed >= 0 && parsed < bookMetadata.total_chapters) {
                             initialChapter = parsed;
                         }
                     }
@@ -163,16 +164,49 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
              setError(err instanceof Error ? err.message : `Failed to load ${format.toUpperCase()} file`);
              setIsLoading(false);
          }
-    }, [bookId, bookPath, format, supportedProgressPrefixes, restoreProgress]);
+     }, [bookId, bookPath, format, supportedProgressPrefixes, restoreProgress]);
+
+    const flushProgressNow = useCallback(() => {
+        if (!containerRef.current) return;
+
+        const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
+        const maxScroll = scrollHeight - clientHeight;
+        const progressPercent = maxScroll > 0 ? (scrollTop / maxScroll) * 100 : 100;
+        const scrollRatio = maxScroll > 0 ? scrollTop / maxScroll : 0;
+        const cfi = `epubcfi(/0/${currentChapter}!/scroll/${scrollRatio.toFixed(6)})`;
+
+        api.saveReadingProgress(
+            bookId,
+            `${progressPrefix}${progressPercent.toFixed(4)}-ch${currentChapter}`,
+            progressPercent,
+            currentChapter + 1,
+            totalChapters,
+            cfi
+        ).catch(e => logger.error('[GenericHtmlReader] Error saving progress:', e));
+    }, [bookId, currentChapter, progressPrefix, totalChapters]);
 
      useEffect(() => {
-         // eslint-disable-next-line react-hooks/set-state-in-effect
-         loadBook();
-         return () => {
-             // Cleanup
-             api.closeBookRenderer(bookId).catch(logger.error);
-         };
-     }, [loadBook, bookId]);
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          loadBook();
+          return () => {
+              if (saveProgressTimerRef.current) {
+                  clearTimeout(saveProgressTimerRef.current);
+                  saveProgressTimerRef.current = null;
+              }
+              flushProgressNow();
+              // Cleanup
+              api.closeBookRenderer(bookId).catch(logger.error);
+          };
+     }, [loadBook, bookId, flushProgressNow]);
+
+    const handleClose = useCallback(() => {
+        if (saveProgressTimerRef.current) {
+            clearTimeout(saveProgressTimerRef.current);
+            saveProgressTimerRef.current = null;
+        }
+        flushProgressNow();
+        onClose();
+    }, [flushProgressNow, onClose]);
 
     const goToChapter = async (index: number, searchTerm?: string | null) => {
         if (index < 0 || index >= totalChapters) return;
@@ -184,7 +218,7 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
             if (containerRef.current) {
                 containerRef.current.scrollTo({ top: 0, behavior: 'auto' });
             }
-            if (searchTerm && searchTerm.trim()) {
+            if (searchTerm?.trim()) {
                 setTimeout(() => {
                     const firstHighlight = contentRef.current?.querySelector('mark.premium-search-highlight') as HTMLElement | null;
                     firstHighlight?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -213,8 +247,6 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
 
     // Debounced scroll listener to save backend state every 2 seconds after user stops scrolling
     useEffect(() => {
-        let timeoutId: number;
-
         const debouncedSave = () => {
             if (!containerRef.current || !contentRef.current) return;
             const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
@@ -238,11 +270,19 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
         if (scrollElement) {
             const listener = () => {
                 handleScroll();
-                clearTimeout(timeoutId);
-                timeoutId = window.setTimeout(debouncedSave, 2000);
+                if (saveProgressTimerRef.current) {
+                    clearTimeout(saveProgressTimerRef.current);
+                }
+                saveProgressTimerRef.current = window.setTimeout(debouncedSave, 2000);
             };
             scrollElement.addEventListener('scroll', listener);
-            return () => scrollElement.removeEventListener('scroll', listener);
+            return () => {
+                scrollElement.removeEventListener('scroll', listener);
+                if (saveProgressTimerRef.current) {
+                    clearTimeout(saveProgressTimerRef.current);
+                    saveProgressTimerRef.current = null;
+                }
+            };
         }
     }, [handleScroll, bookId, currentChapter, totalChapters, progressPrefix]);
 
@@ -353,7 +393,7 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
                 subtitle={totalChapters > 1 ? `Chapter ${currentChapter + 1} / ${totalChapters}` : `${format.toUpperCase()} Render`}
                 progress={progressPercentage}
                 format={format}
-                onClose={onClose}
+                onClose={handleClose}
             />
 
             {/* Reading Canvas */}

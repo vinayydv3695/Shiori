@@ -103,7 +103,7 @@ env_logger = "0.11"
 # Other utilities
 csv = "1.3"
 regex = "1.10"                  # Regular expressions
-once_cell = "1.20"              # Lazy static initialization helpers
+once_cell = "1.20"              # Lazy static initialization
 strsim = "0.11"                 # String similarity for duplicate detection
 parking_lot = "0.12"            # Faster mutexes
 lazy_static = "1.5"             # Static initialization

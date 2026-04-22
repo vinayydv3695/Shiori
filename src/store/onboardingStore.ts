@@ -58,7 +58,7 @@ export interface BookPrefs {
 
 export interface OnboardingWizardState {
   onboardingComplete: boolean;
-  currentStep: 1 | 2 | 3 | 4 | 5 | 6;
+  currentStep: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
   libraryPath: string | null;
   selectedTheme: ThemeName;
   mangaPrefs: MangaPrefs;
@@ -79,7 +79,7 @@ export interface OnboardingWizardState {
 
 interface OnboardingStore extends OnboardingWizardState {
   initialize: () => Promise<void>;
-  setCurrentStep: (step: 1 | 2 | 3 | 4 | 5 | 6) => void;
+  setCurrentStep: (step: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8) => void;
   nextStep: () => void;
   prevStep: () => void;
   setLibraryPath: (path: string | null) => void;
@@ -100,7 +100,7 @@ interface OnboardingStore extends OnboardingWizardState {
   resetOnboarding: () => void;
 }
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 8;
 
 type ThemeOption = { name: ThemeName; value: Theme };
 
@@ -323,10 +323,10 @@ export const useOnboardingStore = create<OnboardingStore>()(
       setCurrentStep: (step) => set({ currentStep: step }),
 
       nextStep: () =>
-        set((state) => ({ currentStep: Math.min(TOTAL_STEPS, state.currentStep + 1) as 1 | 2 | 3 | 4 | 5 | 6 })),
+        set((state) => ({ currentStep: Math.min(TOTAL_STEPS, state.currentStep + 1) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 })),
 
       prevStep: () =>
-        set((state) => ({ currentStep: Math.max(1, state.currentStep - 1) as 1 | 2 | 3 | 4 | 5 | 6 })),
+        set((state) => ({ currentStep: Math.max(1, state.currentStep - 1) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 })),
 
       setLibraryPath: (path) => {
         set({ libraryPath: path });

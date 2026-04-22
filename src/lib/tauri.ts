@@ -1169,16 +1169,16 @@ export const api = {
     return invoke("import_from_torbox", { magnetLink, filenameHint })
   },
 
+  async importExistingTorboxTarget(torrentId: number, fileId?: number, filenameHint?: string): Promise<string> {
+    return invoke("import_existing_torbox_target", { torrentId, fileId, filenameHint })
+  },
+
   async resolveTorboxDownload(torrentId: number, fileId?: number): Promise<string> {
     return invoke("resolve_torbox_download", { torrentId, fileId })
   },
 
   async waitForTorboxCompletion(torrentId: number, maxWaitSeconds?: number): Promise<{ id: number; name: string; size: number; progress: number; downloadSpeed: number; status: string; files: { id: number; name: string; size: number }[] | null }> {
     return invoke("wait_for_torbox_completion", { torrentId, maxWaitSeconds })
-  },
-
-  async importExistingTorboxTarget(torrentId: number, fileId?: number, filenameHint?: string): Promise<string> {
-    return invoke("import_existing_torbox_target", { torrentId, fileId, filenameHint })
   },
 
   async annasArchiveDownload(contentId: string, titleHint?: string): Promise<string> {

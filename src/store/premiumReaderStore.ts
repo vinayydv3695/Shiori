@@ -156,6 +156,72 @@ const defaultSettings = {
   uiScale: 1.0,
 };
 
+const READER_THEMES: ReaderTheme[] = ['light', 'dark', 'paper', 'paper-dark'];
+const WIDTH_OPTIONS: Array<ReadingSettings['width']> = ['narrow', 'medium', 'wide', 'full'];
+const TEXT_ALIGN_OPTIONS: Array<ReadingSettings['textAlign']> = ['left', 'justify'];
+const ANIMATION_STYLE_OPTIONS: Array<ReadingSettings['animationStyle']> = ['slide', 'fade', 'none'];
+
+const clampNumber = (value: unknown, fallback: number, min: number, max: number): number => {
+  if (typeof value !== 'number' || Number.isNaN(value)) return fallback;
+  return Math.max(min, Math.min(max, value));
+};
+
+const clampStringEnum = <T extends string>(value: unknown, fallback: T, allowed: readonly T[]): T => {
+  if (typeof value !== 'string') return fallback;
+  return allowed.includes(value as T) ? (value as T) : fallback;
+};
+
+const normalizeReadingSettingsState = (raw: unknown): Omit<ReadingSettings, keyof {
+  setTheme: 0;
+  toggleTheme: 0;
+  setFontFamily: 0;
+  setFontSize: 0;
+  increaseFontSize: 0;
+  decreaseFontSize: 0;
+  setLineHeight: 0;
+  setParagraphSpacing: 0;
+  setLetterSpacing: 0;
+  setTextAlign: 0;
+  setBackgroundColor: 0;
+  setTextColor: 0;
+  setWidth: 0;
+  setMargin: 0;
+  cycleWidth: 0;
+  toggleTwoPageView: 0;
+  setBrightness: 0;
+  setPageFlipEnabled: 0;
+  setPageFlipSpeed: 0;
+  setAnimationStyle: 0;
+  setPaperTextureIntensity: 0;
+  setUiScale: 0;
+  resetToDefaults: 0;
+}> => {
+  const source = (raw && typeof raw === 'object') ? (raw as Partial<typeof defaultSettings>) : {};
+
+  return {
+    theme: clampStringEnum(source.theme, defaultSettings.theme, READER_THEMES),
+    fontFamily: normalizeLegacyFontPreference(
+      typeof source.fontFamily === 'string' ? source.fontFamily : defaultSettings.fontFamily
+    ),
+    fontSize: clampNumber(source.fontSize, defaultSettings.fontSize, 12, 32),
+    lineHeight: clampNumber(source.lineHeight, defaultSettings.lineHeight, 1.2, 3),
+    paragraphSpacing: typeof source.paragraphSpacing === 'string' ? source.paragraphSpacing : defaultSettings.paragraphSpacing,
+    letterSpacing: typeof source.letterSpacing === 'string' ? source.letterSpacing : defaultSettings.letterSpacing,
+    textAlign: clampStringEnum(source.textAlign, defaultSettings.textAlign, TEXT_ALIGN_OPTIONS),
+    backgroundColor: typeof source.backgroundColor === 'string' ? source.backgroundColor : defaultSettings.backgroundColor,
+    textColor: typeof source.textColor === 'string' ? source.textColor : defaultSettings.textColor,
+    width: clampStringEnum(source.width, defaultSettings.width, WIDTH_OPTIONS),
+    margin: clampNumber(source.margin, defaultSettings.margin, 0, 80),
+    twoPageView: typeof source.twoPageView === 'boolean' ? source.twoPageView : defaultSettings.twoPageView,
+    brightness: clampNumber(source.brightness, defaultSettings.brightness, 0.5, 1.5),
+    pageFlipEnabled: typeof source.pageFlipEnabled === 'boolean' ? source.pageFlipEnabled : defaultSettings.pageFlipEnabled,
+    pageFlipSpeed: clampNumber(source.pageFlipSpeed, defaultSettings.pageFlipSpeed, 100, 800),
+    animationStyle: clampStringEnum(source.animationStyle, defaultSettings.animationStyle, ANIMATION_STYLE_OPTIONS),
+    paperTextureIntensity: clampNumber(source.paperTextureIntensity, defaultSettings.paperTextureIntensity, 0, 0.2),
+    uiScale: clampNumber(source.uiScale, defaultSettings.uiScale, 0.8, 1.4),
+  };
+};
+
 export const BG_COLOR_PRESETS = [
   { id: 'default', color: 'default', label: 'Theme' },
   { id: 'white', color: '#FFFFFF', label: 'White' },
@@ -297,6 +363,19 @@ export const useReadingSettings = create<ReadingSettings>()(
     {
       name: 'shiori-reading-settings',
       version: 4,
+      migrate: (persistedState) => {
+        if (!persistedState || typeof persistedState !== 'object') {
+          return defaultSettings;
+        }
+        return normalizeReadingSettingsState(persistedState);
+      },
+      merge: (persistedState, currentState) => {
+        const normalized = normalizeReadingSettingsState(persistedState);
+        return {
+          ...currentState,
+          ...normalized,
+        };
+      },
     }
   )
 );
@@ -501,8 +580,7 @@ const applyBrightnessToDOM = (brightness: number) => {
 // The app-level theme (data-theme="black"|"white") is managed by preferencesStore.
 if (typeof window !== 'undefined') {
   const savedSettings = localStorage.getItem('shiori-reading-settings');
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSON.parse returns any; validated below via fallback defaults
-  let parsed: Record<string, any> | null = null;
+  let parsed: { state?: Partial<typeof defaultSettings> } | null = null;
 
   if (savedSettings) {
     try {

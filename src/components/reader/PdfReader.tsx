@@ -121,6 +121,7 @@ interface PdfProgressState {
   scale: number;
   viewMode: PdfViewMode;
   zoomMode: PdfZoomMode;
+  scrollRatio?: number;
 }
 
 const parsePdfProgress = (location: string): PdfProgressState | null => {
@@ -130,11 +131,13 @@ const parsePdfProgress = (location: string): PdfProgressState | null => {
     try {
       const parsed = JSON.parse(location) as Partial<PdfProgressState>;
       if (typeof parsed.page !== 'number' || typeof parsed.scale !== 'number') return null;
+      const rawScrollRatio = typeof parsed.scrollRatio === 'number' ? parsed.scrollRatio : undefined;
       return {
         page: parsed.page,
         scale: parsed.scale,
         viewMode: parsed.viewMode === 'scroll' ? 'scroll' : 'page',
         zoomMode: parsed.zoomMode === 'fit-width' || parsed.zoomMode === 'fit-page' ? parsed.zoomMode : 'manual',
+        scrollRatio: rawScrollRatio !== undefined ? clamp(rawScrollRatio, 0, 1) : undefined,
       };
     } catch {
       return null;
@@ -144,18 +147,29 @@ const parsePdfProgress = (location: string): PdfProgressState | null => {
   if (!location.startsWith(`${PDF_PROGRESS_PREFIX}|`)) return null;
   const payload = location.slice(PDF_PROGRESS_PREFIX.length + 1);
   const parts = payload.split('|');
-  if (parts.length !== 4) return null;
-  const [pageRaw, scaleRaw, viewRaw, zoomRaw] = parts;
+  if (parts.length !== 4 && parts.length !== 5) return null;
+  const [pageRaw, scaleRaw, viewRaw, zoomRaw, scrollRatioRaw] = parts;
   const page = parseInt(pageRaw, 10);
   const scale = parseFloat(scaleRaw);
   const viewMode: PdfViewMode = viewRaw === 'scroll' ? 'scroll' : 'page';
   const zoomMode: PdfZoomMode = zoomRaw === 'fit-width' || zoomRaw === 'fit-page' ? zoomRaw : 'manual';
   if (Number.isNaN(page) || page < 1 || Number.isNaN(scale)) return null;
-  return { page, scale, viewMode, zoomMode };
+  const parsedScrollRatio = scrollRatioRaw !== undefined && scrollRatioRaw !== ''
+    ? parseFloat(scrollRatioRaw)
+    : undefined;
+  return {
+    page,
+    scale,
+    viewMode,
+    zoomMode,
+    scrollRatio: parsedScrollRatio !== undefined && !Number.isNaN(parsedScrollRatio)
+      ? clamp(parsedScrollRatio, 0, 1)
+      : undefined,
+  };
 };
 
 const encodePdfProgress = (state: PdfProgressState): string =>
-  `${PDF_PROGRESS_PREFIX}|${state.page}|${state.scale.toFixed(4)}|${state.viewMode}|${state.zoomMode}`;
+  `${PDF_PROGRESS_PREFIX}|${state.page}|${state.scale.toFixed(4)}|${state.viewMode}|${state.zoomMode}|${state.viewMode === 'scroll' && typeof state.scrollRatio === 'number' ? state.scrollRatio.toFixed(6) : ''}`;
 
 export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReaderProps) {
   const { isFocusMode } = useReaderAutoHide();
@@ -188,6 +202,7 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
   const isProgrammaticScrollRef = useRef(false);
   const programmaticScrollTimerRef = useRef<number | null>(null);
   const saveProgressTimerRef = useRef<number | null>(null);
+  const pendingResumeScrollRatioRef = useRef<number | null>(null);
 
   // ── Reader Theme ──
   useReaderTheme(readerContainerRef, theme);
@@ -244,7 +259,22 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
     return clamp(Math.min(fitWidth, fitHeight), 0.5, 3);
   }, [docBaseWidth, getViewportMetrics]);
 
-  const persistProgress = useCallback(async (nextPage: number, nextScale: number, nextViewMode: PdfViewMode, nextZoomMode: PdfZoomMode) => {
+  const getInPageScrollRatio = useCallback((targetPage: number): number | undefined => {
+    if (viewMode !== 'scroll') return undefined;
+    const root = containerRef.current;
+    if (!root) return undefined;
+    const pageEl = root.querySelector<HTMLElement>(`[data-page-number="${targetPage}"]`);
+    if (!pageEl) return undefined;
+
+    const pageOffsetTop = pageEl.offsetTop;
+    const pageHeight = pageEl.offsetHeight;
+    if (pageHeight <= 0) return 0;
+
+    const relativeOffset = root.scrollTop - pageOffsetTop;
+    return clamp(relativeOffset / pageHeight, 0, 1);
+  }, [viewMode]);
+
+  const persistProgress = useCallback(async (nextPage: number, nextScale: number, nextViewMode: PdfViewMode, nextZoomMode: PdfZoomMode, nextScrollRatio?: number) => {
     if (numPages <= 0) return;
     const progressPercent = (nextPage / numPages) * 100;
     try {
@@ -255,6 +285,7 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
           scale: nextScale,
           viewMode: nextViewMode,
           zoomMode: nextZoomMode,
+          scrollRatio: nextViewMode === 'scroll' ? nextScrollRatio : undefined,
         }),
         progressPercent,
         nextPage,
@@ -264,6 +295,17 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
       logger.error('[PdfReader] Failed saving progress:', err);
     }
   }, [bookId, numPages]);
+
+  const flushProgressNow = useCallback(() => {
+    if (saveProgressTimerRef.current) {
+      window.clearTimeout(saveProgressTimerRef.current);
+      saveProgressTimerRef.current = null;
+    }
+    if (numPages <= 0) return;
+    const safePage = clamp(pageNumber, 1, numPages);
+    const ratio = getInPageScrollRatio(safePage);
+    void persistProgress(safePage, scale, viewMode, zoomMode, ratio);
+  }, [getInPageScrollRatio, numPages, pageNumber, persistProgress, scale, viewMode, zoomMode]);
 
   const applyPDFHighlights = useCallback(() => {
     const root = containerRef.current;
@@ -381,6 +423,9 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
           setScale(clamp(parsed.scale, 0.5, 3));
           setViewMode(parsed.viewMode);
           setZoomMode(parsed.zoomMode);
+          pendingResumeScrollRatioRef.current = parsed.viewMode === 'scroll' && typeof parsed.scrollRatio === 'number'
+            ? clamp(parsed.scrollRatio, 0, 1)
+            : null;
           if (parsed.page > 1) {
             useToastStore.getState().addToast({
               title: 'Resuming reading',
@@ -397,6 +442,7 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
               setPageNumber(savedPage);
             }
           }
+          pendingResumeScrollRatioRef.current = null;
         }
       } catch (innerError) {
         logger.warn('[PdfReader] Best-effort restore failed:', innerError);
@@ -414,9 +460,10 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
     }, 0);
     return () => {
       window.clearTimeout(task);
+      flushProgressNow();
       api.closeBookRenderer(bookId).catch(logger.error);
     };
-  }, [bookId, loadBook]);
+  }, [bookId, flushProgressNow, loadBook]);
 
   useEffect(() => {
     const onResize = () => {
@@ -465,13 +512,14 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
     if (saveProgressTimerRef.current) clearTimeout(saveProgressTimerRef.current);
     saveProgressTimerRef.current = window.setTimeout(() => {
       const safePage = clamp(pageNumber, 1, numPages);
-      persistProgress(safePage, scale, viewMode, zoomMode);
+      const ratio = getInPageScrollRatio(safePage);
+      persistProgress(safePage, scale, viewMode, zoomMode, ratio);
     }, 1500);
 
     return () => {
       if (saveProgressTimerRef.current) clearTimeout(saveProgressTimerRef.current);
     };
-  }, [numPages, pageNumber, persistProgress, resetDoodlePage, scale, setScrollProgress, viewMode, zoomMode]);
+  }, [getInPageScrollRatio, numPages, pageNumber, persistProgress, resetDoodlePage, scale, setScrollProgress, viewMode, zoomMode]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -612,11 +660,36 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
     };
   }, [handleScrollSync, viewMode]);
 
+  useEffect(() => {
+    if (viewMode !== 'scroll') return;
+    if (pendingResumeScrollRatioRef.current === null) return;
+    const root = containerRef.current;
+    if (!root) return;
+
+    const targetRatio = pendingResumeScrollRatioRef.current;
+    const timer = window.setTimeout(() => {
+      const pageEl = root.querySelector<HTMLElement>(`[data-page-number="${pageNumber}"]`);
+      if (!pageEl) return;
+      const nextScrollTop = pageEl.offsetTop + (targetRatio * pageEl.offsetHeight);
+      const maxScrollTop = Math.max(0, root.scrollHeight - root.clientHeight);
+      root.scrollTo({ top: clamp(nextScrollTop, 0, maxScrollTop), behavior: 'auto' });
+      pendingResumeScrollRatioRef.current = null;
+    }, 120);
+
+    return () => window.clearTimeout(timer);
+  }, [pageNumber, viewMode]);
+
   useEffect(() => () => {
     if (programmaticScrollTimerRef.current) {
       window.clearTimeout(programmaticScrollTimerRef.current);
     }
-  }, []);
+    flushProgressNow();
+  }, [flushProgressNow]);
+
+  const handleClose = useCallback(() => {
+    flushProgressNow();
+    onClose();
+  }, [flushProgressNow, onClose]);
 
   if (error) {
     return (
@@ -626,6 +699,7 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
           <p className="premium-error-title">{error}</p>
           <p className="premium-error-subtitle">Try opening a different book or check the file format.</p>
           <button
+            type="button"
             onClick={() => {
               setError(null);
               void loadBook();
@@ -647,7 +721,7 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
         subtitle={numPages > 0 ? '' : 'Loading...'}
         progress={Math.round((pageNumber / numPages) * 100 || 0)}
         format="pdf"
-        onClose={onClose}
+        onClose={handleClose}
         centerExtra={
           <div className="flex items-center gap-1 ml-3">
             <PageInput pageNumber={pageNumber} numPages={numPages} onNavigate={(p) => {

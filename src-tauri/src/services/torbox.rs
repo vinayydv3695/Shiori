@@ -688,7 +688,8 @@ impl TorboxService {
     /// Add a source link to Torbox.
     ///
     /// - magnet links -> torrent flow
-    /// - any HTTP/HTTPS link -> web download flow
+    /// - HTTP/HTTPS torrent-style links (.torrent or /torrent) -> torrent flow
+    /// - other HTTP/HTTPS links -> web download flow
     pub async fn add_download_target(&self, source_link: &str) -> Result<i64> {
         let api_key = self
             .api_key
@@ -711,6 +712,9 @@ impl TorboxService {
         }
 
         if normalized.starts_with("http://") || normalized.starts_with("https://") {
+            if is_torrent_style_link(normalized) {
+                return self.add_torrent_target(&api_key, normalized).await;
+            }
             return self.add_web_download_target(&api_key, normalized).await;
         }
 
@@ -991,29 +995,98 @@ impl TorboxService {
         }
     }
 
-    /// Download a file from URL to local path
-    pub async fn download_file(&self, url: &str, dest_path: &std::path::Path) -> Result<()> {
-        let resp = self.client
-            .get(url)
-            .send()
-            .await
-            .map_err(|e| ShioriError::Other(format!("Download request failed: {}", e)))?;
+    pub async fn download_file_with_progress<F>(
+        &self,
+        url: &str,
+        dest_path: &std::path::Path,
+        mut on_progress: F,
+    ) -> Result<()>
+    where
+        F: FnMut(u64, Option<u64>) + Send,
+    {
+        use tokio::io::AsyncWriteExt;
 
-        if !resp.status().is_success() {
-            return Err(ShioriError::Other(format!("Download failed with status: {}", resp.status())));
-        }
-
-        let bytes = resp.bytes().await
-            .map_err(|e| ShioriError::Other(format!("Failed to read download bytes: {}", e)))?;
+        const MAX_RETRIES: u8 = 3;
+        const RETRY_BACKOFF_SECS: [u64; 3] = [1, 2, 4];
 
         if let Some(parent) = dest_path.parent() {
             std::fs::create_dir_all(parent)
                 .map_err(|e| ShioriError::Other(format!("Failed to create download directory: {}", e)))?;
         }
 
-        std::fs::write(dest_path, &bytes)
-            .map_err(|e| ShioriError::Other(format!("Failed to write downloaded file: {}", e)))?;
+        for attempt in 1..=MAX_RETRIES {
+            let response = match self
+                .client
+                .get(url)
+                .timeout(Duration::from_secs(15 * 60))
+                .send()
+                .await
+            {
+                Ok(resp) => resp,
+                Err(err) => {
+                    if attempt >= MAX_RETRIES {
+                        return Err(ShioriError::Other(format!(
+                            "Download request failed after {} attempts: {}",
+                            attempt, err
+                        )));
+                    }
 
-        Ok(())
+                    tokio::time::sleep(Duration::from_secs(RETRY_BACKOFF_SECS[(attempt - 1) as usize])).await;
+                    continue;
+                }
+            };
+
+            if !response.status().is_success() {
+                return Err(ShioriError::Other(format!("Download failed with status: {}", response.status())));
+            }
+
+            let total_bytes = response.content_length();
+
+            let mut file = tokio::fs::File::create(dest_path)
+                .await
+                .map_err(|e| ShioriError::Other(format!("Failed to create local file: {}", e)))?;
+
+            let mut stream_error: Option<String> = None;
+            let mut response_stream = response;
+            let mut downloaded_bytes: u64 = 0;
+
+            on_progress(downloaded_bytes, total_bytes);
+
+            while let Some(chunk) = match response_stream.chunk().await {
+                Ok(next) => next,
+                Err(err) => {
+                    stream_error = Some(format!("Failed to read chunk from stream: {}", err));
+                    None
+                }
+            } {
+                if let Err(err) = file.write_all(&chunk).await {
+                    return Err(ShioriError::Other(format!("Failed to write chunk to disk: {}", err)));
+                }
+
+                downloaded_bytes = downloaded_bytes.saturating_add(chunk.len() as u64);
+                on_progress(downloaded_bytes, total_bytes);
+            }
+
+            if let Some(err) = stream_error {
+                let _ = tokio::fs::remove_file(dest_path).await;
+                if attempt >= MAX_RETRIES {
+                    return Err(ShioriError::Other(format!(
+                        "{} (after {} attempts)",
+                        err, attempt
+                    )));
+                }
+                tokio::time::sleep(Duration::from_secs(RETRY_BACKOFF_SECS[(attempt - 1) as usize])).await;
+                continue;
+            }
+
+            return Ok(());
+        }
+
+        Err(ShioriError::Other("Download failed after retries".to_string()))
+    }
+
+    pub async fn download_file(&self, url: &str, dest_path: &std::path::Path) -> Result<()> {
+        self.download_file_with_progress(url, dest_path, |_downloaded, _total| {})
+            .await
     }
 }

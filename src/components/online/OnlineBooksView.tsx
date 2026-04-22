@@ -13,14 +13,6 @@ import { ContentCarousel, type CarouselItem } from './ContentCarousel';
 import { useTorboxStore } from '@/stores/useTorboxStore';
 import { parsePageUrl } from '@/lib/utils';
 
-type AnnaCandidate = {
-  url: string;
-  kind: 'magnet' | 'torrent' | 'direct' | 'anna' | 'external';
-  priority: number;
-  source: string;
-  label?: string;
-};
-
 let onlineBooksSearchTimeout: number | undefined;
 
 export function OnlineBooksView() {
@@ -261,6 +253,9 @@ export function OnlineBooksView() {
   const annaAccountHint = useMemo(() => {
     if (!pluginError) return null;
     const lower = pluginError.toLowerCase();
+    if (lower.includes('rapidapi')) {
+      return 'Anna RapidAPI request failed. Verify the API key in Settings -> Online Sources -> Anna API Key.';
+    }
     const mentionsAccess =
       lower.includes('account') ||
       lower.includes('members') ||
@@ -270,7 +265,7 @@ export function OnlineBooksView() {
       lower.includes('login');
 
     if (!mentionsAccess) return null;
-    return 'Anna access may be required for this title. Try RuTracker mirrors or another source in Torbox Hub.';
+    return 'Anna account access may be required for this title. In Settings -> Online Sources -> Anna, set Auth Cookie (and Auth Key/API key if available).';
   }, [pluginError]);
 
   const handleTorboxDownload = useCallback(async (book: PluginSearchResult) => {
@@ -310,6 +305,11 @@ export function OnlineBooksView() {
         return parsed;
       };
 
+      const isHttp = (value: string): boolean => {
+        const normalized = value.trim().toLowerCase();
+        return normalized.startsWith('http://') || normalized.startsWith('https://');
+      };
+
       const isTorrentish = (value: string): boolean => {
         const normalized = value.trim().toLowerCase();
         return normalized.startsWith('magnet:') || normalized.includes('.torrent') || normalized.includes('/torrent');
@@ -327,17 +327,10 @@ export function OnlineBooksView() {
 
       const candidatePriority = new Map<string, { kind: string; priority: number }>();
 
-      const extractMagnetOrTorrentLinks = (value: unknown): string[] => {
-        if (typeof value !== 'string') return [];
-        const matches = value.match(/magnet:\?[^\s"'<>]+|https?:\/\/[^\s"'<>]+(?:\.torrent[^\s"'<>]*)?/gi);
-        if (!matches) return [];
-        return matches.map((entry) => entry.trim());
-      };
-
       pages.forEach((p) => {
         const parsed = parseCandidate(p.url);
         if (!parsed) return;
-        if (!isTorrentish(parsed.url)) return;
+        if (!isTorrentish(parsed.url) && !isHttp(parsed.url)) return;
         const priority = getPriority(parsed.kind, parsed.url);
         const existing = candidatePriority.get(parsed.url);
         if (existing === undefined || priority < existing.priority) {
@@ -345,80 +338,32 @@ export function OnlineBooksView() {
         }
       });
 
-      const extra = book.extra ?? {};
-      const extraKeys = [
-        'magnet',
-        'magnet_link',
-        'magnetLink',
-        'magnet_url',
-        'torrent',
-        'torrent_link',
-        'torrentLink',
-        'torrent_url',
-        'links',
-      ];
-
-      extraKeys.forEach((key) => {
-        const value = extra[key as keyof typeof extra];
-        const entries = Array.isArray(value) ? value : [value];
-
-        entries.forEach((entry) => {
-          if (typeof entry === 'string') {
-            const parsed = parseCandidate(entry);
-            if (parsed && isTorrentish(parsed.url)) {
-              const priority = getPriority(parsed.kind, parsed.url);
-              const existing = candidatePriority.get(parsed.url);
-              if (existing === undefined || priority < existing.priority) {
-                candidatePriority.set(parsed.url, { kind: parsed.kind, priority });
-              }
-            }
-
-            extractMagnetOrTorrentLinks(entry).forEach((extracted) => {
-              const parsedExtracted = parseCandidate(extracted);
-              if (!parsedExtracted || !isTorrentish(parsedExtracted.url)) return;
-              const priority = getPriority(parsedExtracted.kind, parsedExtracted.url);
-              const existing = candidatePriority.get(parsedExtracted.url);
-              if (existing === undefined || priority < existing.priority) {
-                candidatePriority.set(parsedExtracted.url, { kind: parsedExtracted.kind, priority });
-              }
-            });
-          }
-        });
-      });
-
       const candidateLinks = Array.from(candidatePriority.entries())
         .map(([url, meta]) => ({ url, kind: meta.kind, priority: meta.priority }))
         .sort((a, b) => a.priority - b.priority);
 
-      const normalizedCandidates: AnnaCandidate[] = candidateLinks.map((candidate) => ({
-        url: candidate.url,
-        kind:
-          candidate.kind === 'magnet' ||
-          candidate.kind === 'torrent' ||
-          candidate.kind === 'direct' ||
-          candidate.kind === 'anna' ||
-          candidate.kind === 'external'
-            ? candidate.kind
-            : 'external',
-        priority: candidate.priority,
-        source: candidate.kind === 'anna' ? 'anna-md5' : 'source-page',
-      }));
-
-      const torboxCandidates = normalizedCandidates.filter(
-        (candidate) => candidate.kind === 'magnet' || candidate.kind === 'torrent',
-      );
-
-      if (torboxCandidates.length === 0) {
+      if (candidateLinks.length === 0) {
         throw new Error('No compatible download link available for this book. Try opening the detail page manually.');
       }
 
-      setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Queued in Torbox...' }));
-      await enqueueFromAnna({
-        title: book.title,
-        sourceLinks: torboxCandidates,
-      });
-      setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Imported to library!' }));
-      setCurrentView('torbox-books');
+      const firstCandidate = candidateLinks[0];
+      if (!firstCandidate) {
+        throw new Error('No valid magnet/torrent candidate found.');
+      }
+
+      if (firstCandidate.kind === 'anna' || firstCandidate.kind === 'external') {
+        setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Opening source in browser...' }));
+        openInBrowser(firstCandidate.url);
+      } else if (
+        firstCandidate.kind === 'magnet' ||
+        firstCandidate.kind === 'torrent' ||
+        firstCandidate.kind === 'direct'
+      ) {
+        setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Queued in Torbox...' }));
+        await enqueueFromAnna({ title: book.title, sourceLink: firstCandidate.url });
+        setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Imported to library!' }));
+        setCurrentView('torbox-books');
+      }
       
       // Clear status after 3 seconds
       setTimeout(() => {
@@ -431,11 +376,7 @@ export function OnlineBooksView() {
       
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Download failed';
-      if (message.toLowerCase().includes('no compatible download link')) {
-        setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Error: No magnet/torrent link found for this title' }));
-      } else {
-        setDownloadingBooks(prev => ({ ...prev, [book.id]: `Error: ${message}` }));
-      }
+      setDownloadingBooks(prev => ({ ...prev, [book.id]: `Error: ${message}` }));
       
       setTimeout(() => {
         setDownloadingBooks(prev => {
@@ -445,7 +386,7 @@ export function OnlineBooksView() {
         });
       }, 5000);
     }
-  }, [enqueueFromAnna, setCurrentView]);
+  }, [enqueueFromAnna, openInBrowser, setCurrentView]);
 
   return (
     <div className="flex flex-col h-full bg-background">

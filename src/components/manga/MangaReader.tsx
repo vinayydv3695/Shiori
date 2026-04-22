@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import {
     useMangaContentStore,
     useMangaUIStore,
@@ -58,6 +58,7 @@ export function MangaReader(props: MangaReaderProps) {
     const sourceType = useMangaContentStore(s => s.sourceType);
     const currentPage = useMangaContentStore(s => s.currentPage);
     const setCurrentPage = useMangaContentStore(s => s.setCurrentPage);
+    const setOnlineChapter = useMangaContentStore(s => s.setOnlineChapter);
     const mangaTotalPages = useMangaContentStore(s => s.totalPages);
     const pageDimensions = useMangaContentStore(s => s.pageDimensions);
     const mergePageDimensions = useMangaContentStore(s => s.mergePageDimensions);
@@ -79,6 +80,7 @@ export function MangaReader(props: MangaReaderProps) {
     const localTitle = mode === 'local' ? (props.title ?? '') : '';
     const localTotalPages = mode === 'local' ? (props.totalPages ?? 0) : 0;
     const onlineConfig = mode === 'online' ? props.sourceConfig : null;
+    const onlineOnChapterChange = mode === 'online' ? props.onChapterChange : undefined;
 
     // Always start each reader session with a clean UI state.
     useEffect(() => {
@@ -163,14 +165,35 @@ export function MangaReader(props: MangaReaderProps) {
                     const savedProgress = localStorage.getItem(`shiori-manga-progress:${progressKey}`);
                     if (savedProgress) {
                         const { chapterId, page } = JSON.parse(savedProgress);
-                        if (chapterId === onlineConfig.chapterId && page > 0) {
-                            setCurrentPage(page);
+                        const savedPage = typeof page === 'number' ? Math.max(0, page) : 0;
+
+                        if (chapterId === onlineConfig.chapterId && savedPage > 0) {
+                            const clampedPage = Math.min(savedPage, Math.max(0, onlineConfig.pageUrls.length - 1));
+                            setCurrentPage(clampedPage);
                             useToastStore.getState().addToast({
                                 title: 'Resuming reading',
-                                description: `Page ${page + 1} of ${onlineConfig.pageUrls.length}`,
+                                description: `Page ${clampedPage + 1} of ${onlineConfig.pageUrls.length}`,
                                 variant: 'info',
                                 duration: 3000,
                             });
+                        } else if (chapterId && chapterId !== onlineConfig.chapterId && onlineOnChapterChange) {
+                            try {
+                                const chapterData = await onlineOnChapterChange(chapterId);
+                                if (cancelled) return;
+
+                                setOnlineChapter(chapterId, chapterData.chapterTitle, chapterData.pageUrls);
+                                const clampedPage = Math.min(savedPage, Math.max(0, chapterData.pageUrls.length - 1));
+                                setCurrentPage(clampedPage);
+
+                                useToastStore.getState().addToast({
+                                    title: 'Resuming reading',
+                                    description: `${chapterData.chapterTitle} • Page ${clampedPage + 1}`,
+                                    variant: 'info',
+                                    duration: 3000,
+                                });
+                            } catch {
+                                // Fallback behavior: keep current chapter when restore callback fails
+                            }
                         }
                     }
                 } catch {
@@ -213,8 +236,8 @@ export function MangaReader(props: MangaReaderProps) {
             // Cleanup frontend state
             closeManga();
         };
-    }, [mode, localBookId, localBookPath, localTitle, localTotalPages, onlineConfig, 
-        openManga, openOnlineManga, closeManga, setLoading, setError, setCurrentPage]);
+    }, [mode, localBookId, localBookPath, localTitle, localTotalPages, onlineConfig,
+        onlineOnChapterChange, openManga, openOnlineManga, closeManga, setLoading, setError, setCurrentPage, setOnlineChapter]);
 
     // Apply theme on mount
     useEffect(() => {

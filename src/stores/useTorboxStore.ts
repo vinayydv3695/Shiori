@@ -5,15 +5,6 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
 export type TorboxJobStatus = 'queued' | 'verifying' | 'downloading' | 'importing' | 'completed' | 'failed';
 export type TorboxDownloadMethod = 'magnet' | 'torrent' | 'webdl';
-export type TorboxCandidateKind = 'magnet' | 'torrent' | 'direct' | 'anna' | 'external' | 'unknown';
-
-export interface TorboxSourceCandidate {
-  url: string;
-  kind?: TorboxCandidateKind;
-  source?: string;
-  label?: string;
-  priority?: number;
-}
 
 export interface TorboxQueueItem {
   id: string;
@@ -35,12 +26,6 @@ export interface TorboxQueueItem {
   localFileIndex?: number;
   localFileTotal?: number;
   localFileName?: string;
-  candidateKind?: TorboxCandidateKind;
-  candidateSource?: string;
-  candidateLabel?: string;
-  candidateAttempt?: number;
-  candidateTotal?: number;
-  candidateTriedKinds?: TorboxCandidateKind[];
 }
 
 type TorboxLocalDownloadProgressEvent = {
@@ -135,117 +120,24 @@ function detectDownloadMethod(link: string): TorboxDownloadMethod {
 function normalizeTorboxLink(rawLink: string): { kind: string; url: string } {
   const parsed = parsePageUrl(rawLink);
   const url = parsed.url.trim();
-  const normalized = url.toLowerCase();
   let kind = parsed.kind;
-  if (normalized.startsWith('magnet:')) {
-    kind = 'magnet';
-  } else if (normalized.includes('.torrent') || normalized.includes('/torrent')) {
-    kind = 'torrent';
+
+  if (kind === 'direct') {
+    const normalized = url.toLowerCase();
+    if (normalized.startsWith('magnet:')) {
+      kind = 'magnet';
+    } else if (normalized.includes('.torrent') || normalized.includes('/torrent')) {
+      kind = 'torrent';
+    }
   }
 
   return { kind, url };
 }
 
-function normalizeCandidateKind(rawKind: string | undefined): TorboxCandidateKind {
-  const kind = (rawKind ?? '').trim().toLowerCase();
-  if (kind === 'magnet' || kind === 'torrent' || kind === 'direct' || kind === 'anna' || kind === 'external') {
-    return kind;
-  }
-  return 'unknown';
-}
-
-function candidateExecutionRank(kind: TorboxCandidateKind | undefined): number {
-  if (kind === 'magnet') return 0;
-  if (kind === 'torrent') return 1;
-  return 999;
-}
-
-function isTorboxRunnableAnnaCandidate(kind: TorboxCandidateKind | undefined): boolean {
-  return kind === 'magnet' || kind === 'torrent';
-}
-
-function buildAnnaCandidates(input: {
-  sourceLink?: string;
-  sourceLinks?: TorboxSourceCandidate[];
-}): TorboxSourceCandidate[] {
-  const candidates: TorboxSourceCandidate[] = [];
-  const seen = new Set<string>();
-
-  const pushCandidate = (candidate: TorboxSourceCandidate, fallbackPriority: number) => {
-    const url = candidate.url?.trim();
-    if (!url || seen.has(url)) return;
-
-    const parsed = normalizeTorboxLink(url);
-    const parsedKind = normalizeCandidateKind(parsed.kind);
-    const providedKind = normalizeCandidateKind(candidate.kind);
-    const effectiveKind =
-      parsedKind === 'magnet' || parsedKind === 'torrent'
-        ? parsedKind
-        : providedKind;
-
-    candidates.push({
-      url: parsed.url,
-      kind: effectiveKind,
-      source: candidate.source,
-      label: candidate.label,
-      priority: typeof candidate.priority === 'number' ? candidate.priority : fallbackPriority,
-    });
-    seen.add(parsed.url);
-  };
-
-  (input.sourceLinks ?? []).forEach((candidate, index) => {
-    pushCandidate(candidate, index);
-  });
-
-  if (input.sourceLink) {
-    pushCandidate({ url: input.sourceLink }, candidates.length + 1000);
-  }
-
-  return candidates
-    .sort((a, b) => {
-      const rankDiff = candidateExecutionRank(a.kind) - candidateExecutionRank(b.kind);
-      if (rankDiff !== 0) return rankDiff;
-      return (a.priority ?? 0) - (b.priority ?? 0);
-    })
-    .map((candidate) => ({
-      url: candidate.url,
-      kind: candidate.kind,
-      source: candidate.source,
-      label: candidate.label,
-    }));
-}
-
-async function processTorboxCandidate(
-  candidate: TorboxSourceCandidate,
-  title: string,
-  onProgress: (info: TorboxInstantInfo, torrentId: number) => void,
-): Promise<{ importedPath: string; torrentId: number }> {
-  const queued = await api.addToTorboxQueue(candidate.url);
-
-  await waitForCompletionWithProgress(queued.torrentId, (info) => {
-    onProgress(info, queued.torrentId);
-  });
-
-  const importedPath = await api.importExistingTorboxTarget(
-    queued.torrentId,
-    undefined,
-    title,
-  );
-
-  return {
-    importedPath,
-    torrentId: queued.torrentId,
-  };
-}
-
 interface TorboxStoreState {
   jobs: TorboxQueueItem[];
   activeJobId: string | null;
-  enqueueFromAnna: (input: {
-    title: string;
-    sourceLink?: string;
-    sourceLinks?: TorboxSourceCandidate[];
-  }) => Promise<void>;
+  enqueueFromAnna: (input: { title: string; sourceLink: string }) => Promise<void>;
   enqueueFromMangadex: (input: { title: string; sourceLink: string }) => Promise<void>;
   removeJob: (id: string) => void;
   clearCompleted: () => void;
@@ -352,39 +244,27 @@ export const useTorboxStore = create<TorboxStoreState>((set, get) => ({
   jobs: [],
   activeJobId: null,
 
-  enqueueFromAnna: async ({ title, sourceLink, sourceLinks }) => {
+  enqueueFromAnna: async ({ title, sourceLink }) => {
     await ensureLocalDownloadListener(set);
-    const allCandidates = buildAnnaCandidates({ sourceLink, sourceLinks });
+    const parsedSource = normalizeTorboxLink(sourceLink);
+    const resolvedSourceLink = parsedSource.url;
 
-    const candidates = allCandidates.filter((candidate) => isTorboxRunnableAnnaCandidate(candidate.kind));
-
-    if (allCandidates.length === 0) {
-      throw new Error('No Anna candidates available for Torbox queueing.');
+    if (parsedSource.kind === 'anna' || parsedSource.kind === 'external') {
+      throw new Error('This source should be opened in browser instead of sending to Torbox.');
     }
-
-    if (candidates.length === 0) {
-      throw new Error('No Torbox-compatible magnet/torrent candidate from source response.');
-    }
-
-    const primary = candidates[0];
 
     const id = createJobId();
-    const method = detectDownloadMethod(primary.url);
+    const method = detectDownloadMethod(resolvedSourceLink);
     const job: TorboxQueueItem = {
       id,
       title,
       source: 'anna',
-      sourceLink: primary.url,
+      sourceLink: resolvedSourceLink,
       downloadMethod: method,
       status: 'queued',
       progress: 0,
       size: 0,
       downloadSpeed: 0,
-      candidateKind: primary.kind,
-      candidateSource: primary.source,
-      candidateLabel: primary.label,
-      candidateAttempt: 1,
-      candidateTotal: candidates.length,
     };
 
     set((state) => ({
@@ -393,81 +273,49 @@ export const useTorboxStore = create<TorboxStoreState>((set, get) => ({
     }));
 
     try {
-      let importedPath: string | null = null;
-      const errors: string[] = [];
+      set((state) => ({
+        jobs: state.jobs.map((item) =>
+          item.id === id ? { ...item, status: 'verifying', progress: 5 } : item
+        ),
+      }));
 
-      for (let attempt = 0; attempt < candidates.length; attempt += 1) {
-        const candidate = candidates[attempt];
+      const queued = await api.addToTorboxQueue(resolvedSourceLink);
 
+      set((state) => ({
+        jobs: state.jobs.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                torrentId: queued.torrentId,
+                status: 'downloading',
+                progress: 10,
+              }
+            : item
+        ),
+      }));
+
+      const completedInfo = await waitForCompletionWithProgress(queued.torrentId, (info) => {
         set((state) => ({
           jobs: state.jobs.map((item) =>
             item.id === id
               ? {
-                ...item,
-                status: 'verifying',
-                progress: 5,
-                candidateKind: candidate.kind,
-                candidateSource: candidate.source,
-                candidateLabel: candidate.label,
-                candidateAttempt: attempt + 1,
-                candidateTotal: candidates.length,
-                candidateTriedKinds: Array.from(
-                  new Set([...(item.candidateTriedKinds ?? []), candidate.kind ?? 'unknown']),
-                ),
-                error: undefined,
-              }
-            : item
+                  ...item,
+                  torrentId: queued.torrentId,
+                  status: isCompletedStatus(info.status) ? 'importing' : 'downloading',
+                  progress: normalizeTorboxProgress(info.progress),
+                  size: info.size,
+                  downloadSpeed: info.downloadSpeed,
+                }
+              : item
           ),
         }));
+      });
 
-        try {
-          const result = await processTorboxCandidate(candidate, title, (info, torrentId) => {
-            set((state) => ({
-              jobs: state.jobs.map((item) =>
-                item.id === id
-                  ? {
-                      ...item,
-                      torrentId,
-                      status: isCompletedStatus(info.status) ? 'importing' : 'downloading',
-                      progress: normalizeTorboxProgress(info.progress),
-                      size: info.size,
-                      downloadSpeed: info.downloadSpeed,
-                    }
-                  : item
-              ),
-            }));
-          });
-
-          importedPath = result.importedPath;
-          break;
-        } catch (candidateError) {
-          const message = getErrorMessage(
-            candidateError,
-            `Candidate ${attempt + 1} failed (${candidate.kind ?? 'unknown'})`,
-          );
-          errors.push(message);
-
-          set((state) => ({
-            jobs: state.jobs.map((item) =>
-              item.id === id
-                ? {
-                    ...item,
-                    status: 'verifying',
-                    error: message,
-                  }
-                : item
-            ),
-          }));
-        }
-      }
-
-      if (!importedPath) {
-        const summary =
-          errors.length > 0
-            ? Array.from(new Set(errors)).join(' | ')
-            : 'All Anna Torbox candidates failed.';
-        throw new Error(summary);
-      }
+      const importedPath = await api.importExistingTorboxTarget(
+        queued.torrentId,
+        completedInfo.files?.[0]?.id,
+        title,
+      );
 
       set((state) => ({
         jobs: state.jobs.map((item) =>

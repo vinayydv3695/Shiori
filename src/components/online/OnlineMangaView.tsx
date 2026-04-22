@@ -289,7 +289,7 @@ export function OnlineMangaView() {
     setQueueingManga((prev) => ({ ...prev, [manga.id]: true }));
     setPluginError(null);
     try {
-      await enqueueFromMangadex({ title: manga.title, magnetLink });
+      await enqueueFromMangadex({ title: manga.title, sourceLink: magnetLink });
       setCurrentView('torbox-manga');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to queue manga in Torbox';

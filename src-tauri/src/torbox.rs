@@ -159,6 +159,26 @@ pub async fn import_from_torbox(
 }
 
 #[tauri::command]
+pub async fn import_existing_torbox_target(
+    app_handle: tauri::AppHandle,
+    state: State<'_, TorboxState>,
+    app_state: State<'_, crate::AppState>,
+    torrent_id: i64,
+    file_id: Option<i64>,
+    filename_hint: Option<String>,
+) -> Result<String> {
+    crate::commands::torbox::torbox_import_existing_target(
+        app_handle,
+        state,
+        app_state,
+        torrent_id,
+        file_id,
+        filename_hint,
+    )
+    .await
+}
+
+#[tauri::command]
 pub async fn resolve_torbox_download(
     state: State<'_, TorboxState>,
     torrent_id: i64,

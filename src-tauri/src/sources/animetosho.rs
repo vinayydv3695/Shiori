@@ -1,10 +1,12 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 
 use serde::Deserialize;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 
 use crate::error::{Result, ShioriError};
+use crate::services::online::anilist::fetch_cover_by_title;
 use crate::sources::{Chapter, ContentType, Page, SearchResponse, SearchResult, Source, SourceMeta};
 
 const ANIMETOSHO_BASE_URL: &str = "https://animetosho.org";
@@ -27,6 +29,7 @@ struct AnimeToshoItem {
 pub struct AnimeToshoSource {
     client: reqwest::Client,
     lookup: RwLock<HashMap<String, AnimeToshoLookupEntry>>,
+    cover_cache: Arc<Mutex<HashMap<String, Option<String>>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -47,7 +50,92 @@ impl AnimeToshoSource {
         Ok(Self {
             client,
             lookup: RwLock::new(HashMap::new()),
+            cover_cache: Arc::new(Mutex::new(HashMap::new())),
         })
+    }
+
+    async fn fill_missing_covers(&self, items: &mut [SearchResult]) {
+        let mut missing: Vec<(usize, String, String)> = Vec::new();
+
+        {
+            let cache = self.cover_cache.lock().await;
+            for (idx, item) in items.iter_mut().enumerate() {
+                if item.cover_url.is_some() {
+                    continue;
+                }
+
+                let title = item.title.trim().to_string();
+                if title.is_empty() {
+                    continue;
+                }
+
+                let key = title.to_lowercase();
+                if let Some(cached_cover) = cache.get(&key) {
+                    item.cover_url = cached_cover.clone();
+                } else {
+                    missing.push((idx, key, title));
+                }
+            }
+        }
+
+        const BATCH_SIZE: usize = 4;
+        for chunk in missing.chunks(BATCH_SIZE) {
+            let fetched: Vec<(usize, String, Option<String>)> = match chunk.len() {
+                4 => {
+                    let (r0, r1, r2, r3) = tokio::join!(
+                        fetch_cover_by_title(&self.client, &chunk[0].2),
+                        fetch_cover_by_title(&self.client, &chunk[1].2),
+                        fetch_cover_by_title(&self.client, &chunk[2].2),
+                        fetch_cover_by_title(&self.client, &chunk[3].2)
+                    );
+                    vec![
+                        (chunk[0].0, chunk[0].1.clone(), r0),
+                        (chunk[1].0, chunk[1].1.clone(), r1),
+                        (chunk[2].0, chunk[2].1.clone(), r2),
+                        (chunk[3].0, chunk[3].1.clone(), r3),
+                    ]
+                }
+                3 => {
+                    let (r0, r1, r2) = tokio::join!(
+                        fetch_cover_by_title(&self.client, &chunk[0].2),
+                        fetch_cover_by_title(&self.client, &chunk[1].2),
+                        fetch_cover_by_title(&self.client, &chunk[2].2)
+                    );
+                    vec![
+                        (chunk[0].0, chunk[0].1.clone(), r0),
+                        (chunk[1].0, chunk[1].1.clone(), r1),
+                        (chunk[2].0, chunk[2].1.clone(), r2),
+                    ]
+                }
+                2 => {
+                    let (r0, r1) = tokio::join!(
+                        fetch_cover_by_title(&self.client, &chunk[0].2),
+                        fetch_cover_by_title(&self.client, &chunk[1].2)
+                    );
+                    vec![
+                        (chunk[0].0, chunk[0].1.clone(), r0),
+                        (chunk[1].0, chunk[1].1.clone(), r1),
+                    ]
+                }
+                1 => {
+                    let r0 = fetch_cover_by_title(&self.client, &chunk[0].2).await;
+                    vec![(chunk[0].0, chunk[0].1.clone(), r0)]
+                }
+                _ => Vec::new(),
+            };
+
+            if fetched.is_empty() {
+                continue;
+            }
+
+            {
+                let mut cache = self.cover_cache.lock().await;
+                for (idx, key, cover) in &fetched {
+                    cache.insert(key.clone(), cover.clone());
+                    items[*idx].cover_url = cover.clone();
+                }
+            }
+        }
     }
 
     async fn search_internal(&self, query: &str, page: u32, limit: u32) -> Result<SearchResponse> {
@@ -92,7 +180,7 @@ impl AnimeToshoSource {
 
         let mut lookup_updates: HashMap<String, AnimeToshoLookupEntry> = HashMap::new();
 
-        let items = selected
+        let mut items = selected
             .into_iter()
             .filter_map(|entry| {
                 let magnet = entry.magnet_uri.filter(|v| !v.trim().is_empty());
@@ -159,6 +247,8 @@ impl AnimeToshoSource {
             let mut guard = self.lookup.write().await;
             guard.extend(lookup_updates);
         }
+
+        self.fill_missing_covers(&mut items).await;
 
         Ok(SearchResponse {
             items,

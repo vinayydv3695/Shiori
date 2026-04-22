@@ -204,6 +204,6 @@ pub async fn wait_for_torbox_completion(
         ));
     }
 
-    let wait_seconds = max_wait_seconds.unwrap_or(300).clamp(5, 1800);
+    let wait_seconds = max_wait_seconds.unwrap_or(900).clamp(5, 1800);
     state.service.wait_for_completion(torrent_id, wait_seconds).await
 }

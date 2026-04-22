@@ -1177,6 +1177,10 @@ export const api = {
     return invoke("wait_for_torbox_completion", { torrentId, maxWaitSeconds })
   },
 
+  async importExistingTorboxTarget(torrentId: number, fileId?: number, filenameHint?: string): Promise<string> {
+    return invoke("import_existing_torbox_target", { torrentId, fileId, filenameHint })
+  },
+
   async annasArchiveDownload(contentId: string, titleHint?: string): Promise<string> {
     return invoke("annas_archive_download", { contentId, titleHint })
   },

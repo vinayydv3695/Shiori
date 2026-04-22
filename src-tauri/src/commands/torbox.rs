@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use tauri::{Manager, State};
-use crate::error::Result;
+use crate::error::{Result, ShioriError};
 use crate::services::torbox::{TorboxService, TorrentInfo};
 
 pub struct TorboxState {
@@ -134,4 +134,94 @@ pub async fn torbox_download_and_import(
     filename_hint: Option<String>,
 ) -> Result<String> {
     torbox_download_and_import_impl(&app_handle, &state.service, &app_state, magnet, filename_hint).await
+}
+
+#[tauri::command]
+pub async fn torbox_import_existing_target(
+    app_handle: tauri::AppHandle,
+    state: State<'_, TorboxState>,
+    app_state: State<'_, crate::AppState>,
+    torrent_id: i64,
+    file_id: Option<i64>,
+    filename_hint: Option<String>,
+) -> Result<String> {
+    use crate::services::library_service;
+
+    if torrent_id <= 0 {
+        return Err(ShioriError::Validation(
+            "torrent_id must be a positive integer".to_string(),
+        ));
+    }
+
+    let info = state.service.wait_for_completion(torrent_id, 300).await?;
+    let selected_file_id = file_id.or_else(|| info.files.as_ref().and_then(|f| f.first().map(|x| x.id)));
+    let download_url = state.service.get_download_link(torrent_id, selected_file_id).await?;
+
+    let fallback_name = if info.name.trim().is_empty() {
+        format!("torbox-{}", torrent_id)
+    } else {
+        info.name.clone()
+    };
+
+    let source_name = info
+        .files
+        .as_ref()
+        .and_then(|files| {
+            selected_file_id
+                .and_then(|fid| files.iter().find(|f| f.id == fid))
+                .or_else(|| files.first())
+                .map(|f| f.name.clone())
+        })
+        .unwrap_or_else(|| fallback_name.clone());
+
+    let mut filename = filename_hint.unwrap_or(source_name);
+    let has_extension = std::path::Path::new(&filename)
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| !e.is_empty())
+        .unwrap_or(false);
+    if !has_extension {
+        filename.push_str(".epub");
+    }
+
+    let downloads_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| ShioriError::Other(format!("Failed to get app dir: {}", e)))?
+        .join("downloads");
+
+    std::fs::create_dir_all(&downloads_dir)?;
+    let dest_path = downloads_dir.join(&filename);
+
+    state.service.download_file(&download_url, &dest_path).await?;
+
+    let path_str = dest_path.to_string_lossy().to_string();
+    let extension = std::path::Path::new(&filename)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+
+    let import_result = if extension == "cbz" || extension == "cbr" {
+        library_service::import_manga(&app_state.db, vec![path_str.clone()], &app_state.covers_dir)?
+    } else {
+        library_service::import_books(&app_state.db, vec![path_str.clone()], &app_state.covers_dir)?
+    };
+
+    if let Some((failed_path, reason)) = import_result.failed.first() {
+        return Err(ShioriError::Other(format!(
+            "Downloaded file could not be imported ({}): {}",
+            failed_path, reason
+        )));
+    }
+
+    if let Some(imported_path) = import_result.success.first() {
+        return Ok(imported_path.clone());
+    }
+
+    if let Some(duplicate_path) = import_result.duplicates.first() {
+        return Ok(duplicate_path.clone());
+    }
+
+    Ok(path_str)
 }

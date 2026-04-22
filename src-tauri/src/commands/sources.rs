@@ -6,6 +6,8 @@ use tauri_plugin_store::StoreExt;
 use crate::error::{Result, ShioriError};
 use crate::sources::{Chapter, ContentType, Page, SearchResponse, SearchResult, SourceMeta};
 use crate::sources::annas_archive::{AnnasArchiveConfig, AnnasArchiveSource};
+use crate::sources::network::TorrentNetworkConfig;
+use crate::sources::rutracker::{RutrackerConfig, RutrackerSource};
 
 #[tauri::command]
 pub async fn anna_archive_get_config(
@@ -45,6 +47,90 @@ pub async fn anna_archive_set_config(
         .ok_or_else(|| ShioriError::Other("Anna source type mismatch".to_string()))?;
 
     source.save_config_to_store(&app_handle, config).await
+}
+
+#[tauri::command]
+pub async fn rutracker_get_config(
+    state: State<'_, crate::AppState>,
+) -> Result<RutrackerConfig> {
+    let source = {
+        let registry = state.plugin_registry.read().await;
+        registry
+            .get("rutracker")
+            .ok_or_else(|| ShioriError::Validation("Unknown source: rutracker".to_string()))?
+    };
+
+    let source = source
+        .as_any()
+        .downcast_ref::<RutrackerSource>()
+        .ok_or_else(|| ShioriError::Other("RuTracker source type mismatch".to_string()))?;
+
+    Ok(source.get_config().await)
+}
+
+#[tauri::command]
+pub async fn rutracker_set_config(
+    app_handle: tauri::AppHandle,
+    state: State<'_, crate::AppState>,
+    config: RutrackerConfig,
+) -> Result<()> {
+    let source = {
+        let registry = state.plugin_registry.read().await;
+        registry
+            .get("rutracker")
+            .ok_or_else(|| ShioriError::Validation("Unknown source: rutracker".to_string()))?
+    };
+
+    let source = source
+        .as_any()
+        .downcast_ref::<RutrackerSource>()
+        .ok_or_else(|| ShioriError::Other("RuTracker source type mismatch".to_string()))?;
+
+    let store = app_handle
+        .store("sources.json")
+        .map_err(|e| ShioriError::Other(format!("Failed to open source store: {}", e)))?;
+
+    match config.base_url.as_ref().map(|v| v.trim()).filter(|v| !v.is_empty()) {
+        Some(value) => {
+            store.set("rutracker.base_url", serde_json::json!(value));
+        }
+        None => {
+            let _ = store.delete("rutracker.base_url");
+        }
+    }
+
+    match config.cookie.as_ref().map(|v| v.trim()).filter(|v| !v.is_empty()) {
+        Some(value) => {
+            store.set("rutracker.cookie", serde_json::json!(value));
+        }
+        None => {
+            let _ = store.delete("rutracker.cookie");
+        }
+    }
+
+    store
+        .save()
+        .map_err(|e| ShioriError::Other(format!("Failed to save source config: {}", e)))?;
+
+    source.set_config(config).await;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn torrent_network_get_config(
+    app_handle: tauri::AppHandle,
+) -> Result<TorrentNetworkConfig> {
+    TorrentNetworkConfig::load_from_store(&app_handle)
+}
+
+#[tauri::command]
+pub async fn torrent_network_set_config(
+    app_handle: tauri::AppHandle,
+    config: TorrentNetworkConfig,
+) -> Result<()> {
+    let normalized = config.normalized();
+    TorrentNetworkConfig::save_to_store(&app_handle, &normalized)?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -262,7 +348,6 @@ pub async fn annas_archive_download(
     // Create Anna's Archive source
     let source = AnnasArchiveSource::new()?;
     source.load_config_from_store(&app_handle).await?;
-    let anna_config = source.get_config().await;
     
     // Get download options from the detail page
     let options = source.get_download_options(&content_id).await?;
@@ -311,17 +396,8 @@ pub async fn annas_archive_download(
         .build()
         .map_err(|e| ShioriError::Other(format!("Failed to create download client: {}", e)))?;
     
-    let mut request = client.get(&download_url);
-    if let Some(api_key) = anna_config.api_key {
-        request = request
-            .header("x-rapidapi-host", "annas-archive-api.p.rapidapi.com")
-            .header("x-rapidapi-key", api_key);
-    }
-    if let Some(auth_cookie) = anna_config.auth_cookie {
-        request = request.header("Cookie", auth_cookie);
-    }
-
-    let response = request
+    let response = client
+        .get(&download_url)
         .send()
         .await
         .map_err(|e| ShioriError::Other(format!("Download request failed: {}", e)))?;

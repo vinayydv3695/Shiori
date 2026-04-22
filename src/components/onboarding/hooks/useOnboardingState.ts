@@ -7,7 +7,7 @@ import {
 } from '@/store/onboardingStore';
 
 export interface OnboardingState {
-  currentStep: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+  currentStep: 1 | 2 | 3 | 4 | 5 | 6;
   libraryPath: string | null;
   selectedTheme: ThemeName;
   mangaPrefs: MangaPrefs;
@@ -31,7 +31,7 @@ interface UseOnboardingStateResult {
   isInitializing: boolean;
   nextStep: () => void;
   prevStep: () => void;
-  setCurrentStep: (step: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8) => void;
+  setCurrentStep: (step: 1 | 2 | 3 | 4 | 5 | 6) => void;
   setLibraryPath: (path: string | null) => void;
   setSelectedTheme: (theme: ThemeName) => void;
   setMangaPrefs: (updates: Partial<MangaPrefs>) => void;
@@ -154,6 +154,6 @@ export function useOnboardingState(): UseOnboardingStateResult {
     completeOnboarding,
     initialize,
     canGoBack: currentStep > 1,
-    canGoNext: currentStep < 8,
+    canGoNext: currentStep < 6,
   };
 }

@@ -4,43 +4,6 @@ use reqwest::Client;
 use serde::Deserialize;
 use std::time::Duration;
 
-pub async fn fetch_cover_by_title(client: &reqwest::Client, title: &str) -> Option<String> {
-    let trimmed = title.trim();
-    if trimmed.is_empty() {
-        return None;
-    }
-
-    let graphql_query = r#"
-        query ($search: String) {
-            Page(page: 1, perPage: 1) {
-                media(search: $search, type: MANGA, sort: SEARCH_MATCH) {
-                    coverImage { large extraLarge }
-                }
-            }
-        }
-    "#;
-
-    let payload = serde_json::json!({
-        "query": graphql_query,
-        "variables": { "search": trimmed }
-    });
-
-    let response = client
-        .post("https://graphql.anilist.co")
-        .json(&payload)
-        .send()
-        .await
-        .ok()?;
-
-    if !response.status().is_success() {
-        return None;
-    }
-
-    let result: GraphQLResponse = response.json().await.ok()?;
-    let media = result.data?.page?.media.into_iter().next()?;
-    media.cover_image.large.or(media.cover_image.extra_large)
-}
-
 pub struct AniListProvider {
     client: Client,
     api_url: String,
@@ -97,9 +60,8 @@ struct TitleData {
 
 #[derive(Debug, Deserialize)]
 struct CoverImageData {
-    large: Option<String>,
     #[serde(rename = "extraLarge")]
-    extra_large: Option<String>,
+    extra_large: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -217,7 +179,7 @@ impl MetadataProvider for AniListProvider {
                         title: Some(media.title.english.unwrap_or(media.title.romaji)),
                         authors,
                         description,
-                        cover_url: media.cover_image.large.or(media.cover_image.extra_large),
+                        cover_url: Some(media.cover_image.extra_large),
                         genres: media.genres,
                         extra_data: Some(serde_json::json!({"anilist_id": media.id})),
                     }));

@@ -36,8 +36,8 @@ export function SettingControl({
   const isDarkSlate = theme === 'darkSlate';
 
   const inputBase = isDarkSlate
-    ? 'w-full rounded-xl border border-white/10 bg-black px-3 py-2 text-sm text-white backdrop-blur-md transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 disabled:cursor-not-allowed disabled:opacity-50 [color-scheme:dark]'
-    : 'w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-foreground backdrop-blur-md transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 disabled:cursor-not-allowed disabled:opacity-50';
+    ? 'w-full rounded-xl border border-white/10 bg-black px-3 py-2 text-sm text-white backdrop-blur-md transition hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 disabled:cursor-not-allowed disabled:opacity-50 [color-scheme:dark]'
+    : 'w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-foreground backdrop-blur-md transition hover:border-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 disabled:cursor-not-allowed disabled:opacity-50';
 
   const renderControl = () => {
     switch (type) {
@@ -95,25 +95,39 @@ export function SettingControl({
 
       case 'select':
         return (
-          <select
-            id={inputId}
-            disabled={disabled}
-            value={String(value)}
-            onChange={(e) => onChange(e.target.value)}
-            className={inputBase}
-            style={isDarkSlate ? { colorScheme: 'dark' } : undefined}
-          >
-            {options.map((option) => (
-              <option
-                key={String(option.value)}
-                value={String(option.value)}
-                className={isDarkSlate ? 'bg-black text-white' : 'bg-background text-foreground'}
-                style={isDarkSlate ? { backgroundColor: '#000000', color: '#ffffff' } : undefined}
-              >
-                {option.label}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              id={inputId}
+              disabled={disabled}
+              value={String(value)}
+              onChange={(e) => onChange(e.target.value)}
+              className={`${inputBase} appearance-none pr-12 ${
+                isDarkSlate
+                  ? 'border-indigo-400/30 bg-indigo-950/40 text-indigo-100 hover:border-indigo-300/45 focus:border-indigo-300/60 focus-visible:ring-indigo-400/45'
+                  : ''
+              }`}
+              style={isDarkSlate ? { colorScheme: 'dark' } : undefined}
+            >
+              {options.map((option) => (
+                <option
+                  key={String(option.value)}
+                  value={String(option.value)}
+                  className={isDarkSlate ? 'bg-slate-950 text-indigo-100' : 'bg-background text-foreground'}
+                >
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <div
+              className={`pointer-events-none absolute inset-y-1 right-1 flex items-center rounded-lg px-2 ${
+                isDarkSlate ? 'border border-indigo-300/20 bg-indigo-900/50 text-indigo-200/80' : 'text-white/50'
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="m6 9 6 6 6-6"/>
+              </svg>
+            </div>
+          </div>
         );
 
       case 'radio':
@@ -186,9 +200,9 @@ export function SettingControl({
       </div>
       {isDarkSlate && (
         <style>{`
-          select option {
-            background-color: #000000 !important;
-            color: #ffffff !important;
+          #${inputId} option {
+            background-color: #020617 !important;
+            color: #e0e7ff !important;
           }
         `}</style>
       )}

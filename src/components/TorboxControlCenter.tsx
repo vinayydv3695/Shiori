@@ -273,6 +273,16 @@ function inferSourceKind(fileType: FileType): QueueType | undefined {
   return undefined
 }
 
+function candidatePriorityFromKind(kind: string | undefined): number {
+  const normalized = (kind ?? '').trim().toLowerCase()
+  if (normalized === 'magnet') return 0
+  if (normalized === 'torrent') return 1
+  if (normalized === 'direct') return 2
+  if (normalized === 'anna') return 3
+  if (normalized === 'external') return 4
+  return 10
+}
+
 function parseTags(value: unknown): string[] {
   if (!Array.isArray(value)) return []
   return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).slice(0, 6)
@@ -639,24 +649,49 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: TorboxC
       const { source, result, fallbackKind } = payload
       const busyId = `${result.id}:${source.id}`
 
-      if (source.linkKind === 'anna' || source.linkKind === 'external') {
-        try {
-          const openedWindow = window.open(source.magnetLink, '_blank', 'noopener,noreferrer')
-          if (!openedWindow) {
-            window.location.assign(source.magnetLink)
-          }
-        } catch {
-          window.location.assign(source.magnetLink)
-        }
-        info('Opened in browser', 'This source should be opened in your browser, not queued to Torbox.')
-        return
-      }
-
       setSourceBusy((prev) => ({ ...prev, [busyId]: true }))
       try {
-        const queued = await invoke<{ torrentId: number }>('add_to_torbox_queue', {
-          magnetLink: source.magnetLink,
-        })
+        let queued: { torrentId: number } | null = null
+        let lastQueueError: string | null = null
+
+        const candidateLinks = [
+          source.magnetLink,
+          ...result.sources
+            .filter((candidate) => candidate.id !== source.id)
+            .filter((candidate) => {
+              const kind = (candidate.linkKind ?? '').toLowerCase()
+              return kind === 'magnet' || kind === 'torrent'
+            })
+            .sort((a, b) => candidatePriorityFromKind(a.linkKind) - candidatePriorityFromKind(b.linkKind))
+            .map((candidate) => candidate.magnetLink),
+        ].filter((value, index, arr) => arr.indexOf(value) === index)
+
+        for (const candidateLink of candidateLinks) {
+          try {
+            queued = await invoke<{ torrentId: number }>('add_to_torbox_queue', {
+              magnetLink: candidateLink,
+            })
+            break
+          } catch (attemptError) {
+            lastQueueError = getErrorMessage(attemptError, 'Failed to queue candidate')
+          }
+        }
+
+        if (!queued) {
+          if (source.linkKind === 'anna' || source.linkKind === 'external') {
+            try {
+              const openedWindow = window.open(source.magnetLink, '_blank', 'noopener,noreferrer')
+              if (!openedWindow) {
+                window.location.assign(source.magnetLink)
+              }
+            } catch {
+              window.location.assign(source.magnetLink)
+            }
+            info('Opened in browser', 'All Torbox attempts failed. Opened source in browser.')
+            return
+          }
+          throw new Error(lastQueueError ?? 'Failed to add source to Torbox queue.')
+        }
 
         const fallbackJob: TorrentInfo = {
           id: queued.torrentId,

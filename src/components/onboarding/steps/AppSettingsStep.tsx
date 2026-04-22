@@ -11,7 +11,6 @@ import {
   Sliders,
 } from 'lucide-react';
 import GlowButton from '../components/GlowButton';
-import { OnboardingMotionStyles } from '../components';
 import SettingControl from '../components/SettingControl';
 import { useOnboardingState } from '../hooks/useOnboardingState';
 
@@ -66,32 +65,25 @@ export function AppSettingsStep({ onBack, onNext }: AppSettingsStepProps) {
   } = state;
 
   return (
-    <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[2rem] border border-white/5 bg-slate-950 p-8 shadow-xl shadow-black/40 md:p-12">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(79,70,229,0.15),transparent_70%)]" />
-      <OnboardingMotionStyles />
-
-      <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden text-white">
-        <div className="onb-fade-up flex items-center gap-3">
-          <div className="onb-icon-badge flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-indigo-200">
-            <Settings size={20} className="onb-icon-inner" />
+    <section className="relative w-full overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950 p-8 shadow-xl md:p-12">
+      <div className="relative z-10 text-white">
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-slate-900/80">
+            <Settings size={22} className="text-white" />
           </div>
           <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">App Settings</h2>
         </div>
 
-        <div className="onb-fade-up onb-delay-100 mt-5 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-3 py-2 text-sm text-white/70">
+        <div className="mt-5 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-3 py-2 text-sm text-white/70">
           <Globe size={14} />
           Customize your Shiori experience
         </div>
 
-        <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="min-h-0 flex-1 overflow-y-auto pr-2 pb-4 [scrollbar-gutter:stable] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 hover:[&::-webkit-scrollbar-thumb]:bg-white/30">
-            <div className="onb-fade-up onb-delay-200 mt-8 space-y-5">
+        <div className="mt-8 max-h-[52vh] space-y-5 overflow-y-auto pr-1">
           <section className="bg-slate-900/50 border border-white/10 rounded-xl p-6">
             <header className="mb-5 space-y-1">
               <div className="flex items-center gap-2">
-                <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-indigo-200">
-                  <Languages size={16} className="onb-icon-inner text-indigo-200" />
-                </span>
+                <Languages size={18} className="text-white/90" />
                 <h3 className="text-white font-semibold">Translation Settings</h3>
               </div>
               <p className="text-white/60 text-sm">Choose your preferred translation behavior.</p>
@@ -118,9 +110,7 @@ export function AppSettingsStep({ onBack, onNext }: AppSettingsStepProps) {
           <section className="bg-slate-900/50 border border-white/10 rounded-xl p-6">
             <header className="mb-5 space-y-1">
               <div className="flex items-center gap-2">
-                <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-indigo-200">
-                  <Database size={16} className="onb-icon-inner text-indigo-200" />
-                </span>
+                <Database size={18} className="text-white/90" />
                 <h3 className="text-white font-semibold">Storage Settings</h3>
               </div>
               <p className="text-white/60 text-sm">Control local cache and library limits.</p>
@@ -153,9 +143,7 @@ export function AppSettingsStep({ onBack, onNext }: AppSettingsStepProps) {
           <section className="bg-slate-900/50 border border-white/10 rounded-xl p-6">
             <header className="mb-5 space-y-1">
               <div className="flex items-center gap-2">
-                <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-indigo-200">
-                  <Shield size={16} className="onb-icon-inner text-indigo-200" />
-                </span>
+                <Shield size={18} className="text-white/90" />
                 <h3 className="text-white font-semibold">Privacy Settings</h3>
               </div>
               <p className="text-white/60 text-sm">Choose what diagnostic data to share.</p>
@@ -190,9 +178,7 @@ export function AppSettingsStep({ onBack, onNext }: AppSettingsStepProps) {
           <section className="bg-slate-900/50 border border-white/10 rounded-xl p-6">
             <header className="mb-5 space-y-1">
               <div className="flex items-center gap-2">
-                <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-indigo-200">
-                  <Sliders size={16} className="onb-icon-inner text-indigo-200" />
-                </span>
+                <Sliders size={18} className="text-white/90" />
                 <h3 className="text-white font-semibold">Interface Settings</h3>
               </div>
               <p className="text-white/60 text-sm">Tune the UI for your display and workflow.</p>
@@ -225,9 +211,7 @@ export function AppSettingsStep({ onBack, onNext }: AppSettingsStepProps) {
           <section className="bg-slate-900/50 border border-white/10 rounded-xl p-6">
             <header className="mb-5 space-y-1">
               <div className="flex items-center gap-2">
-                <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-indigo-200">
-                  <Keyboard size={16} className="onb-icon-inner text-indigo-200" />
-                </span>
+                <Keyboard size={18} className="text-white/90" />
                 <h3 className="text-white font-semibold">Keyboard Shortcuts</h3>
               </div>
               <p className="text-white/60 text-sm">Quick defaults for common actions.</p>
@@ -244,9 +228,7 @@ export function AppSettingsStep({ onBack, onNext }: AppSettingsStepProps) {
           <section className="bg-slate-900/50 border border-white/10 rounded-xl p-6">
             <header className="mb-5 space-y-1">
               <div className="flex items-center gap-2">
-                <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-indigo-200">
-                  <Cloud size={16} className="onb-icon-inner text-indigo-200" />
-                </span>
+                <Cloud size={18} className="text-white/90" />
                 <h3 className="text-white font-semibold">Cloud Sync</h3>
               </div>
               <p className="text-white/60 text-sm">Sync your library settings across devices.</p>
@@ -266,16 +248,14 @@ export function AppSettingsStep({ onBack, onNext }: AppSettingsStepProps) {
             </div>
             <p className="text-xs text-white/60">Cloud sync will be available in a future update</p>
           </section>
-            </div>
-          </div>
         </div>
 
-        <div className="onb-fade-up onb-delay-300 mt-4 flex shrink-0 items-center justify-between border-t border-white/10 bg-slate-950/95 pt-5 pb-1 backdrop-blur z-20">
-          <GlowButton theme="dark" variant="secondary" onClick={onBack} className="px-6">
-            ← Back
+        <div className="mt-10 flex items-center justify-between border-t border-white/10 pt-8">
+          <GlowButton theme="dark" variant="secondary" onClick={onBack} icon={<span aria-hidden>←</span>}>
+            Back
           </GlowButton>
-          <GlowButton theme="dark" variant="primary" onClick={onNext} className="onb-cta-glow px-8">
-            Continue →
+          <GlowButton theme="dark" variant="primary" onClick={onNext} icon={<span aria-hidden>→</span>}>
+            Continue
           </GlowButton>
         </div>
       </div>

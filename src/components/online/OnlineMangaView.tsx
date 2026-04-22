@@ -13,29 +13,8 @@ import { useOnlineMangaReaderStore } from '@/store/onlineMangaReaderStore';
 import { ContentCarousel, type CarouselItem } from './ContentCarousel';
 import { api } from '@/lib/tauri';
 import { useTorboxStore } from '@/stores/useTorboxStore';
-import { parsePageUrl } from '@/lib/utils';
-import { useToast } from '@/store/toastStore';
 
 let onlineMangaSearchTimeout: number | undefined;
-
-function getUiErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.message.trim()) return error.message;
-  if (typeof error === 'string' && error.trim()) return error;
-  if (error && typeof error === 'object') {
-    const asObj = error as Record<string, unknown>;
-    const maybeMessage = asObj.message;
-    if (typeof maybeMessage === 'string' && maybeMessage.trim()) return maybeMessage;
-    const maybeError = asObj.error;
-    if (typeof maybeError === 'string' && maybeError.trim()) return maybeError;
-    const maybeData = asObj.data;
-    if (maybeData && typeof maybeData === 'object') {
-      const nested = maybeData as Record<string, unknown>;
-      if (typeof nested.message === 'string' && nested.message.trim()) return nested.message;
-      if (typeof nested.error === 'string' && nested.error.trim()) return nested.error;
-    }
-  }
-  return fallback;
-}
 
 export function OnlineMangaView() {
   const searchQuery = useOnlineSearchStore((state) => state.queries['online-manga']);
@@ -55,7 +34,6 @@ export function OnlineMangaView() {
   const [queueingManga, setQueueingManga] = useState<Record<string, boolean>>({});
   const [hasTorboxKey, setHasTorboxKey] = useState(false);
   const setCurrentView = useUIStore((state) => state.setCurrentView);
-  const { success: showSuccessToast, error: showErrorToast, info: showInfoToast } = useToast();
   const setSource = useOnlineMangaReaderStore((state) => state.setSource);
   const setContent = useOnlineMangaReaderStore((state) => state.setContent);
   const setChapter = useOnlineMangaReaderStore((state) => state.setChapter);
@@ -268,106 +246,54 @@ export function OnlineMangaView() {
     }
   };
 
-  const openInBrowser = useCallback((url: string) => {
-    try {
-      const openedWindow = window.open(url, '_blank', 'noopener,noreferrer');
-      if (!openedWindow) {
-        window.location.assign(url);
-      }
-    } catch {
-      window.location.assign(url);
-    }
-  }, []);
-
-  const extractTorboxCandidate = useCallback((manga: PluginSearchResult): { kind: string; url: string } | null => {
+  const extractMagnetLink = useCallback((manga: PluginSearchResult): string | null => {
     const extra = manga.extra ?? {};
-    const fallbackDescription = typeof manga.description === 'string'
-      ? manga.description.trim()
-      : typeof manga.summary === 'string'
-      ? manga.summary.trim()
-      : '';
-
     const candidates = [
-      { raw: extra.magnet_url, hint: 'magnet' },
-      { raw: extra.torrent_url, hint: 'torrent' },
-      { raw: extra.magnet, hint: 'magnet' },
-      { raw: extra.magnet_link, hint: 'magnet' },
-      { raw: extra.magnetLink, hint: 'magnet' },
-      { raw: extra.torrent, hint: 'torrent' },
-      { raw: extra.torrent_link, hint: 'torrent' },
-      { raw: extra.torrentLink, hint: 'torrent' },
-      { raw: manga.url, hint: undefined },
-      {
-        raw: fallbackDescription.toLowerCase().startsWith('magnet:')
-          || fallbackDescription.toLowerCase().startsWith('magnet|')
-          ? fallbackDescription
-          : undefined,
-        hint: 'magnet',
-      },
+      extra.magnet,
+      extra.magnet_link,
+      extra.magnetLink,
+      extra.torrent,
+      extra.torrent_link,
+      extra.torrentLink,
+      manga.url,
     ];
 
-    for (const candidate of candidates) {
-      if (typeof candidate.raw !== 'string') continue;
-      const parsed = parsePageUrl(candidate.raw);
-      if (!parsed.url) continue;
-
-      let kind = parsed.kind;
-      if (kind === 'direct' && candidate.hint) {
-        kind = candidate.hint;
+    for (const value of candidates) {
+      if (typeof value !== 'string') continue;
+      const trimmed = value.trim();
+      const normalized = trimmed.toLowerCase();
+      if (normalized.startsWith('magnet:') || normalized.includes('.torrent')) {
+        return trimmed;
       }
-
-      return { kind, url: parsed.url };
     }
 
     return null;
   }, []);
 
-  const pluginResultWithTorboxSource = useMemo(
+  const pluginResultWithMagnet = useMemo(
     () =>
       visiblePluginResults.map((item) => ({
         item,
-        torboxSource: extractTorboxCandidate(item),
+        magnetLink: extractMagnetLink(item),
       })),
-    [extractTorboxCandidate, visiblePluginResults]
+    [extractMagnetLink, visiblePluginResults]
   );
 
   const handleQueueInTorbox = useCallback(async (manga: PluginSearchResult) => {
-    const torboxSource = extractTorboxCandidate(manga);
-    if (!torboxSource) {
-      const message = 'No Torbox source link found for this manga result.';
-      setPluginError(message);
-      showErrorToast('Torbox source missing', message);
+    const magnetLink = extractMagnetLink(manga);
+    if (!magnetLink) {
+      setPluginError('No magnet/torrent link found for this manga result.');
       return;
     }
 
     setQueueingManga((prev) => ({ ...prev, [manga.id]: true }));
     setPluginError(null);
-
     try {
-      const normalizedKind = (() => {
-        if (torboxSource.kind !== 'direct') return torboxSource.kind;
-        const normalized = torboxSource.url.trim().toLowerCase();
-        if (normalized.startsWith('magnet:')) return 'magnet';
-        if (normalized.includes('.torrent') || normalized.includes('/torrent')) return 'torrent';
-        return 'direct';
-      })();
-
-      if (normalizedKind === 'magnet' || normalizedKind === 'torrent' || normalizedKind === 'direct') {
-        await enqueueFromMangadex({ title: manga.title, sourceLink: torboxSource.url });
-        showSuccessToast('Sent to Torbox', `${manga.title} was added to Torbox queue.`);
-        setCurrentView('torbox-manga');
-      } else if (normalizedKind === 'anna' || normalizedKind === 'external') {
-        openInBrowser(torboxSource.url);
-        showInfoToast('Opened source in browser', 'This result should be opened directly in your browser.');
-      } else {
-        const message = `Unsupported source kind '${normalizedKind}' for Torbox queue.`;
-        setPluginError(message);
-        showErrorToast('Cannot send to Torbox', message);
-      }
+      await enqueueFromMangadex({ title: manga.title, magnetLink });
+      setCurrentView('torbox-manga');
     } catch (err) {
-      const message = getUiErrorMessage(err, 'Failed to queue manga in Torbox');
+      const message = err instanceof Error ? err.message : 'Failed to queue manga in Torbox';
       setPluginError(message);
-      showErrorToast('Torbox queue failed', message);
     } finally {
       setQueueingManga((prev) => {
         const next = { ...prev };
@@ -375,7 +301,7 @@ export function OnlineMangaView() {
         return next;
       });
     }
-  }, [enqueueFromMangadex, extractTorboxCandidate, openInBrowser, setCurrentView, showErrorToast, showInfoToast, showSuccessToast]);
+  }, [enqueueFromMangadex, extractMagnetLink, setCurrentView]);
 
   const handleReadChapter = async (sourceId: string, contentId: string, chapter: PluginChapter, allChapters: PluginChapter[], contentTitle?: string) => {
     setSource(sourceId);
@@ -671,7 +597,7 @@ export function OnlineMangaView() {
               </div>
 
               <div className="grid gap-4">
-                {pluginResultWithTorboxSource.map(({ item: manga, torboxSource }) => (
+                {pluginResultWithMagnet.map(({ item: manga, magnetLink }) => (
                   <div
                     key={manga.id}
                     className="flex gap-4 p-4 rounded-lg border border-border bg-card hover:bg-accent/50 transition-colors"
@@ -714,12 +640,12 @@ export function OnlineMangaView() {
                           <Button
                             variant="outline"
                             size="sm"
-                             onClick={() => {
-                               void handleQueueInTorbox(manga);
-                             }}
-                             disabled={queueingManga[manga.id] || !torboxSource || !sourceSupportsTorboxTorrents}
-                             className="gap-1.5"
-                           >
+                            onClick={() => {
+                              void handleQueueInTorbox(manga);
+                            }}
+                            disabled={queueingManga[manga.id] || !magnetLink || !sourceSupportsTorboxTorrents}
+                            className="gap-1.5"
+                          >
                             {queueingManga[manga.id] ? (
                               <>
                                 <Loader2 className="w-3.5 h-3.5 animate-spin" />

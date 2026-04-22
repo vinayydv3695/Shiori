@@ -54,8 +54,6 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
     const saveProgressTimerRef = useRef<number | null>(null);
     const currentIndexRef = useRef(0);
     const currentChapterRef = useRef<Chapter | null>(null);
-    const metadataRef = useRef<BookMetadata | null>(null);
-    const loadBookRef = useRef<() => Promise<void>>(async () => { });
 
     // ── Reader Theme ──
     useReaderTheme(readerContainerRef, theme);
@@ -70,34 +68,6 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
             contentRef.current.innerHTML = sanitizedContent;
         }
     }, [sanitizedContent]);
-
-    useEffect(() => {
-        metadataRef.current = metadata;
-    }, [metadata]);
-
-    const flushProgressNow = useCallback(() => {
-        const totalChapters = metadataRef.current?.total_chapters ?? 1;
-        const chapterIndex = currentIndexRef.current;
-        const container = containerRef.current;
-
-        let scrollRatio = scrollPositionsRef.current.get(chapterIndex) ?? 0;
-        if (container) {
-            const { scrollTop, scrollHeight, clientHeight } = container;
-            scrollRatio = scrollHeight > clientHeight
-                ? scrollTop / (scrollHeight - clientHeight)
-                : 0;
-            scrollPositionsRef.current.set(chapterIndex, scrollRatio);
-        }
-
-        const progressPercent = ((chapterIndex + scrollRatio / totalChapters) / totalChapters) * 100;
-        const location = scrollRatio > 0
-            ? `mobi-chapter-${chapterIndex}:scroll_${scrollRatio.toFixed(6)}`
-            : `mobi-chapter-${chapterIndex}`;
-        const cfi = `epubcfi(/0/${chapterIndex}!/scroll/${scrollRatio.toFixed(6)})`;
-
-        api.saveReadingProgress(bookId, location, Math.min(100, progressPercent), undefined, undefined, cfi)
-            .catch(() => { /* silently ignore */ });
-    }, [bookId]);
 
     // ── Chapter Loading ──
     const loadChapter = useCallback(async (index: number, initialScrollRatio?: number) => {
@@ -186,14 +156,14 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
                             const pathParts = cfiParts[0].split('/').filter(Boolean);
                             if (pathParts.length >= 2) {
                                 const idx = parseInt(pathParts[1], 10);
-                                if (!Number.isNaN(idx) && idx >= 0 && idx < bookMetadata.total_chapters) {
+                                if (!isNaN(idx) && idx >= 0 && idx < bookMetadata.total_chapters) {
                                     startIndex = idx;
                                 }
                             }
                             const scrollMatch = cfiParts[1].match(/^scroll\/([0-9.]+)/);
                             if (scrollMatch) {
                                 const ratio = parseFloat(scrollMatch[1]);
-                                if (!Number.isNaN(ratio) && ratio >= 0 && ratio <= 1) {
+                                if (!isNaN(ratio) && ratio >= 0 && ratio <= 1) {
                                     savedScrollRatio = ratio;
                                 }
                             }
@@ -204,21 +174,21 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
                         const chapterMatch = loc.match(/mobi-chapter-(\d+)/);
                         if (chapterMatch) {
                             const idx = parseInt(chapterMatch[1], 10);
-                            if (!Number.isNaN(idx) && idx >= 0 && idx < bookMetadata.total_chapters) {
+                            if (!isNaN(idx) && idx >= 0 && idx < bookMetadata.total_chapters) {
                                 startIndex = idx;
                             }
                         }
                         const scrollMatch = loc.match(/scroll_([0-9.]+)/);
                         if (scrollMatch) {
                             const ratio = parseFloat(scrollMatch[1]);
-                            if (!Number.isNaN(ratio) && ratio >= 0 && ratio <= 1) {
+                            if (!isNaN(ratio) && ratio >= 0 && ratio <= 1) {
                                 savedScrollRatio = ratio;
                             }
                         }
                         // Legacy mobi-progress-XX format
                         if (loc.startsWith('mobi-progress-')) {
                             const pct = parseFloat(loc.replace('mobi-progress-', ''));
-                            if (!Number.isNaN(pct) && pct > 0) {
+                            if (!isNaN(pct) && pct > 0) {
                                 savedScrollRatio = pct / 100;
                             }
                         }
@@ -246,29 +216,12 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
     }, [bookId, bookPath, loadChapter]);
 
     useEffect(() => {
-        loadBookRef.current = loadBook;
-    }, [loadBook]);
-
-    useEffect(() => {
-        void loadBookRef.current();
+        void loadBook();
         return () => {
-            if (saveProgressTimerRef.current) {
-                clearTimeout(saveProgressTimerRef.current);
-                saveProgressTimerRef.current = null;
-            }
-            flushProgressNow();
             api.closeBookRenderer(bookId).catch(logger.error);
         };
-    }, [bookId, flushProgressNow]);
-
-    const handleClose = useCallback(() => {
-        if (saveProgressTimerRef.current) {
-            clearTimeout(saveProgressTimerRef.current);
-            saveProgressTimerRef.current = null;
-        }
-        flushProgressNow();
-        onClose();
-    }, [flushProgressNow, onClose]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [bookPath, bookId]);
 
     // ── Scroll Progress Tracking ──
     const handleScroll = useCallback(() => {
@@ -418,7 +371,6 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
                     <p className="premium-error-title">{error}</p>
                     <p className="premium-error-subtitle">Try opening a different book or check the file format.</p>
                     <button
-                        type="button"
                         onClick={() => {
                             setError(null);
                             void loadBook();
@@ -461,7 +413,7 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
                 }
                 progress={topBarProgress}
                 format="mobi"
-                onClose={handleClose}
+                onClose={onClose}
                 centerExtra={
                     <button
                         type="button"

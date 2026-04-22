@@ -119,19 +119,22 @@ export function getShortcutDisplay(shortcut: string): string {
     .toUpperCase()
 }
 
-/**
- * Parse prefixed page URL payloads in the format "kind|url".
- * Defaults to kind "direct" when no prefix is present.
- */
 export function parsePageUrl(raw: string): { kind: string; url: string } {
   const value = raw.trim()
-  const delimiterIndex = value.indexOf('|')
+  if (!value) return { kind: 'direct', url: '' }
 
-  if (delimiterIndex === -1) {
-    return { kind: 'direct', url: value }
+  const pipeIndex = value.indexOf('|')
+  if (pipeIndex > 0) {
+    const kind = value.slice(0, pipeIndex).trim().toLowerCase() || 'direct'
+    const url = value.slice(pipeIndex + 1).trim()
+    return { kind, url }
   }
 
-  const kind = value.slice(0, delimiterIndex).trim().toLowerCase() || 'direct'
-  const url = value.slice(delimiterIndex + 1).trim()
-  return { kind, url }
+  const lower = value.toLowerCase()
+  if (lower.startsWith('magnet:')) return { kind: 'magnet', url: value }
+  if (lower.includes('/md5/')) return { kind: 'anna', url: value }
+  if (lower.includes('.torrent') || lower.includes('/torrent')) return { kind: 'torrent', url: value }
+  if (lower.startsWith('http://') || lower.startsWith('https://')) return { kind: 'direct', url: value }
+
+  return { kind: 'direct', url: value }
 }

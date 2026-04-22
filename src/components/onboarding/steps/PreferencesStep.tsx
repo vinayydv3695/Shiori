@@ -3,7 +3,6 @@ import { Book, BookOpen, Image, Settings, Sliders } from 'lucide-react';
 import type { BookPrefs, MangaPrefs } from '../../../store/onboardingStore';
 import { DEFAULT_READING_FONT_ID, READING_FONTS, normalizeLegacyFontPreference } from '../../../lib/readingFonts';
 import GlowButton from '../components/GlowButton';
-import { OnboardingMotionStyles } from '../components';
 import SettingControl from '../components/SettingControl';
 import SettingGroup from '../components/SettingGroup';
 
@@ -33,20 +32,13 @@ export function PreferencesStep({ mangaPrefs, bookPrefs, onMangaChange, onBookCh
     : DEFAULT_READING_FONT_ID;
 
   return (
-    <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[2rem] border border-white/5 bg-slate-950 p-8 shadow-xl shadow-black/40 md:p-10">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(79,70,229,0.15),transparent_70%)]" />
-      <OnboardingMotionStyles />
+    <section className="relative w-full overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950 p-8 shadow-xl md:p-10">
 
-      <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="onb-fade-up flex items-center gap-3">
-          <span className="onb-icon-badge inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-indigo-200">
-            <BookOpen size={20} className="onb-icon-inner" />
-          </span>
-          <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">Reader Preferences</h2>
-        </div>
-        <p className="onb-fade-up onb-delay-100 mt-2 text-white/60">Configure all manga and EPUB defaults before you start reading.</p>
+      <div className="relative z-10">
+        <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">Reader Preferences</h2>
+        <p className="mt-2 text-white/60">Configure all manga and EPUB defaults before you start reading.</p>
 
-        <div className="onb-fade-up onb-delay-100 mt-6 shrink-0 rounded-2xl border border-white/10 bg-slate-950/80 p-2">
+        <div className="mt-8 rounded-2xl border border-white/10 bg-slate-950 p-2">
           <div className="grid grid-cols-2 gap-2">
             <button type="button" className={tabButtonClass(activeTab === 'manga')} onClick={() => setActiveTab('manga')}>
               <span className="flex items-center justify-center gap-2">
@@ -63,9 +55,8 @@ export function PreferencesStep({ mangaPrefs, bookPrefs, onMangaChange, onBookCh
           </div>
         </div>
 
-        <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="min-h-0 flex-1 overflow-y-auto pr-2 pb-4 [scrollbar-gutter:stable] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 hover:[&::-webkit-scrollbar-thumb]:bg-white/30">
-            <div className="onb-fade-up onb-delay-200 space-y-5">
+        <div className="mt-6 h-[28rem] overflow-y-auto pr-1">
+          <div className="space-y-5">
             {activeTab === 'manga' ? (
               <>
                 <SettingGroup
@@ -347,15 +338,14 @@ export function PreferencesStep({ mangaPrefs, bookPrefs, onMangaChange, onBookCh
                 </SettingGroup>
               </>
             )}
-            </div>
           </div>
         </div>
 
-        <div className="onb-fade-up onb-delay-300 mt-3 flex shrink-0 items-center justify-between border-t border-white/10 bg-slate-950/95 pt-4 pb-1 backdrop-blur z-20">
-          <GlowButton theme="dark" onClick={onBack} variant="secondary" className="px-6">
+        <div className="mt-8 flex items-center justify-between border-t border-white/10 pt-6">
+          <GlowButton theme="dark" onClick={onBack} variant="secondary" className="rounded-full px-6 py-3">
             ← Back
           </GlowButton>
-          <GlowButton theme="dark" onClick={onNext} variant="primary" className="onb-cta-glow px-8">
+          <GlowButton theme="dark" onClick={onNext} variant="primary" className="rounded-full px-8 py-3">
             Continue →
           </GlowButton>
         </div>

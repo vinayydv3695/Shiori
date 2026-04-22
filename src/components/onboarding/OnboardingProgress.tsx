@@ -1,9 +1,9 @@
 type OnboardingProgressProps = {
-  currentStep: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+  currentStep: 1 | 2 | 3 | 4 | 5 | 6;
 };
 
 export function OnboardingProgress({ currentStep }: OnboardingProgressProps) {
-  const totalDots = 8;
+  const totalDots = 6;
   const activeDot = Math.min(totalDots, Math.max(1, currentStep));
 
   return (
@@ -20,20 +20,20 @@ export function OnboardingProgress({ currentStep }: OnboardingProgressProps) {
               aria-hidden="true"
               className={`rounded-full border transition-all duration-500 ease-out ${
                 completed
-                  ? 'h-2.5 w-2.5 sm:h-3 sm:w-3 border-indigo-300/80 bg-indigo-300 shadow-[0_0_10px_rgba(99,102,241,0.45),0_0_22px_rgba(99,102,241,0.25)]'
+                  ? 'h-2.5 w-2.5 sm:h-3 sm:w-3 border-white/90 bg-white shadow-[0_0_10px_rgba(99,102,241,0.8),0_0_22px_rgba(99,102,241,0.45)]'
                   : active
-                    ? 'h-3.5 w-3.5 sm:h-4 sm:w-4 border-indigo-400/90 bg-indigo-400 shadow-[0_0_14px_rgba(99,102,241,0.95),0_0_28px_rgba(99,102,241,0.55)]'
-                    : 'h-2.5 w-2.5 sm:h-3 sm:w-3 border-border bg-muted'
+                    ? 'h-3.5 w-3.5 sm:h-4 sm:w-4 border-indigo-400/80 bg-indigo-500 shadow-[0_0_14px_rgba(99,102,241,0.95),0_0_28px_rgba(99,102,241,0.55)]'
+                    : 'h-2.5 w-2.5 sm:h-3 sm:w-3 border-white/60 bg-white/60'
               }`}
             />
 
             {dotNumber < totalDots ? (
               <span
                 aria-hidden="true"
-                  className={`mx-1.5 h-px w-4 transition-all duration-500 sm:mx-2 sm:w-6 ${
-                  dotNumber < activeDot ? 'bg-indigo-400/40' : 'bg-border'
-                 }`}
-               />
+                className={`mx-1.5 h-px w-4 transition-all duration-500 sm:mx-2 sm:w-6 ${
+                  dotNumber < activeDot ? 'bg-white/10' : 'bg-white/10'
+                }`}
+              />
             ) : null}
           </div>
         );

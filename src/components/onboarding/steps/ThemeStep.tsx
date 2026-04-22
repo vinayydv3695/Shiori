@@ -1,7 +1,6 @@
 import { Check, Layout, Moon, Palette, Sun } from 'lucide-react';
 import type { ThemeName } from '../../../store/onboardingStore';
 import GlowButton from '../components/GlowButton';
-import { OnboardingMotionStyles } from '../components';
 
 type ThemeStepProps = {
   selectedTheme: ThemeName;
@@ -25,12 +24,10 @@ export function ThemeStep({ selectedTheme, themes, onSelectTheme, onBack, onNext
   const isLightTheme = (themeName: ThemeName) => themeName === 'White';
 
   return (
-    <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[2rem] border border-white/5 bg-slate-950 p-8 text-white shadow-xl shadow-black/40 md:p-10">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(79,70,229,0.15),transparent_70%)]" />
-      <OnboardingMotionStyles />
-      <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">
-       
-          <header className="flex shrink-0 flex-col gap-4 mb-8">
+    <div className="flex h-full flex-col bg-slate-950">
+      <section className="flex w-full flex-col flex-1 rounded-[2rem] border border-white/5 bg-slate-950 p-6 sm:p-8 md:p-12 shadow-2xl">
+        <div className="flex-1 flex flex-col max-w-5xl mx-auto w-full">
+          <header className="flex flex-col gap-4 mb-8">
             <div className="flex items-center gap-4">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.2)]">
                 <Palette size={26} strokeWidth={1.5} />
@@ -46,8 +43,7 @@ export function ThemeStep({ selectedTheme, themes, onSelectTheme, onBack, onNext
             </div>
           </header>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden transition-all duration-300 ease-out">
-          <div className="min-h-0 flex-1 overflow-y-auto pr-2 pb-4 [scrollbar-gutter:stable] [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-track]:bg-slate-900/50 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 hover:[&::-webkit-scrollbar-thumb]:bg-white/30">
+          <div className="flex-1 overflow-y-auto pr-2 pb-4 max-h-[60vh] [scrollbar-gutter:stable] [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-track]:bg-slate-900/50 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 hover:[&::-webkit-scrollbar-thumb]:bg-white/30">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {themes.map((theme) => {
                 const isSelected = selectedTheme === theme.name;
@@ -154,28 +150,30 @@ export function ThemeStep({ selectedTheme, themes, onSelectTheme, onBack, onNext
               })}
             </div>
           </div>
-        </div>
 
-        <div className="mt-4 flex shrink-0 items-center justify-between border-t border-white/10 bg-slate-950/95 pt-5 pb-1 backdrop-blur z-20">
+          <div className="mt-6 flex items-center justify-between border-t border-white/5 pt-6">
             <GlowButton 
               theme="dark" 
               variant="secondary" 
               onClick={onBack} 
-              className="border border-white/10 bg-slate-900/50 px-6 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
+              icon={<span aria-hidden>←</span>} 
+              className="border border-white/10 bg-slate-900/50 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
             >
-              ← Back
+              Back
             </GlowButton>
             <GlowButton 
               theme="dark" 
               variant="primary" 
               onClick={onNext} 
-              className="onb-cta-glow px-8"
+              icon={<span aria-hidden>→</span>}
+              className="bg-indigo-600 hover:bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)]"
             >
-              Continue →
+              Continue
             </GlowButton>
           </div>
-      </div>
-    </section>
+        </div>
+      </section>
+    </div>
   );
 }
 

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import { Globe, CheckCircle2, Wrench, AlertCircle } from 'lucide-react';
+import { Globe, CheckCircle2, Wrench, AlertCircle, Zap } from 'lucide-react';
 import { useSourceStore, type SourceKind } from '@/store/sourceStore';
+import { useSourceHealthStore } from '@/store/sourceHealthStore';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,11 +20,17 @@ export function OnlineSourceSelector({ kind }: OnlineSourceSelectorProps) {
   const allSources = useSourceStore((state) => state.sources);
   const primarySourceByKind = useSourceStore((state) => state.primarySourceByKind);
   const setPrimarySource = useSourceStore((state) => state.setPrimarySource);
+  const getSourceHealthLevel = useSourceHealthStore((state) => state.getSourceHealthLevel);
 
-  const sources = useMemo(
-    () => allSources.filter((source) => source.kind === kind),
-    [allSources, kind]
-  );
+  const sources = useMemo(() => {
+    return [...allSources]
+      .filter((source) => source.kind === kind)
+      .sort((a, b) => {
+        if (a.torboxCompatible && !b.torboxCompatible) return -1;
+        if (!a.torboxCompatible && b.torboxCompatible) return 1;
+        return 0;
+      });
+  }, [allSources, kind]);
   const activeSources = useMemo(
     () => sources.filter((source) => source.enabled && source.implemented),
     [sources]
@@ -35,11 +42,46 @@ export function OnlineSourceSelector({ kind }: OnlineSourceSelectorProps) {
   }, [activeSources, kind, primarySourceByKind]);
   const sourceLabel = primarySource?.name ?? 'Select source';
 
+  const CapabilityBadge = ({ capability }: { capability: string }) => {
+    switch (capability) {
+      case 'torbox':
+        return <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border border-cyan-500/20">Torbox-ready</span>;
+      case 'direct':
+        return <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20">Direct</span>;
+      case 'metadata':
+        return <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20">Metadata</span>;
+      default:
+        return null;
+    }
+  };
+
+  const getRecommendedSourceId = (kind: SourceKind) => {
+    if (kind === 'books') return 'anna-archive';
+    if (kind === 'manga') return 'nyaa';
+    return null;
+  };
+
+  const HealthBadge = ({ sourceId }: { sourceId: string }) => {
+    const health = getSourceHealthLevel(sourceId);
+    if (health === 'unknown') {
+      return <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">Unknown</span>;
+    }
+    if (health === 'good') {
+      return <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">Healthy</span>;
+    }
+    if (health === 'degraded') {
+      return <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">Degraded</span>;
+    }
+    return <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-destructive/10 text-destructive border border-destructive/20">Unavailable</span>;
+  };
+
+  const recommendedSourceId = getRecommendedSourceId(kind);
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" className="gap-2">
-          <Globe className="w-4 h-4" />
+          {primarySource?.torboxCompatible ? <Zap className="w-4 h-4 text-cyan-500" /> : <Globe className="w-4 h-4" />}
           <span className="truncate max-w-[180px]">{sourceLabel}</span>
         </Button>
       </DropdownMenuTrigger>
@@ -52,6 +94,7 @@ export function OnlineSourceSelector({ kind }: OnlineSourceSelectorProps) {
         {sources.map((source) => {
           const isSelected = primarySource?.id === source.id;
           const isAvailable = source.enabled && source.implemented;
+          const isRecommended = source.id === recommendedSourceId;
 
           return (
             <DropdownMenuItem
@@ -61,33 +104,41 @@ export function OnlineSourceSelector({ kind }: OnlineSourceSelectorProps) {
                   setPrimarySource(kind, source.id);
                 }
               }}
-              className="items-start gap-3 py-2"
+              className={`items-start gap-3 py-2.5 transition-colors cursor-pointer ${isSelected ? 'bg-primary/5 dark:bg-primary/10' : ''}`}
               disabled={!isAvailable}
             >
               <div className="pt-0.5">
                 {isSelected ? (
                   <CheckCircle2 className="w-4 h-4 text-primary" />
                 ) : source.status === 'planned' ? (
-                  <Wrench className="w-4 h-4 text-muted-foreground" />
+                  <Wrench className="w-4 h-4 text-muted-foreground/50" />
+                ) : source.torboxCompatible ? (
+                  <Zap className="w-4 h-4 text-cyan-500/50" />
                 ) : (
-                  <Globe className="w-4 h-4 text-muted-foreground" />
+                  <Globe className="w-4 h-4 text-muted-foreground/50" />
                 )}
               </div>
 
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium truncate">{source.name.replace(' (Planned)', '')}</p>
-                  {source.torboxCompatible && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-700 dark:text-cyan-300">Torbox-ready</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+                  <p className={`text-sm font-medium truncate ${isSelected ? 'text-primary' : ''}`}>
+                    {source.name.replace(' (Planned)', '')}
+                  </p>
+                  {isRecommended && (
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">Best for Torbox</span>
                   )}
+                  <HealthBadge sourceId={source.id} />
+                  {source.capabilities?.map((cap) => (
+                    <CapabilityBadge key={cap} capability={cap} />
+                  ))}
                   {!source.enabled && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Disabled</span>
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">Disabled</span>
                   )}
                   {source.status === 'planned' && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Planned</span>
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">Planned</span>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground line-clamp-2">{source.description}</p>
+                <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed opacity-80">{source.description}</p>
               </div>
             </DropdownMenuItem>
           );

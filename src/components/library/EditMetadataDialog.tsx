@@ -162,7 +162,7 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
                     value={formData.title}
                     onChange={(e) => handleInputChange('title', e.target.value)}
                     placeholder="Book title"
-                    className={`w-full ${lockedFields['title'] ? 'bg-blue-50 dark:bg-blue-900/10' : ''}`}
+                    className={`w-full ${lockedFields['title'] ? 'bg-accent' : ''}`}
                   />
                 </div>
 
@@ -185,7 +185,7 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
                     value={formData.authors}
                     onChange={(e) => handleInputChange('authors', e.target.value)}
                     placeholder="Author names (comma-separated)"
-                    className={`w-full ${lockedFields['author'] ? 'bg-blue-50 dark:bg-blue-900/10' : ''}`}
+                    className={`w-full ${lockedFields['author'] ? 'bg-accent' : ''}`}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
                     Separate multiple authors with commas
@@ -212,7 +212,7 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
                       value={formData.isbn}
                       onChange={(e) => handleInputChange('isbn', e.target.value)}
                       placeholder="ISBN-10"
-                      className={`w-full ${lockedFields['isbn'] ? 'bg-blue-50 dark:bg-blue-900/10' : ''}`}
+                      className={`w-full ${lockedFields['isbn'] ? 'bg-accent' : ''}`}
                     />
                   </div>
                   <div>
@@ -223,7 +223,7 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
                       value={formData.isbn13}
                       onChange={(e) => handleInputChange('isbn13', e.target.value)}
                       placeholder="ISBN-13"
-                      className={`w-full ${lockedFields['isbn'] ? 'bg-blue-50 dark:bg-blue-900/10' : ''}`}
+                      className={`w-full ${lockedFields['isbn'] ? 'bg-accent' : ''}`}
                     />
                   </div>
                 </div>
@@ -248,7 +248,7 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
                       value={formData.publisher}
                       onChange={(e) => handleInputChange('publisher', e.target.value)}
                       placeholder="Publisher name"
-                      className={`w-full ${lockedFields['publisher'] ? 'bg-blue-50 dark:bg-blue-900/10' : ''}`}
+                      className={`w-full ${lockedFields['publisher'] ? 'bg-accent' : ''}`}
                     />
                   </div>
                   <div>
@@ -269,7 +269,7 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
                       value={formData.pubdate}
                       onChange={(e) => handleInputChange('pubdate', e.target.value)}
                       placeholder="YYYY-MM-DD"
-                      className={`w-full ${lockedFields['publish_date'] ? 'bg-blue-50 dark:bg-blue-900/10' : ''}`}
+                      className={`w-full ${lockedFields['publish_date'] ? 'bg-accent' : ''}`}
                     />
                   </div>
                 </div>
@@ -352,7 +352,7 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
                     onChange={(e) => handleInputChange('notes', e.target.value)}
                     placeholder="Add notes about this book..."
                     rows={4}
-                    className={`w-full px-3 py-2 bg-background border border-input rounded-md text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none ${lockedFields['description'] ? 'bg-blue-50 dark:bg-blue-900/10' : ''}`}
+                    className={`w-full px-3 py-2 bg-background border border-input rounded-md text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none ${lockedFields['description'] ? 'bg-accent' : ''}`}
                   />
                 </div>
               </div>

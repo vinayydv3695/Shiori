@@ -25,6 +25,7 @@ pub mod format_detection;
 pub mod adapters;
 pub mod epub_builder;
 pub mod conversion_engine;
+pub mod calibre_service;
 pub mod cover_service;
 pub mod rss_service;
 pub mod rss_scheduler;

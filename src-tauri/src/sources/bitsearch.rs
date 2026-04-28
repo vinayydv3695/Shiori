@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
+use std::time::Instant;
 
 use once_cell::sync::Lazy;
 use scraper::{Html, Selector};
@@ -8,7 +9,10 @@ use tokio::time::{sleep, Duration as TokioDuration};
 
 use crate::error::{Result, ShioriError};
 use crate::sources::network::TorrentNetworkConfig;
-use crate::sources::{Chapter, ContentType, Page, SearchResponse, SearchResult, Source, SourceMeta};
+use crate::sources::{
+    Chapter, ContentType, MirrorAttemptDiagnostic, Page, SearchResponse, SearchResult, Source,
+    SourceMeta, SourceSearchDiagnostics,
+};
 
 const BITSEARCH_BASE_URL: &str = "https://bitsearch.to";
 const BITSEARCH_MIRROR_BASE_URLS: &[&str] = &["https://bitsearch.to", "https://www.bitsearch.to"];
@@ -97,6 +101,7 @@ impl BitsearchSource {
     }
 
     async fn search_internal(&self, query: &str, page: u32, limit: u32) -> Result<SearchResponse> {
+        let started = Instant::now();
         let safe_page = page.max(1);
         let safe_limit = limit.clamp(1, 50);
         let offset = (safe_page - 1) * safe_limit;
@@ -104,6 +109,9 @@ impl BitsearchSource {
         let network = self.network.read().await.clone();
         let mut last_error: Option<String> = None;
         let mut body: Option<String> = None;
+        let mut selected_mirror: Option<String> = None;
+        let mut attempted_mirrors = Vec::new();
+        let mut retries_used: u32 = 0;
 
         'domains: for domain in BITSEARCH_MIRROR_BASE_URLS {
             let url = format!(
@@ -115,6 +123,7 @@ impl BitsearchSource {
 
             for attempt in 0..=network.max_retries {
                 if attempt > 0 {
+                    retries_used += 1;
                     sleep(TokioDuration::from_millis(TorrentNetworkConfig::retry_backoff_ms(attempt))).await;
                 }
 
@@ -134,6 +143,12 @@ impl BitsearchSource {
                 match response {
                     Ok(resp) => {
                         if resp.status().is_success() {
+                            attempted_mirrors.push(MirrorAttemptDiagnostic {
+                                mirror: domain.to_string(),
+                                success: true,
+                                error: None,
+                            });
+                            selected_mirror = Some(domain.to_string());
                             body = Some(
                                 resp.text()
                                     .await
@@ -142,10 +157,22 @@ impl BitsearchSource {
                             break 'domains;
                         }
 
-                        last_error = Some(format!("status {} on {}", resp.status(), domain));
+                        let error = format!("status {}", resp.status());
+                        attempted_mirrors.push(MirrorAttemptDiagnostic {
+                            mirror: domain.to_string(),
+                            success: false,
+                            error: Some(error.clone()),
+                        });
+                        last_error = Some(format!("{} on {}", error, domain));
                     }
                     Err(err) => {
-                        last_error = Some(format!("{} on {}", err, domain));
+                        let error = err.to_string();
+                        attempted_mirrors.push(MirrorAttemptDiagnostic {
+                            mirror: domain.to_string(),
+                            success: false,
+                            error: Some(error.clone()),
+                        });
+                        last_error = Some(format!("{} on {}", error, domain));
                     }
                 }
             }
@@ -276,6 +303,16 @@ impl BitsearchSource {
         }
 
         Ok(SearchResponse {
+            diagnostics: Some(SourceSearchDiagnostics {
+                source_id: "bitsearch".to_string(),
+                source_name: Some("Bitsearch (Torrents)".to_string()),
+                selected_mirror: selected_mirror.clone(),
+                selected_base: selected_mirror,
+                attempted_mirrors,
+                duration_ms: started.elapsed().as_millis() as u64,
+                result_count: items.len() as u32,
+                retries_used: Some(retries_used),
+            }),
             items,
             total: None,
             offset: Some(offset),

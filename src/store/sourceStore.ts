@@ -14,10 +14,11 @@ export interface SourceConfig {
   status: SourceStatus;
   implemented: boolean;
   torboxCompatible?: boolean;
+  capabilities?: ('torbox' | 'direct' | 'metadata')[];
   website?: string;
 }
 
-const SOURCE_STORE_VERSION = 5;
+const SOURCE_STORE_VERSION = 6;
 
 const MANDATORY_SOURCE_IDS = new Set(['mangadex', 'anna-archive']);
 
@@ -35,6 +36,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     status: 'active',
     implemented: true,
     torboxCompatible: false,
+    capabilities: ['direct'],
     website: 'https://mangadex.org',
   },
   {
@@ -46,6 +48,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     status: 'active',
     implemented: true,
     torboxCompatible: false,
+    capabilities: ['direct'],
     website: 'https://www.toongod.org',
   },
   {
@@ -53,22 +56,12 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     name: 'Nyaa (Torrents)',
     kind: 'manga',
     enabled: true,
-    description: 'Torrent-first manga/anime source for SHIORI x Torbox workflows.',
+    description: 'Torrent-first manga source for SHIORI x Torbox workflows.',
     status: 'active',
     implemented: true,
     torboxCompatible: true,
+    capabilities: ['torbox'],
     website: 'https://nyaa.si',
-  },
-  {
-    id: 'animetosho',
-    name: 'AnimeTosho (Torrents)',
-    kind: 'manga',
-    enabled: true,
-    description: 'Alternative anime/manga torrent index with magnet + torrent links for Torbox.',
-    status: 'active',
-    implemented: true,
-    torboxCompatible: true,
-    website: 'https://animetosho.org',
   },
   {
     id: 'rutracker',
@@ -79,6 +72,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     status: 'active',
     implemented: true,
     torboxCompatible: true,
+    capabilities: ['torbox'],
     website: 'https://rutracker.org',
   },
   {
@@ -90,6 +84,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     status: 'active',
     implemented: true,
     torboxCompatible: true,
+    capabilities: ['torbox'],
     website: 'https://bitsearch.to',
   },
   {
@@ -101,6 +96,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     status: 'active',
     implemented: true,
     torboxCompatible: true,
+    capabilities: ['torbox'],
     website: 'https://1337x.to',
   },
   {
@@ -112,6 +108,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     status: 'active',
     implemented: true,
     torboxCompatible: true,
+    capabilities: ['torbox'],
     website: 'https://apibay.org',
   },
   {
@@ -123,6 +120,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     status: 'active',
     implemented: true,
     torboxCompatible: false,
+    capabilities: ['metadata'],
     website: 'https://openlibrary.org',
   },
   {
@@ -134,6 +132,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     status: 'active',
     implemented: true,
     torboxCompatible: true,
+    capabilities: ['torbox', 'direct'],
     website: 'https://annas-archive.org',
   },
 ];
@@ -193,6 +192,7 @@ interface SourceStore {
   toggleSource: (id: string) => void;
   setPrimarySource: (kind: SourceKind, id: string) => void;
   setPreferredDebridProvider: (provider: DebridProviderPreference) => void;
+  optimizeForTorbox: () => void;
 }
 
 export const useSourceStore = create<SourceStore>()(
@@ -279,6 +279,29 @@ export const useSourceStore = create<SourceStore>()(
         set(() => ({
           preferredDebridProvider: provider,
         })),
+      optimizeForTorbox: () =>
+        set((state) => {
+          const nextSources = state.sources.map((source) => {
+            if (source.torboxCompatible && source.implemented) {
+              return { ...source, enabled: true };
+            }
+            return source;
+          });
+
+          const nextPrimary = { ...state.primarySourceByKind };
+          if (nextSources.find((s) => s.id === 'anna-archive')?.enabled) {
+            nextPrimary.books = 'anna-archive';
+          }
+          if (nextSources.find((s) => s.id === 'nyaa')?.enabled) {
+            nextPrimary.manga = 'nyaa';
+          }
+
+          return {
+            sources: nextSources,
+            primarySourceByKind: nextPrimary,
+            preferredDebridProvider: 'torbox',
+          };
+        }),
     }),
     {
       name: 'shiori-source-store',

@@ -10,10 +10,11 @@
 /// - Image extraction from pdftohtml output
 /// - Fallback to lopdf for basic text-only extraction
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use super::epub_writer::{EpubDocument, escape_xml};
+use super::epub_writer::EpubDocument;
 use super::utils;
 use super::{ConversionError, EpubOutput};
 
@@ -83,6 +84,8 @@ async fn convert_with_pdftohtml(
     // Read and process HTML
     let mut all_html = String::new();
     let mut images: Vec<(String, String, String, Vec<u8>)> = Vec::new();
+    // Maps pdftohtml original basename → EPUB-internal image filename
+    let mut img_rename_map: Vec<(String, String)> = Vec::new();
     let mut img_counter = 0u32;
 
     for html_path in &html_files {
@@ -97,8 +100,15 @@ async fn convert_with_pdftohtml(
     for img_path in &image_files {
         let img_data = tokio::fs::read(img_path).await?;
         if let Some((mime, ext)) = utils::detect_image_format(&img_data) {
+            // Record original filename so we can fix img src in the chapter HTML
+            let orig_name = img_path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("")
+                .to_string();
             let id = format!("pdf_img_{:04}", img_counter);
             let filename = format!("image_{:04}.{}", img_counter, ext);
+            img_rename_map.push((orig_name, filename.clone()));
             images.push((id, filename, mime.to_string(), img_data));
             img_counter += 1;
         }
@@ -106,6 +116,9 @@ async fn convert_with_pdftohtml(
 
     // Post-process: extract text from HTML, apply line unwrap, detect chapters
     let processed = post_process_pdf_html(&all_html, warnings);
+    // Rewrite img src attributes to use EPUB-internal filenames
+    // pdftohtml outputs e.g. src="output001.png" but we embed as image_0000.png
+    let processed = rewrite_img_srcs(processed, &img_rename_map);
 
     // Split into chapters
     let chapters = split_pdf_chapters(&processed);
@@ -209,17 +222,32 @@ async fn convert_with_lopdf(
 // ──────────────────────────────────────────────────────────────────────────
 
 fn post_process_pdf_html(html: &str, warnings: &mut Vec<String>) -> String {
+    // 1. First, use our sanitize function to convert to valid XHTML,
+    // which safely limits everything to approved tags (like <img>, <br>, <b>, etc).
+    let html = utils::sanitize_html_for_epub(html);
+
     // Extract paragraph text from HTML
     let paragraph_re = regex::Regex::new(r"(?is)<p[^>]*>(.*?)</p>").unwrap();
     let br_re = regex::Regex::new(r"(?i)<br\s*/?>").unwrap();
+    let img_re = regex::Regex::new(r"(?is)<img[^>]+>").unwrap();
 
     let mut paragraphs: Vec<String> = Vec::new();
 
-    for cap in paragraph_re.captures_iter(html) {
+    for cap in paragraph_re.captures_iter(&html) {
         let inner = &cap[1];
-        // Replace <br> with newlines for line-unwrap processing
-        let text = br_re.replace_all(inner, "\n").to_string();
-        let text = utils::strip_html_tags(&text).trim().to_string();
+        
+        // If there is an image, we should keep it separate so line unwrapping doesn't ruin it.
+        // Or we can just preserve it. For pdftohtml, text and images are usually separate.
+        let mut text = br_re.replace_all(inner, "\n").to_string();
+        
+        // If it exclusively contains an image, just keep it safely.
+        if img_re.is_match(&text) {
+            paragraphs.push(text.trim().to_string());
+            continue;
+        }
+
+        // It's mostly text, we can strip remaining tags for line-length calculations
+        text = utils::strip_html_tags(&text).trim().to_string();
         if !text.is_empty() {
             paragraphs.push(text);
         }
@@ -227,7 +255,12 @@ fn post_process_pdf_html(html: &str, warnings: &mut Vec<String>) -> String {
 
     // If regex didn't capture much, fall back to simple extraction
     if paragraphs.is_empty() {
-        let text = utils::strip_html_tags(html);
+        // Fallback for flat HTML: search for any img tags before stripping
+        for cap in img_re.captures_iter(&html) {
+            paragraphs.push(cap[0].to_string());
+        }
+
+        let text = utils::strip_html_tags(&html);
         for line in text.lines() {
             let trimmed = line.trim();
             if !trimmed.is_empty() {
@@ -235,6 +268,7 @@ fn post_process_pdf_html(html: &str, warnings: &mut Vec<String>) -> String {
             }
         }
     }
+
 
     // Line unwrap using median line length (calibre's algorithm)
     let mut lengths: Vec<usize> = paragraphs.iter()
@@ -256,10 +290,10 @@ fn post_process_pdf_html(html: &str, warnings: &mut Vec<String>) -> String {
 
         if is_heading {
             if !current_para.is_empty() {
-                result.push_str(&format!("  <p>{}</p>\n", escape_xml(current_para.trim())));
+                result.push_str(&format!("  <p>{}</p>\n", current_para.trim()));
                 current_para.clear();
             }
-            result.push_str(&format!("  <h2>{}</h2>\n", escape_xml(para.trim())));
+            result.push_str(&format!("  <h2>{}</h2>\n", para.trim()));
             continue;
         }
 
@@ -274,14 +308,14 @@ fn post_process_pdf_html(html: &str, warnings: &mut Vec<String>) -> String {
             current_para.push_str(para);
         } else {
             if !current_para.is_empty() {
-                result.push_str(&format!("  <p>{}</p>\n", escape_xml(current_para.trim())));
+                result.push_str(&format!("  <p>{}</p>\n", current_para.trim()));
             }
             current_para = para.clone();
         }
     }
 
     if !current_para.is_empty() {
-        result.push_str(&format!("  <p>{}</p>\n", escape_xml(current_para.trim())));
+        result.push_str(&format!("  <p>{}</p>\n", current_para.trim()));
     }
 
     let _ = warnings; // Used by caller
@@ -363,6 +397,89 @@ fn find_html_files(dir: &Path) -> Result<Vec<PathBuf>, ConversionError> {
     }
     files.sort();
     Ok(files)
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// IMAGE SRC REWRITING
+// ──────────────────────────────────────────────────────────────────────────
+
+/// Rewrite image src attributes to EPUB-internal image paths.
+/// Handles quoted/unquoted values, single/double quotes, and basename/path variants.
+fn rewrite_img_srcs(html: String, map: &[(String, String)]) -> String {
+    if map.is_empty() {
+        return html;
+    }
+
+    let mut by_exact: HashMap<String, String> = HashMap::new();
+    let mut by_basename: HashMap<String, String> = HashMap::new();
+    for (original, epub_name) in map {
+        let normalized = normalize_src_for_lookup(original);
+        by_exact.insert(normalized.clone(), epub_name.clone());
+
+        if let Some(base) = std::path::Path::new(&normalized)
+            .file_name()
+            .and_then(|n| n.to_str())
+        {
+            by_basename.insert(base.to_lowercase(), epub_name.clone());
+        }
+    }
+
+    let img_tag_re = regex::Regex::new(r"(?is)<img\b[^>]*>").unwrap();
+    let src_re = regex::Regex::new(r#"(?i)\bsrc\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>]+))"#).unwrap();
+
+    img_tag_re
+        .replace_all(&html, |caps: &regex::Captures| {
+            let tag = caps.get(0).map(|m| m.as_str()).unwrap_or("");
+            let Some(src_cap) = src_re.captures(tag) else {
+                return tag.to_string();
+            };
+
+            let src_val = src_cap
+                .get(1)
+                .or_else(|| src_cap.get(2))
+                .or_else(|| src_cap.get(3))
+                .map(|m| m.as_str())
+                .unwrap_or("");
+
+            let lowered = src_val.to_lowercase();
+            if lowered.starts_with("data:")
+                || lowered.starts_with("http://")
+                || lowered.starts_with("https://")
+                || lowered.starts_with("../images/")
+            {
+                return tag.to_string();
+            }
+
+            let normalized = normalize_src_for_lookup(src_val);
+            let mapped = by_exact.get(&normalized).cloned().or_else(|| {
+                std::path::Path::new(&normalized)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .and_then(|base| by_basename.get(&base.to_lowercase()).cloned())
+            });
+
+            if let Some(epub_name) = mapped {
+                src_re
+                    .replace(tag, format!("src=\"../Images/{}\"", epub_name))
+                    .to_string()
+            } else {
+                tag.to_string()
+            }
+        })
+        .to_string()
+}
+
+fn normalize_src_for_lookup(src: &str) -> String {
+    let mut s = src.trim().replace('\\', "/").to_lowercase();
+
+    while s.starts_with("./") {
+        s = s[2..].to_string();
+    }
+    while s.starts_with("../") {
+        s = s[3..].to_string();
+    }
+
+    s
 }
 
 fn find_image_files(dir: &Path) -> Result<Vec<PathBuf>, ConversionError> {

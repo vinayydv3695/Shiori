@@ -14,6 +14,7 @@ use std::io::Read;
 use std::path::Path;
 
 use super::epub_writer::{EpubDocument, escape_xml};
+use super::utils;
 use super::{ConversionError, EpubOutput};
 
 /// Convert a DOCX file to EPUB 3.
@@ -142,24 +143,11 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
                         // <a:blip r:embed="rId..."/>
                         if let Some(rid) = get_attr(&e, "embed").or_else(|| get_attr(&e, "r:embed")) {
                             if let Some(target) = rels.get(&rid) {
-                                // Extract image from ZIP
-                                let img_path = if target.starts_with('/') {
-                                    target[1..].to_string()
-                                } else {
-                                    format!("word/{}", target)
-                                };
-                                if let Ok(img_data) = read_zip_entry_bytes(&mut archive, &img_path) {
-                                    let ext = target.rsplit('.').next().unwrap_or("png");
-                                    let mime = match ext {
-                                        "jpg" | "jpeg" => "image/jpeg",
-                                        "png" => "image/png",
-                                        "gif" => "image/gif",
-                                        _ => "image/png",
-                                    };
-                                    let id = format!("docx_img_{:04}", img_counter);
-                                    let filename = format!("image_{:04}.{}", img_counter, ext);
+                                if let Some((id, filename, mime, img_data)) =
+                                    extract_docx_image(target, img_counter, &mut archive)
+                                {
                                     para_html.push_str(&format!("<img src=\"../Images/{}\" alt=\"\"/>", filename));
-                                    images.push((id, filename, mime.to_string(), img_data));
+                                    images.push((id, filename, mime, img_data));
                                     img_counter += 1;
                                 }
                             }
@@ -201,23 +189,11 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
                     "blip" => {
                         if let Some(rid) = get_attr(&e, "embed").or_else(|| get_attr(&e, "r:embed")) {
                             if let Some(target) = rels.get(&rid) {
-                                let img_path = if target.starts_with('/') {
-                                    target[1..].to_string()
-                                } else {
-                                    format!("word/{}", target)
-                                };
-                                if let Ok(img_data) = read_zip_entry_bytes(&mut archive, &img_path) {
-                                    let ext = target.rsplit('.').next().unwrap_or("png");
-                                    let mime = match ext {
-                                        "jpg" | "jpeg" => "image/jpeg",
-                                        "png" => "image/png",
-                                        "gif" => "image/gif",
-                                        _ => "image/png",
-                                    };
-                                    let id = format!("docx_img_{:04}", img_counter);
-                                    let filename = format!("image_{:04}.{}", img_counter, ext);
+                                if let Some((id, filename, mime, img_data)) =
+                                    extract_docx_image(target, img_counter, &mut archive)
+                                {
                                     para_html.push_str(&format!("<img src=\"../Images/{}\" alt=\"\"/>", filename));
-                                    images.push((id, filename, mime.to_string(), img_data));
+                                    images.push((id, filename, mime, img_data));
                                     img_counter += 1;
                                 }
                             }
@@ -609,6 +585,59 @@ fn read_zip_entry(archive: &mut zip::ZipArchive<std::io::Cursor<&Vec<u8>>>, name
     file.read_to_string(&mut content)
         .map_err(|e| ConversionError::Other(format!("Failed to read {}: {}", name, e)))?;
     Ok(content)
+}
+
+fn resolve_relationship_target_path(target: &str) -> String {
+    let normalized = target.replace('\\', "/");
+    let mut parts: Vec<String> = Vec::new();
+
+    if !normalized.starts_with('/') {
+        parts.push("word".to_string());
+    }
+
+    for part in normalized.trim_start_matches('/').split('/') {
+        match part {
+            "" | "." => {}
+            ".." => {
+                let _ = parts.pop();
+            }
+            _ => parts.push(part.to_string()),
+        }
+    }
+
+    parts.join("/")
+}
+
+fn extract_docx_image(
+    target: &str,
+    img_counter: u32,
+    archive: &mut zip::ZipArchive<std::io::Cursor<&Vec<u8>>>,
+) -> Option<(String, String, String, Vec<u8>)> {
+    let img_path = resolve_relationship_target_path(target);
+    let img_data = read_zip_entry_bytes(archive, &img_path).ok()?;
+
+    let (mime, ext) = if let Some((mime, ext)) = utils::detect_image_format(&img_data) {
+        (mime.to_string(), ext.to_string())
+    } else {
+        let fallback_ext = target
+            .rsplit('.')
+            .next()
+            .unwrap_or("png")
+            .to_lowercase();
+        let fallback_mime = match fallback_ext.as_str() {
+            "jpg" | "jpeg" => "image/jpeg",
+            "png" => "image/png",
+            "gif" => "image/gif",
+            "webp" => "image/webp",
+            "bmp" => "image/bmp",
+            _ => "image/png",
+        };
+        (fallback_mime.to_string(), fallback_ext)
+    };
+
+    let id = format!("docx_img_{:04}", img_counter);
+    let filename = format!("image_{:04}.{}", img_counter, ext);
+    Some((id, filename, mime, img_data))
 }
 
 fn read_zip_entry_bytes(archive: &mut zip::ZipArchive<std::io::Cursor<&Vec<u8>>>, name: &str) -> Result<Vec<u8>, ConversionError> {

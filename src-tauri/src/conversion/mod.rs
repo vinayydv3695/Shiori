@@ -1,10 +1,22 @@
 /// Calibre-quality format conversion module for Shiori.
 ///
-/// Implements proper format parsing for MOBI/AZW3, PDF, TXT, FB2, and DOCX
+/// Implements proper format parsing for MOBI/AZW3, PDF, TXT, FB2, DOCX, CBZ, CBR
 /// with output to EPUB 3. Algorithms inspired by calibre (GPL-3.0) but
 /// reimplemented from scratch in Rust.
+///
+/// ## Architecture
+///
+/// ```
+/// Input File → [Format Parser] → existing EPUB writer OR OebBook → [epub_builder] → .epub
+/// ```
+///
+/// ## Public API
+///
+/// - `convert_to_epub(path, progress_cb)` — main entry point, returns path to generated .epub
+/// - `ConversionProgress { stage, percent }` — emitted through the progress callback
 
-pub mod epub_writer;
+// ── Existing format parsers (kept for ConversionEngine compat) ──────────
+pub mod epub_writer;  // kept for backward compat — new code uses epub_builder
 pub mod utils;
 pub mod mobi;
 pub mod pdf;
@@ -12,31 +24,36 @@ pub mod txt;
 pub mod fb2;
 pub mod docx;
 
+// ── New OEB-based pipeline ───────────────────────────────────────────────
+pub mod error;
+pub mod oeb;
+pub mod epub_builder;
+pub mod formats;
+
+#[cfg(test)]
+pub mod tests;
+
 use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
+pub use error::ConversionError;
+
 // ──────────────────────────────────────────────────────────────────────────
-// PUBLIC API
+// PUBLIC API TYPES (kept for ConversionEngine backward compat)
 // ──────────────────────────────────────────────────────────────────────────
 
-/// Output of a successful format → EPUB conversion
+/// Output of a successful format → EPUB conversion (used by ConversionEngine)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EpubOutput {
-    /// Absolute path to the written .epub file
     pub path: PathBuf,
-    /// Extracted or inferred title
     pub title: String,
-    /// Extracted author (if any)
     pub author: Option<String>,
-    /// JPEG bytes of cover image (if extracted)
     pub cover_data: Option<Vec<u8>>,
-    /// Number of chapters in the output EPUB
     pub chapter_count: usize,
-    /// Warnings encountered during conversion (non-fatal)
     pub warnings: Vec<String>,
 }
 
-/// Source format for conversion
+/// Source format for conversion (used by ConversionEngine)
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SourceFormat {
@@ -49,14 +66,13 @@ pub enum SourceFormat {
 }
 
 impl SourceFormat {
-    /// Parse from file extension string
     #[allow(dead_code)]
     pub fn from_extension(ext: &str) -> Option<Self> {
         match ext.to_lowercase().as_str() {
             "mobi" => Some(Self::Mobi),
             "azw3" | "azw" => Some(Self::Azw3),
             "pdf" => Some(Self::Pdf),
-            "txt" | "text" => Some(Self::Txt),
+            "txt" | "text" | "rtf" => Some(Self::Txt),
             "fb2" | "fb2.zip" | "fbz" => Some(Self::Fb2),
             "docx" => Some(Self::Docx),
             _ => None,
@@ -64,72 +80,171 @@ impl SourceFormat {
     }
 }
 
-/// Conversion error types
-#[allow(dead_code)]
-#[derive(Debug, thiserror::Error)]
-pub enum ConversionError {
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-
-    #[error("Invalid format: {0}")]
-    InvalidFormat(String),
-
-    #[error("Unsupported compression type: {0}")]
-    UnsupportedCompression(u16),
-
-    #[error("Missing dependency: {0}")]
-    MissingDependency(String),
-
-    #[error("Encoding error: {0}")]
-    Encoding(String),
-
-    #[error("XML parse error: {0}")]
-    Xml(String),
-
-    #[error("ZIP error: {0}")]
-    Zip(#[from] zip::result::ZipError),
-
-    #[error("Conversion error: {0}")]
-    Other(String),
-}
-
+/// Bridge ConversionError → FormatError for ConversionEngine compatibility.
 impl From<ConversionError> for crate::services::format_adapter::FormatError {
     fn from(e: ConversionError) -> Self {
         crate::services::format_adapter::FormatError::ConversionError(e.to_string())
     }
 }
 
-/// Convert a source file to EPUB 3.
-///
-/// This is the primary public API. It dispatches to the appropriate
-/// format-specific converter based on `format`.
+/// Legacy convert_to_epub (used by ConversionEngine worker).
+/// Takes explicit source/output paths and SourceFormat.
 pub async fn convert_to_epub(
     source_path: &Path,
     output_path: &Path,
     format: SourceFormat,
 ) -> Result<EpubOutput, ConversionError> {
     if !source_path.exists() {
-        return Err(ConversionError::Io(std::io::Error::new(
+        return Err(ConversionError::IoError(std::io::Error::new(
             std::io::ErrorKind::NotFound,
             format!("Source file not found: {}", source_path.display()),
         )));
     }
 
     match format {
-        SourceFormat::Mobi | SourceFormat::Azw3 => {
-            mobi::convert(source_path, output_path).await
+        SourceFormat::Mobi | SourceFormat::Azw3 => mobi::convert(source_path, output_path).await,
+        SourceFormat::Pdf => pdf::convert(source_path, output_path).await,
+        SourceFormat::Txt => txt::convert(source_path, output_path).await,
+        SourceFormat::Fb2 => fb2::convert(source_path, output_path).await,
+        SourceFormat::Docx => docx::convert(source_path, output_path).await,
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// NEW PUBLIC API — used by the new Tauri commands
+// ──────────────────────────────────────────────────────────────────────────
+
+/// Progress event emitted during conversion.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConversionProgress {
+    /// Human-readable stage name, e.g. "Parsing MOBI"
+    pub stage: String,
+    /// Completion percentage 0–100
+    pub percent: u8,
+}
+
+/// Progress callback type
+pub type ProgressCallback = Box<dyn Fn(ConversionProgress) + Send + Sync>;
+
+/// Convert any supported book format to EPUB 3.
+///
+/// If the input is already an EPUB, returns its path unchanged.
+/// Output is written to `{temp_dir}/shiori_converted/{stem}.epub`.
+///
+/// # Arguments
+/// - `input_path` — path to the source file
+/// - `progress` — optional callback for progress events
+///
+/// # Returns
+/// Path to the generated (or unchanged EPUB) file.
+pub async fn convert_to_epub_new(
+    input_path: &Path,
+    progress: Option<ProgressCallback>,
+) -> Result<PathBuf, ConversionError> {
+    let ext = input_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_lowercase())
+        .unwrap_or_default();
+
+    let report = |stage: &str, percent: u8| {
+        if let Some(ref cb) = progress {
+            cb(ConversionProgress {
+                stage: stage.to_string(),
+                percent,
+            });
         }
-        SourceFormat::Pdf => {
-            pdf::convert(source_path, output_path).await
+    };
+
+    report("Detecting format", 2);
+
+    // Prepare output path
+    let stem = input_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("converted");
+    let tmp_dir = std::env::temp_dir().join("shiori_converted");
+    std::fs::create_dir_all(&tmp_dir)?;
+    let output_path = tmp_dir.join(format!("{}.epub", stem));
+
+    match ext.as_str() {
+        "epub" => {
+            // Already EPUB — return path unchanged
+            report("Ready", 100);
+            return Ok(input_path.to_path_buf());
         }
-        SourceFormat::Txt => {
-            txt::convert(source_path, output_path).await
+
+        "cbz" => {
+            report("Parsing comic archive", 10);
+            let mut oeb = formats::cbz::parse(input_path)?;
+            report("Building EPUB", 60);
+            oeb.sanitize_html();
+            epub_builder::build_epub(&oeb, &output_path)?;
         }
-        SourceFormat::Fb2 => {
-            fb2::convert(source_path, output_path).await
+
+        "cbr" => {
+            report("Extracting comic archive", 10);
+            let mut oeb = formats::cbr::parse(input_path)?;
+            report("Building EPUB", 60);
+            oeb.sanitize_html();
+            epub_builder::build_epub(&oeb, &output_path)?;
         }
-        SourceFormat::Docx => {
-            docx::convert(source_path, output_path).await
+
+        // For these, the existing async converters write the EPUB directly
+        "pdf" => {
+            report("Parsing PDF", 10);
+            pdf::convert(input_path, &output_path)
+                .await
+                .map_err(|e| ConversionError::Other(e.to_string()))?;
+        }
+
+        "mobi" | "azw" | "azw3" | "prc" => {
+            report("Parsing MOBI/AZW3", 10);
+            mobi::convert(input_path, &output_path)
+                .await
+                .map_err(|e| ConversionError::Other(e.to_string()))?;
+        }
+
+        "docx" => {
+            report("Parsing DOCX", 10);
+            docx::convert(input_path, &output_path)
+                .await
+                .map_err(|e| ConversionError::Other(e.to_string()))?;
+        }
+
+        "fb2" | "fbz" => {
+            report("Parsing FB2", 10);
+            fb2::convert(input_path, &output_path)
+                .await
+                .map_err(|e| ConversionError::Other(e.to_string()))?;
+        }
+
+        "txt" | "rtf" => {
+            report("Parsing text", 10);
+            txt::convert(input_path, &output_path)
+                .await
+                .map_err(|e| ConversionError::Other(e.to_string()))?;
+        }
+
+        other => {
+            return Err(ConversionError::UnsupportedFormat(other.to_string()));
         }
     }
+
+    if !output_path.exists() {
+        return Err(ConversionError::EmptyContent);
+    }
+
+    report("Done", 100);
+    Ok(output_path)
+}
+
+/// Delete the Shiori conversion cache directory.
+/// Call this on app exit or "Clear Cache" user action.
+pub fn cleanup_converted_cache() -> Result<(), ConversionError> {
+    let tmp_dir = std::env::temp_dir().join("shiori_converted");
+    if tmp_dir.exists() {
+        std::fs::remove_dir_all(&tmp_dir)?;
+    }
+    Ok(())
 }

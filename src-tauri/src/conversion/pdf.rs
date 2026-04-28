@@ -29,6 +29,10 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
             warnings.push(format!("pdftohtml not available ({}), falling back to basic extraction", msg));
             convert_with_lopdf(source, output, &mut warnings).await
         }
+        Err(ConversionError::EmptyContent) => {
+            warnings.push("pdftohtml produced empty/blank content, falling back to basic extraction".to_string());
+            convert_with_lopdf(source, output, &mut warnings).await
+        }
         Err(e) => Err(e),
     }
 }
@@ -122,6 +126,15 @@ async fn convert_with_pdftohtml(
 
     // Split into chapters
     let chapters = split_pdf_chapters(&processed);
+
+    // Guard: avoid generating a blank EPUB when pdftohtml output is structurally present
+    // but text extraction produced no readable content.
+    let has_readable_text = chapters.iter().any(|(_, body)| {
+        !utils::strip_html_tags(body).trim().is_empty()
+    });
+    if !has_readable_text && images.is_empty() {
+        return Err(ConversionError::EmptyContent);
+    }
 
     // Infer title from filename
     let title = source.file_stem()
@@ -282,8 +295,21 @@ fn post_process_pdf_html(html: &str, warnings: &mut Vec<String>) -> String {
     let mut current_para = String::new();
 
     for para in &paragraphs {
-        // Check if this paragraph is a chapter/section title candidate
         let plain = para.trim();
+
+        // Keep extracted image tags as block elements (not escaped text inside <p>)
+        if img_re.is_match(plain) {
+            if !current_para.is_empty() {
+                result.push_str(&format!("  <p>{}</p>\n", super::epub_writer::escape_xml(current_para.trim())));
+                current_para.clear();
+            }
+            result.push_str("  ");
+            result.push_str(plain);
+            result.push('\n');
+            continue;
+        }
+
+        // Check if this paragraph is a chapter/section title candidate
         let is_heading = utils::looks_like_heading(plain)
             && plain.len() <= 120
             && !plain.contains('@')
@@ -291,7 +317,7 @@ fn post_process_pdf_html(html: &str, warnings: &mut Vec<String>) -> String {
 
         if is_heading {
             if !current_para.is_empty() {
-                result.push_str(&format!("  <p>{}</p>\n", current_para.trim()));
+                result.push_str(&format!("  <p>{}</p>\n", super::epub_writer::escape_xml(current_para.trim())));
                 current_para.clear();
             }
             result.push_str(&format!("  <h2>{}</h2>\n", super::epub_writer::escape_xml(plain)));
@@ -306,17 +332,17 @@ fn post_process_pdf_html(html: &str, warnings: &mut Vec<String>) -> String {
 
         if is_continuation && !current_para.is_empty() {
             current_para.push(' ');
-            current_para.push_str(para);
+            current_para.push_str(plain);
         } else {
             if !current_para.is_empty() {
-                result.push_str(&format!("  <p>{}</p>\n", current_para.trim()));
+                result.push_str(&format!("  <p>{}</p>\n", super::epub_writer::escape_xml(current_para.trim())));
             }
-            current_para = para.clone();
+            current_para = plain.to_string();
         }
     }
 
     if !current_para.is_empty() {
-        result.push_str(&format!("  <p>{}</p>\n", current_para.trim()));
+        result.push_str(&format!("  <p>{}</p>\n", super::epub_writer::escape_xml(current_para.trim())));
     }
 
     let _ = warnings; // Used by caller
@@ -533,5 +559,22 @@ mod tests {
         assert!(chapters.len() >= 2);
         assert!(chapters[0].0.to_lowercase().contains("chapter"));
         assert!(chapters[1].0.to_lowercase().contains("chapter"));
+    }
+
+    #[test]
+    fn post_process_escapes_special_chars() {
+        let html = r#"<p>AT&T and R&D</p>"#;
+        let mut warnings = Vec::new();
+        let out = post_process_pdf_html(html, &mut warnings);
+        assert!(out.contains("AT&amp;T"));
+        assert!(out.contains("R&amp;D"));
+    }
+
+    #[test]
+    fn post_process_keeps_image_tags() {
+        let html = r#"<p><img src=\"x.png\" alt=\"\"/></p>"#;
+        let mut warnings = Vec::new();
+        let out = post_process_pdf_html(html, &mut warnings);
+        assert!(out.contains("<img"));
     }
 }

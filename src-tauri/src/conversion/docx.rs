@@ -267,20 +267,34 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
                             }
 
                             if !para_html.trim().is_empty() {
+                                let plain_para_text = super::utils::strip_html_tags(&para_html).trim().to_string();
+                                let style_heading = html_tag.starts_with("h1") || html_tag.starts_with("h2");
+                                let heuristic_heading = html_tag == "p"
+                                    && super::utils::looks_like_heading(&plain_para_text)
+                                    && plain_para_text.len() <= 120;
+
                                 // Check for heading → new chapter title
-                                if html_tag.starts_with("h1") || html_tag.starts_with("h2") {
+                                if style_heading || heuristic_heading {
                                     if !current_body.trim().is_empty() {
                                         chapters.push((current_title.clone(), current_body.trim().to_string()));
                                         current_body.clear();
                                     }
-                                    current_title = super::utils::strip_html_tags(&para_html).trim().to_string();
-                                    if current_title.is_empty() {
+
+                                    if !plain_para_text.is_empty() {
+                                        current_title = plain_para_text.clone();
+                                    } else {
                                         chapter_num += 1;
                                         current_title = format!("Chapter {}", chapter_num);
                                     }
-                                }
 
-                                current_body.push_str(&format!("  <{}>{}</{}>\n", html_tag, para_html, html_tag));
+                                    if heuristic_heading {
+                                        current_body.push_str(&format!("  <h2>{}</h2>\n", escape_xml(&plain_para_text)));
+                                    } else {
+                                        current_body.push_str(&format!("  <{}>{}</{}>\n", html_tag, para_html, html_tag));
+                                    }
+                                } else {
+                                    current_body.push_str(&format!("  <{}>{}</{}>\n", html_tag, para_html, html_tag));
+                                }
                             }
                         }
                     }

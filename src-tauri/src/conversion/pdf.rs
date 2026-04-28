@@ -282,18 +282,19 @@ fn post_process_pdf_html(html: &str, warnings: &mut Vec<String>) -> String {
     let mut current_para = String::new();
 
     for para in &paragraphs {
-        // Check if this paragraph is a chapter title candidate
-        let is_heading = para.len() < 80
-            && (para.chars().all(|c| c.is_uppercase() || c.is_whitespace() || c.is_numeric() || c == ':'))
-            || para.starts_with("Chapter ")
-            || para.starts_with("CHAPTER ");
+        // Check if this paragraph is a chapter/section title candidate
+        let plain = para.trim();
+        let is_heading = utils::looks_like_heading(plain)
+            && plain.len() <= 120
+            && !plain.contains('@')
+            && !plain.contains("://");
 
         if is_heading {
             if !current_para.is_empty() {
                 result.push_str(&format!("  <p>{}</p>\n", current_para.trim()));
                 current_para.clear();
             }
-            result.push_str(&format!("  <h2>{}</h2>\n", para.trim()));
+            result.push_str(&format!("  <h2>{}</h2>\n", super::epub_writer::escape_xml(plain)));
             continue;
         }
 
@@ -327,26 +328,42 @@ fn post_process_pdf_html(html: &str, warnings: &mut Vec<String>) -> String {
 // ──────────────────────────────────────────────────────────────────────────
 
 fn split_pdf_chapters(html: &str) -> Vec<(String, String)> {
-    let heading_re = regex::Regex::new(r"(?i)<h[1-3][^>]*>(.*?)</h[1-3]>").unwrap();
+    let heading_re = regex::Regex::new(r"(?i)<h[1-6][^>]*>(.*?)</h[1-6]>").unwrap();
+    let para_re = regex::Regex::new(r"(?is)<p[^>]*>(.*?)</p>").unwrap();
 
     let mut chapters: Vec<(String, String)> = Vec::new();
     let mut current_title = "Document".to_string();
     let mut current_body = String::new();
 
     for line in html.lines() {
+        let mut heading_title: Option<String> = None;
+        let mut heading_line: Option<String> = None;
+
         if let Some(cap) = heading_re.captures(line) {
             let title = utils::strip_html_tags(&cap[1]).trim().to_string();
             if !title.is_empty() {
-                if !current_body.trim().is_empty() {
-                    chapters.push((current_title.clone(), current_body.trim().to_string()));
-                    current_body.clear();
-                }
-                current_title = title;
-                current_body.push_str(line);
-                current_body.push('\n');
-                continue;
+                heading_title = Some(title.clone());
+                heading_line = Some(format!("  <h2>{}</h2>", super::epub_writer::escape_xml(&title)));
+            }
+        } else if let Some(cap) = para_re.captures(line) {
+            let candidate = utils::strip_html_tags(&cap[1]).trim().to_string();
+            if utils::looks_like_heading(&candidate) {
+                heading_title = Some(candidate.clone());
+                heading_line = Some(format!("  <h2>{}</h2>", super::epub_writer::escape_xml(&candidate)));
             }
         }
+
+        if let Some(title) = heading_title {
+            if !current_body.trim().is_empty() {
+                chapters.push((current_title.clone(), current_body.trim().to_string()));
+                current_body.clear();
+            }
+            current_title = title;
+            current_body.push_str(heading_line.as_deref().unwrap_or(line));
+            current_body.push('\n');
+            continue;
+        }
+
         current_body.push_str(line);
         current_body.push('\n');
     }
@@ -497,4 +514,24 @@ fn find_image_files(dir: &Path) -> Result<Vec<PathBuf>, ConversionError> {
     }
     files.sort();
     Ok(files)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn splits_chapters_from_heading_like_paragraphs() {
+        let html = r#"
+  <p>Chapter 1</p>
+  <p>First body paragraph.</p>
+  <p>CHAPTER 2</p>
+  <p>Second body paragraph.</p>
+"#;
+
+        let chapters = split_pdf_chapters(html);
+        assert!(chapters.len() >= 2);
+        assert!(chapters[0].0.to_lowercase().contains("chapter"));
+        assert!(chapters[1].0.to_lowercase().contains("chapter"));
+    }
 }

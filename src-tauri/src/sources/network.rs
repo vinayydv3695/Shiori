@@ -3,8 +3,8 @@ use tauri_plugin_store::StoreExt;
 
 use crate::error::{Result, ShioriError};
 
-const DEFAULT_TIMEOUT_SECONDS: u64 = 30;
-const DEFAULT_MAX_RETRIES: u32 = 2;
+const DEFAULT_TIMEOUT_SECONDS: u64 = 45;
+const DEFAULT_MAX_RETRIES: u32 = 3;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

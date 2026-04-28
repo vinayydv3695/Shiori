@@ -10,10 +10,70 @@ import { useOnlineSearchStore } from '@/store/onlineSearchStore';
 import { pluginApi, type SearchResult as PluginSearchResult } from '@/lib/pluginSources';
 import { api } from '@/lib/tauri';
 import { ContentCarousel, type CarouselItem } from './ContentCarousel';
-import { useTorboxStore } from '@/stores/useTorboxStore';
 import { parsePageUrl } from '@/lib/utils';
+import { useToast } from '@/store/toastStore';
+import { useTorboxStore } from '@/stores/useTorboxStore';
 
 let onlineBooksSearchTimeout: number | undefined;
+const SUPPORTED_QUEUE_FORMATS = ['cbz', 'cbr', 'epub', 'pdf', 'mobi', 'azw3', 'docx'] as const;
+const SUPPORTED_QUEUE_FORMATS_LABEL = SUPPORTED_QUEUE_FORMATS.join(', ');
+
+function extractSupportedFormatToken(value: string): string | null {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return null;
+
+  const regex = /(?:^|[^a-z0-9])(cbz|cbr|epub|pdf|mobi|azw3|docx)(?:[^a-z0-9]|$)/i;
+  const match = normalized.match(regex);
+  return match?.[1]?.toLowerCase() ?? null;
+}
+
+function extractSupportedFormatFromHttpUrl(value: string): string | null {
+  const normalized = value.trim().toLowerCase();
+  const regex = /\.(cbz|cbr|epub|pdf|mobi|azw3|docx)(?=($|[?#&]))/i;
+  const match = normalized.match(regex);
+  return match?.[1]?.toLowerCase() ?? null;
+}
+
+function isHttpLink(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return normalized.startsWith('http://') || normalized.startsWith('https://');
+}
+
+function normalizeQueueKind(kind: string, url: string): string {
+  if (kind !== 'direct') return kind;
+  const normalized = url.trim().toLowerCase();
+  if (normalized.startsWith('magnet:')) return 'magnet';
+  if (normalized.includes('.torrent') || normalized.includes('/torrent')) return 'torrent';
+  return 'direct';
+}
+
+function hasStrongFormatHint(result: PluginSearchResult): boolean {
+  const titleHint = extractSupportedFormatToken(result.title);
+  if (titleHint) return true;
+
+  const extraFormat = result.extra?.format;
+  if (typeof extraFormat === 'string' && extractSupportedFormatToken(extraFormat)) return true;
+
+  return false;
+}
+
+function isQueueableTorboxCandidate(kind: string, url: string, result: PluginSearchResult): boolean {
+  const normalizedKind = normalizeQueueKind(kind, url);
+
+  if (normalizedKind === 'magnet' || normalizedKind === 'torrent') {
+    return hasStrongFormatHint(result);
+  }
+
+  if (normalizedKind === 'direct' && isHttpLink(url)) {
+    return extractSupportedFormatFromHttpUrl(url) !== null;
+  }
+
+  return false;
+}
+
+function getUnsupportedFormatMessage(): string {
+  return `Unsupported file type for Torbox queue. Supported formats: ${SUPPORTED_QUEUE_FORMATS_LABEL}. Use a direct link ending with one of these extensions, or a magnet/torrent result with clear format metadata.`;
+}
 
 export function OnlineBooksView() {
   const searchQuery = useOnlineSearchStore((state) => state.queries['online-books']);
@@ -32,6 +92,7 @@ export function OnlineBooksView() {
   const [lastSearchedQuery, setLastSearchedQuery] = useState('');
   const [downloadingBooks, setDownloadingBooks] = useState<Record<string, string>>({});
   const [hasTorboxKey, setHasTorboxKey] = useState(false);
+  const { success: showSuccessToast } = useToast();
   
   // Browse mode state
   const [browseData, setBrowseData] = useState<Record<BookBrowseMode, OpenLibraryBook[]>>({
@@ -73,8 +134,9 @@ export function OnlineBooksView() {
 
   const hasEnabledBookSource = enabledSources.length > 0;
   const isOpenLibraryEnabled = activeSource?.id === 'openlibrary';
-  const isPluginBookSource = activeSource?.id === 'anna-archive' && activeSource?.kind === 'books';
+  const isPluginBookSource = activeSource?.id !== 'openlibrary' && activeSource?.kind === 'books';
   const activePluginSourceId = isPluginBookSource ? activeSource?.id : null;
+  const sourceSupportsTorboxQueue = Boolean(activeSource?.torboxCompatible);
 
   // Load browse data on mount for Open Library
   useEffect(() => {
@@ -251,6 +313,7 @@ export function OnlineBooksView() {
   }, []);
 
   const annaAccountHint = useMemo(() => {
+    if (activePluginSourceId !== 'anna-archive') return null;
     if (!pluginError) return null;
     const lower = pluginError.toLowerCase();
     if (lower.includes('rapidapi')) {
@@ -266,23 +329,23 @@ export function OnlineBooksView() {
 
     if (!mentionsAccess) return null;
     return 'Anna account access may be required for this title. In Settings -> Online Sources -> Anna, set Auth Cookie (and Auth Key/API key if available).';
-  }, [pluginError]);
+  }, [activePluginSourceId, pluginError]);
 
   const handleTorboxDownload = useCallback(async (book: PluginSearchResult) => {
-    if (!book.id) return;
+    if (!book.id || !activePluginSourceId) return;
     
     setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Getting download links...' }));
     
       try {
         // Get download options (chapters represent download links for books)
-        const chapters = await pluginApi.getChapters('anna-archive', book.id);
+        const chapters = await pluginApi.getChapters(activePluginSourceId, book.id);
       
       if (chapters.length === 0) {
         throw new Error('No download options available for this book.');
       }
       
       // Get pages for the first chapter (download option)
-      const pages = await pluginApi.getPages('anna-archive', chapters[0].id);
+      const pages = await pluginApi.getPages(activePluginSourceId, chapters[0].id);
       
       const parseCandidate = (rawValue: string): { kind: string; url: string } | null => {
         const parsed = parsePageUrl(rawValue);
@@ -305,11 +368,6 @@ export function OnlineBooksView() {
         return parsed;
       };
 
-      const isHttp = (value: string): boolean => {
-        const normalized = value.trim().toLowerCase();
-        return normalized.startsWith('http://') || normalized.startsWith('https://');
-      };
-
       const isTorrentish = (value: string): boolean => {
         const normalized = value.trim().toLowerCase();
         return normalized.startsWith('magnet:') || normalized.includes('.torrent') || normalized.includes('/torrent');
@@ -330,7 +388,7 @@ export function OnlineBooksView() {
       pages.forEach((p) => {
         const parsed = parseCandidate(p.url);
         if (!parsed) return;
-        if (!isTorrentish(parsed.url) && !isHttp(parsed.url)) return;
+        if (!isTorrentish(parsed.url) && !isHttpLink(parsed.url)) return;
         const priority = getPriority(parsed.kind, parsed.url);
         const existing = candidatePriority.get(parsed.url);
         if (existing === undefined || priority < existing.priority) {
@@ -342,9 +400,9 @@ export function OnlineBooksView() {
         .map(([url, meta]) => ({ url, kind: meta.kind, priority: meta.priority }))
         .sort((a, b) => a.priority - b.priority);
 
-      if (candidateLinks.length === 0) {
-        throw new Error('No compatible download link available for this book. Try opening the detail page manually.');
-      }
+        if (candidateLinks.length === 0) {
+          throw new Error('No compatible download link available for this book. Try opening the detail page manually.');
+        }
 
       const firstCandidate = candidateLinks[0];
       if (!firstCandidate) {
@@ -359,9 +417,18 @@ export function OnlineBooksView() {
         firstCandidate.kind === 'torrent' ||
         firstCandidate.kind === 'direct'
       ) {
-        setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Queued in Torbox...' }));
-        await enqueueFromAnna({ title: book.title, sourceLink: firstCandidate.url });
-        setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Imported to library!' }));
+        const queueCandidate = candidateLinks.find((candidate) =>
+          isQueueableTorboxCandidate(candidate.kind, candidate.url, book)
+        );
+
+        if (!queueCandidate) {
+          throw new Error(getUnsupportedFormatMessage());
+        }
+
+        setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Queueing in Torbox...' }));
+        await enqueueFromAnna({ title: book.title, sourceLink: queueCandidate.url });
+        setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Queued in Torbox. Opening queue...' }));
+        showSuccessToast('Queued in Torbox', `${book.title} was queued. Opening Torbox view now.`);
         setCurrentView('torbox-books');
       }
       
@@ -386,7 +453,7 @@ export function OnlineBooksView() {
         });
       }, 5000);
     }
-  }, [enqueueFromAnna, openInBrowser, setCurrentView]);
+  }, [activePluginSourceId, enqueueFromAnna, openInBrowser, setCurrentView, showSuccessToast]);
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -716,38 +783,52 @@ export function OnlineBooksView() {
                             View Details
                           </Button>
                           {activePluginSourceId === 'anna-archive' && (
-                            <>
-                              <Button
-                                variant={downloadingBooks[book.id] ? "secondary" : "default"}
-                                size="sm"
-                                onClick={() => handleDirectDownload(book)}
-                                disabled={!!downloadingBooks[book.id]}
-                                className="gap-1.5"
-                              >
-                                {downloadingBooks[book.id] ? (
-                                  <>
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                    {downloadingBooks[book.id]}
-                                  </>
-                                ) : (
-                                  <>
-                                    <Download className="w-3.5 h-3.5" />
-                                    Download
-                                  </>
-                                )}
-                              </Button>
-                              {hasTorboxKey && !downloadingBooks[book.id] && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleTorboxDownload(book)}
-                                  className="gap-1.5"
-                                >
+                            <Button
+                              variant={downloadingBooks[book.id] ? "secondary" : "default"}
+                              size="sm"
+                              onClick={() => handleDirectDownload(book)}
+                              disabled={!!downloadingBooks[book.id]}
+                              className="gap-1.5"
+                            >
+                              {downloadingBooks[book.id] ? (
+                                <>
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  {downloadingBooks[book.id]}
+                                </>
+                              ) : (
+                                <>
                                   <Download className="w-3.5 h-3.5" />
-                                  Torbox
-                                </Button>
+                                  Download
+                                </>
                               )}
-                            </>
+                            </Button>
+                          )}
+                          {hasTorboxKey && !downloadingBooks[book.id] && sourceSupportsTorboxQueue && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleTorboxDownload(book)}
+                              className="gap-1.5"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              Torbox
+                            </Button>
+                          )}
+                          {hasTorboxKey && !sourceSupportsTorboxQueue && (
+                            <p className="text-xs text-muted-foreground">
+                              This source does not expose Torbox-compatible links.
+                            </p>
+                          )}
+                          {downloadingBooks[book.id] && activePluginSourceId !== 'anna-archive' && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              disabled
+                              className="gap-1.5"
+                            >
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              {downloadingBooks[book.id]}
+                            </Button>
                           )}
                         </div>
                       )}

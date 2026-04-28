@@ -376,7 +376,23 @@ export interface SendToTorboxResult {
 }
 
 export interface AddToTorboxQueueResult {
-  torrentId: number
+  torrentId?: number
+  torrent_id?: number
+}
+
+export interface ProwlarrResult {
+  title: string
+  size: number | null
+  seeders: number | null
+  leechers: number | null
+  downloadUrl: string | null
+  magnetUrl: string | null
+  infoUrl: string | null
+  indexer: string | null
+  indexerId: number | null
+  categories: number[]
+  publishDate: string | null
+  guid: string | null
 }
 
 export interface DebridResolveResult {
@@ -1241,5 +1257,43 @@ export const api = {
     bookId: number
   ): Promise<{ new_path: string; new_format: string; title: string; cover_path: string | null }> {
     return invoke("convert_and_replace_book", { bookId })
+  },
+
+  // ── New v2.1: native Rust conversion pipeline with real-time progress ──
+
+  /** Returns true if the file at bookPath needs format conversion before reading. */
+  async bookNeedsConversion(bookPath: string): Promise<boolean> {
+    return invoke("book_needs_conversion", { bookPath })
+  },
+
+  /**
+   * Open a book for reading — converts it to EPUB on the fly if needed.
+   * Emits `conversion-progress` events to the window during conversion.
+   * Returns the path to the (possibly converted) EPUB file.
+   */
+  async openBookForReading(bookId: number): Promise<string> {
+    return invoke("open_book_for_reading", { bookId })
+  },
+
+  /** Delete all converted EPUBs from the Shiori temp cache directory. */
+  async cleanupConvertedCache(): Promise<void> {
+    return invoke("cleanup_converted_cache")
+  },
+
+  // ── Prowlarr ──────────────────────────────────────────────────
+
+  /** Test connectivity to a Prowlarr instance. Returns true on success. */
+  async prowlarrTestConnection(url: string, apiKey: string): Promise<boolean> {
+    return invoke("test_prowlarr_connection", { url, apiKey })
+  },
+
+  /** Search Prowlarr for releases. categories: Newznab IDs e.g. [7000, 8000]. */
+  async prowlarrSearch(url: string, apiKey: string, query: string, categories: number[]): Promise<ProwlarrResult[]> {
+    return invoke("search_prowlarr", { url, apiKey, query, categories })
+  },
+
+  /** Grab a Prowlarr release by guid + indexerId. Returns magnet/download URL. */
+  async prowlarrGrabRelease(url: string, apiKey: string, guid: string, indexerId: number): Promise<string> {
+    return invoke("grab_prowlarr_release", { url, apiKey, guid, indexerId })
   },
 }

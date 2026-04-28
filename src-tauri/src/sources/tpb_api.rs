@@ -1,11 +1,15 @@
 use std::collections::HashMap;
+use std::time::Instant;
 
 use serde::Deserialize;
 use tokio::sync::RwLock;
 
 use crate::error::{Result, ShioriError};
 use crate::sources::network::TorrentNetworkConfig;
-use crate::sources::{Chapter, ContentType, Page, SearchResponse, SearchResult, Source, SourceMeta};
+use crate::sources::{
+    Chapter, ContentType, MirrorAttemptDiagnostic, Page, SearchResponse, SearchResult, Source,
+    SourceMeta, SourceSearchDiagnostics,
+};
 
 const TPB_DEFAULT_API_BASE: &str = "https://apibay.org";
 const TPB_API_MIRRORS: &[&str] = &[
@@ -91,7 +95,7 @@ impl TpbApiSource {
         format!("https://itorrents.org/torrent/{}.torrent", hash.to_ascii_uppercase())
     }
 
-    async fn request_search(&self, base_url: &str, query: &str) -> Result<Vec<TpbApiItem>> {
+    async fn request_search(&self, base_url: &str, query: &str) -> Result<(Vec<TpbApiItem>, u32)> {
         let url = format!("{}/q.php?q={}", base_url.trim_end_matches('/'), urlencoding::encode(query));
 
         let network = self.network.read().await.clone();
@@ -124,7 +128,7 @@ impl TpbApiSource {
                         .json::<Vec<TpbApiItem>>()
                         .await
                         .map_err(|e| ShioriError::Other(format!("TPB API parse failed: {}", e)))?;
-                    return Ok(parsed);
+                    return Ok((parsed, attempt));
                 }
                 Err(err) => {
                     last_error = Some(err.to_string());
@@ -140,20 +144,37 @@ impl TpbApiSource {
     }
 
     async fn search_internal(&self, query: &str, page: u32, limit: u32) -> Result<SearchResponse> {
+        let started = Instant::now();
         let safe_page = page.max(1);
         let safe_limit = limit.clamp(1, 50);
         let offset = (safe_page - 1) * safe_limit;
 
         let mut last_error: Option<String> = None;
         let mut items: Vec<TpbApiItem> = Vec::new();
+        let mut attempted_mirrors = Vec::new();
+        let mut selected_base: Option<String> = None;
+        let mut retries_used: u32 = 0;
 
         for base in TPB_API_MIRRORS {
             match self.request_search(base, query.trim()).await {
-                Ok(parsed) => {
+                Ok((parsed, retries)) => {
+                    retries_used += retries;
+                    attempted_mirrors.push(MirrorAttemptDiagnostic {
+                        mirror: (*base).to_string(),
+                        success: true,
+                        error: None,
+                    });
+                    selected_base = Some((*base).to_string());
                     items = parsed;
                     break;
                 }
                 Err(err) => {
+                    retries_used += self.network.read().await.max_retries;
+                    attempted_mirrors.push(MirrorAttemptDiagnostic {
+                        mirror: (*base).to_string(),
+                        success: false,
+                        error: Some(err.to_string()),
+                    });
                     last_error = Some(err.to_string());
                 }
             }
@@ -171,6 +192,16 @@ impl TpbApiSource {
                 total: Some(0),
                 offset: Some(offset),
                 limit: Some(safe_limit),
+                diagnostics: Some(SourceSearchDiagnostics {
+                    source_id: "tpb-api".to_string(),
+                    source_name: Some("TPB API (Torrents)".to_string()),
+                    selected_mirror: selected_base.clone(),
+                    selected_base,
+                    attempted_mirrors,
+                    duration_ms: started.elapsed().as_millis() as u64,
+                    result_count: 0,
+                    retries_used: Some(retries_used),
+                }),
             });
         }
 
@@ -246,11 +277,22 @@ impl TpbApiSource {
             guard.extend(lookup_updates);
         }
 
+        let result_count = results.len() as u32;
         Ok(SearchResponse {
             items: results,
             total: Some(items.len() as u32),
             offset: Some(offset),
             limit: Some(safe_limit),
+            diagnostics: Some(SourceSearchDiagnostics {
+                source_id: "tpb-api".to_string(),
+                source_name: Some("TPB API (Torrents)".to_string()),
+                selected_mirror: selected_base.clone(),
+                selected_base,
+                attempted_mirrors,
+                duration_ms: started.elapsed().as_millis() as u64,
+                result_count,
+                retries_used: Some(retries_used),
+            }),
         })
     }
 }

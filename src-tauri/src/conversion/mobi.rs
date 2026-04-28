@@ -12,6 +12,7 @@
 /// - TOC/chapter extraction from HTML content
 
 
+use std::collections::HashMap;
 use std::path::Path;
 use byteorder::{BigEndian, ReadBytesExt};
 use std::io::Cursor;
@@ -19,6 +20,16 @@ use std::io::Cursor;
 use super::epub_writer::EpubDocument;
 use super::utils;
 use super::{ConversionError, EpubOutput};
+
+#[derive(Debug, Clone)]
+struct MobiImageRef {
+    id: String,
+    filename: String,
+    mime: String,
+    data: Vec<u8>,
+    record_index: usize,
+    offset_index: u32,
+}
 
 /// Convert a MOBI/AZW3 file to EPUB 3.
 pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, ConversionError> {
@@ -91,7 +102,7 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
     };
 
     // Extract images
-    let mut images = Vec::new();
+    let mut images: Vec<MobiImageRef> = Vec::new();
     let mut cover_data: Option<Vec<u8>> = None;
     let first_img = mobi_header.first_image_index as usize;
 
@@ -106,12 +117,25 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
                     let id = format!("img_{:04}", img_idx);
                     let filename = format!("image_{:04}.{}", img_idx, ext);
 
-                    // Check if this is the cover
-                    if exth.cover_offset.map(|co| co == img_idx).unwrap_or(false) {
+                    // EXTH cover offset may be relative-to-first-image or absolute record index.
+                    let is_cover = exth.cover_offset.map(|co| {
+                        let co_usize = co as usize;
+                        co_usize == img_idx as usize
+                            || co_usize == i
+                            || first_img.saturating_add(co_usize) == i
+                    }).unwrap_or(false);
+                    if is_cover {
                         cover_data = Some(rec.to_vec());
                     }
 
-                    images.push((id, filename, mime.to_string(), rec.to_vec()));
+                    images.push(MobiImageRef {
+                        id,
+                        filename,
+                        mime: mime.to_string(),
+                        data: rec.to_vec(),
+                        record_index: i,
+                        offset_index: img_idx,
+                    });
                     img_idx += 1;
                 } else {
                     // Non-image record (e.g., FLIS, FCIS, BOUNDARY) — stop
@@ -122,8 +146,12 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
         }
     }
 
+    // Rewrite image references so <img recindex=...> and kindle:embed sources
+    // point to actual EPUB image files.
+    let rewritten_text = rewrite_mobi_image_tags(&text, &images, first_img, &mut warnings);
+
     // Split content into chapters
-    let chapters = split_mobi_into_chapters(&text);
+    let chapters = split_mobi_into_chapters(&rewritten_text);
 
     // Build EPUB
     let mut doc = EpubDocument::new(title.clone());
@@ -133,11 +161,11 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
     doc.isbn = exth.isbn.clone();
 
     // Add images
-    for (id, filename, mime, img_data) in &images {
-        if cover_data.as_ref().map(|c| c == img_data).unwrap_or(false) {
-            doc.set_cover(id.clone(), filename.clone(), img_data.clone());
+    for img in &images {
+        if cover_data.as_ref().map(|c| c == &img.data).unwrap_or(false) {
+            doc.set_cover(img.id.clone(), img.filename.clone(), img.data.clone());
         } else {
-            doc.add_image(id.clone(), filename.clone(), mime.clone(), img_data.clone());
+            doc.add_image(img.id.clone(), img.filename.clone(), img.mime.clone(), img.data.clone());
         }
     }
 
@@ -765,6 +793,148 @@ fn init_huffdic(data: &[u8], records: &[u32], mobi: &MobiHeader) -> Result<HuffD
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// IMAGE REFERENCE REWRITING
+// ──────────────────────────────────────────────────────────────────────────
+
+fn rewrite_mobi_image_tags(
+    html: &str,
+    images: &[MobiImageRef],
+    first_image_record: usize,
+    warnings: &mut Vec<String>,
+) -> String {
+    if html.is_empty() || images.is_empty() {
+        return html.to_string();
+    }
+
+    let by_record: HashMap<usize, String> = images
+        .iter()
+        .map(|img| (img.record_index, img.filename.clone()))
+        .collect();
+    let by_offset: HashMap<usize, String> = images
+        .iter()
+        .map(|img| (img.offset_index as usize, img.filename.clone()))
+        .collect();
+
+    let img_tag_re = regex::Regex::new(r"(?is)<img\b[^>]*>").unwrap();
+    let recindex_re = regex::Regex::new(r#"(?i)\brecindex\s*=\s*["']?(\d+)["']?"#).unwrap();
+    let src_re = regex::Regex::new(r#"(?i)\bsrc\s*=\s*["']([^"']+)["']"#).unwrap();
+
+    let mut unresolved_refs = 0usize;
+
+    let rewritten = img_tag_re
+        .replace_all(html, |caps: &regex::Captures| {
+            let tag = caps.get(0).map(|m| m.as_str()).unwrap_or("");
+
+            // Already rewritten
+            if tag.to_lowercase().contains("src=\"../images/") {
+                return tag.to_string();
+            }
+
+            let recindex = recindex_re
+                .captures(tag)
+                .and_then(|c| c.get(1))
+                .and_then(|m| m.as_str().parse::<usize>().ok());
+
+            let src = src_re
+                .captures(tag)
+                .and_then(|c| c.get(1))
+                .map(|m| m.as_str().to_string());
+
+            let mapped = recindex
+                .and_then(|n| resolve_mobi_image_filename(n, first_image_record, &by_record, &by_offset))
+                .or_else(|| {
+                    src.as_ref()
+                        .and_then(|s| extract_last_number(s))
+                        .and_then(|n| resolve_mobi_image_filename(n, first_image_record, &by_record, &by_offset))
+                });
+
+            if let Some(filename) = mapped {
+                format!("<img src=\"../Images/{}\" alt=\"\"/>", filename)
+            } else {
+                // Keep externally linked images; drop broken internal refs with no src.
+                if src.is_none() {
+                    unresolved_refs += 1;
+                    String::new()
+                } else {
+                    unresolved_refs += 1;
+                    tag.to_string()
+                }
+            }
+        })
+        .to_string();
+
+    if unresolved_refs > 0 {
+        warnings.push(format!(
+            "Could not map {} MOBI image reference(s); some images may be missing",
+            unresolved_refs
+        ));
+    }
+
+    rewritten
+}
+
+fn resolve_mobi_image_filename(
+    raw_index: usize,
+    first_image_record: usize,
+    by_record: &HashMap<usize, String>,
+    by_offset: &HashMap<usize, String>,
+) -> Option<String> {
+    // Some books store absolute PalmDB record indexes
+    if let Some(filename) = by_record.get(&raw_index) {
+        return Some(filename.clone());
+    }
+
+    // Some books store zero-based or one-based offsets from first_image_index
+    if let Some(filename) = by_offset.get(&raw_index) {
+        return Some(filename.clone());
+    }
+    if raw_index > 0 {
+        if let Some(filename) = by_offset.get(&(raw_index - 1)) {
+            return Some(filename.clone());
+        }
+    }
+
+    // Some books store absolute index that needs first_image_index subtraction
+    if raw_index >= first_image_record {
+        let rel = raw_index - first_image_record;
+        if let Some(filename) = by_offset.get(&rel) {
+            return Some(filename.clone());
+        }
+        if rel > 0 {
+            if let Some(filename) = by_offset.get(&(rel - 1)) {
+                return Some(filename.clone());
+            }
+        }
+    }
+
+    None
+}
+
+fn extract_last_number(input: &str) -> Option<usize> {
+    let mut last: Option<usize> = None;
+    let mut current = String::new();
+
+    for ch in input.chars() {
+        if ch.is_ascii_digit() {
+            current.push(ch);
+        } else if !current.is_empty() {
+            if let Ok(v) = current.parse::<usize>() {
+                last = Some(v);
+            }
+            current.clear();
+        }
+    }
+
+    if !current.is_empty() {
+        if let Ok(v) = current.parse::<usize>() {
+            last = Some(v);
+        }
+    }
+
+    last
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // CHAPTER SPLITTING
 // ──────────────────────────────────────────────────────────────────────────
 
@@ -819,28 +989,86 @@ fn split_mobi_into_chapters(html: &str) -> Vec<(String, String)> {
     chapters
 }
 
-/// Convert raw MOBI HTML to clean XHTML paragraphs
 fn wrap_paragraphs(html: &str) -> String {
-    // Strip most inline MOBI tags, keep <p>, <br>, formatting
+    // 1. Strip most inline MOBI structural tags, keep flow
     let text = html
         .replace("<mbp:pagebreak/>", "")
         .replace("<mbp:pagebreak />", "");
 
-    // If the content is already well-formed HTML with <p> tags, use it
-    if text.contains("<p") {
-        // Clean up but preserve structure
-        let mut result = String::new();
-        for line in text.lines() {
-            let trimmed = line.trim();
-            if !trimmed.is_empty() {
+    // 2. Sanitize to strictly valid XHTML, keeping images
+    let sanitized = crate::conversion::utils::sanitize_html_for_epub(&text);
+
+    // If the content is already heavily structured with block tags, just return it.
+    if sanitized.contains("<p") || sanitized.contains("<div") || sanitized.contains("<table") {
+        return sanitized;
+    }
+
+    // It acts like plain text with BRs or newlines. We should wrap it in P tags safely.
+    let mut result = String::new();
+    let chunks: Vec<&str> = if sanitized.contains("<br/>") {
+        sanitized.split("<br/>").collect()
+    } else {
+        sanitized.split("\n\n").collect()
+    };
+
+    for chunk in chunks {
+        let trimmed = chunk.trim();
+        if !trimmed.is_empty() {
+            // Already contains an img or heading at the root?
+            if trimmed.starts_with("<img") || trimmed.starts_with("<h") {
                 result.push_str("  ");
                 result.push_str(trimmed);
                 result.push('\n');
+            } else {
+                result.push_str(&format!("  <p>{}</p>\n", trimmed));
             }
         }
-        result
-    } else {
-        // Plain text — wrap in paragraphs
-        utils::text_to_html_paragraphs(&text)
+    }
+
+    if result.is_empty() {
+        return sanitized;
+    }
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_images() -> Vec<MobiImageRef> {
+        vec![
+            MobiImageRef {
+                id: "img_0000".to_string(),
+                filename: "image_0000.jpg".to_string(),
+                mime: "image/jpeg".to_string(),
+                data: vec![1, 2, 3],
+                record_index: 200,
+                offset_index: 0,
+            },
+            MobiImageRef {
+                id: "img_0001".to_string(),
+                filename: "image_0001.png".to_string(),
+                mime: "image/png".to_string(),
+                data: vec![4, 5, 6],
+                record_index: 201,
+                offset_index: 1,
+            },
+        ]
+    }
+
+    #[test]
+    fn rewrites_recindex_to_epub_image_path() {
+        let html = r#"<p>Hi</p><img recindex="200"/>"#;
+        let mut warnings = Vec::new();
+        let out = rewrite_mobi_image_tags(html, &sample_images(), 200, &mut warnings);
+        assert!(out.contains("src=\"../Images/image_0000.jpg\""));
+    }
+
+    #[test]
+    fn rewrites_kindle_embed_src_to_epub_image_path() {
+        let html = r#"<img src="kindle:embed:0002?mime=image/png"/>"#;
+        let mut warnings = Vec::new();
+        let out = rewrite_mobi_image_tags(html, &sample_images(), 200, &mut warnings);
+        assert!(out.contains("src=\"../Images/image_0001.png\""));
     }
 }

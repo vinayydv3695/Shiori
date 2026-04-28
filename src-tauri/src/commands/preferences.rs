@@ -30,6 +30,11 @@ pub struct UserPreferences {
     pub default_manga_path: Option<String>,
     pub translation_target_language: String,
     pub auto_group_manga: bool,
+    // Prowlarr integration
+    pub prowlarr_enabled: bool,
+    pub prowlarr_url: String,
+    pub prowlarr_api_key: String,
+    pub prowlarr_categories: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -105,7 +110,8 @@ pub async fn get_user_preferences(state: State<'_, AppState>) -> Result<UserPref
             preferred_content_type, ui_scale, performance_mode, 
             metadata_mode, auto_scan_enabled, default_manga_path,
             tts_voice, tts_rate, tts_auto_advance, tts_highlight_color,
-            translation_target_language, auto_group_manga
+            translation_target_language, auto_group_manga,
+            COALESCE(prowlarr_enabled, 0), COALESCE(prowlarr_url, ''), COALESCE(prowlarr_api_key, ''), COALESCE(prowlarr_categories, '[7000,8000]')
         FROM user_preferences WHERE id = 1",
         [],
         |row| {
@@ -152,6 +158,10 @@ pub async fn get_user_preferences(state: State<'_, AppState>) -> Result<UserPref
                 },
                 translation_target_language: row.get(34).unwrap_or_else(|_| "en".to_string()),
                 auto_group_manga: row.get(35).unwrap_or(true),
+                prowlarr_enabled: row.get::<_, bool>(36).unwrap_or(false),
+                prowlarr_url: row.get(37).unwrap_or_default(),
+                prowlarr_api_key: row.get(38).unwrap_or_default(),
+                prowlarr_categories: row.get(39).unwrap_or_else(|_| "[7000,8000]".to_string()),
             })
         },
     )?;
@@ -346,6 +356,24 @@ pub async fn update_user_preferences(
     if let Some(auto_group) = updates.get("autoGroupManga").and_then(|v| v.as_bool()) {
         set_clauses.push("auto_group_manga = ?".to_string());
         params.push(Box::new(auto_group));
+    }
+
+    // Prowlarr settings
+    if let Some(prowlarr_enabled) = updates.get("prowlarrEnabled").and_then(|v| v.as_bool()) {
+        set_clauses.push("prowlarr_enabled = ?".to_string());
+        params.push(Box::new(prowlarr_enabled));
+    }
+    if let Some(prowlarr_url) = updates.get("prowlarrUrl").and_then(|v| v.as_str()) {
+        set_clauses.push("prowlarr_url = ?".to_string());
+        params.push(Box::new(prowlarr_url.to_string()));
+    }
+    if let Some(prowlarr_api_key) = updates.get("prowlarrApiKey").and_then(|v| v.as_str()) {
+        set_clauses.push("prowlarr_api_key = ?".to_string());
+        params.push(Box::new(prowlarr_api_key.to_string()));
+    }
+    if let Some(prowlarr_categories) = updates.get("prowlarrCategories").and_then(|v| v.as_str()) {
+        set_clauses.push("prowlarr_categories = ?".to_string());
+        params.push(Box::new(prowlarr_categories.to_string()));
     }
     
     if set_clauses.is_empty() {

@@ -25,6 +25,7 @@ use crate::services::epub_builder::{split_text_into_chapters, EpubBuilder, EpubM
 use crate::services::format_adapter::{BookFormatAdapter, FormatError, FormatResult};
 use crate::services::format_detection::detect_format;
 use crate::services::adapters::*;
+use crate::services::calibre_service::{self, CalibreError, CalibreProfile};
 use crate::db::Database;
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -401,7 +402,16 @@ impl ConversionEngine {
                 // Execute
                 let source = PathBuf::from(&job.source_path);
                 let target = PathBuf::from(&job.target_path);
-                let result = Self::execute_conversion(&job.source_format, &job.target_format, &source, &target, &cancelled, &job_id).await;
+                let result = Self::execute_conversion(
+                    &job.source_format,
+                    &job.target_format,
+                    &source,
+                    &target,
+                    &cancelled,
+                    &job_id,
+                    db.as_ref(),
+                )
+                .await;
 
                 // Update final status
                 {
@@ -443,6 +453,27 @@ impl ConversionEngine {
 
     // ── Conversion dispatch ───────────────────────────────────────────────
 
+    fn rust_source_format_for_epub(source_fmt: &str) -> Option<crate::conversion::SourceFormat> {
+        match source_fmt {
+            "txt" | "rtf" => Some(crate::conversion::SourceFormat::Txt),
+            "mobi" => Some(crate::conversion::SourceFormat::Mobi),
+            "azw3" => Some(crate::conversion::SourceFormat::Azw3),
+            "docx" => Some(crate::conversion::SourceFormat::Docx),
+            "fb2" => Some(crate::conversion::SourceFormat::Fb2),
+            "pdf" => Some(crate::conversion::SourceFormat::Pdf),
+            _ => None,
+        }
+    }
+
+    fn epub_policy_for_source(source_fmt: &str) -> Option<(bool, CalibreProfile)> {
+        match source_fmt {
+            "txt" | "rtf" => Some((false, CalibreProfile::TxtRtf)),
+            "pdf" => Some((true, CalibreProfile::Pdf)),
+            "mobi" | "azw3" | "docx" | "fb2" => Some((true, CalibreProfile::GenericBook)),
+            _ => None,
+        }
+    }
+
     async fn execute_conversion(
         source_fmt: &str,
         target_fmt: &str,
@@ -450,6 +481,7 @@ impl ConversionEngine {
         target: &Path,
         cancelled: &DashSet<String>,
         job_id: &str,
+        db: Option<&Database>,
     ) -> FormatResult<()> {
         let check_cancel = || -> FormatResult<()> {
             if cancelled.contains(job_id) {
@@ -460,6 +492,95 @@ impl ConversionEngine {
         };
 
         check_cancel()?;
+
+        if target_fmt == "epub" {
+            if let Some((calibre_first, profile)) = Self::epub_policy_for_source(source_fmt) {
+                if calibre_first {
+                    if let Some(db) = db {
+                        let cancelled_for_check = cancelled.clone();
+                        let job_id_for_check = job_id.to_string();
+                        match calibre_service::convert_to_epub(
+                            source,
+                            target,
+                            db,
+                            profile,
+                            move || cancelled_for_check.contains(&job_id_for_check),
+                            None::<fn(u8, &str)>,
+                        ).await {
+                            Ok(()) => return Ok(()),
+                            Err(CalibreError::Cancelled) => {
+                                return Err(FormatError::ConversionError("Cancelled".to_string()))
+                            }
+                            Err(err @ CalibreError::Disabled)
+                            | Err(err @ CalibreError::NotFound)
+                            | Err(err @ CalibreError::InvalidPath)
+                            | Err(err @ CalibreError::Io(_))
+                            | Err(err @ CalibreError::Failed(_))
+                            | Err(err @ CalibreError::Timeout) => {
+                                log::warn!(
+                                    "[ConversionEngine] Calibre conversion failed for {} -> EPUB ({}), falling back to Rust converter",
+                                    source_fmt,
+                                    err
+                                );
+                            }
+                        }
+                    }
+
+                    let rust_fmt = Self::rust_source_format_for_epub(source_fmt).ok_or_else(|| {
+                        FormatError::ConversionNotSupported {
+                            from: source_fmt.to_string(),
+                            to: "epub".to_string(),
+                        }
+                    })?;
+
+                    return crate::conversion::convert_to_epub(source, target, rust_fmt)
+                        .await
+                        .map(|_| ())
+                        .map_err(|e| e.into());
+                }
+
+                // Rust-first policy (TXT/RTF)
+                match crate::conversion::convert_to_epub(source, target, crate::conversion::SourceFormat::Txt)
+                    .await
+                    .map(|_| ())
+                    .map_err(|e| e.into())
+                {
+                    Ok(()) => return Ok(()),
+                    Err(rust_err) => {
+                        if let Some(db) = db {
+                            let cancelled_for_check = cancelled.clone();
+                            let job_id_for_check = job_id.to_string();
+                            match calibre_service::convert_to_epub(
+                                source,
+                                target,
+                                db,
+                                profile,
+                                move || cancelled_for_check.contains(&job_id_for_check),
+                                None::<fn(u8, &str)>,
+                            ).await {
+                                Ok(()) => return Ok(()),
+                                Err(CalibreError::Cancelled) => {
+                                    return Err(FormatError::ConversionError("Cancelled".to_string()))
+                                }
+                                Err(err @ CalibreError::Disabled)
+                                | Err(err @ CalibreError::NotFound)
+                                | Err(err @ CalibreError::InvalidPath)
+                                | Err(err @ CalibreError::Io(_))
+                                | Err(err @ CalibreError::Failed(_))
+                                | Err(err @ CalibreError::Timeout) => {
+                                    log::warn!(
+                                        "[ConversionEngine] Calibre fallback failed for {} -> EPUB ({}), returning Rust conversion error",
+                                        source_fmt,
+                                        err
+                                    );
+                                }
+                            }
+                        }
+                        return Err(rust_err);
+                    }
+                }
+            }
+        }
 
         match (source_fmt, target_fmt) {
             // ── New calibre-quality converters (format → EPUB) ──
@@ -867,6 +988,7 @@ impl ConversionEngine {
         target: &Path,
         source_format: &str,
         target_format: &str,
+        db: Option<&Database>,
     ) -> FormatResult<()> {
         let dummy_cancelled = DashSet::new();
         let dummy_job_id = "direct";
@@ -877,6 +999,7 @@ impl ConversionEngine {
             target,
             &dummy_cancelled,
             dummy_job_id,
+            db,
         )
         .await
     }

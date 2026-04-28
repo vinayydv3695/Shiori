@@ -577,4 +577,5 @@ mod tests {
         let out = post_process_pdf_html(html, &mut warnings);
         assert!(out.contains("<img"));
     }
+
 }

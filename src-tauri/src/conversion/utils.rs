@@ -302,7 +302,6 @@ pub fn sanitize_html_for_epub(html: &str) -> String {
 
     let mut chars = html.chars().peekable();
     let mut skip_depth: u32 = 0;
-    let mut active_drop_tag: Option<String> = None;
     let mut in_comment = false;
 
     while let Some(c) = chars.next() {
@@ -358,13 +357,11 @@ pub fn sanitize_html_for_epub(html: &str) -> String {
         // Drop-content tags (script/style/head)
         if drop_content_tags.contains(&tag_name.as_str()) {
             if is_closing {
-                if active_drop_tag.as_deref() == Some(&tag_name) {
-                    skip_depth = skip_depth.saturating_sub(1);
-                    if skip_depth == 0 { active_drop_tag = None; }
+                if skip_depth > 0 {
+                    skip_depth -= 1;
                 }
             } else if !is_self_closing {
                 skip_depth += 1;
-                active_drop_tag = Some(tag_name.clone());
             }
             continue;
         }

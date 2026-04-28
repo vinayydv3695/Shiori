@@ -149,12 +149,9 @@ jobs:
             elif git ls-remote --tags origin "refs/tags/v${CURRENT_VERSION}" | grep -q "refs/tags/v${CURRENT_VERSION}$"; then
               echo "Version unchanged and release tag v${CURRENT_VERSION} already exists"
               echo "changed=false" >> "$GITHUB_OUTPUT"
-            elif git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" | grep -Eq "^(package\.json|src-tauri/tauri\.conf\.json|src-tauri/Cargo\.toml)$"; then
-              echo "Version files changed while tag v${CURRENT_VERSION} is missing; release needed"
-              echo "changed=true" >> "$GITHUB_OUTPUT"
             else
-              echo "Version unchanged and no version-file changes detected"
-              echo "changed=false" >> "$GITHUB_OUTPUT"
+              echo "Version unchanged but release tag v${CURRENT_VERSION} is missing; release needed"
+              echo "changed=true" >> "$GITHUB_OUTPUT"
             fi
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             FORCE_RELEASE="${{ github.event.inputs.force_release }}"

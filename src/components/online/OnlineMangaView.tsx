@@ -12,11 +12,64 @@ import { useUIStore } from '@/store/uiStore';
 import { useOnlineMangaReaderStore } from '@/store/onlineMangaReaderStore';
 import { ContentCarousel, type CarouselItem } from './ContentCarousel';
 import { api } from '@/lib/tauri';
-import { useTorboxStore } from '@/stores/useTorboxStore';
 import { parsePageUrl } from '@/lib/utils';
 import { useToast } from '@/store/toastStore';
 
 let onlineMangaSearchTimeout: number | undefined;
+const SUPPORTED_QUEUE_FORMATS = ['cbz', 'cbr', 'epub', 'pdf', 'mobi', 'azw3', 'docx'] as const;
+const SUPPORTED_QUEUE_FORMATS_LABEL = SUPPORTED_QUEUE_FORMATS.join(', ');
+
+function extractSupportedFormatToken(value: string): string | null {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return null;
+
+  const regex = /(?:^|[^a-z0-9])(cbz|cbr|epub|pdf|mobi|azw3|docx)(?:[^a-z0-9]|$)/i;
+  const match = normalized.match(regex);
+  return match?.[1]?.toLowerCase() ?? null;
+}
+
+function extractSupportedFormatFromHttpUrl(value: string): string | null {
+  const normalized = value.trim().toLowerCase();
+  const regex = /\.(cbz|cbr|epub|pdf|mobi|azw3|docx)(?=($|[?#&]))/i;
+  const match = normalized.match(regex);
+  return match?.[1]?.toLowerCase() ?? null;
+}
+
+function getUnsupportedFormatMessage(): string {
+  return `Unsupported file type for Torbox queue. Supported formats: ${SUPPORTED_QUEUE_FORMATS_LABEL}. Use a direct link ending with one of these extensions, or a magnet/torrent result with clear format metadata.`;
+}
+
+function hasStrongFormatHint(result: PluginSearchResult): boolean {
+  const titleHint = extractSupportedFormatToken(result.title);
+  if (titleHint) return true;
+
+  const extraFormat = result.extra?.format;
+  if (typeof extraFormat === 'string' && extractSupportedFormatToken(extraFormat)) return true;
+
+  return false;
+}
+
+function isQueueableTorboxCandidate(kind: string, url: string, result: PluginSearchResult): boolean {
+  const normalizedKind = kind === 'direct'
+    ? (url.trim().toLowerCase().startsWith('magnet:')
+      ? 'magnet'
+      : (url.trim().toLowerCase().includes('.torrent') || url.trim().toLowerCase().includes('/torrent'))
+      ? 'torrent'
+      : 'direct')
+    : kind;
+
+  if (normalizedKind === 'magnet' || normalizedKind === 'torrent') {
+    return hasStrongFormatHint(result);
+  }
+
+  if (normalizedKind === 'direct') {
+    const normalized = url.trim().toLowerCase();
+    const isHttp = normalized.startsWith('http://') || normalized.startsWith('https://');
+    return isHttp && extractSupportedFormatFromHttpUrl(url) !== null;
+  }
+
+  return false;
+}
 
 function getUiErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message.trim()) return error.message;
@@ -59,7 +112,6 @@ export function OnlineMangaView() {
   const setSource = useOnlineMangaReaderStore((state) => state.setSource);
   const setContent = useOnlineMangaReaderStore((state) => state.setContent);
   const setChapter = useOnlineMangaReaderStore((state) => state.setChapter);
-  const enqueueFromMangadex = useTorboxStore((state) => state.enqueueFromMangadex);
   const sources = useSourceStore((state) => state.sources);
   const primarySourceByKind = useSourceStore((state) => state.primarySourceByKind);
   const [lastSearchedQuery, setLastSearchedQuery] = useState('');
@@ -353,8 +405,15 @@ export function OnlineMangaView() {
       })();
 
       if (normalizedKind === 'magnet' || normalizedKind === 'torrent' || normalizedKind === 'direct') {
-        await enqueueFromMangadex({ title: manga.title, sourceLink: torboxSource.url });
-        showSuccessToast('Sent to Torbox', `${manga.title} was added to Torbox queue.`);
+        if (!isQueueableTorboxCandidate(normalizedKind, torboxSource.url, manga)) {
+          const message = getUnsupportedFormatMessage();
+          setPluginError(message);
+          showErrorToast('Cannot send to Torbox', message);
+          return;
+        }
+
+        await api.addToTorboxQueue(torboxSource.url);
+        showSuccessToast('Queued in Torbox', `${manga.title} was queued. Opening Torbox view now.`);
         setCurrentView('torbox-manga');
       } else if (normalizedKind === 'anna' || normalizedKind === 'external') {
         openInBrowser(torboxSource.url);
@@ -375,7 +434,7 @@ export function OnlineMangaView() {
         return next;
       });
     }
-  }, [enqueueFromMangadex, extractTorboxCandidate, openInBrowser, setCurrentView, showErrorToast, showInfoToast, showSuccessToast]);
+  }, [extractTorboxCandidate, openInBrowser, setCurrentView, showErrorToast, showInfoToast, showSuccessToast]);
 
   const handleReadChapter = async (sourceId: string, contentId: string, chapter: PluginChapter, allChapters: PluginChapter[], contentTitle?: string) => {
     setSource(sourceId);

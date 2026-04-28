@@ -21,3 +21,4 @@ pub mod folder_watch;
 pub mod sources;
 pub mod torbox;
 pub mod debrid;
+pub mod prowlarr;

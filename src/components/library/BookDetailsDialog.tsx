@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X, BookOpen, Calendar, FileText, Tag, Star, Globe, Hash, Download, Loader2, BookmarkCheck } from 'lucide-react';
+import { X, BookOpen, Calendar, FileText, Tag, Star, Globe, Hash, Download, Loader2, BookmarkCheck, Search } from 'lucide-react';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { api, type Book } from '../../lib/tauri';
@@ -8,6 +8,7 @@ import { logger } from '@/lib/logger';
 import { useToast } from '../../store/toastStore';
 import { Button } from '../ui/button';
 import { MetadataSearchDialog } from './MetadataSearchDialog';
+import { ProwlarrSearch } from './ProwlarrSearch';
 import { FeatureHint } from '../ui/FeatureHint';
 
 interface BookDetailsDialogProps {
@@ -30,6 +31,7 @@ export const BookDetailsDialog = ({
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
   const [metadataDialogOpen, setMetadataDialogOpen] = useState(false);
+  const [prowlarrSearchOpen, setProwlarrSearchOpen] = useState(false);
   const [autoEnrichLoading, setAutoEnrichLoading] = useState(false);
   const [readingStatus, setReadingStatus] = useState(book?.reading_status || 'planning');
   const toast = useToast();
@@ -347,6 +349,13 @@ export const BookDetailsDialog = ({
           {/* Footer Actions */}
           <div className="flex items-center justify-between gap-3 p-6 border-t border-border bg-muted/30">
             <div className="flex items-center gap-2 mr-auto">
+              <Button
+                  variant="outline"
+                  onClick={() => setProwlarrSearchOpen(true)}
+                >
+                  <Search className="w-4 h-4 mr-2" />
+                  Search Prowlarr
+                </Button>
               <FeatureHint
                 featureId="metadata-search"
                 title="Find Book Metadata"
@@ -427,6 +436,15 @@ export const BookDetailsDialog = ({
           isManga={isManga}
           isbn={book.isbn || book.isbn13}
           onMetadataSelected={handleMetadataFetched}
+        />
+      )}
+
+      {book && (
+        <ProwlarrSearch
+          open={prowlarrSearchOpen}
+          onOpenChange={setProwlarrSearchOpen}
+          bookTitle={book.title}
+          bookAuthor={book.authors?.map(a => a.name).join(', ')}
         />
       )}
     </Dialog.Root>

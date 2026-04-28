@@ -33,6 +33,21 @@ impl MobiAdapter {
 
         let normalized = Self::trim_garbage_tail(&normalized);
 
+        // Fix double-encoded HTML numeric entities that the MOBI decompressor sometimes produces:
+        // &amp;#160; → &#160;  (so innerHTML parses them correctly as NBSP/etc.)
+        let normalized = {
+            let re = regex::Regex::new(r"&amp;(#(?:[0-9]+|x[0-9a-fA-F]+);)").unwrap();
+            re.replace_all(&normalized, "&$1").into_owned()
+        };
+        // Also fix named entities like &amp;nbsp; → &nbsp;
+        let normalized = normalized
+            .replace("&amp;nbsp;", "&nbsp;")
+            .replace("&amp;amp;", "&amp;")
+            .replace("&amp;lt;", "&lt;")
+            .replace("&amp;gt;", "&gt;")
+            .replace("&amp;quot;", "&quot;")
+            .replace("&amp;apos;", "&apos;");
+
         // If content looks garbled, strip all HTML and present as plain text
         if Self::is_content_garbled(&normalized) {
             let plain = Self::strip_html_tags(&normalized);

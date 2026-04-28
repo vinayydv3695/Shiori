@@ -28,7 +28,8 @@
   /* Typography (set by settings) */
   --reading-font-family: "Literata", Georgia, serif;
   --reading-font-size: 18px;
-  --reading-line-height: 1.6;
+  /* SHIORI-FIX: line-height increased to 1.7 per spec */
+  --reading-line-height: 1.7;
   --reading-paragraph-spacing: 1em;
   --reading-letter-spacing: 0;
   --reading-text-align: left;
@@ -200,7 +201,8 @@ select {
   top: 0;
   left: 0;
   right: 0;
-  height: 60px;
+  /* SHIORI-FIX: toolbar height 60px → 48px per spec */
+  height: 48px;
   background: var(--bg-elevated);
   border-bottom: 1px solid var(--ui-border);
   z-index: 100;
@@ -300,15 +302,16 @@ select {
   margin: 0 8px;
 }
 
-.premium-fullscreen-button {
-}
 
 .premium-control-button {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  /* SHIORI-FIX: min hit target 40×40px per spec; visual icon stays 36×36 via icon sizing */
+  min-width: 40px;
+  min-height: 40px;
+  width: 40px;
+  height: 40px;
   padding: 0;
   background: transparent;
   border: 1px solid transparent;
@@ -352,15 +355,16 @@ select {
   overflow-x: hidden;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
-  padding-top: 60px;
-  /* Top bar height */
+  /* SHIORI-FIX: padding-top tracks toolbar height (48px) */
+  padding-top: 48px;
   padding-bottom: 80px;
   /* Extra space at bottom */
 }
 
 /* Focus mode adjustments */
+/* SHIORI-FIX: focus-mode padding-top adjusted from 80px → 68px (was 60+20, now 48+20) */
 .premium-reading-canvas--focus-mode {
-  padding-top: 80px;
+  padding-top: 68px;
   padding-left: 10vw;
   padding-right: 10vw;
   transition: padding var(--transition-slower);
@@ -390,8 +394,16 @@ select {
    ──────────────────────────────────────────────────────────── */
 .premium-content-container {
   margin: 0 auto;
-  padding: var(--spacing-xxl) var(--spacing-xl);
+  /* SHIORI-FIX: content padding 2rem 3rem (desktop) per spec */
+  padding: 2rem 3rem;
   transition: max-width var(--transition-normal), padding var(--transition-normal);
+}
+
+/* SHIORI-FIX: Mobile padding per spec (≤640px) */
+@media (max-width: 640px) {
+  .premium-content-container {
+    padding: 1rem 1.25rem;
+  }
 }
 
 .premium-content-container--narrow {
@@ -1410,20 +1422,21 @@ select {
 /* ────────────────────────────────────────────────────────────
    PROGRESS BAR (minimal, bottom)
    ──────────────────────────────────────────────────────────── */
+/* SHIORI-FIX: progress bar moved to top, height 2px → 4px per spec */
 .premium-progress-bar {
   position: fixed;
-  bottom: 0;
+  top: 0;
   left: 0;
   right: 0;
-  height: 2px;
-  background: var(--ui-border);
-  z-index: 99;
-  cursor: pointer;
+  height: 4px;
+  background: transparent;
+  z-index: 9999;
+  pointer-events: none;
 }
 
 .premium-progress-bar-fill {
   height: 100%;
-  background: var(--progress-bar);
+  background: var(--progress-bar, var(--ui-focus, #3B82F6));
   transition: width var(--transition-fast);
   will-change: width;
   transform-origin: left;

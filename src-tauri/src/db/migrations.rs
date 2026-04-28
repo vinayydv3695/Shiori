@@ -90,6 +90,12 @@ impl<'a> MigrationManager<'a> {
         if current_version < 22 {
             self.run_in_savepoint("v22", |mgr| mgr.migrate_to_v22())?;
         }
+        if current_version < 23 {
+            self.run_in_savepoint("v23", |mgr| mgr.migrate_to_v23())?;
+        }
+        if current_version < 24 {
+            self.run_in_savepoint("v24", |mgr| mgr.migrate_to_v24())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -1643,6 +1649,50 @@ impl<'a> MigrationManager<'a> {
         Ok(())
     }
 
+    fn migrate_to_v23(&self) -> Result<()> {
+        log::info!("[Migration] Applying v23: Add calibre conversion settings");
+
+        if !self.column_exists("conversion_settings", "calibre_enabled")? {
+            self.conn.execute(
+                "ALTER TABLE conversion_settings ADD COLUMN calibre_enabled BOOLEAN DEFAULT 1",
+                [],
+            )?;
+        }
+
+        if !self.column_exists("conversion_settings", "calibre_path")? {
+            self.conn.execute(
+                "ALTER TABLE conversion_settings ADD COLUMN calibre_path TEXT",
+                [],
+            )?;
+        }
+
+        if !self.column_exists("conversion_settings", "calibre_timeout_sec")? {
+            self.conn.execute(
+                "ALTER TABLE conversion_settings ADD COLUMN calibre_timeout_sec INTEGER DEFAULT 300 CHECK(calibre_timeout_sec BETWEEN 30 AND 3600)",
+                [],
+            )?;
+        }
+
+        // Ensure singleton row exists and defaults are populated.
+        self.conn.execute(
+            "INSERT OR IGNORE INTO conversion_settings (id) VALUES (1)",
+            [],
+        )?;
+        self.conn.execute(
+            "UPDATE conversion_settings
+             SET calibre_enabled = COALESCE(calibre_enabled, 1),
+                 calibre_timeout_sec = COALESCE(calibre_timeout_sec, 300)
+             WHERE id = 1",
+            [],
+        )?;
+
+        self.set_schema_version(23)?;
+        self.record_migration(23, "calibre_settings", "v23_calibre_settings")?;
+
+        log::info!("[Migration] v23 applied successfully");
+        Ok(())
+    }
+
     /// Rollback to a specific version (for development/testing)
     #[allow(dead_code)]
     pub fn rollback_to(&self, target_version: i32) -> Result<()> {
@@ -1662,6 +1712,44 @@ impl<'a> MigrationManager<'a> {
         // Note: Rollback logic would go here
         // For now, we only support forward migrations
 
+        Ok(())
+    }
+
+    /// Migration v24: Prowlarr integration settings
+    fn migrate_to_v24(&self) -> Result<()> {
+        log::info!("[Migration] Applying v24: Prowlarr integration settings");
+
+        // Add Prowlarr config columns to user_preferences if they don't already exist
+        // (SQLite ALTER TABLE ADD COLUMN is idempotent when guarded by column_exists)
+        if !self.column_exists("user_preferences", "prowlarr_enabled")? {
+            self.conn.execute(
+                "ALTER TABLE user_preferences ADD COLUMN prowlarr_enabled BOOLEAN DEFAULT 0",
+                [],
+            )?;
+        }
+        if !self.column_exists("user_preferences", "prowlarr_url")? {
+            self.conn.execute(
+                "ALTER TABLE user_preferences ADD COLUMN prowlarr_url TEXT DEFAULT ''",
+                [],
+            )?;
+        }
+        if !self.column_exists("user_preferences", "prowlarr_api_key")? {
+            self.conn.execute(
+                "ALTER TABLE user_preferences ADD COLUMN prowlarr_api_key TEXT DEFAULT ''",
+                [],
+            )?;
+        }
+        if !self.column_exists("user_preferences", "prowlarr_categories")? {
+            self.conn.execute(
+                "ALTER TABLE user_preferences ADD COLUMN prowlarr_categories TEXT DEFAULT '[7000,8000]'",
+                [],
+            )?;
+        }
+
+        self.set_schema_version(24)?;
+        self.record_migration(24, "prowlarr_integration", "v24_prowlarr_settings")?;
+
+        log::info!("[Migration] v24 applied successfully");
         Ok(())
     }
 }

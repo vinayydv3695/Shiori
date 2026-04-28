@@ -157,18 +157,62 @@
 }
 
 .torbox-job-card {
-  border-radius: 1rem;
-  border: 1px solid hsl(var(--border) / 0.72);
+  border-radius: 0.85rem;
+  border: 1px solid hsl(var(--border) / 0.65);
   background:
-    linear-gradient(170deg, hsl(var(--card) / 0.95), hsl(var(--card) / 0.76));
-  box-shadow: 0 14px 28px -24px hsl(var(--foreground) / 0.55);
+    linear-gradient(170deg, hsl(var(--card) / 0.96), hsl(var(--card) / 0.82));
+  box-shadow: 0 6px 18px -14px hsl(var(--foreground) / 0.35);
   transition: all 0.22s ease;
 }
 
 .torbox-job-card:hover {
-  border-color: hsl(var(--border));
+  border-color: hsl(var(--border) / 0.9);
   transform: translateY(-1px);
-  box-shadow: 0 16px 34px -22px hsl(var(--torbox-glow) / 0.28);
+  box-shadow: 0 10px 22px -14px hsl(var(--torbox-glow) / 0.2);
+}
+
+.torbox-progress-group {
+  border-radius: 0.75rem;
+  border: 1px solid hsl(var(--border) / 0.6);
+  background: hsl(var(--muted) / 0.32);
+  padding: 0.55rem 0.62rem;
+}
+
+.torbox-progress-group--local {
+  border-color: hsl(var(--torbox-warning) / 0.32);
+  background: hsl(var(--torbox-warning) / 0.08);
+}
+
+.torbox-progress-group__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.32rem;
+}
+
+.torbox-progress-group__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+}
+
+.torbox-progress-group__value {
+  font-size: 12px;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+}
+
+.torbox-progress-group__meta {
+  margin-top: 0.38rem;
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+}
+
+.torbox-progress-group__meta--file {
+  line-height: 1.25;
 }
 
 .torbox-status {
@@ -224,6 +268,11 @@
   overflow: hidden;
 }
 
+.torbox-progress-track--local {
+  height: 0.58rem;
+  background: hsl(var(--torbox-warning) / 0.18);
+}
+
 .torbox-progress-fill {
   height: 100%;
   border-radius: inherit;
@@ -251,6 +300,10 @@
   background: linear-gradient(90deg, hsl(var(--torbox-danger) / 0.75), hsl(var(--torbox-danger)));
 }
 
+.torbox-progress--local {
+  background: linear-gradient(90deg, hsl(var(--torbox-warning) / 0.7), hsl(var(--torbox-warning)));
+}
+
 .torbox-empty {
   border-radius: 1rem;
   border: 1px dashed hsl(var(--border));
@@ -272,16 +325,27 @@
 }
 
 .torbox-result-card {
-  border-radius: 1rem;
-  border: 1px solid hsl(var(--border) / 0.72);
-  background: linear-gradient(160deg, hsl(var(--card) / 0.92), hsl(var(--card) / 0.76));
-  box-shadow: 0 13px 24px -22px hsl(var(--foreground) / 0.55);
+  border-radius: 0.85rem;
+  border: 1px solid hsl(var(--border) / 0.65);
+  background: linear-gradient(160deg, hsl(var(--card) / 0.95), hsl(var(--card) / 0.8));
+  box-shadow: 0 6px 16px -12px hsl(var(--foreground) / 0.3);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.torbox-result-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(180deg, hsl(var(--torbox-accent) / 0.6), transparent 80%);
+  pointer-events: none;
 }
 
 .torbox-result-card:hover {
   transform: translateY(-1px);
-  box-shadow: 0 16px 30px -20px hsl(var(--torbox-glow) / 0.28);
+  box-shadow: 0 10px 20px -12px hsl(var(--torbox-glow) / 0.25);
 }
 
 .torbox-animate-in {
@@ -398,18 +462,6 @@
   border-color: hsl(210 80% 65% / 0.35);
   background: hsl(210 80% 65% / 0.14);
   color: hsl(210 80% 68%);
-}
-
-.torbox-source-badge--animetosho {
-  border-color: hsl(175 65% 42% / 0.35);
-  background: hsl(175 65% 42% / 0.12);
-  color: hsl(175 60% 38%);
-}
-
-[data-theme="black"] .torbox-source-badge--animetosho {
-  border-color: hsl(175 65% 55% / 0.35);
-  background: hsl(175 65% 55% / 0.14);
-  color: hsl(175 65% 58%);
 }
 
 .torbox-source-badge--mangadex {
@@ -546,3 +598,108 @@
   color: hsl(var(--torbox-warning));
 }
 
+/* ── Diagnostics Panel ── */
+.torbox-diag-panel {
+  border-radius: 0.75rem;
+  border: 1px solid hsl(var(--border) / 0.55);
+  background: hsl(var(--muted) / 0.35);
+  padding: 0.8rem;
+  margin-bottom: 0.75rem;
+}
+
+.torbox-diag-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: hsl(var(--muted-foreground));
+  margin-bottom: 0.6rem;
+}
+
+.torbox-diag-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.torbox-diag-row {
+  border-radius: 0.5rem;
+  border: 1px solid hsl(var(--border) / 0.65);
+  background: hsl(var(--card) / 0.85);
+  padding: 0.5rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  box-shadow: 0 2px 8px -4px hsl(var(--foreground) / 0.1);
+}
+
+.torbox-diag-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.torbox-diag-source {
+  font-size: 13px;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.torbox-diag-chip {
+  border-radius: 0.25rem;
+  border: 1px solid hsl(var(--border) / 0.8);
+  padding: 0.05rem 0.35rem;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--muted) / 0.5);
+}
+
+.torbox-diag-status {
+  border-radius: 0.25rem;
+  padding: 0.05rem 0.4rem;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid transparent;
+}
+
+.torbox-diag-status--success {
+  background: hsl(var(--torbox-success) / 0.12);
+  border-color: hsl(var(--torbox-success) / 0.25);
+  color: hsl(var(--torbox-success));
+}
+
+.torbox-diag-status--timeout {
+  background: hsl(var(--torbox-warning) / 0.12);
+  border-color: hsl(var(--torbox-warning) / 0.25);
+  color: hsl(var(--torbox-warning));
+}
+
+.torbox-diag-status--error {
+  background: hsl(var(--torbox-danger) / 0.12);
+  border-color: hsl(var(--torbox-danger) / 0.25);
+  color: hsl(var(--torbox-danger));
+}
+
+.torbox-diag-meta {
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+}
+
+.torbox-diag-details {
+  font-size: 11px;
+  color: hsl(var(--muted-foreground) / 0.9);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.1rem;
+}
+
+.torbox-diag-error-text {
+  color: hsl(var(--torbox-danger));
+  font-weight: 500;
+}

@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 use crate::error::{Result, ShioriError};
 
 pub mod annas_archive;
-pub mod animetosho;
 pub mod bitsearch;
 pub mod mangadex;
 pub mod network;
@@ -56,6 +55,28 @@ pub struct SearchResponse {
     pub total: Option<u32>,
     pub offset: Option<u32>,
     pub limit: Option<u32>,
+    pub diagnostics: Option<SourceSearchDiagnostics>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MirrorAttemptDiagnostic {
+    pub mirror: String,
+    pub success: bool,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceSearchDiagnostics {
+    pub source_id: String,
+    pub source_name: Option<String>,
+    pub selected_mirror: Option<String>,
+    pub selected_base: Option<String>,
+    pub attempted_mirrors: Vec<MirrorAttemptDiagnostic>,
+    pub duration_ms: u64,
+    pub result_count: u32,
+    pub retries_used: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -89,6 +110,7 @@ pub trait Source: Send + Sync {
             total: None,
             offset: None,
             limit: None,
+            diagnostics: None,
         })
     }
     async fn browse(&self, _mode: &str, _page: u32, _limit: u32) -> Result<Vec<SearchResult>> {

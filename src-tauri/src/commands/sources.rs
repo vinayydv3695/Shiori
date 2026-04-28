@@ -1,10 +1,15 @@
 use std::path::PathBuf;
+use std::time::Instant;
 
 use tauri::{Manager, State};
 use tauri_plugin_store::StoreExt;
 
 use crate::error::{Result, ShioriError};
-use crate::sources::{Chapter, ContentType, Page, SearchResponse, SearchResult, SourceMeta};
+use crate::sources::network::TorrentNetworkConfig;
+use crate::sources::rutracker::{RutrackerConfig, RutrackerSource};
+use crate::sources::{
+    Chapter, ContentType, Page, SearchResponse, SearchResult, SourceMeta, SourceSearchDiagnostics,
+};
 use crate::sources::annas_archive::{AnnasArchiveConfig, AnnasArchiveSource};
 
 #[tauri::command]
@@ -45,6 +50,118 @@ pub async fn anna_archive_set_config(
         .ok_or_else(|| ShioriError::Other("Anna source type mismatch".to_string()))?;
 
     source.save_config_to_store(&app_handle, config).await
+}
+
+#[tauri::command]
+pub async fn torrent_network_get_config(
+    app_handle: tauri::AppHandle,
+) -> Result<TorrentNetworkConfig> {
+    TorrentNetworkConfig::load_from_store(&app_handle)
+}
+
+#[tauri::command]
+pub async fn torrent_network_set_config(
+    app_handle: tauri::AppHandle,
+    state: State<'_, crate::AppState>,
+    config: TorrentNetworkConfig,
+) -> Result<()> {
+    let normalized = config.normalized();
+    TorrentNetworkConfig::save_to_store(&app_handle, &normalized)?;
+
+    let source = {
+        let registry = state.plugin_registry.read().await;
+        registry
+            .get("rutracker")
+            .ok_or_else(|| ShioriError::Validation("Unknown source: rutracker".to_string()))?
+    };
+
+    let source = source
+        .as_any()
+        .downcast_ref::<RutrackerSource>()
+        .ok_or_else(|| ShioriError::Other("RuTracker source type mismatch".to_string()))?;
+
+    source.set_network_config(normalized).await
+}
+
+#[tauri::command]
+pub async fn rutracker_get_config(
+    state: State<'_, crate::AppState>,
+) -> Result<RutrackerConfig> {
+    let source = {
+        let registry = state.plugin_registry.read().await;
+        registry
+            .get("rutracker")
+            .ok_or_else(|| ShioriError::Validation("Unknown source: rutracker".to_string()))?
+    };
+
+    let source = source
+        .as_any()
+        .downcast_ref::<RutrackerSource>()
+        .ok_or_else(|| ShioriError::Other("RuTracker source type mismatch".to_string()))?;
+
+    Ok(source.get_config().await)
+}
+
+#[tauri::command]
+pub async fn rutracker_set_config(
+    app_handle: tauri::AppHandle,
+    state: State<'_, crate::AppState>,
+    config: RutrackerConfig,
+) -> Result<()> {
+    let source = {
+        let registry = state.plugin_registry.read().await;
+        registry
+            .get("rutracker")
+            .ok_or_else(|| ShioriError::Validation("Unknown source: rutracker".to_string()))?
+    };
+
+    let source = source
+        .as_any()
+        .downcast_ref::<RutrackerSource>()
+        .ok_or_else(|| ShioriError::Other("RuTracker source type mismatch".to_string()))?;
+
+    let mut normalized = config;
+    normalized.base_url = normalized.base_url.and_then(|v| {
+        let trimmed = v.trim().to_string();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        }
+    });
+    normalized.cookie = normalized.cookie.and_then(|v| {
+        let trimmed = v.trim().to_string();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        }
+    });
+
+    let store = app_handle
+        .store("sources.json")
+        .map_err(|e| ShioriError::Other(format!("Failed to open source store: {}", e)))?;
+
+    match normalized.base_url.as_ref() {
+        Some(value) => store.set("rutracker.base_url", serde_json::json!(value)),
+        None => {
+            let _ = store.delete("rutracker.base_url");
+        }
+    }
+
+    match normalized.cookie.as_ref() {
+        Some(value) => store.set("rutracker.cookie", serde_json::json!(value)),
+        None => {
+            let _ = store.delete("rutracker.cookie");
+        }
+    }
+
+    store
+        .save()
+        .map_err(|e| ShioriError::Other(format!("Failed to save source config: {}", e)))?;
+
+    source.set_config(normalized).await;
+    Ok(())
 }
 
 #[tauri::command]
@@ -106,9 +223,27 @@ pub async fn plugin_search_with_meta(
             .ok_or_else(|| ShioriError::Validation(format!("Unknown source: {}", source_id)))?
     };
 
-    source
+    let source_meta = source.meta();
+    let started = Instant::now();
+    let mut response = source
         .search_with_meta(&query, page.unwrap_or(1), limit.unwrap_or(20))
-        .await
+        .await?;
+    let duration_ms = started.elapsed().as_millis() as u64;
+
+    if response.diagnostics.is_none() {
+        response.diagnostics = Some(SourceSearchDiagnostics {
+            source_id: source_id.clone(),
+            source_name: Some(source_meta.name),
+            selected_mirror: None,
+            selected_base: None,
+            attempted_mirrors: vec![],
+            duration_ms,
+            result_count: response.items.len() as u32,
+            retries_used: None,
+        });
+    }
+
+    Ok(response)
 }
 
 #[tauri::command]
@@ -316,9 +451,6 @@ pub async fn annas_archive_download(
         request = request
             .header("x-rapidapi-host", "annas-archive-api.p.rapidapi.com")
             .header("x-rapidapi-key", api_key);
-    }
-    if let Some(auth_cookie) = anna_config.auth_cookie {
-        request = request.header("Cookie", auth_cookie);
     }
 
     let response = request

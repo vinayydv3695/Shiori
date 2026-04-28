@@ -346,6 +346,7 @@ impl NyaaSource {
             total: None,
             offset: Some((safe_page - 1) * safe_limit),
             limit: Some(safe_limit),
+            diagnostics: None,
         })
     }
 }

@@ -27,6 +27,7 @@ import { TorboxSettings } from './TorboxSettings'
 import { AnnaArchiveSettings } from './AnnaArchiveSettings'
 import { RuTrackerSettings } from './RuTrackerSettings'
 import { TorrentNetworkSettings } from './TorrentNetworkSettings'
+import { ProwlarrSettings } from './ProwlarrSettings'
 import { READING_FONTS, normalizeLegacyFontPreference, resolveReadingFontCss } from '@/lib/readingFonts'
 
 interface SettingsDialogProps {
@@ -800,6 +801,10 @@ const GeneralSettings = ({
           <div>
             <h4 className="text-sm font-semibold mb-2">Torbox</h4>
             <TorboxSettings />
+          </div>
+          <div>
+            <h4 className="text-sm font-semibold mb-2">Prowlarr</h4>
+            <ProwlarrSettings />
           </div>
         </div>
       </SettingSection>

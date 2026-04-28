@@ -16,7 +16,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useUIStore } from '@/store/uiStore';
-import { pluginApi, type SearchResult as PluginSearchResult } from '@/lib/pluginSources';
+import {
+  pluginApi,
+  type SearchDiagnostics,
+  type SearchResult as PluginSearchResult,
+} from '@/lib/pluginSources';
+import { useSourceHealthStore, type SourceHealthLevel } from '@/store/sourceHealthStore';
 import { useTorboxStore, type TorboxJobStatus, type TorboxQueueItem } from '@/stores/useTorboxStore';
 import { useOnlineSearchStore } from '@/store/onlineSearchStore';
 import { useSourceStore } from '@/store/sourceStore';
@@ -25,15 +30,40 @@ import { parsePageUrl } from '@/lib/utils';
 type TorboxTab = 'books' | 'manga' | 'search';
 type SearchKind = 'all' | 'books' | 'manga' | 'comics';
 type TorboxResultSource = 'books' | 'manga';
+type SearchDomain = 'books' | 'manga';
 type TorboxSearchResult = PluginSearchResult & { _source: TorboxResultSource; _sourceId?: string };
-const TORBOX_MANGA_SOURCE_IDS = ['nyaa', 'animetosho'] as const;
+const TORBOX_MANGA_SOURCE_IDS = ['nyaa'] as const;
+const TORBOX_QUEUEABLE_BOOK_FORMATS = new Set(['cbz', 'cbr', 'epub', 'pdf', 'mobi', 'azw3', 'docx']);
+const TORBOX_BOOK_ONLY_FORMATS = new Set(['epub', 'pdf', 'mobi', 'azw3', 'docx', 'fb2', 'txt', 'rtf', 'djvu', 'azw']);
+const TORBOX_COMIC_ONLY_FORMATS = new Set(['cbz', 'cbr']);
+
+type BookFormatBucket = 'book' | 'comic' | 'unsupported' | 'unknown';
 
 type SendState = 'idle' | 'sending' | 'success' | 'failed';
 
+type SourceSearchDiagnostic = {
+  sourceId: string;
+  sourceName: string;
+  domain: SearchDomain;
+  status: 'success' | 'failed' | 'timeout';
+  errorTag?: 'error' | 'timeout';
+  errorMessage?: string;
+  selectedMirror?: string;
+  attemptedMirrors: string[];
+  durationMs?: number;
+  resultCount?: number;
+  retriesUsed?: number;
+  healthScore: number;
+  healthLevel: SourceHealthLevel;
+};
+
 const SOURCE_BADGE_MAP: Record<string, { label: string; className: string }> = {
   'anna-archive': { label: "Anna's Archive", className: 'torbox-source-badge--anna' },
+  'bitsearch': { label: 'Bitsearch', className: 'torbox-source-badge--generic' },
+  'tpb-api': { label: 'TPB API', className: 'torbox-source-badge--generic' },
+  'x1337': { label: '1337x', className: 'torbox-source-badge--generic' },
+  'rutracker': { label: 'RuTracker', className: 'torbox-source-badge--generic' },
   'nyaa': { label: 'Nyaa', className: 'torbox-source-badge--nyaa' },
-  'animetosho': { label: 'AnimeTosho', className: 'torbox-source-badge--animetosho' },
   'mangadex': { label: 'MangaDex', className: 'torbox-source-badge--mangadex' },
   'libgen': { label: 'LibGen', className: 'torbox-source-badge--libgen' },
   'openlibrary': { label: 'Open Library', className: 'torbox-source-badge--generic' },
@@ -62,7 +92,7 @@ function statusPhaseText(status: TorboxJobStatus): string {
     case 'downloading':
       return 'Downloading from Torbox';
     case 'importing':
-      return 'Cloud complete - downloading to this device and importing';
+      return 'Cloud complete • importing to your library';
     case 'completed':
       return 'Downloaded and imported to library';
     case 'failed':
@@ -70,6 +100,16 @@ function statusPhaseText(status: TorboxJobStatus): string {
     default:
       return 'Processing';
   }
+}
+
+function conciseFailedPhase(error?: string): string {
+  if (!error || !error.trim()) return 'Transfer failed';
+  const normalized = error
+    .replace(/^torbox\s+(target|queue)?\s*failed\s*:\s*/i, '')
+    .replace(/^error\s*:\s*/i, '')
+    .trim();
+  const message = normalized || error.trim();
+  return message.length > 56 ? `${message.slice(0, 56)}…` : message;
 }
 
 function formatEta(seconds: number): string {
@@ -202,6 +242,165 @@ function detectLinkMethod(link: string): 'magnet' | 'torrent' | 'webdl' {
   return 'webdl';
 }
 
+function pushUniqueFormatToken(target: string[], seen: Set<string>, token: string): void {
+  const normalized = token.trim().toLowerCase().replace(/^\./, '').replace(/[^a-z0-9]/g, '');
+  if (!normalized || normalized.length < 2 || normalized.length > 6) return;
+  if (seen.has(normalized)) return;
+  seen.add(normalized);
+  target.push(normalized);
+}
+
+function collectFormatTokensFromHint(value: string, includeLooseTokens = false): string[] {
+  const tokens: string[] = [];
+  const seen = new Set<string>();
+  const lower = value.toLowerCase();
+
+  const extensionPattern = /\.([a-z0-9]{2,6})(?=$|\?|#|&|\s|\]|\)|-|_)/g;
+  let extensionMatch = extensionPattern.exec(lower);
+  while (extensionMatch !== null) {
+    pushUniqueFormatToken(tokens, seen, extensionMatch[1]);
+    extensionMatch = extensionPattern.exec(lower);
+  }
+
+  const bracketPattern = /(?:\[|\()([a-z0-9]{2,6})(?:\]|\))/g;
+  let bracketMatch = bracketPattern.exec(lower);
+  while (bracketMatch !== null) {
+    pushUniqueFormatToken(tokens, seen, bracketMatch[1]);
+    bracketMatch = bracketPattern.exec(lower);
+  }
+
+  if (includeLooseTokens) {
+    const compactWords = lower.match(/[a-z0-9]{2,10}/g) ?? [];
+    compactWords.forEach((word) => {
+      if (word.length <= 6) {
+        pushUniqueFormatToken(tokens, seen, word);
+      }
+    });
+  }
+
+  return tokens;
+}
+
+function classifyBookResultFormat(item: PluginSearchResult, candidateUrl?: string): { bucket: BookFormatBucket; format: string | null } {
+  const extra = item.extra ?? {};
+  const hintValues: string[] = [];
+  const hintKeys = [
+    'format',
+    'file_name',
+    'filename',
+    'fileName',
+    'name',
+    'release_name',
+    'releaseName',
+    'torrent_name',
+    'torrentName',
+    'path',
+  ];
+
+  if (candidateUrl && candidateUrl.trim()) {
+    hintValues.push(candidateUrl);
+  }
+  if (item.title?.trim()) {
+    hintValues.push(item.title);
+  }
+  hintKeys.forEach((key) => {
+    const value = extra[key];
+    if (typeof value === 'string' && value.trim()) {
+      hintValues.push(value);
+    }
+  });
+
+  const seenTokens = new Set<string>();
+  const tokens: string[] = [];
+
+  hintValues.forEach((value, index) => {
+    const isLikelyExplicitFormat = index > 1 && value === extra.format;
+    collectFormatTokensFromHint(value, isLikelyExplicitFormat).forEach((token) => {
+      if (!seenTokens.has(token)) {
+        seenTokens.add(token);
+        tokens.push(token);
+      }
+    });
+  });
+
+  for (const token of tokens) {
+    if (TORBOX_BOOK_ONLY_FORMATS.has(token)) {
+      return { bucket: 'book', format: token };
+    }
+    if (TORBOX_COMIC_ONLY_FORMATS.has(token)) {
+      return { bucket: 'comic', format: token };
+    }
+  }
+
+  if (tokens.length > 0) {
+    return { bucket: 'unsupported', format: tokens[0] ?? null };
+  }
+
+  return { bucket: 'unknown', format: null };
+}
+
+function filterBookResultsByKind(
+  items: TorboxSearchResult[],
+  kind: 'all' | 'books' | 'comics'
+): { items: TorboxSearchResult[]; unknownFiltered: number; unsupportedFiltered: number } {
+  const filtered: TorboxSearchResult[] = [];
+  let unknownFiltered = 0;
+  let unsupportedFiltered = 0;
+
+  items.forEach((item) => {
+    const resultUrl = getResultUrl(item);
+    const { bucket } = classifyBookResultFormat(item, resultUrl);
+
+    if (bucket === 'unknown') {
+      unknownFiltered += 1;
+      return;
+    }
+    if (bucket === 'unsupported') {
+      unsupportedFiltered += 1;
+      return;
+    }
+
+    if (kind === 'books' && bucket !== 'book') return;
+    if (kind === 'comics' && bucket !== 'comic') return;
+    filtered.push(item);
+  });
+
+  return { items: filtered, unknownFiltered, unsupportedFiltered };
+}
+
+function formatFilterWarningText(unknownFiltered: number, unsupportedFiltered: number): string | null {
+  const total = unknownFiltered + unsupportedFiltered;
+  if (total <= 0) return null;
+  return `Filtered out ${total} result${total === 1 ? '' : 's'} with unknown or unsupported formats.`;
+}
+
+function getCandidateBookFormat(item: PluginSearchResult, url: string): string | null {
+  const classified = classifyBookResultFormat(item, url);
+  if (classified.bucket === 'unknown') {
+    return null;
+  }
+  return classified.format;
+}
+
+function isQueueableBookCandidate(item: PluginSearchResult, candidateUrl: string): { allowed: boolean; format: string | null } {
+  const format = getCandidateBookFormat(item, candidateUrl);
+  if (!format) {
+    return { allowed: false, format: null };
+  }
+  return { allowed: TORBOX_QUEUEABLE_BOOK_FORMATS.has(format), format };
+}
+
+function buildResultDedupKey(item: PluginSearchResult): string {
+  const url = getResultUrl(item);
+  if (url) {
+    return `url:${url.trim().toLowerCase()}`;
+  }
+
+  const extra = item.extra ?? {};
+  const author = typeof extra.author === 'string' ? extra.author.trim().toLowerCase() : '';
+  return `title:${item.title.trim().toLowerCase()}|author:${author}`;
+}
+
 function getUiErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message.trim()) return error.message;
   if (typeof error === 'string' && error.trim()) return error;
@@ -219,6 +418,73 @@ function getUiErrorMessage(error: unknown, fallback: string): string {
     }
   }
   return fallback;
+}
+
+function isTimeoutMessage(message: string): boolean {
+  return message.toLowerCase().includes('timed out');
+}
+
+function formatDuration(durationMs?: number): string {
+  if (!Number.isFinite(durationMs) || (durationMs ?? 0) < 0) {
+    return '—';
+  }
+
+  const rounded = Math.round(durationMs ?? 0);
+  if (rounded < 1000) {
+    return `${rounded}ms`;
+  }
+  return `${(rounded / 1000).toFixed(2)}s`;
+}
+
+function formatSearchDiagnosticsSummary(
+  diagnostics: SourceSearchDiagnostic[],
+  totalResults: number
+): string | null {
+  if (diagnostics.length === 0) return null;
+
+  const successCount = diagnostics.filter((item) => item.status === 'success').length;
+  const totalCount = diagnostics.length;
+  const failed = diagnostics.filter((item) => item.status !== 'success');
+
+  const base = `Showing ${totalResults} result${totalResults === 1 ? '' : 's'} from ${successCount}/${totalCount} source${totalCount === 1 ? '' : 's'}.`;
+  if (failed.length === 0) return base;
+
+  const failedList = failed
+    .map((item) => `${item.sourceName} (${item.status === 'timeout' ? 'timeout' : 'error'})`)
+    .join(', ');
+
+  return `${base} Failed: ${failedList}.`;
+}
+
+function parseAttemptedMirrors(diagnostics?: SearchDiagnostics): string[] {
+  const attempts = diagnostics?.attemptedMirrors;
+  if (!Array.isArray(attempts)) return [];
+
+  return attempts
+    .map((attempt) => {
+      if (typeof attempt === 'string') {
+        return attempt;
+      }
+      if (!attempt || typeof attempt !== 'object') {
+        return null;
+      }
+
+      const rawMirror = (attempt as { mirror?: unknown }).mirror;
+      const rawSuccess = (attempt as { success?: unknown }).success;
+      if (typeof rawMirror !== 'string' || !rawMirror.trim()) {
+        return null;
+      }
+
+      const suffix =
+        typeof rawSuccess === 'boolean'
+          ? rawSuccess
+            ? 'ok'
+            : 'fail'
+          : 'attempt';
+
+      return `${rawMirror} (${suffix})`;
+    })
+    .filter((value): value is string => Boolean(value));
 }
 
 function normalizeKindFromUrl(kind: string, url: string): string {
@@ -240,7 +506,7 @@ function getSourceBadgeInfo(sourceId?: string, fallbackSource?: TorboxResultSour
   return { label: fallbackSource === 'manga' ? 'Manga' : 'Unknown', className: 'torbox-source-badge--generic' };
 }
 
-function parseAnnaCandidate(rawValue: string): { kind: string; url: string } | null {
+function parseBookCandidate(sourceId: string, rawValue: string): { kind: string; url: string } | null {
   const parsed = parsePageUrl(rawValue);
   if (!parsed.url) return null;
 
@@ -252,7 +518,7 @@ function parseAnnaCandidate(rawValue: string): { kind: string; url: string } | n
     };
   }
 
-  if (parsed.kind === 'anna' && parsed.url.toLowerCase().includes('/md5/')) {
+  if (sourceId === 'anna-archive' && parsed.kind === 'anna' && parsed.url.toLowerCase().includes('/md5/')) {
     const md5Index = parsed.url.toLowerCase().indexOf('/md5/');
     const sliced = parsed.url.slice(md5Index);
     const hashMatch = sliced.match(/^\/md5\/([a-fA-F0-9]{32})/);
@@ -265,7 +531,7 @@ function parseAnnaCandidate(rawValue: string): { kind: string; url: string } | n
   return parsed;
 }
 
-function getAnnaCandidatePriority(kind: string, url: string): number {
+function getBookCandidatePriority(kind: string, url: string): number {
   // 1. Highest priority: Actual torrents/magnets if they miraculously exist 
   if (kind === 'magnet') return 0;
   if (kind === 'torrent') return 1;
@@ -315,6 +581,14 @@ function extractTorboxSourceFromResult(item: PluginSearchResult): { kind: string
   }
 
   return null;
+}
+
+function mapResultWithSource(item: PluginSearchResult, source: TorboxResultSource, sourceId: string): TorboxSearchResult {
+  return {
+    ...item,
+    _source: source,
+    _sourceId: typeof item.source_id === 'string' ? item.source_id : sourceId,
+  };
 }
 
 function TabButton({
@@ -522,6 +796,7 @@ function TorboxJobCard({
   const localFileIndex = typeof job.localFileIndex === 'number' ? job.localFileIndex : null;
   const localFileTotal = typeof job.localFileTotal === 'number' ? job.localFileTotal : null;
   const localFileName = typeof job.localFileName === 'string' ? job.localFileName : null;
+  const showLocalProgress = job.status === 'importing' || localProgress !== null;
 
   return (
     <div className="torbox-job-card torbox-animate-in p-4" style={{ animationDelay: `${index * 45}ms` }}>
@@ -545,37 +820,59 @@ function TorboxJobCard({
           <Loader2 className="h-4 w-4 animate-spin text-primary" />
         )}
         <StatusBadge status={job.status} />
-        <span className="text-xs text-muted-foreground">{clampedProgress.toFixed(1)}%</span>
       </div>
 
-      <p className="mt-1 text-[11px] text-muted-foreground/90">{statusPhaseText(job.status)}</p>
+      <p className="mt-1 text-[11px] text-muted-foreground/90">
+        {job.status === 'failed' ? conciseFailedPhase(job.error) : statusPhaseText(job.status)}
+      </p>
       {eta && <p className="mt-0.5 text-[11px] text-muted-foreground/90">{eta}</p>}
 
-      <div className="torbox-progress-track mt-3">
-        <div
-          className={progressClass}
-          style={{ width: `${clampedProgress}%` }}
-        />
+      <div className="mt-3 space-y-2">
+        <div className="torbox-progress-group">
+          <div className="torbox-progress-group__header">
+            <span className="torbox-progress-group__label">Cloud progress</span>
+            <span className="torbox-progress-group__value">{clampedProgress.toFixed(1)}%</span>
+          </div>
+          <div className="torbox-progress-track">
+            <div
+              className={progressClass}
+              style={{ width: `${clampedProgress}%` }}
+            />
+          </div>
+        </div>
+
+        {showLocalProgress && (
+          <div className="torbox-progress-group torbox-progress-group--local">
+            <div className="torbox-progress-group__header">
+              <span className="torbox-progress-group__label">Local import</span>
+              <span className="torbox-progress-group__value">
+                {localProgress !== null ? `${localProgress.toFixed(1)}%` : 'In progress'}
+              </span>
+            </div>
+            <div className="torbox-progress-track torbox-progress-track--local">
+              <div
+                className="torbox-progress-fill torbox-progress--local"
+                style={{ width: `${localProgress ?? 0}%` }}
+              />
+            </div>
+            <p className="torbox-progress-group__meta">
+              {localDownloaded !== null ? formatBytes(localDownloaded) : 'Downloading locally'}
+              {localDownloaded !== null && localTotal !== null ? ` / ${formatBytes(localTotal)}` : ''}
+            </p>
+            {(localFileIndex !== null || localFileName) && (
+              <p className="torbox-progress-group__meta torbox-progress-group__meta--file">
+                {localFileIndex !== null && localFileTotal !== null && localFileTotal > 1
+                  ? `File ${localFileIndex} of ${localFileTotal}`
+                  : 'Importing file'}
+                {localFileName ? ` • ${localFileName}` : ''}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="mt-3 space-y-1 text-xs text-muted-foreground">
         {job.torrentId && <p>Torrent ID: {job.torrentId}</p>}
-        {job.status === 'importing' && (
-          <p className="space-y-0.5">
-            <span className="block">
-              Local download:{' '}
-            {localProgress !== null ? `${localProgress.toFixed(1)}%` : 'in progress'}
-            {localDownloaded !== null ? ` (${formatBytes(localDownloaded)}` : ''}
-            {localDownloaded !== null && localTotal !== null ? ` / ${formatBytes(localTotal)})` : localDownloaded !== null ? ')' : ''}
-            </span>
-            {localFileIndex !== null && localFileTotal !== null && localFileTotal > 1 && (
-              <span className="block text-[11px] text-muted-foreground/90">
-                Volume {localFileIndex} of {localFileTotal}
-                {localFileName ? ` - ${localFileName}` : ''}
-              </span>
-            )}
-          </p>
-        )}
         {job.importedPath && <p className="truncate">Imported: {job.importedPath}</p>}
         {job.error && <p className="text-destructive">{job.error}</p>}
       </div>
@@ -599,10 +896,16 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<TorboxSearchResult[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [partialSearchWarning, setPartialSearchWarning] = useState<string | null>(null);
+  const [searchSummary, setSearchSummary] = useState<string | null>(null);
+  const [searchDiagnostics, setSearchDiagnostics] = useState<SourceSearchDiagnostic[]>([]);
+  const [formatFilterWarning, setFormatFilterWarning] = useState<string | null>(null);
   const [sendStates, setSendStates] = useState<Record<string, { state: SendState; error?: string }>>({});
   const searchQuery = useOnlineSearchStore((state) => state.queries.torbox);
   const setSearchQuery = useOnlineSearchStore((state) => state.setQuery);
+  const recordSourceSuccess = useSourceHealthStore((state) => state.recordSuccess);
+  const recordSourceFailure = useSourceHealthStore((state) => state.recordFailure);
+  const getSourceScore = useSourceHealthStore((state) => state.getSourceScore);
+  const getSourceHealthLevel = useSourceHealthStore((state) => state.getSourceHealthLevel);
 
   const setSendState = useCallback((itemId: string, state: SendState, error?: string) => {
     setSendStates((prev) => ({ ...prev, [itemId]: { state, error } }));
@@ -640,19 +943,28 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
     return preferred ?? enabledMangaSources[0];
   }, [sources]);
 
+  const torboxCompatibleBookSourceIds = useMemo(() => {
+    return sources
+      .filter((source) => source.kind === 'books' && source.enabled && source.implemented && source.torboxCompatible)
+      .map((source) => source.id);
+  }, [sources]);
+
   const torboxCompatibleMangaSourceIds = useMemo(() => {
-    const enabledIds = sources
+    return sources
       .filter((source) => source.kind === 'manga' && source.enabled && source.implemented && source.torboxCompatible)
       .map((source) => source.id);
-
-    if (enabledIds.length > 0) {
-      return enabledIds;
-    }
-
-    return TORBOX_MANGA_SOURCE_IDS.filter((id) =>
-      sources.some((source) => source.id === id && source.kind === 'manga')
-    );
   }, [sources]);
+
+  const sourceNameById = useMemo(() => {
+    const entries = sources.map((source) => [source.id, source.name] as const);
+    return new Map<string, string>(entries);
+  }, [sources]);
+
+  const orderSourceIdsByHealth = useCallback(
+    (sourceIds: string[]) =>
+      [...sourceIds].sort((a, b) => getSourceScore(b) - getSourceScore(a)),
+    [getSourceScore]
+  );
 
   const torboxRecommendedMangaSourceLabel = useMemo(() => {
     const available = sources
@@ -714,88 +1026,229 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
     if (!q) {
       setSearchResults([]);
       setSearchError(null);
-      setPartialSearchWarning(null);
+      setSearchSummary(null);
+      setSearchDiagnostics([]);
+      setFormatFilterWarning(null);
       return;
     }
 
     setSearching(true);
     setSearchError(null);
-    setPartialSearchWarning(null);
-    try {
-      if (searchKind === 'all') {
-        const mangaSourceIds = torboxCompatibleMangaSourceIds.length > 0
-          ? torboxCompatibleMangaSourceIds
-          : [mangaSourceHasTorboxLinks ? torboxMangaSource?.id ?? 'mangadex' : 'mangadex'];
+    setSearchSummary(null);
+    setSearchDiagnostics([]);
+    setFormatFilterWarning(null);
 
-        const [bookSearch, ...mangaSearches] = await Promise.allSettled([
-          withTimeout(
-            pluginApi.searchWithMeta('anna-archive', q, 1, TORBOX_SEARCH_LIMIT),
-            SEARCH_TIMEOUT_MS,
-            'Book search'
-          ),
-          ...mangaSourceIds.map((sourceId) =>
-            withTimeout(
-              pluginApi.searchWithMeta(sourceId, q, 1, TORBOX_SEARCH_LIMIT),
-              SEARCH_TIMEOUT_MS,
-              `Manga search (${sourceId})`
-            )
-          ),
+    const executeSourceSearch = async (
+      sourceId: string,
+      domain: SearchDomain,
+      label: string
+    ): Promise<{
+      sourceId: string;
+      sourceName: string;
+      domain: SearchDomain;
+      status: 'success' | 'failed' | 'timeout';
+      response?: { items: PluginSearchResult[]; diagnostics?: SearchDiagnostics };
+      errorMessage?: string;
+      durationMs: number;
+    }> => {
+      const startedAt = performance.now();
+      const sourceName = sourceNameById.get(sourceId) ?? sourceId;
+
+      try {
+        const response = await withTimeout(
+          pluginApi.searchWithMeta(sourceId, q, 1, TORBOX_SEARCH_LIMIT),
+          SEARCH_TIMEOUT_MS,
+          label
+        );
+        const elapsedMs = Math.round(performance.now() - startedAt);
+        const latencyMs = response.diagnostics?.durationMs ?? elapsedMs;
+        recordSourceSuccess(sourceId, latencyMs);
+
+        return {
+          sourceId,
+          sourceName,
+          domain,
+          status: 'success',
+          response,
+          durationMs: elapsedMs,
+        };
+      } catch (error) {
+        const elapsedMs = Math.round(performance.now() - startedAt);
+        const message = getUiErrorMessage(error, `${label} failed`);
+        const timeout = isTimeoutMessage(message);
+        recordSourceFailure(sourceId, timeout ? 'timeout' : 'error', elapsedMs);
+
+        return {
+          sourceId,
+          sourceName,
+          domain,
+          status: timeout ? 'timeout' : 'failed',
+          errorMessage: message,
+          durationMs: elapsedMs,
+        };
+      }
+    };
+
+    try {
+      const needsBooks = searchKind === 'all' || searchKind === 'books' || searchKind === 'comics';
+      const needsManga = searchKind === 'all' || searchKind === 'manga';
+
+      const orderedBookSourceIds = orderSourceIdsByHealth(torboxCompatibleBookSourceIds);
+      const orderedMangaSourceIds = orderSourceIdsByHealth(torboxCompatibleMangaSourceIds);
+
+      if (needsBooks && orderedBookSourceIds.length === 0) {
+        throw new Error('No enabled Torbox-compatible book source found. Enable one in Settings → Online Sources.');
+      }
+      if (needsManga && orderedMangaSourceIds.length === 0) {
+        throw new Error('No enabled Torbox-compatible manga source found. Enable one in Settings → Online Sources.');
+      }
+
+      if (searchKind === 'all') {
+        const outcomes = await Promise.all([
+          ...orderedBookSourceIds.map((sourceId) => executeSourceSearch(sourceId, 'books', `Book search (${sourceId})`)),
+          ...orderedMangaSourceIds.map((sourceId) => executeSourceSearch(sourceId, 'manga', `Manga search (${sourceId})`)),
         ]);
 
-        const bookResults = bookSearch.status === 'fulfilled' ? bookSearch.value.items : [];
-        const mangaResults = mangaSearches.flatMap((search) =>
-          search.status === 'fulfilled' ? search.value.items : []
+        const diagnostics = outcomes.map((outcome) => {
+          const sourceDiagnostics = outcome.response?.diagnostics;
+          return {
+            sourceId: outcome.sourceId,
+            sourceName: outcome.sourceName,
+            domain: outcome.domain,
+            status: outcome.status,
+            errorTag: outcome.status === 'success' ? undefined : outcome.status === 'timeout' ? 'timeout' : 'error',
+            errorMessage: outcome.errorMessage,
+            selectedMirror: sourceDiagnostics?.selectedMirror,
+            attemptedMirrors: parseAttemptedMirrors(sourceDiagnostics),
+            durationMs: sourceDiagnostics?.durationMs ?? outcome.durationMs,
+            resultCount: sourceDiagnostics?.resultCount ?? outcome.response?.items.length ?? 0,
+            retriesUsed: sourceDiagnostics?.retriesUsed,
+            healthScore: getSourceScore(outcome.sourceId),
+            healthLevel: getSourceHealthLevel(outcome.sourceId),
+          } satisfies SourceSearchDiagnostic;
+        });
+        setSearchDiagnostics(diagnostics);
+
+        const rawBookResults = outcomes.flatMap((outcome) =>
+          outcome.domain === 'books' && outcome.status === 'success' && outcome.response
+            ? outcome.response.items.map((item) => mapResultWithSource(item, 'books', outcome.sourceId))
+            : []
+        );
+        const mangaResults = outcomes.flatMap((outcome) =>
+          outcome.domain === 'manga' && outcome.status === 'success' && outcome.response
+            ? outcome.response.items.map((item) => mapResultWithSource(item, 'manga', outcome.sourceId))
+            : []
         );
 
-        const seenMangaIds = new Set<string>();
-        const dedupedMangaResults = mangaResults.filter((item) => {
-          const key = item.id;
-          if (seenMangaIds.has(key)) return false;
-          seenMangaIds.add(key);
+        const seenBookKeys = new Set<string>();
+        const dedupedBookResults = rawBookResults.filter((item) => {
+          const key = buildResultDedupKey(item);
+          if (seenBookKeys.has(key)) return false;
+          seenBookKeys.add(key);
           return true;
         });
 
+        const seenMangaKeys = new Set<string>();
+        const dedupedMangaResults = mangaResults.filter((item) => {
+          const key = buildResultDedupKey(item);
+          if (seenMangaKeys.has(key)) return false;
+          seenMangaKeys.add(key);
+          return true;
+        });
+
+        const filteredBooks = filterBookResultsByKind(dedupedBookResults, 'all');
+        setFormatFilterWarning(formatFilterWarningText(filteredBooks.unknownFiltered, filteredBooks.unsupportedFiltered));
+
         const merged: TorboxSearchResult[] = [
-          ...bookResults.map((item) => ({ ...item, _source: 'books' as const })),
-          ...dedupedMangaResults.map((item) => ({ ...item, _source: 'manga' as const })),
+          ...filteredBooks.items,
+          ...dedupedMangaResults,
         ];
         setSearchResults(merged);
+        setSearchSummary(formatSearchDiagnosticsSummary(diagnostics, merged.length));
 
-        const mangaAllFailed = mangaSearches.length > 0 && mangaSearches.every((search) => search.status === 'rejected');
-        const mangaAnyFailed = mangaSearches.some((search) => search.status === 'rejected');
+        const bookAllFailed = diagnostics.filter((item) => item.domain === 'books').every((item) => item.status !== 'success');
+        const mangaAllFailed = diagnostics.filter((item) => item.domain === 'manga').every((item) => item.status !== 'success');
 
-        if (bookSearch.status === 'rejected' && mangaAllFailed) {
+        if (bookAllFailed && mangaAllFailed) {
           throw new Error('Failed to search both book and manga sources.');
-        }
-
-        if (bookSearch.status === 'rejected' || mangaAnyFailed) {
-          setPartialSearchWarning('One source failed to search; showing partial results.');
         }
       } else {
         if (searchKind === 'books' || searchKind === 'comics') {
-          const results = await withTimeout(
-            pluginApi.searchWithMeta('anna-archive', q, 1, TORBOX_SEARCH_LIMIT),
-            SEARCH_TIMEOUT_MS,
-            searchKind === 'comics' ? 'Comics search' : 'Book search'
-          );
-          setSearchResults(results.items.map((item) => ({ ...item, _source: 'books' as const })));
-        } else if (searchKind === 'manga') {
-          const candidateIds = torboxCompatibleMangaSourceIds.length > 0
-            ? torboxCompatibleMangaSourceIds
-            : [mangaSourceHasTorboxLinks ? torboxMangaSource?.id ?? 'mangadex' : 'mangadex'];
-
-          const mangaSearches = await Promise.allSettled(
-            candidateIds.map((sourceId) =>
-              withTimeout(
-                pluginApi.searchWithMeta(sourceId, q, 1, TORBOX_SEARCH_LIMIT),
-                SEARCH_TIMEOUT_MS,
-                `Manga search (${sourceId})`
-              )
+          const outcomes = await Promise.all(
+            orderedBookSourceIds.map((sourceId) =>
+              executeSourceSearch(sourceId, 'books', `${searchKind === 'comics' ? 'Comics' : 'Book'} search (${sourceId})`)
             )
           );
 
-          const mangaResults = mangaSearches.flatMap((search) =>
-            search.status === 'fulfilled' ? search.value.items : []
+          const diagnostics = outcomes.map((outcome) => {
+            const sourceDiagnostics = outcome.response?.diagnostics;
+            return {
+              sourceId: outcome.sourceId,
+              sourceName: outcome.sourceName,
+              domain: outcome.domain,
+              status: outcome.status,
+              errorTag: outcome.status === 'success' ? undefined : outcome.status === 'timeout' ? 'timeout' : 'error',
+              errorMessage: outcome.errorMessage,
+              selectedMirror: sourceDiagnostics?.selectedMirror,
+              attemptedMirrors: parseAttemptedMirrors(sourceDiagnostics),
+              durationMs: sourceDiagnostics?.durationMs ?? outcome.durationMs,
+              resultCount: sourceDiagnostics?.resultCount ?? outcome.response?.items.length ?? 0,
+              retriesUsed: sourceDiagnostics?.retriesUsed,
+              healthScore: getSourceScore(outcome.sourceId),
+              healthLevel: getSourceHealthLevel(outcome.sourceId),
+            } satisfies SourceSearchDiagnostic;
+          });
+          setSearchDiagnostics(diagnostics);
+
+          const mergedBookResults = outcomes.flatMap((outcome) =>
+            outcome.status === 'success' && outcome.response
+              ? outcome.response.items.map((item) => mapResultWithSource(item, 'books', outcome.sourceId))
+              : []
+          );
+
+          if (mergedBookResults.length === 0) {
+            throw new Error('Book search failed on all Torbox-compatible sources.');
+          }
+
+          const seenBookKeys = new Set<string>();
+          const dedupedBookResults = mergedBookResults.filter((item) => {
+            const key = buildResultDedupKey(item);
+            if (seenBookKeys.has(key)) return false;
+            seenBookKeys.add(key);
+            return true;
+          });
+
+          const filteredBooks = filterBookResultsByKind(dedupedBookResults, searchKind);
+          setFormatFilterWarning(formatFilterWarningText(filteredBooks.unknownFiltered, filteredBooks.unsupportedFiltered));
+          setSearchResults(filteredBooks.items);
+          setSearchSummary(formatSearchDiagnosticsSummary(diagnostics, filteredBooks.items.length));
+        } else if (searchKind === 'manga') {
+          const outcomes = await Promise.all(
+            orderedMangaSourceIds.map((sourceId) => executeSourceSearch(sourceId, 'manga', `Manga search (${sourceId})`))
+          );
+
+          const diagnostics = outcomes.map((outcome) => {
+            const sourceDiagnostics = outcome.response?.diagnostics;
+            return {
+              sourceId: outcome.sourceId,
+              sourceName: outcome.sourceName,
+              domain: outcome.domain,
+              status: outcome.status,
+              errorTag: outcome.status === 'success' ? undefined : outcome.status === 'timeout' ? 'timeout' : 'error',
+              errorMessage: outcome.errorMessage,
+              selectedMirror: sourceDiagnostics?.selectedMirror,
+              attemptedMirrors: parseAttemptedMirrors(sourceDiagnostics),
+              durationMs: sourceDiagnostics?.durationMs ?? outcome.durationMs,
+              resultCount: sourceDiagnostics?.resultCount ?? outcome.response?.items.length ?? 0,
+              retriesUsed: sourceDiagnostics?.retriesUsed,
+              healthScore: getSourceScore(outcome.sourceId),
+              healthLevel: getSourceHealthLevel(outcome.sourceId),
+            } satisfies SourceSearchDiagnostic;
+          });
+          setSearchDiagnostics(diagnostics);
+
+          const mangaResults = outcomes.flatMap((outcome) =>
+            outcome.status === 'success' && outcome.response ? outcome.response.items : []
           );
 
           if (mangaResults.length === 0) {
@@ -810,25 +1263,38 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
             return true;
           });
 
-          const anyFailed = mangaSearches.some((search) => search.status === 'rejected');
-          if (anyFailed) {
-            setPartialSearchWarning('Some manga sources failed; showing results from available torrent sources.');
-          }
-
-          setSearchResults(dedupedMangaResults.map((item) => ({ ...item, _source: 'manga' as const })));
+          const mapped = dedupedMangaResults.map((item) =>
+            mapResultWithSource(
+              item,
+              'manga',
+              typeof item.source_id === 'string' && item.source_id.trim()
+                ? item.source_id
+                : orderedMangaSourceIds[0] ?? 'mangadex'
+            )
+          );
+          setSearchResults(mapped);
+          setSearchSummary(formatSearchDiagnosticsSummary(diagnostics, mapped.length));
+          setFormatFilterWarning(null);
         }
       }
     } catch (error) {
       setSearchResults([]);
       setSearchError(error instanceof Error ? error.message : 'Search failed');
-      setPartialSearchWarning(null);
+      setSearchSummary(null);
+      setSearchDiagnostics([]);
+      setFormatFilterWarning(null);
     } finally {
       setSearching(false);
     }
   }, [
+    torboxCompatibleBookSourceIds,
     torboxCompatibleMangaSourceIds,
-    torboxMangaSource?.id,
-    mangaSourceHasTorboxLinks,
+    sourceNameById,
+    getSourceHealthLevel,
+    getSourceScore,
+    orderSourceIdsByHealth,
+    recordSourceFailure,
+    recordSourceSuccess,
     searchKind,
     searchQuery,
   ]);
@@ -840,6 +1306,9 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
     if (!q) {
       setSearchResults([]);
       setSearchError(null);
+      setSearchSummary(null);
+      setSearchDiagnostics([]);
+      setFormatFilterWarning(null);
       return;
     }
 
@@ -859,15 +1328,19 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
   const handleSendBookResult = useCallback(
     async (item: PluginSearchResult) => {
       if (!item.id) return;
+      const sourceId =
+        (item as TorboxSearchResult)._sourceId ??
+        (typeof item.source_id === 'string' && item.source_id.trim() ? item.source_id : 'anna-archive');
       setSendState(item.id, 'sending');
       setSearchError(null);
-      setPartialSearchWarning(null);
+      setSearchSummary(null);
 
       try {
         const candidatePriority = new Map<string, { kind: string; priority: number }>();
+        let firstRejectedQueueCandidateMessage: string | null = null;
 
         const addCandidate = (rawCandidate: string, hintedType?: string) => {
-          const parsed = parseAnnaCandidate(rawCandidate);
+          const parsed = parseBookCandidate(sourceId, rawCandidate);
           if (!parsed) return;
 
           const kind = normalizeKindFromUrl(hintedType ?? parsed.kind, parsed.url);
@@ -875,17 +1348,27 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
           // Accept BOTH torrent-style links AND plain HTTP URLs (for TorBox web download)
           if (!isTorboxSendableLink(url)) return;
 
-          const priority = getAnnaCandidatePriority(kind, url);
+          if (kind === 'magnet' || kind === 'torrent' || kind === 'direct') {
+            const queueable = isQueueableBookCandidate(item, url);
+            if (!queueable.allowed) {
+              firstRejectedQueueCandidateMessage ??=
+                queueable.format
+                  ? `Unsupported format '${queueable.format}'. Torbox queue supports: cbz, cbr, epub, pdf, mobi, azw3, docx.`
+                  : 'Unable to determine file format. Torbox queue supports: cbz, cbr, epub, pdf, mobi, azw3, docx.';
+              return;
+            }
+          }
+
+          const priority = getBookCandidatePriority(kind, url);
           const existing = candidatePriority.get(url);
           if (existing === undefined || priority < existing.priority) {
             candidatePriority.set(url, { kind, priority });
           }
         };
 
-        const chapters = await pluginApi.getChapters('anna-archive', item.id);
+        const chapters = await pluginApi.getChapters(sourceId, item.id);
         if (chapters.length > 0) {
-          const pages = await pluginApi.getPages('anna-archive', chapters[0].id);
-          console.log('[TorBox] Anna pages response:', JSON.stringify(pages, null, 2));
+          const pages = await pluginApi.getPages(sourceId, chapters[0].id);
           pages.forEach((page) => {
             addCandidate(page.url);
           });
@@ -903,6 +1386,9 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
           .sort((a, b) => a.priority - b.priority)[0];
 
         if (!firstCandidate) {
+          if (firstRejectedQueueCandidateMessage) {
+            throw new Error(firstRejectedQueueCandidateMessage);
+          }
           throw new Error('No download link found. Verify Anna\'s Archive keys in Settings → Online Sources.');
         }
 
@@ -953,7 +1439,7 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
 
       setSendState(item.id, 'sending');
       setSearchError(null);
-      setPartialSearchWarning(null);
+      setSearchSummary(null);
       try {
         if (normalizedKind === 'anna' || normalizedKind === 'external') {
           openInBrowser(torboxSource.url);
@@ -1153,9 +1639,15 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
                 </div>
               )}
 
-              {partialSearchWarning && !searchError && (
+              {searchSummary && !searchError && (
                 <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">
-                  {partialSearchWarning}
+                  {searchSummary}
+                </div>
+              )}
+
+              {formatFilterWarning && !searchError && (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">
+                  {formatFilterWarning}
                 </div>
               )}
 
@@ -1166,7 +1658,54 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
                 </div>
               )}
 
-              <div className="grid gap-4">
+              {!searchError && searchDiagnostics.length > 0 && (
+                <div className="torbox-diag-panel">
+                  <p className="torbox-diag-title">Source diagnostics</p>
+                  <div className="torbox-diag-list">
+                    {searchDiagnostics.map((item) => (
+                      <div key={`${item.domain}-${item.sourceId}`} className="torbox-diag-row">
+                        <div className="torbox-diag-header">
+                          <span className="torbox-diag-source">{item.sourceName}</span>
+                          <span className="torbox-diag-chip">
+                            {item.domain}
+                          </span>
+                          <span
+                            className={`torbox-diag-status ${
+                              item.status === 'success'
+                                ? 'torbox-diag-status--success'
+                                : item.status === 'timeout'
+                                  ? 'torbox-diag-status--timeout'
+                                  : 'torbox-diag-status--error'
+                            }`}
+                          >
+                            {item.status === 'success' ? 'ok' : item.status}
+                          </span>
+                          <span className="torbox-diag-meta">{item.resultCount ?? 0} result(s)</span>
+                          <span className="torbox-diag-meta">{formatDuration(item.durationMs)}</span>
+                          <span className="torbox-diag-meta">
+                            health {item.healthScore} ({item.healthLevel})
+                          </span>
+                        </div>
+
+                        {(item.selectedMirror || item.attemptedMirrors.length > 0 || typeof item.retriesUsed === 'number' || item.errorMessage) && (
+                          <div className="torbox-diag-details">
+                            {item.selectedMirror && <p>Mirror: {item.selectedMirror}</p>}
+                            {item.attemptedMirrors.length > 0 && (
+                              <p>Attempts: {item.attemptedMirrors.join(' → ')}</p>
+                            )}
+                            {typeof item.retriesUsed === 'number' && <p>Retries used: {item.retriesUsed}</p>}
+                            {item.errorMessage && item.status !== 'success' && (
+                              <p className="torbox-diag-error-text">{item.errorMessage}</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="grid gap-3">
                 {searchResults.map((item, index) => {
                   const canSendManga = Boolean(extractTorboxSourceFromResult(item));
                   const isBookResult = item._source === 'books';

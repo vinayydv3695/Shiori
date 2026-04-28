@@ -31,6 +31,25 @@ export interface SearchResponse {
   total?: number;
   offset?: number;
   limit?: number;
+  diagnostics?: SearchDiagnostics;
+}
+
+export interface SearchMirrorAttempt {
+  mirror: string;
+  success?: boolean;
+  error?: string;
+}
+
+export interface SearchDiagnostics {
+  sourceId?: string;
+  sourceName?: string;
+  selectedMirror?: string;
+  selectedBase?: string;
+  attemptedMirrors?: SearchMirrorAttempt[];
+  durationMs?: number;
+  resultCount?: number;
+  retriesUsed?: number;
+  note?: string;
 }
 
 export interface Chapter {

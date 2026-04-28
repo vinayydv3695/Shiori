@@ -44,7 +44,15 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
     let mut body_sections: Vec<Fb2Section> = Vec::new();
     let mut notes_sections: Vec<Fb2Section> = Vec::new();
 
-    parse_fb2(&mut reader, &mut metadata, &mut binary_map, &mut body_sections, &mut notes_sections, &mut warnings)?;
+    parse_fb2(
+        &mut reader,
+        &xml_text,
+        &mut metadata,
+        &mut binary_map,
+        &mut body_sections,
+        &mut notes_sections,
+        &mut warnings,
+    )?;
 
     let title = if metadata.title.is_empty() {
         source.file_stem()
@@ -153,6 +161,7 @@ enum Fb2Node {
 
 fn parse_fb2(
     reader: &mut quick_xml::Reader<&[u8]>,
+    xml_text: &str,
     metadata: &mut Fb2Metadata,
     binary_map: &mut HashMap<String, (String, Vec<u8>)>,
     body_sections: &mut Vec<Fb2Section>,
@@ -333,15 +342,9 @@ fn parse_fb2(
         buf.clear();
     }
 
-    // Second pass: extract binary elements
-    // We need to re-parse for <binary> elements since they may contain large base64 data
-    extract_binaries_from_xml_text(
-        &String::from_utf8_lossy(&tokio::runtime::Handle::current().block_on(tokio::fs::read(std::path::Path::new("")))?),
-        binary_map,
-        warnings,
-    );
+    // Second pass: extract binary elements from original XML text
+    extract_binaries(xml_text, binary_map, warnings);
 
-    // Actually, let's re-parse the xml_text we already have (passed separately)
     Ok(())
 }
 
@@ -493,12 +496,4 @@ fn sanitize_filename(name: &str) -> String {
     name.chars()
         .map(|c| if c.is_alphanumeric() || c == '_' || c == '-' || c == '.' { c } else { '_' })
         .collect()
-}
-
-fn extract_binaries_from_xml_text(
-    _xml_text: &str,
-    _binary_map: &mut HashMap<String, (String, Vec<u8>)>,
-    _warnings: &mut Vec<String>,
-) {
-    // This is a placeholder — actual binary extraction happens in extract_binaries
 }

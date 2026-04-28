@@ -190,7 +190,7 @@ impl NyaaSource {
                                 if let Some(item) = current_item.as_mut() {
                                     for attr in event.attributes().flatten() {
                                         if Self::local_name(attr.key.as_ref()) == "url" {
-                                            if let Ok(value) = attr.unescape_value() {
+                                            if let Ok(value) = attr.decode_and_unescape_value(reader.decoder()) {
                                                 item.torrent_url = Some(value.to_string());
                                             }
                                         }

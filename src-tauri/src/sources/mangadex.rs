@@ -119,6 +119,7 @@ impl Source for MangaDexSource {
             total: response.total,
             offset: response.offset,
             limit: response.limit,
+            diagnostics: None,
         })
     }
 

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::time::Duration;
+use std::time::Instant;
 
 use once_cell::sync::Lazy;
 use scraper::{Html, Selector};
@@ -9,7 +10,10 @@ use tokio::time::{sleep, Duration as TokioDuration};
 
 use crate::error::{Result, ShioriError};
 use crate::sources::network::TorrentNetworkConfig;
-use crate::sources::{Chapter, ContentType, Page, SearchResponse, SearchResult, Source, SourceMeta};
+use crate::sources::{
+    Chapter, ContentType, MirrorAttemptDiagnostic, Page, SearchResponse, SearchResult, Source,
+    SourceMeta, SourceSearchDiagnostics,
+};
 
 const RUTRACKER_DEFAULT_BASE_URL: &str = "https://rutracker.org";
 const RUTRACKER_MIRROR_BASE_URLS: &[&str] = &["https://rutracker.org", "https://rutracker.net", "https://rutracker.nl"];
@@ -148,6 +152,7 @@ impl RutrackerSource {
     }
 
     async fn search_internal(&self, query: &str, page: u32, limit: u32) -> Result<SearchResponse> {
+        let started = Instant::now();
         let trimmed_query = query.trim();
         if trimmed_query.is_empty() {
             return Ok(SearchResponse {
@@ -155,6 +160,16 @@ impl RutrackerSource {
                 total: Some(0),
                 offset: Some(0),
                 limit: Some(limit.max(1)),
+                diagnostics: Some(SourceSearchDiagnostics {
+                    source_id: "rutracker".to_string(),
+                    source_name: Some("RuTracker (Direct)".to_string()),
+                    selected_mirror: None,
+                    selected_base: None,
+                    attempted_mirrors: vec![],
+                    duration_ms: started.elapsed().as_millis() as u64,
+                    result_count: 0,
+                    retries_used: Some(0),
+                }),
             });
         }
 
@@ -189,6 +204,9 @@ impl RutrackerSource {
 
         let mut last_error: Option<String> = None;
         let mut response_opt: Option<reqwest::Response> = None;
+        let mut attempted_mirrors = Vec::new();
+        let mut selected_base: Option<String> = None;
+        let mut retries_used: u32 = 0;
 
         'domains: for candidate_base in candidate_bases {
             let search_url = format!(
@@ -200,6 +218,7 @@ impl RutrackerSource {
 
             for attempt in 0..=network.max_retries {
                 if attempt > 0 {
+                    retries_used += 1;
                     sleep(TokioDuration::from_millis(TorrentNetworkConfig::retry_backoff_ms(attempt))).await;
                 }
 
@@ -222,13 +241,31 @@ impl RutrackerSource {
                 match request.send().await {
                     Ok(resp) => {
                         if resp.status().is_success() {
+                            attempted_mirrors.push(MirrorAttemptDiagnostic {
+                                mirror: candidate_base.clone(),
+                                success: true,
+                                error: None,
+                            });
+                            selected_base = Some(candidate_base.clone());
                             response_opt = Some(resp);
                             break 'domains;
                         }
-                        last_error = Some(format!("status {} on {}", resp.status(), candidate_base));
+                        let error = format!("status {}", resp.status());
+                        attempted_mirrors.push(MirrorAttemptDiagnostic {
+                            mirror: candidate_base.clone(),
+                            success: false,
+                            error: Some(error.clone()),
+                        });
+                        last_error = Some(format!("{} on {}", error, candidate_base));
                     }
                     Err(err) => {
-                        last_error = Some(format!("{} on {}", err, candidate_base));
+                        let error = err.to_string();
+                        attempted_mirrors.push(MirrorAttemptDiagnostic {
+                            mirror: candidate_base.clone(),
+                            success: false,
+                            error: Some(error.clone()),
+                        });
+                        last_error = Some(format!("{} on {}", error, candidate_base));
                     }
                 }
             }
@@ -376,7 +413,18 @@ impl RutrackerSource {
             guard.extend(lookup_updates);
         }
 
+        let result_count = items.len() as u32;
         Ok(SearchResponse {
+            diagnostics: Some(SourceSearchDiagnostics {
+                source_id: "rutracker".to_string(),
+                source_name: Some("RuTracker (Direct)".to_string()),
+                selected_mirror: selected_base.clone(),
+                selected_base,
+                attempted_mirrors,
+                duration_ms: started.elapsed().as_millis() as u64,
+                result_count,
+                retries_used: Some(retries_used),
+            }),
             total: Some(items.len() as u32),
             offset: Some(start),
             limit: Some(safe_limit),

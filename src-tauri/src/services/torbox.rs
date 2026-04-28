@@ -63,6 +63,30 @@ fn is_torrent_style_link(link: &str) -> bool {
         || normalized.contains("/torrent")
 }
 
+fn extract_target_id(value: &Value) -> Option<i64> {
+    value
+        .get("id")
+        .or_else(|| value.get("torrent_id"))
+        .or_else(|| value.get("web_id"))
+        .or_else(|| value.get("queued_id"))
+        .or_else(|| value.get("download_id"))
+        .and_then(value_to_i64)
+}
+
+fn looks_like_direct_importable_file(link: &str) -> bool {
+    const ALLOWED_EXTENSIONS: [&str; 7] = ["cbz", "cbr", "epub", "pdf", "mobi", "azw3", "docx"];
+
+    reqwest::Url::parse(link)
+        .ok()
+        .map(|url| {
+            let path = url.path().to_ascii_lowercase();
+            ALLOWED_EXTENSIONS
+                .iter()
+                .any(|ext| path.ends_with(&format!(".{}", ext)))
+        })
+        .unwrap_or(false)
+}
+
 fn parse_torrent_file(value: &Value) -> Option<TorrentFile> {
     let id = value
         .get("id")
@@ -79,11 +103,7 @@ fn parse_torrent_file(value: &Value) -> Option<TorrentFile> {
 }
 
 fn parse_torrent_info(value: &Value) -> Option<TorrentInfo> {
-    let id = value
-        .get("id")
-        .or_else(|| value.get("torrent_id"))
-        .or_else(|| value.get("web_id"))
-        .and_then(value_to_i64)?;
+    let id = extract_target_id(value)?;
     let name = value
         .get("name")
         .or_else(|| value.get("title"))
@@ -141,29 +161,23 @@ fn extract_torrent_entry(payload: &Value, torrent_id: i64) -> Option<Value> {
     let data = payload.get("data")?;
 
     if let Some(list) = data.as_array() {
-        let matched = list.iter().find(|item| {
-            item.get("id")
-                .and_then(value_to_i64)
-                .map(|id| id == torrent_id)
-                .unwrap_or(false)
-        });
+        let matched = list
+            .iter()
+            .find(|item| extract_target_id(item).map(|id| id == torrent_id).unwrap_or(false));
 
         return matched.cloned().or_else(|| list.first().cloned());
     }
 
     if let Some(obj) = data.as_object() {
         if let Some(torrents) = obj.get("torrents").and_then(|v| v.as_array()) {
-            let matched = torrents.iter().find(|item| {
-                item.get("id")
-                    .and_then(value_to_i64)
-                    .map(|id| id == torrent_id)
-                    .unwrap_or(false)
-            });
+            let matched = torrents
+                .iter()
+                .find(|item| extract_target_id(item).map(|id| id == torrent_id).unwrap_or(false));
 
             return matched.cloned().or_else(|| torrents.first().cloned());
         }
 
-        if obj.get("id").and_then(value_to_i64).is_some() {
+        if extract_target_id(data).is_some() {
             return Some(data.clone());
         }
     }
@@ -175,31 +189,23 @@ fn extract_webdl_entry(payload: &Value, web_id: i64) -> Option<Value> {
     let data = payload.get("data")?;
 
     if let Some(list) = data.as_array() {
-        let matched = list.iter().find(|item| {
-            item.get("id")
-                .or_else(|| item.get("web_id"))
-                .and_then(value_to_i64)
-                .map(|id| id == web_id)
-                .unwrap_or(false)
-        });
+        let matched = list
+            .iter()
+            .find(|item| extract_target_id(item).map(|id| id == web_id).unwrap_or(false));
 
         return matched.cloned().or_else(|| list.first().cloned());
     }
 
     if let Some(obj) = data.as_object() {
         if let Some(items) = obj.get("web_downloads").and_then(|v| v.as_array()) {
-            let matched = items.iter().find(|item| {
-                item.get("id")
-                    .or_else(|| item.get("web_id"))
-                    .and_then(value_to_i64)
-                    .map(|id| id == web_id)
-                    .unwrap_or(false)
-            });
+            let matched = items
+                .iter()
+                .find(|item| extract_target_id(item).map(|id| id == web_id).unwrap_or(false));
 
             return matched.cloned().or_else(|| items.first().cloned());
         }
 
-        if obj.get("id").or_else(|| obj.get("web_id")).and_then(value_to_i64).is_some() {
+        if extract_target_id(data).is_some() {
             return Some(data.clone());
         }
     }
@@ -214,6 +220,8 @@ fn extract_created_target_id(payload: &Value) -> Option<i64> {
             data.get("torrent_id")
                 .or_else(|| data.get("id"))
                 .or_else(|| data.get("web_id"))
+                .or_else(|| data.get("webdownload_id"))
+                .or_else(|| data.get("queued_id"))
                 .or_else(|| data.get("download_id"))
                 .and_then(value_to_i64)
                 .or_else(|| {
@@ -222,6 +230,8 @@ fn extract_created_target_id(payload: &Value) -> Option<i64> {
                             item.get("torrent_id")
                                 .or_else(|| item.get("id"))
                                 .or_else(|| item.get("web_id"))
+                                .or_else(|| item.get("webdownload_id"))
+                                .or_else(|| item.get("queued_id"))
                                 .or_else(|| item.get("download_id"))
                                 .and_then(value_to_i64)
                         })
@@ -234,6 +244,9 @@ fn extract_created_target_id(payload: &Value) -> Option<i64> {
                 .get("torrent_id")
                 .or_else(|| payload.get("id"))
                 .or_else(|| payload.get("web_id"))
+                .or_else(|| payload.get("webdownload_id"))
+                .or_else(|| payload.get("queued_id"))
+                .or_else(|| payload.get("download_id"))
                 .and_then(value_to_i64)
         })
 }
@@ -427,6 +440,66 @@ impl TorboxService {
             .map_err(|e| ShioriError::Other(format!("Failed to resolve torrent redirect URL: {}", e)))
     }
 
+    /// Extract an MD5 hash from various Anna's Archive URL patterns.
+    fn extract_anna_md5(url: &str) -> Option<String> {
+        // Matches /md5/<hash> or trailing hash after the last `/`
+        if let Some(pos) = url.find("/md5/") {
+            let rest = &url[pos + 5..];
+            let hash = rest.split(&['?', '/', '#'][..]).next().unwrap_or("");
+            if hash.len() == 32 && hash.chars().all(|c| c.is_ascii_hexdigit()) {
+                return Some(hash.to_ascii_lowercase());
+            }
+        }
+        // Try to parse it as a query param
+        if let Ok(parsed) = reqwest::Url::parse(url) {
+            for (k, v) in parsed.query_pairs() {
+                if k == "md5" && v.len() == 32 && v.chars().all(|c| c.is_ascii_hexdigit()) {
+                    return Some(v.to_ascii_lowercase());
+                }
+            }
+        }
+        None
+    }
+
+    /// For an Anna's Archive torrent/CDN URL that returned a non-200, attempt to scrape the
+    /// corresponding `/md5/{hash}` detail page and extract the first magnet link.
+    /// Returns `None` if no magnet link is found or the scrape fails.
+    async fn try_scrape_anna_magnet(client: &reqwest::Client, failed_url: &str) -> Option<String> {
+        let md5 = Self::extract_anna_md5(failed_url)?;
+
+        // Derive the base mirror from the failed URL's host
+        let base = reqwest::Url::parse(failed_url)
+            .ok()
+            .and_then(|u| {
+                u.host_str().map(|h| format!("{}://{}", u.scheme(), h))
+            })
+            .unwrap_or_else(|| "https://annas-archive.gl".to_string());
+
+        let detail_url = format!("{}/md5/{}", base, md5);
+
+        let html = match client
+            .get(&detail_url)
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            .timeout(Duration::from_secs(20))
+            .send()
+            .await
+        {
+            Ok(resp) if resp.status().is_success() => match resp.text().await {
+                Ok(text) => text,
+                Err(_) => return None,
+            },
+            _ => return None,
+        };
+
+        // Scan anchor hrefs first
+        let magnet_re = regex::Regex::new(r#"magnet:\?[^\s"'<>]+"#).ok()?;
+        if let Some(m) = magnet_re.find(&html) {
+            return Some(m.as_str().to_string());
+        }
+
+        None
+    }
+
     async fn resolve_torrent_input(
         &self,
         initial_link: &str,
@@ -436,10 +509,15 @@ impl TorboxService {
         }
 
         let mut current_url = initial_link.to_string();
+        let redirect_client = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .timeout(Duration::from_secs(60))
+            .connect_timeout(Duration::from_secs(15))
+            .build()
+            .map_err(|e| ShioriError::Other(format!("Failed to create torrent resolver client: {}", e)))?;
 
         for _ in 0..5 {
-            let torrent_resp = self
-                .client
+            let torrent_resp = redirect_client
                 .get(&current_url)
                 .send()
                 .await
@@ -468,6 +546,25 @@ impl TorboxService {
             }
 
             if !status.is_success() {
+                // For Anna's Archive URLs, the .torrent download endpoints require auth cookies
+                // and return 404/403 anonymously. Try to extract a magnet link from the
+                // corresponding detail page (/md5/{hash}) as a fallback.
+                let lower_url = current_url.to_ascii_lowercase();
+                let is_anna = lower_url.contains("annas-archive");
+
+                if is_anna {
+                    if let Some(magnet) = Self::try_scrape_anna_magnet(&self.client, &current_url).await {
+                        log::info!("[TorBox] Anna's Archive .torrent returned {}, fell back to scraped magnet.", status);
+                        return Ok((Some(magnet), None));
+                    }
+                    return Err(ShioriError::Other(format!(
+                        "Anna's Archive torrent link is not accessible anonymously ({}). \
+                        This book may not have a public magnet link — try finding it manually on \
+                        the Anna's Archive detail page.",
+                        status
+                    )));
+                }
+
                 return Err(ShioriError::Other(format!(
                     "Torrent URL returned non-success status: {}",
                     status
@@ -498,21 +595,43 @@ impl TorboxService {
                 ));
             }
 
+            let bytes_preview = String::from_utf8_lossy(&torrent_bytes[..torrent_bytes.len().min(2048)])
+                .to_ascii_lowercase();
             let looks_like_html = content_type.contains("text/html")
+                || content_type.contains("application/xhtml")
                 || torrent_bytes.starts_with(b"<")
                 || torrent_bytes
                     .windows(5)
                     .any(|chunk| chunk.eq_ignore_ascii_case(b"<html"));
-            if looks_like_html {
-                let hint = if current_url.contains("annas-archive") || current_url.contains("/md5/") {
-                    " The source returned an HTML page instead of a torrent file. For Anna's Archive, verify auth cookie/key in Settings."
-                } else {
-                    " The source returned an HTML page instead of a torrent file."
-                };
-                return Err(ShioriError::Other(format!(
-                    "Torrent URL is not a direct .torrent file.{}",
-                    hint
-                )));
+            let looks_like_login_or_challenge = bytes_preview.contains("login")
+                || bytes_preview.contains("captcha")
+                || bytes_preview.contains("challenge")
+                || bytes_preview.contains("verify you are human")
+                || bytes_preview.contains("cloudflare")
+                || bytes_preview.contains("cf-chl");
+            if looks_like_html || looks_like_login_or_challenge {
+                // For Anna's Archive domains: the CDN returned an auth challenge / Cloudflare
+                // page instead of the torrent binary. Attempt to scrape the /md5/ detail page
+                // for a public magnet link before giving up.
+                let lower_url = current_url.to_ascii_lowercase();
+                if lower_url.contains("annas-archive") {
+                    if let Some(magnet) = Self::try_scrape_anna_magnet(&self.client, &current_url).await {
+                        log::info!("[TorBox] Anna's Archive returned HTML challenge, fell back to scraped magnet.");
+                        return Ok((Some(magnet), None));
+                    }
+                    return Err(ShioriError::Other(
+                        "Anna's Archive requires authentication to download this torrent. \
+                        This book may not have a public magnet link — search for it manually \
+                        on the Anna's Archive detail page and paste the magnet link instead."
+                            .to_string(),
+                    ));
+                }
+
+                return Err(ShioriError::Other(
+                    "Torrent URL returned an HTML page instead of a .torrent file. \
+                    Provide a direct .torrent URL or magnet link."
+                        .to_string(),
+                ));
             }
 
             let file_name = content_disposition
@@ -633,6 +752,12 @@ impl TorboxService {
             ));
         }
 
+        if source_link.starts_with("http://") && !looks_like_direct_importable_file(source_link) {
+            return Err(ShioriError::Validation(
+                "HTTP web download links must point directly to an importable file. Supported formats: cbz, cbr, epub, pdf, mobi, azw3, docx".to_string(),
+            ));
+        }
+
         let form = reqwest::multipart::Form::new().text("link", source_link.to_string());
 
         let resp = self
@@ -669,6 +794,7 @@ impl TorboxService {
                 data.get("web_id")
                     .or_else(|| data.get("id"))
                     .or_else(|| data.get("webdownload_id"))
+                    .or_else(|| data.get("queued_id"))
                     .or_else(|| data.get("download_id"))
                     .and_then(value_to_i64)
                     .or_else(|| value_to_i64(data))

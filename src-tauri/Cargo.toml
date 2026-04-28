@@ -1,6 +1,6 @@
 [package]
 name = "shiori"
-version = "1.0.3"
+version = "1.0.4"
 description = "Modern offline-first eBook library manager"
 authors = []
 license = "MIT"
@@ -64,6 +64,7 @@ scraper = "0.20"
 # Image processing & cover generation
 image = "0.25"
 imageproc = "0.24"              # Image manipulation
+mime_guess = "2"                # MIME type detection for CBZ/CBR image formats
 resvg = "0.42"                  # SVG rendering
 tiny-skia = "0.11"              # 2D graphics
 ab_glyph = "0.2"                # Font rendering (compatible with imageproc)

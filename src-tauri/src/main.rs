@@ -84,7 +84,6 @@ fn main() {
             registry.register(Arc::new(sources::mangadex::MangaDexSource::new()?));
             registry.register(Arc::new(sources::toongod::ToonGodSource::new()?));
             registry.register(Arc::new(sources::nyaa::NyaaSource::new()?));
-            registry.register(Arc::new(sources::animetosho::AnimeToshoSource::new()?));
             let bitsearch_source = Arc::new(sources::bitsearch::BitsearchSource::new()?);
             tauri::async_runtime::block_on(bitsearch_source.load_config_from_store(&app.handle().clone()))?;
             registry.register(bitsearch_source);
@@ -301,6 +300,9 @@ fn main() {
             commands::conversion::check_calibre_available,
             commands::conversion::convert_with_calibre,
             commands::conversion::convert_and_replace_book,
+            commands::conversion::open_book_for_reading,
+            commands::conversion::book_needs_conversion,
+            commands::conversion::cleanup_converted_cache,
             commands::cover::generate_cover,
             commands::cover::get_book_cover,
             commands::cover::get_book_cover_bytes,
@@ -412,6 +414,10 @@ fn main() {
             torbox::import_existing_torbox_target,
             torbox::resolve_torbox_download,
             torbox::wait_for_torbox_completion,
+            // Prowlarr commands
+            commands::prowlarr::test_prowlarr_connection,
+            commands::prowlarr::search_prowlarr,
+            commands::prowlarr::grab_prowlarr_release,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

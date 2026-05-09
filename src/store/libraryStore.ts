@@ -56,13 +56,11 @@ export function matchesAdvancedFilters(book: Book, filters: FilterCriteria): boo
   }
 
   if (filters.authors?.length) {
-    const bookAuthors = book.authors?.map(a => a.name) ?? []
-    if (!filters.authors.some(a => bookAuthors.includes(a))) return false
+    if (!book.authors?.some(a => a.name && filters.authors!.includes(a.name))) return false
   }
 
   if (filters.tags?.length) {
-    const bookTags = book.tags?.map(t => t.name) ?? []
-    if (!filters.tags.some(t => bookTags.includes(t))) return false
+    if (!book.tags?.some(t => t.name && filters.tags!.includes(t.name))) return false
   }
 
   if (filters.formats?.length) {

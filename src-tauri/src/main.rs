@@ -84,21 +84,32 @@ fn main() {
             registry.register(Arc::new(sources::mangadex::MangaDexSource::new()?));
             registry.register(Arc::new(sources::toongod::ToonGodSource::new()?));
             registry.register(Arc::new(sources::nyaa::NyaaSource::new()?));
+            // Configurable sources -- each kept as a concrete Arc so we can call
+            // load_config_from_store() in the async spawn below, while also being
+            // coerced to Arc<dyn Source> for the registry (no blocking block_on).
             let bitsearch_source = Arc::new(sources::bitsearch::BitsearchSource::new()?);
-            tauri::async_runtime::block_on(bitsearch_source.load_config_from_store(&app.handle().clone()))?;
-            registry.register(bitsearch_source);
+            registry.register(bitsearch_source.clone() as Arc<dyn sources::Source>);
             let x1337_source = Arc::new(sources::x1337::X1337Source::new()?);
-            tauri::async_runtime::block_on(x1337_source.load_config_from_store(&app.handle().clone()))?;
-            registry.register(x1337_source);
+            registry.register(x1337_source.clone() as Arc<dyn sources::Source>);
             let tpb_api_source = Arc::new(sources::tpb_api::TpbApiSource::new()?);
-            tauri::async_runtime::block_on(tpb_api_source.load_config_from_store(&app.handle().clone()))?;
-            registry.register(tpb_api_source);
+            registry.register(tpb_api_source.clone() as Arc<dyn sources::Source>);
             let rutracker_source = Arc::new(sources::rutracker::RutrackerSource::new()?);
-            tauri::async_runtime::block_on(rutracker_source.load_config_from_store(&app.handle().clone()))?;
-            registry.register(rutracker_source);
+            registry.register(rutracker_source.clone() as Arc<dyn sources::Source>);
             let anna_source = Arc::new(sources::annas_archive::AnnasArchiveSource::new()?);
-            tauri::async_runtime::block_on(anna_source.load_config_from_store(&app.handle().clone()))?;
-            registry.register(anna_source);
+            registry.register(anna_source.clone() as Arc<dyn sources::Source>);
+
+            // Load source configs from the Tauri store in the background so the UI
+            // appears immediately. Sources use defaults until async hydration completes.
+            let app_handle_for_sources = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let _ = bitsearch_source.load_config_from_store(&app_handle_for_sources).await;
+                let _ = x1337_source.load_config_from_store(&app_handle_for_sources).await;
+                let _ = tpb_api_source.load_config_from_store(&app_handle_for_sources).await;
+                let _ = rutracker_source.load_config_from_store(&app_handle_for_sources).await;
+                let _ = anna_source.load_config_from_store(&app_handle_for_sources).await;
+                log::info!("Source plugin configs loaded from store");
+            });
+
             let plugin_registry = Arc::new(tokio::sync::RwLock::new(registry));
 
             app.manage(AppState {
@@ -251,6 +262,7 @@ fn main() {
             commands::reader::get_all_annotations,
             commands::reader::export_annotations,
             commands::reader::get_reader_settings,
+            commands::reader::get_reader_startup_data,
             commands::reader::save_reader_settings,
             commands::reader::get_book_file_path,
             commands::reader::detect_book_format,
@@ -308,6 +320,7 @@ fn main() {
             commands::cover::get_book_cover_bytes,
             commands::cover::get_cover_by_id,
             commands::cover::get_cover_path_by_id,
+            commands::cover::get_cover_paths_batch,
             commands::cover::clear_cover_cache,
             commands::rss::add_rss_feed,
             commands::rss::get_rss_feed,
@@ -355,6 +368,7 @@ fn main() {
             commands::preferences::set_manga_preference_override,
             commands::preferences::clear_manga_preference_override,
             commands::preferences::get_onboarding_state,
+            commands::preferences::get_startup_data,
             commands::preferences::complete_onboarding,
             commands::preferences::reset_onboarding,
             // Doodle commands

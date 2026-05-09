@@ -61,6 +61,7 @@ fn is_torrent_style_link(link: &str) -> bool {
     normalized.starts_with("magnet:")
         || normalized.contains(".torrent")
         || normalized.contains("/torrent")
+        || normalized.contains("annas-archive")
 }
 
 fn extract_target_id(value: &Value) -> Option<i64> {

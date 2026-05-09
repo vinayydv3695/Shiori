@@ -749,3 +749,180 @@ pub async fn reset_onboarding(state: State<'_, AppState>) -> Result<()> {
     
     Ok(())
 }
+
+/// Combined startup payload — returned by get_startup_data in a single IPC call.
+/// Replaces 4 separate round-trips (getUserPreferences, getBookPreferenceOverrides,
+/// getMangaPreferenceOverrides, getOnboardingState) that previously ran sequentially.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StartupData {
+    pub preferences: UserPreferences,
+    pub book_overrides: Vec<PreferenceOverride>,
+    pub manga_overrides: Vec<PreferenceOverride>,
+    pub onboarding: OnboardingState,
+    pub reading_goal_minutes: Option<i64>,
+}
+
+/// Single IPC command called once on app startup.
+/// Executes all 5 queries on the Rust side and returns a single JSON payload,
+/// eliminating 4 extra IPC round-trips from the cold-start path.
+#[tauri::command]
+pub async fn get_startup_data(state: State<'_, AppState>) -> Result<StartupData> {
+    let conn = state.db.get_connection()?;
+
+    // ── User preferences ──────────────────────────────────────────────────────
+    let preferences = conn.query_row(
+        "SELECT 
+            theme,
+            book_font_family, book_font_size, book_line_height, book_page_width,
+            book_scroll_mode, book_justification, book_paragraph_spacing, 
+            book_animation_speed, book_hyphenation, book_custom_css,
+            manga_mode, manga_direction, manga_margin_size, manga_fit_width,
+            manga_background_color, manga_progress_bar, manga_image_smoothing,
+            manga_preload_count, manga_gpu_acceleration,
+            auto_start, default_import_path, ui_density, accent_color,
+            preferred_content_type, ui_scale, performance_mode, 
+            metadata_mode, auto_scan_enabled, default_manga_path,
+            tts_voice, tts_rate, tts_auto_advance, tts_highlight_color,
+            translation_target_language, auto_group_manga,
+            COALESCE(prowlarr_enabled, 0), COALESCE(prowlarr_url, ''), COALESCE(prowlarr_api_key, ''), COALESCE(prowlarr_categories, '[7000,8000]')
+        FROM user_preferences WHERE id = 1",
+        [],
+        |row| {
+            Ok(UserPreferences {
+                theme: row.get(0)?,
+                book: BookPreferences {
+                    font_family: row.get(1)?,
+                    font_size: row.get(2)?,
+                    line_height: row.get(3)?,
+                    page_width: row.get(4)?,
+                    scroll_mode: row.get(5)?,
+                    justification: row.get(6)?,
+                    paragraph_spacing: row.get(7)?,
+                    animation_speed: row.get(8)?,
+                    hyphenation: row.get(9)?,
+                    custom_css: row.get(10)?,
+                },
+                manga: MangaPreferences {
+                    mode: row.get(11)?,
+                    direction: row.get(12)?,
+                    margin_size: row.get(13)?,
+                    fit_width: row.get(14)?,
+                    background_color: row.get(15)?,
+                    progress_bar: row.get(16)?,
+                    image_smoothing: row.get(17)?,
+                    preload_count: row.get(18)?,
+                    gpu_acceleration: row.get(19)?,
+                },
+                auto_start: row.get(20)?,
+                default_import_path: row.get(21)?,
+                ui_density: row.get(22)?,
+                accent_color: row.get(23)?,
+                preferred_content_type: row.get(24).unwrap_or_else(|_| "both".to_string()),
+                ui_scale: row.get(25).unwrap_or(1.0),
+                performance_mode: row.get(26).unwrap_or_else(|_| "standard".to_string()),
+                metadata_mode: row.get(27).unwrap_or_else(|_| "online".to_string()),
+                auto_scan_enabled: row.get(28).unwrap_or(true),
+                default_manga_path: row.get(29).unwrap_or(None),
+                tts: TtsPreferences {
+                    voice: row.get(30).unwrap_or_else(|_| "default".to_string()),
+                    rate: row.get(31).unwrap_or(1.0),
+                    auto_advance: row.get::<_, bool>(32).unwrap_or(true),
+                    highlight_color: row.get(33).unwrap_or_else(|_| "#f3a6a68c".to_string()),
+                },
+                translation_target_language: row.get(34).unwrap_or_else(|_| "en".to_string()),
+                auto_group_manga: row.get(35).unwrap_or(true),
+                prowlarr_enabled: row.get::<_, bool>(36).unwrap_or(false),
+                prowlarr_url: row.get(37).unwrap_or_default(),
+                prowlarr_api_key: row.get(38).unwrap_or_default(),
+                prowlarr_categories: row.get(39).unwrap_or_else(|_| "[7000,8000]".to_string()),
+            })
+        },
+    )?;
+
+    // ── Book preference overrides ─────────────────────────────────────────────
+    let book_overrides = {
+        let mut stmt = conn.prepare(
+            "SELECT book_id, 
+                font_family, font_size, line_height, page_width,
+                scroll_mode, justification, paragraph_spacing, animation_speed,
+                hyphenation, custom_css
+            FROM book_preference_overrides"
+        )?;
+        let res = stmt.query_map([], |row| {
+            let book_id: i32 = row.get(0)?;
+            let mut prefs = serde_json::Map::new();
+            if let Ok(Some(v)) = row.get::<_, Option<String>>(1)  { prefs.insert("fontFamily".into(), v.into()); }
+            if let Ok(Some(v)) = row.get::<_, Option<i32>>(2)     { prefs.insert("fontSize".into(), v.into()); }
+            if let Ok(Some(v)) = row.get::<_, Option<f32>>(3)     {
+                if let Some(n) = serde_json::Number::from_f64(v as f64) { prefs.insert("lineHeight".into(), n.into()); }
+            }
+            if let Ok(Some(v)) = row.get::<_, Option<i32>>(4)     { prefs.insert("pageWidth".into(), v.into()); }
+            if let Ok(Some(v)) = row.get::<_, Option<String>>(5)  { prefs.insert("scrollMode".into(), v.into()); }
+            if let Ok(Some(v)) = row.get::<_, Option<String>>(6)  { prefs.insert("justification".into(), v.into()); }
+            if let Ok(Some(v)) = row.get::<_, Option<i32>>(7)     { prefs.insert("paragraphSpacing".into(), v.into()); }
+            if let Ok(Some(v)) = row.get::<_, Option<i32>>(8)     { prefs.insert("animationSpeed".into(), v.into()); }
+            if let Ok(Some(v)) = row.get::<_, Option<bool>>(9)    { prefs.insert("hyphenation".into(), v.into()); }
+            if let Ok(Some(v)) = row.get::<_, Option<String>>(10) { prefs.insert("customCSS".into(), v.into()); }
+            Ok(PreferenceOverride { book_id, preferences: serde_json::Value::Object(prefs) })
+        })?.collect::<rusqlite::Result<Vec<_>>>()?;
+        res
+    };
+
+    // ── Manga preference overrides ────────────────────────────────────────────
+    let manga_overrides = {
+        let mut stmt = conn.prepare(
+            "SELECT book_id,
+                mode, direction, margin_size, fit_width,
+                background_color, progress_bar, image_smoothing, preload_count,
+                gpu_acceleration
+            FROM manga_preference_overrides"
+        )?;
+        let res = stmt.query_map([], |row| {
+            let book_id: i32 = row.get(0)?;
+            let mut prefs = serde_json::Map::new();
+            if let Ok(Some(v)) = row.get::<_, Option<String>>(1)  { prefs.insert("mode".into(), v.into()); }
+            if let Ok(Some(v)) = row.get::<_, Option<String>>(2)  { prefs.insert("direction".into(), v.into()); }
+            if let Ok(Some(v)) = row.get::<_, Option<i32>>(3)     { prefs.insert("marginSize".into(), v.into()); }
+            if let Ok(Some(v)) = row.get::<_, Option<bool>>(4)    { prefs.insert("fitWidth".into(), v.into()); }
+            if let Ok(Some(v)) = row.get::<_, Option<String>>(5)  { prefs.insert("backgroundColor".into(), v.into()); }
+            if let Ok(Some(v)) = row.get::<_, Option<String>>(6)  { prefs.insert("progressBar".into(), v.into()); }
+            if let Ok(Some(v)) = row.get::<_, Option<bool>>(7)    { prefs.insert("imageSmoothing".into(), v.into()); }
+            if let Ok(Some(v)) = row.get::<_, Option<i32>>(8)     { prefs.insert("preloadCount".into(), v.into()); }
+            if let Ok(Some(v)) = row.get::<_, Option<bool>>(9)    { prefs.insert("gpuAcceleration".into(), v.into()); }
+            Ok(PreferenceOverride { book_id, preferences: serde_json::Value::Object(prefs) })
+        })?.collect::<rusqlite::Result<Vec<_>>>()?;
+        res
+    };
+
+    // ── Onboarding state ──────────────────────────────────────────────────────
+    let onboarding = conn.query_row(
+        "SELECT completed, completed_at, version, skipped_steps FROM onboarding_state WHERE id = 1",
+        [],
+        |row| {
+            let skipped_json: String = row.get(3)?;
+            let skipped_steps = serde_json::from_str(&skipped_json).unwrap_or_default();
+            Ok(OnboardingState {
+                completed: row.get(0)?,
+                completed_at: row.get(1)?,
+                version: row.get(2)?,
+                skipped_steps,
+            })
+        },
+    )?;
+
+    // ── Reading goal (best-effort) ────────────────────────────────────────────
+    let reading_goal_minutes: Option<i64> = conn.query_row(
+        "SELECT daily_minutes_target FROM reading_goals WHERE id = 1",
+        [],
+        |row| row.get(0),
+    ).ok();
+
+    Ok(StartupData {
+        preferences,
+        book_overrides,
+        manga_overrides,
+        onboarding,
+        reading_goal_minutes,
+    })
+}

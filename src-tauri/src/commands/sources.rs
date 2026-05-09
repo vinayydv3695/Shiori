@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::time::Instant;
 
+use serde::Serialize;
 use tauri::{Manager, State};
 use tauri_plugin_store::StoreExt;
 
@@ -10,7 +11,7 @@ use crate::sources::rutracker::{RutrackerConfig, RutrackerSource};
 use crate::sources::{
     Chapter, ContentType, Page, SearchResponse, SearchResult, SourceMeta, SourceSearchDiagnostics,
 };
-use crate::sources::annas_archive::{AnnasArchiveConfig, AnnasArchiveSource};
+use crate::sources::annas_archive::{AnnasArchiveConfig, AnnasArchiveSource, DownloadType};
 
 #[tauri::command]
 pub async fn anna_archive_get_config(
@@ -50,6 +51,95 @@ pub async fn anna_archive_set_config(
         .ok_or_else(|| ShioriError::Other("Anna source type mismatch".to_string()))?;
 
     source.save_config_to_store(&app_handle, config).await
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadOptionDto {
+    pub url: String,
+    pub download_type: String,
+    pub label: Option<String>,
+}
+
+#[tauri::command]
+pub async fn annas_archive_get_torrent_links(
+    state: State<'_, crate::AppState>,
+    content_id: String,
+) -> Result<Vec<DownloadOptionDto>> {
+    let source = {
+        let registry = state.plugin_registry.read().await;
+        registry
+            .get("anna-archive")
+            .ok_or_else(|| ShioriError::Validation("Unknown source: anna-archive".to_string()))?
+    };
+
+    let source = source
+        .as_any()
+        .downcast_ref::<AnnasArchiveSource>()
+        .ok_or_else(|| ShioriError::Other("Anna source type mismatch".to_string()))?;
+
+    let options = source.get_download_options(&content_id).await?;
+    if options.is_empty() {
+        return Err(ShioriError::Other(
+            "No torrent or magnet links found for this book".to_string(),
+        ));
+    }
+
+    Ok(options
+        .into_iter()
+        .map(|option| DownloadOptionDto {
+            url: option.url,
+            download_type: option.download_type.as_str().to_string(),
+            label: option.label,
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub async fn annas_archive_send_to_torbox(
+    app_handle: tauri::AppHandle,
+    state: State<'_, crate::AppState>,
+    torbox_state: State<'_, crate::commands::torbox::TorboxState>,
+    content_id: String,
+    filename_hint: Option<String>,
+) -> Result<String> {
+    let source = {
+        let registry = state.plugin_registry.read().await;
+        registry
+            .get("anna-archive")
+            .ok_or_else(|| ShioriError::Validation("Unknown source: anna-archive".to_string()))?
+    };
+
+    let source = source
+        .as_any()
+        .downcast_ref::<AnnasArchiveSource>()
+        .ok_or_else(|| ShioriError::Other("Anna source type mismatch".to_string()))?;
+
+    let options = source.get_download_options(&content_id).await?;
+
+    let chosen_url = options
+        .iter()
+        .find(|option| matches!(option.download_type, DownloadType::Magnet))
+        .or_else(|| {
+            options
+                .iter()
+                .find(|option| matches!(option.download_type, DownloadType::Torrent))
+        })
+        .map(|option| option.url.clone())
+        .ok_or_else(|| {
+            ShioriError::Other(
+                "No magnet or torrent links found for this book on Anna's Archive".to_string(),
+            )
+        })?;
+
+    crate::commands::torbox::torbox_download_and_import_impl(
+        &app_handle,
+        &torbox_state.service,
+        &*state,
+        chosen_url,
+        filename_hint,
+    )
+    .await
 }
 
 #[tauri::command]

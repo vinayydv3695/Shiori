@@ -408,6 +408,8 @@ fn main() {
             commands::sources::rutracker_get_config,
             commands::sources::rutracker_set_config,
             commands::sources::annas_archive_download,
+            commands::sources::annas_archive_get_torrent_links,
+            commands::sources::annas_archive_send_to_torbox,
             commands::sources::proxy_manga_image,
             commands::debrid::debrid_resolve_and_import,
             // Torbox commands

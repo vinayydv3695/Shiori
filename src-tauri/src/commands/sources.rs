@@ -117,11 +117,32 @@ pub async fn annas_archive_send_to_torbox(
 
     let options = source.get_download_options(&content_id).await?;
 
-    let mut magnet_candidates = options
+    let mut candidate_urls = options
         .iter()
         .filter(|option| matches!(option.download_type, DownloadType::Magnet))
         .map(|option| option.url.clone())
         .collect::<Vec<_>>();
+
+    let mut direct_external_candidates = options
+        .iter()
+        .filter(|option| {
+            matches!(
+                option.download_type,
+                DownloadType::Direct | DownloadType::External
+            )
+        })
+        .map(|option| option.url.clone())
+        .collect::<Vec<_>>();
+
+    // Prefer likely single-file mirrors first (file.php or importable extension).
+    direct_external_candidates.sort_by_key(|url| {
+        let lower = url.to_ascii_lowercase();
+        let looks_like_single_file = lower.contains("file.php?id=")
+            || [".epub", ".pdf", ".mobi", ".azw3", ".docx", ".cbz", ".cbr"]
+                .iter()
+                .any(|ext| lower.contains(ext));
+        if looks_like_single_file { 0u8 } else { 1u8 }
+    });
 
     let mut torrent_candidates = options
         .iter()
@@ -139,32 +160,21 @@ pub async fn annas_archive_send_to_torbox(
         }
     });
 
-    magnet_candidates.extend(torrent_candidates);
+    candidate_urls.extend(direct_external_candidates);
+    candidate_urls.extend(torrent_candidates);
 
-    // Optional fallback if source later exposes direct/external URLs too.
-    magnet_candidates.extend(
-        options
-            .iter()
-            .filter(|option| {
-                matches!(
-                    option.download_type,
-                    DownloadType::Direct | DownloadType::External
-                )
-            })
-            .map(|option| option.url.clone()),
-    );
+    let mut seen = std::collections::HashSet::new();
+    candidate_urls.retain(|url| seen.insert(url.clone()));
 
-    magnet_candidates.dedup();
-
-    if magnet_candidates.is_empty() {
+    if candidate_urls.is_empty() {
         return Err(ShioriError::Other(
-            "No magnet or torrent links found for this book on Anna's Archive".to_string(),
+            "No usable links found for this book on Anna's Archive".to_string(),
         ));
     }
 
     let mut attempt_errors = Vec::new();
 
-    for candidate_url in magnet_candidates {
+    for candidate_url in candidate_urls {
         match crate::commands::torbox::torbox_download_and_import_impl(
             &app_handle,
             &torbox_state.service,

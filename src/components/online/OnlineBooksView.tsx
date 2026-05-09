@@ -338,10 +338,51 @@ export function OnlineBooksView() {
 
     try {
       if (activePluginSourceId === 'anna-archive') {
-        setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Sending Anna link to Torbox...' }));
-        await pluginApi.annaArchiveSendToTorbox(book.id, book.title);
-        setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Imported from Torbox.' }));
-        showSuccessToast('Imported via Torbox', `${book.title} was imported to your library.`);
+        setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Fetching Anna torrent links...' }));
+
+        const options = await pluginApi.annaArchiveGetTorrentLinks(book.id);
+        if (!options.length) {
+          throw new Error('No usable links found for this Anna result.');
+        }
+
+        const isManagedDatasetTorrent = (url: string) => {
+          const lower = url.toLowerCase();
+          return lower.includes('/managed_by_aa/') || lower.includes('/zlib/');
+        };
+
+        const looksLikeSingleFile = (url: string) => {
+          const lower = url.toLowerCase();
+          return (
+            lower.includes('file.php?id=') ||
+            ['.epub', '.pdf', '.mobi', '.azw3', '.docx', '.cbz', '.cbr'].some((ext) =>
+              lower.includes(ext)
+            )
+          );
+        };
+
+        const sorted = [...options].sort((a, b) => {
+          const rank = (item: { downloadType: string; url: string }) => {
+            const t = item.downloadType?.toLowerCase() ?? '';
+            if (t === 'magnet') return 0;
+            if ((t === 'direct' || t === 'external') && looksLikeSingleFile(item.url)) return 1;
+            if (t === 'torrent' && !isManagedDatasetTorrent(item.url)) return 2;
+            if (t === 'direct' || t === 'external') return 3;
+            if (t === 'torrent') return 4;
+            return 9;
+          };
+          return rank(a) - rank(b);
+        });
+
+        const chosen = sorted[0];
+        if (!chosen) {
+          throw new Error('No queueable Anna link found.');
+        }
+
+        setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Queueing in Torbox...' }));
+        await enqueueFromAnna({ title: book.title, sourceLink: chosen.url });
+        setDownloadingBooks(prev => ({ ...prev, [book.id]: 'Queued in Torbox. Opening queue...' }));
+        showSuccessToast('Queued in Torbox', `${book.title} was queued. Opening Torbox view now.`);
+        setCurrentView('torbox-books');
       } else {
         // Get download options (chapters represent download links for books)
         const chapters = await pluginApi.getChapters(activePluginSourceId, book.id);

@@ -63,7 +63,21 @@ pub struct DownloadOptionDto {
 
 fn is_anna_dataset_torrent(url: &str) -> bool {
     let lower = url.to_ascii_lowercase();
-    lower.contains("/managed_by_aa/") || lower.contains("/zlib/") || lower.contains("pilimi-zlib")
+
+    let managed_dataset = lower.contains("/managed_by_aa/")
+        || lower.contains("/zlib/")
+        || lower.contains("pilimi-zlib")
+        || lower.contains("annas_archive_data__");
+
+    // Anna external libgen shard torrents (f_*.torrent / nf_*.torrent / c_*.torrent / s_*.torrent)
+    // are collection buckets, not single-book torrents.
+    let libgen_shard = lower.contains("/dyn/small_file/torrents/external/libgen_")
+        && (lower.contains("/f_")
+            || lower.contains("/nf_")
+            || lower.contains("/c_")
+            || lower.contains("/s_"));
+
+    managed_dataset || libgen_shard
 }
 
 #[tauri::command]
@@ -107,7 +121,7 @@ pub async fn annas_archive_get_torrent_links(
     if filtered.is_empty() {
         if has_any_torrentish {
             return Err(ShioriError::Other(
-                "Only large Anna collection torrents were found for this book. No per-book magnet/torrent link is available."
+                "Only Anna collection/shard torrents were found for this result (no per-book magnet/torrent). Use View Details for manual download."
                     .to_string(),
             ));
         }
@@ -170,7 +184,7 @@ pub async fn annas_archive_send_to_torbox(
     if candidate_urls.is_empty() {
         if has_any_torrentish {
             return Err(ShioriError::Other(
-                "Only large Anna collection torrents were found for this book. No per-book magnet/torrent link is available."
+                "Only Anna collection/shard torrents were found for this result (no per-book magnet/torrent). Use View Details for manual download."
                     .to_string(),
             ));
         }

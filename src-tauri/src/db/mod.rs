@@ -61,17 +61,22 @@ impl Database {
         match perf_mode.as_str() {
             "large_library" => {
                 log::info!("Applying Large Library performance pragmas");
-                conn.execute_batch("PRAGMA cache_size = -64000;")?;
+                // 128 MB page cache — fast for libraries with 1000+ books
+                conn.execute_batch("PRAGMA cache_size = -128000;")?;
             }
             "low_memory" => {
                 log::info!("Applying Low Memory performance pragmas");
                 conn.execute_batch("PRAGMA cache_size = -2000; PRAGMA temp_store = FILE;")?;
             }
             _ => {
-                // standard
-                conn.execute_batch("PRAGMA cache_size = -16000;")?;
+                // standard: 32 MB — good balance for typical libraries
+                conn.execute_batch("PRAGMA cache_size = -32000;")?;
             }
         }
+
+        // Update query planner statistics — cheap operation, big win after bulk imports
+        conn.execute_batch("PRAGMA optimize;")?;
+
         Ok(())
     }
 

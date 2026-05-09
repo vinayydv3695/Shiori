@@ -63,7 +63,8 @@ export function useGroupedLibrary(
     const groupedItems: GroupedItem[] = []
 
     // Process series groups (sorted by series name)
-    for (const [seriesTitle, seriesBooks] of Array.from(seriesMap.entries()).sort()) {
+    const sortedSeries = Array.from(seriesMap.entries()).sort((a, b) => a[0].localeCompare(b[0]))
+    for (const [seriesTitle, seriesBooks] of sortedSeries) {
       // Sort volumes within series by series_index
       const sortedVolumes = seriesBooks.sort((a, b) => {
         const indexA = a.series_index ?? Infinity

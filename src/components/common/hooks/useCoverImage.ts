@@ -1,41 +1,54 @@
-import { logger } from '@/lib/logger';
-import { useState, useEffect } from 'react';
-import { invoke, convertFileSrc } from '@tauri-apps/api/core';
+import { useState, useEffect } from 'react'
+import { convertFileSrc } from '@tauri-apps/api/core'
+import { requestCoverUrl } from '@/lib/coverCache'
 
+/**
+ * useCoverImage — resolves a cover URL for a book.
+ *
+ * If `initialCoverSrc` is provided (a raw file path from the Book object),
+ * it is converted immediately with no IPC call.
+ *
+ * Otherwise, delegates to the module-level coverCache micro-batcher which
+ * groups IDs from the same render cycle into a single batch IPC call.
+ */
 export function useCoverImage(bookId?: number, initialCoverSrc?: string | null) {
-    const [coverUrl, setCoverUrl] = useState<string | null>(
-        initialCoverSrc ? convertFileSrc(initialCoverSrc) : null
-    );
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(false);
+  const [coverUrl, setCoverUrl] = useState<string | null>(
+    initialCoverSrc ? convertFileSrc(initialCoverSrc) : null
+  )
+  const [loading, setLoading] = useState(!initialCoverSrc && !!bookId)
+  const [error, setError] = useState(false)
 
-    useEffect(() => {
-        let mounted = true;
+  useEffect(() => {
+    // If an initial path was provided, use it directly — no IPC needed
+    if (initialCoverSrc) {
+      setCoverUrl(convertFileSrc(initialCoverSrc))
+      setLoading(false)
+      setError(false)
+      return
+    }
 
-        async function loadCover() {
-            if (!bookId || initialCoverSrc) return;
+    if (!bookId) {
+      setLoading(false)
+      return
+    }
 
-            setLoading(true);
-            setError(false);
+    let mounted = true
+    setLoading(true)
+    setError(false)
 
-            try {
-                const coverPath = await invoke<string | null>('get_cover_path_by_id', { id: bookId });
-                if (coverPath && mounted) {
-                    setCoverUrl(convertFileSrc(coverPath));
-                } else if (mounted) {
-                    setError(true);
-                }
-            } catch (err) {
-                logger.error("Failed to load cover:", err);
-                if (mounted) setError(true);
-            } finally {
-                if (mounted) setLoading(false);
-            }
-        }
+    requestCoverUrl(bookId).then((url) => {
+      if (!mounted) return
+      if (url) {
+        setCoverUrl(url)
+        setError(false)
+      } else {
+        setError(true)
+      }
+      setLoading(false)
+    })
 
-        loadCover();
-        return () => { mounted = false; };
-    }, [bookId, initialCoverSrc]);
+    return () => { mounted = false }
+  }, [bookId, initialCoverSrc])
 
-    return { coverUrl, loading, error };
+  return { coverUrl, loading, error }
 }

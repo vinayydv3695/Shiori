@@ -157,6 +157,67 @@ pub async fn get_cover_path_by_id(
     Ok(Some(cover_set.medium.to_string_lossy().to_string()))
 }
 
+/// Batch-resolve cover file paths for multiple book IDs in a single SQL query.
+/// Returns a map of { bookId (as string) -> absoluteFilePath }.
+/// IDs whose cover file doesn't exist on disk are omitted so the caller can
+/// fall back to the generated-cover service per-book if needed.
+///
+/// Capped at 200 IDs per call — the virtual grid only shows ~20-40 rows at once,
+/// so a single batch call per scroll position is sufficient.
+#[tauri::command]
+pub async fn get_cover_paths_batch(
+    app_state: State<'_, crate::AppState>,
+    ids: Vec<i64>,
+) -> crate::error::Result<std::collections::HashMap<String, String>> {
+    if ids.is_empty() {
+        return Ok(std::collections::HashMap::new());
+    }
+
+    // Cap to 200 IDs to avoid unbounded query sizes
+    let capped: Vec<i64> = ids.into_iter().take(200).collect();
+
+    let db = &app_state.db;
+    let conn = db.get_connection()?;
+
+    // Build parameterised IN clause: (?1,?2,?3,...)
+    let placeholders: String = capped
+        .iter()
+        .enumerate()
+        .map(|(i, _)| format!("?{}", i + 1))
+        .collect::<Vec<_>>()
+        .join(",");
+
+    let sql = format!(
+        "SELECT id, cover_path FROM books WHERE id IN ({}) AND cover_path IS NOT NULL",
+        placeholders
+    );
+
+    let mut stmt = conn.prepare(&sql)
+        .map_err(|e| crate::error::ShioriError::Database(e))?;
+
+    // Build rusqlite params from the Vec<i64>
+    use rusqlite::types::ToSql;
+    let params: Vec<&dyn ToSql> = capped.iter().map(|id| id as &dyn ToSql).collect();
+
+    let rows = stmt.query_map(params.as_slice(), |row| {
+        let id: i64 = row.get(0)?;
+        let path: String = row.get(1)?;
+        Ok((id, path))
+    }).map_err(|e| crate::error::ShioriError::Database(e))?;
+
+    let mut result = std::collections::HashMap::with_capacity(capped.len());
+    for row in rows {
+        if let Ok((id, path)) = row {
+            // Only include if the file actually exists on disk
+            if std::path::Path::new(&path).exists() {
+                result.insert(id.to_string(), path);
+            }
+        }
+    }
+
+    Ok(result)
+}
+
 /// Clear cover cache
 #[tauri::command]
 pub async fn clear_cover_cache(

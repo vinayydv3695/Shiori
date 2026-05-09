@@ -23,7 +23,6 @@ import {
   IconCheck,
 } from '@/components/icons/ShioriIcons'
 import { useCoverImage } from '../common/hooks/useCoverImage'
-import { usePreferencesStore } from '@/store/preferencesStore'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { Edit2, Trash2, Layers } from 'lucide-react'
 import { SeriesAssignmentDialog } from './SeriesAssignmentDialog'
@@ -121,6 +120,10 @@ const CoverSkeleton = () => (
 // ─── Main Card ────────────────────────────────
 interface BookCardProps {
   book: Book
+  /** Passed from LibraryGrid — avoids a per-card Zustand subscription.
+   *  Defaults to 'medium' for dialogs (SeriesView, etc.) that don't need
+   *  the dynamic size setting. */
+  coverSize?: 'small' | 'medium' | 'large'
   isSelected: boolean
   onSelect: (id: number) => void
   onOpen: (id: number) => void
@@ -136,6 +139,7 @@ interface BookCardProps {
 
 export const PremiumBookCard = memo(function PremiumBookCard({
   book,
+  coverSize = 'medium',
   isSelected,
   onSelect,
   onOpen,
@@ -154,8 +158,9 @@ export const PremiumBookCard = memo(function PremiumBookCard({
   const [visible, setVisible] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
 
-  const coverSize = usePreferencesStore((s) => s.preferences?.coverSize ?? 'medium')
-
+  // Cover is only requested once the card is visible in the viewport.
+  // The coverCache batcher groups all cards visible in the same render
+  // cycle into a single batch IPC call.
   const { coverUrl, loading: coverLoading } = useCoverImage(visible ? book.id : undefined, null)
 
   const isManga = book.file_format === 'cbz' || book.file_format === 'cbr'

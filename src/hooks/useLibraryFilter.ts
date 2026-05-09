@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useDeferredValue } from 'react';
 import { useLibraryStore, matchesAdvancedFilters } from '@/store/libraryStore';
 import { useCollectionStore } from '@/store/collectionStore';
 import { api, type Book } from '@/lib/tauri';
@@ -9,6 +9,7 @@ import { logger } from '@/lib/logger';
  * Takes the search query and returns the final displayBooks array.
  */
 export function useLibraryFilter(searchQuery: string) {
+  const deferredQuery = useDeferredValue(searchQuery);
   const books = useLibraryStore(state => state.books);
   const selectedFilters = useLibraryStore(state => state.selectedFilters);
   const activeFilters = useLibraryStore(state => state.activeFilters);
@@ -43,8 +44,8 @@ export function useLibraryFilter(searchQuery: string) {
     let result = sourceBooks;
 
     // 1. Search Query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
+    if (deferredQuery.trim()) {
+      const query = deferredQuery.toLowerCase();
       result = result.filter(book =>
         book.title.toLowerCase().includes(query) ||
         book.authors?.some(a => a.name.toLowerCase().includes(query)) ||
@@ -60,56 +61,43 @@ export function useLibraryFilter(searchQuery: string) {
       publishers, ratings, tags, identifiers
     } = selectedFilters;
 
-    if (authors.length > 0) {
-      result = result.filter(book =>
-        book.authors?.some(a => a.name && authors.includes(a.name))
-      );
-    }
+    const hasFilters = authors.length > 0 || languages.length > 0 || series.length > 0 || 
+                       formats.length > 0 || publishers.length > 0 || ratings.length > 0 || 
+                       tags.length > 0 || identifiers.length > 0;
 
-    if (languages.length > 0) {
-      result = result.filter(book =>
-        book.language && languages.includes(book.language)
-      );
-    }
+    if (hasFilters) {
+      const authorsSet = new Set(authors);
+      const languagesSet = new Set(languages);
+      const seriesSet = new Set(series);
+      const formatsSet = new Set(formats);
+      const publishersSet = new Set(publishers);
+      const ratingsSet = new Set(ratings);
+      const tagsSet = new Set(tags);
+      const identifiersSet = new Set(identifiers);
 
-    if (series.length > 0) {
-      result = result.filter(book =>
-        book.series && series.includes(book.series)
-      );
-    }
-
-    if (formats.length > 0) {
-      result = result.filter(book =>
-        book.file_format && formats.includes(book.file_format.toUpperCase())
-      );
-    }
-
-    if (publishers.length > 0) {
-      result = result.filter(book =>
-        book.publisher && publishers.includes(book.publisher)
-      );
-    }
-
-    if (ratings.length > 0) {
       result = result.filter(book => {
-        if (!book.rating) return false;
-        const roundedRating = (Math.round(book.rating * 2) / 2).toString();
-        return ratings.includes(roundedRating);
-      });
-    }
+        if (authorsSet.size > 0 && !book.authors?.some(a => a.name && authorsSet.has(a.name))) return false;
+        if (languagesSet.size > 0 && !(book.language && languagesSet.has(book.language))) return false;
+        if (seriesSet.size > 0 && !(book.series && seriesSet.has(book.series))) return false;
+        if (formatsSet.size > 0 && !(book.file_format && formatsSet.has(book.file_format.toUpperCase()))) return false;
+        if (publishersSet.size > 0 && !(book.publisher && publishersSet.has(book.publisher))) return false;
+        
+        if (ratingsSet.size > 0) {
+          if (!book.rating) return false;
+          const roundedRating = (Math.round(book.rating * 2) / 2).toString();
+          if (!ratingsSet.has(roundedRating)) return false;
+        }
 
-    if (tags.length > 0) {
-      result = result.filter(book =>
-        book.tags?.some(t => t.name && tags.includes(t.name))
-      );
-    }
+        if (tagsSet.size > 0 && !book.tags?.some(t => t.name && tagsSet.has(t.name))) return false;
 
-    if (identifiers.length > 0) {
-      result = result.filter(book => {
-        const ids = [];
-        if (book.isbn) ids.push(`ISBN: ${book.isbn}`);
-        if (book.isbn13) ids.push(`ISBN13: ${book.isbn13}`);
-        return ids.some(id => identifiers.includes(id));
+        if (identifiersSet.size > 0) {
+          let hasId = false;
+          if (book.isbn && identifiersSet.has(`ISBN: ${book.isbn}`)) hasId = true;
+          if (!hasId && book.isbn13 && identifiersSet.has(`ISBN13: ${book.isbn13}`)) hasId = true;
+          if (!hasId) return false;
+        }
+
+        return true;
       });
     }
 
@@ -118,7 +106,7 @@ export function useLibraryFilter(searchQuery: string) {
     }
 
     return result;
-  }, [books, searchQuery, selectedFilters, selectedCollection, filteredBooks, activeFilters]);
+  }, [books, deferredQuery, selectedFilters, selectedCollection, filteredBooks, activeFilters]);
 
   return { displayBooks, books };
 }

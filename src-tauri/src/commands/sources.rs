@@ -117,29 +117,79 @@ pub async fn annas_archive_send_to_torbox(
 
     let options = source.get_download_options(&content_id).await?;
 
-    let chosen_url = options
+    let mut magnet_candidates = options
         .iter()
-        .find(|option| matches!(option.download_type, DownloadType::Magnet))
-        .or_else(|| {
-            options
-                .iter()
-                .find(|option| matches!(option.download_type, DownloadType::Torrent))
-        })
+        .filter(|option| matches!(option.download_type, DownloadType::Magnet))
         .map(|option| option.url.clone())
-        .ok_or_else(|| {
-            ShioriError::Other(
-                "No magnet or torrent links found for this book on Anna's Archive".to_string(),
-            )
-        })?;
+        .collect::<Vec<_>>();
 
-    crate::commands::torbox::torbox_download_and_import_impl(
-        &app_handle,
-        &torbox_state.service,
-        &*state,
-        chosen_url,
-        filename_hint,
-    )
-    .await
+    let mut torrent_candidates = options
+        .iter()
+        .filter(|option| matches!(option.download_type, DownloadType::Torrent))
+        .map(|option| option.url.clone())
+        .collect::<Vec<_>>();
+
+    // Prefer non-dataset torrents before huge managed-by-aa packs.
+    torrent_candidates.sort_by_key(|url| {
+        let lower = url.to_ascii_lowercase();
+        if lower.contains("/managed_by_aa/") || lower.contains("/zlib/") {
+            1u8
+        } else {
+            0u8
+        }
+    });
+
+    magnet_candidates.extend(torrent_candidates);
+
+    // Optional fallback if source later exposes direct/external URLs too.
+    magnet_candidates.extend(
+        options
+            .iter()
+            .filter(|option| {
+                matches!(
+                    option.download_type,
+                    DownloadType::Direct | DownloadType::External
+                )
+            })
+            .map(|option| option.url.clone()),
+    );
+
+    magnet_candidates.dedup();
+
+    if magnet_candidates.is_empty() {
+        return Err(ShioriError::Other(
+            "No magnet or torrent links found for this book on Anna's Archive".to_string(),
+        ));
+    }
+
+    let mut attempt_errors = Vec::new();
+
+    for candidate_url in magnet_candidates {
+        match crate::commands::torbox::torbox_download_and_import_impl(
+            &app_handle,
+            &torbox_state.service,
+            &*state,
+            candidate_url.clone(),
+            filename_hint.clone(),
+        )
+        .await
+        {
+            Ok(path) => return Ok(path),
+            Err(err) => {
+                let mut short_url = candidate_url.clone();
+                if short_url.len() > 110 {
+                    short_url.truncate(110);
+                    short_url.push_str("...");
+                }
+                attempt_errors.push(format!("{} => {}", short_url, err));
+            }
+        }
+    }
+
+    Err(ShioriError::Other(format!(
+        "All Anna candidates failed in Torbox. {}",
+        attempt_errors.join(" | ")
+    )))
 }
 
 #[tauri::command]

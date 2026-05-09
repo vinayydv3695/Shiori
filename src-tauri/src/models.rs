@@ -117,6 +117,7 @@ pub struct ReadingProgress {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Annotation {
     pub id: Option<i64>,
     pub book_id: i64,
@@ -133,6 +134,7 @@ pub struct Annotation {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AnnotationCategory {
     pub id: Option<i64>,
     pub name: String,
@@ -166,6 +168,7 @@ pub struct AnnotationExportData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ReaderSettings {
     pub id: Option<i64>,
     pub user_id: String,

@@ -249,6 +249,37 @@ pub fn save_reader_settings(
     )
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReaderStartupData {
+    pub book: crate::models::Book,
+    pub progress: Option<ReadingProgress>,
+    pub annotations: Vec<Annotation>,
+    pub settings: ReaderSettings,
+}
+
+#[tauri::command]
+pub fn get_reader_startup_data(
+    book_id: i64,
+    state: State<AppState>,
+) -> Result<ReaderStartupData> {
+    validate::require_positive_id(book_id, "book_id")?;
+    let conn = state.db.get_connection()?;
+    
+    // Using existing service methods synchronously
+    let book = crate::services::library_service::get_book_by_id(&state.db, book_id)?;
+    let progress = ReaderService::get_reading_progress(&conn, book_id)?;
+    let annotations = ReaderService::get_annotations(&conn, book_id)?;
+    let settings = ReaderService::get_reader_settings(&conn, "default")?;
+    
+    Ok(ReaderStartupData {
+        book,
+        progress,
+        annotations,
+        settings,
+    })
+}
+
 // ==================== Book Access Command ====================
 
 #[tauri::command]

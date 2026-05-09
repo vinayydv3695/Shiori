@@ -554,19 +554,6 @@ impl AnnasArchiveSource {
             DownloadType::External => 3,
         });
 
-        if !options
-            .iter()
-            .any(|o| matches!(o.download_type, DownloadType::Magnet | DownloadType::Torrent | DownloadType::Direct | DownloadType::External))
-        {
-            let mirror = self.working_mirror.read().await.clone();
-            let detail_url = format!("{}/md5/{}", mirror, content_id);
-            options.push(DownloadOption {
-                url: detail_url,
-                download_type: DownloadType::External,
-                label: Some("Anna detail fallback".to_string()),
-            });
-        }
-
         Ok(options)
     }
 }
@@ -638,18 +625,12 @@ impl Source for AnnasArchiveSource {
 
     async fn get_pages(&self, chapter_id: &str) -> Result<Vec<Page>> {
         let content_id = chapter_id;
-        let mirror = self.working_mirror.read().await.clone();
-        let anna_detail_link = format!("{}/md5/{}", mirror, content_id);
-
-        let mut pages = vec![Page {
-            index: 0,
-            url: format!("anna|{}", anna_detail_link),
-        }];
-
         let scraped_links = self
             .scrape_detail_torrent_links(content_id)
             .await
             .unwrap_or_default();
+
+        let mut urls = Vec::new();
 
         for link in scraped_links {
             let lowered = link.to_ascii_lowercase();
@@ -661,16 +642,25 @@ impl Source for AnnasArchiveSource {
                 continue;
             };
 
-            let idx = pages.len();
-            pages.push(Page {
-                index: idx as u32,
-                url: format!("{}|{}", kind, link),
-            });
+            urls.push(format!("{}|{}", kind, link));
         }
 
         let mut unique = std::collections::HashSet::new();
-        pages.retain(|page| unique.insert(page.url.clone()));
+        urls.retain(|url| unique.insert(url.clone()));
 
-        Ok(pages)
+        if urls.is_empty() {
+            let mirror = self.working_mirror.read().await.clone();
+            let anna_detail_link = format!("{}/md5/{}", mirror, content_id);
+            urls.push(format!("anna|{}", anna_detail_link));
+        }
+
+        Ok(urls
+            .into_iter()
+            .enumerate()
+            .map(|(index, url)| Page {
+                index: index as u32,
+                url,
+            })
+            .collect())
     }
 }

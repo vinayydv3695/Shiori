@@ -535,15 +535,15 @@ impl AnnasArchiveSource {
         None
     }
 
-    /// Extract all download options from RapidAPI download endpoint.
+    /// Extract all download options from the Anna detail page.
     pub async fn get_download_options(&self, content_id: &str) -> Result<Vec<DownloadOption>> {
-        let links = self
+        let torrent_links = self
             .scrape_detail_torrent_links(content_id)
             .await
             .unwrap_or_default();
         let mut options = Vec::new();
 
-        for link in links {
+        for link in torrent_links {
             if let Some(download_type) = self.classify_download_url(&link) {
                 options.push(DownloadOption {
                     url: link,
@@ -553,11 +553,36 @@ impl AnnasArchiveSource {
             }
         }
 
+        // Also collect non-torrent candidates (e.g. libgen file links) from detail page.
+        let path = format!("/md5/{}", content_id);
+        if let Ok((html, mirror)) = self.request_with_mirrors(&path).await {
+            let document = Html::parse_document(&html);
+            if let Ok(link_selector) = Selector::parse("a[href]") {
+                for anchor in document.select(&link_selector) {
+                    if let Some(href) = anchor.value().attr("href") {
+                        let normalized = self.normalize_href(href, &mirror);
+                        if let Some(download_type) = self.classify_download_url(&normalized) {
+                            if matches!(download_type, DownloadType::Direct | DownloadType::External) {
+                                options.push(DownloadOption {
+                                    url: normalized,
+                                    download_type,
+                                    label: None,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut unique = std::collections::HashSet::new();
+        options.retain(|o| unique.insert(format!("{}|{}", o.download_type.as_str(), o.url)));
+
         options.sort_by_key(|o| match o.download_type {
             DownloadType::Magnet => 0,
-            DownloadType::Torrent => 1,
-            DownloadType::Direct => 2,
-            DownloadType::External => 3,
+            DownloadType::Direct => 1,
+            DownloadType::External => 2,
+            DownloadType::Torrent => 3,
         });
 
         Ok(options)

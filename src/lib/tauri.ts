@@ -1201,6 +1201,14 @@ export const api = {
     return invoke("annas_archive_download", { contentId, titleHint })
   },
 
+  async annasArchiveGetTorrentLinks(contentId: string): Promise<{ url: string; downloadType: string; label?: string }[]> {
+    return invoke("annas_archive_get_torrent_links", { contentId })
+  },
+
+  async annasArchiveSendToTorbox(contentId: string, filenameHint?: string): Promise<string> {
+    return invoke("annas_archive_send_to_torbox", { contentId, filenameHint })
+  },
+
   async annaArchiveGetConfig(): Promise<AnnaArchiveConfig> {
     return invoke("anna_archive_get_config")
   },

@@ -133,7 +133,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     implemented: true,
     torboxCompatible: true,
     capabilities: ['torbox', 'direct'],
-    website: 'https://annas-archive.org',
+    website: 'https://annas-archive.gl',
   },
 ];
 

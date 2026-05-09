@@ -16,10 +16,11 @@ use crate::sources::{
 // Legal disclaimer:
 // This is a community-contributed plugin. Users are solely responsible 
 // for complying with all local laws and copyright restrictions.
-const MIRROR_URLS: [&str; 3] = [
+const MIRROR_URLS: [&str; 4] = [
     "https://annas-archive.gl",
     "https://annas-archive.gs",
-    "https://annas-archive.se",
+    "https://annas-archive.gd",
+    "https://annas-archive.pk",
 ];
 // Updated selectors for 2024+ Anna's Archive layout
 // Search results are in flex containers with border styling

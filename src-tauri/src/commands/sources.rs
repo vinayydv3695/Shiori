@@ -61,6 +61,11 @@ pub struct DownloadOptionDto {
     pub label: Option<String>,
 }
 
+fn is_anna_dataset_torrent(url: &str) -> bool {
+    let lower = url.to_ascii_lowercase();
+    lower.contains("/managed_by_aa/") || lower.contains("/zlib/") || lower.contains("pilimi-zlib")
+}
+
 #[tauri::command]
 pub async fn annas_archive_get_torrent_links(
     state: State<'_, crate::AppState>,
@@ -79,13 +84,39 @@ pub async fn annas_archive_get_torrent_links(
         .ok_or_else(|| ShioriError::Other("Anna source type mismatch".to_string()))?;
 
     let options = source.get_download_options(&content_id).await?;
-    if options.is_empty() {
+
+    let has_any_torrentish = options.iter().any(|option| {
+        matches!(option.download_type, DownloadType::Magnet | DownloadType::Torrent)
+    });
+
+    let mut filtered = options
+        .into_iter()
+        .filter(|option| match option.download_type {
+            DownloadType::Magnet => true,
+            DownloadType::Torrent => !is_anna_dataset_torrent(&option.url),
+            _ => false,
+        })
+        .collect::<Vec<_>>();
+
+    filtered.sort_by_key(|option| match option.download_type {
+        DownloadType::Magnet => 0u8,
+        DownloadType::Torrent => 1u8,
+        _ => 2u8,
+    });
+
+    if filtered.is_empty() {
+        if has_any_torrentish {
+            return Err(ShioriError::Other(
+                "Only large Anna collection torrents were found for this book. No per-book magnet/torrent link is available."
+                    .to_string(),
+            ));
+        }
         return Err(ShioriError::Other(
             "No torrent or magnet links found for this book".to_string(),
         ));
     }
 
-    Ok(options
+    Ok(filtered
         .into_iter()
         .map(|option| DownloadOptionDto {
             url: option.url,
@@ -117,58 +148,34 @@ pub async fn annas_archive_send_to_torbox(
 
     let options = source.get_download_options(&content_id).await?;
 
+    let has_any_torrentish = options.iter().any(|option| {
+        matches!(option.download_type, DownloadType::Magnet | DownloadType::Torrent)
+    });
+
     let mut candidate_urls = options
         .iter()
-        .filter(|option| matches!(option.download_type, DownloadType::Magnet))
-        .map(|option| option.url.clone())
-        .collect::<Vec<_>>();
-
-    let mut direct_external_candidates = options
-        .iter()
-        .filter(|option| {
-            matches!(
-                option.download_type,
-                DownloadType::Direct | DownloadType::External
-            )
+        .filter(|option| match option.download_type {
+            DownloadType::Magnet => true,
+            DownloadType::Torrent => !is_anna_dataset_torrent(&option.url),
+            _ => false,
         })
         .map(|option| option.url.clone())
         .collect::<Vec<_>>();
 
-    // Prefer likely single-file mirrors first (file.php or importable extension).
-    direct_external_candidates.sort_by_key(|url| {
-        let lower = url.to_ascii_lowercase();
-        let looks_like_single_file = lower.contains("file.php?id=")
-            || [".epub", ".pdf", ".mobi", ".azw3", ".docx", ".cbz", ".cbr"]
-                .iter()
-                .any(|ext| lower.contains(ext));
-        if looks_like_single_file { 0u8 } else { 1u8 }
-    });
-
-    let mut torrent_candidates = options
-        .iter()
-        .filter(|option| matches!(option.download_type, DownloadType::Torrent))
-        .map(|option| option.url.clone())
-        .collect::<Vec<_>>();
-
-    // Prefer non-dataset torrents before huge managed-by-aa packs.
-    torrent_candidates.sort_by_key(|url| {
-        let lower = url.to_ascii_lowercase();
-        if lower.contains("/managed_by_aa/") || lower.contains("/zlib/") {
-            1u8
-        } else {
-            0u8
-        }
-    });
-
-    candidate_urls.extend(direct_external_candidates);
-    candidate_urls.extend(torrent_candidates);
+    candidate_urls.sort_by_key(|url| if url.to_ascii_lowercase().starts_with("magnet:") { 0u8 } else { 1u8 });
 
     let mut seen = std::collections::HashSet::new();
     candidate_urls.retain(|url| seen.insert(url.clone()));
 
     if candidate_urls.is_empty() {
+        if has_any_torrentish {
+            return Err(ShioriError::Other(
+                "Only large Anna collection torrents were found for this book. No per-book magnet/torrent link is available."
+                    .to_string(),
+            ));
+        }
         return Err(ShioriError::Other(
-            "No usable links found for this book on Anna's Archive".to_string(),
+            "No magnet or torrent links found for this book on Anna's Archive".to_string(),
         ));
     }
 

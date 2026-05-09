@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useReaderStore } from '@/store/readerStore';
 import { api } from '@/lib/tauri';
+import { invoke } from '@tauri-apps/api/core';
 import { logger } from '@/lib/logger';
 import { PremiumEpubReader } from './PremiumEpubReader';
 import { PdfReader } from './PdfReader';
@@ -114,12 +115,14 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
 
         // Step 5: Fetch book metadata + open in store
         updateStage('loading-metadata');
-        const [book, progress, annotations, settings] = await Promise.all([
-          api.getBook(bookId),
-          api.getReadingProgress(bookId),
-          api.getAnnotations(bookId),
-          api.getReaderSettings('default'),
-        ]);
+        const startupData = await invoke<{
+          book: any;
+          progress: any;
+          annotations: any;
+          settings: any;
+        }>('get_reader_startup_data', { bookId });
+
+        const { book, progress, annotations, settings } = startupData;
 
         setBookTitle(book.title);
 

@@ -228,7 +228,6 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const canvasRef = useRef<HTMLDivElement>(null);
   const contentContainerRef = useRef<HTMLDivElement>(null);
   const readerContainerRef = useRef<HTMLDivElement>(null);
-  const autoHideTimerRef = useRef<number | null>(null);
   const pageFlipRef = useRef<PageFlipHandle>(null);
   const scrollPositionsRef = useRef<Map<number, number>>(new Map());
   const currentIndexRef = useRef(0);
@@ -354,73 +353,20 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     return () => {
       if (el) removeReaderThemeFromElement(el);
     };
-  }, [theme]);
+  }, [theme, isLoading, error]);
 
   // ────────────────────────────────────────────────────────────
   // AUTO-HIDE TOP BAR LOGIC
   // ────────────────────────────────────────────────────────────
-  const resetAutoHideTimer = useCallback(() => {
-    if (isTopBarShortcutOnly) {
-      return;
-    }
-    // Always show top bar on mouse movement (unless in focus mode)
-    if (!isFocusMode) {
+  
+  // Initial visibility and Focus mode override
+  useEffect(() => {
+    if (isFocusMode || isTopBarShortcutOnly) {
+      setTopBarVisible(false);
+    } else {
       setTopBarVisible(true);
-
-      // Clear existing timer
-      if (autoHideTimerRef.current) {
-        clearTimeout(autoHideTimerRef.current);
-      }
-
-      // Set new timer to hide after 3 seconds
-      autoHideTimerRef.current = setTimeout(() => {
-        setTopBarVisible(false);
-      }, 3000);
     }
   }, [isFocusMode, setTopBarVisible, isTopBarShortcutOnly]);
-
-  // Track mouse movement for auto-hide (throttled to prevent excessive updates)
-  useEffect(() => {
-    let throttleTimeout: number | null = null;
-
-    const handleMouseMove = () => {
-      if (!throttleTimeout) {
-        resetAutoHideTimer();
-        throttleTimeout = setTimeout(() => {
-          throttleTimeout = null;
-        }, 100); // Throttle to max 10 times per second
-      }
-    };
-
-    document.addEventListener('mousemove', handleMouseMove, { passive: true });
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      if (throttleTimeout) {
-        clearTimeout(throttleTimeout);
-      }
-      if (autoHideTimerRef.current) {
-        clearTimeout(autoHideTimerRef.current);
-      }
-    };
-  }, [resetAutoHideTimer]);
-
-  // Focus mode overrides auto-hide
-  useEffect(() => {
-    if (isFocusMode) {
-      setTopBarVisible(false);
-      if (autoHideTimerRef.current) {
-        clearTimeout(autoHideTimerRef.current);
-      }
-    } else {
-      if (isTopBarShortcutOnly) {
-        setTopBarVisible(false);
-      } else {
-        setTopBarVisible(true);
-        resetAutoHideTimer();
-      }
-    }
-  }, [isFocusMode, setTopBarVisible, resetAutoHideTimer, isTopBarShortcutOnly]);
 
   // ────────────────────────────────────────────────────────────
   // SCROLL PROGRESS TRACKING (optimized)
@@ -469,6 +415,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     let ticking = false;
     let lastUpdateTime = 0;
     const UPDATE_INTERVAL = 150;
+    let lastScrollTop = 0;
 
     return () => {
       const now = Date.now();
@@ -478,6 +425,16 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
           const canvas = canvasRef.current;
           if (canvas) {
             const scrollTop = canvas.scrollTop;
+
+            if (!isFocusMode && !isTopBarShortcutOnly) {
+              if (scrollTop > lastScrollTop + 20) {
+                setTopBarVisible(false);
+              } else if (scrollTop < lastScrollTop - 20) {
+                setTopBarVisible(true);
+              }
+            }
+            lastScrollTop = scrollTop;
+
             const scrollHeight = canvas.scrollHeight;
             const clientHeight = canvas.clientHeight;
             const progress = scrollHeight > clientHeight
@@ -508,7 +465,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         ticking = true;
       }
     };
-  }, [setScrollProgress, metadata, currentIndex, bookId]);
+  }, [setScrollProgress, metadata, currentIndex, bookId, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -765,6 +722,10 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   }, [currentChapter, currentIndex, bookId, isLoading]);
 
   const nextPage = useCallback(() => {
+    if (!isFocusMode && !isTopBarShortcutOnly) {
+      setTopBarVisible(false);
+    }
+    
     // Page flip mode: trigger flip animation instead of scroll
     if (pageFlipEnabled && pageFlipRef.current) {
       const flipped = pageFlipRef.current.flipForward();
@@ -789,6 +750,10 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   }, [nextChapter, pageFlipEnabled]);
 
   const prevPage = useCallback(() => {
+    if (!isFocusMode && !isTopBarShortcutOnly) {
+      setTopBarVisible(false);
+    }
+
     // Page flip mode: trigger flip animation instead of scroll
     if (pageFlipEnabled && pageFlipRef.current) {
       const flipped = pageFlipRef.current.flipBackward();
@@ -837,7 +802,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
 
   if (error) {
     return (
-      <div className="premium-reader premium-reader--error">
+      <div ref={readerContainerRef} className="premium-reader premium-reader--error">
         <div className="premium-error-container">
           <AlertCircle className="premium-error-icon" />
           <p className="premium-error-title">{error}</p>
@@ -856,7 +821,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
 
   if (isLoading || !currentChapter) {
     return (
-      <div className="premium-reader premium-reader--loading">
+      <div ref={readerContainerRef} className="premium-reader premium-reader--loading">
         <div className="premium-loading-container">
           <Loader2 className="premium-loading-spinner" />
           <p className="premium-loading-text">
@@ -1001,13 +966,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         onChapterEnd={nextPage}
       />
 
-      {/* Bottom Progress Bar */}
-      <div className="premium-progress-bar">
-        <div
-          className="premium-progress-bar-fill"
-          style={{ width: `${scrollProgress}%` }}
-        />
-      </div>
+
 
       {/* Floating Navigation Arrows */}
       {!isFocusMode && (

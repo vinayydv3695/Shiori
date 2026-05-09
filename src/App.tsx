@@ -3,6 +3,7 @@ import { Layout } from "./components/layout/Layout"
 import { LibraryGrid } from "./components/library/LibraryGrid"
 import { ToastContainer } from "./components/ui/ToastContainer"
 import { DevBanner } from "./components/DevBanner"
+import { SectionErrorBoundary } from "./components/ErrorBoundary"
 import { logger } from "./lib/logger"
 import { useLibraryStore, countActiveFilterCriteria } from "./store/libraryStore"
 import { useReaderStore } from "./store/readerStore"
@@ -141,9 +142,11 @@ function App() {
   if (isReaderOpen && selectedBookId) {
     return (
       <>
-        <Suspense fallback={<LoadingSpinner />}>
-          <ReaderLayout bookId={selectedBookId} onClose={handleCloseReader} />
-        </Suspense>
+        <SectionErrorBoundary label="Reader">
+          <Suspense fallback={<LoadingSpinner />}>
+            <ReaderLayout bookId={selectedBookId} onClose={handleCloseReader} />
+          </Suspense>
+        </SectionErrorBoundary>
         <ToastContainer />
       </>
     )
@@ -207,16 +210,18 @@ function App() {
         )}
 
         {currentView === 'library' && (
-          <LibraryGrid
-            books={displayBooks}
-            currentDomain={currentDomain}
-            onBookClick={handleOpenBook}
-            onViewDetails={handleViewDetails}
-            onEditBook={handleEditBook}
-            onDeleteBook={handleDeleteBook}
-            onConvertBook={handleConvertBook}
-            onViewSeries={dialogs.openSeriesView}
-          />
+          <SectionErrorBoundary label="Library">
+            <LibraryGrid
+              books={displayBooks}
+              currentDomain={currentDomain}
+              onBookClick={handleOpenBook}
+              onViewDetails={handleViewDetails}
+              onEditBook={handleEditBook}
+              onDeleteBook={handleDeleteBook}
+              onConvertBook={handleConvertBook}
+              onViewSeries={dialogs.openSeriesView}
+            />
+          </SectionErrorBoundary>
         )}
 
         {currentView === 'annotations' && (

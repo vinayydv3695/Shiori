@@ -117,3 +117,72 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     return this.props.children;
   }
 }
+
+/**
+ * SectionErrorBoundary — contained variant for wrapping view panels.
+ * Renders an inline recovery card instead of a full-screen overlay,
+ * so a crash in one section (library, reader) doesn't black out the app.
+ */
+interface SectionErrorBoundaryProps {
+  children: React.ReactNode;
+  label?: string;
+}
+
+interface SectionErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+export class SectionErrorBoundary extends React.Component<
+  SectionErrorBoundaryProps,
+  SectionErrorBoundaryState
+> {
+  constructor(props: SectionErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): SectionErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    logger.error(`[SectionErrorBoundary:${this.props.label ?? 'unknown'}] Uncaught error:`, error, errorInfo);
+  }
+
+  handleRetry = () => {
+    this.setState({ hasError: false, error: null });
+  };
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full p-8 text-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center">
+            <span style={{ fontSize: '1.5rem' }}>⚠️</span>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-foreground">
+              {this.props.label ? `${this.props.label} crashed` : 'This section crashed'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+              An unexpected error occurred. Your library data is safe.
+            </p>
+            {this.state.error && (
+              <p className="text-[10px] font-mono text-destructive mt-2 max-w-xs truncate">
+                {this.state.error.message}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={this.handleRetry}
+            className="h-8 px-4 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/85 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}

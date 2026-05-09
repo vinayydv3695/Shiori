@@ -1,12 +1,18 @@
 /**
- * LibraryGrid — Shiori v3.0
+ * LibraryGrid — Shiori v3.1 (performance)
  *
  * CSS Grid auto-fill + IntersectionObserver lazy entrance.
  * Domain filtering: books vs manga is hard-separated.
  * Staggered card animation based on render index.
+ *
+ * Performance improvements vs v3.0:
+ * - prefetchCovers() called once after books load (warms cache before cards mount)
+ * - coverSize read once at grid level, passed as prop (removes N Zustand subscriptions)
+ * - onFavorite memoized with useCallback (stable reference across renders)
+ * - handleOpen uses a Map lookup instead of O(n) Array.find()
  */
 
-import { useMemo, useRef, useEffect, useState } from 'react'
+import { useMemo, useRef, useEffect, useState, useCallback } from 'react'
 import type { Book } from '@/lib/tauri'
 import { api } from '@/lib/tauri'
 import { PremiumBookCard } from './ModernBookCard'
@@ -23,6 +29,7 @@ import {
 } from '@/components/icons/ShioriIcons'
 import { FeatureHint } from '@/components/ui/FeatureHint'
 import { usePreferencesStore } from '@/store/preferencesStore'
+import { prefetchCovers } from '@/lib/coverCache'
 
 interface LibraryGridProps {
   books: Book[]
@@ -116,6 +123,7 @@ export function LibraryGrid({
   const loadMoreBooks = useLibraryStore(state => state.loadMoreBooks)
   const favoriteBookIds = useLibraryStore(state => state.favoriteBookIds)
   const toggleFavorite = useLibraryStore(state => state.toggleFavorite)
+  // Read preferences once at grid level — avoids N subscriptions inside each card
   const libraryDensity = usePreferencesStore(state => state.preferences?.libraryDensity)
   const coverSize = usePreferencesStore(state => state.preferences?.coverSize ?? 'medium')
 
@@ -139,14 +147,40 @@ export function LibraryGrid({
     })
   }, [books, currentDomain])
 
+  // Pre-warm the cover cache for all visible books as soon as data arrives.
+  // This fires ONE batch IPC call (vs 1-per-card when each card mounts).
+  useEffect(() => {
+    const ids = visibleLibrary
+      .map(b => b.id)
+      .filter((id): id is number => id !== undefined && id !== null)
+    if (ids.length > 0) {
+      void prefetchCovers(ids)
+    }
+  }, [visibleLibrary])
+
   // Apply grouping for ALL domains (books can have series too)
   const groupedItems = useGroupedLibrary(visibleLibrary, true)
 
-  const handleOpen = (bookId: number) => {
-    const book = books.find((b) => b.id === bookId)
+  // O(1) book lookup by ID (replaces O(n) Array.find on every click)
+  const bookById = useMemo(() => {
+    const map = new Map<number, Book>()
+    for (const book of books) {
+      if (book.id != null) map.set(book.id, book)
+    }
+    return map
+  }, [books])
+
+  const handleOpen = useCallback((bookId: number) => {
+    const book = bookById.get(bookId)
     if (book) setSelectedBook(book)
     onBookClick?.(bookId)
-  }
+  }, [bookById, setSelectedBook, onBookClick])
+
+  // Stable favorite handler — not recreated on every render
+  const handleFavorite = useCallback(async (id: number) => {
+    await api.toggleBookFavorite(id)
+    toggleFavorite(id)
+  }, [toggleFavorite])
 
   const isEmpty = visibleLibrary.length === 0
 
@@ -176,7 +210,7 @@ export function LibraryGrid({
     count: rowsCount,
     getScrollElement: () => parentRef.current,
     estimateSize: () => estimatedRowHeight,
-    overscan: 2,
+    overscan: 3,
   })
 
   const virtualItems = rowVirtualizer.getVirtualItems()
@@ -235,6 +269,7 @@ export function LibraryGrid({
                       {item.type === 'book' ? (
                         <PremiumBookCard
                           book={item.data}
+                          coverSize={coverSize}
                           isSelected={selectedBookIds.has(item.data.id!)}
                           onSelect={toggleBookSelection}
                           onOpen={handleOpen}
@@ -243,10 +278,7 @@ export function LibraryGrid({
                           onDelete={(id) => onDeleteBook?.(id)}
                           onConvert={onConvertBook ? (id) => onConvertBook(id) : undefined}
                           isFavorited={favoriteBookIds.has(item.data.id!)}
-                          onFavorite={async (id) => {
-                            await api.toggleBookFavorite(id)
-                            toggleFavorite(id)
-                          }}
+                          onFavorite={handleFavorite}
                           animationDelay={Math.min(absoluteIndex * 10, 150)}
                           scrollRoot={parentRef.current}
                         />

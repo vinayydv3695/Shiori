@@ -244,15 +244,15 @@ export const useOnboardingStore = create<OnboardingStore>()(
       initialize: async () => {
         set({ isInitializing: true });
         try {
-          const backendState = await api.getOnboardingState();
           const preferencesStore = usePreferencesStore.getState();
-
           if (!preferencesStore.isLoaded) {
             await preferencesStore.loadPreferences();
           }
 
+          const completed = usePreferencesStore.getState()._cachedOnboardingCompleted ?? false;
           const preferences = usePreferencesStore.getState().preferences;
-          if (backendState.completed) {
+          
+          if (completed) {
             if (preferences) {
               set((state) => ({
                 selectedTheme: THEME_VALUE_TO_NAME[preferences.theme] ?? state.selectedTheme,
@@ -385,10 +385,12 @@ export const useOnboardingStore = create<OnboardingStore>()(
       completeOnboarding: async () => {
         const state = get();
 
-        await pushLibraryPath(state.libraryPath);
-        await pushTheme(state.selectedTheme);
-        await pushMangaPrefs(state.mangaPrefs);
-        await pushBookPrefs(state.bookPrefs);
+        await Promise.all([
+          pushLibraryPath(state.libraryPath),
+          pushTheme(state.selectedTheme),
+          pushMangaPrefs(state.mangaPrefs),
+          pushBookPrefs(state.bookPrefs),
+        ]);
 
         await api.completeOnboarding([]);
         set({ onboardingComplete: true, currentStep: TOTAL_STEPS });

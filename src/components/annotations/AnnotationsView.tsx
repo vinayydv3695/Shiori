@@ -130,7 +130,7 @@ export function AnnotationsView({ onClose }: AnnotationsViewProps) {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="px-3 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
+              className="px-3 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground dark:[color-scheme:dark] [&>option]:bg-popover [&>option]:text-popover-foreground"
             >
               <option value="all">All Types</option>
               <option value="highlight">Highlights</option>
@@ -141,7 +141,7 @@ export function AnnotationsView({ onClose }: AnnotationsViewProps) {
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-              className="px-3 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary min-w-[150px] text-foreground"
+              className="px-3 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary min-w-[150px] text-foreground dark:[color-scheme:dark] [&>option]:bg-popover [&>option]:text-popover-foreground"
             >
               <option value="all">All Categories</option>
               {categories.map((c) => (

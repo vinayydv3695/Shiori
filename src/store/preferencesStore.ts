@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import { api } from "../lib/tauri";
+import { invoke } from "@tauri-apps/api/core";
+
 import { logger } from "../lib/logger";
 import type {
   UserPreferences,
@@ -19,6 +21,7 @@ interface PreferencesStore {
   mangaOverrides: Map<number, Partial<MangaPreferences>>;
   isLoaded: boolean;
   isLoading: boolean;
+  _cachedOnboardingCompleted?: boolean;
 
   // Actions
   loadPreferences: () => Promise<void>;
@@ -56,28 +59,33 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
   isLoaded: false,
   isLoading: false,
 
-  // Load all preferences from backend
+  // Load all preferences from backend — single IPC call returns everything
   loadPreferences: async () => {
     set({ isLoading: true });
     try {
-      const [preferences, bookOverrides, mangaOverrides, readingGoal] = await Promise.all([
-        api.getUserPreferences(),
-        api.getBookPreferenceOverrides(),
-        api.getMangaPreferenceOverrides(),
-        api.getReadingGoal().catch(() => null),
-      ]);
+      // One IPC call returns preferences + both override tables + onboarding + reading goal.
+      // Previously this was 4 separate invoke() calls run sequentially in onboardingStore.
+      const startup = await invoke<{
+        preferences: UserPreferences & { dailyReadingGoalMinutes?: number }
+        bookOverrides: Array<{ bookId: number; preferences: Record<string, unknown> }>
+        mangaOverrides: Array<{ bookId: number; preferences: Record<string, unknown> }>
+        onboarding: { completed: boolean }
+        readingGoalMinutes: number | null
+      }>('get_startup_data');
 
-      // Merge reading goal into preferences if available
-      if (readingGoal && readingGoal.daily_minutes_target !== undefined) {
-        preferences.dailyReadingGoalMinutes = readingGoal.daily_minutes_target;
+      const preferences = startup.preferences;
+
+      // Merge reading goal
+      if (startup.readingGoalMinutes != null) {
+        preferences.dailyReadingGoalMinutes = startup.readingGoalMinutes;
       }
 
       const bookOverrideMap = new Map(
-        bookOverrides.map((o) => [o.bookId, o.preferences as Partial<BookPreferences>])
+        startup.bookOverrides.map((o) => [o.bookId, o.preferences as Partial<BookPreferences>])
       );
 
       const mangaOverrideMap = new Map(
-        mangaOverrides.map((o) => [o.bookId, o.preferences as Partial<MangaPreferences>])
+        startup.mangaOverrides.map((o) => [o.bookId, o.preferences as Partial<MangaPreferences>])
       );
 
       set({
@@ -86,11 +94,12 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
         mangaOverrides: mangaOverrideMap,
         isLoaded: true,
         isLoading: false,
+        // Cache onboarding result so onboardingStore can read it without a second IPC call
+        _cachedOnboardingCompleted: startup.onboarding.completed,
       });
 
       // Apply theme and scale to DOM
       document.documentElement.setAttribute("data-theme", themeMap[preferences.theme] ?? preferences.theme);
-      // Also toggle 'dark' class for Tailwind dark: variants
       if (preferences.theme === 'dark') {
         document.documentElement.classList.add('dark');
       } else {
@@ -103,6 +112,7 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
       set({ isLoading: false });
     }
   },
+
 
   // Update theme (with optimistic update)
   updateTheme: async (theme: Theme) => {

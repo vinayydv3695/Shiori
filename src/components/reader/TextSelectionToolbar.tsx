@@ -249,8 +249,12 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
       const targetLang = usePreferencesStore.getState().preferences?.translationTargetLanguage ?? 'en';
       const result = await api.translateText(selectedText, targetLang);
       setTranslationResult(result);
-    } catch (err) {
-      setTranslationError(String(err));
+    } catch (err: any) {
+      setTranslationError(
+        typeof err === 'object' && err !== null && 'userMessage' in err
+          ? String(err.userMessage)
+          : String(err)
+      );
     } finally {
       setTranslationLoading(false);
     }
@@ -273,8 +277,12 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
       }
       const result = await api.dictionaryLookup(word);
       setDictionaryResult(result);
-    } catch (err) {
-      setTranslationError(String(err));
+    } catch (err: any) {
+      setTranslationError(
+        typeof err === 'object' && err !== null && 'userMessage' in err
+          ? String(err.userMessage)
+          : String(err)
+      );
     } finally {
       setTranslationLoading(false);
     }

@@ -50,11 +50,9 @@ static TORRENT_URL_RE: Lazy<regex::Regex> = Lazy::new(|| {
         .expect("valid torrent url regex")
 });
 
-/// Returns true for ANY http/https torrent-style URL on an Anna's Archive mirror domain.
-/// All such links require a login session and will either 404 or return a Cloudflare
-/// challenge page anonymously. Only magnet links and torrent URLs from external domains
-/// (e.g. libgen.rs) should be trusted.
-fn is_annas_domain_torrent_url(url: &str) -> bool {
+/// Returns true when an Anna's Archive torrent-style URL is likely auth-gated and
+/// should be skipped. Public `/dyn/small_file/torrents/...` links are allowed.
+fn is_blocked_annas_torrent_url(url: &str) -> bool {
     let lower = url.to_ascii_lowercase();
 
     // Magnet links are always safe — they don't require any server request.
@@ -62,11 +60,20 @@ fn is_annas_domain_torrent_url(url: &str) -> bool {
         return false;
     }
 
-    // Only flag http/https URLs from Anna's Archive mirror hosts.
+    // Only evaluate Anna domains.
     let is_anna_domain = MIRROR_URLS.iter().any(|m| lower.starts_with(&m.to_ascii_lowercase()))
         || lower.contains("annas-archive");
+    if !is_anna_domain {
+        return false;
+    }
 
-    is_anna_domain
+    // Public torrent files exposed by Anna should be kept.
+    if lower.contains("/dyn/small_file/torrents/") {
+        return false;
+    }
+
+    // Everything else on Anna domains is treated as non-public/auth-gated.
+    true
 }
 
 
@@ -198,13 +205,11 @@ impl AnnasArchiveSource {
             }
         }
 
-        // Drop ALL http/https torrent-style URLs from Anna's Archive mirror domains.
-        // Their .torrent CDN links require session auth and return 404 or Cloudflare
-        // challenge pages anonymously. Only magnet links (and external-domain torrents)
-        // are safe to use without cookies.
-        links.retain(|link| !is_annas_domain_torrent_url(link));
+        // Drop auth-gated Anna-domain links, but keep public
+        // `/dyn/small_file/torrents/...` Anna torrents.
+        links.retain(|link| !is_blocked_annas_torrent_url(link));
 
-        // Deduplicate and sort: magnets first, then external torrent URLs.
+        // Deduplicate and sort: magnets first, then torrent URLs.
         links.sort_by_key(|l| if l.starts_with("magnet:") { 0u8 } else { 1u8 });
         links.dedup();
         Ok(links)

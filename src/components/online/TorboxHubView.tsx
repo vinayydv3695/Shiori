@@ -1316,7 +1316,48 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
 
       try {
         if (sourceId === 'anna-archive') {
-          await pluginApi.annaArchiveSendToTorbox(item.id, item.title);
+          const options = await pluginApi.annaArchiveGetTorrentLinks(item.id);
+          if (!options.length) {
+            throw new Error('No usable links found for this Anna result.');
+          }
+
+          const isManagedDatasetTorrent = (url: string) => {
+            const lower = url.toLowerCase();
+            return lower.includes('/managed_by_aa/') || lower.includes('/zlib/');
+          };
+
+          const looksLikeSingleFile = (url: string) => {
+            const lower = url.toLowerCase();
+            return (
+              lower.includes('file.php?id=') ||
+              ['.epub', '.pdf', '.mobi', '.azw3', '.docx', '.cbz', '.cbr'].some((ext) =>
+                lower.includes(ext)
+              )
+            );
+          };
+
+          const sorted = [...options].sort((a, b) => {
+            const rank = (it: { downloadType: string; url: string }) => {
+              const t = it.downloadType?.toLowerCase() ?? '';
+              if (t === 'magnet') return 0;
+              if ((t === 'direct' || t === 'external') && looksLikeSingleFile(it.url)) return 1;
+              if (t === 'torrent' && !isManagedDatasetTorrent(it.url)) return 2;
+              if (t === 'direct' || t === 'external') return 3;
+              if (t === 'torrent') return 4;
+              return 9;
+            };
+            return rank(a) - rank(b);
+          });
+
+          const chosen = sorted[0];
+          if (!chosen) {
+            throw new Error('No queueable Anna link found.');
+          }
+
+          await enqueueFromAnna({
+            title: item.title,
+            sourceLink: chosen.url,
+          });
           setSendState(item.id, 'success');
           return;
         }

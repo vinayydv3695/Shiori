@@ -159,12 +159,12 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
                 void restoreProgress();
             }, 300);
 
-         } catch (err) {
-             logger.error('[GenericHtmlReader] Error loading book:', err);
-             setError(err instanceof Error ? err.message : `Failed to load ${format.toUpperCase()} file`);
-             setIsLoading(false);
-         }
-     }, [bookId, bookPath, format, supportedProgressPrefixes, restoreProgress]);
+        } catch (err) {
+            logger.error('[GenericHtmlReader] Error loading book:', err);
+            setError(err instanceof Error ? err.message : `Failed to load ${format.toUpperCase()} file`);
+            setIsLoading(false);
+        }
+    }, [bookId, bookPath, format, supportedProgressPrefixes, restoreProgress]);
 
     const flushProgressNow = useCallback(() => {
         if (!containerRef.current) return;
@@ -185,19 +185,19 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
         ).catch(e => logger.error('[GenericHtmlReader] Error saving progress:', e));
     }, [bookId, currentChapter, progressPrefix, totalChapters]);
 
-     useEffect(() => {
-          // eslint-disable-next-line react-hooks/set-state-in-effect
-          loadBook();
-          return () => {
-              if (saveProgressTimerRef.current) {
-                  clearTimeout(saveProgressTimerRef.current);
-                  saveProgressTimerRef.current = null;
-              }
-              flushProgressNow();
-              // Cleanup
-              api.closeBookRenderer(bookId).catch(logger.error);
-          };
-     }, [loadBook, bookId, flushProgressNow]);
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        loadBook();
+        return () => {
+            if (saveProgressTimerRef.current) {
+                clearTimeout(saveProgressTimerRef.current);
+                saveProgressTimerRef.current = null;
+            }
+            flushProgressNow();
+            // Cleanup
+            api.closeBookRenderer(bookId).catch(logger.error);
+        };
+    }, [loadBook, bookId, flushProgressNow]);
 
     const handleClose = useCallback(() => {
         if (saveProgressTimerRef.current) {
@@ -224,10 +224,10 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
                     firstHighlight?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }, 120);
             }
-          } catch (err) {
-              logger.error('[GenericHtmlReader] Error loading chapter:', err);
-          }
-     };
+        } catch (err) {
+            logger.error('[GenericHtmlReader] Error loading chapter:', err);
+        }
+    };
 
     const nextChapter = () => goToChapter(currentChapter + 1);
     const prevChapter = () => goToChapter(currentChapter - 1);
@@ -257,13 +257,13 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
             const scrollRatio = maxScroll > 0 ? scrollTop / maxScroll : 0;
             const cfi = `epubcfi(/0/${currentChapter}!/scroll/${scrollRatio.toFixed(6)})`;
             api.saveReadingProgress(
-                 bookId,
-                  `${progressPrefix}${progressPercent.toFixed(4)}-ch${currentChapter}`,
-                  progressPercent,
-                  currentChapter + 1,
-                  totalChapters,
-                 cfi
-             ).catch(e => logger.error('[GenericHtmlReader] Error saving progress:', e));
+                bookId,
+                `${progressPrefix}${progressPercent.toFixed(4)}-ch${currentChapter}`,
+                progressPercent,
+                currentChapter + 1,
+                totalChapters,
+                cfi
+            ).catch(e => logger.error('[GenericHtmlReader] Error saving progress:', e));
         };
 
         const scrollElement = containerRef.current;
@@ -372,9 +372,9 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
                 <div className="premium-loading-container">
                     <Loader2 className="premium-loading-spinner" />
                     <p className="premium-loading-text">Loading {format.toUpperCase()} format...</p>
-                     {(metadata || readerContent) && (
+                    {(metadata || readerContent) && (
                         <p className="premium-loading-subtitle">{metadata?.title ?? readerContent?.title}</p>
-                     )}
+                    )}
                 </div>
             </div>
         );
@@ -406,12 +406,12 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
                     <div className="premium-chapter-page" style={{ height: 'auto', minHeight: '100%' }}>
                         <div
                             ref={contentRef}
-                             className="premium-chapter-content"
-                             style={{
+                            className="premium-chapter-content"
+                            style={{
                                 fontFamily: resolveReadingFontCss(fontFamily),
                                 fontSize: `${fontSize}px`,
                                 lineHeight: lineHeight,
-                             }}
+                            }}
                         />
                     </div>
                 </div>

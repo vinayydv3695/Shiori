@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BookOpen, Calendar, User, Info, Download, Loader2, X } from 'lucide-react';
+import { BookOpen, Calendar, User, Info, Download, Loader2, X, Search } from 'lucide-react';
 import { useMangaDex, type MangaDexManga, type MangaDexChapter, type BrowseMode } from '@/hooks/useMangaDex';
 import { Button } from '@/components/ui/button';
 import { logger } from '@/lib/logger';
@@ -104,6 +104,7 @@ export function OnlineMangaView() {
   const [selectedPluginManga, setSelectedPluginManga] = useState<PluginSearchResult | null>(null);
   const [chaptersDialogOpen, setChaptersDialogOpen] = useState(false);
   const [chaptersLoading, setChaptersLoading] = useState(false);
+  const [chapterSearch, setChapterSearch] = useState('');
   const [pluginError, setPluginError] = useState<string | null>(null);
   const [queueingManga, setQueueingManga] = useState<Record<string, boolean>>({});
   const [hasTorboxKey, setHasTorboxKey] = useState(false);
@@ -276,6 +277,7 @@ export function OnlineMangaView() {
     setChaptersDialogOpen(true);
     setChapters([]);
     setChaptersLoading(true);
+    setChapterSearch('');
     
     const chapterList = await getChapters(manga.id);
     setChapters(chapterList);
@@ -306,6 +308,7 @@ export function OnlineMangaView() {
     setChaptersDialogOpen(true);
     setChaptersLoading(true);
     setPluginError(null);
+    setChapterSearch('');
 
     try {
       const chapterList = await pluginApi.getChapters(activePluginSourceId, manga.id);
@@ -501,17 +504,26 @@ export function OnlineMangaView() {
 
         {pluginError && (
           <div className="mt-3 p-4 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive">
-            <div className="font-medium mb-1">Search Failed</div>
-            <div className="text-sm mb-2">{pluginError}</div>
-            {pluginError.includes('Cloudflare') && (
-              <div className="text-sm text-muted-foreground mt-2 space-y-1">
-                <p className="font-medium text-foreground">💡 Try these alternatives:</p>
-                <ul className="list-disc list-inside space-y-0.5 ml-2">
-                  <li>Switch to MangaDex (most reliable)</li>
-                  <li>Try MangaSee123 or Mangakakalot</li>
-                  <li>Wait a few minutes and retry</li>
-                </ul>
+            <div className="font-medium mb-1">
+              {pluginError.includes('Cloudflare') ? '🔒 Blocked by Cloudflare' : 'Search Failed'}
+            </div>
+            {pluginError.includes('Cloudflare') ? (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  ToonGod has Cloudflare protection. To access it you need to configure a bypass:
+                </p>
+                <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-1 ml-1">
+                  <li>Open <strong className="text-foreground">toongod.org</strong> in your browser and solve the CAPTCHA</li>
+                  <li>Open DevTools → Application → Cookies → copy <code className="bg-muted px-1 rounded text-xs">cf_clearance</code></li>
+                  <li>Go to <strong className="text-foreground">Settings → Download Services → ToonGod → Cloudflare Bypass</strong></li>
+                  <li>Paste the value and click Save, then retry your search</li>
+                </ol>
+                <p className="text-xs text-muted-foreground opacity-70 mt-1">
+                  Alternative: switch to <strong>MangaDex</strong> for unrestricted access.
+                </p>
               </div>
+            ) : (
+              <div className="text-sm">{pluginError}</div>
             )}
           </div>
         )}
@@ -792,11 +804,7 @@ export function OnlineMangaView() {
                             )}
                           </Button>
                         )}
-                        {!sourceSupportsTorboxTorrents && hasTorboxKey && (
-                          <p className="text-xs text-muted-foreground">
-                            This source does not expose magnet/torrent links for Torbox. Switch manga source to Nyaa.
-                          </p>
-                        )}
+                      
                       </div>
                     </div>
                   </div>
@@ -822,6 +830,29 @@ export function OnlineMangaView() {
               </Dialog.Close>
             </div>
 
+            {/* Chapter search/filter bar */}
+            <div className="px-6 py-3 border-b border-border">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search by chapter number or title…"
+                  value={chapterSearch}
+                  onChange={(e) => setChapterSearch(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 text-sm bg-muted border border-border rounded-md outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground"
+                />
+                {chapterSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setChapterSearch('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+
             <div className="flex-1 overflow-y-auto p-6">
               {chaptersLoading && (
                 <div className="flex items-center justify-center py-12">
@@ -830,10 +861,28 @@ export function OnlineMangaView() {
               )}
 
               {!chaptersLoading && pluginError && isPluginMangaSource && (
-                <div className="text-center py-12">
-                  <Info className="w-12 h-12 mx-auto mb-3 text-destructive opacity-50" />
-                  <p className="text-destructive font-medium mb-2">Failed to load chapters</p>
-                  <p className="text-sm text-muted-foreground">{pluginError}</p>
+                <div className="py-10 px-6 text-center space-y-3">
+                  {pluginError.includes('Cloudflare') ? (
+                    <>
+                      <div className="text-2xl">🔒</div>
+                      <p className="text-destructive font-medium">Blocked by Cloudflare</p>
+                      <div className="text-sm text-muted-foreground text-left max-w-sm mx-auto space-y-1">
+                        <p>To fix this:</p>
+                        <ol className="list-decimal list-inside space-y-1">
+                          <li>Visit <strong>toongod.org</strong> in your browser &amp; solve CAPTCHA</li>
+                          <li>Copy the <code className="bg-muted px-1 rounded text-xs">cf_clearance</code> cookie from DevTools</li>
+                          <li>Open <strong>Settings → Download Services → ToonGod → Cloudflare Bypass</strong></li>
+                          <li>Paste &amp; Save, then retry</li>
+                        </ol>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Info className="w-12 h-12 mx-auto mb-1 text-destructive opacity-50" />
+                      <p className="text-destructive font-medium">Failed to load chapters</p>
+                      <p className="text-sm text-muted-foreground">{pluginError}</p>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -851,70 +900,110 @@ export function OnlineMangaView() {
                 </div>
               )}
 
-              {!chaptersLoading && isMangaDexEnabled && chapters.length > 0 && (
-                <div className="space-y-2">
-                  {chapters.map((chapter) => (
-                    <div
-                      key={chapter.id}
-                      className="flex items-center justify-between p-3 rounded-lg border border-border"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm">
-                          {chapter.volume && `Vol. ${chapter.volume} `}
-                          {chapter.chapter && `Ch. ${chapter.chapter}`}
-                          {chapter.title && ` - ${chapter.title}`}
-                        </div>
-                        {chapter.scanlationGroup && (
-                          <div className="text-xs text-muted-foreground mt-0.5">
-                            {chapter.scanlationGroup}
+              {!chaptersLoading && isMangaDexEnabled && chapters.length > 0 && (() => {
+                const term = chapterSearch.trim().toLowerCase();
+                const filtered = term
+                  ? chapters.filter((ch) => {
+                      const chNum = ch.chapter ?? '';
+                      const chTitle = ch.title ?? '';
+                      return chNum.includes(term) || chTitle.toLowerCase().includes(term);
+                    })
+                  : chapters;
+                return (
+                  <div className="space-y-2">
+                    {term && (
+                      <p className="text-xs text-muted-foreground mb-2">
+                        {filtered.length} of {chapters.length} chapters
+                      </p>
+                    )}
+                    {filtered.map((chapter) => (
+                      <div
+                        key={chapter.id}
+                        className="flex items-center justify-between p-3 rounded-lg border border-border"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm">
+                            {chapter.volume && `Vol. ${chapter.volume} `}
+                            {chapter.chapter && `Ch. ${chapter.chapter}`}
+                            {chapter.title && ` - ${chapter.title}`}
                           </div>
-                        )}
+                          {chapter.scanlationGroup && (
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              {chapter.scanlationGroup}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{chapter.pages} pages</span>
+                          {selectedManga && (
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                const pluginChapter = mapMangaDexChapterToPlugin(chapter);
+                                void handleReadChapter('mangadex', selectedManga.id, pluginChapter, mangaDexPluginChapters, selectedManga.title);
+                              }}
+                            >
+                              Read
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>{chapter.pages} pages</span>
-                        {selectedManga && (
+                    ))}
+                    {filtered.length === 0 && (
+                      <div className="text-center py-8">
+                        <p className="text-sm text-muted-foreground">No chapters match "{chapterSearch}"</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {!chaptersLoading && isPluginMangaSource && pluginChapters.length > 0 && (() => {
+                const term = chapterSearch.trim().toLowerCase();
+                const filtered = term
+                  ? pluginChapters.filter((ch) => {
+                      const chNum = ch.number !== undefined ? String(ch.number) : '';
+                      const chTitle = ch.title ?? '';
+                      return chNum.includes(term) || chTitle.toLowerCase().includes(term);
+                    })
+                  : pluginChapters;
+                return (
+                  <div className="space-y-2">
+                    {term && (
+                      <p className="text-xs text-muted-foreground mb-2">
+                        {filtered.length} of {pluginChapters.length} chapters
+                      </p>
+                    )}
+                    {filtered.map((chapter) => (
+                      <div
+                        key={chapter.id}
+                        className="flex items-center justify-between p-3 rounded-lg border border-border"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm line-clamp-2">
+                            {chapter.title || `Chapter ${chapter.number ?? ''}`}
+                          </div>
+                        </div>
+                        {selectedPluginManga && activePluginSourceId && (
                           <Button
                             size="sm"
                             onClick={() => {
-                              const pluginChapter = mapMangaDexChapterToPlugin(chapter);
-                              void handleReadChapter('mangadex', selectedManga.id, pluginChapter, mangaDexPluginChapters, selectedManga.title);
+                              void handleReadChapter(activePluginSourceId, selectedPluginManga.id, chapter, pluginChapters, selectedPluginManga.title);
                             }}
                           >
                             Read
                           </Button>
                         )}
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {!chaptersLoading && isPluginMangaSource && pluginChapters.length > 0 && (
-                <div className="space-y-2">
-                  {pluginChapters.map((chapter) => (
-                    <div
-                      key={chapter.id}
-                      className="flex items-center justify-between p-3 rounded-lg border border-border"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm line-clamp-2">
-                          {chapter.title || `Chapter ${chapter.number ?? ''}`}
-                        </div>
+                    ))}
+                    {filtered.length === 0 && (
+                      <div className="text-center py-8">
+                        <p className="text-sm text-muted-foreground">No chapters match "{chapterSearch}"</p>
                       </div>
-                      {selectedPluginManga && activePluginSourceId && (
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            void handleReadChapter(activePluginSourceId, selectedPluginManga.id, chapter, pluginChapters, selectedPluginManga.title);
-                          }}
-                        >
-                          Read
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </Dialog.Content>
         </Dialog.Portal>

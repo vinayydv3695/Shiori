@@ -16,10 +16,11 @@ use crate::sources::{
 // Legal disclaimer:
 // This is a community-contributed plugin. Users are solely responsible 
 // for complying with all local laws and copyright restrictions.
-const MIRROR_URLS: [&str; 3] = [
+const MIRROR_URLS: [&str; 4] = [
     "https://annas-archive.gl",
     "https://annas-archive.gs",
-    "https://annas-archive.se",
+    "https://annas-archive.gd",
+    "https://annas-archive.pk",
 ];
 // Updated selectors for 2024+ Anna's Archive layout
 // Search results are in flex containers with border styling
@@ -49,11 +50,9 @@ static TORRENT_URL_RE: Lazy<regex::Regex> = Lazy::new(|| {
         .expect("valid torrent url regex")
 });
 
-/// Returns true for ANY http/https torrent-style URL on an Anna's Archive mirror domain.
-/// All such links require a login session and will either 404 or return a Cloudflare
-/// challenge page anonymously. Only magnet links and torrent URLs from external domains
-/// (e.g. libgen.rs) should be trusted.
-fn is_annas_domain_torrent_url(url: &str) -> bool {
+/// Returns true when an Anna's Archive torrent-style URL is likely auth-gated and
+/// should be skipped. Public `/dyn/small_file/torrents/...` links are allowed.
+fn is_blocked_annas_torrent_url(url: &str) -> bool {
     let lower = url.to_ascii_lowercase();
 
     // Magnet links are always safe — they don't require any server request.
@@ -61,11 +60,20 @@ fn is_annas_domain_torrent_url(url: &str) -> bool {
         return false;
     }
 
-    // Only flag http/https URLs from Anna's Archive mirror hosts.
+    // Only evaluate Anna domains.
     let is_anna_domain = MIRROR_URLS.iter().any(|m| lower.starts_with(&m.to_ascii_lowercase()))
         || lower.contains("annas-archive");
+    if !is_anna_domain {
+        return false;
+    }
 
-    is_anna_domain
+    // Public torrent files exposed by Anna should be kept.
+    if lower.contains("/dyn/small_file/torrents/") {
+        return false;
+    }
+
+    // Everything else on Anna domains is treated as non-public/auth-gated.
+    true
 }
 
 
@@ -197,13 +205,11 @@ impl AnnasArchiveSource {
             }
         }
 
-        // Drop ALL http/https torrent-style URLs from Anna's Archive mirror domains.
-        // Their .torrent CDN links require session auth and return 404 or Cloudflare
-        // challenge pages anonymously. Only magnet links (and external-domain torrents)
-        // are safe to use without cookies.
-        links.retain(|link| !is_annas_domain_torrent_url(link));
+        // Drop auth-gated Anna-domain links, but keep public
+        // `/dyn/small_file/torrents/...` Anna torrents.
+        links.retain(|link| !is_blocked_annas_torrent_url(link));
 
-        // Deduplicate and sort: magnets first, then external torrent URLs.
+        // Deduplicate and sort: magnets first, then torrent URLs.
         links.sort_by_key(|l| if l.starts_with("magnet:") { 0u8 } else { 1u8 });
         links.dedup();
         Ok(links)
@@ -529,15 +535,15 @@ impl AnnasArchiveSource {
         None
     }
 
-    /// Extract all download options from RapidAPI download endpoint.
+    /// Extract all download options from the Anna detail page.
     pub async fn get_download_options(&self, content_id: &str) -> Result<Vec<DownloadOption>> {
-        let links = self
+        let torrent_links = self
             .scrape_detail_torrent_links(content_id)
             .await
             .unwrap_or_default();
         let mut options = Vec::new();
 
-        for link in links {
+        for link in torrent_links {
             if let Some(download_type) = self.classify_download_url(&link) {
                 options.push(DownloadOption {
                     url: link,
@@ -547,25 +553,37 @@ impl AnnasArchiveSource {
             }
         }
 
+        // Also collect non-torrent candidates (e.g. libgen file links) from detail page.
+        let path = format!("/md5/{}", content_id);
+        if let Ok((html, mirror)) = self.request_with_mirrors(&path).await {
+            let document = Html::parse_document(&html);
+            if let Ok(link_selector) = Selector::parse("a[href]") {
+                for anchor in document.select(&link_selector) {
+                    if let Some(href) = anchor.value().attr("href") {
+                        let normalized = self.normalize_href(href, &mirror);
+                        if let Some(download_type) = self.classify_download_url(&normalized) {
+                            if matches!(download_type, DownloadType::Direct | DownloadType::External) {
+                                options.push(DownloadOption {
+                                    url: normalized,
+                                    download_type,
+                                    label: None,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut unique = std::collections::HashSet::new();
+        options.retain(|o| unique.insert(format!("{}|{}", o.download_type.as_str(), o.url)));
+
         options.sort_by_key(|o| match o.download_type {
             DownloadType::Magnet => 0,
-            DownloadType::Torrent => 1,
-            DownloadType::Direct => 2,
-            DownloadType::External => 3,
+            DownloadType::Direct => 1,
+            DownloadType::External => 2,
+            DownloadType::Torrent => 3,
         });
-
-        if !options
-            .iter()
-            .any(|o| matches!(o.download_type, DownloadType::Magnet | DownloadType::Torrent | DownloadType::Direct | DownloadType::External))
-        {
-            let mirror = self.working_mirror.read().await.clone();
-            let detail_url = format!("{}/md5/{}", mirror, content_id);
-            options.push(DownloadOption {
-                url: detail_url,
-                download_type: DownloadType::External,
-                label: Some("Anna detail fallback".to_string()),
-            });
-        }
 
         Ok(options)
     }
@@ -638,18 +656,12 @@ impl Source for AnnasArchiveSource {
 
     async fn get_pages(&self, chapter_id: &str) -> Result<Vec<Page>> {
         let content_id = chapter_id;
-        let mirror = self.working_mirror.read().await.clone();
-        let anna_detail_link = format!("{}/md5/{}", mirror, content_id);
-
-        let mut pages = vec![Page {
-            index: 0,
-            url: format!("anna|{}", anna_detail_link),
-        }];
-
         let scraped_links = self
             .scrape_detail_torrent_links(content_id)
             .await
             .unwrap_or_default();
+
+        let mut urls = Vec::new();
 
         for link in scraped_links {
             let lowered = link.to_ascii_lowercase();
@@ -661,16 +673,25 @@ impl Source for AnnasArchiveSource {
                 continue;
             };
 
-            let idx = pages.len();
-            pages.push(Page {
-                index: idx as u32,
-                url: format!("{}|{}", kind, link),
-            });
+            urls.push(format!("{}|{}", kind, link));
         }
 
         let mut unique = std::collections::HashSet::new();
-        pages.retain(|page| unique.insert(page.url.clone()));
+        urls.retain(|url| unique.insert(url.clone()));
 
-        Ok(pages)
+        if urls.is_empty() {
+            let mirror = self.working_mirror.read().await.clone();
+            let anna_detail_link = format!("{}/md5/{}", mirror, content_id);
+            urls.push(format!("anna|{}", anna_detail_link));
+        }
+
+        Ok(urls
+            .into_iter()
+            .enumerate()
+            .map(|(index, url)| Page {
+                index: index as u32,
+                url,
+            })
+            .collect())
     }
 }

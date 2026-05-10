@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::time::Instant;
 
+use serde::Serialize;
 use tauri::{Manager, State};
 use tauri_plugin_store::StoreExt;
 
@@ -10,7 +11,7 @@ use crate::sources::rutracker::{RutrackerConfig, RutrackerSource};
 use crate::sources::{
     Chapter, ContentType, Page, SearchResponse, SearchResult, SourceMeta, SourceSearchDiagnostics,
 };
-use crate::sources::annas_archive::{AnnasArchiveConfig, AnnasArchiveSource};
+use crate::sources::annas_archive::{AnnasArchiveConfig, AnnasArchiveSource, DownloadType};
 
 #[tauri::command]
 pub async fn anna_archive_get_config(
@@ -50,6 +51,176 @@ pub async fn anna_archive_set_config(
         .ok_or_else(|| ShioriError::Other("Anna source type mismatch".to_string()))?;
 
     source.save_config_to_store(&app_handle, config).await
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadOptionDto {
+    pub url: String,
+    pub download_type: String,
+    pub label: Option<String>,
+}
+
+fn is_anna_dataset_torrent(url: &str) -> bool {
+    let lower = url.to_ascii_lowercase();
+
+    let managed_dataset = lower.contains("/managed_by_aa/")
+        || lower.contains("/zlib/")
+        || lower.contains("pilimi-zlib")
+        || lower.contains("annas_archive_data__");
+
+    // Anna external libgen shard torrents (f_*.torrent / nf_*.torrent / c_*.torrent / s_*.torrent)
+    // are collection buckets, not single-book torrents.
+    let libgen_shard = lower.contains("/dyn/small_file/torrents/external/libgen_")
+        && (lower.contains("/f_")
+            || lower.contains("/nf_")
+            || lower.contains("/c_")
+            || lower.contains("/s_"));
+
+    managed_dataset || libgen_shard
+}
+
+#[tauri::command]
+pub async fn annas_archive_get_torrent_links(
+    state: State<'_, crate::AppState>,
+    content_id: String,
+) -> Result<Vec<DownloadOptionDto>> {
+    let source = {
+        let registry = state.plugin_registry.read().await;
+        registry
+            .get("anna-archive")
+            .ok_or_else(|| ShioriError::Validation("Unknown source: anna-archive".to_string()))?
+    };
+
+    let source = source
+        .as_any()
+        .downcast_ref::<AnnasArchiveSource>()
+        .ok_or_else(|| ShioriError::Other("Anna source type mismatch".to_string()))?;
+
+    let options = source.get_download_options(&content_id).await?;
+
+    let has_any_torrentish = options.iter().any(|option| {
+        matches!(option.download_type, DownloadType::Magnet | DownloadType::Torrent)
+    });
+
+    let mut filtered = options
+        .into_iter()
+        .filter(|option| match option.download_type {
+            DownloadType::Magnet => true,
+            DownloadType::Torrent => !is_anna_dataset_torrent(&option.url),
+            _ => false,
+        })
+        .collect::<Vec<_>>();
+
+    filtered.sort_by_key(|option| match option.download_type {
+        DownloadType::Magnet => 0u8,
+        DownloadType::Torrent => 1u8,
+        _ => 2u8,
+    });
+
+    if filtered.is_empty() {
+        if has_any_torrentish {
+            return Err(ShioriError::Other(
+                "Only Anna collection/shard torrents were found for this result (no per-book magnet/torrent). Use View Details for manual download."
+                    .to_string(),
+            ));
+        }
+        return Err(ShioriError::Other(
+            "No torrent or magnet links found for this book".to_string(),
+        ));
+    }
+
+    Ok(filtered
+        .into_iter()
+        .map(|option| DownloadOptionDto {
+            url: option.url,
+            download_type: option.download_type.as_str().to_string(),
+            label: option.label,
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub async fn annas_archive_send_to_torbox(
+    app_handle: tauri::AppHandle,
+    state: State<'_, crate::AppState>,
+    torbox_state: State<'_, crate::commands::torbox::TorboxState>,
+    content_id: String,
+    filename_hint: Option<String>,
+) -> Result<String> {
+    let source = {
+        let registry = state.plugin_registry.read().await;
+        registry
+            .get("anna-archive")
+            .ok_or_else(|| ShioriError::Validation("Unknown source: anna-archive".to_string()))?
+    };
+
+    let source = source
+        .as_any()
+        .downcast_ref::<AnnasArchiveSource>()
+        .ok_or_else(|| ShioriError::Other("Anna source type mismatch".to_string()))?;
+
+    let options = source.get_download_options(&content_id).await?;
+
+    let has_any_torrentish = options.iter().any(|option| {
+        matches!(option.download_type, DownloadType::Magnet | DownloadType::Torrent)
+    });
+
+    let mut candidate_urls = options
+        .iter()
+        .filter(|option| match option.download_type {
+            DownloadType::Magnet => true,
+            DownloadType::Torrent => !is_anna_dataset_torrent(&option.url),
+            _ => false,
+        })
+        .map(|option| option.url.clone())
+        .collect::<Vec<_>>();
+
+    candidate_urls.sort_by_key(|url| if url.to_ascii_lowercase().starts_with("magnet:") { 0u8 } else { 1u8 });
+
+    let mut seen = std::collections::HashSet::new();
+    candidate_urls.retain(|url| seen.insert(url.clone()));
+
+    if candidate_urls.is_empty() {
+        if has_any_torrentish {
+            return Err(ShioriError::Other(
+                "Only Anna collection/shard torrents were found for this result (no per-book magnet/torrent). Use View Details for manual download."
+                    .to_string(),
+            ));
+        }
+        return Err(ShioriError::Other(
+            "No magnet or torrent links found for this book on Anna's Archive".to_string(),
+        ));
+    }
+
+    let mut attempt_errors = Vec::new();
+
+    for candidate_url in candidate_urls {
+        match crate::commands::torbox::torbox_download_and_import_impl(
+            &app_handle,
+            &torbox_state.service,
+            &*state,
+            candidate_url.clone(),
+            filename_hint.clone(),
+        )
+        .await
+        {
+            Ok(path) => return Ok(path),
+            Err(err) => {
+                let mut short_url = candidate_url.clone();
+                if short_url.len() > 110 {
+                    short_url.truncate(110);
+                    short_url.push_str("...");
+                }
+                attempt_errors.push(format!("{} => {}", short_url, err));
+            }
+        }
+    }
+
+    Err(ShioriError::Other(format!(
+        "All Anna candidates failed in Torbox. {}",
+        attempt_errors.join(" | ")
+    )))
 }
 
 #[tauri::command]
@@ -667,3 +838,65 @@ pub async fn proxy_manga_image(
 
     Ok(bytes.to_vec())
 }
+
+// ─── ToonGod Cloudflare bypass config ─────────────────────────────────────────
+
+use crate::sources::toongod::{ToonGodConfig, ToonGodSource};
+
+#[tauri::command]
+pub async fn toongod_get_config(
+    app_handle: tauri::AppHandle,
+) -> Result<ToonGodConfig> {
+    let store = app_handle
+        .store("sources.json")
+        .map_err(|e| ShioriError::Other(format!("Failed to open source store: {}", e)))?;
+
+    let cf_clearance = store
+        .get("toongod.cf_clearance")
+        .and_then(|v| v.as_str().map(ToString::to_string))
+        .filter(|s| !s.is_empty());
+
+    let flaresolverr_url = store
+        .get("toongod.flaresolverr_url")
+        .and_then(|v| v.as_str().map(ToString::to_string))
+        .filter(|s| !s.is_empty());
+
+    Ok(ToonGodConfig { cf_clearance, flaresolverr_url })
+}
+
+#[tauri::command]
+pub async fn toongod_set_config(
+    app_handle: tauri::AppHandle,
+    state: State<'_, crate::AppState>,
+    config: ToonGodConfig,
+) -> Result<()> {
+    // Persist to store
+    let store = app_handle
+        .store("sources.json")
+        .map_err(|e| ShioriError::Other(format!("Failed to open source store: {}", e)))?;
+
+    match config.cf_clearance.as_deref() {
+        Some(v) if !v.trim().is_empty() => store.set("toongod.cf_clearance", serde_json::json!(v.trim())),
+        _ => { let _ = store.delete("toongod.cf_clearance"); }
+    }
+
+    match config.flaresolverr_url.as_deref() {
+        Some(v) if !v.trim().is_empty() => store.set("toongod.flaresolverr_url", serde_json::json!(v.trim())),
+        _ => { let _ = store.delete("toongod.flaresolverr_url"); }
+    }
+
+    store
+        .save()
+        .map_err(|e| ShioriError::Other(format!("Failed to save ToonGod config: {}", e)))?;
+
+    // Apply to live source instance
+    let registry = state.plugin_registry.read().await;
+    if let Some(source_arc) = registry.get("toongod") {
+        if let Some(tg) = source_arc.as_any().downcast_ref::<ToonGodSource>() {
+            tg.set_config(config).await;
+        }
+    }
+
+    Ok(())
+}
+

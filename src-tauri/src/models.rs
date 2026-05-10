@@ -105,6 +105,7 @@ pub struct Metadata {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ReadingProgress {
     pub id: Option<i64>,
     pub book_id: i64,

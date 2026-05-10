@@ -401,6 +401,34 @@ export interface DebridResolveResult {
   importedPath: string
 }
 
+function normalizeReadingProgress(raw: unknown): ReadingProgress | null {
+  if (!raw || typeof raw !== 'object') return null
+  const obj = raw as Record<string, unknown>
+
+  const bookId = Number(obj.bookId ?? obj.book_id)
+  const progressPercent = Number(obj.progressPercent ?? obj.progress_percent ?? 0)
+  const currentLocationRaw = obj.currentLocation ?? obj.current_location
+  const currentLocation = typeof currentLocationRaw === 'string' ? currentLocationRaw : ''
+  const lastReadRaw = obj.lastRead ?? obj.last_read
+  const lastRead = typeof lastReadRaw === 'string' ? lastReadRaw : new Date().toISOString()
+
+  const idRaw = obj.id
+  const currentPageRaw = obj.currentPage ?? obj.current_page
+  const totalPagesRaw = obj.totalPages ?? obj.total_pages
+  const cfiRaw = obj.cfiLocation ?? obj.cfi_location
+
+  return {
+    id: typeof idRaw === 'number' ? idRaw : undefined,
+    bookId: Number.isFinite(bookId) ? bookId : 0,
+    currentLocation,
+    progressPercent: Number.isFinite(progressPercent) ? progressPercent : 0,
+    currentPage: typeof currentPageRaw === 'number' ? currentPageRaw : undefined,
+    totalPages: typeof totalPagesRaw === 'number' ? totalPagesRaw : undefined,
+    cfiLocation: typeof cfiRaw === 'string' ? cfiRaw : undefined,
+    lastRead,
+  }
+}
+
 // Mock data for development (when not in Tauri)
 const mockBooks: Book[] = [
   {
@@ -528,7 +556,8 @@ export const api = {
 
   // Reader - Reading Progress
   async getReadingProgress(bookId: number): Promise<ReadingProgress | null> {
-    return invoke("get_reading_progress", { bookId })
+    const raw = await invoke<unknown>("get_reading_progress", { bookId })
+    return normalizeReadingProgress(raw)
   },
 
   async saveReadingProgress(
@@ -539,7 +568,7 @@ export const api = {
     totalPages?: number,
     cfiLocation?: string
   ): Promise<ReadingProgress> {
-    return invoke("save_reading_progress", {
+    const raw = await invoke<unknown>("save_reading_progress", {
       bookId,
       currentLocation,
       progressPercent,
@@ -547,6 +576,19 @@ export const api = {
       totalPages,
       cfiLocation,
     })
+    const normalized = normalizeReadingProgress(raw)
+    if (!normalized) {
+      return {
+        bookId,
+        currentLocation,
+        progressPercent,
+        currentPage,
+        totalPages,
+        cfiLocation,
+        lastRead: new Date().toISOString(),
+      }
+    }
+    return normalized
   },
 
   // Reader - Annotations

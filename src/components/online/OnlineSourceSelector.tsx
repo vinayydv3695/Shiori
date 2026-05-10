@@ -57,7 +57,7 @@ export function OnlineSourceSelector({ kind }: OnlineSourceSelectorProps) {
 
   const getRecommendedSourceId = (kind: SourceKind) => {
     if (kind === 'books') return 'anna-archive';
-    if (kind === 'manga') return 'nyaa';
+    if (kind === 'manga') return 'toongod';
     return null;
   };
 

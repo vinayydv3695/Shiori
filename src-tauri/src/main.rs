@@ -82,8 +82,12 @@ fn main() {
 
             let mut registry = sources::registry::SourceRegistry::new();
             registry.register(Arc::new(sources::mangadex::MangaDexSource::new()?));
-            registry.register(Arc::new(sources::toongod::ToonGodSource::new()?));
+            // Nyaa is torrent-only — registered as a books-domain source so it
+            // shows in Online Books (Torbox workflow), not Online Manga reader.
             registry.register(Arc::new(sources::nyaa::NyaaSource::new()?));
+            // ToonGod stored as concrete Arc so we can set/get CF config
+            let toongod_source = Arc::new(sources::toongod::ToonGodSource::new()?);
+            registry.register(toongod_source.clone() as Arc<dyn sources::Source>);
             // Configurable sources -- each kept as a concrete Arc so we can call
             // load_config_from_store() in the async spawn below, while also being
             // coerced to Arc<dyn Source> for the registry (no blocking block_on).
@@ -101,12 +105,31 @@ fn main() {
             // Load source configs from the Tauri store in the background so the UI
             // appears immediately. Sources use defaults until async hydration completes.
             let app_handle_for_sources = app.handle().clone();
+            let toongod_for_config = toongod_source.clone();
             tauri::async_runtime::spawn(async move {
                 let _ = bitsearch_source.load_config_from_store(&app_handle_for_sources).await;
                 let _ = x1337_source.load_config_from_store(&app_handle_for_sources).await;
                 let _ = tpb_api_source.load_config_from_store(&app_handle_for_sources).await;
                 let _ = rutracker_source.load_config_from_store(&app_handle_for_sources).await;
                 let _ = anna_source.load_config_from_store(&app_handle_for_sources).await;
+
+                // Load ToonGod Cloudflare bypass config
+                {
+                    use tauri_plugin_store::StoreExt;
+                    if let Ok(store) = app_handle_for_sources.store("sources.json") {
+                        let cf_clearance = store.get("toongod.cf_clearance")
+                            .and_then(|v: serde_json::Value| v.as_str().map(ToString::to_string))
+                            .filter(|s: &String| !s.is_empty());
+                        let flaresolverr_url = store.get("toongod.flaresolverr_url")
+                            .and_then(|v: serde_json::Value| v.as_str().map(ToString::to_string))
+                            .filter(|s: &String| !s.is_empty());
+                        toongod_for_config.set_config(sources::toongod::ToonGodConfig {
+                            cf_clearance,
+                            flaresolverr_url,
+                        }).await;
+                    }
+                }
+
                 log::info!("Source plugin configs loaded from store");
             });
 
@@ -408,7 +431,11 @@ fn main() {
             commands::sources::rutracker_get_config,
             commands::sources::rutracker_set_config,
             commands::sources::annas_archive_download,
+            commands::sources::annas_archive_get_torrent_links,
+            commands::sources::annas_archive_send_to_torbox,
             commands::sources::proxy_manga_image,
+            commands::sources::toongod_get_config,
+            commands::sources::toongod_set_config,
             commands::debrid::debrid_resolve_and_import,
             // Torbox commands
             commands::torbox::torbox_set_api_key,

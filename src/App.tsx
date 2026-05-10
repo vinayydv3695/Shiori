@@ -17,6 +17,7 @@ import { useLibraryFilter } from "./hooks/useLibraryFilter"
 import { api } from "./lib/tauri"
 import { ShortcutsDialog } from "./components/dialogs/ShortcutsDialog"
 import { useOnlineSearchStore } from "./store/onlineSearchStore"
+import { ResumeReadingDialog } from "./components/reader/ResumeReadingDialog"
 
 const ReaderLayout = lazy(() => import("./components/reader/ReaderLayout").then(m => ({ default: m.ReaderLayout })))
 const EditMetadataDialog = lazy(() => import("./components/library/EditMetadataDialog").then(m => ({ default: m.EditMetadataDialog })))
@@ -75,7 +76,7 @@ function App() {
 
   // ── Extracted hooks ──
   const { displayBooks, books } = useLibraryFilter(searchQuery)
-  const { selectedBookId, handleOpenBook, handleCloseReader, handleDownloadBook, handleAutoGroupManga, autoConvert } = useBookActions(books)
+  const { selectedBookId, handleOpenBook, handleCloseReader, handleDownloadBook, handleAutoGroupManga, autoConvert, resumeReading } = useBookActions(books)
   const dialogs = useDialogManager()
 
   // ── Initialization ──
@@ -327,6 +328,19 @@ function App() {
             isConverting={autoConvert.isConverting}
           />
         </Suspense>
+      )}
+
+      {/* Resume-Reading prompt */}
+      {resumeReading.pendingResume && (
+        <ResumeReadingDialog
+          isOpen={resumeReading.showDialog}
+          onOpenChange={resumeReading.onDialogOpenChange}
+          bookTitle={resumeReading.pendingResume.bookTitle}
+          progressPercent={resumeReading.pendingResume.progress.progressPercent}
+          locationLabel={resumeReading.buildLocationLabel(resumeReading.pendingResume.progress)}
+          onResume={resumeReading.onResume}
+          onStartOver={resumeReading.onStartOver}
+        />
       )}
 
       {dialogs.dialogBookId !== null && (

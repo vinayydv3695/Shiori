@@ -31,4 +31,6 @@ export interface ReaderContent {
     text?: string;
   }>;
   format: ReaderContentFormat;
+  /** When true, skip restoring saved reading progress and open from the beginning. */
+  startFromBeginning?: boolean;
 }

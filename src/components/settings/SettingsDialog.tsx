@@ -26,6 +26,7 @@ import { SourceManager } from './SourceManager'
 import { TorboxSettings } from './TorboxSettings'
 import { AnnaArchiveSettings } from './AnnaArchiveSettings'
 import { RuTrackerSettings } from './RuTrackerSettings'
+import { ToonGodSettings } from './ToonGodSettings'
 import { TorrentNetworkSettings } from './TorrentNetworkSettings'
 import { ProwlarrSettings } from './ProwlarrSettings'
 import { READING_FONTS, normalizeLegacyFontPreference, resolveReadingFontCss } from '@/lib/readingFonts'
@@ -103,8 +104,11 @@ const ALL_SETTINGS: SettingDefinition[] = [
   { label: 'Send Crash Reports', description: 'Automatic crash reporting', tab: 'advanced', section: 'Privacy' },
   { label: 'Reading History Retention', description: 'How long to keep reading history', tab: 'advanced', section: 'Privacy' },
   { label: 'Clear Reading History', description: 'Delete all reading history', tab: 'advanced', section: 'Privacy' },
+  { label: 'Clear Resume Prompt Memory', description: 'Forget EPUB continue/start-over choices', tab: 'advanced', section: 'Privacy' },
   { label: 'Reset All Settings', description: 'Restore factory defaults', tab: 'advanced', section: 'Privacy' },
 ]
+
+const EPUB_RESUME_CHOICE_STORAGE_KEY = 'shiori-epub-resume-choice:v1'
 
 export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general')
@@ -794,6 +798,7 @@ const GeneralSettings = ({
             <h4 className="text-sm font-semibold mb-2">RuTracker</h4>
             <RuTrackerSettings />
           </div>
+          <ToonGodSettings />
           <div>
             <h4 className="text-sm font-semibold mb-2">Torrent Network</h4>
             <TorrentNetworkSettings />
@@ -1635,6 +1640,15 @@ const AdvancedSettings = ({
     }
   }
 
+  const handleClearResumePromptMemory = () => {
+    try {
+      localStorage.removeItem(EPUB_RESUME_CHOICE_STORAGE_KEY)
+      toast.success('Resume prompt memory cleared')
+    } catch {
+      toast.error('Failed to clear resume prompt memory')
+    }
+  }
+
   return (
     <div className="space-y-8">
       {isSectionVisible('Database', ['Export Database', 'Import Database', 'Reset Database', 'Reset Onboarding']) && (
@@ -1813,7 +1827,7 @@ const AdvancedSettings = ({
         </SettingSection>
       )}
 
-      {isSectionVisible('Privacy', ['Send Analytics', 'Send Crash Reports', 'Reading History Retention', 'Clear Reading History', 'Reset All Settings']) && (
+      {isSectionVisible('Privacy', ['Send Analytics', 'Send Crash Reports', 'Reading History Retention', 'Clear Reading History', 'Clear Resume Prompt Memory', 'Reset All Settings']) && (
         <SettingSection title="Privacy & Data" description="Control your data and privacy">
           {isSettingVisible('Send Analytics', 'Anonymous usage statistics', 'Privacy') && (
             <SettingItem label="Send Anonymous Usage Statistics" description="Help improve Shiori by sending anonymous usage data">
@@ -1857,13 +1871,20 @@ const AdvancedSettings = ({
           )}
 
           {(isSettingVisible('Clear Reading History', 'Delete all reading history', 'Privacy') ||
+            isSettingVisible('Clear Resume Prompt Memory', 'Forget EPUB continue/start-over choices', 'Privacy') ||
             isSettingVisible('Reset All Settings', 'Restore factory defaults', 'Privacy')) && (
-            <div className="flex gap-2 pt-2">
+            <div className="flex gap-2 pt-2 flex-wrap">
               <Button
                 variant="outline"
                 onClick={() => toast.info('Reading history clearing is not yet implemented')}
               >
                 Clear Reading History
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleClearResumePromptMemory}
+              >
+                Clear Resume Prompt Memory
               </Button>
               <Button
                 variant="outline"

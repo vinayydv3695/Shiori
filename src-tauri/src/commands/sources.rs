@@ -838,3 +838,65 @@ pub async fn proxy_manga_image(
 
     Ok(bytes.to_vec())
 }
+
+// ─── ToonGod Cloudflare bypass config ─────────────────────────────────────────
+
+use crate::sources::toongod::{ToonGodConfig, ToonGodSource};
+
+#[tauri::command]
+pub async fn toongod_get_config(
+    app_handle: tauri::AppHandle,
+) -> Result<ToonGodConfig> {
+    let store = app_handle
+        .store("sources.json")
+        .map_err(|e| ShioriError::Other(format!("Failed to open source store: {}", e)))?;
+
+    let cf_clearance = store
+        .get("toongod.cf_clearance")
+        .and_then(|v| v.as_str().map(ToString::to_string))
+        .filter(|s| !s.is_empty());
+
+    let flaresolverr_url = store
+        .get("toongod.flaresolverr_url")
+        .and_then(|v| v.as_str().map(ToString::to_string))
+        .filter(|s| !s.is_empty());
+
+    Ok(ToonGodConfig { cf_clearance, flaresolverr_url })
+}
+
+#[tauri::command]
+pub async fn toongod_set_config(
+    app_handle: tauri::AppHandle,
+    state: State<'_, crate::AppState>,
+    config: ToonGodConfig,
+) -> Result<()> {
+    // Persist to store
+    let store = app_handle
+        .store("sources.json")
+        .map_err(|e| ShioriError::Other(format!("Failed to open source store: {}", e)))?;
+
+    match config.cf_clearance.as_deref() {
+        Some(v) if !v.trim().is_empty() => store.set("toongod.cf_clearance", serde_json::json!(v.trim())),
+        _ => { let _ = store.delete("toongod.cf_clearance"); }
+    }
+
+    match config.flaresolverr_url.as_deref() {
+        Some(v) if !v.trim().is_empty() => store.set("toongod.flaresolverr_url", serde_json::json!(v.trim())),
+        _ => { let _ = store.delete("toongod.flaresolverr_url"); }
+    }
+
+    store
+        .save()
+        .map_err(|e| ShioriError::Other(format!("Failed to save ToonGod config: {}", e)))?;
+
+    // Apply to live source instance
+    let registry = state.plugin_registry.read().await;
+    if let Some(source_arc) = registry.get("toongod") {
+        if let Some(tg) = source_arc.as_any().downcast_ref::<ToonGodSource>() {
+            tg.set_config(config).await;
+        }
+    }
+
+    Ok(())
+}
+

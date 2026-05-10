@@ -70,6 +70,12 @@ export interface Page {
   image_url?: string;
 }
 
+export interface DownloadOptionDto {
+  url: string;
+  downloadType: string;
+  label?: string;
+}
+
 export type BrowseMode = 'popular' | 'latest' | 'recent' | 'top-rated';
 
 export const pluginApi = {
@@ -112,5 +118,13 @@ export const pluginApi = {
 
   async setConfig(sourceId: string, key: string, value: string): Promise<boolean> {
     return invoke<boolean>('set_source_config', { sourceId, key, value });
+  },
+
+  async annaArchiveGetTorrentLinks(contentId: string): Promise<DownloadOptionDto[]> {
+    return invoke<DownloadOptionDto[]>('annas_archive_get_torrent_links', { contentId });
+  },
+
+  async annaArchiveSendToTorbox(contentId: string, filenameHint?: string): Promise<string> {
+    return invoke<string>('annas_archive_send_to_torbox', { contentId, filenameHint });
   },
 };

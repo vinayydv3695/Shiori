@@ -18,7 +18,7 @@ export interface SourceConfig {
   website?: string;
 }
 
-const SOURCE_STORE_VERSION = 6;
+const SOURCE_STORE_VERSION = 7;
 
 const MANDATORY_SOURCE_IDS = new Set(['mangadex', 'anna-archive']);
 
@@ -54,9 +54,12 @@ const DEFAULT_SOURCES: SourceConfig[] = [
   {
     id: 'nyaa',
     name: 'Nyaa (Torrents)',
-    kind: 'manga',
+    // Nyaa is torrent-only — no in-app reader. Moved to 'books' so it doesn't
+    // pollute the Online Manga source selector; it can still be used for
+    // manga torrents via the Online Books → Torbox workflow.
+    kind: 'books',
     enabled: true,
-    description: 'Torrent-first manga source for SHIORI x Torbox workflows.',
+    description: 'Torrent-first source for manga/books via Torbox. Works with both manga and book torrents.',
     status: 'active',
     implemented: true,
     torboxCompatible: true,
@@ -133,7 +136,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     implemented: true,
     torboxCompatible: true,
     capabilities: ['torbox', 'direct'],
-    website: 'https://annas-archive.org',
+    website: 'https://annas-archive.gl',
   },
 ];
 
@@ -291,9 +294,6 @@ export const useSourceStore = create<SourceStore>()(
           const nextPrimary = { ...state.primarySourceByKind };
           if (nextSources.find((s) => s.id === 'anna-archive')?.enabled) {
             nextPrimary.books = 'anna-archive';
-          }
-          if (nextSources.find((s) => s.id === 'nyaa')?.enabled) {
-            nextPrimary.manga = 'nyaa';
           }
 
           return {

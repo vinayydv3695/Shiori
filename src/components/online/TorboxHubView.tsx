@@ -506,7 +506,7 @@ function getSourceBadgeInfo(sourceId?: string, fallbackSource?: TorboxResultSour
   return { label: fallbackSource === 'manga' ? 'Manga' : 'Unknown', className: 'torbox-source-badge--generic' };
 }
 
-function parseBookCandidate(sourceId: string, rawValue: string): { kind: string; url: string } | null {
+function parseBookCandidate(_sourceId: string, rawValue: string): { kind: string; url: string } | null {
   const parsed = parsePageUrl(rawValue);
   if (!parsed.url) return null;
 
@@ -516,16 +516,6 @@ function parseBookCandidate(sourceId: string, rawValue: string): { kind: string;
       kind: normalized.startsWith('magnet:') ? 'magnet' : 'torrent',
       url: parsed.url,
     };
-  }
-
-  if (sourceId === 'anna-archive' && parsed.kind === 'anna' && parsed.url.toLowerCase().includes('/md5/')) {
-    const md5Index = parsed.url.toLowerCase().indexOf('/md5/');
-    const sliced = parsed.url.slice(md5Index);
-    const hashMatch = sliced.match(/^\/md5\/([a-fA-F0-9]{32})/);
-    if (hashMatch) {
-      return { kind: 'anna', url: `https://annas-archive.org/md5/${hashMatch[1]}` };
-    }
-    return { kind: 'anna', url: 'https://annas-archive.org' + sliced.split('?')[0] };
   }
 
   return parsed;
@@ -921,17 +911,6 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
           return prev;
         });
       }, 3000);
-    }
-  }, []);
-
-  const openInBrowser = useCallback((url: string) => {
-    try {
-      const openedWindow = window.open(url, '_blank', 'noopener,noreferrer');
-      if (!openedWindow) {
-        window.location.assign(url);
-      }
-    } catch {
-      window.location.assign(url);
     }
   }, []);
 
@@ -1336,6 +1315,53 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
       setSearchSummary(null);
 
       try {
+        if (sourceId === 'anna-archive') {
+          const options = await pluginApi.annaArchiveGetTorrentLinks(item.id);
+          if (!options.length) {
+            throw new Error('No usable links found for this Anna result.');
+          }
+
+          const isManagedDatasetTorrent = (url: string) => {
+            const lower = url.toLowerCase();
+            return lower.includes('/managed_by_aa/') || lower.includes('/zlib/');
+          };
+
+          const looksLikeSingleFile = (url: string) => {
+            const lower = url.toLowerCase();
+            return (
+              lower.includes('file.php?id=') ||
+              ['.epub', '.pdf', '.mobi', '.azw3', '.docx', '.cbz', '.cbr'].some((ext) =>
+                lower.includes(ext)
+              )
+            );
+          };
+
+          const sorted = [...options].sort((a, b) => {
+            const rank = (it: { downloadType: string; url: string }) => {
+              const t = it.downloadType?.toLowerCase() ?? '';
+              if (t === 'magnet') return 0;
+              if ((t === 'direct' || t === 'external') && looksLikeSingleFile(it.url)) return 1;
+              if (t === 'torrent' && !isManagedDatasetTorrent(it.url)) return 2;
+              if (t === 'direct' || t === 'external') return 3;
+              if (t === 'torrent') return 4;
+              return 9;
+            };
+            return rank(a) - rank(b);
+          });
+
+          const chosen = sorted[0];
+          if (!chosen) {
+            throw new Error('No queueable Anna link found.');
+          }
+
+          await enqueueFromAnna({
+            title: item.title,
+            sourceLink: chosen.url,
+          });
+          setSendState(item.id, 'success');
+          return;
+        }
+
         const candidatePriority = new Map<string, { kind: string; priority: number }>();
         let firstRejectedQueueCandidateMessage: string | null = null;
 
@@ -1392,10 +1418,7 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
           throw new Error('No download link found. Verify Anna\'s Archive keys in Settings → Online Sources.');
         }
 
-        if (firstCandidate.kind === 'anna' || firstCandidate.kind === 'external') {
-          openInBrowser(firstCandidate.url);
-          setSendState(item.id, 'success');
-        } else if (
+        if (
           firstCandidate.kind === 'magnet' ||
           firstCandidate.kind === 'torrent' ||
           firstCandidate.kind === 'direct'
@@ -1408,6 +1431,8 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
             sourceLink: firstCandidate.url,
           });
           setSendState(item.id, 'success');
+        } else if (firstCandidate.kind === 'anna' || firstCandidate.kind === 'external') {
+          throw new Error('No queueable magnet/torrent link found for this result. Use View Details for manual fallback.');
         } else {
           throw new Error(`Unsupported source kind '${firstCandidate.kind}' for Torbox send.`);
         }
@@ -1417,7 +1442,7 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
         setSearchError(msg);
       }
     },
-    [enqueueFromAnna, openInBrowser, setSendState]
+    [enqueueFromAnna, setSendState]
   );
 
   const handleSendMangaResult = useCallback(
@@ -1441,10 +1466,7 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
       setSearchError(null);
       setSearchSummary(null);
       try {
-        if (normalizedKind === 'anna' || normalizedKind === 'external') {
-          openInBrowser(torboxSource.url);
-          setSendState(item.id, 'success');
-        } else if (
+        if (
           normalizedKind === 'magnet' ||
           normalizedKind === 'torrent' ||
           normalizedKind === 'direct'
@@ -1455,6 +1477,8 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
             sourceLink: torboxSource.url,
           });
           setSendState(item.id, 'success');
+        } else if (normalizedKind === 'anna' || normalizedKind === 'external') {
+          throw new Error('No queueable magnet/torrent link found for this result. Use View Details for manual fallback.');
         } else {
           throw new Error(`Unsupported source kind '${normalizedKind}' for Torbox send.`);
         }
@@ -1467,7 +1491,6 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
     [
       enqueueFromMangadex,
       mangaSourceHasTorboxLinks,
-      openInBrowser,
       setSendState,
       torboxMangaSource,
       torboxRecommendedMangaSourceLabel,

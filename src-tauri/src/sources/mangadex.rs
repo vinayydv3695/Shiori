@@ -60,8 +60,9 @@ impl Source for MangaDexSource {
         let safe_limit = limit.max(1).min(100);
         let q = urlencoding::encode(query);
         let offset = (safe_page - 1) * safe_limit;
+        // Include all content ratings so results aren't filtered out silently
         let url = format!(
-            "{}/manga?title={}&limit={}&offset={}&includes[]=cover_art&order[relevance]=desc",
+            "{}/manga?title={}&limit={}&offset={}&includes[]=cover_art&order[relevance]=desc&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica",
             MANGADEX_API_BASE, q, safe_limit, offset
         );
 
@@ -201,22 +202,48 @@ impl Source for MangaDexSource {
         let mut chapters = Vec::new();
 
         loop {
+            // Include all contentRating filters and scanlation_group includes
+            // Omitting contentRating[] causes the API to return 0 results for many titles
             let url = format!(
-                "{}/chapter?manga={}&translatedLanguage[]=en&order[chapter]=asc&limit=100&offset={}",
+                "{}/chapter?manga={}&translatedLanguage[]=en&order[chapter]=asc&limit=100&offset={}&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&contentRating[]=pornographic&includes[]=scanlation_group",
                 MANGADEX_API_BASE, content_id, offset
             );
 
-            let response: MangaDexChapterResponse = self
+            let resp = self
                 .client
-                .get(url)
+                .get(&url)
                 .send()
                 .await
-                .map_err(|e| ShioriError::Other(format!("MangaDex chapter request failed: {}", e)))?
+                .map_err(|e| ShioriError::Other(format!("MangaDex chapter request failed: {}", e)))?;
+
+            // Check HTTP-level errors before consuming the body
+            if !resp.status().is_success() {
+                let status = resp.status();
+                let body = resp.text().await.unwrap_or_default();
+                return Err(ShioriError::Other(format!(
+                    "MangaDex chapter API returned HTTP {}: {}",
+                    status,
+                    &body[..body.len().min(300)]
+                )));
+            }
+
+            let response: MangaDexChapterResponse = resp
                 .json()
                 .await
                 .map_err(|e| ShioriError::Other(format!("MangaDex chapter parse failed: {}", e)))?;
 
+            // Check API-level error result field
+            if let Some(ref result) = response.result {
+                if result == "error" {
+                    return Err(ShioriError::Other(
+                        "MangaDex API returned an error for chapter list. The manga may not be accessible or the ID is invalid.".to_string(),
+                    ));
+                }
+            }
+
             let count = response.data.len();
+            let total = response.total.unwrap_or(0) as usize;
+
             chapters.extend(response.data.into_iter().map(|ch| {
                 let number = ch.attributes.chapter.as_deref().and_then(|n| n.parse::<f32>().ok());
                 let title = match (&ch.attributes.chapter, &ch.attributes.title) {
@@ -230,14 +257,16 @@ impl Source for MangaDexSource {
                     id: ch.id,
                     title,
                     number: number.unwrap_or(0.0),
-                    volume: None,
-                    uploaded_at: None,
+                    volume: ch.attributes.volume,
+                    uploaded_at: ch.attributes.publish_at,
                     source_id: "mangadex".to_string(),
                     content_id: content_id.to_string(),
                 }
             }));
 
-            if count < 100 {
+            let fetched_so_far = offset + count;
+            // Stop if last batch was smaller than limit, or we've fetched all known chapters
+            if count < 100 || (total > 0 && fetched_so_far >= total) {
                 break;
             }
             offset += 100;
@@ -270,6 +299,8 @@ impl Source for MangaDexSource {
             .collect())
     }
 }
+
+// ─── Deserialization structs ───────────────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
 struct MangaDexMangaResponse {
@@ -305,22 +336,53 @@ struct MangaDexCoverAttributes {
     file_name: Option<String>,
 }
 
+// ─── Chapter response structs ─────────────────────────────────────────────────
+
 #[derive(Debug, Deserialize)]
 struct MangaDexChapterResponse {
+    /// API-level result; "ok" on success, "error" on failure
+    result: Option<String>,
     data: Vec<MangaDexChapter>,
+    /// Total number of chapters available (used to terminate pagination)
+    total: Option<u32>,
 }
 
 #[derive(Debug, Deserialize)]
 struct MangaDexChapter {
     id: String,
     attributes: MangaDexChapterAttributes,
+    #[allow(dead_code)]
+    relationships: Option<Vec<MangaDexChapterRelationship>>,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct MangaDexChapterAttributes {
     chapter: Option<String>,
     title: Option<String>,
+    volume: Option<String>,
+    #[allow(dead_code)]
+    pages: Option<u32>,
+    #[serde(rename = "publishAt")]
+    publish_at: Option<String>,
 }
+
+#[derive(Debug, Deserialize)]
+struct MangaDexChapterRelationship {
+    #[allow(dead_code)]
+    #[serde(rename = "type")]
+    r#type: String,
+    #[allow(dead_code)]
+    attributes: Option<MangaDexScanlationGroupAttributes>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MangaDexScanlationGroupAttributes {
+    #[allow(dead_code)]
+    name: Option<String>,
+}
+
+// ─── At-Home (page CDN) structs ────────────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
 struct MangaDexAtHomeResponse {

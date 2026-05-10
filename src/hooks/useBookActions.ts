@@ -107,5 +107,15 @@ export function useBookActions(books: Book[]) {
       onCancel: bookOpen.handleCancelConvert,
       onDialogOpenChange: bookOpen.handleDialogOpenChange,
     },
+    // Expose resume-reading dialog state
+    resumeReading: {
+      showDialog: bookOpen.showResumeDialog,
+      pendingResume: bookOpen.pendingResume,
+      buildLocationLabel: bookOpen.buildLocationLabel,
+      onResume: bookOpen.handleResume,
+      onStartOver: bookOpen.handleStartOver,
+      onDialogOpenChange: bookOpen.handleResumeDialogOpenChange,
+    },
   };
+
 }

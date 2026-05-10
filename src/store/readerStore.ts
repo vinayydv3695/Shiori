@@ -48,6 +48,12 @@ export interface ReaderSettings {
   updatedAt: string;
 }
 
+export interface ResumeTarget {
+  bookId: number;
+  chapterIndex: number;
+  scrollRatio: number;
+}
+
 interface ReaderState {
   // Current book
   currentBookId: number | null;
@@ -74,6 +80,10 @@ interface ReaderState {
   isReaderOpen: boolean;
   showAnnotationSidebar: boolean;
   showControls: boolean;
+  /** When true the reader should open at chapter 0, ignoring any saved progress. */
+  startFromBeginning: boolean;
+  /** Explicit one-shot resume target set from open-book prompt flow. */
+  explicitResumeTarget: ResumeTarget | null;
   
   // Actions
   openBook: (bookId: number, bookPath: string, format: string, content?: ReaderContent) => void;
@@ -91,6 +101,10 @@ interface ReaderState {
   toggleControls: () => void;
   startSession: (sessionId: string) => void;
   endSession: () => void;
+  /** Explicitly set whether to skip progress restore on next open. */
+  setStartFromBeginning: (value: boolean) => void;
+  /** Set/clear explicit one-shot resume target. */
+  setExplicitResumeTarget: (target: ResumeTarget | null) => void;
 }
 
 export const useReaderStore = create<ReaderState>((set) => ({
@@ -118,6 +132,8 @@ export const useReaderStore = create<ReaderState>((set) => ({
   isReaderOpen: false,
   showAnnotationSidebar: false,
   showControls: true,
+  startFromBeginning: false,
+  explicitResumeTarget: null,
 
   // Actions
   openBook: (bookId, bookPath, format, content) =>
@@ -127,6 +143,8 @@ export const useReaderStore = create<ReaderState>((set) => ({
       currentBookFormat: format,
       currentContent: content ?? null,
       isReaderOpen: true,
+      // Carry over startFromBeginning from content if supplied, otherwise keep existing value
+      ...(content?.startFromBeginning !== undefined ? { startFromBeginning: content.startFromBeginning } : {}),
     }),
 
   closeBook: () =>
@@ -141,6 +159,8 @@ export const useReaderStore = create<ReaderState>((set) => ({
       selectedAnnotation: null,
       currentSessionId: null,
       sessionStartTime: null,
+      startFromBeginning: false,
+      explicitResumeTarget: null,
     }),
 
   setProgress: (progress) => set({ progress }),
@@ -195,4 +215,7 @@ export const useReaderStore = create<ReaderState>((set) => ({
       currentSessionId: null,
       sessionStartTime: null,
     }),
+
+  setStartFromBeginning: (value) => set({ startFromBeginning: value }),
+  setExplicitResumeTarget: (target) => set({ explicitResumeTarget: target }),
 }));

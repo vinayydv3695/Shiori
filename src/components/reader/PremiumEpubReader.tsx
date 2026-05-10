@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { api } from '@/lib/tauri';
 import type { BookMetadata, Chapter } from '@/lib/tauri';
 import { useReaderUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement } from '@/store/premiumReaderStore';
+import { useReaderStore } from '@/store/readerStore';
 import { useDoodleStore } from '@/store/doodleStore';
 import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
 import { useReadingSession } from '@/hooks/useReadingSession';
@@ -207,6 +208,12 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const setTopBarVisible = useReaderUIStore(state => state.setTopBarVisible);
   const toggleSidebar = useReaderUIStore(state => state.toggleSidebar);
   const setScrollProgress = useReaderUIStore(state => state.setScrollProgress);
+  // Read the startFromBeginning flag from the global reader store.
+  // This survives ReaderLayout's openBook call that would otherwise overwrite readerContent.
+  const startFromBeginning = useReaderStore(state => state.startFromBeginning);
+  const setStartFromBeginning = useReaderStore(state => state.setStartFromBeginning);
+  const explicitResumeTarget = useReaderStore(state => state.explicitResumeTarget);
+  const setExplicitResumeTarget = useReaderStore(state => state.setExplicitResumeTarget);
 
   const { theme, width, twoPageView, toggleTwoPageView, pageFlipEnabled, pageFlipSpeed, animationStyle } = useReadingSettings();
   const isDoodleMode = useDoodleStore(state => state.isDoodleMode);
@@ -493,57 +500,115 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         // Add another small delay to ensure HashMap insert completes
         await new Promise(resolve => setTimeout(resolve, 200));
 
-        // Load progress from database — restore chapter AND scroll position
+        // Restore chapter + scroll.
+        // Priority:
+        // 1) explicit one-shot target from resume prompt (exact intent)
+        // 2) persisted DB progress
+        // Skip all restore if user chose "Start from beginning".
         let startIndex = 0;
         let savedScrollRatio = 0;
-        try {
-          const progress = await api.getReadingProgress(bookId);
-          if (progress) {
-            // Prefer CFI-based restore for precision, fall back to location string
-            if (progress.cfiLocation?.startsWith('epubcfi(') && progress.cfiLocation.endsWith(')')) {
-              const cfiInner = progress.cfiLocation.slice(8, -1);
-              const cfiParts = cfiInner.split('!/');
-              if (cfiParts.length === 2) {
-                const pathParts = cfiParts[0].split('/').filter(Boolean);
-                if (pathParts.length >= 2) {
-                  const idx = parseInt(pathParts[1], 10);
-                  if (!Number.isNaN(idx) && idx >= 0 && idx < bookMetadata.total_chapters) {
-                    startIndex = idx;
+        const skipRestore = startFromBeginning;
+
+        const normalizeChapterIndex = (rawIdx: number): number | null => {
+          if (Number.isNaN(rawIdx)) return null;
+
+          // Preferred: zero-based index
+          if (rawIdx >= 0 && rawIdx < bookMetadata.total_chapters) {
+            return rawIdx;
+          }
+
+          // Legacy compatibility: one-based index
+          if (rawIdx > 0 && rawIdx <= bookMetadata.total_chapters) {
+            return rawIdx - 1;
+          }
+
+          return null;
+        };
+
+        // Consume start-over flag immediately so it doesn't leak into future opens.
+        if (skipRestore) {
+          setStartFromBeginning(false);
+        }
+
+        if (!skipRestore) {
+          const directTarget = explicitResumeTarget?.bookId === bookId ? explicitResumeTarget : null;
+
+          if (directTarget) {
+            const normalized = normalizeChapterIndex(directTarget.chapterIndex);
+            if (normalized !== null) {
+              startIndex = normalized;
+            }
+            const ratio = directTarget.scrollRatio;
+            if (!Number.isNaN(ratio) && ratio >= 0 && ratio <= 1) {
+              savedScrollRatio = ratio;
+            }
+            // One-shot target consumed.
+            setExplicitResumeTarget(null);
+          } else {
+            try {
+              const progress = await api.getReadingProgress(bookId);
+              if (progress) {
+                const fallbackFromLocation = () => {
+                  if (!progress.currentLocation) return { chapter: null as number | null, scroll: null as number | null };
+                  // Legacy location format: "chapter_N" or "chapter_N:scroll_R"
+                  const parts = progress.currentLocation.split(':');
+
+                  let chapter: number | null = null;
+                  if (parts[0].startsWith('chapter_')) {
+                    const idx = parseInt(parts[0].replace('chapter_', ''), 10);
+                    chapter = normalizeChapterIndex(idx);
+                  }
+
+                  let scroll: number | null = null;
+                  if (parts[1]?.startsWith('scroll_')) {
+                    const ratio = parseFloat(parts[1].replace('scroll_', ''));
+                    if (!Number.isNaN(ratio) && ratio >= 0 && ratio <= 1) {
+                      scroll = ratio;
+                    }
+                  }
+
+                  return { chapter, scroll };
+                };
+
+                let cfiChapter: number | null = null;
+                let cfiScroll: number | null = null;
+
+                // Prefer CFI-based restore for precision.
+                // Fill missing parts from currentLocation fallback when needed.
+                if (progress.cfiLocation?.startsWith('epubcfi(') && progress.cfiLocation.endsWith(')')) {
+                  const cfiInner = progress.cfiLocation.slice(8, -1);
+                  const cfiParts = cfiInner.split('!/');
+                  if (cfiParts.length === 2) {
+                    const pathParts = cfiParts[0].split('/').filter(Boolean);
+                    if (pathParts.length >= 2) {
+                      const idx = parseInt(pathParts[1], 10);
+                      cfiChapter = normalizeChapterIndex(idx);
+                    }
+
+                    const scrollMatch = cfiParts[1].match(/^scroll\/([0-9.]+)/);
+                    if (scrollMatch) {
+                      const ratio = parseFloat(scrollMatch[1]);
+                      if (!Number.isNaN(ratio) && ratio >= 0 && ratio <= 1) {
+                        cfiScroll = ratio;
+                      }
+                    }
                   }
                 }
-                const scrollMatch = cfiParts[1].match(/^scroll\/([0-9.]+)/);
-                if (scrollMatch) {
-                  const ratio = parseFloat(scrollMatch[1]);
-                  if (!Number.isNaN(ratio) && ratio >= 0 && ratio <= 1) {
-                    savedScrollRatio = ratio;
-                  }
-                }
+
+                const fallback = fallbackFromLocation();
+                startIndex = cfiChapter ?? fallback.chapter ?? startIndex;
+                savedScrollRatio = cfiScroll ?? fallback.scroll ?? savedScrollRatio;
               }
-            } else if (progress.currentLocation) {
-              // Legacy location format: "chapter_N" or "chapter_N:scroll_R"
-              const parts = progress.currentLocation.split(':');
-              if (parts[0].startsWith('chapter_')) {
-                const idx = parseInt(parts[0].replace('chapter_', ''), 10);
-                if (!Number.isNaN(idx) && idx >= 0 && idx < bookMetadata.total_chapters) {
-                  startIndex = idx;
-                }
-              }
-              if (parts[1]?.startsWith('scroll_')) {
-                const ratio = parseFloat(parts[1].replace('scroll_', ''));
-                if (!Number.isNaN(ratio) && ratio >= 0 && ratio <= 1) {
-                  savedScrollRatio = ratio;
-                }
-              }
+            } catch {
+              // Silently ignore
             }
           }
-        } catch {
-          // Silently ignore
         }
 
         await loadChapterRef.current(startIndex, null, savedScrollRatio);
         setIsLoading(false);
 
-        if (startIndex > 0 || savedScrollRatio > 0) {
+        if (!skipRestore && (startIndex > 0 || savedScrollRatio > 0)) {
           const pct = bookMetadata.total_chapters > 0
             ? Math.round((startIndex / bookMetadata.total_chapters) * 100)
             : 0;

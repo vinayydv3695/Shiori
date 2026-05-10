@@ -1,13 +1,22 @@
 use scraper::{Html, Selector};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
+use tokio::sync::RwLock;
 
 use crate::error::{Result, ShioriError};
 use crate::sources::{Chapter, ContentType, Page, SearchResult, Source, SourceMeta};
 
 const BASE_URL: &str = "https://www.toongod.org";
 const MANGA_PATH: &str = "webtoons";
-const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
+// Rotate through realistic Chrome user-agents to reduce fingerprinting
+const USER_AGENTS: &[&str] = &[
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+];
 
 // Selectors for Madara theme
 const SEARCH_ITEM_SELECTOR: &str = "div.c-tabs-item__content, div.page-item-detail, div.post-title";
@@ -17,24 +26,69 @@ const CHAPTER_LIST_SELECTOR: &str = "li.wp-manga-chapter";
 const CHAPTER_LINK_SELECTOR: &str = "a";
 const PAGE_BREAK_SELECTOR: &str = "div.page-break img, .reading-content img, .text-left img";
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ToonGodConfig {
+    /// Optional cf_clearance cookie value obtained from a browser after solving Cloudflare
+    pub cf_clearance: Option<String>,
+    /// Optional FlareSolverr URL for automated Cloudflare bypass (e.g. http://localhost:8191)
+    pub flaresolverr_url: Option<String>,
+}
+
 pub struct ToonGodSource {
     client: reqwest::Client,
+    config: RwLock<ToonGodConfig>,
 }
 
 impl ToonGodSource {
     pub fn new() -> Result<Self> {
-        let client = reqwest::Client::builder()
-            .user_agent(USER_AGENT)
+        let client = Self::build_client(None)?;
+        Ok(Self {
+            client,
+            config: RwLock::new(ToonGodConfig::default()),
+        })
+    }
+
+    pub async fn set_config(&self, config: ToonGodConfig) {
+        let mut guard = self.config.write().await;
+        *guard = config;
+    }
+
+    #[allow(dead_code)]
+    pub async fn get_config(&self) -> ToonGodConfig {
+        self.config.read().await.clone()
+    }
+
+    fn build_client(cf_clearance: Option<&str>) -> Result<reqwest::Client> {
+        let ua = USER_AGENTS[0];
+        let mut builder = reqwest::Client::builder()
+            .user_agent(ua)
             .timeout(Duration::from_secs(30))
             .connect_timeout(Duration::from_secs(10))
+            // Follow redirects (Cloudflare sometimes redirects)
+            .redirect(reqwest::redirect::Policy::limited(8))
+            // Accept cookies
+            .cookie_store(true);
+
+        if let Some(clearance) = cf_clearance {
+            // Inject the cf_clearance cookie into the default headers so every
+            // request on this client carries it automatically.
+            let mut headers = reqwest::header::HeaderMap::new();
+            let cookie_val = format!("cf_clearance={}", clearance);
+            if let Ok(v) = reqwest::header::HeaderValue::from_str(&cookie_val) {
+                headers.insert(reqwest::header::COOKIE, v);
+            }
+            builder = builder.default_headers(headers);
+        }
+
+        builder
             .build()
-            .map_err(|e| ShioriError::Other(format!("Failed to create ToonGod client: {}", e)))?;
-        Ok(Self { client })
+            .map_err(|e| ShioriError::Other(format!("Failed to create ToonGod client: {}", e)))
     }
 
     fn detect_cloudflare_block(status: reqwest::StatusCode, html: &str) -> bool {
         if status == reqwest::StatusCode::FORBIDDEN
             || status == reqwest::StatusCode::SERVICE_UNAVAILABLE
+            || status == reqwest::StatusCode::TOO_MANY_REQUESTS
         {
             return true;
         }
@@ -44,11 +98,18 @@ impl ToonGodSource {
             || lower.contains("attention required")
             || lower.contains("cf-browser-verification")
             || lower.contains("just a moment")
+            || lower.contains("enable javascript")
+            || lower.contains("_cf_chl")
+            || lower.contains("challenge-platform")
     }
 
     fn cloudflare_error(context: &str) -> ShioriError {
         ShioriError::Other(format!(
-            "ToonGod {} blocked by Cloudflare. Open the site in a browser and try again later.",
+            "ToonGod {} is blocked by Cloudflare. \
+            To fix this: (1) Open toongod.org in your browser and solve the CAPTCHA, \
+            then copy the 'cf_clearance' cookie value from DevTools and paste it in \
+            Settings → Online Sources → ToonGod → CF Clearance Cookie. \
+            Or (2) run a local FlareSolverr instance and set its URL in the same settings.",
             context
         ))
     }
@@ -66,10 +127,8 @@ impl ToonGodSource {
     }
 
     fn extract_chapter_number(text: &str) -> f32 {
-        // Try to extract chapter number from text like "Chapter 123", "Ch. 45.5", etc.
         let text_lower = text.to_lowercase();
-        
-        // Find number after "chapter" or "ch"
+
         let patterns = ["chapter ", "ch.", "ch ", "ep.", "ep ", "episode "];
         for pattern in patterns {
             if let Some(idx) = text_lower.find(pattern) {
@@ -79,15 +138,14 @@ impl ToonGodSource {
                 }
             }
         }
-        
-        // Fallback: find any number in the string
-        Self::parse_number_from_start(&text).unwrap_or(0.0)
+
+        Self::parse_number_from_start(text).unwrap_or(0.0)
     }
 
     fn parse_number_from_start(s: &str) -> Option<f32> {
         let mut buf = String::new();
         let mut has_dot = false;
-        
+
         for c in s.chars() {
             if c.is_ascii_digit() {
                 buf.push(c);
@@ -98,7 +156,7 @@ impl ToonGodSource {
                 break;
             }
         }
-        
+
         if buf.is_empty() || buf == "." {
             None
         } else {
@@ -115,30 +173,134 @@ impl ToonGodSource {
             .to_string()
     }
 
-    async fn fetch_with_referer(&self, url: &str, referer: Option<&str>) -> Result<(reqwest::StatusCode, String)> {
-        let mut req = self.client.get(url);
-        if let Some(ref_url) = referer {
-            req = req.header("Referer", ref_url);
+    /// Try FlareSolverr for Cloudflare-protected pages.
+    /// Returns Some(html) on success, None if FlareSolverr is not configured.
+    async fn try_flaresolverr(&self, url: &str) -> Option<String> {
+        let config = self.config.read().await;
+        let fs_url = config.flaresolverr_url.as_deref()?.trim_end_matches('/');
+        if fs_url.is_empty() {
+            return None;
         }
-        
-        let resp = req.send().await
+        let endpoint = format!("{}/v1", fs_url);
+        let payload = serde_json::json!({
+            "cmd": "request.get",
+            "url": url,
+            "maxTimeout": 60000
+        });
+
+        let fs_client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(90))
+            .build()
+            .ok()?;
+
+        let response = fs_client
+            .post(&endpoint)
+            .json(&payload)
+            .send()
+            .await
+            .ok()?;
+
+        if !response.status().is_success() {
+            return None;
+        }
+
+        let json: serde_json::Value = response.json().await.ok()?;
+        let html = json["solution"]["response"]
+            .as_str()?
+            .to_string();
+
+        if html.is_empty() { None } else { Some(html) }
+    }
+
+    /// Build extra browser-like headers for requests to help bypass basic checks.
+    fn browser_headers(referer: Option<&str>) -> reqwest::header::HeaderMap {
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert(
+            reqwest::header::ACCEPT,
+            reqwest::header::HeaderValue::from_static(
+                "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            ),
+        );
+        headers.insert(
+            reqwest::header::ACCEPT_LANGUAGE,
+            reqwest::header::HeaderValue::from_static("en-US,en;q=0.9"),
+        );
+        headers.insert(
+            "sec-fetch-dest",
+            reqwest::header::HeaderValue::from_static("document"),
+        );
+        headers.insert(
+            "sec-fetch-mode",
+            reqwest::header::HeaderValue::from_static("navigate"),
+        );
+        headers.insert(
+            "sec-fetch-site",
+            reqwest::header::HeaderValue::from_static("same-origin"),
+        );
+        headers.insert(
+            "sec-fetch-user",
+            reqwest::header::HeaderValue::from_static("?1"),
+        );
+        headers.insert(
+            "upgrade-insecure-requests",
+            reqwest::header::HeaderValue::from_static("1"),
+        );
+        if let Some(ref_url) = referer {
+            if let Ok(val) = reqwest::header::HeaderValue::from_str(ref_url) {
+                headers.insert(reqwest::header::REFERER, val);
+            }
+        }
+        headers
+    }
+
+    async fn fetch_with_referer(&self, url: &str, referer: Option<&str>) -> Result<(reqwest::StatusCode, String)> {
+        // First try FlareSolverr if configured
+        if let Some(html) = self.try_flaresolverr(url).await {
+            // FlareSolverr succeeded — return fake 200 with the HTML
+            return Ok((reqwest::StatusCode::OK, html));
+        }
+
+        // Build client with cf_clearance cookie if available
+        let cf_clearance = {
+            let config = self.config.read().await;
+            config.cf_clearance.clone()
+        };
+        let client = Self::build_client(cf_clearance.as_deref())
+            .unwrap_or_else(|_| self.client.clone());
+
+        let headers = Self::browser_headers(referer.or(Some(BASE_URL)));
+        let resp = client
+            .get(url)
+            .headers(headers)
+            .send()
+            .await
             .map_err(|e| ShioriError::Other(format!("ToonGod request failed: {}", e)))?;
-        
+
         let status = resp.status();
-        let html = resp.text().await
+        let html = resp
+            .text()
+            .await
             .map_err(|e| ShioriError::Other(format!("ToonGod response read failed: {}", e)))?;
-        
+
         Ok((status, html))
     }
 
     async fn try_ajax_chapters(&self, manga_id: &str, manga_url: &str) -> Result<Option<String>> {
+        let cf_clearance = {
+            let config = self.config.read().await;
+            config.cf_clearance.clone()
+        };
+        let client = Self::build_client(cf_clearance.as_deref())
+            .unwrap_or_else(|_| self.client.clone());
+
         // Try the new AJAX endpoint first
         let ajax_url = format!("{}/ajax/chapters/", manga_url.trim_end_matches('/'));
-        
-        let resp = self.client
+
+        let resp = client
             .post(&ajax_url)
             .header("X-Requested-With", "XMLHttpRequest")
-            .header("Referer", manga_url)
+            .header(reqwest::header::REFERER, manga_url)
+            .header(reqwest::header::ACCEPT, "application/json, text/javascript, */*; q=0.01")
             .send()
             .await;
 
@@ -159,10 +321,10 @@ impl ToonGodSource {
             ("manga", manga_id),
         ];
 
-        let resp = self.client
+        let resp = client
             .post(&old_ajax_url)
             .header("X-Requested-With", "XMLHttpRequest")
-            .header("Referer", manga_url)
+            .header(reqwest::header::REFERER, manga_url)
             .form(&form)
             .send()
             .await;
@@ -192,7 +354,7 @@ impl Source for ToonGodSource {
             id: "toongod".to_string(),
             name: "ToonGod".to_string(),
             base_url: BASE_URL.to_string(),
-            version: "2.0.0".to_string(),
+            version: "2.1.0".to_string(),
             content_type: ContentType::Manga,
             supports_search: true,
             supports_download: true,
@@ -209,7 +371,7 @@ impl Source for ToonGodSource {
             page_path,
             urlencoding::encode(query)
         );
-        
+
         let (status, html) = self.fetch_with_referer(&url, Some(BASE_URL)).await?;
 
         if Self::detect_cloudflare_block(status, &html) {
@@ -249,7 +411,6 @@ impl Source for ToonGodSource {
                 continue;
             }
 
-            // Try to find cover image
             let cover_url = item
                 .select(&image_sel)
                 .next()
@@ -288,7 +449,6 @@ impl Source for ToonGodSource {
             return Err(Self::cloudflare_error("chapter list"));
         }
 
-        // Try to extract manga post ID for AJAX request
         let manga_id = {
             let doc = Html::parse_document(&html);
             doc.select(&Selector::parse("div.manga-page, div[data-id]").unwrap())
@@ -297,7 +457,6 @@ impl Source for ToonGodSource {
                 .map(String::from)
         };
 
-        // Try AJAX endpoint first for potentially more complete chapter list
         let chapter_html = if let Some(ref mid) = manga_id {
             self.try_ajax_chapters(mid, &manga_url).await?.unwrap_or(html.clone())
         } else {
@@ -351,8 +510,7 @@ impl Source for ToonGodSource {
 
     async fn get_pages(&self, chapter_id: &str) -> Result<Vec<Page>> {
         let chapter_url = if chapter_id.starts_with("http") {
-            // Add style=list for long strip view
-            if chapter_id.contains("?") {
+            if chapter_id.contains('?') {
                 format!("{}&style=list", chapter_id)
             } else {
                 format!("{}?style=list", chapter_id.trim_end_matches('/'))
@@ -402,7 +560,7 @@ impl Source for ToonGodSource {
 
         if pages.is_empty() {
             return Err(ShioriError::Other(
-                "No pages found. The chapter may be protected or require browser access.".to_string()
+                "No pages found. ToonGod may require Cloudflare bypass. Set cf_clearance cookie or FlareSolverr URL in Settings → Online Sources → ToonGod.".to_string()
             ));
         }
 

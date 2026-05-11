@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useDeferredValue } from 'react';
 import { useLibraryStore, matchesAdvancedFilters } from '@/store/libraryStore';
 import { useCollectionStore } from '@/store/collectionStore';
-import { api, type Book } from '@/lib/tauri';
+import { api, type Book, type SearchQuery } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
 
 /**
@@ -13,16 +13,20 @@ export function useLibraryFilter(searchQuery: string) {
   const books = useLibraryStore(state => state.books);
   const selectedFilters = useLibraryStore(state => state.selectedFilters);
   const activeFilters = useLibraryStore(state => state.activeFilters);
+  const serverSearchQueryState = useLibraryStore(state => state.serverSearchQuery);
+  const setServerSearchQuery = useLibraryStore(state => state.setServerSearchQuery);
+  const loadInitialBooks = useLibraryStore(state => state.loadInitialBooks);
   const selectedCollection = useCollectionStore(state => state.selectedCollection);
   const [filteredBooks, setFilteredBooks] = useState<Book[]>([]);
 
-  // Filter books when collection changes
+  // Filter books only when collection changes.
+  // Keep base library (`books`) out of local state to avoid full-array copy churn.
   useEffect(() => {
     let aborted = false;
 
     const filterByCollection = async () => {
       if (!selectedCollection) {
-        if (!aborted) setFilteredBooks(books);
+        if (!aborted) setFilteredBooks([]);
         return;
       }
 
@@ -37,22 +41,153 @@ export function useLibraryFilter(searchQuery: string) {
 
     filterByCollection();
     return () => { aborted = true; };
-  }, [selectedCollection, books]);
+  }, [selectedCollection]);
+
+  const sourceBooks = useMemo(
+    () => (selectedCollection ? filteredBooks : books),
+    [selectedCollection, filteredBooks, books],
+  );
+
+  const query = deferredQuery.trim().toLowerCase();
+
+  const canUseServerSearch = !selectedCollection;
+
+  const serverSearchQuery = useMemo<SearchQuery | null>(() => {
+    if (!canUseServerSearch) return null;
+
+    const advanced = activeFilters;
+
+    const textTokens = [query, advanced?.textSearch?.trim().toLowerCase()]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+
+    const authors = Array.from(new Set([
+      ...selectedFilters.authors,
+      ...(advanced?.authors ?? []),
+    ]));
+
+    const tags = Array.from(new Set([
+      ...selectedFilters.tags,
+      ...(advanced?.tags ?? []),
+    ]));
+
+    const formats = Array.from(new Set([
+      ...selectedFilters.formats.map(f => f.toLowerCase()),
+      ...(advanced?.formats ?? []).map(f => f.toLowerCase()),
+    ]));
+
+    const selectedRatings = selectedFilters.ratings
+      .map(r => Number(r))
+      .filter(n => !Number.isNaN(n));
+    const selectedMinRating = selectedRatings.length > 0
+      ? Math.floor(Math.min(...selectedRatings))
+      : undefined;
+
+    const minRating = Math.max(
+      selectedMinRating ?? 0,
+      advanced?.ratingMin ?? 0,
+    ) || undefined;
+
+    const maxRating = advanced?.ratingMax !== undefined
+      ? Math.ceil(advanced.ratingMax)
+      : undefined;
+
+    const isbns: string[] = [];
+    const isbn13s: string[] = [];
+    for (const identifier of selectedFilters.identifiers) {
+      if (identifier.startsWith('ISBN13:')) {
+        isbn13s.push(identifier.replace('ISBN13:', '').trim());
+      } else if (identifier.startsWith('ISBN:')) {
+        isbns.push(identifier.replace('ISBN:', '').trim());
+      }
+    }
+
+    const dateTo = advanced?.dateTo
+      ? `${advanced.dateTo}T23:59:59`
+      : undefined;
+
+    const next: SearchQuery = {
+      query: textTokens || undefined,
+      authors: authors.length > 0 ? authors : undefined,
+      tags: tags.length > 0 ? tags : undefined,
+      formats: formats.length > 0 ? formats : undefined,
+      languages: selectedFilters.languages.length > 0 ? selectedFilters.languages : undefined,
+      publishers: selectedFilters.publishers.length > 0 ? selectedFilters.publishers : undefined,
+      series: selectedFilters.series.length === 1 ? selectedFilters.series[0] : undefined,
+      series_list: selectedFilters.series.length > 1 ? selectedFilters.series : undefined,
+      isbns: isbns.length > 0 ? isbns : undefined,
+      isbn13s: isbn13s.length > 0 ? isbn13s : undefined,
+      min_rating: minRating,
+      max_rating: maxRating,
+      date_from: advanced?.dateFrom,
+      date_to: dateTo,
+      reading_status: advanced?.readingStatus,
+    };
+
+    const hasCriteria = Boolean(
+      next.query ||
+      (next.authors && next.authors.length > 0) ||
+      (next.tags && next.tags.length > 0) ||
+      (next.formats && next.formats.length > 0) ||
+      (next.languages && next.languages.length > 0) ||
+      (next.publishers && next.publishers.length > 0) ||
+      next.series ||
+      (next.series_list && next.series_list.length > 0) ||
+      (next.isbns && next.isbns.length > 0) ||
+      (next.isbn13s && next.isbn13s.length > 0) ||
+      next.min_rating !== undefined ||
+      next.max_rating !== undefined ||
+      next.date_from ||
+      next.date_to ||
+      (next.reading_status && next.reading_status.length > 0),
+    );
+
+    return hasCriteria ? next : null;
+  }, [canUseServerSearch, query, selectedFilters, activeFilters]);
+
+  // Keep store in sync with server-side query mode.
+  useEffect(() => {
+    const currentKey = JSON.stringify(serverSearchQueryState);
+    const nextKey = JSON.stringify(serverSearchQuery);
+    if (currentKey === nextKey) return;
+
+    setServerSearchQuery(serverSearchQuery);
+    void loadInitialBooks();
+  }, [serverSearchQuery, serverSearchQueryState, setServerSearchQuery, loadInitialBooks]);
+
+  // Precompute lowercase searchable fields once per source array.
+  const searchIndex = useMemo(() => {
+    if (!query || serverSearchQuery) return null;
+    return sourceBooks.map(book => ({
+      book,
+      title: book.title.toLowerCase(),
+      authors: (book.authors ?? []).map(a => a.name.toLowerCase()),
+      tags: (book.tags ?? []).map(t => t.name.toLowerCase()),
+      publisher: (book.publisher ?? '').toLowerCase(),
+      series: (book.series ?? '').toLowerCase(),
+    }));
+  }, [sourceBooks, query, serverSearchQuery]);
 
   const displayBooks = useMemo(() => {
-    const sourceBooks = filteredBooks.length > 0 || selectedCollection ? filteredBooks : books;
+    // In server-query mode, store.books already contains the filtered page.
+    if (serverSearchQuery && !selectedCollection) {
+      return sourceBooks;
+    }
+
     let result = sourceBooks;
 
     // 1. Search Query
-    if (deferredQuery.trim()) {
-      const query = deferredQuery.toLowerCase();
-      result = result.filter(book =>
-        book.title.toLowerCase().includes(query) ||
-        book.authors?.some(a => a.name.toLowerCase().includes(query)) ||
-        book.tags?.some(t => t.name.toLowerCase().includes(query)) ||
-        book.publisher?.toLowerCase().includes(query) ||
-        book.series?.toLowerCase().includes(query)
-      );
+    if (query && searchIndex) {
+      result = searchIndex
+        .filter(entry =>
+          entry.title.includes(query) ||
+          entry.authors.some(a => a.includes(query)) ||
+          entry.tags.some(t => t.includes(query)) ||
+          entry.publisher.includes(query) ||
+          entry.series.includes(query)
+        )
+        .map(entry => entry.book);
     }
 
     // 2. Filters
@@ -106,7 +241,7 @@ export function useLibraryFilter(searchQuery: string) {
     }
 
     return result;
-  }, [books, deferredQuery, selectedFilters, selectedCollection, filteredBooks, activeFilters]);
+  }, [sourceBooks, query, searchIndex, selectedFilters, activeFilters, serverSearchQuery, selectedCollection]);
 
   return { displayBooks, books };
 }

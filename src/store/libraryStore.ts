@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import { api, type Book } from "../lib/tauri"
+import { api, type Book, type SearchQuery } from "../lib/tauri"
 
 export interface FilterState {
   authors: string[]
@@ -128,6 +128,8 @@ interface LibraryStore {
   hasMore: boolean
   isLoading: boolean
   totalCount: number
+  serverSearchQuery: SearchQuery | null
+  setServerSearchQuery: (query: SearchQuery | null) => void
   loadInitialBooks: () => Promise<void>
   loadMoreBooks: () => Promise<void>
 }
@@ -198,11 +200,36 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
   hasMore: true,
   isLoading: false,
   totalCount: 0,
+  serverSearchQuery: null,
+  setServerSearchQuery: (serverSearchQuery) => {
+    const prev = get().serverSearchQuery
+    const same = JSON.stringify(prev) === JSON.stringify(serverSearchQuery)
+    if (same) return
+    set({ serverSearchQuery, books: [], hasMore: true, totalCount: 0 })
+  },
   loadInitialBooks: async () => {
     set({ isLoading: true })
     try {
+      const state = get()
+      const pageSize = 50
+
+      if (state.serverSearchQuery) {
+        const result = await api.searchBooks({
+          ...state.serverSearchQuery,
+          limit: pageSize,
+          offset: 0,
+        })
+        set({
+          books: result.books,
+          totalCount: result.total,
+          hasMore: result.books.length < result.total,
+          isLoading: false,
+        })
+        return
+      }
+
       const [books, totalCount] = await Promise.all([
-        api.getBooks(50, 0),
+        api.getBooks(pageSize, 0),
         api.getTotalBooks()
       ])
       set({ books, totalCount, hasMore: books.length < totalCount, isLoading: false })
@@ -216,15 +243,28 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
 
     set({ isLoading: true });
     try {
-      const newBooks = await api.getBooks(50, state.books.length);
+      const pageSize = 50
+      let newBooks: Book[] = []
+
+      if (state.serverSearchQuery) {
+        const result = await api.searchBooks({
+          ...state.serverSearchQuery,
+          limit: pageSize,
+          offset: state.books.length,
+        })
+        newBooks = result.books
+      } else {
+        newBooks = await api.getBooks(pageSize, state.books.length)
+      }
+
       const currentBooks = get().books;
       const appended = [...currentBooks, ...newBooks];
 
-      const uniqueBooksMap = new Map();
+      const uniqueBooksMap = new Map<number, Book>();
       for (const item of appended) {
-        uniqueBooksMap.set(item.id, item);
+        if (item.id != null) uniqueBooksMap.set(item.id, item);
       }
-      const uniqueBooks = Array.from(uniqueBooksMap.values()) as Book[];
+      const uniqueBooks = Array.from(uniqueBooksMap.values());
 
       set({
         books: uniqueBooks,

@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/tauri';
 import { DEFAULT_READING_FONT_ID, normalizeLegacyFontPreference } from '@/lib/readingFonts';
-import type { Theme } from '@/types/preferences';
+import type { Theme, UserPreferences } from '@/types/preferences';
 import { usePreferencesStore } from './preferencesStore';
 
 export type ThemeName =
@@ -101,6 +101,26 @@ interface OnboardingStore extends OnboardingWizardState {
 }
 
 const TOTAL_STEPS = 8;
+const DEFAULT_TRANSLATION_LANGUAGE = 'en';
+const DEFAULT_CACHE_SIZE_MB = 500;
+const DEFAULT_LIBRARY_SIZE_LIMIT = 10000;
+const UI_SCALE_PERCENT_MIN = 75;
+const UI_SCALE_PERCENT_MAX = 150;
+const SUPPORTED_TRANSLATION_LANGUAGES = new Set([
+  'en',
+  'es',
+  'fr',
+  'de',
+  'it',
+  'pt',
+  'ru',
+  'ja',
+  'ko',
+  'zh',
+  'ar',
+  'hi',
+]);
+const SUPPORTED_CACHE_SIZES_MB = new Set([100, 250, 500, 1000, 2000, -1]);
 
 type ThemeOption = { name: ThemeName; value: Theme };
 
@@ -236,6 +256,58 @@ const pushBookPrefs = async (prefs: BookPrefs): Promise<void> => {
   });
 };
 
+const clamp = (value: number, min: number, max: number): number =>
+  Math.min(max, Math.max(min, value));
+
+const sanitizeTranslationLanguage = (language: string): string => {
+  const normalized = language.trim().toLowerCase();
+  return SUPPORTED_TRANSLATION_LANGUAGES.has(normalized)
+    ? normalized
+    : DEFAULT_TRANSLATION_LANGUAGE;
+};
+
+const sanitizeCacheSizeMB = (value: number): number => {
+  const normalized = Number.isFinite(value) ? Math.round(value) : DEFAULT_CACHE_SIZE_MB;
+  return SUPPORTED_CACHE_SIZES_MB.has(normalized) ? normalized : DEFAULT_CACHE_SIZE_MB;
+};
+
+const sanitizeLibrarySizeLimit = (value: number): number => {
+  if (!Number.isFinite(value)) return DEFAULT_LIBRARY_SIZE_LIMIT;
+  const normalized = Math.round(value);
+  if (normalized === -1) return -1;
+  return clamp(normalized, 1, 1_000_000);
+};
+
+const sanitizeUiScalePercent = (value: number): number => {
+  if (!Number.isFinite(value)) return 100;
+  return Math.round(clamp(value, UI_SCALE_PERCENT_MIN, UI_SCALE_PERCENT_MAX));
+};
+
+const persistGeneralSettings = async (
+  updates: Partial<UserPreferences>,
+  context: string,
+): Promise<void> => {
+  try {
+    await usePreferencesStore.getState().updateGeneralSettings(updates);
+  } catch (error) {
+    logger.error(`Failed to persist onboarding ${context}:`, error);
+  }
+};
+
+const pushOnboardingGeneralSettings = async (state: OnboardingWizardState): Promise<void> => {
+  await persistGeneralSettings(
+    {
+      translationTargetLanguage: sanitizeTranslationLanguage(state.translationLanguage),
+      cacheSizeLimitMB: sanitizeCacheSizeMB(state.cacheSizeMB),
+      sendAnalytics: state.sendAnalytics,
+      sendCrashReports: state.sendCrashReports,
+      debugLogging: state.debugLogging,
+      uiScale: sanitizeUiScalePercent(state.uiScale) / 100,
+    },
+    'app settings',
+  );
+};
+
 export const useOnboardingStore = create<OnboardingStore>()(
   persist(
     (set, get) => ({
@@ -362,21 +434,51 @@ export const useOnboardingStore = create<OnboardingStore>()(
         });
       },
 
-      setTranslationLanguage: (translationLanguage) => set({ translationLanguage }),
+      setTranslationLanguage: (translationLanguage) => {
+        const normalizedLanguage = sanitizeTranslationLanguage(translationLanguage);
+        set({ translationLanguage: normalizedLanguage });
+        void persistGeneralSettings(
+          { translationTargetLanguage: normalizedLanguage },
+          'translation language',
+        );
+      },
 
       setAutoTranslate: (autoTranslate) => set({ autoTranslate }),
 
-      setCacheSizeMB: (cacheSizeMB) => set({ cacheSizeMB }),
+      setCacheSizeMB: (cacheSizeMB) => {
+        const normalizedCacheSizeMB = sanitizeCacheSizeMB(cacheSizeMB);
+        set({ cacheSizeMB: normalizedCacheSizeMB });
+        void persistGeneralSettings(
+          { cacheSizeLimitMB: normalizedCacheSizeMB },
+          'cache size',
+        );
+      },
 
-      setLibrarySizeLimit: (librarySizeLimit) => set({ librarySizeLimit }),
+      setLibrarySizeLimit: (librarySizeLimit) => {
+        const normalizedLibrarySizeLimit = sanitizeLibrarySizeLimit(librarySizeLimit);
+        set({ librarySizeLimit: normalizedLibrarySizeLimit });
+      },
 
-      setSendAnalytics: (sendAnalytics) => set({ sendAnalytics }),
+      setSendAnalytics: (sendAnalytics) => {
+        set({ sendAnalytics });
+        void persistGeneralSettings({ sendAnalytics }, 'analytics preference');
+      },
 
-      setSendCrashReports: (sendCrashReports) => set({ sendCrashReports }),
+      setSendCrashReports: (sendCrashReports) => {
+        set({ sendCrashReports });
+        void persistGeneralSettings({ sendCrashReports }, 'crash reporting preference');
+      },
 
-      setDebugLogging: (debugLogging) => set({ debugLogging }),
+      setDebugLogging: (debugLogging) => {
+        set({ debugLogging });
+        void persistGeneralSettings({ debugLogging }, 'debug logging preference');
+      },
 
-      setUiScale: (uiScale) => set({ uiScale }),
+      setUiScale: (uiScale) => {
+        const normalizedUiScale = sanitizeUiScalePercent(uiScale);
+        set({ uiScale: normalizedUiScale });
+        void persistGeneralSettings({ uiScale: normalizedUiScale / 100 }, 'ui scale');
+      },
 
       setEnableCloudSync: (enableCloudSync) => set({ enableCloudSync }),
 
@@ -390,6 +492,7 @@ export const useOnboardingStore = create<OnboardingStore>()(
           pushTheme(state.selectedTheme),
           pushMangaPrefs(state.mangaPrefs),
           pushBookPrefs(state.bookPrefs),
+          pushOnboardingGeneralSettings(state),
         ]);
 
         await api.completeOnboarding([]);

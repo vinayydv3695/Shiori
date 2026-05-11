@@ -168,6 +168,44 @@ pub fn get_all_books(db: &Database, limit: u32, offset: u32) -> Result<Vec<Book>
     Ok(books)
 }
 
+/// Batch fetch books by IDs and preserve the input ID order.
+/// Eliminates N+1 `get_book_by_id` calls for paged search results.
+pub fn get_books_by_ids(db: &Database, ids: &[i64]) -> Result<Vec<Book>> {
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let conn = db.get_connection()?;
+
+    let placeholders = ids.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+    let sql = format!(
+        "SELECT {} FROM books b WHERE b.id IN ({})",
+        BOOK_COLUMNS, placeholders
+    );
+
+    let mut stmt = conn.prepare(&sql)?;
+
+    let mut books: Vec<Book> = stmt
+        .query_map(rusqlite::params_from_iter(ids.iter()), book_from_row)?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    attach_authors_and_tags(&conn, &mut books)?;
+
+    let mut by_id: HashMap<i64, Book> = books
+        .into_iter()
+        .filter_map(|b| b.id.map(|id| (id, b)))
+        .collect();
+
+    let mut ordered = Vec::with_capacity(ids.len());
+    for id in ids {
+        if let Some(book) = by_id.remove(id) {
+            ordered.push(book);
+        }
+    }
+
+    Ok(ordered)
+}
+
 pub fn get_total_books(db: &Database) -> Result<i64> {
     let conn = db.get_connection()?;
     let count: i64 = conn.query_row("SELECT COUNT(*) FROM books", [], |row| row.get(0))?;

@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useOnboardingState } from './hooks/useOnboardingState';
 import { THEME_OPTIONS } from '@/store/onboardingStore';
 import { useLibraryStore } from '@/store/libraryStore';
+import { api } from '@/lib/tauri';
 import { ShioriMark } from '@/components/icons/ShioriIcons';
 import { ParticleCanvas } from '@/components/onboarding/components';
 import OnboardingProgress from '@/components/onboarding/OnboardingProgress';
@@ -32,6 +33,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setSelectedTheme,
     setMangaPrefs,
     setBookPrefs,
+    setCurrentStep,
     completeOnboarding,
   } = useOnboardingState();
   const loadInitialBooks = useLibraryStore((s) => s.loadInitialBooks);
@@ -39,6 +41,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [renderedStep, setRenderedStep] = useState<1 | 2 | 3 | 4 | 5 | 6 | 7 | 8>(1);
   const [phase, setPhase] = useState<TransitionPhase>('idle');
   const [isFinishing, setIsFinishing] = useState(false);
+  const [hasTorboxKey, setHasTorboxKey] = useState<boolean | null>(null);
   const transitionTimerRef = useRef<number | null>(null);
   const enterAnimationFrameRef = useRef<number | null>(null);
 
@@ -77,16 +80,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     };
   }, [renderedStep, state.currentStep]);
 
-  if (!isHydrated || isInitializing) {
-    return (
-      <div className="min-h-screen w-full bg-slate-950 px-4 py-4 text-white md:px-6 md:py-6 lg:px-8 lg:py-8">
-        <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-6xl items-center justify-center rounded-3xl border border-white/5 bg-slate-950 p-3 md:min-h-[calc(100vh-3rem)] md:p-6">
-          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-indigo-300/80"></div>
-        </div>
-      </div>
-    );
-  }
-
   const handleFinish = async () => {
     if (isFinishing) return;
     setIsFinishing(true);
@@ -99,6 +92,52 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     }
   };
 
+  const resolveTorboxKeyPresence = useCallback(async () => {
+    try {
+      const key = await api.getTorboxKey();
+      const hasKey = Boolean(key?.trim());
+      setHasTorboxKey(hasKey);
+      return hasKey;
+    } catch {
+      setHasTorboxKey(false);
+      return false;
+    }
+  }, []);
+
+  useEffect(() => {
+    void resolveTorboxKeyPresence();
+  }, [resolveTorboxKeyPresence]);
+
+  useEffect(() => {
+    if (state.currentStep !== 5) return;
+    if (hasTorboxKey === null) return;
+    if (!hasTorboxKey) {
+      setCurrentStep(6);
+    }
+  }, [hasTorboxKey, setCurrentStep, state.currentStep]);
+
+  const handleTorboxNext = async () => {
+    const hasKey = await resolveTorboxKeyPresence();
+    if (hasKey) {
+      nextStep();
+      return;
+    }
+    setCurrentStep(6);
+  };
+
+  const handlePreferencesBack = () => {
+    if (hasTorboxKey === false) {
+      setCurrentStep(4);
+      return;
+    }
+    prevStep();
+  };
+
+  const progressStep = hasTorboxKey === false && state.currentStep > 5
+    ? state.currentStep - 1
+    : state.currentStep;
+  const totalProgressSteps = hasTorboxKey === false ? 7 : 8;
+
   const appVersion = import.meta.env.VITE_APP_VERSION ?? '1.0.2';
 
   const transitionClass =
@@ -107,6 +146,16 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       : phase === 'entering'
         ? 'translate-x-8 opacity-0'
         : 'translate-x-0 opacity-100';
+
+  if (!isHydrated || isInitializing) {
+    return (
+      <div className="min-h-screen w-full bg-slate-950 px-4 py-4 text-white md:px-6 md:py-6 lg:px-8 lg:py-8">
+        <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-6xl items-center justify-center rounded-3xl border border-white/5 bg-slate-950 p-3 md:min-h-[calc(100vh-3rem)] md:p-6">
+          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-indigo-300/80"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex h-screen w-full flex-col bg-slate-950 p-4 text-white md:p-6 lg:p-8">
@@ -120,7 +169,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         </header>
 
         <div className="shrink-0">
-          <OnboardingProgress currentStep={state.currentStep as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8} />
+          <OnboardingProgress currentStep={progressStep} totalSteps={totalProgressSteps} />
         </div>
 
         <div className={`flex flex-1 min-h-0 flex-col overflow-hidden transition-all duration-300 ease-out ${transitionClass}`}>
@@ -138,10 +187,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           {renderedStep === 4 ? (
             <TorboxIntegrationStep
               onBack={prevStep}
-              onNext={nextStep}
+              onNext={() => {
+                void handleTorboxNext();
+              }}
             />
           ) : null}
-          {renderedStep === 5 ? (
+          {renderedStep === 5 && hasTorboxKey !== false ? (
             <CloudIntegrationStep
               onBack={prevStep}
               onNext={nextStep}
@@ -153,7 +204,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               bookPrefs={state.bookPrefs}
               onMangaChange={setMangaPrefs}
               onBookChange={setBookPrefs}
-              onBack={prevStep}
+              onBack={handlePreferencesBack}
               onNext={nextStep}
             />
           ) : null}

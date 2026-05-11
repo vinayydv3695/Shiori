@@ -99,6 +99,11 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     }
   };
 
+  const handleImportNext = () => {
+    if (!state.libraryPath?.trim()) return;
+    nextStep();
+  };
+
   const appVersion = import.meta.env.VITE_APP_VERSION ?? '1.0.2';
 
   const transitionClass =
@@ -134,7 +139,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               onNext={nextStep}
             />
           ) : null}
-          {renderedStep === 3 ? <ImportStep libraryPath={state.libraryPath} onSelectPath={setLibraryPath} onBack={prevStep} onNext={nextStep} /> : null}
+          {renderedStep === 3 ? <ImportStep libraryPath={state.libraryPath} onSelectPath={setLibraryPath} onBack={prevStep} onNext={handleImportNext} /> : null}
           {renderedStep === 4 ? (
             <TorboxIntegrationStep
               onBack={prevStep}

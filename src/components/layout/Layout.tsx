@@ -121,7 +121,7 @@ export function Layout({
   currentDomain = 'books',
   onDomainChange = () => { },
 }: LayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [duplicateFinderOpen, setDuplicateFinderOpen] = useState(false)
   const [isDragActive, setIsDragActive] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)

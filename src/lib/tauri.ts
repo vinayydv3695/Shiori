@@ -82,8 +82,17 @@ export interface SearchQuery {
   authors?: string[]
   tags?: string[]
   formats?: string[]
+  languages?: string[]
+  publishers?: string[]
   series?: string
+  series_list?: string[]
+  isbns?: string[]
+  isbn13s?: string[]
   min_rating?: number
+  max_rating?: number
+  date_from?: string
+  date_to?: string
+  reading_status?: string[]
   limit?: number
   offset?: number
 }

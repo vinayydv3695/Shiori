@@ -18,8 +18,6 @@ const formats = ['epub', 'pdf', 'mobi', 'cbz', 'cbr', 'azw3'] as const;
 const normalizeToFolderPath = (path: string) => path.replace(/[/\\][^/\\]+$/, '');
 
 export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: ImportStepProps) {
-  void libraryPath;
-
   const [choseLater, setChoseLater] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -74,8 +72,20 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
           <div className="min-h-0 flex-1 overflow-y-auto pr-2 pb-4 [scrollbar-gutter:stable] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 hover:[&::-webkit-scrollbar-thumb]:bg-white/30">
             <div className="mt-4 rounded-2xl border border-white/5 bg-slate-900/40 p-5">
               <p className="text-sm text-white/60 md:text-base">
-                Drop your library folder or browse to import books, manga, and comics now. Shiori scans and imports your
-                collection with live progress.
+                Import your local library folder now to get instant scan + progress feedback. If you skip, your library stays empty until you import from Settings.
+              </p>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1 font-semibold uppercase tracking-wide text-emerald-200">
+                  Required step
+                </span>
+                <span className="rounded-full border border-white/10 bg-slate-900/70 px-2.5 py-1 text-white/70">
+                  Continue unlocks after import completes or after you choose “Skip for now”
+                </span>
+              </div>
+
+              <p className="mt-3 truncate rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-xs text-white/70" title={libraryPath ?? undefined}>
+                {libraryPath ? `Selected folder: ${libraryPath}` : 'No folder selected yet'}
               </p>
 
               <div className="mt-4 flex flex-wrap gap-2">

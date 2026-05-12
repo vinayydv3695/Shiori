@@ -85,15 +85,18 @@ export function TorboxIntegrationStep({ onBack, onNext }: TorboxIntegrationStepP
       <OnboardingMotionStyles />
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="onb-fade-up flex items-center gap-3 shrink-0">
+        <div className="onb-fade-up flex shrink-0 flex-wrap items-center gap-3">
           <div className="onb-icon-badge flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-indigo-200">
             <KeyRound className="h-5 w-5 onb-icon-inner" />
           </div>
           <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">Torbox Integration</h2>
+          <span className="inline-flex items-center rounded-full border border-amber-400/30 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-amber-200">
+            Optional step
+          </span>
         </div>
 
         <p className="onb-fade-up onb-delay-100 mt-3 max-w-3xl shrink-0 text-sm text-white/65 md:text-base">
-          Connect Torbox to unlock debrid-assisted downloads in Shiori. You can skip this now and set it up later.
+          Add your Torbox key to unlock debrid-assisted downloads and cloud provider tuning. Skip is safe — you can configure this later in Settings.
         </p>
 
         <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -154,7 +157,7 @@ export function TorboxIntegrationStep({ onBack, onNext }: TorboxIntegrationStepP
                   onClick={onNext}
                   className="rounded-xl border border-white/10 px-4 py-2 text-sm font-medium text-white/65 transition hover:bg-white/5 hover:text-white"
                 >
-                  Skip for now
+                  Skip (set up later)
                 </button>
               </div>
 

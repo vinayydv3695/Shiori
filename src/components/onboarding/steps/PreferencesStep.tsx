@@ -44,7 +44,7 @@ export function PreferencesStep({ mangaPrefs, bookPrefs, onMangaChange, onBookCh
           </span>
           <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">Reader Preferences</h2>
         </div>
-        <p className="onb-fade-up onb-delay-100 mt-2 text-white/60">Configure all manga and EPUB defaults before you start reading.</p>
+        <p className="onb-fade-up onb-delay-100 mt-2 text-white/60">Set your manga + EPUB defaults now. This is a required step, and changes are saved as you adjust options.</p>
 
         <div className="onb-fade-up onb-delay-100 mt-6 shrink-0 rounded-2xl border border-white/10 bg-slate-950/80 p-2">
           <div className="grid grid-cols-2 gap-2">

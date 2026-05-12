@@ -66,15 +66,18 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
       <OnboardingMotionStyles />
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="onb-fade-up flex items-center gap-3">
+        <div className="onb-fade-up flex flex-wrap items-center gap-3">
           <div className="onb-icon-badge flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-indigo-200">
             <Cloud className="onb-icon-inner h-5 w-5" />
           </div>
           <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">Cloud Integrations</h2>
+          <span className="inline-flex items-center rounded-full border border-amber-400/30 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-amber-200">
+            Optional step
+          </span>
         </div>
 
         <p className="onb-fade-up onb-delay-100 mt-3 max-w-3xl text-sm text-white/65 md:text-base">
-          Configure recommended providers only: MangaDex, Open Library, Anna Archive, and Torbox debrid preference.
+          Tune recommended online providers (MangaDex, Open Library, Anna Archive) and your debrid preference. Safe to keep defaults and continue.
         </p>
 
         <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">

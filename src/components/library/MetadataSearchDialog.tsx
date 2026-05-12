@@ -225,7 +225,7 @@ export const MetadataSearchDialog = ({
   });
 
   const performSingleSearch = async () => {
-    if (bookIds.length === 0) return;
+    if (!isSeriesMode && bookIds.length === 0) return;
     setSearching(true);
     setResults([]);
     try {

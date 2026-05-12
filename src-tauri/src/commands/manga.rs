@@ -4,6 +4,7 @@ use crate::services::manga_service::{MangaMetadata, MangaService};
 use crate::utils::validate;
 use crate::AppState;
 use regex::Regex;
+use serde::Deserialize;
 use std::sync::Arc;
 use tauri::State;
 use lazy_static::lazy_static;
@@ -132,7 +133,12 @@ pub fn get_manga_series_list(
     let offset = offset.unwrap_or(0);
     
     validate::require_positive_id(limit, "limit")?;
-    validate::require_positive_id(offset, "offset")?;
+    if offset < 0 {
+        return Err(crate::error::ShioriError::Validation(format!(
+            "offset must be a non-negative integer, got {}",
+            offset
+        )));
+    }
 
     let db = &state.db;
     let conn = db.get_connection()?;
@@ -372,6 +378,159 @@ pub fn remove_book_from_series(
         "UPDATE books SET manga_series_id = NULL, series = NULL, series_index = NULL WHERE id = ?",
         [book_id],
     )?;
+
+    Ok(())
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MangaSeriesUpdate {
+    pub title: Option<String>,
+    pub sort_title: Option<String>,
+    pub cover_path: Option<String>,
+    pub status: Option<String>,
+}
+
+#[tauri::command]
+pub fn update_manga_series(
+    series_id: i64,
+    updates: MangaSeriesUpdate,
+    state: State<AppState>,
+) -> Result<()> {
+    validate::require_positive_id(series_id, "series_id")?;
+
+    let db = &state.db;
+    let conn = db.get_connection()?;
+
+    let exists: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM manga_series WHERE id = ?",
+        [series_id],
+        |row| row.get(0),
+    )?;
+
+    if !exists {
+        return Err(crate::error::ShioriError::BookNotFound(format!(
+            "Manga series with id {} not found",
+            series_id
+        )));
+    }
+
+    if let Some(title) = updates.title {
+        let cleaned = title.trim();
+        if cleaned.is_empty() {
+            return Err(crate::error::ShioriError::Validation(
+                "Series title cannot be empty".to_string(),
+            ));
+        }
+
+        conn.execute(
+            "UPDATE manga_series SET title = ?1 WHERE id = ?2",
+            rusqlite::params![cleaned, series_id],
+        )?;
+    }
+
+    if let Some(sort_title) = updates.sort_title {
+        let cleaned = sort_title.trim();
+        if cleaned.is_empty() {
+            conn.execute(
+                "UPDATE manga_series SET sort_title = NULL WHERE id = ?1",
+                [series_id],
+            )?;
+        } else {
+            conn.execute(
+                "UPDATE manga_series SET sort_title = ?1 WHERE id = ?2",
+                rusqlite::params![cleaned, series_id],
+            )?;
+        }
+    }
+
+    if let Some(cover_path) = updates.cover_path {
+        let cleaned = cover_path.trim();
+        if cleaned.is_empty() {
+            conn.execute(
+                "UPDATE manga_series SET cover_path = NULL WHERE id = ?1",
+                [series_id],
+            )?;
+        } else {
+            conn.execute(
+                "UPDATE manga_series SET cover_path = ?1 WHERE id = ?2",
+                rusqlite::params![cleaned, series_id],
+            )?;
+        }
+    }
+
+    if let Some(status) = updates.status {
+        let cleaned = status.trim().to_lowercase();
+        if !cleaned.is_empty() {
+            validate::require_one_of(
+                &cleaned,
+                &["ongoing", "completed", "hiatus", "cancelled"],
+                "status",
+            )?;
+            conn.execute(
+                "UPDATE manga_series SET status = ?1 WHERE id = ?2",
+                rusqlite::params![cleaned, series_id],
+            )?;
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn delete_manga_series(
+    series_id: i64,
+    state: State<AppState>,
+) -> Result<()> {
+    validate::require_positive_id(series_id, "series_id")?;
+
+    let db = &state.db;
+    let conn = db.get_connection()?;
+
+    conn.execute(
+        "UPDATE books SET manga_series_id = NULL, series = NULL, series_index = NULL WHERE manga_series_id = ?1",
+        [series_id],
+    )?;
+
+    conn.execute("DELETE FROM manga_series WHERE id = ?1", [series_id])?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn merge_manga_series(
+    source_ids: Vec<i64>,
+    target_id: i64,
+    state: State<AppState>,
+) -> Result<()> {
+    validate::require_non_empty_vec(&source_ids, "source_ids")?;
+    validate::require_positive_id(target_id, "target_id")?;
+
+    let db = &state.db;
+    let conn = db.get_connection()?;
+
+    let target_title: String = conn.query_row(
+        "SELECT title FROM manga_series WHERE id = ?1",
+        [target_id],
+        |row| row.get(0),
+    )?;
+
+    for source_id in source_ids {
+        validate::require_positive_id(source_id, "source_id")?;
+
+        if source_id == target_id {
+            continue;
+        }
+
+        conn.execute(
+            "UPDATE books
+             SET manga_series_id = ?1,
+                 series = ?2
+             WHERE manga_series_id = ?3",
+            rusqlite::params![target_id, target_title, source_id],
+        )?;
+
+        conn.execute("DELETE FROM manga_series WHERE id = ?1", [source_id])?;
+    }
 
     Ok(())
 }

@@ -540,17 +540,18 @@ export const MetadataSearchDialog = ({
       const success = isSeriesMode
         ? await invoke<boolean>('apply_selected_series_metadata', { seriesId, metadata: metadataToApply })
         : await invoke<boolean>('apply_selected_metadata', { bookId: bookIds[0], metadata: metadataToApply });
-      if (success) {
-        toast.success('Metadata applied', isSeriesMode ? 'Series has been updated' : 'Book has been updated');
-        onMetadataSelected();
-        handleClosePreview();
-        onOpenChange(false);
-      } else {
-        toast.error('Update failed', isSeriesMode ? 'Could not apply series metadata' : 'Could not apply metadata');
-      }
-    } catch {
-      toast.error('Update failed', isSeriesMode ? 'An error occurred while applying series metadata' : 'An error occurred while applying metadata');
-    }
+
+       if (success) {
+         toast.success('Metadata applied', isSeriesMode ? 'Series has been updated' : 'Book has been updated');
+         onMetadataSelected();
+         handleClosePreview();
+         onOpenChange(false);
+       } else {
+         toast.error('Update failed', isSeriesMode ? 'Could not apply series metadata' : 'Could not apply metadata');
+       }
+     } catch (error) {
+       toast.error('Update failed', isSeriesMode ? 'An error occurred while applying series metadata' : 'An error occurred while applying metadata');
+     }
   };
 
   const handleClosePreview = () => {

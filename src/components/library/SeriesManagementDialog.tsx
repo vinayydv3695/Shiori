@@ -349,6 +349,7 @@ export const SeriesManagementDialog = ({
           bookTitle={title}
           isManga={true}
           isbn={null}
+          seriesId={resolvedSeriesId}
           onMetadataSelected={async () => {
             await loadData();
             onUpdated?.();

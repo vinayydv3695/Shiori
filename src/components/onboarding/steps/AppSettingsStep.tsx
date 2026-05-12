@@ -80,7 +80,7 @@ export function AppSettingsStep({ onBack, onNext }: AppSettingsStepProps) {
 
         <div className="onb-fade-up onb-delay-100 mt-5 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-3 py-2 text-sm text-white/70">
           <Globe size={14} />
-          Customize your Shiori experience
+          Required step • settings save as you change them
         </div>
 
         <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">

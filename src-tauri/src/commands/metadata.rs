@@ -178,6 +178,7 @@ pub struct SelectedMetadata {
     pub isbn13: Option<String>,
     pub anilist_id: Option<String>,
     pub open_library_id: Option<String>,
+    pub status: Option<String>,
 }
 
 /// Apply selected metadata directly to a book without re-searching
@@ -349,5 +350,138 @@ pub async fn apply_selected_metadata(
     }
     
     log::info!("[apply_selected_metadata] Applied selected metadata to book {}", book_id);
+    Ok(true)
+}
+
+fn normalize_series_status(status: &str) -> Option<&'static str> {
+    match status.trim().to_uppercase().as_str() {
+        "FINISHED" | "COMPLETED" => Some("completed"),
+        "RELEASING" | "ONGOING" => Some("ongoing"),
+        "HIATUS" => Some("hiatus"),
+        "CANCELLED" | "CANCELED" => Some("cancelled"),
+        _ => None,
+    }
+}
+
+#[tauri::command]
+pub async fn apply_selected_series_metadata(
+    app_state: State<'_, crate::AppState>,
+    series_id: i64,
+    metadata: SelectedMetadata,
+) -> Result<bool> {
+    validate::require_positive_id(series_id, "series_id")?;
+
+    let db = &app_state.db;
+
+    {
+        let conn = db.get_connection()?;
+
+        let exists: bool = conn.query_row(
+            "SELECT COUNT(*) > 0 FROM manga_series WHERE id = ?1",
+            rusqlite::params![series_id],
+            |row| row.get(0),
+        )?;
+
+        if !exists {
+            return Err(ShioriError::BookNotFound(format!(
+                "Manga series with id {} not found",
+                series_id
+            )));
+        }
+
+        if let Some(title) = metadata.title.as_ref().map(|t| t.trim()).filter(|t| !t.is_empty()) {
+            conn.execute(
+                "UPDATE manga_series SET title = ?1, sort_title = ?2 WHERE id = ?3",
+                rusqlite::params![title, title.to_lowercase(), series_id],
+            )?;
+
+            conn.execute(
+                "UPDATE books SET series = ?1 WHERE manga_series_id = ?2",
+                rusqlite::params![title, series_id],
+            )?;
+        }
+
+        if let Some(status) = metadata.status.as_ref().and_then(|s| normalize_series_status(s)) {
+            conn.execute(
+                "UPDATE manga_series SET status = ?1 WHERE id = ?2",
+                rusqlite::params![status, series_id],
+            )?;
+        }
+    }
+
+    if let Some(cover_url) = metadata.cover_url.as_ref().map(|u| u.trim()).filter(|u| !u.is_empty()) {
+        let response = reqwest::get(cover_url)
+            .await
+            .map_err(|e| ShioriError::Other(format!("Failed to download series cover: {}", e)))?;
+
+        if !response.status().is_success() {
+            return Err(ShioriError::Other(format!(
+                "Series cover download failed with status: {}",
+                response.status()
+            )));
+        }
+
+        let content_type = response
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|ct| ct.to_str().ok())
+            .unwrap_or("image/jpeg");
+
+        let mut ext = match content_type {
+            ct if ct.contains("png") => "png",
+            ct if ct.contains("webp") => "webp",
+            ct if ct.contains("gif") => "gif",
+            _ => "jpg",
+        };
+
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|e| ShioriError::Other(format!("Failed reading series cover bytes: {}", e)))?;
+
+        if bytes.len() > 10 * 1024 * 1024 {
+            return Err(ShioriError::Other("Series cover too large (max 10MB)".to_string()));
+        }
+
+        if bytes.starts_with(b"\x89PNG") {
+            ext = "png";
+        } else if bytes.len() > 12 && bytes.starts_with(b"RIFF") && &bytes[8..12] == b"WEBP" {
+            ext = "webp";
+        } else if bytes.starts_with(b"GIF8") {
+            ext = "gif";
+        }
+
+        std::fs::create_dir_all(&app_state.covers_dir)
+            .map_err(|e| ShioriError::Other(format!("Failed to create covers dir: {}", e)))?;
+
+        let cover_path = app_state
+            .covers_dir
+            .join(format!("series-{}.{}", series_id, ext));
+
+        std::fs::write(&cover_path, &bytes)
+            .map_err(|e| ShioriError::Other(format!("Failed to write series cover: {}", e)))?;
+
+        let cover_path_str = cover_path.to_string_lossy().to_string();
+        let conn = db.get_connection()?;
+
+        conn.execute(
+            "UPDATE manga_series SET cover_path = ?1 WHERE id = ?2",
+            rusqlite::params![cover_path_str, series_id],
+        )?;
+
+        conn.execute(
+            "UPDATE books
+             SET cover_path = ?1
+             WHERE id = (
+                SELECT id FROM books
+                WHERE manga_series_id = ?2
+                ORDER BY series_index ASC NULLS LAST, added_date ASC
+                LIMIT 1
+             )",
+            rusqlite::params![cover_path.to_string_lossy().to_string(), series_id],
+        )?;
+    }
+
+    log::info!("[apply_selected_series_metadata] Applied metadata to series {}", series_id);
     Ok(true)
 }

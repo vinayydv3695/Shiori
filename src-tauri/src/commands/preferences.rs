@@ -30,6 +30,14 @@ pub struct UserPreferences {
     pub default_manga_path: Option<String>,
     pub translation_target_language: String,
     pub auto_group_manga: bool,
+    pub auto_translate: bool,
+    pub cache_size_limit_mb: i32,
+    pub library_size_limit: i32,
+    pub send_analytics: bool,
+    pub send_crash_reports: bool,
+    pub debug_logging: bool,
+    pub enable_cloud_sync: bool,
+    pub enable_notifications: bool,
     // Prowlarr integration
     pub prowlarr_enabled: bool,
     pub prowlarr_url: String,
@@ -111,6 +119,9 @@ pub async fn get_user_preferences(state: State<'_, AppState>) -> Result<UserPref
             metadata_mode, auto_scan_enabled, default_manga_path,
             tts_voice, tts_rate, tts_auto_advance, tts_highlight_color,
             translation_target_language, auto_group_manga,
+            COALESCE(auto_translate, 0), COALESCE(cache_size_limit_mb, 500), COALESCE(library_size_limit, 10000),
+            COALESCE(send_analytics, 0), COALESCE(send_crash_reports, 0), COALESCE(debug_logging, 0),
+            COALESCE(enable_cloud_sync, 0), COALESCE(enable_notifications, 1),
             COALESCE(prowlarr_enabled, 0), COALESCE(prowlarr_url, ''), COALESCE(prowlarr_api_key, ''), COALESCE(prowlarr_categories, '[7000,8000]')
         FROM user_preferences WHERE id = 1",
         [],
@@ -158,10 +169,18 @@ pub async fn get_user_preferences(state: State<'_, AppState>) -> Result<UserPref
                 },
                 translation_target_language: row.get(34).unwrap_or_else(|_| "en".to_string()),
                 auto_group_manga: row.get(35).unwrap_or(true),
-                prowlarr_enabled: row.get::<_, bool>(36).unwrap_or(false),
-                prowlarr_url: row.get(37).unwrap_or_default(),
-                prowlarr_api_key: row.get(38).unwrap_or_default(),
-                prowlarr_categories: row.get(39).unwrap_or_else(|_| "[7000,8000]".to_string()),
+                auto_translate: row.get::<_, bool>(36).unwrap_or(false),
+                cache_size_limit_mb: row.get(37).unwrap_or(500),
+                library_size_limit: row.get(38).unwrap_or(10000),
+                send_analytics: row.get::<_, bool>(39).unwrap_or(false),
+                send_crash_reports: row.get::<_, bool>(40).unwrap_or(false),
+                debug_logging: row.get::<_, bool>(41).unwrap_or(false),
+                enable_cloud_sync: row.get::<_, bool>(42).unwrap_or(false),
+                enable_notifications: row.get::<_, bool>(43).unwrap_or(true),
+                prowlarr_enabled: row.get::<_, bool>(44).unwrap_or(false),
+                prowlarr_url: row.get(45).unwrap_or_default(),
+                prowlarr_api_key: row.get(46).unwrap_or_default(),
+                prowlarr_categories: row.get(47).unwrap_or_else(|_| "[7000,8000]".to_string()),
             })
         },
     )?;
@@ -356,6 +375,39 @@ pub async fn update_user_preferences(
     if let Some(auto_group) = updates.get("autoGroupManga").and_then(|v| v.as_bool()) {
         set_clauses.push("auto_group_manga = ?".to_string());
         params.push(Box::new(auto_group));
+    }
+
+    if let Some(auto_translate) = updates.get("autoTranslate").and_then(|v| v.as_bool()) {
+        set_clauses.push("auto_translate = ?".to_string());
+        params.push(Box::new(auto_translate));
+    }
+    if let Some(cache_size_limit_mb) = updates.get("cacheSizeLimitMB").and_then(|v| v.as_i64()) {
+        set_clauses.push("cache_size_limit_mb = ?".to_string());
+        params.push(Box::new(cache_size_limit_mb as i32));
+    }
+    if let Some(library_size_limit) = updates.get("librarySizeLimit").and_then(|v| v.as_i64()) {
+        set_clauses.push("library_size_limit = ?".to_string());
+        params.push(Box::new(library_size_limit as i32));
+    }
+    if let Some(send_analytics) = updates.get("sendAnalytics").and_then(|v| v.as_bool()) {
+        set_clauses.push("send_analytics = ?".to_string());
+        params.push(Box::new(send_analytics));
+    }
+    if let Some(send_crash_reports) = updates.get("sendCrashReports").and_then(|v| v.as_bool()) {
+        set_clauses.push("send_crash_reports = ?".to_string());
+        params.push(Box::new(send_crash_reports));
+    }
+    if let Some(debug_logging) = updates.get("debugLogging").and_then(|v| v.as_bool()) {
+        set_clauses.push("debug_logging = ?".to_string());
+        params.push(Box::new(debug_logging));
+    }
+    if let Some(enable_cloud_sync) = updates.get("enableCloudSync").and_then(|v| v.as_bool()) {
+        set_clauses.push("enable_cloud_sync = ?".to_string());
+        params.push(Box::new(enable_cloud_sync));
+    }
+    if let Some(enable_notifications) = updates.get("enableNotifications").and_then(|v| v.as_bool()) {
+        set_clauses.push("enable_notifications = ?".to_string());
+        params.push(Box::new(enable_notifications));
     }
 
     // Prowlarr settings
@@ -785,6 +837,9 @@ pub async fn get_startup_data(state: State<'_, AppState>) -> Result<StartupData>
             metadata_mode, auto_scan_enabled, default_manga_path,
             tts_voice, tts_rate, tts_auto_advance, tts_highlight_color,
             translation_target_language, auto_group_manga,
+            COALESCE(auto_translate, 0), COALESCE(cache_size_limit_mb, 500), COALESCE(library_size_limit, 10000),
+            COALESCE(send_analytics, 0), COALESCE(send_crash_reports, 0), COALESCE(debug_logging, 0),
+            COALESCE(enable_cloud_sync, 0), COALESCE(enable_notifications, 1),
             COALESCE(prowlarr_enabled, 0), COALESCE(prowlarr_url, ''), COALESCE(prowlarr_api_key, ''), COALESCE(prowlarr_categories, '[7000,8000]')
         FROM user_preferences WHERE id = 1",
         [],
@@ -832,10 +887,18 @@ pub async fn get_startup_data(state: State<'_, AppState>) -> Result<StartupData>
                 },
                 translation_target_language: row.get(34).unwrap_or_else(|_| "en".to_string()),
                 auto_group_manga: row.get(35).unwrap_or(true),
-                prowlarr_enabled: row.get::<_, bool>(36).unwrap_or(false),
-                prowlarr_url: row.get(37).unwrap_or_default(),
-                prowlarr_api_key: row.get(38).unwrap_or_default(),
-                prowlarr_categories: row.get(39).unwrap_or_else(|_| "[7000,8000]".to_string()),
+                auto_translate: row.get::<_, bool>(36).unwrap_or(false),
+                cache_size_limit_mb: row.get(37).unwrap_or(500),
+                library_size_limit: row.get(38).unwrap_or(10000),
+                send_analytics: row.get::<_, bool>(39).unwrap_or(false),
+                send_crash_reports: row.get::<_, bool>(40).unwrap_or(false),
+                debug_logging: row.get::<_, bool>(41).unwrap_or(false),
+                enable_cloud_sync: row.get::<_, bool>(42).unwrap_or(false),
+                enable_notifications: row.get::<_, bool>(43).unwrap_or(true),
+                prowlarr_enabled: row.get::<_, bool>(44).unwrap_or(false),
+                prowlarr_url: row.get(45).unwrap_or_default(),
+                prowlarr_api_key: row.get(46).unwrap_or_default(),
+                prowlarr_categories: row.get(47).unwrap_or_else(|_| "[7000,8000]".to_string()),
             })
         },
     )?;

@@ -37,12 +37,17 @@ export function ThemeStep({ selectedTheme, themes, onSelectTheme, onBack, onNext
               </div>
               <h2 className="text-3xl font-bold tracking-tight text-white md:text-5xl">Make It Yours</h2>
             </div>
-            <p className="text-lg text-slate-400 max-w-2xl leading-relaxed">
-              Choose a theme for your reading environment. You can fine-tune app appearance later in Settings.
+            <p className="max-w-2xl text-lg leading-relaxed text-slate-400">
+              Pick your default theme now. This step is required, and you can still fine-tune visual details later in Settings.
             </p>
-            <div className="inline-flex w-fit items-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-sm text-indigo-200">
-              <span className="text-indigo-300/80">Current selection:</span>
-              <span className="font-semibold text-white">{selectedTheme}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex w-fit items-center rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-emerald-200">
+                Required step
+              </span>
+              <div className="inline-flex w-fit items-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-sm text-indigo-200">
+                <span className="text-indigo-300/80">Current selection:</span>
+                <span className="font-semibold text-white">{selectedTheme}</span>
+              </div>
             </div>
           </header>
 

@@ -1,8 +1,9 @@
 type OnboardingProgressProps = {
-  currentStep: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+  currentStep: number;
+  totalSteps?: number;
 };
 
-const ONBOARDING_STEPS = [
+const FULL_ONBOARDING_STEPS = [
   { title: 'Welcome', required: true },
   { title: 'Theme', required: true },
   { title: 'Import Library', required: true },
@@ -13,10 +14,15 @@ const ONBOARDING_STEPS = [
   { title: 'Finish', required: true },
 ] as const;
 
-export function OnboardingProgress({ currentStep }: OnboardingProgressProps) {
-  const totalDots = ONBOARDING_STEPS.length;
-  const activeDot = Math.min(totalDots, Math.max(1, currentStep));
-  const activeStep = ONBOARDING_STEPS[activeDot - 1];
+export function OnboardingProgress({ currentStep, totalSteps = FULL_ONBOARDING_STEPS.length }: OnboardingProgressProps) {
+  const totalDots = Math.max(1, Math.min(totalSteps, FULL_ONBOARDING_STEPS.length));
+  const visibleSteps =
+    totalDots === 7
+      ? FULL_ONBOARDING_STEPS.filter((step) => step.title !== 'Cloud Integrations')
+      : FULL_ONBOARDING_STEPS;
+
+  const activeDot = Math.min(totalDots, Math.max(1, Math.floor(currentStep)));
+  const activeStep = visibleSteps[activeDot - 1] ?? visibleSteps[visibleSteps.length - 1];
 
   return (
     <div className="mb-4 px-3 py-2 sm:px-0">

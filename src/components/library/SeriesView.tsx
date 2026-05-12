@@ -2,7 +2,7 @@ import { memo, useState, useMemo, useRef, useEffect } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import {
   X, BookOpen, Layers, Search, SortDesc, SortAsc,
-  Clock, CheckCircle2, DownloadCloud, Trash2, List, LayoutGrid, Check
+  Clock, CheckCircle2, Edit2, DownloadCloud, Trash2, List, LayoutGrid, Check
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { logger } from '@/lib/logger'
@@ -97,7 +97,7 @@ const SeriesHeader = memo(function SeriesHeader({
 
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="secondary" size="sm" onClick={onFindMetadata} className="gap-2 font-semibold">
-              <Search className="w-4 h-4" /> Find Metadata
+              <Edit2 className="w-4 h-4" /> Edit
             </Button>
             <Button variant="outline" size="sm" onClick={onMarkAllRead} className="gap-2 font-semibold">
               <CheckCircle2 className="w-4 h-4" /> Mark All Read

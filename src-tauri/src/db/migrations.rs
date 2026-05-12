@@ -96,6 +96,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 24 {
             self.run_in_savepoint("v24", |mgr| mgr.migrate_to_v24())?;
         }
+        if current_version < 25 {
+            self.run_in_savepoint("v25", |mgr| mgr.migrate_to_v25())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -1750,6 +1753,52 @@ impl<'a> MigrationManager<'a> {
         self.record_migration(24, "prowlarr_integration", "v24_prowlarr_settings")?;
 
         log::info!("[Migration] v24 applied successfully");
+        Ok(())
+    }
+
+    /// Migration v25: Extended onboarding/app preference fields
+    fn migrate_to_v25(&self) -> Result<()> {
+        log::info!("[Migration] Applying v25: extended onboarding preferences");
+
+        let columns_to_add = vec![
+            ("auto_translate", "BOOLEAN DEFAULT 0"),
+            ("cache_size_limit_mb", "INTEGER DEFAULT 500"),
+            ("library_size_limit", "INTEGER DEFAULT 10000"),
+            ("send_analytics", "BOOLEAN DEFAULT 0"),
+            ("send_crash_reports", "BOOLEAN DEFAULT 0"),
+            ("debug_logging", "BOOLEAN DEFAULT 0"),
+            ("enable_cloud_sync", "BOOLEAN DEFAULT 0"),
+            ("enable_notifications", "BOOLEAN DEFAULT 1"),
+        ];
+
+        for (col_name, col_def) in columns_to_add {
+            if !self.column_exists("user_preferences", col_name)? {
+                let sql = format!(
+                    "ALTER TABLE user_preferences ADD COLUMN {} {}",
+                    col_name, col_def
+                );
+                self.conn.execute(&sql, [])?;
+            }
+        }
+
+        self.conn.execute(
+            "UPDATE user_preferences
+             SET auto_translate = COALESCE(auto_translate, 0),
+                 cache_size_limit_mb = COALESCE(cache_size_limit_mb, 500),
+                 library_size_limit = COALESCE(library_size_limit, 10000),
+                 send_analytics = COALESCE(send_analytics, 0),
+                 send_crash_reports = COALESCE(send_crash_reports, 0),
+                 debug_logging = COALESCE(debug_logging, 0),
+                 enable_cloud_sync = COALESCE(enable_cloud_sync, 0),
+                 enable_notifications = COALESCE(enable_notifications, 1)
+             WHERE id = 1",
+            [],
+        )?;
+
+        self.set_schema_version(25)?;
+        self.record_migration(25, "onboarding_preferences_extended", "v25_onboarding_prefs_extended")?;
+
+        log::info!("[Migration] v25 applied successfully");
         Ok(())
     }
 }

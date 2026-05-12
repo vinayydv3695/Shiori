@@ -75,8 +75,15 @@ export interface UserPreferences {
   defaultMangaPath: string | null;
   translationTargetLanguage: string;
   autoGroupManga: boolean;
+  autoTranslate: boolean;
+  cacheSizeLimitMB: number;
+  librarySizeLimit: number;
+  sendAnalytics: boolean;
+  sendCrashReports: boolean;
+  debugLogging: boolean;
+  enableCloudSync: boolean;
+  enableNotifications: boolean;
   dailyReadingGoalMinutes?: number;
-  debugLogging?: boolean;
   uiFontFamily?: string;
   coverSize?: CoverSize;
   defaultSortOrder?: SortOrder;
@@ -85,10 +92,7 @@ export interface UserPreferences {
   duplicateHandling?: DuplicateHandling;
   autoFetchCovers?: boolean;
   autoScanIntervalMinutes?: number;
-  cacheSizeLimitMB?: number;
   cacheClearPolicy?: CacheClearPolicy;
-  sendAnalytics?: boolean;
-  sendCrashReports?: boolean;
   historyRetentionDays?: number;
   watchFolders?: WatchFolder[];
 }
@@ -155,8 +159,15 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   defaultMangaPath: null,
   translationTargetLanguage: 'en',
   autoGroupManga: true,
-  dailyReadingGoalMinutes: 30,
+  autoTranslate: false,
+  cacheSizeLimitMB: 500,
+  librarySizeLimit: 10000,
+  sendAnalytics: false,
+  sendCrashReports: false,
   debugLogging: false,
+  enableCloudSync: false,
+  enableNotifications: true,
+  dailyReadingGoalMinutes: 30,
   uiFontFamily: 'system',
   coverSize: 'medium',
   defaultSortOrder: 'title-asc',
@@ -165,9 +176,6 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   duplicateHandling: 'skip',
   autoFetchCovers: true,
   autoScanIntervalMinutes: 60,
-  cacheSizeLimitMB: 500,
   cacheClearPolicy: 'manual',
-  sendAnalytics: false,
-  sendCrashReports: false,
   historyRetentionDays: -1,
 };

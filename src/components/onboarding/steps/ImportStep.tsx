@@ -18,19 +18,17 @@ const formats = ['epub', 'pdf', 'mobi', 'cbz', 'cbr', 'azw3'] as const;
 const normalizeToFolderPath = (path: string) => path.replace(/[/\\][^/\\]+$/, '');
 
 export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: ImportStepProps) {
-  const [choseLater, setChoseLater] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const { status, progress, results, currentFile, error, importFromPath, reset } = useImport();
 
-  const canContinue = choseLater || status === 'completed';
+  const canContinue = Boolean(libraryPath?.trim());
   const showDropZone = status === 'idle' || status === 'error';
 
   const runImport = async (path: string | null) => {
     if (!path) return;
     onSelectPath(path);
-    setChoseLater(false);
     await importFromPath(path);
   };
 
@@ -236,13 +234,12 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
             <button
               type="button"
               onClick={() => {
-                setChoseLater(true);
                 onSelectPath(null);
                 reset();
               }}
               className="rounded-xl border border-white/10 bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:border-white/20 hover:bg-slate-800"
             >
-              Skip for now
+              Clear selection
             </button>
           </div>
 

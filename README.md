@@ -1,6 +1,6 @@
 
 <div align="center">
-  <img src="public/banner.svg" alt="Shiori Banner" width="100%" />
+  <img src="public/logo.png" alt="Shiori Logo" width="180" />
 
   <h1>Shiori</h1>
   <p><strong>Offline-first desktop library and reading platform for serious personal collections.</strong></p>

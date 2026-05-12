@@ -2,7 +2,7 @@ import { memo, useState, useMemo, useRef, useEffect } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import {
   X, BookOpen, Layers, Search, SortDesc, SortAsc,
-  Clock, CheckCircle2, Edit2, DownloadCloud, Trash2, List, LayoutGrid, Check
+  Clock, CheckCircle2, DownloadCloud, Trash2, List, LayoutGrid, Check
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { logger } from '@/lib/logger'
@@ -10,7 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { PremiumBookCard } from './ModernBookCard'
 import { useCoverImage } from '../common/hooks/useCoverImage'
 import type { SeriesViewProps } from './types'
-import { SeriesManagementDialog } from './SeriesManagementDialog'
+import { MetadataSearchDialog } from './MetadataSearchDialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { api, type Book } from '@/lib/tauri'
@@ -22,12 +22,12 @@ function getBookReadStatus(book: Book) {
 
 const SeriesHeader = memo(function SeriesHeader({
   series,
-  onEdit,
+  onFindMetadata,
   onMarkAllRead,
   onDelete,
 }: {
   series: SeriesViewProps['series']
-  onEdit: () => void
+  onFindMetadata: () => void
   onMarkAllRead: () => void
   onDelete: () => void
 }) {
@@ -96,8 +96,8 @@ const SeriesHeader = memo(function SeriesHeader({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="secondary" size="sm" onClick={onEdit} className="gap-2 font-semibold">
-              <Edit2 className="w-4 h-4" /> Edit
+            <Button variant="secondary" size="sm" onClick={onFindMetadata} className="gap-2 font-semibold">
+              <Search className="w-4 h-4" /> Find Metadata
             </Button>
             <Button variant="outline" size="sm" onClick={onMarkAllRead} className="gap-2 font-semibold">
               <CheckCircle2 className="w-4 h-4" /> Mark All Read
@@ -213,7 +213,8 @@ export const SeriesView = memo(function SeriesView({
   const [filterStatus, setFilterStatus] = useState<'all' | 'read' | 'unread'>('all');
   const [sortOrder, setSortOrder] = useState<'chapter_asc' | 'chapter_desc' | 'date_added'>('chapter_asc');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [managementOpen, setManagementOpen] = useState(false);
+  const [metadataDialogOpen, setMetadataDialogOpen] = useState(false);
+  const [metadataSeriesId, setMetadataSeriesId] = useState<number | null>(null);
   const [jumpInput, setJumpInput] = useState('');
   
   const toast = useToast();
@@ -292,6 +293,33 @@ export const SeriesView = memo(function SeriesView({
 
   if (!series) return null;
 
+  const getErrorMessage = (err: unknown) => {
+    if (err instanceof Error) return err.message;
+    if (typeof err === 'string') return err;
+    if (err && typeof err === 'object') {
+      const maybe = err as { userMessage?: string; message?: string; technicalDetails?: string };
+      return maybe.userMessage || maybe.message || maybe.technicalDetails || JSON.stringify(err);
+    }
+    return String(err);
+  };
+
+  const handleFindSeriesMetadata = async () => {
+    if (!series) return;
+    try {
+      const list = await api.getMangaSeriesList(1000, 0);
+      const match = list.find(s => s.title.toLowerCase() === series.title.toLowerCase());
+      if (!match?.id) {
+        toast.error('Series not found', 'Could not resolve this series in database.');
+        return;
+      }
+      setMetadataSeriesId(match.id);
+      setMetadataDialogOpen(true);
+    } catch (err) {
+      logger.error('Failed to resolve series ID for metadata:', err);
+      toast.error('Metadata error', getErrorMessage(err));
+    }
+  };
+
   const handleDeleteSeries = async () => {
     try {
       for (const book of series.books) {
@@ -334,7 +362,7 @@ export const SeriesView = memo(function SeriesView({
         >
           <SeriesHeader 
             series={series} 
-            onEdit={() => setManagementOpen(true)}
+            onFindMetadata={handleFindSeriesMetadata}
             onDelete={handleDeleteSeries}
             onMarkAllRead={handleMarkAllRead}
           />
@@ -462,11 +490,20 @@ export const SeriesView = memo(function SeriesView({
             </div>
           </ScrollArea>
 
-          <SeriesManagementDialog
-            open={managementOpen}
-            onOpenChange={setManagementOpen}
-            seriesTitle={series.title}
-          />
+          {metadataSeriesId && (
+            <MetadataSearchDialog
+              open={metadataDialogOpen}
+              onOpenChange={setMetadataDialogOpen}
+              bookIds={series.books.map((b) => b.id!).filter(Boolean)}
+              bookTitle={series.title}
+              isManga={true}
+              isbn={null}
+              seriesId={metadataSeriesId}
+              onMetadataSelected={async () => {
+                setMetadataDialogOpen(false);
+              }}
+            />
+          )}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

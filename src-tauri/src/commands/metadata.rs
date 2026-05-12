@@ -375,6 +375,7 @@ pub async fn apply_selected_series_metadata(
 
     {
         let conn = db.get_connection()?;
+
         let exists: bool = conn.query_row(
             "SELECT COUNT(*) > 0 FROM manga_series WHERE id = ?1",
             rusqlite::params![series_id],
@@ -453,14 +454,19 @@ pub async fn apply_selected_series_metadata(
         std::fs::create_dir_all(&app_state.covers_dir)
             .map_err(|e| ShioriError::Other(format!("Failed to create covers dir: {}", e)))?;
 
-        let cover_path = app_state.covers_dir.join(format!("series-{}.{}", series_id, ext));
+        let cover_path = app_state
+            .covers_dir
+            .join(format!("series-{}.{}", series_id, ext));
+
         std::fs::write(&cover_path, &bytes)
             .map_err(|e| ShioriError::Other(format!("Failed to write series cover: {}", e)))?;
 
+        let cover_path_str = cover_path.to_string_lossy().to_string();
         let conn = db.get_connection()?;
+
         conn.execute(
             "UPDATE manga_series SET cover_path = ?1 WHERE id = ?2",
-            rusqlite::params![cover_path.to_string_lossy().to_string(), series_id],
+            rusqlite::params![cover_path_str, series_id],
         )?;
 
         conn.execute(

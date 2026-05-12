@@ -461,11 +461,7 @@ pub fn update_manga_series(
     if let Some(status) = updates.status {
         let cleaned = status.trim().to_lowercase();
         if !cleaned.is_empty() {
-            validate::require_one_of(
-                &cleaned,
-                &["ongoing", "completed", "hiatus", "cancelled"],
-                "status",
-            )?;
+            validate::require_one_of(&cleaned, &["ongoing", "completed", "hiatus", "cancelled"], "status")?;
             conn.execute(
                 "UPDATE manga_series SET status = ?1 WHERE id = ?2",
                 rusqlite::params![cleaned, series_id],

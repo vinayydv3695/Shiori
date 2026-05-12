@@ -6,10 +6,10 @@
  * Staggered card animation based on render index.
  *
  * Performance improvements vs v3.0:
- * - prefetchCovers() called once after books load (warms cache before cards mount)
  * - coverSize read once at grid level, passed as prop (removes N Zustand subscriptions)
  * - onFavorite memoized with useCallback (stable reference across renders)
  * - handleOpen uses a Map lookup instead of O(n) Array.find()
+ * - cover prefetch is windowed to virtual rows (not full dataset)
  */
 
 import { useMemo, useRef, useEffect, useState, useCallback } from 'react'
@@ -30,6 +30,8 @@ import {
 import { FeatureHint } from '@/components/ui/FeatureHint'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import { prefetchCovers } from '@/lib/coverCache'
+
+const COVER_PREFETCH_BATCH_LIMIT = 120
 
 interface LibraryGridProps {
   books: Book[]
@@ -137,6 +139,7 @@ export function LibraryGrid({
   }, [densityColumnSize, coverSize])
 
   const [isFirstSeries, setIsFirstSeries] = useState(true)
+  const prefetchedCoverIdsRef = useRef<Set<number>>(new Set())
 
   // Hard domain filter — strict separation between books and manga & comics
   const visibleLibrary = useMemo(() => {
@@ -147,19 +150,8 @@ export function LibraryGrid({
     })
   }, [books, currentDomain])
 
-  // Pre-warm the cover cache for all visible books as soon as data arrives.
-  // This fires ONE batch IPC call (vs 1-per-card when each card mounts).
-  useEffect(() => {
-    const ids = visibleLibrary
-      .map(b => b.id)
-      .filter((id): id is number => id !== undefined && id !== null)
-    if (ids.length > 0) {
-      void prefetchCovers(ids)
-    }
-  }, [visibleLibrary])
-
-  // Apply grouping for ALL domains (books can have series too)
-  const groupedItems = useGroupedLibrary(visibleLibrary, true)
+  // Group only for manga/comics domain. Grouping huge books domain is expensive and unnecessary.
+  const groupedItems = useGroupedLibrary(visibleLibrary, currentDomain === 'manga_comics')
 
   // O(1) book lookup by ID (replaces O(n) Array.find on every click)
   const bookById = useMemo(() => {
@@ -223,6 +215,38 @@ export function LibraryGrid({
       loadMoreBooks()
     }
   }, [lastItem, hasMore, isLoading, loadMoreBooks, rowsCount])
+
+  // Windowed cover prefetch: only prefetch books in/near current virtual rows.
+  useEffect(() => {
+    if (virtualItems.length === 0) return
+
+    const idsToPrefetch: number[] = []
+
+    for (const virtualRow of virtualItems) {
+      const startIndex = virtualRow.index * columns
+      const rowItems = groupedItems.slice(startIndex, startIndex + columns)
+
+      for (const item of rowItems) {
+        if (item.type === 'book') {
+          if (item.data.id != null) idsToPrefetch.push(item.data.id)
+          continue
+        }
+
+        const firstVolumeId = item.data.books[0]?.id
+        if (firstVolumeId != null) idsToPrefetch.push(firstVolumeId)
+      }
+    }
+
+    if (idsToPrefetch.length === 0) return
+
+    const uniqueNewIds = Array.from(new Set(idsToPrefetch)).filter(id => !prefetchedCoverIdsRef.current.has(id))
+    if (uniqueNewIds.length === 0) return
+
+    const batch = uniqueNewIds.slice(0, COVER_PREFETCH_BATCH_LIMIT)
+    for (const id of batch) prefetchedCoverIdsRef.current.add(id)
+
+    void prefetchCovers(batch)
+  }, [virtualItems, groupedItems, columns])
 
   return (
     <div className="flex flex-col h-full w-full relative overflow-y-auto" ref={parentRef}>

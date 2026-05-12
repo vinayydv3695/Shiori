@@ -51,6 +51,7 @@ interface MetadataSearchDialogProps {
   bookTitle?: string;
   isManga?: boolean;
   isbn?: string | null;
+  seriesId?: number;
   onMetadataSelected: () => void;
 }
 
@@ -141,9 +142,11 @@ export const MetadataSearchDialog = ({
   bookTitle,
   isManga,
   isbn,
+  seriesId,
   onMetadataSelected,
 }: MetadataSearchDialogProps) => {
-  const isBatch = bookIds.length > 1;
+  const isSeriesMode = typeof seriesId === 'number' && seriesId > 0;
+  const isBatch = !isSeriesMode && bookIds.length > 1;
   const [searching, setSearching] = useState(false);
   const [downloading, setDownloading] = useState<number | null>(null);
   const [results, setResults] = useState<(MangaMetadata | BookMetadata)[]>([]);
@@ -203,6 +206,7 @@ export const MetadataSearchDialog = ({
     isbn13: null,
     anilistId: String(m.anilist_id),
     openLibraryId: null,
+    status: m.status,
   });
 
   const mapBookMetadata = (b: BookMetadata) => ({
@@ -499,10 +503,16 @@ export const MetadataSearchDialog = ({
       const selectedMetadata = isMangaResult(metadata) ? mapMangaMetadata(metadata) : mapBookMetadata(metadata as BookMetadata);
       setPreviewMetadata(selectedMetadata);
 
-       try {
-         const coverPath = await invoke<string | null>('get_cover_path_by_id', { id: bookIds[0] });
-         setCurrentCoverUrl(coverPath ? convertFileSrc(coverPath) : null);
-       } catch { setCurrentCoverUrl(null); }
+       if (!isSeriesMode) {
+         try {
+           const coverPath = await invoke<string | null>('get_cover_path_by_id', { id: bookIds[0] });
+           setCurrentCoverUrl(coverPath ? convertFileSrc(coverPath) : null);
+         } catch {
+           setCurrentCoverUrl(null);
+         }
+       } else {
+         setCurrentCoverUrl(null);
+       }
 
        try {
          if (selectedMetadata.coverUrl) {
@@ -527,17 +537,20 @@ export const MetadataSearchDialog = ({
     if (!includeCover) metadataToApply.coverUrl = null;
 
     try {
-      const success = await invoke<boolean>('apply_selected_metadata', { bookId: bookIds[0], metadata: metadataToApply });
+      const success = isSeriesMode
+        ? await invoke<boolean>('apply_selected_series_metadata', { seriesId, metadata: metadataToApply })
+        : await invoke<boolean>('apply_selected_metadata', { bookId: bookIds[0], metadata: metadataToApply });
+
        if (success) {
-         toast.success('Metadata applied', 'Book has been updated');
+         toast.success('Metadata applied', isSeriesMode ? 'Series has been updated' : 'Book has been updated');
          onMetadataSelected();
          handleClosePreview();
          onOpenChange(false);
        } else {
-         toast.error('Update failed', 'Could not apply metadata');
+         toast.error('Update failed', isSeriesMode ? 'Could not apply series metadata' : 'Could not apply metadata');
        }
      } catch (error) {
-       toast.error('Update failed', 'An error occurred while applying metadata');
+       toast.error('Update failed', isSeriesMode ? 'An error occurred while applying series metadata' : 'An error occurred while applying metadata');
      }
   };
 

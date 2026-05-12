@@ -133,7 +133,12 @@ pub fn get_manga_series_list(
     let offset = offset.unwrap_or(0);
     
     validate::require_positive_id(limit, "limit")?;
-    validate::require_positive_id(offset, "offset")?;
+    if offset < 0 {
+        return Err(crate::error::ShioriError::Validation(format!(
+            "offset must be a non-negative integer, got {}",
+            offset
+        )));
+    }
 
     let db = &state.db;
     let conn = db.get_connection()?;

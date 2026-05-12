@@ -2,12 +2,11 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as Tabs from '@radix-ui/react-tabs';
-import { X, Save, ImagePlus, Trash2, Split, Merge, Search } from 'lucide-react';
+import { X, Save, ImagePlus, Split, Merge, Search } from 'lucide-react';
 import { api, type MangaSeries, type Book } from '../../lib/tauri';
 import { logger } from '@/lib/logger';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { useCoverImage } from '../common/hooks/useCoverImage';
 import { MetadataSearchDialog } from './MetadataSearchDialog';
 
 import { useToast } from '@/store/toastStore';
@@ -50,6 +49,16 @@ export const SeriesManagementDialog = ({
   
   const toast = useToast();
 
+  const getErrorMessage = (err: unknown) => {
+    if (err instanceof Error) return err.message;
+    if (typeof err === 'string') return err;
+    if (err && typeof err === 'object') {
+      const maybe = err as { userMessage?: string; message?: string; technicalDetails?: string };
+      return maybe.userMessage || maybe.message || maybe.technicalDetails || JSON.stringify(err);
+    }
+    return String(err);
+  };
+
   useEffect(() => {
     if (open) {
       loadData();
@@ -86,7 +95,7 @@ export const SeriesManagementDialog = ({
       }
      } catch (err) {
        logger.error("Failed to load series data:", err);
-       toast.error(`Failed to load series data: ${err instanceof Error ? err.message : String(err)}`);
+       toast.error(`Failed to load series data: ${getErrorMessage(err)}`);
      } finally {
        setLoading(false);
      }
@@ -105,7 +114,7 @@ export const SeriesManagementDialog = ({
        onOpenChange(false);
      } catch (err) {
        logger.error("Failed to update series:", err);
-       toast.error(`Failed to update series: ${err instanceof Error ? err.message : String(err)}`);
+       toast.error(`Failed to update series: ${getErrorMessage(err)}`);
      }
   };
 
@@ -117,7 +126,7 @@ export const SeriesManagementDialog = ({
       }
      } catch (err) {
        logger.error("Failed to pick cover:", err);
-       toast.error(`Failed to pick cover: ${err instanceof Error ? err.message : String(err)}`);
+       toast.error(`Failed to pick cover: ${getErrorMessage(err)}`);
      }
   };
 
@@ -140,7 +149,7 @@ export const SeriesManagementDialog = ({
                 onUpdated?.();
               } catch (undoErr) {
                 logger.error("Failed to undo volume removal:", undoErr);
-                toast.error(`Failed to undo: ${undoErr instanceof Error ? undoErr.message : String(undoErr)}`);
+                toast.error(`Failed to undo: ${getErrorMessage(undoErr)}`);
               }
             }
           }
@@ -150,7 +159,7 @@ export const SeriesManagementDialog = ({
       }
      } catch (err) {
        logger.error("Failed to remove volume:", err);
-       toast.error(`Failed to remove volume: ${err instanceof Error ? err.message : String(err)}`);
+       toast.error(`Failed to remove volume: ${getErrorMessage(err)}`);
      }
   };
 
@@ -170,7 +179,7 @@ export const SeriesManagementDialog = ({
       onOpenChange(false);
      } catch (err) {
        logger.error("Failed to merge series:", err);
-       toast.error(`Failed to merge series: ${err instanceof Error ? err.message : String(err)}`);
+       toast.error(`Failed to merge series: ${getErrorMessage(err)}`);
      }
   };
 
@@ -264,10 +273,10 @@ export const SeriesManagementDialog = ({
                       variant="outline" 
                       onClick={() => setMetadataDialogOpen(true)} 
                       className="gap-2"
-                      disabled={!resolvedSeriesId || volumes.length === 0}
+                      disabled={!resolvedSeriesId || !title.trim()}
                     >
                       <Search className="w-4 h-4" />
-                      Find Metadata
+                      Find Metadata (AniList)
                     </Button>
                     <Button onClick={handleSave} className="gap-2">
                       <Save className="w-4 h-4" />
@@ -341,7 +350,7 @@ export const SeriesManagementDialog = ({
         </Dialog.Content>
       </Dialog.Portal>
 
-      {resolvedSeriesId && volumes.length > 0 && (
+      {resolvedSeriesId && (
         <MetadataSearchDialog
           open={metadataDialogOpen}
           onOpenChange={setMetadataDialogOpen}

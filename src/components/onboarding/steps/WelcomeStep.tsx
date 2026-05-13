@@ -4,6 +4,8 @@ type WelcomeStepProps = {
 };
 
 export function WelcomeStep({ appVersion, onStart }: WelcomeStepProps) {
+  const logoSrc = `${import.meta.env.BASE_URL}logo.png`;
+
   return (
     <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden px-6 py-6 text-white md:px-10 md:py-8">
       <style>{`
@@ -38,7 +40,7 @@ export function WelcomeStep({ appVersion, onStart }: WelcomeStepProps) {
           <span className="absolute inset-0 rounded-full border border-zinc-400/35 [animation:shiori-logo-pulse_3.5s_ease-in-out_infinite]" />
           <span className="absolute -inset-4 rounded-full border border-zinc-500/20 blur-[1px]" />
           <div className="relative flex h-32 w-32 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-zinc-900/70 shadow-[0_0_35px_rgba(255,255,255,0.08)] [animation:shiori-logo-in_0.9s_cubic-bezier(0.16,1,0.3,1)_forwards] md:h-40 md:w-40">
-            <img src="/logo.png" alt="Shiori Logo" className="h-full w-full object-cover" />
+            <img src={logoSrc} alt="Shiori Logo" className="h-full w-full object-cover" />
           </div>
         </div>
 

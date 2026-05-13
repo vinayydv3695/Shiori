@@ -24,6 +24,7 @@ export function FinishStep({
   onOpenLibrary,
   isFinishing,
 }: FinishStepProps) {
+  const logoSrc = `${import.meta.env.BASE_URL}logo.png`;
   const [burst, setBurst] = useState(false);
   const { completeOnboarding } = useOnboardingState();
 
@@ -121,7 +122,7 @@ export function FinishStep({
         <div className="onb-fade-up onb-delay-100 flex justify-center mt-0 mb-4 md:mt-2 md:mb-5">
           <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-white/5 md:h-32 md:w-32 overflow-hidden border border-white/10">
             <img
-              src="/logo.png"
+              src={logoSrc}
               alt="Shiori Logo"
               className="h-full w-full object-cover [animation:finish-logo-in_0.8s_cubic-bezier(0.16,1,0.3,1)_forwards,finish-logo-float_3.8s_ease-in-out_infinite_0.8s]"
             />

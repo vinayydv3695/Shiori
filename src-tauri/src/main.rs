@@ -42,13 +42,23 @@ pub struct MetadataState {
 }
 
 fn main() {
+    env_logger::init();
+
     #[cfg(target_os = "linux")]
     {
-        std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
-        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
-    }
+        let webkit_safe_mode = std::env::var("SHIORI_WEBKIT_SAFE_MODE")
+            .map(|value| {
+                let normalized = value.trim().to_ascii_lowercase();
+                matches!(normalized.as_str(), "1" | "true" | "yes" | "on")
+            })
+            .unwrap_or(false);
 
-    env_logger::init();
+        if webkit_safe_mode {
+            std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+            log::warn!("Linux WebKit safe mode enabled via SHIORI_WEBKIT_SAFE_MODE");
+        }
+    }
 
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()

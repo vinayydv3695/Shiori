@@ -36,7 +36,7 @@ export function SettingControl({
   const isDarkSlate = theme === 'darkSlate';
 
   const inputBase = isDarkSlate
-    ? 'w-full rounded-xl border border-white/10 bg-black px-3 py-2 text-sm text-white backdrop-blur-md transition hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 disabled:cursor-not-allowed disabled:opacity-50 [color-scheme:dark]'
+    ? 'w-full rounded-xl border border-white/10 bg-black px-3 py-2 text-sm text-white backdrop-blur-md transition hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500/50 disabled:cursor-not-allowed disabled:opacity-50 [color-scheme:dark]'
     : 'w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-foreground backdrop-blur-md transition hover:border-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 disabled:cursor-not-allowed disabled:opacity-50';
 
   const renderControl = () => {
@@ -65,7 +65,7 @@ export function SettingControl({
               disabled={disabled}
               onChange={(e) => onChange(Number(e.target.value))}
               className={`h-2 w-full cursor-pointer appearance-none rounded-full disabled:cursor-not-allowed ${
-                isDarkSlate ? 'bg-white/20 accent-indigo-500' : 'bg-white/20 accent-primary'
+                isDarkSlate ? 'bg-white/20 accent-zinc-300' : 'bg-white/20 accent-primary'
               }`}
             />
           </div>
@@ -85,11 +85,15 @@ export function SettingControl({
             <div
               className={`h-6 w-11 rounded-full border backdrop-blur-md transition peer-disabled:opacity-50 ${
                 isDarkSlate
-                  ? 'border-white/20 bg-black peer-checked:bg-indigo-500 peer-focus-visible:ring-2 peer-focus-visible:ring-indigo-400/70'
+                  ? 'border-white/20 bg-black peer-checked:bg-white peer-checked:text-black peer-focus-visible:ring-2 peer-focus-visible:ring-zinc-400/70'
                   : 'border-white/20 bg-white/20 peer-checked:bg-primary/80 peer-focus-visible:ring-2 peer-focus-visible:ring-primary/70'
               }`}
             />
-            <div className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-md transition-transform peer-checked:translate-x-5" />
+            <div className={`pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full shadow-md transition-transform peer-checked:translate-x-5 ${
+                isDarkSlate
+                  ? 'bg-white peer-checked:bg-black'
+                  : 'bg-white'
+              }`} />
           </label>
         );
 
@@ -103,7 +107,7 @@ export function SettingControl({
               onChange={(e) => onChange(e.target.value)}
               className={`${inputBase} appearance-none pr-12 ${
                 isDarkSlate
-                  ? 'border-indigo-400/30 bg-indigo-950/40 text-indigo-100 hover:border-indigo-300/45 focus:border-indigo-300/60 focus-visible:ring-indigo-400/45'
+                  ? 'border-white/10 bg-zinc-950/40 text-zinc-100 hover:border-white/20 focus:border-white/30 focus-visible:ring-zinc-400/45'
                   : ''
               }`}
               style={isDarkSlate ? { colorScheme: 'dark' } : undefined}
@@ -112,7 +116,7 @@ export function SettingControl({
                 <option
                   key={String(option.value)}
                   value={String(option.value)}
-                  className={isDarkSlate ? 'bg-slate-950 text-indigo-100' : 'bg-background text-foreground'}
+                  className={isDarkSlate ? 'bg-zinc-950 text-zinc-100' : 'bg-background text-foreground'}
                 >
                   {option.label}
                 </option>
@@ -120,7 +124,7 @@ export function SettingControl({
             </select>
             <div
               className={`pointer-events-none absolute inset-y-1 right-1 flex items-center rounded-lg px-2 ${
-                isDarkSlate ? 'border border-indigo-300/20 bg-indigo-900/50 text-indigo-200/80' : 'text-white/50'
+                isDarkSlate ? 'border border-white/10 bg-zinc-900/50 text-zinc-300/80' : 'text-white/50'
               }`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -141,10 +145,10 @@ export function SettingControl({
                   className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 backdrop-blur-md transition ${
                     checked
                       ? isDarkSlate
-                        ? 'border-indigo-400/60 bg-indigo-500/15 text-white'
+                        ? 'border-white/30 bg-white/10 text-white'
                         : 'border-primary/60 bg-primary/15 text-foreground'
                       : isDarkSlate
-                        ? 'border-white/10 bg-black text-white/70 hover:bg-slate-950'
+                        ? 'border-white/10 bg-black text-white/70 hover:bg-zinc-900'
                         : 'border-white/20 bg-white/10 hover:bg-white/15'
                   } ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
                 >
@@ -155,7 +159,7 @@ export function SettingControl({
                     checked={checked}
                     disabled={disabled}
                     onChange={() => onChange(option.value)}
-                    className={`h-4 w-4 ${isDarkSlate ? 'accent-indigo-500' : 'accent-primary'}`}
+                    className={`h-4 w-4 ${isDarkSlate ? 'accent-zinc-300' : 'accent-primary'}`}
                   />
                   <span className={`text-sm ${isDarkSlate ? 'text-white/80' : ''}`}>{option.label}</span>
                 </label>
@@ -187,7 +191,7 @@ export function SettingControl({
     <>
       <div
         className={`rounded-2xl p-4 backdrop-blur-xl ${
-          isDarkSlate ? 'border border-white/10 bg-slate-900/50' : 'border border-white/15 bg-white/5'
+          isDarkSlate ? 'border border-white/10 bg-zinc-900/50' : 'border border-white/15 bg-white/5'
         }`}
       >
         <div className="mb-3">
@@ -201,8 +205,8 @@ export function SettingControl({
       {isDarkSlate && (
         <style>{`
           #${inputId} option {
-            background-color: #020617 !important;
-            color: #e0e7ff !important;
+            background-color: #09090b !important;
+            color: #f4f4f5 !important;
           }
         `}</style>
       )}

@@ -299,16 +299,16 @@ export const PremiumBookCard = memo(function PremiumBookCard({
       {/* ── Info Strip ── */}
       <div className={cn(
         'flex flex-col gap-0.5',
-        coverSize === 'small' && 'px-1.5 pt-1.5 pb-2',
-        coverSize === 'medium' && 'px-2 pt-2 pb-2.5',
-        coverSize === 'large' && 'px-2.5 pt-2.5 pb-3',
+        coverSize === 'small' && 'px-1.5 pt-0.5 pb-2',
+        coverSize === 'medium' && 'px-2 pt-1 pb-2.5',
+        coverSize === 'large' && 'px-2.5 pt-1 pb-3',
       )}>
         <h3
           className={cn(
-            'font-semibold leading-tight text-foreground',
-            coverSize === 'small' && 'text-[10px] line-clamp-1',
-            coverSize === 'medium' && 'text-[11px] line-clamp-2',
-            coverSize === 'large' && 'text-xs line-clamp-3',
+            'font-semibold leading-tight text-foreground line-clamp-1',
+            coverSize === 'small' && 'text-[10px]',
+            coverSize === 'medium' && 'text-[11px]',
+            coverSize === 'large' && 'text-xs',
           )}
           title={book.title}
         >
@@ -316,10 +316,10 @@ export const PremiumBookCard = memo(function PremiumBookCard({
         </h3>
         <p
           className={cn(
-            'text-muted-foreground',
-            coverSize === 'small' && 'text-[9px] truncate',
-            coverSize === 'medium' && 'text-[10px] truncate',
-            coverSize === 'large' && 'text-[11px] line-clamp-2',
+            'text-muted-foreground truncate',
+            coverSize === 'small' && 'text-[9px]',
+            coverSize === 'medium' && 'text-[10px]',
+            coverSize === 'large' && 'text-[11px]',
           )}
           title={authorStr}
         >

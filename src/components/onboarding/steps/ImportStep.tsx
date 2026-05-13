@@ -99,10 +99,17 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
                       : 'border-white/10 hover:border-zinc-400/45'
                   }`}
                 >
-                  <button
-                    type="button"
+                  <div
+                    role="button"
+                    tabIndex={0}
                     className="flex w-full flex-1 cursor-pointer flex-col items-center justify-center"
                     onClick={handlePickFolder}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        void handlePickFolder();
+                      }
+                    }}
                     onDragEnter={(event) => {
                       event.preventDefault();
                       setIsDragOver(true);
@@ -138,7 +145,7 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
                         Browse Folder
                       </button>
                     </div>
-                  </button>
+                  </div>
 
 
                 </div>

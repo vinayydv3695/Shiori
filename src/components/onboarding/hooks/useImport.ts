@@ -78,31 +78,36 @@ export function useImport(): UseImportResult {
         error: null,
       });
 
-      const scanTasks: Array<Promise<ApiImportResult>> = [
-        api.scanFolderForBooks(path),
-        api.scanFolderForManga(path),
-        api.scanFolderForComics(path),
+      const scanTasks: Array<{
+        label: 'books' | 'manga' | 'comics';
+        run: () => Promise<ApiImportResult>;
+      }> = [
+        { label: 'books', run: () => api.scanFolderForBooks(path) },
+        { label: 'manga', run: () => api.scanFolderForManga(path) },
+        { label: 'comics', run: () => api.scanFolderForComics(path) },
       ];
 
-      let completedScans = 0;
-      const wrappedScans = scanTasks.map((task, index) =>
-        task.then((result) => {
-          completedScans += 1;
-          const labels = ['books', 'manga', 'comics'];
-          const currentType = labels[index];
+      const scanResults: ApiImportResult[] = [];
+      for (let index = 0; index < scanTasks.length; index += 1) {
+        const task = scanTasks[index];
 
-          setState((prev) => ({
-            ...prev,
-            status: 'scanning',
-            currentFile: `Scanned ${currentType}`,
-            progress: Math.round((completedScans / scanTasks.length) * 60),
-          }));
+        setState((prev) => ({
+          ...prev,
+          status: 'scanning',
+          currentFile: `Scanning ${task.label}`,
+          progress: Math.round((index / scanTasks.length) * 60),
+        }));
 
-          return result;
-        })
-      );
+        const result = await task.run();
+        scanResults.push(result);
 
-      const scanResults = await Promise.all(wrappedScans);
+        setState((prev) => ({
+          ...prev,
+          status: 'scanning',
+          currentFile: `Scanned ${task.label}`,
+          progress: Math.round(((index + 1) / scanTasks.length) * 60),
+        }));
+      }
 
       setState((prev) => ({
         ...prev,

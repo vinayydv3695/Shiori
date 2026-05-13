@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { X, FolderOpen, File, Upload, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { api, ImportResult } from '../../lib/tauri';
 import { logger } from '@/lib/logger';
@@ -64,7 +64,7 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
     setResult(null);
 
     try {
-      let importResult: ImportResult = { success: [], failed: [], duplicates: [] };
+      const importResult: ImportResult = { success: [], failed: [], duplicates: [] };
 
       if (mode === 'folder') {
         if (!selectedPath) {
@@ -72,14 +72,16 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
           setStatus('idle');
           return;
         }
-        // Scan folder for both books and manga/comics in parallel
-        const [bookResult, mangaResult] = await Promise.all([
-          api.scanFolderForBooks(selectedPath),
-          api.scanFolderForManga(selectedPath),
-        ]);
-        importResult.success.push(...bookResult.success, ...mangaResult.success);
-        importResult.failed.push(...bookResult.failed, ...mangaResult.failed);
-        importResult.duplicates.push(...bookResult.duplicates, ...mangaResult.duplicates);
+        // Run scans sequentially to avoid native parser crashes on some Linux/WebKit setups
+        const bookResult = await api.scanFolderForBooks(selectedPath);
+        importResult.success.push(...bookResult.success);
+        importResult.failed.push(...bookResult.failed);
+        importResult.duplicates.push(...bookResult.duplicates);
+
+        const mangaResult = await api.scanFolderForManga(selectedPath);
+        importResult.success.push(...mangaResult.success);
+        importResult.failed.push(...mangaResult.failed);
+        importResult.duplicates.push(...mangaResult.duplicates);
       } else {
         if (selectedFilePaths.length === 0) {
           toast.error('No files selected', 'Please select files to import');

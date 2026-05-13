@@ -37,8 +37,8 @@ export function WelcomeStep({ appVersion, onStart }: WelcomeStepProps) {
         <div className="animate-fade-up delay-100 relative mb-8 opacity-0 md:mb-10">
           <span className="absolute inset-0 rounded-full border border-zinc-400/35 [animation:shiori-logo-pulse_3.5s_ease-in-out_infinite]" />
           <span className="absolute -inset-4 rounded-full border border-zinc-500/20 blur-[1px]" />
-          <div className="relative rounded-full border border-white/15 bg-zinc-900/70 p-6 shadow-[0_0_35px_rgba(255,255,255,0.08)] [animation:shiori-logo-in_0.9s_cubic-bezier(0.16,1,0.3,1)_forwards] md:p-8">
-            <img src="/logo.png" alt="Shiori Logo" className="h-20 w-20 object-contain md:h-24 md:w-24" />
+          <div className="relative flex h-32 w-32 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-zinc-900/70 shadow-[0_0_35px_rgba(255,255,255,0.08)] [animation:shiori-logo-in_0.9s_cubic-bezier(0.16,1,0.3,1)_forwards] md:h-40 md:w-40">
+            <img src="/logo.png" alt="Shiori Logo" className="h-full w-full object-cover" />
           </div>
         </div>
 

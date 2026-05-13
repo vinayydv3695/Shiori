@@ -21,8 +21,8 @@ type ReaderTab = 'manga' | 'book';
 const tabButtonClass = (active: boolean) =>
   `relative rounded-xl border border-white/10 px-5 py-3 text-sm font-semibold transition-all duration-200 ${
     active
-      ? 'bg-slate-900 text-white'
-      : 'bg-transparent text-white/60 hover:bg-slate-900/60 hover:text-white/90'
+      ? 'bg-zinc-900 text-white'
+      : 'bg-transparent text-white/60 hover:bg-zinc-900/60 hover:text-white/90'
   }`;
 
 export function PreferencesStep({ mangaPrefs, bookPrefs, onMangaChange, onBookChange, onBack, onNext }: PreferencesStepProps) {
@@ -46,7 +46,7 @@ export function PreferencesStep({ mangaPrefs, bookPrefs, onMangaChange, onBookCh
         </div>
         <p className="onb-fade-up onb-delay-100 mt-2 text-white/60">Set your manga + EPUB defaults now. This is a required step, and changes are saved as you adjust options.</p>
 
-        <div className="onb-fade-up onb-delay-100 mt-4 shrink-0 rounded-2xl border border-white/10 bg-slate-950/80 p-2">
+        <div className="onb-fade-up onb-delay-100 mt-4 shrink-0 rounded-2xl border border-white/10 bg-zinc-950/80 p-2">
           <div className="grid grid-cols-2 gap-2">
             <button type="button" className={tabButtonClass(activeTab === 'manga')} onClick={() => setActiveTab('manga')}>
               <span className="flex items-center justify-center gap-2">
@@ -333,14 +333,14 @@ export function PreferencesStep({ mangaPrefs, bookPrefs, onMangaChange, onBookCh
                 </SettingGroup>
 
                 <SettingGroup theme="darkSlate" title="Advanced" description="Inject custom styles into EPUB reader." icon={<Settings size={18} />}>
-                    <div className="rounded-2xl border border-white/10 bg-slate-900/50 p-4">
+                    <div className="rounded-2xl border border-white/10 bg-zinc-900/50 p-4">
                       <label htmlFor="book-custom-css" className="text-sm font-semibold text-white">Custom CSS</label>
                       <p className="mt-1 text-xs text-white/60">Applied on top of theme styles.</p>
                       <textarea
                         id="book-custom-css"
                         value={bookPrefs.customCSS}
                         onChange={(e) => onBookChange({ customCSS: e.target.value })}
-                        className="mt-3 h-36 w-full resize-y rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition focus-visible:ring-2 focus-visible:ring-zinc-400/70"
+                        className="mt-3 h-36 w-full resize-y rounded-xl border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-white outline-none transition focus-visible:ring-2 focus-visible:ring-zinc-400/70"
                         placeholder="body { font-variant-ligatures: common-ligatures; }"
                       />
                     </div>

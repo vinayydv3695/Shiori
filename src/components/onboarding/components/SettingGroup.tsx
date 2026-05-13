@@ -15,7 +15,7 @@ export default function SettingGroup({ title, description, children, icon, theme
     <section
       className={`relative overflow-hidden rounded-[1.5rem] p-6 backdrop-blur-md transition-all md:p-8 ${
         isDarkSlate
-          ? 'border border-white/10 bg-slate-900/50 shadow-none'
+          ? 'border border-white/10 bg-zinc-900/50 shadow-none'
           : 'border border-border/60 bg-background/40 shadow-sm'
       }`}
     >
@@ -25,7 +25,7 @@ export default function SettingGroup({ title, description, children, icon, theme
             {icon ? (
               <span
                 className={`inline-flex h-9 w-9 items-center justify-center rounded-xl ${
-                  isDarkSlate ? 'border border-white/10 bg-slate-900 text-white/80' : 'border border-border/40 bg-muted/30 text-foreground'
+                  isDarkSlate ? 'border border-white/10 bg-zinc-900 text-white/80' : 'border border-border/40 bg-muted/30 text-foreground'
                 }`}
               >
                 {icon}

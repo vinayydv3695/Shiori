@@ -133,8 +133,8 @@ export function LibraryGrid({
   const estimatedRowHeight = useMemo(() => {
     const coverHeight = densityColumnSize * 1.5 // 2:3 aspect ratio
     const metadataHeight = coverSize === 'small' ? 42 : coverSize === 'large' ? 72 : 56
-    const rowPadding = 24 // 12px top + 12px bottom
-    const rowVerticalGap = 12
+    const rowPadding = 6 // 3px top + 3px bottom
+    const rowVerticalGap = 3
     return Math.ceil(coverHeight + metadataHeight + rowPadding + rowVerticalGap)
   }, [densityColumnSize, coverSize])
 
@@ -278,7 +278,7 @@ export function LibraryGrid({
                   transform: `translateY(${virtualRow.start}px)`,
                   display: 'flex',
                   gap: '12px',
-                  padding: '12px',
+                  padding: '3px 12px',
                 }}
                 role="row"
               >

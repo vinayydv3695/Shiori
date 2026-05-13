@@ -35,7 +35,7 @@ export function ParticleCanvas({ className, particleCount = 28 }: ParticleCanvas
 
     const draw = () => {
       ctx.clearRect(0, 0, w, h);
-      ctx.fillStyle = `hsla(220,20%,58%,${alpha})`;
+      ctx.fillStyle = `hsla(0,0%,58%,${alpha})`;
       for (const p of particles) {
         if (!motionMq.matches) {
           p.x += p.vx;

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { CheckCircle, Database, FileSearch, FolderPlus, Upload, XCircle } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-dialog';
 import FormatBadge from '../components/FormatBadge';
@@ -19,7 +19,6 @@ const normalizeToFolderPath = (path: string) => path.replace(/[/\\][^/\\]+$/, ''
 
 export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: ImportStepProps) {
   const [isDragOver, setIsDragOver] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const { status, progress, results, currentFile, error, importFromPath, reset } = useImport();
 
@@ -49,18 +48,16 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
     return null;
   };
 
-  const activateFilePicker = () => fileInputRef.current?.click();
-
   const clampedProgress = Math.min(100, Math.max(0, progress));
 
   return (
-    <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[2rem] border border-white/5 bg-slate-950 p-8 text-white shadow-xl shadow-black/40 md:p-10">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(79,70,229,0.15),transparent_70%)]" />
+    <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden px-4 py-4 text-white md:px-8 md:py-6">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(161,161,170,0.14),transparent_70%)]" />
       <OnboardingMotionStyles />
 
-      <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="relative z-10 mx-auto flex min-h-0 h-full w-full max-w-7xl flex-1 flex-col overflow-hidden rounded-[1.6rem] border border-white/10 bg-zinc-950/70 p-4 backdrop-blur-xl md:p-6">
         <div className="onb-fade-up flex shrink-0 items-center gap-3">
-          <div className="onb-icon-badge flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-indigo-200">
+          <div className="onb-icon-badge flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-zinc-200">
             <FolderPlus className="onb-icon-inner h-5 w-5" />
           </div>
           <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">Import Your Collection</h2>
@@ -93,19 +90,19 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
               </div>
             </div>
 
-            <div className="mt-8 min-h-[260px]">
+            <div className="mt-4 min-h-[220px]">
               {showDropZone ? (
                 <div
                   className={`flex min-h-[240px] cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed bg-slate-900/50 transition-colors duration-200 ${
                     isDragOver
-                      ? 'border-indigo-400/60 bg-slate-900/80'
-                      : 'border-white/10 hover:border-indigo-400/45'
+                      ? 'border-zinc-400/60 bg-slate-900/80'
+                      : 'border-white/10 hover:border-zinc-400/45'
                   }`}
                 >
                   <button
                     type="button"
                     className="flex w-full flex-1 cursor-pointer flex-col items-center justify-center"
-                    onClick={activateFilePicker}
+                    onClick={handlePickFolder}
                     onDragEnter={(event) => {
                       event.preventDefault();
                       setIsDragOver(true);
@@ -124,15 +121,18 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
                       await runImport(getDroppedPath(event));
                     }}
                   >
-                    <Upload className="h-12 w-12 text-indigo-400" />
+                    <Upload className="h-12 w-12 text-zinc-400" />
                     <p className="mt-4 text-center text-base font-semibold text-white">Drag & drop your library folder</p>
                     <p className="mt-1 text-center text-sm text-white/60">or click to browse for folder</p>
 
                     <div className="mt-6">
                       <button
                         type="button"
-                        onClick={handlePickFolder}
-                        className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:border-indigo-400/40 hover:bg-slate-800"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void handlePickFolder();
+                        }}
+                        className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:border-zinc-400/40 hover:bg-slate-800"
                       >
                         <FolderPlus className="h-4 w-4" />
                         Browse Folder
@@ -140,17 +140,7 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
                     </div>
                   </button>
 
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    className="hidden"
-                    onChange={async (event) => {
-                      const files = Array.from(event.currentTarget.files ?? []);
-                      const firstFilePath = (files[0] as File & { path?: string })?.path;
-                      await runImport(firstFilePath ? normalizeToFolderPath(firstFilePath) : null);
-                    }}
-                    {...({ webkitdirectory: '', directory: '' } as unknown as Record<string, string>)}
-                  />
+
                 </div>
               ) : (
                 <div className="rounded-2xl border border-white/5 bg-slate-900/50 p-5">
@@ -158,7 +148,7 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
                     {status === 'completed' ? (
                       <CheckCircle className="h-4 w-4 text-emerald-400" />
                     ) : (
-                      <Upload className="h-4 w-4 text-indigo-400" />
+                      <Upload className="h-4 w-4 text-zinc-400" />
                     )}
                     <span>
                       {status === 'scanning'
@@ -173,7 +163,7 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
 
                   <div className="h-2 overflow-hidden rounded-full bg-slate-800">
                     <div
-                      className="h-full rounded-full bg-indigo-500 transition-[width] duration-500 ease-out"
+                      className="h-full rounded-full bg-zinc-500 transition-[width] duration-500 ease-out"
                       style={{ width: `${clampedProgress}%` }}
                       role="progressbar"
                       aria-valuemin={0}
@@ -226,7 +216,7 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
           </div>
         </div>
 
-        <div className="mt-4 flex shrink-0 items-center justify-between border-t border-white/10 bg-slate-950/95 pt-5 pb-1 backdrop-blur z-20">
+        <div className="mt-3 flex shrink-0 items-center justify-between border-t border-white/10 pt-3">
           <div className="flex flex-wrap items-center gap-2">
             <GlowButton theme="dark" variant="secondary" onClick={onBack} className="px-5">
               ← Back

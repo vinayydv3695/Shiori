@@ -3,9 +3,7 @@ import { useOnboardingState } from './hooks/useOnboardingState';
 import { THEME_OPTIONS } from '@/store/onboardingStore';
 import { useLibraryStore } from '@/store/libraryStore';
 import { api } from '@/lib/tauri';
-import { ShioriMark } from '@/components/icons/ShioriIcons';
 import { ParticleCanvas } from '@/components/onboarding/components';
-import OnboardingProgress from '@/components/onboarding/OnboardingProgress';
 import { WelcomeStep } from './steps/WelcomeStep';
 import { ImportStep } from './steps/ImportStep';
 import { ThemeStep } from './steps/ThemeStep';
@@ -138,99 +136,83 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     prevStep();
   };
 
-  const progressStep = hasTorboxKey === false && state.currentStep > 5
-    ? state.currentStep - 1
-    : state.currentStep;
-  const totalProgressSteps = hasTorboxKey === false ? 7 : 8;
-
   const appVersion = import.meta.env.VITE_APP_VERSION ?? '1.0.2';
 
   const transitionClass =
     phase === 'exiting'
-      ? '-translate-x-8 opacity-0'
+      ? '-translate-x-10 opacity-0'
       : phase === 'entering'
-        ? 'translate-x-8 opacity-0'
+        ? 'translate-x-10 opacity-0'
         : 'translate-x-0 opacity-100';
 
   if (!isHydrated || isInitializing) {
     return (
-      <div className="min-h-screen w-full bg-slate-950 px-4 py-4 text-white md:px-6 md:py-6 lg:px-8 lg:py-8">
-        <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-6xl items-center justify-center rounded-3xl border border-white/5 bg-slate-950 p-3 md:min-h-[calc(100vh-3rem)] md:p-6">
-          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-indigo-300/80"></div>
-        </div>
+      <div className="relative flex h-screen w-screen items-center justify-center overflow-hidden bg-zinc-950 text-white">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_10%,rgba(255,255,255,0.08),transparent_60%)]" />
+        <div className="h-12 w-12 animate-spin rounded-full border border-white/20 border-b-zinc-200" />
       </div>
     );
   }
 
   return (
-    <div className="relative flex h-screen w-full flex-col bg-slate-950 p-4 text-white md:p-6 lg:p-8">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(79,70,229,0.15),transparent_70%)]" />
+    <div className="relative h-screen w-screen overflow-hidden bg-zinc-950 text-white">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.08),transparent_62%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,0.2),rgba(0,0,0,0.55))]" />
       <ParticleCanvas />
 
-      <div className="relative z-10 mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden rounded-3xl border border-white/5 bg-slate-950 p-3 md:p-6">
-        <header className="mb-2 flex shrink-0 items-center gap-2 border-b border-white/5 px-2 pb-4 pt-1">
-          <ShioriMark size={28} className="text-white" aria-hidden="true" />
-          <span className="text-lg font-semibold tracking-tight text-white">Shiori</span>
-        </header>
-
-        <div className="shrink-0">
-          <OnboardingProgress currentStep={progressStep} totalSteps={totalProgressSteps} />
-        </div>
-
-        <div className={`flex flex-1 min-h-0 flex-col overflow-hidden transition-all duration-300 ease-out ${transitionClass}`}>
-          {renderedStep === 1 ? <WelcomeStep appVersion={appVersion} onStart={nextStep} /> : null}
-          {renderedStep === 2 ? (
-            <ThemeStep
-              selectedTheme={state.selectedTheme}
-              themes={THEME_OPTIONS}
-              onSelectTheme={setSelectedTheme}
-              onBack={prevStep}
-              onNext={nextStep}
-            />
-          ) : null}
-          {renderedStep === 3 ? <ImportStep libraryPath={state.libraryPath} onSelectPath={setLibraryPath} onBack={prevStep} onNext={handleImportNext} /> : null}
-          {renderedStep === 4 ? (
-            <TorboxIntegrationStep
-              onBack={prevStep}
-              onNext={() => {
-                void handleTorboxNext();
-              }}
-            />
-          ) : null}
-          {renderedStep === 5 && hasTorboxKey !== false ? (
-            <CloudIntegrationStep
-              onBack={prevStep}
-              onNext={nextStep}
-            />
-          ) : null}
-          {renderedStep === 6 ? (
-            <PreferencesStep
-              mangaPrefs={state.mangaPrefs}
-              bookPrefs={state.bookPrefs}
-              onMangaChange={setMangaPrefs}
-              onBookChange={setBookPrefs}
-              onBack={handlePreferencesBack}
-              onNext={nextStep}
-            />
-          ) : null}
-          {renderedStep === 7 ? (
-            <AppSettingsStep
-              onBack={prevStep}
-              onNext={nextStep}
-            />
-          ) : null}
-          {renderedStep === 8 ? (
-            <FinishStep
-              libraryPath={state.libraryPath}
-              selectedTheme={state.selectedTheme}
-              mangaPrefs={state.mangaPrefs}
-              bookPrefs={state.bookPrefs}
-              onBack={prevStep}
-              onOpenLibrary={handleFinish}
-              isFinishing={isFinishing}
-            />
-          ) : null}
-        </div>
+      <div className={`relative z-10 flex h-full min-h-0 w-full flex-col overflow-hidden transition-all duration-300 ease-out ${transitionClass}`}>
+        {renderedStep === 1 ? <WelcomeStep appVersion={appVersion} onStart={nextStep} /> : null}
+        {renderedStep === 2 ? (
+          <ThemeStep
+            selectedTheme={state.selectedTheme}
+            themes={THEME_OPTIONS}
+            onSelectTheme={setSelectedTheme}
+            onBack={prevStep}
+            onNext={nextStep}
+          />
+        ) : null}
+        {renderedStep === 3 ? <ImportStep libraryPath={state.libraryPath} onSelectPath={setLibraryPath} onBack={prevStep} onNext={handleImportNext} /> : null}
+        {renderedStep === 4 ? (
+          <TorboxIntegrationStep
+            onBack={prevStep}
+            onNext={() => {
+              void handleTorboxNext();
+            }}
+          />
+        ) : null}
+        {renderedStep === 5 && hasTorboxKey !== false ? (
+          <CloudIntegrationStep
+            onBack={prevStep}
+            onNext={nextStep}
+          />
+        ) : null}
+        {renderedStep === 6 ? (
+          <PreferencesStep
+            mangaPrefs={state.mangaPrefs}
+            bookPrefs={state.bookPrefs}
+            onMangaChange={setMangaPrefs}
+            onBookChange={setBookPrefs}
+            onBack={handlePreferencesBack}
+            onNext={nextStep}
+          />
+        ) : null}
+        {renderedStep === 7 ? (
+          <AppSettingsStep
+            onBack={prevStep}
+            onNext={nextStep}
+          />
+        ) : null}
+        {renderedStep === 8 ? (
+          <FinishStep
+            libraryPath={state.libraryPath}
+            selectedTheme={state.selectedTheme}
+            mangaPrefs={state.mangaPrefs}
+            bookPrefs={state.bookPrefs}
+            onBack={prevStep}
+            onOpenLibrary={handleFinish}
+            isFinishing={isFinishing}
+          />
+        ) : null}
       </div>
     </div>
   );

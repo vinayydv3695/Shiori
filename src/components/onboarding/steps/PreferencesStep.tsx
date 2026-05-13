@@ -33,20 +33,20 @@ export function PreferencesStep({ mangaPrefs, bookPrefs, onMangaChange, onBookCh
     : DEFAULT_READING_FONT_ID;
 
   return (
-    <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[2rem] border border-white/5 bg-slate-950 p-8 shadow-xl shadow-black/40 md:p-10">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(79,70,229,0.15),transparent_70%)]" />
+    <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden px-4 py-4 md:px-8 md:py-6">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(161,161,170,0.14),transparent_70%)]" />
       <OnboardingMotionStyles />
 
-      <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="relative z-10 mx-auto flex h-full min-h-0 w-full max-w-7xl flex-1 flex-col overflow-hidden rounded-[1.6rem] border border-white/10 bg-zinc-950/70 p-4 text-white backdrop-blur-xl md:p-6">
         <div className="onb-fade-up flex items-center gap-3">
-          <span className="onb-icon-badge inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-indigo-200">
+          <span className="onb-icon-badge inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-zinc-200">
             <BookOpen size={20} className="onb-icon-inner" />
           </span>
           <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">Reader Preferences</h2>
         </div>
         <p className="onb-fade-up onb-delay-100 mt-2 text-white/60">Set your manga + EPUB defaults now. This is a required step, and changes are saved as you adjust options.</p>
 
-        <div className="onb-fade-up onb-delay-100 mt-6 shrink-0 rounded-2xl border border-white/10 bg-slate-950/80 p-2">
+        <div className="onb-fade-up onb-delay-100 mt-4 shrink-0 rounded-2xl border border-white/10 bg-slate-950/80 p-2">
           <div className="grid grid-cols-2 gap-2">
             <button type="button" className={tabButtonClass(activeTab === 'manga')} onClick={() => setActiveTab('manga')}>
               <span className="flex items-center justify-center gap-2">
@@ -340,7 +340,7 @@ export function PreferencesStep({ mangaPrefs, bookPrefs, onMangaChange, onBookCh
                         id="book-custom-css"
                         value={bookPrefs.customCSS}
                         onChange={(e) => onBookChange({ customCSS: e.target.value })}
-                        className="mt-3 h-36 w-full resize-y rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition focus-visible:ring-2 focus-visible:ring-indigo-400/70"
+                        className="mt-3 h-36 w-full resize-y rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition focus-visible:ring-2 focus-visible:ring-zinc-400/70"
                         placeholder="body { font-variant-ligatures: common-ligatures; }"
                       />
                     </div>
@@ -351,7 +351,7 @@ export function PreferencesStep({ mangaPrefs, bookPrefs, onMangaChange, onBookCh
           </div>
         </div>
 
-        <div className="onb-fade-up onb-delay-300 mt-3 flex shrink-0 items-center justify-between border-t border-white/10 bg-slate-950/95 pt-4 pb-1 backdrop-blur z-20">
+        <div className="onb-fade-up onb-delay-300 mt-3 flex shrink-0 items-center justify-between border-t border-white/10 pt-3">
           <GlowButton theme="dark" onClick={onBack} variant="secondary" className="px-6">
             ← Back
           </GlowButton>

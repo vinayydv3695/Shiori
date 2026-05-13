@@ -35,23 +35,23 @@ export function OnboardingMotionStyles() {
       }
 
       .onb-cta-glow {
-        background: linear-gradient(90deg, #4f46e5 0%, #6366f1 100%);
+        background: linear-gradient(90deg, #27272a 0%, #3f3f46 100%);
         color: #ffffff;
         border: 1px solid rgba(255, 255, 255, 0.16);
         box-shadow:
-          0 0 0 1px rgba(99, 102, 241, 0.2),
-          0 4px 12px -2px rgba(99, 102, 241, 0.3),
-          0 12px 32px -4px rgba(99, 102, 241, 0.22);
+          0 0 0 1px rgba(255, 255, 255, 0.05),
+          0 4px 12px -2px rgba(0, 0, 0, 0.5),
+          0 12px 32px -4px rgba(0, 0, 0, 0.4);
         transition: transform 0.24s ease, box-shadow 0.24s ease, filter 0.24s ease;
       }
 
       .onb-cta-glow:hover {
         transform: translateY(-1px);
-        filter: brightness(1.04);
+        filter: brightness(1.1);
         box-shadow:
-          0 0 0 1px rgba(129, 140, 248, 0.35),
-          0 6px 16px -2px rgba(99, 102, 241, 0.4),
-          0 16px 40px -4px rgba(99, 102, 241, 0.3);
+          0 0 0 1px rgba(255, 255, 255, 0.1),
+          0 6px 16px -2px rgba(0, 0, 0, 0.6),
+          0 16px 40px -4px rgba(0, 0, 0, 0.5);
       }
 
       .onb-cta-glow:active {

@@ -80,13 +80,13 @@ export function TorboxIntegrationStep({ onBack, onNext }: TorboxIntegrationStepP
   };
 
   return (
-    <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[2rem] border border-white/5 bg-slate-950 p-8 text-white shadow-xl shadow-black/40 md:p-10">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(79,70,229,0.15),transparent_70%)]" />
+    <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden px-4 py-4 text-white md:px-8 md:py-6">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(161,161,170,0.14),transparent_70%)]" />
       <OnboardingMotionStyles />
 
-      <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="relative z-10 mx-auto flex h-full min-h-0 w-full max-w-7xl flex-1 flex-col overflow-hidden rounded-[1.6rem] border border-white/10 bg-zinc-950/70 p-4 backdrop-blur-xl md:p-6">
         <div className="onb-fade-up flex shrink-0 flex-wrap items-center gap-3">
-          <div className="onb-icon-badge flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-indigo-200">
+          <div className="onb-icon-badge flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-zinc-200">
             <KeyRound className="h-5 w-5 onb-icon-inner" />
           </div>
           <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">Torbox Integration</h2>
@@ -116,7 +116,7 @@ export function TorboxIntegrationStep({ onBack, onNext }: TorboxIntegrationStepP
                     setTestValid(null);
                   }}
                   placeholder="tbx_..."
-                  className="h-11 w-full rounded-xl border border-white/10 bg-slate-900 px-3 text-sm text-white outline-none transition focus-visible:ring-2 focus-visible:ring-indigo-400/60"
+                  className="h-11 w-full rounded-xl border border-white/10 bg-slate-900 px-3 text-sm text-white outline-none transition focus-visible:ring-2 focus-visible:ring-zinc-400/60"
                   autoComplete="off"
                   disabled={isLoading}
                 />
@@ -179,7 +179,7 @@ export function TorboxIntegrationStep({ onBack, onNext }: TorboxIntegrationStepP
           </div>
         </div>
 
-        <div className="onb-fade-up onb-delay-300 mt-4 flex shrink-0 items-center justify-between border-t border-white/10 bg-slate-950/95 pt-5 pb-1 backdrop-blur z-20">
+        <div className="onb-fade-up onb-delay-300 mt-3 flex shrink-0 items-center justify-between border-t border-white/10 pt-3">
           <GlowButton theme="dark" variant="secondary" onClick={onBack} className="px-6">
             ← Back
           </GlowButton>

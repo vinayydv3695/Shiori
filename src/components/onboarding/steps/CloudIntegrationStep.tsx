@@ -61,13 +61,13 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
   const primaryBooks = primarySourceByKind.books;
 
   return (
-    <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[2rem] border border-white/5 bg-slate-950 p-8 text-white shadow-xl shadow-black/40 md:p-10">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(79,70,229,0.15),transparent_70%)]" />
+    <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden px-4 py-4 text-white md:px-8 md:py-6">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(161,161,170,0.14),transparent_70%)]" />
       <OnboardingMotionStyles />
 
-      <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="relative z-10 mx-auto flex h-full min-h-0 w-full max-w-7xl flex-1 flex-col overflow-hidden rounded-[1.6rem] border border-white/10 bg-zinc-950/70 p-4 backdrop-blur-xl md:p-6">
         <div className="onb-fade-up flex flex-wrap items-center gap-3">
-          <div className="onb-icon-badge flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-indigo-200">
+          <div className="onb-icon-badge flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-zinc-200">
             <Cloud className="onb-icon-inner h-5 w-5" />
           </div>
           <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">Cloud Integrations</h2>
@@ -76,16 +76,16 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
           </span>
         </div>
 
-        <p className="onb-fade-up onb-delay-100 mt-3 max-w-3xl text-sm text-white/65 md:text-base">
-          Tune recommended online providers (MangaDex, Open Library, Anna Archive) and your debrid preference. Safe to keep defaults and continue.
+        <p className="onb-fade-up onb-delay-100 mt-2 max-w-3xl text-sm text-white/65 md:text-base">
+          Tune recommended online providers and your debrid preference. Safe to keep defaults and continue.
         </p>
 
-        <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="min-h-0 flex-1 overflow-y-auto pr-2 pb-4 [scrollbar-gutter:stable] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 hover:[&::-webkit-scrollbar-thumb]:bg-white/30">
-            <div className="onb-fade-up onb-delay-200 mt-8 space-y-5">
+        <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="min-h-0 flex-1 overflow-y-auto pr-2 pb-3 [scrollbar-gutter:stable] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 hover:[&::-webkit-scrollbar-thumb]:bg-white/30">
+            <div className="onb-fade-up onb-delay-200 mt-2 space-y-4">
               <section className="rounded-2xl border border-white/10 bg-slate-900/50 p-5">
                 <div className="mb-4 flex items-center gap-3">
-                  <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-indigo-200">
+                  <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-zinc-200">
                     <Database className="onb-icon-inner h-4 w-4" />
                   </span>
                   <h3 className="text-sm font-semibold uppercase tracking-wide text-white/90">Recommended Sources</h3>
@@ -109,7 +109,7 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
                           checked={source.enabled}
                           onChange={() => toggleSource(source.id)}
                           disabled={locked}
-                          className="mt-0.5 h-4 w-4 accent-primary"
+                          className="mt-0.5 h-4 w-4 accent-zinc-400"
                           aria-label={`Toggle ${source.name}`}
                         />
                       </label>
@@ -120,7 +120,7 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
 
               <section className="rounded-2xl border border-white/10 bg-slate-900/50 p-5">
                 <div className="mb-4 flex items-center gap-3">
-                  <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-indigo-200">
+                  <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-zinc-200">
                     <Globe className="onb-icon-inner h-4 w-4" />
                   </span>
                   <h3 className="text-sm font-semibold uppercase tracking-wide text-white/90">Primary Source Selection</h3>
@@ -139,7 +139,7 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
                             checked={primaryManga === source.id}
                             onChange={() => setPrimarySource('manga', source.id)}
                             disabled={!source.enabled}
-                            className="h-4 w-4 accent-primary"
+                            className="h-4 w-4 accent-zinc-400"
                             aria-label={`Set ${source.name} as primary manga source`}
                           />
                         </label>
@@ -159,7 +159,7 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
                             checked={primaryBooks === source.id}
                             onChange={() => setPrimarySource('books', source.id)}
                             disabled={!source.enabled}
-                            className="h-4 w-4 accent-primary"
+                            className="h-4 w-4 accent-zinc-400"
                             aria-label={`Set ${source.name} as primary book source`}
                           />
                         </label>
@@ -171,7 +171,7 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
 
               <section className="rounded-2xl border border-white/10 bg-slate-900/50 p-5">
                 <div className="mb-4 flex items-center gap-3">
-                  <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-indigo-200">
+                  <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-zinc-200">
                     <Shield className="onb-icon-inner h-4 w-4" />
                   </span>
                   <h3 className="text-sm font-semibold uppercase tracking-wide text-white/90">Debrid Provider Preference</h3>
@@ -185,7 +185,7 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
                       name="onboarding-debrid"
                       checked={preferredDebridProvider === 'auto'}
                       onChange={() => setPreferredDebridProvider('auto')}
-                      className="h-4 w-4 accent-primary"
+                      className="h-4 w-4 accent-zinc-400"
                     />
                   </label>
                   <label className="flex items-center justify-between rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm">
@@ -195,7 +195,7 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
                       name="onboarding-debrid"
                       checked={preferredDebridProvider === 'torbox'}
                       onChange={() => setPreferredDebridProvider('torbox')}
-                      className="h-4 w-4 accent-primary"
+                      className="h-4 w-4 accent-zinc-400"
                     />
                   </label>
                 </div>
@@ -211,7 +211,7 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
           </div>
         </div>
 
-        <div className="onb-fade-up onb-delay-300 mt-4 flex shrink-0 items-center justify-between border-t border-white/10 bg-slate-950/95 pt-5 pb-1 backdrop-blur z-20">
+        <div className="onb-fade-up onb-delay-300 mt-3 flex shrink-0 items-center justify-between border-t border-white/10 pt-3">
           <GlowButton theme="dark" variant="secondary" onClick={onBack} className="px-6">
             ← Back
           </GlowButton>

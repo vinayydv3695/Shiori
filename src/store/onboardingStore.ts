@@ -388,7 +388,7 @@ export const useOnboardingStore = create<OnboardingStore>()(
         } catch (error) {
           logger.error('Failed to initialize onboarding state:', error);
         } finally {
-          set({ isInitializing: false });
+          set({ isInitializing: false, isHydrated: true });
         }
       },
 
@@ -523,7 +523,10 @@ export const useOnboardingStore = create<OnboardingStore>()(
         enableCloudSync: state.enableCloudSync,
         enableNotifications: state.enableNotifications,
       }),
-      onRehydrateStorage: () => (state) => {
+      onRehydrateStorage: () => (state, error) => {
+        if (error) {
+          logger.error('Failed to hydrate onboarding store:', error);
+        }
         if (state) {
           state.isHydrated = true;
         }

@@ -33,8 +33,8 @@ export const GlowButton: React.FC<GlowButtonProps> = ({
         ? 'bg-black text-white border border-white/20 hover:bg-slate-950 hover:border-white/30 hover:scale-[1.02]'
         : 'bg-slate-900 text-white border border-white/10 hover:bg-slate-800 hover:border-white/20 hover:scale-[1.02]'
       : variant === 'primary'
-        ? 'text-white bg-gradient-to-r from-violet-500 via-fuchsia-500 to-blue-500 shadow-[0_0_18px_rgba(99,102,241,0.35)] hover:shadow-[0_0_24px_rgba(99,102,241,0.45)] hover:scale-[1.02]'
-        : 'text-white/90 bg-white/5 backdrop-blur-md border border-white/20 shadow-[0_0_14px_rgba(99,102,241,0.3)] hover:bg-white/10 hover:border-white/35 hover:shadow-[0_0_18px_rgba(99,102,241,0.4)] hover:scale-[1.02]';
+        ? 'text-white bg-gradient-to-r from-zinc-700 via-zinc-600 to-zinc-500 shadow-[0_0_18px_rgba(161,161,170,0.25)] hover:shadow-[0_0_24px_rgba(161,161,170,0.35)] hover:scale-[1.02]'
+        : 'text-white/90 bg-white/5 backdrop-blur-md border border-white/20 shadow-[0_0_14px_rgba(161,161,170,0.22)] hover:bg-white/10 hover:border-white/35 hover:shadow-[0_0_18px_rgba(161,161,170,0.3)] hover:scale-[1.02]';
 
   return (
     <button

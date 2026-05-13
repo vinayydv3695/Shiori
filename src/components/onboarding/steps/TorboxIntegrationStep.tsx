@@ -101,7 +101,7 @@ export function TorboxIntegrationStep({ onBack, onNext }: TorboxIntegrationStepP
 
         <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="min-h-0 flex-1 overflow-y-auto pr-2 pb-4 [scrollbar-gutter:stable] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 hover:[&::-webkit-scrollbar-thumb]:bg-white/30">
-            <div className="onb-fade-up onb-delay-200 mt-4 rounded-2xl border border-white/10 bg-slate-900/50 p-5">
+            <div className="onb-fade-up onb-delay-200 mt-4 rounded-2xl border border-white/10 bg-zinc-900/50 p-5">
               <label htmlFor="torbox-api-key" className="text-sm font-semibold text-white">
                 Torbox API Key
               </label>
@@ -116,13 +116,13 @@ export function TorboxIntegrationStep({ onBack, onNext }: TorboxIntegrationStepP
                     setTestValid(null);
                   }}
                   placeholder="tbx_..."
-                  className="h-11 w-full rounded-xl border border-white/10 bg-slate-900 px-3 text-sm text-white outline-none transition focus-visible:ring-2 focus-visible:ring-zinc-400/60"
+                  className="h-11 w-full rounded-xl border border-white/10 bg-zinc-900 px-3 text-sm text-white outline-none transition focus-visible:ring-2 focus-visible:ring-zinc-400/60"
                   autoComplete="off"
                   disabled={isLoading}
                 />
                 <button
                   type="button"
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-slate-900 text-white transition hover:bg-white/5"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-zinc-900 text-white transition hover:bg-white/5"
                   onClick={() => setShowKey((prev) => !prev)}
                   aria-label={showKey ? 'Hide API key' : 'Show API key'}
                   disabled={isLoading}
@@ -137,7 +137,7 @@ export function TorboxIntegrationStep({ onBack, onNext }: TorboxIntegrationStepP
                   variant="secondary"
                   onClick={() => void handleSave()}
                   disabled={!hasKey || isLoading || isSaving}
-                  className="border-white/10 bg-slate-900 text-white hover:bg-white/5"
+                  className="border-white/10 bg-zinc-900 text-white hover:bg-white/5"
                 >
                   {isSaving ? 'Saving...' : 'Save key'}
                 </GlowButton>
@@ -147,7 +147,7 @@ export function TorboxIntegrationStep({ onBack, onNext }: TorboxIntegrationStepP
                   variant="secondary"
                   onClick={() => void handleTest()}
                   disabled={!hasKey || isLoading || isTesting}
-                  className="border-white/10 bg-slate-900 text-white hover:bg-white/5"
+                  className="border-white/10 bg-zinc-900 text-white hover:bg-white/5"
                 >
                   {isTesting ? 'Testing...' : 'Test key'}
                 </GlowButton>
@@ -165,7 +165,7 @@ export function TorboxIntegrationStep({ onBack, onNext }: TorboxIntegrationStepP
                 <div
                   className={`mt-4 flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${
                     testValid === null
-                      ? 'border-white/10 bg-slate-900/70 text-white/65'
+                      ? 'border-white/10 bg-zinc-900/70 text-white/65'
                       : testValid
                         ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
                         : 'border-amber-500/30 bg-amber-500/10 text-amber-300'

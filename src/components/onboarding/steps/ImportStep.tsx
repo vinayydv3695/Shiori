@@ -65,7 +65,7 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
 
         <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="min-h-0 flex-1 overflow-y-auto pr-2 pb-4 [scrollbar-gutter:stable] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 hover:[&::-webkit-scrollbar-thumb]:bg-white/30">
-            <div className="mt-4 rounded-2xl border border-white/5 bg-slate-900/40 p-5">
+            <div className="mt-4 rounded-2xl border border-white/5 bg-zinc-900/40 p-5">
               <p className="text-sm text-white/60 md:text-base">
                 Import your local library folder now to get instant scan + progress feedback. If you skip, your library stays empty until you import from Settings.
               </p>
@@ -74,12 +74,12 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
                 <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1 font-semibold uppercase tracking-wide text-emerald-200">
                   Required step
                 </span>
-                <span className="rounded-full border border-white/10 bg-slate-900/70 px-2.5 py-1 text-white/70">
+                <span className="rounded-full border border-white/10 bg-zinc-900/70 px-2.5 py-1 text-white/70">
                   Continue unlocks after import completes or after you choose “Skip for now”
                 </span>
               </div>
 
-              <p className="mt-3 truncate rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-xs text-white/70" title={libraryPath ?? undefined}>
+              <p className="mt-3 truncate rounded-lg border border-white/10 bg-zinc-900/60 px-3 py-2 text-xs text-white/70" title={libraryPath ?? undefined}>
                 {libraryPath ? `Selected folder: ${libraryPath}` : 'No folder selected yet'}
               </p>
 
@@ -93,9 +93,9 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
             <div className="mt-4 min-h-[220px]">
               {showDropZone ? (
                 <div
-                  className={`flex min-h-[240px] cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed bg-slate-900/50 transition-colors duration-200 ${
+                  className={`flex min-h-[240px] cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed bg-zinc-900/50 transition-colors duration-200 ${
                     isDragOver
-                      ? 'border-zinc-400/60 bg-slate-900/80'
+                      ? 'border-zinc-400/60 bg-zinc-900/80'
                       : 'border-white/10 hover:border-zinc-400/45'
                   }`}
                 >
@@ -132,7 +132,7 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
                           event.stopPropagation();
                           void handlePickFolder();
                         }}
-                        className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:border-zinc-400/40 hover:bg-slate-800"
+                        className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:border-zinc-400/40 hover:bg-zinc-800"
                       >
                         <FolderPlus className="h-4 w-4" />
                         Browse Folder
@@ -143,7 +143,7 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
 
                 </div>
               ) : (
-                <div className="rounded-2xl border border-white/5 bg-slate-900/50 p-5">
+                <div className="rounded-2xl border border-white/5 bg-zinc-900/50 p-5">
                   <div className="mb-3 flex items-center gap-2 text-sm font-medium text-white">
                     {status === 'completed' ? (
                       <CheckCircle className="h-4 w-4 text-emerald-400" />
@@ -161,7 +161,7 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
                     </span>
                   </div>
 
-                  <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+                  <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
                     <div
                       className="h-full rounded-full bg-zinc-500 transition-[width] duration-500 ease-out"
                       style={{ width: `${clampedProgress}%` }}
@@ -176,7 +176,7 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
                   <div className="mt-2 text-right text-xs text-white/60">{Math.round(clampedProgress)}%</div>
 
                   {currentFile ? (
-                    <p className="mt-3 truncate rounded-lg border border-white/5 bg-slate-900 px-3 py-2 text-xs text-white/70" title={currentFile}>
+                    <p className="mt-3 truncate rounded-lg border border-white/5 bg-zinc-900 px-3 py-2 text-xs text-white/70" title={currentFile}>
                       {currentFile}
                     </p>
                   ) : null}
@@ -184,23 +184,23 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
               )}
 
               {status === 'completed' && results ? (
-                <div className="mt-4 rounded-2xl border border-white/5 bg-slate-900/50 p-4">
+                <div className="mt-4 rounded-2xl border border-white/5 bg-zinc-900/50 p-4">
                   <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
-                    <div className="rounded-xl border border-white/5 bg-slate-900 p-3 text-white">
+                    <div className="rounded-xl border border-white/5 bg-zinc-900 p-3 text-white">
                       <div className="mb-1 flex items-center gap-2">
                         <Database className="h-4 w-4 text-emerald-400" />
                         <span className="font-semibold">Success</span>
                       </div>
                       <p className="text-lg font-bold">{results.success}</p>
                     </div>
-                    <div className="rounded-xl border border-white/5 bg-slate-900 p-3 text-white">
+                    <div className="rounded-xl border border-white/5 bg-zinc-900 p-3 text-white">
                       <div className="mb-1 flex items-center gap-2">
                         <FileSearch className="h-4 w-4 text-amber-400" />
                         <span className="font-semibold">Duplicates</span>
                       </div>
                       <p className="text-lg font-bold">{results.duplicates}</p>
                     </div>
-                    <div className="rounded-xl border border-white/5 bg-slate-900 p-3 text-white">
+                    <div className="rounded-xl border border-white/5 bg-zinc-900 p-3 text-white">
                       <div className="mb-1 flex items-center gap-2">
                         <XCircle className="h-4 w-4 text-rose-400" />
                         <span className="font-semibold">Failed</span>
@@ -227,7 +227,7 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
                 onSelectPath(null);
                 reset();
               }}
-              className="rounded-xl border border-white/10 bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:border-white/20 hover:bg-slate-800"
+              className="rounded-xl border border-white/10 bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:border-white/20 hover:bg-zinc-800"
             >
               Clear selection
             </button>

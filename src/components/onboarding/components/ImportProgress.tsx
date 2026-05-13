@@ -34,12 +34,12 @@ const STATUS_CONFIG: Record<ImportStatus, { label: string; icon: LucideIcon; col
   scanning: {
     label: 'Scanning files...',
     icon: Search,
-    colorClass: 'text-indigo-400',
+    colorClass: 'text-zinc-400',
   },
   importing: {
     label: 'Importing your library...',
     icon: Loader2,
-    colorClass: 'text-indigo-400',
+    colorClass: 'text-zinc-400',
   },
   completed: {
     label: 'Import completed successfully',
@@ -70,7 +70,7 @@ export default function ImportProgress({ status, progress, results, currentFile 
 
       <div className="relative h-3 overflow-hidden rounded-full border border-white/20 bg-slate-950/50">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-indigo-600 transition-[width] duration-500 ease-out"
+          className="h-full rounded-full bg-gradient-to-r from-zinc-500 to-zinc-600 transition-[width] duration-500 ease-out"
           style={{ width: `${clampedProgress}%` }}
           role="progressbar"
           aria-valuemin={0}

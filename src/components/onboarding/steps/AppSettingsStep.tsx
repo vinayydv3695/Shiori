@@ -78,7 +78,7 @@ export function AppSettingsStep({ onBack, onNext }: AppSettingsStepProps) {
           <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">App Settings</h2>
         </div>
 
-        <div className="onb-fade-up onb-delay-100 mt-3 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-3 py-2 text-sm text-white/70">
+        <div className="onb-fade-up onb-delay-100 mt-3 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-zinc-900/50 px-3 py-2 text-sm text-white/70">
           <Globe size={14} />
           Required step • saved as you change
         </div>
@@ -86,7 +86,7 @@ export function AppSettingsStep({ onBack, onNext }: AppSettingsStepProps) {
         <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="min-h-0 flex-1 overflow-y-auto pr-2 pb-3 [scrollbar-gutter:stable] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 hover:[&::-webkit-scrollbar-thumb]:bg-white/30">
             <div className="onb-fade-up onb-delay-200 mt-1 grid gap-4 xl:grid-cols-2">
-              <section className="rounded-xl border border-white/10 bg-slate-900/50 p-4">
+              <section className="rounded-xl border border-white/10 bg-zinc-900/50 p-4">
                 <header className="mb-4 space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-zinc-200">
@@ -117,7 +117,7 @@ export function AppSettingsStep({ onBack, onNext }: AppSettingsStepProps) {
                 </div>
               </section>
 
-              <section className="rounded-xl border border-white/10 bg-slate-900/50 p-4">
+              <section className="rounded-xl border border-white/10 bg-zinc-900/50 p-4">
                 <header className="mb-4 space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-zinc-200">
@@ -154,7 +154,7 @@ export function AppSettingsStep({ onBack, onNext }: AppSettingsStepProps) {
                 </div>
               </section>
 
-              <section className="rounded-xl border border-white/10 bg-slate-900/50 p-4">
+              <section className="rounded-xl border border-white/10 bg-zinc-900/50 p-4">
                 <header className="mb-4 space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-zinc-200">
@@ -193,7 +193,7 @@ export function AppSettingsStep({ onBack, onNext }: AppSettingsStepProps) {
                 </div>
               </section>
 
-              <section className="rounded-xl border border-white/10 bg-slate-900/50 p-4">
+              <section className="rounded-xl border border-white/10 bg-zinc-900/50 p-4">
                 <header className="mb-4 space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-zinc-200">
@@ -230,7 +230,7 @@ export function AppSettingsStep({ onBack, onNext }: AppSettingsStepProps) {
                 </div>
               </section>
 
-              <section className="rounded-xl border border-white/10 bg-slate-900/50 p-4">
+              <section className="rounded-xl border border-white/10 bg-zinc-900/50 p-4">
                 <header className="mb-4 space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-zinc-200">
@@ -249,7 +249,7 @@ export function AppSettingsStep({ onBack, onNext }: AppSettingsStepProps) {
                 <p className="mt-2 text-xs text-white/60">Shortcuts can be customized later in settings</p>
               </section>
 
-              <section className="rounded-xl border border-white/10 bg-slate-900/50 p-4">
+              <section className="rounded-xl border border-white/10 bg-zinc-900/50 p-4">
                 <header className="mb-4 space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-zinc-200">

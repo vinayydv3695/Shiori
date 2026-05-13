@@ -335,6 +335,16 @@ jobs:
             exit 1
           fi
 
+          if [ ! -f "${STAGE_DIR}/usr/bin/shiori" ]; then
+            echo "Expected usr/bin/shiori not found in deb payload"
+            exit 1
+          fi
+
+          if [ ! -d "${STAGE_DIR}/usr/lib/shiori" ]; then
+            echo "Expected usr/lib/shiori runtime directory not found in deb payload"
+            exit 1
+          fi
+
           tar -C "${STAGE_DIR}" -czf "${TAR_PATH}" usr
           gh release upload "v${VERSION}" "${TAR_PATH}" --repo "${GITHUB_REPOSITORY}" --clobber
 

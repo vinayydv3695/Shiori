@@ -51,6 +51,17 @@ package() {
         return 1
     fi
 
+    # Hotfix: older release tarballs can contain absolute asset paths (/assets/*, /fonts/*)
+    # that break on some Linux/AUR installs and cause white screen.
+    while IFS= read -r -d '' index_html; do
+        sed -i \
+            -e 's|href="/assets/|href="./assets/|g' \
+            -e 's|src="/assets/|src="./assets/|g' \
+            -e 's|href="/fonts/|href="./fonts/|g' \
+            -e 's|href="/favicon\.png"|href="./favicon.png"|g' \
+            "${index_html}"
+    done < <(find "${pkgdir}/usr" -type f -name index.html -print0)
+
     chmod -R u=rwX,go=rX "${pkgdir}/usr"
     chmod 755 "${pkgdir}/usr/bin/shiori"
 }

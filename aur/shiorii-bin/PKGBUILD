@@ -46,8 +46,8 @@ package() {
         return 1
     fi
 
-    if [[ ! -d "${pkgdir}/usr/lib/shiori" ]]; then
-        echo "Missing usr/lib/shiori runtime resources in release tarball" >&2
+    if [[ ! -f "${pkgdir}/usr/share/applications/Shiori.desktop" ]]; then
+        echo "Missing usr/share/applications/Shiori.desktop in release tarball" >&2
         return 1
     fi
 

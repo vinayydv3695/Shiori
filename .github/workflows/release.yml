@@ -340,8 +340,8 @@ jobs:
             exit 1
           fi
 
-          if [ ! -d "${STAGE_DIR}/usr/lib/shiori" ]; then
-            echo "Expected usr/lib/shiori runtime directory not found in deb payload"
+          if [ ! -f "${STAGE_DIR}/usr/share/applications/Shiori.desktop" ]; then
+            echo "Expected usr/share/applications/Shiori.desktop not found in deb payload"
             exit 1
           fi
 

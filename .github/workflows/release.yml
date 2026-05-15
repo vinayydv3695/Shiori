@@ -249,6 +249,7 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: 'src-tauri -> target'
+          cache-bin: false
 
       # ── Linux system dependencies ──
       - name: Install system dependencies (Linux)

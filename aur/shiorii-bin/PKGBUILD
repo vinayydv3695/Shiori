@@ -1,6 +1,6 @@
 # Maintainer: Vinay Kumar <vinayydv343@gmail.com>
 pkgname=shiorii-bin
-pkgver=1.0.9
+pkgver=1.0.10
 pkgrel=1
 pkgdesc="Modern offline-first eBook library manager built with Tauri, React, and Rust"
 arch=('x86_64')
@@ -46,11 +46,6 @@ package() {
         return 1
     fi
 
-    if [[ ! -d "${pkgdir}/usr/lib/shiori" ]]; then
-        echo "Missing usr/lib/shiori in release tarball" >&2
-        return 1
-    fi
-
     if [[ ! -f "${pkgdir}/usr/share/applications/Shiori.desktop" ]]; then
         echo "Missing usr/share/applications/Shiori.desktop in release tarball" >&2
         return 1
@@ -68,7 +63,7 @@ package() {
             -e 's|"/logo\.png"|"./logo.png"|g' \
             -e "s|'\/logo\.png'|'./logo.png'|g" \
             "${web_file}"
-    done < <(find "${pkgdir}/usr/lib/shiori" -type f \( -name '*.html' -o -name '*.js' -o -name '*.css' \) -print0)
+    done < <(find "${pkgdir}/usr" -type f \( -name '*.html' -o -name '*.js' -o -name '*.css' \) -print0)
 
     chmod -R u=rwX,go=rX "${pkgdir}/usr"
     chmod 755 "${pkgdir}/usr/bin/shiori"

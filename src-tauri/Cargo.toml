@@ -114,6 +114,6 @@ notify = "6.1"                  # File system notifications
 notify-debouncer-full = "0.3"   # Debouncer for notify
 
 [features]
-default = []
+default = ["custom-protocol"]
 native-tts = ["tauri-plugin-tts"]
 custom-protocol = [ "tauri/custom-protocol" ]

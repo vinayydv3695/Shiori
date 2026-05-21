@@ -170,23 +170,28 @@ pub async fn generate_daily_epub(
 /// Manually trigger feed update via scheduler
 #[tauri::command]
 pub async fn trigger_feed_update(
-    scheduler: State<'_, Arc<tokio::sync::Mutex<RssScheduler>>>,
+    scheduler: State<'_, Arc<tokio::sync::Mutex<Option<RssScheduler>>>>,
 ) -> crate::error::Result<()> {
-    let scheduler = scheduler.lock().await;
-    scheduler.trigger_feed_update()
-        .await
-        .map_err(|e| ShioriError::Other(e.to_string()))
+    let guard = scheduler.lock().await;
+    match guard.as_ref() {
+        None => Err(ShioriError::Other("RSS scheduler is still initializing, try again shortly".into())),
+        Some(s) => s.trigger_feed_update().await.map_err(|e| ShioriError::Other(e.to_string())),
+    }
 }
 
 /// Manually trigger daily EPUB generation via scheduler
 #[tauri::command]
 pub async fn trigger_daily_epub_generation(
-    scheduler: State<'_, Arc<tokio::sync::Mutex<RssScheduler>>>,
+    scheduler: State<'_, Arc<tokio::sync::Mutex<Option<RssScheduler>>>>,
 ) -> crate::error::Result<String> {
-    let scheduler = scheduler.lock().await;
-    let path = scheduler.trigger_daily_epub(None)
-        .await
-        .map_err(|e| ShioriError::Other(e.to_string()))?;
-
-    Ok(path.to_string_lossy().to_string())
+    let guard = scheduler.lock().await;
+    match guard.as_ref() {
+        None => Err(ShioriError::Other("RSS scheduler is still initializing, try again shortly".into())),
+        Some(s) => {
+            let path = s.trigger_daily_epub(None)
+                .await
+                .map_err(|e| ShioriError::Other(e.to_string()))?;
+            Ok(path.to_string_lossy().to_string())
+        }
+    }
 }

@@ -27,6 +27,6 @@ pkgbase = shiorii-bin
 	conflicts = shiori-ebook
 	conflicts = shiori-ebook-bin
 	source = Shiori_1.0.12_linux_amd64.tar.gz::https://github.com/vinayydv3695/Shiori/releases/download/v1.0.12/Shiori_1.0.12_linux_amd64.tar.gz
-	sha256sums = 15020e022de5ade30e13d2a8bed6f88546c3dcc03fff74a8eba781846a56269c
+	sha256sums = f8bb89faac44bcd08e531c8cb72c6452c1ea216a9a50d55c1c07d6ec3ad0109c
 
 pkgname = shiorii-bin

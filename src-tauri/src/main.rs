@@ -46,6 +46,22 @@ fn main() {
 
     #[cfg(target_os = "linux")]
     {
+        // WEBKIT_DISABLE_DMABUF_RENDERER=1 prevents blank/white screens on Arch Linux.
+        // DMA-BUF renderer is broken on many webkit2gtk-4.1 builds (both X11 and Wayland).
+        // Set unconditionally unless the user explicitly opts back in via SHIORI_WEBKIT_DMABUF=1.
+        let dmabuf_enabled = std::env::var("SHIORI_WEBKIT_DMABUF")
+            .map(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes"))
+            .unwrap_or(false);
+
+        if !dmabuf_enabled {
+            // Only set if not already set by the user's environment
+            if std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").is_err() {
+                std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+                log::info!("Linux: disabled WebKit DMA-BUF renderer (set SHIORI_WEBKIT_DMABUF=1 to enable)");
+            }
+        }
+
+        // Legacy SHIORI_WEBKIT_SAFE_MODE: additionally disable compositing mode
         let webkit_safe_mode = std::env::var("SHIORI_WEBKIT_SAFE_MODE")
             .map(|value| {
                 let normalized = value.trim().to_ascii_lowercase();
@@ -151,10 +167,20 @@ fn main() {
                 plugin_registry,
             });
 
-            // Initialize Torbox service
+            // Initialize Torbox service.
+            // API key is loaded asynchronously AFTER setup so we never block_on
+            // inside the setup closure (which would deadlock on fresh installs).
             let torbox_state = commands::torbox::TorboxState::new()?;
-            tauri::async_runtime::block_on(torbox_state.service.load_api_key_from_store(&app.handle().clone()))?;
             app.manage(torbox_state);
+            let torbox_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let state = torbox_handle.state::<commands::torbox::TorboxState>();
+                if let Err(e) = state.service.load_api_key_from_store(&torbox_handle).await {
+                    log::warn!("Torbox: failed to load API key from store (may not be configured yet): {}", e);
+                } else {
+                    log::info!("Torbox: API key loaded from store");
+                }
+            });
 
             // Initialize rendering service with 100MB cache
             app.manage(commands::rendering::RenderingState::new(100));
@@ -184,24 +210,26 @@ fn main() {
             let rss_service = Arc::new(RssService::new(database.clone(), storage_path.clone())?);
             app.manage(Arc::clone(&rss_service));
 
-            // RSS scheduler (daily EPUB at 6 AM)
-            let rss_scheduler = Arc::new(tokio::sync::Mutex::new(
-                tauri::async_runtime::block_on(async {
-                    RssScheduler::new(rss_service, true, None).await
-                })?
-            ));
-            
-            // Start RSS scheduler
-            let scheduler_clone = Arc::clone(&rss_scheduler);
+            // RSS scheduler — created and started asynchronously so we never
+            // block_on inside the setup closure (avoids deadlock on fresh installs).
+            // Managed as Option<RssScheduler> — None until the scheduler is ready.
+            let rss_scheduler: Arc<tokio::sync::Mutex<Option<RssScheduler>>> =
+                Arc::new(tokio::sync::Mutex::new(None));
+            app.manage(Arc::clone(&rss_scheduler));
+
             tauri::async_runtime::spawn(async move {
-                if let Ok(mut scheduler) = scheduler_clone.try_lock() {
-                    if let Err(e) = scheduler.start().await {
-                        log::error!("Failed to start RSS scheduler: {}", e);
+                match RssScheduler::new(rss_service, true, None).await {
+                    Ok(mut scheduler) => {
+                        if let Err(e) = scheduler.start().await {
+                            log::error!("RSS scheduler failed to start: {}", e);
+                            return;
+                        }
+                        *rss_scheduler.lock().await = Some(scheduler);
+                        log::info!("RSS scheduler: started successfully");
                     }
+                    Err(e) => log::error!("RSS scheduler failed to initialize: {}", e),
                 }
             });
-            
-            app.manage(rss_scheduler);
 
             // Share service
             let share_service = Arc::new(tokio::sync::Mutex::new(

@@ -13,6 +13,11 @@ use crate::sources::{Chapter, ContentType, Page, SearchResponse, SearchResult, S
 const NYAA_BASE_URL: &str = "https://nyaa.si";
 const NYAA_SEARCH_LIMIT_MAX: u32 = 75;
 const NYAA_USER_AGENT: &str = "Shiori/1.0 (Torbox integration)";
+const NYAA_MIRRORS: &[&str] = &[
+    "https://nyaa.si",
+    "https://nyaa.iss.one",
+    "https://nyaa.land",
+];
 
 #[derive(Debug, Clone, Default)]
 struct NyaaRssItem {
@@ -250,28 +255,173 @@ impl NyaaSource {
         Ok(items)
     }
 
+    fn parse_html_items(html: &str, base_url: &str) -> Result<Vec<NyaaRssItem>> {
+        use scraper::{Html, Selector};
+        let document = Html::parse_document(html);
+        let tr_sel = Selector::parse("table.torrent-list tbody tr").map_err(|e| ShioriError::Other(e.to_string()))?;
+        let td_sel = Selector::parse("td").map_err(|e| ShioriError::Other(e.to_string()))?;
+        let a_sel = Selector::parse("a").map_err(|e| ShioriError::Other(e.to_string()))?;
+
+        let mut items = Vec::new();
+        for tr in document.select(&tr_sel) {
+            let mut tds = tr.select(&td_sel);
+            let _category = tds.next();
+
+            let Some(td_name) = tds.next() else { continue };
+            let mut title = None;
+            let mut guid = None;
+            for a in td_name.select(&a_sel) {
+                if let Some(href) = a.value().attr("href") {
+                    if href.contains("/view/") && !href.contains("#comments") {
+                        title = Some(a.text().collect::<String>().trim().to_string());
+                        let href_norm = if href.starts_with("http") { href.to_string() } else { format!("{}{}", base_url, href) };
+                        guid = Some(href_norm);
+                    }
+                }
+            }
+
+            let Some(td_links) = tds.next() else { continue };
+            let mut torrent_url = None;
+            let mut magnet_url = None;
+            for a in td_links.select(&a_sel) {
+                if let Some(href) = a.value().attr("href") {
+                    if href.ends_with(".torrent") || href.contains("/download/") {
+                        let href_norm = if href.starts_with("http") { href.to_string() } else { format!("{}{}", base_url, href) };
+                        torrent_url = Some(href_norm);
+                    } else if href.starts_with("magnet:") {
+                        magnet_url = Some(href.to_string());
+                    }
+                }
+            }
+
+            let Some(td_size) = tds.next() else { continue };
+            let size = td_size.text().collect::<String>().trim().to_string();
+
+            let info_hash = magnet_url.as_ref().and_then(|url| {
+                if let Some(start) = url.find("urn:btih:") {
+                    let hash_start = start + 9;
+                    let hash_end = url[hash_start..].find('&').map(|i| hash_start + i).unwrap_or(url.len());
+                    Some(url[hash_start..hash_end].to_string())
+                } else {
+                    None
+                }
+            });
+
+            if let Some(t) = title {
+                items.push(NyaaRssItem {
+                    title: Some(t),
+                    link: guid.clone(),
+                    description: Some(format!("Size: {}", size)),
+                    guid,
+                    torrent_url,
+                    info_hash,
+                });
+            }
+        }
+        Ok(items)
+    }
+
     async fn search_internal(&self, query: &str, page: u32, limit: u32) -> Result<SearchResponse> {
         let safe_page = page.max(1);
         let safe_limit = limit.max(1).min(NYAA_SEARCH_LIMIT_MAX);
 
-        let url = format!(
-            "{}/?page=rss&q={}&c=3_0&f=0&p={}",
-            NYAA_BASE_URL,
-            urlencoding::encode(query),
-            safe_page
-        );
+        let start_time = std::time::Instant::now();
+        let mut diagnostics = crate::sources::SourceSearchDiagnostics {
+            source_id: "nyaa".to_string(),
+            source_name: Some("Nyaa".to_string()),
+            selected_mirror: None,
+            selected_base: None,
+            attempted_mirrors: Vec::new(),
+            duration_ms: 0,
+            result_count: 0,
+            retries_used: Some(0),
+        };
 
-        let raw_xml = self
-            .client
-            .get(&url)
-            .send()
-            .await
-            .map_err(|e| ShioriError::Other(format!("Nyaa search request failed: {}", e)))?
-            .text()
-            .await
-            .map_err(|e| ShioriError::Other(format!("Nyaa search response read failed: {}", e)))?;
+        let mut raw_response = String::new();
+        let mut successful_mirror = String::new();
 
-        let parsed = Self::parse_rss_items(&raw_xml)?;
+        for mirror in NYAA_MIRRORS {
+            let url = format!("{}/?page=rss&q={}&c=3_0&f=0&p={}", mirror, urlencoding::encode(query), safe_page);
+            match self.client.get(&url).send().await {
+                Ok(resp) if resp.status().is_success() => {
+                    if let Ok(text) = resp.text().await {
+                        if text.contains("Enable JavaScript and cookies to continue") || text.contains("DDoS protection by Cloudflare") {
+                            diagnostics.attempted_mirrors.push(crate::sources::MirrorAttemptDiagnostic {
+                                mirror: mirror.to_string(),
+                                success: false,
+                                error: Some("Cloudflare challenge".to_string()),
+                            });
+                            continue;
+                        }
+                        
+                        raw_response = text;
+                        successful_mirror = mirror.to_string();
+                        diagnostics.attempted_mirrors.push(crate::sources::MirrorAttemptDiagnostic {
+                            mirror: mirror.to_string(),
+                            success: true,
+                            error: None,
+                        });
+                        break;
+                    }
+                }
+                Ok(resp) => {
+                    diagnostics.attempted_mirrors.push(crate::sources::MirrorAttemptDiagnostic {
+                        mirror: mirror.to_string(),
+                        success: false,
+                        error: Some(format!("Status {}", resp.status())),
+                    });
+                }
+                Err(e) => {
+                    diagnostics.attempted_mirrors.push(crate::sources::MirrorAttemptDiagnostic {
+                        mirror: mirror.to_string(),
+                        success: false,
+                        error: Some(e.to_string()),
+                    });
+                }
+            }
+            
+            if successful_mirror.is_empty() {
+                let html_url = format!("{}/?q={}&c=3_0&f=0&p={}", mirror, urlencoding::encode(query), safe_page);
+                match self.client.get(&html_url).send().await {
+                    Ok(resp) if resp.status().is_success() => {
+                        if let Ok(text) = resp.text().await {
+                            if text.contains("Enable JavaScript and cookies to continue") || text.contains("DDoS protection by Cloudflare") {
+                                diagnostics.attempted_mirrors.push(crate::sources::MirrorAttemptDiagnostic {
+                                    mirror: format!("{} (HTML)", mirror),
+                                    success: false,
+                                    error: Some("Cloudflare challenge".to_string()),
+                                });
+                                continue;
+                            }
+                            
+                            raw_response = text;
+                            successful_mirror = mirror.to_string();
+                            diagnostics.attempted_mirrors.push(crate::sources::MirrorAttemptDiagnostic {
+                                mirror: format!("{} (HTML)", mirror),
+                                success: true,
+                                error: None,
+                            });
+                            break;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        if raw_response.is_empty() {
+            return Err(ShioriError::Other("All Nyaa mirrors failed".to_string()));
+        }
+
+        diagnostics.selected_mirror = Some(successful_mirror.clone());
+        diagnostics.selected_base = Some(successful_mirror.clone());
+
+        let parsed = if raw_response.trim_start().starts_with("<?xml") || raw_response.trim_start().starts_with("<rss") {
+            Self::parse_rss_items(&raw_response)?
+        } else {
+            Self::parse_html_items(&raw_response, &successful_mirror)?
+        };
+
         let mut out = Vec::new();
         let mut lookup_updates: HashMap<String, NyaaLookupEntry> = HashMap::new();
 

@@ -650,23 +650,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: TorboxC
     }
   }, [searchQuery, searchType])
 
-  const handleTrendingClick = useCallback(async (title: string) => {
-    setIsSearching(true)
-    setSearchError(null)
-    try {
-      const raw = await invoke<unknown>('search_manga_sources', { query: title })
-      const parsed = filterBySearchType(parseSearchResults(raw), searchType)
-      if (parsed && parsed.length > 0) {
-        setActiveModalResult(parsed[0])
-      } else {
-        setSearchError(`No downloads found for "${title}".`)
-      }
-    } catch (err) {
-      setSearchError(getErrorMessage(err, 'Failed to fetch downloads.'))
-    } finally {
-      setIsSearching(false)
-    }
-  }, [searchType])
+
 
   const addQueuedJob = useCallback(
     async (payload: { source: SearchSource; result: SearchResult; fallbackKind: QueueType }) => {
@@ -1272,7 +1256,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: TorboxC
                   
                   {!isSearching && searchResults.length === 0 && !searchQuery.trim() && (
                     <div className="col-span-full">
-                      <TrendingExplore type={searchType} onSelect={handleTrendingClick} />
+                      <TrendingExplore type={searchType === 'all' ? 'manga' : searchType} />
                     </div>
                   )}
                 </div>

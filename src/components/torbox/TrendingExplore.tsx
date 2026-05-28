@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Search, Book, Image as ImageIcon, Loader2 } from 'lucide-react'
+import { Search, Image as ImageIcon, Loader2 } from 'lucide-react'
 import { MagnetSourcesModal } from '../online/MagnetSourcesModal'
-import { useTorbox } from '@/store/torboxStore'
+import { useTorboxStore } from '@/stores/useTorboxStore'
 import { toast } from 'sonner'
 
 export interface TrendingItem {
@@ -23,7 +23,8 @@ export function TrendingExplore({ type }: TrendingExploreProps) {
   const [error, setError] = useState<string | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const { addTorrent } = useTorbox()
+  const enqueueFromAnna = useTorboxStore((s) => s.enqueueFromAnna)
+  const enqueueFromMangadex = useTorboxStore((s) => s.enqueueFromMangadex)
 
   useEffect(() => {
     let mounted = true
@@ -101,16 +102,20 @@ export function TrendingExplore({ type }: TrendingExploreProps) {
 
   const handleSelect = async (item: TrendingItem) => {
     setSearchQuery(item.title)
-    setModalType(type)
     setModalOpen(true)
   }
 
   const handleAddMagnet = async (magnet: string, title: string) => {
     try {
-      await addTorrent({ magnet })
-      toast.success(`Added ${title} to Torbox queue`)
+      if (type === 'books') {
+        await enqueueFromAnna({ title, sourceLink: magnet })
+      } else {
+        await enqueueFromMangadex({ title, sourceLink: magnet })
+      }
+      toast.success(`Added "${title}" to Torbox queue`)
     } catch (err) {
-      toast.error(`Failed to add to Torbox: ${err}`)
+      const msg = err instanceof Error ? err.message : String(err)
+      toast.error(`Failed to add to Torbox: ${msg}`)
     }
   }
 
@@ -181,12 +186,6 @@ export function TrendingExplore({ type }: TrendingExploreProps) {
                   Search Torbox
                 </div>
               </div>
-              
-              {selectingId === item.id && (
-                <div className="absolute inset-0 bg-background/80 flex items-center justify-center backdrop-blur-sm z-10">
-                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                </div>
-              )}
             </div>
 
             <div className="min-w-0 px-1">
@@ -207,7 +206,7 @@ export function TrendingExplore({ type }: TrendingExploreProps) {
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         query={searchQuery}
-        type={modalType}
+        type={type}
         onAddMagnetToTorbox={handleAddMagnet}
       />
     </div>

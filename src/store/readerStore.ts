@@ -15,7 +15,7 @@ export interface ReadingProgress {
 export interface Annotation {
   id?: number;
   bookId: number;
-  annotationType: 'highlight' | 'note' | 'bookmark';
+  annotationType: 'highlight' | 'note' | 'bookmark' | 'vocabulary';
   location: string;
   cfiRange?: string;
   selectedText?: string;

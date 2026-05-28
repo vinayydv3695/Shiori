@@ -1,4 +1,5 @@
 import { useEffect, useState, lazy, Suspense } from "react"
+import { flushSync } from "react-dom"
 import { Layout } from "./components/layout/Layout"
 import { LibraryGrid } from "./components/library/LibraryGrid"
 import { ToastContainer } from "./components/ui/ToastContainer"
@@ -15,8 +16,10 @@ import { useDialogManager } from "./hooks/useDialogManager"
 import { useBookActions } from "./hooks/useBookActions"
 import { useLibraryFilter } from "./hooks/useLibraryFilter"
 import { api } from "./lib/tauri"
+import { useDiscordPresence } from "./hooks/useDiscordPresence"
 import { ShortcutsDialog } from "./components/dialogs/ShortcutsDialog"
 import { useOnlineSearchStore } from "./store/onlineSearchStore"
+import { CommandPalette } from "./components/CommandPalette"
 import { ResumeReadingDialog } from "./components/reader/ResumeReadingDialog"
 
 const ReaderLayout = lazy(() => import("./components/reader/ReaderLayout").then(m => ({ default: m.ReaderLayout })))
@@ -39,7 +42,7 @@ const AdvancedFilterDialog = lazy(() => import("./components/library/AdvancedFil
 const OnlineBooksView = lazy(() => import("./components/online/OnlineBooksView").then(m => ({ default: m.OnlineBooksView })))
 const OnlineMangaView = lazy(() => import("./components/online/OnlineMangaView").then(m => ({ default: m.OnlineMangaView })))
 const OnlineMangaReader = lazy(() => import("./components/online/OnlineMangaReader").then(m => ({ default: m.OnlineMangaReader })))
-const TorboxHubView = lazy(() => import("./components/online/TorboxHubView").then(m => ({ default: m.TorboxHubView })))
+const TorboxControlCenter = lazy(() => import("./components/TorboxControlCenter"))
 
 const LoadingSpinner = ({ className = "h-screen" }: { className?: string }) => (
   <div className={`flex items-center justify-center ${className}`}>
@@ -54,12 +57,23 @@ function App() {
   const isOnboardingInitializing = useOnboardingStore(s => s.isInitializing)
   const initializeOnboarding = useOnboardingStore(s => s.initialize)
 
+  // ── Discord RPC ──
+  useDiscordPresence()
+
   // ── Navigation ──
   const currentView = useUIStore(s => s.currentView)
   const currentDomain = useUIStore(s => s.currentDomain)
   const setCurrentView = useUIStore(s => s.setCurrentView)
   const setCurrentDomain = useUIStore(s => s.setCurrentDomain)
   const resetToHome = useUIStore(s => s.resetToHome)
+
+  const handleNavigate = (view: typeof currentView) => {
+    setCurrentView(view)
+  }
+
+  const handleDomainChange = (domain: typeof currentDomain) => {
+    setCurrentDomain(domain)
+  }
 
   // ── Library ──
   const loadInitialBooks = useLibraryStore(s => s.loadInitialBooks)
@@ -178,35 +192,35 @@ function App() {
         onDownloadBook={handleDownloadBook}
         onViewDetails={handleViewDetails}
         onConvertBook={handleConvertBook}
-        onOpenRSSFeeds={() => setCurrentView('rss-feeds')}
-        onOpenRSSArticles={() => setCurrentView('rss-articles')}
-        onGoHome={resetToHome}
+        onOpenRSSFeeds={() => handleNavigate('rss-feeds')}
+        onOpenRSSArticles={() => handleNavigate('rss-articles')}
+        onGoHome={() => resetToHome()}
         onAutoGroupManga={handleAutoGroupManga}
         onOpenAdvancedFilter={() => dialogs.setAdvancedFilterOpen(true)}
         activeFilterCount={countActiveFilterCriteria(activeFilters)}
         searchQuery={activeTopbarSearchQuery}
         onSearchChange={handleSearchChange}
         currentView={currentView}
-        onNavigateToView={setCurrentView}
-        onBackToLibrary={() => setCurrentView('library')}
+        onNavigateToView={handleNavigate}
+        onBackToLibrary={() => handleNavigate('library')}
         currentDomain={currentDomain}
-        onDomainChange={setCurrentDomain}
+        onDomainChange={handleDomainChange}
       >
         {currentView === 'home' && (
           <Suspense fallback={<LoadingSpinner className="py-24" />}>
-            <HomePage onOpenBook={handleOpenBook} onViewRSS={() => setCurrentView('rss-articles')} />
+            <HomePage onOpenBook={handleOpenBook} onViewRSS={() => handleNavigate('rss-articles')} />
           </Suspense>
         )}
 
         {currentView === 'rss-feeds' && (
           <Suspense fallback={<LoadingSpinner className="py-24" />}>
-            <RSSFeedManager onClose={() => setCurrentView('library')} />
+            <RSSFeedManager onClose={() => handleNavigate('library')} />
           </Suspense>
         )}
 
         {currentView === 'rss-articles' && (
           <Suspense fallback={<LoadingSpinner className="py-24" />}>
-            <RSSArticleList onClose={() => setCurrentView('library')} />
+            <RSSArticleList onClose={() => handleNavigate('library')} />
           </Suspense>
         )}
 
@@ -227,13 +241,13 @@ function App() {
 
         {currentView === 'annotations' && (
           <Suspense fallback={<LoadingSpinner className="py-24" />}>
-            <AnnotationsView onClose={() => setCurrentView('library')} />
+            <AnnotationsView onClose={() => handleNavigate('library')} />
           </Suspense>
         )}
 
         {currentView === 'statistics' && (
           <Suspense fallback={<LoadingSpinner className="py-24" />}>
-            <StatisticsView onClose={() => setCurrentView('library')} />
+            <StatisticsView onClose={() => handleNavigate('library')} />
           </Suspense>
         )}
 
@@ -250,15 +264,15 @@ function App() {
         )}
 
         {currentView === 'torbox-discover' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}><TorboxHubView initialTab="discover" /></Suspense>
+          <Suspense fallback={<LoadingSpinner className="py-24" />}><TorboxControlCenter initialTab="discover" /></Suspense>
         )}
 
         {currentView === 'torbox-books' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}><TorboxHubView initialTab="books" /></Suspense>
+          <Suspense fallback={<LoadingSpinner className="py-24" />}><TorboxControlCenter initialTab="books" /></Suspense>
         )}
 
         {currentView === 'torbox-manga' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}><TorboxHubView initialTab="manga" /></Suspense>
+          <Suspense fallback={<LoadingSpinner className="py-24" />}><TorboxControlCenter initialTab="manga" /></Suspense>
         )}
       </Layout>
 
@@ -376,6 +390,16 @@ function App() {
       </Suspense>
 
       <ShortcutsDialog open={dialogs.shortcutsDialogOpen} onOpenChange={dialogs.setShortcutsDialogOpen} />
+      
+      <CommandPalette 
+        books={books}
+        onOpenBook={handleOpenBook}
+        onImportFiles={() => {/* The Toolbar handles this, but we can trigger it via DOM or store if needed. 
+                                For now, we omit it or call a global import function */}}
+        onSettings={() => dialogs.setSettingsDialogOpen(true)}
+        onFetchMetadata={() => {}}
+        onFindDuplicates={() => {}}
+      />
     </>
   )
 }

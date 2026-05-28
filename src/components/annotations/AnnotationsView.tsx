@@ -2,7 +2,7 @@ import { logger } from '@/lib/logger';
 import React, { useState, useEffect, useCallback } from 'react';
 import { api, AnnotationSearchResult, AnnotationCategory } from '@/lib/tauri';
 import { useToastStore } from '@/store/toastStore';
-import { Highlighter, StickyNote, Bookmark, X } from '@/components/icons';
+import { Highlighter, StickyNote, Bookmark, BookmarkPlus, X } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 import { AnnotationExportDialog } from '../reader/AnnotationExportDialog';
 
@@ -74,6 +74,8 @@ export function AnnotationsView({ onClose }: AnnotationsViewProps) {
         return <StickyNote className="w-5 h-5 text-blue-500" />;
       case 'bookmark':
         return <Bookmark className="w-5 h-5 text-blue-500" />;
+      case 'vocabulary':
+        return <BookmarkPlus className="w-5 h-5 text-purple-500" />;
       default:
         return <Highlighter className="w-5 h-5 text-muted-foreground" />;
     }
@@ -155,82 +157,116 @@ export function AnnotationsView({ onClose }: AnnotationsViewProps) {
       <div className="flex-1 overflow-y-auto p-6 bg-background">
         <div className="max-w-5xl mx-auto space-y-4 pb-20">
           {loading && annotations.length === 0 ? (
-            <div className="flex items-center justify-center py-20 text-muted-foreground">
-              <span className="animate-pulse">Loading annotations...</span>
+            <div className="flex items-center justify-center h-32">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>
           ) : annotations.length === 0 ? (
-            <div className="text-center py-20 bg-card rounded-lg border border-border border-dashed">
-              <p className="text-muted-foreground text-lg">No annotations found.</p>
-              {searchQuery && (
-                <p className="text-sm mt-2 text-muted-foreground/70">Try adjusting your search or filters.</p>
-              )}
+            <div className="text-center py-12 text-muted-foreground bg-muted/30 rounded-lg border border-border/50">
+              <StickyNote className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>No annotations found</p>
             </div>
           ) : (
-            annotations.map((result, idx) => (
-              <div 
-                key={result.annotation.id || idx}
-                className="group bg-card border border-border rounded-xl p-5 hover:shadow-md transition-shadow cursor-pointer relative"
-                onClick={() => {
-                  if (result.annotation.bookId) {
-                    window.dispatchEvent(new CustomEvent('open-book', {
-                      detail: { bookId: result.annotation.bookId },
-                    }));
+            annotations.map((result) => {
+              let isVocabulary = false;
+              let vocabData: any = null;
+              if (result.annotation.annotationType === 'note' && result.annotation.noteContent) {
+                try {
+                  vocabData = JSON.parse(result.annotation.noteContent);
+                  if (vocabData && (vocabData.type === 'define' || vocabData.type === 'translate')) {
+                    isVocabulary = true;
                   }
-                }}
-              >
-                <div className="flex items-start gap-4">
-                  <div className="mt-1 relative shrink-0">
-                    {getAnnotationIcon(result.annotation.annotationType)}
-                    {result.annotation.annotationType === 'highlight' && result.annotation.color && (
-                      <div 
-                        className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-card"
-                        style={{ backgroundColor: result.annotation.color }}
-                      />
-                    )}
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
-                      <span className="font-medium text-foreground truncate max-w-[200px] sm:max-w-xs">
-                        {result.book_title}
-                      </span>
-                      <span className="text-muted-foreground text-xs px-2 py-0.5 bg-muted rounded-full">
-                        {result.book_author}
-                      </span>
-                      {result.annotation.chapterTitle && (
-                        <span className="text-muted-foreground text-xs px-2 py-0.5 bg-muted rounded-full truncate max-w-[150px]">
-                          {result.annotation.chapterTitle}
-                        </span>
+                } catch {
+                  // Not JSON, just a regular note
+                }
+              }
+
+              return (
+                <div key={result.annotation.id} className="bg-card border border-border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex gap-4">
+                    <div className="relative pt-1 shrink-0">
+                      {isVocabulary ? (
+                        <BookmarkPlus className="w-5 h-5 text-purple-500" />
+                      ) : (
+                        getAnnotationIcon(result.annotation.annotationType)
                       )}
-                      <span className="text-muted-foreground text-xs ml-auto whitespace-nowrap">
-                        {formatDate(result.annotation.createdAt)}
-                      </span>
+                      {result.annotation.annotationType === 'highlight' && result.annotation.color && (
+                        <div
+                          className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-card"
+                          style={{ backgroundColor: result.annotation.color }}
+                        />
+                      )}
                     </div>
 
-                    {result.annotation.selectedText && (
-                      <div 
-                        className="text-foreground mb-3 px-3 py-2 rounded-md text-[15px] leading-relaxed relative"
-                      >
-                        <div 
-                          className="absolute inset-0 rounded-md opacity-20 pointer-events-none"
-                          style={{ backgroundColor: result.annotation.color || '#fbbf24' }}
-                        />
-                        <span className="relative z-10 italic">
-                          "{result.annotation.selectedText}"
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
+                        <span className="font-medium text-foreground">
+                          {result.book_title}
                         </span>
+                        <span className="text-muted-foreground text-sm">
+                          • {result.book_author}
+                        </span>
+                        <span className="text-muted-foreground/50 text-sm">
+                          • {formatDate(result.annotation.createdAt || '')}
+                        </span>
+                        {result.annotation.chapterTitle && (
+                          <span className="text-xs px-2 py-0.5 bg-muted rounded-full border border-border">
+                            {result.annotation.chapterTitle}
+                          </span>
+                        )}
+                        {result.annotation.categoryId && categories.find(c => c.id === result.annotation.categoryId) && (
+                          <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: `${categories.find(c => c.id === result.annotation.categoryId)?.color}20`, color: categories.find(c => c.id === result.annotation.categoryId)?.color }}>
+                            {categories.find(c => c.id === result.annotation.categoryId)?.name}
+                          </span>
+                        )}
                       </div>
-                    )}
 
-                    {result.annotation.noteContent && (
-                      <div className="text-muted-foreground text-sm mt-2 flex items-start gap-2 bg-muted/50 p-3 rounded-md">
-                        <StickyNote className="w-4 h-4 mt-0.5 shrink-0 text-blue-500/70" />
-                        <p>{result.annotation.noteContent}</p>
-                      </div>
-                    )}
+                      {result.annotation.selectedText && (
+                        <div className="pl-3 border-l-2 border-primary/30 mb-2">
+                          <span className="text-foreground/90 italic">
+                            "{result.annotation.selectedText}"
+                          </span>
+                        </div>
+                      )}
+
+                      {result.annotation.noteContent && !isVocabulary && (
+                        <div className="text-muted-foreground text-sm mt-2 flex items-start gap-2 bg-muted/50 p-3 rounded-md">
+                          <StickyNote className="w-4 h-4 mt-0.5 shrink-0 text-blue-500/70" />
+                          <p>{result.annotation.noteContent}</p>
+                        </div>
+                      )}
+                      
+                      {isVocabulary && vocabData && (
+                        <div className="text-muted-foreground text-sm mt-2 flex flex-col gap-2 bg-muted/50 p-3 rounded-md border border-purple-500/20">
+                          <div className="flex items-center gap-2 text-purple-500">
+                            <BookmarkPlus className="w-4 h-4 shrink-0" />
+                            <span className="font-medium text-purple-700 dark:text-purple-400">Vocabulary Definition</span>
+                          </div>
+                          <div className="text-sm">
+                            {vocabData.type === 'define' && vocabData.data?.meanings?.length && (
+                              <div className="space-y-1">
+                                {vocabData.data.phonetic && <div className="text-xs italic text-muted-foreground">/{vocabData.data.phonetic}/</div>}
+                                {vocabData.data.meanings.slice(0, 2).map((m: any, i: number) => (
+                                  <div key={i} className="mb-1">
+                                    <span className="font-medium text-xs text-muted-foreground uppercase">{m.part_of_speech}</span>
+                                    <div className="text-foreground">{m.definitions[0]?.definition}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {vocabData.type === 'translate' && vocabData.data?.translated_text && (
+                              <div>
+                                <div className="text-foreground">{vocabData.data.translated_text}</div>
+                                <div className="text-xs text-muted-foreground mt-1">via {vocabData.data.provider}</div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

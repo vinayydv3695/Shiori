@@ -119,19 +119,19 @@ export const SmartCollectionSuggestionDialog = ({
   return (
     <Dialog.Root open={open} onOpenChange={handleClose}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-[600px] max-h-[90vh] overflow-y-auto z-50">
-          <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4 z-10">
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-background/80 backdrop-blur-sm z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <Dialog.Content className="dialog-content fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background/80 backdrop-blur-3xl border border-border rounded-[1.5rem] shadow-2xl w-[600px] max-h-[90vh] overflow-y-auto z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-300 custom-scrollbar outline-none">
+          <div className="sticky top-0 bg-transparent backdrop-blur-xl border-b border-border px-6 py-5 z-10">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <FolderPlus className="w-6 h-6 text-blue-600" />
-                <Dialog.Title className="text-xl font-semibold">
+                <FolderPlus className="w-6 h-6 text-primary" />
+                <Dialog.Title className="text-xl font-bold tracking-tight text-foreground">
                   Smart Collection Suggestions
                 </Dialog.Title>
               </div>
               <Dialog.Close asChild>
                 <button
-                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+                  className="p-2.5 bg-secondary hover:bg-secondary/80 border border-transparent rounded-xl transition-all duration-200 text-muted-foreground hover:text-foreground"
                   title="Close"
                 >
                   <X className="w-5 h-5" />
@@ -143,18 +143,18 @@ export const SmartCollectionSuggestionDialog = ({
           <div className="p-6 space-y-4">
             {state === 'idle' && (
               <>
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                <div className="bg-secondary/20 border border-border rounded-xl p-4">
+                  <p className="text-sm text-foreground/80">
                     We detected folder patterns in your imported books. Create
                     collections to auto-organize them?
                   </p>
                 </div>
 
-                <div className="space-y-2 max-h-48 overflow-y-auto">
+                <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
                   {suggestions.map(suggestion => (
                     <label
                       key={suggestion.name}
-                      className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
+                      className="flex items-center gap-3 p-3 border border-border rounded-xl bg-card/30 hover:bg-card/60 cursor-pointer transition-colors"
                     >
                       <input
                         type="checkbox"
@@ -162,13 +162,13 @@ export const SmartCollectionSuggestionDialog = ({
                         onChange={() =>
                           handleToggleCollection(suggestion.name)
                         }
-                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        className="w-4 h-4 rounded border-border bg-secondary text-primary focus:ring-primary/50"
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-900 dark:text-white truncate">
+                        <div className="font-semibold text-foreground truncate">
                           {suggestion.name}
                         </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                        <div className="text-xs text-muted-foreground">
                           {suggestion.bookCount} book
                           {suggestion.bookCount !== 1 ? 's' : ''}
                         </div>
@@ -180,29 +180,29 @@ export const SmartCollectionSuggestionDialog = ({
                 <div className="flex gap-2 pt-2">
                   <button
                     onClick={handleSelectAll}
-                    className="text-sm px-3 py-1 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                    className="text-sm px-3 py-1 text-muted-foreground hover:text-foreground font-medium transition-colors"
                   >
                     Select All
                   </button>
                   <button
                     onClick={handleClearAll}
-                    className="text-sm px-3 py-1 text-gray-600 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                    className="text-sm px-3 py-1 text-muted-foreground hover:text-foreground font-medium transition-colors"
                   >
                     Clear All
                   </button>
                 </div>
 
-                <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex gap-3 pt-6 border-t border-border mt-2">
                   <button
                     onClick={handleClose}
-                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    className="flex-1 px-5 py-2.5 bg-transparent hover:bg-secondary border border-transparent hover:border-border rounded-xl transition-all duration-200 font-medium text-muted-foreground hover:text-foreground"
                   >
                     Skip
                   </button>
                   <button
                     onClick={handleCreateCollections}
                     disabled={selectedCollections.size === 0}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                    className="flex-1 px-6 py-2.5 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground rounded-xl shadow-sm transition-all duration-200 flex items-center justify-center gap-2 font-semibold"
                   >
                     <FolderPlus className="w-4 h-4" />
                     Create {selectedCollections.size} Collection
@@ -214,11 +214,13 @@ export const SmartCollectionSuggestionDialog = ({
 
             {state === 'creating' && (
               <div className="flex flex-col items-center justify-center py-12">
-                <Loader2 className="w-16 h-16 text-blue-600 animate-spin mb-4" />
-                <div className="text-lg font-medium">
+                <div className="p-6 bg-card/40 backdrop-blur-md border border-primary/20 rounded-[2rem] shadow-inner shadow-primary/10 mb-6">
+                  <Loader2 className="w-12 h-12 text-primary animate-spin" />
+                </div>
+                <div className="text-xl font-bold tracking-tight text-foreground">
                   Creating collections...
                 </div>
-                <div className="text-sm text-gray-500 mt-1">
+                <div className="text-sm text-muted-foreground mt-2">
                   Organizing your books
                 </div>
               </div>
@@ -226,9 +228,11 @@ export const SmartCollectionSuggestionDialog = ({
 
             {state === 'completed' && (
               <div className="flex flex-col items-center justify-center py-12">
-                <CheckCircle className="w-16 h-16 text-green-600 mb-4" />
-                <div className="text-lg font-medium">Collections Created!</div>
-                <div className="text-sm text-gray-500 mt-1">
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-[2rem] shadow-inner shadow-emerald-500/10 mb-6">
+                  <CheckCircle className="w-12 h-12 text-emerald-500" />
+                </div>
+                <div className="text-xl font-bold tracking-tight text-foreground">Collections Created!</div>
+                <div className="text-sm text-muted-foreground mt-2">
                   {selectedCollections.size} collection
                   {selectedCollections.size !== 1 ? 's' : ''} ready to use
                 </div>
@@ -237,12 +241,12 @@ export const SmartCollectionSuggestionDialog = ({
 
             {state === 'error' && (
               <div className="flex flex-col items-center justify-center py-12">
-                <div className="text-lg font-medium text-red-600">
+                <div className="text-xl font-bold tracking-tight text-destructive">
                   Failed to create collections
                 </div>
                 <button
                   onClick={() => setState('idle')}
-                  className="mt-4 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  className="mt-6 px-6 py-2.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground border border-border rounded-xl transition-all duration-200 font-medium"
                 >
                   Try Again
                 </button>

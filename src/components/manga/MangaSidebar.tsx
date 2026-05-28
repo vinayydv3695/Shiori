@@ -1,4 +1,5 @@
 import React, { memo } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
     useMangaContentStore,
     useMangaUIStore,
@@ -45,17 +46,29 @@ export const MangaSidebar = memo(function MangaSidebar() {
     ];
 
     return (
-        <>
-            {/* Backdrop */}
-            <div
-                className={`manga-sidebar-backdrop ${!isSidebarOpen ? 'manga-sidebar-backdrop--hidden' : ''}`}
-                onClick={closeSidebar}
-            />
+        <AnimatePresence>
+            {isSidebarOpen && (
+                <>
+                    {/* Backdrop */}
+                    <motion.div
+                        className="manga-sidebar-backdrop"
+                        onClick={closeSidebar}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.3, ease: "easeOut" }}
+                    />
 
-            {/* Sidebar */}
-            <div className={`manga-sidebar ${isSidebarOpen ? 'manga-sidebar--open' : ''}`}>
-                {/* Header */}
-                <div className="manga-sidebar-header">
+                    {/* Sidebar */}
+                    <motion.div 
+                        className="manga-sidebar"
+                        initial={{ x: "100%" }}
+                        animate={{ x: 0 }}
+                        exit={{ x: "100%" }}
+                        transition={{ type: "spring", bounce: 0, duration: 0.4 }}
+                    >
+                        {/* Header */}
+                        <div className="manga-sidebar-header">
                     <span className="manga-sidebar-title">{title || 'Manga'}</span>
                     <button className="manga-sidebar-close" onClick={closeSidebar} title="Close sidebar">
                         <X />
@@ -189,7 +202,9 @@ export const MangaSidebar = memo(function MangaSidebar() {
                         </button>
                     </div>
                 </div>
-            </div>
-        </>
+                </motion.div>
+            </>
+            )}
+        </AnimatePresence>
     );
 });

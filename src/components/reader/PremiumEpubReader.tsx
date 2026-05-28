@@ -204,7 +204,6 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   // State management
   const isFocusMode = useReaderUIStore(state => state.isFocusMode);
   const isTopBarShortcutOnly = useReaderUIStore(state => state.isTopBarShortcutOnly);
-  const scrollProgress = useReaderUIStore(state => state.scrollProgress);
   const setTopBarVisible = useReaderUIStore(state => state.setTopBarVisible);
   const toggleSidebar = useReaderUIStore(state => state.toggleSidebar);
   const setScrollProgress = useReaderUIStore(state => state.setScrollProgress);
@@ -865,6 +864,32 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   // RENDER
   // ────────────────────────────────────────────────────────────
 
+  const handleContainerClick = useCallback((e: React.MouseEvent) => {
+    // If doodle mode or text selection is active, let them handle it
+    if (isDoodleMode) return;
+    
+    // Ignore if clicking an interactive element or if already handled
+    const target = e.target as Element;
+    if (e.defaultPrevented || !target || typeof target.closest !== 'function') return;
+    
+    if (target.closest('a') || target.closest('button') || target.closest('.premium-top-bar') || target.closest('.premium-sidebar') || target.closest('.text-selection-toolbar')) {
+      return;
+    }
+
+    const { clientX } = e;
+    const { innerWidth } = window;
+    
+    // Clicking the center 40% toggles the top bar
+    if (clientX > innerWidth * 0.3 && clientX < innerWidth * 0.7) {
+      setTopBarVisible(!useReaderUIStore.getState().isTopBarVisible);
+    }
+    // Edges are handled by the next/prev buttons natively or page flip engine
+  }, [isDoodleMode, setTopBarVisible]);
+
+  // ────────────────────────────────────────────────────────────
+  // RENDER
+  // ────────────────────────────────────────────────────────────
+
   if (error) {
     return (
       <div ref={readerContainerRef} className="premium-reader premium-reader--error">
@@ -905,7 +930,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     : 0;
 
   return (
-    <div ref={readerContainerRef} className={`premium-reader ${isFocusMode ? 'premium-reader--focus-mode' : ''}`}>
+    <div ref={readerContainerRef} className={`premium-reader ${isFocusMode ? 'premium-reader--focus-mode' : ''}`} onClick={handleContainerClick}>
       {/* Auto-hide Top Bar */}
       <ReaderTopBar
         bookId={bookId}

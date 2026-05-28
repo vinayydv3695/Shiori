@@ -16,10 +16,26 @@ interface ToastStore {
   clearAll: () => void;
 }
 
+import { toast as sonnerToast } from 'sonner';
+
 export const useToastStore = create<ToastStore>((set) => ({
   toasts: [],
   
   addToast: (toast) => {
+    // Intercept to Sonner
+    if (toast.variant === 'success') {
+      sonnerToast.success(toast.title, { description: toast.description, action: toast.action, duration: toast.duration });
+    } else if (toast.variant === 'error') {
+      sonnerToast.error(toast.title, { description: toast.description, action: toast.action, duration: toast.duration });
+    } else if (toast.variant === 'warning') {
+      sonnerToast.warning(toast.title, { description: toast.description, action: toast.action, duration: toast.duration });
+    } else if (toast.variant === 'info') {
+      sonnerToast.info(toast.title, { description: toast.description, action: toast.action, duration: toast.duration });
+    } else {
+      sonnerToast(toast.title, { description: toast.description, action: toast.action, duration: toast.duration });
+    }
+
+    // Keep state for backwards compatibility if needed
     const id = Math.random().toString(36).substring(7);
     set((state) => ({
       toasts: [...state.toasts, { ...toast, id }],
@@ -39,7 +55,10 @@ export const useToastStore = create<ToastStore>((set) => ({
       toasts: state.toasts.filter((t) => t.id !== id),
     })),
   
-  clearAll: () => set({ toasts: [] }),
+  clearAll: () => {
+    sonnerToast.dismiss();
+    set({ toasts: [] });
+  },
 }));
 
 // Helper hook for easier usage

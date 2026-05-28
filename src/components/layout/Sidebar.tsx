@@ -3,6 +3,7 @@ import { Globe, BookOpen } from "lucide-react"
 import { useUIStore } from "../../store/uiStore"
 import { cn } from "../../lib/utils"
 import { Button } from "../ui/button"
+import { motion } from "framer-motion"
 import { CollectionSidebar } from "../collections/CollectionSidebar"
 import { CreateCollectionDialog } from "../collections/CreateCollectionDialog"
 import { useState } from "react"
@@ -63,26 +64,38 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-1 p-2 overflow-y-auto">
-          {navItems.map((item) => (
-            <button
-              key={item.label}
-              onClick={item.action}
-              className={cn(
-                "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                "hover:bg-accent hover:text-accent-foreground",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                item.label === "Library" && currentView === "library" && "bg-accent text-accent-foreground",
-                item.label === "Online Books" && currentView === "online-books" && "bg-accent text-accent-foreground",
-                item.label === "Online Manga" && currentView === "online-manga" && "bg-accent text-accent-foreground",
-                item.label === "Annotations" && currentView === "annotations" && "bg-accent text-accent-foreground",
-                item.label === "Statistics" && currentView === "statistics" && "bg-accent text-accent-foreground"
-              )}
-            >
-              <item.icon className="h-5 w-5 flex-shrink-0" />
-              {!sidebarCollapsed && <span>{item.label}</span>}
-            </button>
-          ))}
+        <nav className="flex-1 space-y-2 p-3 overflow-y-auto relative">
+          {navItems.map((item) => {
+            const isActive = 
+              (item.label === "Library" && currentView === "library") ||
+              (item.label === "Online Books" && currentView === "online-books") ||
+              (item.label === "Online Manga" && currentView === "online-manga") ||
+              (item.label === "Annotations" && currentView === "annotations") ||
+              (item.label === "Statistics" && currentView === "statistics");
+
+            return (
+              <button
+                key={item.label}
+                onClick={item.action}
+                className={cn(
+                  "relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors z-10",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  isActive ? "text-accent-foreground font-semibold" : "text-muted-foreground hover:text-foreground hover:bg-accent/40"
+                )}
+              >
+                {isActive && (
+                  <motion.div
+                    layoutId="sidebar-active-tab"
+                    className="absolute inset-0 bg-accent rounded-lg -z-10 shadow-sm border border-border/50"
+                    initial={false}
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  />
+                )}
+                <item.icon className="h-5 w-5 flex-shrink-0" />
+                {!sidebarCollapsed && <span>{item.label}</span>}
+              </button>
+            )
+          })}
 
           {/* Collections Section */}
           {!sidebarCollapsed && (

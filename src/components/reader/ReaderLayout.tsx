@@ -11,6 +11,7 @@ import { ReaderErrorBoundary, parseReaderError } from './ReaderErrorBoundary';
 import { ConversionProgress } from './ConversionProgress';
 import type { ReaderFormat } from './ReaderSettings';
 import type { ReaderContent } from './readerContent';
+import { useDiscordPresence } from '@/hooks/useDiscordPresence';
 
 interface ReaderLayoutProps {
   bookId: number;
@@ -45,6 +46,7 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
   const [error, setError] = useState<ReturnType<typeof parseReaderError> | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [bookTitle, setBookTitle] = useState<string | undefined>(undefined);
+  const { setActivity, clearActivity } = useDiscordPresence();
 
   useEffect(() => {
     let currentStage: LoadingStage = 'idle';
@@ -142,6 +144,13 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
         setAnnotations(annotations);
         setSettings(settings);
 
+        setActivity({
+          details: `Reading: ${book.title}`,
+          state: book.authors?.[0]?.name ? `by ${book.authors[0].name}` : 'Unknown Author',
+          largeImageKey: 'shiori_logo',
+          largeImageText: 'Shiori',
+        });
+
         updateStage('complete');
         logger.debug('[ReaderLayout] ✅ All steps complete!');
       } catch (err) {
@@ -171,8 +180,12 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
     }, 90_000);
 
     loadBookData();
-    return () => clearTimeout(timeoutId);
-  }, [bookId, retryCount, openBook, setAnnotations, setProgress, setSettings]);
+
+    return () => {
+      clearTimeout(timeoutId);
+      clearActivity();
+    };
+  }, [bookId, retryCount, openBook, setAnnotations, setProgress, setSettings, setActivity, clearActivity]);
 
   const handleClose = () => { closeBook(); onClose(); };
   const handleRetry = () => { setRetryCount(p => p + 1); setError(null); setLoadingStage('idle'); };
@@ -229,10 +242,10 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
       {currentBookPath && currentBookFormat === 'pdf' && (
         <PdfReader bookPath={currentBookPath} bookId={bookId} readerContent={currentContent} onClose={handleClose} />
       )}
-      {currentBookPath && (currentBookFormat === 'cbz' || currentBookFormat === 'cbr') && (
+      {currentBookPath && (['cbz', 'cbr', 'zip', 'rar'].includes(currentBookFormat || '')) && (
         <MangaReader mode="local" bookId={bookId} bookPath={currentBookPath} onClose={handleClose} />
       )}
-      {currentBookPath && !['epub', 'pdf', 'cbz', 'cbr'].includes(currentBookFormat || '') && (
+      {currentBookPath && !['epub', 'pdf', 'cbz', 'cbr', 'zip', 'rar'].includes(currentBookFormat || '') && (
         <GenericHtmlReader
           bookPath={currentBookPath}
           bookId={bookId}

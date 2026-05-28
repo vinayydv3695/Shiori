@@ -25,13 +25,6 @@ pub struct CloudflareState {
     pub store: Arc<SessionStore>,
 }
 
-impl CloudflareState {
-    pub fn new(app_data_dir: &std::path::Path) -> Result<Self> {
-        let sessions_dir = app_data_dir.join("cloudflare_sessions");
-        let store = SessionStore::new(sessions_dir)?;
-        Ok(Self { store })
-    }
-}
 
 // ─── DTOs ─────────────────────────────────────────────────────────────────────
 

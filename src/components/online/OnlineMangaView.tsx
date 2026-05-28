@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BookOpen, Calendar, User, Info, Download, Loader2, X, Search } from 'lucide-react';
+import { BookOpen, Info, Download, Loader2, X, Search } from 'lucide-react';
 import { useMangaDex, type MangaDexManga, type MangaDexChapter, type BrowseMode } from '@/hooks/useMangaDex';
 import { Button } from '@/components/ui/button';
 import { logger } from '@/lib/logger';
@@ -11,6 +11,9 @@ import { pluginApi, type Chapter as PluginChapter, type SearchResult as PluginSe
 import { useUIStore } from '@/store/uiStore';
 import { useOnlineMangaReaderStore } from '@/store/onlineMangaReaderStore';
 import { ContentCarousel, type CarouselItem } from './ContentCarousel';
+import { HeroMangaBanner } from './HeroMangaBanner';
+import { MangaRankList } from './MangaRankList';
+import { OnlineResultCard } from './OnlineResultCard';
 import { api } from '@/lib/tauri';
 import { parsePageUrl } from '@/lib/utils';
 import { useToast } from '@/store/toastStore';
@@ -161,28 +164,46 @@ export function OnlineMangaView() {
   const activePluginSourceId = isPluginMangaSource ? activeSource?.id : null;
   const sourceSupportsTorboxTorrents = Boolean(activeSource?.torboxCompatible);
 
-  // Load browse data on mount for MangaDex
+  // Load browse data on mount or when active source changes
   useEffect(() => {
-    if (!isMangaDexEnabled || browseInitialized) return;
+    if (!activeSource) return;
     
+    // We want to reload if the source changes, so we reset initialized if it changed
+    // But since this is simple, we can just clear and reload every time activeSource changes.
     const loadBrowseData = async (mode: BrowseMode) => {
       setBrowseLoading((prev) => ({ ...prev, [mode]: true }));
       try {
-        const data = await browseManga(mode, 20);
-        setBrowseData((prev) => ({ ...prev, [mode]: data }));
+        if (activeSource.id === 'mangadex') {
+          const data = await browseManga(mode, 20);
+          setBrowseData((prev) => ({ ...prev, [mode]: data }));
+        } else {
+          const raw = await pluginApi.browse(activeSource.id, mode, 1, 20);
+          const data: MangaDexManga[] = raw.map(item => ({
+            id: item.id,
+            title: item.title,
+            description: item.summary || item.description || '',
+            coverUrl: item.coverUrl || item.cover_url,
+          }));
+          setBrowseData((prev) => ({ ...prev, [mode]: data }));
+        }
       } catch (err) {
-        logger.error(`Failed to load ${mode} manga:`, err);
+        logger.error(`Failed to load ${mode} manga for ${activeSource.id}:`, err);
+        setBrowseData((prev) => ({ ...prev, [mode]: [] }));
       } finally {
         setBrowseLoading((prev) => ({ ...prev, [mode]: false }));
       }
     };
     
+    // Reset data before fetching
+    setBrowseData({ popular: [], latest: [], recent: [], 'top-rated': [] });
     setBrowseInitialized(true);
+    
     // Load all browse modes in parallel
     void loadBrowseData('popular');
     void loadBrowseData('latest');
     void loadBrowseData('recent');
-  }, [isMangaDexEnabled, browseInitialized, browseManga]);
+    void loadBrowseData('top-rated');
+  }, [activeSource?.id]); // Re-run when source ID changes
 
   // Convert MangaDexManga to CarouselItem
   const toCarouselItems = useCallback((manga: MangaDexManga[]): CarouselItem[] => {
@@ -284,21 +305,6 @@ export function OnlineMangaView() {
     setChaptersLoading(false);
   }, [getChapters]);
 
-  // Handle carousel item click - find manga in browse data and show chapters
-  const handleCarouselItemClick = useCallback((item: CarouselItem) => {
-    // Find the full manga data from browse data
-    const allBrowseManga = [
-      ...browseData.popular,
-      ...browseData.latest,
-      ...browseData.recent,
-      ...browseData['top-rated'],
-    ];
-    const manga = allBrowseManga.find((m) => m.id === item.id);
-    if (manga) {
-      void handleViewChapters(manga);
-    }
-  }, [browseData, handleViewChapters]);
-
   const handleViewPluginChapters = async (manga: PluginSearchResult) => {
     if (!activePluginSourceId) return;
 
@@ -322,6 +328,30 @@ export function OnlineMangaView() {
       setChaptersLoading(false);
     }
   };
+
+  // Handle carousel item click - find manga in browse data and show chapters
+  const handleCarouselItemClick = useCallback((item: CarouselItem) => {
+    // Find the full manga data from browse data
+    const allBrowseManga = [
+      ...browseData.popular,
+      ...browseData.latest,
+      ...browseData.recent,
+      ...browseData['top-rated'],
+    ];
+    const manga = allBrowseManga.find((m) => m.id === item.id);
+    if (manga) {
+      if (isMangaDexEnabled) {
+        void handleViewChapters(manga);
+      } else {
+        void handleViewPluginChapters({
+          id: manga.id,
+          title: manga.title,
+          description: manga.description,
+          coverUrl: manga.coverUrl,
+        });
+      }
+    }
+  }, [browseData, handleViewChapters, isMangaDexEnabled, handleViewPluginChapters]);
 
   const openInBrowser = useCallback((url: string) => {
     try {
@@ -477,24 +507,6 @@ export function OnlineMangaView() {
       />
 
       <div className="px-6 pt-3 max-w-5xl mx-auto w-full">
-        {!isMangaDexEnabled && hasEnabledMangaSource && (
-          <div className="p-3 rounded-lg bg-muted border border-border text-sm">
-            <div className="flex items-center gap-2">
-              {activeSource?.description?.includes('✅') && (
-                <span className="text-green-500">✅</span>
-              )}
-              {activeSource?.description?.includes('⚠️') && (
-                <span className="text-yellow-500">⚠️</span>
-              )}
-              <span className="text-foreground">
-                Using <span className="font-medium">{activeSource?.name}</span>
-              </span>
-            </div>
-            <div className="text-muted-foreground mt-1">
-              {activeSource?.description || 'Plugin-based manga source with in-app chapter reader.'}
-            </div>
-          </div>
-        )}
 
         {error && (
           <div className="mt-3 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
@@ -530,7 +542,7 @@ export function OnlineMangaView() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           {loading && (
             <div className="flex items-center justify-center py-12">
               <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -553,39 +565,53 @@ export function OnlineMangaView() {
             </div>
           )}
 
-          {!loading && !hasVisibleSearched && hasEnabledMangaSource && isMangaDexEnabled && (
-            <div className="space-y-8">
-              {/* Popular Manga Carousel */}
-              <ContentCarousel
-                title="Popular Manga"
-                items={toCarouselItems(browseData.popular)}
-                loading={browseLoading.popular}
-                onItemClick={handleCarouselItemClick}
+          {!loading && !hasVisibleSearched && hasEnabledMangaSource && (
+            <div className="space-y-10">
+              {/* Hero Banner */}
+              <HeroMangaBanner
+                manga={browseData['top-rated']?.[0] ?? null}
+                loading={browseLoading['top-rated']}
+                onReadClick={(manga) => handleCarouselItemClick(toCarouselItems([manga])[0])}
               />
-              
-              {/* Latest Updates Carousel */}
-              <ContentCarousel
-                title="Latest Updates"
-                items={toCarouselItems(browseData.latest)}
-                loading={browseLoading.latest}
-                onItemClick={handleCarouselItemClick}
-              />
-              
-              {/* Recently Added Carousel */}
-              <ContentCarousel
-                title="Recently Added"
-                items={toCarouselItems(browseData.recent)}
-                loading={browseLoading.recent}
-                onItemClick={handleCarouselItemClick}
-              />
-            </div>
-          )}
 
-          {!loading && !hasVisibleSearched && hasEnabledMangaSource && !isMangaDexEnabled && (
-            <div className="text-center py-12">
-              <BookOpen className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-              <p className="text-lg font-medium text-muted-foreground">Search for manga</p>
-              <p className="text-sm text-muted-foreground mt-1">Enter a title to get started</p>
+              <div className="flex flex-col xl:flex-row gap-8">
+                {/* Main Content (Left) */}
+                <div className="flex-1 space-y-10 min-w-0">
+                  {/* Popular Manga Carousel */}
+                  <ContentCarousel
+                    title={isMangaDexEnabled ? "Trending This Week" : "Popular"}
+                    items={toCarouselItems(browseData.popular)}
+                    loading={browseLoading.popular}
+                    onItemClick={handleCarouselItemClick}
+                  />
+
+                  {/* Latest Updates Carousel */}
+                  <ContentCarousel
+                    title="Latest Updates"
+                    items={toCarouselItems(browseData.latest)}
+                    loading={browseLoading.latest}
+                    onItemClick={handleCarouselItemClick}
+                  />
+
+                  {/* You Should Read (Recent) */}
+                  <ContentCarousel
+                    title={isMangaDexEnabled ? "Staff Picks / You Should Read" : "Recent"}
+                    items={toCarouselItems(browseData.recent)}
+                    loading={browseLoading.recent}
+                    onItemClick={handleCarouselItemClick}
+                  />
+                </div>
+
+                {/* Sidebar (Right) */}
+                <div className="w-full xl:w-80 flex-shrink-0">
+                  <MangaRankList
+                    title="Top Rated"
+                    items={toCarouselItems(browseData['top-rated'])}
+                    loading={browseLoading['top-rated']}
+                    onItemClick={handleCarouselItemClick}
+                  />
+                </div>
+              </div>
             </div>
           )}
 
@@ -620,92 +646,20 @@ export function OnlineMangaView() {
                 )}
               </div>
 
-              <div className="grid gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
                 {visibleResults.map((manga) => (
-                  <div
+                  <OnlineResultCard
                     key={manga.id}
-                    className="flex gap-4 p-4 rounded-lg border border-border bg-card hover:bg-accent/50 transition-colors"
-                  >
-                    <div className="w-32 h-48 flex-shrink-0 bg-muted rounded overflow-hidden">
-                      {manga.coverUrl ? (
-                        <img
-                          src={manga.coverUrl}
-                          alt={manga.title}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <BookOpen className="w-8 h-8 text-muted-foreground opacity-50" />
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex-1 min-w-0 space-y-2">
-                      <div>
-                        <h3 className="font-semibold text-lg line-clamp-2">{manga.title}</h3>
-                        {manga.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                            {manga.description}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                        {manga.status && (
-                          <div className="px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
-                            {manga.status}
-                          </div>
-                        )}
-                        {manga.contentRating && (
-                          <div className="px-2 py-1 rounded-full bg-muted">
-                            {manga.contentRating}
-                          </div>
-                        )}
-                        {manga.year && (
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            <span>{manga.year}</span>
-                          </div>
-                        )}
-                        {manga.author && (
-                          <div className="flex items-center gap-1">
-                            <User className="w-3 h-3" />
-                            <span>{manga.author}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {manga.tags && manga.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {manga.tags.slice(0, 5).map((tag) => (
-                            <div
-                              key={`${manga.id}-${tag}`}
-                              className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground"
-                            >
-                              {tag}
-                            </div>
-                          ))}
-                          {manga.tags.length > 5 && (
-                            <div className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                              +{manga.tags.length - 5} more
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="flex gap-2 pt-2">
-                        <Button
-                          size="sm"
-                          onClick={() => handleViewChapters(manga)}
-                          className="gap-1.5"
-                        >
-                          <BookOpen className="w-3.5 h-3.5" />
-                          View Chapters
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
+                    id={manga.id}
+                    title={manga.title}
+                    coverUrl={manga.coverUrl}
+                    author={manga.author}
+                    description={manga.description}
+                    format={manga.status}
+                    language={manga.contentRating}
+                    year={manga.year}
+                    onReadOnline={() => handleViewChapters(manga)}
+                  />
                 ))}
               </div>
 
@@ -741,73 +695,19 @@ export function OnlineMangaView() {
                 </p>
               </div>
 
-              <div className="grid gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
                 {pluginResultWithTorboxSource.map(({ item: manga, torboxSource }) => (
-                  <div
+                  <OnlineResultCard
                     key={manga.id}
-                    className="flex gap-4 p-4 rounded-lg border border-border bg-card hover:bg-accent/50 transition-colors"
-                  >
-                    <div className="w-32 h-48 flex-shrink-0 bg-muted rounded overflow-hidden">
-                      {(manga.coverUrl || manga.cover_url) ? (
-                        <img
-                          src={manga.coverUrl || manga.cover_url}
-                          alt={manga.title}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <BookOpen className="w-8 h-8 text-muted-foreground opacity-50" />
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex-1 min-w-0 space-y-2">
-                      <div>
-                        <h3 className="font-semibold text-lg line-clamp-2">{manga.title}</h3>
-                        {(manga.summary || manga.description) && (
-                          <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                            {manga.summary || manga.description}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex gap-2 pt-2">
-                        <Button
-                          size="sm"
-                          onClick={() => handleViewPluginChapters(manga)}
-                          className="gap-1.5"
-                        >
-                          <BookOpen className="w-3.5 h-3.5" />
-                          View Chapters
-                        </Button>
-                        {hasTorboxKey && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                             onClick={() => {
-                               void handleQueueInTorbox(manga);
-                             }}
-                             disabled={queueingManga[manga.id] || !torboxSource || !sourceSupportsTorboxTorrents}
-                             className="gap-1.5"
-                           >
-                            {queueingManga[manga.id] ? (
-                              <>
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                Queueing...
-                              </>
-                            ) : (
-                              <>
-                                <Download className="w-3.5 h-3.5" />
-                                {sourceSupportsTorboxTorrents ? 'Send to Torbox' : 'Torbox unavailable'}
-                              </>
-                            )}
-                          </Button>
-                        )}
-                      
-                      </div>
-                    </div>
-                  </div>
+                    id={manga.id}
+                    title={manga.title}
+                    coverUrl={manga.coverUrl || manga.cover_url}
+                    description={manga.summary || manga.description}
+                    onReadOnline={() => handleViewPluginChapters(manga)}
+                    isDownloading={queueingManga[manga.id] ? "Queueing..." : false}
+                    torboxAvailable={hasTorboxKey ? sourceSupportsTorboxTorrents : undefined}
+                    onTorbox={(hasTorboxKey && torboxSource && sourceSupportsTorboxTorrents) ? () => handleQueueInTorbox(manga) : undefined}
+                  />
                 ))}
               </div>
             </div>
@@ -981,7 +881,10 @@ export function OnlineMangaView() {
                       >
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-sm line-clamp-2">
-                            {chapter.title || `Chapter ${chapter.number ?? ''}`}
+                            {chapter.volume && `Vol. ${chapter.volume} `}
+                            {chapter.number !== undefined && `Ch. ${chapter.number}`}
+                            {chapter.title && (chapter.number !== undefined || chapter.volume ? ` - ${chapter.title}` : chapter.title)}
+                            {!chapter.title && chapter.number === undefined && !chapter.volume && 'Unknown Chapter'}
                           </div>
                         </div>
                         {selectedPluginManga && activePluginSourceId && (

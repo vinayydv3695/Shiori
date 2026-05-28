@@ -1,0 +1,209 @@
+import { useState, useEffect, useRef, memo } from 'react';
+import { BookOpen, User, Calendar, ExternalLink, Download, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+
+interface OnlineResultCardProps {
+  id: string;
+  title: string;
+  coverUrl?: string;
+  author?: string;
+  description?: string;
+  format?: string;
+  fileSize?: string;
+  language?: string;
+  year?: number;
+  editionCount?: number;
+  
+  // Actions
+  onReadOnline?: () => void;
+  onViewDetails?: () => void;
+  onDownload?: () => void;
+  onTorbox?: () => void;
+  
+  // State
+  isDownloading?: string | boolean;
+  torboxAvailable?: boolean;
+  
+  // Animation/View
+  scrollRoot?: HTMLElement | null;
+}
+
+export const OnlineResultCard = memo(function OnlineResultCard({
+  title,
+  coverUrl,
+  author,
+  description,
+  format,
+  fileSize,
+  language,
+  year,
+  editionCount,
+  onReadOnline,
+  onViewDetails,
+  onDownload,
+  onTorbox,
+  isDownloading,
+  torboxAvailable,
+  scrollRoot,
+}: OnlineResultCardProps) {
+  const [visible, setVisible] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgError, setImgError] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { root: scrollRoot ?? null, threshold: 0.05 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [scrollRoot]);
+
+  return (
+    <div
+      ref={cardRef}
+      className={cn(
+        'group relative flex gap-4 p-4 rounded-xl border border-border bg-card/60 backdrop-blur-sm',
+        'hover:bg-accent/40 hover:border-border/80 transition-all duration-300',
+        'shadow-sm hover:shadow-md',
+        !visible && 'opacity-0 translate-y-4',
+        visible && 'animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-forwards'
+      )}
+    >
+      {/* Cover */}
+      <div className="w-24 h-36 sm:w-28 sm:h-40 flex-shrink-0 bg-muted/50 rounded-lg overflow-hidden relative shadow-sm border border-border/40">
+        {!visible && <div className="absolute inset-0 shimmer" />}
+        {visible && coverUrl && !imgError && (
+          <img
+            src={coverUrl}
+            alt={title}
+            className={cn(
+              'w-full h-full object-cover transition-all duration-500',
+              imgLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
+            )}
+            loading="lazy"
+            onLoad={() => setImgLoaded(true)}
+            onError={() => setImgError(true)}
+          />
+        )}
+        {(!coverUrl || imgError) && visible && (
+          <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground/40 bg-muted/20">
+            <BookOpen className="w-8 h-8 mb-2 opacity-50" />
+          </div>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0 flex flex-col">
+        <div className="mb-2">
+          <h3 className="font-semibold text-base sm:text-lg text-foreground line-clamp-2 leading-tight group-hover:text-primary transition-colors">
+            {title}
+          </h3>
+          {author && (
+            <div className="flex items-center gap-1.5 mt-1.5 text-sm text-muted-foreground">
+              <User className="w-3.5 h-3.5" />
+              <span className="line-clamp-1">{author}</span>
+            </div>
+          )}
+        </div>
+
+        {description && (
+          <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 mb-3">
+            {description}
+          </p>
+        )}
+
+        {/* Badges */}
+        <div className="flex flex-wrap items-center gap-2 mt-auto pb-3">
+          {format && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-primary/10 text-primary border border-primary/20">
+              {format}
+            </span>
+          )}
+          {fileSize && (
+            <span className="text-[11px] text-muted-foreground bg-muted px-2 py-0.5 rounded">
+              {fileSize}
+            </span>
+          )}
+          {year && (
+            <span className="flex items-center gap-1 text-[11px] text-muted-foreground bg-muted px-2 py-0.5 rounded">
+              <Calendar className="w-3 h-3" />
+              {year}
+            </span>
+          )}
+          {language && (
+            <span className="text-[11px] text-muted-foreground bg-muted px-2 py-0.5 rounded">
+              {language}
+            </span>
+          )}
+          {editionCount !== undefined && editionCount > 0 && (
+            <span className="text-[11px] text-muted-foreground bg-muted px-2 py-0.5 rounded">
+              {editionCount} {editionCount === 1 ? 'edition' : 'editions'}
+            </span>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-wrap gap-2">
+          {onReadOnline && (
+            <Button size="sm" onClick={onReadOnline} className="gap-1.5 h-8 text-xs bg-primary/90 hover:bg-primary">
+              <BookOpen className="w-3.5 h-3.5" />
+              Read Online
+            </Button>
+          )}
+          
+          {onViewDetails && (
+            <Button variant="outline" size="sm" onClick={onViewDetails} className="gap-1.5 h-8 text-xs border-border/50 hover:bg-accent">
+              <ExternalLink className="w-3.5 h-3.5" />
+              Details
+            </Button>
+          )}
+
+          {onDownload && (
+            <Button
+              variant={isDownloading ? "secondary" : "default"}
+              size="sm"
+              onClick={onDownload}
+              disabled={!!isDownloading}
+              className={cn("gap-1.5 h-8 text-xs", !isDownloading && "bg-primary/90 hover:bg-primary")}
+            >
+              {isDownloading ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  {typeof isDownloading === 'string' ? isDownloading : 'Downloading...'}
+                </>
+              ) : (
+                <>
+                  <Download className="w-3.5 h-3.5" />
+                  Download
+                </>
+              )}
+            </Button>
+          )}
+
+          {torboxAvailable && onTorbox && !isDownloading && (
+            <Button variant="outline" size="sm" onClick={onTorbox} className="gap-1.5 h-8 text-xs border-border/50 hover:bg-accent">
+              <Download className="w-3.5 h-3.5" />
+              Torbox
+            </Button>
+          )}
+          
+          {torboxAvailable === false && (
+            <p className="text-[10px] text-muted-foreground/60 flex items-center ml-1">
+              Torbox unavailable
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+});

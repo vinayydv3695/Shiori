@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { invoke } from '@tauri-apps/api/core'
 import * as Tabs from '@radix-ui/react-tabs'
+import * as Dialog from '@radix-ui/react-dialog'
 import {
   AlertCircle,
   ChevronDown,
   ChevronUp,
+  Cloud,
+  DownloadCloud,
+  Filter,
+  Link,
   Loader2,
   Search,
   Trash2,
@@ -16,6 +22,7 @@ import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/store/toastStore'
 import { parsePageUrl } from '@/lib/utils'
+import { TrendingExplore } from './torbox/TrendingExplore'
 
 interface TorrentInfo {
   id: number
@@ -282,6 +289,8 @@ function parseSearchSource(input: unknown, index: number, fallbackTitle: string)
   const record = asRecord(input)
   if (!record) return null
 
+  const extra = asRecord(record.extra) || {}
+
   const rawLink = pickString(record, [
     'magnet_url',
     'torrent_url',
@@ -293,7 +302,8 @@ function parseSearchSource(input: unknown, index: number, fallbackTitle: string)
     'torrent',
     'torrent_link',
     'torrentLink',
-  ])
+  ]) || pickString(extra, ['magnet', 'url', 'torrent', 'link', 'magnet_link', 'torrent_link', 'magnet_url', 'torrent_url'])
+  
   if (!rawLink) return null
 
   const parsedLink = parsePageUrl(rawLink)
@@ -307,11 +317,11 @@ function parseSearchSource(input: unknown, index: number, fallbackTitle: string)
   const magnetLink = parsedLink.url
   if (!magnetLink || !isTorboxLikeLink(magnetLink)) return null
 
-  const fileName = pickString(record, ['fileName', 'filename', 'name', 'title']) ?? fallbackTitle
-  const fileTypeText = pickString(record, ['fileType', 'type', 'format'])
+  const fileName = pickString(record, ['fileName', 'filename', 'name', 'title']) ?? pickString(extra, ['fileName', 'filename', 'name', 'title']) ?? fallbackTitle
+  const fileTypeText = pickString(record, ['fileType', 'type', 'format']) ?? pickString(extra, ['fileType', 'type', 'format'])
   const fileType = fileTypeText ? fileTypeFromName(`${fileName}.${fileTypeText}`, magnetLink) : fileTypeFromName(fileName, magnetLink)
-  const sizeBytes = pickNumber(record, ['sizeBytes', 'size_bytes', 'size', 'fileSize', 'file_size'])
-  const seeders = pickNumber(record, ['seeders', 'seeds'])
+  const sizeBytes = pickNumber(record, ['sizeBytes', 'size_bytes', 'size', 'fileSize', 'file_size']) ?? pickNumber(extra, ['sizeBytes', 'size_bytes', 'size', 'fileSize', 'file_size'])
+  const seeders = pickNumber(record, ['seeders', 'seeds']) ?? pickNumber(extra, ['seeders', 'seeds'])
 
   return {
     id: pickString(record, ['id']) ?? `source-${index}-${fileName}`,
@@ -466,7 +476,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: TorboxC
   const [searchQuery, setSearchQuery] = useState('')
   const [searchType, setSearchType] = useState<SearchType>('manga')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
-  const [expandedSourceId, setExpandedSourceId] = useState<string | null>(null)
+  const [activeModalResult, setActiveModalResult] = useState<SearchResult | null>(null)
   const [isSearching, setIsSearching] = useState(false)
   const [activeTab, setActiveTab] = useState<TabValue>(() => mapInitialTabToValue(initialTab))
 
@@ -600,12 +610,16 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: TorboxC
     }
   }, [])
 
-  const runSearch = useCallback(async () => {
-    const query = searchQuery.trim()
+  const runSearch = useCallback(async (queryOverride?: string) => {
+    const query = (queryOverride ?? searchQuery).trim()
     if (!query) {
       setSearchResults([])
       setSearchError(null)
-      return
+      return []
+    }
+
+    if (queryOverride) {
+      setSearchQuery(queryOverride)
     }
 
     setIsSearching(true)
@@ -620,6 +634,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: TorboxC
       if (parsed.length === 0) {
         setSearchError('No source links found for this query. You can paste a magnet link manually below.')
       }
+      return parsed
     } catch (invokeError) {
       setSearchResults([])
       setSearchUnavailable(true)
@@ -629,10 +644,29 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: TorboxC
           'Search command is unavailable. Paste a magnet or torrent link manually to queue it.'
         )
       )
+      return []
     } finally {
       setIsSearching(false)
     }
   }, [searchQuery, searchType])
+
+  const handleTrendingClick = useCallback(async (title: string) => {
+    setIsSearching(true)
+    setSearchError(null)
+    try {
+      const raw = await invoke<unknown>('search_manga_sources', { query: title })
+      const parsed = filterBySearchType(parseSearchResults(raw), searchType)
+      if (parsed && parsed.length > 0) {
+        setActiveModalResult(parsed[0])
+      } else {
+        setSearchError(`No downloads found for "${title}".`)
+      }
+    } catch (err) {
+      setSearchError(getErrorMessage(err, 'Failed to fetch downloads.'))
+    } finally {
+      setIsSearching(false)
+    }
+  }, [searchType])
 
   const addQueuedJob = useCallback(
     async (payload: { source: SearchSource; result: SearchResult; fallbackKind: QueueType }) => {
@@ -700,9 +734,10 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: TorboxC
 
         success('Added to cloud', `${result.title} was added to Torbox queue.`)
       } catch (invokeError) {
+        const rawErr = typeof invokeError === 'object' ? JSON.stringify(invokeError) : String(invokeError)
         const message = getErrorMessage(invokeError, 'Failed to add source to Torbox queue.')
-        setSearchError(message)
-        error('Queue failed', message)
+        setSearchError(`${message} | Raw: ${rawErr}`)
+        error('Queue failed', `${message} | Raw: ${rawErr}`)
       } finally {
         setSourceBusy((prev) => {
           const next = { ...prev }
@@ -899,110 +934,142 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: TorboxC
     (rows: TorrentInfo[], emptyLabel: string) => {
       if (rows.length === 0) {
         return (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border/70 py-10 text-muted-foreground">
-            <AlertCircle className="mb-2 h-4 w-4" />
-            <p className="text-sm">{emptyLabel}</p>
-          </div>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/70 py-16 text-muted-foreground backdrop-blur-sm bg-muted/10"
+          >
+            <AlertCircle className="mb-3 h-6 w-6 opacity-50" />
+            <p className="text-sm font-medium tracking-wide opacity-80">{emptyLabel}</p>
+          </motion.div>
         )
       }
 
       return (
-        <div className="overflow-hidden rounded-lg border border-border/80">
-          <div className="grid grid-cols-[2.6fr_0.9fr_1.5fr_0.9fr_0.9fr_48px] items-center gap-3 bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
-            <span>Title</span>
-            <span>Size</span>
-            <span>Progress</span>
-            <span>Status</span>
-            <span>Speed</span>
-            <span className="text-right">&nbsp;</span>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <AnimatePresence mode="popLayout">
+            {rows.map((job) => {
+              const meta = jobMeta[job.id]
+              const progress = normalizeProgress(job.progress)
+              const importedPath = meta?.importedPath
+              const resolvedLink = meta?.resolvedLink
+              const eta = estimateEta(job.status, job.size, progress, job.downloadSpeed)
+              const localProgressText = formatLocalProgress(meta as LocalProgress | undefined)
+              const localFileStepText = formatLocalFileStep(meta as LocalProgress | undefined)
+              
+              const isDone = isCompletedStatus(job.status)
+              const isErr = isFailedStatus(job.status)
 
-          {rows.map((job) => {
-            const meta = jobMeta[job.id]
-            const progress = normalizeProgress(job.progress)
-            const importedPath = meta?.importedPath
-            const resolvedLink = meta?.resolvedLink
-            const eta = estimateEta(job.status, job.size, progress, job.downloadSpeed)
-            const localProgressText = formatLocalProgress(meta as LocalProgress | undefined)
-            const localFileStepText = formatLocalFileStep(meta as LocalProgress | undefined)
+              return (
+                <motion.div
+                  key={job.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
+                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                  className="group relative flex flex-col justify-between overflow-hidden rounded-xl border border-border/50 bg-card/60 backdrop-blur-xl p-4 shadow-sm transition-all hover:shadow-md hover:border-border"
+                >
+                  {/* Subtle Background Glow for active state */}
+                  {!isDone && !isErr && (
+                    <div className="absolute -top-10 -right-10 h-32 w-32 rounded-full bg-blue-500/10 blur-3xl" />
+                  )}
+                  {isDone && (
+                    <div className="absolute -top-10 -right-10 h-32 w-32 rounded-full bg-emerald-500/10 blur-3xl" />
+                  )}
+                  
+                  <div className="relative z-10">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-foreground tracking-tight">
+                          {job.name || meta?.title || `Torrent #${job.id}`}
+                        </p>
+                        <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground font-mono">
+                          <span>{formatBytes(job.size)}</span>
+                          <span className="opacity-50">•</span>
+                          <span>ID {job.id}</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted/50 text-muted-foreground opacity-0 transition-all hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"
+                        onClick={() => removeJob(job.id)}
+                        aria-label="Remove job"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
 
-            return (
-              <div key={job.id} className="border-t border-border/70 px-3 py-2">
-                <div className="grid grid-cols-[2.6fr_0.9fr_1.5fr_0.9fr_0.9fr_48px] items-center gap-3 text-sm">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{job.name || meta?.title || `Torrent #${job.id}`}</p>
-                    <p className="text-[11px] text-muted-foreground">ID {job.id}</p>
-                  </div>
+                    <div className="mt-4 flex items-end justify-between">
+                      <Badge className={`border text-[10px] uppercase tracking-wider font-semibold ${queueStatusBadgeClass(job.status)}`} variant="outline">
+                        {job.status || 'queued'}
+                      </Badge>
+                      <div className="text-right">
+                        <p className="text-xs font-medium text-foreground/80">{Math.round(progress)}%</p>
+                      </div>
+                    </div>
 
-                  <span className="text-xs text-muted-foreground">{formatBytes(job.size)}</span>
-
-                  <div>
-                    <div className="h-1.5 w-full rounded-full bg-muted">
-                      <div
-                        className={`h-1.5 rounded-full transition-all ${progressFillClass(job.status)}`}
-                        style={{ width: `${progress}%` }}
+                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted/50">
+                      <motion.div
+                        className={`h-full rounded-full ${progressFillClass(job.status)}`}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progress}%` }}
+                        transition={{ type: "spring", stiffness: 50, damping: 15 }}
                       />
                     </div>
-                    <p className="mt-1 text-[11px] text-muted-foreground">{Math.round(progress)}%</p>
+
+                    <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground font-medium">
+                      <span className="truncate pr-2">{statusPhaseText(job.status)}</span>
+                      <div className="flex shrink-0 items-center gap-2 text-right">
+                        {eta && <span className="text-blue-400/80">{eta}</span>}
+                        {job.downloadSpeed > 0 && <span>{formatSpeed(job.downloadSpeed)}</span>}
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="space-y-0.5">
-                    <Badge className={`w-fit border text-[11px] ${queueStatusBadgeClass(job.status)}`} variant="outline">
-                      {job.status || 'queued'}
-                    </Badge>
-                    <p className="truncate text-[10px] text-muted-foreground">{statusPhaseText(job.status)}</p>
+                  {/* Actions / Meta Data Area */}
+                  <div className="relative z-10 mt-4 space-y-2">
+                    {(isDone || isErr || resolvedLink || importedPath || meta?.error) && (
+                      <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border/40">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="h-7 rounded-md px-2.5 text-[11px] font-medium transition-colors hover:bg-secondary/80"
+                          onClick={() => void resolveDownload(job)}
+                          disabled={Boolean(meta?.resolving)}
+                        >
+                          {meta?.resolving ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : null}
+                          Resolve Link
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="h-7 rounded-md px-2.5 text-[11px] font-medium transition-colors hover:bg-secondary/80"
+                          onClick={() => void importIntoLibrary(job)}
+                          disabled={Boolean(meta?.importing)}
+                        >
+                          {meta?.importing ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : null}
+                          Import
+                        </Button>
+
+                        {resolvedLink && <span className="truncate w-full block text-[10px] text-muted-foreground mt-1">Resolved: {resolvedLink}</span>}
+                        {importedPath && <span className="truncate w-full block text-[10px] text-emerald-400/90 mt-1">Imported: {importedPath}</span>}
+                        {meta?.error && <span className="text-[10px] text-red-400/90 w-full block mt-1">{meta.error}</span>}
+                      </div>
+                    )}
+
+                    {(localProgressText || localFileStepText) && (
+                      <div className="rounded-md bg-muted/30 p-2 text-[10px] text-muted-foreground border border-border/30 mt-2">
+                        {localProgressText && <p>{localProgressText}</p>}
+                        {localFileStepText && <p className="mt-0.5 opacity-80">{localFileStepText}</p>}
+                      </div>
+                    )}
                   </div>
-
-                  <div className="space-y-0.5">
-                    <p className="text-xs text-muted-foreground">{formatSpeed(job.downloadSpeed)}</p>
-                    {eta && <p className="text-[10px] text-muted-foreground">{eta}</p>}
-                  </div>
-
-                  <button
-                    type="button"
-                    className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                    onClick={() => removeJob(job.id)}
-                    aria-label="Remove job"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-
-                {(isCompletedStatus(job.status) || isFailedStatus(job.status) || resolvedLink || importedPath || meta?.error) && (
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 px-2 text-[11px]"
-                      onClick={() => void resolveDownload(job)}
-                      disabled={Boolean(meta?.resolving)}
-                    >
-                      {meta?.resolving ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
-                      Resolve Link
-                    </Button>
-
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 px-2 text-[11px]"
-                      onClick={() => void importIntoLibrary(job)}
-                      disabled={Boolean(meta?.importing)}
-                    >
-                      {meta?.importing ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
-                      Import
-                    </Button>
-
-                    {resolvedLink && <span className="truncate text-[11px] text-muted-foreground">Resolved: {resolvedLink}</span>}
-                    {importedPath && <span className="truncate text-[11px] text-emerald-400">Imported: {importedPath}</span>}
-                    {meta?.error && <span className="text-[11px] text-red-400">{meta.error}</span>}
-                  </div>
-                )}
-
-                {localProgressText && <p className="mt-1 text-[11px] text-muted-foreground">{localProgressText}</p>}
-                {localFileStepText && <p className="mt-0.5 text-[11px] text-muted-foreground/90">{localFileStepText}</p>}
-              </div>
-            )
-          })}
+                </motion.div>
+              )
+            })}
+          </AnimatePresence>
         </div>
       )
     },
@@ -1010,309 +1077,364 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: TorboxC
   )
 
   return (
-    <div className="flex h-full flex-col gap-3 bg-background p-4 text-foreground">
-      <section className="rounded-lg border border-border bg-card px-3 py-3">
-        <div className="flex items-start justify-between gap-3">
+    <div className="flex h-full flex-col bg-background p-6 text-foreground relative overflow-hidden">
+      <header className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Cloud className="h-6 w-6" />
+          </div>
           <div>
-            <Badge className="rounded-full border border-blue-400/30 bg-blue-500/10 px-2.5 py-0.5 text-[11px] font-semibold tracking-[0.08em] text-blue-300" variant="outline">
-              TORBOX CLOUD WORKSPACE
-            </Badge>
-            <h1 className="mt-2 text-xl font-semibold tracking-tight">Torbox Control Center</h1>
-            <p className="text-sm text-muted-foreground">Search and queue books &amp; manga via Torbox</p>
-          </div>
-
-          <Button size="sm" variant="outline" className="h-8 px-3 text-xs" onClick={clearCompleted}>
-            <Trash2 className="mr-1 h-3.5 w-3.5" />
-            Clear Completed
-          </Button>
-        </div>
-
-        <div className="mt-3 flex flex-wrap gap-2">
-          <span className="rounded-md bg-muted px-3 py-1 text-[11px]">Total {stats.total}</span>
-          <span className="rounded-md bg-muted px-3 py-1 text-[11px] text-blue-300">Active {stats.active}</span>
-          <span className="rounded-md bg-muted px-3 py-1 text-[11px] text-emerald-300">Completed {stats.completed}</span>
-          <span className="rounded-md bg-muted px-3 py-1 text-[11px] text-red-300">Failed {stats.failed}</span>
-        </div>
-      </section>
-
-      <section className="rounded-lg border border-border bg-card px-3 py-2.5">
-        {keyStatus === 'set' && !editingKey ? (
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Badge className="border border-emerald-400/40 bg-emerald-500/10 text-[11px] text-emerald-300" variant="outline">
-                Connected ✓
+            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-3">
+              Torbox Control Center
+              <Badge variant="outline" className={`h-5 px-2 rounded-md font-bold tracking-wider uppercase text-[10px] ${apiKey ? 'border-emerald-500/30 text-emerald-500 bg-emerald-500/10' : 'border-amber-500/30 text-amber-500 bg-amber-500/10'}`}>
+                {apiKey ? 'API Active' : 'No Key'}
               </Badge>
-              <span className="text-xs text-muted-foreground">Torbox key saved</span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-                onClick={() => {
-                  setEditingKey(true)
-                  setKeyStatus('unset')
-                  setKeyFeedback(null)
-                }}
-              >
-                Change key
-              </button>
-              <button
-                type="button"
-                className="text-xs text-muted-foreground underline-offset-2 hover:text-red-300 hover:underline"
-                onClick={() => void clearSavedKey()}
-              >
-                Clear
-              </button>
-            </div>
+            </h1>
+            <p className="text-sm font-medium text-muted-foreground mt-0.5">Manage your cloud downloads and resolve premium sources.</p>
           </div>
-        ) : (
-          <div className="rounded-md border border-amber-400/30 bg-amber-500/10 p-2.5">
-            <p className="text-sm font-medium text-amber-300">Torbox API key required</p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Input
-                type="password"
-                value={apiKey}
-                onChange={(event) => setApiKey(event.target.value)}
-                placeholder="Paste Torbox API key"
-                className="h-8 max-w-md text-xs"
-              />
-              <Button
-                size="sm"
-                className="h-8 px-3 text-xs"
-                onClick={() => void verifyAndSaveKey()}
-                disabled={keyStatus === 'verifying'}
-              >
-                {keyStatus === 'verifying' ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
-                Verify &amp; Save
-              </Button>
-            </div>
+        </div>
 
-            {keyFeedback && (
-              <p className={`mt-2 text-xs ${keyStatus === 'error' ? 'text-red-300' : 'text-emerald-300'}`}>{keyFeedback}</p>
+        <div className="flex flex-wrap items-center gap-4">
+          <AnimatePresence mode="wait">
+            {keyStatus === 'set' && !editingKey ? (
+              <motion.div key="connected" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-2">
+                <Button variant="outline" size="sm" className="h-9 rounded-lg font-medium" onClick={() => { setEditingKey(true); setKeyStatus('unset'); setKeyFeedback(null) }}>
+                  Change Key
+                </Button>
+                <Button variant="ghost" size="sm" className="h-9 rounded-lg font-medium text-muted-foreground hover:text-red-400" onClick={() => void clearSavedKey()}>
+                  Disconnect
+                </Button>
+              </motion.div>
+            ) : (
+              <motion.div key="disconnected" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-2 relative">
+                <Input
+                  type="password"
+                  value={apiKey}
+                  onChange={(event) => setApiKey(event.target.value)}
+                  placeholder="Paste Torbox API Key"
+                  className="h-9 w-40 sm:w-56 text-sm bg-background transition-all"
+                />
+                <Button size="sm" variant="secondary" className="h-9 px-4 font-semibold" onClick={() => void verifyAndSaveKey()} disabled={keyStatus === 'verifying'}>
+                  {keyStatus === 'verifying' ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+                  Verify
+                </Button>
+                {keyFeedback && keyStatus === 'error' && (
+                  <span className="absolute top-11 right-0 text-[11px] font-medium text-destructive whitespace-nowrap bg-background border border-destructive/20 px-3 py-1.5 rounded-md shadow-md z-50">
+                    {keyFeedback}
+                  </span>
+                )}
+              </motion.div>
             )}
-          </div>
-        )}
-      </section>
+          </AnimatePresence>
+        </div>
+      </header>
 
       <Tabs.Root
         value={activeTab}
         onValueChange={(next) => setActiveTab(next as TabValue)}
-        className="flex min-h-0 flex-1 flex-col"
+        className="flex min-h-0 flex-1 flex-col z-10"
       >
-        <Tabs.List className="inline-flex w-fit items-center gap-1 rounded-md border border-border bg-card p-1">
-          <Tabs.Trigger
-            value="search"
-            className="rounded-md px-3 py-1.5 text-xs text-muted-foreground transition-colors data-[state=active]:bg-muted data-[state=active]:text-foreground"
-          >
-            Search
-          </Tabs.Trigger>
-          <Tabs.Trigger
-            value="books"
-            className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs text-muted-foreground transition-colors data-[state=active]:bg-muted data-[state=active]:text-foreground"
-          >
-            Books Queue
-            <Badge variant="outline" className="h-4 rounded-full px-1.5 py-0 text-[10px]">
-              {booksJobs.length}
-            </Badge>
-          </Tabs.Trigger>
-          <Tabs.Trigger
-            value="manga"
-            className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs text-muted-foreground transition-colors data-[state=active]:bg-muted data-[state=active]:text-foreground"
-          >
-            Manga Queue
-            <Badge variant="outline" className="h-4 rounded-full px-1.5 py-0 text-[10px]">
-              {mangaJobs.length}
-            </Badge>
-          </Tabs.Trigger>
+        <Tabs.List className="flex items-center gap-6 border-b border-border/50 pb-2 mb-4">
+          {(['search', 'books', 'manga'] as const).map((tab) => {
+            const isActive = activeTab === tab;
+            let label = tab === 'search' ? 'Discover' : tab === 'books' ? 'Books Queue' : 'Manga Queue';
+            let count = tab === 'books' ? booksJobs.length : tab === 'manga' ? mangaJobs.length : null;
+
+            return (
+              <Tabs.Trigger
+                key={tab}
+                value={tab}
+                className={`relative flex items-center gap-2 pb-2 text-sm outline-none transition-colors hover:text-foreground ${isActive ? 'text-foreground font-semibold' : 'text-muted-foreground font-medium'}`}
+              >
+                <span>{label}</span>
+                {count !== null && count > 0 && (
+                  <Badge variant="secondary" className="h-5 px-1.5 py-0 text-[10px] font-bold">
+                    {count}
+                  </Badge>
+                )}
+                {isActive && (
+                  <motion.div
+                    layoutId="torbox-tab-indicator"
+                    className="absolute -bottom-[9px] left-0 right-0 h-0.5 bg-primary"
+                    initial={false}
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                  />
+                )}
+              </Tabs.Trigger>
+            );
+          })}
         </Tabs.List>
 
-        <Tabs.Content value="search" className="mt-3 min-h-0 rounded-lg border border-border bg-card p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative min-w-[220px] flex-1">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    void runSearch()
-                  }
-                }}
-                placeholder="Search titles, authors..."
-                className="h-8 pl-8 text-sm"
-              />
-            </div>
-
-            <select
-              value={searchType}
-              onChange={(event) => setSearchType(event.target.value as SearchType)}
-              className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground"
-              aria-label="Search type"
-            >
-              <option value="manga">Manga</option>
-              <option value="books">Books</option>
-              <option value="all">All</option>
-            </select>
-
-            <Button size="sm" className="h-8 px-3 text-xs" onClick={() => void runSearch()} disabled={isSearching}>
-              {isSearching ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
-              Search
-            </Button>
-          </div>
-
-          {searchError && <p className="mt-2 text-xs text-red-300">{searchError}</p>}
-
-          <div className="mt-3 space-y-2">
-            {searchResults.map((result) => {
-              const expanded = expandedSourceId === result.id
-              return (
-                <div key={result.id} className="rounded-md border border-border/80 bg-background/50 p-2.5">
-                  <div className="flex items-start gap-3">
-                    {result.coverUrl ? (
-                      <img
-                        src={result.coverUrl}
-                        alt={result.title}
-                        className="h-14 w-[42px] rounded-sm object-cover"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="flex h-14 w-[42px] items-center justify-center rounded-sm bg-muted text-[10px] text-muted-foreground">
-                        N/A
-                      </div>
-                    )}
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="truncate text-sm font-medium">{result.title}</p>
-                        <span className="text-xs text-amber-300">
-                          ★ {typeof result.rating === 'number' ? result.rating.toFixed(1) : '—'}
-                        </span>
-                      </div>
-
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {result.author || 'Unknown author'}
-                        {result.year ? ` · ${result.year}` : ''}
-                        {result.ongoing ? ' · Ongoing' : ''}
-                      </p>
-
-                      {result.tags.length > 0 && (
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {result.tags.map((tag) => (
-                            <span key={`${result.id}-${tag}`} className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 px-2 text-[11px]"
-                      onClick={() => setExpandedSourceId(expanded ? null : result.id)}
-                    >
-                      Sources {expanded ? <ChevronUp className="ml-1 h-3.5 w-3.5" /> : <ChevronDown className="ml-1 h-3.5 w-3.5" />}
-                    </Button>
-                  </div>
-
-                  <div
-                    className={`overflow-hidden transition-all duration-200 ${expanded ? 'mt-2 max-h-[420px] opacity-100' : 'max-h-0 opacity-0'}`}
-                    id={`sources-${result.id}`}
-                  >
-                    <Separator className="my-2" />
-                    <p className="mb-2 text-xs text-muted-foreground">Available sources for &quot;{result.title}&quot;</p>
-
-                    <div className="space-y-1.5">
-                      {result.sources.map((source) => {
-                        const busyId = `${result.id}:${source.id}`
-                        const busy = sourceBusy[busyId] === true
-
-                        return (
-                          <div key={source.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/40 px-2 py-1.5">
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <Badge variant="outline" className={`border text-[10px] ${sourceBadgeClass(source.fileType)}`}>
-                                  {source.fileType}
-                                </Badge>
-                                <p className="truncate text-xs">{source.label}</p>
-                              </div>
-                              <p className="mt-0.5 text-[11px] text-muted-foreground">
-                                {typeof source.sizeBytes === 'number' ? formatBytes(source.sizeBytes) : 'Unknown size'}
-                                {typeof source.seeders === 'number' ? ` · ${source.seeders} seeders` : ''}
-                              </p>
-                            </div>
-
-                            <Button
-                              size="sm"
-                              className="h-7 px-2 text-[11px]"
-                              disabled={busy}
-                              onClick={() =>
-                                void addQueuedJob({
-                                  source,
-                                  result,
-                                  fallbackKind: searchType === 'books' ? 'books' : 'manga',
-                                })
-                              }
-                            >
-                              {busy ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
-                              Add to Cloud ↑
-                            </Button>
-                          </div>
-                        )
-                      })}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
+            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }}
+            transition={{ duration: 0.2 }}
+            className="mt-4 flex-1 min-h-0 overflow-y-auto"
+          >
+            {activeTab === 'search' && (
+              <Tabs.Content value="search" className="h-full outline-none overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+                <div className="max-w-2xl mx-auto mb-8 pt-4">
+                  <div className="relative flex items-center shadow-sm bg-card border border-border rounded-full hover:border-border/80 ring-1 ring-transparent focus-within:border-primary focus-within:ring-primary transition-shadow duration-200">
+                    <Search className="absolute left-5 h-5 w-5 text-muted-foreground" />
+                    <Input
+                      value={searchQuery}
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') void runSearch()
+                      }}
+                      placeholder="Search titles, authors, genres..."
+                      className="flex-1 h-14 border-0 bg-transparent pl-14 pr-4 text-base font-medium shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                    />
+                    <div className="pr-2 flex items-center gap-2">
+                      <select
+                        value={searchType}
+                        onChange={(event) => setSearchType(event.target.value as SearchType)}
+                        className="h-10 rounded-full bg-transparent border-0 px-4 text-sm font-medium text-muted-foreground hover:text-foreground cursor-pointer focus:outline-none [&>option]:bg-background [&>option]:text-foreground"
+                      >
+                        <option value="manga">Manga</option>
+                        <option value="books">Books</option>
+                        <option value="all">Everywhere</option>
+                      </select>
+                      <Button size="icon" className="h-10 w-10 rounded-full shrink-0" onClick={() => void runSearch()} disabled={isSearching}>
+                        {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                      </Button>
                     </div>
                   </div>
                 </div>
-              )
-            })}
 
-            {!isSearching && searchResults.length === 0 && searchQuery.trim() && !searchError && (
-              <div className="rounded-md border border-dashed border-border/70 px-3 py-5 text-center text-sm text-muted-foreground">
-                No results found.
-              </div>
+                {searchError && <p className="mb-6 text-sm font-medium text-destructive bg-destructive/10 border border-destructive/20 p-4 rounded-xl inline-flex items-center gap-2"><AlertCircle className="h-4 w-4"/> {searchError}</p>}
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 items-start pb-8">
+                  <AnimatePresence>
+                    {searchResults.map((result) => {
+                      return (
+                        <motion.div 
+                          layout
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          key={result.id} 
+                          className="group flex flex-col gap-3 cursor-pointer"
+                          onClick={() => setActiveModalResult(result)}
+                        >
+                          <div className="relative overflow-hidden rounded-xl bg-muted/30 shadow-sm border border-border/40 aspect-[2/3] w-full">
+                            {result.coverUrl ? (
+                              <img
+                                src={result.coverUrl}
+                                alt={result.title}
+                                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted-foreground/40 bg-muted/10">
+                                <Search className="h-8 w-8 mb-2 opacity-50" />
+                                <span className="text-[10px] font-semibold uppercase tracking-wider">No Cover</span>
+                              </div>
+                            )}
+                            
+                            {typeof result.rating === 'number' && (
+                              <div className="absolute bottom-2 right-2 bg-background/90 text-amber-500 text-[11px] font-bold px-1.5 py-0.5 rounded border border-border/50 flex items-center gap-1 shadow-sm backdrop-blur-md">
+                                ★ {result.rating.toFixed(1)}
+                              </div>
+                            )}
+                            
+                            <div className="absolute inset-0 bg-background/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-sm">
+                              <div className="bg-primary text-primary-foreground text-xs font-semibold px-4 py-2 rounded-full shadow-md">
+                                View Sources
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="min-w-0 px-1">
+                            <h3 className="font-semibold text-foreground transition-colors group-hover:text-primary truncate text-sm">
+                              {result.title}
+                            </h3>
+                            <p className="mt-0.5 text-xs text-muted-foreground truncate">
+                              {result.year && <span>{result.year}</span>}
+                              {result.year && result.author && <span className="mx-1.5 opacity-50">•</span>}
+                              {result.author && <span>{result.author}</span>}
+                            </p>
+                          </div>
+                        </motion.div>
+                      )
+                    })}
+                  </AnimatePresence>
+
+                  {!isSearching && searchResults.length === 0 && searchQuery.trim() && !searchError && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="col-span-full flex flex-col items-center justify-center rounded-3xl border border-dashed border-border py-20 bg-muted/5">
+                      <Search className="h-10 w-10 text-muted-foreground/30 mb-4" />
+                      <p className="text-base font-medium text-muted-foreground/80">No matching titles found in Torbox clouds.</p>
+                    </motion.div>
+                  )}
+                  
+                  {!isSearching && searchResults.length === 0 && !searchQuery.trim() && (
+                    <div className="col-span-full">
+                      <TrendingExplore type={searchType} onSelect={handleTrendingClick} />
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-auto pt-8 border-t border-border/50">
+                  <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                        <Link className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold tracking-tight text-foreground/80">Manual Magnet Add</h4>
+                        <p className="text-[11px] text-muted-foreground">Inject a magnet link if search is unavailable</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <Input
+                        value={manualTitle}
+                        onChange={(event) => setManualTitle(event.target.value)}
+                        placeholder="Custom Title"
+                        className="h-9 w-32 text-xs font-medium bg-background border-border/40 focus:border-primary/40 rounded-full"
+                      />
+                      <Input
+                        value={manualMagnet}
+                        onChange={(event) => setManualMagnet(event.target.value)}
+                        placeholder="magnet:?xt=urn:btih:..."
+                        className="h-9 w-48 text-xs font-medium bg-background border-border/40 focus:border-primary/40 font-mono rounded-full"
+                      />
+                      <Button size="sm" variant="secondary" className="h-9 rounded-full px-4 font-semibold shadow-sm" onClick={() => void addManualLink()}>
+                        Inject
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </Tabs.Content>
             )}
-          </div>
 
-          <Separator className="my-3" />
-
-          <div className="rounded-md border border-border/70 bg-background/60 p-2.5">
-            <p className="text-xs font-medium">Manual source add</p>
-            {searchUnavailable && (
-              <p className="mt-1 text-[11px] text-amber-300">
-                Search command is unavailable in this build. Paste a magnet or torrent link below.
-              </p>
+            {activeTab === 'books' && (
+              <Tabs.Content value="books" className="h-full rounded-2xl border border-border/50 bg-card/40 p-5 backdrop-blur-xl shadow-sm outline-none overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-lg font-bold tracking-tight text-foreground/90">Books Queue</h2>
+                  <Badge variant="secondary" className="bg-white/10 text-foreground">
+                    {booksJobs.length} active tasks
+                  </Badge>
+                </div>
+                {renderQueueRows(booksJobs, 'No books are currently in your queue.')}
+              </Tabs.Content>
             )}
 
-            <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-              <Input
-                value={manualTitle}
-                onChange={(event) => setManualTitle(event.target.value)}
-                placeholder="Optional title"
-                className="h-8 text-xs"
-              />
-              <Input
-                value={manualMagnet}
-                onChange={(event) => setManualMagnet(event.target.value)}
-                placeholder="magnet:?xt=... or https://..."
-                className="h-8 text-xs"
-              />
-              <Button size="sm" className="h-8 px-3 text-xs" onClick={() => void addManualLink()}>
-                Add
-              </Button>
-            </div>
-          </div>
-        </Tabs.Content>
-
-        <Tabs.Content value="books" className="mt-3 min-h-0 rounded-lg border border-border bg-card p-3">
-          {renderQueueRows(booksJobs, 'No books in queue')}
-        </Tabs.Content>
-
-        <Tabs.Content value="manga" className="mt-3 min-h-0 rounded-lg border border-border bg-card p-3">
-          {renderQueueRows(mangaJobs, 'No manga in queue')}
-        </Tabs.Content>
+            {activeTab === 'manga' && (
+              <Tabs.Content value="manga" className="h-full rounded-2xl border border-border/50 bg-card/40 p-5 backdrop-blur-xl shadow-sm outline-none overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-lg font-bold tracking-tight text-foreground/90">Manga Queue</h2>
+                  <Badge variant="secondary" className="bg-white/10 text-foreground">
+                    {mangaJobs.length} active tasks
+                  </Badge>
+                </div>
+                {renderQueueRows(mangaJobs, 'No manga are currently in your queue.')}
+              </Tabs.Content>
+            )}
+          </motion.div>
+        </AnimatePresence>
       </Tabs.Root>
+
+      <Dialog.Root open={!!activeModalResult} onOpenChange={(open) => !open && setActiveModalResult(null)}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#121212] border border-white/10 rounded-2xl shadow-2xl w-[90vw] max-w-4xl max-h-[85vh] flex flex-col z-50 overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-300">
+            {activeModalResult && (
+              <>
+                <div className="flex-none px-6 py-5 border-b border-white/5 relative">
+                  <div className="flex items-center gap-3 pr-12">
+                    <div className="flex items-center justify-center w-8 h-8 rounded bg-purple-500/10 text-purple-400">
+                      <DownloadCloud className="w-5 h-5" />
+                    </div>
+                    <Dialog.Title className="text-xl font-bold tracking-tight text-white">
+                      Available Downloads
+                    </Dialog.Title>
+                  </div>
+                  
+                  <Dialog.Close asChild>
+                    <button className="absolute right-5 top-5 p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-purple-500/50">
+                      <X className="w-5 h-5" />
+                    </button>
+                  </Dialog.Close>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/5 text-sm font-medium text-gray-300 cursor-pointer hover:bg-white/10 transition-colors">
+                      <Filter className="w-4 h-4" />
+                      <span>All Sources</span>
+                      <ChevronDown className="w-4 h-4 ml-2 opacity-50" />
+                    </div>
+                    <span className="text-sm font-medium text-gray-500">
+                      {activeModalResult.sources.length} of {activeModalResult.sources.length} results
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {activeModalResult.sources.map((source) => {
+                      const busyId = `${activeModalResult.id}:${source.id}`
+                      const busy = sourceBusy[busyId] === true
+
+                      return (
+                        <div key={source.id} className="bg-[#1a1a1a] border border-white/5 rounded-xl p-4 flex flex-col gap-3 transition-colors hover:bg-[#1a1a1a]/80">
+                          <div className="flex flex-col gap-1.5">
+                            <h3 className="text-[15px] font-semibold text-white/90 truncate">{source.label}</h3>
+                            <div className="flex items-center gap-3 text-xs font-medium text-gray-400">
+                              <Badge variant="secondary" className="bg-[#3b1578] hover:bg-[#3b1578] text-[#d4b4f5] border-0 rounded text-[10px] px-2 py-0 uppercase tracking-wide">
+                                {source.fileType || 'UNKNOWN'}
+                              </Badge>
+                              {typeof source.sizeBytes === 'number' && <span>{formatBytes(source.sizeBytes)}</span>}
+                              {typeof source.seeders === 'number' && (
+                                <span className="text-purple-400 font-bold">{source.seeders} seeders</span>
+                              )}
+                              <span className="opacity-50">
+                                {source.id.includes('nyaa') ? 'Nyaa' : source.id.includes('anna') ? "Anna's Archive" : 'BitMagnet'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="pt-1 w-full">
+                            {source.linkKind === 'direct' || source.linkKind === 'anna' || source.linkKind === 'external' ? (
+                              <Button
+                                className="w-full h-10 bg-[#2a2a2a] hover:bg-[#333333] text-white border border-white/5 rounded-lg text-sm font-semibold transition-colors"
+                                onClick={() => {
+                                  const openedWindow = window.open(source.magnetLink, '_blank', 'noopener,noreferrer')
+                                  if (!openedWindow) window.location.assign(source.magnetLink)
+                                }}
+                              >
+                                <Link className="w-4 h-4 mr-2 opacity-70" />
+                                Direct Download
+                              </Button>
+                            ) : (
+                              <Button
+                                className="w-full h-10 bg-[#4c1d95] hover:bg-[#5b21b6] text-white rounded-lg text-sm font-semibold transition-colors shadow-lg shadow-purple-900/20"
+                                disabled={busy}
+                                onClick={() =>
+                                  void addQueuedJob({
+                                    source,
+                                    result: activeModalResult,
+                                    fallbackKind: searchType === 'books' ? 'books' : 'manga',
+                                  })
+                                }
+                              >
+                                {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
+                                Add to Cloud
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
+import { useMangaUIStore } from '@/store/mangaReaderStore';
 
 /**
  * Hook for scroll-based progress tracking and scroll activity callbacks.
@@ -11,6 +12,7 @@ export function useMangaScroll(
 ) {
     const ticking = useRef(false);
     const lastActivityMark = useRef(0);
+    const lastScrollTopRef = useRef(0);
 
     const onScroll = useCallback(() => {
         if (!ticking.current) {
@@ -23,6 +25,17 @@ export function useMangaScroll(
 
                 const { scrollTop, scrollHeight, clientHeight } = el;
                 const maxScroll = scrollHeight - clientHeight;
+
+                // Auto-hide TopBar logic
+                const diff = scrollTop - lastScrollTopRef.current;
+                if (Math.abs(diff) > 20) {
+                    if (diff > 0 && scrollTop > 100) {
+                        useMangaUIStore.getState().setTopBarVisible(false);
+                    } else if (diff < 0 || scrollTop < 50) {
+                        useMangaUIStore.getState().setTopBarVisible(true);
+                    }
+                    lastScrollTopRef.current = scrollTop;
+                }
 
                 // Update progress
                 if (maxScroll > 0) {

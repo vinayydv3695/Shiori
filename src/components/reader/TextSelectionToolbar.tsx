@@ -69,12 +69,25 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
   useEffect(() => {
     const handleSelectionChange = () => {
       const selection = window.getSelection();
+
+      // If selection is happening inside the toolbar itself, don't hide it
+      if (selection && selection.anchorNode && toolbarRef.current?.contains(selection.anchorNode)) {
+        return;
+      }
+
       if (!selection || selection.isCollapsed || !selection.toString().trim()) {
         // Delay hiding to allow clicking toolbar buttons
         setTimeout(() => {
           const active = document.activeElement;
           if (toolbarRef.current && toolbarRef.current.contains(active)) return;
-          if (!window.getSelection()?.toString().trim()) {
+          
+          // Re-check if we have an active selection inside the toolbar before hiding
+          const currentSelection = window.getSelection();
+          if (currentSelection && currentSelection.anchorNode && toolbarRef.current?.contains(currentSelection.anchorNode)) {
+            return;
+          }
+
+          if (!currentSelection?.toString().trim()) {
             hideToolbar();
           }
         }, 200);
@@ -288,6 +301,64 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     }
   }, [selectedText]);
 
+  const handleAddVocabulary = useCallback(async () => {
+    try {
+      let currentCategories = categories;
+      
+      // If categories haven't been loaded yet, fetch them now
+      if (currentCategories.length === 0) {
+        currentCategories = await api.getAnnotationCategories();
+        setCategories(currentCategories);
+      }
+
+      // Find or create Vocabulary category
+      let vocabCategory = currentCategories.find(c => c.name.toLowerCase() === 'vocabulary');
+      if (!vocabCategory) {
+        try {
+          vocabCategory = await api.createAnnotationCategory('Vocabulary', '#8b5cf6', 'BookmarkPlus');
+          setCategories(prev => [...prev, vocabCategory!]);
+        } catch (catErr: any) {
+          // If creation fails due to unique constraint, try fetching again
+          if (String(catErr?.userMessage || catErr).includes('UNIQUE constraint')) {
+            currentCategories = await api.getAnnotationCategories();
+            setCategories(currentCategories);
+            vocabCategory = currentCategories.find(c => c.name.toLowerCase() === 'vocabulary');
+          }
+          
+          if (!vocabCategory) throw catErr;
+        }
+      }
+
+      const vocabData = translationMode === 'define' && dictionaryResult
+        ? JSON.stringify({ type: 'define', data: dictionaryResult })
+        : JSON.stringify({ type: 'translate', data: translationResult });
+
+      await api.createAnnotation(
+        bookId,
+        'note', // Use note type to comply with DB constraints
+        currentLocation,
+        undefined,
+        selectedText,
+        vocabData,
+        '#8b5cf6', // Purple color for vocabulary
+        vocabCategory.id
+      );
+      useToastStore.getState().addToast({
+        title: 'Added to vocabulary',
+        variant: 'success',
+        duration: 2000,
+      });
+      window.dispatchEvent(new CustomEvent('annotation-changed'));
+    } catch (err) {
+      console.error('Failed to add vocabulary annotation:', err);
+      useToastStore.getState().addToast({
+        title: 'Failed to add vocabulary',
+        description: err && typeof err === 'object' ? JSON.stringify(err) : String(err),
+        variant: 'error',
+      });
+    }
+  }, [bookId, currentLocation, selectedText, translationMode, dictionaryResult, translationResult]);
+
   return (
     <AnimatePresence>
       {isVisible && (
@@ -299,6 +370,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 8, scale: 0.95 }}
           transition={{ duration: 0.15 }}
+          onMouseDown={(e) => e.stopPropagation()}
         >
           {/* Main action buttons */}
           {!showNoteInput && !showTranslation && (
@@ -466,6 +538,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
               translationResult={translationResult}
               error={translationError}
               onClose={() => setShowTranslation(false)}
+              onAddVocabulary={handleAddVocabulary}
               onSwitchMode={(mode) => {
                 if (mode === 'define') handleDefine();
                 else handleTranslate();

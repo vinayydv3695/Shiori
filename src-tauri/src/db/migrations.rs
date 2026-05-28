@@ -99,6 +99,15 @@ impl<'a> MigrationManager<'a> {
         if current_version < 25 {
             self.run_in_savepoint("v25", |mgr| mgr.migrate_to_v25())?;
         }
+        if current_version < 26 {
+            self.run_in_savepoint("v26", |mgr| mgr.migrate_to_v26())?;
+        }
+        if current_version < 27 {
+            self.run_in_savepoint("v27", |mgr| mgr.migrate_to_v27())?;
+        }
+        if current_version < 28 {
+            self.run_in_savepoint("v28", |mgr| mgr.migrate_to_v28())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -1799,6 +1808,72 @@ impl<'a> MigrationManager<'a> {
         self.record_migration(25, "onboarding_preferences_extended", "v25_onboarding_prefs_extended")?;
 
         log::info!("[Migration] v25 applied successfully");
+        Ok(())
+    }
+
+    /// Migration v26: Add smart_query to collections
+    fn migrate_to_v26(&self) -> Result<()> {
+        log::info!("[Migration] Applying v26: Add smart_query to collections");
+
+        if !self.column_exists("collections", "smart_query")? {
+            self.conn.execute(
+                "ALTER TABLE collections ADD COLUMN smart_query TEXT",
+                [],
+            )?;
+        }
+
+        self.set_schema_version(26)?;
+        self.record_migration(26, "smart_collections", "v26_smart_collections")?;
+
+        log::info!("[Migration] v26 applied successfully");
+        Ok(())
+    }
+
+    /// Migration v27: Add discord_rpc_enabled to user_preferences
+    fn migrate_to_v27(&self) -> Result<()> {
+        log::info!("[Migration] Applying v27: Add discord_rpc_enabled");
+
+        if !self.column_exists("user_preferences", "discord_rpc_enabled")? {
+            self.conn.execute(
+                "ALTER TABLE user_preferences ADD COLUMN discord_rpc_enabled BOOLEAN DEFAULT 1",
+                [],
+            )?;
+        }
+
+        self.set_schema_version(27)?;
+        self.record_migration(27, "discord_rpc_enabled", "v27_discord_rpc_enabled")?;
+
+        log::info!("[Migration] v27 applied successfully");
+        Ok(())
+    }
+
+    /// Migration v28: Add annotation auto-sync fields to user_preferences
+    fn migrate_to_v28(&self) -> Result<()> {
+        log::info!("[Migration] Applying v28: Add annotation auto-sync fields");
+
+        if !self.column_exists("user_preferences", "auto_export_annotations")? {
+            self.conn.execute(
+                "ALTER TABLE user_preferences ADD COLUMN auto_export_annotations BOOLEAN DEFAULT 0",
+                [],
+            )?;
+        }
+        if !self.column_exists("user_preferences", "annotations_export_path")? {
+            self.conn.execute(
+                "ALTER TABLE user_preferences ADD COLUMN annotations_export_path TEXT DEFAULT ''",
+                [],
+            )?;
+        }
+        if !self.column_exists("user_preferences", "annotations_export_format")? {
+            self.conn.execute(
+                "ALTER TABLE user_preferences ADD COLUMN annotations_export_format TEXT DEFAULT 'markdown'",
+                [],
+            )?;
+        }
+
+        self.set_schema_version(28)?;
+        self.record_migration(28, "annotation_auto_sync", "v28_annotation_auto_sync")?;
+
+        log::info!("[Migration] v28 applied successfully");
         Ok(())
     }
 }

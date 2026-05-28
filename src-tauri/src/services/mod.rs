@@ -50,3 +50,6 @@ pub mod torbox;
 
 // Debrid provider service
 pub mod debrid;
+
+// Discord RPC service
+pub mod discord_service;

@@ -39,8 +39,17 @@ export function ShioriMark({ size = 24, className, ...props }: IconProps) {
 // Full wordmark for topbar
 export function ShioriWordmark({ size = 20, className }: { size?: number; className?: string }) {
     return (
-        <div className={cn('flex items-center gap-2', className)}>
-            <ShioriMark size={size} />
+        <div className={cn('flex items-center gap-1.5', className)}>
+            <div 
+                className="rounded-md overflow-hidden bg-white/5 flex items-center justify-center border border-border/50 shadow-sm"
+                style={{ width: size, height: size }}
+            >
+                <img 
+                    src={`${import.meta.env.BASE_URL}logo.png`} 
+                    alt="Shiori Logo" 
+                    className="w-full h-full object-cover" 
+                />
+            </div>
             <span
                 style={{
                     fontFamily: 'var(--font-sans)',

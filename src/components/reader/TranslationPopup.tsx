@@ -1,4 +1,5 @@
 import type { DictionaryResponse, TranslationResponse } from '@/lib/tauri';
+import { BookmarkPlus } from '@/components/icons';
 
 interface TranslationPopupProps {
   mode: 'translate' | 'define';
@@ -8,6 +9,7 @@ interface TranslationPopupProps {
   error: string | null;
   onClose: () => void;
   onSwitchMode: (mode: 'translate' | 'define') => void;
+  onAddVocabulary?: () => void;
 }
 
 export function TranslationPopup({
@@ -17,10 +19,11 @@ export function TranslationPopup({
   translationResult,
   error,
   onClose,
-  onSwitchMode
+  onSwitchMode,
+  onAddVocabulary
 }: TranslationPopupProps) {
   return (
-    <div className="translation-popup">
+    <div className="translation-popup" onMouseDown={(e) => e.stopPropagation()}>
       <div className="translation-popup-header">
         <div className="translation-popup-tabs">
           <button
@@ -36,17 +39,29 @@ export function TranslationPopup({
             Define
           </button>
         </div>
-        <button
-          className="text-selection-toolbar-btn translation-popup-close-btn"
-          onClick={onClose}
-          title="Close"
-          style={{ padding: '4px', width: 'auto', background: 'transparent' }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
+        <div style={{ display: 'flex', gap: '4px' }}>
+          {onAddVocabulary && !loading && !error && ((mode === 'translate' && translationResult) || (mode === 'define' && dictionaryResult)) && (
+            <button
+              className="text-selection-toolbar-btn"
+              onClick={onAddVocabulary}
+              title="Add to Vocabulary"
+              style={{ padding: '4px', width: 'auto', background: 'transparent' }}
+            >
+              <BookmarkPlus size={14} />
+            </button>
+          )}
+          <button
+            className="text-selection-toolbar-btn translation-popup-close-btn"
+            onClick={onClose}
+            title="Close"
+            style={{ padding: '4px', width: 'auto', background: 'transparent' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
       </div>
       
       <div className="translation-popup-body">

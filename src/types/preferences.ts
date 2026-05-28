@@ -83,6 +83,10 @@ export interface UserPreferences {
   debugLogging: boolean;
   enableCloudSync: boolean;
   enableNotifications: boolean;
+  discordRpcEnabled: boolean;
+  autoExportAnnotations: boolean;
+  annotationsExportPath: string;
+  annotationsExportFormat: string;
   dailyReadingGoalMinutes?: number;
   uiFontFamily?: string;
   coverSize?: CoverSize;
@@ -167,8 +171,12 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   debugLogging: false,
   enableCloudSync: false,
   enableNotifications: true,
+  discordRpcEnabled: true,
+  autoExportAnnotations: false,
+  annotationsExportPath: '',
+  annotationsExportFormat: 'markdown',
   dailyReadingGoalMinutes: 30,
-  uiFontFamily: 'system',
+  uiFontFamily: 'system-ui',
   coverSize: 'medium',
   defaultSortOrder: 'title-asc',
   defaultViewMode: 'grid',

@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useReaderUIStore } from '@/store/premiumReaderStore';
 import { api } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
@@ -370,20 +371,30 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
     return loc;
   };
   
-  if (!isSidebarOpen) return null;
-  
   return (
-    <>
-      {/* Backdrop */}
-      <div 
-        className="premium-sidebar-backdrop"
-        onClick={handleBackdropClick}
-      />
-      
-      {/* Sidebar */}
-      <div className={`premium-sidebar ${isSidebarOpen ? 'premium-sidebar--open' : ''}`}>
-        {/* Header with tabs */}
-        <div className="premium-sidebar-header">
+    <AnimatePresence>
+      {isSidebarOpen && (
+        <>
+          {/* Backdrop */}
+          <motion.div 
+            className="premium-sidebar-backdrop"
+            onClick={handleBackdropClick}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+          />
+          
+          {/* Sidebar */}
+          <motion.div 
+            className="premium-sidebar"
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", bounce: 0, duration: 0.4 }}
+          >
+            {/* Header with tabs */}
+            <div className="premium-sidebar-header">
           <div className="premium-sidebar-tabs">
             <button
               onClick={() => setSidebarTab('toc')}
@@ -705,9 +716,11 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
               )}
             </div>
           )}
-        </div>
-      </div>
-    </>
+          </div>
+        </motion.div>
+      </>
+      )}
+    </AnimatePresence>
   );
 }
 

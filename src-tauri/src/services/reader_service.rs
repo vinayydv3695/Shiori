@@ -174,6 +174,8 @@ impl ReaderService {
 
         let id = conn.last_insert_rowid();
 
+        Self::trigger_auto_sync(conn, book_id);
+
         Ok(Annotation {
             id: Some(id),
             book_id,
@@ -220,11 +222,22 @@ impl ReaderService {
             )?;
         }
 
+        let book_id = conn.query_row("SELECT book_id FROM annotations WHERE id = ?1", params![id], |row| row.get::<_, i64>(0)).unwrap_or(-1);
+        if book_id != -1 {
+            Self::trigger_auto_sync(conn, book_id);
+        }
+
         Ok(())
     }
 
     pub fn delete_annotation(conn: &Connection, id: i64) -> Result<()> {
+        let book_id = conn.query_row("SELECT book_id FROM annotations WHERE id = ?1", params![id], |row| row.get::<_, i64>(0)).unwrap_or(-1);
         conn.execute("DELETE FROM annotations WHERE id = ?1", params![id])?;
+        
+        if book_id != -1 {
+            Self::trigger_auto_sync(conn, book_id);
+        }
+        
         Ok(())
     }
 
@@ -955,5 +968,50 @@ impl ReaderService {
             margin_size,
             updated_at: now,
         })
+    }
+
+    // ==================== Auto-Sync Logic ====================
+    
+    pub fn trigger_auto_sync(conn: &Connection, book_id: i64) {
+        let prefs_result = conn.query_row(
+            "SELECT auto_export_annotations, annotations_export_path, annotations_export_format FROM user_preferences WHERE id = 1",
+            [],
+            |row| Ok((
+                row.get::<_, bool>(0).unwrap_or(false),
+                row.get::<_, String>(1).unwrap_or_default(),
+                row.get::<_, String>(2).unwrap_or_else(|_| "markdown".to_string()),
+            ))
+        );
+
+        if let Ok((enabled, path, format)) = prefs_result {
+            if enabled && !path.is_empty() {
+                let options = AnnotationExportOptions {
+                    format: format.clone(),
+                    book_id: Some(book_id),
+                    annotation_types: None,
+                    category_ids: None,
+                    include_book_info: true,
+                };
+                
+                if let Ok(export_data) = Self::export_annotations(conn, &options) {
+                    if let Ok(book_title) = conn.query_row("SELECT title FROM books WHERE id = ?1", params![book_id], |row| row.get::<_, String>(0)) {
+                        let safe_title = book_title.replace(|c: char| !c.is_alphanumeric() && c != ' ' && c != '-', "_");
+                        let ext = match format.as_str() {
+                            "json" => "json",
+                            "text" => "txt",
+                            _ => "md",
+                        };
+                        
+                        let file_path = std::path::Path::new(&path).join(format!("{}.{}", safe_title, ext));
+                        
+                        if let Err(e) = std::fs::write(&file_path, export_data.content) {
+                            log::error!("Failed to auto-sync annotations to {:?}: {}", file_path, e);
+                        } else {
+                            log::info!("Auto-synced annotations to {:?}", file_path);
+                        }
+                    }
+                }
+            }
+        }
     }
 }

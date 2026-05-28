@@ -1,9 +1,11 @@
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 
+use crate::cloudflare::client::CfClient;
 use crate::error::{Result, ShioriError};
 use crate::sources::{Chapter, ContentType, Page, SearchResult, Source, SourceMeta};
 
@@ -37,6 +39,8 @@ pub struct ToonGodConfig {
 pub struct ToonGodSource {
     client: reqwest::Client,
     config: RwLock<ToonGodConfig>,
+    /// Cloudflare-aware client — set after app setup when CF state is available.
+    cf_client: RwLock<Option<Arc<CfClient>>>,
 }
 
 impl ToonGodSource {
@@ -45,7 +49,15 @@ impl ToonGodSource {
         Ok(Self {
             client,
             config: RwLock::new(ToonGodConfig::default()),
+            cf_client: RwLock::new(None),
         })
+    }
+
+    /// Attach a Cloudflare-aware client to this source.
+    /// Call this after `CloudflareState` is registered so automatic
+    /// Playwright solving works transparently.
+    pub async fn set_cf_client(&self, cf: Arc<CfClient>) {
+        *self.cf_client.write().await = Some(cf);
     }
 
     pub async fn set_config(&self, config: ToonGodConfig) {
@@ -106,10 +118,10 @@ impl ToonGodSource {
     fn cloudflare_error(context: &str) -> ShioriError {
         ShioriError::Other(format!(
             "ToonGod {} is blocked by Cloudflare. \
-            To fix this: (1) Open toongod.org in your browser and solve the CAPTCHA, \
-            then copy the 'cf_clearance' cookie value from DevTools and paste it in \
-            Settings → Online Sources → ToonGod → CF Clearance Cookie. \
-            Or (2) run a local FlareSolverr instance and set its URL in the same settings.",
+            Shiori will automatically open a browser to solve the challenge. \
+            If the browser opens and gets stuck, click the \"Verify you are human\" checkbox. \
+            You can also trigger the browser manually via Settings → Online Sources → ToonGod → Verify Session. \
+            The session is cached for 20+ hours once solved.",
             context
         ))
     }
@@ -254,13 +266,23 @@ impl ToonGodSource {
     }
 
     async fn fetch_with_referer(&self, url: &str, referer: Option<&str>) -> Result<(reqwest::StatusCode, String)> {
-        // First try FlareSolverr if configured
+        // 1. Try the Playwright CfClient (automatic browser-session solving).
+        if let Some(cf) = self.cf_client.read().await.as_ref() {
+            match cf.get_html(url).await {
+                Ok(html) => return Ok((reqwest::StatusCode::OK, html)),
+                Err(e) => {
+                    log::warn!("[ToonGod] CfClient failed for {url}: {e} — falling back to reqwest");
+                    // Fall through to the manual cookie path below.
+                }
+            }
+        }
+
+        // 2. Try FlareSolverr if configured.
         if let Some(html) = self.try_flaresolverr(url).await {
-            // FlareSolverr succeeded — return fake 200 with the HTML
             return Ok((reqwest::StatusCode::OK, html));
         }
 
-        // Build client with cf_clearance cookie if available
+        // 3. Plain reqwest with manual cf_clearance cookie (legacy fallback).
         let cf_clearance = {
             let config = self.config.read().await;
             config.cf_clearance.clone()

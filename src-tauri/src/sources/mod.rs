@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 use crate::error::{Result, ShioriError};
 
 pub mod mangadex;
-pub mod network;
 pub mod nyaa;
 pub mod registry;
 pub mod toongod;

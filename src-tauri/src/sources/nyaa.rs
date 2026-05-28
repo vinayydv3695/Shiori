@@ -325,7 +325,7 @@ impl NyaaSource {
         let safe_page = page.max(1);
         let safe_limit = limit.max(1).min(NYAA_SEARCH_LIMIT_MAX);
 
-        let start_time = std::time::Instant::now();
+        let _start_time = std::time::Instant::now();
         let mut diagnostics = crate::sources::SourceSearchDiagnostics {
             source_id: "nyaa".to_string(),
             source_name: Some("Nyaa".to_string()),

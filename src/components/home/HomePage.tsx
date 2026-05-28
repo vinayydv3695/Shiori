@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { HomeSection, ScrollStrip } from './HomeSection'
 import { ContinueReadingCard, RecentlyAddedCard } from './ContinueReadingCard'
+import { FeaturedContinueCard } from './FeaturedContinueCard'
 import { useLibraryStore } from '@/store/libraryStore'
 import { useUIStore, type DomainView } from '@/store/uiStore'
 import type { Book, ReadingProgress } from '@/lib/tauri'
@@ -189,11 +190,11 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
 
   // Split books vs manga & comics
   const books = useMemo(
-    () => allBooks.filter((b) => !MANGA_FORMATS.includes(b.file_format.toLowerCase())),
+    () => allBooks.filter((b) => !MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '')),
     [allBooks]
   )
   const mangaComics = useMemo(
-    () => allBooks.filter((b) => MANGA_FORMATS.includes(b.file_format.toLowerCase())),
+    () => allBooks.filter((b) => MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '')),
     [allBooks]
   )
 
@@ -338,15 +339,28 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
       initial="hidden"
       animate="show"
     >
-      {/* ── Hero ── */}
-      <HeroSection
-        totalBooks={books.length}
-        totalManga={mangaComics.length}
-        totalSize={totalSize}
-        booksInProgress={allInProgress}
-        domain={domain}
-        onViewLibrary={handleViewLibrary}
-      />
+      {/* ── Bento Grid: Hero & Featured ── */}
+      <div className="home-bento-grid">
+        <HeroSection
+          totalBooks={books.length}
+          totalManga={mangaComics.length}
+          totalSize={totalSize}
+          booksInProgress={allInProgress}
+          domain={domain}
+          onViewLibrary={handleViewLibrary}
+        />
+
+        {continueReading.length > 0 && (
+          <div className="flex flex-col h-full">
+            <FeaturedContinueCard 
+              book={continueReading[0]} 
+              progress={progressMap[continueReading[0].id!]!} 
+              onOpenBook={handleOpenBook} 
+              isManga={domain === 'manga_comics'}
+            />
+          </div>
+        )}
+      </div>
 
       <motion.div
         variants={itemVariants}
@@ -371,9 +385,9 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
         </button>
       </motion.div>
 
-      {/* ── Continue Reading ── */}
+      {/* ── Continue Reading (Remaining) ── */}
       <AnimatePresence mode="wait">
-        {continueReading.length > 0 && (
+        {continueReading.length > 1 && (
           <motion.div key="continue" variants={itemVariants}>
             <HomeSection
               icon={<Clock size={18} />}
@@ -382,7 +396,7 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
               sectionType="continue"
             >
               <ScrollStrip>
-                {continueReading.map((book, i) => (
+                {continueReading.slice(1).map((book, i) => (
                   <motion.div
                     key={book.id}
                     initial={{ opacity: 0, x: 20 }}

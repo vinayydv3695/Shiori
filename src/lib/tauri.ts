@@ -103,6 +103,23 @@ export interface SearchResult {
   query: string
 }
 
+export interface PluginSearchResult {
+  id: string
+  title: string
+  cover_url: string | null
+  description: string | null
+  source_id: string
+  extra: Record<string, string>
+}
+
+export interface PluginSearchResponse {
+  items: PluginSearchResult[]
+  total: number | null
+  offset: number | null
+  limit: number | null
+  diagnostics: any | null
+}
+
 export interface ImportResult {
   success: string[]
   failed: [string, string][]
@@ -1250,6 +1267,44 @@ export const api = {
 
   async annasArchiveDownload(contentId: string, titleHint?: string): Promise<string> {
     return invoke("annas_archive_download", { contentId, titleHint })
+  },
+
+  async searchAnnasArchive(query: string): Promise<{ title: string, magnet: string, size: string }[]> {
+    const res = await invoke<PluginSearchResponse>("plugin_search_with_meta", { sourceId: "annas-archive", query, page: 1, limit: 10 })
+    const results = []
+    
+    // We only take the top 5 to avoid spamming the backend
+    for (const item of res.items.slice(0, 5)) {
+      const md5 = item.extra.md5
+      if (!md5) continue
+      
+      try {
+        const links = await invoke<{ url: string; downloadType: string; label?: string }[]>("annas_archive_get_torrent_links", { contentId: md5 })
+        const magnetLink = links.find(l => l.url.startsWith('magnet:'))
+        if (magnetLink) {
+          results.push({
+            title: item.title,
+            magnet: magnetLink.url,
+            size: magnetLink.label || 'Unknown'
+          })
+        }
+      } catch (err) {
+        console.warn(`Failed to fetch magnet for ${md5}`, err)
+      }
+    }
+    return results
+  },
+
+  async searchNyaa(query: string): Promise<{ title: string, magnet: string, size: string, seeders: string }[]> {
+    const res = await invoke<PluginSearchResponse>("plugin_search_with_meta", { sourceId: "nyaa", query, page: 1, limit: 15 })
+    return res.items
+      .filter(item => item.extra.magnet)
+      .map(item => ({
+        title: item.title,
+        magnet: item.extra.magnet,
+        size: item.description?.replace('Size: ', '') || 'Unknown',
+        seeders: '0' // Nyaa RSS doesn't return seeders easily
+      }))
   },
 
   async annasArchiveGetTorrentLinks(contentId: string): Promise<{ url: string; downloadType: string; label?: string }[]> {

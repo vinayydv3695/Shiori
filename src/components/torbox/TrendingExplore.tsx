@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Search, Book, Image as ImageIcon, Loader2 } from 'lucide-react'
+import { MagnetSourcesModal } from '../online/MagnetSourcesModal'
+import { useTorbox } from '@/store/torboxStore'
+import { toast } from 'sonner'
 
 export interface TrendingItem {
   id: string
@@ -11,15 +14,16 @@ export interface TrendingItem {
 }
 
 interface TrendingExploreProps {
-  type: 'manga' | 'books' | 'all'
-  onSelect: (title: string) => void
+  type: 'manga' | 'books'
 }
 
-export function TrendingExplore({ type, onSelect }: TrendingExploreProps) {
+export function TrendingExplore({ type }: TrendingExploreProps) {
   const [items, setItems] = useState<TrendingItem[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [selectingId, setSelectingId] = useState<string | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const { addTorrent } = useTorbox()
 
   useEffect(() => {
     let mounted = true
@@ -28,7 +32,7 @@ export function TrendingExplore({ type, onSelect }: TrendingExploreProps) {
       setError(null)
       
       try {
-        const effectiveType = type === 'all' ? 'manga' : type
+        const effectiveType = type
         
         if (effectiveType === 'manga') {
           // Fetch from AniList
@@ -57,11 +61,11 @@ export function TrendingExplore({ type, onSelect }: TrendingExploreProps) {
           const json = await res.json()
           
           if (mounted) {
-            const mangaList: TrendingItem[] = json.data.Page.media.map((m: any) => ({
-              id: `anilist-${m.id}`,
-              title: m.title.english || m.title.romaji,
-              coverUrl: m.coverImage?.large,
-              score: m.averageScore,
+            const mangaList: TrendingItem[] = json.data.Page.media.map((m: Record<string, unknown>) => ({
+              id: `anilist-${(m as Record<string, unknown>).id}`,
+              title: ((m as Record<string, unknown>).title as Record<string, string>).english || ((m as Record<string, unknown>).title as Record<string, string>).romaji,
+              coverUrl: ((m as Record<string, unknown>).coverImage as Record<string, string>)?.large,
+              score: (m as Record<string, unknown>).averageScore as number,
             }))
             setItems(mangaList)
           }
@@ -72,11 +76,11 @@ export function TrendingExplore({ type, onSelect }: TrendingExploreProps) {
           const json = await res.json()
           
           if (mounted) {
-            const booksList: TrendingItem[] = json.works.map((w: any) => ({
-              id: `openlib-${w.key}`,
-              title: w.title,
-              coverUrl: w.cover_i ? `https://covers.openlibrary.org/b/id/${w.cover_i}-L.jpg` : undefined,
-              author: w.author_name?.[0]
+            const booksList: TrendingItem[] = json.works.map((w: Record<string, unknown>) => ({
+              id: `openlib-${(w as Record<string, unknown>).key}`,
+              title: (w as Record<string, unknown>).title as string,
+              coverUrl: (w as Record<string, unknown>).cover_i ? `https://covers.openlibrary.org/b/id/${(w as Record<string, unknown>).cover_i}-L.jpg` : undefined,
+              author: ((w as Record<string, unknown>).author_name as string[])?.[0]
             }))
             setItems(booksList)
           }
@@ -96,11 +100,17 @@ export function TrendingExplore({ type, onSelect }: TrendingExploreProps) {
   }, [type])
 
   const handleSelect = async (item: TrendingItem) => {
-    setSelectingId(item.id)
+    setSearchQuery(item.title)
+    setModalType(type)
+    setModalOpen(true)
+  }
+
+  const handleAddMagnet = async (magnet: string, title: string) => {
     try {
-      await onSelect(item.title)
-    } finally {
-      setSelectingId(null)
+      await addTorrent({ magnet })
+      toast.success(`Added ${title} to Torbox queue`)
+    } catch (err) {
+      toast.error(`Failed to add to Torbox: ${err}`)
     }
   }
 
@@ -192,6 +202,14 @@ export function TrendingExplore({ type, onSelect }: TrendingExploreProps) {
           </motion.div>
         ))}
       </div>
+
+      <MagnetSourcesModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        query={searchQuery}
+        type={modalType}
+        onAddMagnetToTorbox={handleAddMagnet}
+      />
     </div>
   )
 }

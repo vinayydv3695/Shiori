@@ -181,10 +181,10 @@ const SearchBar = ({ onSearch, currentDomain, value: controlledValue, placeholde
       className={cn(
         'relative flex items-center h-8',
         'rounded-md border',
-        'transition-all duration-200',
+        'transition-all duration-300 ease-out',
         focused
-          ? 'border-ring ring-1 ring-ring bg-background w-72'
-          : 'border-border bg-muted/60 w-60',
+          ? 'border-ring ring-1 ring-ring bg-background w-72 z-50 shadow-md'
+          : 'border-border bg-muted/60 w-60 z-0',
       )}
     >
       <IconSearch
@@ -204,6 +204,7 @@ const SearchBar = ({ onSearch, currentDomain, value: controlledValue, placeholde
           'bg-transparent text-xs text-foreground placeholder:text-muted-foreground',
           'focus:outline-none',
           'caret-foreground',
+          'transition-opacity duration-300',
         )}
       />
       {value && (

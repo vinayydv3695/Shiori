@@ -140,9 +140,17 @@ export function MangaReader(props: MangaReaderProps) {
                 }
             } catch (err) {
                 if (cancelled) return;
-                // Fallback: use provided props if IPC not available yet
-                logger.warn('[MangaReader] IPC open_manga not available, using props:', err);
-                openManga(localBookId, localBookPath, localTitle, localTotalPages);
+                logger.error('[MangaReader] Backend open_manga failed:', err);
+                
+                const errorStr = String(err).toLowerCase();
+                if (localBookPath?.toLowerCase().endsWith('.cbr') || localBookPath?.toLowerCase().endsWith('.rar')) {
+                    setError('CBR/RAR formats are not natively supported by the manga reader. Please convert the book to CBZ format or EPUB.');
+                } else if (errorStr.includes('invalid') || errorStr.includes('unsupported')) {
+                    setError('Failed to open manga: The archive may be corrupted or in an unsupported format.');
+                } else {
+                    setError(err instanceof Error ? err.message : String(err));
+                }
+                
                 initCompleteRef.current = true;
             }
             if (!cancelled) {

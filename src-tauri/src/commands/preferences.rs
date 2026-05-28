@@ -43,6 +43,12 @@ pub struct UserPreferences {
     pub prowlarr_url: String,
     pub prowlarr_api_key: String,
     pub prowlarr_categories: String,
+    // Discord Integration
+    pub discord_rpc_enabled: bool,
+    // Annotation Auto-Sync
+    pub auto_export_annotations: bool,
+    pub annotations_export_path: String,
+    pub annotations_export_format: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -122,7 +128,9 @@ pub async fn get_user_preferences(state: State<'_, AppState>) -> Result<UserPref
             COALESCE(auto_translate, 0), COALESCE(cache_size_limit_mb, 500), COALESCE(library_size_limit, 10000),
             COALESCE(send_analytics, 0), COALESCE(send_crash_reports, 0), COALESCE(debug_logging, 0),
             COALESCE(enable_cloud_sync, 0), COALESCE(enable_notifications, 1),
-            COALESCE(prowlarr_enabled, 0), COALESCE(prowlarr_url, ''), COALESCE(prowlarr_api_key, ''), COALESCE(prowlarr_categories, '[7000,8000]')
+            COALESCE(prowlarr_enabled, 0), COALESCE(prowlarr_url, ''), COALESCE(prowlarr_api_key, ''), COALESCE(prowlarr_categories, '[7000,8000]'),
+            COALESCE(discord_rpc_enabled, 1),
+            COALESCE(auto_export_annotations, 0), COALESCE(annotations_export_path, ''), COALESCE(annotations_export_format, 'markdown')
         FROM user_preferences WHERE id = 1",
         [],
         |row| {
@@ -181,6 +189,10 @@ pub async fn get_user_preferences(state: State<'_, AppState>) -> Result<UserPref
                 prowlarr_url: row.get(45).unwrap_or_default(),
                 prowlarr_api_key: row.get(46).unwrap_or_default(),
                 prowlarr_categories: row.get(47).unwrap_or_else(|_| "[7000,8000]".to_string()),
+                discord_rpc_enabled: row.get::<_, bool>(48).unwrap_or(true),
+                auto_export_annotations: row.get::<_, bool>(49).unwrap_or(false),
+                annotations_export_path: row.get(50).unwrap_or_default(),
+                annotations_export_format: row.get(51).unwrap_or_else(|_| "markdown".to_string()),
             })
         },
     )?;
@@ -426,6 +438,26 @@ pub async fn update_user_preferences(
     if let Some(prowlarr_categories) = updates.get("prowlarrCategories").and_then(|v| v.as_str()) {
         set_clauses.push("prowlarr_categories = ?".to_string());
         params.push(Box::new(prowlarr_categories.to_string()));
+    }
+    
+    // Discord Integration
+    if let Some(discord_rpc_enabled) = updates.get("discordRpcEnabled").and_then(|v| v.as_bool()) {
+        set_clauses.push("discord_rpc_enabled = ?".to_string());
+        params.push(Box::new(discord_rpc_enabled));
+    }
+    
+    // Annotation Auto-Sync
+    if let Some(auto_export_annotations) = updates.get("autoExportAnnotations").and_then(|v| v.as_bool()) {
+        set_clauses.push("auto_export_annotations = ?".to_string());
+        params.push(Box::new(auto_export_annotations));
+    }
+    if let Some(annotations_export_path) = updates.get("annotationsExportPath").and_then(|v| v.as_str()) {
+        set_clauses.push("annotations_export_path = ?".to_string());
+        params.push(Box::new(annotations_export_path.to_string()));
+    }
+    if let Some(annotations_export_format) = updates.get("annotationsExportFormat").and_then(|v| v.as_str()) {
+        set_clauses.push("annotations_export_format = ?".to_string());
+        params.push(Box::new(annotations_export_format.to_string()));
     }
     
     if set_clauses.is_empty() {
@@ -840,7 +872,9 @@ pub async fn get_startup_data(state: State<'_, AppState>) -> Result<StartupData>
             COALESCE(auto_translate, 0), COALESCE(cache_size_limit_mb, 500), COALESCE(library_size_limit, 10000),
             COALESCE(send_analytics, 0), COALESCE(send_crash_reports, 0), COALESCE(debug_logging, 0),
             COALESCE(enable_cloud_sync, 0), COALESCE(enable_notifications, 1),
-            COALESCE(prowlarr_enabled, 0), COALESCE(prowlarr_url, ''), COALESCE(prowlarr_api_key, ''), COALESCE(prowlarr_categories, '[7000,8000]')
+            COALESCE(prowlarr_enabled, 0), COALESCE(prowlarr_url, ''), COALESCE(prowlarr_api_key, ''), COALESCE(prowlarr_categories, '[7000,8000]'),
+            COALESCE(discord_rpc_enabled, 1),
+            COALESCE(auto_export_annotations, 0), COALESCE(annotations_export_path, ''), COALESCE(annotations_export_format, 'markdown')
         FROM user_preferences WHERE id = 1",
         [],
         |row| {
@@ -899,6 +933,10 @@ pub async fn get_startup_data(state: State<'_, AppState>) -> Result<StartupData>
                 prowlarr_url: row.get(45).unwrap_or_default(),
                 prowlarr_api_key: row.get(46).unwrap_or_default(),
                 prowlarr_categories: row.get(47).unwrap_or_else(|_| "[7000,8000]".to_string()),
+                discord_rpc_enabled: row.get::<_, bool>(48).unwrap_or(true),
+                auto_export_annotations: row.get::<_, bool>(49).unwrap_or(false),
+                annotations_export_path: row.get(50).unwrap_or_default(),
+                annotations_export_format: row.get(51).unwrap_or_else(|_| "markdown".to_string()),
             })
         },
     )?;

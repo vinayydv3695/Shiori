@@ -153,8 +153,8 @@ export function AdvancedFilterDialog({ open, onOpenChange }: AdvancedFilterDialo
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-2xl w-[640px] max-w-[95vw] max-h-[90vh] flex flex-col z-50">
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
+        <Dialog.Content className="dialog-content fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-2xl w-[640px] max-w-[95vw] max-h-[90vh] flex flex-col z-50">
           <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
             <Dialog.Title className="flex items-center gap-2 text-lg font-semibold text-foreground">
               <Filter size={18} />

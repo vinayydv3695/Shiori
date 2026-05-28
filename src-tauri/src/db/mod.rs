@@ -21,7 +21,7 @@ impl Database {
             c.execute_batch("PRAGMA temp_store = MEMORY")?;
             c.execute_batch("PRAGMA mmap_size = 3000000000")?;
             // Avoid SQLITE_BUSY under concurrent access
-            c.execute_batch("PRAGMA busy_timeout = 5000")?;
+            c.busy_timeout(std::time::Duration::from_millis(5000))?;
             Ok(())
         });
 

@@ -6,7 +6,7 @@ import { useLibraryStore } from '@/store/libraryStore';
 import { logger } from '@/lib/logger';
 
 /** Formats that should open directly without conversion prompt */
-const DIRECT_OPEN_FORMATS = new Set(['epub', 'cbz', 'cbr']);
+const DIRECT_OPEN_FORMATS = new Set(['epub', 'cbz', 'cbr', 'zip', 'rar']);
 
 /** Formats that can be converted to EPUB */
 const CONVERTIBLE_FORMATS = new Set(['mobi', 'azw3', 'pdf', 'txt', 'docx', 'fb2', 'html']);

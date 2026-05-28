@@ -13,6 +13,7 @@
 
 import { useState, useEffect, useRef, memo } from 'react'
 import { Heart, Info } from 'lucide-react'
+import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import type { Book } from '@/lib/tauri'
 import {
@@ -48,7 +49,7 @@ const FormatPill = ({ format }: { format?: string }) => {
   const cls = fmtColors[fmt] ?? 'bg-muted text-muted-foreground'
   return (
     <span className={cn(
-      'px-2 py-1 text-[11px] font-bold rounded tracking-wide shadow-md',
+      'px-2 py-[3px] text-[10px] font-bold rounded-full tracking-wide shadow-md backdrop-blur-md',
       isManga && 'ring-2 ring-white/30',
       cls
     )}>
@@ -80,10 +81,10 @@ const HoverOverlay = ({ onOpen, onViewDetails, onEdit, onDelete, onConvert, isMa
   return (
     <div
       className={cn(
-        'absolute inset-0 flex flex-col items-center justify-center gap-1.5',
-        'bg-black/50 backdrop-blur-[2px]',
+        'absolute inset-0 flex flex-col items-center justify-center gap-2',
+        'bg-black/60 backdrop-blur-md',
         'opacity-0 group-hover:opacity-100',
-        'transition-opacity duration-[150ms]',
+        'transition-opacity duration-[200ms] ease-out',
         'rounded-t-[inherit]',
       )}
     >
@@ -186,32 +187,75 @@ export const PremiumBookCard = memo(function PremiumBookCard({
 
   const authorStr = book.authors?.map((a) => a.name).join(', ') || 'Unknown Author'
 
+  // ── 3D Tilt Effect ──
+  const x = useMotionValue(0.5)
+  const y = useMotionValue(0.5)
+  const springConfig = { damping: 20, stiffness: 150, mass: 0.5 }
+  const rotateX = useSpring(useTransform(y, [0, 1], [10, -10]), springConfig)
+  const rotateY = useSpring(useTransform(x, [0, 1], [-10, 10]), springConfig)
+  const glareOpacity = useSpring(useTransform(y, [0, 1], [0, 0.3]), springConfig)
+  const glareY = useTransform(y, [0, 1], [-50, 50])
+  const glareX = useTransform(x, [0, 1], [-50, 50])
+  
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return
+    const rect = cardRef.current.getBoundingClientRect()
+    const mouseX = e.clientX - rect.left
+    const mouseY = e.clientY - rect.top
+    x.set(mouseX / rect.width)
+    y.set(mouseY / rect.height)
+  }
+
+  const handleMouseLeave = () => {
+    x.set(0.5)
+    y.set(0.5)
+  }
+
   return (
         <>
       <ContextMenu.Root>
         <ContextMenu.Trigger asChild>
-          <div
+          <motion.div
             ref={cardRef}
       data-cover-size={coverSize}
       onClick={handleClick}
-      style={{ animationDelay: `${animationDelay}ms` }}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      style={{ 
+        animationDelay: `${animationDelay}ms`,
+        rotateX,
+        rotateY,
+        transformPerspective: 800,
+        transformStyle: "preserve-3d"
+      }}
       className={cn(
-        'group relative flex flex-col rounded-md overflow-hidden',
-        'bg-card border border-border',
+        'group relative flex flex-col rounded-xl overflow-hidden',
+        'bg-card/90 backdrop-blur-lg border border-border/40',
         'cursor-pointer select-none',
-        'transition-all duration-[150ms]',
-        !visible && 'opacity-0',
+        'transition-all duration-[250ms] cubic-bezier(0.25, 0.8, 0.25, 1)',
+        !visible && 'opacity-0 scale-95',
         visible && 'animate-card-in',
         isSelected
-          ? 'ring-2 ring-primary border-primary shadow-md'
-          : 'hover:border-border/80 hover:shadow-md hover:-translate-y-px',
-        isManga && 'border-[var(--manga-accent)]/20',
+          ? 'ring-2 ring-primary border-primary shadow-[0_8px_20px_rgba(0,0,0,0.15)]'
+          : 'hover:border-primary/50 hover:shadow-[0_12px_24px_rgba(0,0,0,0.15)] hover:-translate-y-1',
+        isManga && 'border-[var(--manga-accent)]/30 hover:border-[var(--manga-accent)]/60',
       )}
     >
       {/* ── Cover Area (2:3 ratio) ── */}
       <div className="relative aspect-[2/3] bg-muted overflow-hidden">
         {/* Skeleton */}
         {(coverLoading || !imgLoaded) && !imgError && <CoverSkeleton />}
+
+        {/* Glare overlay */}
+        <motion.div 
+          className="absolute inset-0 z-20 pointer-events-none"
+          style={{
+            opacity: glareOpacity,
+            background: 'linear-gradient(105deg, transparent 20%, rgba(255,255,255,0.4) 25%, transparent 30%)',
+            x: glareX,
+            y: glareY,
+          }}
+        />
 
         {/* Cover image */}
         {coverUrl && !imgError && (
@@ -305,10 +349,10 @@ export const PremiumBookCard = memo(function PremiumBookCard({
       )}>
         <h3
           className={cn(
-            'font-semibold leading-tight text-foreground line-clamp-1',
+            'font-bold leading-tight text-foreground line-clamp-1',
             coverSize === 'small' && 'text-[10px]',
-            coverSize === 'medium' && 'text-[11px]',
-            coverSize === 'large' && 'text-xs',
+            coverSize === 'medium' && 'text-[12px]',
+            coverSize === 'large' && 'text-[13px]',
           )}
           title={book.title}
         >
@@ -326,7 +370,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
           {authorStr}
         </p>
       </div>
-          </div>
+          </motion.div>
         </ContextMenu.Trigger>
         <ContextMenu.Portal>
           <ContextMenu.Content className="min-w-[160px] bg-background border border-border rounded-md shadow-md p-1 z-50 text-sm">

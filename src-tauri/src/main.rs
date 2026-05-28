@@ -1,6 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod cloudflare;
 mod commands;
 mod torbox;
 mod conversion;
@@ -35,6 +36,7 @@ pub struct AppState {
     db: db::Database,
     covers_dir: std::path::PathBuf,
     pub plugin_registry: Arc<tokio::sync::RwLock<sources::registry::SourceRegistry>>,
+    pub discord: Option<services::discord_service::DiscordService>,
 }
 
 pub struct MetadataState {
@@ -79,7 +81,8 @@ fn main() {
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_store::Builder::new().build());
+        .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_shell::init());
     
     #[cfg(feature = "native-tts")]
     {
@@ -108,36 +111,21 @@ fn main() {
 
             let mut registry = sources::registry::SourceRegistry::new();
             registry.register(Arc::new(sources::mangadex::MangaDexSource::new()?));
-            // Nyaa is torrent-only — registered as a books-domain source so it
-            // shows in Online Books (Torbox workflow), not Online Manga reader.
             registry.register(Arc::new(sources::nyaa::NyaaSource::new()?));
-            // ToonGod stored as concrete Arc so we can set/get CF config
+            // Torbox books removed per requirement.
             let toongod_source = Arc::new(sources::toongod::ToonGodSource::new()?);
             registry.register(toongod_source.clone() as Arc<dyn sources::Source>);
-            // Configurable sources -- each kept as a concrete Arc so we can call
-            // load_config_from_store() in the async spawn below, while also being
-            // coerced to Arc<dyn Source> for the registry (no blocking block_on).
-            let bitsearch_source = Arc::new(sources::bitsearch::BitsearchSource::new()?);
-            registry.register(bitsearch_source.clone() as Arc<dyn sources::Source>);
-            let x1337_source = Arc::new(sources::x1337::X1337Source::new()?);
-            registry.register(x1337_source.clone() as Arc<dyn sources::Source>);
-            let tpb_api_source = Arc::new(sources::tpb_api::TpbApiSource::new()?);
-            registry.register(tpb_api_source.clone() as Arc<dyn sources::Source>);
-            let rutracker_source = Arc::new(sources::rutracker::RutrackerSource::new()?);
-            registry.register(rutracker_source.clone() as Arc<dyn sources::Source>);
-            let anna_source = Arc::new(sources::annas_archive::AnnasArchiveSource::new()?);
-            registry.register(anna_source.clone() as Arc<dyn sources::Source>);
+            // Weebrook (freeonlinek.top) — Madara-theme manhwa sources
+            registry.register(Arc::new(sources::weebrook::WeebrookManhwaSource::new()?));
+            // Anna's Archive for book search and download
+            registry.register(Arc::new(sources::annas_archive::AnnasArchiveSource::new()?));
 
             // Load source configs from the Tauri store in the background so the UI
             // appears immediately. Sources use defaults until async hydration completes.
             let app_handle_for_sources = app.handle().clone();
             let toongod_for_config = toongod_source.clone();
             tauri::async_runtime::spawn(async move {
-                let _ = bitsearch_source.load_config_from_store(&app_handle_for_sources).await;
-                let _ = x1337_source.load_config_from_store(&app_handle_for_sources).await;
-                let _ = tpb_api_source.load_config_from_store(&app_handle_for_sources).await;
-                let _ = rutracker_source.load_config_from_store(&app_handle_for_sources).await;
-                let _ = anna_source.load_config_from_store(&app_handle_for_sources).await;
+
 
                 // Load ToonGod Cloudflare bypass config
                 {
@@ -161,10 +149,34 @@ fn main() {
 
             let plugin_registry = Arc::new(tokio::sync::RwLock::new(registry));
 
+            // Initialize Discord RPC Service (Placeholder App ID)
+            let discord_service = services::discord_service::DiscordService::new("1342618239081578647");
+            
+            // Cloudflare session state
+            let cf_sessions_dir = app_dir.join("cloudflare_sessions");
+            let cf_store = cloudflare::session::SessionStore::new(&cf_sessions_dir)
+                .map_err(|e| ShioriError::Other(format!("Failed to init CF session store: {}", e)))?;
+            let cf_state = cloudflare::commands::CloudflareState { store: cf_store.clone() };
+            app.manage(cf_state);
+
+            // Wire the CfClient to ToonGod source so it can auto-solve challenges.
+            let toongod_for_cf = toongod_source.clone();
+            let cf_store_for_toongod = cf_store.clone();
+            tauri::async_runtime::spawn(async move {
+                match cloudflare::client::CfClient::new("https://www.toongod.org", cf_store_for_toongod) {
+                    Ok(cf_client) => {
+                        toongod_for_cf.set_cf_client(std::sync::Arc::new(cf_client)).await;
+                        log::info!("ToonGod: CfClient attached (automatic Playwright solver active)");
+                    }
+                    Err(e) => log::warn!("ToonGod: Failed to build CfClient: {}", e),
+                }
+            });
+
             app.manage(AppState {
                 db: database.clone(),
                 covers_dir: covers_dir.clone(),
                 plugin_registry,
+                discord: Some(discord_service),
             });
 
             // Initialize Torbox service.
@@ -286,6 +298,7 @@ fn main() {
             commands::library::import_books,
             commands::library::scan_folder_for_books,
             commands::library::import_manga,
+            commands::library::download_gutenberg_epub,
             commands::library::scan_folder_for_manga,
             commands::library::import_comics,
             commands::library::scan_folder_for_comics,
@@ -448,6 +461,11 @@ fn main() {
             // File write command
             commands::export::write_text_to_file,
             // Translation/dictionary commands
+            // Discord commands
+            commands::discord::discord_connect,
+            commands::discord::discord_disconnect,
+            commands::discord::discord_set_activity,
+            commands::discord::discord_clear_activity,
             commands::translation::dictionary_lookup,
             commands::translation::translate_text,
             // Folder watch commands
@@ -461,20 +479,12 @@ fn main() {
             commands::sources::list_sources_by_type,
             commands::sources::plugin_search,
             commands::sources::plugin_search_with_meta,
+            commands::sources::search_manga_sources,
             commands::sources::plugin_browse,
             commands::sources::plugin_get_chapters,
             commands::sources::plugin_get_pages,
             commands::sources::plugin_download_chapter,
             commands::sources::set_source_config,
-            commands::sources::anna_archive_get_config,
-            commands::sources::anna_archive_set_config,
-            commands::sources::torrent_network_get_config,
-            commands::sources::torrent_network_set_config,
-            commands::sources::rutracker_get_config,
-            commands::sources::rutracker_set_config,
-            commands::sources::annas_archive_download,
-            commands::sources::annas_archive_get_torrent_links,
-            commands::sources::annas_archive_send_to_torbox,
             commands::sources::proxy_manga_image,
             commands::sources::toongod_get_config,
             commands::sources::toongod_set_config,
@@ -501,6 +511,13 @@ fn main() {
             commands::prowlarr::test_prowlarr_connection,
             commands::prowlarr::search_prowlarr,
             commands::prowlarr::grab_prowlarr_release,
+            // Cloudflare session commands
+            cloudflare::commands::cf_session_status,
+            cloudflare::commands::cf_solve,
+            cloudflare::commands::cf_invalidate_session,
+            cloudflare::commands::cf_clear_all_sessions,
+            cloudflare::commands::cf_list_sessions,
+            cloudflare::commands::cf_proxy_image,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

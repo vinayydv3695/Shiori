@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { motion } from 'framer-motion';
-import { X, FolderOpen, File, Upload, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { X, FolderOpen, File, Upload, Loader2, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { api, ImportResult } from '../../lib/tauri';
 import { logger } from '@/lib/logger';
 import { useToast } from '../../store/toastStore';
@@ -154,23 +154,20 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
   };
 
   const handleSuggestionsComplete = () => {
-    setShowSuggestions(false);
-    setTimeout(() => {
-      handleClose();
-    }, 500);
+    handleClose();
   };
 
   return (
     <>
       <Dialog.Root open={open} onOpenChange={handleClose}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card/40 backdrop-blur-2xl border border-border/50 rounded-[2rem] shadow-2xl w-[600px] max-h-[90vh] overflow-y-auto z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-500 custom-scrollbar">
-            <div className="sticky top-0 bg-transparent backdrop-blur-xl border-b border-border/50 px-6 py-5 z-10">
+          <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-background/80 backdrop-blur-sm z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+          <Dialog.Content className="dialog-content fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background/80 backdrop-blur-3xl border border-border rounded-[1.5rem] shadow-2xl w-[600px] max-h-[90vh] overflow-y-auto z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-300 custom-scrollbar outline-none">
+            <div className="sticky top-0 bg-transparent backdrop-blur-xl border-b border-border px-6 py-5 z-10">
               <div className="flex items-center justify-between">
                 <Dialog.Title className="text-3xl font-black tracking-tight text-foreground">Import Books, Manga & Comics</Dialog.Title>
                 <Dialog.Close asChild>
-                 <button className="p-2.5 bg-card/40 hover:bg-card/80 border border-border/50 rounded-2xl transition-all duration-300 text-muted-foreground hover:text-foreground" title="Close">
+                 <button className="p-2.5 bg-secondary hover:bg-secondary/80 border border-transparent rounded-xl transition-all duration-200 text-muted-foreground hover:text-foreground" title="Close">
                      <X className="w-5 h-5" />
                    </button>
                 </Dialog.Close>
@@ -182,7 +179,7 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
                 <motion.div 
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="space-y-8"
+                  className="space-y-6"
                 >
                   <div className="flex gap-4">
                     <button
@@ -190,19 +187,18 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
                         setMode('folder');
                         setSelectedPath('');
                       }}
-                      className={`group flex-1 flex flex-col items-center text-center gap-6 px-6 py-10 rounded-3xl border transition-all duration-500 relative overflow-hidden ${
+                      className={`group flex-1 flex flex-col items-center text-center gap-4 px-6 py-8 rounded-[1.5rem] border transition-all duration-300 relative overflow-hidden ${
                         mode === 'folder'
-                          ? 'border-emerald-500/50 bg-emerald-500/10 shadow-[0_0_30px_rgba(16,185,129,0.15)]'
-                          : 'border-border/50 bg-card/40 backdrop-blur-md hover:border-emerald-500/50 hover:bg-card/60'
+                          ? 'border-primary ring-1 ring-primary/50 bg-primary/5 shadow-md'
+                          : 'border-border bg-card/30 hover:bg-card/60 hover:border-border/80'
                       }`}
                     >
-                      <div className={`absolute top-0 right-0 w-32 h-32 opacity-20 bg-gradient-to-bl from-emerald-500 to-transparent rounded-bl-full -z-10 transition-transform duration-700 ${mode === 'folder' ? 'scale-150' : 'group-hover:scale-150'}`} />
-                      <div className={`p-5 rounded-2xl shadow-sm transition-transform duration-500 ${mode === 'folder' ? 'bg-background/80 scale-110 text-emerald-500' : 'bg-background/50 text-muted-foreground group-hover:text-emerald-500 group-hover:scale-110'}`}>
-                        <FolderOpen className="w-10 h-10" />
+                      <div className={`p-4 rounded-full transition-transform duration-300 ${mode === 'folder' ? 'bg-primary/20 text-primary scale-110' : 'bg-secondary text-muted-foreground group-hover:text-foreground group-hover:scale-105'}`}>
+                        <FolderOpen className="w-8 h-8" />
                       </div>
-                      <div className="space-y-2">
-                        <h3 className="text-xl font-bold text-foreground">Scan Folder</h3>
-                        <p className="text-sm text-muted-foreground leading-relaxed">
+                      <div className="space-y-1">
+                        <h3 className="text-lg font-bold text-foreground tracking-tight">Scan Folder</h3>
+                        <p className="text-sm text-muted-foreground">
                           Recursively scan a folder for eBooks, Manga & Comics
                         </p>
                       </div>
@@ -212,73 +208,71 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
                         setMode('files');
                         setSelectedPath('');
                       }}
-                      className={`group flex-1 flex flex-col items-center text-center gap-6 px-6 py-10 rounded-3xl border transition-all duration-500 relative overflow-hidden ${
+                      className={`group flex-1 flex flex-col items-center text-center gap-4 px-6 py-8 rounded-[1.5rem] border transition-all duration-300 relative overflow-hidden ${
                         mode === 'files'
-                          ? 'border-blue-500/50 bg-blue-500/10 shadow-[0_0_30px_rgba(59,130,246,0.15)]'
-                          : 'border-border/50 bg-card/40 backdrop-blur-md hover:border-blue-500/50 hover:bg-card/60'
+                          ? 'border-primary ring-1 ring-primary/50 bg-primary/5 shadow-md'
+                          : 'border-border bg-card/30 hover:bg-card/60 hover:border-border/80'
                       }`}
                     >
-                      <div className={`absolute top-0 right-0 w-32 h-32 opacity-20 bg-gradient-to-bl from-blue-500 to-transparent rounded-bl-full -z-10 transition-transform duration-700 ${mode === 'files' ? 'scale-150' : 'group-hover:scale-150'}`} />
-                      <div className={`p-5 rounded-2xl shadow-sm transition-transform duration-500 ${mode === 'files' ? 'bg-background/80 scale-110 text-blue-500' : 'bg-background/50 text-muted-foreground group-hover:text-blue-500 group-hover:scale-110'}`}>
-                        <File className="w-10 h-10" />
+                      <div className={`p-4 rounded-full transition-transform duration-300 ${mode === 'files' ? 'bg-primary/20 text-primary scale-110' : 'bg-secondary text-muted-foreground group-hover:text-foreground group-hover:scale-105'}`}>
+                        <File className="w-8 h-8" />
                       </div>
-                      <div className="space-y-2">
-                        <h3 className="text-xl font-bold text-foreground">Select Files</h3>
-                        <p className="text-sm text-muted-foreground leading-relaxed">
+                      <div className="space-y-1">
+                        <h3 className="text-lg font-bold text-foreground tracking-tight">Select Files</h3>
+                        <p className="text-sm text-muted-foreground">
                           Choose individual eBook, Manga, or Comic files
                         </p>
                       </div>
                     </button>
                   </div>
 
-                  <div className="space-y-3">
-                    <label className="block text-sm font-semibold text-foreground tracking-tight">
+                  <div className="space-y-2.5">
+                    <label className="block text-sm font-semibold text-foreground">
                       {mode === 'folder' ? 'Folder Path' : 'Selected Files'}
                     </label>
                     <div className="flex gap-3">
-                      <div className="flex-1 relative group">
-                        <div className="absolute inset-0 bg-primary/5 blur-md rounded-2xl group-hover:bg-primary/10 transition-colors" />
+                      <div className="flex-1">
                         <input
                           type="text"
                           value={selectedPath}
                           readOnly
                           placeholder={mode === 'folder' ? 'No folder selected' : 'No files selected'}
-                          className="relative w-full px-5 py-4 border border-border/50 rounded-2xl bg-card/40 backdrop-blur-md text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary/50 outline-none transition-all shadow-sm"
+                          className="w-full px-4 py-3 border border-border rounded-xl bg-secondary/30 text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary/50 outline-none transition-all"
                         />
                       </div>
                       <button
                         onClick={mode === 'folder' ? handleSelectFolder : handleSelectFiles}
-                        className="px-8 py-4 bg-card/40 hover:bg-card/80 text-foreground border border-border/50 rounded-2xl transition-all duration-300 font-medium whitespace-nowrap shadow-sm hover:shadow backdrop-blur-md hover:border-primary/30"
+                        className="px-6 py-3 bg-secondary hover:bg-secondary/80 text-secondary-foreground border border-border rounded-xl transition-all duration-200 font-medium whitespace-nowrap"
                       >
                         Browse...
                       </button>
                     </div>
                   </div>
 
-                  <div className="bg-card/40 backdrop-blur-md border border-border/50 rounded-2xl p-6 flex items-start gap-5 group hover:border-primary/30 transition-colors duration-500">
-                    <div className="p-3 bg-background/50 rounded-xl text-primary mt-0.5 shadow-sm group-hover:scale-110 transition-transform duration-500">
-                      <Loader2 className="w-6 h-6" />
+                  <div className="bg-secondary/20 border border-border rounded-xl p-5 flex items-start gap-4">
+                    <div className="p-2 bg-secondary rounded-lg text-muted-foreground">
+                      <Info className="w-5 h-5" />
                     </div>
-                    <div className="space-y-1.5">
-                      <h4 className="text-base font-bold text-foreground tracking-tight">Supported Formats</h4>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-semibold text-foreground">Supported Formats</h4>
+                      <p className="text-sm text-muted-foreground">
                         EPUB, PDF, MOBI, AZW3, TXT, FB2, DJVU, CBZ, CBR
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex justify-end gap-3 pt-8 border-t border-border/50">
+                  <div className="flex justify-end gap-3 pt-6 border-t border-border mt-2">
                     <Dialog.Close asChild>
-                      <button className="px-6 py-3 bg-card/40 backdrop-blur-md border border-border/50 rounded-2xl hover:bg-card/80 transition-all duration-300 font-medium text-muted-foreground hover:text-foreground">
+                      <button className="px-5 py-2.5 bg-transparent hover:bg-secondary border border-transparent hover:border-border rounded-xl transition-all duration-200 font-medium text-muted-foreground hover:text-foreground">
                         Cancel
                       </button>
                     </Dialog.Close>
                     <button
                       onClick={handleImport}
                       disabled={!selectedPath}
-                      className="px-8 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:bg-emerald-500/30 disabled:text-white/50 disabled:cursor-not-allowed text-white rounded-2xl shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:shadow-[0_0_30px_rgba(16,185,129,0.4)] transition-all duration-300 flex items-center gap-2 font-bold"
+                      className="px-6 py-2.5 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground rounded-xl shadow-sm transition-all duration-200 flex items-center gap-2 font-semibold"
                     >
-                      <Upload className="w-5 h-5" />
+                      <Upload className="w-4 h-4" />
                       Start Import
                     </button>
                   </div>

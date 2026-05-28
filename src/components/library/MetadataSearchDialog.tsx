@@ -577,8 +577,8 @@ export const MetadataSearchDialog = ({
     return (
       <Dialog.Root open={open} onOpenChange={onOpenChange}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-2xl w-[90vw] max-w-5xl max-h-[85vh] z-50 flex flex-col overflow-hidden">
+          <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
+          <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-2xl w-[90vw] max-w-5xl max-h-[85vh] z-50 flex flex-col overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b border-border bg-muted/30">
               <div className="flex flex-col">
                 <Dialog.Title className="text-xl font-bold text-foreground">
@@ -734,8 +734,8 @@ export const MetadataSearchDialog = ({
     <>
       <Dialog.Root open={open} onOpenChange={onOpenChange}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-lg shadow-lg w-[90vw] max-w-3xl max-h-[85vh] z-50 flex flex-col">
+          <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
+          <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-lg shadow-lg w-[90vw] max-w-3xl max-h-[85vh] z-50 flex flex-col">
             <div className="flex items-center justify-between p-6 border-b border-border flex-shrink-0">
               <Dialog.Title className="text-lg font-semibold text-foreground">
                 Fetch Metadata from {isManga ? 'AniList' : 'Open Library'}
@@ -857,8 +857,8 @@ export const MetadataSearchDialog = ({
       {/* Preview Modal for Single Mode */}
       <Dialog.Root open={previewModalOpen} onOpenChange={handleClosePreview}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-md z-[60] animate-in fade-in" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-2xl w-[95vw] max-w-4xl max-h-[90vh] z-[60] flex flex-col overflow-hidden">
+          <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/60 backdrop-blur-md z-[60] animate-in fade-in" />
+          <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-2xl w-[95vw] max-w-4xl max-h-[90vh] z-[60] flex flex-col overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b border-border bg-muted/10">
               <Dialog.Title className="text-xl font-bold tracking-tight text-foreground">Review Metadata & Cover</Dialog.Title>
                <Dialog.Close asChild>

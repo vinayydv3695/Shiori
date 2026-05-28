@@ -123,9 +123,9 @@ export const BookDetailsDialog = ({
     return (
       <Dialog.Root open={open} onOpenChange={onOpenChange}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-lg shadow-lg w-[90vw] max-w-4xl max-h-[85vh] overflow-y-auto z-50">
-            <div className="flex items-center justify-center p-12">
+          <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
+          <Dialog.Content className="dialog-content fixed right-0 top-0 bottom-0 bg-background border-l border-border shadow-2xl w-[90vw] max-w-xl overflow-y-auto z-50 flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right duration-300">
+            <div className="flex items-center justify-center flex-1">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             </div>
           </Dialog.Content>
@@ -137,33 +137,33 @@ export const BookDetailsDialog = ({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-lg shadow-lg w-[90vw] max-w-4xl max-h-[85vh] overflow-y-auto z-50">
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
+        <Dialog.Content className="dialog-content fixed right-0 top-0 bottom-0 bg-background border-l border-border shadow-2xl w-[90vw] max-w-2xl overflow-y-auto z-50 flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right duration-300">
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-border sticky top-0 bg-background z-10">
-            <Dialog.Title className="text-lg font-semibold text-foreground">
+          <div className="flex items-center justify-between p-6 border-b border-border sticky top-0 bg-background/80 backdrop-blur-md z-10">
+            <Dialog.Title className="text-xl font-semibold text-foreground tracking-tight">
               Book Details
             </Dialog.Title>
              <Dialog.Close asChild>
-               <button className="text-muted-foreground hover:text-foreground transition-colors" title="Close">
+               <button className="text-muted-foreground hover:bg-muted p-2 rounded-full transition-colors" title="Close">
                  <X className="h-5 w-5" />
                </button>
              </Dialog.Close>
           </div>
 
           {/* Content */}
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="flex-1 p-6 overflow-y-auto">
+            <div className="flex flex-col md:flex-row gap-8">
               {/* Cover Image */}
-              <div className="md:col-span-1">
-                <div className="aspect-[2/3] bg-muted rounded-lg overflow-hidden border border-border">
+              <div className="w-full md:w-1/3 shrink-0">
+                <div className="aspect-[2/3] bg-muted rounded-xl overflow-hidden border border-border/50 shadow-lg sticky top-6">
                    {coverSrc ? (
                      <img
                        src={coverSrc}
                        alt={book.title}
                        loading="lazy"
                        decoding="async"
-                        className="w-full h-full object-contain bg-muted"
+                        className="w-full h-full object-cover"
                      />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
@@ -174,10 +174,10 @@ export const BookDetailsDialog = ({
               </div>
 
               {/* Book Information */}
-              <div className="md:col-span-2 space-y-6">
+              <div className="flex-1 space-y-8">
                 {/* Title and Authors */}
-                <div>
-                  <h2 className="text-2xl font-bold text-foreground mb-2">{book.title}</h2>
+                <div className="space-y-2">
+                  <h2 className="text-3xl font-bold text-foreground leading-tight tracking-tight">{book.title}</h2>
                   {book.authors && book.authors.length > 0 && (
                     <p className="text-lg text-muted-foreground">
                       by {book.authors.map(a => a.name).join(', ')}
@@ -347,7 +347,7 @@ export const BookDetailsDialog = ({
           </div>
 
           {/* Footer Actions */}
-          <div className="flex items-center justify-between gap-3 p-6 border-t border-border bg-muted/30">
+          <div className="flex items-center justify-between gap-3 p-6 border-t border-border bg-background sticky bottom-0 z-10">
             <div className="flex items-center gap-2 mr-auto">
               <Button
                   variant="outline"

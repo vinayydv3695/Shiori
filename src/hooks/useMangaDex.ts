@@ -121,14 +121,14 @@ export function useMangaDex() {
     }
   };
 
-  const getChapters = async (mangaId: string, limit: number = 100): Promise<MangaDexChapter[]> => {
+  const getChapters = async (mangaId: string): Promise<MangaDexChapter[]> => {
     setLoading(true);
     setError(null);
 
     try {
-      logger.info('MangaDex chapters via plugin:', { mangaId, limit });
+      logger.info('MangaDex chapters via plugin:', { mangaId });
       const chapterList = await pluginApi.getChapters('mangadex', mangaId);
-      return parsePluginChapters(chapterList).slice(0, limit);
+      return parsePluginChapters(chapterList);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to get chapters';
       logger.error('MangaDex chapters failed:', err);

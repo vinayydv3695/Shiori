@@ -81,32 +81,15 @@ export const CommandPalette = ({
 
   return (
     <>
-      {/* Trigger button (optional - can also just use keyboard shortcut) */}
-      <button
-        onClick={() => setOpen(true)}
-        className={cn(
-          'flex items-center gap-2 px-3 py-1.5 rounded-lg',
-          'border border-border bg-background',
-          'hover:bg-accent transition-colors',
-          'text-sm text-muted-foreground'
-        )}
-      >
-        <Search className="w-4 h-4" />
-        <span className="hidden sm:inline">Search...</span>
-        <kbd className="hidden md:inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100">
-          <span className="text-xs">⌘</span>K
-        </kbd>
-      </button>
-
-      {/* Command Palette Dialog */}
       <Command.Dialog
         open={open}
         onOpenChange={setOpen}
         label="Command Palette"
         className={cn(
           'fixed top-[20%] left-1/2 -translate-x-1/2 z-50',
-          'w-full max-w-2xl rounded-lg border bg-popover shadow-lg',
-          'overflow-hidden'
+          'w-full max-w-2xl rounded-xl border border-border bg-background/95 backdrop-blur-xl shadow-2xl',
+          'overflow-hidden transition-all',
+          'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200'
         )}
       >
         <div className="flex items-center border-b px-3">
@@ -304,7 +287,7 @@ export const CommandPalette = ({
       {/* Backdrop */}
       {open && (
         <div
-          className="fixed inset-0 bg-black/50 z-40"
+          className="fixed inset-0 bg-background/60 backdrop-blur-md z-40 animate-in fade-in duration-200"
           onClick={() => setOpen(false)}
         />
       )}

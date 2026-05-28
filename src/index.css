@@ -137,36 +137,41 @@
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    translate: 0 8px;
   }
 
   to {
     opacity: 1;
-    transform: translateY(0);
+    translate: 0 0;
   }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 @keyframes slideDown {
   from {
     opacity: 0;
-    transform: translateY(-6px);
+    translate: 0 -6px;
   }
 
   to {
     opacity: 1;
-    transform: translateY(0);
+    translate: 0 0;
   }
 }
 
 @keyframes scaleIn {
   from {
     opacity: 0;
-    transform: scale(0.96);
+    scale: 0.96;
   }
 
   to {
     opacity: 1;
-    transform: scale(1);
+    scale: 1;
   }
 }
 
@@ -183,12 +188,14 @@
 @keyframes cardEntrance {
   from {
     opacity: 0;
-    transform: translateY(6px) scale(0.98);
+    translate: 0 6px;
+    scale: 0.98;
   }
 
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    translate: 0 0;
+    scale: 1;
   }
 }
 
@@ -212,14 +219,37 @@
   animation: cardEntrance var(--duration-slow) var(--ease-decelerate) both;
 }
 
+/* ==================== RADIX UI ANIMATIONS ==================== */
+[data-state="open"] > .dialog-overlay,
+.dialog-overlay[data-state="open"] {
+  animation: fadeIn var(--duration-base) var(--ease-standard) forwards;
+}
+
+[data-state="closed"] > .dialog-overlay,
+.dialog-overlay[data-state="closed"] {
+  animation: fadeOut var(--duration-fast) var(--ease-standard) forwards;
+}
+
+[data-state="open"] > .dialog-content,
+.dialog-content[data-state="open"] {
+  animation: scaleIn var(--duration-base) var(--ease-spring) forwards;
+}
+
+[data-state="closed"] > .dialog-content,
+.dialog-content[data-state="closed"] {
+  animation: scaleIn var(--duration-fast) var(--ease-standard) reverse forwards;
+}
+
 /* ==================== SHIMMER (skeleton loader) ==================== */
 .shimmer {
-  background: linear-gradient(90deg,
-      hsl(var(--muted)) 25%,
-      hsl(var(--muted-foreground) / 0.08) 50%,
-      hsl(var(--muted)) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.6s ease-in-out infinite;
+  background: linear-gradient(
+    110deg,
+    hsl(var(--muted)) 30%,
+    hsl(var(--muted-foreground) / 0.15) 50%,
+    hsl(var(--muted)) 70%
+  );
+  background-size: 250% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
 }
 
 /* ==================== UTILITIES ==================== */
@@ -289,6 +319,6 @@
 }
 
 .hover-lift:hover {
-  transform: translateY(-2px);
+  translate: 0 -2px;
   box-shadow: var(--shadow-md);
 }

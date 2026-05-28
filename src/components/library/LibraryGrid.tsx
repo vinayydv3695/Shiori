@@ -13,6 +13,7 @@
  */
 
 import { useMemo, useRef, useEffect, useState, useCallback } from 'react'
+import { motion } from 'framer-motion'
 import type { Book } from '@/lib/tauri'
 import { api } from '@/lib/tauri'
 import { PremiumBookCard } from './ModernBookCard'
@@ -55,17 +56,30 @@ interface EmptyStateProps {
 const EmptyState = ({ domain, hasFilters, onImport }: EmptyStateProps) => {
   const isMangaComics = domain === 'manga_comics'
 
+  const iconVariants = {
+    initial: { y: 0 },
+    animate: {
+      y: [-8, 8, -8],
+      transition: { duration: 6, repeat: Infinity, ease: "easeInOut" }
+    }
+  }
+
   if (hasFilters) {
     return (
       <div className="flex flex-col items-center justify-center h-full py-20 text-center gap-3">
-        <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center">
+        <motion.div 
+          variants={iconVariants as any}
+          initial="initial"
+          animate="animate"
+          className="w-14 h-14 rounded-2xl bg-muted/80 backdrop-blur-sm border border-border/50 shadow-sm flex items-center justify-center"
+        >
           {isMangaComics ? (
-            <IconManga size={28} className="text-muted-foreground/40" />
+            <IconManga size={28} className="text-muted-foreground/60" />
           ) : (
-            <IconBookOpen size={28} className="text-muted-foreground/40" />
+            <IconBookOpen size={28} className="text-muted-foreground/60" />
           )}
-        </div>
-        <div>
+        </motion.div>
+        <div className="mt-2">
           <p className="text-sm font-semibold text-foreground">No results</p>
           <p className="text-xs text-muted-foreground mt-1">Try clearing your filters</p>
         </div>
@@ -75,18 +89,24 @@ const EmptyState = ({ domain, hasFilters, onImport }: EmptyStateProps) => {
 
   return (
     <div className="flex flex-col items-center justify-center h-full py-20 text-center gap-4 px-8">
-      <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
+      <motion.div 
+        variants={iconVariants as any}
+        initial="initial"
+        animate="animate"
+        className="w-16 h-16 rounded-2xl bg-primary/5 border border-primary/20 shadow-inner flex items-center justify-center relative"
+      >
+        <div className="absolute inset-0 bg-primary/10 rounded-2xl blur-xl" />
         {isMangaComics ? (
-          <IconManga size={32} className="text-muted-foreground/35" />
+          <IconManga size={32} className="text-primary/70 relative z-10" />
         ) : (
-          <IconBookOpen size={32} className="text-muted-foreground/35" />
+          <IconBookOpen size={32} className="text-primary/70 relative z-10" />
         )}
-      </div>
-      <div>
-        <p className="text-sm font-semibold text-foreground">
+      </motion.div>
+      <div className="mt-2">
+        <p className="text-base font-semibold text-foreground">
           {isMangaComics ? 'Your manga & comics library is empty' : 'Your book library is empty'}
         </p>
-        <p className="text-xs text-muted-foreground mt-1.5 max-w-[240px]">
+        <p className="text-sm text-muted-foreground mt-1.5 max-w-[280px] mx-auto leading-relaxed">
           {isMangaComics
             ? 'Import CBZ or CBR archives to start reading manga and comics here.'
             : 'Import ePub, PDF, or other ebook formats to get started.'}
@@ -95,9 +115,9 @@ const EmptyState = ({ domain, hasFilters, onImport }: EmptyStateProps) => {
       {onImport && (
         <button
           onClick={onImport}
-          className="flex items-center gap-2 h-8 px-4 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/85 transition-colors"
+          className="mt-2 flex items-center gap-2 h-9 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all"
         >
-          {isMangaComics ? <IconImportManga size={14} /> : <IconImportBook size={14} />}
+          {isMangaComics ? <IconImportManga size={16} /> : <IconImportBook size={16} />}
           Import Books/Manga/Comics
         </button>
       )}

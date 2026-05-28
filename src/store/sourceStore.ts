@@ -20,7 +20,7 @@ export interface SourceConfig {
 
 const SOURCE_STORE_VERSION = 7;
 
-const MANDATORY_SOURCE_IDS = new Set(['mangadex', 'anna-archive']);
+const MANDATORY_SOURCE_IDS = new Set(['mangadex']);
 
 function isMandatorySource(sourceId: string): boolean {
   return MANDATORY_SOURCE_IDS.has(sourceId);
@@ -52,96 +52,46 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     website: 'https://www.toongod.org',
   },
   {
-    id: 'nyaa',
-    name: 'Nyaa (Torrents)',
-    // Nyaa is torrent-only — no in-app reader. Moved to 'books' so it doesn't
-    // pollute the Online Manga source selector; it can still be used for
-    // manga torrents via the Online Books → Torbox workflow.
-    kind: 'books',
+    id: 'weebrook',
+    name: 'Weebrook',
+    kind: 'manga',
     enabled: true,
-    description: 'Torrent-first source for manga/books via Torbox. Works with both manga and book torrents.',
+    description: 'Manhwa and webtoons from freeonlinek.top.',
+    status: 'active',
+    implemented: true,
+    torboxCompatible: false,
+    capabilities: ['direct'],
+    website: 'https://freeonlinek.top',
+  },
+  {
+    id: 'nyaa',
+    name: 'Nyaa',
+    kind: 'manga',
+    enabled: true,
+    description: 'Largest anime and manga torrent tracker. Recommended for Torbox users.',
     status: 'active',
     implemented: true,
     torboxCompatible: true,
     capabilities: ['torbox'],
     website: 'https://nyaa.si',
   },
+
   {
-    id: 'rutracker',
-    name: 'RuTracker (Direct)',
+    id: 'gutenberg',
+    name: 'Project Gutenberg',
     kind: 'books',
     enabled: true,
-    description: 'Direct torrent search via RuTracker. Works without cookie when anonymous search is available; optional cookie improves access.',
-    status: 'active',
-    implemented: true,
-    torboxCompatible: true,
-    capabilities: ['torbox'],
-    website: 'https://rutracker.org',
-  },
-  {
-    id: 'bitsearch',
-    name: 'Bitsearch (Torrents)',
-    kind: 'books',
-    enabled: true,
-    description: 'Anonymous torrent index with magnet-first links for Torbox Add to Cloud.',
-    status: 'active',
-    implemented: true,
-    torboxCompatible: true,
-    capabilities: ['torbox'],
-    website: 'https://bitsearch.to',
-  },
-  {
-    id: 'x1337',
-    name: '1337x (Torrents)',
-    kind: 'books',
-    enabled: true,
-    description: 'Anonymous torrent index used for fallback mirrors when other sources have no links.',
-    status: 'active',
-    implemented: true,
-    torboxCompatible: true,
-    capabilities: ['torbox'],
-    website: 'https://1337x.to',
-  },
-  {
-    id: 'tpb-api',
-    name: 'TPB API (Torrents)',
-    kind: 'books',
-    enabled: true,
-    description: 'Anonymous API fallback that returns info-hash results for magnet and torrent generation.',
-    status: 'active',
-    implemented: true,
-    torboxCompatible: true,
-    capabilities: ['torbox'],
-    website: 'https://apibay.org',
-  },
-  {
-    id: 'openlibrary',
-    name: 'Open Library',
-    kind: 'books',
-    enabled: true,
-    description: 'Book metadata provider - covers, descriptions, and author info.',
+    description: 'Public domain library offering thousands of free EPUB books.',
     status: 'active',
     implemented: true,
     torboxCompatible: false,
-    capabilities: ['metadata'],
-    website: 'https://openlibrary.org',
-  },
-  {
-    id: 'anna-archive',
-    name: "Anna's Archive",
-    kind: 'books',
-    enabled: true,
-    description: '⚠️ Community Plugin - Search and download books via Torbox. Users are responsible for compliance with local laws.',
-    status: 'active',
-    implemented: true,
-    torboxCompatible: true,
-    capabilities: ['torbox', 'direct'],
-    website: 'https://annas-archive.gl',
+    capabilities: ['direct', 'metadata'],
+    website: 'https://gutenberg.org',
   },
 ];
 
 const DEFAULT_PRIMARY_SOURCE_BY_KIND: Record<SourceKind, string> = {
-  books: 'openlibrary',
+  books: 'gutenberg',
   manga: 'mangadex',
 };
 
@@ -195,7 +145,6 @@ interface SourceStore {
   toggleSource: (id: string) => void;
   setPrimarySource: (kind: SourceKind, id: string) => void;
   setPreferredDebridProvider: (provider: DebridProviderPreference) => void;
-  optimizeForTorbox: () => void;
 }
 
 export const useSourceStore = create<SourceStore>()(
@@ -282,26 +231,7 @@ export const useSourceStore = create<SourceStore>()(
         set(() => ({
           preferredDebridProvider: provider,
         })),
-      optimizeForTorbox: () =>
-        set((state) => {
-          const nextSources = state.sources.map((source) => {
-            if (source.torboxCompatible && source.implemented) {
-              return { ...source, enabled: true };
-            }
-            return source;
-          });
 
-          const nextPrimary = { ...state.primarySourceByKind };
-          if (nextSources.find((s) => s.id === 'anna-archive')?.enabled) {
-            nextPrimary.books = 'anna-archive';
-          }
-
-          return {
-            sources: nextSources,
-            primarySourceByKind: nextPrimary,
-            preferredDebridProvider: 'torbox',
-          };
-        }),
     }),
     {
       name: 'shiori-source-store',

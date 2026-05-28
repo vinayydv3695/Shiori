@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect, memo, type RefObject } from 'react';
 import { ChevronLeft, ChevronRight, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -18,6 +18,73 @@ interface ContentCarouselProps {
   onItemClick?: (item: CarouselItem) => void;
   className?: string;
 }
+
+const CarouselCard = memo(function CarouselCard({
+  item,
+  onClick,
+  scrollRoot,
+}: {
+  item: CarouselItem;
+  onClick?: (item: CarouselItem) => void;
+  scrollRoot: RefObject<HTMLElement | null>;
+}) {
+  const [visible, setVisible] = useState(false);
+  const cardRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { root: scrollRoot.current, rootMargin: '100px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [scrollRoot.current]);
+
+  return (
+    <button
+      ref={cardRef}
+      type="button"
+      onClick={() => onClick?.(item)}
+      className="flex-shrink-0 w-[140px] text-left group/item focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg"
+    >
+      {/* Cover image */}
+      <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-muted border border-border group-hover/item:border-primary/50 transition-colors">
+        {!visible && <div className="absolute inset-0 shimmer" />}
+        {visible && item.coverUrl ? (
+          <img
+            src={item.coverUrl}
+            alt={item.title}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover/item:scale-105"
+            loading="lazy"
+          />
+        ) : visible && !item.coverUrl ? (
+          <div className="w-full h-full flex items-center justify-center">
+            <BookOpen className="w-8 h-8 text-muted-foreground opacity-50" />
+          </div>
+        ) : null}
+        {/* Hover overlay */}
+        <div className="absolute inset-0 bg-black/0 group-hover/item:bg-black/20 transition-colors" />
+      </div>
+
+      {/* Title */}
+      <div className="mt-2 space-y-0.5">
+        <h3 className="text-sm font-medium line-clamp-2 text-foreground group-hover/item:text-primary transition-colors">
+          {item.title}
+        </h3>
+        {item.subtitle && (
+          <p className="text-xs text-muted-foreground line-clamp-1">{item.subtitle}</p>
+        )}
+      </div>
+    </button>
+  );
+});
 
 export function ContentCarousel({
   title,
@@ -120,42 +187,12 @@ export function ContentCarousel({
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {items.map((item) => (
-            <button
+            <CarouselCard
               key={item.id}
-              type="button"
-              onClick={() => onItemClick?.(item)}
-              className="flex-shrink-0 w-[140px] text-left group/item focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg"
-            >
-              {/* Cover image */}
-              <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-muted border border-border group-hover/item:border-primary/50 transition-colors">
-                {item.coverUrl ? (
-                  <img
-                    src={item.coverUrl}
-                    alt={item.title}
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover/item:scale-105"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <BookOpen className="w-8 h-8 text-muted-foreground opacity-50" />
-                  </div>
-                )}
-                {/* Hover overlay */}
-                <div className="absolute inset-0 bg-black/0 group-hover/item:bg-black/20 transition-colors" />
-              </div>
-
-              {/* Title */}
-              <div className="mt-2 space-y-0.5">
-                <h3 className="text-sm font-medium line-clamp-2 text-foreground group-hover/item:text-primary transition-colors">
-                  {item.title}
-                </h3>
-                {item.subtitle && (
-                  <p className="text-xs text-muted-foreground line-clamp-1">
-                    {item.subtitle}
-                  </p>
-                )}
-              </div>
-            </button>
+              item={item}
+              onClick={onItemClick}
+              scrollRoot={scrollContainerRef}
+            />
           ))}
         </div>
       </div>

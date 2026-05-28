@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as Tabs from '@radix-ui/react-tabs'
+import { motion, AnimatePresence } from 'framer-motion'
+import { open } from '@tauri-apps/plugin-shell'
 import {
   X, Moon, Sun, Palette, Shield, BookOpen, FileText,
   Download, Upload, HardDrive, Archive, CheckCircle2, AlertTriangle,
-  Search, FolderOpen, ExternalLink, RefreshCw, Trash2, Info, BookMarked,
+  Search, FolderOpen, ExternalLink, RefreshCw, Trash2, Info,
   RotateCcw, Play, Square, Folder, Plus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -24,8 +26,7 @@ import { logger } from '../../lib/logger'
 import { useSourceStore } from '../../store/sourceStore'
 import { SourceManager } from './SourceManager'
 import { TorboxSettings } from './TorboxSettings'
-import { AnnaArchiveSettings } from './AnnaArchiveSettings'
-import { RuTrackerSettings } from './RuTrackerSettings'
+
 import { ToonGodSettings } from './ToonGodSettings'
 import { TorrentNetworkSettings } from './TorrentNetworkSettings'
 import { ProwlarrSettings } from './ProwlarrSettings'
@@ -56,6 +57,7 @@ const ALL_SETTINGS: SettingDefinition[] = [
   { label: 'UI Scale', description: 'Adjust overall application size', tab: 'general', section: 'Appearance' },
   { label: 'Cover Size', description: 'Book cover display size', tab: 'general', section: 'Appearance' },
   { label: 'Auto-start Application', description: 'Start Shiori when system boots', tab: 'general', section: 'General' },
+  { label: 'Discord Rich Presence', description: 'Show your reading activity on Discord', tab: 'general', section: 'General' },
   { label: 'Import Path', description: 'Default import location', tab: 'general', section: 'Import' },
   { label: 'Default Sort Order', description: 'How books are sorted', tab: 'general', section: 'Library' },
   { label: 'Default View Mode', description: 'Grid list or table view', tab: 'general', section: 'Library' },
@@ -176,8 +178,8 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-        <Dialog.Content className="settings-dialog fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-lg shadow-2xl w-[90vw] max-w-5xl h-[85vh] z-50 flex flex-col">
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
+        <Dialog.Content className="dialog-content settings-dialog fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-lg shadow-2xl w-[90vw] max-w-5xl h-[85vh] z-50 flex flex-col">
           <div className="flex items-center justify-between p-6 border-b border-border">
             <Dialog.Title className="text-2xl font-semibold">Settings</Dialog.Title>
             <div className="flex items-center gap-3">
@@ -237,57 +239,68 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
               ))}
             </Tabs.List>
 
-            <div className="flex-1 overflow-y-auto p-6">
-              <Tabs.Content value="general" className="focus-visible:outline-none">
-                <GeneralSettings
-                  preferences={preferences}
-                  updateTheme={updateTheme}
-                  updateGeneralSettings={updateGeneralSettings}
-                  isSettingVisible={isSettingVisible}
-                  isSectionVisible={isSectionVisible}
-                />
-              </Tabs.Content>
+            <div className="flex-1 relative bg-background/50">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={selectedTab}
+                  initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
+                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute inset-0 p-8 overflow-y-auto"
+                >
+                  {selectedTab === 'general' && (
+                    <GeneralSettings
+                      preferences={preferences}
+                      updateTheme={updateTheme}
+                      updateGeneralSettings={updateGeneralSettings}
+                      isSettingVisible={isSettingVisible}
+                      isSectionVisible={isSectionVisible}
+                    />
+                  )}
 
-              <Tabs.Content value="book-reading" className="focus-visible:outline-none">
-                <BookReadingSettings
-                  preferences={preferences}
-                  updateBookDefaults={updateBookDefaults}
-                  updateTtsDefaults={updateTtsDefaults}
-                  isSettingVisible={isSettingVisible}
-                  isSectionVisible={isSectionVisible}
-                />
-              </Tabs.Content>
+                  {selectedTab === 'book-reading' && (
+                    <BookReadingSettings
+                      preferences={preferences}
+                      updateBookDefaults={updateBookDefaults}
+                      updateTtsDefaults={updateTtsDefaults}
+                      isSettingVisible={isSettingVisible}
+                      isSectionVisible={isSectionVisible}
+                    />
+                  )}
 
-              <Tabs.Content value="manga-reading" className="focus-visible:outline-none">
-                <MangaReadingSettings
-                  preferences={preferences}
-                  updateMangaDefaults={updateMangaDefaults}
-                  updateGeneralSettings={updateGeneralSettings}
-                  isSettingVisible={isSettingVisible}
-                  isSectionVisible={isSectionVisible}
-                />
-              </Tabs.Content>
+                  {selectedTab === 'manga-reading' && (
+                    <MangaReadingSettings
+                      preferences={preferences}
+                      updateMangaDefaults={updateMangaDefaults}
+                      updateGeneralSettings={updateGeneralSettings}
+                      isSettingVisible={isSettingVisible}
+                      isSectionVisible={isSectionVisible}
+                    />
+                  )}
 
-              <Tabs.Content value="advanced" className="focus-visible:outline-none">
-                <AdvancedSettings
-                  preferences={preferences}
-                  updateGeneralSettings={updateGeneralSettings}
-                  loadPreferences={loadPreferences}
-                  isSettingVisible={isSettingVisible}
-                  isSectionVisible={isSectionVisible}
-                />
-              </Tabs.Content>
+                  {selectedTab === 'advanced' && (
+                    <AdvancedSettings
+                      preferences={preferences}
+                      updateGeneralSettings={updateGeneralSettings}
+                      loadPreferences={loadPreferences}
+                      isSettingVisible={isSettingVisible}
+                      isSectionVisible={isSectionVisible}
+                    />
+                  )}
 
-              <Tabs.Content value="watch-folders" className="focus-visible:outline-none">
-                <WatchFoldersSettings
-                  preferences={preferences}
-                  isSectionVisible={isSectionVisible}
-                />
-              </Tabs.Content>
+                  {selectedTab === 'watch-folders' && (
+                    <WatchFoldersSettings
+                      preferences={preferences}
+                      isSectionVisible={isSectionVisible}
+                    />
+                  )}
 
-              <Tabs.Content value="about" className="focus-visible:outline-none">
-                <AboutSettings />
-              </Tabs.Content>
+                  {selectedTab === 'about' && (
+                    <AboutSettings />
+                  )}
+                </motion.div>
+              </AnimatePresence>
             </div>
           </Tabs.Root>
         </Dialog.Content>
@@ -546,7 +559,7 @@ const GeneralSettings = ({
         </SettingSection>
       )}
 
-      {isSectionVisible('General', ['Auto-start Application']) && (
+      {isSectionVisible('General', ['Auto-start Application', 'Discord Rich Presence']) && (
         <SettingSection title="General">
           {isSettingVisible('Auto-start Application', 'Start Shiori when system boots', 'General') && (
             <SettingItem label="Auto-start Application" description="Start Shiori when system boots">
@@ -556,6 +569,17 @@ const GeneralSettings = ({
                 onChange={(e) => updateGeneralSettings({ autoStart: e.target.checked })}
                 className="w-5 h-5"
                 aria-label="Auto-start application"
+              />
+            </SettingItem>
+          )}
+          {isSettingVisible('Discord Rich Presence', 'Show your reading activity on Discord', 'General') && (
+            <SettingItem label="Discord Rich Presence" description="Show your reading activity on Discord">
+              <input
+                type="checkbox"
+                checked={preferences.discordRpcEnabled ?? true}
+                onChange={(e) => updateGeneralSettings({ discordRpcEnabled: e.target.checked })}
+                className="w-5 h-5"
+                aria-label="Discord Rich Presence"
               />
             </SettingItem>
           )}
@@ -790,14 +814,8 @@ const GeneralSettings = ({
               <option value="torbox">Torbox</option>
             </select>
           </SettingItem>
-          <div>
-            <h4 className="text-sm font-semibold mb-2">Anna Archive</h4>
-            <AnnaArchiveSettings />
-          </div>
-          <div>
-            <h4 className="text-sm font-semibold mb-2">RuTracker</h4>
-            <RuTrackerSettings />
-          </div>
+
+
           <ToonGodSettings />
           <div>
             <h4 className="text-sm font-semibold mb-2">Torrent Network</h4>
@@ -1691,6 +1709,65 @@ const AdvancedSettings = ({
         </SettingSection>
       )}
 
+      {isSectionVisible('Annotations', ['Auto-Export Annotations', 'Export Format', 'Export Path']) && (
+        <SettingSection title="Annotations & Sync" description="Manage annotation auto-exports">
+          {isSettingVisible('Auto-Export Annotations', 'Automatically export annotations', 'Annotations') && (
+            <SettingItem
+              label="Auto-Export Annotations"
+              description="Automatically export annotations to a folder when created or updated"
+            >
+              <input
+                type="checkbox"
+                checked={preferences.autoExportAnnotations ?? false}
+                onChange={(e) => updateGeneralSettings({ autoExportAnnotations: e.target.checked })}
+                className="w-5 h-5"
+                aria-label="Enable auto-export annotations"
+              />
+            </SettingItem>
+          )}
+
+          {preferences.autoExportAnnotations && isSettingVisible('Export Format', 'Format for exported annotations', 'Annotations') && (
+            <SettingItem label="Export Format" description="Format to save annotations">
+              <select
+                value={preferences.annotationsExportFormat || 'markdown'}
+                onChange={(e) => updateGeneralSettings({ annotationsExportFormat: e.target.value })}
+                className="px-3 py-2 rounded-md border border-border bg-background"
+                aria-label="Annotations export format"
+              >
+                <option value="markdown">Markdown (.md)</option>
+                <option value="json">JSON (.json)</option>
+                <option value="text">Plain Text (.txt)</option>
+              </select>
+            </SettingItem>
+          )}
+
+          {preferences.autoExportAnnotations && isSettingVisible('Export Path', 'Directory to save exports', 'Annotations') && (
+            <SettingItem label="Export Directory" description="Where to save the auto-exported files">
+              <div className="flex gap-2 w-full max-w-sm items-center">
+                <Input 
+                  value={preferences.annotationsExportPath || ''} 
+                  readOnly 
+                  placeholder="Not set" 
+                  className="flex-1"
+                />
+                <Button variant="outline" onClick={async () => {
+                  try {
+                    const path = await api.openFolderDialog()
+                    if (path) {
+                      await updateGeneralSettings({ annotationsExportPath: path })
+                    }
+                  } catch (e) {
+                    console.error("Failed to set export path", e)
+                  }
+                }} className="px-3">
+                  <FolderOpen size={16} />
+                </Button>
+              </div>
+            </SettingItem>
+          )}
+        </SettingSection>
+      )}
+
       {isSectionVisible('Cache', ['Renderer Cache', 'Max Cache Size', 'Cache Clear Policy']) && (
         <SettingSection title="Cache" description="Manage cached data">
           {isSettingVisible('Renderer Cache', 'Temporary reading resources', 'Cache') && (
@@ -2087,8 +2164,8 @@ const AboutSettings = () => {
     <div className="space-y-8">
       <SettingSection title="Shiori eBook Manager">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center">
-            <BookMarked className="w-8 h-8 text-primary" />
+          <div className="w-16 h-16 rounded-xl overflow-hidden shadow-sm flex-shrink-0">
+            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Shiori Logo" className="w-full h-full object-cover" />
           </div>
           <div>
             <h3 className="text-xl font-semibold">Shiori</h3>
@@ -2126,8 +2203,10 @@ const AboutSettings = () => {
             <a
               key={link.url}
               href={link.url}
-              target="_blank"
-              rel="noopener noreferrer"
+              onClick={(e) => {
+                e.preventDefault()
+                open(link.url)
+              }}
               className="flex items-center justify-between rounded-lg border p-3 hover:bg-accent transition-colors"
             >
               <span className="text-sm font-medium">{link.label}</span>

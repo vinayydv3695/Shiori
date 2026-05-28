@@ -10,10 +10,13 @@ interface StatisticsViewProps {
   onClose: () => void;
 }
 
+import { ActivityHeatmap } from './ActivityHeatmap';
+
 export function StatisticsView({ onClose }: StatisticsViewProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [yearlyStats, setYearlyStats] = useState<DailyReadingStats[]>([]);
   const [weeklyStats, setWeeklyStats] = useState<DailyReadingStats[]>([]);
   const [streak, setStreak] = useState<ReadingStreak | null>(null);
   const [goal, setGoal] = useState<ReadingGoal | null>(null);
@@ -28,7 +31,7 @@ export function StatisticsView({ onClose }: StatisticsViewProps) {
     setError(null);
     try {
       if (!isTauri) {
-        setWeeklyStats([
+        const dummyStats = [
           { date: '2023-10-01', total_seconds: 1200, books_count: 1, sessions_count: 1 },
           { date: '2023-10-02', total_seconds: 2400, books_count: 1, sessions_count: 2 },
           { date: '2023-10-03', total_seconds: 0, books_count: 0, sessions_count: 0 },
@@ -36,7 +39,9 @@ export function StatisticsView({ onClose }: StatisticsViewProps) {
           { date: '2023-10-05', total_seconds: 1800, books_count: 1, sessions_count: 1 },
           { date: '2023-10-06', total_seconds: 4200, books_count: 1, sessions_count: 4 },
           { date: '2023-10-07', total_seconds: 900, books_count: 1, sessions_count: 1 },
-        ]);
+        ];
+        setYearlyStats(dummyStats);
+        setWeeklyStats(dummyStats);
         setStreak({ current_streak: 4, longest_streak: 12, total_reading_days: 45 });
         setGoal({ daily_minutes_target: 30, is_active: true, created_at: '', updated_at: '' });
         setTodaySeconds(900);
@@ -45,13 +50,14 @@ export function StatisticsView({ onClose }: StatisticsViewProps) {
       }
 
       const [stats, currentStreak, currentGoal, todayTime] = await Promise.all([
-        api.getDailyReadingStats(7),
+        api.getDailyReadingStats(365),
         api.getReadingStreak(),
         api.getReadingGoal(),
         api.getTodayReadingTime()
       ]);
 
-      setWeeklyStats(stats);
+      setYearlyStats(stats);
+      setWeeklyStats(stats.slice(-7));
       setStreak(currentStreak);
       setGoal(currentGoal);
       setTodaySeconds(todayTime);
@@ -185,6 +191,14 @@ export function StatisticsView({ onClose }: StatisticsViewProps) {
                     <p className="text-sm text-muted-foreground">days</p>
                   </div>
                 </div>
+              </div>
+
+              <div className="bg-card border border-border rounded-xl p-4 md:p-6 shadow-sm">
+                <div className="mb-6">
+                  <h2 className="text-lg font-semibold text-foreground">Reading Activity</h2>
+                  <p className="text-sm text-muted-foreground">Last 365 Days</p>
+                </div>
+                <ActivityHeatmap data={yearlyStats} />
               </div>
 
               <div className="bg-card border border-border rounded-xl p-4 md:p-6 shadow-sm">

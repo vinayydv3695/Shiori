@@ -1,8 +1,7 @@
 use std::path::PathBuf;
 use std::time::Instant;
 
-use serde::Serialize;
-use tauri::{Manager, State};
+use tauri::State;
 use tauri_plugin_store::StoreExt;
 
 use crate::error::{Result, ShioriError};

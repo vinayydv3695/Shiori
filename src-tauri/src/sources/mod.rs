@@ -5,16 +5,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{Result, ShioriError};
 
-pub mod annas_archive;
-pub mod bitsearch;
 pub mod mangadex;
 pub mod network;
 pub mod nyaa;
 pub mod registry;
-pub mod rutracker;
-pub mod tpb_api;
 pub mod toongod;
-pub mod x1337;
+pub mod weebrook;
+pub mod annas_archive;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]

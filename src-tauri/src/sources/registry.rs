@@ -24,6 +24,10 @@ impl SourceRegistry {
         self.sources.get(id).cloned()
     }
 
+    pub fn get_all(&self) -> Vec<Arc<dyn Source>> {
+        self.sources.values().cloned().collect()
+    }
+
     pub fn list(&self) -> Vec<SourceMeta> {
         self.sources.values().map(|s| s.meta()).collect()
     }

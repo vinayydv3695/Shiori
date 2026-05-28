@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 export function SourceManager() {
   const sources = useSourceStore((state) => state.sources);
   const toggleSource = useSourceStore((state) => state.toggleSource);
-  const optimizeForTorbox = useSourceStore((state) => state.optimizeForTorbox);
+
 
   const mangaSources = sources.filter((source) => source.kind === 'manga');
   const bookSources = sources.filter((source) => source.kind === 'books' && source.id !== 'jackett');
@@ -30,10 +30,6 @@ export function SourceManager() {
           <h2 className="text-lg font-medium">Source Configuration</h2>
           <p className="text-sm text-muted-foreground">Manage where SHIORI fetches content and metadata.</p>
         </div>
-        <Button onClick={optimizeForTorbox} variant="secondary" size="sm" className="gap-2">
-          <Zap className="w-4 h-4" />
-          Optimize for Torbox
-        </Button>
       </div>
 
       <section className="space-y-3">

@@ -1956,8 +1956,35 @@ impl<'a> MigrationManager<'a> {
                 version INTEGER DEFAULT 1
             );
             
-            INSERT OR IGNORE INTO user_preferences_v29 SELECT * FROM user_preferences;
-            
+            INSERT OR IGNORE INTO user_preferences_v29 (
+                id, theme, book_font_family, book_font_size, book_line_height, book_page_width,
+                book_scroll_mode, book_justification, book_paragraph_spacing, book_animation_speed,
+                book_hyphenation, book_custom_css, manga_mode, manga_direction, manga_margin_size,
+                manga_fit_width, manga_background_color, manga_progress_bar, manga_image_smoothing,
+                manga_preload_count, manga_gpu_acceleration, auto_start, default_import_path,
+                ui_density, accent_color, preferred_content_type, ui_scale, performance_mode,
+                metadata_mode, auto_scan_enabled, default_manga_path, tts_voice, tts_rate,
+                tts_auto_advance, tts_highlight_color, translation_target_language, auto_group_manga,
+                auto_translate, cache_size_limit_mb, library_size_limit, send_analytics,
+                send_crash_reports, debug_logging, enable_cloud_sync, enable_notifications,
+                prowlarr_enabled, prowlarr_url, prowlarr_api_key, prowlarr_categories,
+                discord_rpc_enabled, auto_export_annotations, annotations_export_path,
+                annotations_export_format, created_at, updated_at, version
+            ) SELECT 
+                id, theme, book_font_family, book_font_size, book_line_height, book_page_width,
+                book_scroll_mode, book_justification, book_paragraph_spacing, book_animation_speed,
+                book_hyphenation, book_custom_css, manga_mode, manga_direction, manga_margin_size,
+                manga_fit_width, manga_background_color, manga_progress_bar, manga_image_smoothing,
+                manga_preload_count, manga_gpu_acceleration, auto_start, default_import_path,
+                ui_density, accent_color, preferred_content_type, ui_scale, performance_mode,
+                metadata_mode, auto_scan_enabled, default_manga_path, tts_voice, tts_rate,
+                tts_auto_advance, tts_highlight_color, translation_target_language, auto_group_manga,
+                auto_translate, cache_size_limit_mb, library_size_limit, send_analytics,
+                send_crash_reports, debug_logging, enable_cloud_sync, enable_notifications,
+                prowlarr_enabled, prowlarr_url, prowlarr_api_key, prowlarr_categories,
+                discord_rpc_enabled, auto_export_annotations, annotations_export_path,
+                annotations_export_format, created_at, updated_at, version
+            FROM user_preferences;
             DROP TABLE user_preferences;
             ALTER TABLE user_preferences_v29 RENAME TO user_preferences;
             

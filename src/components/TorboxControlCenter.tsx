@@ -379,7 +379,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
       sources: [],
     })
     try {
-      const raw = await invoke<any>('search_manga_sources', { query: meta.title + ' english' })
+      const raw = await invoke<any>('search_manga_sources', { query: meta.title })
       const rootArray = Array.isArray(raw) ? raw : (raw?.items ?? raw?.results ?? raw?.data ?? [])
       
       const sources: SearchSource[] = []

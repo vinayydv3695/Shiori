@@ -1,6 +1,7 @@
 export interface LibgenBook {
   id: string;
   title: string;
+  coverUrl?: string;
   description?: string;
   source_id: string;
   extra: {

@@ -194,7 +194,7 @@ impl MangaMetadataService {
         let query = r#"
             query ($search: String) {
                 Page(page: 1, perPage: 5) {
-                    media(search: $search, type: MANGA, sort: SEARCH_MATCH) {
+                    media(search: $search, type: MANGA, format_in: [MANGA, ONE_SHOT], sort: SEARCH_MATCH) {
                         id
                         title {
                             romaji
@@ -287,7 +287,7 @@ impl MangaMetadataService {
 
         let query = r#"
             query ($id: Int) {
-                Media(id: $id, type: MANGA) {
+                Media(id: $id, type: MANGA, format_in: [MANGA, ONE_SHOT]) {
                     id
                     title {
                         romaji
@@ -494,6 +494,7 @@ pub fn parse_manga_title(filename: &str) -> String {
     let mut title = filename
         .trim_end_matches(".cbz")
         .trim_end_matches(".cbr")
+        .trim_end_matches(".zip")
         .to_string();
 
     // Remove group tags: [Group] or (Group)

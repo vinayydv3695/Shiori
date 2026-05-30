@@ -57,7 +57,7 @@ impl TorboxState {
 }
 
 fn is_importable_file_name(name: &str) -> bool {
-    let supported_exts = ["cbz", "cbr", "epub", "pdf", "mobi", "azw3", "docx"];
+    let supported_exts = ["cbz", "cbr", "zip", "epub", "pdf", "mobi", "azw3", "docx"];
     std::path::Path::new(name)
         .extension()
         .and_then(|e| e.to_str())
@@ -96,7 +96,7 @@ fn collect_importable_files(
         }
 
         return Err(ShioriError::Other(
-            "Selected Torbox file is not importable. Supported formats: cbz, cbr, epub, pdf, mobi, azw3, docx"
+            "Selected Torbox file is not importable. Supported formats: cbz, cbr, zip, epub, pdf, mobi, azw3, docx"
                 .to_string(),
         ));
     }
@@ -109,7 +109,7 @@ fn collect_importable_files(
 
     if selected.is_empty() {
         return Err(ShioriError::Other(
-            "No importable files found in Torbox target. Supported formats: cbz, cbr, epub, pdf, mobi, azw3, docx"
+            "No importable files found in Torbox target. Supported formats: cbz, cbr, zip, epub, pdf, mobi, azw3, docx"
                 .to_string(),
         ));
     }
@@ -131,11 +131,29 @@ async fn finalize_import_from_target(
     let selected_files = collect_importable_files(info, file_id)?;
     let total_files = selected_files.len();
 
-    let downloads_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| ShioriError::Other(format!("Failed to get app dir: {}", e)))?
-        .join("downloads");
+    let mut user_download_dir: Option<String> = None;
+    if let Ok(conn) = app_state.db.get_connection() {
+        if let Ok(mut stmt) = conn.prepare("SELECT default_manga_path, default_import_path FROM settings LIMIT 1") {
+            if let Ok(mut rows) = stmt.query([]) {
+                if let Ok(Some(row)) = rows.next() {
+                    let manga_path: Option<String> = row.get(0).unwrap_or(None);
+                    let import_path: Option<String> = row.get(1).unwrap_or(None);
+                    user_download_dir = manga_path.filter(|p| !p.trim().is_empty())
+                        .or_else(|| import_path.filter(|p| !p.trim().is_empty()));
+                }
+            }
+        }
+    }
+
+    let downloads_dir = if let Some(path) = user_download_dir {
+        std::path::PathBuf::from(path).join("Torbox Downloads")
+    } else {
+        app_handle
+            .path()
+            .app_data_dir()
+            .map_err(|e| ShioriError::Other(format!("Failed to get app dir: {}", e)))?
+            .join("downloads")
+    };
 
     std::fs::create_dir_all(&downloads_dir)?;
 
@@ -233,6 +251,69 @@ async fn finalize_import_from_target(
             .and_then(|e| e.to_str())
             .unwrap_or_default()
             .to_ascii_lowercase();
+
+        if extension == "zip" {
+            let extract_dir = downloads_dir.join(filename.trim_end_matches(".zip"));
+            std::fs::create_dir_all(&extract_dir)?;
+            
+            let file = std::fs::File::open(&dest_path)?;
+            let mut archive = zip::ZipArchive::new(file)
+                .map_err(|e| ShioriError::Other(format!("Failed to open zip: {}", e)))?;
+
+            for i in 0..archive.len() {
+                let mut file = archive.by_index(i).unwrap();
+                let outpath = match file.enclosed_name() {
+                    Some(path) => extract_dir.join(path),
+                    None => continue,
+                };
+                if (*file.name()).ends_with('/') {
+                    std::fs::create_dir_all(&outpath)?;
+                } else {
+                    if let Some(p) = outpath.parent() {
+                        std::fs::create_dir_all(p)?;
+                    }
+                    let mut outfile = std::fs::File::create(&outpath)?;
+                    std::io::copy(&mut file, &mut outfile)?;
+                }
+            }
+            
+            let _ = std::fs::remove_file(&dest_path);
+            
+            let mut import_result = library_service::scan_folder_for_manga(
+                &app_state.db, 
+                &extract_dir.to_string_lossy(), 
+                &app_state.covers_dir
+            )?;
+            
+            if import_result.success.is_empty() {
+                import_result = library_service::scan_folder_for_comics(
+                    &app_state.db, 
+                    &extract_dir.to_string_lossy(), 
+                    &app_state.covers_dir
+                )?;
+            }
+
+            if let Some((failed_path, reason)) = import_result.failed.first() {
+                return Err(ShioriError::Other(format!(
+                    "Extracted folder could not be imported ({}): {}",
+                    failed_path, reason
+                )));
+            }
+            
+            if let Some(imported_path) = import_result.success.first() {
+                if first_imported_path.is_none() {
+                    first_imported_path = Some(imported_path.clone());
+                }
+            } else if let Some(duplicate_path) = import_result.duplicates.first() {
+                if first_imported_path.is_none() {
+                    first_imported_path = Some(duplicate_path.clone());
+                }
+            } else if first_imported_path.is_none() {
+                first_imported_path = Some(extract_dir.to_string_lossy().to_string());
+            }
+            
+            continue;
+        }
 
         let import_result = if extension == "cbz" || extension == "cbr" {
             library_service::import_manga(&app_state.db, vec![path_str.clone()], &app_state.covers_dir)?

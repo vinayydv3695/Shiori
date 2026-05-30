@@ -42,7 +42,7 @@ impl BookFormat {
             "pdf" => Some(BookFormat::Pdf),
             "mobi" => Some(BookFormat::Mobi),
             "azw3" => Some(BookFormat::Azw3),
-            "cbz" => Some(BookFormat::Cbz),
+            "cbz" | "zip" => Some(BookFormat::Cbz),
             "cbr" => Some(BookFormat::Cbr),
             "txt" => Some(BookFormat::Txt),
             _ => None,

@@ -407,3 +407,31 @@ pub async fn download_gutenberg_epub(
     
     Ok(file_path.to_string_lossy().to_string())
 }
+
+#[tauri::command]
+pub async fn download_libgen_epub(
+    url: String,
+    title_hint: String,
+) -> Result<String> {
+    use std::io::Write;
+    use std::time::Duration;
+
+    let client = reqwest::Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .timeout(Duration::from_secs(120))
+        .build()
+        .map_err(|e| crate::error::ShioriError::Other(e.to_string()))?;
+
+    let resp = client.get(&url).send().await.map_err(|e| crate::error::ShioriError::Other(e.to_string()))?;
+    let bytes = resp.bytes().await.map_err(|e| crate::error::ShioriError::Other(e.to_string()))?;
+    
+    let safe_title = title_hint.chars().filter(|c| c.is_ascii_alphanumeric() || *c == ' ' || *c == '-').collect::<String>();
+    let file_name = format!("{}.epub", safe_title.trim());
+    let temp_dir = std::env::temp_dir();
+    let file_path = temp_dir.join(file_name);
+    
+    let mut file = std::fs::File::create(&file_path).map_err(|e| crate::error::ShioriError::Other(e.to_string()))?;
+    file.write_all(&bytes).map_err(|e| crate::error::ShioriError::Other(e.to_string()))?;
+    
+    Ok(file_path.to_string_lossy().to_string())
+}

@@ -88,6 +88,18 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     capabilities: ['direct', 'metadata'],
     website: 'https://gutenberg.org',
   },
+  {
+    id: 'libgen',
+    name: 'LibGen',
+    kind: 'books',
+    enabled: true,
+    description: 'Online library offering access to millions of books.',
+    status: 'active',
+    implemented: true,
+    torboxCompatible: false,
+    capabilities: ['direct', 'metadata'],
+    website: 'https://libgen.li',
+  },
 ];
 
 const DEFAULT_PRIMARY_SOURCE_BY_KIND: Record<SourceKind, string> = {

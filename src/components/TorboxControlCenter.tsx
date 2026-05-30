@@ -373,8 +373,13 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
 
   const fetchTorrentsForMetadata = useCallback(async (meta: UnifiedMetadata) => {
     setIsFetchingTorrents(meta.id)
+    setActiveModalResult({
+      id: meta.id,
+      title: meta.title,
+      sources: [],
+    })
     try {
-      const raw = await invoke<any>('search_manga_sources', { query: meta.title })
+      const raw = await invoke<any>('search_manga_sources', { query: meta.title + ' english' })
       const rootArray = Array.isArray(raw) ? raw : (raw?.items ?? raw?.results ?? raw?.data ?? [])
       
       const sources: SearchSource[] = []
@@ -678,10 +683,29 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                               >
                                 <div className="p-6 max-h-[60vh] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
                                   <div className="flex items-center justify-between mb-4">
-                                    <h4 className="text-sm font-semibold tracking-tight">Available Torrents ({activeModalResult.sources.length})</h4>
+                                    <h4 className="text-sm font-semibold tracking-tight">
+                                      Available Torrents {isFetchingTorrents === activeModalResult.id ? '' : `(${activeModalResult.sources.length})`}
+                                    </h4>
                                   </div>
                                   
-                                  {activeModalResult.sources.length === 0 ? (
+                                  {isFetchingTorrents === activeModalResult.id ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                                      {Array.from({ length: 4 }).map((_, i) => (
+                                        <div key={i} className="bg-card border border-border/50 rounded-xl p-4 flex flex-col gap-3 h-[116px]">
+                                          <div className="flex flex-col gap-1.5 animate-pulse">
+                                            <div className="h-4 bg-muted rounded w-3/4"></div>
+                                            <div className="flex items-center gap-2 mt-1">
+                                              <div className="h-4 w-12 bg-muted rounded"></div>
+                                              <div className="h-4 w-16 bg-muted rounded"></div>
+                                            </div>
+                                          </div>
+                                          <div className="pt-2 mt-auto animate-pulse">
+                                            <div className="w-full h-9 bg-muted rounded-lg"></div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : activeModalResult.sources.length === 0 ? (
                                     <div className="text-center py-10">
                                       <AlertCircle className="mx-auto h-10 w-10 text-muted-foreground opacity-50 mb-3" />
                                       <p className="text-muted-foreground">No torrents found for this series.</p>
@@ -692,12 +716,21 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                                         const busyId = `${activeModalResult.id}:${source.id}`
                                         const busy = sourceBusy[busyId] === true
 
+                                        const getBadgeColor = (type: string) => {
+                                          const t = type.toUpperCase()
+                                          if (t === 'CBZ' || t === 'CBR') return 'bg-blue-500/10 text-blue-500 hover:bg-blue-500/20'
+                                          if (t === 'EPUB') return 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20'
+                                          if (t === 'PDF') return 'bg-red-500/10 text-red-500 hover:bg-red-500/20'
+                                          if (t === 'ZIP' || t === 'RAR') return 'bg-amber-500/10 text-amber-500 hover:bg-amber-500/20'
+                                          return 'bg-secondary text-secondary-foreground'
+                                        }
+
                                         return (
                                           <div key={source.id} className="bg-card border border-border/50 rounded-xl p-4 flex flex-col gap-3 transition-colors hover:border-border">
                                             <div className="flex flex-col gap-1.5">
                                               <h3 className="text-sm font-medium text-foreground truncate" title={source.label}>{source.label}</h3>
                                               <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 uppercase">
+                                                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 uppercase border-0 ${getBadgeColor(source.fileType || '')}`}>
                                                   {source.fileType || 'UNKNOWN'}
                                                 </Badge>
                                                 {typeof source.sizeBytes === 'number' && <span>{formatBytes(source.sizeBytes)}</span>}

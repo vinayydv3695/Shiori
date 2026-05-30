@@ -23,6 +23,9 @@ export function MagnetSourcesModal({ isOpen, onClose, query, type, onAddMagnetTo
   const [sources, setSources] = useState<MagnetSource[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [searchFilter, setSearchFilter] = useState('')
+
+  const filteredSources = sources.filter(s => s.title.toLowerCase().includes(searchFilter.toLowerCase()))
 
   useEffect(() => {
     if (!isOpen || !query) return
@@ -109,6 +112,21 @@ export function MagnetSourcesModal({ isOpen, onClose, query, type, onAddMagnetTo
               </button>
             </div>
 
+            {!loading && !error && sources.length > 0 && (
+              <div className="px-5 pt-4 pb-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input 
+                    type="text" 
+                    placeholder="Filter links..." 
+                    value={searchFilter}
+                    onChange={e => setSearchFilter(e.target.value)}
+                    className="w-full bg-background border border-border rounded-md pl-9 pr-4 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary transition-shadow"
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="flex-1 overflow-y-auto p-2">
               {loading && (
                 <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-4">
@@ -133,7 +151,11 @@ export function MagnetSourcesModal({ isOpen, onClose, query, type, onAddMagnetTo
 
               {!loading && !error && sources.length > 0 && (
                 <div className="flex flex-col gap-2 p-3">
-                  {sources.map((s, i) => {
+                  {filteredSources.length === 0 ? (
+                    <div className="text-center py-10 text-muted-foreground text-sm">
+                      No links match your filter.
+                    </div>
+                  ) : filteredSources.map((s, i) => {
                     const formatMatch = s.title.match(/\.(zip|rar|cbz|cbr|epub|pdf|mobi|azw3)/i)
                     const format = formatMatch ? formatMatch[1].toUpperCase() : 'UNKNOWN'
                     

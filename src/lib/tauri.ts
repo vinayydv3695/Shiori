@@ -1296,7 +1296,7 @@ export const api = {
   },
 
   async searchNyaa(query: string): Promise<{ title: string, magnet: string, size: string, seeders: string }[]> {
-    const res = await invoke<PluginSearchResponse>("plugin_search_with_meta", { sourceId: "nyaa", query: query, page: 1, limit: 15 })
+    const res = await invoke<PluginSearchResponse>("plugin_search_with_meta", { sourceId: "nyaa", query: query, page: 1, limit: 75 })
     return res.items
       .filter(item => item.extra.magnet)
       .map(item => ({

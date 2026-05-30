@@ -75,7 +75,7 @@ fn extract_target_id(value: &Value) -> Option<i64> {
 }
 
 fn looks_like_direct_importable_file(link: &str) -> bool {
-    const ALLOWED_EXTENSIONS: [&str; 7] = ["cbz", "cbr", "epub", "pdf", "mobi", "azw3", "docx"];
+    const ALLOWED_EXTENSIONS: [&str; 8] = ["cbz", "cbr", "zip", "epub", "pdf", "mobi", "azw3", "docx"];
 
     reqwest::Url::parse(link)
         .ok()
@@ -755,7 +755,7 @@ impl TorboxService {
 
         if source_link.starts_with("http://") && !looks_like_direct_importable_file(source_link) {
             return Err(ShioriError::Validation(
-                "HTTP web download links must point directly to an importable file. Supported formats: cbz, cbr, epub, pdf, mobi, azw3, docx".to_string(),
+                "HTTP web download links must point directly to an importable file. Supported formats: cbz, cbr, zip, epub, pdf, mobi, azw3, docx".to_string(),
             ));
         }
 

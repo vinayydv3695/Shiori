@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { api } from '@/lib/tauri';
+import { invoke } from '@tauri-apps/api/core';
 import { parsePageUrl } from '@/lib/utils';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
@@ -9,7 +10,7 @@ export type TorboxDownloadMethod = 'magnet' | 'torrent' | 'webdl';
 export interface TorboxQueueItem {
   id: string;
   title: string;
-  source: 'anna' | 'manga';
+  source: 'anna' | 'manga' | 'torbox' | 'manual';
   sourceLink: string;
   downloadMethod: TorboxDownloadMethod;
   status: TorboxJobStatus;
@@ -18,6 +19,8 @@ export interface TorboxQueueItem {
   downloadSpeed?: number;
   torrentId?: number;
   importedPath?: string;
+  resolvedLink?: string;
+  resolving?: boolean;
   error?: string;
   localDownloadedBytes?: number;
   localTotalBytes?: number;
@@ -139,6 +142,9 @@ interface TorboxStoreState {
   activeJobId: string | null;
   enqueueFromAnna: (input: { title: string; sourceLink: string }) => Promise<void>;
   enqueueFromMangadex: (input: { title: string; sourceLink: string }) => Promise<void>;
+  enqueueJob: (input: { title: string; sourceLink: string; kind?: 'books' | 'manga' }) => Promise<void>;
+  resolveJob: (id: string) => Promise<void>;
+  importJob: (id: string) => Promise<void>;
   removeJob: (id: string) => void;
   clearCompleted: () => void;
 }
@@ -263,7 +269,7 @@ export const useTorboxStore = create<TorboxStoreState>((set, get) => ({
   jobs: [],
   activeJobId: null,
 
-  enqueueFromAnna: async ({ title, sourceLink }) => {
+  enqueueJob: async ({ title, sourceLink, kind }) => {
     await ensureLocalDownloadListener(set);
     const parsedSource = normalizeTorboxLink(sourceLink);
     const resolvedSourceLink = parsedSource.url;
@@ -277,7 +283,7 @@ export const useTorboxStore = create<TorboxStoreState>((set, get) => ({
     const job: TorboxQueueItem = {
       id,
       title,
-      source: 'anna',
+      source: kind === 'books' ? 'anna' : kind === 'manga' ? 'manga' : 'torbox',
       sourceLink: resolvedSourceLink,
       downloadMethod: method,
       status: 'queued',
@@ -333,6 +339,7 @@ export const useTorboxStore = create<TorboxStoreState>((set, get) => ({
             }));
           });
 
+          // Wait until completion, then attempt auto-import
           const importedPath = await api.importExistingTorboxTarget(torrentId, undefined, title);
 
           set((state) => ({
@@ -367,7 +374,7 @@ export const useTorboxStore = create<TorboxStoreState>((set, get) => ({
         }
       })();
     } catch (error) {
-      const message = getErrorMessage(error, 'Torbox import failed');
+      const message = getErrorMessage(error, 'Torbox queue failed');
       set((state) => ({
         jobs: state.jobs.map((item) =>
           item.id === id
@@ -384,122 +391,69 @@ export const useTorboxStore = create<TorboxStoreState>((set, get) => ({
     }
   },
 
-  enqueueFromMangadex: async ({ title, sourceLink }) => {
-    await ensureLocalDownloadListener(set);
-    const parsedSource = normalizeTorboxLink(sourceLink);
-    const resolvedSourceLink = parsedSource.url;
+  enqueueFromAnna: async (input) => {
+    return get().enqueueJob({ ...input, kind: 'books' });
+  },
 
-    if (parsedSource.kind === 'anna' || parsedSource.kind === 'external') {
-      throw new Error('This source should be opened in browser instead of sending to Torbox.');
-    }
+  enqueueFromMangadex: async (input) => {
+    return get().enqueueJob({ ...input, kind: 'manga' });
+  },
 
-    const id = createJobId();
-    const method = detectDownloadMethod(resolvedSourceLink);
-    const job: TorboxQueueItem = {
-      id,
-      title,
-      source: 'manga',
-      sourceLink: resolvedSourceLink,
-      downloadMethod: method,
-      status: 'queued',
-      progress: 0,
-      size: 0,
-      downloadSpeed: 0,
-    };
+  resolveJob: async (id: string) => {
+    const job = get().jobs.find((j) => j.id === id);
+    if (!job || !job.torrentId) return;
 
     set((state) => ({
-      jobs: [job, ...state.jobs],
-      activeJobId: id,
+      jobs: state.jobs.map((item) =>
+        item.id === id ? { ...item, resolving: true, error: undefined } : item
+      ),
     }));
 
     try {
-      set((state) => ({
-        jobs: state.jobs.map((item) =>
-          item.id === id ? { ...item, status: 'verifying', progress: 5 } : item
-        ),
-      }));
-
-      const queued = await api.addToTorboxQueue(resolvedSourceLink);
-      const torrentId = getTorboxQueueId(queued);
+      // NOTE: getTorboxDownloadLink maps to 'torbox_get_download_link' or 'resolve_torbox_download'
+      const link = await invoke<string>('resolve_torbox_download', {
+        torrentId: job.torrentId,
+      });
 
       set((state) => ({
         jobs: state.jobs.map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                torrentId,
-                status: 'downloading',
-                progress: 10,
-              }
-            : item
+          item.id === id ? { ...item, resolvedLink: link, resolving: false } : item
         ),
       }));
-
-      void (async () => {
-        try {
-          await waitForCompletionWithProgress(torrentId, (info) => {
-            set((state) => ({
-              jobs: state.jobs.map((item) =>
-                item.id === id
-                  ? {
-                      ...item,
-                      torrentId,
-                      status: isCompletedStatus(info.status) ? 'importing' : 'downloading',
-                      progress: normalizeTorboxProgress(info.progress),
-                      size: info.size,
-                      downloadSpeed: info.downloadSpeed,
-                    }
-                  : item
-              ),
-            }));
-          });
-
-          const importedPath = await api.importExistingTorboxTarget(torrentId, undefined, title);
-
-          set((state) => ({
-            jobs: state.jobs.map((item) =>
-              item.id === id
-                ? {
-                    ...item,
-                    status: 'completed',
-                    progress: 100,
-                    importedPath,
-                    localPhase: 'completed',
-                    localProgress: 100,
-                  }
-                : item
-            ),
-            activeJobId: state.activeJobId === id ? null : state.activeJobId,
-          }));
-        } catch (error) {
-          const message = getErrorMessage(error, 'Torbox queue import failed');
-          set((state) => ({
-            jobs: state.jobs.map((item) =>
-              item.id === id
-                ? {
-                    ...item,
-                    status: 'failed',
-                    error: message,
-                  }
-                : item
-            ),
-            activeJobId: state.activeJobId === id ? null : state.activeJobId,
-          }));
-        }
-      })();
     } catch (error) {
-      const message = getErrorMessage(error, 'Torbox queue import failed');
+      const message = getErrorMessage(error, 'Failed to resolve Torbox download link.');
       set((state) => ({
         jobs: state.jobs.map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                status: 'failed',
-                error: message,
-              }
-            : item
+          item.id === id ? { ...item, resolving: false, error: message } : item
         ),
-        activeJobId: state.activeJobId === id ? null : state.activeJobId,
+      }));
+      throw new Error(message);
+    }
+  },
+
+  importJob: async (id: string) => {
+    const job = get().jobs.find((j) => j.id === id);
+    if (!job || !job.torrentId) return;
+
+    set((state) => ({
+      jobs: state.jobs.map((item) =>
+        item.id === id ? { ...item, localPhase: 'importing', error: undefined } : item
+      ),
+    }));
+
+    try {
+      const importedPath = await api.importExistingTorboxTarget(job.torrentId, undefined, job.title);
+      set((state) => ({
+        jobs: state.jobs.map((item) =>
+          item.id === id ? { ...item, importedPath, localPhase: 'completed', localProgress: 100 } : item
+        ),
+      }));
+    } catch (error) {
+      const message = getErrorMessage(error, 'Failed to import completed Torbox target.');
+      set((state) => ({
+        jobs: state.jobs.map((item) =>
+          item.id === id ? { ...item, error: message, localPhase: 'completed' } : item
+        ),
       }));
       throw new Error(message);
     }

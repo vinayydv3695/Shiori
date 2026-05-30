@@ -589,8 +589,8 @@ pub fn scan_and_import_folder(
 // ═══════════════════════════════════════════════════════════
 
 const BOOK_FORMATS: &[&str] = &["epub", "pdf", "mobi", "azw3", "fb2", "txt", "docx", "html"];
-const MANGA_FORMATS: &[&str] = &["cbz", "cbr"];
-const COMICS_FORMATS: &[&str] = &["cbz", "cbr"];
+const MANGA_FORMATS: &[&str] = &["cbz", "cbr", "zip"];
+const COMICS_FORMATS: &[&str] = &["cbz", "cbr", "zip"];
 
 /// Validate that a file belongs to the expected domain
 fn validate_domain(path: &str, domain: &str) -> Result<()> {

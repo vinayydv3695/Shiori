@@ -13,7 +13,7 @@ pub async fn fetch_cover_by_title(client: &reqwest::Client, title: &str) -> Opti
     let graphql_query = r#"
         query ($search: String) {
             Page(page: 1, perPage: 1) {
-                media(search: $search, type: MANGA, sort: SEARCH_MATCH) {
+                media(search: $search, type: MANGA, format_in: [MANGA, ONE_SHOT], sort: SEARCH_MATCH) {
                     coverImage { large extraLarge }
                 }
             }
@@ -145,7 +145,7 @@ impl MetadataProvider for AniListProvider {
         let graphql_query = r#"
             query ($search: String) {
                 Page(page: 1, perPage: 1) {
-                    media(search: $search, type: MANGA, sort: SEARCH_MATCH) {
+                    media(search: $search, type: MANGA, format_in: [MANGA, ONE_SHOT], sort: SEARCH_MATCH) {
                         id
                         title { romaji english }
                         description

@@ -78,8 +78,24 @@ impl LibgenSource {
 
         let title = cells
             .first()
-            .map(|c| c.text().collect::<String>().trim().to_string())
-            .filter(|v| !v.is_empty())?;
+            .and_then(|c| {
+                if let Ok(a_sel) = Selector::parse("a") {
+                    c.select(&a_sel).next().map(|a| a.text().collect::<String>().trim().to_string())
+                } else {
+                    None
+                }
+            })
+            .filter(|v| !v.is_empty())
+            .unwrap_or_else(|| {
+                cells
+                    .first()
+                    .map(|c| c.text().collect::<String>().trim().to_string())
+                    .unwrap_or_default()
+            });
+            
+        if title.is_empty() {
+            return None;
+        }
 
         let author = cells
             .get(1)

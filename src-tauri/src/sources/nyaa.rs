@@ -341,7 +341,7 @@ impl NyaaSource {
         let mut successful_mirror = String::new();
 
         for mirror in NYAA_MIRRORS {
-            let url = format!("{}/?page=rss&q={}&c=3_0&f=0&p={}", mirror, urlencoding::encode(query), safe_page);
+            let url = format!("{}/?page=rss&q={}&c=3_1&f=0&p={}", mirror, urlencoding::encode(query), safe_page);
             match self.client.get(&url).send().await {
                 Ok(resp) if resp.status().is_success() => {
                     if let Ok(text) = resp.text().await {
@@ -381,7 +381,7 @@ impl NyaaSource {
             }
             
             if successful_mirror.is_empty() {
-                let html_url = format!("{}/?q={}&c=3_0&f=0&p={}", mirror, urlencoding::encode(query), safe_page);
+                let html_url = format!("{}/?q={}&c=3_1&f=0&p={}", mirror, urlencoding::encode(query), safe_page);
                 match self.client.get(&html_url).send().await {
                     Ok(resp) if resp.status().is_success() => {
                         if let Ok(text) = resp.text().await {

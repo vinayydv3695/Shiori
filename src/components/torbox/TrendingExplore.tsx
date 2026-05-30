@@ -235,7 +235,7 @@ function Row({ title, items, onSelect }: { title: string, items: TrendingItem[],
             transition={{ delay: i * 0.03 }}
             key={item.id}
             onClick={() => onSelect(item)}
-            className="relative flex-none w-[150px] snap-center group cursor-pointer"
+            className="relative flex-none w-[225px] snap-center group cursor-pointer"
           >
             <div className="relative aspect-[2/3] w-full rounded-lg overflow-hidden bg-muted/20 border border-white/5 shadow-md group-hover:shadow-xl transition-all duration-300 group-hover:-translate-y-1">
               {item.coverUrl ? (

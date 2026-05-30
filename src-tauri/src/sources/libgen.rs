@@ -159,13 +159,21 @@ impl LibgenSource {
         }
 
         let mut libgen_id = None;
+        let mut cover_type = "covers";
         if let Some(first_cell) = cells.first() {
-            if let Ok(badge_selector) = Selector::parse("span.badge-secondary") {
-                for span in first_cell.select(&badge_selector) {
+            if let Ok(span_selector) = Selector::parse("span") {
+                for span in first_cell.select(&span_selector) {
                     let text = span.text().collect::<String>().trim().to_string();
                     if text.starts_with("l ") {
                         if let Ok(id) = text[2..].trim().parse::<u32>() {
                             libgen_id = Some(id);
+                            cover_type = "covers";
+                            break;
+                        }
+                    } else if text.starts_with("f ") {
+                        if let Ok(id) = text[2..].trim().parse::<u32>() {
+                            libgen_id = Some(id);
+                            cover_type = "fictioncovers";
                             break;
                         }
                     }
@@ -174,7 +182,7 @@ impl LibgenSource {
         }
 
         let cover_url = libgen_id.map(|id| {
-            format!("{}/covers/{}/{}.jpg", LIBGEN_BASE_URL, (id / 1000) * 1000, detail_id)
+            format!("{}/{}/{}/{}.jpg", LIBGEN_BASE_URL, cover_type, (id / 1000) * 1000, detail_id)
         });
 
         let description = [author, publisher, year, language]

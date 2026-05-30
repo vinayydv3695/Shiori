@@ -2,7 +2,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { Button } from '@/components/ui/button';
 import { SearchResult } from '@/lib/pluginSources';
 import { Download, BookOpen, Loader2, X, AlertTriangle } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { downloadAndImportLibgen } from '@/online-books/libgen/importer';
 import { useToast } from '@/store/toastStore';
 import { useBookOpen } from '@/hooks/useBookOpen';
@@ -18,8 +18,30 @@ interface Props {
 export function LibgenBookDetails({ book, open, onOpenChange }: Props) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isReading, setIsReading] = useState(false);
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const { success: showSuccessToast, error: showErrorToast } = useToast();
   const { handleOpenBook } = useBookOpen();
+
+  useEffect(() => {
+    if (!book || !open) return;
+    
+    // Reset cover
+    setCoverUrl(null);
+    
+    const fetchCover = async () => {
+      try {
+        const pages = await pluginApi.getPages('libgen', book.id);
+        const coverPage = pages.find(p => p.url.startsWith('cover|'));
+        if (coverPage) {
+          setCoverUrl(coverPage.url.replace(/^cover\|/, ''));
+        }
+      } catch (err) {
+        logger.error('Failed to load cover from LibGen detail page:', err);
+      }
+    };
+    
+    void fetchCover();
+  }, [book?.id, open]);
 
   if (!book) return null;
 
@@ -36,7 +58,7 @@ export function LibgenBookDetails({ book, open, onOpenChange }: Props) {
       // 1. Fetch pages (which are download links) from libgen backend
       const pages = await pluginApi.getPages('libgen', book.id);
       
-      // 2. Find first direct download link
+      // 2. Find first direct download link containing get.php
       const directPage = pages.find(p => p.url.startsWith('direct|'));
       if (directPage) {
         // Strip direct| prefix
@@ -132,6 +154,20 @@ export function LibgenBookDetails({ book, open, onOpenChange }: Props) {
           </div>
 
           <div className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar">
+            {/* Elegant Scraped Cover Rendering */}
+            {coverUrl && (
+              <div className="flex justify-center mb-4">
+                <div className="w-36 h-52 bg-muted/40 rounded-xl overflow-hidden shadow-md border border-border/50 flex-shrink-0">
+                  <img
+                    src={coverUrl}
+                    alt={book.title}
+                    className="w-full h-full object-cover transition-opacity duration-300"
+                    loading="lazy"
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               {publisher && (
                 <div className="bg-muted/10 p-3 rounded-2xl border border-border/30">

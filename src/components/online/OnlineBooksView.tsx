@@ -64,7 +64,7 @@ export function OnlineBooksView() {
   }, [gutenbergHasSearched, popularBooks.length, activeTab]);
 
   const handleSearch = useCallback(async (page: number = 1, queryOverride?: string) => {
-    const query = (queryOverride ?? searchQuery).trim();
+    const query = (queryOverride ?? useOnlineSearchStore.getState().queries['online-books']).trim();
     if (!query) return;
 
     setError(null);
@@ -100,15 +100,16 @@ export function OnlineBooksView() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, activeTab]);
+  }, [activeTab]);
 
   // Trigger search when switching tabs if search query is already filled
   useEffect(() => {
-    const query = searchQuery.trim();
+    const query = useOnlineSearchStore.getState().queries['online-books'].trim();
     if (query) {
       void handleSearch(1, query);
     }
-  }, [activeTab, handleSearch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   const scheduleSearch = useCallback((value: string) => {
     setSearchQuery('books', value);

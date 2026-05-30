@@ -40,7 +40,7 @@ export interface BookPrefs {
   animationSpeed: number;
   paragraphSpacing: number;
   customCSS: string;
-  theme: 'light' | 'dark' | 'sepia';
+  theme: 'light' | 'dark' | 'sepia' | 'black';
   backgroundColor: string;
   textColor: string;
   margin: number;

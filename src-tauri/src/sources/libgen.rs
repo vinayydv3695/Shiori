@@ -51,8 +51,10 @@ impl LibgenSource {
     fn normalize_href(href: &str) -> String {
         if href.starts_with("http://") || href.starts_with("https://") {
             href.to_string()
-        } else {
+        } else if href.starts_with("/") {
             format!("{}{}", LIBGEN_BASE_URL, href)
+        } else {
+            format!("{}/{}", LIBGEN_BASE_URL, href)
         }
     }
 
@@ -156,6 +158,25 @@ impl LibgenSource {
             extra.insert(format!("mirror_{}", idx + 1), link.clone());
         }
 
+        let mut libgen_id = None;
+        if let Some(first_cell) = cells.first() {
+            if let Ok(badge_selector) = Selector::parse("span.badge-secondary") {
+                for span in first_cell.select(&badge_selector) {
+                    let text = span.text().collect::<String>().trim().to_string();
+                    if text.starts_with("l ") {
+                        if let Ok(id) = text[2..].trim().parse::<u32>() {
+                            libgen_id = Some(id);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        let cover_url = libgen_id.map(|id| {
+            format!("{}/covers/{}/{}.jpg", LIBGEN_BASE_URL, (id / 1000) * 1000, detail_id)
+        });
+
         let description = [author, publisher, year, language]
             .into_iter()
             .flatten()
@@ -165,7 +186,7 @@ impl LibgenSource {
         Some(SearchResult {
             id: detail_id,
             title,
-            cover_url: None,
+            cover_url,
             description: if description.is_empty() { None } else { Some(description) },
             source_id: "libgen".to_string(),
             extra,

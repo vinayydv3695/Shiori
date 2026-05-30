@@ -96,8 +96,26 @@ export const OnlineResultCard = memo(function OnlineResultCard({
           />
         )}
         {(!coverUrl || imgError) && visible && (
-          <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground/40 bg-muted/20">
-            <BookOpen className="w-8 h-8 mb-2 opacity-50" />
+          <div className="w-full h-full p-2.5 flex flex-col justify-between text-center select-none bg-gradient-to-br from-indigo-950 via-slate-900 to-blue-950 text-slate-200 border border-indigo-500/20 shadow-inner relative overflow-hidden">
+            {/* Elegant corner patterns or glows */}
+            <div className="absolute top-0 right-0 w-12 h-12 bg-primary/20 rounded-full blur-xl pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-12 h-12 bg-violet-500/20 rounded-full blur-xl pointer-events-none" />
+            
+            <div className="text-[9px] uppercase tracking-wider font-semibold text-indigo-400/80 mb-1 border-b border-indigo-500/10 pb-0.5 truncate">
+              {format || 'BOOK'}
+            </div>
+            
+            <div className="flex-1 flex items-center justify-center py-1">
+              <span className="font-serif font-bold text-[10px] leading-snug line-clamp-4 tracking-tight drop-shadow-sm px-0.5">
+                {title}
+              </span>
+            </div>
+            
+            {author && (
+              <div className="text-[8px] font-medium text-slate-400 border-t border-indigo-500/10 pt-1 truncate max-w-full">
+                {author}
+              </div>
+            )}
           </div>
         )}
       </div>

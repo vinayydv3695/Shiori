@@ -60,23 +60,33 @@ export function MangaReaderHeader({
             hideTimeoutRef.current = null;
         }
 
-        if (!isScrollMode || stickyHeader || isSidebarOpen || isSettingsOpen || lastScrollActivityAt === 0) {
+        if (stickyHeader || isSidebarOpen || isSettingsOpen) {
             return;
         }
 
-        if (Date.now() - lastScrollActivityAt > TOPBAR_AUTO_HIDE_MS) {
-            return;
-        }
-
-        setTopBarVisible(true);
-        hideTimeoutRef.current = setTimeout(() => {
-            const uiState = useMangaUIStore.getState();
-            const settingsState = useMangaSettingsStore.getState();
-
-            if (!settingsState.stickyHeader && !uiState.isSidebarOpen && !uiState.isSettingsOpen) {
-                setTopBarVisible(false);
+        if (isScrollMode) {
+            if (lastScrollActivityAt === 0 || Date.now() - lastScrollActivityAt > TOPBAR_AUTO_HIDE_MS) {
+                return;
             }
-        }, TOPBAR_AUTO_HIDE_MS);
+            setTopBarVisible(true);
+            hideTimeoutRef.current = setTimeout(() => {
+                const uiState = useMangaUIStore.getState();
+                const settingsState = useMangaSettingsStore.getState();
+                if (!settingsState.stickyHeader && !uiState.isSidebarOpen && !uiState.isSettingsOpen) {
+                    setTopBarVisible(false);
+                }
+            }, TOPBAR_AUTO_HIDE_MS);
+        } else {
+            if (isTopBarVisible) {
+                hideTimeoutRef.current = setTimeout(() => {
+                    const uiState = useMangaUIStore.getState();
+                    const settingsState = useMangaSettingsStore.getState();
+                    if (!settingsState.stickyHeader && !uiState.isSidebarOpen && !uiState.isSettingsOpen) {
+                        setTopBarVisible(false);
+                    }
+                }, 2000);
+            }
+        }
 
         return () => {
             if (hideTimeoutRef.current) {
@@ -84,7 +94,7 @@ export function MangaReaderHeader({
                 hideTimeoutRef.current = null;
             }
         };
-    }, [isScrollMode, stickyHeader, isSidebarOpen, isSettingsOpen, lastScrollActivityAt, setTopBarVisible]);
+    }, [isScrollMode, stickyHeader, isSidebarOpen, isSettingsOpen, lastScrollActivityAt, setTopBarVisible, isTopBarVisible]);
 
     useEffect(() => {
         const handleFullscreenChange = () => {

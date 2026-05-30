@@ -53,7 +53,7 @@ const SeriesHeader = memo(function SeriesHeader({
 
       <div className="w-28 h-40 md:w-36 md:h-52 rounded-lg overflow-hidden shadow-xl border border-border/50 flex-shrink-0 bg-muted">
         {coverUrl ? (
-          <img src={coverUrl} alt={series.title} className="w-full h-full object-contain bg-muted" />
+          <img src={coverUrl} alt={series.title} className="w-full h-full object-cover bg-muted" />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground/30">
             <BookOpen className="w-8 h-8 mb-2" />
@@ -157,7 +157,7 @@ const ListBookCard = memo(function ListBookCard({
     >
       <div className="w-12 h-16 rounded overflow-hidden bg-muted flex-shrink-0 relative">
         {coverUrl ? (
-          <img src={coverUrl} alt={book.title} className="w-full h-full object-contain bg-muted" />
+          <img src={coverUrl} alt={book.title} className="w-full h-full object-cover bg-muted" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <BookOpen className="w-4 h-4 text-muted-foreground/30" />

@@ -305,16 +305,16 @@ interface MangaSettingsState {
 }
 
 const defaultMangaSettings = {
-    readingMode: 'single' as ReadingMode,
+    readingMode: 'webtoon' as ReadingMode,
     readingDirection: 'ltr' as ReadingDirection,
-    fitMode: 'contain' as FitMode,
+    fitMode: 'width' as FitMode,
     stripMargin: 4,
     progressBarPosition: 'bottom' as ProgressBarPosition,
     stickyHeader: true,
     showNavigationTips: true,
     theme: 'dark' as const,
     imageQuality: 0.85,
-    preloadIntensity: 'normal' as const,
+    preloadIntensity: 'aggressive' as const,
 };
 
 const READING_MODE_OPTIONS: ReadingMode[] = ['single', 'strip', 'webtoon', 'manhwa', 'comic'];

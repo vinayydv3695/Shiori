@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { Search, Image as ImageIcon, Loader2 } from 'lucide-react'
+import { Search, Image as ImageIcon, Loader2, ChevronRight, ChevronLeft, Star } from 'lucide-react'
 import { MagnetSourcesModal } from '../online/MagnetSourcesModal'
 import { useTorboxStore } from '@/stores/useTorboxStore'
 import { toast } from 'sonner'
@@ -11,6 +11,10 @@ export interface TrendingItem {
   coverUrl?: string
   author?: string
   score?: number
+  description?: string
+  genres?: string[]
+  status?: string
+  year?: number
 }
 
 interface TrendingExploreProps {
@@ -18,7 +22,8 @@ interface TrendingExploreProps {
 }
 
 export function TrendingExplore({ type }: TrendingExploreProps) {
-  const [items, setItems] = useState<TrendingItem[]>([])
+  const [trendingItems, setTrendingItems] = useState<TrendingItem[]>([])
+  const [topItems, setTopItems] = useState<TrendingItem[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
@@ -28,23 +33,37 @@ export function TrendingExplore({ type }: TrendingExploreProps) {
 
   useEffect(() => {
     let mounted = true
-    const fetchTrending = async () => {
+    const fetchItems = async () => {
       setLoading(true)
       setError(null)
       
       try {
-        const effectiveType = type
-        
-        if (effectiveType === 'manga') {
-          // Fetch from AniList
+        if (type === 'manga') {
+          // Fetch Trending and Top Manga from AniList
           const query = `
             query {
-              Page(page: 1, perPage: 15) {
+              Trending: Page(page: 1, perPage: 25) {
                 media(type: MANGA, format_in: [MANGA, ONE_SHOT], sort: TRENDING_DESC) {
                   id
                   title { romaji english }
-                  coverImage { large }
+                  coverImage { extraLarge }
                   averageScore
+                  description(asHtml: false)
+                  genres
+                  status
+                  startDate { year }
+                }
+              }
+              Top: Page(page: 1, perPage: 25) {
+                media(type: MANGA, format_in: [MANGA, ONE_SHOT], sort: SCORE_DESC) {
+                  id
+                  title { romaji english }
+                  coverImage { extraLarge }
+                  averageScore
+                  description(asHtml: false)
+                  genres
+                  status
+                  startDate { year }
                 }
               }
             }
@@ -62,41 +81,48 @@ export function TrendingExplore({ type }: TrendingExploreProps) {
           const json = await res.json()
           
           if (mounted) {
-            const mangaList: TrendingItem[] = json.data.Page.media.map((m: Record<string, unknown>) => ({
-              id: `anilist-${(m as Record<string, unknown>).id}`,
-              title: ((m as Record<string, unknown>).title as Record<string, string>).english || ((m as Record<string, unknown>).title as Record<string, string>).romaji,
-              coverUrl: ((m as Record<string, unknown>).coverImage as Record<string, string>)?.large,
-              score: (m as Record<string, unknown>).averageScore as number,
-            }))
-            setItems(mangaList)
+            const mapItem = (m: any): TrendingItem => ({
+              id: `anilist-${m.id}`,
+              title: m.title.english || m.title.romaji,
+              coverUrl: m.coverImage?.extraLarge,
+              score: m.averageScore,
+              description: m.description,
+              genres: m.genres,
+              status: m.status,
+              year: m.startDate?.year,
+            })
+            
+            setTrendingItems(json.data.Trending.media.map(mapItem))
+            setTopItems(json.data.Top.media.map(mapItem))
           }
-        } else if (effectiveType === 'books') {
-          // Fetch from Open Library
-          const res = await fetch('https://openlibrary.org/trending/daily.json?limit=15')
+        } else if (type === 'books') {
+          const res = await fetch('https://openlibrary.org/trending/daily.json?limit=25')
           if (!res.ok) throw new Error('Failed to fetch from Open Library')
           const json = await res.json()
           
           if (mounted) {
-            const booksList: TrendingItem[] = json.works.map((w: Record<string, unknown>) => ({
-              id: `openlib-${(w as Record<string, unknown>).key}`,
-              title: (w as Record<string, unknown>).title as string,
-              coverUrl: (w as Record<string, unknown>).cover_i ? `https://covers.openlibrary.org/b/id/${(w as Record<string, unknown>).cover_i}-L.jpg` : undefined,
-              author: ((w as Record<string, unknown>).author_name as string[])?.[0]
+            const booksList: TrendingItem[] = json.works.map((w: any) => ({
+              id: `openlib-${w.key}`,
+              title: w.title,
+              coverUrl: w.cover_i ? `https://covers.openlibrary.org/b/id/${w.cover_i}-L.jpg` : undefined,
+              author: w.author_name?.[0],
+              year: w.first_publish_year,
             }))
-            setItems(booksList)
+            setTrendingItems(booksList)
+            setTopItems([])
           }
         }
       } catch (err) {
         if (mounted) {
-          console.error('Error fetching trending:', err)
-          setError('Failed to load trending items.')
+          console.error('Error fetching items:', err)
+          setError('Failed to load items.')
         }
       } finally {
         if (mounted) setLoading(false)
       }
     }
 
-    void fetchTrending()
+    void fetchItems()
     return () => { mounted = false }
   }, [type])
 
@@ -121,15 +147,17 @@ export function TrendingExplore({ type }: TrendingExploreProps) {
 
   if (loading) {
     return (
-      <div className="w-full">
-        <h2 className="text-xl font-bold tracking-tight mb-6 px-1 flex items-center gap-2">
-          <Loader2 className="w-5 h-5 animate-spin text-primary" />
-          Loading Popular {type === 'books' ? 'Books' : 'Manga'}...
-        </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-          {Array.from({ length: 10 }).map((_, i) => (
-            <div key={i} className="aspect-[2/3] w-full bg-muted/30 rounded-xl animate-pulse border border-border/40" />
-          ))}
+      <div className="w-full relative py-4 space-y-12">
+        <div>
+          <h2 className="text-xl font-bold tracking-tight mb-4 px-4 flex items-center gap-2">
+            <Loader2 className="w-5 h-5 animate-spin text-primary" />
+            Trending {type === 'books' ? 'Books' : 'Manga'}
+          </h2>
+          <div className="flex gap-4 overflow-hidden px-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="min-w-[140px] h-[200px] bg-muted/20 rounded-xl animate-pulse" />
+            ))}
+          </div>
         </div>
       </div>
     )
@@ -137,70 +165,20 @@ export function TrendingExplore({ type }: TrendingExploreProps) {
 
   if (error) {
     return (
-      <div className="col-span-full flex flex-col items-center justify-center py-24 text-center">
-        <p className="text-destructive font-medium">{error}</p>
+      <div className="w-full flex items-center justify-center py-12">
+        <p className="text-destructive font-medium bg-destructive/10 px-6 py-3 rounded-xl">{error}</p>
       </div>
     )
   }
 
-  if (items.length === 0) return null
+  if (trendingItems.length === 0) return null
 
   return (
-    <div className="w-full animate-in fade-in duration-500 pb-8">
-      <h2 className="text-xl font-bold tracking-tight mb-6 px-1">
-        Trending {type === 'books' ? 'Books' : 'Manga'}
-      </h2>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-        {items.map((item) => (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            key={item.id}
-            className="group flex flex-col gap-3 cursor-pointer relative"
-            onClick={() => void handleSelect(item)}
-          >
-            <div className="relative overflow-hidden rounded-xl bg-muted/30 shadow-sm border border-border/40 aspect-[2/3] w-full">
-              {item.coverUrl ? (
-                <img
-                  src={item.coverUrl}
-                  alt={item.title}
-                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  loading="lazy"
-                />
-              ) : (
-                <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted-foreground/40 bg-muted/10">
-                  <ImageIcon className="h-8 w-8 mb-2 opacity-50" />
-                  <span className="text-[10px] font-semibold uppercase tracking-wider">No Cover</span>
-                </div>
-              )}
-
-              {typeof item.score === 'number' && (
-                <div className="absolute bottom-2 right-2 bg-background/90 text-amber-500 text-[11px] font-bold px-1.5 py-0.5 rounded border border-border/50 flex items-center gap-1 shadow-sm backdrop-blur-md">
-                  ★ {(item.score / 10).toFixed(1)}
-                </div>
-              )}
-
-              <div className="absolute inset-0 bg-background/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-sm">
-                <div className="bg-primary text-primary-foreground text-xs font-semibold px-4 py-2 rounded-full shadow-md flex items-center gap-2">
-                  <Search className="w-3.5 h-3.5" />
-                  Search Torbox
-                </div>
-              </div>
-            </div>
-
-            <div className="min-w-0 px-1">
-              <h3 className="font-semibold text-foreground transition-colors group-hover:text-primary truncate text-sm">
-                {item.title}
-              </h3>
-              {item.author && (
-                <p className="mt-0.5 text-xs text-muted-foreground truncate">
-                  {item.author}
-                </p>
-              )}
-            </div>
-          </motion.div>
-        ))}
-      </div>
+    <div className="w-full flex flex-col gap-10 py-4">
+      <Row title={`Trending ${type === 'books' ? 'Books' : 'Manga'}`} items={trendingItems} onSelect={handleSelect} />
+      {topItems.length > 0 && (
+        <Row title={`Top Rated ${type === 'books' ? 'Books' : 'Manga'}`} items={topItems} onSelect={handleSelect} />
+      )}
 
       <MagnetSourcesModal
         isOpen={modalOpen}
@@ -209,6 +187,111 @@ export function TrendingExplore({ type }: TrendingExploreProps) {
         type={type}
         onAddMagnetToTorbox={handleAddMagnet}
       />
+    </div>
+  )
+}
+
+function Row({ title, items, onSelect }: { title: string, items: TrendingItem[], onSelect: (item: TrendingItem) => void }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (!scrollRef.current) return
+    const scrollAmount = scrollRef.current.clientWidth * 0.8
+    scrollRef.current.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' })
+  }
+
+  return (
+    <div className="relative group/row">
+      <div className="flex items-center justify-between px-6 mb-4">
+        <h2 className="text-xl font-bold tracking-tight text-foreground/90">
+          {title}
+        </h2>
+        
+        <div className="flex items-center gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity">
+          <button 
+            onClick={() => scroll('left')}
+            className="p-1.5 rounded-full bg-background/50 hover:bg-background border border-border/50 shadow-sm backdrop-blur-md transition-all text-muted-foreground hover:text-foreground"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <button 
+            onClick={() => scroll('right')}
+            className="p-1.5 rounded-full bg-background/50 hover:bg-background border border-border/50 shadow-sm backdrop-blur-md transition-all text-muted-foreground hover:text-foreground"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      <div 
+        ref={scrollRef}
+        className="flex overflow-x-auto gap-4 px-6 pb-4 pt-1 hide-scrollbar snap-x snap-mandatory"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
+        {items.map((item, i) => (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: i * 0.03 }}
+            key={item.id}
+            onClick={() => onSelect(item)}
+            className="relative flex-none w-[150px] snap-center group cursor-pointer"
+          >
+            <div className="relative aspect-[2/3] w-full rounded-lg overflow-hidden bg-muted/20 border border-white/5 shadow-md group-hover:shadow-xl transition-all duration-300 group-hover:-translate-y-1">
+              {item.coverUrl ? (
+                <img
+                  src={item.coverUrl}
+                  alt={item.title}
+                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="flex h-full w-full flex-col items-center justify-center text-muted-foreground/40">
+                  <ImageIcon className="h-8 w-8 mb-2 opacity-50" />
+                </div>
+              )}
+
+              {/* Top gradient for score/year */}
+              <div className="absolute top-0 inset-x-0 h-1/2 bg-gradient-to-b from-black/60 to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+              {/* Bottom gradient for title and genres */}
+              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/95 via-black/70 to-transparent p-3 pt-8 flex flex-col justify-end text-white text-left transition-all duration-300 opacity-90 group-hover:opacity-100">
+                <h3 className="font-bold text-sm leading-tight line-clamp-2 drop-shadow-md">
+                  {item.title}
+                </h3>
+                
+                {/* Score & Year hover reveal */}
+                <div className="absolute top-2 left-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform -translate-y-2 group-hover:translate-y-0">
+                  {typeof item.score === 'number' && item.score > 0 && (
+                    <span className="bg-black/60 backdrop-blur-md text-yellow-400 text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5 shadow-lg">
+                      <Star className="w-3 h-3 fill-yellow-400" />
+                      {(item.score / 10).toFixed(1)}
+                    </span>
+                  )}
+                </div>
+
+                {/* Genres */}
+                {item.genres && item.genres.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1.5 overflow-hidden max-h-[22px]">
+                    {item.genres.slice(0, 2).map(g => (
+                      <span key={g} className="text-[9px] font-medium uppercase tracking-wide text-white/70 bg-white/10 px-1.5 py-0.5 rounded-sm whitespace-nowrap">
+                        {g}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              {/* Search Icon Overlay */}
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10">
+                <div className="bg-primary/90 text-primary-foreground p-2.5 rounded-full shadow-lg transform scale-50 group-hover:scale-100 transition-transform duration-300 backdrop-blur-sm">
+                  <Search className="w-4 h-4" />
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
     </div>
   )
 }

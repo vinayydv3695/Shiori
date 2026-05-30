@@ -108,6 +108,10 @@ impl<'a> MigrationManager<'a> {
         if current_version < 28 {
             self.run_in_savepoint("v28", |mgr| mgr.migrate_to_v28())?;
         }
+        if current_version < 29 {
+            self.run_in_savepoint("v29", |mgr| mgr.migrate_to_v29())?;
+            self.run_in_savepoint("v28", |mgr| mgr.migrate_to_v28())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -1874,6 +1878,102 @@ impl<'a> MigrationManager<'a> {
         self.record_migration(28, "annotation_auto_sync", "v28_annotation_auto_sync")?;
 
         log::info!("[Migration] v28 applied successfully");
+        Ok(())
+    }
+    /// Migration v29: Relax constraints on user_preferences
+    fn migrate_to_v29(&self) -> Result<()> {
+        log::info!("[Migration] Applying v29: Update user_preferences check constraints");
+
+        self.conn.execute_batch("PRAGMA foreign_keys = OFF;")?;
+
+        self.conn.execute_batch(r#"
+            CREATE TABLE IF NOT EXISTS user_preferences_v29 (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                
+                theme TEXT DEFAULT 'black',
+                book_font_family TEXT DEFAULT 'EB Garamond',
+                book_font_size INTEGER DEFAULT 24,
+                book_line_height REAL DEFAULT 1.6,
+                book_page_width INTEGER DEFAULT 1400,
+                book_scroll_mode TEXT DEFAULT 'paged',
+                book_justification TEXT DEFAULT 'justify',
+                book_paragraph_spacing INTEGER DEFAULT 16,
+                book_animation_speed INTEGER DEFAULT 300,
+                book_hyphenation BOOLEAN DEFAULT 1,
+                book_custom_css TEXT DEFAULT '',
+                
+                manga_mode TEXT DEFAULT 'long-strip',
+                manga_direction TEXT DEFAULT 'ltr',
+                manga_margin_size INTEGER DEFAULT 0,
+                manga_fit_width BOOLEAN DEFAULT 1,
+                manga_background_color TEXT DEFAULT '#000000',
+                manga_progress_bar TEXT DEFAULT 'bottom',
+                manga_image_smoothing BOOLEAN DEFAULT 1,
+                manga_preload_count INTEGER DEFAULT 5,
+                manga_gpu_acceleration BOOLEAN DEFAULT 1,
+                
+                auto_start BOOLEAN DEFAULT 0,
+                default_import_path TEXT DEFAULT '',
+                ui_density TEXT DEFAULT 'comfortable',
+                accent_color TEXT DEFAULT '#4A9EFF',
+                preferred_content_type TEXT DEFAULT 'both',
+                ui_scale REAL DEFAULT 1.0,
+                performance_mode TEXT DEFAULT 'standard',
+                metadata_mode TEXT DEFAULT 'online',
+                auto_scan_enabled BOOLEAN DEFAULT 1,
+                default_manga_path TEXT,
+                
+                tts_voice TEXT NOT NULL DEFAULT 'default',
+                tts_rate REAL NOT NULL DEFAULT 1.0,
+                tts_auto_advance INTEGER NOT NULL DEFAULT 1,
+                tts_highlight_color TEXT NOT NULL DEFAULT '#f3a6a68c',
+                
+                translation_target_language TEXT NOT NULL DEFAULT 'en',
+                auto_group_manga BOOLEAN DEFAULT 1,
+                auto_translate BOOLEAN DEFAULT 0,
+                cache_size_limit_mb INTEGER DEFAULT 500,
+                library_size_limit INTEGER DEFAULT 10000,
+                
+                send_analytics BOOLEAN DEFAULT 0,
+                send_crash_reports BOOLEAN DEFAULT 0,
+                debug_logging BOOLEAN DEFAULT 0,
+                enable_cloud_sync BOOLEAN DEFAULT 0,
+                enable_notifications BOOLEAN DEFAULT 1,
+                
+                prowlarr_enabled BOOLEAN DEFAULT 0,
+                prowlarr_url TEXT DEFAULT '',
+                prowlarr_api_key TEXT DEFAULT '',
+                prowlarr_categories TEXT DEFAULT '[7000,8000]',
+                
+                discord_rpc_enabled BOOLEAN DEFAULT 1,
+                
+                auto_export_annotations BOOLEAN DEFAULT 0,
+                annotations_export_path TEXT DEFAULT '',
+                annotations_export_format TEXT DEFAULT 'markdown',
+                
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                version INTEGER DEFAULT 1
+            );
+            
+            INSERT OR IGNORE INTO user_preferences_v29 SELECT * FROM user_preferences;
+            
+            DROP TABLE user_preferences;
+            ALTER TABLE user_preferences_v29 RENAME TO user_preferences;
+            
+            CREATE TRIGGER IF NOT EXISTS user_preferences_update
+            AFTER UPDATE ON user_preferences
+            BEGIN
+                UPDATE user_preferences SET updated_at = CURRENT_TIMESTAMP WHERE id = 1;
+            END;
+        "#)?;
+
+        self.conn.execute_batch("PRAGMA foreign_keys = ON;")?;
+
+        self.set_schema_version(29)?;
+        self.record_migration(29, "relax_user_preferences_constraints", "v29_relax_constraints")?;
+
+        log::info!("[Migration] v29 applied successfully");
         Ok(())
     }
 }

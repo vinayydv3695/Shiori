@@ -115,27 +115,27 @@ export interface OnboardingState {
 
 // Default preferences for initialization
 export const DEFAULT_BOOK_PREFERENCES: BookPreferences = {
-  fontFamily: DEFAULT_READING_FONT_ID,
-  fontSize: 18,
+  fontFamily: 'eb-garamond',
+  fontSize: 24,
   lineHeight: 1.6,
-  pageWidth: 720,
+  pageWidth: 1400,
   scrollMode: 'paged',
-  justification: 'left',
+  justification: 'justify',
   paragraphSpacing: 1.0,
-  animationSpeed: 250,
+  animationSpeed: 300,
   hyphenation: false,
   customCSS: '',
 };
 
 export const DEFAULT_MANGA_PREFERENCES: MangaPreferences = {
-  mode: 'single',
+  mode: 'long-strip',
   direction: 'ltr',
   marginSize: 0,
   fitWidth: true,
   backgroundColor: '#000000',
   progressBar: 'bottom',
   imageSmoothing: true,
-  preloadCount: 3,
+  preloadCount: 5,
   gpuAcceleration: true,
 };
 
@@ -147,7 +147,7 @@ export const DEFAULT_TTS_PREFERENCES: TtsPreferences = {
 };
 
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
-  theme: 'light',
+  theme: 'black',
   book: DEFAULT_BOOK_PREFERENCES,
   manga: DEFAULT_MANGA_PREFERENCES,
   tts: DEFAULT_TTS_PREFERENCES,

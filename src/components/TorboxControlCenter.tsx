@@ -27,7 +27,7 @@ type QueueType = 'manga' | 'books'
 type TabValue = 'search' | 'books' | 'manga'
 type TorboxInitialTab = 'discover' | 'books' | 'manga'
 type KeyStatus = 'unknown' | 'set' | 'unset' | 'verifying' | 'error'
-type FileType = 'CBZ' | 'CBR' | 'EPUB' | 'PDF' | 'MOBI' | 'AZW3' | 'DOCX' | 'TORRENT' | 'MAGNET' | 'OTHER'
+type FileType = 'CBZ' | 'CBR' | 'ZIP' | 'EPUB' | 'PDF' | 'MOBI' | 'AZW3' | 'DOCX' | 'TORRENT' | 'MAGNET' | 'OTHER'
 
 interface UnifiedMetadata {
   id: string
@@ -126,16 +126,18 @@ function formatLocalFileStep(job: TorboxQueueItem): string | null {
   return `Volume ${job.localFileIndex} of ${job.localFileTotal}${name ? ` - ${name}` : ''}`
 }
 
-function queueStatusBadgeClass(status: string): string {
-  const normalized = status.toLowerCase()
+function queueStatusBadgeClass(job: TorboxQueueItem): string {
+  if (job.localPhase === 'downloading' || job.localPhase === 'importing') return 'bg-yellow-500/15 text-yellow-500 border-yellow-500/40'
+  const normalized = (job.status || '').toLowerCase()
   if (normalized.includes('downloading') || normalized.includes('verify')) return 'bg-blue-500/15 text-blue-300 border-blue-400/40'
   if (normalized.includes('completed') || normalized.includes('seeding') || normalized.includes('ready')) return 'bg-emerald-500/15 text-emerald-300 border-emerald-400/40'
   if (normalized.includes('error') || normalized.includes('failed')) return 'bg-red-500/15 text-red-300 border-red-400/40'
   return 'bg-muted text-muted-foreground border-border'
 }
 
-function progressFillClass(status: string): string {
-  const normalized = status.toLowerCase()
+function progressFillClass(job: TorboxQueueItem): string {
+  if (job.localPhase === 'downloading' || job.localPhase === 'importing') return 'bg-yellow-400'
+  const normalized = (job.status || '').toLowerCase()
   if (normalized.includes('completed') || normalized.includes('seeding') || normalized.includes('ready')) return 'bg-emerald-400'
   if (normalized.includes('error') || normalized.includes('failed')) return 'bg-red-400'
   if (normalized.includes('downloading') || normalized.includes('verify')) return 'bg-blue-400'
@@ -189,7 +191,7 @@ function parseSearchSource(record: any, index: number, fallbackTitle: string): S
   const ext = fileName.split('.').pop()?.toLowerCase() || ''
   let fileType: FileType = 'OTHER'
   if (['cbz', 'cbr'].includes(ext)) fileType = 'CBZ'
-  else if (['epub', 'pdf', 'mobi', 'azw3', 'docx'].includes(ext)) fileType = ext.toUpperCase() as FileType
+  else if (['epub', 'pdf', 'mobi', 'azw3', 'docx', 'zip'].includes(ext)) fileType = ext.toUpperCase() as FileType
   else if (['torrent'].includes(ext)) fileType = 'TORRENT'
   else if (magnetLink.toLowerCase().startsWith('magnet:')) fileType = 'MAGNET'
 
@@ -216,7 +218,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
   const [searchResults, setSearchResults] = useState<UnifiedMetadata[]>([])
   
   const [activeModalResult, setActiveModalResult] = useState<SearchResult | null>(null)
-  const [isFetchingTorrents, setIsFetchingTorrents] = useState(false)
+  const [isFetchingTorrents, setIsFetchingTorrents] = useState<string | null>(null)
   const [sourceBusy, setSourceBusy] = useState<Record<string, boolean>>({})
 
   const [isSearching, setIsSearching] = useState(false)
@@ -370,7 +372,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
   }, [searchQuery, searchType])
 
   const fetchTorrentsForMetadata = useCallback(async (meta: UnifiedMetadata) => {
-    setIsFetchingTorrents(true)
+    setIsFetchingTorrents(meta.id)
     try {
       const raw = await invoke<any>('search_manga_sources', { query: meta.title })
       const rootArray = Array.isArray(raw) ? raw : (raw?.items ?? raw?.results ?? raw?.data ?? [])
@@ -397,7 +399,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
     } catch (err) {
       error('Failed to fetch torrents', getErrorMessage(err, 'Search error'))
     } finally {
-      setIsFetchingTorrents(false)
+      setIsFetchingTorrents(null)
     }
   }, [error])
 
@@ -466,7 +468,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                   </div>
 
                   <div className="mt-4 flex items-end justify-between">
-                    <Badge className={`border text-[10px] uppercase tracking-wider font-semibold ${queueStatusBadgeClass(job.status)}`} variant="outline">
+                    <Badge className={`border text-[10px] uppercase tracking-wider font-semibold ${queueStatusBadgeClass(job)}`} variant="outline">
                       {job.status || 'queued'}
                     </Badge>
                     <div className="text-right">
@@ -475,7 +477,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                   </div>
 
                   <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted/50">
-                    <motion.div className={`h-full rounded-full ${progressFillClass(job.status)}`} initial={{ width: 0 }} animate={{ width: `${progress}%` }} />
+                    <motion.div className={`h-full rounded-full ${progressFillClass(job)}`} initial={{ width: 0 }} animate={{ width: `${progress}%` }} />
                   </div>
 
                   <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground font-medium">
@@ -603,9 +605,12 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
 
                 {searchError && <p className="mb-6 text-sm font-medium text-destructive bg-destructive/10 border border-destructive/20 p-4 rounded-xl inline-flex items-center gap-2"><AlertCircle className="h-4 w-4"/> {searchError}</p>}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-start pb-8">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 items-start pb-8">
                   <AnimatePresence>
                     {searchResults.map((result) => {
+                      const isExpanded = activeModalResult?.id === result.id;
+                      const isLoading = isFetchingTorrents === result.id;
+
                       return (
                         <motion.div 
                           layout
@@ -613,38 +618,142 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.95 }}
                           key={result.id} 
-                          className="group flex gap-4 cursor-pointer rounded-xl bg-card/60 border border-border/50 p-3 shadow-sm backdrop-blur-xl hover:shadow-md hover:border-border transition-all"
-                          onClick={() => fetchTorrentsForMetadata(result)}
+                          className={`group flex flex-col overflow-hidden rounded-xl bg-card border shadow-sm transition-all ${isExpanded ? 'col-span-full sm:col-span-full md:col-span-full lg:col-span-full xl:col-span-full border-primary shadow-md' : 'border-border/50 hover:border-primary/50 hover:shadow-md cursor-pointer'}`}
                         >
-                          <div className="relative overflow-hidden rounded-lg bg-muted/30 shadow-sm border border-border/40 w-24 h-32 shrink-0">
-                            {result.coverUrl ? (
-                              <img src={result.coverUrl} alt={result.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
-                            ) : (
-                              <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted-foreground/40 bg-muted/10">
-                                <Search className="h-6 w-6 opacity-50" />
-                              </div>
-                            )}
-                            {typeof result.rating === 'number' && (
-                              <div className="absolute bottom-1 right-1 bg-background/90 text-amber-500 text-[10px] font-bold px-1 rounded shadow-sm backdrop-blur-md">★ {(result.rating / 10).toFixed(1)}</div>
-                            )}
-                          </div>
+                          <div 
+                            className={`flex ${isExpanded ? 'flex-col md:flex-row gap-6 p-6 items-start bg-muted/10 relative' : 'flex-col h-full'}`}
+                            onClick={() => {
+                              if (!isExpanded) fetchTorrentsForMetadata(result);
+                            }}
+                          >
+                            <div className={`relative overflow-hidden bg-muted flex-shrink-0 ${isExpanded ? 'w-32 md:w-48 rounded-lg shadow-lg aspect-[2/3]' : 'w-full aspect-[2/3]'}`}>
+                              {result.coverUrl ? (
+                                <img src={result.coverUrl} alt={result.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+                              ) : (
+                                <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted-foreground/40">
+                                  <Search className="h-8 w-8 opacity-50" />
+                                </div>
+                              )}
+                              {typeof result.rating === 'number' && !isExpanded && (
+                                <div className="absolute top-2 right-2 bg-background/90 text-amber-500 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm backdrop-blur-md">★ {(result.rating / 10).toFixed(1)}</div>
+                              )}
+                              {isLoading && (
+                                <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center">
+                                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                                </div>
+                              )}
+                            </div>
 
-                          <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
-                            <div>
-                              <h3 className="font-semibold text-foreground transition-colors group-hover:text-primary text-sm line-clamp-2 leading-snug">{result.title}</h3>
-                              <p className="mt-1 text-xs text-muted-foreground truncate">
+                            <div className={`flex flex-col min-w-0 ${isExpanded ? 'flex-1' : 'p-3'}`}>
+                              <h3 className={`font-semibold text-foreground transition-colors group-hover:text-primary leading-snug ${isExpanded ? 'text-xl md:pr-8' : 'text-sm line-clamp-2'}`}>{result.title}</h3>
+                              <p className={`mt-1 text-muted-foreground truncate ${isExpanded ? 'text-sm' : 'text-xs'}`}>
                                 {result.year && <span>{result.year}</span>}
                                 {result.year && result.author && <span className="mx-1.5 opacity-50">•</span>}
                                 {result.author && <span>{result.author}</span>}
                               </p>
-                              {result.description && <p className="mt-2 text-xs text-muted-foreground line-clamp-2 opacity-80" dangerouslySetInnerHTML={{ __html: result.description }} />}
+                              {isExpanded && result.description && <p className="mt-4 text-sm text-muted-foreground/80 leading-relaxed max-h-40 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent" dangerouslySetInnerHTML={{ __html: result.description }} />}
+                              {!isExpanded && (
+                                <div className="flex flex-wrap gap-1 mt-3">
+                                  {result.tags.slice(0, 2).map((tag, i) => (
+                                    <Badge key={i} variant="secondary" className="px-1.5 py-0 text-[9px] bg-primary/10 text-primary border-0">{tag}</Badge>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                            <div className="flex flex-wrap gap-1 mt-3">
-                              {result.tags.slice(0, 3).map((tag, i) => (
-                                <Badge key={i} variant="secondary" className="px-1.5 py-0 text-[9px] bg-primary/10 text-primary border-0">{tag}</Badge>
-                              ))}
-                            </div>
+                            
+                            {isExpanded && (
+                              <Button size="icon" variant="ghost" className="absolute top-4 right-4 rounded-full" onClick={(e) => { e.stopPropagation(); setActiveModalResult(null); }}>
+                                <X className="w-5 h-5" />
+                              </Button>
+                            )}
                           </div>
+
+                          <AnimatePresence>
+                            {isExpanded && activeModalResult && (
+                              <motion.div 
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                className="border-t border-border/50 bg-background/50"
+                              >
+                                <div className="p-6 max-h-[60vh] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+                                  <div className="flex items-center justify-between mb-4">
+                                    <h4 className="text-sm font-semibold tracking-tight">Available Torrents ({activeModalResult.sources.length})</h4>
+                                  </div>
+                                  
+                                  {activeModalResult.sources.length === 0 ? (
+                                    <div className="text-center py-10">
+                                      <AlertCircle className="mx-auto h-10 w-10 text-muted-foreground opacity-50 mb-3" />
+                                      <p className="text-muted-foreground">No torrents found for this series.</p>
+                                    </div>
+                                  ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                                      {activeModalResult.sources.map((source) => {
+                                        const busyId = `${activeModalResult.id}:${source.id}`
+                                        const busy = sourceBusy[busyId] === true
+
+                                        return (
+                                          <div key={source.id} className="bg-card border border-border/50 rounded-xl p-4 flex flex-col gap-3 transition-colors hover:border-border">
+                                            <div className="flex flex-col gap-1.5">
+                                              <h3 className="text-sm font-medium text-foreground truncate" title={source.label}>{source.label}</h3>
+                                              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 uppercase">
+                                                  {source.fileType || 'UNKNOWN'}
+                                                </Badge>
+                                                {typeof source.sizeBytes === 'number' && <span>{formatBytes(source.sizeBytes)}</span>}
+                                                {typeof source.seeders === 'number' && (
+                                                  <span className="text-primary font-bold">{source.seeders} seeders</span>
+                                                )}
+                                              </div>
+                                            </div>
+
+                                            <div className="pt-2 mt-auto">
+                                              {source.linkKind === 'direct' || source.linkKind === 'anna' || source.linkKind === 'external' ? (
+                                                <Button
+                                                  variant="secondary"
+                                                  className="w-full h-9 rounded-lg text-xs font-semibold"
+                                                  onClick={() => {
+                                                    const openedWindow = window.open(source.magnetLink, '_blank', 'noopener,noreferrer')
+                                                    if (!openedWindow) window.location.assign(source.magnetLink)
+                                                  }}
+                                                >
+                                                  <Link className="w-3.5 h-3.5 mr-2 opacity-70" />
+                                                  Direct Download
+                                                </Button>
+                                              ) : (
+                                                <Button
+                                                  className="w-full h-9 rounded-lg text-xs font-semibold"
+                                                  disabled={busy}
+                                                  onClick={async () => {
+                                                    setSourceBusy((prev) => ({ ...prev, [busyId]: true }))
+                                                    try {
+                                                      await enqueueJob({
+                                                        title: activeModalResult.title,
+                                                        sourceLink: source.magnetLink,
+                                                        kind: searchType === 'books' ? 'books' : 'manga'
+                                                      })
+                                                      success('Added to Cloud', 'Job is now queued.')
+                                                    } catch (e) {
+                                                      error('Queue failed', getErrorMessage(e, 'Could not add to Torbox'))
+                                                    } finally {
+                                                      setSourceBusy((prev) => { const n = { ...prev }; delete n[busyId]; return n; })
+                                                    }
+                                                  }}
+                                                >
+                                                  {busy ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <DownloadCloud className="mr-2 h-3.5 w-3.5" />}
+                                                  Add to Cloud
+                                                </Button>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                         </motion.div>
                       )
                     })}
@@ -714,121 +823,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
           </motion.div>
         </AnimatePresence>
       </Tabs.Root>
-
-      <Dialog.Root open={!!activeModalResult || isFetchingTorrents} onOpenChange={(open) => !open && !isFetchingTorrents && setActiveModalResult(null)}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#121212] border border-white/10 rounded-2xl shadow-2xl w-[90vw] max-w-4xl max-h-[85vh] flex flex-col z-50 overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-300">
-            {isFetchingTorrents ? (
-              <div className="flex flex-col items-center justify-center py-24 gap-4">
-                <Loader2 className="w-10 h-10 animate-spin text-purple-400" />
-                <p className="text-sm font-medium text-gray-300 animate-pulse">Scanning torrent clouds for results...</p>
-              </div>
-            ) : activeModalResult && (
-              <>
-                <div className="flex-none px-6 py-5 border-b border-white/5 relative">
-                  <div className="flex items-center gap-3 pr-12">
-                    <div className="flex items-center justify-center w-8 h-8 rounded bg-purple-500/10 text-purple-400">
-                      <DownloadCloud className="w-5 h-5" />
-                    </div>
-                    <Dialog.Title className="text-xl font-bold tracking-tight text-white truncate">
-                      {activeModalResult.title}
-                    </Dialog.Title>
-                  </div>
-                  
-                  <Dialog.Close asChild>
-                    <button className="absolute right-5 top-5 p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-purple-500/50">
-                      <X className="w-5 h-5" />
-                    </button>
-                  </Dialog.Close>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/5 text-sm font-medium text-gray-300 cursor-pointer hover:bg-white/10 transition-colors">
-                      <Filter className="w-4 h-4" />
-                      <span>All Sources</span>
-                      <ChevronDown className="w-4 h-4 ml-2 opacity-50" />
-                    </div>
-                    <span className="text-sm font-medium text-gray-500">
-                      {activeModalResult.sources.length} of {activeModalResult.sources.length} results
-                    </span>
-                  </div>
-
-                  {activeModalResult.sources.length === 0 ? (
-                    <div className="text-center py-10">
-                      <AlertCircle className="mx-auto h-10 w-10 text-muted-foreground opacity-50 mb-3" />
-                      <p className="text-gray-400">No torrents found for this series.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {activeModalResult.sources.map((source) => {
-                        const busyId = `${activeModalResult.id}:${source.id}`
-                        const busy = sourceBusy[busyId] === true
-
-                        return (
-                          <div key={source.id} className="bg-[#1a1a1a] border border-white/5 rounded-xl p-4 flex flex-col gap-3 transition-colors hover:bg-[#1a1a1a]/80">
-                            <div className="flex flex-col gap-1.5">
-                              <h3 className="text-[15px] font-semibold text-white/90 truncate">{source.label}</h3>
-                              <div className="flex items-center gap-3 text-xs font-medium text-gray-400">
-                                <Badge variant="secondary" className="bg-[#3b1578] hover:bg-[#3b1578] text-[#d4b4f5] border-0 rounded text-[10px] px-2 py-0 uppercase tracking-wide">
-                                  {source.fileType || 'UNKNOWN'}
-                                </Badge>
-                                {typeof source.sizeBytes === 'number' && <span>{formatBytes(source.sizeBytes)}</span>}
-                                {typeof source.seeders === 'number' && (
-                                  <span className="text-purple-400 font-bold">{source.seeders} seeders</span>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="pt-1 w-full">
-                              {source.linkKind === 'direct' || source.linkKind === 'anna' || source.linkKind === 'external' ? (
-                                <Button
-                                  className="w-full h-10 bg-[#2a2a2a] hover:bg-[#333333] text-white border border-white/5 rounded-lg text-sm font-semibold transition-colors"
-                                  onClick={() => {
-                                    const openedWindow = window.open(source.magnetLink, '_blank', 'noopener,noreferrer')
-                                    if (!openedWindow) window.location.assign(source.magnetLink)
-                                  }}
-                                >
-                                  <Link className="w-4 h-4 mr-2 opacity-70" />
-                                  Direct Download
-                                </Button>
-                              ) : (
-                                <Button
-                                  className="w-full h-10 bg-[#4c1d95] hover:bg-[#5b21b6] text-white rounded-lg text-sm font-semibold transition-colors shadow-lg shadow-purple-900/20"
-                                  disabled={busy}
-                                  onClick={async () => {
-                                    setSourceBusy((prev) => ({ ...prev, [busyId]: true }))
-                                    try {
-                                      await enqueueJob({
-                                        title: activeModalResult.title,
-                                        sourceLink: source.magnetLink,
-                                        kind: searchType === 'books' ? 'books' : 'manga'
-                                      })
-                                      success('Added to Cloud', 'Job is now queued.')
-                                    } catch (e) {
-                                      error('Queue failed', getErrorMessage(e, 'Could not add to Torbox'))
-                                    } finally {
-                                      setSourceBusy((prev) => { const n = { ...prev }; delete n[busyId]; return n; })
-                                    }
-                                  }}
-                                >
-                                  {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
-                                  Add to Cloud
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+      {/* Modal removed to use inline accordion */}
     </div>
   )
 }

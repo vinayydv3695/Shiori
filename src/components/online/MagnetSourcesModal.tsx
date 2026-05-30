@@ -133,38 +133,46 @@ export function MagnetSourcesModal({ isOpen, onClose, query, type, onAddMagnetTo
 
               {!loading && !error && sources.length > 0 && (
                 <div className="flex flex-col gap-2 p-3">
-                  {sources.map((s, i) => (
-                    <div key={i} className="group relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-lg border border-border/50 bg-muted/20 hover:bg-muted/40 hover:border-primary/30 transition-all">
-                      <div className="flex-1 min-w-0 pr-4">
-                        <h4 className="font-medium text-sm leading-tight break-words text-foreground group-hover:text-primary transition-colors">
-                          {s.title}
-                        </h4>
-                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1.5 bg-background border border-border px-2 py-0.5 rounded-md shadow-sm">
-                            <ShieldCheck className="w-3.5 h-3.5 text-primary" /> {s.source}
-                          </span>
-                          <span className="flex items-center gap-1.5">
-                            <HardDrive className="w-3.5 h-3.5" /> {s.size}
-                          </span>
-                          {s.seeders > 0 && (
-                            <span className="flex items-center gap-1.5 text-emerald-500">
-                              <Server className="w-3.5 h-3.5" /> {s.seeders} seeders
+                  {sources.map((s, i) => {
+                    const formatMatch = s.title.match(/\.(zip|rar|cbz|cbr|epub|pdf|mobi|azw3)/i)
+                    const format = formatMatch ? formatMatch[1].toUpperCase() : 'UNKNOWN'
+                    
+                    return (
+                      <div key={i} className="group relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-3 rounded-lg border border-border/50 bg-muted/20 hover:bg-muted/40 hover:border-primary/30 transition-all">
+                        <div className="flex-1 min-w-0 pr-4">
+                          <h4 className="font-medium text-sm leading-tight break-words text-foreground group-hover:text-primary transition-colors">
+                            {s.title}
+                          </h4>
+                          <div className="flex items-center gap-3 mt-2 text-xs font-medium">
+                            <span className="flex items-center gap-1.5 bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded shadow-sm">
+                              {format}
                             </span>
-                          )}
+                            <span className="flex items-center gap-1.5 text-muted-foreground bg-background border border-border px-2 py-0.5 rounded shadow-sm">
+                              <ShieldCheck className="w-3.5 h-3.5 text-primary" /> {s.source}
+                            </span>
+                            <span className="flex items-center gap-1.5 text-muted-foreground">
+                              <HardDrive className="w-3.5 h-3.5" /> {s.size}
+                            </span>
+                            {s.seeders > 0 && (
+                              <span className="flex items-center gap-1.5 text-emerald-500">
+                                <Server className="w-3.5 h-3.5" /> {s.seeders} seeders
+                              </span>
+                            )}
+                          </div>
                         </div>
+                        <button
+                          onClick={() => {
+                            onAddMagnetToTorbox(s.magnet, s.title)
+                            onClose()
+                          }}
+                          className="shrink-0 flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md font-medium text-sm hover:bg-primary/90 transition-colors shadow-sm"
+                        >
+                          <Download className="w-4 h-4" />
+                          Add
+                        </button>
                       </div>
-                      <button
-                        onClick={() => {
-                          onAddMagnetToTorbox(s.magnet, s.title)
-                          onClose()
-                        }}
-                        className="shrink-0 flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md font-medium text-sm hover:bg-primary/90 transition-colors shadow-sm"
-                      >
-                        <Download className="w-4 h-4" />
-                        Add to Torbox
-                      </button>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>

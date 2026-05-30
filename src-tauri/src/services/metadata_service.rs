@@ -37,7 +37,7 @@ pub fn extract_cover(
 
     match extension.as_str() {
         "epub" => extract_epub_cover(file_path, book_uuid, covers_dir),
-        "cbz" | "cbr" => extract_cbz_cover(file_path, book_uuid, covers_dir),
+        "cbz" | "cbr" | "zip" => extract_cbz_cover(file_path, book_uuid, covers_dir),
         "pdf" => extract_pdf_cover(file_path, book_uuid, covers_dir),
         "mobi" | "azw3" => extract_mobi_cover(file_path, book_uuid, covers_dir),
         _ => Ok(None),

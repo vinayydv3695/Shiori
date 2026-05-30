@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
-const SUPPORTED_FORMATS: &[&str] = &["epub", "pdf", "mobi", "azw3", "docx", "fb2", "cbz", "cbr"];
+const SUPPORTED_FORMATS: &[&str] = &["epub", "pdf", "mobi", "azw3", "docx", "fb2", "cbz", "cbr", "zip"];
 
 const SYSTEM_DIRS: &[&str] = &[
     "/",

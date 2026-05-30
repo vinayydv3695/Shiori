@@ -40,7 +40,7 @@ export function TrendingExplore({ type }: TrendingExploreProps) {
           const query = `
             query {
               Page(page: 1, perPage: 15) {
-                media(type: MANGA, sort: TRENDING_DESC) {
+                media(type: MANGA, format_in: [MANGA, ONE_SHOT], sort: TRENDING_DESC) {
                   id
                   title { romaji english }
                   coverImage { large }

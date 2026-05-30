@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { invoke } from '@tauri-apps/api/core'
 import * as Tabs from '@radix-ui/react-tabs'
@@ -6,52 +6,41 @@ import * as Dialog from '@radix-ui/react-dialog'
 import {
   AlertCircle,
   ChevronDown,
-  ChevronUp,
   Cloud,
   DownloadCloud,
   Filter,
   Link,
   Loader2,
   Search,
-  Trash2,
   X,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/store/toastStore'
-import { parsePageUrl } from '@/lib/utils'
 import { TrendingExplore } from './torbox/TrendingExplore'
-
-interface TorrentInfo {
-  id: number
-  name: string
-  size: number
-  progress: number
-  downloadSpeed: number
-  status: string
-  files?: Array<{ id: number; name: string; size: number }>
-}
-
-type LocalProgress = {
-  localDownloadedBytes?: number
-  localTotalBytes?: number
-  localProgress?: number
-  localPhase?: 'downloading' | 'importing' | 'completed'
-  localFileIndex?: number
-  localFileTotal?: number
-  localFileName?: string
-}
+import { useTorboxStore, TorboxQueueItem } from '@/stores/useTorboxStore'
+import { parsePageUrl } from '@/lib/utils'
 
 type SearchType = 'manga' | 'books' | 'all'
 type QueueType = 'manga' | 'books'
 type TabValue = 'search' | 'books' | 'manga'
 type TorboxInitialTab = 'discover' | 'books' | 'manga'
-
 type KeyStatus = 'unknown' | 'set' | 'unset' | 'verifying' | 'error'
-
 type FileType = 'CBZ' | 'CBR' | 'EPUB' | 'PDF' | 'MOBI' | 'AZW3' | 'DOCX' | 'TORRENT' | 'MAGNET' | 'OTHER'
+
+interface UnifiedMetadata {
+  id: string
+  title: string
+  author?: string
+  year?: string
+  rating?: number
+  ongoing?: boolean
+  tags: string[]
+  coverUrl?: string
+  description?: string
+  kind: QueueType
+}
 
 interface SearchSource {
   id: string
@@ -67,99 +56,7 @@ interface SearchSource {
 interface SearchResult {
   id: string
   title: string
-  author?: string
-  year?: string
-  rating?: number
-  ongoing?: boolean
-  tags: string[]
-  coverUrl?: string
-  kind?: QueueType
   sources: SearchSource[]
-}
-
-interface JobMeta {
-  title?: string
-  magnetLink?: string
-  kind?: QueueType
-  importedPath?: string
-  resolvedLink?: string
-  resolving?: boolean
-  importing?: boolean
-  autoImportTriggered?: boolean
-  error?: string
-}
-
-const BOOK_EXTS = new Set(['epub', 'pdf', 'mobi', 'azw3', 'docx'])
-const MANGA_EXTS = new Set(['cbz', 'cbr'])
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
-  return value as Record<string, unknown>
-}
-
-function pickString(record: Record<string, unknown>, keys: string[]): string | undefined {
-  for (const key of keys) {
-    const value = record[key]
-    if (typeof value === 'string' && value.trim()) return value.trim()
-  }
-  return undefined
-}
-
-function pickNumber(record: Record<string, unknown>, keys: string[]): number | undefined {
-  for (const key of keys) {
-    const value = record[key]
-    if (typeof value === 'number' && Number.isFinite(value)) return value
-    if (typeof value === 'string' && value.trim()) {
-      const parsed = Number(value)
-      if (Number.isFinite(parsed)) return parsed
-    }
-  }
-  return undefined
-}
-
-function normalizeProgress(progress: number): number {
-  const scaled = progress <= 1 ? progress * 100 : progress
-  return Math.max(0, Math.min(100, scaled))
-}
-
-function statusLower(status: string): string {
-  return status.trim().toLowerCase()
-}
-
-function isFailedStatus(status: string): boolean {
-  const normalized = statusLower(status)
-  return normalized.includes('error') || normalized.includes('failed')
-}
-
-function isCompletedStatus(status: string): boolean {
-  const normalized = statusLower(status)
-  return (
-    normalized.includes('completed') ||
-    normalized.includes('complete') ||
-    normalized.includes('seeding') ||
-    normalized.includes('finished') ||
-    normalized.includes('ready')
-  )
-}
-
-function isActiveStatus(status: string): boolean {
-  return !isFailedStatus(status) && !isCompletedStatus(status)
-}
-
-function statusPhaseText(status: string): string {
-  const normalized = statusLower(status)
-  if (normalized.includes('error') || normalized.includes('failed')) return 'Transfer failed'
-  if (normalized.includes('completed') || normalized.includes('seeding') || normalized.includes('ready')) return 'Downloaded and imported to library'
-  if (normalized.includes('import')) return 'Cloud complete - downloading to this device and importing'
-  if (normalized.includes('download')) return 'Downloading from Torbox'
-  if (normalized.includes('verify')) return 'Preparing transfer'
-  return 'Queued in Torbox'
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.message.trim()) return error.message
-  if (typeof error === 'string' && error.trim()) return error
-  return fallback
 }
 
 function formatBytes(value: number): string {
@@ -182,14 +79,11 @@ function formatSpeed(value: number): string {
 
 function formatEta(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds <= 0) return 'ETA --'
-
   const rounded = Math.round(seconds)
   if (rounded < 60) return `ETA ${rounded}s`
-
   const minutes = Math.floor(rounded / 60)
   const secs = rounded % 60
   if (minutes < 60) return secs === 0 ? `ETA ${minutes}m` : `ETA ${minutes}m ${secs}s`
-
   const hours = Math.floor(minutes / 60)
   const mins = minutes % 60
   return mins === 0 ? `ETA ${hours}h` : `ETA ${hours}h ${mins}m`
@@ -198,112 +92,83 @@ function formatEta(seconds: number): string {
 function estimateEta(status: string, size: number, progressPercent: number, speed: number): string | null {
   if (!Number.isFinite(size) || size <= 0) return null
   if (!Number.isFinite(speed) || speed <= 0) return null
-
-  const normalized = statusLower(status)
+  const normalized = status.toLowerCase()
   if (!normalized.includes('download')) return null
-
   const clampedProgress = Math.max(0, Math.min(100, progressPercent))
   if (clampedProgress >= 100) return null
-
   const downloadedBytes = size * (clampedProgress / 100)
   const remainingBytes = Math.max(0, size - downloadedBytes)
   if (remainingBytes <= 0) return null
-
   return formatEta(remainingBytes / speed)
 }
 
-function formatLocalProgress(meta?: LocalProgress): string | null {
-  if (!meta) return null
-  if (meta.localPhase !== 'downloading' && meta.localPhase !== 'importing') return null
-
-  const localProgress = typeof meta.localProgress === 'number' ? Math.max(0, Math.min(100, meta.localProgress)) : null
-  const downloaded = typeof meta.localDownloadedBytes === 'number' ? meta.localDownloadedBytes : null
-  const total = typeof meta.localTotalBytes === 'number' ? meta.localTotalBytes : null
-
+function formatLocalProgress(job: TorboxQueueItem): string | null {
+  if (job.localPhase !== 'downloading' && job.localPhase !== 'importing') return null
+  const localProgress = typeof job.localProgress === 'number' ? Math.max(0, Math.min(100, job.localProgress)) : null
+  const downloaded = typeof job.localDownloadedBytes === 'number' ? job.localDownloadedBytes : null
+  const total = typeof job.localTotalBytes === 'number' ? job.localTotalBytes : null
   if (localProgress === null && downloaded === null) return null
-
   let text = 'Local download: '
   text += localProgress !== null ? `${localProgress.toFixed(1)}%` : 'in progress'
-
   if (downloaded !== null) {
     text += ` (${formatBytes(downloaded)}`
-    if (total !== null) {
-      text += ` / ${formatBytes(total)}`
-    }
+    if (total !== null) text += ` / ${formatBytes(total)}`
     text += ')'
   }
-
   return text
 }
 
-function formatLocalFileStep(meta?: LocalProgress): string | null {
-  if (!meta) return null
-  if (meta.localPhase !== 'downloading' && meta.localPhase !== 'importing') return null
-  if (typeof meta.localFileIndex !== 'number' || typeof meta.localFileTotal !== 'number') return null
-  if (meta.localFileTotal <= 1) return null
-
-  const name = typeof meta.localFileName === 'string' && meta.localFileName.trim() ? meta.localFileName : null
-  return `Volume ${meta.localFileIndex} of ${meta.localFileTotal}${name ? ` - ${name}` : ''}`
+function formatLocalFileStep(job: TorboxQueueItem): string | null {
+  if (job.localPhase !== 'downloading' && job.localPhase !== 'importing') return null
+  if (typeof job.localFileIndex !== 'number' || typeof job.localFileTotal !== 'number') return null
+  if (job.localFileTotal <= 1) return null
+  const name = typeof job.localFileName === 'string' && job.localFileName.trim() ? job.localFileName : null
+  return `Volume ${job.localFileIndex} of ${job.localFileTotal}${name ? ` - ${name}` : ''}`
 }
 
-function isTorboxLikeLink(link: string): boolean {
-  const normalized = link.trim().toLowerCase()
-  return normalized.startsWith('magnet:') || normalized.startsWith('http://') || normalized.startsWith('https://')
+function queueStatusBadgeClass(status: string): string {
+  const normalized = status.toLowerCase()
+  if (normalized.includes('downloading') || normalized.includes('verify')) return 'bg-blue-500/15 text-blue-300 border-blue-400/40'
+  if (normalized.includes('completed') || normalized.includes('seeding') || normalized.includes('ready')) return 'bg-emerald-500/15 text-emerald-300 border-emerald-400/40'
+  if (normalized.includes('error') || normalized.includes('failed')) return 'bg-red-500/15 text-red-300 border-red-400/40'
+  return 'bg-muted text-muted-foreground border-border'
 }
 
-function getFileExt(fileName: string): string {
-  const parts = fileName.trim().toLowerCase().split('.')
-  if (parts.length < 2) return ''
-  return parts[parts.length - 1]
+function progressFillClass(status: string): string {
+  const normalized = status.toLowerCase()
+  if (normalized.includes('completed') || normalized.includes('seeding') || normalized.includes('ready')) return 'bg-emerald-400'
+  if (normalized.includes('error') || normalized.includes('failed')) return 'bg-red-400'
+  if (normalized.includes('downloading') || normalized.includes('verify')) return 'bg-blue-400'
+  return 'bg-muted-foreground'
 }
 
-function fileTypeFromName(fileName: string, link?: string): FileType {
-  const ext = getFileExt(fileName)
-  if (ext === 'cbz') return 'CBZ'
-  if (ext === 'cbr') return 'CBR'
-  if (ext === 'epub') return 'EPUB'
-  if (ext === 'pdf') return 'PDF'
-  if (ext === 'mobi') return 'MOBI'
-  if (ext === 'azw3') return 'AZW3'
-  if (ext === 'docx') return 'DOCX'
-  if (ext === 'torrent') return 'TORRENT'
-  const normalized = (link ?? '').toLowerCase()
-  if (normalized.startsWith('magnet:')) return 'MAGNET'
-  return 'OTHER'
+function statusPhaseText(status: string): string {
+  const normalized = status.toLowerCase()
+  if (normalized.includes('error') || normalized.includes('failed')) return 'Transfer failed'
+  if (normalized.includes('completed') || normalized.includes('seeding') || normalized.includes('ready')) return 'Downloaded and imported to library'
+  if (normalized.includes('import')) return 'Cloud complete - downloading to this device and importing'
+  if (normalized.includes('download')) return 'Downloading from Torbox'
+  if (normalized.includes('verify')) return 'Preparing transfer'
+  return 'Queued in Torbox'
 }
 
-function inferSourceKind(fileType: FileType): QueueType | undefined {
-  if (fileType === 'CBZ' || fileType === 'CBR') return 'manga'
-  if (fileType === 'EPUB' || fileType === 'PDF' || fileType === 'MOBI' || fileType === 'AZW3' || fileType === 'DOCX') {
-    return 'books'
-  }
-  return undefined
+function mapInitialTabToValue(initialTab: TorboxInitialTab): TabValue {
+  if (initialTab === 'books') return 'books'
+  if (initialTab === 'manga') return 'manga'
+  return 'search'
 }
 
-function parseTags(value: unknown): string[] {
-  if (!Array.isArray(value)) return []
-  return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).slice(0, 6)
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message.trim()) return error.message
+  if (typeof error === 'string' && error.trim()) return error
+  return fallback
 }
 
-function parseSearchSource(input: unknown, index: number, fallbackTitle: string): SearchSource | null {
-  const record = asRecord(input)
+// Simplified parsers from before
+function parseSearchSource(record: any, index: number, fallbackTitle: string): SearchSource | null {
   if (!record) return null
-
-  const extra = asRecord(record.extra) || {}
-
-  const rawLink = pickString(record, [
-    'magnet_url',
-    'torrent_url',
-    'magnetLink',
-    'magnet_link',
-    'magnet',
-    'url',
-    'link',
-    'torrent',
-    'torrent_link',
-    'torrentLink',
-  ]) || pickString(extra, ['magnet', 'url', 'torrent', 'link', 'magnet_link', 'torrent_link', 'magnet_url', 'torrent_url'])
-  
+  const extra = record.extra || {}
+  const rawLink = record.magnet_url || record.torrent_url || record.magnetLink || record.magnet_link || record.magnet || record.url || record.link || record.torrent || extra.magnet || extra.url || extra.torrent || extra.link
   if (!rawLink) return null
 
   const parsedLink = parsePageUrl(rawLink)
@@ -315,231 +180,63 @@ function parseSearchSource(input: unknown, index: number, fallbackTitle: string)
   }
 
   const magnetLink = parsedLink.url
-  if (!magnetLink || !isTorboxLikeLink(magnetLink)) return null
+  if (!magnetLink) return null
 
-  const fileName = pickString(record, ['fileName', 'filename', 'name', 'title']) ?? pickString(extra, ['fileName', 'filename', 'name', 'title']) ?? fallbackTitle
-  const fileTypeText = pickString(record, ['fileType', 'type', 'format']) ?? pickString(extra, ['fileType', 'type', 'format'])
-  const fileType = fileTypeText ? fileTypeFromName(`${fileName}.${fileTypeText}`, magnetLink) : fileTypeFromName(fileName, magnetLink)
-  const sizeBytes = pickNumber(record, ['sizeBytes', 'size_bytes', 'size', 'fileSize', 'file_size']) ?? pickNumber(extra, ['sizeBytes', 'size_bytes', 'size', 'fileSize', 'file_size'])
-  const seeders = pickNumber(record, ['seeders', 'seeds']) ?? pickNumber(extra, ['seeders', 'seeds'])
+  const fileName = record.fileName || record.filename || record.name || record.title || extra.fileName || extra.filename || extra.name || extra.title || fallbackTitle
+  const sizeBytes = Number(record.sizeBytes || record.size_bytes || record.size || record.fileSize || record.file_size || extra.sizeBytes || extra.size_bytes || extra.size)
+  const seeders = Number(record.seeders || record.seeds || extra.seeders || extra.seeds)
+
+  const ext = fileName.split('.').pop()?.toLowerCase() || ''
+  let fileType: FileType = 'OTHER'
+  if (['cbz', 'cbr'].includes(ext)) fileType = 'CBZ'
+  else if (['epub', 'pdf', 'mobi', 'azw3', 'docx'].includes(ext)) fileType = ext.toUpperCase() as FileType
+  else if (['torrent'].includes(ext)) fileType = 'TORRENT'
+  else if (magnetLink.toLowerCase().startsWith('magnet:')) fileType = 'MAGNET'
 
   return {
-    id: pickString(record, ['id']) ?? `source-${index}-${fileName}`,
+    id: record.id || `source-${index}`,
     label: fileName,
     magnetLink,
     linkKind,
     fileType,
     fileName,
-    sizeBytes,
-    seeders,
+    sizeBytes: Number.isNaN(sizeBytes) ? undefined : sizeBytes,
+    seeders: Number.isNaN(seeders) ? undefined : seeders,
   }
 }
 
-function parseSearchResults(payload: unknown): SearchResult[] {
-  const rootArray = Array.isArray(payload)
-    ? payload
-    : (() => {
-        const record = asRecord(payload)
-        if (!record) return []
-        const items = record.items ?? record.results ?? record.data
-        return Array.isArray(items) ? items : []
-      })()
-
-  const parsed: SearchResult[] = []
-
-  rootArray.forEach((row, rowIndex) => {
-    const record = asRecord(row)
-    if (!record) return
-
-    const title = pickString(record, ['title', 'name']) ?? `Untitled Result ${rowIndex + 1}`
-    const nestedSources = Array.isArray(record.sources) ? record.sources : []
-
-    const sources = nestedSources
-      .map((source, sourceIndex) => parseSearchSource(source, sourceIndex, title))
-      .filter((source): source is SearchSource => source !== null)
-
-    const directSource = parseSearchSource(record, 0, title)
-    if (directSource) {
-      const exists = sources.some((source) => source.magnetLink === directSource.magnetLink)
-      if (!exists) sources.unshift(directSource)
-    }
-
-    if (sources.length === 0) return
-
-    const kindText = pickString(record, ['kind', 'contentType', 'category', 'type'])?.toLowerCase()
-    const kind: QueueType | undefined = kindText?.includes('book')
-      ? 'books'
-      : kindText?.includes('manga')
-      ? 'manga'
-      : undefined
-
-    const parsedResult: SearchResult = {
-      id: pickString(record, ['id']) ?? `result-${rowIndex}`,
-      title,
-      author: pickString(record, ['author', 'artist', 'creator']),
-      year: pickString(record, ['year', 'releaseYear', 'published']),
-      rating: pickNumber(record, ['rating', 'score']),
-      ongoing: pickString(record, ['status'])?.toLowerCase().includes('ongoing'),
-      tags: parseTags(record.tags ?? record.genres),
-      coverUrl: pickString(record, ['coverUrl', 'cover_url', 'cover', 'thumbnail', 'image']),
-      kind,
-      sources,
-    }
-
-    parsed.push(parsedResult)
-  })
-
-  return parsed
-}
-
-function filterBySearchType(results: SearchResult[], searchType: SearchType): SearchResult[] {
-  if (searchType === 'all') return results
-
-  return results.filter((result) => {
-    if (result.kind) return result.kind === searchType
-
-    const kinds = new Set(result.sources.map((source) => inferSourceKind(source.fileType)).filter(Boolean))
-    if (kinds.size === 0) return true
-    return kinds.has(searchType)
-  })
-}
-
-function inferTorrentKind(job: TorrentInfo, meta?: JobMeta): QueueType | undefined {
-  if (meta?.kind) return meta.kind
-
-  const names = [job.name, ...(job.files?.map((file) => file.name) ?? [])]
-  let hasBook = false
-  let hasManga = false
-
-  for (const name of names) {
-    const ext = getFileExt(name)
-    if (BOOK_EXTS.has(ext)) hasBook = true
-    if (MANGA_EXTS.has(ext)) hasManga = true
-  }
-
-  if (hasManga && !hasBook) return 'manga'
-  if (hasBook && !hasManga) return 'books'
-  return undefined
-}
-
-function sourceBadgeClass(fileType: FileType): string {
-  if (fileType === 'CBZ' || fileType === 'CBR') return 'bg-violet-500/15 text-violet-300 border-violet-400/40'
-  if (fileType === 'EPUB') return 'bg-emerald-500/15 text-emerald-300 border-emerald-400/40'
-  if (fileType === 'PDF') return 'bg-sky-500/15 text-sky-300 border-sky-400/40'
-  return 'bg-muted text-muted-foreground border-border'
-}
-
-function queueStatusBadgeClass(status: string): string {
-  const normalized = statusLower(status)
-  if (normalized.includes('downloading') || normalized.includes('verify')) {
-    return 'bg-blue-500/15 text-blue-300 border-blue-400/40'
-  }
-  if (normalized.includes('completed') || normalized.includes('seeding') || normalized.includes('ready')) {
-    return 'bg-emerald-500/15 text-emerald-300 border-emerald-400/40'
-  }
-  if (normalized.includes('error') || normalized.includes('failed')) {
-    return 'bg-red-500/15 text-red-300 border-red-400/40'
-  }
-  return 'bg-muted text-muted-foreground border-border'
-}
-
-function progressFillClass(status: string): string {
-  const normalized = statusLower(status)
-  if (normalized.includes('completed') || normalized.includes('seeding') || normalized.includes('ready')) {
-    return 'bg-emerald-400'
-  }
-  if (normalized.includes('error') || normalized.includes('failed')) {
-    return 'bg-red-400'
-  }
-  if (normalized.includes('downloading') || normalized.includes('verify')) {
-    return 'bg-blue-400'
-  }
-  return 'bg-muted-foreground'
-}
-
-function mapInitialTabToValue(initialTab: TorboxInitialTab): TabValue {
-  if (initialTab === 'books') return 'books'
-  if (initialTab === 'manga') return 'manga'
-  return 'search'
-}
-
-interface TorboxControlCenterProps {
-  initialTab?: TorboxInitialTab
-}
-
-export default function TorboxControlCenter({ initialTab = 'discover' }: TorboxControlCenterProps) {
+export default function TorboxControlCenter({ initialTab = 'discover' }: { initialTab?: TorboxInitialTab }) {
   const { success, error, info } = useToast()
+  const { jobs, enqueueJob, removeJob, importJob, resolveJob, clearCompleted: clearStoreCompleted } = useTorboxStore()
 
   const [apiKey, setApiKey] = useState<string>('')
   const [keyStatus, setKeyStatus] = useState<KeyStatus>('unknown')
-  const [jobs, setJobs] = useState<TorrentInfo[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [searchType, setSearchType] = useState<SearchType>('manga')
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+  const [searchResults, setSearchResults] = useState<UnifiedMetadata[]>([])
+  
   const [activeModalResult, setActiveModalResult] = useState<SearchResult | null>(null)
+  const [isFetchingTorrents, setIsFetchingTorrents] = useState(false)
+  const [sourceBusy, setSourceBusy] = useState<Record<string, boolean>>({})
+
   const [isSearching, setIsSearching] = useState(false)
   const [activeTab, setActiveTab] = useState<TabValue>(() => mapInitialTabToValue(initialTab))
 
   const [keyFeedback, setKeyFeedback] = useState<string | null>(null)
   const [searchError, setSearchError] = useState<string | null>(null)
-  const [searchUnavailable, setSearchUnavailable] = useState(false)
   const [manualTitle, setManualTitle] = useState('')
   const [manualMagnet, setManualMagnet] = useState('')
   const [editingKey, setEditingKey] = useState(false)
-  const [sourceBusy, setSourceBusy] = useState<Record<string, boolean>>({})
-  const [jobMeta, setJobMeta] = useState<Record<number, JobMeta>>({})
 
-  const jobsRef = useRef<TorrentInfo[]>(jobs)
-
-  useEffect(() => {
-    jobsRef.current = jobs
-  }, [jobs])
+  const booksJobs = useMemo(() => jobs.filter((job) => job.source === 'anna'), [jobs])
+  const mangaJobs = useMemo(() => jobs.filter((job) => job.source === 'manga'), [jobs])
 
   useEffect(() => {
     setActiveTab(mapInitialTabToValue(initialTab))
   }, [initialTab])
 
-  const stats = useMemo(() => {
-    const total = jobs.length
-    const active = jobs.filter((job) => isActiveStatus(job.status)).length
-    const completed = jobs.filter((job) => isCompletedStatus(job.status)).length
-    const failed = jobs.filter((job) => isFailedStatus(job.status)).length
-    return { total, active, completed, failed }
-  }, [jobs])
-
-  const booksJobs = useMemo(
-    () => jobs.filter((job) => inferTorrentKind(job, jobMeta[job.id]) === 'books'),
-    [jobs, jobMeta]
-  )
-
-  const mangaJobs = useMemo(
-    () => jobs.filter((job) => inferTorrentKind(job, jobMeta[job.id]) === 'manga'),
-    [jobs, jobMeta]
-  )
-
-  const clearCompleted = useCallback(() => {
-    const completedIds = new Set(jobs.filter((job) => isCompletedStatus(job.status)).map((job) => job.id))
-    if (completedIds.size === 0) {
-      info('No completed jobs', 'There are no completed items to clear.')
-      return
-    }
-
-    setJobs((prev) => prev.filter((job) => !completedIds.has(job.id)))
-    setJobMeta((prev) => {
-      const next: Record<number, JobMeta> = {}
-      Object.entries(prev).forEach(([id, meta]) => {
-        const numericId = Number(id)
-        if (!completedIds.has(numericId)) {
-          next[numericId] = meta
-        }
-      })
-      return next
-    })
-  }, [info, jobs])
-
   useEffect(() => {
     let mounted = true
-
     const loadKey = async () => {
       try {
         const saved = await invoke<string | null>('get_torbox_key')
@@ -558,12 +255,8 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: TorboxC
         setKeyFeedback(getErrorMessage(invokeError, 'Failed to load Torbox key.'))
       }
     }
-
     void loadKey()
-
-    return () => {
-      mounted = false
-    }
+    return () => { mounted = false }
   }, [])
 
   const verifyAndSaveKey = useCallback(async () => {
@@ -573,10 +266,8 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: TorboxC
       setKeyFeedback('API key is required.')
       return
     }
-
     setKeyStatus('verifying')
     setKeyFeedback(null)
-
     try {
       const result = await invoke<{ valid: boolean; message: string }>('verify_torbox_key', { apiKey: trimmed })
       if (result.valid) {
@@ -617,448 +308,214 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: TorboxC
       setSearchError(null)
       return []
     }
-
-    if (queryOverride) {
-      setSearchQuery(queryOverride)
-    }
-
+    if (queryOverride) setSearchQuery(queryOverride)
     setIsSearching(true)
     setSearchError(null)
 
     try {
-      const raw = await invoke<unknown>('search_manga_sources', { query })
-      const parsed = filterBySearchType(parseSearchResults(raw), searchType)
-      setSearchResults(parsed)
-      setSearchUnavailable(false)
-
-      if (parsed.length === 0) {
-        setSearchError('No source links found for this query. You can paste a magnet link manually below.')
+      let combined: UnifiedMetadata[] = []
+      
+      if (searchType === 'manga' || searchType === 'all') {
+        try {
+          const mangaRes = await invoke<any[]>('search_manga_metadata', { title: query })
+          const mapped = mangaRes.map(m => ({
+            id: `anilist-${m.anilist_id}`,
+            title: m.title_english || m.title_romaji || m.title_native || 'Unknown Title',
+            author: m.authors?.[0],
+            year: m.start_year?.toString(),
+            rating: m.average_score,
+            ongoing: m.status && m.status !== 'FINISHED',
+            tags: m.genres || [],
+            coverUrl: m.cover_url_large || m.cover_url_extra_large,
+            description: m.description,
+            kind: 'manga' as const
+          }))
+          combined = [...combined, ...mapped]
+        } catch (e) {
+          console.error("Manga metadata search failed", e)
+        }
       }
-      return parsed
+
+      if (searchType === 'books' || searchType === 'all') {
+        try {
+          const bookRes = await invoke<any[]>('search_book_metadata', { title: query, author: null })
+          const mapped = bookRes.map(b => ({
+            id: `ol-${b.open_library_id}`,
+            title: b.title || 'Unknown Title',
+            author: b.authors?.[0]?.name,
+            year: b.publish_date,
+            rating: undefined,
+            ongoing: false,
+            tags: b.subjects || [],
+            coverUrl: b.cover_url_large || b.cover_url_medium || b.cover_url_small,
+            description: b.description,
+            kind: 'books' as const
+          }))
+          combined = [...combined, ...mapped]
+        } catch (e) {
+          console.error("Book metadata search failed", e)
+        }
+      }
+
+      setSearchResults(combined)
+      if (combined.length === 0) {
+        setSearchError('No matching series found. Try a different query.')
+      }
     } catch (invokeError) {
       setSearchResults([])
-      setSearchUnavailable(true)
-      setSearchError(
-        getErrorMessage(
-          invokeError,
-          'Search command is unavailable. Paste a magnet or torrent link manually to queue it.'
-        )
-      )
-      return []
+      setSearchError(getErrorMessage(invokeError, 'Search failed.'))
     } finally {
       setIsSearching(false)
     }
   }, [searchQuery, searchType])
 
-
-
-  const addQueuedJob = useCallback(
-    async (payload: { source: SearchSource; result: SearchResult; fallbackKind: QueueType }) => {
-      const { source, result, fallbackKind } = payload
-      const busyId = `${result.id}:${source.id}`
-
-      if (source.linkKind === 'anna' || source.linkKind === 'external') {
-        try {
-          const openedWindow = window.open(source.magnetLink, '_blank', 'noopener,noreferrer')
-          if (!openedWindow) {
-            window.location.assign(source.magnetLink)
-          }
-        } catch {
-          window.location.assign(source.magnetLink)
+  const fetchTorrentsForMetadata = useCallback(async (meta: UnifiedMetadata) => {
+    setIsFetchingTorrents(true)
+    try {
+      const raw = await invoke<any>('search_manga_sources', { query: meta.title })
+      const rootArray = Array.isArray(raw) ? raw : (raw?.items ?? raw?.results ?? raw?.data ?? [])
+      
+      const sources: SearchSource[] = []
+      rootArray.forEach((row: any, i: number) => {
+        if (row.sources && Array.isArray(row.sources)) {
+          row.sources.forEach((s: any, j: number) => {
+            const parsed = parseSearchSource(s, j, meta.title)
+            if (parsed) sources.push(parsed)
+          })
         }
-        info('Opened in browser', 'This source should be opened in your browser, not queued to Torbox.')
-        return
-      }
-
-      setSourceBusy((prev) => ({ ...prev, [busyId]: true }))
-      try {
-        const queued = await invoke<{ torrentId: number }>('add_to_torbox_queue', {
-          magnetLink: source.magnetLink,
-        })
-
-        const fallbackJob: TorrentInfo = {
-          id: queued.torrentId,
-          name: source.fileName || result.title,
-          size: source.sizeBytes ?? 0,
-          progress: 0,
-          downloadSpeed: 0,
-          status: 'queued',
-          files: source.fileName
-            ? [
-                {
-                  id: 0,
-                  name: source.fileName,
-                  size: source.sizeBytes ?? 0,
-                },
-              ]
-            : undefined,
+        const direct = parseSearchSource(row, i, meta.title)
+        if (direct && !sources.some(s => s.magnetLink === direct.magnetLink)) {
+          sources.unshift(direct)
         }
+      })
 
-        let nextJob = fallbackJob
-        try {
-          const instant = await invoke<TorrentInfo>('get_torbox_instant', { torrentId: queued.torrentId })
-          nextJob = instant
-        } catch {
-          // Keep fallback job if instant lookup fails.
-        }
-
-        const inferredKind = inferSourceKind(source.fileType) ?? result.kind ?? fallbackKind
-
-        setJobs((prev) => [nextJob, ...prev.filter((job) => job.id !== nextJob.id)])
-        setJobMeta((prev) => ({
-          ...prev,
-          [nextJob.id]: {
-            ...prev[nextJob.id],
-            title: result.title,
-            magnetLink: source.magnetLink,
-            kind: inferredKind,
-            error: undefined,
-          },
-        }))
-
-        success('Added to cloud', `${result.title} was added to Torbox queue.`)
-      } catch (invokeError) {
-        const rawErr = typeof invokeError === 'object' ? JSON.stringify(invokeError) : String(invokeError)
-        const message = getErrorMessage(invokeError, 'Failed to add source to Torbox queue.')
-        setSearchError(`${message} | Raw: ${rawErr}`)
-        error('Queue failed', `${message} | Raw: ${rawErr}`)
-      } finally {
-        setSourceBusy((prev) => {
-          const next = { ...prev }
-          delete next[busyId]
-          return next
-        })
-      }
-    },
-    [error, info, success]
-  )
+      setActiveModalResult({
+        id: meta.id,
+        title: meta.title,
+        sources,
+      })
+    } catch (err) {
+      error('Failed to fetch torrents', getErrorMessage(err, 'Search error'))
+    } finally {
+      setIsFetchingTorrents(false)
+    }
+  }, [error])
 
   const addManualLink = useCallback(async () => {
     const link = manualMagnet.trim()
-    if (!isTorboxLikeLink(link)) {
+    if (!link) {
       setSearchError('Please paste a valid magnet or HTTP/HTTPS link.')
       return
     }
-
-    const manualType: FileType = link.startsWith('magnet:') ? 'MAGNET' : 'TORRENT'
-
-    await addQueuedJob({
-      source: {
-        id: 'manual',
-        label: manualTitle.trim() || 'Manual source',
-        fileName: manualTitle.trim() || 'Manual source',
-        magnetLink: link,
-        fileType: manualType,
-      },
-      result: {
-        id: 'manual-result',
-        title: manualTitle.trim() || 'Manual source',
-        tags: [],
-        sources: [],
-        kind: searchType === 'all' ? undefined : searchType,
-      },
-      fallbackKind: searchType === 'books' ? 'books' : 'manga',
-    })
-
-    setManualMagnet('')
-    if (!manualTitle.trim()) {
+    try {
+      await enqueueJob({ title: manualTitle.trim() || 'Manual Add', sourceLink: link, kind: searchType === 'books' ? 'books' : 'manga' })
+      success('Added manual link', 'Job queued to Torbox.')
+      setManualMagnet('')
       setManualTitle('')
+    } catch (err) {
+      error('Queue failed', getErrorMessage(err, 'Failed to add manual link'))
     }
-  }, [addQueuedJob, manualMagnet, manualTitle, searchType])
+  }, [enqueueJob, manualMagnet, manualTitle, searchType, success, error])
 
-  const pollActiveJobs = useCallback(async (currentJobs: TorrentInfo[]) => {
-    const active = currentJobs.filter((job) => isActiveStatus(job.status))
-    if (active.length === 0) return
-
-    const updates = await Promise.all(
-      active.map(async (job) => {
-        try {
-          const latest = await invoke<TorrentInfo>('get_torbox_instant', { torrentId: job.id })
-          return latest
-        } catch {
-          return null
-        }
-      })
-    )
-
-    const byId = new Map<number, TorrentInfo>()
-    updates.forEach((update) => {
-      if (update) byId.set(update.id, update)
-    })
-
-    if (byId.size === 0) return
-
-    setJobs((prev) => prev.map((job) => byId.get(job.id) ?? job))
-  }, [])
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      void pollActiveJobs(jobsRef.current)
-    }, 5000)
-
-    return () => {
-      window.clearInterval(timer)
-    }
-  }, [pollActiveJobs])
-
-  const removeJob = useCallback((id: number) => {
-    setJobs((prev) => prev.filter((job) => job.id !== id))
-    setJobMeta((prev) => {
-      const next = { ...prev }
-      delete next[id]
-      return next
-    })
-  }, [])
-
-  const resolveDownload = useCallback(
-    async (job: TorrentInfo) => {
-      setJobMeta((prev) => ({
-        ...prev,
-        [job.id]: {
-          ...prev[job.id],
-          resolving: true,
-          error: undefined,
-        },
-      }))
-
-      try {
-        const fileId = job.files?.[0]?.id
-        const link = await invoke<string>('resolve_torbox_download', {
-          torrentId: job.id,
-          fileId,
-        })
-        setJobMeta((prev) => ({
-          ...prev,
-          [job.id]: {
-            ...prev[job.id],
-            resolvedLink: link,
-            resolving: false,
-            error: undefined,
-          },
-        }))
-        success('Download resolved', 'Temporary Torbox link generated.')
-      } catch (invokeError) {
-        const message = getErrorMessage(invokeError, 'Failed to resolve Torbox download link.')
-        setJobMeta((prev) => ({
-          ...prev,
-          [job.id]: {
-            ...prev[job.id],
-            resolving: false,
-            error: message,
-          },
-        }))
-        error('Resolve failed', message)
-      }
-    },
-    [error, success]
-  )
-
-  const importIntoLibrary = useCallback(
-    async (job: TorrentInfo) => {
-      setJobMeta((prev) => ({
-        ...prev,
-        [job.id]: {
-          ...prev[job.id],
-          importing: true,
-          error: undefined,
-        },
-      }))
-
-      try {
-        const importedPath = await invoke<string>('import_existing_torbox_target', {
-          torrentId: job.id,
-          fileId: job.files?.[0]?.id,
-          filenameHint: job.name || jobMeta[job.id]?.title,
-        })
-        setJobMeta((prev) => ({
-          ...prev,
-          [job.id]: {
-            ...prev[job.id],
-            importing: false,
-            importedPath,
-            error: undefined,
-          },
-        }))
-        success('Import completed', importedPath)
-      } catch (invokeError) {
-        const message = getErrorMessage(invokeError, 'Failed to import completed Torbox target into library.')
-        setJobMeta((prev) => ({
-          ...prev,
-          [job.id]: {
-            ...prev[job.id],
-            importing: false,
-            error: message,
-          },
-        }))
-        error('Import failed', message)
-      }
-    },
-    [error, jobMeta, success]
-  )
-
-  useEffect(() => {
-    for (const job of jobs) {
-      if (!isCompletedStatus(job.status)) continue
-      const meta = jobMeta[job.id]
-      if (meta?.importedPath || meta?.importing || meta?.autoImportTriggered) continue
-
-      setJobMeta((prev) => ({
-        ...prev,
-        [job.id]: {
-          ...prev[job.id],
-          autoImportTriggered: true,
-        },
-      }))
-
-      void importIntoLibrary(job)
-    }
-  }, [importIntoLibrary, jobMeta, jobs])
-
-  const renderQueueRows = useCallback(
-    (rows: TorrentInfo[], emptyLabel: string) => {
-      if (rows.length === 0) {
-        return (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/70 py-16 text-muted-foreground backdrop-blur-sm bg-muted/10"
-          >
-            <AlertCircle className="mb-3 h-6 w-6 opacity-50" />
-            <p className="text-sm font-medium tracking-wide opacity-80">{emptyLabel}</p>
-          </motion.div>
-        )
-      }
-
+  const renderQueueRows = useCallback((rows: TorboxQueueItem[], emptyLabel: string) => {
+    if (rows.length === 0) {
       return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <AnimatePresence mode="popLayout">
-            {rows.map((job) => {
-              const meta = jobMeta[job.id]
-              const progress = normalizeProgress(job.progress)
-              const importedPath = meta?.importedPath
-              const resolvedLink = meta?.resolvedLink
-              const eta = estimateEta(job.status, job.size, progress, job.downloadSpeed)
-              const localProgressText = formatLocalProgress(meta as LocalProgress | undefined)
-              const localFileStepText = formatLocalFileStep(meta as LocalProgress | undefined)
-              
-              const isDone = isCompletedStatus(job.status)
-              const isErr = isFailedStatus(job.status)
-
-              return (
-                <motion.div
-                  key={job.id}
-                  layout
-                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
-                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                  className="group relative flex flex-col justify-between overflow-hidden rounded-xl border border-border/50 bg-card/60 backdrop-blur-xl p-4 shadow-sm transition-all hover:shadow-md hover:border-border"
-                >
-                  {/* Subtle Background Glow for active state */}
-                  {!isDone && !isErr && (
-                    <div className="absolute -top-10 -right-10 h-32 w-32 rounded-full bg-blue-500/10 blur-3xl" />
-                  )}
-                  {isDone && (
-                    <div className="absolute -top-10 -right-10 h-32 w-32 rounded-full bg-emerald-500/10 blur-3xl" />
-                  )}
-                  
-                  <div className="relative z-10">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-foreground tracking-tight">
-                          {job.name || meta?.title || `Torrent #${job.id}`}
-                        </p>
-                        <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground font-mono">
-                          <span>{formatBytes(job.size)}</span>
-                          <span className="opacity-50">•</span>
-                          <span>ID {job.id}</span>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted/50 text-muted-foreground opacity-0 transition-all hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"
-                        onClick={() => removeJob(job.id)}
-                        aria-label="Remove job"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-
-                    <div className="mt-4 flex items-end justify-between">
-                      <Badge className={`border text-[10px] uppercase tracking-wider font-semibold ${queueStatusBadgeClass(job.status)}`} variant="outline">
-                        {job.status || 'queued'}
-                      </Badge>
-                      <div className="text-right">
-                        <p className="text-xs font-medium text-foreground/80">{Math.round(progress)}%</p>
-                      </div>
-                    </div>
-
-                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted/50">
-                      <motion.div
-                        className={`h-full rounded-full ${progressFillClass(job.status)}`}
-                        initial={{ width: 0 }}
-                        animate={{ width: `${progress}%` }}
-                        transition={{ type: "spring", stiffness: 50, damping: 15 }}
-                      />
-                    </div>
-
-                    <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground font-medium">
-                      <span className="truncate pr-2">{statusPhaseText(job.status)}</span>
-                      <div className="flex shrink-0 items-center gap-2 text-right">
-                        {eta && <span className="text-blue-400/80">{eta}</span>}
-                        {job.downloadSpeed > 0 && <span>{formatSpeed(job.downloadSpeed)}</span>}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Actions / Meta Data Area */}
-                  <div className="relative z-10 mt-4 space-y-2">
-                    {(isDone || isErr || resolvedLink || importedPath || meta?.error) && (
-                      <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border/40">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="h-7 rounded-md px-2.5 text-[11px] font-medium transition-colors hover:bg-secondary/80"
-                          onClick={() => void resolveDownload(job)}
-                          disabled={Boolean(meta?.resolving)}
-                        >
-                          {meta?.resolving ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : null}
-                          Resolve Link
-                        </Button>
-
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="h-7 rounded-md px-2.5 text-[11px] font-medium transition-colors hover:bg-secondary/80"
-                          onClick={() => void importIntoLibrary(job)}
-                          disabled={Boolean(meta?.importing)}
-                        >
-                          {meta?.importing ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : null}
-                          Import
-                        </Button>
-
-                        {resolvedLink && <span className="truncate w-full block text-[10px] text-muted-foreground mt-1">Resolved: {resolvedLink}</span>}
-                        {importedPath && <span className="truncate w-full block text-[10px] text-emerald-400/90 mt-1">Imported: {importedPath}</span>}
-                        {meta?.error && <span className="text-[10px] text-red-400/90 w-full block mt-1">{meta.error}</span>}
-                      </div>
-                    )}
-
-                    {(localProgressText || localFileStepText) && (
-                      <div className="rounded-md bg-muted/30 p-2 text-[10px] text-muted-foreground border border-border/30 mt-2">
-                        {localProgressText && <p>{localProgressText}</p>}
-                        {localFileStepText && <p className="mt-0.5 opacity-80">{localFileStepText}</p>}
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              )
-            })}
-          </AnimatePresence>
-        </div>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/70 py-16 text-muted-foreground backdrop-blur-sm bg-muted/10">
+          <AlertCircle className="mb-3 h-6 w-6 opacity-50" />
+          <p className="text-sm font-medium tracking-wide opacity-80">{emptyLabel}</p>
+        </motion.div>
       )
-    },
-    [importIntoLibrary, jobMeta, removeJob, resolveDownload]
-  )
+    }
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <AnimatePresence mode="popLayout">
+          {rows.map((job) => {
+            const progress = job.progress || 0
+            const isDone = job.status === 'completed'
+            const isErr = job.status === 'failed'
+            const eta = estimateEta(job.status, job.size || 0, progress, job.downloadSpeed || 0)
+            const localProgressText = formatLocalProgress(job)
+            const localFileStepText = formatLocalFileStep(job)
+
+            return (
+              <motion.div
+                key={job.id}
+                layout
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
+                className="group relative flex flex-col justify-between overflow-hidden rounded-xl border border-border/50 bg-card/60 backdrop-blur-xl p-4 shadow-sm transition-all hover:shadow-md hover:border-border"
+              >
+                {!isDone && !isErr && <div className="absolute -top-10 -right-10 h-32 w-32 rounded-full bg-blue-500/10 blur-3xl" />}
+                {isDone && <div className="absolute -top-10 -right-10 h-32 w-32 rounded-full bg-emerald-500/10 blur-3xl" />}
+                
+                <div className="relative z-10">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-foreground tracking-tight">{job.title || `Job #${job.id}`}</p>
+                      <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground font-mono">
+                        <span>{formatBytes(job.size || 0)}</span>
+                        <span className="opacity-50">•</span>
+                        <span className="truncate">ID {job.torrentId || '...'}</span>
+                      </div>
+                    </div>
+                    <button type="button" className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted/50 text-muted-foreground opacity-0 transition-all hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100" onClick={() => removeJob(job.id)}>
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="mt-4 flex items-end justify-between">
+                    <Badge className={`border text-[10px] uppercase tracking-wider font-semibold ${queueStatusBadgeClass(job.status)}`} variant="outline">
+                      {job.status || 'queued'}
+                    </Badge>
+                    <div className="text-right">
+                      <p className="text-xs font-medium text-foreground/80">{Math.round(progress)}%</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted/50">
+                    <motion.div className={`h-full rounded-full ${progressFillClass(job.status)}`} initial={{ width: 0 }} animate={{ width: `${progress}%` }} />
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground font-medium">
+                    <span className="truncate pr-2">{statusPhaseText(job.status)}</span>
+                    <div className="flex shrink-0 items-center gap-2 text-right">
+                      {eta && <span className="text-blue-400/80">{eta}</span>}
+                      {(job.downloadSpeed || 0) > 0 && <span>{formatSpeed(job.downloadSpeed!)}</span>}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="relative z-10 mt-4 space-y-2">
+                  {(isDone || isErr || job.resolvedLink || job.importedPath || job.error) && (
+                    <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border/40">
+                      <Button size="sm" variant="secondary" className="h-7 rounded-md px-2.5 text-[11px] font-medium" onClick={() => void resolveJob(job.id)} disabled={job.resolving}>
+                        {job.resolving && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />} Resolve Link
+                      </Button>
+                      <Button size="sm" variant="secondary" className="h-7 rounded-md px-2.5 text-[11px] font-medium" onClick={() => void importJob(job.id)} disabled={job.localPhase === 'importing'}>
+                        {job.localPhase === 'importing' && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />} Import
+                      </Button>
+                      {job.resolvedLink && <span className="truncate w-full block text-[10px] text-muted-foreground mt-1">Resolved: {job.resolvedLink}</span>}
+                      {job.importedPath && <span className="truncate w-full block text-[10px] text-emerald-400/90 mt-1">Imported: {job.importedPath}</span>}
+                      {job.error && <span className="text-[10px] text-red-400/90 w-full block mt-1">{job.error}</span>}
+                    </div>
+                  )}
+
+                  {(localProgressText || localFileStepText) && (
+                    <div className="rounded-md bg-muted/30 p-2 text-[10px] text-muted-foreground border border-border/30 mt-2">
+                      {localProgressText && <p>{localProgressText}</p>}
+                      {localFileStepText && <p className="mt-0.5 opacity-80">{localFileStepText}</p>}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )
+          })}
+        </AnimatePresence>
+      </div>
+    )
+  }, [removeJob, resolveJob, importJob])
 
   return (
     <div className="flex h-full flex-col bg-background p-6 text-foreground relative overflow-hidden">
@@ -1091,16 +548,9 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: TorboxC
               </motion.div>
             ) : (
               <motion.div key="disconnected" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-2 relative">
-                <Input
-                  type="password"
-                  value={apiKey}
-                  onChange={(event) => setApiKey(event.target.value)}
-                  placeholder="Paste Torbox API Key"
-                  className="h-9 w-40 sm:w-56 text-sm bg-background transition-all"
-                />
+                <Input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Paste Torbox API Key" className="h-9 w-40 sm:w-56 text-sm bg-background transition-all" />
                 <Button size="sm" variant="secondary" className="h-9 px-4 font-semibold" onClick={() => void verifyAndSaveKey()} disabled={keyStatus === 'verifying'}>
-                  {keyStatus === 'verifying' ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
-                  Verify
+                  {keyStatus === 'verifying' ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null} Verify
                 </Button>
                 {keyFeedback && keyStatus === 'error' && (
                   <span className="absolute top-11 right-0 text-[11px] font-medium text-destructive whitespace-nowrap bg-background border border-destructive/20 px-3 py-1.5 rounded-md shadow-md z-50">
@@ -1113,11 +563,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: TorboxC
         </div>
       </header>
 
-      <Tabs.Root
-        value={activeTab}
-        onValueChange={(next) => setActiveTab(next as TabValue)}
-        className="flex min-h-0 flex-1 flex-col z-10"
-      >
+      <Tabs.Root value={activeTab} onValueChange={(next) => setActiveTab(next as TabValue)} className="flex min-h-0 flex-1 flex-col z-10">
         <Tabs.List className="flex items-center gap-6 border-b border-border/50 pb-2 mb-4">
           {(['search', 'books', 'manga'] as const).map((tab) => {
             const isActive = activeTab === tab;
@@ -1125,59 +571,25 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: TorboxC
             let count = tab === 'books' ? booksJobs.length : tab === 'manga' ? mangaJobs.length : null;
 
             return (
-              <Tabs.Trigger
-                key={tab}
-                value={tab}
-                className={`relative flex items-center gap-2 pb-2 text-sm outline-none transition-colors hover:text-foreground ${isActive ? 'text-foreground font-semibold' : 'text-muted-foreground font-medium'}`}
-              >
+              <Tabs.Trigger key={tab} value={tab} className={`relative flex items-center gap-2 pb-2 text-sm outline-none transition-colors hover:text-foreground ${isActive ? 'text-foreground font-semibold' : 'text-muted-foreground font-medium'}`}>
                 <span>{label}</span>
-                {count !== null && count > 0 && (
-                  <Badge variant="secondary" className="h-5 px-1.5 py-0 text-[10px] font-bold">
-                    {count}
-                  </Badge>
-                )}
-                {isActive && (
-                  <motion.div
-                    layoutId="torbox-tab-indicator"
-                    className="absolute -bottom-[9px] left-0 right-0 h-0.5 bg-primary"
-                    initial={false}
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                  />
-                )}
+                {count !== null && count > 0 && <Badge variant="secondary" className="h-5 px-1.5 py-0 text-[10px] font-bold">{count}</Badge>}
+                {isActive && <motion.div layoutId="torbox-tab-indicator" className="absolute -bottom-[9px] left-0 right-0 h-0.5 bg-primary" initial={false} transition={{ type: "spring", stiffness: 500, damping: 30 }} />}
               </Tabs.Trigger>
             );
           })}
         </Tabs.List>
 
         <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
-            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }}
-            transition={{ duration: 0.2 }}
-            className="mt-4 flex-1 min-h-0 overflow-y-auto"
-          >
+          <motion.div key={activeTab} initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }} transition={{ duration: 0.2 }} className="mt-4 flex-1 min-h-0 overflow-y-auto">
             {activeTab === 'search' && (
               <Tabs.Content value="search" className="h-full outline-none overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
                 <div className="max-w-2xl mx-auto mb-8 pt-4">
                   <div className="relative flex items-center shadow-sm bg-card border border-border rounded-full hover:border-border/80 ring-1 ring-transparent focus-within:border-primary focus-within:ring-primary transition-shadow duration-200">
                     <Search className="absolute left-5 h-5 w-5 text-muted-foreground" />
-                    <Input
-                      value={searchQuery}
-                      onChange={(event) => setSearchQuery(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') void runSearch()
-                      }}
-                      placeholder="Search titles, authors, genres..."
-                      className="flex-1 h-14 border-0 bg-transparent pl-14 pr-4 text-base font-medium shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                    />
+                    <Input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void runSearch() }} placeholder="Search AniList or OpenLibrary..." className="flex-1 h-14 border-0 bg-transparent pl-14 pr-4 text-base font-medium shadow-none focus-visible:ring-0 focus-visible:ring-offset-0" />
                     <div className="pr-2 flex items-center gap-2">
-                      <select
-                        value={searchType}
-                        onChange={(event) => setSearchType(event.target.value as SearchType)}
-                        className="h-10 rounded-full bg-transparent border-0 px-4 text-sm font-medium text-muted-foreground hover:text-foreground cursor-pointer focus:outline-none [&>option]:bg-background [&>option]:text-foreground"
-                      >
+                      <select value={searchType} onChange={(event) => setSearchType(event.target.value as SearchType)} className="h-10 rounded-full bg-transparent border-0 px-4 text-sm font-medium text-muted-foreground hover:text-foreground cursor-pointer focus:outline-none [&>option]:bg-background [&>option]:text-foreground">
                         <option value="manga">Manga</option>
                         <option value="books">Books</option>
                         <option value="all">Everywhere</option>
@@ -1191,7 +603,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: TorboxC
 
                 {searchError && <p className="mb-6 text-sm font-medium text-destructive bg-destructive/10 border border-destructive/20 p-4 rounded-xl inline-flex items-center gap-2"><AlertCircle className="h-4 w-4"/> {searchError}</p>}
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 items-start pb-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-start pb-8">
                   <AnimatePresence>
                     {searchResults.map((result) => {
                       return (
@@ -1201,46 +613,37 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: TorboxC
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.95 }}
                           key={result.id} 
-                          className="group flex flex-col gap-3 cursor-pointer"
-                          onClick={() => setActiveModalResult(result)}
+                          className="group flex gap-4 cursor-pointer rounded-xl bg-card/60 border border-border/50 p-3 shadow-sm backdrop-blur-xl hover:shadow-md hover:border-border transition-all"
+                          onClick={() => fetchTorrentsForMetadata(result)}
                         >
-                          <div className="relative overflow-hidden rounded-xl bg-muted/30 shadow-sm border border-border/40 aspect-[2/3] w-full">
+                          <div className="relative overflow-hidden rounded-lg bg-muted/30 shadow-sm border border-border/40 w-24 h-32 shrink-0">
                             {result.coverUrl ? (
-                              <img
-                                src={result.coverUrl}
-                                alt={result.title}
-                                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                loading="lazy"
-                              />
+                              <img src={result.coverUrl} alt={result.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
                             ) : (
                               <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted-foreground/40 bg-muted/10">
-                                <Search className="h-8 w-8 mb-2 opacity-50" />
-                                <span className="text-[10px] font-semibold uppercase tracking-wider">No Cover</span>
+                                <Search className="h-6 w-6 opacity-50" />
                               </div>
                             )}
-                            
                             {typeof result.rating === 'number' && (
-                              <div className="absolute bottom-2 right-2 bg-background/90 text-amber-500 text-[11px] font-bold px-1.5 py-0.5 rounded border border-border/50 flex items-center gap-1 shadow-sm backdrop-blur-md">
-                                ★ {result.rating.toFixed(1)}
-                              </div>
+                              <div className="absolute bottom-1 right-1 bg-background/90 text-amber-500 text-[10px] font-bold px-1 rounded shadow-sm backdrop-blur-md">★ {(result.rating / 10).toFixed(1)}</div>
                             )}
-                            
-                            <div className="absolute inset-0 bg-background/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-sm">
-                              <div className="bg-primary text-primary-foreground text-xs font-semibold px-4 py-2 rounded-full shadow-md">
-                                View Sources
-                              </div>
-                            </div>
                           </div>
 
-                          <div className="min-w-0 px-1">
-                            <h3 className="font-semibold text-foreground transition-colors group-hover:text-primary truncate text-sm">
-                              {result.title}
-                            </h3>
-                            <p className="mt-0.5 text-xs text-muted-foreground truncate">
-                              {result.year && <span>{result.year}</span>}
-                              {result.year && result.author && <span className="mx-1.5 opacity-50">•</span>}
-                              {result.author && <span>{result.author}</span>}
-                            </p>
+                          <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
+                            <div>
+                              <h3 className="font-semibold text-foreground transition-colors group-hover:text-primary text-sm line-clamp-2 leading-snug">{result.title}</h3>
+                              <p className="mt-1 text-xs text-muted-foreground truncate">
+                                {result.year && <span>{result.year}</span>}
+                                {result.year && result.author && <span className="mx-1.5 opacity-50">•</span>}
+                                {result.author && <span>{result.author}</span>}
+                              </p>
+                              {result.description && <p className="mt-2 text-xs text-muted-foreground line-clamp-2 opacity-80" dangerouslySetInnerHTML={{ __html: result.description }} />}
+                            </div>
+                            <div className="flex flex-wrap gap-1 mt-3">
+                              {result.tags.slice(0, 3).map((tag, i) => (
+                                <Badge key={i} variant="secondary" className="px-1.5 py-0 text-[9px] bg-primary/10 text-primary border-0">{tag}</Badge>
+                              ))}
+                            </div>
                           </div>
                         </motion.div>
                       )
@@ -1250,7 +653,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: TorboxC
                   {!isSearching && searchResults.length === 0 && searchQuery.trim() && !searchError && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="col-span-full flex flex-col items-center justify-center rounded-3xl border border-dashed border-border py-20 bg-muted/5">
                       <Search className="h-10 w-10 text-muted-foreground/30 mb-4" />
-                      <p className="text-base font-medium text-muted-foreground/80">No matching titles found in Torbox clouds.</p>
+                      <p className="text-base font-medium text-muted-foreground/80">No matching metadata found.</p>
                     </motion.div>
                   )}
                   
@@ -1274,21 +677,9 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: TorboxC
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <Input
-                        value={manualTitle}
-                        onChange={(event) => setManualTitle(event.target.value)}
-                        placeholder="Custom Title"
-                        className="h-9 w-32 text-xs font-medium bg-background border-border/40 focus:border-primary/40 rounded-full"
-                      />
-                      <Input
-                        value={manualMagnet}
-                        onChange={(event) => setManualMagnet(event.target.value)}
-                        placeholder="magnet:?xt=urn:btih:..."
-                        className="h-9 w-48 text-xs font-medium bg-background border-border/40 focus:border-primary/40 font-mono rounded-full"
-                      />
-                      <Button size="sm" variant="secondary" className="h-9 rounded-full px-4 font-semibold shadow-sm" onClick={() => void addManualLink()}>
-                        Inject
-                      </Button>
+                      <Input value={manualTitle} onChange={(event) => setManualTitle(event.target.value)} placeholder="Custom Title" className="h-9 w-32 text-xs font-medium bg-background border-border/40 focus:border-primary/40 rounded-full" />
+                      <Input value={manualMagnet} onChange={(event) => setManualMagnet(event.target.value)} placeholder="magnet:?xt=urn:btih:..." className="h-9 w-48 text-xs font-medium bg-background border-border/40 focus:border-primary/40 font-mono rounded-full" />
+                      <Button size="sm" variant="secondary" className="h-9 rounded-full px-4 font-semibold shadow-sm" onClick={() => void addManualLink()}>Inject</Button>
                     </div>
                   </div>
                 </div>
@@ -1299,9 +690,10 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: TorboxC
               <Tabs.Content value="books" className="h-full rounded-2xl border border-border/50 bg-card/40 p-5 backdrop-blur-xl shadow-sm outline-none overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="text-lg font-bold tracking-tight text-foreground/90">Books Queue</h2>
-                  <Badge variant="secondary" className="bg-white/10 text-foreground">
-                    {booksJobs.length} active tasks
-                  </Badge>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={clearStoreCompleted}>Clear Completed</Button>
+                    <Badge variant="secondary" className="bg-white/10 text-foreground">{booksJobs.length} active tasks</Badge>
+                  </div>
                 </div>
                 {renderQueueRows(booksJobs, 'No books are currently in your queue.')}
               </Tabs.Content>
@@ -1311,9 +703,10 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: TorboxC
               <Tabs.Content value="manga" className="h-full rounded-2xl border border-border/50 bg-card/40 p-5 backdrop-blur-xl shadow-sm outline-none overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="text-lg font-bold tracking-tight text-foreground/90">Manga Queue</h2>
-                  <Badge variant="secondary" className="bg-white/10 text-foreground">
-                    {mangaJobs.length} active tasks
-                  </Badge>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={clearStoreCompleted}>Clear Completed</Button>
+                    <Badge variant="secondary" className="bg-white/10 text-foreground">{mangaJobs.length} active tasks</Badge>
+                  </div>
                 </div>
                 {renderQueueRows(mangaJobs, 'No manga are currently in your queue.')}
               </Tabs.Content>
@@ -1322,19 +715,24 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: TorboxC
         </AnimatePresence>
       </Tabs.Root>
 
-      <Dialog.Root open={!!activeModalResult} onOpenChange={(open) => !open && setActiveModalResult(null)}>
+      <Dialog.Root open={!!activeModalResult || isFetchingTorrents} onOpenChange={(open) => !open && !isFetchingTorrents && setActiveModalResult(null)}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
           <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#121212] border border-white/10 rounded-2xl shadow-2xl w-[90vw] max-w-4xl max-h-[85vh] flex flex-col z-50 overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-300">
-            {activeModalResult && (
+            {isFetchingTorrents ? (
+              <div className="flex flex-col items-center justify-center py-24 gap-4">
+                <Loader2 className="w-10 h-10 animate-spin text-purple-400" />
+                <p className="text-sm font-medium text-gray-300 animate-pulse">Scanning torrent clouds for results...</p>
+              </div>
+            ) : activeModalResult && (
               <>
                 <div className="flex-none px-6 py-5 border-b border-white/5 relative">
                   <div className="flex items-center gap-3 pr-12">
                     <div className="flex items-center justify-center w-8 h-8 rounded bg-purple-500/10 text-purple-400">
                       <DownloadCloud className="w-5 h-5" />
                     </div>
-                    <Dialog.Title className="text-xl font-bold tracking-tight text-white">
-                      Available Downloads
+                    <Dialog.Title className="text-xl font-bold tracking-tight text-white truncate">
+                      {activeModalResult.title}
                     </Dialog.Title>
                   </div>
                   
@@ -1357,62 +755,74 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: TorboxC
                     </span>
                   </div>
 
-                  <div className="space-y-3">
-                    {activeModalResult.sources.map((source) => {
-                      const busyId = `${activeModalResult.id}:${source.id}`
-                      const busy = sourceBusy[busyId] === true
+                  {activeModalResult.sources.length === 0 ? (
+                    <div className="text-center py-10">
+                      <AlertCircle className="mx-auto h-10 w-10 text-muted-foreground opacity-50 mb-3" />
+                      <p className="text-gray-400">No torrents found for this series.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {activeModalResult.sources.map((source) => {
+                        const busyId = `${activeModalResult.id}:${source.id}`
+                        const busy = sourceBusy[busyId] === true
 
-                      return (
-                        <div key={source.id} className="bg-[#1a1a1a] border border-white/5 rounded-xl p-4 flex flex-col gap-3 transition-colors hover:bg-[#1a1a1a]/80">
-                          <div className="flex flex-col gap-1.5">
-                            <h3 className="text-[15px] font-semibold text-white/90 truncate">{source.label}</h3>
-                            <div className="flex items-center gap-3 text-xs font-medium text-gray-400">
-                              <Badge variant="secondary" className="bg-[#3b1578] hover:bg-[#3b1578] text-[#d4b4f5] border-0 rounded text-[10px] px-2 py-0 uppercase tracking-wide">
-                                {source.fileType || 'UNKNOWN'}
-                              </Badge>
-                              {typeof source.sizeBytes === 'number' && <span>{formatBytes(source.sizeBytes)}</span>}
-                              {typeof source.seeders === 'number' && (
-                                <span className="text-purple-400 font-bold">{source.seeders} seeders</span>
+                        return (
+                          <div key={source.id} className="bg-[#1a1a1a] border border-white/5 rounded-xl p-4 flex flex-col gap-3 transition-colors hover:bg-[#1a1a1a]/80">
+                            <div className="flex flex-col gap-1.5">
+                              <h3 className="text-[15px] font-semibold text-white/90 truncate">{source.label}</h3>
+                              <div className="flex items-center gap-3 text-xs font-medium text-gray-400">
+                                <Badge variant="secondary" className="bg-[#3b1578] hover:bg-[#3b1578] text-[#d4b4f5] border-0 rounded text-[10px] px-2 py-0 uppercase tracking-wide">
+                                  {source.fileType || 'UNKNOWN'}
+                                </Badge>
+                                {typeof source.sizeBytes === 'number' && <span>{formatBytes(source.sizeBytes)}</span>}
+                                {typeof source.seeders === 'number' && (
+                                  <span className="text-purple-400 font-bold">{source.seeders} seeders</span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="pt-1 w-full">
+                              {source.linkKind === 'direct' || source.linkKind === 'anna' || source.linkKind === 'external' ? (
+                                <Button
+                                  className="w-full h-10 bg-[#2a2a2a] hover:bg-[#333333] text-white border border-white/5 rounded-lg text-sm font-semibold transition-colors"
+                                  onClick={() => {
+                                    const openedWindow = window.open(source.magnetLink, '_blank', 'noopener,noreferrer')
+                                    if (!openedWindow) window.location.assign(source.magnetLink)
+                                  }}
+                                >
+                                  <Link className="w-4 h-4 mr-2 opacity-70" />
+                                  Direct Download
+                                </Button>
+                              ) : (
+                                <Button
+                                  className="w-full h-10 bg-[#4c1d95] hover:bg-[#5b21b6] text-white rounded-lg text-sm font-semibold transition-colors shadow-lg shadow-purple-900/20"
+                                  disabled={busy}
+                                  onClick={async () => {
+                                    setSourceBusy((prev) => ({ ...prev, [busyId]: true }))
+                                    try {
+                                      await enqueueJob({
+                                        title: activeModalResult.title,
+                                        sourceLink: source.magnetLink,
+                                        kind: searchType === 'books' ? 'books' : 'manga'
+                                      })
+                                      success('Added to Cloud', 'Job is now queued.')
+                                    } catch (e) {
+                                      error('Queue failed', getErrorMessage(e, 'Could not add to Torbox'))
+                                    } finally {
+                                      setSourceBusy((prev) => { const n = { ...prev }; delete n[busyId]; return n; })
+                                    }
+                                  }}
+                                >
+                                  {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
+                                  Add to Cloud
+                                </Button>
                               )}
-                              <span className="opacity-50">
-                                {source.id.includes('nyaa') ? 'Nyaa' : source.id.includes('anna') ? "Anna's Archive" : 'BitMagnet'}
-                              </span>
                             </div>
                           </div>
-
-                          <div className="pt-1 w-full">
-                            {source.linkKind === 'direct' || source.linkKind === 'anna' || source.linkKind === 'external' ? (
-                              <Button
-                                className="w-full h-10 bg-[#2a2a2a] hover:bg-[#333333] text-white border border-white/5 rounded-lg text-sm font-semibold transition-colors"
-                                onClick={() => {
-                                  const openedWindow = window.open(source.magnetLink, '_blank', 'noopener,noreferrer')
-                                  if (!openedWindow) window.location.assign(source.magnetLink)
-                                }}
-                              >
-                                <Link className="w-4 h-4 mr-2 opacity-70" />
-                                Direct Download
-                              </Button>
-                            ) : (
-                              <Button
-                                className="w-full h-10 bg-[#4c1d95] hover:bg-[#5b21b6] text-white rounded-lg text-sm font-semibold transition-colors shadow-lg shadow-purple-900/20"
-                                disabled={busy}
-                                onClick={() =>
-                                  void addQueuedJob({
-                                    source,
-                                    result: activeModalResult,
-                                    fallbackKind: searchType === 'books' ? 'books' : 'manga',
-                                  })
-                                }
-                              >
-                                {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
-                                Add to Cloud
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               </>
             )}

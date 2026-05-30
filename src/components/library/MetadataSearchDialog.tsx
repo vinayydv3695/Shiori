@@ -898,7 +898,7 @@ export const MetadataSearchDialog = ({
                     <div>
                       <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center justify-between"><span>Current Cover</span><span className="text-[10px] bg-muted-foreground/20 px-2 py-0.5 rounded-full">Existing</span></p>
                       <div className="aspect-[2/3] w-2/3 mx-auto bg-muted rounded-md overflow-hidden border border-border opacity-70">
-                        <img src={currentCoverUrl} alt="Current Cover" className="w-full h-full object-contain bg-muted grayscale-[0.2]" />
+                        <img src={currentCoverUrl} alt="Current Cover" className="w-full h-full object-cover bg-muted grayscale-[0.2]" />
                       </div>
                     </div>
                   )}

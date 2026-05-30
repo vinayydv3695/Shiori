@@ -121,10 +121,10 @@ export const useReaderStore = create<ReaderState>((set) => ({
   selectedAnnotation: null,
   settings: {
     userId: 'default',
-    fontFamily: 'serif',
-    fontSize: 16,
+    fontFamily: 'EB Garamond',
+    fontSize: 24,
     lineHeight: 1.6,
-    theme: 'light',
+    theme: 'black',
     pageMode: 'paginated',
     marginSize: 2,
     updatedAt: new Date().toISOString(),

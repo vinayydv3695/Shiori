@@ -33,33 +33,8 @@ export function FeatureHint({
 
   const [showHint, setShowHint] = React.useState(false);
 
-  React.useEffect(() => {
-    if (shouldShow) {
-      const timeout = setTimeout(() => {
-        setShowHint(true);
-      }, 1000);
-      setShowTimeout(timeout);
-
-      return () => {
-        if (showTimeout) clearTimeout(showTimeout);
-      };
-    }
-  }, [shouldShow]);
-
-  const handleDismiss = () => {
-    dismissHint(featureId);
-    setShowHint(false);
-    onDismiss?.();
-  };
-
-  const handleInteraction = () => {
-    markDiscovered(featureId);
-    setShowHint(false);
-  };
-
-  if (!shouldShow && !showHint) {
-    return <>{children}</>;
-  }
+  // User requested to completely remove the blue popups
+  return <>{children}</>;
 
   const positionClasses = {
     top: 'bottom-full mb-2 left-1/2 -translate-x-1/2',

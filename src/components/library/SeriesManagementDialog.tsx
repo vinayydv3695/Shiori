@@ -223,7 +223,7 @@ export const SeriesManagementDialog = ({
                     <div className="col-span-1 flex flex-col gap-3">
                       <div className="aspect-[2/3] bg-muted rounded-lg overflow-hidden border border-border relative flex items-center justify-center group">
                         {coverPath ? (
-                          <img src={convertFileSrc(coverPath)} className="absolute inset-0 w-full h-full object-contain bg-muted" alt="Cover" />
+                          <img src={convertFileSrc(coverPath)} className="absolute inset-0 w-full h-full object-cover bg-muted" alt="Cover" />
                         ) : (
                           <div className="text-muted-foreground text-center p-4">
                             <ImagePlus className="w-8 h-8 mx-auto mb-2 opacity-50" />

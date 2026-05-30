@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useMangaContentStore } from '@/store/mangaReaderStore';
+import { useMangaContentStore, useMangaUIStore } from '@/store/mangaReaderStore';
 import { MangaPageImage } from '../MangaPageImage';
 import { useMangaPreloader } from '../hooks/useMangaPreloader';
 
@@ -15,6 +15,19 @@ export function SinglePageView() {
     const currentPage = useMangaContentStore(s => s.currentPage);
     const totalPages = useMangaContentStore(s => s.totalPages);
     const { preloadAround } = useMangaPreloader();
+    
+    // Auto-hide top bar state
+    const isTopBarVisible = useMangaUIStore(s => s.isTopBarVisible);
+    const setTopBarVisible = useMangaUIStore(s => s.setTopBarVisible);
+
+    // Auto-hide top bar after 2 seconds on single page manga
+    useEffect(() => {
+        if (!isTopBarVisible) return;
+        const timer = setTimeout(() => {
+            setTopBarVisible(false);
+        }, 2000);
+        return () => clearTimeout(timer);
+    }, [isTopBarVisible, setTopBarVisible]);
 
     // Check if we have a valid source
     const hasSource = sourceType === 'local' ? bookId !== null : onlineSource !== null;

@@ -119,6 +119,8 @@ fn main() {
             registry.register(Arc::new(sources::weebrook::WeebrookManhwaSource::new()?));
             // Anna's Archive for book search and download
             registry.register(Arc::new(sources::annas_archive::AnnasArchiveSource::new()?));
+            // LibGen for book search and download
+            registry.register(Arc::new(sources::libgen::LibgenSource::new()?));
 
             // Load source configs from the Tauri store in the background so the UI
             // appears immediately. Sources use defaults until async hydration completes.
@@ -299,6 +301,7 @@ fn main() {
             commands::library::scan_folder_for_books,
             commands::library::import_manga,
             commands::library::download_gutenberg_epub,
+            commands::library::download_libgen_epub,
             commands::library::scan_folder_for_manga,
             commands::library::import_comics,
             commands::library::scan_folder_for_comics,

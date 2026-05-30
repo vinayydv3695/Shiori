@@ -11,6 +11,7 @@ pub mod registry;
 pub mod toongod;
 pub mod weebrook;
 pub mod annas_archive;
+pub mod libgen;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]

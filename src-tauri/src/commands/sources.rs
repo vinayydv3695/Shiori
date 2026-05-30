@@ -356,9 +356,8 @@ pub async fn search_manga_sources(
     for source in registry.get_all() {
         let meta = source.meta();
         if meta.supports_download && meta.supports_search {
-            // Nyaa supports search and download
-            if let Ok(mut results) = source.search(&query, 1).await {
-                all_results.append(&mut results);
+            if let Ok(mut results) = source.search_with_meta(&query, 1, 75).await {
+                all_results.append(&mut results.items);
             }
         }
     }

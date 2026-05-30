@@ -229,6 +229,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
   const [manualTitle, setManualTitle] = useState('')
   const [manualMagnet, setManualMagnet] = useState('')
   const [editingKey, setEditingKey] = useState(false)
+  const [linkSearchFilter, setLinkSearchFilter] = useState('')
 
   const booksJobs = useMemo(() => jobs.filter((job) => job.source === 'anna'), [jobs])
   const mangaJobs = useMemo(() => jobs.filter((job) => job.source === 'manga'), [jobs])
@@ -378,6 +379,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
       title: meta.title,
       sources: [],
     })
+    setLinkSearchFilter('')
     try {
       const raw = await invoke<any>('search_manga_sources', { query: meta.title })
       const rootArray = Array.isArray(raw) ? raw : (raw?.items ?? raw?.results ?? raw?.data ?? [])
@@ -391,8 +393,8 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
           })
         }
         const direct = parseSearchSource(row, i, meta.title)
-        if (direct && !sources.some(s => s.magnetLink === direct.magnetLink)) {
-          sources.unshift(direct)
+        if (direct) {
+          sources.push(direct)
         }
       })
 
@@ -687,6 +689,19 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                                       Available Torrents {isFetchingTorrents === activeModalResult.id ? '' : `(${activeModalResult.sources.length})`}
                                     </h4>
                                   </div>
+
+                                  {isFetchingTorrents !== activeModalResult.id && activeModalResult.sources.length > 0 && (
+                                    <div className="mb-4 relative">
+                                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                      <input 
+                                        type="text" 
+                                        placeholder="Filter links..." 
+                                        value={linkSearchFilter}
+                                        onChange={e => setLinkSearchFilter(e.target.value)}
+                                        className="w-full bg-background border border-border rounded-md pl-9 pr-4 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary transition-shadow"
+                                      />
+                                    </div>
+                                  )}
                                   
                                   {isFetchingTorrents === activeModalResult.id ? (
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -712,7 +727,9 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                                     </div>
                                   ) : (
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                                      {activeModalResult.sources.map((source) => {
+                                      {activeModalResult.sources
+                                        .filter(s => s.label.toLowerCase().includes(linkSearchFilter.toLowerCase()))
+                                        .map((source) => {
                                         const busyId = `${activeModalResult.id}:${source.id}`
                                         const busy = sourceBusy[busyId] === true
 

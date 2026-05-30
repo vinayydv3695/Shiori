@@ -307,6 +307,7 @@ export function OnlineBooksView() {
                         key={book.id}
                         id={book.id}
                         title={book.title}
+                        coverUrl={book.cover_url}
                         author={author}
                         description={book.description}
                         format={format}

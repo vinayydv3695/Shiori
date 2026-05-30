@@ -7,7 +7,7 @@ use crate::error::{Result, ShioriError};
 use crate::sources::{Chapter, ContentType, Page, SearchResponse, SearchResult, Source, SourceMeta};
 
 const LIBGEN_BASE_URL: &str = "https://libgen.li";
-const USER_AGENT: &str = "Shiori/1.0 (libgen source)";
+const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 const MAX_LIMIT: u32 = 75;
 
 pub struct LibgenSource {
@@ -70,7 +70,7 @@ impl LibgenSource {
         link_selector: &Selector,
     ) -> Option<SearchResult> {
         let cells = row.select(cell_selector).collect::<Vec<_>>();
-        if cells.len() < 10 {
+        if cells.len() < 9 {
             return None;
         }
 
@@ -220,23 +220,6 @@ impl LibgenSource {
             diagnostics: None,
         })
     }
-
-    fn collect_candidate_links(extra: &HashMap<String, String>) -> Vec<String> {
-        let mut links = Vec::new();
-
-        for key in ["url", "detail_url", "mirror_1", "mirror_2", "mirror_3", "mirror_4"] {
-            if let Some(value) = extra.get(key) {
-                let trimmed = value.trim();
-                if !trimmed.is_empty() {
-                    links.push(trimmed.to_string());
-                }
-            }
-        }
-
-        links.sort();
-        links.dedup();
-        links
-    }
 }
 
 #[async_trait::async_trait]
@@ -311,8 +294,20 @@ impl Source for LibgenSource {
                     continue;
                 }
 
-                if lower.starts_with("http://") || lower.starts_with("https://") {
+                if (lower.starts_with("http://") || lower.starts_with("https://")) && lower.contains("get.php") {
                     links.insert(normalized, "direct".to_string());
+                }
+            }
+        }
+
+        let mut cover_url = None;
+        let img_selector = Selector::parse("img[src]")
+            .map_err(|e| ShioriError::Other(format!("Libgen cover img selector parse failed: {:?}", e)))?;
+        for img in doc.select(&img_selector) {
+            if let Some(src) = img.value().attr("src") {
+                if src.contains("/covers/") {
+                    cover_url = Some(Self::normalize_href(src));
+                    break;
                 }
             }
         }
@@ -324,9 +319,7 @@ impl Source for LibgenSource {
         }
 
         let mut pages = Vec::new();
-        let mut candidates = Self::collect_candidate_links(&HashMap::from([
-            ("url".to_string(), detail_url),
-        ]));
+        let mut candidates = Vec::new();
 
         for link in links.keys() {
             candidates.push(link.clone());
@@ -334,7 +327,18 @@ impl Source for LibgenSource {
         candidates.sort();
         candidates.dedup();
 
-        for (index, link) in candidates.into_iter().enumerate() {
+        let mut index = 0;
+        
+        // Add cover first if available
+        if let Some(url) = cover_url {
+            pages.push(Page {
+                index,
+                url: format!("cover|{}", url),
+            });
+            index += 1;
+        }
+
+        for link in candidates {
             let lower = link.to_ascii_lowercase();
             let prefixed = if lower.starts_with("magnet:") {
                 format!("magnet|{}", link)
@@ -345,9 +349,10 @@ impl Source for LibgenSource {
             };
 
             pages.push(Page {
-                index: index as u32,
+                index,
                 url: prefixed,
             });
+            index += 1;
         }
 
         Ok(pages)

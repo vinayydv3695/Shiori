@@ -28,7 +28,7 @@ export const ShortcutsDialog = ({ open, onOpenChange }: ShortcutsDialogProps) =>
           <div className="flex items-center justify-between border-b p-6">
             <div className="flex items-center gap-3">
               <Keyboard className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold">Keyboard Shortcuts</h2>
+              <Dialog.Title className="text-lg font-semibold">Keyboard Shortcuts</Dialog.Title>
             </div>
             <Dialog.Close className="inline-flex items-center justify-center rounded-md p-2 hover:bg-accent">
               <X className="h-4 w-4" />

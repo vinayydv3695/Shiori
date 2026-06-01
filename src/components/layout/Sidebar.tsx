@@ -28,7 +28,6 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
     { icon: Globe, label: "Online Books", action: () => setCurrentView("online-books") },
     { icon: BookOpen, label: "Online Manga", action: () => setCurrentView("online-manga") },
     { icon: Highlighter, label: "Annotations", action: () => setCurrentView("annotations") },
-    { icon: BarChart2, label: "Statistics", action: () => setCurrentView("statistics") },
     { icon: Tag, label: "Tags", action: () => setCurrentView("library") },
     { icon: Settings, label: "Settings", action: () => onOpenSettings?.() },
   ]
@@ -70,8 +69,7 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
               (item.label === "Library" && currentView === "library") ||
               (item.label === "Online Books" && currentView === "online-books") ||
               (item.label === "Online Manga" && currentView === "online-manga") ||
-              (item.label === "Annotations" && currentView === "annotations") ||
-              (item.label === "Statistics" && currentView === "statistics");
+              (item.label === "Annotations" && currentView === "annotations");
 
             return (
               <button

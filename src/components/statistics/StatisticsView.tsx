@@ -2,10 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { api, isTauri } from '@/lib/tauri';
 import type { DailyReadingStats, ReadingStreak, ReadingGoal } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
-import { Loader2, X, RotateCw, Check, Edit2 } from '@/components/icons';
+import { Loader2, X, RotateCw } from '@/components/icons';
 import { cn } from '@/lib/utils';
-import { WeeklyChart } from './WeeklyChart';
-
 interface StatisticsViewProps {
   onClose: () => void;
 }
@@ -17,14 +15,9 @@ export function StatisticsView({ onClose }: StatisticsViewProps) {
   const [error, setError] = useState<string | null>(null);
 
   const [yearlyStats, setYearlyStats] = useState<DailyReadingStats[]>([]);
-  const [weeklyStats, setWeeklyStats] = useState<DailyReadingStats[]>([]);
   const [streak, setStreak] = useState<ReadingStreak | null>(null);
   const [goal, setGoal] = useState<ReadingGoal | null>(null);
   const [todaySeconds, setTodaySeconds] = useState(0);
-
-  const [isEditingGoal, setIsEditingGoal] = useState(false);
-  const [tempGoalMinutes, setTempGoalMinutes] = useState(0);
-  const [savingGoal, setSavingGoal] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -41,7 +34,6 @@ export function StatisticsView({ onClose }: StatisticsViewProps) {
           { date: '2023-10-07', total_seconds: 900, books_count: 1, sessions_count: 1 },
         ];
         setYearlyStats(dummyStats);
-        setWeeklyStats(dummyStats);
         setStreak({ current_streak: 4, longest_streak: 12, total_reading_days: 45 });
         setGoal({ daily_minutes_target: 30, is_active: true, created_at: '', updated_at: '' });
         setTodaySeconds(900);
@@ -57,7 +49,6 @@ export function StatisticsView({ onClose }: StatisticsViewProps) {
       ]);
 
       setYearlyStats(stats);
-      setWeeklyStats(stats.slice(-7));
       setStreak(currentStreak);
       setGoal(currentGoal);
       setTodaySeconds(todayTime);
@@ -71,24 +62,6 @@ export function StatisticsView({ onClose }: StatisticsViewProps) {
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  const handleSaveGoal = async () => {
-    if (tempGoalMinutes <= 0) return;
-    setSavingGoal(true);
-    try {
-      if (!isTauri) {
-        setGoal({ daily_minutes_target: tempGoalMinutes, is_active: true, created_at: '', updated_at: '' });
-      } else {
-        const updatedGoal = await api.updateReadingGoal(tempGoalMinutes);
-        setGoal(updatedGoal);
-      }
-      setIsEditingGoal(false);
-    } catch (err) {
-      logger.error('Failed to update goal', err);
-    } finally {
-      setSavingGoal(false);
-    }
-  };
 
   const formatHoursMinutes = (totalSeconds: number) => {
     const hours = Math.floor(totalSeconds / 3600);
@@ -146,7 +119,7 @@ export function StatisticsView({ onClose }: StatisticsViewProps) {
                 Retry
               </button>
             </div>
-          ) : loading && !weeklyStats.length ? (
+          ) : loading ? (
             <div className="flex items-center justify-center py-20 text-muted-foreground">
               <Loader2 className="w-8 h-8 animate-spin" />
             </div>
@@ -201,87 +174,7 @@ export function StatisticsView({ onClose }: StatisticsViewProps) {
                 <ActivityHeatmap data={yearlyStats} />
               </div>
 
-              <div className="bg-card border border-border rounded-xl p-4 md:p-6 shadow-sm">
-                <div className="mb-6">
-                  <h2 className="text-lg font-semibold text-foreground">Reading Time</h2>
-                  <p className="text-sm text-muted-foreground">Last 7 Days</p>
-                </div>
-                <WeeklyChart data={weeklyStats} />
-              </div>
 
-              <div className="bg-card border border-border rounded-xl p-4 md:p-6 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                  <div>
-                    <h2 className="text-lg font-semibold text-foreground">Daily Goal</h2>
-                    <p className="text-sm text-muted-foreground">Track your daily reading habit</p>
-                  </div>
-                  {isEditingGoal ? (
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        min="1"
-                        max="1440"
-                        value={tempGoalMinutes}
-                        onChange={(e) => setTempGoalMinutes(Number(e.target.value))}
-                        className="w-24 px-3 py-1.5 bg-muted border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm text-foreground"
-                      />
-                      <span className="text-sm text-muted-foreground">min</span>
-                      <button
-                        type="button"
-                        onClick={handleSaveGoal}
-                        disabled={savingGoal}
-                        className="ml-2 p-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md transition-colors disabled:opacity-50 flex items-center justify-center"
-                      >
-                        {savingGoal ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setIsEditingGoal(false)}
-                        disabled={savingGoal}
-                        className="p-1.5 bg-muted hover:bg-accent text-muted-foreground hover:text-foreground rounded-md transition-colors disabled:opacity-50"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-3">
-                      <span className="font-medium text-foreground">{goalMinutes} minutes/day</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTempGoalMinutes(goalMinutes);
-                          setIsEditingGoal(true);
-                        }}
-                        className="p-1.5 text-muted-foreground hover:text-primary bg-muted hover:bg-primary/10 rounded-md transition-colors"
-                        title="Edit goal"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="relative pt-1">
-                  <div className="flex mb-2 items-center justify-between">
-                    <div>
-                      <span className="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-primary bg-primary/10">
-                        {goalProgress >= 100 ? 'Goal Reached!' : 'In Progress'}
-                      </span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-xs font-semibold inline-block text-primary">
-                        {todayMinutes} of {goalMinutes} minutes today
-                      </span>
-                    </div>
-                  </div>
-                  <div className="overflow-hidden h-2 mb-4 text-xs flex rounded-full bg-muted">
-                    <div
-                      style={{ width: `${goalProgress}%` }}
-                      className="shadow-none flex flex-col text-center whitespace-nowrap text-primary-foreground justify-center bg-primary transition-all duration-500"
-                    ></div>
-                  </div>
-                </div>
-              </div>
             </>
           )}
         </div>

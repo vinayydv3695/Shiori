@@ -241,7 +241,10 @@ function App() {
 
         {currentView === 'annotations' && (
           <Suspense fallback={<LoadingSpinner className="py-24" />}>
-            <AnnotationsView onClose={() => handleNavigate('library')} />
+            <AnnotationsView 
+              onClose={() => handleNavigate('library')} 
+              onOpenBook={handleOpenBook}
+            />
           </Suspense>
         )}
 

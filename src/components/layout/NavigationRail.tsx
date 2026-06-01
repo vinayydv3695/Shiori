@@ -1,6 +1,5 @@
 import { useUIStore, type CurrentView } from "@/store/uiStore"
 import {
-  BarChart3,
   BookOpen,
   ChevronLeft,
   ChevronRight,
@@ -62,12 +61,6 @@ const NAV_ITEMS: NavItem[] = [
     targetView: "annotations",
     isActive: (view) => view === "annotations",
     icon: Highlighter,
-  },
-  {
-    label: "Statistics",
-    targetView: "statistics",
-    isActive: (view) => view === "statistics",
-    icon: BarChart3,
   },
 ]
 

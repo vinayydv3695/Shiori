@@ -386,6 +386,13 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
         >
           Online Manga
         </button>
+        <button
+          type="button"
+          onClick={() => setCurrentView('statistics')}
+          className="home-quick-access-button"
+        >
+          View Statistics
+        </button>
       </motion.div>
 
       {/* ── Continue Reading (Remaining) ── */}

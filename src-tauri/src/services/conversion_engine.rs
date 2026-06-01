@@ -669,7 +669,8 @@ impl ConversionEngine {
         let text = content
             .replace("<br>", "\n").replace("<br/>", "\n")
             .replace("<p>", "\n").replace("</p>", "\n");
-        let text = regex::Regex::new(r"<[^>]*>").unwrap().replace_all(&text, "");
+        static HTML_TAG_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r"<[^>]*>").unwrap());
+        let text = HTML_TAG_RE.replace_all(&text, "");
         tokio::fs::write(target, text.as_bytes()).await?;
         log::info!("[Conversion] HTML → TXT: {}", target.display());
         Ok(())
@@ -698,7 +699,8 @@ impl ConversionEngine {
     async fn mobi_to_txt(source: &Path, target: &Path) -> FormatResult<()> {
         let content = MobiFormatAdapter::extract_content(source).await?;
         // Strip HTML tags from MOBI content (content is HTML)
-        let text = regex::Regex::new(r"<[^>]*>").unwrap().replace_all(&content, "");
+        static HTML_TAG_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r"<[^>]*>").unwrap());
+        let text = HTML_TAG_RE.replace_all(&content, "");
         tokio::fs::write(target, text.as_bytes()).await?;
         log::info!("[Conversion] MOBI → TXT: {}", target.display());
         Ok(())
@@ -838,15 +840,15 @@ impl ConversionEngine {
 
     /// Detect chapters in raw PDF text using heading patterns
     fn detect_pdf_chapters(text: &str) -> Vec<(String, String)> {
-        let chapter_re = regex::Regex::new(
+        static CHAPTER_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(
             r"(?im)^(Chapter\s+\d+[^\n]*|CHAPTER\s+\d+[^\n]*|[A-Z][A-Z\s\d\-:]{3,50})$"
-        ).unwrap();
+        ).unwrap());
 
         let mut chapters: Vec<(String, String)> = Vec::new();
         let mut last_end = 0usize;
         let mut last_title = "Introduction".to_string();
 
-        for m in chapter_re.find_iter(text) {
+        for m in CHAPTER_RE.find_iter(text) {
             if m.start() > last_end + 50 {
                 // Save previous chunk
                 let body = text[last_end..m.start()].trim().to_string();
@@ -917,7 +919,8 @@ impl ConversionEngine {
                 .replace("</p>", "\n\n").replace("<p>", "")
                 .replace("</h1>", "\n\n").replace("</h2>", "\n\n")
                 .replace("</h3>", "\n");
-            regex::Regex::new(r"<[^>]*>").unwrap().replace_all(&t, "").to_string()
+            static HTML_TAG_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r"<[^>]*>").unwrap());
+            HTML_TAG_RE.replace_all(&t, "").to_string()
         };
 
         let num_chapters = doc.get_num_chapters();

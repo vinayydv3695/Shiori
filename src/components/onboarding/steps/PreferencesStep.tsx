@@ -262,20 +262,6 @@ export function PreferencesStep({ mangaPrefs, bookPrefs, onMangaChange, onBookCh
                     />
                     <SettingControl theme="darkSlate" label="Font Size" type="slider" value={bookPrefs.fontSize} onChange={(value) => onBookChange({ fontSize: Number(value) })} min={10} max={40} step={1} />
                     <SettingControl theme="darkSlate" label="Line Height" type="slider" value={bookPrefs.lineHeight} onChange={(value) => onBookChange({ lineHeight: Number(value) })} min={1} max={2.4} step={0.05} />
-                    <SettingControl theme="darkSlate" label="Letter Spacing" type="slider" value={bookPrefs.letterSpacing} onChange={(value) => onBookChange({ letterSpacing: Number(value) })} min={-1} max={8} step={0.1} />
-                    <SettingControl
-                      theme="darkSlate"
-                      label="Text Alignment"
-                      type="radio"
-                      value={bookPrefs.textAlignment}
-                      onChange={(value) => onBookChange({ textAlignment: String(value) as BookPrefs['textAlignment'] })}
-                      options={[
-                        { label: 'Left', value: 'left' },
-                        { label: 'Center', value: 'center' },
-                        { label: 'Right', value: 'right' },
-                        { label: 'Justify', value: 'justify' },
-                      ]}
-                    />
                     <SettingControl
                       theme="darkSlate"
                       label="Text Justification"
@@ -299,8 +285,6 @@ export function PreferencesStep({ mangaPrefs, bookPrefs, onMangaChange, onBookCh
 
                 <SettingGroup theme="darkSlate" title="Layout" description="Page geometry and flow." icon={<Settings size={18} />}>
                     <SettingControl theme="darkSlate" label="Page Width" type="slider" value={bookPrefs.pageWidth} onChange={(value) => onBookChange({ pageWidth: Number(value) })} min={320} max={1400} step={10} />
-                    <SettingControl theme="darkSlate" label="Reading Width" type="slider" value={bookPrefs.readingWidth} onChange={(value) => onBookChange({ readingWidth: Number(value) })} min={320} max={1200} step={10} />
-                    <SettingControl theme="darkSlate" label="Margin" type="slider" value={bookPrefs.margin} onChange={(value) => onBookChange({ margin: Number(value) })} min={0} max={100} step={1} />
                     <SettingControl theme="darkSlate" label="Paragraph Spacing" type="slider" value={bookPrefs.paragraphSpacing} onChange={(value) => onBookChange({ paragraphSpacing: Number(value) })} min={0} max={3} step={0.1} />
                     <SettingControl
                       theme="darkSlate"
@@ -313,23 +297,10 @@ export function PreferencesStep({ mangaPrefs, bookPrefs, onMangaChange, onBookCh
                         { label: 'Continuous', value: 'continuous' },
                       ]}
                     />
-                    <SettingControl theme="darkSlate" label="Two Page View" type="toggle" value={bookPrefs.twoPageView} onChange={(value) => onBookChange({ twoPageView: Boolean(value) })} />
-                </SettingGroup>
-
-                <SettingGroup theme="darkSlate" title="Appearance" description="Theme and visual styling." icon={<Image size={18} />}>
-                    <SettingControl theme="darkSlate" label="Theme" type="select" value={bookPrefs.theme} onChange={(value) => onBookChange({ theme: String(value) as BookPrefs['theme'] })} options={[{ label: 'Light', value: 'light' }, { label: 'Dark', value: 'dark' }, { label: 'Sepia', value: 'sepia' }]} />
-                    <SettingControl theme="darkSlate" label="Background Color" type="input" value={bookPrefs.backgroundColor} onChange={(value) => onBookChange({ backgroundColor: String(value) })} />
-                    <SettingControl theme="darkSlate" label="Text Color" type="input" value={bookPrefs.textColor} onChange={(value) => onBookChange({ textColor: String(value) })} />
-                    <SettingControl theme="darkSlate" label="Brightness" type="slider" value={bookPrefs.brightness} onChange={(value) => onBookChange({ brightness: Number(value) })} min={0} max={2} step={0.05} />
-                    <SettingControl theme="darkSlate" label="Paper Texture Intensity" type="slider" value={bookPrefs.paperTextureIntensity} onChange={(value) => onBookChange({ paperTextureIntensity: Number(value) })} min={0} max={1} step={0.05} />
                 </SettingGroup>
 
                 <SettingGroup theme="darkSlate" title="Interaction" description="Transitions and UI behavior." icon={<Sliders size={18} />}>
-                    <SettingControl theme="darkSlate" label="Page Transition Enabled" type="toggle" value={bookPrefs.pageTransitionEnabled} onChange={(value) => onBookChange({ pageTransitionEnabled: Boolean(value) })} />
-                    <SettingControl theme="darkSlate" label="Page Transition Style" type="select" value={bookPrefs.pageTransitionStyle} onChange={(value) => onBookChange({ pageTransitionStyle: String(value) as BookPrefs['pageTransitionStyle'] })} options={[{ label: 'Slide', value: 'slide' }, { label: 'Fade', value: 'fade' }, { label: 'Curl', value: 'curl' }, { label: 'None', value: 'none' }]} />
-                    <SettingControl theme="darkSlate" label="Page Transition Speed" type="slider" value={bookPrefs.pageTransitionSpeed} onChange={(value) => onBookChange({ pageTransitionSpeed: Number(value) })} min={50} max={1200} step={10} />
                     <SettingControl theme="darkSlate" label="Animation Speed" type="slider" value={bookPrefs.animationSpeed} onChange={(value) => onBookChange({ animationSpeed: Number(value) })} min={0} max={1000} step={10} />
-                    <SettingControl theme="darkSlate" label="UI Scale" type="slider" value={bookPrefs.uiScale} onChange={(value) => onBookChange({ uiScale: Number(value) })} min={0.75} max={1.5} step={0.01} />
                 </SettingGroup>
 
                 <SettingGroup theme="darkSlate" title="Advanced" description="Inject custom styles into EPUB reader." icon={<Settings size={18} />}>

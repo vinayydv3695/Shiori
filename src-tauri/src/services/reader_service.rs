@@ -42,6 +42,49 @@ impl ReaderService {
         }
     }
 
+    pub fn get_reading_progress_batch(
+        conn: &Connection,
+        book_ids: &[i64],
+    ) -> Result<std::collections::HashMap<i64, ReadingProgress>> {
+        if book_ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+
+        let placeholders = vec!["?"; book_ids.len()].join(",");
+        let query = format!(
+            "SELECT id, book_id, current_location, progress_percent, current_page, total_pages, cfi_location, last_read
+             FROM reading_progress
+             WHERE book_id IN ({})",
+            placeholders
+        );
+
+        let mut stmt = conn.prepare(&query)?;
+        
+        let params: Vec<&dyn rusqlite::ToSql> = book_ids.iter().map(|id| id as &dyn rusqlite::ToSql).collect();
+
+        let rows = stmt.query_map(rusqlite::params_from_iter(params), |row| {
+            Ok(ReadingProgress {
+                id: row.get(0)?,
+                book_id: row.get(1)?,
+                current_location: row.get(2)?,
+                progress_percent: row.get(3)?,
+                current_page: row.get(4)?,
+                total_pages: row.get(5)?,
+                cfi_location: row.get(6)?,
+                last_read: row.get(7)?,
+            })
+        })?;
+
+        let mut map = std::collections::HashMap::new();
+        for row in rows {
+            if let Ok(progress) = row {
+                map.insert(progress.book_id, progress);
+            }
+        }
+
+        Ok(map)
+    }
+
     pub fn save_reading_progress(
         conn: &Connection,
         book_id: i64,

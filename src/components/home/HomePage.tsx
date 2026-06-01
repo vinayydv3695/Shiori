@@ -247,19 +247,22 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
   // Load reading progress
   const loadProgress = useCallback(async () => {
     const openedBooks = allBooks.filter((b) => b.last_opened && b.id)
-    const map: Record<number, ReadingProgress> = {}
-
-    for (const book of openedBooks.slice(0, 30)) {
-      try {
-        const progress = await api.getReadingProgress(book.id!)
-        if (progress && progress.progressPercent > 0 && progress.progressPercent < 100) {
-          map[book.id!] = progress
+    const bookIds = openedBooks.slice(0, 30).map(b => b.id!);
+    
+    if (bookIds.length === 0) return;
+    
+    try {
+      const batchResult = await api.getReadingProgressBatch(bookIds);
+      const map: Record<number, ReadingProgress> = {}
+      for (const [id, progress] of Object.entries(batchResult)) {
+        if (progress.progressPercent > 0 && progress.progressPercent < 100) {
+          map[Number(id)] = progress;
         }
-      } catch {
-        // Skip books with no progress
       }
+      setProgressMap(map)
+    } catch (err) {
+      logger.error('Failed to load reading progress batch:', err)
     }
-    setProgressMap(map)
   }, [allBooks])
 
   useEffect(() => {
@@ -396,20 +399,15 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
               sectionType="continue"
             >
               <ScrollStrip>
-                {continueReading.slice(1).map((book, i) => (
-                  <motion.div
-                    key={book.id}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.05, duration: 0.3 }}
-                  >
+                {continueReading.slice(1).map((book) => (
+                  <div key={book.id}>
                     <ContinueReadingCard
                       book={book}
                       progress={progressMap[book.id!]?.progressPercent ?? 0}
                       domain={domain}
                       onClick={handleOpenBook}
                     />
-                  </motion.div>
+                  </div>
                 ))}
               </ScrollStrip>
             </HomeSection>
@@ -427,20 +425,15 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
             sectionType="favorites"
           >
             <ScrollStrip>
-              {favoriteBooks.map((book, i) => (
-                <motion.div
-                  key={book.id}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.04, duration: 0.3 }}
-                >
+              {favoriteBooks.map((book) => (
+                <div key={book.id}>
                   <ContinueReadingCard
                     book={book}
                     progress={progressMap[book.id!]?.progressPercent ?? 0}
                     domain={domain}
                     onClick={handleOpenBook}
                   />
-                </motion.div>
+                </div>
               ))}
             </ScrollStrip>
           </HomeSection>
@@ -457,20 +450,15 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
             sectionType="completed"
           >
             <ScrollStrip>
-              {completedBooks.map((book, i) => (
-                <motion.div
-                  key={book.id}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.04, duration: 0.3 }}
-                >
+              {completedBooks.map((book) => (
+                <div key={book.id}>
                   <ContinueReadingCard
                     book={book}
                     progress={100}
                     domain={domain}
                     onClick={handleOpenBook}
                   />
-                </motion.div>
+                </div>
               ))}
             </ScrollStrip>
           </HomeSection>
@@ -487,20 +475,15 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
             sectionType="on-hold"
           >
             <ScrollStrip>
-              {onHoldBooks.map((book, i) => (
-                <motion.div
-                  key={book.id}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.04, duration: 0.3 }}
-                >
+              {onHoldBooks.map((book) => (
+                <div key={book.id}>
                   <ContinueReadingCard
                     book={book}
                     progress={progressMap[book.id!]?.progressPercent ?? 0}
                     domain={domain}
                     onClick={handleOpenBook}
                   />
-                </motion.div>
+                </div>
               ))}
             </ScrollStrip>
           </HomeSection>
@@ -517,20 +500,15 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
             sectionType="history"
           >
             <ScrollStrip>
-              {lastReadBooks.map((book, i) => (
-                <motion.div
-                  key={book.id}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.04, duration: 0.3 }}
-                >
+              {lastReadBooks.map((book) => (
+                <div key={book.id}>
                   <ContinueReadingCard
                     book={book}
                     progress={progressMap[book.id!]?.progressPercent ?? 0}
                     domain={domain}
                     onClick={handleOpenBook}
                   />
-                </motion.div>
+                </div>
               ))}
             </ScrollStrip>
           </HomeSection>
@@ -546,18 +524,13 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
           sectionType="recent"
         >
           <ScrollStrip>
-            {recentlyAdded.map((book, i) => (
-              <motion.div
-                key={book.id}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.04, duration: 0.3 }}
-              >
+            {recentlyAdded.map((book) => (
+              <div key={book.id}>
                 <RecentlyAddedCard
                   book={book}
                   onClick={handleOpenBook}
                 />
-              </motion.div>
+              </div>
             ))}
           </ScrollStrip>
         </HomeSection>

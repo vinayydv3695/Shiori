@@ -815,13 +815,13 @@ fn rewrite_mobi_image_tags(
         .map(|img| (img.offset_index as usize, img.filename.clone()))
         .collect();
 
-    let img_tag_re = regex::Regex::new(r"(?is)<img\b[^>]*>").unwrap();
-    let recindex_re = regex::Regex::new(r#"(?i)\brecindex\s*=\s*["']?(\d+)["']?"#).unwrap();
-    let src_re = regex::Regex::new(r#"(?i)\bsrc\s*=\s*["']([^"']+)["']"#).unwrap();
+    static IMG_TAG_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?is)<img\b[^>]*>").unwrap());
+    static RECINDEX_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r#"(?i)\brecindex\s*=\s*["']?(\d+)["']?"#).unwrap());
+    static SRC_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r#"(?i)\bsrc\s*=\s*["']([^"']+)["']"#).unwrap());
 
     let mut unresolved_refs = 0usize;
 
-    let rewritten = img_tag_re
+    let rewritten = IMG_TAG_RE
         .replace_all(html, |caps: &regex::Captures| {
             let tag = caps.get(0).map(|m| m.as_str()).unwrap_or("");
 
@@ -830,12 +830,12 @@ fn rewrite_mobi_image_tags(
                 return tag.to_string();
             }
 
-            let recindex = recindex_re
+            let recindex = RECINDEX_RE
                 .captures(tag)
                 .and_then(|c| c.get(1))
                 .and_then(|m| m.as_str().parse::<usize>().ok());
 
-            let src = src_re
+            let src = SRC_RE
                 .captures(tag)
                 .and_then(|c| c.get(1))
                 .map(|m| m.as_str().to_string());
@@ -945,12 +945,12 @@ fn split_mobi_into_chapters(html: &str) -> Vec<(String, String)> {
     let mut chapter_num = 1;
 
     // MOBI content is HTML — look for heading tags or <mbp:pagebreak>
-    let heading_re = regex::Regex::new(r"(?i)<h[1-3][^>]*>(.*?)</h[1-3]>").unwrap();
-    let pagebreak_re = regex::Regex::new(r"(?i)<mbp:pagebreak\s*/?>").unwrap();
+    static HEADING_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?i)<h[1-3][^>]*>(.*?)</h[1-3]>").unwrap());
+    static PAGEBREAK_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?i)<mbp:pagebreak\s*/?>").unwrap());
 
     for line in html.lines() {
         // Check for page break
-        if pagebreak_re.is_match(line) {
+        if PAGEBREAK_RE.is_match(line) {
             if !current_body.trim().is_empty() {
                 chapters.push((current_title.clone(), wrap_paragraphs(&current_body)));
                 current_body.clear();
@@ -961,7 +961,7 @@ fn split_mobi_into_chapters(html: &str) -> Vec<(String, String)> {
         }
 
         // Check for heading
-        if let Some(cap) = heading_re.captures(line) {
+        if let Some(cap) = HEADING_RE.captures(line) {
             let heading_text = utils::strip_html_tags(&cap[1]).trim().to_string();
             if !heading_text.is_empty() {
                 if !current_body.trim().is_empty() {

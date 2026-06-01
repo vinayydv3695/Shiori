@@ -24,6 +24,15 @@ pub fn get_reading_progress(
 }
 
 #[tauri::command]
+pub fn get_reading_progress_batch(
+    book_ids: Vec<i64>,
+    state: State<AppState>,
+) -> Result<std::collections::HashMap<i64, ReadingProgress>> {
+    let conn = state.db.get_connection()?;
+    ReaderService::get_reading_progress_batch(&conn, &book_ids)
+}
+
+#[tauri::command]
 pub fn save_reading_progress(
     book_id: i64,
     current_location: String,

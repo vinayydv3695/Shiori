@@ -327,6 +327,7 @@ fn main() {
             commands::tags::add_tag_to_book,
             commands::tags::remove_tag_from_book,
             commands::reader::get_reading_progress,
+            commands::reader::get_reading_progress_batch,
             commands::reader::save_reading_progress,
             commands::reader::get_annotations,
             commands::reader::create_annotation,

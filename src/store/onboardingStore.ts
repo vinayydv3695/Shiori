@@ -40,20 +40,6 @@ export interface BookPrefs {
   animationSpeed: number;
   paragraphSpacing: number;
   customCSS: string;
-  theme: 'light' | 'dark' | 'sepia' | 'black';
-  backgroundColor: string;
-  textColor: string;
-  margin: number;
-  letterSpacing: number;
-  readingWidth: number;
-  brightness: number;
-  textAlignment: 'left' | 'center' | 'right' | 'justify';
-  twoPageView: boolean;
-  pageTransitionEnabled: boolean;
-  pageTransitionStyle: 'slide' | 'fade' | 'curl' | 'none';
-  pageTransitionSpeed: number;
-  paperTextureIntensity: number;
-  uiScale: number;
 }
 
 export interface OnboardingWizardState {
@@ -184,20 +170,6 @@ const createDefaultState = (): OnboardingWizardState => ({
     animationSpeed: 250,
     paragraphSpacing: 1,
     customCSS: '',
-    theme: 'black',
-    backgroundColor: '#000000',
-    textColor: '#ffffff',
-    margin: 24,
-    letterSpacing: 0,
-    readingWidth: 1200,
-    brightness: 1,
-    textAlignment: 'justify',
-    twoPageView: false,
-    pageTransitionEnabled: true,
-    pageTransitionStyle: 'fade',
-    pageTransitionSpeed: 250,
-    paperTextureIntensity: 0,
-    uiScale: 1,
   },
   translationLanguage: 'en',
   autoTranslate: false,
@@ -206,7 +178,7 @@ const createDefaultState = (): OnboardingWizardState => ({
   sendAnalytics: false,
   sendCrashReports: false,
   debugLogging: false,
-  uiScale: 80,
+  uiScale: 100,
   enableCloudSync: false,
   enableNotifications: true,
   isHydrated: false,
@@ -353,20 +325,6 @@ export const useOnboardingStore = create<OnboardingStore>()(
                   animationSpeed: preferences.book.animationSpeed,
                   paragraphSpacing: preferences.book.paragraphSpacing,
                   customCSS: preferences.book.customCSS,
-                  theme: preferences.theme === 'black' || preferences.theme === 'dark' ? 'dark' : 'light',
-                  backgroundColor: '#ffffff',
-                  textColor: '#111111',
-                  margin: 24,
-                  letterSpacing: 0,
-                  readingWidth: preferences.book.pageWidth,
-                  brightness: 1,
-                  textAlignment: 'left',
-                  twoPageView: false,
-                  pageTransitionEnabled: true,
-                  pageTransitionStyle: 'slide',
-                  pageTransitionSpeed: preferences.book.animationSpeed,
-                  paperTextureIntensity: 0,
-                  uiScale: preferences.uiScale ?? 1,
                 },
                 onboardingComplete: true,
                 currentStep: TOTAL_STEPS,
@@ -443,7 +401,10 @@ export const useOnboardingStore = create<OnboardingStore>()(
         );
       },
 
-      setAutoTranslate: (autoTranslate) => set({ autoTranslate }),
+      setAutoTranslate: (autoTranslate) => {
+        set({ autoTranslate });
+        void persistGeneralSettings({ autoTranslate }, 'auto translate');
+      },
 
       setCacheSizeMB: (cacheSizeMB) => {
         const normalizedCacheSizeMB = sanitizeCacheSizeMB(cacheSizeMB);
@@ -457,6 +418,7 @@ export const useOnboardingStore = create<OnboardingStore>()(
       setLibrarySizeLimit: (librarySizeLimit) => {
         const normalizedLibrarySizeLimit = sanitizeLibrarySizeLimit(librarySizeLimit);
         set({ librarySizeLimit: normalizedLibrarySizeLimit });
+        void persistGeneralSettings({ librarySizeLimit: normalizedLibrarySizeLimit }, 'library size limit');
       },
 
       setSendAnalytics: (sendAnalytics) => {
@@ -480,9 +442,15 @@ export const useOnboardingStore = create<OnboardingStore>()(
         void persistGeneralSettings({ uiScale: normalizedUiScale / 100 }, 'ui scale');
       },
 
-      setEnableCloudSync: (enableCloudSync) => set({ enableCloudSync }),
+      setEnableCloudSync: (enableCloudSync) => {
+        set({ enableCloudSync });
+        void persistGeneralSettings({ enableCloudSync }, 'cloud sync');
+      },
 
-      setEnableNotifications: (enableNotifications) => set({ enableNotifications }),
+      setEnableNotifications: (enableNotifications) => {
+        set({ enableNotifications });
+        void persistGeneralSettings({ enableNotifications }, 'notifications');
+      },
 
       completeOnboarding: async () => {
         const state = get();

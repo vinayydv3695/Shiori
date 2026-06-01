@@ -251,6 +251,7 @@ pub async fn proxy_manga_image(
     let referer = match source_id.as_str() {
         "toongod" => Some("https://www.toongod.org/"),
         "mangadex" => Some("https://mangadex.org/"),
+        "weebrook" => Some("https://weebrook.com/"),
         _ => None,
     };
 

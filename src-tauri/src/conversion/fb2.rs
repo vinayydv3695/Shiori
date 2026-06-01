@@ -351,16 +351,16 @@ fn parse_fb2(
 fn extract_binaries(xml_text: &str, binary_map: &mut HashMap<String, (String, Vec<u8>)>, warnings: &mut Vec<String>) {
     // Simple regex-based extraction for <binary> elements
     // This is more robust than SAX parsing for large base64 blocks
-    let binary_re = regex::Regex::new(
+    static BINARY_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(
         r#"<binary\s+[^>]*id="([^"]*)"[^>]*content-type="([^"]*)"[^>]*>([\s\S]*?)</binary>"#
-    ).unwrap();
+    ).unwrap());
 
-    let binary_re2 = regex::Regex::new(
+    static BINARY_RE2: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(
         r#"<binary\s+[^>]*content-type="([^"]*)"[^>]*id="([^"]*)"[^>]*>([\s\S]*?)</binary>"#
-    ).unwrap();
+    ).unwrap());
 
-    for cap in binary_re.captures_iter(xml_text).chain(binary_re2.captures_iter(xml_text)) {
-        let (id, content_type, b64_data) = if binary_re.is_match(&cap[0]) {
+    for cap in BINARY_RE.captures_iter(xml_text).chain(BINARY_RE2.captures_iter(xml_text)) {
+        let (id, content_type, b64_data) = if BINARY_RE.is_match(&cap[0]) {
             (cap[1].to_string(), cap[2].to_string(), &cap[3])
         } else {
             (cap[2].to_string(), cap[1].to_string(), &cap[3])

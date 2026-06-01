@@ -240,21 +240,21 @@ fn post_process_pdf_html(html: &str, warnings: &mut Vec<String>) -> String {
     let html = utils::sanitize_html_for_epub(html);
 
     // Extract paragraph text from HTML
-    let paragraph_re = regex::Regex::new(r"(?is)<p[^>]*>(.*?)</p>").unwrap();
-    let br_re = regex::Regex::new(r"(?i)<br\s*/?>").unwrap();
-    let img_re = regex::Regex::new(r"(?is)<img[^>]+>").unwrap();
+    static PARAGRAPH_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?is)<p[^>]*>(.*?)</p>").unwrap());
+    static BR_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?i)<br\s*/?>").unwrap());
+    static IMG_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?is)<img[^>]+>").unwrap());
 
     let mut paragraphs: Vec<String> = Vec::new();
 
-    for cap in paragraph_re.captures_iter(&html) {
+    for cap in PARAGRAPH_RE.captures_iter(&html) {
         let inner = &cap[1];
         
         // If there is an image, we should keep it separate so line unwrapping doesn't ruin it.
         // Or we can just preserve it. For pdftohtml, text and images are usually separate.
-        let mut text = br_re.replace_all(inner, "\n").to_string();
+        let mut text = BR_RE.replace_all(inner, "\n").to_string();
         
         // If it exclusively contains an image, just keep it safely.
-        if img_re.is_match(&text) {
+        if IMG_RE.is_match(&text) {
             paragraphs.push(text.trim().to_string());
             continue;
         }
@@ -269,7 +269,7 @@ fn post_process_pdf_html(html: &str, warnings: &mut Vec<String>) -> String {
     // If regex didn't capture much, fall back to simple extraction
     if paragraphs.is_empty() {
         // Fallback for flat HTML: search for any img tags before stripping
-        for cap in img_re.captures_iter(&html) {
+        for cap in IMG_RE.captures_iter(&html) {
             paragraphs.push(cap[0].to_string());
         }
 
@@ -298,7 +298,7 @@ fn post_process_pdf_html(html: &str, warnings: &mut Vec<String>) -> String {
         let plain = para.trim();
 
         // Keep extracted image tags as block elements (not escaped text inside <p>)
-        if img_re.is_match(plain) {
+        if IMG_RE.is_match(plain) {
             if !current_para.is_empty() {
                 result.push_str(&format!("  <p>{}</p>\n", super::epub_writer::escape_xml(current_para.trim())));
                 current_para.clear();
@@ -354,8 +354,8 @@ fn post_process_pdf_html(html: &str, warnings: &mut Vec<String>) -> String {
 // ──────────────────────────────────────────────────────────────────────────
 
 fn split_pdf_chapters(html: &str) -> Vec<(String, String)> {
-    let heading_re = regex::Regex::new(r"(?i)<h[1-6][^>]*>(.*?)</h[1-6]>").unwrap();
-    let para_re = regex::Regex::new(r"(?is)<p[^>]*>(.*?)</p>").unwrap();
+    static HEADING_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?i)<h[1-6][^>]*>(.*?)</h[1-6]>").unwrap());
+    static PARA_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?is)<p[^>]*>(.*?)</p>").unwrap());
 
     let mut chapters: Vec<(String, String)> = Vec::new();
     let mut current_title = "Document".to_string();
@@ -365,13 +365,13 @@ fn split_pdf_chapters(html: &str) -> Vec<(String, String)> {
         let mut heading_title: Option<String> = None;
         let mut heading_line: Option<String> = None;
 
-        if let Some(cap) = heading_re.captures(line) {
+        if let Some(cap) = HEADING_RE.captures(line) {
             let title = utils::strip_html_tags(&cap[1]).trim().to_string();
             if !title.is_empty() {
                 heading_title = Some(title.clone());
                 heading_line = Some(format!("  <h2>{}</h2>", super::epub_writer::escape_xml(&title)));
             }
-        } else if let Some(cap) = para_re.captures(line) {
+        } else if let Some(cap) = PARA_RE.captures(line) {
             let candidate = utils::strip_html_tags(&cap[1]).trim().to_string();
             if utils::looks_like_heading(&candidate) {
                 heading_title = Some(candidate.clone());
@@ -467,13 +467,13 @@ fn rewrite_img_srcs(html: String, map: &[(String, String)]) -> String {
         }
     }
 
-    let img_tag_re = regex::Regex::new(r"(?is)<img\b[^>]*>").unwrap();
-    let src_re = regex::Regex::new(r#"(?i)\bsrc\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>]+))"#).unwrap();
+    static IMG_TAG_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?is)<img\b[^>]*>").unwrap());
+    static SRC_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r#"(?i)\bsrc\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>]+))"#).unwrap());
 
-    img_tag_re
+    IMG_TAG_RE
         .replace_all(&html, |caps: &regex::Captures| {
             let tag = caps.get(0).map(|m| m.as_str()).unwrap_or("");
-            let Some(src_cap) = src_re.captures(tag) else {
+            let Some(src_cap) = SRC_RE.captures(tag) else {
                 return tag.to_string();
             };
 
@@ -502,7 +502,7 @@ fn rewrite_img_srcs(html: String, map: &[(String, String)]) -> String {
             });
 
             if let Some(epub_name) = mapped {
-                src_re
+                SRC_RE
                     .replace(tag, format!("src=\"../Images/{}\"", epub_name))
                     .to_string()
             } else {

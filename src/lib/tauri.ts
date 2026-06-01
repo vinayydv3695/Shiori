@@ -586,6 +586,19 @@ export const api = {
     return normalizeReadingProgress(raw)
   },
 
+  async getReadingProgressBatch(bookIds: number[]): Promise<Record<number, ReadingProgress>> {
+    if (!bookIds || bookIds.length === 0) return {};
+    const raw = await invoke<Record<string, unknown>>("get_reading_progress_batch", { bookIds })
+    const result: Record<number, ReadingProgress> = {};
+    for (const [key, value] of Object.entries(raw)) {
+      const normalized = normalizeReadingProgress(value);
+      if (normalized) {
+        result[Number(key)] = normalized;
+      }
+    }
+    return result;
+  },
+
   async saveReadingProgress(
     bookId: number,
     currentLocation: string,

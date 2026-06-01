@@ -149,9 +149,13 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
   setViewMode: (viewMode) => set({ viewMode }),
   addBook: (book) => set((state) => ({ books: [book, ...state.books] })),
   updateBook: (book) =>
-    set((state) => ({
-      books: state.books.map((b) => (b.id === book.id ? book : b)),
-    })),
+    set((state) => {
+      const index = state.books.findIndex((b) => b.id === book.id);
+      if (index === -1) return state;
+      const newBooks = [...state.books];
+      newBooks[index] = book;
+      return { books: newBooks };
+    }),
   removeBook: (id) =>
     set((state) => ({
       books: state.books.filter((b) => b.id !== id),

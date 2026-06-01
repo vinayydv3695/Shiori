@@ -251,21 +251,21 @@ fn unformatted_to_html(text: &str) -> String {
 
 /// Split HTML content into chapters based on heading detection.
 fn split_into_chapters(html: &str) -> Vec<(String, String)> {
-    let chapter_re = regex::Regex::new(
+    static CHAPTER_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(
         r"(?im)^\s*<p>((?:chapter|part|book|prologue|epilogue|introduction|appendix|preface)\s*[\d\w]*\.?\s*)</p>\s*$"
-    ).unwrap();
+    ).unwrap());
 
     // Also match all-caps lines that look like chapter titles
-    let caps_re = regex::Regex::new(
+    static CAPS_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(
         r"(?m)^\s*<p>([A-Z][A-Z\s\d]{2,58})</p>\s*$"
-    ).unwrap();
+    ).unwrap());
 
     let mut chapters: Vec<(String, String)> = Vec::new();
     let mut current_title = "Chapter 1".to_string();
     let mut current_body = String::new();
 
     for line in html.lines() {
-        if let Some(cap) = chapter_re.captures(line) {
+        if let Some(cap) = CHAPTER_RE.captures(line) {
             // Save previous chapter
             if !current_body.trim().is_empty() {
                 chapters.push((current_title.clone(), current_body.trim().to_string()));
@@ -273,7 +273,7 @@ fn split_into_chapters(html: &str) -> Vec<(String, String)> {
             current_title = cap[1].trim().to_string();
             current_body.clear();
             current_body.push_str(&format!("  <h2>{}</h2>\n", super::epub_writer::escape_xml(&current_title)));
-        } else if let Some(cap) = caps_re.captures(line) {
+        } else if let Some(cap) = CAPS_RE.captures(line) {
             let candidate = cap[1].trim();
             // Must not be a regular sentence fragment — require surrounded by context
             if candidate.len() < 60 && candidate.split_whitespace().count() <= 8 {

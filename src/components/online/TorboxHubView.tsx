@@ -221,7 +221,8 @@ function isTorboxCompatibleLink(link: string): boolean {
   return (
     normalized.startsWith('magnet:') ||
     normalized.includes('.torrent') ||
-    normalized.includes('/torrent')
+    normalized.includes('/torrent') ||
+    normalized.includes('/download/')
   );
 }
 

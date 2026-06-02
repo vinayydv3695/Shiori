@@ -1137,3 +1137,63 @@ pub fn get_books_by_reading_status(
     attach_authors_and_tags(&conn, &mut books)?;
     Ok(books)
 }
+const BOOK_SUMMARY_COLUMNS: &str =
+    "b.id, b.uuid, b.title, b.sort_title, b.file_path, b.file_format, b.file_size,
+     b.cover_path, b.added_date, b.is_favorite, b.reading_status, b.domain, 
+     b.manga_series_id, b.series_index";
+
+fn book_summary_from_row(row: &rusqlite::Row) -> rusqlite::Result<crate::models::BookSummary> {
+    Ok(crate::models::BookSummary {
+        id: Some(row.get(0)?),
+        uuid: row.get(1)?,
+        title: row.get(2)?,
+        sort_title: row.get(3)?,
+        file_path: row.get(4)?,
+        file_format: row.get(5)?,
+        file_size: row.get(6)?,
+        cover_path: row.get(7)?,
+        added_date: row.get(8)?,
+        is_favorite: row.get::<_, i64>(9).unwrap_or(0) != 0,
+        reading_status: row.get(10)?,
+        domain: row.get(11).ok().flatten(),
+        manga_series_id: row.get(12).ok().flatten(),
+        series_index: row.get(13)?,
+    })
+}
+
+pub fn get_book_summaries(db: &Database, limit: u32, offset: u32) -> Result<Vec<crate::models::BookSummary>> {
+    let conn = db.get_connection()?;
+    let sql = format!(
+        "SELECT {} FROM books b ORDER BY b.added_date DESC LIMIT ?1 OFFSET ?2",
+        BOOK_SUMMARY_COLUMNS
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let summaries: Vec<crate::models::BookSummary> = stmt
+        .query_map(rusqlite::params![limit, offset], book_summary_from_row)?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(summaries)
+}
+
+pub fn get_book_summaries_by_domain(
+    db: &Database,
+    domain: &str,
+    limit: u32,
+    offset: u32,
+) -> Result<Vec<crate::models::BookSummary>> {
+    let conn = db.get_connection()?;
+    let where_clause = match domain {
+        "books" => "WHERE b.domain = 'books'",
+        "manga" => "WHERE b.domain = 'manga'",
+        "comics" => "WHERE b.domain = 'comics'",
+        _ => "",
+    };
+    let sql = format!(
+        "SELECT {} FROM books b {} ORDER BY b.added_date DESC LIMIT ?1 OFFSET ?2",
+        BOOK_SUMMARY_COLUMNS, where_clause
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let summaries: Vec<crate::models::BookSummary> = stmt
+        .query_map(rusqlite::params![limit, offset], book_summary_from_row)?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(summaries)
+}

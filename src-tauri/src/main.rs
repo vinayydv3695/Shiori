@@ -290,6 +290,8 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::library::get_books,
+            commands::library::get_book_summaries,
+            commands::library::get_book_summaries_by_domain,
             commands::library::find_duplicate_books,
             commands::library::get_total_books,
             commands::library::get_book,

@@ -170,7 +170,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 function parseSearchSource(record: any, index: number, fallbackTitle: string): SearchSource | null {
   if (!record) return null
   const extra = record.extra || {}
-  const rawLink = record.magnet_url || record.torrent_url || record.magnetLink || record.magnet_link || record.magnet || record.url || record.link || record.torrent || extra.magnet || extra.url || extra.torrent || extra.link
+  const rawLink = record.magnet_url || record.torrent_url || record.magnetLink || record.magnet_link || record.magnet || record.torrent || extra.magnet || extra.torrent || record.url || record.link || extra.url || extra.link
   if (!rawLink) return null
 
   const parsedLink = parsePageUrl(rawLink)
@@ -178,7 +178,7 @@ function parseSearchSource(record: any, index: number, fallbackTitle: string): S
   if (linkKind === 'direct') {
     const normalized = parsedLink.url.trim().toLowerCase()
     if (normalized.startsWith('magnet:')) linkKind = 'magnet'
-    else if (normalized.includes('.torrent') || normalized.includes('/torrent')) linkKind = 'torrent'
+    else if (normalized.includes('.torrent') || normalized.includes('/torrent') || normalized.includes('/download/')) linkKind = 'torrent'
   }
 
   const magnetLink = parsedLink.url
@@ -386,6 +386,9 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
       
       const sources: SearchSource[] = []
       rootArray.forEach((row: any, i: number) => {
+        const sourceId = (row.sourceId || row.source_id || '').toLowerCase()
+        if (sourceId !== 'nyaa') return
+
         if (row.sources && Array.isArray(row.sources)) {
           row.sources.forEach((s: any, j: number) => {
             const parsed = parseSearchSource(s, j, meta.title)

@@ -7,6 +7,7 @@ use rusqlite::params;
 use std::collections::HashMap;
 use uuid::Uuid;
 use walkdir::WalkDir;
+use rayon::prelude::*;
 
 /// Base SELECT columns for the books table — used by all list/get queries.
 const BOOK_COLUMNS: &str =
@@ -552,15 +553,18 @@ pub fn import_single_book(db: &Database, path: &str, covers_dir: &std::path::Pat
     Ok(false) // Not a duplicate
 }
 
+struct PreprocessedBook {
+    path: String,
+    book: Book,
+}
+
 pub fn scan_and_import_folder(
     db: &Database,
     folder_path: &str,
     covers_dir: &std::path::Path,
 ) -> Result<ImportResult> {
-    let supported_formats = vec!["epub", "pdf", "mobi", "azw3", "txt", "fb2", "djvu"];
-    let mut book_paths = Vec::new();
+    let mut all_paths = Vec::new();
 
-    // Recursively scan folder for book files
     for entry in WalkDir::new(folder_path)
         .follow_links(true)
         .into_iter()
@@ -569,19 +573,186 @@ pub fn scan_and_import_folder(
         if entry.file_type().is_file() {
             if let Some(ext) = entry.path().extension() {
                 let ext_str = ext.to_string_lossy().to_lowercase();
-                if supported_formats.contains(&ext_str.as_str()) {
+                if BOOK_FORMATS.contains(&ext_str.as_str())
+                    || MANGA_FORMATS.contains(&ext_str.as_str())
+                    || COMICS_FORMATS.contains(&ext_str.as_str())
+                {
                     if let Some(path_str) = entry.path().to_str() {
-                        book_paths.push(path_str.to_string());
+                        all_paths.push((path_str.to_string(), ext_str));
                     }
                 }
             }
         }
     }
 
-    log::info!("Found {} book files in {}", book_paths.len(), folder_path);
+    log::info!("Found {} supported files in {}", all_paths.len(), folder_path);
 
-    // Import all found books
-    import_books(db, book_paths, covers_dir)
+    let mut result = ImportResult {
+        success: vec![],
+        failed: vec![],
+        duplicates: vec![],
+    };
+
+    if all_paths.is_empty() {
+        return Ok(result);
+    }
+
+    let preprocessed: Vec<std::result::Result<PreprocessedBook, (String, String)>> = all_paths
+        .into_par_iter()
+        .map(|(path, ext_str)| {
+            let domain = if BOOK_FORMATS.contains(&ext_str.as_str()) {
+                "books"
+            } else if MANGA_FORMATS.contains(&ext_str.as_str()) {
+                "manga"
+            } else {
+                "comics"
+            };
+
+            let file_hash = match calculate_file_hash(&path) {
+                Ok(h) => h,
+                Err(e) => return Err((path, format!("Hash error: {}", e))),
+            };
+
+            let metadata = match metadata_service::extract_from_file(&path) {
+                Ok(m) => m,
+                Err(_) => crate::models::Metadata {
+                    title: None,
+                    authors: vec![],
+                    publisher: None,
+                    pubdate: None,
+                    isbn: None,
+                    page_count: None,
+                    language: None,
+                    description: None,
+                },
+            };
+
+            let book_uuid = Uuid::new_v4().to_string();
+            let cover_path = metadata_service::extract_cover(&path, &book_uuid, covers_dir)
+                .ok()
+                .flatten();
+            let file_size = get_file_size(&path).unwrap_or(0);
+
+            let book = Book {
+                id: None,
+                uuid: book_uuid,
+                title: metadata.title.unwrap_or_else(|| {
+                    std::path::Path::new(&path)
+                        .file_stem()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string()
+                }),
+                sort_title: None,
+                isbn: metadata.isbn,
+                isbn13: None,
+                publisher: metadata.publisher,
+                pubdate: metadata.pubdate,
+                series: None,
+                series_index: None,
+                rating: None,
+                file_path: path.clone(),
+                file_format: ext_str,
+                file_size: Some(file_size),
+                file_hash: Some(file_hash),
+                cover_path,
+                page_count: metadata.page_count,
+                word_count: None,
+                language: metadata.language.unwrap_or_else(|| "eng".to_string()),
+                added_date: chrono::Utc::now().to_rfc3339(),
+                modified_date: chrono::Utc::now().to_rfc3339(),
+                last_opened: None,
+                notes: None,
+                authors: metadata
+                    .authors
+                    .into_iter()
+                    .map(|name| Author {
+                        id: None,
+                        name,
+                        sort_name: None,
+                        link: None,
+                    })
+                    .collect(),
+                tags: vec![],
+                online_metadata_fetched: false,
+                metadata_source: None,
+                metadata_last_sync: None,
+                anilist_id: None,
+                is_favorite: false,
+                reading_status: "planning".to_string(),
+                domain: Some(domain.to_string()),
+                metadata_locked: None,
+            };
+
+            Ok(PreprocessedBook {
+                path,
+                book,
+            })
+        })
+        .collect();
+
+    let mut conn = db.get_connection()?;
+    let tx = conn.transaction()?;
+
+    for res in preprocessed {
+        match res {
+            Ok(pre) => {
+                let exists: bool = tx
+                    .query_row(
+                        "SELECT EXISTS(SELECT 1 FROM books WHERE file_hash = ?1)",
+                        rusqlite::params![pre.book.file_hash],
+                        |row| row.get(0),
+                    )
+                    .unwrap_or(false);
+
+                if exists {
+                    result.duplicates.push(pre.path);
+                } else {
+                    let mut book = pre.book;
+                    if book.uuid.is_empty() {
+                        book.uuid = Uuid::new_v4().to_string();
+                    }
+
+                    let insert_res = tx.execute(
+                        "INSERT INTO books (uuid, title, sort_title, isbn, isbn13, publisher, pubdate,
+                                           series, series_index, rating, file_path, file_format, file_size,
+                                           file_hash, cover_path, page_count, word_count, language, notes, reading_status, domain)
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)",
+                        rusqlite::params![
+                            book.uuid, book.title, book.sort_title, book.isbn, book.isbn13, book.publisher, book.pubdate,
+                            book.series, book.series_index, book.rating, book.file_path, book.file_format, book.file_size,
+                            book.file_hash, book.cover_path, book.page_count, book.word_count, book.language, book.notes,
+                            book.reading_status, book.domain,
+                        ],
+                    );
+
+                    match insert_res {
+                        Ok(_) => {
+                            let book_id = tx.last_insert_rowid();
+                            for author in &book.authors {
+                                if let Ok(author_id) = crate::services::library_service::get_or_create_author_tx(&tx, &author.name) {
+                                    let _ = tx.execute(
+                                        "INSERT INTO books_authors (book_id, author_id) VALUES (?1, ?2)",
+                                        rusqlite::params![book_id, author_id],
+                                    );
+                                }
+                            }
+                            result.success.push(book.file_path);
+                        }
+                        Err(e) => {
+                            result.failed.push((book.file_path, e.to_string()));
+                        }
+                    }
+                }
+            }
+            Err((path, err)) => {
+                result.failed.push((path, err));
+            }
+        }
+    }
+
+    tx.commit()?;
+    Ok(result)
 }
 
 // ═══════════════════════════════════════════════════════════

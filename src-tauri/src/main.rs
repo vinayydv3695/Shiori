@@ -298,7 +298,7 @@ fn main() {
             commands::library::delete_book,
             commands::library::delete_books,
             commands::library::import_books,
-            commands::library::scan_folder_for_books,
+            commands::library::scan_folder_unified,
             commands::library::import_manga,
             commands::library::download_gutenberg_epub,
             commands::library::download_libgen_epub,

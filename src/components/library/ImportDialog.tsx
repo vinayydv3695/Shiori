@@ -72,16 +72,11 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
           setStatus('idle');
           return;
         }
-        // Run scans sequentially to avoid native parser crashes on some Linux/WebKit setups
-        const bookResult = await api.scanFolderForBooks(selectedPath);
-        importResult.success.push(...bookResult.success);
-        importResult.failed.push(...bookResult.failed);
-        importResult.duplicates.push(...bookResult.duplicates);
-
-        const mangaResult = await api.scanFolderForManga(selectedPath);
-        importResult.success.push(...mangaResult.success);
-        importResult.failed.push(...mangaResult.failed);
-        importResult.duplicates.push(...mangaResult.duplicates);
+        
+        const result = await api.scanFolderUnified(selectedPath);
+        importResult.success.push(...result.success);
+        importResult.failed.push(...result.failed);
+        importResult.duplicates.push(...result.duplicates);
       } else {
         if (selectedFilePaths.length === 0) {
           toast.error('No files selected', 'Please select files to import');

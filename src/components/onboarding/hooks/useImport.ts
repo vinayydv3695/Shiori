@@ -39,17 +39,7 @@ const toCountResult = (result: ApiImportResult): ImportResult => ({
   duplicates: result.duplicates.length,
 });
 
-const mergeResults = (results: ApiImportResult[]): ApiImportResult => {
-  return results.reduce<ApiImportResult>(
-    (acc, current) => {
-      acc.success.push(...current.success);
-      acc.failed.push(...current.failed);
-      acc.duplicates.push(...current.duplicates);
-      return acc;
-    },
-    { success: [], failed: [], duplicates: [] }
-  );
-};
+
 
 export function useImport(): UseImportResult {
   const [state, setState] = useState<UseImportState>(INITIAL_STATE);
@@ -72,42 +62,13 @@ export function useImport(): UseImportResult {
     try {
       setState({
         status: 'scanning',
-        progress: 0,
+        progress: 10,
         results: null,
-        currentFile: `Scanning ${path}`,
+        currentFile: `Scanning & Importing ${path}`,
         error: null,
       });
 
-      const scanTasks: Array<{
-        label: 'books' | 'manga' | 'comics';
-        run: () => Promise<ApiImportResult>;
-      }> = [
-        { label: 'books', run: () => api.scanFolderForBooks(path) },
-        { label: 'manga', run: () => api.scanFolderForManga(path) },
-        { label: 'comics', run: () => api.scanFolderForComics(path) },
-      ];
-
-      const scanResults: ApiImportResult[] = [];
-      for (let index = 0; index < scanTasks.length; index += 1) {
-        const task = scanTasks[index];
-
-        setState((prev) => ({
-          ...prev,
-          status: 'scanning',
-          currentFile: `Scanning ${task.label}`,
-          progress: Math.round((index / scanTasks.length) * 60),
-        }));
-
-        const result = await task.run();
-        scanResults.push(result);
-
-        setState((prev) => ({
-          ...prev,
-          status: 'scanning',
-          currentFile: `Scanned ${task.label}`,
-          progress: Math.round(((index + 1) / scanTasks.length) * 60),
-        }));
-      }
+      const result = await api.scanFolderUnified(path);
 
       setState((prev) => ({
         ...prev,
@@ -116,8 +77,7 @@ export function useImport(): UseImportResult {
         progress: 85,
       }));
 
-      const merged = mergeResults(scanResults);
-      const counted = toCountResult(merged);
+      const counted = toCountResult(result);
 
       if (counted.success > 0) {
         const books = await api.getBooks();

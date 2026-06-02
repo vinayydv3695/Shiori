@@ -182,13 +182,26 @@ pub fn import_books(state: State<'_, AppState>, paths: Vec<String>) -> Result<Im
 }
 
 #[tauri::command]
-pub fn scan_folder_for_books(
+pub async fn scan_folder_unified(
     state: State<'_, AppState>,
     folder_path: String,
 ) -> Result<ImportResult> {
     validate::require_safe_path(&folder_path, "folder path")?;
     let db = &state.db;
-    library_service::scan_and_import_folder(db, &folder_path, &state.covers_dir)
+    let result = library_service::scan_and_import_folder(db, &folder_path, &state.covers_dir)?;
+    
+    let conn = db.get_connection()?;
+    let auto_group: bool = conn.query_row(
+        "SELECT auto_group_manga FROM user_preferences WHERE id = 1",
+        [],
+        |row| row.get(0)
+    ).unwrap_or(true);
+    
+    if auto_group {
+        let _ = crate::commands::manga::auto_group_manga_volumes(state).await;
+    }
+    
+    Ok(result)
 }
 
 #[tauri::command]

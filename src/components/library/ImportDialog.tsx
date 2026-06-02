@@ -30,7 +30,7 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
   const [suggestions, setSuggestions] = useState<CollectionSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const toast = useToast();
-  const setBooks = useLibraryStore(state => state.setBooks);
+  const loadInitialBooks = useLibraryStore(state => state.loadInitialBooks);
 
   const handleSelectFolder = async () => {
     try {
@@ -117,8 +117,7 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
             : undefined
         );
 
-        const books = await api.getBooks();
-        setBooks(books);
+        await loadInitialBooks();
 
         const collectionSuggestions = generateCollectionSuggestions(
           importResult.success

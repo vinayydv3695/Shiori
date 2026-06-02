@@ -33,9 +33,13 @@ export function OnlineBooksView() {
   
   // LibGen State
   const [libgenResults, setLibgenResults] = useState<SearchResult[]>([]);
+  const [libgenWhatsNew, setLibgenWhatsNew] = useState<SearchResult[]>([]);
+  const [libgenPopular, setLibgenPopular] = useState<SearchResult[]>([]);
   const [libgenTotal, setLibgenTotal] = useState(0);
   const [libgenPage, setLibgenPage] = useState(1);
   const [libgenHasSearched, setLibgenHasSearched] = useState(false);
+  const [libgenWhatsNewLoading, setLibgenWhatsNewLoading] = useState(false);
+  const [libgenPopularLoading, setLibgenPopularLoading] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +66,49 @@ export function OnlineBooksView() {
     
     void loadPopular();
   }, [gutenbergHasSearched, popularBooks.length, activeTab]);
+
+  // Load LibGen popular & new on mount
+  useEffect(() => {
+    if (libgenHasSearched || activeTab !== 'libgen') return;
+
+    if (libgenWhatsNew.length === 0 && !libgenWhatsNewLoading) {
+      const loadNew = async () => {
+        setLibgenWhatsNewLoading(true);
+        try {
+          const res = await fetchLibgenBooks('2024 fiction', 1, 30);
+          const epubs = res.items.filter(item => {
+            const extra = (item.extra || {}) as Record<string, string>;
+            return extra.format?.toLowerCase() === 'epub';
+          });
+          setLibgenWhatsNew(epubs.slice(0, 20));
+        } catch (err) {
+          logger.error('Failed to load LibGen new books:', err);
+        } finally {
+          setLibgenWhatsNewLoading(false);
+        }
+      };
+      void loadNew();
+    }
+
+    if (libgenPopular.length === 0 && !libgenPopularLoading) {
+      const loadPopular = async () => {
+        setLibgenPopularLoading(true);
+        try {
+          const res = await fetchLibgenBooks('award winner', 1, 30);
+          const epubs = res.items.filter(item => {
+            const extra = (item.extra || {}) as Record<string, string>;
+            return extra.format?.toLowerCase() === 'epub';
+          });
+          setLibgenPopular(epubs.slice(0, 20));
+        } catch (err) {
+          logger.error('Failed to load LibGen popular books:', err);
+        } finally {
+          setLibgenPopularLoading(false);
+        }
+      };
+      void loadPopular();
+    }
+  }, [libgenHasSearched, activeTab, libgenWhatsNew.length, libgenPopular.length, libgenWhatsNewLoading, libgenPopularLoading]);
 
   const handleSearch = useCallback(async (page: number = 1, queryOverride?: string) => {
     const query = (queryOverride ?? useOnlineSearchStore.getState().queries['online-books']).trim();
@@ -145,6 +192,27 @@ export function OnlineBooksView() {
     if (book) {
       setSelectedGutenbergBook(book);
       setSelectedLibgenBook(null);
+      setIsDetailsOpen(true);
+    }
+  };
+
+  const toLibgenCarouselItems = (books: SearchResult[]): CarouselItem[] => {
+    return books.map((b) => {
+      const extra = (b.extra || {}) as Record<string, string>;
+      return {
+        id: b.id.toString(),
+        title: b.title,
+        coverUrl: b.coverUrl,
+        subtitle: extra.author || 'Unknown Author',
+      };
+    });
+  };
+
+  const handleLibgenCarouselItemClick = (item: CarouselItem) => {
+    const book = libgenWhatsNew.find(b => b.id.toString() === item.id) || libgenPopular.find(b => b.id.toString() === item.id);
+    if (book) {
+      setSelectedLibgenBook(book);
+      setSelectedGutenbergBook(null);
       setIsDetailsOpen(true);
     }
   };
@@ -263,6 +331,20 @@ export function OnlineBooksView() {
                   Search across one of the largest digital library collections in the world. Enjoy direct EPUB downloads that integrate seamlessly with your reading dashboard.
                 </p>
               </div>
+              
+              <ContentCarousel
+                title="What's New (2024)"
+                items={toLibgenCarouselItems(libgenWhatsNew)}
+                loading={libgenWhatsNewLoading}
+                onItemClick={handleLibgenCarouselItemClick}
+              />
+              
+              <ContentCarousel
+                title="Award Winners & Popular"
+                items={toLibgenCarouselItems(libgenPopular)}
+                loading={libgenPopularLoading}
+                onItemClick={handleLibgenCarouselItemClick}
+              />
             </div>
           )}
 

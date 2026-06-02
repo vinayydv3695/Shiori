@@ -59,7 +59,16 @@ function HeroSection({
   booksInProgress,
   domain,
   onViewLibrary,
+  featuredBook,
 }: {
+  totalBooks: number
+  totalManga: number
+  totalSize: number
+  booksInProgress: number
+  domain: DomainView
+  onViewLibrary: () => void
+  featuredBook: Book | null
+}) {
   totalBooks: number
   totalManga: number
   totalSize: number
@@ -79,11 +88,21 @@ function HeroSection({
 
   return (
     <motion.div className="hero-section" variants={itemVariants}>
-      {/* Background gradient orbs */}
+      {/* Background dynamic blur or static orbs */}
       <div className="hero-bg">
-        <div className="hero-orb hero-orb-1" />
-        <div className="hero-orb hero-orb-2" />
-        <div className="hero-orb hero-orb-3" />
+        {featuredBook?.cover_path ? (
+           <img 
+             src={api.convertFileSrc(featuredBook.cover_path)} 
+             alt="" 
+             className="hero-dynamic-bg opacity-30 blur-[100px] absolute inset-0 w-full h-full object-cover mix-blend-screen pointer-events-none transition-all duration-1000"
+           />
+        ) : (
+          <>
+            <div className="hero-orb hero-orb-1" />
+            <div className="hero-orb hero-orb-2" />
+            <div className="hero-orb hero-orb-3" />
+          </>
+        )}
       </div>
 
       <div className="hero-content">
@@ -185,66 +204,83 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
   const [progressMap, setProgressMap] = useState<Record<number, ReadingProgress>>({})
   const [completedBooks, setCompletedBooks] = useState<Book[]>([])
   const [onHoldBooks, setOnHoldBooks] = useState<Book[]>([])
+  const [continueReading, setContinueReading] = useState<Book[]>([])
+  const [recentlyAdded, setRecentlyAdded] = useState<Book[]>([])
+  const [favoriteBooks, setFavoriteBooks] = useState<Book[]>([])
+  const [lastReadBooks, setLastReadBooks] = useState<Book[]>([])
+  const [allInProgress, setAllInProgress] = useState<number>(0)
+
 
   const domain = currentDomain
 
-  // Split books vs manga & comics
-  const books = useMemo(
-    () => allBooks.filter((b) => !MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '')),
-    [allBooks]
-  )
-  const mangaComics = useMemo(
-    () => allBooks.filter((b) => MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '')),
-    [allBooks]
-  )
-
-  const domainItems = domain === 'manga_comics' ? mangaComics : books
   const totalSize = allBooks.reduce((sum, b) => sum + (b.file_size || 0), 0)
 
-  // Continue reading — items with progress
-  const continueReading = useMemo(() => {
-    return domainItems
-      .filter((b) => b.last_opened && b.id && progressMap[b.id])
-      .sort((a, b) => {
+  // Load all Home Data from SQLite directly
+  const loadHomeData = useCallback(async () => {
+    try {
+      // 1. Recently Added
+      const recent = await api.getBooksByDomain(domain, 12, 0);
+      setRecentlyAdded(recent);
+
+      // 2. Continue Reading (Reading Status)
+      const readingBooks = await api.getBooksByReadingStatus('reading', 50, 0);
+      const domainReading = readingBooks.filter(b => 
+        domain === 'manga_comics' ? MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '') 
+                                  : !MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '')
+      ).sort((a, b) => {
         const dateA = a.last_opened ? new Date(a.last_opened).getTime() : 0
         const dateB = b.last_opened ? new Date(b.last_opened).getTime() : 0
         return dateB - dateA
-      })
-      .slice(0, 10)
-  }, [domainItems, progressMap])
+      });
+      setContinueReading(domainReading.slice(0, 12));
+      setAllInProgress(readingBooks.length);
+      setLastReadBooks(domainReading.slice(0, 12)); // Can be identical to continue reading
 
-  // Recently added
-  const recentlyAdded = useMemo(() => {
-    return [...domainItems]
-      .sort((a, b) => new Date(b.added_date).getTime() - new Date(a.added_date).getTime())
-      .slice(0, 12)
-  }, [domainItems])
+      // 3. Favorites
+      const favIds = Array.from(favoriteBookIds);
+      const favBooksPromises = favIds.slice(0, 30).map(id => api.getBook(id).catch(() => null));
+      const favsResolved = (await Promise.all(favBooksPromises)).filter(Boolean) as Book[];
+      const domainFavs = favsResolved.filter(b => 
+        domain === 'manga_comics' ? MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '') 
+                                  : !MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '')
+      );
+      setFavoriteBooks(domainFavs.slice(0, 12));
 
-  // Favorites
-  const favoriteBooks = useMemo(() => {
-    return domainItems
-      .filter((b) => b.id && favoriteBookIds.has(b.id))
-      .slice(0, 12)
-  }, [domainItems, favoriteBookIds])
+      // 4. Completed & On Hold
+      const [completed, onHold] = await Promise.all([
+        api.getBooksByReadingStatus('completed', 12, 0),
+        api.getBooksByReadingStatus('on_hold', 12, 0),
+      ]);
+      setCompletedBooks(completed.filter(b => 
+        domain === 'manga_comics' ? MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '') 
+                                  : !MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '')
+      ));
+      setOnHoldBooks(onHold.filter(b => 
+        domain === 'manga_comics' ? MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '') 
+                                  : !MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '')
+      ));
 
-  // Last Read
-  const lastReadBooks = useMemo(() => {
-    return domainItems
-      .filter((b) => b.last_opened && b.id)
-      .sort((a, b) => {
-        const dateA = a.last_opened ? new Date(a.last_opened).getTime() : 0
-        const dateB = b.last_opened ? new Date(b.last_opened).getTime() : 0
-        return dateB - dateA
-      })
-      .slice(0, 10)
-  }, [domainItems])
+      // 5. Reading Progress Map
+      const bookIdsToFetch = [...domainReading, ...recent, ...domainFavs].slice(0, 30).map(b => b.id!);
+      if (bookIdsToFetch.length > 0) {
+        const batchResult = await api.getReadingProgressBatch(bookIdsToFetch);
+        const map: Record<number, ReadingProgress> = {}
+        for (const [id, progress] of Object.entries(batchResult)) {
+          if (progress.progressPercent > 0) {
+            map[Number(id)] = progress;
+          }
+        }
+        setProgressMap(map);
+      }
+    } catch (err) {
+      logger.error('Failed to load home data', err);
+    }
+  }, [domain, favoriteBookIds]);
 
-  // All items in progress (for hero count)
-  const allInProgress = useMemo(() => {
-    return allBooks.filter((b) => b.last_opened && b.id && progressMap[b.id]).length
-  }, [allBooks, progressMap])
+  useEffect(() => {
+    loadHomeData();
+  }, [loadHomeData]);
 
-  // Load reading progress
   const loadProgress = useCallback(async () => {
     const openedBooks = allBooks.filter((b) => b.last_opened && b.id)
     const bookIds = openedBooks.slice(0, 30).map(b => b.id!);
@@ -271,21 +307,6 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
     loadProgress()
   }, [loadProgress])
 
-  useEffect(() => {
-    const loadStatusBooks = async () => {
-      try {
-        const [completed, onHold] = await Promise.all([
-          api.getBooksByReadingStatus('completed', 12, 0),
-          api.getBooksByReadingStatus('on_hold', 12, 0),
-        ])
-        setCompletedBooks(completed)
-        setOnHoldBooks(onHold)
-      } catch (err) {
-        logger.error('Failed to load reading status books:', err)
-      }
-    }
-    loadStatusBooks()
-  }, [])
 
   const handleOpenBook = (book: Book) => {
     onOpenBook(book.id!)
@@ -319,6 +340,7 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
           booksInProgress={0}
           domain={domain}
           onViewLibrary={handleViewLibrary}
+          featuredBook={null}
         />
         <div className="home-empty">
           <BookOpen className="home-empty-icon" />
@@ -345,12 +367,13 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
       {/* ── Bento Grid: Hero & Featured ── */}
       <div className="home-bento-grid">
         <HeroSection
-          totalBooks={books.length}
-          totalManga={mangaComics.length}
+          totalBooks={allBooks.filter(b => !MANGA_FORMATS.includes(b.file_format?.toLowerCase() || "")).length}
+          totalManga={allBooks.filter(b => MANGA_FORMATS.includes(b.file_format?.toLowerCase() || "")).length}
           totalSize={totalSize}
           booksInProgress={allInProgress}
           domain={domain}
           onViewLibrary={handleViewLibrary}
+          featuredBook={continueReading[0] || recentlyAdded[0] || null}
         />
 
         {continueReading.length > 0 && (

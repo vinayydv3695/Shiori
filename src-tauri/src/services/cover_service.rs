@@ -490,7 +490,7 @@ pub struct CoverService {
 impl CoverService {
     /// Create a new cover service
     pub fn new(storage_path: PathBuf) -> FormatResult<Self> {
-        let cache_size = NonZeroUsize::new(500).unwrap(); // Cache up to 500 cover sets
+        let cache_size = NonZeroUsize::new(2000).unwrap(); // Cache up to 2000 cover sets
         let cache = Arc::new(Mutex::new(LruCache::new(cache_size)));
         let generator = CoverGenerator::new()?;
         

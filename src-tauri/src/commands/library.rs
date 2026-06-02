@@ -271,6 +271,23 @@ pub fn scan_folder_for_comics(
 }
 
 #[tauri::command]
+pub fn get_book_summaries(state: State<'_, AppState>, limit: u32, offset: u32) -> Result<Vec<crate::models::BookSummary>> {
+    let db = &state.db;
+    crate::services::library_service::get_book_summaries(db, limit, offset)
+}
+
+#[tauri::command]
+pub fn get_book_summaries_by_domain(
+    state: State<'_, AppState>,
+    domain: String,
+    limit: u32,
+    offset: u32,
+) -> Result<Vec<crate::models::BookSummary>> {
+    let db = &state.db;
+    crate::services::library_service::get_book_summaries_by_domain(db, &domain, limit, offset)
+}
+
+#[tauri::command]
 pub fn get_books_by_domain(
     state: State<'_, AppState>,
     domain: String,

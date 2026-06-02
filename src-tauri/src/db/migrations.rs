@@ -112,6 +112,9 @@ impl<'a> MigrationManager<'a> {
             self.run_in_savepoint("v29", |mgr| mgr.migrate_to_v29())?;
             self.run_in_savepoint("v28", |mgr| mgr.migrate_to_v28())?;
         }
+        if current_version < 30 {
+            self.run_in_savepoint("v30", |mgr| mgr.migrate_to_v30())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -2001,6 +2004,21 @@ impl<'a> MigrationManager<'a> {
         self.record_migration(29, "relax_user_preferences_constraints", "v29_relax_constraints")?;
 
         log::info!("[Migration] v29 applied successfully");
+        Ok(())
+    }
+
+    /// Migration v30: Domain index for performance
+    fn migrate_to_v30(&self) -> Result<()> {
+        log::info!("[Migration] Applying v30: domain index");
+
+        self.conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_books_domain ON books(domain, added_date DESC);"
+        )?;
+
+        self.set_schema_version(30)?;
+        self.record_migration(30, "domain_index", "v30_domain_index")?;
+
+        log::info!("[Migration] v30 applied successfully");
         Ok(())
     }
 }

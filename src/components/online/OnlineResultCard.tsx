@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, memo } from 'react';
+import { api } from '@/lib/tauri';
 import { BookOpen, User, Calendar, ExternalLink, Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -50,7 +51,34 @@ export const OnlineResultCard = memo(function OnlineResultCard({
   const [visible, setVisible] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
+  const [proxyUrl, setProxyUrl] = useState<string | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!visible || !coverUrl || imgError) return;
+    
+    let active = true;
+    if (coverUrl.includes('libgen.li')) {
+      api.proxyMangaImage('libgen', coverUrl)
+        .then(arr => {
+          if (!active) return;
+          const blob = new Blob([arr], { type: 'image/jpeg' });
+          setProxyUrl(URL.createObjectURL(blob));
+        })
+        .catch(err => {
+          if (active) setImgError(true);
+        });
+    } else {
+      setProxyUrl(coverUrl);
+    }
+    
+    return () => {
+      active = false;
+      if (proxyUrl && proxyUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(proxyUrl);
+      }
+    };
+  }, [visible, coverUrl, imgError]);
 
   useEffect(() => {
     const el = cardRef.current;
@@ -82,9 +110,9 @@ export const OnlineResultCard = memo(function OnlineResultCard({
       {/* Cover */}
       <div className="w-24 h-36 sm:w-28 sm:h-40 flex-shrink-0 bg-muted/50 rounded-lg overflow-hidden relative shadow-sm border border-border/40">
         {!visible && <div className="absolute inset-0 shimmer" />}
-        {visible && coverUrl && !imgError && (
+        {visible && proxyUrl && !imgError && (
           <img
-            src={coverUrl}
+            src={proxyUrl}
             alt={title}
             className={cn(
               'w-full h-full object-cover transition-all duration-500',

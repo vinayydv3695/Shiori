@@ -1,3 +1,19 @@
+function tryExtractSeries(title: string): string | null {
+  if (!title) return null;
+  // Matches titles like "Planetes - Volume 01", "Planetes -... 04", "Planetes - 05"
+  const withSep = /^(.*?)\s+(?:[-:]+|\.\.\.)\s*(?:Volume|Vol\.?|Chapter|Ch\.?|v\.?|Book|Part)?\s*[_]?\d+/i;
+  // Matches titles like "Naruto Vol 23", "One Piece Chapter 1000"
+  const withWord = /^(.*?)\s+(?:Volume|Vol\.?|Chapter|Ch\.?|v\.?|Book|Part)\s*[_]?\d+/i;
+  
+  let match = title.match(withSep);
+  if (match && match[1].trim()) return match[1].trim();
+  
+  match = title.match(withWord);
+  if (match && match[1].trim()) return match[1].trim();
+  
+  return null;
+}
+
 /**
  * useGroupedLibrary — Shiori v3.0
  *
@@ -48,7 +64,7 @@ export function useGroupedLibrary(
 
     for (let i = 0; i < books.length; i++) {
       const book = books[i]
-      const series = book.series?.trim()
+      const series = book.series?.trim() || tryExtractSeries(book.title)
       if (series) {
         let list = seriesMap.get(series)
         if (!list) {
@@ -68,9 +84,20 @@ export function useGroupedLibrary(
       const [seriesTitle, seriesBooks] = sortedSeries[i]
       
       seriesBooks.sort((a, b) => {
-        const indexA = a.series_index ?? Infinity
-        const indexB = b.series_index ?? Infinity
-        return indexA - indexB
+        let indexA = a.series_index;
+        if (indexA == null || isNaN(indexA)) {
+            const m = a.title.match(/\d+/g);
+            if (m) indexA = parseFloat(m[m.length - 1]);
+        }
+        let indexB = b.series_index;
+        if (indexB == null || isNaN(indexB)) {
+            const m = b.title.match(/\d+/g);
+            if (m) indexB = parseFloat(m[m.length - 1]);
+        }
+        
+        const numA = indexA ?? Infinity;
+        const numB = indexB ?? Infinity;
+        return numA - numB;
       })
 
       const authorsSet = new Set<string>()

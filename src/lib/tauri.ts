@@ -854,8 +854,8 @@ export const api = {
   },
 
   // Import/Export
-  async scanFolderForBooks(folderPath: string): Promise<ImportResult> {
-    return invoke("scan_folder_for_books", { folderPath })
+  async scanFolderUnified(folderPath: string): Promise<ImportResult> {
+    return invoke("scan_folder_unified", { folderPath })
   },
 
   // Domain-separated import

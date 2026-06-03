@@ -475,3 +475,16 @@ pub fn get_library_stats(state: State<'_, AppState>) -> Result<crate::models::Li
     let db = &state.db;
     crate::services::library_service::get_library_stats(db)
 }
+
+#[tauri::command]
+pub fn get_thumbnail(state: State<'_, AppState>, book_id: i64) -> Result<Option<String>> {
+    let db = &state.db;
+    let covers_dir = &state.covers_dir;
+    crate::services::library_service::get_thumbnail_path(db, book_id, covers_dir)
+}
+
+#[tauri::command]
+pub fn get_recommended_books(state: State<'_, AppState>, limit: u32) -> Result<Vec<crate::models::BookSummary>> {
+    let db = &state.db;
+    crate::services::library_service::get_recommended_books(db, limit)
+}

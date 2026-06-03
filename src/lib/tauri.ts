@@ -919,6 +919,17 @@ export const api = {
   },
 
 
+
+  async getThumbnail(bookId: number): Promise<string | null> {
+    if (!isTauri) return null
+    return invoke("get_thumbnail", { bookId })
+  },
+
+  async getRecommendedBooks(limit: number = 20): Promise<BookSummary[]> {
+    if (!isTauri) return []
+    return invoke("get_recommended_books", { limit })
+  },
+
   async getLibraryStats(): Promise<LibraryStats> {
     if (!isTauri) {
       return Promise.resolve({ total_books: 10, total_manga: 5, total_size_bytes: 1024 * 1024 * 500 })

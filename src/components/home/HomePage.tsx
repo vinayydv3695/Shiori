@@ -54,6 +54,8 @@ const cardHover = {
 
 // ── Hero Section ─────────────────────────────────
 function HeroSection({
+  featuredBook,
+  totalBooks,
   totalBooks,
   totalManga,
   totalSize,
@@ -70,6 +72,8 @@ function HeroSection({
   onViewLibrary: () => void
   featuredBook: Book | null
 }) {
+  const thumbUrl = useThumbnail(featuredBook?.id, featuredBook?.cover_path);
+
 
   const timeOfDay = useMemo(() => {
     const hour = new Date().getHours()
@@ -87,7 +91,7 @@ function HeroSection({
       <div className="hero-bg">
         {featuredBook?.cover_path ? (
            <img 
-             src={convertFileSrc(featuredBook.cover_path)} 
+             src={thumbUrl || ''} 
              alt="" 
              className="hero-dynamic-bg opacity-15 blur-[60px] absolute inset-0 w-full h-full object-cover mix-blend-overlay pointer-events-none transition-all duration-1000"
            />
@@ -98,6 +102,19 @@ function HeroSection({
             <div className="hero-orb hero-orb-3" />
           </>
         )}
+
+        <div className="home-quick-access">
+          <span className="home-quick-access-label">Quick access</span>
+          <button type="button" onClick={handleViewOnlineBooks} className="home-quick-access-button">
+            Online Books
+          </button>
+          <button type="button" onClick={handleViewOnlineManga} className="home-quick-access-button">
+            Online Manga
+          </button>
+          <button type="button" onClick={() => setCurrentView('statistics')} className="home-quick-access-button">
+            View Statistics
+          </button>
+        </div>
       </div>
 
       <div className="hero-content">
@@ -360,37 +377,20 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
             />
           </div>
         )}
-      </div>
 
-      <motion.div
-        variants={itemVariants}
-        className="home-quick-access"
-      >
-        <span className="home-quick-access-label">
-          Quick access
-        </span>
-        <button
-          type="button"
-          onClick={handleViewOnlineBooks}
-          className="home-quick-access-button"
-        >
-          Online Books
-        </button>
-        <button
-          type="button"
-          onClick={handleViewOnlineManga}
-          className="home-quick-access-button"
-        >
-          Online Manga
-        </button>
-        <button
-          type="button"
-          onClick={() => setCurrentView('statistics')}
-          className="home-quick-access-button"
-        >
-          View Statistics
-        </button>
-      </motion.div>
+        <div className="home-quick-access">
+          <span className="home-quick-access-label">Quick access</span>
+          <button type="button" onClick={handleViewOnlineBooks} className="home-quick-access-button">
+            Online Books
+          </button>
+          <button type="button" onClick={handleViewOnlineManga} className="home-quick-access-button">
+            Online Manga
+          </button>
+          <button type="button" onClick={() => setCurrentView('statistics')} className="home-quick-access-button">
+            View Statistics
+          </button>
+        </div>
+      </div>
 
       {/* ── Continue Reading (Remaining) ── */}
       <AnimatePresence mode="wait">
@@ -421,7 +421,9 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
 
       {/* ── Favorites ── */}
       {favoriteBooks.length > 0 && (
+        <LazyRow height={280}>
         <motion.div variants={itemVariants}>
+
           <HomeSection
             icon={<Heart size={18} />}
             title="Favorites"
@@ -441,12 +443,16 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
               ))}
             </ScrollStrip>
           </HomeSection>
+        
         </motion.div>
+      </LazyRow>
       )}
 
       {/* ── Completed ── */}
       {completedBooks.length > 0 && (
+        <LazyRow height={280}>
         <motion.div variants={itemVariants}>
+
           <HomeSection
             icon={<CheckCircle2 size={18} />}
             title="Completed"
@@ -466,12 +472,16 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
               ))}
             </ScrollStrip>
           </HomeSection>
+        
         </motion.div>
+      </LazyRow>
       )}
 
       {/* ── On Hold ── */}
       {onHoldBooks.length > 0 && (
+        <LazyRow height={280}>
         <motion.div variants={itemVariants}>
+
           <HomeSection
             icon={<PauseCircle size={18} />}
             title="On Hold"
@@ -491,12 +501,16 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
               ))}
             </ScrollStrip>
           </HomeSection>
+        
         </motion.div>
+      </LazyRow>
       )}
 
       {/* ── Last Read ── */}
       {lastReadBooks.length > 0 && (
+        <LazyRow height={280}>
         <motion.div variants={itemVariants}>
+
           <HomeSection
             icon={<History size={18} />}
             title="Last Read"
@@ -516,11 +530,45 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
               ))}
             </ScrollStrip>
           </HomeSection>
+        
         </motion.div>
+      </LazyRow>
+      )}
+
+      
+      {/* ── Recommendations ── */}
+      {recommendedBooks.length > 0 && (
+        <LazyRow height={280}>
+        <motion.div variants={itemVariants}>
+
+          <HomeSection
+            icon={<Sparkles size={18} />}
+            title="Because you read..."
+            action={{ label: 'View All', onClick: handleViewLibrary }}
+            sectionType="recommended"
+          >
+            <ScrollStrip>
+              {recommendedBooks.map((book) => (
+                <div key={book.id}>
+                  <ContinueReadingCard
+                    book={book}
+                    progress={0}
+                    domain={domain}
+                    onClick={handleOpenBook}
+                  />
+                </div>
+              ))}
+            </ScrollStrip>
+          </HomeSection>
+        
+        </motion.div>
+      </LazyRow>
       )}
 
       {/* ── Recently Added ── */}
-      <motion.div variants={itemVariants}>
+      <LazyRow height={280}>
+        <motion.div variants={itemVariants}>
+
         <HomeSection
           icon={<Sparkles size={18} />}
           title="Recently Added"
@@ -538,7 +586,9 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
             ))}
           </ScrollStrip>
         </HomeSection>
-      </motion.div>
+      
+        </motion.div>
+      </LazyRow>
 
       {/* ── RSS Preview (books domain only) ── */}
       {domain === 'books' && (

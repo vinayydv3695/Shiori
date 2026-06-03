@@ -17,6 +17,7 @@ const getTitleInitialToken = (title: string | null | undefined): string => {
 }
 
 export function ContinueReadingCard({ book, progress, domain, onClick }: ContinueReadingCardProps) {
+  const thumbUrl = useThumbnail(book.id, book.cover_path);
     const { coverUrl: coverSrc, loading: coverLoading } = useCoverImage(book.id, book.cover_path)
     const libraryDensity = usePreferencesStore(s => s.preferences?.libraryDensity ?? 'comfortable')
     const coverSize = usePreferencesStore(s => s.preferences?.coverSize ?? 'medium')

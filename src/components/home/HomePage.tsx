@@ -69,13 +69,7 @@ function HeroSection({
   onViewLibrary: () => void
   featuredBook: Book | null
 }) {
-  totalBooks: number
-  totalManga: number
-  totalSize: number
-  booksInProgress: number
-  domain: DomainView
-  onViewLibrary: () => void
-}) {
+
   const timeOfDay = useMemo(() => {
     const hour = new Date().getHours()
     if (hour < 12) return 'morning'

@@ -54,8 +54,6 @@ const cardHover = {
 
 // ── Hero Section ─────────────────────────────────
 function HeroSection({
-  featuredBook,
-  totalBooks,
   totalBooks,
   totalManga,
   totalSize,

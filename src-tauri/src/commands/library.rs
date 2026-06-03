@@ -469,3 +469,9 @@ pub async fn download_libgen_epub(
     
     Ok(file_path.to_string_lossy().to_string())
 }
+
+#[tauri::command]
+pub fn get_library_stats(state: State<'_, AppState>) -> Result<crate::models::LibraryStats> {
+    let db = &state.db;
+    crate::services::library_service::get_library_stats(db)
+}

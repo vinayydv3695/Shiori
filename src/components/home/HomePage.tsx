@@ -192,7 +192,7 @@ interface HomePageProps {
 }
 
 export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
-  const allBooks = useLibraryStore(s => s.books)
+  const [libraryStats, setLibraryStats] = useState<{total_books: number, total_manga: number, total_size_bytes: number} | null>(null);
   const favoriteBookIds = useLibraryStore(s => s.favoriteBookIds)
   const currentDomain = useUIStore(state => state.currentDomain);
   const setCurrentView = useUIStore(state => state.setCurrentView);
@@ -208,11 +208,13 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
 
   const domain = currentDomain
 
-  const totalSize = allBooks.reduce((sum, b) => sum + (b.file_size || 0), 0)
 
   // Load all Home Data from SQLite directly
   const loadHomeData = useCallback(async () => {
     try {
+      const stats = await api.getLibraryStats();
+      setLibraryStats(stats);
+
       // 1. Recently Added
       const recent = await api.getBooksByDomain(domain, 12, 0);
 
@@ -278,31 +280,6 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
     loadHomeData();
   }, [loadHomeData]);
 
-  const loadProgress = useCallback(async () => {
-    const openedBooks = allBooks.filter((b) => b.last_opened && b.id)
-    const bookIds = openedBooks.slice(0, 30).map(b => b.id!);
-    
-    if (bookIds.length === 0) return;
-    
-    try {
-      const batchResult = await api.getReadingProgressBatch(bookIds);
-      const map: Record<number, ReadingProgress> = {}
-      for (const [id, progress] of Object.entries(batchResult)) {
-        if (progress.progressPercent > 0 && progress.progressPercent < 100) {
-          map[Number(id)] = progress;
-        }
-      }
-      setProgressMap(map)
-    } catch (err) {
-      logger.error('Failed to load reading progress batch:', err)
-    }
-  }, [allBooks])
-
-  useEffect(() => {
-    // Intentional: loading data on mount/dependency change
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadProgress()
-  }, [loadProgress])
 
 
   const handleOpenBook = (book: Book) => {
@@ -322,7 +299,7 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
   }
 
   // ── Empty state ──────────────────────────────
-  if (allBooks.length === 0) {
+  if (libraryStats && libraryStats.total_books === 0 && libraryStats.total_manga === 0) {
     return (
       <motion.div
         className="home-page"
@@ -364,9 +341,9 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
       {/* ── Bento Grid: Hero & Featured ── */}
       <div className="home-bento-grid">
         <HeroSection
-          totalBooks={allBooks.filter(b => !MANGA_FORMATS.includes(b.file_format?.toLowerCase() || "")).length}
-          totalManga={allBooks.filter(b => MANGA_FORMATS.includes(b.file_format?.toLowerCase() || "")).length}
-          totalSize={totalSize}
+          totalBooks={libraryStats?.total_books || 0}
+          totalManga={libraryStats?.total_manga || 0}
+          totalSize={libraryStats?.total_size_bytes || 0}
           booksInProgress={allInProgress}
           domain={domain}
           onViewLibrary={handleViewLibrary}

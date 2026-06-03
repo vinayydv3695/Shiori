@@ -294,6 +294,7 @@ fn main() {
             commands::library::get_book_summaries_by_domain,
             commands::library::find_duplicate_books,
             commands::library::get_total_books,
+            commands::library::get_library_stats,
             commands::library::get_book,
             commands::library::add_book,
             commands::library::update_book,

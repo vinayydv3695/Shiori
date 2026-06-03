@@ -48,6 +48,12 @@ export interface Book {
   tags?: Tag[]
 }
 
+
+export interface LibraryStats {
+  total_books: number
+  total_manga: number
+  total_size_bytes: number
+}
 export interface BookSummary {
   id?: number
   uuid: string
@@ -910,6 +916,14 @@ export const api = {
 
   async getBooksByDomain(domain: 'books' | 'manga_comics', limit: number = 50, offset: number = 0): Promise<BookSummary[]> {
     return invoke("get_book_summaries_by_domain", { domain, limit, offset })
+  },
+
+
+  async getLibraryStats(): Promise<LibraryStats> {
+    if (!isTauri) {
+      return Promise.resolve({ total_books: 10, total_manga: 5, total_size_bytes: 1024 * 1024 * 500 })
+    }
+    return invoke("get_library_stats")
   },
 
   async getTotalBooksByDomain(domain: 'books' | 'manga_comics'): Promise<number> {

@@ -1197,3 +1197,29 @@ pub fn get_book_summaries_by_domain(
         .collect::<std::result::Result<Vec<_>, _>>()?;
     Ok(summaries)
 }
+
+pub fn get_library_stats(db: &Database) -> Result<crate::models::LibraryStats> {
+    let conn = db.get_connection()?;
+    let sql = "SELECT 
+        COALESCE(SUM(CASE WHEN domain = 'books' THEN 1 ELSE 0 END), 0) as total_books,
+        COALESCE(SUM(CASE WHEN domain IN ('manga', 'comics', 'manga_comics') THEN 1 ELSE 0 END), 0) as total_manga,
+        COALESCE(SUM(file_size), 0) as total_size_bytes
+    FROM books";
+    
+    let mut stmt = conn.prepare(sql)?;
+    let mut rows = stmt.query([])?;
+    
+    if let Some(row) = rows.next()? {
+        Ok(crate::models::LibraryStats {
+            total_books: row.get(0)?,
+            total_manga: row.get(1)?,
+            total_size_bytes: row.get(2)?,
+        })
+    } else {
+        Ok(crate::models::LibraryStats {
+            total_books: 0,
+            total_manga: 0,
+            total_size_bytes: 0,
+        })
+    }
+}

@@ -325,3 +325,10 @@ pub struct MangaVolume {
     pub book_id: i64,
     pub volume_number: Option<i32>,
 }
+
+#[derive(Debug, serde::Serialize)]
+pub struct LibraryStats {
+    pub total_books: i64,
+    pub total_manga: i64,
+    pub total_size_bytes: i64,
+}

@@ -220,7 +220,6 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
     try {
       // 1. Recently Added
       const recent = await api.getBooksByDomain(domain, 12, 0);
-      setRecentlyAdded(recent);
 
       // 2. Continue Reading (Reading Status)
       const readingBooks = await api.getBooksByReadingStatus('reading', 50, 0);
@@ -232,9 +231,6 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
         const dateB = b.last_opened ? new Date(b.last_opened).getTime() : 0
         return dateB - dateA
       });
-      setContinueReading(domainReading.slice(0, 12));
-      setAllInProgress(readingBooks.length);
-      setLastReadBooks(domainReading.slice(0, 12)); // Can be identical to continue reading
 
       // 3. Favorites
       const favIds = Array.from(favoriteBookIds);
@@ -244,13 +240,31 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
         domain === 'manga_comics' ? MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '') 
                                   : !MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '')
       );
-      setFavoriteBooks(domainFavs.slice(0, 12));
 
       // 4. Completed & On Hold
       const [completed, onHold] = await Promise.all([
         api.getBooksByReadingStatus('completed', 12, 0),
         api.getBooksByReadingStatus('on_hold', 12, 0),
       ]);
+
+      // 5. Reading Progress Map
+      const bookIdsToFetch = [...domainReading, ...recent, ...domainFavs].slice(0, 30).map(b => b.id!);
+      const map: Record<number, ReadingProgress> = {};
+      if (bookIdsToFetch.length > 0) {
+        const batchResult = await api.getReadingProgressBatch(bookIdsToFetch);
+        for (const [id, progress] of Object.entries(batchResult)) {
+          if (progress.progressPercent > 0) {
+            map[Number(id)] = progress;
+          }
+        }
+      }
+
+      // 6. Batch State Updates
+      setRecentlyAdded(recent as unknown as Book[]);
+      setContinueReading(domainReading.slice(0, 12));
+      setAllInProgress(readingBooks.length);
+      setLastReadBooks(domainReading.slice(0, 12));
+      setFavoriteBooks(domainFavs.slice(0, 12));
       setCompletedBooks(completed.filter(b => 
         domain === 'manga_comics' ? MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '') 
                                   : !MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '')
@@ -259,19 +273,7 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
         domain === 'manga_comics' ? MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '') 
                                   : !MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '')
       ));
-
-      // 5. Reading Progress Map
-      const bookIdsToFetch = [...domainReading, ...recent, ...domainFavs].slice(0, 30).map(b => b.id!);
-      if (bookIdsToFetch.length > 0) {
-        const batchResult = await api.getReadingProgressBatch(bookIdsToFetch);
-        const map: Record<number, ReadingProgress> = {}
-        for (const [id, progress] of Object.entries(batchResult)) {
-          if (progress.progressPercent > 0) {
-            map[Number(id)] = progress;
-          }
-        }
-        setProgressMap(map);
-      }
+      setProgressMap(map);
     } catch (err) {
       logger.error('Failed to load home data', err);
     }
@@ -380,7 +382,7 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
           <div className="flex flex-col h-full">
             <FeaturedContinueCard 
               book={continueReading[0]} 
-              progress={progressMap[continueReading[0].id!]!} 
+              progress={progressMap[continueReading[0].id!] || { progressPercent: 0, book_id: continueReading[0].id!, total_seconds: 0 } as any} 
               onOpenBook={handleOpenBook} 
               isManga={domain === 'manga_comics'}
             />

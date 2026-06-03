@@ -1169,17 +1169,12 @@
 }
 
 .hero-greeting {
-    font-family: 'Playfair Display', 'Literata', Georgia, serif;
+    font-family: 'Inter', var(--font-sans);
     font-size: 42px;
-    font-weight: 800;
+    font-weight: 700;
     color: hsl(var(--foreground));
     line-height: 1.15;
     letter-spacing: -0.03em;
-    background: linear-gradient(135deg, hsl(var(--foreground)) 40%, hsl(var(--primary)) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-size: 200% 200%;
-    animation: gradientShift 8s ease infinite;
 }
 
 @keyframes gradientShift {
@@ -1347,41 +1342,3 @@
 
 /* ─── Scroll strip animation fix ──────────────────── */
 
-/* ─── Hero Section Enhancements ─── */
-.hero-dynamic-bg {
-    filter: blur(100px);
-    opacity: 0.6;
-    animation: pulse-bg 10s ease-in-out infinite alternate;
-}
-
-@keyframes pulse-bg {
-    0% { transform: scale(1); opacity: 0.5; }
-    100% { transform: scale(1.1); opacity: 0.7; }
-}
-
-.hero-text {
-    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-}
-
-.hero-greeting {
-    background: linear-gradient(135deg, hsl(var(--foreground)) 0%, hsl(var(--muted-foreground)) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    letter-spacing: -0.02em;
-    font-weight: 700;
-}
-
-.glass-card {
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    background: hsl(var(--card) / 0.4);
-    border: 1px solid hsl(var(--border) / 0.5);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.glass-card:hover {
-    background: hsl(var(--card) / 0.6);
-    border: 1px solid hsl(var(--border) / 0.8);
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
-    transform: translateY(-4px);
-}

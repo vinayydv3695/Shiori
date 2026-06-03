@@ -10,6 +10,7 @@
  */
 
 import { logger } from '@/lib/logger';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { useMemo, useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -86,7 +87,7 @@ function HeroSection({
       <div className="hero-bg">
         {featuredBook?.cover_path ? (
            <img 
-             src={api.convertFileSrc(featuredBook.cover_path)} 
+             src={convertFileSrc(featuredBook.cover_path)} 
              alt="" 
              className="hero-dynamic-bg opacity-30 blur-[100px] absolute inset-0 w-full h-full object-cover mix-blend-screen pointer-events-none transition-all duration-1000"
            />

@@ -89,7 +89,7 @@ function HeroSection({
            <img 
              src={convertFileSrc(featuredBook.cover_path)} 
              alt="" 
-             className="hero-dynamic-bg opacity-30 blur-[100px] absolute inset-0 w-full h-full object-cover mix-blend-screen pointer-events-none transition-all duration-1000"
+             className="hero-dynamic-bg opacity-15 blur-[60px] absolute inset-0 w-full h-full object-cover mix-blend-overlay pointer-events-none transition-all duration-1000"
            />
         ) : (
           <>

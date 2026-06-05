@@ -6,7 +6,7 @@ interface HomeSectionProps {
     title: string
     action?: { label: string; onClick: () => void }
     children: ReactNode
-    sectionType?: 'continue' | 'favorites' | 'completed' | 'on-hold' | 'history' | 'recent'
+    sectionType?: 'continue' | 'favorites' | 'completed' | 'on-hold' | 'history' | 'recent' | 'recommended'
 }
 
 export function HomeSection({ icon, title, action, children, sectionType }: HomeSectionProps) {

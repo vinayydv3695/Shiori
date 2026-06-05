@@ -19,6 +19,8 @@ import {
 } from 'lucide-react'
 import { HomeSection, ScrollStrip } from './HomeSection'
 import { ContinueReadingCard, RecentlyAddedCard } from './ContinueReadingCard'
+import { LazyRow } from './LazyRow'
+import { useThumbnail } from '@/hooks/useThumbnail'
 import { FeaturedContinueCard } from './FeaturedContinueCard'
 import { useLibraryStore } from '@/store/libraryStore'
 import { useUIStore, type DomainView } from '@/store/uiStore'
@@ -71,7 +73,15 @@ function HeroSection({
   featuredBook: Book | null
 }) {
   const thumbUrl = useThumbnail(featuredBook?.id, featuredBook?.cover_path);
+  const setCurrentView = useUIStore(s => s.setCurrentView);
 
+  const handleViewOnlineBooks = useCallback(() => {
+    setCurrentView('online-books');
+  }, [setCurrentView]);
+
+  const handleViewOnlineManga = useCallback(() => {
+    setCurrentView('online-manga');
+  }, [setCurrentView]);
 
   const timeOfDay = useMemo(() => {
     const hour = new Date().getHours()
@@ -218,6 +228,7 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
   const [recentlyAdded, setRecentlyAdded] = useState<Book[]>([])
   const [favoriteBooks, setFavoriteBooks] = useState<Book[]>([])
   const [lastReadBooks, setLastReadBooks] = useState<Book[]>([])
+  const [recommendedBooks, setRecommendedBooks] = useState<Book[]>([])
   const [allInProgress, setAllInProgress] = useState<number>(0)
 
 

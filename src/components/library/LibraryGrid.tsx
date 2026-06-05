@@ -162,6 +162,9 @@ export function LibraryGrid({
   const coverSize = usePreferencesStore(
     (state) => state.preferences?.coverSize ?? "medium",
   );
+  const autoGroupManga = usePreferencesStore(
+    (state) => state.preferences?.autoGroupManga,
+  );
 
   const densityColumnSize =
     libraryDensity === "compact"
@@ -192,10 +195,10 @@ export function LibraryGrid({
     });
   }, [books, currentDomain]);
 
-  // Group only for manga/comics domain. Grouping huge books domain is expensive and unnecessary.
+  // Group only for manga/comics domain when auto-grouping is enabled. Grouping huge books domain is expensive and unnecessary.
   const groupedItems = useGroupedLibrary(
     visibleLibrary,
-    currentDomain === "manga_comics",
+    currentDomain === "manga_comics" && autoGroupManga !== false,
   );
 
   // O(1) book lookup by ID (replaces O(n) Array.find on every click)
@@ -226,6 +229,9 @@ export function LibraryGrid({
   );
 
   const isEmpty = visibleLibrary.length === 0;
+
+  const handleEditBook = useCallback((id: number) => onEditBook?.(id), [onEditBook]);
+  const handleDeleteBook = useCallback((id: number) => onDeleteBook?.(id), [onDeleteBook]);
 
   const parentRef = useRef<HTMLDivElement>(null);
   const [columns, setColumns] = useState(6);
@@ -364,14 +370,10 @@ export function LibraryGrid({
                           isSelected={selectedBookIds.has(item.data.id!)}
                           onSelect={toggleBookSelection}
                           onOpen={handleOpen}
-                          onViewDetails={(id) => onViewDetails?.(id)}
-                          onEdit={(id) => onEditBook?.(id)}
-                          onDelete={(id) => onDeleteBook?.(id)}
-                          onConvert={
-                            onConvertBook
-                              ? (id) => onConvertBook(id)
-                              : undefined
-                          }
+                          onViewDetails={onViewDetails}
+                          onEdit={handleEditBook}
+                          onDelete={handleDeleteBook}
+                          onConvert={onConvertBook}
                           isFavorited={favoriteBookIds.has(item.data.id!)}
                           onFavorite={handleFavorite}
                           animationDelay={Math.min(absoluteIndex * 10, 150)}

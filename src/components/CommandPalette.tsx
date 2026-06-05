@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useDeferredValue, useMemo } from 'react'
 import { Command } from 'cmdk'
 import {
   Search,
@@ -55,17 +55,27 @@ export const CommandPalette = ({
     return () => document.removeEventListener('keydown', down)
   }, [])
 
-  // Filter books based on search
-  const filteredBooks = search
-    ? books.filter((book) => {
-        const searchLower = search.toLowerCase()
-        return (
-          book.title.toLowerCase().includes(searchLower) ||
-          book.authors?.some((a) => a.name.toLowerCase().includes(searchLower)) ||
-          book.tags?.some((t) => t.name.toLowerCase().includes(searchLower))
-        )
-      })
-    : books.slice(0, 5) // Show recent 5 books when no search
+  const deferredSearch = useDeferredValue(search)
+
+  // Filter books based on search (limit to 10 for performance)
+  const filteredBooks = useMemo(() => {
+    if (!deferredSearch) return books.slice(0, 5)
+    
+    const searchLower = deferredSearch.toLowerCase()
+    const results = []
+    
+    for (const book of books) {
+      if (results.length >= 10) break
+      
+      const matches = book.title.toLowerCase().includes(searchLower) ||
+        book.authors?.some((a) => a.name.toLowerCase().includes(searchLower)) ||
+        book.tags?.some((t) => t.name.toLowerCase().includes(searchLower))
+        
+      if (matches) results.push(book)
+    }
+    
+    return results
+  }, [books, deferredSearch])
 
   const handleSelectBook = useCallback((bookId: number) => {
     onOpenBook(bookId)

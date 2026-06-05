@@ -63,7 +63,7 @@ export const OnlineResultCard = memo(function OnlineResultCard({
       api.proxyMangaImage('libgen', coverUrl)
         .then(arr => {
           if (!active) return;
-          const blob = new Blob([arr], { type: 'image/jpeg' });
+          const blob = new Blob([arr.buffer as ArrayBuffer], { type: 'image/jpeg' });
           setProxyUrl(URL.createObjectURL(blob));
         })
         .catch(err => {

@@ -1,7 +1,11 @@
-import { Search } from 'lucide-react';
+import { Search, Filter } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { OnlineSourceSelector } from './OnlineSourceSelector';
+import { AdvancedOnlineSearchDialog } from './AdvancedOnlineSearchDialog';
+
+import { useOnlineSearchStore } from '@/store/onlineSearchStore';
 import type { SourceKind } from '@/store/sourceStore';
 
 interface OnlineSearchHeaderProps {
@@ -27,6 +31,10 @@ export function OnlineSearchHeader({
   onSearchValueChange,
   onSubmit,
 }: OnlineSearchHeaderProps) {
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const filters = useOnlineSearchStore(state => state.filters[kind === 'books' ? 'online-books' : 'online-manga']);
+  const hasFilters = Object.keys(filters || {}).length > 0;
+
   return (
     <div className="flex-shrink-0 border-b border-border bg-muted/30 p-6">
       <div className="max-w-5xl mx-auto space-y-4">
@@ -52,10 +60,29 @@ export function OnlineSearchHeader({
               disabled={disabled}
             />
           </div>
-          <Button onClick={onSubmit} disabled={loading || !searchValue.trim() || disabled}>
+          {kind === 'books' && (
+            <Button 
+              variant={hasFilters ? "default" : "outline"}
+              onClick={() => setAdvancedOpen(true)}
+              className="px-3"
+              disabled={disabled}
+              title="Advanced Search"
+            >
+              <Filter className="w-4 h-4" />
+            </Button>
+          )}
+          <Button onClick={onSubmit} disabled={loading || (!searchValue.trim() && !hasFilters) || disabled}>
             {loading ? 'Searching...' : 'Search'}
           </Button>
         </div>
+
+        {kind === 'books' && (
+          <AdvancedOnlineSearchDialog 
+            open={advancedOpen}
+            onOpenChange={setAdvancedOpen}
+            onSearch={onSubmit}
+          />
+        )}
 
         {disabled && disabledMessage && (
           <div className="p-3 rounded-lg bg-muted border border-border text-sm text-muted-foreground">

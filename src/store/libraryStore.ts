@@ -107,6 +107,9 @@ interface LibraryStore {
   selectedBookIds: Set<number>
   bulkSelectMode: boolean
   viewMode: "grid" | "list" | "table"
+  sortBy: string
+  sortOrder: "asc" | "desc"
+  setSort: (sortBy: string, sortOrder: "asc" | "desc") => void
   selectedFilters: FilterState
   activeFilters: FilterCriteria | null
   setActiveFilters: (filters: FilterCriteria | null) => void
@@ -140,6 +143,9 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
   selectedBookIds: new Set(),
   bulkSelectMode: false,
   viewMode: "grid",
+  sortBy: "added_date",
+  sortOrder: "desc",
+  setSort: (sortBy, sortOrder) => set({ sortBy, sortOrder }),
   selectedFilters: initialFilters,
   activeFilters: null,
   setActiveFilters: (activeFilters) => set({ activeFilters }),
@@ -217,26 +223,21 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
       const state = get()
       const pageSize = 50
 
-      if (state.serverSearchQuery) {
-        const result = await api.searchBooks({
-          ...state.serverSearchQuery,
-          limit: pageSize,
-          offset: 0,
-        })
-        set({
-          books: result.books,
-          totalCount: result.total,
-          hasMore: result.books.length < result.total,
-          isLoading: false,
-        })
-        return
+      const query = {
+        ...(state.serverSearchQuery || {}),
+        sort_by: state.sortBy,
+        sort_order: state.sortOrder,
+        limit: pageSize,
+        offset: 0,
       }
 
-      const [books, totalCount] = await Promise.all([
-        api.getBooks(pageSize, 0),
-        api.getTotalBooks()
-      ])
-      set({ books, totalCount, hasMore: books.length < totalCount, isLoading: false })
+      const result = await api.searchBooks(query)
+      set({
+        books: result.books,
+        totalCount: result.total,
+        hasMore: result.books.length < result.total,
+        isLoading: false,
+      })
     } catch {
       set({ isLoading: false })
     }
@@ -248,18 +249,17 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
     set({ isLoading: true });
     try {
       const pageSize = 50
-      let newBooks: Book[] = []
 
-      if (state.serverSearchQuery) {
-        const result = await api.searchBooks({
-          ...state.serverSearchQuery,
-          limit: pageSize,
-          offset: state.books.length,
-        })
-        newBooks = result.books
-      } else {
-        newBooks = await api.getBooks(pageSize, state.books.length)
+      const query = {
+        ...(state.serverSearchQuery || {}),
+        sort_by: state.sortBy,
+        sort_order: state.sortOrder,
+        limit: pageSize,
+        offset: state.books.length,
       }
+
+      const result = await api.searchBooks(query)
+      const newBooks = result.books
 
       const currentBooks = get().books;
       const appended = [...currentBooks, ...newBooks];

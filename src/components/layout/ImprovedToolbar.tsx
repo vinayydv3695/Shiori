@@ -43,6 +43,7 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu'
 import { FeatureHint } from '@/components/ui/FeatureHint'
+import { SortDropdown } from '../library/SortDropdown'
 
 export type DomainView = 'books' | 'manga_comics'
 
@@ -242,6 +243,7 @@ export function PremiumTopbar({
   onGoHome,
   onAutoGroupManga,
   onOpenShortcuts,
+  currentView,
   selectedCount = 0,
   activeFilterCount = 0,
   sidebarOpen = true,
@@ -494,12 +496,15 @@ export function PremiumTopbar({
       <div className="flex-1" />
 
       {/* ── Search (center-right) ── */}
-      <SearchBar
-        onSearch={onSearch}
-        currentDomain={currentDomain}
-        value={searchValue}
-        placeholder={searchPlaceholder}
-      />
+      <div className="flex items-center gap-2">
+        <SearchBar
+          onSearch={onSearch}
+          currentDomain={currentDomain}
+          value={searchValue}
+          placeholder={searchPlaceholder}
+        />
+        {currentView === 'library' && <SortDropdown />}
+      </div>
 
       {/* ── Utility ── */}
       <div className="flex items-center gap-0.5 pl-2">

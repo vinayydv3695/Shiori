@@ -152,7 +152,7 @@ fn main() {
             let plugin_registry = Arc::new(tokio::sync::RwLock::new(registry));
 
             // Initialize Discord RPC Service (Placeholder App ID)
-            let discord_service = services::discord_service::DiscordService::new("1342618239081578647");
+            let discord_service = services::discord_service::DiscordService::new("1512062340827316265");
             
             // Cloudflare session state
             let cf_sessions_dir = app_dir.join("cloudflare_sessions");

@@ -425,12 +425,33 @@ impl NyaaSource {
         let mut out = Vec::new();
         let mut lookup_updates: HashMap<String, NyaaLookupEntry> = HashMap::new();
 
+        let query_words: Vec<String> = query
+            .to_lowercase()
+            .split_whitespace()
+            .map(|s| s.to_string())
+            .collect();
+
         for (idx, item) in parsed.into_iter().enumerate() {
             if out.len() >= safe_limit as usize {
                 break;
             }
 
             let title = item.title.unwrap_or_else(|| "Untitled torrent".to_string());
+            let title_lower = title.to_lowercase();
+
+            // Stick to the names: ensure all query words are present in the title
+            let matches_query = query_words.iter().all(|word| title_lower.contains(word));
+            if !matches_query {
+                continue;
+            }
+
+            // Exclude non-manga (like Audio CDs that sneak into c=3_1)
+            let is_invalid = ["flac", "wav", "mp3", "ost", "soundtrack", "1080p", "720p", "x265", "x264", "bdrip"]
+                .iter()
+                .any(|&kw| title_lower.contains(kw));
+            if is_invalid {
+                continue;
+            }
             let detail_link = item
                 .link
                 .or(item.guid)

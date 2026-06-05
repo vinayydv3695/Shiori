@@ -3,9 +3,19 @@ import type { SourceKind } from './sourceStore';
 
 type OnlineView = 'online-books' | 'online-manga' | 'torbox';
 
+export interface OnlineAdvancedFilters {
+  author?: string;
+  yearStart?: number;
+  yearEnd?: number;
+  publisher?: string;
+  language?: string;
+}
+
 interface OnlineSearchStore {
   queries: Record<OnlineView, string>;
+  filters: Record<OnlineView, OnlineAdvancedFilters>;
   setQuery: (view: OnlineView, query: string) => void;
+  setFilters: (view: OnlineView, filters: OnlineAdvancedFilters) => void;
   setQueryForKind: (kind: SourceKind, query: string) => void;
   getQueryForKind: (kind: SourceKind) => string;
 }
@@ -21,11 +31,23 @@ export const useOnlineSearchStore = create<OnlineSearchStore>((set, get) => ({
     'online-manga': '',
     'torbox': '',
   },
+  filters: {
+    'online-books': {},
+    'online-manga': {},
+    'torbox': {},
+  },
   setQuery: (view, query) =>
     set((state) => ({
       queries: {
         ...state.queries,
         [view]: query,
+      },
+    })),
+  setFilters: (view, filters) =>
+    set((state) => ({
+      filters: {
+        ...state.filters,
+        [view]: filters,
       },
     })),
   setQueryForKind: (kind, query) => {

@@ -3,6 +3,7 @@ import { useCoverImage } from '../common/hooks/useCoverImage'
 import { BookOpen } from 'lucide-react'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import type { Book } from '@/lib/tauri'
+import { useThumbnail } from '@/hooks/useThumbnail'
 
 interface ContinueReadingCardProps {
     book: Book

@@ -252,6 +252,7 @@ pub async fn proxy_manga_image(
         "toongod" => Some("https://www.toongod.org/"),
         "mangadex" => Some("https://mangadex.org/"),
         "weebrook" => Some("https://weebrook.com/"),
+        "libgen" => Some("https://libgen.li/"),
         _ => None,
     };
 

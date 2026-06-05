@@ -89,7 +89,11 @@ impl LibgenSource {
             .unwrap_or_else(|| {
                 cells
                     .first()
-                    .map(|c| c.text().collect::<String>().trim().to_string())
+                    .and_then(|c| {
+                        c.text()
+                            .find(|t| !t.trim().is_empty())
+                            .map(|t| t.trim().to_string())
+                    })
                     .unwrap_or_default()
             });
             
@@ -222,7 +226,7 @@ impl LibgenSource {
         let safe_limit = limit.max(1).min(MAX_LIMIT);
 
         let url = format!(
-            "{}/index.php?req={}&columns%5B%5D=t&objects%5B%5D=f&topics%5B%5D=l&res={}&page={}",
+            "{}/index.php?req={}&columns%5B%5D=def&objects%5B%5D=f&topics%5B%5D=l&res={}&page={}",
             LIBGEN_BASE_URL,
             urlencoding::encode(query),
             safe_limit,

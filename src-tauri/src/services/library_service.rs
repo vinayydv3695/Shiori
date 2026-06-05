@@ -1137,3 +1137,166 @@ pub fn get_books_by_reading_status(
     attach_authors_and_tags(&conn, &mut books)?;
     Ok(books)
 }
+const BOOK_SUMMARY_COLUMNS: &str =
+    "b.id, b.uuid, b.title, b.sort_title, b.file_path, b.file_format, b.file_size,
+     b.cover_path, b.added_date, b.is_favorite, b.reading_status, b.domain, 
+     b.manga_series_id, b.series_index";
+
+fn book_summary_from_row(row: &rusqlite::Row) -> rusqlite::Result<crate::models::BookSummary> {
+    Ok(crate::models::BookSummary {
+        id: Some(row.get(0)?),
+        uuid: row.get(1)?,
+        title: row.get(2)?,
+        sort_title: row.get(3)?,
+        file_path: row.get(4)?,
+        file_format: row.get(5)?,
+        file_size: row.get(6)?,
+        cover_path: row.get(7)?,
+        added_date: row.get(8)?,
+        is_favorite: row.get::<_, i64>(9).unwrap_or(0) != 0,
+        reading_status: row.get(10)?,
+        domain: row.get(11).ok().flatten(),
+        manga_series_id: row.get(12).ok().flatten(),
+        series_index: row.get(13)?,
+    })
+}
+
+pub fn get_book_summaries(db: &Database, limit: u32, offset: u32) -> Result<Vec<crate::models::BookSummary>> {
+    let conn = db.get_connection()?;
+    let sql = format!(
+        "SELECT {} FROM books b ORDER BY b.added_date DESC LIMIT ?1 OFFSET ?2",
+        BOOK_SUMMARY_COLUMNS
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let summaries: Vec<crate::models::BookSummary> = stmt
+        .query_map(rusqlite::params![limit, offset], book_summary_from_row)?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(summaries)
+}
+
+pub fn get_book_summaries_by_domain(
+    db: &Database,
+    domain: &str,
+    limit: u32,
+    offset: u32,
+) -> Result<Vec<crate::models::BookSummary>> {
+    let conn = db.get_connection()?;
+    let where_clause = match domain {
+        "books" => "WHERE b.domain = 'books'",
+        "manga" => "WHERE b.domain = 'manga'",
+        "comics" => "WHERE b.domain = 'comics'",
+        _ => "",
+    };
+    let sql = format!(
+        "SELECT {} FROM books b {} ORDER BY b.added_date DESC LIMIT ?1 OFFSET ?2",
+        BOOK_SUMMARY_COLUMNS, where_clause
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let summaries: Vec<crate::models::BookSummary> = stmt
+        .query_map(rusqlite::params![limit, offset], book_summary_from_row)?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(summaries)
+}
+
+pub fn get_library_stats(db: &Database) -> Result<crate::models::LibraryStats> {
+    let conn = db.get_connection()?;
+    let sql = "SELECT 
+        COALESCE(SUM(CASE WHEN domain = 'books' THEN 1 ELSE 0 END), 0) as total_books,
+        COALESCE(SUM(CASE WHEN domain IN ('manga', 'comics', 'manga_comics') THEN 1 ELSE 0 END), 0) as total_manga,
+        COALESCE(SUM(file_size), 0) as total_size_bytes
+    FROM books";
+    
+    let mut stmt = conn.prepare(sql)?;
+    let mut rows = stmt.query([])?;
+    
+    if let Some(row) = rows.next()? {
+        Ok(crate::models::LibraryStats {
+            total_books: row.get(0)?,
+            total_manga: row.get(1)?,
+            total_size_bytes: row.get(2)?,
+        })
+    } else {
+        Ok(crate::models::LibraryStats {
+            total_books: 0,
+            total_manga: 0,
+            total_size_bytes: 0,
+        })
+    }
+}
+
+
+pub fn get_thumbnail_path(db: &Database, book_id: i64, covers_dir: &std::path::Path) -> Result<Option<String>> {
+    let conn = db.get_connection()?;
+    let cover_path: Option<String> = conn.query_row(
+        "SELECT cover_path FROM books WHERE id = ?1",
+        [book_id],
+        |row| row.get(0),
+    )?;
+
+    let cover_path_str = match cover_path {
+        Some(p) => p,
+        None => return Ok(None),
+    };
+
+    let original_path = std::path::Path::new(&cover_path_str);
+    if !original_path.exists() {
+        return Ok(None);
+    }
+
+    let thumb_dir = covers_dir.join("thumbnails");
+    if !thumb_dir.exists() {
+        std::fs::create_dir_all(&thumb_dir).ok();
+    }
+
+    let thumb_path = thumb_dir.join(format!("{}.jpg", book_id));
+    
+    if thumb_path.exists() {
+        return Ok(Some(thumb_path.to_string_lossy().to_string()));
+    }
+
+    // Generate thumbnail
+    if let Ok(img) = image::open(&original_path) {
+        let thumb = img.thumbnail(200, 300);
+        if thumb.save(&thumb_path).is_ok() {
+            return Ok(Some(thumb_path.to_string_lossy().to_string()));
+        }
+    }
+
+    // Fallback to original
+    Ok(Some(cover_path_str))
+}
+
+
+pub fn get_recommended_books(db: &Database, limit: u32) -> Result<Vec<crate::models::BookSummary>> {
+    let conn = db.get_connection()?;
+    // A simple recommendation query: Find books that share authors with books the user has favorited or completed
+    let sql = format!("
+        SELECT {} FROM books b 
+        WHERE b.id NOT IN (SELECT id FROM books WHERE reading_status IN ('completed', 'favorite'))
+        AND b.author IN (
+            SELECT author FROM books WHERE reading_status IN ('completed', 'favorite') AND author IS NOT NULL AND author != ''
+        )
+        ORDER BY RANDOM() LIMIT ?1
+    ", BOOK_SUMMARY_COLUMNS);
+
+    let mut stmt = conn.prepare(&sql)?;
+    let books = stmt.query_map([limit], book_summary_from_row)?
+        .filter_map(|r| r.ok())
+        .collect::<Vec<_>>();
+    
+    // Fallback if no recommendations found via author
+    if books.is_empty() {
+        let fallback_sql = format!("
+            SELECT {} FROM books b 
+            WHERE b.reading_status != 'completed'
+            ORDER BY RANDOM() LIMIT ?1
+        ", BOOK_SUMMARY_COLUMNS);
+        let mut fallback_stmt = conn.prepare(&fallback_sql)?;
+        let fallback_books = fallback_stmt.query_map([limit], book_summary_from_row)?
+            .filter_map(|r| r.ok())
+            .collect::<Vec<_>>();
+        return Ok(fallback_books);
+    }
+
+    Ok(books)
+}

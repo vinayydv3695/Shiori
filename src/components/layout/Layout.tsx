@@ -20,7 +20,7 @@ import { StatusBar } from './ModernToolbar'
 import { DuplicateFinderDialog } from '../library/DuplicateFinderDialog'
 import { ImportDialog } from '../library/ImportDialog'
 import { cn, formatFileSize } from '@/lib/utils'
-import { api } from '@/lib/tauri'
+import { api, type Book } from '@/lib/tauri'
 import { useLibraryStore } from '@/store/libraryStore'
 import { useToast } from '@/store/toastStore'
 import type { CurrentView } from '@/store/uiStore'
@@ -185,7 +185,7 @@ export function Layout({
 
     const withCounts = (
       items: { id: string; label: string; count: number }[],
-      getValues: (b: { authors: { name: string }[]; tags: { name: string }[]; language: string; series?: string; file_format: string; rating?: number; publisher?: string; isbn?: string; isbn13?: string }) => string[],
+      getValues: (b: Book) => string[],
     ) => {
       items.forEach((item) => {
         item.count = books.filter((b) => getValues(b).includes(item.id)).length
@@ -193,7 +193,7 @@ export function Layout({
       return items
     }
 
-    const authors = withCounts(toItems(authorsSet), (b) => b.authors?.map((a) => a.name) || [])
+    const authors = withCounts(toItems(authorsSet), (b) => b.authors?.map((a: { name: string }) => a.name) || [])
     const languages = withCounts(toItems(languagesSet), (b) => (b.language ? [b.language] : []))
     const series = withCounts(toItems(seriesSet), (b) => (b.series ? [b.series] : []))
     const formats = withCounts(toItems(formatsSet), (b) => (b.file_format ? [b.file_format.toUpperCase()] : []))
@@ -202,7 +202,7 @@ export function Layout({
       if (!b.rating) return []
       return [(Math.round(b.rating * 2) / 2).toString()]
     })
-    const tags = withCounts(toItems(tagsSet), (b) => b.tags?.map((t) => t.name) || [])
+    const tags = withCounts(toItems(tagsSet), (b) => b.tags?.map((t: { name: string }) => t.name) || [])
     const identifiers = withCounts(toItems(identifiersSet), (b) => {
       const ids: string[] = []
       if (b.isbn) ids.push(`ISBN: ${b.isbn}`)

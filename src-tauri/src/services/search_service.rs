@@ -165,8 +165,35 @@ pub fn search(db: &Database, query: SearchQuery) -> Result<SearchResult> {
     let count_params_refs: Vec<&dyn rusqlite::ToSql> = base_params.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
     let total_matches: i64 = conn.query_row(&count_sql, count_params_refs.as_slice(), |row| row.get(0))?;
 
+    let mut order_clause = String::from("ORDER BY b.added_date DESC");
+
+    if let Some(ref sort_by) = query.sort_by {
+        let order_dir = match query.sort_order.as_deref().unwrap_or("desc").to_lowercase().as_str() {
+            "asc" => "ASC",
+            _ => "DESC",
+        };
+
+        match sort_by.as_str() {
+            "title" => {
+                order_clause = format!("ORDER BY b.title {}", order_dir);
+            }
+            "pubdate" => {
+                order_clause = format!("ORDER BY b.pubdate {} NULLS LAST", order_dir);
+            }
+            "rating" => {
+                order_clause = format!("ORDER BY b.rating {} NULLS LAST", order_dir);
+            }
+            "author" => {
+                order_clause = format!("ORDER BY (SELECT MIN(a.name) FROM authors a JOIN books_authors ba ON a.id = ba.author_id WHERE ba.book_id = b.id) {} NULLS LAST", order_dir);
+            }
+            "added_date" | _ => {
+                order_clause = format!("ORDER BY b.added_date {}", order_dir);
+            }
+        }
+    }
+
     // Build paged IDs query
-    let mut ids_sql = format!("SELECT DISTINCT b.id{}{} ORDER BY b.added_date DESC", from_sql, where_sql);
+    let mut ids_sql = format!("SELECT DISTINCT b.id{}{} {}", from_sql, where_sql, order_clause);
     let mut page_params = base_params.clone();
 
     if let Some(limit) = query.limit {

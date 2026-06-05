@@ -16,7 +16,7 @@ import { useDialogManager } from "./hooks/useDialogManager"
 import { useBookActions } from "./hooks/useBookActions"
 import { useLibraryFilter } from "./hooks/useLibraryFilter"
 import { api } from "./lib/tauri"
-import { useDiscordPresence } from "./hooks/useDiscordPresence"
+import { useDiscordRPCUpdater } from "./hooks/useDiscordRPCUpdater"
 import { ShortcutsDialog } from "./components/dialogs/ShortcutsDialog"
 import { useOnlineSearchStore } from "./store/onlineSearchStore"
 import { CommandPalette } from "./components/CommandPalette"
@@ -58,7 +58,7 @@ function App() {
   const initializeOnboarding = useOnboardingStore(s => s.initialize)
 
   // ── Discord RPC ──
-  useDiscordPresence()
+  useDiscordRPCUpdater()
 
   // ── Navigation ──
   const currentView = useUIStore(s => s.currentView)

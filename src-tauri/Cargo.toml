@@ -57,7 +57,7 @@ flate2 = "1.0"                  # Gzip DEFLATE (FB2.zip)
 # RSS feed system
 feed-rs = "1.3"                 # RSS/Atom parsing
 ammonia = "4.0"                 # HTML sanitization
-reqwest = { version = "0.12", features = ["json", "rustls-tls-native-roots", "cookies", "multipart", "gzip"], default-features = false }  # HTTP client (using rustls instead of native-tls)
+reqwest = { version = "0.12", features = ["json", "rustls-tls-native-roots", "cookies", "multipart", "gzip", "stream"], default-features = false }  # HTTP client (using rustls instead of native-tls)
 urlencoding = "2.1"             # URL encoding for API queries
 scraper = "0.20"
 url = "2.5"                     # URL parsing (cloudflare module)

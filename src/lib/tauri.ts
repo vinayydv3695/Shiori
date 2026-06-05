@@ -116,6 +116,8 @@ export interface SearchQuery {
   date_from?: string
   date_to?: string
   reading_status?: string[]
+  sort_by?: string
+  sort_order?: string
   limit?: number
   offset?: number
 }

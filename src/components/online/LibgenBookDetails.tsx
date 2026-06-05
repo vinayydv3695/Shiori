@@ -8,6 +8,8 @@ import { useToast } from '@/store/toastStore';
 import { useBookOpen } from '@/hooks/useBookOpen';
 import { pluginApi } from '@/lib/pluginSources';
 import { logger } from '@/lib/logger';
+import { api } from '@/lib/tauri';
+import { fetchCoverForBook } from '@/online-books/openlibrary/api';
 
 interface Props {
   book: SearchResult | null;
@@ -27,13 +29,38 @@ export function LibgenBookDetails({ book, open, onOpenChange }: Props) {
     
     // Reset cover
     setCoverUrl(null);
+    let active = true;
+    let objectUrl: string | null = null;
     
     const fetchCover = async () => {
       try {
         const pages = await pluginApi.getPages('libgen', book.id);
         const coverPage = pages.find(p => p.url.startsWith('cover|'));
-        if (coverPage) {
-          setCoverUrl(coverPage.url.replace(/^cover\|/, ''));
+        if (coverPage && active) {
+          const rawUrl = coverPage.url.replace(/^cover\|/, '');
+          if (rawUrl.includes('libgen')) {
+            try {
+              const arr = await api.proxyMangaImage('libgen', rawUrl);
+              if (!active) return;
+              if (arr.length < 100) throw new Error('Invalid or empty cover image');
+              const u8arr = new Uint8Array(arr as unknown as Iterable<number>);
+              const blob = new Blob([u8arr], { type: 'image/jpeg' });
+              objectUrl = URL.createObjectURL(blob);
+              setCoverUrl(objectUrl);
+            } catch (err) {
+              logger.error('Failed to proxy LibGen cover:', err);
+              if (!active) return;
+              const extra = (book.extra || {}) as Record<string, string>;
+              const fallbackUrl = await fetchCoverForBook(book.title, extra.author);
+              if (active && fallbackUrl) {
+                setCoverUrl(fallbackUrl);
+              } else if (active) {
+                setCoverUrl(null);
+              }
+            }
+          } else {
+            setCoverUrl(rawUrl);
+          }
         }
       } catch (err) {
         logger.error('Failed to load cover from LibGen detail page:', err);
@@ -41,6 +68,13 @@ export function LibgenBookDetails({ book, open, onOpenChange }: Props) {
     };
     
     void fetchCover();
+
+    return () => {
+      active = false;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
   }, [book?.id, open]);
 
   if (!book) return null;

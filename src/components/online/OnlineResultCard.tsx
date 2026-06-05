@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, memo } from 'react';
 import { api } from '@/lib/tauri';
+import { fetchCoverForBook } from "@/online-books/openlibrary/api";
 import { BookOpen, User, Calendar, ExternalLink, Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -95,6 +96,47 @@ export const OnlineResultCard = memo(function OnlineResultCard({
     observer.observe(el);
     return () => observer.disconnect();
   }, [scrollRoot]);
+
+  useEffect(() => {
+    if (!visible || !coverUrl || imgError) return;
+    
+    let active = true;
+    let objectUrl: string | null = null;
+    
+    if (coverUrl.includes('libgen')) {
+      api.proxyMangaImage('libgen', coverUrl)
+        .then(arr => {
+          if (!active) return;
+          // libgen.li is known to return 0 byte images or HTML for covers if blocked
+          if (arr.length < 100) throw new Error('Invalid or empty cover image');
+          const u8arr = new Uint8Array(arr as unknown as Iterable<number>);
+          const blob = new Blob([u8arr], { type: 'image/jpeg' });
+          objectUrl = URL.createObjectURL(blob);
+          setProxyUrl(objectUrl);
+        })
+        .catch(() => {
+          if (!active) return;
+          // Fallback to OpenLibrary
+          fetchCoverForBook(title, author).then(fallbackUrl => {
+            if (!active) return;
+            if (fallbackUrl) {
+              setProxyUrl(fallbackUrl);
+            } else {
+              setImgError(true);
+            }
+          });
+        });
+    } else {
+      setProxyUrl(coverUrl);
+    }
+    
+    return () => {
+      active = false;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [visible, coverUrl, imgError]);
 
   return (
     <div

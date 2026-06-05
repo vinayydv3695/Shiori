@@ -50,7 +50,7 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
       setBook(loadedBook);
       setFormData({
         title: loadedBook.title || '',
-        authors: loadedBook.authors.map(a => a.name).join(', ') || '',
+        authors: loadedBook.authors?.map(a => a.name).join(', ') || '',
         isbn: loadedBook.isbn || '',
         isbn13: loadedBook.isbn13 || '',
         publisher: loadedBook.publisher || '',

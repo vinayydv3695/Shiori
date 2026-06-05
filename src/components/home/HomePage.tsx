@@ -10,6 +10,7 @@
  */
 
 import { logger } from '@/lib/logger';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { useMemo, useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -59,6 +60,7 @@ function HeroSection({
   booksInProgress,
   domain,
   onViewLibrary,
+  featuredBook,
 }: {
   totalBooks: number
   totalManga: number
@@ -66,7 +68,11 @@ function HeroSection({
   booksInProgress: number
   domain: DomainView
   onViewLibrary: () => void
+  featuredBook: Book | null
 }) {
+  const thumbUrl = useThumbnail(featuredBook?.id, featuredBook?.cover_path);
+
+
   const timeOfDay = useMemo(() => {
     const hour = new Date().getHours()
     if (hour < 12) return 'morning'
@@ -79,11 +85,34 @@ function HeroSection({
 
   return (
     <motion.div className="hero-section" variants={itemVariants}>
-      {/* Background gradient orbs */}
+      {/* Background dynamic blur or static orbs */}
       <div className="hero-bg">
-        <div className="hero-orb hero-orb-1" />
-        <div className="hero-orb hero-orb-2" />
-        <div className="hero-orb hero-orb-3" />
+        {featuredBook?.cover_path ? (
+           <img 
+             src={thumbUrl || ''} 
+             alt="" 
+             className="hero-dynamic-bg opacity-15 blur-[60px] absolute inset-0 w-full h-full object-cover mix-blend-overlay pointer-events-none transition-all duration-1000"
+           />
+        ) : (
+          <>
+            <div className="hero-orb hero-orb-1" />
+            <div className="hero-orb hero-orb-2" />
+            <div className="hero-orb hero-orb-3" />
+          </>
+        )}
+
+        <div className="home-quick-access">
+          <span className="home-quick-access-label">Quick access</span>
+          <button type="button" onClick={handleViewOnlineBooks} className="home-quick-access-button">
+            Online Books
+          </button>
+          <button type="button" onClick={handleViewOnlineManga} className="home-quick-access-button">
+            Online Manga
+          </button>
+          <button type="button" onClick={() => setCurrentView('statistics')} className="home-quick-access-button">
+            View Statistics
+          </button>
+        </div>
       </div>
 
       <div className="hero-content">
@@ -178,114 +207,95 @@ interface HomePageProps {
 }
 
 export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
-  const allBooks = useLibraryStore(s => s.books)
+  const [libraryStats, setLibraryStats] = useState<{total_books: number, total_manga: number, total_size_bytes: number} | null>(null);
   const favoriteBookIds = useLibraryStore(s => s.favoriteBookIds)
   const currentDomain = useUIStore(state => state.currentDomain);
   const setCurrentView = useUIStore(state => state.setCurrentView);
   const [progressMap, setProgressMap] = useState<Record<number, ReadingProgress>>({})
   const [completedBooks, setCompletedBooks] = useState<Book[]>([])
   const [onHoldBooks, setOnHoldBooks] = useState<Book[]>([])
+  const [continueReading, setContinueReading] = useState<Book[]>([])
+  const [recentlyAdded, setRecentlyAdded] = useState<Book[]>([])
+  const [favoriteBooks, setFavoriteBooks] = useState<Book[]>([])
+  const [lastReadBooks, setLastReadBooks] = useState<Book[]>([])
+  const [allInProgress, setAllInProgress] = useState<number>(0)
+
 
   const domain = currentDomain
 
-  // Split books vs manga & comics
-  const books = useMemo(
-    () => allBooks.filter((b) => !MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '')),
-    [allBooks]
-  )
-  const mangaComics = useMemo(
-    () => allBooks.filter((b) => MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '')),
-    [allBooks]
-  )
 
-  const domainItems = domain === 'manga_comics' ? mangaComics : books
-  const totalSize = allBooks.reduce((sum, b) => sum + (b.file_size || 0), 0)
-
-  // Continue reading — items with progress
-  const continueReading = useMemo(() => {
-    return domainItems
-      .filter((b) => b.last_opened && b.id && progressMap[b.id])
-      .sort((a, b) => {
-        const dateA = a.last_opened ? new Date(a.last_opened).getTime() : 0
-        const dateB = b.last_opened ? new Date(b.last_opened).getTime() : 0
-        return dateB - dateA
-      })
-      .slice(0, 10)
-  }, [domainItems, progressMap])
-
-  // Recently added
-  const recentlyAdded = useMemo(() => {
-    return [...domainItems]
-      .sort((a, b) => new Date(b.added_date).getTime() - new Date(a.added_date).getTime())
-      .slice(0, 12)
-  }, [domainItems])
-
-  // Favorites
-  const favoriteBooks = useMemo(() => {
-    return domainItems
-      .filter((b) => b.id && favoriteBookIds.has(b.id))
-      .slice(0, 12)
-  }, [domainItems, favoriteBookIds])
-
-  // Last Read
-  const lastReadBooks = useMemo(() => {
-    return domainItems
-      .filter((b) => b.last_opened && b.id)
-      .sort((a, b) => {
-        const dateA = a.last_opened ? new Date(a.last_opened).getTime() : 0
-        const dateB = b.last_opened ? new Date(b.last_opened).getTime() : 0
-        return dateB - dateA
-      })
-      .slice(0, 10)
-  }, [domainItems])
-
-  // All items in progress (for hero count)
-  const allInProgress = useMemo(() => {
-    return allBooks.filter((b) => b.last_opened && b.id && progressMap[b.id]).length
-  }, [allBooks, progressMap])
-
-  // Load reading progress
-  const loadProgress = useCallback(async () => {
-    const openedBooks = allBooks.filter((b) => b.last_opened && b.id)
-    const bookIds = openedBooks.slice(0, 30).map(b => b.id!);
-    
-    if (bookIds.length === 0) return;
-    
+  // Load all Home Data from SQLite directly
+  const loadHomeData = useCallback(async () => {
     try {
-      const batchResult = await api.getReadingProgressBatch(bookIds);
-      const map: Record<number, ReadingProgress> = {}
-      for (const [id, progress] of Object.entries(batchResult)) {
-        if (progress.progressPercent > 0 && progress.progressPercent < 100) {
-          map[Number(id)] = progress;
+      const stats = await api.getLibraryStats();
+      setLibraryStats(stats);
+
+      // 1. Recently Added
+      const recent = await api.getBooksByDomain(domain, 12, 0);
+
+      // 2. Continue Reading (Reading Status)
+      const readingBooks = await api.getBooksByReadingStatus('reading', 50, 0);
+      const domainReading = readingBooks.filter(b => 
+        domain === 'manga_comics' ? MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '') 
+                                  : !MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '')
+      ).sort((a, b) => {
+        const dateA = a.last_opened ? new Date(a.last_opened).getTime() : 0
+        const dateB = b.last_opened ? new Date(b.last_opened).getTime() : 0
+        return dateB - dateA
+      });
+
+      // 3. Favorites
+      const favIds = Array.from(favoriteBookIds);
+      const favBooksPromises = favIds.slice(0, 30).map(id => api.getBook(id).catch(() => null));
+      const favsResolved = (await Promise.all(favBooksPromises)).filter(Boolean) as Book[];
+      const domainFavs = favsResolved.filter(b => 
+        domain === 'manga_comics' ? MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '') 
+                                  : !MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '')
+      );
+
+      // 4. Completed & On Hold
+      const [completed, onHold] = await Promise.all([
+        api.getBooksByReadingStatus('completed', 12, 0),
+        api.getBooksByReadingStatus('on_hold', 12, 0),
+      ]);
+
+      // 5. Reading Progress Map
+      const bookIdsToFetch = [...domainReading, ...recent, ...domainFavs].slice(0, 30).map(b => b.id!);
+      const map: Record<number, ReadingProgress> = {};
+      if (bookIdsToFetch.length > 0) {
+        const batchResult = await api.getReadingProgressBatch(bookIdsToFetch);
+        for (const [id, progress] of Object.entries(batchResult)) {
+          if (progress.progressPercent > 0) {
+            map[Number(id)] = progress;
+          }
         }
       }
-      setProgressMap(map)
+
+      // 6. Batch State Updates
+      setRecentlyAdded(recent as unknown as Book[]);
+      setContinueReading(domainReading.slice(0, 12));
+      setAllInProgress(readingBooks.length);
+      setLastReadBooks(domainReading.slice(0, 12));
+      setFavoriteBooks(domainFavs.slice(0, 12));
+      setCompletedBooks(completed.filter(b => 
+        domain === 'manga_comics' ? MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '') 
+                                  : !MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '')
+      ));
+      setOnHoldBooks(onHold.filter(b => 
+        domain === 'manga_comics' ? MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '') 
+                                  : !MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '')
+      ));
+      setProgressMap(map);
     } catch (err) {
-      logger.error('Failed to load reading progress batch:', err)
+      logger.error('Failed to load home data', err);
     }
-  }, [allBooks])
+  }, [domain, favoriteBookIds]);
 
   useEffect(() => {
-    // Intentional: loading data on mount/dependency change
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadProgress()
-  }, [loadProgress])
+    loadHomeData();
+  }, [loadHomeData]);
 
-  useEffect(() => {
-    const loadStatusBooks = async () => {
-      try {
-        const [completed, onHold] = await Promise.all([
-          api.getBooksByReadingStatus('completed', 12, 0),
-          api.getBooksByReadingStatus('on_hold', 12, 0),
-        ])
-        setCompletedBooks(completed)
-        setOnHoldBooks(onHold)
-      } catch (err) {
-        logger.error('Failed to load reading status books:', err)
-      }
-    }
-    loadStatusBooks()
-  }, [])
+
 
   const handleOpenBook = (book: Book) => {
     onOpenBook(book.id!)
@@ -304,7 +314,7 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
   }
 
   // ── Empty state ──────────────────────────────
-  if (allBooks.length === 0) {
+  if (libraryStats && libraryStats.total_books === 0 && libraryStats.total_manga === 0) {
     return (
       <motion.div
         className="home-page"
@@ -319,6 +329,7 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
           booksInProgress={0}
           domain={domain}
           onViewLibrary={handleViewLibrary}
+          featuredBook={null}
         />
         <div className="home-empty">
           <BookOpen className="home-empty-icon" />
@@ -345,55 +356,39 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
       {/* ── Bento Grid: Hero & Featured ── */}
       <div className="home-bento-grid">
         <HeroSection
-          totalBooks={books.length}
-          totalManga={mangaComics.length}
-          totalSize={totalSize}
+          totalBooks={libraryStats?.total_books || 0}
+          totalManga={libraryStats?.total_manga || 0}
+          totalSize={libraryStats?.total_size_bytes || 0}
           booksInProgress={allInProgress}
           domain={domain}
           onViewLibrary={handleViewLibrary}
+          featuredBook={continueReading[0] || recentlyAdded[0] || null}
         />
 
         {continueReading.length > 0 && (
           <div className="flex flex-col h-full">
             <FeaturedContinueCard 
               book={continueReading[0]} 
-              progress={progressMap[continueReading[0].id!]!} 
+              progress={progressMap[continueReading[0].id!] || { progressPercent: 0, book_id: continueReading[0].id!, total_seconds: 0 } as any} 
               onOpenBook={handleOpenBook} 
               isManga={domain === 'manga_comics'}
             />
           </div>
         )}
-      </div>
 
-      <motion.div
-        variants={itemVariants}
-        className="home-quick-access"
-      >
-        <span className="home-quick-access-label">
-          Quick access
-        </span>
-        <button
-          type="button"
-          onClick={handleViewOnlineBooks}
-          className="home-quick-access-button"
-        >
-          Online Books
-        </button>
-        <button
-          type="button"
-          onClick={handleViewOnlineManga}
-          className="home-quick-access-button"
-        >
-          Online Manga
-        </button>
-        <button
-          type="button"
-          onClick={() => setCurrentView('statistics')}
-          className="home-quick-access-button"
-        >
-          View Statistics
-        </button>
-      </motion.div>
+        <div className="home-quick-access">
+          <span className="home-quick-access-label">Quick access</span>
+          <button type="button" onClick={handleViewOnlineBooks} className="home-quick-access-button">
+            Online Books
+          </button>
+          <button type="button" onClick={handleViewOnlineManga} className="home-quick-access-button">
+            Online Manga
+          </button>
+          <button type="button" onClick={() => setCurrentView('statistics')} className="home-quick-access-button">
+            View Statistics
+          </button>
+        </div>
+      </div>
 
       {/* ── Continue Reading (Remaining) ── */}
       <AnimatePresence mode="wait">
@@ -424,7 +419,9 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
 
       {/* ── Favorites ── */}
       {favoriteBooks.length > 0 && (
+        <LazyRow height={280}>
         <motion.div variants={itemVariants}>
+
           <HomeSection
             icon={<Heart size={18} />}
             title="Favorites"
@@ -444,12 +441,16 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
               ))}
             </ScrollStrip>
           </HomeSection>
+        
         </motion.div>
+      </LazyRow>
       )}
 
       {/* ── Completed ── */}
       {completedBooks.length > 0 && (
+        <LazyRow height={280}>
         <motion.div variants={itemVariants}>
+
           <HomeSection
             icon={<CheckCircle2 size={18} />}
             title="Completed"
@@ -469,12 +470,16 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
               ))}
             </ScrollStrip>
           </HomeSection>
+        
         </motion.div>
+      </LazyRow>
       )}
 
       {/* ── On Hold ── */}
       {onHoldBooks.length > 0 && (
+        <LazyRow height={280}>
         <motion.div variants={itemVariants}>
+
           <HomeSection
             icon={<PauseCircle size={18} />}
             title="On Hold"
@@ -494,12 +499,16 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
               ))}
             </ScrollStrip>
           </HomeSection>
+        
         </motion.div>
+      </LazyRow>
       )}
 
       {/* ── Last Read ── */}
       {lastReadBooks.length > 0 && (
+        <LazyRow height={280}>
         <motion.div variants={itemVariants}>
+
           <HomeSection
             icon={<History size={18} />}
             title="Last Read"
@@ -519,11 +528,45 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
               ))}
             </ScrollStrip>
           </HomeSection>
+        
         </motion.div>
+      </LazyRow>
+      )}
+
+      
+      {/* ── Recommendations ── */}
+      {recommendedBooks.length > 0 && (
+        <LazyRow height={280}>
+        <motion.div variants={itemVariants}>
+
+          <HomeSection
+            icon={<Sparkles size={18} />}
+            title="Because you read..."
+            action={{ label: 'View All', onClick: handleViewLibrary }}
+            sectionType="recommended"
+          >
+            <ScrollStrip>
+              {recommendedBooks.map((book) => (
+                <div key={book.id}>
+                  <ContinueReadingCard
+                    book={book}
+                    progress={0}
+                    domain={domain}
+                    onClick={handleOpenBook}
+                  />
+                </div>
+              ))}
+            </ScrollStrip>
+          </HomeSection>
+        
+        </motion.div>
+      </LazyRow>
       )}
 
       {/* ── Recently Added ── */}
-      <motion.div variants={itemVariants}>
+      <LazyRow height={280}>
+        <motion.div variants={itemVariants}>
+
         <HomeSection
           icon={<Sparkles size={18} />}
           title="Recently Added"
@@ -541,7 +584,9 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
             ))}
           </ScrollStrip>
         </HomeSection>
-      </motion.div>
+      
+        </motion.div>
+      </LazyRow>
 
       {/* ── RSS Preview (books domain only) ── */}
       {domain === 'books' && (

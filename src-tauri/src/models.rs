@@ -52,6 +52,24 @@ fn default_reading_status() -> String {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BookSummary {
+    pub id: Option<i64>,
+    pub uuid: String,
+    pub title: String,
+    pub sort_title: Option<String>,
+    pub file_path: String,
+    pub file_format: String,
+    pub cover_path: Option<String>,
+    pub added_date: String,
+    pub is_favorite: bool,
+    pub reading_status: String,
+    pub domain: Option<String>,
+    pub manga_series_id: Option<i64>,
+    pub series_index: Option<f64>,
+    pub file_size: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Author {
     pub id: Option<i64>,
     pub name: String,
@@ -308,4 +326,11 @@ pub struct MangaVolume {
     pub manga_series_id: i64,
     pub book_id: i64,
     pub volume_number: Option<i32>,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct LibraryStats {
+    pub total_books: i64,
+    pub total_manga: i64,
+    pub total_size_bytes: i64,
 }

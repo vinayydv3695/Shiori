@@ -31,9 +31,9 @@ export interface Book {
   cover_path?: string
   page_count?: number
   word_count?: number
-  language: string
+  language?: string
   added_date: string
-  modified_date: string
+  modified_date?: string
   last_opened?: string
   notes?: string
   online_metadata_fetched?: boolean
@@ -44,8 +44,31 @@ export interface Book {
   reading_status?: string
   domain?: string
   metadata_locked?: Record<string, boolean>
-  authors: Author[]
-  tags: Tag[]
+  authors?: Author[]
+  tags?: Tag[]
+}
+
+
+export interface LibraryStats {
+  total_books: number
+  total_manga: number
+  total_size_bytes: number
+}
+export interface BookSummary {
+  id?: number
+  uuid: string
+  title: string
+  sort_title?: string
+  file_path: string
+  file_format: string
+  file_size?: number
+  cover_path?: string
+  added_date: string
+  is_favorite?: boolean
+  reading_status?: string
+  domain?: string
+  manga_series_id?: number
+  series_index?: number
 }
 
 export interface Author {
@@ -493,15 +516,15 @@ const mockBooks: Book[] = [
 
 export const api = {
   // Library operations
-  async getBooks(limit: number = 50, offset: number = 0): Promise<Book[]> {
+  async getBooks(limit: number = 50, offset: number = 0): Promise<BookSummary[]> {
     if (!isTauri) {
       logger.warn("Running in browser mode - using mock data")
       return Promise.resolve(mockBooks)
     }
     try {
-      logger.debug('[API] Calling get_books command')
-      const books = await invoke<Book[]>("get_books", { limit, offset })
-      logger.debug('[API] Got books:', books.length)
+      logger.debug('[API] Calling get_book_summaries command')
+      const books = await invoke<BookSummary[]>("get_book_summaries", { limit, offset })
+      logger.debug('[API] Got book summaries:', books.length)
       return books
     } catch (error) {
       logger.error('[API] Failed to get books:', error)
@@ -893,8 +916,27 @@ export const api = {
     return invoke("scan_folder_for_comics", { folderPath })
   },
 
-  async getBooksByDomain(domain: 'books' | 'manga_comics', limit: number = 50, offset: number = 0): Promise<Book[]> {
-    return invoke("get_books_by_domain", { domain, limit, offset })
+  async getBooksByDomain(domain: 'books' | 'manga_comics', limit: number = 50, offset: number = 0): Promise<BookSummary[]> {
+    return invoke("get_book_summaries_by_domain", { domain, limit, offset })
+  },
+
+
+
+  async getThumbnail(bookId: number): Promise<string | null> {
+    if (!isTauri) return null
+    return invoke("get_thumbnail", { bookId })
+  },
+
+  async getRecommendedBooks(limit: number = 20): Promise<BookSummary[]> {
+    if (!isTauri) return []
+    return invoke("get_recommended_books", { limit })
+  },
+
+  async getLibraryStats(): Promise<LibraryStats> {
+    if (!isTauri) {
+      return Promise.resolve({ total_books: 10, total_manga: 5, total_size_bytes: 1024 * 1024 * 500 })
+    }
+    return invoke("get_library_stats")
   },
 
   async getTotalBooksByDomain(domain: 'books' | 'manga_comics'): Promise<number> {

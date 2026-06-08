@@ -123,7 +123,7 @@ export function AnnotationsView({ onClose, onOpenBook }: AnnotationsViewProps) {
   const renderAnnotationCard = (result: AnnotationSearchResult) => {
     let isVocabulary = false;
     let vocabData: any = null;
-    if (result.annotation.annotationType === 'note' && result.annotation.noteContent) {
+    if (result.annotation.noteContent) {
       try {
         vocabData = JSON.parse(result.annotation.noteContent);
         if (vocabData && (vocabData.type === 'define' || vocabData.type === 'translate')) {

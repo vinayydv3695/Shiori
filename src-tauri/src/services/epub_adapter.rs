@@ -31,19 +31,38 @@ impl EpubAdapter {
 
         let doc = doc_ref.read()
             .map_err(|e| ShioriError::Other(format!("Failed to acquire read lock on EPUB document: {}", e)))?;
-        let toc_entries: Vec<TocEntry> = doc
-            .toc
-            .iter()
-            .enumerate()
-            .map(|(idx, nav_point)| TocEntry {
-                label: nav_point.label.clone(),
-                location: format!("epubcfi(/{}/)", idx),
-                level: 0,
-                children: Vec::new(),
-            })
-            .collect();
 
-        self.toc = toc_entries;
+        fn parse_nav_points(nav_points: &[epub::doc::NavPoint], doc: &EpubDoc<std::io::BufReader<std::fs::File>>, level: usize) -> Vec<TocEntry> {
+            nav_points.iter().map(|nav_point| {
+                let path_str = nav_point.content.to_string_lossy().replace("\\", "/");
+                let clean_path = path_str.split('#').next().unwrap_or("").to_string();
+                
+                let mut matched_id = None;
+                for (id, item) in doc.resources.iter() {
+                    let res_path = item.path.to_string_lossy().replace("\\", "/");
+                    if res_path == clean_path || res_path.ends_with(&clean_path) || clean_path.ends_with(&res_path) {
+                        matched_id = Some(id.clone());
+                        break;
+                    }
+                }
+                
+                let mut spine_idx = 0;
+                if let Some(id) = matched_id {
+                    if let Some(pos) = doc.spine.iter().position(|item| item.idref == id) {
+                        spine_idx = pos;
+                    }
+                }
+                
+                TocEntry {
+                    label: nav_point.label.clone(),
+                    location: format!("epubcfi(/{}/)", spine_idx),
+                    level,
+                    children: parse_nav_points(&nav_point.children, doc, level + 1),
+                }
+            }).collect()
+        }
+
+        self.toc = parse_nav_points(&doc.toc, &doc, 0);
         Ok(())
     }
 
@@ -189,13 +208,34 @@ impl BookReaderAdapter for EpubAdapter {
             .map_err(|e| ShioriError::Other(format!("Failed to acquire write lock on EPUB document: {}", e)))?;
         let spine_len = doc.get_num_chapters();
 
+        fn strip_html_tags(html: &str) -> String {
+            let mut plain_text = String::with_capacity(html.len());
+            let mut in_tag = false;
+            for c in html.chars() {
+                if c == '<' {
+                    in_tag = true;
+                } else if c == '>' {
+                    in_tag = false;
+                } else if !in_tag {
+                    plain_text.push(c);
+                }
+            }
+            plain_text.replace("&nbsp;", " ")
+                      .replace("&amp;", "&")
+                      .replace("&lt;", "<")
+                      .replace("&gt;", ">")
+                      .replace("&quot;", "\"")
+                      .replace("&#39;", "'")
+        }
+
         for i in 0..spine_len {
             doc.set_current_chapter(i);
-            let (content, _mime) = doc.get_current_str().unwrap_or_default();
+            let (raw_content, _mime) = doc.get_current_str().unwrap_or_default();
             let title = doc
                 .get_current_id()
                 .unwrap_or_else(|| format!("Chapter {}", i + 1));
 
+            let content = strip_html_tags(&raw_content);
             let content_lower = content.to_lowercase();
             let matches: Vec<_> = content_lower.match_indices(&query_lower).collect();
 

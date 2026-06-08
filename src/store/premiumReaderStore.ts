@@ -72,7 +72,7 @@ export const useReaderUIStore = create<UIState>((set) => ({
 // ────────────────────────────────────────────────────────────
 // READING SETTINGS STATE (persisted to localStorage)
 // ────────────────────────────────────────────────────────────
-export type ReaderTheme = 'light' | 'dark' | 'paper' | 'paper-dark';
+export type ReaderTheme = 'light' | 'black' | 'paper' | 'paper-dark';
 
 interface ReadingSettings {
   // Theme
@@ -136,7 +136,7 @@ interface ReadingSettings {
 }
 
 const defaultSettings = {
-  theme: 'dark' as ReaderTheme,
+  theme: 'black' as ReaderTheme,
   fontFamily: 'eb-garamond',
   fontSize: 24,
   lineHeight: 1.6,
@@ -156,7 +156,7 @@ const defaultSettings = {
   uiScale: 1.0,
 };
 
-const READER_THEMES: ReaderTheme[] = ['light', 'dark', 'paper', 'paper-dark'];
+const READER_THEMES: ReaderTheme[] = ['light', 'black', 'paper', 'paper-dark'];
 const WIDTH_OPTIONS: Array<ReadingSettings['width']> = ['narrow', 'medium', 'wide', 'full'];
 const TEXT_ALIGN_OPTIONS: Array<ReadingSettings['textAlign']> = ['left', 'justify'];
 const ANIMATION_STYLE_OPTIONS: Array<ReadingSettings['animationStyle']> = ['slide', 'fade', 'none'];
@@ -229,7 +229,6 @@ export const BG_COLOR_PRESETS = [
   { id: 'green', color: '#E8F0E8', label: 'Green' },
   { id: 'blue', color: '#E8EEF5', label: 'Blue' },
   { id: 'pink', color: '#F5E8EE', label: 'Pink' },
-  { id: 'dark', color: '#1C1917', label: 'Dark' },
 ];
 
 export const TEXT_COLOR_PRESETS = [
@@ -258,7 +257,7 @@ export const useReadingSettings = create<ReadingSettings>()(
       },
 
       toggleTheme: () => {
-        const cycle: ReaderTheme[] = ['light', 'dark', 'paper', 'paper-dark'];
+        const cycle: ReaderTheme[] = ['light', 'black', 'paper', 'paper-dark'];
         const idx = cycle.indexOf(get().theme);
         const newTheme = cycle[(idx + 1) % cycle.length];
         get().setTheme(newTheme);
@@ -397,29 +396,30 @@ export const READER_THEME_COLORS: Record<ReaderTheme, Record<string, string>> = 
     '--text-selection': '#3B82F680',
     '--ui-border': '#E7E5E4',
     '--ui-divider': '#D6D3D1',
-    '--ui-hover': '#F5F5F4',
-    '--ui-active': '#E7E5E4',
+    '--ui-hover': 'rgba(0, 0, 0, 0.2)',
+    '--ui-active': 'rgba(0, 0, 0, 0.00)',
     '--ui-focus': '#3B82F6',
     '--shadow': 'rgba(0, 0, 0, 0.05)',
     '--overlay': 'rgba(0, 0, 0, 0.2)',
     '--progress-bar': '#3B82F6',
   },
-  dark: {
-    '--bg-primary': '#1C1917',
-    '--bg-secondary': '#292524',
-    '--bg-elevated': '#1F1E1C',
+
+  black: {
+    '--bg-primary': '#000000',
+    '--bg-secondary': '#0A0A0A',
+    '--bg-elevated': '#121212',
     '--text-primary': '#E7E5E4',
     '--text-secondary': '#A8A29E',
     '--text-tertiary': '#78716C',
     '--text-link': '#60A5FA',
     '--text-selection': '#3B82F680',
-    '--ui-border': '#3F3F3F',
-    '--ui-divider': '#525252',
-    '--ui-hover': '#292524',
-    '--ui-active': '#3F3F3F',
+    '--ui-border': '#262626',
+    '--ui-divider': '#333333',
+    '--ui-hover': 'rgba(255, 255, 255, 0.4)',
+    '--ui-active': 'rgba(255, 255, 255, 0.00)',
     '--ui-focus': '#60A5FA',
-    '--shadow': 'rgba(0, 0, 0, 0.3)',
-    '--overlay': 'rgba(0, 0, 0, 0.6)',
+    '--shadow': 'rgba(0, 0, 0, 0.5)',
+    '--overlay': 'rgba(0, 0, 0, 0.8)',
     '--progress-bar': '#60A5FA',
   },
   paper: {
@@ -433,8 +433,8 @@ export const READER_THEME_COLORS: Record<ReaderTheme, Record<string, string>> = 
     '--text-selection': '#D4A57480',
     '--ui-border': '#D4C9B8',
     '--ui-divider': '#C7BAA7',
-    '--ui-hover': '#EDE7DB',
-    '--ui-active': '#D4C9B8',
+    '--ui-hover': 'rgba(0, 0, 0, 0.1)',
+    '--ui-active': 'rgba(0, 0, 0, 0.00)',
     '--ui-focus': '#8B6914',
     '--shadow': 'rgba(139, 119, 90, 0.12)',
     '--overlay': 'rgba(44, 36, 22, 0.25)',
@@ -451,8 +451,8 @@ export const READER_THEME_COLORS: Record<ReaderTheme, Record<string, string>> = 
     '--text-selection': '#8B691440',
     '--ui-border': '#4A4238',
     '--ui-divider': '#5A5048',
-    '--ui-hover': '#3A342D',
-    '--ui-active': '#4A4238',
+    '--ui-hover': 'rgba(255, 255, 255, 0.2)',
+    '--ui-active': 'rgba(255, 255, 255, 0.00)',
     '--ui-focus': '#D4A574',
     '--shadow': 'rgba(0, 0, 0, 0.25)',
     '--overlay': 'rgba(0, 0, 0, 0.45)',

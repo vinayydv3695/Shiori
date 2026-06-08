@@ -353,14 +353,25 @@ pub async fn search_manga_sources(
 ) -> Result<Vec<crate::sources::SearchResult>> {
     let registry = state.plugin_registry.read().await;
     
-    let mut all_results = Vec::new();
+    let mut tasks = Vec::new();
     
     for source in registry.get_all() {
         let meta = source.meta();
         if meta.supports_download && meta.supports_search {
-            if let Ok(mut results) = source.search_with_meta(&query, 1, 75).await {
-                all_results.append(&mut results.items);
-            }
+            let source_clone = source.clone();
+            let query_clone = query.clone();
+            tasks.push(tokio::spawn(async move {
+                source_clone.search_with_meta(&query_clone, 1, 200).await
+            }));
+        }
+    }
+    
+    let results = futures::future::join_all(tasks).await;
+    let mut all_results = Vec::new();
+    
+    for res in results {
+        if let Ok(Ok(mut r)) = res {
+            all_results.append(&mut r.items);
         }
     }
     

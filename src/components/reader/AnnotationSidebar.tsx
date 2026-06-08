@@ -250,7 +250,30 @@ export function AnnotationSidebar() {
                   </div>
                 ) : annotation.noteContent ? (
                   <div className="text-sm text-gray-700 mt-2 p-2 bg-gray-50 rounded">
-                    {annotation.noteContent}
+                    {(() => {
+                      try {
+                        const vocabData = JSON.parse(annotation.noteContent);
+                        if (vocabData && vocabData.type === 'define') {
+                          return (
+                            <div className="flex flex-col gap-1">
+                              <span className="font-semibold text-purple-600">Definition:</span>
+                              {vocabData.data?.meanings?.[0]?.definitions?.[0]?.definition || 'No definition found.'}
+                            </div>
+                          );
+                        }
+                        if (vocabData && vocabData.type === 'translate') {
+                          return (
+                            <div className="flex flex-col gap-1">
+                              <span className="font-semibold text-purple-600">Translation:</span>
+                              {vocabData.data?.translated_text || 'No translation found.'}
+                            </div>
+                          );
+                        }
+                      } catch {
+                        // Not JSON, just return raw note
+                      }
+                      return annotation.noteContent;
+                    })()}
                   </div>
                 ) : null}
 

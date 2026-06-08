@@ -168,6 +168,7 @@
 }
 
 .manga-indicator {
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
   font-size: 11px;
   font-weight: 500;
   color: var(--manga-text-secondary);
@@ -519,8 +520,10 @@
   bottom: 0;
   width: 340px;
   z-index: 90;
-  background: var(--manga-sidebar-bg);
-  border-left: 1px solid var(--manga-sidebar-border);
+  background: color-mix(in srgb, var(--manga-sidebar-bg) 75%, transparent);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-left: 1px solid color-mix(in srgb, var(--manga-sidebar-border) 50%, transparent);
   transform: translateX(100%);
   transition: transform 400ms cubic-bezier(0.16, 1, 0.3, 1) !important;
   will-change: transform;
@@ -544,7 +547,8 @@
 }
 
 .manga-sidebar-title {
-  font-size: 15px;
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+  font-size: 16px;
   font-weight: 600;
   color: var(--manga-text-primary);
   overflow: hidden;
@@ -592,7 +596,8 @@
 }
 
 .manga-sidebar-section-title {
-  font-size: 10px;
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -616,49 +621,59 @@
 /* Mode selector pills */
 .manga-mode-selector {
   display: flex;
-  gap: 2px;
   background: var(--manga-input-bg);
-  border-radius: 6px;
-  padding: 2px;
+  border-radius: 9999px;
+  border: 1px solid var(--manga-input-border);
+  overflow: hidden;
+  width: 100%;
 }
 
 .manga-mode-btn {
-  padding: 5px 10px;
-  font-size: 11px;
+  flex: 1;
+  padding: 6px 0;
+  text-align: center;
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+  font-size: 12px;
   font-weight: 500;
   color: var(--manga-text-secondary);
   background: transparent;
   border: none;
-  border-radius: 4px;
+  border-right: 1px solid var(--manga-input-border);
   cursor: pointer;
   white-space: nowrap;
   transition: background-color 150ms, color 150ms !important;
 }
 
+.manga-mode-btn:last-child {
+  border-right: none;
+}
+
 .manga-mode-btn:hover {
+  background: color-mix(in srgb, var(--manga-accent) 10%, transparent);
   color: var(--manga-text-primary);
 }
 
 .manga-mode-btn--active {
-  background: var(--manga-accent);
-  color: #FFFFFF;
+  background: var(--manga-accent-subtle);
+  color: var(--manga-accent);
+  font-weight: 600;
 }
 
 /* Toggle switch */
 .manga-toggle {
   position: relative;
-  width: 36px;
-  height: 20px;
+  width: 44px;
+  height: 24px;
   background: var(--manga-input-bg);
   border: 1px solid var(--manga-input-border);
-  border-radius: 10px;
+  border-radius: 12px;
   cursor: pointer;
-  transition: background-color 200ms !important;
+  transition: background-color 200ms, border-color 200ms !important;
   flex-shrink: 0;
 }
 
 .manga-toggle--active {
-  background: var(--manga-accent);
+  background: color-mix(in srgb, var(--manga-accent) 20%, transparent);
   border-color: var(--manga-accent);
 }
 
@@ -666,16 +681,18 @@
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 14px;
-  height: 14px;
-  background: #FFFFFF;
+  width: 18px;
+  height: 18px;
+  background: var(--manga-text-secondary);
   border-radius: 50%;
-  transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition: transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1), background-color 200ms !important;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .manga-toggle--active .manga-toggle-knob {
-  transform: translateX(16px);
+  transform: translateX(20px);
+  background: var(--manga-accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--manga-accent) 50%, transparent);
 }
 
 /* Dropdown */
@@ -705,19 +722,22 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 10px 16px;
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
   font-size: 13px;
+  font-weight: 500;
   color: var(--manga-text-secondary);
   background: transparent;
   border: 1px solid var(--manga-border);
-  border-radius: 6px;
+  border-radius: 9999px;
   cursor: pointer;
-  transition: background-color 150ms, color 150ms !important;
+  transition: background-color 150ms, color 150ms, border-color 150ms, transform 150ms !important;
 }
 
 .manga-sidebar-btn:hover {
   background: var(--manga-control-hover);
   color: var(--manga-text-primary);
+  transform: translateY(-1px);
 }
 
 .manga-sidebar-btn svg {
@@ -729,10 +749,12 @@
 .manga-sidebar-btn--accent {
   color: var(--manga-accent);
   border-color: var(--manga-accent-subtle);
+  background: var(--manga-accent-subtle);
 }
 
 .manga-sidebar-btn--accent:hover {
-  background: var(--manga-accent-subtle);
+  background: color-mix(in srgb, var(--manga-accent) 20%, transparent);
+  border-color: var(--manga-accent);
 }
 
 .manga-sidebar-divider {
@@ -766,8 +788,10 @@
 .manga-settings-panel {
   width: 460px;
   max-height: 80vh;
-  background: var(--manga-sidebar-bg);
-  border: 1px solid var(--manga-border);
+  background: color-mix(in srgb, var(--manga-sidebar-bg) 75%, transparent);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid color-mix(in srgb, var(--manga-border) 50%, transparent);
   border-radius: 12px;
   box-shadow: 0 20px 60px var(--manga-shadow);
   display: flex;
@@ -790,6 +814,7 @@
 }
 
 .manga-settings-title {
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
   font-size: 16px;
   font-weight: 600;
   color: var(--manga-text-primary);
@@ -804,6 +829,7 @@
 
 .manga-settings-tab {
   padding: 10px 14px;
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
   font-size: 13px;
   font-weight: 500;
   color: var(--manga-text-secondary);
@@ -834,6 +860,7 @@
 }
 
 .manga-settings-group-title {
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
   font-size: 13px;
   font-weight: 600;
   color: var(--manga-text-primary);
@@ -868,12 +895,13 @@
   flex: 1;
   padding: 10px 12px;
   text-align: center;
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
   font-size: 12px;
   font-weight: 500;
   color: var(--manga-text-secondary);
   background: var(--manga-input-bg);
   border: 1px solid var(--manga-input-border);
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
   transition: border-color 150ms, color 150ms, background-color 150ms !important;
 }
@@ -921,30 +949,42 @@
 /* Position pills */
 .manga-position-pills {
   display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
+  background: var(--manga-input-bg);
+  border-radius: 9999px;
+  border: 1px solid var(--manga-input-border);
+  overflow: hidden;
+  width: 100%;
 }
 
 .manga-position-pill {
-  padding: 4px 10px;
-  font-size: 11px;
+  flex: 1;
+  padding: 6px 0;
+  text-align: center;
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+  font-size: 12px;
   font-weight: 500;
   color: var(--manga-text-secondary);
-  background: var(--manga-input-bg);
-  border: 1px solid var(--manga-input-border);
-  border-radius: 4px;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--manga-input-border);
   cursor: pointer;
-  transition: border-color 150ms, color 150ms !important;
+  white-space: nowrap;
+  transition: background-color 150ms, color 150ms !important;
+}
+
+.manga-position-pill:last-child {
+  border-right: none;
 }
 
 .manga-position-pill:hover {
-  border-color: var(--manga-accent);
+  background: color-mix(in srgb, var(--manga-accent) 10%, transparent);
+  color: var(--manga-text-primary);
 }
 
 .manga-position-pill--active {
-  border-color: var(--manga-accent);
   background: var(--manga-accent-subtle);
   color: var(--manga-accent);
+  font-weight: 600;
 }
 
 .manga-settings-footer {
@@ -1226,6 +1266,7 @@
    HEADER TYPOGRAPHY
    ──────────────────────────────────────────────────────────── */
 .manga-header-title {
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
   font-size: 14px;
   font-weight: 600;
   color: var(--manga-text-primary);
@@ -1236,6 +1277,7 @@
 }
 
 .manga-header-chapter {
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
   font-size: 13px;
   font-weight: 400;
   color: var(--manga-text-secondary);

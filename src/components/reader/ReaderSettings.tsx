@@ -150,11 +150,12 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
                   ),
                 },
                 {
-                  id: 'dark' as ReaderTheme,
-                  label: 'Dark',
+                  id: 'black' as ReaderTheme,
+                  label: 'Black',
                   icon: (
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                      <circle cx="12" cy="12" r="3" />
                     </svg>
                   ),
                 },
@@ -191,39 +192,6 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
             </div>
           </div>
 
-          {(isTextFormat || isPdf) && (
-            <div className="premium-settings-section">
-              <label className="premium-settings-label">Background Color</label>
-              <div className="premium-settings-color-row">
-                {BG_COLOR_PRESETS.map((preset) => (
-                  <button
-                    key={preset.id}
-                    title={preset.label}
-                    onClick={() => setBackgroundColor(preset.id)}
-                    className={`premium-settings-color-swatch ${backgroundColor === preset.id ? 'premium-settings-color-swatch--active' : ''} ${preset.id === 'default' ? 'premium-settings-color-swatch--default' : ''}`}
-                    style={preset.id !== 'default' ? { backgroundColor: preset.color } : {}}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {showSpacingControls && (
-            <div className="premium-settings-section">
-              <label className="premium-settings-label">Text Color</label>
-              <div className="premium-settings-color-row">
-                {TEXT_COLOR_PRESETS.map((preset) => (
-                  <button
-                    key={preset.id}
-                    title={preset.label}
-                    onClick={() => setTextColor(preset.id)}
-                    className={`premium-settings-color-swatch ${textColor === preset.id ? 'premium-settings-color-swatch--active' : ''} ${preset.id === 'default' ? 'premium-settings-color-swatch--default' : ''}`}
-                    style={preset.id !== 'default' ? { backgroundColor: preset.color } : {}}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
 
           {showTypography && (
             <div className="premium-settings-section">

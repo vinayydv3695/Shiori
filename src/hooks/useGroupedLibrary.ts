@@ -1,14 +1,10 @@
 function tryExtractSeries(title: string): string | null {
   if (!title) return null;
-  // Matches titles like "Planetes - Volume 01", "Planetes -... 04", "Planetes - 05"
-  const withSep = /^(.*?)\s+(?:[-:]+|\.\.\.)\s*(?:Volume|Vol\.?|Chapter|Ch\.?|v\.?|Book|Part)?\s*[_]?\d+/i;
-  // Matches titles like "Naruto Vol 23", "One Piece Chapter 1000"
-  const withWord = /^(.*?)\s+(?:Volume|Vol\.?|Chapter|Ch\.?|v\.?|Book|Part)\s*[_]?\d+/i;
+  // Matches titles like "Harry Potter 1 - Harry Potter and the Sorcerer's Stone"
+  // Mirroring the backend Rust MANGA_VOLUME_REGEX
+  const seriesRegex = /^(?:\[[^\]]+\]\s*)?(.*?)\s*[-_#]?\s*(?:Vol\.?|Volume|v|Bk\.?|Book|Ch\.?|Chapter|Ep\.?|Episode|#)?\s*(\d+(?:\.\d+)?)\s*(?:\((?:Digital|Scan|Web)?\s*\)?\s*)?(?:\((?:\d{4})\))?.*$/i;
   
-  let match = title.match(withSep);
-  if (match && match[1].trim()) return match[1].trim();
-  
-  match = title.match(withWord);
+  const match = title.match(seriesRegex);
   if (match && match[1].trim()) return match[1].trim();
   
   return null;

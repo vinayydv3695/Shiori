@@ -10,10 +10,12 @@ import { OnlineSearchHeader } from './OnlineSearchHeader';
 import { pluginApi, type Chapter as PluginChapter, type SearchResult as PluginSearchResult } from '@/lib/pluginSources';
 import { useUIStore } from '@/store/uiStore';
 import { useOnlineMangaReaderStore } from '@/store/onlineMangaReaderStore';
-import { ContentCarousel, type CarouselItem } from './ContentCarousel';
 import { HeroMangaBanner } from './HeroMangaBanner';
 import { MangaRankList } from './MangaRankList';
 import { OnlineResultCard } from './OnlineResultCard';
+import { ModernBookCard } from './ModernBookCard';
+import { SkeletonGrid } from './SkeletonLoaders';
+import { type CarouselItem } from './ContentCarousel';
 import { api } from '@/lib/tauri';
 import { parsePageUrl } from '@/lib/utils';
 import { useToast } from '@/store/toastStore';
@@ -544,8 +546,8 @@ export function OnlineMangaView() {
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-7xl mx-auto">
           {loading && (
-            <div className="flex items-center justify-center py-12">
-              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <div className="py-8">
+              <SkeletonGrid count={12} />
             </div>
           )}
 
@@ -576,30 +578,42 @@ export function OnlineMangaView() {
 
               <div className="flex flex-col xl:flex-row gap-8">
                 {/* Main Content (Left) */}
-                <div className="flex-1 space-y-10 min-w-0">
+                <div className="flex-1 flex flex-col gap-8 min-w-0">
                   {/* Popular Manga Carousel */}
-                  <ContentCarousel
-                    title={isMangaDexEnabled ? "Trending This Week" : "Popular"}
-                    items={toCarouselItems(browseData.popular)}
-                    loading={browseLoading.popular}
-                    onItemClick={handleCarouselItemClick}
-                  />
+                  <div className="bento-widget">
+                    <div className="bento-widget-header">
+                      <h2 className="bento-widget-title">{isMangaDexEnabled ? "Trending This Week" : "Popular"}</h2>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-8 mt-4">
+                      {browseLoading.popular ? <SkeletonGrid count={5} /> : toCarouselItems(browseData.popular).slice(0, 5).map((item) => (
+                        <ModernBookCard key={item.id} id={item.id} title={item.title} coverUrl={item.coverUrl} author={item.subtitle} onClick={() => handleCarouselItemClick(item)} />
+                      ))}
+                    </div>
+                  </div>
 
                   {/* Latest Updates Carousel */}
-                  <ContentCarousel
-                    title="Latest Updates"
-                    items={toCarouselItems(browseData.latest)}
-                    loading={browseLoading.latest}
-                    onItemClick={handleCarouselItemClick}
-                  />
+                  <div className="bento-widget">
+                    <div className="bento-widget-header">
+                      <h2 className="bento-widget-title">Latest Updates</h2>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-8 mt-4">
+                      {browseLoading.latest ? <SkeletonGrid count={5} /> : toCarouselItems(browseData.latest).slice(0, 5).map((item) => (
+                        <ModernBookCard key={item.id} id={item.id} title={item.title} coverUrl={item.coverUrl} author={item.subtitle} onClick={() => handleCarouselItemClick(item)} />
+                      ))}
+                    </div>
+                  </div>
 
                   {/* You Should Read (Recent) */}
-                  <ContentCarousel
-                    title={isMangaDexEnabled ? "Staff Picks / You Should Read" : "Recent"}
-                    items={toCarouselItems(browseData.recent)}
-                    loading={browseLoading.recent}
-                    onItemClick={handleCarouselItemClick}
-                  />
+                  <div className="bento-widget">
+                    <div className="bento-widget-header">
+                      <h2 className="bento-widget-title">{isMangaDexEnabled ? "Staff Picks / You Should Read" : "Recent"}</h2>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-8 mt-4">
+                      {browseLoading.recent ? <SkeletonGrid count={5} /> : toCarouselItems(browseData.recent).slice(0, 5).map((item) => (
+                        <ModernBookCard key={item.id} id={item.id} title={item.title} coverUrl={item.coverUrl} author={item.subtitle} onClick={() => handleCarouselItemClick(item)} />
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Sidebar (Right) */}

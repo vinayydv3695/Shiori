@@ -105,16 +105,21 @@ export const ModernBookCard = memo(function ModernBookCard({
         
         {/* Actual Image */}
         {visible && proxyUrl && !imgError ? (
-          <img
-            src={proxyUrl}
-            alt={title}
-            className={cn(
-              'w-full h-full object-cover transition-all duration-700',
-              imgLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
+          <>
+            {!imgLoaded && (
+              <div className="absolute inset-0 bg-muted animate-pulse z-0" />
             )}
-            onLoad={() => setImgLoaded(true)}
-            onError={() => setImgError(true)}
-          />
+            <img
+              src={proxyUrl}
+              alt={title}
+              className={cn(
+                'w-full h-full object-cover transition-all duration-700 relative z-10',
+                imgLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
+              )}
+              onLoad={() => setImgLoaded(true)}
+              onError={() => setImgError(true)}
+            />
+          </>
         ) : visible && (
           <div className="w-full h-full flex flex-col justify-center items-center p-4 bg-gradient-to-br from-indigo-950 to-slate-900 text-center relative overflow-hidden">
             <div className="absolute top-0 right-0 w-24 h-24 bg-primary/20 rounded-full blur-2xl pointer-events-none" />

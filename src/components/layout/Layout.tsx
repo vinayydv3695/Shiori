@@ -128,14 +128,12 @@ export function Layout({
   const [importDialogFilePaths, setImportDialogFilePaths] = useState<string[]>([])
   const toast = useToast()
 
-  const {
-    books,
-    setBooks,
-    selectedBookIds,
-    selectedFilters,
-    toggleFilter,
-    clearFilters,
-  } = useLibraryStore()
+  const books = useLibraryStore((s) => s.books)
+  const setBooks = useLibraryStore((s) => s.setBooks)
+  const selectedBookIds = useLibraryStore((s) => s.selectedBookIds)
+  const selectedFilters = useLibraryStore((s) => s.selectedFilters)
+  const toggleFilter = useLibraryStore((s) => s.toggleFilter)
+  const clearFilters = useLibraryStore((s) => s.clearFilters)
 
   const isOnlineView =
     currentView === 'online-books' ||

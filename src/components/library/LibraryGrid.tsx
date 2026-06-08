@@ -146,14 +146,12 @@ export function LibraryGrid({
   onViewSeries,
 }: LibraryGridProps) {
   const setSelectedBook = useLibraryStore((state) => state.setSelectedBook);
-  const selectedBookIds = useLibraryStore((state) => state.selectedBookIds);
   const toggleBookSelection = useLibraryStore(
     (state) => state.toggleBookSelection,
   );
   const hasMore = useLibraryStore((state) => state.hasMore);
   const isLoading = useLibraryStore((state) => state.isLoading);
   const loadMoreBooks = useLibraryStore((state) => state.loadMoreBooks);
-  const favoriteBookIds = useLibraryStore((state) => state.favoriteBookIds);
   const toggleFavorite = useLibraryStore((state) => state.toggleFavorite);
   // Read preferences once at grid level — avoids N subscriptions inside each card
   const libraryDensity = usePreferencesStore(
@@ -367,14 +365,12 @@ export function LibraryGrid({
                         <PremiumBookCard
                           book={item.data}
                           coverSize={coverSize}
-                          isSelected={selectedBookIds.has(item.data.id!)}
                           onSelect={toggleBookSelection}
                           onOpen={handleOpen}
                           onViewDetails={onViewDetails}
                           onEdit={handleEditBook}
                           onDelete={handleDeleteBook}
                           onConvert={onConvertBook}
-                          isFavorited={favoriteBookIds.has(item.data.id!)}
                           onFavorite={handleFavorite}
                           animationDelay={Math.min(absoluteIndex * 10, 150)}
                           scrollRoot={parentRef.current}

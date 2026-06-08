@@ -27,24 +27,6 @@ interface PremiumReaderKeyboardHandlers {
  * - Shift+Space / PageUp: Previous page/scroll
  */
 export function usePremiumReaderKeyboard(handlers: PremiumReaderKeyboardHandlers = {}) {
-  const {
-    toggleSidebar,
-    closeSidebar,
-    toggleFocusMode,
-    isTopBarVisible,
-    setTopBarVisible,
-    isSidebarOpen,
-    isFocusMode,
-    setSidebarTab,
-  } = useReaderUIStore();
-
-  const {
-    toggleTheme,
-    increaseFontSize,
-    decreaseFontSize,
-    cycleWidth,
-  } = useReadingSettings();
-
   // Use a ref for handlers to avoid re-registering the event listener on every render
   const handlersRef = useRef(handlers);
   useEffect(() => {
@@ -70,66 +52,68 @@ export function usePremiumReaderKeyboard(handlers: PremiumReaderKeyboardHandlers
       // Cmd/Ctrl + D: Toggle theme
       if (isMod && key === 'd') {
         e.preventDefault();
-        toggleTheme();
+        useReadingSettings.getState().toggleTheme();
         return;
       }
 
       // Cmd/Ctrl + =: Increase font size
       if (isMod && (key === '=' || key === '+')) {
         e.preventDefault();
-        increaseFontSize();
+        useReadingSettings.getState().increaseFontSize();
         return;
       }
 
       // Cmd/Ctrl + -: Decrease font size
       if (isMod && key === '-') {
         e.preventDefault();
-        decreaseFontSize();
+        useReadingSettings.getState().decreaseFontSize();
         return;
       }
 
       // Cmd/Ctrl + \: Cycle width
       if (isMod && key === '\\') {
         e.preventDefault();
-        cycleWidth();
+        useReadingSettings.getState().cycleWidth();
         return;
       }
 
       // f: Toggle focus mode
       if (key === 'f' || key === 'F') {
         e.preventDefault();
-        toggleFocusMode();
+        useReaderUIStore.getState().toggleFocusMode();
         return;
       }
 
       // h: Toggle top bar visibility
       if (key === 'h' || key === 'H') {
         e.preventDefault();
-        setTopBarVisible(!isTopBarVisible);
+        const state = useReaderUIStore.getState();
+        state.setTopBarVisible(!state.isTopBarVisible);
         return;
       }
 
       // s: Toggle sidebar
       if (key === 's' || key === 'S') {
         e.preventDefault();
-        toggleSidebar();
+        useReaderUIStore.getState().toggleSidebar();
         return;
       }
 
       // t: Open TOC sidebar
       if (key === 't' || key === 'T') {
         e.preventDefault();
-        setSidebarTab('toc');
+        useReaderUIStore.getState().setSidebarTab('toc');
         return;
       }
 
       // Escape: Close sidebar or exit focus mode
       if (key === 'Escape') {
         e.preventDefault();
-        if (isSidebarOpen) {
-          closeSidebar();
-        } else if (isFocusMode) {
-          toggleFocusMode();
+        const state = useReaderUIStore.getState();
+        if (state.isSidebarOpen) {
+          state.closeSidebar();
+        } else if (state.isFocusMode) {
+          state.toggleFocusMode();
         }
         return;
       }
@@ -174,18 +158,5 @@ export function usePremiumReaderKeyboard(handlers: PremiumReaderKeyboardHandlers
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [
-    toggleSidebar,
-    closeSidebar,
-    toggleFocusMode,
-    isTopBarVisible,
-    setTopBarVisible,
-    isSidebarOpen,
-    isFocusMode,
-    setSidebarTab,
-    toggleTheme,
-    increaseFontSize,
-    decreaseFontSize,
-    cycleWidth,
-  ]);
+  }, []);
 }

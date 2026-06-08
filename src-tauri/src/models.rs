@@ -3,34 +3,53 @@ use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Book {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<i64>,
     pub uuid: String,
     pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub sort_title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub isbn: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub isbn13: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub publisher: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub pubdate: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub series: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub series_index: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub rating: Option<i32>,
     pub file_path: String,
     pub file_format: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub file_size: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub file_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub cover_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub page_count: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub word_count: Option<i32>,
     pub language: String,
     pub added_date: String,
     pub modified_date: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub last_opened: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
 
     #[serde(default)]
     pub online_metadata_fetched: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata_source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata_last_sync: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub anilist_id: Option<String>,
 
     pub is_favorite: bool,
@@ -38,12 +57,15 @@ pub struct Book {
     #[serde(default = "default_reading_status")]
     pub reading_status: String,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,
 
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata_locked: Option<HashMap<String, bool>>,
 
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub authors: Vec<Author>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub tags: Vec<Tag>,
 }
 
@@ -71,16 +93,21 @@ pub struct BookSummary {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Author {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<i64>,
     pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub sort_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub link: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Tag {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<i64>,
     pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
 }
 

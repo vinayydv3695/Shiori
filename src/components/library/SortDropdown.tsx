@@ -19,7 +19,10 @@ const SORT_OPTIONS = [
 ]
 
 export function SortDropdown() {
-  const { sortBy, sortOrder, setSort, loadInitialBooks } = useLibraryStore()
+  const sortBy = useLibraryStore((s) => s.sortBy)
+  const sortOrder = useLibraryStore((s) => s.sortOrder)
+  const setSort = useLibraryStore((s) => s.setSort)
+  const loadInitialBooks = useLibraryStore((s) => s.loadInitialBooks)
 
   const handleSortChange = (newSortBy: string) => {
     if (sortBy === newSortBy) {

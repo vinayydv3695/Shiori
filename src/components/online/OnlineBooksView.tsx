@@ -5,6 +5,7 @@ import { useOnlineSearchStore } from '@/store/onlineSearchStore';
 import { useOnlineDownloadStore } from '@/store/onlineDownloadStore';
 import { ContentCarousel, type CarouselItem } from './ContentCarousel';
 import { ModernBookCard } from './ModernBookCard';
+import { SkeletonGrid } from './SkeletonLoaders';
 import { QuickPreviewModal, type PreviewBook } from './QuickPreviewModal';
 import { fetchGutenbergBooks, fetchPopularGutenbergBooks } from '@/online-books/gutenberg/api';
 import { fetchLibgenBooks } from '@/online-books/libgen/api';
@@ -343,8 +344,8 @@ export function OnlineBooksView() {
         <div className="max-w-7xl mx-auto">
           
           {loading && currentResults.length === 0 && (
-            <div className="flex items-center justify-center py-20">
-              <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin shadow-lg" />
+            <div className="py-8">
+              <SkeletonGrid count={12} />
             </div>
           )}
 
@@ -357,42 +358,65 @@ export function OnlineBooksView() {
           )}
 
           {!loading && !currentHasSearched && activeTab === 'gutenberg' && (
-            <div className="space-y-10 animate-in fade-in duration-700">
-              <ContentCarousel
-                title="Trending Classics"
-                items={toCarouselItems(popularBooks)}
-                loading={popularLoading}
-                onItemClick={handleCarouselItemClick}
-              />
-              <ContentCarousel
-                title="Timeless Fiction"
-                items={toCarouselItems(popularBooks.filter(b => b.subjects.some(s => s.toLowerCase().includes('fiction'))))}
-                loading={popularLoading}
-                onItemClick={handleCarouselItemClick}
-              />
-              <ContentCarousel
-                title="Historical Works"
-                items={toCarouselItems(popularBooks.filter(b => b.subjects.some(s => s.toLowerCase().includes('history'))))}
-                loading={popularLoading}
-                onItemClick={handleCarouselItemClick}
-              />
+            <div className="flex flex-col gap-8 animate-in fade-in duration-700">
+              <div className="bento-widget">
+                <div className="bento-widget-header">
+                  <h2 className="bento-widget-title">Trending Classics</h2>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-4 gap-y-8 mt-4">
+                  {popularLoading ? <SkeletonGrid count={6} /> : toCarouselItems(popularBooks).slice(0, 12).map((item) => (
+                    <ModernBookCard key={item.id} id={item.id} title={item.title} coverUrl={item.coverUrl} author={item.subtitle} onClick={() => handleCarouselItemClick(item)} />
+                  ))}
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="bento-widget">
+                  <div className="bento-widget-header">
+                    <h2 className="bento-widget-title">Timeless Fiction</h2>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 gap-x-4 gap-y-8 mt-4">
+                    {popularLoading ? <SkeletonGrid count={3} /> : toCarouselItems(popularBooks.filter(b => b.subjects.some(s => s.toLowerCase().includes('fiction')))).slice(0, 6).map((item) => (
+                      <ModernBookCard key={item.id} id={item.id} title={item.title} coverUrl={item.coverUrl} author={item.subtitle} onClick={() => handleCarouselItemClick(item)} />
+                    ))}
+                  </div>
+                </div>
+                <div className="bento-widget">
+                  <div className="bento-widget-header">
+                    <h2 className="bento-widget-title">Historical Works</h2>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 gap-x-4 gap-y-8 mt-4">
+                    {popularLoading ? <SkeletonGrid count={3} /> : toCarouselItems(popularBooks.filter(b => b.subjects.some(s => s.toLowerCase().includes('history')))).slice(0, 6).map((item) => (
+                      <ModernBookCard key={item.id} id={item.id} title={item.title} coverUrl={item.coverUrl} author={item.subtitle} onClick={() => handleCarouselItemClick(item)} />
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
           {!loading && !currentHasSearched && activeTab === 'libgen' && (
-            <div className="space-y-10 animate-in fade-in duration-700">
-              <ContentCarousel
-                title="Trending Worldwide"
-                items={toLibgenCarouselItems(libgenTrending)}
-                loading={libgenTrendingLoading}
-                onItemClick={handleCarouselItemClick}
-              />
-              <ContentCarousel
-                title="What's New"
-                items={toLibgenCarouselItems(libgenTrending.slice().reverse())}
-                loading={libgenTrendingLoading}
-                onItemClick={handleCarouselItemClick}
-              />
+            <div className="flex flex-col gap-8 animate-in fade-in duration-700">
+              <div className="bento-widget">
+                <div className="bento-widget-header">
+                  <h2 className="bento-widget-title">Trending Worldwide</h2>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-4 gap-y-8 mt-4">
+                  {libgenTrendingLoading ? <SkeletonGrid count={12} /> : toLibgenCarouselItems(libgenTrending).slice(0, 12).map((item) => (
+                    <ModernBookCard key={item.id} id={item.id} title={item.title} coverUrl={item.coverUrl} author={item.subtitle} onClick={() => handleCarouselItemClick(item)} />
+                  ))}
+                </div>
+              </div>
+              <div className="bento-widget">
+                <div className="bento-widget-header">
+                  <h2 className="bento-widget-title">What's New</h2>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-4 gap-y-8 mt-4">
+                  {libgenTrendingLoading ? <SkeletonGrid count={6} /> : toLibgenCarouselItems(libgenTrending.slice().reverse()).slice(0, 6).map((item) => (
+                    <ModernBookCard key={item.id} id={item.id} title={item.title} coverUrl={item.coverUrl} author={item.subtitle} onClick={() => handleCarouselItemClick(item)} />
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 

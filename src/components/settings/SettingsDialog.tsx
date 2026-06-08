@@ -1242,18 +1242,18 @@ const MangaReadingSettings = ({
     <div className="space-y-8">
       <SettingSection
         title="Library Organization"
-        description="Manage how manga volumes are organized"
+        description="Manage how series volumes are organized"
       >
         <SettingItem
-          label="Auto-Group Manga Volumes"
-          description={preferences.autoGroupManga ? 'Enabled - Automatically groups volumes by series' : 'Disabled - Manual organization'}
+          label="Auto-Group Series Volumes"
+          description={preferences.autoGroupManga ? 'Enabled - Automatically groups books and manga by series' : 'Disabled - Manual organization'}
         >
           <input
             type="checkbox"
             checked={preferences.autoGroupManga}
             onChange={(e) => updateGeneralSettings({ autoGroupManga: e.target.checked })}
             className="w-5 h-5"
-            aria-label="Auto-group manga volumes"
+            aria-label="Auto-group series volumes"
           />
         </SettingItem>
       </SettingSection>

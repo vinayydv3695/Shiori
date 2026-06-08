@@ -155,12 +155,7 @@
     padding: 20px;
     border: none;
     border-radius: 20px;
-    background: hsl(var(--card) / 0.5);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    box-shadow: 
-        0 4px 16px hsl(var(--foreground) / 0.02),
-        inset 0 1px 0 hsl(var(--background) / 0.4);
+    background: transparent;
     position: relative;
     transition: all 0.3s ease;
 }
@@ -170,30 +165,13 @@
     box-shadow: 0 8px 24px hsl(var(--foreground) / 0.04);
 }
 
-/* Section type indicators (removed borders for cleaner look) */
-.home-section[data-section-type="continue"] {
-    background: linear-gradient(160deg, hsl(35, 85%, 55%, 0.03), transparent 60%), hsl(var(--card) / 0.5);
-}
-
-.home-section[data-section-type="favorites"] {
-    background: linear-gradient(160deg, hsl(350, 70%, 55%, 0.03), transparent 60%), hsl(var(--card) / 0.5);
-}
-
-.home-section[data-section-type="completed"] {
-    background: linear-gradient(160deg, hsl(142, 60%, 45%, 0.03), transparent 60%), hsl(var(--card) / 0.5);
-}
-
-.home-section[data-section-type="on-hold"] {
-    background: linear-gradient(160deg, hsl(45, 80%, 50%, 0.03), transparent 60%), hsl(var(--card) / 0.5);
-}
-
-.home-section[data-section-type="history"] {
-    background: linear-gradient(160deg, hsl(200, 70%, 50%, 0.03), transparent 60%), hsl(var(--card) / 0.5);
-}
-
-.home-section[data-section-type="recent"] {
-    background: linear-gradient(160deg, hsl(280, 60%, 55%, 0.03), transparent 60%), hsl(var(--card) / 0.5);
-}
+/* Section type indicators (removed backgrounds for cleaner look) */
+.home-section[data-section-type="continue"] {}
+.home-section[data-section-type="favorites"] {}
+.home-section[data-section-type="completed"] {}
+.home-section[data-section-type="on-hold"] {}
+.home-section[data-section-type="history"] {}
+.home-section[data-section-type="recent"] {}
 
 .home-section-header {
     display: flex;
@@ -338,30 +316,16 @@
     scroll-snap-type: x mandatory;
     padding: 4px 4px 14px;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    scrollbar-color: hsl(var(--border)) transparent;
+    scrollbar-width: none;
     scroll-behavior: smooth;
+}
+
+.scroll-strip::-webkit-scrollbar {
+    display: none;
 }
 
 .scroll-strip > * {
     flex: 0 0 auto;
-}
-
-.scroll-strip::-webkit-scrollbar {
-    height: 5px;
-}
-
-.scroll-strip::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.scroll-strip::-webkit-scrollbar-thumb {
-    background: hsl(var(--border));
-    border-radius: 3px;
-}
-
-.scroll-strip::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground) / 0.4);
 }
 
 /* Carousel Navigation Arrows */
@@ -433,11 +397,11 @@
     cursor: pointer;
     border-radius: 14px;
     overflow: hidden;
-    border: 1px solid hsl(var(--border) / 0.4);
-    background: linear-gradient(145deg, hsl(var(--card) / 0.8), hsl(var(--card) / 0.5));
+    border: none;
+    background: hsl(var(--card) / 0.3);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    box-shadow: 0 4px 12px hsl(var(--foreground) / 0.03);
+    box-shadow: 0 4px 12px hsl(var(--foreground) / 0.02);
     color: inherit;
     font: inherit;
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
@@ -675,11 +639,11 @@
     cursor: pointer;
     border-radius: 14px;
     overflow: hidden;
-    border: 1px solid hsl(var(--border) / 0.4);
-    background: linear-gradient(145deg, hsl(var(--card) / 0.8), hsl(var(--card) / 0.5));
+    border: none;
+    background: hsl(var(--card) / 0.3);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    box-shadow: 0 4px 12px hsl(var(--foreground) / 0.03);
+    box-shadow: 0 4px 12px hsl(var(--foreground) / 0.02);
     color: inherit;
     font: inherit;
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
@@ -1066,13 +1030,7 @@
     overflow: hidden;
     height: 100%;
     border: none;
-    background:
-        radial-gradient(ellipse 80% 60% at 85% 15%, hsl(var(--primary) / 0.1), transparent 50%),
-        radial-gradient(ellipse 70% 50% at 10% 85%, hsl(var(--accent) / 0.18), transparent 55%),
-        linear-gradient(165deg, hsl(var(--card) / 0.98), hsl(var(--background) / 0.92));
-    box-shadow:
-        0 12px 32px hsl(var(--foreground) / 0.05),
-        inset 0 1px 0 hsl(var(--background) / 0.6);
+    background: hsl(var(--background) / 0.8);
     display: flex;
     flex-direction: column;
     gap: 20px;
@@ -1227,13 +1185,13 @@
     cursor: default;
 
     /* Premium Glass-morphism */
-    background: linear-gradient(135deg, hsl(var(--background) / 0.7) 0%, hsl(var(--background) / 0.4) 100%);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid hsl(var(--border) / 0.4);
+    background: hsl(var(--background) / 0.4);
+    backdrop-filter: blur(40px) saturate(150%);
+    -webkit-backdrop-filter: blur(40px) saturate(150%);
+    border: 1px solid hsl(var(--border) / 0.2);
     box-shadow:
-        0 8px 24px hsl(var(--foreground) / 0.06),
-        inset 0 1px 1px hsl(var(--background) / 0.6);
+        0 8px 24px hsl(0 0% 0% / 0.1),
+        inset 0 1px 1px hsl(0 0% 100% / 0.1);
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
@@ -1358,3 +1316,148 @@
 
 /* ─── Scroll strip animation fix ──────────────────── */
 
+
+/* ─── BENTO DASHBOARD ─── */
+.home-bento-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+}
+
+.bento-row {
+    display: grid;
+    gap: 20px;
+    width: 100%;
+}
+
+.bento-row.now-row {
+    grid-template-columns: 2fr 1fr;
+}
+
+.bento-row.activity-row {
+    grid-template-columns: 1.2fr 1.5fr 1fr;
+}
+
+.bento-row.collections-row {
+    grid-template-columns: 1fr 1fr 1fr;
+}
+
+.bento-widget {
+    background: hsl(var(--card) / 0.4);
+    border: 1px solid hsl(var(--border) / 0.5);
+    border-radius: 24px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    backdrop-filter: blur(16px);
+    transition: all 0.3s ease;
+    overflow: hidden;
+    position: relative;
+    min-height: 280px;
+}
+
+.bento-widget.compact {
+    min-height: auto;
+    padding: 20px;
+}
+
+.bento-widget:hover {
+    background: hsl(var(--card) / 0.7);
+    box-shadow: 0 12px 40px hsl(var(--foreground) / 0.05);
+    border-color: hsl(var(--border) / 0.8);
+}
+
+.bento-widget-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.bento-widget-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: hsl(var(--foreground));
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    letter-spacing: -0.01em;
+}
+
+.bento-widget-title svg {
+    color: hsl(var(--primary));
+    opacity: 0.8;
+}
+
+.bento-widget-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.bento-list-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    border-radius: 12px;
+    background: hsl(var(--muted) / 0.3);
+    transition: background 0.2s;
+    cursor: pointer;
+}
+
+.bento-list-item:hover {
+    background: hsl(var(--muted));
+}
+
+.bento-list-cover {
+    width: 48px;
+    height: 68px;
+    border-radius: 8px;
+    object-fit: cover;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.bento-list-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.bento-list-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: hsl(var(--foreground));
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bento-list-meta {
+    font-size: 12px;
+    color: hsl(var(--muted-foreground));
+}
+
+.bento-progress-track {
+    height: 4px;
+    background: hsl(var(--border));
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 4px;
+}
+
+.bento-progress-bar {
+    height: 100%;
+    background: hsl(var(--primary));
+    border-radius: 2px;
+}
+
+@media (max-width: 1200px) {
+    .bento-row.now-row, .bento-row.activity-row, .bento-row.collections-row {
+        grid-template-columns: 1fr;
+    }
+}

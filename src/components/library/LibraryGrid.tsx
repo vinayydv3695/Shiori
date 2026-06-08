@@ -193,10 +193,10 @@ export function LibraryGrid({
     });
   }, [books, currentDomain]);
 
-  // Group only for manga/comics domain when auto-grouping is enabled. Grouping huge books domain is expensive and unnecessary.
+  // Group books and manga when auto-grouping is enabled.
   const groupedItems = useGroupedLibrary(
     visibleLibrary,
-    currentDomain === "manga_comics" && autoGroupManga !== false,
+    autoGroupManga !== false,
   );
 
   // O(1) book lookup by ID (replaces O(n) Array.find on every click)

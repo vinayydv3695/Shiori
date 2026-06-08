@@ -120,19 +120,24 @@ export const OnlineResultCard = memo(function OnlineResultCard({
     >
       {/* Cover */}
       <div className="w-24 h-36 sm:w-28 sm:h-40 flex-shrink-0 bg-muted/50 rounded-lg overflow-hidden relative shadow-sm border border-border/40">
-        {!visible && <div className="absolute inset-0 shimmer" />}
+        {!visible && <div className="absolute inset-0 bg-muted animate-pulse" />}
         {visible && proxyUrl && !imgError && (
-          <img
-            src={proxyUrl}
-            alt={title}
-            className={cn(
-              'w-full h-full object-cover transition-all duration-500',
-              imgLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
+          <>
+            {!imgLoaded && (
+              <div className="absolute inset-0 bg-muted animate-pulse z-0" />
             )}
-            loading="lazy"
-            onLoad={() => setImgLoaded(true)}
-            onError={() => setImgError(true)}
-          />
+            <img
+              src={proxyUrl}
+              alt={title}
+              className={cn(
+                'w-full h-full object-cover transition-all duration-500 relative z-10',
+                imgLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
+              )}
+              loading="lazy"
+              onLoad={() => setImgLoaded(true)}
+              onError={() => setImgError(true)}
+            />
+          </>
         )}
         {(!coverUrl || imgError) && visible && (
           <div className="w-full h-full p-2.5 flex flex-col justify-between text-center select-none bg-gradient-to-br from-indigo-950 via-slate-900 to-blue-950 text-slate-200 border border-indigo-500/20 shadow-inner relative overflow-hidden">

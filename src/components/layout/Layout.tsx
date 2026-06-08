@@ -323,25 +323,17 @@ export function Layout({
           onDomainChange={onDomainChange}
           onImportFiles={handleOpenImportFilesDialog}
           onImportFolder={handleOpenImportFolderDialog}
-          onOpenRSS={onOpenRSSFeeds}
-          onConvert={handleConvert}
-          onEditMetadata={handleEditMetadata}
-          onFetchMetadata={handleFetchMetadataClick}
-          onViewDetails={handleViewDetails}
-          onDelete={handleDelete}
           onSearch={onSearchChange}
           searchValue={searchQuery}
           searchPlaceholder={searchPlaceholder}
           onOpenSettings={onOpenSettings}
           onOpenShortcuts={onOpenShortcuts}
-          onOpenDuplicateFinder={() => setDuplicateFinderOpen(true)}
           onOpenAdvancedFilter={onOpenAdvancedFilter}
           onToggleSidebar={() => setSidebarOpen((o) => !o)}
           onGoHome={onGoHome}
           onAutoGroupManga={onAutoGroupManga}
           currentView={currentView}
           onNavigateToView={onNavigateToView}
-          selectedCount={selectedBookIds.size}
           activeFilterCount={activeFilterCount}
           sidebarOpen={sidebarOpen}
         />

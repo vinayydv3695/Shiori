@@ -15,7 +15,7 @@ import { useMemo, useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   BookOpen, Clock, Sparkles, Rss, ArrowRight,
-  ListOrdered, Activity, HardDrive, Heart, History, CheckCircle2, PauseCircle
+  ListOrdered, Activity, HardDrive, Heart, History, CheckCircle2, PauseCircle, Globe, Search
 } from 'lucide-react'
 import { HomeSection, ScrollStrip } from './HomeSection'
 import { ContinueReadingCard, RecentlyAddedCard } from './ContinueReadingCard'
@@ -101,7 +101,7 @@ function HeroSection({
            <img 
              src={thumbUrl || ''} 
              alt="" 
-             className="hero-dynamic-bg opacity-15 blur-[60px] absolute inset-0 w-full h-full object-cover mix-blend-overlay pointer-events-none transition-all duration-1000"
+             className="hero-dynamic-bg opacity-40 blur-[80px] absolute inset-0 w-full h-full object-cover pointer-events-none transition-all duration-1000 scale-110"
            />
         ) : (
           <>
@@ -110,19 +110,6 @@ function HeroSection({
             <div className="hero-orb hero-orb-3" />
           </>
         )}
-
-        <div className="home-quick-access">
-          <span className="home-quick-access-label">Quick access</span>
-          <button type="button" onClick={handleViewOnlineBooks} className="home-quick-access-button">
-            Online Books
-          </button>
-          <button type="button" onClick={handleViewOnlineManga} className="home-quick-access-button">
-            Online Manga
-          </button>
-          <button type="button" onClick={() => setCurrentView('statistics')} className="home-quick-access-button">
-            View Statistics
-          </button>
-        </div>
       </div>
 
       <div className="hero-content">
@@ -359,25 +346,15 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
 
   return (
     <motion.div
-      className="home-page"
+      className="home-bento-layout p-6 max-w-[1400px] mx-auto"
       variants={containerVariants}
       initial="hidden"
       animate="show"
     >
-      {/* ── Bento Grid: Hero & Featured ── */}
-      <div className="home-bento-grid">
-        <HeroSection
-          totalBooks={libraryStats?.total_books || 0}
-          totalManga={libraryStats?.total_manga || 0}
-          totalSize={libraryStats?.total_size_bytes || 0}
-          booksInProgress={allInProgress}
-          domain={domain}
-          onViewLibrary={handleViewLibrary}
-          featuredBook={continueReading[0] || recentlyAdded[0] || null}
-        />
-
-        {continueReading.length > 0 && (
-          <div className="flex flex-col h-full">
+      {/* ── ROW 1: THE "NOW" ROW ── */}
+      <div className="bento-row now-row">
+        {continueReading.length > 0 ? (
+          <div className="bento-widget p-0 overflow-hidden flex flex-col h-full border-none bg-transparent">
             <FeaturedContinueCard 
               book={continueReading[0]} 
               progress={progressMap[continueReading[0].id!] || { progressPercent: 0, book_id: continueReading[0].id!, total_seconds: 0 } as any} 
@@ -385,243 +362,162 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
               isManga={domain === 'manga_comics'}
             />
           </div>
+        ) : (
+          <div className="bento-widget flex items-center justify-center text-center p-8">
+            <div className="flex flex-col items-center max-w-md gap-4">
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-2">
+                <Sparkles size={32} />
+              </div>
+              <h2 className="text-2xl font-bold">Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}</h2>
+              <p className="text-muted-foreground">
+                Your personal {domain === 'manga_comics' ? 'manga & comics' : 'books'} library. 
+                You don't have any items in progress right now. Why not start something new?
+              </p>
+              <button onClick={handleViewLibrary} className="mt-4 px-6 py-3 bg-primary text-primary-foreground font-bold rounded-xl hover:bg-primary/90 transition-colors flex items-center gap-2">
+                Browse Library <ArrowRight size={16} />
+              </button>
+            </div>
+          </div>
         )}
 
-        <div className="home-quick-access">
-          <span className="home-quick-access-label">Quick access</span>
-          <button type="button" onClick={handleViewOnlineBooks} className="home-quick-access-button">
-            Online Books
-          </button>
-          <button type="button" onClick={handleViewOnlineManga} className="home-quick-access-button">
-            Online Manga
-          </button>
-          <button type="button" onClick={() => setCurrentView('statistics')} className="home-quick-access-button">
-            View Statistics
-          </button>
+        <div className="bento-widget">
+          <div className="bento-widget-header">
+            <h2 className="bento-widget-title"><Activity size={18} /> Quick Stats</h2>
+          </div>
+          <div className="flex flex-col gap-4 mt-2">
+            <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
+              <span className="text-muted-foreground font-medium text-sm">Total {domain === 'manga_comics' ? 'Manga' : 'Books'}</span>
+              <span className="font-bold text-lg">{domain === 'manga_comics' ? (libraryStats?.total_manga || 0) : (libraryStats?.total_books || 0)}</span>
+            </div>
+            <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
+              <span className="text-muted-foreground font-medium text-sm">In Progress</span>
+              <span className="font-bold text-lg text-primary">{allInProgress}</span>
+            </div>
+            <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
+              <span className="text-muted-foreground font-medium text-sm">Library Size</span>
+              <span className="font-bold text-lg">{formatFileSize(libraryStats?.total_size_bytes || 0)}</span>
+            </div>
+            <button onClick={handleViewLibrary} className="mt-2 w-full py-3 bg-primary/10 hover:bg-primary/20 text-primary font-bold rounded-xl transition-colors flex items-center justify-center gap-2">
+              Browse Library <ArrowRight size={16} />
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* ── Continue Reading (Remaining) ── */}
-      <AnimatePresence mode="wait">
-        {continueReading.length > 1 && (
-          <motion.div key="continue" variants={itemVariants}>
-            <HomeSection
-              icon={<Clock size={18} />}
-              title="Continue Reading"
-              action={{ label: 'View All', onClick: handleViewLibrary }}
-              sectionType="continue"
-            >
-              <ScrollStrip>
-                {continueReading.slice(1).map((book) => (
-                  <div key={book.id}>
-                    <ContinueReadingCard
-                      book={book}
-                      progress={progressMap[book.id!]?.progressPercent ?? 0}
-                      domain={domain}
-                      onClick={handleOpenBook}
-                    />
+      {/* ── ROW 2: ACTIVITY & DISCOVERY ── */}
+      <div className="bento-row activity-row">
+        
+        {/* Jump Back In */}
+        <div className="bento-widget">
+          <div className="bento-widget-header">
+            <h2 className="bento-widget-title"><Clock size={18} /> Jump Back In</h2>
+          </div>
+          <div className="bento-widget-content">
+            {continueReading.slice(1, 4).map(book => (
+              <div key={book.id} onClick={() => handleOpenBook(book)} className="bento-list-item">
+                <img src={convertFileSrc(book.cover_path || '')} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
+                <div className="bento-list-info">
+                  <span className="bento-list-title">{book.title}</span>
+                  <span className="bento-list-meta">{progressMap[book.id!]?.progressPercent ?? 0}% completed</span>
+                  <div className="bento-progress-track">
+                    <div className="bento-progress-bar" style={{ width: `${progressMap[book.id!]?.progressPercent ?? 0}%` }} />
                   </div>
-                ))}
-              </ScrollStrip>
-            </HomeSection>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ── Favorites ── */}
-      {favoriteBooks.length > 0 && (
-        <LazyRow height={280}>
-        <motion.div variants={itemVariants}>
-
-          <HomeSection
-            icon={<Heart size={18} />}
-            title="Favorites"
-            action={{ label: 'View All', onClick: handleViewLibrary }}
-            sectionType="favorites"
-          >
-            <ScrollStrip>
-              {favoriteBooks.map((book) => (
-                <div key={book.id}>
-                  <ContinueReadingCard
-                    book={book}
-                    progress={progressMap[book.id!]?.progressPercent ?? 0}
-                    domain={domain}
-                    onClick={handleOpenBook}
-                  />
                 </div>
-              ))}
-            </ScrollStrip>
-          </HomeSection>
-        
-        </motion.div>
-      </LazyRow>
-      )}
-
-      {/* ── Completed ── */}
-      {completedBooks.length > 0 && (
-        <LazyRow height={280}>
-        <motion.div variants={itemVariants}>
-
-          <HomeSection
-            icon={<CheckCircle2 size={18} />}
-            title="Completed"
-            action={{ label: 'View All', onClick: handleViewLibrary }}
-            sectionType="completed"
-          >
-            <ScrollStrip>
-              {completedBooks.map((book) => (
-                <div key={book.id}>
-                  <ContinueReadingCard
-                    book={book}
-                    progress={100}
-                    domain={domain}
-                    onClick={handleOpenBook}
-                  />
-                </div>
-              ))}
-            </ScrollStrip>
-          </HomeSection>
-        
-        </motion.div>
-      </LazyRow>
-      )}
-
-      {/* ── On Hold ── */}
-      {onHoldBooks.length > 0 && (
-        <LazyRow height={280}>
-        <motion.div variants={itemVariants}>
-
-          <HomeSection
-            icon={<PauseCircle size={18} />}
-            title="On Hold"
-            action={{ label: 'View All', onClick: handleViewLibrary }}
-            sectionType="on-hold"
-          >
-            <ScrollStrip>
-              {onHoldBooks.map((book) => (
-                <div key={book.id}>
-                  <ContinueReadingCard
-                    book={book}
-                    progress={progressMap[book.id!]?.progressPercent ?? 0}
-                    domain={domain}
-                    onClick={handleOpenBook}
-                  />
-                </div>
-              ))}
-            </ScrollStrip>
-          </HomeSection>
-        
-        </motion.div>
-      </LazyRow>
-      )}
-
-      {/* ── Last Read ── */}
-      {lastReadBooks.length > 0 && (
-        <LazyRow height={280}>
-        <motion.div variants={itemVariants}>
-
-          <HomeSection
-            icon={<History size={18} />}
-            title="Last Read"
-            action={{ label: 'View All', onClick: handleViewLibrary }}
-            sectionType="history"
-          >
-            <ScrollStrip>
-              {lastReadBooks.map((book) => (
-                <div key={book.id}>
-                  <ContinueReadingCard
-                    book={book}
-                    progress={progressMap[book.id!]?.progressPercent ?? 0}
-                    domain={domain}
-                    onClick={handleOpenBook}
-                  />
-                </div>
-              ))}
-            </ScrollStrip>
-          </HomeSection>
-        
-        </motion.div>
-      </LazyRow>
-      )}
-
-      
-      {/* ── Recommendations ── */}
-      {recommendedBooks.length > 0 && (
-        <LazyRow height={280}>
-        <motion.div variants={itemVariants}>
-
-          <HomeSection
-            icon={<Sparkles size={18} />}
-            title="Because you read..."
-            action={{ label: 'View All', onClick: handleViewLibrary }}
-            sectionType="recommended"
-          >
-            <ScrollStrip>
-              {recommendedBooks.map((book) => (
-                <div key={book.id}>
-                  <ContinueReadingCard
-                    book={book}
-                    progress={0}
-                    domain={domain}
-                    onClick={handleOpenBook}
-                  />
-                </div>
-              ))}
-            </ScrollStrip>
-          </HomeSection>
-        
-        </motion.div>
-      </LazyRow>
-      )}
-
-      {/* ── Recently Added ── */}
-      <LazyRow height={280}>
-        <motion.div variants={itemVariants}>
-
-        <HomeSection
-          icon={<Sparkles size={18} />}
-          title="Recently Added"
-          action={{ label: 'View All', onClick: handleViewLibrary }}
-          sectionType="recent"
-        >
-          <ScrollStrip>
-            {recentlyAdded.map((book) => (
-              <div key={book.id}>
-                <RecentlyAddedCard
-                  book={book}
-                  onClick={handleOpenBook}
-                />
               </div>
             ))}
-          </ScrollStrip>
-        </HomeSection>
-      
-        </motion.div>
-      </LazyRow>
+            {continueReading.length <= 1 && (
+              <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground text-center px-4">
+                You're all caught up! No other books in progress.
+              </div>
+            )}
+          </div>
+        </div>
 
-      {/* ── RSS Preview (books domain only) ── */}
-      {domain === 'books' && (
-        <motion.div variants={itemVariants}>
-          <div className="home-divider" />
-          <HomeSection
-            icon={<Rss size={18} />}
-            title="Latest News"
-            action={{ label: 'View All', onClick: onViewRSS }}
-          >
-            <div className="rss-preview-list">
-              <motion.div
-                className="rss-preview-item"
-                onClick={onViewRSS}
-                whileHover={{ x: 4 }}
-                transition={{ duration: 0.15 }}
-              >
-                <div className="rss-preview-title">Check your RSS feeds for the latest book news</div>
-                <ArrowRight size={14} className="text-muted-foreground" />
-              </motion.div>
+        {/* Recent Activity */}
+        <div className="bento-widget">
+          <div className="bento-widget-header">
+            <h2 className="bento-widget-title"><History size={18} /> Recent Activity</h2>
+          </div>
+          <div className="bento-widget-content overflow-y-auto pr-2" style={{ maxHeight: '300px' }}>
+            {recentlyAdded.slice(0, 5).map(book => (
+              <div key={`recent-${book.id}`} onClick={() => handleOpenBook(book)} className="bento-list-item">
+                <img src={convertFileSrc(book.cover_path || '')} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
+                <div className="bento-list-info">
+                  <span className="bento-list-title">{book.title}</span>
+                  <span className="bento-list-meta">Added to library</span>
+                </div>
+              </div>
+            ))}
+            {recentlyAdded.length === 0 && (
+              <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+                No recent activity.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Online Discovery */}
+        <div className="bento-widget">
+          <div className="bento-widget-header">
+            <h2 className="bento-widget-title"><Globe size={18} /> Online Discovery</h2>
+          </div>
+          <div className="flex flex-col gap-4 mt-4 h-full">
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Search and download directly from {domain === 'manga_comics' ? 'Nyaa' : 'Torbox'}.
+            </p>
+            <div className="mt-auto flex flex-col gap-2">
+              <button onClick={domain === 'manga_comics' ? handleViewOnlineManga : handleViewOnlineBooks} className="w-full py-3 bg-primary/10 hover:bg-primary/20 text-primary font-bold rounded-xl transition-colors flex items-center justify-center gap-2">
+                <Search size={16} /> Search Online
+              </button>
             </div>
-          </HomeSection>
-        </motion.div>
-      )}
+          </div>
+        </div>
+
+      </div>
+
+      {/* ── ROW 3: COLLECTIONS ── */}
+      <div className="bento-row collections-row">
+        
+        {/* Favorites */}
+        <div className="bento-widget compact cursor-pointer hover:border-primary/50" onClick={handleViewLibrary}>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-pink-500/10 flex items-center justify-center text-pink-500">
+              <Heart size={24} />
+            </div>
+            <div>
+              <h3 className="font-bold text-foreground text-lg">{favoriteBooks.length} Favorites</h3>
+              <p className="text-sm text-muted-foreground">View your top picks</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Completed */}
+        <div className="bento-widget compact cursor-pointer hover:border-green-500/50" onClick={handleViewLibrary}>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center text-green-500">
+              <CheckCircle2 size={24} />
+            </div>
+            <div>
+              <h3 className="font-bold text-foreground text-lg">{completedBooks.length} Completed</h3>
+              <p className="text-sm text-muted-foreground">Revisit finished works</p>
+            </div>
+          </div>
+        </div>
+
+        {/* On Hold */}
+        <div className="bento-widget compact cursor-pointer hover:border-orange-500/50" onClick={handleViewLibrary}>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500">
+              <PauseCircle size={24} />
+            </div>
+            <div>
+              <h3 className="font-bold text-foreground text-lg">{onHoldBooks.length} On Hold</h3>
+              <p className="text-sm text-muted-foreground">Pick up where you left off</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
     </motion.div>
   )
 }

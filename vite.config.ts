@@ -69,8 +69,11 @@ export default defineConfig({
       output: {
         // Remove crossorigin from generated <link rel="modulepreload"> tags
         generatedCode: { constBindings: true },
-        // manualChunks removed to prevent 1-byte chunk generation issues in Rollup
-        // manualChunks: { ... }
+        manualChunks: {
+          pdfjs: ['react-pdf', 'pdfjs-dist'],
+          epubjs: ['epubjs'],
+          vendor: ['react', 'react-dom', 'framer-motion']
+        }
       },
     },
   },

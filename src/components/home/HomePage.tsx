@@ -300,7 +300,7 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
     } catch (err) {
       logger.error('Failed to load home data', err);
     }
-  }, [domain, favoriteBookIds]);
+  }, [domain]);
 
   useEffect(() => {
     loadHomeData();

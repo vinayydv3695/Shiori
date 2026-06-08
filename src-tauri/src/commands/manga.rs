@@ -218,68 +218,71 @@ pub fn get_series_volumes(
 
 #[tauri::command]
 pub async fn auto_group_manga_volumes(state: State<'_, AppState>) -> Result<usize> {
-    let db = &state.db;
-    let conn = db.get_connection()?;
+    let db = state.db.clone();
+    
+    tokio::task::spawn_blocking(move || {
+        let conn = db.get_connection()?;
 
-    let mut stmt = conn.prepare(
-        "SELECT id, title FROM books 
-         WHERE domain IN ('manga', 'comic') AND manga_series_id IS NULL 
-         ORDER BY title ASC"
-    )?;
+        let mut stmt = conn.prepare(
+            "SELECT id, title FROM books 
+             WHERE domain IN ('manga', 'comic') AND manga_series_id IS NULL 
+             ORDER BY title ASC"
+        )?;
 
-    let books_to_process: Vec<(i64, String)> = stmt
-        .query_map([], |row| {
-            Ok((row.get(0)?, row.get(1)?))
-        })?
-        .collect::<std::result::Result<Vec<_>, _>>()
-        .map_err(|e| crate::error::ShioriError::from(e))?;
+        let books_to_process: Vec<(i64, String)> = stmt
+            .query_map([], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(|e| crate::error::ShioriError::from(e))?;
 
-    let mut grouped_count = 0;
+        let mut grouped_count = 0;
 
-    for (book_id, title) in books_to_process {
-        if let Some(captures) = MANGA_VOLUME_REGEX.captures(&title) {
-            if let (Some(series_name_match), Some(volume_match)) =
-                (captures.get(1), captures.get(2))
-            {
-                let series_name = series_name_match.as_str().trim().to_string();
-                let volume_num = volume_match
-                    .as_str()
-                    .parse::<f32>()
-                    .unwrap_or(0.0)
-                    .round() as i32;
+        for (book_id, title) in books_to_process {
+            if let Some(captures) = MANGA_VOLUME_REGEX.captures(&title) {
+                if let (Some(series_name_match), Some(volume_match)) =
+                    (captures.get(1), captures.get(2))
+                {
+                    let series_name = series_name_match.as_str().trim().to_string();
+                    let volume_num = volume_match
+                        .as_str()
+                        .parse::<f32>()
+                        .unwrap_or(0.0)
+                        .round() as i32;
 
-                if !series_name.is_empty() && volume_num > 0 {
-                    let series_id: Option<i64> = conn
-                        .query_row(
-                            "SELECT id FROM manga_series WHERE title = ?",
-                            [&series_name],
-                            |row| row.get(0),
-                        )
-                        .ok();
+                    if !series_name.is_empty() && volume_num > 0 {
+                        let series_id: Option<i64> = conn
+                            .query_row(
+                                "SELECT id FROM manga_series WHERE title = ?",
+                                [&series_name],
+                                |row| row.get(0),
+                            )
+                            .ok();
 
-                    let series_id = if let Some(sid) = series_id {
-                        sid
-                    } else {
+                        let series_id = if let Some(sid) = series_id {
+                            sid
+                        } else {
+                            conn.execute(
+                                "INSERT INTO manga_series (title, sort_title, status, added_date) 
+                                 VALUES (?, ?, 'ongoing', CURRENT_TIMESTAMP)",
+                                [&series_name, &series_name],
+                            )?;
+                            conn.last_insert_rowid()
+                        };
+
                         conn.execute(
-                            "INSERT INTO manga_series (title, sort_title, status, added_date) 
-                             VALUES (?, ?, 'ongoing', CURRENT_TIMESTAMP)",
-                            [&series_name, &series_name],
+                            "UPDATE books SET manga_series_id = ?, series = ?, series_index = ? WHERE id = ?",
+                            rusqlite::params![series_id, &series_name, volume_num, book_id],
                         )?;
-                        conn.last_insert_rowid()
-                    };
 
-                    conn.execute(
-                        "UPDATE books SET manga_series_id = ?, series = ?, series_index = ? WHERE id = ?",
-                        rusqlite::params![series_id, &series_name, volume_num, book_id],
-                    )?;
-
-                    grouped_count += 1;
+                        grouped_count += 1;
+                    }
                 }
             }
         }
-    }
 
-    Ok(grouped_count)
+        Ok(grouped_count)
+    }).await.map_err(|e| crate::error::ShioriError::Other(e.to_string()))?
 }
 
 #[tauri::command]

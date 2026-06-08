@@ -82,7 +82,76 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_shell::init());
-    
+        
+    builder = builder.register_asynchronous_uri_scheme_protocol("shiori-proxy", |_ctx, request, responder| {
+        let uri = request.uri().to_string();
+        
+        tauri::async_runtime::spawn(async move {
+            let mut source_id = None;
+            let mut image_url = None;
+            
+            if let Ok(url) = url::Url::parse(&uri) {
+                for (key, value) in url.query_pairs() {
+                    if key == "source" {
+                        source_id = Some(value.into_owned());
+                    } else if key == "url" {
+                        image_url = Some(value.into_owned());
+                    }
+                }
+            }
+            
+            if let (Some(source_id), Some(image_url)) = (source_id, image_url) {
+                let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+                let referer = match source_id.as_str() {
+                    "toongod" => Some("https://www.toongod.org/"),
+                    "mangadex" => Some("https://mangadex.org/"),
+                    "weebrook" => Some("https://weebrook.com/"),
+                    "libgen" => Some("https://libgen.li/"),
+                    _ => None,
+                };
+                
+                let mut req = reqwest::Client::new()
+                    .get(&image_url)
+                    .header("User-Agent", user_agent);
+                if let Some(ref_url) = referer {
+                    req = req.header("Referer", ref_url);
+                }
+                
+                if let Ok(response) = req.send().await {
+                    if response.status().is_success() {
+                        // Forward Content-Type if present
+                        let content_type = response
+                            .headers()
+                            .get(reqwest::header::CONTENT_TYPE)
+                            .and_then(|v| v.to_str().ok())
+                            .unwrap_or("image/jpeg")
+                            .to_string();
+                            
+                        if let Ok(bytes) = response.bytes().await {
+                            responder.respond(
+                                tauri::http::Response::builder()
+                                    .status(200)
+                                    .header("Content-Type", content_type)
+                                    .header("Access-Control-Allow-Origin", "*")
+                                    .header("Cache-Control", "public, max-age=31536000")
+                                    .body(bytes.to_vec())
+                                    .unwrap()
+                            );
+                            return;
+                        }
+                    }
+                }
+            }
+            
+            responder.respond(
+                tauri::http::Response::builder()
+                    .status(404)
+                    .body(Vec::new())
+                    .unwrap()
+            );
+        });
+    });
+
     #[cfg(feature = "native-tts")]
     {
         log::info!("Native TTS plugin enabled - initializing tauri-plugin-tts");

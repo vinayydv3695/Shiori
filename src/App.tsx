@@ -1,4 +1,4 @@
-import { useEffect, useState, lazy, Suspense } from "react"
+import { useEffect, useState, lazy, Suspense, useCallback } from "react"
 import { flushSync } from "react-dom"
 import { Layout } from "./components/layout/Layout"
 import { LibraryGrid } from "./components/library/LibraryGrid"
@@ -142,16 +142,16 @@ function App() {
   })
 
   // ── Book action handlers (thin wrappers that connect dialogs to actions) ──
-  const handleEditBook = (bookId: number) => dialogs.openEditDialog(bookId)
+  const handleEditBook = useCallback((bookId: number) => dialogs.openEditDialog(bookId), [dialogs])
 
-  const handleDeleteBook = (bookId: number) => {
+  const handleDeleteBook = useCallback((bookId: number) => {
     const book = books.find(b => b.id === bookId)
     dialogs.openDeleteDialog(bookId, book?.title || "this book")
-  }
+  }, [books, dialogs])
 
-  const handleDeleteBooks = (bookIds: number[]) => dialogs.openDeleteMultipleDialog(bookIds)
-  const handleViewDetails = (bookId: number) => dialogs.openDetailsDialog(bookId)
-  const handleConvertBook = (bookId: number) => dialogs.openConversionDialog(bookId)
+  const handleDeleteBooks = useCallback((bookIds: number[]) => dialogs.openDeleteMultipleDialog(bookIds), [dialogs])
+  const handleViewDetails = useCallback((bookId: number) => dialogs.openDetailsDialog(bookId), [dialogs])
+  const handleConvertBook = useCallback((bookId: number) => dialogs.openConversionDialog(bookId), [dialogs])
 
   // ── Render ──
   if (isReaderOpen && selectedBookId) {

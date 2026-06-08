@@ -20,6 +20,7 @@ impl Database {
             c.execute_batch("PRAGMA synchronous = NORMAL")?;
             c.execute_batch("PRAGMA temp_store = MEMORY")?;
             c.execute_batch("PRAGMA mmap_size = 3000000000")?;
+            c.execute_batch("PRAGMA cache_size = -65536")?; // Default to 64MB cache for all connections in pool
             // Avoid SQLITE_BUSY under concurrent access
             c.busy_timeout(std::time::Duration::from_millis(5000))?;
             Ok(())
@@ -174,6 +175,11 @@ impl Database {
             [],
         )?;
 
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_books_authors_author ON books_authors(author_id)",
+            [],
+        )?;
+
         // Tags table
         conn.execute(
             "CREATE TABLE IF NOT EXISTS tags (
@@ -193,6 +199,11 @@ impl Database {
                 FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE,
                 PRIMARY KEY (book_id, tag_id)
             )",
+            [],
+        )?;
+
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_books_tags_tag ON books_tags(tag_id)",
             [],
         )?;
 

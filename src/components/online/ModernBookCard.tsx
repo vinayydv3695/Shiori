@@ -57,23 +57,8 @@ export const ModernBookCard = memo(function ModernBookCard({
     let objectUrl: string | null = null;
     
     if (coverUrl.includes('libgen')) {
-      api.proxyMangaImage('libgen', coverUrl)
-        .then(arr => {
-          if (!active) return;
-          if (arr.length < 100) throw new Error('Invalid or empty cover image');
-          const u8arr = new Uint8Array(arr as unknown as Iterable<number>);
-          const blob = new Blob([u8arr], { type: 'image/jpeg' });
-          objectUrl = URL.createObjectURL(blob);
-          setProxyUrl(objectUrl);
-        })
-        .catch(() => {
-          if (!active) return;
-          fetchCoverForBook(title, author).then(fallbackUrl => {
-            if (!active) return;
-            if (fallbackUrl) setProxyUrl(fallbackUrl);
-            else setImgError(true);
-          });
-        });
+      const proxyUri = `shiori-proxy://localhost?source=libgen&url=${encodeURIComponent(coverUrl)}`;
+      setProxyUrl(proxyUri);
     } else {
       setProxyUrl(coverUrl);
     }
@@ -83,7 +68,23 @@ export const ModernBookCard = memo(function ModernBookCard({
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [visible, coverUrl, imgError, title, author]);
+  useEffect(() => {
+    if (!visible || !coverUrl || !imgError) return;
+    let active = true;
+    
+    // If the primary image errors out (e.g., shiori-proxy fails), try the fallback
+    import('@/online-books/openlibrary/api').then(({ fetchCoverForBook }) => {
+      fetchCoverForBook(title, author).then(fallbackUrl => {
+        if (!active) return;
+        if (fallbackUrl) {
+          setProxyUrl(fallbackUrl);
+          setImgError(false); // allow the img tag to try rendering again
+        }
+      });
+    });
 
+    return () => { active = false; };
+  }, [visible, coverUrl, imgError, title, author]);
   // Calculate download progress if available
   const progressPercent = downloadState?.total_bytes && downloadState.total_bytes > 0 
     ? Math.min(100, Math.round((downloadState.downloaded_bytes / downloadState.total_bytes) * 100))

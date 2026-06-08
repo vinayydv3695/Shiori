@@ -23,6 +23,7 @@ import {
   IconConvert,
   IconCheck,
 } from '@/components/icons/ShioriIcons'
+import { useLibraryStore } from '@/store/libraryStore'
 import { useCoverImage } from '../common/hooks/useCoverImage'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { Edit2, Trash2, Layers } from 'lucide-react'
@@ -125,7 +126,7 @@ interface BookCardProps {
    *  Defaults to 'medium' for dialogs (SeriesView, etc.) that don't need
    *  the dynamic size setting. */
   coverSize?: 'small' | 'medium' | 'large'
-  isSelected: boolean
+  isSelected?: boolean
   onSelect: (id: number) => void
   onOpen: (id: number) => void
   onViewDetails?: (id: number) => void
@@ -141,18 +142,23 @@ interface BookCardProps {
 export const PremiumBookCard = memo(function PremiumBookCard({
   book,
   coverSize = 'medium',
-  isSelected,
+  isSelected: propIsSelected,
   onSelect,
   onOpen,
   onViewDetails,
   onEdit,
   onDelete,
   onConvert,
-  isFavorited,
+  isFavorited: propIsFavorited,
   onFavorite,
   animationDelay = 0,
   scrollRoot,
 }: BookCardProps) {
+  const storeIsSelected = useLibraryStore((s) => s.selectedBookIds.has(book.id!))
+  const storeIsFavorited = useLibraryStore((s) => s.favoriteBookIds.has(book.id!))
+  const isSelected = propIsSelected ?? storeIsSelected
+  const isFavorited = propIsFavorited ?? storeIsFavorited
+  
   const [imgLoaded, setImgLoaded] = useState(false)
   const [imgError, setImgError] = useState(false)
   const cardRef = useRef<HTMLDivElement>(null)

@@ -172,13 +172,16 @@ pub fn delete_book(state: State<AppState>, id: i64) -> Result<()> {
 }
 
 #[tauri::command]
-pub fn import_books(state: State<'_, AppState>, paths: Vec<String>) -> Result<ImportResult> {
+pub async fn import_books(state: State<'_, AppState>, paths: Vec<String>) -> Result<ImportResult> {
     validate::require_non_empty_vec(&paths, "file paths")?;
     for path in &paths {
         validate::require_safe_path(path, "import path")?;
     }
-    let db = &state.db;
-    library_service::import_books(db, paths, &state.covers_dir)
+    let db = state.db.clone();
+    let covers_dir = state.covers_dir.clone();
+    tokio::task::spawn_blocking(move || {
+        library_service::import_books(&db, paths, &covers_dir)
+    }).await.map_err(|e| crate::error::ShioriError::Other(e.to_string()))?
 }
 
 #[tauri::command]
@@ -187,9 +190,15 @@ pub async fn scan_folder_unified(
     folder_path: String,
 ) -> Result<ImportResult> {
     validate::require_safe_path(&folder_path, "folder path")?;
-    let db = &state.db;
-    let result = library_service::scan_and_import_folder(db, &folder_path, &state.covers_dir)?;
+    let db = state.db.clone();
+    let covers_dir = state.covers_dir.clone();
+    let folder_path_clone = folder_path.clone();
+
+    let result = tokio::task::spawn_blocking(move || {
+        library_service::scan_and_import_folder(&db, &folder_path_clone, &covers_dir)
+    }).await.map_err(|e| crate::error::ShioriError::Other(e.to_string()))??;
     
+    let db = &state.db;
     let conn = db.get_connection()?;
     let auto_group: bool = conn.query_row(
         "SELECT auto_group_manga FROM user_preferences WHERE id = 1",
@@ -210,9 +219,14 @@ pub async fn import_manga(state: State<'_, AppState>, paths: Vec<String>) -> Res
     for path in &paths {
         validate::require_safe_path(path, "import path")?;
     }
-    let db = &state.db;
-    let result = library_service::import_manga(db, paths, &state.covers_dir)?;
+    let db = state.db.clone();
+    let covers_dir = state.covers_dir.clone();
     
+    let result = tokio::task::spawn_blocking(move || {
+        library_service::import_manga(&db, paths, &covers_dir)
+    }).await.map_err(|e| crate::error::ShioriError::Other(e.to_string()))??;
+    
+    let db = &state.db;
     let conn = db.get_connection()?;
     let auto_group: bool = conn.query_row(
         "SELECT auto_group_manga FROM user_preferences WHERE id = 1",
@@ -233,9 +247,15 @@ pub async fn scan_folder_for_manga(
     folder_path: String,
 ) -> Result<ImportResult> {
     validate::require_safe_path(&folder_path, "folder path")?;
-    let db = &state.db;
-    let result = library_service::scan_folder_for_manga(db, &folder_path, &state.covers_dir)?;
+    let db = state.db.clone();
+    let covers_dir = state.covers_dir.clone();
+    let folder_path_clone = folder_path.clone();
     
+    let result = tokio::task::spawn_blocking(move || {
+        library_service::scan_folder_for_manga(&db, &folder_path_clone, &covers_dir)
+    }).await.map_err(|e| crate::error::ShioriError::Other(e.to_string()))??;
+    
+    let db = &state.db;
     let conn = db.get_connection()?;
     let auto_group: bool = conn.query_row(
         "SELECT auto_group_manga FROM user_preferences WHERE id = 1",
@@ -251,23 +271,29 @@ pub async fn scan_folder_for_manga(
 }
 
 #[tauri::command]
-pub fn import_comics(state: State<'_, AppState>, paths: Vec<String>) -> Result<ImportResult> {
+pub async fn import_comics(state: State<'_, AppState>, paths: Vec<String>) -> Result<ImportResult> {
     validate::require_non_empty_vec(&paths, "file paths")?;
     for path in &paths {
         validate::require_safe_path(path, "import path")?;
     }
-    let db = &state.db;
-    library_service::import_comics(db, paths, &state.covers_dir)
+    let db = state.db.clone();
+    let covers_dir = state.covers_dir.clone();
+    tokio::task::spawn_blocking(move || {
+        library_service::import_comics(&db, paths, &covers_dir)
+    }).await.map_err(|e| crate::error::ShioriError::Other(e.to_string()))?
 }
 
 #[tauri::command]
-pub fn scan_folder_for_comics(
+pub async fn scan_folder_for_comics(
     state: State<'_, AppState>,
     folder_path: String,
 ) -> Result<ImportResult> {
     validate::require_safe_path(&folder_path, "folder path")?;
-    let db = &state.db;
-    library_service::scan_folder_for_comics(db, &folder_path, &state.covers_dir)
+    let db = state.db.clone();
+    let covers_dir = state.covers_dir.clone();
+    tokio::task::spawn_blocking(move || {
+        library_service::scan_folder_for_comics(&db, &folder_path, &covers_dir)
+    }).await.map_err(|e| crate::error::ShioriError::Other(e.to_string()))?
 }
 
 #[tauri::command]

@@ -230,6 +230,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
   const [manualMagnet, setManualMagnet] = useState('')
   const [editingKey, setEditingKey] = useState(false)
   const [linkSearchFilter, setLinkSearchFilter] = useState('')
+  const [refineQuery, setRefineQuery] = useState('')
 
   const booksJobs = useMemo(() => jobs.filter((job) => job.source === 'anna'), [jobs])
   const mangaJobs = useMemo(() => jobs.filter((job) => job.source === 'manga'), [jobs])
@@ -372,16 +373,20 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
     }
   }, [searchQuery, searchType])
 
-  const fetchTorrentsForMetadata = useCallback(async (meta: UnifiedMetadata) => {
+  const fetchTorrentsForMetadata = useCallback(async (meta: UnifiedMetadata, customQuery?: string) => {
     setIsFetchingTorrents(meta.id)
-    setActiveModalResult({
-      id: meta.id,
-      title: meta.title,
-      sources: [],
-    })
-    setLinkSearchFilter('')
+    if (!customQuery) {
+      setActiveModalResult({
+        id: meta.id,
+        title: meta.title,
+        sources: [],
+      })
+      setLinkSearchFilter('')
+      setRefineQuery(meta.title)
+    }
+    const query = customQuery || meta.title
     try {
-      const raw = await invoke<any>('search_manga_sources', { query: meta.title })
+      const raw = await invoke<any>('search_manga_sources', { query })
       const rootArray = Array.isArray(raw) ? raw : (raw?.items ?? raw?.results ?? raw?.data ?? [])
       
       const sources: SearchSource[] = []
@@ -691,6 +696,27 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                                     <h4 className="text-sm font-semibold tracking-tight">
                                       Available Torrents {isFetchingTorrents === activeModalResult.id ? '' : `(${activeModalResult.sources.length})`}
                                     </h4>
+                                  </div>
+
+                                  <div className="flex flex-col sm:flex-row items-center gap-2 mb-6">
+                                    <div className="relative flex-1 w-full">
+                                      <input 
+                                        type="text" 
+                                        placeholder="Refine search query..." 
+                                        value={refineQuery}
+                                        onChange={e => setRefineQuery(e.target.value)}
+                                        onKeyDown={e => { if (e.key === 'Enter') fetchTorrentsForMetadata(result, refineQuery) }}
+                                        className="w-full bg-background border border-border rounded-md px-4 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary transition-shadow"
+                                      />
+                                    </div>
+                                    <Button 
+                                      size="sm" 
+                                      className="h-9 px-4 font-semibold w-full sm:w-auto"
+                                      onClick={() => fetchTorrentsForMetadata(result, refineQuery)}
+                                      disabled={isFetchingTorrents === activeModalResult.id}
+                                    >
+                                      Search
+                                    </Button>
                                   </div>
 
                                   {isFetchingTorrents !== activeModalResult.id && activeModalResult.sources.length > 0 && (

@@ -26,10 +26,15 @@ interface PremiumSidebarProps {
 
 /** Highlight search query matches in a snippet (case-insensitive) */
 function highlightMatches(text: string, query: string): string {
-  if (!query.trim()) return escapeHtml(text);
-  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const regex = new RegExp(`(${escaped})`, 'gi');
-  return escapeHtml(text).replace(regex, '<mark class="premium-search-highlight">$1</mark>');
+  // First strip out any raw HTML tags that might be in the search snippet
+  const plainText = text.replace(/<[^>]*>?/gm, '');
+  if (!query.trim()) return escapeHtml(plainText);
+  
+  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(${escapedQuery})`, 'gi');
+  
+  // Escape the plain text first, then inject our trusted <mark> tags
+  return escapeHtml(plainText).replace(regex, '<mark class="premium-search-highlight">$1</mark>');
 }
 
 function escapeHtml(str: string): string {
@@ -396,59 +401,49 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
             {/* Header with tabs */}
             <div className="premium-sidebar-header">
           <div className="premium-sidebar-tabs">
-            <button
-              onClick={() => setSidebarTab('toc')}
-              className={`premium-sidebar-tab ${sidebarTab === 'toc' ? 'premium-sidebar-tab--active' : ''}`}
-              title="Table of Contents"
-            >
-              <BookOpen className="premium-sidebar-tab-icon" />
-              <span>TOC</span>
-            </button>
-            
-            <button
-              onClick={() => setSidebarTab('highlights')}
-              className={`premium-sidebar-tab ${sidebarTab === 'highlights' ? 'premium-sidebar-tab--active' : ''}`}
-              title="Highlights"
-            >
-              <Highlighter className="premium-sidebar-tab-icon" />
-              <span>Highlights</span>
-            </button>
-            
-            <button
-              onClick={() => setSidebarTab('notes')}
-              className={`premium-sidebar-tab ${sidebarTab === 'notes' ? 'premium-sidebar-tab--active' : ''}`}
-              title="Notes"
-            >
-              <FileText className="premium-sidebar-tab-icon" />
-              <span>Notes</span>
-            </button>
-            
-            <button
-              onClick={() => setSidebarTab('bookmarks')}
-              className={`premium-sidebar-tab ${sidebarTab === 'bookmarks' ? 'premium-sidebar-tab--active' : ''}`}
-              title="Bookmarks"
-            >
-              <Bookmark className="premium-sidebar-tab-icon" />
-              <span>Bookmarks</span>
-            </button>
-            
-            <button
-              onClick={() => setSidebarTab('search')}
-              className={`premium-sidebar-tab ${sidebarTab === 'search' ? 'premium-sidebar-tab--active' : ''}`}
-              title="Search"
-            >
-              <Search className="premium-sidebar-tab-icon" />
-              <span>Search</span>
-            </button>
+            {[
+              { id: 'toc', label: 'TOC', icon: BookOpen },
+              { id: 'highlights', label: 'Highlights', icon: Highlighter },
+              { id: 'notes', label: 'Notes', icon: FileText },
+              { id: 'bookmarks', label: 'Bookmarks', icon: Bookmark },
+              { id: 'search', label: 'Search', icon: Search }
+            ].map(tab => (
+              <motion.button
+                key={tab.id}
+                onClick={() => setSidebarTab(tab.id as any)}
+                className={`premium-sidebar-tab ${sidebarTab === tab.id ? 'premium-sidebar-tab--active' : ''}`}
+                title={tab.label}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                {sidebarTab === tab.id && (
+                  <motion.div
+                    layoutId="sidebar-tab-indicator"
+                    style={{
+                      position: 'absolute',
+                      top: 0, left: 0, right: 0, bottom: 0,
+                      background: 'var(--ui-active)',
+                      borderRadius: 'var(--radius-md)',
+                      zIndex: -1
+                    }}
+                    transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+                  />
+                )}
+                <tab.icon className="premium-sidebar-tab-icon" />
+                <span>{tab.label}</span>
+              </motion.button>
+            ))}
           </div>
           
-          <button
+          <motion.button
             onClick={closeSidebar}
             className="premium-sidebar-close"
             aria-label="Close sidebar"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
           >
             <X className="premium-sidebar-close-icon" />
-          </button>
+          </motion.button>
         </div>
         
         {/* Content */}
@@ -460,16 +455,21 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
               {toc.length === 0 ? (
                 <p className="premium-sidebar-empty">No table of contents available</p>
               ) : (
-                <div className="premium-toc-list">
+                <motion.div 
+                  className="premium-toc-list"
+                  variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.05 } } }}
+                  initial="hidden" animate="show"
+                >
                   {toc.map((entry, index) => (
-                    <TocItem
-                      key={index}
-                      entry={entry}
-                      onClick={handleTocClick}
-                      currentIndex={currentIndex}
-                    />
+                    <motion.div key={index} variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
+                      <TocItem
+                        entry={entry}
+                        onClick={handleTocClick}
+                        currentIndex={currentIndex}
+                      />
+                    </motion.div>
                   ))}
-                </div>
+                </motion.div>
               )}
             </div>
           )}
@@ -481,12 +481,19 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
               {highlights.length === 0 ? (
                 <p className="premium-sidebar-empty">No highlights yet</p>
               ) : (
-                <div className="premium-annotations-list">
+                <motion.div 
+                  className="premium-annotations-list"
+                  variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.05 } } }}
+                  initial="hidden" animate="show"
+                >
                   {highlights.map((highlight) => (
-                    <div
+                    <motion.div
                       key={highlight.id}
+                      variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
                       className="premium-annotation-item premium-annotation-item--clickable"
                       onClick={() => handleAnnotationClick(highlight)}
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.99 }}
                     >
                       <div className="premium-annotation-color-wrapper">
                         <div 
@@ -513,19 +520,29 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                         )}
                       </div>
                       <div className="premium-annotation-content">
+                        <div className="premium-annotation-header">
+                          <div className="premium-badge premium-badge--highlight">
+                            <Highlighter size={10} />
+                            Highlight
+                          </div>
+                        </div>
                         <p className="premium-annotation-text">{highlight.selectedText}</p>
-                        <span className="premium-annotation-location">{formatLocation(highlight.location)}</span>
+                        <div className="premium-annotation-meta">
+                          <span className="premium-annotation-location">{formatLocation(highlight.location)}</span>
+                        </div>
                       </div>
-                      <button
+                      <motion.button
                         className="premium-annotation-delete"
-                        onClick={(e) => handleDeleteAnnotation(e, highlight)}
+                        onClick={(e: React.MouseEvent) => handleDeleteAnnotation(e, highlight)}
                         title="Delete highlight"
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
                       >
                         <Trash2 size={14} />
-                      </button>
-                    </div>
+                      </motion.button>
+                    </motion.div>
                   ))}
-                </div>
+                </motion.div>
               )}
             </div>
           )}
@@ -537,12 +554,19 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
               {notes.length === 0 ? (
                 <p className="premium-sidebar-empty">No notes yet</p>
               ) : (
-                <div className="premium-annotations-list">
+                <motion.div 
+                  className="premium-annotations-list"
+                  variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.05 } } }}
+                  initial="hidden" animate="show"
+                >
                   {notes.map((note) => (
-                    <div
+                    <motion.div
                       key={note.id}
+                      variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
                       className="premium-annotation-item premium-annotation-item--clickable"
                       onClick={() => handleAnnotationClick(note)}
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.99 }}
                     >
                       <div className="premium-annotation-content">
                         {editingNoteId === note.id ? (
@@ -562,24 +586,60 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                               autoFocus
                             />
                             <div className="premium-annotation-edit-actions">
-                              <button
+                              <motion.button
                                 className="premium-annotation-edit-btn premium-annotation-edit-btn--cancel"
                                 onClick={handleCancelEditNote}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
                               >
                                 Cancel
-                              </button>
-                              <button
+                              </motion.button>
+                              <motion.button
                                 className="premium-annotation-edit-btn premium-annotation-edit-btn--save"
                                 onClick={() => handleSaveEditNote(note)}
                                 disabled={!editNoteText.trim()}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
                               >
                                 Save
-                              </button>
+                              </motion.button>
                             </div>
                           </div>
                         ) : (
                           <>
-                            <p className="premium-annotation-note">{note.noteContent}</p>
+                            <div className="premium-annotation-header">
+                              <div className="premium-badge premium-badge--note">
+                                <FileText size={10} />
+                                Note
+                              </div>
+                            </div>
+                            <div className="premium-annotation-note">
+                              {(() => {
+                                try {
+                                  if (!note.noteContent) return null;
+                                  const vocabData = JSON.parse(note.noteContent);
+                                  if (vocabData && vocabData.type === 'define') {
+                                    return (
+                                      <div className="flex flex-col gap-1">
+                                        <span className="font-semibold" style={{ color: 'var(--primary)' }}>Definition:</span>
+                                        <span>{vocabData.data?.meanings?.[0]?.definitions?.[0]?.definition || 'No definition found.'}</span>
+                                      </div>
+                                    );
+                                  }
+                                  if (vocabData && vocabData.type === 'translate') {
+                                    return (
+                                      <div className="flex flex-col gap-1">
+                                        <span className="font-semibold" style={{ color: 'var(--primary)' }}>Translation:</span>
+                                        <span>{vocabData.data?.translated_text || 'No translation found.'}</span>
+                                      </div>
+                                    );
+                                  }
+                                } catch {
+                                  // Not JSON
+                                }
+                                return <p>{note.noteContent}</p>;
+                              })()}
+                            </div>
                             {note.selectedText && (
                               <p className="premium-annotation-text">{note.selectedText}</p>
                             )}
@@ -602,25 +662,29 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                       </div>
                       {editingNoteId !== note.id && (
                         <div className="premium-annotation-actions">
-                          <button
+                          <motion.button
                             className="premium-annotation-action-btn"
-                            onClick={(e) => handleStartEditNote(e, note)}
+                            onClick={(e: React.MouseEvent) => handleStartEditNote(e, note)}
                             title="Edit note"
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
                           >
                             <Edit2 size={14} />
-                          </button>
-                          <button
+                          </motion.button>
+                          <motion.button
                             className="premium-annotation-delete"
-                            onClick={(e) => handleDeleteAnnotation(e, note)}
+                            onClick={(e: React.MouseEvent) => handleDeleteAnnotation(e, note)}
                             title="Delete note"
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
                           >
                             <Trash2 size={14} />
-                          </button>
+                          </motion.button>
                         </div>
                       )}
-                    </div>
+                    </motion.div>
                   ))}
-                </div>
+                </motion.div>
               )}
             </div>
           )}
@@ -632,32 +696,49 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
               {bookmarks.length === 0 ? (
                 <p className="premium-sidebar-empty">No bookmarks yet</p>
               ) : (
-                <div className="premium-annotations-list">
+                <motion.div 
+                  className="premium-annotations-list"
+                  variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.05 } } }}
+                  initial="hidden" animate="show"
+                >
                   {bookmarks.map((bookmark) => (
-                    <div
+                    <motion.div
                       key={bookmark.id}
+                      variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
                       className="premium-annotation-item premium-annotation-item--clickable"
                       onClick={() => handleAnnotationClick(bookmark)}
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.99 }}
                     >
                       <div className="premium-annotation-content">
+                        <div className="premium-annotation-header">
+                          <div className="premium-badge premium-badge--bookmark">
+                            <Bookmark size={10} />
+                            Bookmark
+                          </div>
+                        </div>
                         {bookmark.selectedText && (
                           <p className="premium-annotation-text">{bookmark.selectedText}</p>
                         )}
-                        <span className="premium-annotation-location">{formatLocation(bookmark.location)}</span>
-                        <span className="premium-annotation-date">
-                          {new Date(bookmark.createdAt).toLocaleDateString()}
-                        </span>
+                        <div className="premium-annotation-meta">
+                          <span className="premium-annotation-location">{formatLocation(bookmark.location)}</span>
+                          <span className="premium-annotation-date">
+                            {new Date(bookmark.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
                       </div>
-                      <button
+                      <motion.button
                         className="premium-annotation-delete"
-                        onClick={(e) => handleDeleteAnnotation(e, bookmark)}
+                        onClick={(e: React.MouseEvent) => handleDeleteAnnotation(e, bookmark)}
                         title="Delete bookmark"
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
                       >
                         <Trash2 size={14} />
-                      </button>
-                    </div>
+                      </motion.button>
+                    </motion.div>
                   ))}
-                </div>
+                </motion.div>
               )}
             </div>
           )}
@@ -667,6 +748,7 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
             <div className="premium-sidebar-panel">
               <h3 className="premium-sidebar-title">Search in Book</h3>
               <div className="premium-search-input-container">
+                <Search className="premium-search-icon" />
                 <input
                   ref={searchInputRef}
                   type="text"
@@ -682,17 +764,26 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
               </div>
               
               {searchResults.length > 0 && (
-                <div className="premium-search-results">
+                <motion.div 
+                  className="premium-search-results"
+                  variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.05 } } }}
+                  initial="hidden" animate="show"
+                >
                   <p className="premium-search-count">
                     {searchResults.reduce((sum, r) => sum + r.match_count, 0)} match{searchResults.reduce((sum, r) => sum + r.match_count, 0) !== 1 ? 'es' : ''} in {searchResults.length} chapter{searchResults.length !== 1 ? 's' : ''}
                   </p>
                   {searchResults.map((result, index) => (
-                    <div
+                    <motion.div
                       key={index}
+                      variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
                       className="premium-search-result"
                       onClick={() => handleSearchResultClick(result)}
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.99 }}
                     >
-                      <p className="premium-search-result-chapter">{result.chapter_title}</p>
+                      <p className="premium-search-result-chapter">
+                        <FileText size={14} /> {result.chapter_title}
+                      </p>
                       <p
                         className="premium-search-result-snippet"
                         dangerouslySetInnerHTML={{
@@ -702,9 +793,9 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                       <span className="premium-search-result-matches">
                         {result.match_count} match{result.match_count !== 1 ? 'es' : ''}
                       </span>
-                    </div>
+                    </motion.div>
                   ))}
-                </div>
+                </motion.div>
               )}
 
               {!isSearching && searchQuery.trim().length >= 2 && searchResults.length === 0 && (
@@ -753,7 +844,8 @@ function TocItem({ entry, onClick, currentIndex }: TocItemProps) {
         onClick={() => onClick(entry)}
         className={`premium-toc-button ${isCurrent ? 'premium-toc-button--current' : ''}`}
       >
-        {entry.label}
+        <BookOpen size={14} className="premium-toc-icon" />
+        <span className="premium-toc-label" style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.label}</span>
       </button>
       {entry.children && entry.children.length > 0 && (
         <div className="premium-toc-children">

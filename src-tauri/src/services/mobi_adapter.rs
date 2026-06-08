@@ -1184,15 +1184,36 @@ impl BookReaderAdapter for MobiAdapter {
         let query_lower = query.to_lowercase();
         let mut results = Vec::new();
 
+        fn strip_html_tags(html: &str) -> String {
+            let mut plain_text = String::with_capacity(html.len());
+            let mut in_tag = false;
+            for c in html.chars() {
+                if c == '<' {
+                    in_tag = true;
+                } else if c == '>' {
+                    in_tag = false;
+                } else if !in_tag {
+                    plain_text.push(c);
+                }
+            }
+            plain_text.replace("&nbsp;", " ")
+                      .replace("&amp;", "&")
+                      .replace("&lt;", "<")
+                      .replace("&gt;", ">")
+                      .replace("&quot;", "\"")
+                      .replace("&#39;", "'")
+        }
+
         for chapter in &self.chapters {
-            let content_lower = chapter.content.to_lowercase();
+            let content = strip_html_tags(&chapter.content);
+            let content_lower = content.to_lowercase();
             let matches: Vec<_> = content_lower.match_indices(&query_lower).collect();
             if matches.is_empty() {
                 continue;
             }
 
             let first_match_pos = matches[0].0;
-            let snippet = Self::build_snippet(&chapter.content, first_match_pos, query.chars().count());
+            let snippet = Self::build_snippet(&content, first_match_pos, query.chars().count());
 
             results.push(SearchResult {
                 chapter_index: chapter.index,

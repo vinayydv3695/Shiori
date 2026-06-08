@@ -115,6 +115,9 @@ notify = "6.1"                  # File system notifications
 notify-debouncer-full = "0.3"   # Debouncer for notify
 discord-rich-presence = "1.1.0"
 tauri-plugin-shell = "2"
+tracing = "0.1.44"
+console-subscriber = "0.2.0"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
 
 [features]
 default = ["custom-protocol"]
@@ -127,3 +130,8 @@ codegen-units = 1
 panic = "abort"
 strip = true
 opt-level = 3
+
+[profile.profiling]
+inherits = "release"
+debug = true
+strip = false

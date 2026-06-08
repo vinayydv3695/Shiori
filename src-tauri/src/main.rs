@@ -44,7 +44,6 @@ pub struct MetadataState {
 }
 
 fn main() {
-    console_subscriber::init();
 
     #[cfg(target_os = "linux")]
     {

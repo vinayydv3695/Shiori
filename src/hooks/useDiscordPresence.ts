@@ -12,23 +12,70 @@ interface ActivityProps {
   smallImageText?: string;
 }
 
+const MAX_RETRY_ATTEMPTS = 5;
+const RETRY_BASE_DELAY_MS = 3000;
+
 export function useDiscordPresence() {
   const preferences = usePreferencesStore(state => state.preferences);
   const isEnabled = preferences?.discordRpcEnabled ?? true;
   const [isConnected, setIsConnected] = useState(false);
   const connectingRef = useRef(false);
+  const retryCountRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
 
-  // Connect or disconnect based on preference
+  // Connect or disconnect based on preference, with retry logic
   useEffect(() => {
-    let mounted = true;
+    mountedRef.current = true;
+
+    function clearRetryTimer() {
+      if (retryTimerRef.current !== null) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+    }
+
+    async function attemptConnect() {
+      if (!mountedRef.current || connectingRef.current) return;
+
+      connectingRef.current = true;
+      try {
+        await invoke('discord_connect');
+        if (mountedRef.current) {
+          setIsConnected(true);
+          retryCountRef.current = 0;
+          logger.info('Connected to Discord RPC');
+        }
+      } catch (e) {
+        logger.error('Failed to connect to Discord RPC:', e);
+        if (mountedRef.current && retryCountRef.current < MAX_RETRY_ATTEMPTS) {
+          retryCountRef.current += 1;
+          const delay = RETRY_BASE_DELAY_MS * Math.pow(2, retryCountRef.current - 1);
+          logger.info(`Discord RPC: retrying connection in ${delay}ms (attempt ${retryCountRef.current}/${MAX_RETRY_ATTEMPTS})`);
+          retryTimerRef.current = setTimeout(() => {
+            if (mountedRef.current) {
+              attemptConnect();
+            }
+          }, delay);
+        } else if (mountedRef.current) {
+          logger.warn(`Discord RPC: giving up after ${MAX_RETRY_ATTEMPTS} attempts`);
+        }
+      } finally {
+        connectingRef.current = false;
+      }
+    }
 
     async function toggleConnection() {
       if (!isEnabled) {
+        clearRetryTimer();
+        retryCountRef.current = 0;
         if (isConnected) {
           try {
             await invoke('discord_disconnect');
-            setIsConnected(false);
-            logger.info('Disconnected from Discord RPC');
+            if (mountedRef.current) {
+              setIsConnected(false);
+              logger.info('Disconnected from Discord RPC');
+            }
           } catch (e) {
             logger.error('Failed to disconnect from Discord RPC:', e);
           }
@@ -36,28 +83,18 @@ export function useDiscordPresence() {
         return;
       }
 
-      if (!isConnected && !connectingRef.current) {
-        connectingRef.current = true;
-        try {
-          await invoke('discord_connect');
-          setIsConnected(true);
-          logger.info('Connected to Discord RPC');
-        } catch (e) {
-          logger.error('Failed to connect to Discord RPC:', e);
-        } finally {
-          connectingRef.current = false;
-        }
+      if (!isConnected) {
+        attemptConnect();
       }
     }
 
     toggleConnection();
 
     return () => {
-      mounted = false;
-      // We don't automatically disconnect on unmount because this hook
-      // should be mounted globally in App.tsx
+      mountedRef.current = false;
+      clearRetryTimer();
     };
-  }, [isEnabled]);
+  }, [isEnabled, isConnected]);
 
   const setActivity = useCallback(async (activity: ActivityProps) => {
     if (!isEnabled || !isConnected) return;
@@ -65,6 +102,8 @@ export function useDiscordPresence() {
       await invoke('discord_set_activity', { presence: activity });
     } catch (e) {
       logger.error('Failed to set Discord activity:', e);
+      // If setting activity fails, the connection may be stale — reset so we reconnect
+      setIsConnected(false);
     }
   }, [isEnabled, isConnected]);
 
@@ -74,6 +113,7 @@ export function useDiscordPresence() {
       await invoke('discord_clear_activity');
     } catch (e) {
       logger.error('Failed to clear Discord activity:', e);
+      setIsConnected(false);
     }
   }, [isEnabled, isConnected]);
 

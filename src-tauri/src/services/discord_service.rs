@@ -17,9 +17,10 @@ impl DiscordService {
     pub fn connect(&self) -> Result<(), String> {
         let mut client_lock = self.client.lock().map_err(|e| e.to_string())?;
 
-        // If already connected, do nothing
-        if client_lock.is_some() {
-            return Ok(());
+        // If we have an existing client, try to close it first to avoid stale pipes
+        if let Some(mut old_client) = client_lock.take() {
+            let _ = old_client.close();
+            log::info!("Discord RPC: cleaned up previous connection before reconnecting");
         }
 
         let mut client = DiscordIpcClient::new(&self.client_id);
@@ -77,11 +78,12 @@ impl DiscordService {
             .state(state)
             .details(details)
             .assets(assets)
-            // .timestamps(activity::Timestamps::new().start(std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64))
             ;
 
         if let Err(e) = client.set_activity(activity) {
-            return Err(format!("Failed to set Discord activity: {}", e));
+            // Connection is broken — drop the stale client so the next connect() starts fresh
+            let _ = client_lock.take();
+            return Err(format!("Failed to set Discord activity (connection lost): {}", e));
         }
 
         Ok(())
@@ -96,7 +98,8 @@ impl DiscordService {
         };
 
         if let Err(e) = client.clear_activity() {
-            return Err(format!("Failed to clear Discord activity: {}", e));
+            let _ = client_lock.take();
+            return Err(format!("Failed to clear Discord activity (connection lost): {}", e));
         }
 
         Ok(())

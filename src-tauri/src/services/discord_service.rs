@@ -31,13 +31,13 @@ impl DiscordService {
 
         *client_lock = Some(client);
         log::info!("Successfully connected to Discord RPC");
-        
+
         Ok(())
     }
 
     pub fn disconnect(&self) -> Result<(), String> {
         let mut client_lock = self.client.lock().map_err(|e| e.to_string())?;
-        
+
         if let Some(mut client) = client_lock.take() {
             let _ = client.close();
             log::info!("Disconnected from Discord RPC");
@@ -67,7 +67,7 @@ impl DiscordService {
             // Default large image if none provided
             assets = assets.large_image("shiori_logo");
         }
-        
+
         if let Some(text) = large_image_text {
             assets = assets.large_text(text);
         } else {
@@ -77,13 +77,15 @@ impl DiscordService {
         let activity = activity::Activity::new()
             .state(state)
             .details(details)
-            .assets(assets)
-            ;
+            .assets(assets);
 
         if let Err(e) = client.set_activity(activity) {
             // Connection is broken — drop the stale client so the next connect() starts fresh
             let _ = client_lock.take();
-            return Err(format!("Failed to set Discord activity (connection lost): {}", e));
+            return Err(format!(
+                "Failed to set Discord activity (connection lost): {}",
+                e
+            ));
         }
 
         Ok(())
@@ -99,7 +101,10 @@ impl DiscordService {
 
         if let Err(e) = client.clear_activity() {
             let _ = client_lock.take();
-            return Err(format!("Failed to clear Discord activity (connection lost): {}", e));
+            return Err(format!(
+                "Failed to clear Discord activity (connection lost): {}",
+                e
+            ));
         }
 
         Ok(())

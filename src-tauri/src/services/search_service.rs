@@ -83,7 +83,11 @@ pub fn search(db: &Database, query: SearchQuery) -> Result<SearchResult> {
     // Filter by series (single or multi)
     if let Some(ref series_list) = query.series_list {
         if !series_list.is_empty() {
-            let placeholders = series_list.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+            let placeholders = series_list
+                .iter()
+                .map(|_| "?")
+                .collect::<Vec<_>>()
+                .join(",");
             where_clauses.push(format!("b.series IN ({})", placeholders));
             for series in series_list {
                 base_params.push(Value::Text(series.clone()));
@@ -162,13 +166,23 @@ pub fn search(db: &Database, query: SearchQuery) -> Result<SearchResult> {
 
     // Count total matches (without page limit/offset)
     let count_sql = format!("SELECT COUNT(DISTINCT b.id){}{}", from_sql, where_sql);
-    let count_params_refs: Vec<&dyn rusqlite::ToSql> = base_params.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
-    let total_matches: i64 = conn.query_row(&count_sql, count_params_refs.as_slice(), |row| row.get(0))?;
+    let count_params_refs: Vec<&dyn rusqlite::ToSql> = base_params
+        .iter()
+        .map(|v| v as &dyn rusqlite::ToSql)
+        .collect();
+    let total_matches: i64 =
+        conn.query_row(&count_sql, count_params_refs.as_slice(), |row| row.get(0))?;
 
     let mut order_clause = String::from("ORDER BY b.added_date DESC");
 
     if let Some(ref sort_by) = query.sort_by {
-        let order_dir = match query.sort_order.as_deref().unwrap_or("desc").to_lowercase().as_str() {
+        let order_dir = match query
+            .sort_order
+            .as_deref()
+            .unwrap_or("desc")
+            .to_lowercase()
+            .as_str()
+        {
             "asc" => "ASC",
             _ => "DESC",
         };
@@ -193,7 +207,10 @@ pub fn search(db: &Database, query: SearchQuery) -> Result<SearchResult> {
     }
 
     // Build paged IDs query
-    let mut ids_sql = format!("SELECT DISTINCT b.id{}{} {}", from_sql, where_sql, order_clause);
+    let mut ids_sql = format!(
+        "SELECT DISTINCT b.id{}{} {}",
+        from_sql, where_sql, order_clause
+    );
     let mut page_params = base_params.clone();
 
     if let Some(limit) = query.limit {
@@ -212,7 +229,10 @@ pub fn search(db: &Database, query: SearchQuery) -> Result<SearchResult> {
 
     // Execute paged IDs query
     let mut stmt = conn.prepare(&ids_sql)?;
-    let page_params_refs: Vec<&dyn rusqlite::ToSql> = page_params.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
+    let page_params_refs: Vec<&dyn rusqlite::ToSql> = page_params
+        .iter()
+        .map(|v| v as &dyn rusqlite::ToSql)
+        .collect();
 
     let book_ids: Vec<i64> = stmt
         .query_map(page_params_refs.as_slice(), |row| row.get(0))?

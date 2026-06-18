@@ -6,7 +6,6 @@
 ///   - All other entries: Deflated.
 ///   - Package document (content.opf) at OEBPS/content.opf.
 ///   - EPUB 2 compatibility: toc.ncx included alongside nav.xhtml.
-
 use std::io::{Cursor, Write};
 use std::path::Path;
 use uuid::Uuid;
@@ -39,8 +38,8 @@ fn assemble_epub_zip(book: &OebBook) -> Result<Vec<u8>, ConversionError> {
     let stored: FileOptions<()> = FileOptions::default()
         .compression_method(CompressionMethod::Stored)
         .large_file(false);
-    let deflated: FileOptions<()> = FileOptions::default()
-        .compression_method(CompressionMethod::Deflated);
+    let deflated: FileOptions<()> =
+        FileOptions::default().compression_method(CompressionMethod::Deflated);
 
     // 1. mimetype — MUST be first, MUST be Stored
     zip.start_file("mimetype", stored)
@@ -73,7 +72,10 @@ fn assemble_epub_zip(book: &OebBook) -> Result<Vec<u8>, ConversionError> {
         .map_err(|e| ConversionError::Other(e.to_string()))?;
 
     // 6. OEBPS/Styles/stylesheet.css
-    let stylesheet = book.custom_stylesheet.as_deref().unwrap_or(DEFAULT_STYLESHEET);
+    let stylesheet = book
+        .custom_stylesheet
+        .as_deref()
+        .unwrap_or(DEFAULT_STYLESHEET);
     zip.start_file("OEBPS/Styles/stylesheet.css", deflated)
         .map_err(|e| ConversionError::Other(e.to_string()))?;
     zip.write_all(stylesheet.as_bytes())
@@ -116,7 +118,8 @@ fn assemble_epub_zip(book: &OebBook) -> Result<Vec<u8>, ConversionError> {
             .map_err(|e| ConversionError::Other(e.to_string()))?;
     }
 
-    zip.finish().map_err(|e| ConversionError::Other(e.to_string()))?;
+    zip.finish()
+        .map_err(|e| ConversionError::Other(e.to_string()))?;
     Ok(buffer.into_inner())
 }
 
@@ -132,21 +135,36 @@ fn build_content_opf(book: &OebBook) -> String {
     let mut meta_lines: Vec<String> = vec![
         format!("    <dc:identifier id=\"uid\">urn:uuid:{uid}</dc:identifier>"),
         format!("    <dc:title>{}</dc:title>", escape_xml(&book.title)),
-        format!("    <dc:language>{}</dc:language>", escape_xml(&book.language)),
+        format!(
+            "    <dc:language>{}</dc:language>",
+            escape_xml(&book.language)
+        ),
         format!("    <meta property=\"dcterms:modified\">{now}</meta>"),
     ];
 
     for author in &book.authors {
-        meta_lines.push(format!("    <dc:creator>{}</dc:creator>", escape_xml(author)));
+        meta_lines.push(format!(
+            "    <dc:creator>{}</dc:creator>",
+            escape_xml(author)
+        ));
     }
     if let Some(ref p) = book.publisher {
-        meta_lines.push(format!("    <dc:publisher>{}</dc:publisher>", escape_xml(p)));
+        meta_lines.push(format!(
+            "    <dc:publisher>{}</dc:publisher>",
+            escape_xml(p)
+        ));
     }
     if let Some(ref d) = book.description {
-        meta_lines.push(format!("    <dc:description>{}</dc:description>", escape_xml(d)));
+        meta_lines.push(format!(
+            "    <dc:description>{}</dc:description>",
+            escape_xml(d)
+        ));
     }
     if let Some(ref i) = book.isbn {
-        meta_lines.push(format!("    <dc:identifier id=\"isbn\">{}</dc:identifier>", escape_xml(i)));
+        meta_lines.push(format!(
+            "    <dc:identifier id=\"isbn\">{}</dc:identifier>",
+            escape_xml(i)
+        ));
     }
     if let Some(ref date) = book.published_date {
         meta_lines.push(format!("    <dc:date>{}</dc:date>", escape_xml(date)));
@@ -223,15 +241,45 @@ fn build_content_opf(book: &OebBook) -> String {
 
 fn build_toc_ncx(book: &OebBook) -> String {
     let uid = Uuid::new_v4();
-    let points: Vec<String> = book.chapters.iter().enumerate().map(|(i, ch)| {
-        let title = ch.title.as_deref().unwrap_or(&book.title);
-        format!(
-            "    <navPoint id=\"navpoint-{n}\" playOrder=\"{n}\">\n      <navLabel><text>{title}</text></navLabel>\n      <content src=\"Text/{id}.xhtml\"/>\n    </navPoint>",
-            n = i + 1,
-            title = escape_xml(title),
-            id = ch.id,
-        )
-    }).collect();
+
+    // Helper to recursively build NCX navPoints
+    fn build_nav_points(entries: &[super::oeb::TocEntry], play_order: &mut usize) -> String {
+        let mut result = String::new();
+        for entry in entries {
+            *play_order += 1;
+            let id = format!("navpoint-{}", play_order);
+            let mut point = format!(
+                "    <navPoint id=\"{id}\" playOrder=\"{order}\">\n      <navLabel><text>{title}</text></navLabel>\n      <content src=\"Text/{href}\"/>",
+                id = id,
+                order = play_order,
+                title = escape_xml(&entry.title),
+                href = escape_xml(&entry.href),
+            );
+            if !entry.children.is_empty() {
+                point.push('\n');
+                point.push_str(&build_nav_points(&entry.children, play_order));
+            }
+            point.push_str("\n    </navPoint>\n");
+            result.push_str(&point);
+        }
+        result
+    }
+
+    let points = if !book.toc.is_empty() {
+        let mut order = 0;
+        build_nav_points(&book.toc, &mut order)
+    } else {
+        // Fallback to flat chapter list
+        book.chapters.iter().enumerate().map(|(i, ch)| {
+            let title = ch.title.as_deref().unwrap_or(&book.title);
+            format!(
+                "    <navPoint id=\"navpoint-{n}\" playOrder=\"{n}\">\n      <navLabel><text>{title}</text></navLabel>\n      <content src=\"Text/{id}.xhtml\"/>\n    </navPoint>\n",
+                n = i + 1,
+                title = escape_xml(title),
+                id = ch.id,
+            )
+        }).collect::<String>()
+    };
 
     format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
@@ -244,12 +292,11 @@ fn build_toc_ncx(book: &OebBook) -> String {
   </head>
   <docTitle><text>{title}</text></docTitle>
   <navMap>
-{points}
-  </navMap>
+{points}  </navMap>
 </ncx>"#,
         uid = uid,
         title = escape_xml(&book.title),
-        points = points.join("\n"),
+        points = points,
     )
 }
 
@@ -258,14 +305,41 @@ fn build_toc_ncx(book: &OebBook) -> String {
 // ──────────────────────────────────────────────────────────────────────────
 
 fn build_nav_xhtml(book: &OebBook) -> String {
-    let items: Vec<String> = book.chapters.iter().map(|ch| {
-        let title = ch.title.as_deref().unwrap_or(&book.title);
-        format!(
-            "        <li><a href=\"Text/{id}.xhtml\">{title}</a></li>",
-            id = ch.id,
-            title = escape_xml(title),
-        )
-    }).collect();
+    // Helper to recursively build HTML lists
+    fn build_nav_list(entries: &[super::oeb::TocEntry]) -> String {
+        let mut result = String::new();
+        for entry in entries {
+            result.push_str(&format!(
+                "        <li><a href=\"Text/{}\">{}</a>",
+                escape_xml(&entry.href),
+                escape_xml(&entry.title)
+            ));
+            if !entry.children.is_empty() {
+                result.push_str("\n          <ol>\n");
+                result.push_str(&build_nav_list(&entry.children));
+                result.push_str("          </ol>\n        ");
+            }
+            result.push_str("</li>\n");
+        }
+        result
+    }
+
+    let items = if !book.toc.is_empty() {
+        build_nav_list(&book.toc)
+    } else {
+        // Fallback to flat chapter list
+        book.chapters
+            .iter()
+            .map(|ch| {
+                let title = ch.title.as_deref().unwrap_or(&book.title);
+                format!(
+                    "        <li><a href=\"Text/{id}.xhtml\">{title}</a></li>\n",
+                    id = ch.id,
+                    title = escape_xml(title),
+                )
+            })
+            .collect::<String>()
+    };
 
     format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
@@ -282,7 +356,7 @@ fn build_nav_xhtml(book: &OebBook) -> String {
 </body>
 </html>"#,
         lang = escape_xml(&book.language),
-        items = items.join("\n"),
+        items = items,
     )
 }
 

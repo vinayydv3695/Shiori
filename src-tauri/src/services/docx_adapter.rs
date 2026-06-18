@@ -1,7 +1,5 @@
-use crate::error::{ShioriError, Result};
-use crate::services::renderer::{
-    BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry,
-};
+use crate::error::{Result, ShioriError};
+use crate::services::renderer::{BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry};
 use async_trait::async_trait;
 use docx_rs::*;
 use std::fs;
@@ -33,9 +31,19 @@ impl DocxAdapter {
         for child in &doc.document.children {
             match child {
                 DocumentChild::Paragraph(para) => {
-                    let is_heading = para.property.style.as_ref().map_or(false, |s| s.val.starts_with("Heading"));
+                    let is_heading = para
+                        .property
+                        .style
+                        .as_ref()
+                        .map_or(false, |s| s.val.starts_with("Heading"));
                     let heading_level = if is_heading {
-                        let level_str = para.property.style.as_ref().unwrap().val.replace("Heading", "");
+                        let level_str = para
+                            .property
+                            .style
+                            .as_ref()
+                            .unwrap()
+                            .val
+                            .replace("Heading", "");
                         level_str.parse::<u8>().unwrap_or(2)
                     } else {
                         0
@@ -63,7 +71,8 @@ impl DocxAdapter {
 
                             for r_child in &run.children {
                                 if let RunChild::Text(t) = r_child {
-                                    let safe_text = t.text.replace("<", "&lt;").replace(">", "&gt;");
+                                    let safe_text =
+                                        t.text.replace("<", "&lt;").replace(">", "&gt;");
                                     para_html.push_str(&tag_open);
                                     para_html.push_str(&safe_text);
                                     para_html.push_str(&tag_close);
@@ -82,7 +91,10 @@ impl DocxAdapter {
                             children: Vec::new(),
                         });
                         toc_counter += 1;
-                        html.push_str(&format!("\n<h{} id=\"{}\">{}</h{}>\n", heading_level, id, para_html, heading_level));
+                        html.push_str(&format!(
+                            "\n<h{} id=\"{}\">{}</h{}>\n",
+                            heading_level, id, para_html, heading_level
+                        ));
                     } else {
                         html.push_str(&format!("<p>{}</p>\n", para_html));
                     }
@@ -108,11 +120,11 @@ unsafe impl Sync for DocxAdapter {}
 impl BookReaderAdapter for DocxAdapter {
     async fn load(&mut self, path: &str) -> Result<()> {
         let file_data = fs::read(path).map_err(|e| ShioriError::Io(e))?;
-        
+
         // Parse DOCX
         let doc = read_docx(&file_data)
             .map_err(|e| ShioriError::Other(format!("Invalid DOCX file: {}", e)))?;
-        
+
         self.path = path.to_string();
 
         let (html, toc) = Self::generate_html(&doc);
@@ -120,7 +132,11 @@ impl BookReaderAdapter for DocxAdapter {
         self.toc = toc;
 
         // Basic metadata
-        let title = path.split('/').last().unwrap_or("Unknown Document").to_string();
+        let title = path
+            .split('/')
+            .last()
+            .unwrap_or("Unknown Document")
+            .to_string();
         self.metadata = Some(BookMetadata {
             title,
             author: None,
@@ -173,10 +189,16 @@ impl BookReaderAdapter for DocxAdapter {
 
             // Safely slice using character boundaries to avoid panics on multi-byte UTF-8
             let char_indices: Vec<(usize, char)> = self.html_content.char_indices().collect();
-            let char_idx = char_indices.iter().position(|&(b_idx, _)| b_idx >= first_match_pos).unwrap_or(0);
+            let char_idx = char_indices
+                .iter()
+                .position(|&(b_idx, _)| b_idx >= first_match_pos)
+                .unwrap_or(0);
             let start_char_idx = char_idx.saturating_sub(50);
             let end_char_idx = (char_idx + query.chars().count() + 50).min(char_indices.len());
-            let start_byte = char_indices.get(start_char_idx).map(|&(b, _)| b).unwrap_or(0);
+            let start_byte = char_indices
+                .get(start_char_idx)
+                .map(|&(b, _)| b)
+                .unwrap_or(0);
             let end_byte = if end_char_idx >= char_indices.len() {
                 self.html_content.len()
             } else {
@@ -198,11 +220,15 @@ impl BookReaderAdapter for DocxAdapter {
     }
 
     fn get_resource(&self, _path: &str) -> Result<Vec<u8>> {
-        Err(ShioriError::Other("DOCX resources not currently exposed natively".into()))
+        Err(ShioriError::Other(
+            "DOCX resources not currently exposed natively".into(),
+        ))
     }
 
     fn get_resource_mime(&self, _path: &str) -> Result<String> {
-        Err(ShioriError::Other("DOCX resources not currently exposed natively".into()))
+        Err(ShioriError::Other(
+            "DOCX resources not currently exposed natively".into(),
+        ))
     }
 
     fn supports_pagination(&self) -> bool {
@@ -212,13 +238,17 @@ impl BookReaderAdapter for DocxAdapter {
     fn supports_images(&self) -> bool {
         false // Images not supported yet in this basic adapter
     }
-    
+
     async fn render_page(&self, _page_number: usize, _scale: f32) -> Result<Vec<u8>> {
-        Err(ShioriError::UnsupportedFeature("DOCX does not support strict pagination rendering natively in Shiori".into()))
+        Err(ShioriError::UnsupportedFeature(
+            "DOCX does not support strict pagination rendering natively in Shiori".into(),
+        ))
     }
 
     fn get_page_dimensions(&self, _page_number: usize) -> Result<(f32, f32)> {
-        Err(ShioriError::UnsupportedFeature("DOCX does not support strict pagination dimensions".into()))
+        Err(ShioriError::UnsupportedFeature(
+            "DOCX does not support strict pagination dimensions".into(),
+        ))
     }
 
     fn page_count(&self) -> usize {

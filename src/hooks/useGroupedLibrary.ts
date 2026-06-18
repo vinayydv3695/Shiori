@@ -79,6 +79,11 @@ export function useGroupedLibrary(
     for (let i = 0; i < sortedSeries.length; i++) {
       const [seriesTitle, seriesBooks] = sortedSeries[i]
       
+      if (seriesBooks.length <= 1) {
+        standaloneBooks.push(...seriesBooks)
+        continue
+      }
+
       seriesBooks.sort((a, b) => {
         let indexA = a.series_index;
         if (indexA == null || isNaN(indexA)) {

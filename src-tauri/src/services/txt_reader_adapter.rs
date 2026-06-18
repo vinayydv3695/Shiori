@@ -1,7 +1,5 @@
 use crate::error::{Result, ShioriError};
-use crate::services::renderer::{
-    BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry,
-};
+use crate::services::renderer::{BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry};
 use async_trait::async_trait;
 
 pub struct TxtReaderAdapter {
@@ -51,7 +49,9 @@ unsafe impl Sync for TxtReaderAdapter {}
 #[async_trait]
 impl BookReaderAdapter for TxtReaderAdapter {
     async fn load(&mut self, path: &str) -> Result<()> {
-        let content = tokio::fs::read_to_string(path).await.map_err(ShioriError::Io)?;
+        let content = tokio::fs::read_to_string(path)
+            .await
+            .map_err(ShioriError::Io)?;
         self.path = path.to_string();
 
         self.html_content = Self::text_to_html(&content);
@@ -122,8 +122,7 @@ impl BookReaderAdapter for TxtReaderAdapter {
                 .position(|&(b_idx, _)| b_idx >= first_match_pos)
                 .unwrap_or(0);
             let start_char_idx = char_idx.saturating_sub(50);
-            let end_char_idx =
-                (char_idx + query.chars().count() + 50).min(char_indices.len());
+            let end_char_idx = (char_idx + query.chars().count() + 50).min(char_indices.len());
             let start_byte = char_indices
                 .get(start_char_idx)
                 .map(|&(b, _)| b)
@@ -134,10 +133,7 @@ impl BookReaderAdapter for TxtReaderAdapter {
                 char_indices[end_char_idx].0
             };
 
-            let snippet = format!(
-                "...{}...",
-                &self.html_content[start_byte..end_byte]
-            );
+            let snippet = format!("...{}...", &self.html_content[start_byte..end_byte]);
 
             results.push(SearchResult {
                 chapter_index: 0,
@@ -152,15 +148,11 @@ impl BookReaderAdapter for TxtReaderAdapter {
     }
 
     fn get_resource(&self, _path: &str) -> Result<Vec<u8>> {
-        Err(ShioriError::Other(
-            "TXT resources not supported".into(),
-        ))
+        Err(ShioriError::Other("TXT resources not supported".into()))
     }
 
     fn get_resource_mime(&self, _path: &str) -> Result<String> {
-        Err(ShioriError::Other(
-            "TXT resources not supported".into(),
-        ))
+        Err(ShioriError::Other("TXT resources not supported".into()))
     }
 
     fn supports_pagination(&self) -> bool {

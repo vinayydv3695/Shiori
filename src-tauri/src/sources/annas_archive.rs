@@ -4,7 +4,10 @@ use std::time::Duration;
 use scraper::{Html, Selector};
 
 use crate::error::{Result, ShioriError};
-use crate::sources::{Chapter, ContentType, MirrorAttemptDiagnostic, Page, SearchResponse, SearchResult, Source, SourceMeta, SourceSearchDiagnostics};
+use crate::sources::{
+    Chapter, ContentType, MirrorAttemptDiagnostic, Page, SearchResponse, SearchResult, Source,
+    SourceMeta, SourceSearchDiagnostics,
+};
 
 const MIRRORS: &[&str] = &[
     "https://annas-archive.gl",
@@ -25,7 +28,9 @@ impl AnnasArchiveSource {
             .timeout(Duration::from_secs(30))
             .connect_timeout(Duration::from_secs(10))
             .build()
-            .map_err(|e| ShioriError::Other(format!("Failed to create AnnasArchive client: {}", e)))?;
+            .map_err(|e| {
+                ShioriError::Other(format!("Failed to create AnnasArchive client: {}", e))
+            })?;
 
         Ok(Self { client })
     }
@@ -41,7 +46,7 @@ impl AnnasArchiveSource {
     async fn search_internal(&self, query: &str, page: u32, limit: u32) -> Result<SearchResponse> {
         let safe_page = page.max(1);
         let safe_limit = limit.max(1).min(MAX_LIMIT);
-        
+
         let start_time = std::time::Instant::now();
         let mut diagnostics = SourceSearchDiagnostics {
             source_id: "annas-archive".to_string(),
@@ -59,7 +64,7 @@ impl AnnasArchiveSource {
 
         for mirror in MIRRORS {
             let url = format!("{}/search?q={}&lang=en", mirror, urlencoding::encode(query));
-            
+
             match self.client.get(&url).send().await {
                 Ok(resp) if resp.status().is_success() => {
                     if let Ok(text) = resp.text().await {
@@ -91,7 +96,9 @@ impl AnnasArchiveSource {
         }
 
         if html.is_empty() {
-            return Err(ShioriError::Other("All Anna's Archive mirrors failed".to_string()));
+            return Err(ShioriError::Other(
+                "All Anna's Archive mirrors failed".to_string(),
+            ));
         }
 
         diagnostics.selected_mirror = Some(successful_mirror.clone());
@@ -105,7 +112,7 @@ impl AnnasArchiveSource {
         for node in doc.select(&result_sel) {
             let title = node.text().collect::<String>().trim().to_string();
             let href = node.value().attr("href").unwrap_or_default();
-            
+
             if title.is_empty() || !href.starts_with("/md5/") {
                 continue;
             }
@@ -116,7 +123,10 @@ impl AnnasArchiveSource {
             }
 
             let mut extra = HashMap::new();
-            extra.insert("detail_url".to_string(), format!("{}{}", successful_mirror, href));
+            extra.insert(
+                "detail_url".to_string(),
+                format!("{}{}", successful_mirror, href),
+            );
             extra.insert("md5".to_string(), md5.clone());
 
             items.push(SearchResult {
@@ -211,30 +221,53 @@ impl Source for AnnasArchiveSource {
         }
 
         if html.is_empty() {
-            return Err(ShioriError::Other("Failed to load Anna's Archive detail page".to_string()));
+            return Err(ShioriError::Other(
+                "Failed to load Anna's Archive detail page".to_string(),
+            ));
         }
 
         let doc = Html::parse_document(&html);
         let link_sel = Selector::parse("a[href]").unwrap();
-        
+
         let mut pages = Vec::new();
         let mut index = 0;
-        
+
         for node in doc.select(&link_sel) {
             let href = node.value().attr("href").unwrap_or_default();
             let text = node.text().collect::<String>().to_lowercase();
-            
+
             if href.starts_with("magnet:") {
-                pages.push(Page { index, url: format!("magnet|{}", href) });
+                pages.push(Page {
+                    index,
+                    url: format!("magnet|{}", href),
+                });
                 index += 1;
             } else if href.contains(".torrent") {
-                pages.push(Page { index, url: format!("torrent|{}", Self::normalize_href(href, &successful_mirror)) });
+                pages.push(Page {
+                    index,
+                    url: format!("torrent|{}", Self::normalize_href(href, &successful_mirror)),
+                });
                 index += 1;
-            } else if (text.contains("libgen") || text.contains("z-library") || text.contains("scihub") || text.contains("fast") || text.contains("slow")) && (href.starts_with("http") || href.starts_with("/download")) {
-                pages.push(Page { index, url: format!("direct|{}", Self::normalize_href(href, &successful_mirror)) });
+            } else if (text.contains("libgen")
+                || text.contains("z-library")
+                || text.contains("scihub")
+                || text.contains("fast")
+                || text.contains("slow"))
+                && (href.starts_with("http") || href.starts_with("/download"))
+            {
+                pages.push(Page {
+                    index,
+                    url: format!("direct|{}", Self::normalize_href(href, &successful_mirror)),
+                });
                 index += 1;
             } else if href.starts_with("ipfs://") {
-                pages.push(Page { index, url: format!("direct|{}", href.replace("ipfs://", "https://ipfs.io/ipfs/")) });
+                pages.push(Page {
+                    index,
+                    url: format!(
+                        "direct|{}",
+                        href.replace("ipfs://", "https://ipfs.io/ipfs/")
+                    ),
+                });
                 index += 1;
             }
         }

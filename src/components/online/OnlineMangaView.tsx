@@ -10,6 +10,7 @@ import { OnlineSearchHeader } from './OnlineSearchHeader';
 import { pluginApi, type Chapter as PluginChapter, type SearchResult as PluginSearchResult } from '@/lib/pluginSources';
 import { useUIStore } from '@/store/uiStore';
 import { useOnlineMangaReaderStore } from '@/store/onlineMangaReaderStore';
+import { OnlineMangaDetailView, type UnifiedChapter } from './OnlineMangaDetailView';
 import { HeroMangaBanner } from './HeroMangaBanner';
 import { MangaRankList } from './MangaRankList';
 import { OnlineResultCard } from './OnlineResultCard';
@@ -472,8 +473,22 @@ export function OnlineMangaView() {
   }, [extractTorboxCandidate, openInBrowser, setCurrentView, showErrorToast, showInfoToast, showSuccessToast]);
 
   const handleReadChapter = async (sourceId: string, contentId: string, chapter: PluginChapter, allChapters: PluginChapter[], contentTitle?: string) => {
+    // Filter duplicates to make Next/Prev predictable
+    const uniqueChapters = [];
+    const seenNumbers = new Set();
+    for (const c of allChapters) {
+      if (c.number !== undefined) {
+        if (!seenNumbers.has(c.number)) {
+          seenNumbers.add(c.number);
+          uniqueChapters.push(c);
+        }
+      } else {
+        uniqueChapters.push(c);
+      }
+    }
+    
     setSource(sourceId);
-    setContent(contentId, allChapters, contentTitle);
+    setContent(contentId, uniqueChapters, contentTitle);
     await setChapter(chapter.id);
     setChaptersDialogOpen(false);
     setCurrentView('online-manga-reader');
@@ -489,6 +504,76 @@ export function OnlineMangaView() {
     () => chapters.map(mapMangaDexChapterToPlugin),
     [chapters, mapMangaDexChapterToPlugin]
   );
+
+
+  const unifiedChapters = useMemo((): UnifiedChapter[] => {
+    if (selectedManga && isMangaDexEnabled) {
+      return chapters.map((c) => ({
+        id: c.id,
+        volume: c.volume || 'None',
+        chapter: c.chapter || '?',
+        title: c.title || '',
+        pages: c.pages,
+        sourceType: 'mangadex',
+        originalChapter: c,
+        date: c.publishAt ? new Date(c.publishAt).toLocaleDateString() : undefined,
+      }));
+    }
+    if (selectedPluginManga && isPluginMangaSource) {
+      return pluginChapters.map((c) => ({
+        id: c.id,
+        volume: c.volume ? String(c.volume) : 'None',
+        chapter: c.number !== undefined ? String(c.number) : '?',
+        title: c.title || '',
+        pages: c.pages,
+        sourceType: 'plugin',
+        originalChapter: c,
+        date: c.date ? new Date(c.date).toLocaleDateString() : undefined,
+      }));
+    }
+    return [];
+  }, [chapters, pluginChapters, selectedManga, selectedPluginManga, isMangaDexEnabled, isPluginMangaSource]);
+
+  const handleReadUnifiedChapter = async (unifiedCh: UnifiedChapter) => {
+    if (unifiedCh.sourceType === 'mangadex') {
+      const pluginFormat = mapMangaDexChapterToPlugin(unifiedCh.originalChapter);
+      await handleReadChapter('mangadex', selectedManga!.id, pluginFormat, mangaDexPluginChapters, selectedManga!.title);
+    } else {
+      await handleReadChapter(activePluginSourceId!, selectedPluginManga!.id, unifiedCh.originalChapter, pluginChapters, selectedPluginManga!.title);
+    }
+  };
+
+  if (selectedManga || selectedPluginManga) {
+    const isPlugin = !!selectedPluginManga;
+    const title = isPlugin ? selectedPluginManga!.title : selectedManga!.title;
+    const description = isPlugin ? (selectedPluginManga!.summary || selectedPluginManga!.description) : selectedManga!.description;
+    const coverUrl = isPlugin ? (selectedPluginManga!.coverUrl || selectedPluginManga!.cover_url) : selectedManga!.coverUrl;
+    const author = isPlugin ? undefined : selectedManga!.author;
+    const status = isPlugin ? undefined : selectedManga!.status;
+    const year = isPlugin ? undefined : selectedManga!.year;
+
+    return (
+      <div className="flex flex-col h-full bg-background">
+        <OnlineMangaDetailView
+          title={title}
+          coverUrl={coverUrl}
+          description={description}
+          author={author}
+          status={status}
+          year={year}
+          chaptersLoading={chaptersLoading}
+          chaptersError={pluginError}
+          unifiedChapters={unifiedChapters}
+          onBack={() => {
+            setSelectedManga(null);
+            setSelectedPluginManga(null);
+          }}
+          onReadChapter={handleReadUnifiedChapter}
+          onBookmark={() => showInfoToast('Bookmark', 'Bookmark feature coming soon')}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-background">

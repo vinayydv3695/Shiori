@@ -3,7 +3,6 @@
 
 mod cloudflare;
 mod commands;
-mod torbox;
 mod conversion;
 mod db;
 mod error;
@@ -12,24 +11,24 @@ mod services;
 mod sources;
 mod utils;
 
+use error::ShioriError;
 use std::sync::Arc;
 use tauri::Manager;
-use error::ShioriError;
 
 use services::{
+    book_metadata_service::BookMetadataService,
     conversion_engine::ConversionEngine,
     cover_service::CoverService,
-    rss_service::RssService,
-    rss_scheduler::RssScheduler,
-    share_service::ShareService,
-    manga_metadata_service::MangaMetadataService,
-    book_metadata_service::BookMetadataService,
     folder_watch::FolderWatchService,
+    manga_metadata_service::MangaMetadataService,
     online::{
-        worker::{MetadataWorker, MetadataJob},
         anilist::AniListProvider,
         openlibrary::OpenLibraryProvider,
+        worker::{MetadataJob, MetadataWorker},
     },
+    rss_scheduler::RssScheduler,
+    rss_service::RssService,
+    share_service::ShareService,
 };
 
 pub struct AppState {
@@ -44,7 +43,6 @@ pub struct MetadataState {
 }
 
 fn main() {
-
     #[cfg(target_os = "linux")]
     {
         // WEBKIT_DISABLE_DMABUF_RENDERER=1 prevents blank/white screens on Arch Linux.
@@ -79,10 +77,12 @@ fn main() {
 
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_shell::init());
-        
+
     builder = builder.register_asynchronous_uri_scheme_protocol("shiori-proxy", |_ctx, request, responder| {
         let uri = request.uri().to_string();
         
@@ -157,17 +157,17 @@ fn main() {
         log::info!("Native TTS plugin enabled - initializing tauri-plugin-tts");
         builder = builder.plugin(tauri_plugin_tts::init());
     }
-    
+
     #[cfg(not(feature = "native-tts"))]
     {
         log::warn!("Native TTS plugin NOT enabled - rebuild with --features native-tts for native TTS support");
     }
-    
-    builder.setup(|app| {
-            let app_dir = app
-                .path()
-                .app_data_dir()
-                .map_err(|e| ShioriError::Other(format!("Failed to get app data directory: {}", e)))?;
+
+    builder
+        .setup(|app| {
+            let app_dir = app.path().app_data_dir().map_err(|e| {
+                ShioriError::Other(format!("Failed to get app data directory: {}", e))
+            })?;
 
             std::fs::create_dir_all(&app_dir)?;
 
@@ -189,28 +189,31 @@ fn main() {
             registry.register(Arc::new(sources::annas_archive::AnnasArchiveSource::new()?));
             // LibGen for book search and download
             registry.register(Arc::new(sources::libgen::LibgenSource::new()?));
+            registry.register(Arc::new(sources::torrent_csv::TorrentCsvSource::new()?));
 
             // Load source configs from the Tauri store in the background so the UI
             // appears immediately. Sources use defaults until async hydration completes.
             let app_handle_for_sources = app.handle().clone();
             let toongod_for_config = toongod_source.clone();
             tauri::async_runtime::spawn(async move {
-
-
                 // Load ToonGod Cloudflare bypass config
                 {
                     use tauri_plugin_store::StoreExt;
                     if let Ok(store) = app_handle_for_sources.store("sources.json") {
-                        let cf_clearance = store.get("toongod.cf_clearance")
+                        let cf_clearance = store
+                            .get("toongod.cf_clearance")
                             .and_then(|v: serde_json::Value| v.as_str().map(ToString::to_string))
                             .filter(|s: &String| !s.is_empty());
-                        let flaresolverr_url = store.get("toongod.flaresolverr_url")
+                        let flaresolverr_url = store
+                            .get("toongod.flaresolverr_url")
                             .and_then(|v: serde_json::Value| v.as_str().map(ToString::to_string))
                             .filter(|s: &String| !s.is_empty());
-                        toongod_for_config.set_config(sources::toongod::ToonGodConfig {
-                            cf_clearance,
-                            flaresolverr_url,
-                        }).await;
+                        toongod_for_config
+                            .set_config(sources::toongod::ToonGodConfig {
+                                cf_clearance,
+                                flaresolverr_url,
+                            })
+                            .await;
                     }
                 }
 
@@ -220,23 +223,35 @@ fn main() {
             let plugin_registry = Arc::new(tokio::sync::RwLock::new(registry));
 
             // Initialize Discord RPC Service (Placeholder App ID)
-            let discord_service = services::discord_service::DiscordService::new("1512062340827316265");
-            
+            let discord_service =
+                services::discord_service::DiscordService::new("1512062340827316265");
+
             // Cloudflare session state
             let cf_sessions_dir = app_dir.join("cloudflare_sessions");
-            let cf_store = cloudflare::session::SessionStore::new(&cf_sessions_dir)
-                .map_err(|e| ShioriError::Other(format!("Failed to init CF session store: {}", e)))?;
-            let cf_state = cloudflare::commands::CloudflareState { store: cf_store.clone() };
+            let cf_store =
+                cloudflare::session::SessionStore::new(&cf_sessions_dir).map_err(|e| {
+                    ShioriError::Other(format!("Failed to init CF session store: {}", e))
+                })?;
+            let cf_state = cloudflare::commands::CloudflareState {
+                store: cf_store.clone(),
+            };
             app.manage(cf_state);
 
             // Wire the CfClient to ToonGod source so it can auto-solve challenges.
             let toongod_for_cf = toongod_source.clone();
             let cf_store_for_toongod = cf_store.clone();
             tauri::async_runtime::spawn(async move {
-                match cloudflare::client::CfClient::new("https://www.toongod.org", cf_store_for_toongod) {
+                match cloudflare::client::CfClient::new(
+                    "https://www.toongod.org",
+                    cf_store_for_toongod,
+                ) {
                     Ok(cf_client) => {
-                        toongod_for_cf.set_cf_client(std::sync::Arc::new(cf_client)).await;
-                        log::info!("ToonGod: CfClient attached (automatic Playwright solver active)");
+                        toongod_for_cf
+                            .set_cf_client(std::sync::Arc::new(cf_client))
+                            .await;
+                        log::info!(
+                            "ToonGod: CfClient attached (automatic Playwright solver active)"
+                        );
                     }
                     Err(e) => log::warn!("ToonGod: Failed to build CfClient: {}", e),
                 }
@@ -258,7 +273,10 @@ fn main() {
             tauri::async_runtime::spawn(async move {
                 let state = torbox_handle.state::<commands::torbox::TorboxState>();
                 if let Err(e) = state.service.load_api_key_from_store(&torbox_handle).await {
-                    log::warn!("Torbox: failed to load API key from store (may not be configured yet): {}", e);
+                    log::warn!(
+                        "Torbox: failed to load API key from store (may not be configured yet): {}",
+                        e
+                    );
                 } else {
                     log::info!("Torbox: API key loaded from store");
                 }
@@ -282,7 +300,6 @@ fn main() {
             }
 
             app.manage(conversion_engine);
-
 
             // Cover service
             let cover_service = Arc::new(CoverService::new(storage_path.clone())?);
@@ -314,21 +331,23 @@ fn main() {
             });
 
             // Share service
-            let share_service = Arc::new(tokio::sync::Mutex::new(
-                ShareService::new(database.clone(), storage_path.clone(), Some(8080))
-            ));
+            let share_service = Arc::new(tokio::sync::Mutex::new(ShareService::new(
+                database.clone(),
+                storage_path.clone(),
+                Some(8080),
+            )));
             app.manage(share_service);
 
             // Metadata enrichment services (v2.1)
             let manga_metadata_service = Arc::new(MangaMetadataService::new()?);
             app.manage(manga_metadata_service);
-            
+
             let book_metadata_service = Arc::new(BookMetadataService::new()?);
             app.manage(book_metadata_service);
 
             // Online Metadata Enrichment Worker
             let (mut metadata_worker, metadata_rx) = MetadataWorker::new(database.clone());
-            
+
             if let Ok(anilist) = AniListProvider::new() {
                 metadata_worker.add_provider(Arc::new(anilist));
             }
@@ -344,8 +363,11 @@ fn main() {
                 sender: metadata_job_sender,
             });
 
-            let folder_watch_service = FolderWatchService::new(database.clone(), covers_dir.clone());
-            app.manage(commands::folder_watch::FolderWatchState::new(folder_watch_service));
+            let folder_watch_service =
+                FolderWatchService::new(database.clone(), covers_dir.clone());
+            app.manage(commands::folder_watch::FolderWatchState::new(
+                folder_watch_service,
+            ));
 
             log::info!("Shiori v2.0 initialized with database at {:?}", db_path);
             log::info!("Storage path: {:?}", storage_path);
@@ -353,249 +375,10 @@ fn main() {
             log::info!("RSS scheduler: enabled (daily EPUB at 6 AM)");
             log::info!("Share server: ready (port 8080)");
             log::info!("Metadata APIs: AniList (manga) + Open Library (books)");
-            
+
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
-            commands::library::get_books,
-            commands::library::get_book_summaries,
-            commands::library::get_book_summaries_by_domain,
-            commands::library::find_duplicate_books,
-            commands::library::get_total_books,
-            commands::library::get_library_stats,
-            commands::library::get_thumbnail,
-            commands::library::get_recommended_books,
-            commands::library::get_book,
-            commands::library::add_book,
-            commands::library::update_book,
-            commands::library::delete_book,
-            commands::library::delete_books,
-            commands::library::import_books,
-            commands::library::scan_folder_unified,
-            commands::library::import_manga,
-            commands::library::download_gutenberg_epub,
-            commands::library::download_libgen_epub,
-            commands::library::scan_folder_for_manga,
-            commands::library::import_comics,
-            commands::library::scan_folder_for_comics,
-            commands::library::start_background_scan,
-            commands::library::get_books_by_domain,
-            commands::library::get_total_books_by_domain,
-            commands::library::reset_database,
-            commands::library::update_reading_status,
-            commands::library::get_books_by_reading_status,
-            commands::search::search_books,
-            commands::metadata::extract_metadata,
-            commands::metadata::search_manga_metadata,
-            commands::metadata::get_manga_metadata_by_id,
-            commands::metadata::parse_manga_filename,
-            commands::metadata::search_book_metadata,
-            commands::metadata::search_book_by_isbn,
-            commands::metadata::enrich_book_metadata,
-            commands::metadata::apply_selected_metadata,
-            commands::metadata::apply_selected_series_metadata,
-            commands::metadata::preview_cover_url,
-            commands::tags::get_tags,
-            commands::tags::create_tag,
-            commands::tags::add_tag_to_book,
-            commands::tags::remove_tag_from_book,
-            commands::reader::get_reading_progress,
-            commands::reader::get_reading_progress_batch,
-            commands::reader::save_reading_progress,
-            commands::reader::get_annotations,
-            commands::reader::create_annotation,
-            commands::reader::update_annotation,
-            commands::reader::delete_annotation,
-            commands::reader::get_annotation_categories,
-            commands::reader::create_annotation_category,
-            commands::reader::update_annotation_category,
-            commands::reader::delete_annotation_category,
-            commands::reader::search_annotations_global,
-            commands::reader::get_all_annotations,
-            commands::reader::export_annotations,
-            commands::reader::get_reader_settings,
-            commands::reader::get_reader_startup_data,
-            commands::reader::save_reader_settings,
-            commands::reader::get_book_file_path,
-            commands::reader::detect_book_format,
-            commands::reader::validate_book_file,
-            commands::reader::get_error_details,
-            commands::reader::start_reading_session,
-            commands::reader::end_reading_session,
-            commands::reader::heartbeat_reading_session,
-            commands::reader::get_daily_reading_stats,
-            commands::reader::get_book_reading_stats,
-            commands::reader::get_reading_streak,
-            commands::reader::get_reading_goal,
-            commands::reader::update_reading_goal,
-            commands::reader::get_today_reading_time,
-            commands::rendering::open_book_renderer,
-            commands::rendering::close_book_renderer,
-            commands::rendering::get_book_toc,
-            commands::rendering::get_book_chapter,
-            commands::rendering::get_book_chapter_count,
-            commands::rendering::search_in_book,
-            commands::rendering::get_epub_resource,
-            commands::rendering::get_renderer_cache_stats,
-            commands::rendering::clear_renderer_cache,
-            commands::rendering::render_pdf_page,
-            commands::rendering::get_pdf_page_dimensions,
-            commands::collections::get_collections,
-            commands::collections::get_collection,
-            commands::collections::create_collection,
-            commands::collections::update_collection,
-            commands::collections::delete_collection,
-            commands::collections::add_book_to_collection,
-            commands::collections::remove_book_from_collection,
-            commands::collections::add_books_to_collection,
-            commands::collections::get_collection_books,
-            commands::collections::get_nested_collections,
-            commands::collections::toggle_book_favorite,
-            commands::collections::get_favorite_book_ids,
-            commands::collections::get_collections_by_type,
-            commands::collections::preview_smart_collection,
-            commands::export::export_library,
-            // v2.0 commands
-            commands::conversion::convert_book,
-            commands::conversion::get_conversion_status,
-            commands::conversion::list_conversion_jobs,
-            commands::conversion::cancel_conversion,
-            commands::conversion::get_supported_conversions,
-            commands::conversion::check_calibre_available,
-            commands::conversion::convert_with_calibre,
-            commands::conversion::convert_and_replace_book,
-            commands::conversion::open_book_for_reading,
-            commands::conversion::book_needs_conversion,
-            commands::conversion::cleanup_converted_cache,
-            commands::cover::generate_cover,
-            commands::cover::get_book_cover,
-            commands::cover::get_book_cover_bytes,
-            commands::cover::get_cover_by_id,
-            commands::cover::get_cover_path_by_id,
-            commands::cover::get_cover_paths_batch,
-            commands::cover::clear_cover_cache,
-            commands::rss::add_rss_feed,
-            commands::rss::get_rss_feed,
-            commands::rss::list_rss_feeds,
-            commands::rss::update_rss_feed,
-            commands::rss::delete_rss_feed,
-            commands::rss::toggle_rss_feed,
-            commands::rss::update_rss_feed_articles,
-            commands::rss::update_all_rss_feeds,
-            commands::rss::get_unread_articles,
-            commands::rss::mark_article_read,
-            commands::rss::generate_daily_epub,
-            commands::rss::trigger_feed_update,
-            commands::rss::trigger_daily_epub_generation,
-            commands::share::create_book_share,
-            commands::share::get_share,
-            commands::share::is_share_valid,
-            commands::share::revoke_share,
-            commands::share::list_book_shares,
-            commands::share::start_share_server,
-            commands::share::stop_share_server,
-            commands::share::is_share_server_running,
-            commands::share::cleanup_expired_shares,
-            // Manga reader commands
-            commands::manga::open_manga,
-            commands::manga::get_manga_page,
-            commands::manga::get_manga_page_path,
-            commands::manga::preload_manga_pages,
-            commands::manga::get_manga_page_dimensions,
-            commands::manga::close_manga,
-            commands::manga::get_manga_series_list,
-            commands::manga::get_series_volumes,
-            commands::manga::auto_group_manga_volumes,
-            commands::manga::create_manga_series,
-            commands::manga::update_manga_series,
-            commands::manga::assign_book_to_series,
-            commands::manga::remove_book_from_series,
-            commands::manga::delete_manga_series,
-            commands::manga::merge_manga_series,
-            // Preferences commands
-            commands::preferences::get_user_preferences,
-            commands::preferences::get_theme_sync,
-            commands::preferences::update_user_preferences,
-            commands::preferences::get_book_preference_overrides,
-            commands::preferences::set_book_preference_override,
-            commands::preferences::clear_book_preference_override,
-            commands::preferences::get_manga_preference_overrides,
-            commands::preferences::set_manga_preference_override,
-            commands::preferences::clear_manga_preference_override,
-            commands::preferences::get_onboarding_state,
-            commands::preferences::get_startup_data,
-            commands::preferences::complete_onboarding,
-            commands::preferences::reset_onboarding,
-            // Doodle commands
-            commands::doodle::save_doodle,
-            commands::doodle::get_doodle,
-            commands::doodle::delete_doodle,
-            commands::doodle::delete_book_doodles,
-            // Backup commands
-            commands::backup::create_backup,
-            commands::backup::restore_backup,
-            commands::backup::get_backup_info,
-            // File write command
-            commands::export::write_text_to_file,
-            // Translation/dictionary commands
-            // Discord commands
-            commands::discord::discord_connect,
-            commands::discord::discord_disconnect,
-            commands::discord::discord_set_activity,
-            commands::discord::discord_clear_activity,
-            commands::translation::dictionary_lookup,
-            commands::translation::translate_text,
-            // Folder watch commands
-            commands::folder_watch::start_folder_watch,
-            commands::folder_watch::stop_folder_watch,
-            commands::folder_watch::add_watch_folder,
-            commands::folder_watch::remove_watch_folder,
-            commands::folder_watch::get_watch_folders,
-            commands::folder_watch::get_watch_status,
-            commands::sources::list_sources,
-            commands::sources::list_sources_by_type,
-            commands::sources::plugin_search,
-            commands::sources::plugin_search_with_meta,
-            commands::sources::search_manga_sources,
-            commands::sources::plugin_browse,
-            commands::sources::plugin_get_chapters,
-            commands::sources::plugin_get_pages,
-            commands::sources::plugin_download_chapter,
-            commands::sources::set_source_config,
-            commands::sources::proxy_manga_image,
-            commands::sources::toongod_get_config,
-            commands::sources::toongod_set_config,
-            commands::debrid::debrid_resolve_and_import,
-            // Torbox commands
-            commands::torbox::torbox_set_api_key,
-            commands::torbox::torbox_get_api_key,
-            commands::torbox::torbox_add_magnet,
-            commands::torbox::torbox_get_status,
-            commands::torbox::torbox_get_download_link,
-            commands::torbox::torbox_download_and_import,
-            // SHIORI x TORBOX commands
-            torbox::verify_torbox_key,
-            torbox::send_to_torbox,
-            torbox::get_torbox_instant,
-            torbox::add_to_torbox_queue,
-            torbox::save_torbox_key,
-            torbox::get_torbox_key,
-            torbox::import_from_torbox,
-            torbox::import_existing_torbox_target,
-            torbox::resolve_torbox_download,
-            torbox::wait_for_torbox_completion,
-            // Prowlarr commands
-            commands::prowlarr::test_prowlarr_connection,
-            commands::prowlarr::search_prowlarr,
-            commands::prowlarr::grab_prowlarr_release,
-            // Cloudflare session commands
-            cloudflare::commands::cf_session_status,
-            cloudflare::commands::cf_solve,
-            cloudflare::commands::cf_invalidate_session,
-            cloudflare::commands::cf_clear_all_sessions,
-            cloudflare::commands::cf_list_sessions,
-            cloudflare::commands::cf_proxy_image,
-        ])
+        .invoke_handler(crate::generate_shiori_handlers!())
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {
             eprintln!("Fatal error starting Shiori application: {}", e);

@@ -1,7 +1,5 @@
 use crate::error::{Result, ShioriError};
-use crate::services::renderer::{
-    BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry,
-};
+use crate::services::renderer::{BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry};
 use async_trait::async_trait;
 use quick_xml::events::Event;
 use quick_xml::reader::Reader;
@@ -194,7 +192,10 @@ impl Fb2ReaderAdapter {
                                 chapters.push(Chapter {
                                     index: idx,
                                     title: title.clone(),
-                                    content: format!("<div class=\"fb2-chapter\">{}</div>", current_html),
+                                    content: format!(
+                                        "<div class=\"fb2-chapter\">{}</div>",
+                                        current_html
+                                    ),
                                     location: format!("fb2-chapter-{}", idx),
                                 });
                                 toc.push(TocEntry {
@@ -264,7 +265,10 @@ impl Fb2ReaderAdapter {
                                 chapters.push(Chapter {
                                     index: idx,
                                     title: title.clone(),
-                                    content: format!("<div class=\"fb2-chapter\">{}</div>", current_html),
+                                    content: format!(
+                                        "<div class=\"fb2-chapter\">{}</div>",
+                                        current_html
+                                    ),
                                     location: format!("fb2-chapter-{}", idx),
                                 });
                                 toc.push(TocEntry {
@@ -368,9 +372,8 @@ impl Fb2ReaderAdapter {
                             let trimmed = txt.trim();
                             if !trimmed.is_empty() {
                                 fallback_html.push_str("<p>");
-                                fallback_html.push_str(
-                                    &trimmed.replace('<', "&lt;").replace('>', "&gt;"),
-                                );
+                                fallback_html
+                                    .push_str(&trimmed.replace('<', "&lt;").replace('>', "&gt;"));
                                 fallback_html.push_str("</p>\n");
                             }
                         }
@@ -410,10 +413,7 @@ impl Fb2ReaderAdapter {
             .unwrap_or(0);
         let start_char = char_idx.saturating_sub(50);
         let end_char = (char_idx + query_char_len + 50).min(char_indices.len());
-        let start_byte = char_indices
-            .get(start_char)
-            .map(|&(b, _)| b)
-            .unwrap_or(0);
+        let start_byte = char_indices.get(start_char).map(|&(b, _)| b).unwrap_or(0);
         let end_byte = if end_char >= char_indices.len() {
             content.len()
         } else {
@@ -429,22 +429,23 @@ unsafe impl Sync for Fb2ReaderAdapter {}
 #[async_trait]
 impl BookReaderAdapter for Fb2ReaderAdapter {
     async fn load(&mut self, path: &str) -> Result<()> {
-        let content = tokio::fs::read_to_string(path).await.map_err(ShioriError::Io)?;
+        let content = tokio::fs::read_to_string(path)
+            .await
+            .map_err(ShioriError::Io)?;
 
         self.path = path.to_string();
 
         let title = Self::extract_book_title(&content)
-            .unwrap_or_else(|| {
-                path.split('/')
-                    .last()
-                    .unwrap_or("Unknown")
-                    .to_string()
-            });
+            .unwrap_or_else(|| path.split('/').last().unwrap_or("Unknown").to_string());
         let author = Self::extract_author(&content);
 
         let (chapters, toc) = Self::parse_body(&content);
 
-        let total_chapters = if chapters.is_empty() { 1 } else { chapters.len() };
+        let total_chapters = if chapters.is_empty() {
+            1
+        } else {
+            chapters.len()
+        };
 
         self.metadata = Some(BookMetadata {
             title,
@@ -471,16 +472,17 @@ impl BookReaderAdapter for Fb2ReaderAdapter {
     }
 
     fn get_chapter(&self, index: usize) -> Result<Chapter> {
-        self.chapters.get(index).cloned().ok_or_else(|| {
-            ShioriError::ChapterReadFailed {
+        self.chapters
+            .get(index)
+            .cloned()
+            .ok_or_else(|| ShioriError::ChapterReadFailed {
                 chapter_index: index,
                 cause: format!(
                     "Chapter index {} out of range (total: {})",
                     index,
                     self.chapters.len()
                 ),
-            }
-        })
+            })
     }
 
     fn chapter_count(&self) -> usize {
@@ -504,12 +506,13 @@ impl BookReaderAdapter for Fb2ReaderAdapter {
                     plain_text.push(c);
                 }
             }
-            plain_text.replace("&nbsp;", " ")
-                      .replace("&amp;", "&")
-                      .replace("&lt;", "<")
-                      .replace("&gt;", ">")
-                      .replace("&quot;", "\"")
-                      .replace("&#39;", "'")
+            plain_text
+                .replace("&nbsp;", " ")
+                .replace("&amp;", "&")
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&quot;", "\"")
+                .replace("&#39;", "'")
         }
 
         for chapter in &self.chapters {
@@ -517,8 +520,7 @@ impl BookReaderAdapter for Fb2ReaderAdapter {
             let content_lower = content.to_lowercase();
             let matches: Vec<_> = content_lower.match_indices(&query_lower).collect();
             if !matches.is_empty() {
-                let snippet =
-                    Self::safe_snippet(&content, matches[0].0, query_char_len);
+                let snippet = Self::safe_snippet(&content, matches[0].0, query_char_len);
                 results.push(SearchResult {
                     chapter_index: chapter.index,
                     chapter_title: chapter.title.clone(),

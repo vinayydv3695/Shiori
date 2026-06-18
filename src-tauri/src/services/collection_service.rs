@@ -214,7 +214,7 @@ impl CollectionService {
                     b.file_size, b.file_hash, b.cover_path, b.page_count, b.word_count,
                     b.language, b.added_date, b.modified_date, b.last_opened, b.notes,
                     b.online_metadata_fetched, b.metadata_source, b.metadata_last_sync, b.anilist_id,
-                    b.is_favorite, b.reading_status, b.domain
+                    b.is_favorite, b.reading_status, b.domain, b.is_wishlist
              FROM books b
              JOIN collections_books cb ON b.id = cb.book_id
              WHERE cb.collection_id = ?1
@@ -254,6 +254,7 @@ impl CollectionService {
                     is_favorite: row.get::<_, i64>(27).unwrap_or(0) != 0,
                     reading_status: row.get(28)?,
                     domain: row.get(29).ok().flatten(),
+                    is_wishlist: row.get::<_, i64>(30).unwrap_or(0) != 0,
                     metadata_locked: None,
                     authors: Vec::new(),
                     tags: Vec::new(),
@@ -439,7 +440,7 @@ impl CollectionService {
                     b.file_size, b.file_hash, b.cover_path, b.page_count, b.word_count,
                     b.language, b.added_date, b.modified_date, b.last_opened, b.notes,
                     b.online_metadata_fetched, b.metadata_source, b.metadata_last_sync, b.anilist_id,
-                    b.is_favorite, b.reading_status, b.domain
+                    b.is_favorite, b.reading_status, b.domain, b.is_wishlist
              FROM books b
              WHERE {}
              ORDER BY b.title ASC",
@@ -481,6 +482,7 @@ impl CollectionService {
                     is_favorite: row.get::<_, i64>(27).unwrap_or(0) != 0,
                     reading_status: row.get(28)?,
                     domain: row.get(29).ok().flatten(),
+                    is_wishlist: row.get::<_, i64>(30).unwrap_or(0) != 0,
                     metadata_locked: None,
                     authors: Vec::new(),
                     tags: Vec::new(),

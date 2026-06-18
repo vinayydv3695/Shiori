@@ -21,7 +21,7 @@ impl Database {
             c.execute_batch("PRAGMA temp_store = MEMORY")?;
             c.execute_batch("PRAGMA mmap_size = 3000000000")?;
             c.execute_batch("PRAGMA cache_size = -65536")?; // Default to 64MB cache for all connections in pool
-            // Avoid SQLITE_BUSY under concurrent access
+                                                            // Avoid SQLITE_BUSY under concurrent access
             c.busy_timeout(std::time::Duration::from_millis(5000))?;
             Ok(())
         });
@@ -110,7 +110,8 @@ impl Database {
                 last_opened TEXT,
                 notes TEXT,
                 reading_status TEXT NOT NULL DEFAULT 'planning',
-                domain TEXT DEFAULT NULL
+                domain TEXT DEFAULT NULL,
+                is_wishlist INTEGER NOT NULL DEFAULT 0
             )",
             [],
         )?;

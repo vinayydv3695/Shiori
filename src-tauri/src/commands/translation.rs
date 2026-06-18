@@ -1,7 +1,6 @@
 /// Translation & Dictionary IPC Commands
 ///
 /// Provides dictionary lookup and text translation via free APIs.
-
 use crate::error::Result;
 use crate::services::translation_service;
 use serde::{Deserialize, Serialize};

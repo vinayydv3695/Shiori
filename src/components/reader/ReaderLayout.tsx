@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useReaderStore } from '@/store/readerStore';
 import { api } from '@/lib/tauri';
 import { invoke } from '@tauri-apps/api/core';
@@ -180,6 +180,33 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
   const handleClose = () => { closeBook(); onClose(); };
   const handleRetry = () => { setRetryCount(p => p + 1); setError(null); setLoadingStage('idle'); };
 
+  const handleNextChapter = useCallback(async () => {
+    try {
+      const nextBook: any = await invoke('get_next_book_in_series', { bookId });
+      if (nextBook && nextBook.id) {
+        import('@/store/toastStore').then(({ useToastStore }) => {
+          useToastStore.getState().addToast({
+            title: `Continuing to ${nextBook.title}`,
+            variant: 'success',
+            duration: 3000,
+          });
+        });
+        // Use the app-wide event to switch the active book in the reader
+        window.dispatchEvent(new CustomEvent('open-book', { detail: { bookId: nextBook.id } }));
+      } else {
+        import('@/store/toastStore').then(({ useToastStore }) => {
+          useToastStore.getState().addToast({
+            title: 'You have finished the series!',
+            variant: 'info',
+            duration: 3000,
+          });
+        });
+      }
+    } catch (e) {
+      logger.error('Failed to get next book in series', e);
+    }
+  }, [bookId]);
+
   // ── CONVERSION OVERLAY ─────────────────────────────────────────────────
   // Shown during 'converting' stage — replaces the generic spinner with the
   // animated ConversionProgress component that listens to Tauri events.
@@ -223,6 +250,8 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
     );
   }
 
+
+
   // ── READER ─────────────────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: 'var(--reader-bg)' }}>
@@ -233,7 +262,7 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
         <PdfReader bookPath={currentBookPath} bookId={bookId} readerContent={currentContent} onClose={handleClose} />
       )}
       {currentBookPath && (['cbz', 'cbr', 'zip', 'rar'].includes(currentBookFormat || '')) && (
-        <MangaReader mode="local" bookId={bookId} bookPath={currentBookPath} onClose={handleClose} />
+        <MangaReader mode="local" bookId={bookId} bookPath={currentBookPath} onClose={handleClose} onNextChapter={handleNextChapter} />
       )}
       {currentBookPath && !['epub', 'pdf', 'cbz', 'cbr', 'zip', 'rar'].includes(currentBookFormat || '') && (
         <GenericHtmlReader

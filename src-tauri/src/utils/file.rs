@@ -8,14 +8,14 @@ pub fn calculate_file_hash(path: &str) -> Result<String> {
     let mut file = File::open(path)?;
     let metadata = file.metadata()?;
     let file_size = metadata.len();
-    
+
     let mut hasher = Sha256::new();
-    
+
     // Include file size in the hash to prevent collisions between files with same start/end but different sizes
     hasher.update(&file_size.to_le_bytes());
-    
+
     let chunk_size: u64 = 8192; // 8KB
-    
+
     if file_size <= chunk_size * 2 {
         // If file is small (<= 16KB), just hash the whole thing
         let mut buffer = Vec::new();
@@ -26,7 +26,7 @@ pub fn calculate_file_hash(path: &str) -> Result<String> {
         let mut start_buffer = vec![0; chunk_size as usize];
         file.read_exact(&mut start_buffer)?;
         hasher.update(&start_buffer);
-        
+
         // Hash last 8KB
         file.seek(SeekFrom::End(-(chunk_size as i64)))?;
         let mut end_buffer = vec![0; chunk_size as usize];

@@ -60,80 +60,80 @@ impl EpubBuilder {
             cover_image: None,
         }
     }
-    
+
     /// Set metadata
     pub fn metadata(mut self, metadata: EpubMetadata) -> Self {
         self.metadata = metadata;
         self
     }
-    
+
     /// Add a chapter
     pub fn add_chapter(&mut self, title: String, content: String) {
         let id = format!("ch{:04}", self.chapters.len() + 1);
         self.chapters.push(Chapter { id, title, content });
     }
-    
+
     /// Set custom stylesheet
     #[allow(dead_code)]
     pub fn stylesheet(mut self, css: String) -> Self {
         self.stylesheet = Some(css);
         self
     }
-    
+
     /// Set cover image
     #[allow(dead_code)]
     pub fn cover_image(mut self, image_data: Vec<u8>) -> Self {
         self.cover_image = Some(image_data);
         self
     }
-    
+
     /// Generate EPUB file
     pub async fn generate(&self, output_path: &Path) -> FormatResult<()> {
         let zip_data = self.build_zip()?;
         fs::write(output_path, zip_data).await?;
         Ok(())
     }
-    
+
     /// Build EPUB as ZIP bytes
     fn build_zip(&self) -> FormatResult<Vec<u8>> {
         let mut buffer = Cursor::new(Vec::new());
         let mut zip = ZipWriter::new(&mut buffer);
-        
-        let options: FileOptions<()> = FileOptions::default()
-            .compression_method(CompressionMethod::Deflated);
-        
+
+        let options: FileOptions<()> =
+            FileOptions::default().compression_method(CompressionMethod::Deflated);
+
         // 1. mimetype (uncompressed, must be first)
-        let mimetype_options: FileOptions<()> = FileOptions::default()
-            .compression_method(CompressionMethod::Stored);
+        let mimetype_options: FileOptions<()> =
+            FileOptions::default().compression_method(CompressionMethod::Stored);
         zip.start_file("mimetype", mimetype_options)
             .map_err(|e| FormatError::ConversionError(e.to_string()))?;
         zip.write_all(b"application/epub+zip")
             .map_err(|e| FormatError::ConversionError(e.to_string()))?;
-        
+
         // 2. META-INF/container.xml
         zip.start_file("META-INF/container.xml", options)
             .map_err(|e| FormatError::ConversionError(e.to_string()))?;
         zip.write_all(self.container_xml().as_bytes())
             .map_err(|e| FormatError::ConversionError(e.to_string()))?;
-        
+
         // 3. OEBPS/content.opf (package document)
         zip.start_file("OEBPS/content.opf", options)
             .map_err(|e| FormatError::ConversionError(e.to_string()))?;
         zip.write_all(self.content_opf().as_bytes())
             .map_err(|e| FormatError::ConversionError(e.to_string()))?;
-        
+
         // 4. OEBPS/toc.ncx (navigation for EPUB 2)
         zip.start_file("OEBPS/toc.ncx", options)
             .map_err(|e| FormatError::ConversionError(e.to_string()))?;
         zip.write_all(self.toc_ncx().as_bytes())
             .map_err(|e| FormatError::ConversionError(e.to_string()))?;
-        
+
         // 5. OEBPS/nav.xhtml (navigation for EPUB 3)
         zip.start_file("OEBPS/nav.xhtml", options)
             .map_err(|e| FormatError::ConversionError(e.to_string()))?;
         zip.write_all(self.nav_xhtml().as_bytes())
             .map_err(|e| FormatError::ConversionError(e.to_string()))?;
-        
+
         // 6. OEBPS/stylesheet.css
         if let Some(css) = &self.stylesheet {
             zip.start_file("OEBPS/stylesheet.css", options)
@@ -141,7 +141,7 @@ impl EpubBuilder {
             zip.write_all(css.as_bytes())
                 .map_err(|e| FormatError::ConversionError(e.to_string()))?;
         }
-        
+
         // 7. Cover image (if provided)
         if let Some(cover_data) = &self.cover_image {
             zip.start_file("OEBPS/cover.jpg", options)
@@ -149,7 +149,7 @@ impl EpubBuilder {
             zip.write_all(cover_data)
                 .map_err(|e| FormatError::ConversionError(e.to_string()))?;
         }
-        
+
         // 8. Chapter files
         for chapter in &self.chapters {
             let filename = format!("OEBPS/{}.xhtml", chapter.id);
@@ -158,13 +158,13 @@ impl EpubBuilder {
             zip.write_all(self.chapter_xhtml(chapter).as_bytes())
                 .map_err(|e| FormatError::ConversionError(e.to_string()))?;
         }
-        
+
         zip.finish()
             .map_err(|e| FormatError::ConversionError(e.to_string()))?;
-        
+
         Ok(buffer.into_inner())
     }
-    
+
     /// Generate container.xml
     fn container_xml(&self) -> String {
         r#"<?xml version="1.0" encoding="UTF-8"?>
@@ -172,44 +172,75 @@ impl EpubBuilder {
   <rootfiles>
     <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
   </rootfiles>
-</container>"#.to_string()
+</container>"#
+            .to_string()
     }
-    
+
     /// Generate content.opf (package document)
     fn content_opf(&self) -> String {
         let uuid = Uuid::new_v4();
-        let authors_meta = self.metadata.authors
+        let authors_meta = self
+            .metadata
+            .authors
             .iter()
             .map(|a| format!("    <dc:creator>{}</dc:creator>", Self::escape_xml(a)))
             .collect::<Vec<_>>()
             .join("\n");
-        
+
         let optional_meta = vec![
-            self.metadata.publisher.as_ref().map(|p| format!("    <dc:publisher>{}</dc:publisher>", Self::escape_xml(p))),
-            self.metadata.description.as_ref().map(|d| format!("    <dc:description>{}</dc:description>", Self::escape_xml(d))),
-            self.metadata.isbn.as_ref().map(|i| format!("    <dc:identifier id=\"isbn\">{}</dc:identifier>", Self::escape_xml(i))),
-            self.metadata.date.as_ref().map(|d| format!("    <dc:date>{}</dc:date>", Self::escape_xml(d))),
-        ].into_iter().flatten().collect::<Vec<_>>().join("\n");
-        
-        let manifest_items = self.chapters
+            self.metadata
+                .publisher
+                .as_ref()
+                .map(|p| format!("    <dc:publisher>{}</dc:publisher>", Self::escape_xml(p))),
+            self.metadata.description.as_ref().map(|d| {
+                format!(
+                    "    <dc:description>{}</dc:description>",
+                    Self::escape_xml(d)
+                )
+            }),
+            self.metadata.isbn.as_ref().map(|i| {
+                format!(
+                    "    <dc:identifier id=\"isbn\">{}</dc:identifier>",
+                    Self::escape_xml(i)
+                )
+            }),
+            self.metadata
+                .date
+                .as_ref()
+                .map(|d| format!("    <dc:date>{}</dc:date>", Self::escape_xml(d))),
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>()
+        .join("\n");
+
+        let manifest_items = self
+            .chapters
             .iter()
-            .map(|ch| format!(r#"    <item id="{}" href="{}.xhtml" media-type="application/xhtml+xml"/>"#, ch.id, ch.id))
+            .map(|ch| {
+                format!(
+                    r#"    <item id="{}" href="{}.xhtml" media-type="application/xhtml+xml"/>"#,
+                    ch.id, ch.id
+                )
+            })
             .collect::<Vec<_>>()
             .join("\n");
-        
-        let spine_items = self.chapters
+
+        let spine_items = self
+            .chapters
             .iter()
             .map(|ch| format!(r#"    <itemref idref="{}"/>"#, ch.id))
             .collect::<Vec<_>>()
             .join("\n");
-        
+
         let cover_item = if self.cover_image.is_some() {
             r#"    <item id="cover-image" href="cover.jpg" media-type="image/jpeg"/>"#
         } else {
             ""
         };
-        
-        format!(r#"<?xml version="1.0" encoding="UTF-8"?>
+
+        format!(
+            r#"<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
     <dc:identifier id="uid">urn:uuid:{}</dc:identifier>
@@ -241,20 +272,30 @@ impl EpubBuilder {
             spine_items
         )
     }
-    
+
     /// Generate toc.ncx (EPUB 2 navigation)
     fn toc_ncx(&self) -> String {
-        let nav_points = self.chapters
+        let nav_points = self
+            .chapters
             .iter()
             .enumerate()
-            .map(|(i, ch)| format!(r#"    <navPoint id="{}" playOrder="{}">
+            .map(|(i, ch)| {
+                format!(
+                    r#"    <navPoint id="{}" playOrder="{}">
       <navLabel><text>{}</text></navLabel>
       <content src="{}.xhtml"/>
-    </navPoint>"#, ch.id, i + 1, Self::escape_xml(&ch.title), ch.id))
+    </navPoint>"#,
+                    ch.id,
+                    i + 1,
+                    Self::escape_xml(&ch.title),
+                    ch.id
+                )
+            })
             .collect::<Vec<_>>()
             .join("\n");
-        
-        format!(r#"<?xml version="1.0" encoding="UTF-8"?>
+
+        format!(
+            r#"<?xml version="1.0" encoding="UTF-8"?>
 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
   <head>
     <meta name="dtb:uid" content="urn:uuid:{}"/>
@@ -272,16 +313,24 @@ impl EpubBuilder {
             nav_points
         )
     }
-    
+
     /// Generate nav.xhtml (EPUB 3 navigation)
     fn nav_xhtml(&self) -> String {
-        let nav_items = self.chapters
+        let nav_items = self
+            .chapters
             .iter()
-            .map(|ch| format!(r#"        <li><a href="{}.xhtml">{}</a></li>"#, ch.id, Self::escape_xml(&ch.title)))
+            .map(|ch| {
+                format!(
+                    r#"        <li><a href="{}.xhtml">{}</a></li>"#,
+                    ch.id,
+                    Self::escape_xml(&ch.title)
+                )
+            })
             .collect::<Vec<_>>()
             .join("\n");
-        
-        format!(r#"<?xml version="1.0" encoding="UTF-8"?>
+
+        format!(
+            r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
   <head>
@@ -295,12 +344,15 @@ impl EpubBuilder {
       </ol>
     </nav>
   </body>
-</html>"#, nav_items)
+</html>"#,
+            nav_items
+        )
     }
-    
+
     /// Generate chapter XHTML
     fn chapter_xhtml(&self, chapter: &Chapter) -> String {
-        format!(r#"<?xml version="1.0" encoding="UTF-8"?>
+        format!(
+            r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
@@ -317,7 +369,7 @@ impl EpubBuilder {
             Self::format_content(&chapter.content)
         )
     }
-    
+
     /// Default CSS stylesheet
     fn default_stylesheet() -> String {
         r#"body {
@@ -338,9 +390,10 @@ p {
 
 p:first-of-type {
   text-indent: 0;
-}"#.to_string()
+}"#
+        .to_string()
     }
-    
+
     /// Format content as HTML paragraphs
     fn format_content(content: &str) -> String {
         content
@@ -353,7 +406,7 @@ p:first-of-type {
             .collect::<Vec<_>>()
             .join("\n")
     }
-    
+
     /// Escape XML special characters
     fn escape_xml(text: &str) -> String {
         text.replace('&', "&amp;")
@@ -376,20 +429,23 @@ pub fn split_text_into_chapters(text: &str) -> Vec<(String, String)> {
     let mut current_title = "Chapter 1".to_string();
     let mut current_content = String::new();
     let mut chapter_num = 1;
-    
+
     for line in text.lines() {
         let trimmed = line.trim();
-        
+
         // Detect chapter markers
         if trimmed.to_lowercase().starts_with("chapter ")
             || trimmed.to_lowercase().starts_with("part ")
-            || (trimmed.len() < 50 && trimmed.chars().all(|c| c.is_uppercase() || c.is_whitespace() || c.is_numeric()))
+            || (trimmed.len() < 50
+                && trimmed
+                    .chars()
+                    .all(|c| c.is_uppercase() || c.is_whitespace() || c.is_numeric()))
         {
             // Save previous chapter
             if !current_content.trim().is_empty() {
                 chapters.push((current_title.clone(), current_content.trim().to_string()));
             }
-            
+
             // Start new chapter
             chapter_num += 1;
             current_title = if trimmed.is_empty() {
@@ -403,24 +459,24 @@ pub fn split_text_into_chapters(text: &str) -> Vec<(String, String)> {
             current_content.push('\n');
         }
     }
-    
+
     // Save last chapter
     if !current_content.trim().is_empty() {
         chapters.push((current_title, current_content.trim().to_string()));
     }
-    
+
     // If no chapters detected, treat entire text as one chapter
     if chapters.is_empty() {
         chapters.push(("Full Text".to_string(), text.to_string()));
     }
-    
+
     chapters
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_epub_builder() {
         let mut builder = EpubBuilder::new();
@@ -429,20 +485,29 @@ mod tests {
             authors: vec!["Test Author".to_string()],
             ..Default::default()
         };
-        
-        builder.add_chapter("Chapter 1".to_string(), "This is chapter 1 content.".to_string());
-        builder.add_chapter("Chapter 2".to_string(), "This is chapter 2 content.".to_string());
-        
+
+        builder.add_chapter(
+            "Chapter 1".to_string(),
+            "This is chapter 1 content.".to_string(),
+        );
+        builder.add_chapter(
+            "Chapter 2".to_string(),
+            "This is chapter 2 content.".to_string(),
+        );
+
         assert_eq!(builder.chapters.len(), 2);
     }
-    
+
     #[test]
     fn test_xml_escape() {
         let text = r#"Test & <html> "quotes" 'apostrophe'"#;
         let escaped = EpubBuilder::escape_xml(text);
-        assert_eq!(escaped, "Test &amp; &lt;html&gt; &quot;quotes&quot; &apos;apostrophe&apos;");
+        assert_eq!(
+            escaped,
+            "Test &amp; &lt;html&gt; &quot;quotes&quot; &apos;apostrophe&apos;"
+        );
     }
-    
+
     #[test]
     fn test_chapter_splitting() {
         let text = r#"Chapter 1
@@ -450,7 +515,7 @@ This is the first chapter.
 
 Chapter 2
 This is the second chapter."#;
-        
+
         let chapters = split_text_into_chapters(text);
         assert_eq!(chapters.len(), 2);
         assert_eq!(chapters[0].0, "Chapter 1");

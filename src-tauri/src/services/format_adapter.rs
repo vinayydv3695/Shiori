@@ -1,9 +1,8 @@
 /// Format Adapter Trait - Unified interface for all book formats
-/// 
+///
 /// This is the foundational trait that all format-specific adapters must implement.
 /// It provides a consistent API for metadata extraction, validation, cover extraction,
 /// and format conversion across all 11 supported book formats.
-
 use async_trait::async_trait;
 use image::DynamicImage;
 use serde::{Deserialize, Serialize};
@@ -15,28 +14,28 @@ use thiserror::Error;
 pub enum FormatError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-    
+
     #[error("Image error: {0}")]
     Image(#[from] image::ImageError),
-    
+
     #[error("Invalid format: {0}")]
     InvalidFormat(String),
-    
+
     #[error("Unsupported format: {0}")]
     UnsupportedFormat(String),
-    
+
     #[error("Metadata extraction failed: {0}")]
     MetadataError(String),
-    
+
     #[error("Cover extraction failed: {0}")]
     CoverError(String),
-    
+
     #[error("Validation failed: {0}")]
     ValidationError(String),
-    
+
     #[error("Conversion not supported: {from} -> {to}")]
     ConversionNotSupported { from: String, to: String },
-    
+
     #[error("Conversion failed: {0}")]
     ConversionError(String),
 }
@@ -49,19 +48,19 @@ pub type FormatResult<T> = Result<T, FormatError>;
 pub trait BookFormatAdapter: Send + Sync {
     /// Get format identifier (e.g., "epub", "pdf", "mobi")
     fn format_id(&self) -> &str;
-    
+
     /// Validate file integrity and structure
     async fn validate(&self, path: &Path) -> FormatResult<ValidationResult>;
-    
+
     /// Extract complete metadata from the book file
     async fn extract_metadata(&self, path: &Path) -> FormatResult<BookMetadata>;
-    
+
     /// Extract cover image (returns None if not found)
     async fn extract_cover(&self, path: &Path) -> FormatResult<Option<CoverImage>>;
-    
+
     /// Check if this format can be converted to the target format
     fn can_convert_to(&self, target: &str) -> bool;
-    
+
     /// Convert to target format
     async fn convert_to(
         &self,
@@ -69,7 +68,7 @@ pub trait BookFormatAdapter: Send + Sync {
         target: &Path,
         target_format: &str,
     ) -> FormatResult<ConversionResult>;
-    
+
     /// Get reading capabilities of this format
     fn capabilities(&self) -> FormatCapabilities;
 }
@@ -100,7 +99,7 @@ impl ValidationResult {
             chapter_count: None,
         }
     }
-    
+
     pub fn invalid(error: String) -> Self {
         Self {
             is_valid: false,
@@ -186,7 +185,7 @@ impl CoverImage {
             format: ImageFormat::Jpeg, // Default
         }
     }
-    
+
     pub fn from_bytes(data: &[u8]) -> FormatResult<Self> {
         let image = image::load_from_memory(data)
             .map_err(|e| FormatError::CoverError(format!("Failed to decode image: {}", e)))?;
@@ -209,13 +208,13 @@ pub struct ConversionResult {
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct FormatCapabilities {
-    pub supports_toc: bool,           // Table of contents
-    pub supports_images: bool,        // Embedded images
-    pub supports_text_reflow: bool,   // Reflowable text
-    pub supports_annotations: bool,   // Highlights/notes
-    pub supports_metadata: bool,      // Rich metadata
-    pub is_readable: bool,            // Can be read in app
-    pub supports_search: bool,        // Text search
+    pub supports_toc: bool,         // Table of contents
+    pub supports_images: bool,      // Embedded images
+    pub supports_text_reflow: bool, // Reflowable text
+    pub supports_annotations: bool, // Highlights/notes
+    pub supports_metadata: bool,    // Rich metadata
+    pub is_readable: bool,          // Can be read in app
+    pub supports_search: bool,      // Text search
 }
 
 #[allow(dead_code)]
@@ -231,7 +230,7 @@ impl FormatCapabilities {
             supports_search: true,
         }
     }
-    
+
     pub fn read_only() -> Self {
         Self {
             supports_toc: true,
@@ -243,7 +242,7 @@ impl FormatCapabilities {
             supports_search: true,
         }
     }
-    
+
     pub fn metadata_only() -> Self {
         Self {
             supports_toc: false,
@@ -283,14 +282,17 @@ impl FormatInfo {
             "mobi" => ("mobi", "application/x-mobipocket-ebook"),
             "azw3" => ("azw3", "application/vnd.amazon.ebook"),
             "fb2" => ("fb2", "application/x-fictionbook+xml"),
-            "docx" => ("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+            "docx" => (
+                "docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ),
             "txt" => ("txt", "text/plain"),
             "html" => ("html", "text/html"),
             "cbz" => ("cbz", "application/vnd.comicbook+zip"),
             "cbr" => ("cbr", "application/vnd.comicbook-rar"),
             _ => ("bin", "application/octet-stream"),
         };
-        
+
         Self {
             format: format.to_string(),
             extension: extension.to_string(),
@@ -298,39 +300,51 @@ impl FormatInfo {
             detected_by: DetectionMethod::Extension,
         }
     }
-    
-    pub fn epub() -> Self { Self::new("epub") }
-    pub fn pdf() -> Self { Self::new("pdf") }
-    pub fn mobi() -> Self { Self::new("mobi") }
-    pub fn azw3() -> Self { Self::new("azw3") }
-    pub fn fb2() -> Self { Self::new("fb2") }
-    pub fn docx() -> Self { Self::new("docx") }
-    pub fn txt() -> Self { Self::new("txt") }
-    pub fn html() -> Self { Self::new("html") }
-    pub fn cbz() -> Self { Self::new("cbz") }
-    pub fn cbr() -> Self { Self::new("cbr") }
+
+    pub fn epub() -> Self {
+        Self::new("epub")
+    }
+    pub fn pdf() -> Self {
+        Self::new("pdf")
+    }
+    pub fn mobi() -> Self {
+        Self::new("mobi")
+    }
+    pub fn azw3() -> Self {
+        Self::new("azw3")
+    }
+    pub fn fb2() -> Self {
+        Self::new("fb2")
+    }
+    pub fn docx() -> Self {
+        Self::new("docx")
+    }
+    pub fn txt() -> Self {
+        Self::new("txt")
+    }
+    pub fn html() -> Self {
+        Self::new("html")
+    }
+    pub fn cbz() -> Self {
+        Self::new("cbz")
+    }
+    pub fn cbr() -> Self {
+        Self::new("cbr")
+    }
 }
 
 /// Format support level
 #[allow(dead_code)]
 pub enum FormatSupport {
     /// Fully supported with all features
-    FullySupported {
-        adapter: Box<dyn BookFormatAdapter>,
-    },
+    FullySupported { adapter: Box<dyn BookFormatAdapter> },
     /// Read-only support (no conversion)
     ReadOnly {
         adapter: Box<dyn BookFormatAdapter>,
         reason: String,
     },
     /// Metadata extraction only
-    MetadataOnly {
-        format: String,
-        reason: String,
-    },
+    MetadataOnly { format: String, reason: String },
     /// Not supported
-    Unsupported {
-        format: String,
-        suggestion: String,
-    },
+    Unsupported { format: String, suggestion: String },
 }

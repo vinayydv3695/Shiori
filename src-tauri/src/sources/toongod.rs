@@ -205,23 +205,20 @@ impl ToonGodSource {
             .build()
             .ok()?;
 
-        let response = fs_client
-            .post(&endpoint)
-            .json(&payload)
-            .send()
-            .await
-            .ok()?;
+        let response = fs_client.post(&endpoint).json(&payload).send().await.ok()?;
 
         if !response.status().is_success() {
             return None;
         }
 
         let json: serde_json::Value = response.json().await.ok()?;
-        let html = json["solution"]["response"]
-            .as_str()?
-            .to_string();
+        let html = json["solution"]["response"].as_str()?.to_string();
 
-        if html.is_empty() { None } else { Some(html) }
+        if html.is_empty() {
+            None
+        } else {
+            Some(html)
+        }
     }
 
     /// Build extra browser-like headers for requests to help bypass basic checks.
@@ -265,13 +262,19 @@ impl ToonGodSource {
         headers
     }
 
-    async fn fetch_with_referer(&self, url: &str, referer: Option<&str>) -> Result<(reqwest::StatusCode, String)> {
+    async fn fetch_with_referer(
+        &self,
+        url: &str,
+        referer: Option<&str>,
+    ) -> Result<(reqwest::StatusCode, String)> {
         // 1. Try the Playwright CfClient (automatic browser-session solving).
         if let Some(cf) = self.cf_client.read().await.as_ref() {
             match cf.get_html(url).await {
                 Ok(html) => return Ok((reqwest::StatusCode::OK, html)),
                 Err(e) => {
-                    log::warn!("[ToonGod] CfClient failed for {url}: {e} — falling back to reqwest");
+                    log::warn!(
+                        "[ToonGod] CfClient failed for {url}: {e} — falling back to reqwest"
+                    );
                     // Fall through to the manual cookie path below.
                 }
             }
@@ -287,8 +290,8 @@ impl ToonGodSource {
             let config = self.config.read().await;
             config.cf_clearance.clone()
         };
-        let client = Self::build_client(cf_clearance.as_deref())
-            .unwrap_or_else(|_| self.client.clone());
+        let client =
+            Self::build_client(cf_clearance.as_deref()).unwrap_or_else(|_| self.client.clone());
 
         let headers = Self::browser_headers(referer.or(Some(BASE_URL)));
         let resp = client
@@ -312,8 +315,8 @@ impl ToonGodSource {
             let config = self.config.read().await;
             config.cf_clearance.clone()
         };
-        let client = Self::build_client(cf_clearance.as_deref())
-            .unwrap_or_else(|_| self.client.clone());
+        let client =
+            Self::build_client(cf_clearance.as_deref()).unwrap_or_else(|_| self.client.clone());
 
         // Try the new AJAX endpoint first
         let ajax_url = format!("{}/ajax/chapters/", manga_url.trim_end_matches('/'));
@@ -322,7 +325,10 @@ impl ToonGodSource {
             .post(&ajax_url)
             .header("X-Requested-With", "XMLHttpRequest")
             .header(reqwest::header::REFERER, manga_url)
-            .header(reqwest::header::ACCEPT, "application/json, text/javascript, */*; q=0.01")
+            .header(
+                reqwest::header::ACCEPT,
+                "application/json, text/javascript, */*; q=0.01",
+            )
             .send()
             .await;
 
@@ -338,10 +344,7 @@ impl ToonGodSource {
 
         // Try old admin-ajax endpoint
         let old_ajax_url = format!("{}/wp-admin/admin-ajax.php", BASE_URL);
-        let form = [
-            ("action", "manga_get_chapters"),
-            ("manga", manga_id),
-        ];
+        let form = [("action", "manga_get_chapters"), ("manga", manga_id)];
 
         let resp = client
             .post(&old_ajax_url)
@@ -386,7 +389,11 @@ impl Source for ToonGodSource {
     }
 
     async fn search(&self, query: &str, page: u32) -> Result<Vec<SearchResult>> {
-        let page_path = if page > 1 { format!("page/{}/", page) } else { String::new() };
+        let page_path = if page > 1 {
+            format!("page/{}/", page)
+        } else {
+            String::new()
+        };
         let url = format!(
             "{}/{}?s={}&post_type=wp-manga",
             BASE_URL,
@@ -480,7 +487,9 @@ impl Source for ToonGodSource {
         };
 
         let chapter_html = if let Some(ref mid) = manga_id {
-            self.try_ajax_chapters(mid, &manga_url).await?.unwrap_or(html.clone())
+            self.try_ajax_chapters(mid, &manga_url)
+                .await?
+                .unwrap_or(html.clone())
         } else {
             html.clone()
         };
@@ -509,7 +518,11 @@ impl Source for ToonGodSource {
 
             chapters.push(Chapter {
                 id: href.clone(),
-                title: if title.is_empty() { format!("Chapter {}", number) } else { title },
+                title: if title.is_empty() {
+                    format!("Chapter {}", number)
+                } else {
+                    title
+                },
                 number,
                 volume: None,
                 uploaded_at: None,
@@ -541,7 +554,9 @@ impl Source for ToonGodSource {
             Self::absolute_url(chapter_id)
         };
 
-        let (status, html) = self.fetch_with_referer(&chapter_url, Some(BASE_URL)).await?;
+        let (status, html) = self
+            .fetch_with_referer(&chapter_url, Some(BASE_URL))
+            .await?;
 
         if Self::detect_cloudflare_block(status, &html) {
             return Err(Self::cloudflare_error("chapter pages"));

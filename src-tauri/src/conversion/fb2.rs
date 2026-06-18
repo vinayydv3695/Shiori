@@ -7,17 +7,15 @@
 /// - Binary image extraction (base64-decoded)
 /// - Full body walk with FB2→XHTML element mapping
 /// - Notes body handling (<body name="notes">)
-
-
 use std::collections::HashMap;
 use std::path::Path;
 
-use super::epub_writer::{EpubDocument, escape_xml};
+use super::oeb::{escape_xml, OebBook, OebChapter, OebImage};
 use super::utils;
-use super::{ConversionError, EpubOutput};
+use super::ConversionError;
 
-/// Convert an FB2 file to EPUB 3.
-pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, ConversionError> {
+/// Parse an FB2 file into an OebBook.
+pub async fn parse(source: &Path) -> Result<OebBook, ConversionError> {
     let raw = tokio::fs::read(source).await?;
     let mut warnings = Vec::new();
 
@@ -55,7 +53,8 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
     )?;
 
     let title = if metadata.title.is_empty() {
-        source.file_stem()
+        source
+            .file_stem()
             .and_then(|s| s.to_str())
             .map(|s| s.replace('_', " "))
             .unwrap_or_else(|| "Untitled".to_string())
@@ -69,14 +68,15 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
         Some(metadata.authors.join(", "))
     };
 
-    // Build EPUB document
-    let mut doc = EpubDocument::new(title.clone());
-    doc.author = author.clone();
-    doc.language = metadata.language.unwrap_or_else(|| "en".to_string());
-    doc.description = metadata.annotation.clone();
+    // Build OebBook
+    let mut book = OebBook::new(title);
+    if let Some(auth) = author {
+        book.authors.push(auth);
+    }
+    book.language = metadata.language.unwrap_or_else(|| "en".to_string());
+    book.description = metadata.annotation.clone();
 
     // Add images
-    let mut cover_data: Option<Vec<u8>> = None;
     for (id, (filename, data)) in &binary_map {
         let media_type = if filename.ends_with(".png") {
             "image/png"
@@ -84,18 +84,29 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
             "image/jpeg"
         };
 
+        let oeb_img = OebImage {
+            id: id.clone(),
+            filename: filename.clone(),
+            mime_type: media_type.to_string(),
+            data: data.clone(),
+        };
+
         if metadata.cover_image_id.as_deref() == Some(id.as_str()) {
-            doc.set_cover(id.clone(), filename.clone(), data.clone());
-            cover_data = Some(data.clone());
+            book.cover_image = Some(oeb_img);
         } else {
-            doc.add_image(id.clone(), filename.clone(), media_type.to_string(), data.clone());
+            book.images.push(oeb_img);
         }
     }
 
     // Convert body sections to chapters
-    for section in &body_sections {
-        let (ch_title, body_html) = section_to_html(section, &binary_map, 2);
-        doc.add_chapter(ch_title, body_html);
+    for (i, section) in body_sections.into_iter().enumerate() {
+        let (ch_title, body_html) = section_to_html(&section, &binary_map, 2);
+        let id = format!("chapter_{:03}", i + 1);
+        book.chapters.push(OebChapter {
+            id,
+            title: Some(ch_title),
+            html: body_html,
+        });
     }
 
     // Append notes as the last chapter if present
@@ -108,19 +119,29 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
                 html
             ));
         }
-        doc.add_chapter("Notes".to_string(), notes_html);
+        book.chapters.push(OebChapter {
+            id: "notes".to_string(),
+            title: Some("Notes".to_string()),
+            html: notes_html,
+        });
     }
 
-    let chapter_count = doc.chapters.len();
-    doc.write_to_file(output).await?;
+    Ok(book)
+}
 
-    Ok(EpubOutput {
+/// Convert an FB2 file to EPUB 3 (Legacy wrapper for ConversionEngine).
+pub async fn convert(source: &Path, output: &Path) -> Result<super::EpubOutput, ConversionError> {
+    let mut book = parse(source).await?;
+    book.sanitize_html();
+    super::epub_builder::build_epub(&book, output)?;
+
+    Ok(super::EpubOutput {
         path: output.to_path_buf(),
-        title,
-        author,
-        cover_data,
-        chapter_count,
-        warnings,
+        title: book.title,
+        author: book.authors.first().cloned(),
+        cover_data: book.cover_image.map(|img| img.data),
+        chapter_count: book.chapters.len(),
+        warnings: vec![],
     })
 }
 
@@ -198,13 +219,11 @@ fn parse_fb2(
                     "body" => {
                         in_body = true;
                         // Check for notes body
-                        is_notes_body = e.attributes()
-                            .filter_map(|a| a.ok())
-                            .any(|a| {
-                                let key = String::from_utf8_lossy(a.key.as_ref()).to_string();
-                                let val = String::from_utf8_lossy(&a.value).to_string();
-                                key == "name" && val == "notes"
-                            });
+                        is_notes_body = e.attributes().filter_map(|a| a.ok()).any(|a| {
+                            let key = String::from_utf8_lossy(a.key.as_ref()).to_string();
+                            let val = String::from_utf8_lossy(&a.value).to_string();
+                            key == "name" && val == "notes"
+                        });
                     }
                     "author" if in_title_info => {
                         in_author = true;
@@ -216,7 +235,8 @@ fn parse_fb2(
                     "image" if in_title_info && current_path.iter().any(|p| p == "coverpage") => {
                         // Cover image ref
                         if let Some(href) = get_image_href(&e) {
-                            metadata.cover_image_id = Some(href.trim_start_matches('#').to_string());
+                            metadata.cover_image_id =
+                                Some(href.trim_start_matches('#').to_string());
                         }
                     }
                     "section" if in_body => {
@@ -270,12 +290,16 @@ fn parse_fb2(
                     }
                     "p" if in_body && !section_stack.is_empty() => {
                         if let Some(section) = section_stack.last_mut() {
-                            section.content.push(Fb2Node::Paragraph(text_buf.trim().to_string()));
+                            section
+                                .content
+                                .push(Fb2Node::Paragraph(text_buf.trim().to_string()));
                         }
                     }
                     "subtitle" if in_body && !section_stack.is_empty() => {
                         if let Some(section) = section_stack.last_mut() {
-                            section.content.push(Fb2Node::Subtitle(text_buf.trim().to_string()));
+                            section
+                                .content
+                                .push(Fb2Node::Subtitle(text_buf.trim().to_string()));
                         }
                     }
                     "empty-line" if in_body && !section_stack.is_empty() => {
@@ -312,7 +336,8 @@ fn parse_fb2(
                 } else if tag == "image" {
                     if in_title_info && current_path.iter().any(|p| p == "coverpage") {
                         if let Some(href) = get_image_href(&e) {
-                            metadata.cover_image_id = Some(href.trim_start_matches('#').to_string());
+                            metadata.cover_image_id =
+                                Some(href.trim_start_matches('#').to_string());
                         }
                     } else if in_body {
                         if let Some(href) = get_image_href(&e) {
@@ -348,18 +373,31 @@ fn parse_fb2(
     Ok(())
 }
 
-fn extract_binaries(xml_text: &str, binary_map: &mut HashMap<String, (String, Vec<u8>)>, warnings: &mut Vec<String>) {
+fn extract_binaries(
+    xml_text: &str,
+    binary_map: &mut HashMap<String, (String, Vec<u8>)>,
+    warnings: &mut Vec<String>,
+) {
     // Simple regex-based extraction for <binary> elements
     // This is more robust than SAX parsing for large base64 blocks
-    static BINARY_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(
-        r#"<binary\s+[^>]*id="([^"]*)"[^>]*content-type="([^"]*)"[^>]*>([\s\S]*?)</binary>"#
-    ).unwrap());
+    static BINARY_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
+        regex::Regex::new(
+            r#"<binary\s+[^>]*id="([^"]*)"[^>]*content-type="([^"]*)"[^>]*>([\s\S]*?)</binary>"#,
+        )
+        .unwrap()
+    });
 
-    static BINARY_RE2: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(
-        r#"<binary\s+[^>]*content-type="([^"]*)"[^>]*id="([^"]*)"[^>]*>([\s\S]*?)</binary>"#
-    ).unwrap());
+    static BINARY_RE2: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
+        regex::Regex::new(
+            r#"<binary\s+[^>]*content-type="([^"]*)"[^>]*id="([^"]*)"[^>]*>([\s\S]*?)</binary>"#,
+        )
+        .unwrap()
+    });
 
-    for cap in BINARY_RE.captures_iter(xml_text).chain(BINARY_RE2.captures_iter(xml_text)) {
+    for cap in BINARY_RE
+        .captures_iter(xml_text)
+        .chain(BINARY_RE2.captures_iter(xml_text))
+    {
         let (id, content_type, b64_data) = if BINARY_RE.is_match(&cap[0]) {
             (cap[1].to_string(), cap[2].to_string(), &cap[3])
         } else {
@@ -393,12 +431,24 @@ fn extract_binaries(xml_text: &str, binary_map: &mut HashMap<String, (String, Ve
 // HTML GENERATION
 // ──────────────────────────────────────────────────────────────────────────
 
-fn section_to_html(section: &Fb2Section, binary_map: &HashMap<String, (String, Vec<u8>)>, heading_level: u8) -> (String, String) {
-    let title = section.title.clone().unwrap_or_else(|| "Chapter".to_string());
+fn section_to_html(
+    section: &Fb2Section,
+    binary_map: &HashMap<String, (String, Vec<u8>)>,
+    heading_level: u8,
+) -> (String, String) {
+    let title = section
+        .title
+        .clone()
+        .unwrap_or_else(|| "Chapter".to_string());
     let mut html = String::new();
 
     // Add heading
-    html.push_str(&format!("  <h{}>{}</h{}>\n", heading_level, escape_xml(&title), heading_level));
+    html.push_str(&format!(
+        "  <h{}>{}</h{}>\n",
+        heading_level,
+        escape_xml(&title),
+        heading_level
+    ));
 
     // Convert content nodes
     for node in &section.content {
@@ -429,7 +479,10 @@ fn node_to_html(node: &Fb2Node, binary_map: &HashMap<String, (String, Vec<u8>)>)
         Fb2Node::Subtitle(text) => format!("  <h3>{}</h3>\n", escape_xml(text)),
         Fb2Node::Epigraph(nodes) => {
             let inner: String = nodes.iter().map(|n| node_to_html(n, binary_map)).collect();
-            format!("  <blockquote class=\"epigraph\">\n{}</blockquote>\n", inner)
+            format!(
+                "  <blockquote class=\"epigraph\">\n{}</blockquote>\n",
+                inner
+            )
         }
         Fb2Node::Poem(nodes) => {
             let inner: String = nodes.iter().map(|n| node_to_html(n, binary_map)).collect();
@@ -450,7 +503,8 @@ fn decompress_gzip(data: &[u8]) -> Result<Vec<u8>, ConversionError> {
     use std::io::Read;
     let mut decoder = flate2::read::GzDecoder::new(data);
     let mut result = Vec::new();
-    decoder.read_to_end(&mut result)
+    decoder
+        .read_to_end(&mut result)
         .map_err(|e| ConversionError::Other(format!("Gzip decompression failed: {}", e)))?;
     Ok(result)
 }
@@ -461,7 +515,8 @@ fn extract_fb2_from_zip(data: &[u8]) -> Result<Vec<u8>, ConversionError> {
         .map_err(|e| ConversionError::Other(format!("ZIP extraction failed: {}", e)))?;
 
     for i in 0..archive.len() {
-        let mut file = archive.by_index(i)
+        let mut file = archive
+            .by_index(i)
             .map_err(|e| ConversionError::Other(format!("ZIP file read failed: {}", e)))?;
         let name = file.name().to_lowercase();
         if name.ends_with(".fb2") {
@@ -472,13 +527,17 @@ fn extract_fb2_from_zip(data: &[u8]) -> Result<Vec<u8>, ConversionError> {
         }
     }
 
-    Err(ConversionError::InvalidFormat("No .fb2 file found in ZIP archive".to_string()))
+    Err(ConversionError::InvalidFormat(
+        "No .fb2 file found in ZIP archive".to_string(),
+    ))
 }
 
 fn local_name(name_bytes: &[u8]) -> String {
     let full = String::from_utf8_lossy(name_bytes).to_string();
     // Strip namespace prefix (e.g., "fb2:section" → "section")
-    full.rsplit_once(':').map(|(_, name)| name.to_string()).unwrap_or(full)
+    full.rsplit_once(':')
+        .map(|(_, name)| name.to_string())
+        .unwrap_or(full)
 }
 
 fn get_image_href(e: &quick_xml::events::BytesStart) -> Option<String> {
@@ -494,6 +553,12 @@ fn get_image_href(e: &quick_xml::events::BytesStart) -> Option<String> {
 
 fn sanitize_filename(name: &str) -> String {
     name.chars()
-        .map(|c| if c.is_alphanumeric() || c == '_' || c == '-' || c == '.' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '_' || c == '-' || c == '.' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect()
 }

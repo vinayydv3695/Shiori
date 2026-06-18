@@ -3,11 +3,11 @@ use crate::error::{Result, ShioriError};
 use crate::models::{Author, Book, ImportResult, Tag};
 use crate::services::metadata_service;
 use crate::utils::file::{calculate_file_hash, get_file_size};
+use rayon::prelude::*;
 use rusqlite::params;
 use std::collections::HashMap;
 use uuid::Uuid;
 use walkdir::WalkDir;
-use rayon::prelude::*;
 
 /// Base SELECT columns for the books table — used by all list/get queries.
 const BOOK_COLUMNS: &str =
@@ -16,7 +16,7 @@ const BOOK_COLUMNS: &str =
      b.file_hash, b.cover_path, b.page_count, b.word_count, b.language, 
      b.added_date, b.modified_date, b.last_opened, b.notes,
      b.online_metadata_fetched, b.metadata_source, b.metadata_last_sync, b.anilist_id,
-     b.is_favorite, b.reading_status, b.domain, b.metadata_locked";
+     b.is_favorite, b.reading_status, b.domain, b.metadata_locked, b.is_wishlist";
 
 /// Map a single row (using the BOOK_COLUMNS order) into a Book with empty authors/tags.
 fn book_from_row(row: &rusqlite::Row) -> rusqlite::Result<Book> {
@@ -55,6 +55,7 @@ fn book_from_row(row: &rusqlite::Row) -> rusqlite::Result<Book> {
         reading_status: row.get(28)?,
         domain: row.get(29).ok().flatten(),
         metadata_locked,
+        is_wishlist: row.get::<_, i64>(31).unwrap_or(0) != 0,
         authors: vec![],
         tags: vec![],
     })
@@ -544,6 +545,7 @@ pub fn import_single_book(db: &Database, path: &str, covers_dir: &std::path::Pat
         metadata_last_sync: None,
         anilist_id: None,
         is_favorite: false,
+        is_wishlist: false,
         reading_status: "planning".to_string(),
         domain: None,
         metadata_locked: None,
@@ -585,7 +587,11 @@ pub fn scan_and_import_folder(
         }
     }
 
-    log::info!("Found {} supported files in {}", all_paths.len(), folder_path);
+    log::info!(
+        "Found {} supported files in {}",
+        all_paths.len(),
+        folder_path
+    );
 
     let mut result = ImportResult {
         success: vec![],
@@ -679,15 +685,13 @@ pub fn scan_and_import_folder(
                 metadata_last_sync: None,
                 anilist_id: None,
                 is_favorite: false,
+                is_wishlist: false,
                 reading_status: "planning".to_string(),
                 domain: Some(domain.to_string()),
                 metadata_locked: None,
             };
 
-            Ok(PreprocessedBook {
-                path,
-                book,
-            })
+            Ok(PreprocessedBook { path, book })
         })
         .collect();
 
@@ -716,13 +720,13 @@ pub fn scan_and_import_folder(
                     let insert_res = tx.execute(
                         "INSERT INTO books (uuid, title, sort_title, isbn, isbn13, publisher, pubdate,
                                            series, series_index, rating, file_path, file_format, file_size,
-                                           file_hash, cover_path, page_count, word_count, language, notes, reading_status, domain)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)",
+                                           file_hash, cover_path, page_count, word_count, language, notes, reading_status, domain, is_wishlist)
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)",
                         rusqlite::params![
                             book.uuid, book.title, book.sort_title, book.isbn, book.isbn13, book.publisher, book.pubdate,
                             book.series, book.series_index, book.rating, book.file_path, book.file_format, book.file_size,
                             book.file_hash, book.cover_path, book.page_count, book.word_count, book.language, book.notes,
-                            book.reading_status, book.domain,
+                            book.reading_status, book.domain, book.is_wishlist,
                         ],
                     );
 
@@ -730,7 +734,12 @@ pub fn scan_and_import_folder(
                         Ok(_) => {
                             let book_id = tx.last_insert_rowid();
                             for author in &book.authors {
-                                if let Ok(author_id) = crate::services::library_service::get_or_create_author_tx(&tx, &author.name) {
+                                if let Ok(author_id) =
+                                    crate::services::library_service::get_or_create_author_tx(
+                                        &tx,
+                                        &author.name,
+                                    )
+                                {
                                     let _ = tx.execute(
                                         "INSERT INTO books_authors (book_id, author_id) VALUES (?1, ?2)",
                                         rusqlite::params![book_id, author_id],
@@ -1140,7 +1149,7 @@ pub fn get_books_by_reading_status(
 const BOOK_SUMMARY_COLUMNS: &str =
     "b.id, b.uuid, b.title, b.sort_title, b.file_path, b.file_format, b.file_size,
      b.cover_path, b.added_date, b.is_favorite, b.reading_status, b.domain, 
-     b.manga_series_id, b.series_index";
+     b.manga_series_id, b.series_index, b.is_wishlist";
 
 fn book_summary_from_row(row: &rusqlite::Row) -> rusqlite::Result<crate::models::BookSummary> {
     Ok(crate::models::BookSummary {
@@ -1158,10 +1167,16 @@ fn book_summary_from_row(row: &rusqlite::Row) -> rusqlite::Result<crate::models:
         domain: row.get(11).ok().flatten(),
         manga_series_id: row.get(12).ok().flatten(),
         series_index: row.get(13)?,
+        is_wishlist: row.get::<_, i64>(14).unwrap_or(0) != 0,
+        notes: None,
     })
 }
 
-pub fn get_book_summaries(db: &Database, limit: u32, offset: u32) -> Result<Vec<crate::models::BookSummary>> {
+pub fn get_book_summaries(
+    db: &Database,
+    limit: u32,
+    offset: u32,
+) -> Result<Vec<crate::models::BookSummary>> {
     let conn = db.get_connection()?;
     let sql = format!(
         "SELECT {} FROM books b ORDER BY b.added_date DESC LIMIT ?1 OFFSET ?2",
@@ -1205,10 +1220,10 @@ pub fn get_library_stats(db: &Database) -> Result<crate::models::LibraryStats> {
         COALESCE(SUM(CASE WHEN domain IN ('manga', 'comics', 'manga_comics') THEN 1 ELSE 0 END), 0) as total_manga,
         COALESCE(SUM(file_size), 0) as total_size_bytes
     FROM books";
-    
+
     let mut stmt = conn.prepare(sql)?;
     let mut rows = stmt.query([])?;
-    
+
     if let Some(row) = rows.next()? {
         Ok(crate::models::LibraryStats {
             total_books: row.get(0)?,
@@ -1224,8 +1239,11 @@ pub fn get_library_stats(db: &Database) -> Result<crate::models::LibraryStats> {
     }
 }
 
-
-pub fn get_thumbnail_path(db: &Database, book_id: i64, covers_dir: &std::path::Path) -> Result<Option<String>> {
+pub fn get_thumbnail_path(
+    db: &Database,
+    book_id: i64,
+    covers_dir: &std::path::Path,
+) -> Result<Option<String>> {
     let conn = db.get_connection()?;
     let cover_path: Option<String> = conn.query_row(
         "SELECT cover_path FROM books WHERE id = ?1",
@@ -1249,7 +1267,7 @@ pub fn get_thumbnail_path(db: &Database, book_id: i64, covers_dir: &std::path::P
     }
 
     let thumb_path = thumb_dir.join(format!("{}.jpg", book_id));
-    
+
     if thumb_path.exists() {
         return Ok(Some(thumb_path.to_string_lossy().to_string()));
     }
@@ -1266,33 +1284,42 @@ pub fn get_thumbnail_path(db: &Database, book_id: i64, covers_dir: &std::path::P
     Ok(Some(cover_path_str))
 }
 
-
 pub fn get_recommended_books(db: &Database, limit: u32) -> Result<Vec<crate::models::BookSummary>> {
     let conn = db.get_connection()?;
-    // A simple recommendation query: Find books that share authors with books the user has favorited or completed
-    let sql = format!("
-        SELECT {} FROM books b 
+    let sql = format!(
+        "
+        SELECT DISTINCT {} FROM books b 
+        JOIN books_authors ba ON b.id = ba.book_id
         WHERE b.id NOT IN (SELECT id FROM books WHERE reading_status IN ('completed', 'favorite'))
-        AND b.author IN (
-            SELECT author FROM books WHERE reading_status IN ('completed', 'favorite') AND author IS NOT NULL AND author != ''
+        AND ba.author_id IN (
+            SELECT ba2.author_id FROM books b2 
+            JOIN books_authors ba2 ON b2.id = ba2.book_id
+            WHERE b2.reading_status IN ('completed', 'favorite')
         )
         ORDER BY RANDOM() LIMIT ?1
-    ", BOOK_SUMMARY_COLUMNS);
+    ",
+        BOOK_SUMMARY_COLUMNS
+    );
 
     let mut stmt = conn.prepare(&sql)?;
-    let books = stmt.query_map([limit], book_summary_from_row)?
+    let books = stmt
+        .query_map([limit], book_summary_from_row)?
         .filter_map(|r| r.ok())
         .collect::<Vec<_>>();
-    
+
     // Fallback if no recommendations found via author
     if books.is_empty() {
-        let fallback_sql = format!("
+        let fallback_sql = format!(
+            "
             SELECT {} FROM books b 
             WHERE b.reading_status != 'completed'
             ORDER BY RANDOM() LIMIT ?1
-        ", BOOK_SUMMARY_COLUMNS);
+        ",
+            BOOK_SUMMARY_COLUMNS
+        );
         let mut fallback_stmt = conn.prepare(&fallback_sql)?;
-        let fallback_books = fallback_stmt.query_map([limit], book_summary_from_row)?
+        let fallback_books = fallback_stmt
+            .query_map([limit], book_summary_from_row)?
             .filter_map(|r| r.ok())
             .collect::<Vec<_>>();
         return Ok(fallback_books);

@@ -8,8 +8,7 @@
 /// - Subjects/genres
 /// - Publication dates
 /// - ISBN information
-
-use crate::error::{ShioriError, Result};
+use crate::error::{Result, ShioriError};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -214,12 +213,10 @@ impl BookMetadataService {
             urlencoding::encode(&query)
         );
 
-        let response = self
-            .client
-            .get(&url)
-            .send()
-            .await
-            .map_err(|e| ShioriError::Other(format!("Open Library API request failed: {}", e)))?;
+        let response =
+            self.client.get(&url).send().await.map_err(|e| {
+                ShioriError::Other(format!("Open Library API request failed: {}", e))
+            })?;
 
         if !response.status().is_success() {
             return Err(ShioriError::Other(format!(
@@ -228,12 +225,8 @@ impl BookMetadataService {
             )));
         }
 
-        let result: SearchResponse = Self::bounded_json(
-            response,
-            MAX_JSON_RESPONSE_BYTES,
-            "search response",
-        )
-        .await?;
+        let result: SearchResponse =
+            Self::bounded_json(response, MAX_JSON_RESPONSE_BYTES, "search response").await?;
 
         let metadata: Vec<BookMetadata> = result
             .docs
@@ -260,12 +253,8 @@ impl BookMetadataService {
 
         match response {
             Ok(resp) if resp.status().is_success() => {
-                let edition: EditionResponse = Self::bounded_json(
-                    resp,
-                    MAX_JSON_RESPONSE_BYTES,
-                    "ISBN response",
-                )
-                .await?;
+                let edition: EditionResponse =
+                    Self::bounded_json(resp, MAX_JSON_RESPONSE_BYTES, "ISBN response").await?;
 
                 // Get work details for better metadata
                 let metadata = self.convert_edition_to_metadata(edition).await?;
@@ -303,27 +292,16 @@ impl BookMetadataService {
             .map_err(|e| ShioriError::Other(format!("Failed to fetch book: {}", e)))?;
 
         if !response.status().is_success() {
-            return Err(ShioriError::Other(format!(
-                "Book {} not found",
-                ol_id
-            )));
+            return Err(ShioriError::Other(format!("Book {} not found", ol_id)));
         }
 
         if ol_id.contains('W') {
-            let work: WorkResponse = Self::bounded_json(
-                response,
-                MAX_JSON_RESPONSE_BYTES,
-                "work data",
-            )
-            .await?;
+            let work: WorkResponse =
+                Self::bounded_json(response, MAX_JSON_RESPONSE_BYTES, "work data").await?;
             self.convert_work_to_metadata(ol_id, work).await
         } else {
-            let edition: EditionResponse = Self::bounded_json(
-                response,
-                MAX_JSON_RESPONSE_BYTES,
-                "edition data",
-            )
-            .await?;
+            let edition: EditionResponse =
+                Self::bounded_json(response, MAX_JSON_RESPONSE_BYTES, "edition data").await?;
             self.convert_edition_to_metadata(edition).await
         }
     }
@@ -349,12 +327,7 @@ impl BookMetadataService {
             )));
         }
 
-        let bytes = Self::bounded_bytes(
-            response,
-            MAX_IMAGE_RESPONSE_BYTES,
-            "cover image",
-        )
-        .await?;
+        let bytes = Self::bounded_bytes(response, MAX_IMAGE_RESPONSE_BYTES, "cover image").await?;
 
         log::info!("[BookMetadataService] ✅ Downloaded {} bytes", bytes.len());
         Ok(bytes)
@@ -526,10 +499,7 @@ impl BookMetadataService {
         authors
     }
 
-    async fn convert_edition_to_metadata(
-        &self,
-        edition: EditionResponse,
-    ) -> Result<BookMetadata> {
+    async fn convert_edition_to_metadata(&self, edition: EditionResponse) -> Result<BookMetadata> {
         let (cover_s, cover_m, cover_l) = if let Some(covers) = edition.covers {
             if let Some(&cover_id) = covers.first() {
                 (
@@ -549,11 +519,7 @@ impl BookMetadataService {
             .map(|langs| {
                 langs
                     .into_iter()
-                    .map(|lang| {
-                        lang.key
-                            .trim_start_matches("/languages/")
-                            .to_string()
-                    })
+                    .map(|lang| lang.key.trim_start_matches("/languages/").to_string())
                     .collect()
             })
             .unwrap_or_default();

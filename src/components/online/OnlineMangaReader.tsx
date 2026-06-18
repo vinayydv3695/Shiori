@@ -59,6 +59,19 @@ export function OnlineMangaReader() {
     };
   }, [sourceId, contentId, contentTitle, chapterId, chapters, pages]);
 
+  const handleNextChapter = useCallback(() => {
+    if (!sourceConfig) return;
+    const currentIndex = chapters.findIndex(c => c.id === chapterId);
+    if (currentIndex === -1) return;
+    
+    const isDescending = chapters.length >= 2 && (chapters[0].number ?? 0) > (chapters[chapters.length - 1].number ?? 0);
+    const nextIndex = isDescending ? currentIndex - 1 : currentIndex + 1;
+    
+    if (nextIndex >= 0 && nextIndex < chapters.length) {
+      handleChapterChange(chapters[nextIndex].id).catch(console.error);
+    }
+  }, [chapters, chapterId, handleChapterChange, sourceConfig]);
+
   // Show loading while waiting for pages
   if (!sourceId || !contentId || !chapterId) {
     return (
@@ -88,6 +101,7 @@ export function OnlineMangaReader() {
       sourceConfig={sourceConfig}
       onClose={handleClose}
       onChapterChange={handleChapterChange}
+      onNextChapter={handleNextChapter}
     />
   );
 }

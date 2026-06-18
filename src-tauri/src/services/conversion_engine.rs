@@ -6,40 +6,39 @@
 /// - SQLite persistence for job state (survives restart)
 /// - Soft cancellation via DashSet
 /// - Unified capability matrix
-
 use chrono::{DateTime, Utc};
 use dashmap::{DashMap, DashSet};
+use printpdf::*;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
+use std::fs::File;
+use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
+use tauri::Emitter;
 use tokio::sync::Mutex;
 use uuid::Uuid;
-use printpdf::*;
-use std::fs::File;
-use std::io::BufWriter;
-use tauri::Emitter;
 
+use crate::db::Database;
+use crate::services::adapters::*;
+use crate::services::calibre_service::{self, CalibreError, CalibreProfile};
 use crate::services::epub_builder::{split_text_into_chapters, EpubBuilder, EpubMetadata};
 use crate::services::format_adapter::{BookFormatAdapter, FormatError, FormatResult};
 use crate::services::format_detection::detect_format;
-use crate::services::adapters::*;
-use crate::services::calibre_service::{self, CalibreError, CalibreProfile};
-use crate::db::Database;
 
 // ──────────────────────────────────────────────────────────────────────────
 // CAPABILITY MATRIX  (source → [valid targets])
 // ──────────────────────────────────────────────────────────────────────────
 
 pub const CONVERSION_MATRIX: &[(&str, &[&str])] = &[
-    ("txt",  &["epub"]),
+    ("txt", &["epub"]),
     ("html", &["epub", "txt"]),
     ("mobi", &["epub", "txt"]),
     ("azw3", &["epub", "txt"]),
     ("docx", &["epub", "txt"]),
-    ("fb2",  &["epub", "txt"]),
-    ("pdf",  &["epub", "txt"]),
+    ("fb2", &["epub", "txt"]),
+    ("pdf", &["epub", "txt"]),
     ("epub", &["pdf"]),
 ];
 
@@ -67,18 +66,18 @@ pub enum ConversionStatus {
 impl std::fmt::Display for ConversionStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ConversionStatus::Queued     => write!(f, "Queued"),
+            ConversionStatus::Queued => write!(f, "Queued"),
             ConversionStatus::Processing => write!(f, "Processing"),
-            ConversionStatus::Completed  => write!(f, "Completed"),
-            ConversionStatus::Failed     => write!(f, "Failed"),
-            ConversionStatus::Cancelled  => write!(f, "Cancelled"),
+            ConversionStatus::Completed => write!(f, "Completed"),
+            ConversionStatus::Failed => write!(f, "Failed"),
+            ConversionStatus::Cancelled => write!(f, "Cancelled"),
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConversionJob {
-    pub id: String,          // UUID as string (JSON-friendly)
+    pub id: String, // UUID as string (JSON-friendly)
     pub book_id: Option<i64>,
     pub source_path: String,
     pub target_path: String,
@@ -99,27 +98,27 @@ pub struct ConversionJob {
 type Queue = VecDeque<String>; // job IDs
 
 pub struct ConversionEngine {
-    queue:           Arc<Mutex<Queue>>,
-    tracker:         Arc<DashMap<String, ConversionJob>>,
-    cancelled:       Arc<DashSet<String>>,
-    shutdown:        Arc<Mutex<bool>>,
-    worker_count:    usize,
+    queue: Arc<Mutex<Queue>>,
+    tracker: Arc<DashMap<String, ConversionJob>>,
+    cancelled: Arc<DashSet<String>>,
+    shutdown: Arc<Mutex<bool>>,
+    worker_count: usize,
     workers_started: std::sync::Mutex<bool>,
-    app_handle:      tauri::AppHandle,
-    db:              Option<Database>,
+    app_handle: tauri::AppHandle,
+    db: Option<Database>,
 }
 
 impl ConversionEngine {
     pub fn new(worker_count: usize, app_handle: tauri::AppHandle) -> Self {
         Self {
-            queue:           Arc::new(Mutex::new(VecDeque::new())),
-            tracker:         Arc::new(DashMap::new()),
-            cancelled:       Arc::new(DashSet::new()),
-            shutdown:        Arc::new(Mutex::new(false)),
+            queue: Arc::new(Mutex::new(VecDeque::new())),
+            tracker: Arc::new(DashMap::new()),
+            cancelled: Arc::new(DashSet::new()),
+            shutdown: Arc::new(Mutex::new(false)),
             worker_count,
             workers_started: std::sync::Mutex::new(false),
             app_handle,
-            db:              None,
+            db: None,
         }
     }
 
@@ -134,12 +133,12 @@ impl ConversionEngine {
         let mut started = self.workers_started.lock().unwrap();
         if !*started {
             for id in 0..self.worker_count {
-                let queue    = self.queue.clone();
-                let tracker  = self.tracker.clone();
+                let queue = self.queue.clone();
+                let tracker = self.tracker.clone();
                 let cancelled = self.cancelled.clone();
                 let shutdown = self.shutdown.clone();
-                let handle   = self.app_handle.clone();
-                let db       = self.db.clone();
+                let handle = self.app_handle.clone();
+                let db = self.db.clone();
                 tokio::spawn(async move {
                     Self::worker_loop(id, queue, tracker, cancelled, shutdown, handle, db).await;
                 });
@@ -179,7 +178,10 @@ impl ConversionEngine {
         }
 
         let target_path = if let Some(dir) = output_dir {
-            let stem = source.file_stem().and_then(|s| s.to_str()).unwrap_or("converted");
+            let stem = source
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("converted");
             dir.join(format!("{}.{}", stem, target_format))
         } else {
             source.with_extension(target_format)
@@ -187,18 +189,18 @@ impl ConversionEngine {
 
         let job_id = Uuid::new_v4().to_string();
         let job = ConversionJob {
-            id:            job_id.clone(),
+            id: job_id.clone(),
             book_id,
-            source_path:   source.to_string_lossy().to_string(),
-            target_path:   target_path.to_string_lossy().to_string(),
+            source_path: source.to_string_lossy().to_string(),
+            target_path: target_path.to_string_lossy().to_string(),
             source_format,
             target_format: target_format.to_string(),
-            status:        ConversionStatus::Queued,
-            progress:      0.0,
-            error:         None,
-            created_at:    Utc::now(),
-            started_at:    None,
-            completed_at:  None,
+            status: ConversionStatus::Queued,
+            progress: 0.0,
+            error: None,
+            created_at: Utc::now(),
+            started_at: None,
+            completed_at: None,
         };
 
         self.tracker.insert(job_id.clone(), job.clone());
@@ -213,7 +215,12 @@ impl ConversionEngine {
 
         self.emit_progress(&job);
 
-        log::info!("[ConversionEngine] Job {} queued: {} → {}", job_id, job.source_format, job.target_format);
+        log::info!(
+            "[ConversionEngine] Job {} queued: {} → {}",
+            job_id,
+            job.source_format,
+            job.target_format
+        );
         Ok(job_id)
     }
 
@@ -230,14 +237,17 @@ impl ConversionEngine {
         self.cancelled.insert(job_id.to_string());
 
         if let Some(mut job) = self.tracker.get_mut(job_id) {
-            if job.status == ConversionStatus::Queued || job.status == ConversionStatus::Processing {
+            if job.status == ConversionStatus::Queued || job.status == ConversionStatus::Processing
+            {
                 job.status = ConversionStatus::Cancelled;
                 job.error = Some("Cancelled by user".to_string());
                 self.emit_progress(job.value());
                 return Ok(());
             }
         }
-        Err(FormatError::ConversionError("Job not found or already finished".to_string()))
+        Err(FormatError::ConversionError(
+            "Job not found or already finished".to_string(),
+        ))
     }
 
     #[allow(dead_code)]
@@ -255,22 +265,22 @@ impl ConversionEngine {
                         status, progress, error_message, created_at
                  FROM conversion_jobs
                  WHERE status IN ('Queued', 'Processing')
-                 ORDER BY created_at ASC"
+                 ORDER BY created_at ASC",
             )?;
             let rows = stmt.query_map([], |row| {
                 Ok(ConversionJob {
-                    id:            row.get(0)?,
-                    book_id:       row.get(1)?,
-                    source_path:   row.get(2)?,
-                    target_path:   row.get(3)?,
+                    id: row.get(0)?,
+                    book_id: row.get(1)?,
+                    source_path: row.get(2)?,
+                    target_path: row.get(3)?,
                     source_format: row.get(4)?,
                     target_format: row.get(5)?,
-                    status:        ConversionStatus::Queued, // always re-queue
-                    progress:      0.0,
-                    error:         None,
-                    created_at:    Utc::now(),
-                    started_at:    None,
-                    completed_at:  None,
+                    status: ConversionStatus::Queued, // always re-queue
+                    progress: 0.0,
+                    error: None,
+                    created_at: Utc::now(),
+                    started_at: None,
+                    completed_at: None,
                 })
             })?;
             rows.collect()
@@ -339,7 +349,11 @@ impl ConversionEngine {
                 job.error,
             ],
         ) {
-            log::error!("[ConversionEngine] Failed to persist conversion job {}: {}", job.id, e);
+            log::error!(
+                "[ConversionEngine] Failed to persist conversion job {}: {}",
+                job.id,
+                e
+            );
         }
     }
 
@@ -347,12 +361,12 @@ impl ConversionEngine {
 
     async fn worker_loop(
         worker_id: usize,
-        queue:     Arc<Mutex<Queue>>,
-        tracker:   Arc<DashMap<String, ConversionJob>>,
+        queue: Arc<Mutex<Queue>>,
+        tracker: Arc<DashMap<String, ConversionJob>>,
         cancelled: Arc<DashSet<String>>,
-        shutdown:  Arc<Mutex<bool>>,
-        handle:    tauri::AppHandle,
-        db:        Option<Database>,
+        shutdown: Arc<Mutex<bool>>,
+        handle: tauri::AppHandle,
+        db: Option<Database>,
     ) {
         log::info!("[ConversionWorker-{}] Started", worker_id);
 
@@ -422,10 +436,15 @@ impl ConversionEngine {
                             j.progress = 100.0;
                             j.completed_at = Some(Utc::now());
                             log::info!("[ConversionWorker-{}] Job {} completed", worker_id, job_id);
-                            handle.emit("conversion:complete", serde_json::json!({
-                                "job_id": job_id,
-                                "output_path": job.target_path,
-                            })).ok();
+                            handle
+                                .emit(
+                                    "conversion:complete",
+                                    serde_json::json!({
+                                        "job_id": job_id,
+                                        "output_path": job.target_path,
+                                    }),
+                                )
+                                .ok();
                         }
                         Err(e) => {
                             if cancelled.contains(&job_id) {
@@ -434,11 +453,21 @@ impl ConversionEngine {
                             } else {
                                 j.status = ConversionStatus::Failed;
                                 j.error = Some(e.to_string());
-                                log::error!("[ConversionWorker-{}] Job {} failed: {}", worker_id, job_id, e);
-                                handle.emit("conversion:error", serde_json::json!({
-                                    "job_id": job_id,
-                                    "error": e.to_string(),
-                                })).ok();
+                                log::error!(
+                                    "[ConversionWorker-{}] Job {} failed: {}",
+                                    worker_id,
+                                    job_id,
+                                    e
+                                );
+                                handle
+                                    .emit(
+                                        "conversion:error",
+                                        serde_json::json!({
+                                            "job_id": job_id,
+                                            "error": e.to_string(),
+                                        }),
+                                    )
+                                    .ok();
                             }
                         }
                     }
@@ -506,7 +535,9 @@ impl ConversionEngine {
                             profile,
                             move || cancelled_for_check.contains(&job_id_for_check),
                             None::<fn(u8, &str)>,
-                        ).await {
+                        )
+                        .await
+                        {
                             Ok(()) => return Ok(()),
                             Err(CalibreError::Cancelled) => {
                                 return Err(FormatError::ConversionError("Cancelled".to_string()))
@@ -526,12 +557,13 @@ impl ConversionEngine {
                         }
                     }
 
-                    let rust_fmt = Self::rust_source_format_for_epub(source_fmt).ok_or_else(|| {
-                        FormatError::ConversionNotSupported {
-                            from: source_fmt.to_string(),
-                            to: "epub".to_string(),
-                        }
-                    })?;
+                    let rust_fmt =
+                        Self::rust_source_format_for_epub(source_fmt).ok_or_else(|| {
+                            FormatError::ConversionNotSupported {
+                                from: source_fmt.to_string(),
+                                to: "epub".to_string(),
+                            }
+                        })?;
 
                     return crate::conversion::convert_to_epub(source, target, rust_fmt)
                         .await
@@ -540,10 +572,14 @@ impl ConversionEngine {
                 }
 
                 // Rust-first policy (TXT/RTF)
-                match crate::conversion::convert_to_epub(source, target, crate::conversion::SourceFormat::Txt)
-                    .await
-                    .map(|_| ())
-                    .map_err(|e| e.into())
+                match crate::conversion::convert_to_epub(
+                    source,
+                    target,
+                    crate::conversion::SourceFormat::Txt,
+                )
+                .await
+                .map(|_| ())
+                .map_err(|e| e.into())
                 {
                     Ok(()) => return Ok(()),
                     Err(rust_err) => {
@@ -557,10 +593,14 @@ impl ConversionEngine {
                                 profile,
                                 move || cancelled_for_check.contains(&job_id_for_check),
                                 None::<fn(u8, &str)>,
-                            ).await {
+                            )
+                            .await
+                            {
                                 Ok(()) => return Ok(()),
                                 Err(CalibreError::Cancelled) => {
-                                    return Err(FormatError::ConversionError("Cancelled".to_string()))
+                                    return Err(FormatError::ConversionError(
+                                        "Cancelled".to_string(),
+                                    ))
                                 }
                                 Err(err @ CalibreError::Disabled)
                                 | Err(err @ CalibreError::NotFound)
@@ -584,36 +624,63 @@ impl ConversionEngine {
 
         match (source_fmt, target_fmt) {
             // ── New calibre-quality converters (format → EPUB) ──
-            ("txt",  "epub") => {
-                crate::conversion::convert_to_epub(source, target, crate::conversion::SourceFormat::Txt)
-                    .await.map(|_| ()).map_err(|e| e.into())
-            }
+            ("txt", "epub") => crate::conversion::convert_to_epub(
+                source,
+                target,
+                crate::conversion::SourceFormat::Txt,
+            )
+            .await
+            .map(|_| ())
+            .map_err(|e| e.into()),
             ("mobi", "epub") | ("azw3", "epub") => {
-                let fmt = if source_fmt == "azw3" { crate::conversion::SourceFormat::Azw3 } else { crate::conversion::SourceFormat::Mobi };
+                let fmt = if source_fmt == "azw3" {
+                    crate::conversion::SourceFormat::Azw3
+                } else {
+                    crate::conversion::SourceFormat::Mobi
+                };
                 crate::conversion::convert_to_epub(source, target, fmt)
-                    .await.map(|_| ()).map_err(|e| e.into())
+                    .await
+                    .map(|_| ())
+                    .map_err(|e| e.into())
             }
-            ("docx", "epub") => {
-                crate::conversion::convert_to_epub(source, target, crate::conversion::SourceFormat::Docx)
-                    .await.map(|_| ()).map_err(|e| e.into())
-            }
-            ("fb2",  "epub") => {
-                crate::conversion::convert_to_epub(source, target, crate::conversion::SourceFormat::Fb2)
-                    .await.map(|_| ()).map_err(|e| e.into())
-            }
-            ("pdf",  "epub") => {
+            ("docx", "epub") => crate::conversion::convert_to_epub(
+                source,
+                target,
+                crate::conversion::SourceFormat::Docx,
+            )
+            .await
+            .map(|_| ())
+            .map_err(|e| e.into()),
+            ("fb2", "epub") => crate::conversion::convert_to_epub(
+                source,
+                target,
+                crate::conversion::SourceFormat::Fb2,
+            )
+            .await
+            .map(|_| ())
+            .map_err(|e| e.into()),
+            ("pdf", "epub") => {
                 check_cancel()?;
-                crate::conversion::convert_to_epub(source, target, crate::conversion::SourceFormat::Pdf)
-                    .await.map(|_| ()).map_err(|e| e.into())
+                crate::conversion::convert_to_epub(
+                    source,
+                    target,
+                    crate::conversion::SourceFormat::Pdf,
+                )
+                .await
+                .map(|_| ())
+                .map_err(|e| e.into())
             }
             // ── Legacy paths (format → TXT, EPUB → PDF, HTML) ──
             ("html", "epub") => Self::html_to_epub(source, target).await,
-            ("html", "txt")  => Self::html_to_txt(source, target).await,
-            ("mobi", "txt")  | ("azw3", "txt")  => Self::mobi_to_txt(source, target).await,
-            ("docx", "txt")  => Self::docx_to_txt(source, target).await,
-            ("fb2",  "txt")  => Self::fb2_to_txt(source, target).await,
-            ("pdf",  "txt")  => Self::pdf_to_txt(source, target).await,
-            ("epub", "pdf")  => { check_cancel()?; Self::epub_to_pdf(source, target).await },
+            ("html", "txt") => Self::html_to_txt(source, target).await,
+            ("mobi", "txt") | ("azw3", "txt") => Self::mobi_to_txt(source, target).await,
+            ("docx", "txt") => Self::docx_to_txt(source, target).await,
+            ("fb2", "txt") => Self::fb2_to_txt(source, target).await,
+            ("pdf", "txt") => Self::pdf_to_txt(source, target).await,
+            ("epub", "pdf") => {
+                check_cancel()?;
+                Self::epub_to_pdf(source, target).await
+            }
             _ => Err(FormatError::ConversionNotSupported {
                 from: source_fmt.to_string(),
                 to: target_fmt.to_string(),
@@ -667,9 +734,12 @@ impl ConversionEngine {
         let content_bytes = tokio::fs::read(source).await?;
         let content = String::from_utf8_lossy(&content_bytes).into_owned();
         let text = content
-            .replace("<br>", "\n").replace("<br/>", "\n")
-            .replace("<p>", "\n").replace("</p>", "\n");
-        static HTML_TAG_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r"<[^>]*>").unwrap());
+            .replace("<br>", "\n")
+            .replace("<br/>", "\n")
+            .replace("<p>", "\n")
+            .replace("</p>", "\n");
+        static HTML_TAG_RE: once_cell::sync::Lazy<regex::Regex> =
+            once_cell::sync::Lazy::new(|| regex::Regex::new(r"<[^>]*>").unwrap());
         let text = HTML_TAG_RE.replace_all(&text, "");
         tokio::fs::write(target, text.as_bytes()).await?;
         log::info!("[Conversion] HTML → TXT: {}", target.display());
@@ -699,7 +769,8 @@ impl ConversionEngine {
     async fn mobi_to_txt(source: &Path, target: &Path) -> FormatResult<()> {
         let content = MobiFormatAdapter::extract_content(source).await?;
         // Strip HTML tags from MOBI content (content is HTML)
-        static HTML_TAG_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r"<[^>]*>").unwrap());
+        static HTML_TAG_RE: once_cell::sync::Lazy<regex::Regex> =
+            once_cell::sync::Lazy::new(|| regex::Regex::new(r"<[^>]*>").unwrap());
         let text = HTML_TAG_RE.replace_all(&content, "");
         tokio::fs::write(target, text.as_bytes()).await?;
         log::info!("[Conversion] MOBI → TXT: {}", target.display());
@@ -710,7 +781,7 @@ impl ConversionEngine {
         let adapter = DocxFormatAdapter::new();
         let metadata = adapter.extract_metadata(source).await?;
         let file_data = tokio::fs::read(source).await?;
-        
+
         let content = tokio::task::spawn_blocking(move || -> FormatResult<String> {
             let doc = docx_rs::read_docx(&file_data)
                 .map_err(|e| FormatError::ConversionError(format!("DOCX parse failed: {}", e)))?;
@@ -731,7 +802,9 @@ impl ConversionEngine {
                 }
             }
             Ok(content)
-        }).await.map_err(|e| FormatError::ConversionError(format!("Task Join Error: {}", e)))??;
+        })
+        .await
+        .map_err(|e| FormatError::ConversionError(format!("Task Join Error: {}", e)))??;
         let mut builder = EpubBuilder::new();
         builder = builder.metadata(EpubMetadata {
             title: metadata.title.clone(),
@@ -750,7 +823,7 @@ impl ConversionEngine {
 
     async fn docx_to_txt(source: &Path, target: &Path) -> FormatResult<()> {
         let file_data = tokio::fs::read(source).await?;
-        
+
         let content = tokio::task::spawn_blocking(move || -> FormatResult<String> {
             let doc = docx_rs::read_docx(&file_data)
                 .map_err(|e| FormatError::ConversionError(format!("DOCX parse failed: {}", e)))?;
@@ -771,7 +844,9 @@ impl ConversionEngine {
                 }
             }
             Ok(content)
-        }).await.map_err(|e| FormatError::ConversionError(format!("Task Join Error: {}", e)))??;
+        })
+        .await
+        .map_err(|e| FormatError::ConversionError(format!("Task Join Error: {}", e)))??;
         tokio::fs::write(target, content).await?;
         log::info!("[Conversion] DOCX → TXT: {}", target.display());
         Ok(())
@@ -814,10 +889,13 @@ impl ConversionEngine {
         let metadata = adapter.extract_metadata(source).await?;
         let source_path = source.to_path_buf();
 
-        let chapters = tokio::task::spawn_blocking(move || -> FormatResult<Vec<(String, String)>> {
-            let text = PdfFormatAdapter::extract_content(&source_path)?;
-            Ok(Self::detect_pdf_chapters(&text))
-        }).await.map_err(|e| FormatError::ConversionError(format!("Task Join Error: {}", e)))??;
+        let chapters =
+            tokio::task::spawn_blocking(move || -> FormatResult<Vec<(String, String)>> {
+                let text = PdfFormatAdapter::extract_content(&source_path)?;
+                Ok(Self::detect_pdf_chapters(&text))
+            })
+            .await
+            .map_err(|e| FormatError::ConversionError(format!("Task Join Error: {}", e)))??;
 
         let mut builder = EpubBuilder::new();
         builder = builder.metadata(EpubMetadata {
@@ -840,9 +918,12 @@ impl ConversionEngine {
 
     /// Detect chapters in raw PDF text using heading patterns
     fn detect_pdf_chapters(text: &str) -> Vec<(String, String)> {
-        static CHAPTER_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(
-            r"(?im)^(Chapter\s+\d+[^\n]*|CHAPTER\s+\d+[^\n]*|[A-Z][A-Z\s\d\-:]{3,50})$"
-        ).unwrap());
+        static CHAPTER_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
+            regex::Regex::new(
+                r"(?im)^(Chapter\s+\d+[^\n]*|CHAPTER\s+\d+[^\n]*|[A-Z][A-Z\s\d\-:]{3,50})$",
+            )
+            .unwrap()
+        });
 
         let mut chapters: Vec<(String, String)> = Vec::new();
         let mut last_end = 0usize;
@@ -878,7 +959,9 @@ impl ConversionEngine {
         let source_path = source.to_path_buf();
         let text = tokio::task::spawn_blocking(move || -> FormatResult<String> {
             PdfFormatAdapter::extract_content(&source_path)
-        }).await.map_err(|e| FormatError::ConversionError(format!("Task Join Error: {}", e)))??;
+        })
+        .await
+        .map_err(|e| FormatError::ConversionError(format!("Task Join Error: {}", e)))??;
         tokio::fs::write(target, text).await?;
         log::info!("[Conversion] PDF → TXT: {}", target.display());
         Ok(())
@@ -915,11 +998,15 @@ impl ConversionEngine {
         // Helper: strip HTML tags
         let strip_html = |html: &str| -> String {
             let t = html
-                .replace("<br>", "\n").replace("<br/>", "\n")
-                .replace("</p>", "\n\n").replace("<p>", "")
-                .replace("</h1>", "\n\n").replace("</h2>", "\n\n")
+                .replace("<br>", "\n")
+                .replace("<br/>", "\n")
+                .replace("</p>", "\n\n")
+                .replace("<p>", "")
+                .replace("</h1>", "\n\n")
+                .replace("</h2>", "\n\n")
                 .replace("</h3>", "\n");
-            static HTML_TAG_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r"<[^>]*>").unwrap());
+            static HTML_TAG_RE: once_cell::sync::Lazy<regex::Regex> =
+                once_cell::sync::Lazy::new(|| regex::Regex::new(r"<[^>]*>").unwrap());
             HTML_TAG_RE.replace_all(&t, "").to_string()
         };
 
@@ -946,11 +1033,18 @@ impl ConversionEngine {
                         for chunk in chars.chunks(max_chars) {
                             let s: String = chunk.iter().collect();
                             if !s.trim().is_empty() {
-                                current_layer.use_text(&s, font_size, left_margin, current_y, &font);
+                                current_layer.use_text(
+                                    &s,
+                                    font_size,
+                                    left_margin,
+                                    current_y,
+                                    &font,
+                                );
                                 current_y -= line_height;
                             }
                             if current_y < page_bottom {
-                                let (new_p, new_l) = pdf_doc.add_page(Mm(210.0), Mm(297.0), "Layer 1");
+                                let (new_p, new_l) =
+                                    pdf_doc.add_page(Mm(210.0), Mm(297.0), "Layer 1");
                                 current_layer = pdf_doc.get_page(new_p).get_layer(new_l);
                                 current_y = Mm(280.0);
                             }
@@ -973,9 +1067,10 @@ impl ConversionEngine {
             i += 1;
         }
 
-        let file   = File::create(target)?;
-        let mut w  = BufWriter::new(file);
-        pdf_doc.save(&mut w)
+        let file = File::create(target)?;
+        let mut w = BufWriter::new(file);
+        pdf_doc
+            .save(&mut w)
             .map_err(|e| FormatError::ConversionError(format!("PDF save failed: {}", e)))?;
 
         log::info!("[Conversion] EPUB → PDF: {}", target.display());
@@ -1025,7 +1120,7 @@ mod tests {
         assert!(can_convert("mobi", "epub"));
         assert!(can_convert("txt", "epub"));
         assert!(!can_convert("epub", "mobi")); // not yet supported
-        assert!(!can_convert("cbz", "epub"));  // manga, not books
+        assert!(!can_convert("cbz", "epub")); // manga, not books
     }
 
     #[test]
@@ -1035,6 +1130,8 @@ mod tests {
         assert!(!chapters.is_empty());
         // Chapter headers should be detected
         let titles: Vec<&str> = chapters.iter().map(|(t, _)| t.as_str()).collect();
-        assert!(titles.iter().any(|t| t.contains("Chapter 1") || t.contains("CHAPTER 2")));
+        assert!(titles
+            .iter()
+            .any(|t| t.contains("Chapter 1") || t.contains("CHAPTER 2")));
     }
 }

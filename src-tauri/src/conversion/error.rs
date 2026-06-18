@@ -2,7 +2,6 @@
 ///
 /// Implements `serde::Serialize` so errors can be returned directly from
 /// Tauri commands without a separate wrapper.
-
 use std::fmt;
 
 #[allow(dead_code)]
@@ -80,5 +79,3 @@ impl serde::Serialize for ConversionError {
         s.serialize_str(&self.to_string())
     }
 }
-
-

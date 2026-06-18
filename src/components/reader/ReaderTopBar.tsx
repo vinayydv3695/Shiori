@@ -4,6 +4,7 @@ import { useReaderUIStore } from '@/store/premiumReaderStore';
 import { useBookReadingTime } from '@/hooks/useBookReadingTime';
 import { ArrowLeft, Clock, Maximize2, Minimize2, Bookmark } from '@/components/icons';
 import { ReaderSettings, type ReaderFormat } from './ReaderSettings';
+import { WindowControls } from '../layout/WindowControls';
 
 interface ReaderTopBarProps {
   bookId: number;
@@ -55,7 +56,7 @@ export function ReaderTopBar({
   };
 
   return (
-    <div className={`premium-top-bar ${!isTopBarVisible ? 'premium-top-bar--hidden' : ''}`}>
+    <div className={`premium-top-bar ${!isTopBarVisible ? 'premium-top-bar--hidden' : ''}`} data-tauri-drag-region>
       <div className="premium-top-bar-content">
         <div className="premium-top-bar-left">
           <button
@@ -105,6 +106,9 @@ export function ReaderTopBar({
               <Maximize2 className="premium-control-icon" />
             )}
           </button>
+          <div className="ml-2 pl-2 border-l border-white/10 h-6 flex items-center">
+            <WindowControls />
+          </div>
         </div>
       </div>
     </div>

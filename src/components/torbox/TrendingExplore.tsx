@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { Search, Image as ImageIcon, Loader2, ChevronRight, ChevronLeft, Star } from 'lucide-react'
 import { MagnetSourcesModal } from '../online/MagnetSourcesModal'
-import { useTorboxStore } from '@/stores/useTorboxStore'
+import { useTorboxStore } from '@/store/useTorboxStore'
 import { toast } from 'sonner'
 
 export interface TrendingItem {

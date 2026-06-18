@@ -1,7 +1,5 @@
 use crate::error::{Result, ShioriError};
-use crate::services::renderer::{
-    BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry,
-};
+use crate::services::renderer::{BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry};
 use async_trait::async_trait;
 use regex::Regex;
 use std::fs;
@@ -129,10 +127,7 @@ impl HtmlReaderAdapter {
             .unwrap_or(0);
         let start_char = char_idx.saturating_sub(50);
         let end_char = (char_idx + query_char_len + 50).min(char_indices.len());
-        let start_byte = char_indices
-            .get(start_char)
-            .map(|&(b, _)| b)
-            .unwrap_or(0);
+        let start_byte = char_indices.get(start_char).map(|&(b, _)| b).unwrap_or(0);
         let end_byte = if end_char >= char_indices.len() {
             content.len()
         } else {
@@ -151,12 +146,8 @@ impl BookReaderAdapter for HtmlReaderAdapter {
         let content = fs::read_to_string(path).map_err(ShioriError::Io)?;
         self.path = path.to_string();
 
-        let title = Self::extract_title(&content).unwrap_or_else(|| {
-            path.split('/')
-                .last()
-                .unwrap_or("Unknown")
-                .to_string()
-        });
+        let title = Self::extract_title(&content)
+            .unwrap_or_else(|| path.split('/').last().unwrap_or("Unknown").to_string());
 
         let (chapters, toc) = Self::split_into_chapters(&content);
 
@@ -184,16 +175,17 @@ impl BookReaderAdapter for HtmlReaderAdapter {
     }
 
     fn get_chapter(&self, index: usize) -> Result<Chapter> {
-        self.chapters.get(index).cloned().ok_or_else(|| {
-            ShioriError::ChapterReadFailed {
+        self.chapters
+            .get(index)
+            .cloned()
+            .ok_or_else(|| ShioriError::ChapterReadFailed {
                 chapter_index: index,
                 cause: format!(
                     "Chapter index {} out of range (total: {})",
                     index,
                     self.chapters.len()
                 ),
-            }
-        })
+            })
     }
 
     fn chapter_count(&self) -> usize {
@@ -209,8 +201,7 @@ impl BookReaderAdapter for HtmlReaderAdapter {
             let content_lower = chapter.content.to_lowercase();
             let matches: Vec<_> = content_lower.match_indices(&query_lower).collect();
             if !matches.is_empty() {
-                let snippet =
-                    Self::safe_snippet(&chapter.content, matches[0].0, query_char_len);
+                let snippet = Self::safe_snippet(&chapter.content, matches[0].0, query_char_len);
                 results.push(SearchResult {
                     chapter_index: chapter.index,
                     chapter_title: chapter.title.clone(),

@@ -1,31 +1,35 @@
-use std::net::SocketAddr;
-use std::path::PathBuf;
 use anyhow::{anyhow, Result};
+use argon2::password_hash::{rand_core::OsRng, SaltString};
+use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use axum::{
-    Router,
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::get,
+    Router,
 };
-use chrono::{DateTime, Utc, Duration};
-use qrcode::QrCode;
+use chrono::{DateTime, Duration, Utc};
+use log::info;
 use qrcode::render::svg;
+use qrcode::QrCode;
 use rand::Rng;
-use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
-use argon2::password_hash::{SaltString, rand_core::OsRng};
 use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
+use std::net::SocketAddr;
+use std::path::PathBuf;
 use tokio::task::JoinHandle;
 use tower_http::services::ServeFile;
 use tower_http::trace::TraceLayer;
-use log::info;
 
 use crate::db::Database;
 
 // Helper functions for DateTime conversion
 fn parse_datetime(s: Option<String>) -> Option<DateTime<Utc>> {
-    s.and_then(|s| DateTime::parse_from_rfc3339(&s).ok().map(|dt| dt.with_timezone(&Utc)))
+    s.and_then(|s| {
+        DateTime::parse_from_rfc3339(&s)
+            .ok()
+            .map(|dt| dt.with_timezone(&Utc))
+    })
 }
 
 fn parse_datetime_required(s: String) -> rusqlite::Result<DateTime<Utc>> {
@@ -116,13 +120,14 @@ impl ShareService {
     /// Create a share for a book
     pub fn create_share(&self, book_id: i64, options: ShareOptions) -> Result<Share> {
         // Verify book exists and get format
-        let conn = self.db.get_connection()
-            .map_err(|e| anyhow!("{}", e))?;
-        let format: String = conn.query_row(
-            "SELECT file_format FROM books WHERE id = ?1",
-            params![book_id],
-            |row| row.get(0)
-        ).map_err(|_| anyhow::anyhow!("Book not found"))?;
+        let conn = self.db.get_connection().map_err(|e| anyhow!("{}", e))?;
+        let format: String = conn
+            .query_row(
+                "SELECT file_format FROM books WHERE id = ?1",
+                params![book_id],
+                |row| row.get(0),
+            )
+            .map_err(|_| anyhow::anyhow!("Book not found"))?;
 
         // Generate random token (8 characters, URL-safe)
         let token: String = rand::thread_rng()
@@ -135,7 +140,8 @@ impl ShareService {
         let password_hash = if let Some(password) = options.password {
             let salt = SaltString::generate(&mut OsRng);
             let argon2 = Argon2::default();
-            let hash = argon2.hash_password(password.as_bytes(), &salt)
+            let hash = argon2
+                .hash_password(password.as_bytes(), &salt)
                 .map_err(|e| anyhow!("Failed to hash password: {}", e))?
                 .to_string();
             Some(hash)
@@ -178,27 +184,29 @@ impl ShareService {
 
     /// Get share by token
     pub fn get_share(&self, token: &str) -> Result<Option<Share>> {
-        let conn = self.db.get_connection()
-            .map_err(|e| anyhow!("{}", e))?;
+        let conn = self.db.get_connection().map_err(|e| anyhow!("{}", e))?;
         let mut stmt = conn.prepare(
             "SELECT id, book_id, token, format, password_hash, expires_at, max_accesses, access_count, revoked_at, created_at
              FROM shares WHERE token = ?1"
         )?;
 
-        let share = stmt.query_row(params![token], |row| {
-            Ok(Share {
-                id: row.get(0)?,
-                book_id: row.get(1)?,
-                token: row.get(2)?,
-                format: row.get(3)?,
-                password_hash: row.get(4)?,
-                expires_at: parse_datetime(row.get(5)?).ok_or_else(|| rusqlite::Error::InvalidQuery)?,
-                max_accesses: row.get(6)?,
-                access_count: row.get(7)?,
-                revoked_at: parse_datetime(row.get(8)?),
-                created_at: parse_datetime_required(row.get(9)?)?,
+        let share = stmt
+            .query_row(params![token], |row| {
+                Ok(Share {
+                    id: row.get(0)?,
+                    book_id: row.get(1)?,
+                    token: row.get(2)?,
+                    format: row.get(3)?,
+                    password_hash: row.get(4)?,
+                    expires_at: parse_datetime(row.get(5)?)
+                        .ok_or_else(|| rusqlite::Error::InvalidQuery)?,
+                    max_accesses: row.get(6)?,
+                    access_count: row.get(7)?,
+                    revoked_at: parse_datetime(row.get(8)?),
+                    created_at: parse_datetime_required(row.get(9)?)?,
+                })
             })
-        }).optional()?;
+            .optional()?;
 
         Ok(share)
     }
@@ -206,14 +214,17 @@ impl ShareService {
     /// Verify share password
     #[allow(dead_code)]
     pub fn verify_password(&self, token: &str, password: &str) -> Result<bool> {
-        let share = self.get_share(token)?
+        let share = self
+            .get_share(token)?
             .ok_or_else(|| anyhow::anyhow!("Share not found"))?;
 
         if let Some(hash) = share.password_hash {
-            let parsed_hash = PasswordHash::new(&hash)
-                .map_err(|e| anyhow!("Invalid password hash: {}", e))?;
+            let parsed_hash =
+                PasswordHash::new(&hash).map_err(|e| anyhow!("Invalid password hash: {}", e))?;
             let argon2 = Argon2::default();
-            Ok(argon2.verify_password(password.as_bytes(), &parsed_hash).is_ok())
+            Ok(argon2
+                .verify_password(password.as_bytes(), &parsed_hash)
+                .is_ok())
         } else {
             Ok(true) // No password required
         }
@@ -249,46 +260,49 @@ impl ShareService {
     /// Increment download count
     #[allow(dead_code)]
     pub fn increment_download_count(&self, token: &str) -> Result<()> {
-        let conn = self.db.get_connection()
-            .map_err(|e| anyhow!("{}", e))?;
+        let conn = self.db.get_connection().map_err(|e| anyhow!("{}", e))?;
         conn.execute(
             "UPDATE shares SET access_count = access_count + 1 WHERE token = ?1",
-            params![token]
+            params![token],
         )?;
         Ok(())
     }
 
     /// Log share access
     #[allow(dead_code)]
-    pub fn log_access(&self, share_id: i64, ip_address: &str, user_agent: Option<&str>) -> Result<()> {
-        let conn = self.db.get_connection()
-            .map_err(|e| anyhow!("{}", e))?;
+    pub fn log_access(
+        &self,
+        share_id: i64,
+        ip_address: &str,
+        user_agent: Option<&str>,
+    ) -> Result<()> {
+        let conn = self.db.get_connection().map_err(|e| anyhow!("{}", e))?;
         conn.execute(
             "INSERT INTO share_access_log (share_token, ip_address, user_agent) 
              VALUES ((SELECT token FROM shares WHERE id = ?1), ?2, ?3)",
-            params![share_id, ip_address, user_agent]
+            params![share_id, ip_address, user_agent],
         )?;
         Ok(())
     }
 
     /// Revoke a share
     pub fn revoke_share(&self, token: &str) -> Result<()> {
-        let conn = self.db.get_connection()
-            .map_err(|e| anyhow!("{}", e))?;
+        let conn = self.db.get_connection().map_err(|e| anyhow!("{}", e))?;
         let now = Utc::now();
         conn.execute(
             "UPDATE shares SET revoked_at = ?1 WHERE token = ?2",
-            params![now.to_rfc3339(), token]
+            params![now.to_rfc3339(), token],
         )?;
         Ok(())
     }
 
     /// List all shares for a book
     pub fn list_shares(&self, book_id: Option<i64>) -> Result<Vec<Share>> {
-        let conn = self.db.get_connection()
-            .map_err(|e| anyhow!("{}", e))?;
-        
-        let (query, params_vec): (String, Vec<Box<dyn rusqlite::ToSql>>) = if let Some(bid) = book_id {
+        let conn = self.db.get_connection().map_err(|e| anyhow!("{}", e))?;
+
+        let (query, params_vec): (String, Vec<Box<dyn rusqlite::ToSql>>) = if let Some(bid) =
+            book_id
+        {
             (
                 "SELECT id, book_id, token, format, password_hash, expires_at, max_accesses, access_count, revoked_at, created_at
                  FROM shares WHERE book_id = ?1 ORDER BY created_at DESC".to_string(),
@@ -303,36 +317,42 @@ impl ShareService {
         };
 
         let mut stmt = conn.prepare(&query)?;
-        let shares = stmt.query_map(
-            params_vec.iter().map(|p| p.as_ref()).collect::<Vec<_>>().as_slice(),
-            |row| {
-                Ok(Share {
-                    id: row.get(0)?,
-                    book_id: row.get(1)?,
-                    token: row.get(2)?,
-                    format: row.get(3)?,
-                    password_hash: row.get(4)?,
-                    expires_at: parse_datetime(row.get(5)?).ok_or_else(|| rusqlite::Error::InvalidQuery)?,
-                    max_accesses: row.get(6)?,
-                    access_count: row.get(7)?,
-                    revoked_at: parse_datetime(row.get(8)?),
-                    created_at: parse_datetime_required(row.get(9)?)?,
-                })
-            }
-        )?.collect::<rusqlite::Result<Vec<_>>>()?;
+        let shares = stmt
+            .query_map(
+                params_vec
+                    .iter()
+                    .map(|p| p.as_ref())
+                    .collect::<Vec<_>>()
+                    .as_slice(),
+                |row| {
+                    Ok(Share {
+                        id: row.get(0)?,
+                        book_id: row.get(1)?,
+                        token: row.get(2)?,
+                        format: row.get(3)?,
+                        password_hash: row.get(4)?,
+                        expires_at: parse_datetime(row.get(5)?)
+                            .ok_or_else(|| rusqlite::Error::InvalidQuery)?,
+                        max_accesses: row.get(6)?,
+                        access_count: row.get(7)?,
+                        revoked_at: parse_datetime(row.get(8)?),
+                        created_at: parse_datetime_required(row.get(9)?)?,
+                    })
+                },
+            )?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
 
         Ok(shares)
     }
 
     /// Clean up expired shares
     pub fn cleanup_expired_shares(&self) -> Result<usize> {
-        let conn = self.db.get_connection()
-            .map_err(|e| anyhow!("{}", e))?;
+        let conn = self.db.get_connection().map_err(|e| anyhow!("{}", e))?;
         let now = Utc::now();
-        
+
         let count = conn.execute(
             "UPDATE shares SET revoked_at = ?1 WHERE expires_at < ?1 AND revoked_at IS NULL",
-            params![now.to_rfc3339()]
+            params![now.to_rfc3339()],
         )?;
 
         Ok(count)
@@ -340,7 +360,8 @@ impl ShareService {
 
     /// Generate share URL and QR code
     pub fn generate_share_url(&self, token: &str) -> Result<ShareResponse> {
-        let share = self.get_share(token)?
+        let share = self
+            .get_share(token)?
             .ok_or_else(|| anyhow::anyhow!("Share not found"))?;
 
         // Get local IP (simplified - just use localhost for now)
@@ -348,9 +369,7 @@ impl ShareService {
 
         // Generate QR code
         let qr = QrCode::new(&url)?;
-        let qr_svg = qr.render::<svg::Color>()
-            .min_dimensions(200, 200)
-            .build();
+        let qr_svg = qr.render::<svg::Color>().min_dimensions(200, 200).build();
 
         Ok(ShareResponse {
             token: token.to_string(),
@@ -421,9 +440,11 @@ async fn handle_share_download(
     Query(query): Query<ShareQuery>,
 ) -> Result<Response, (StatusCode, String)> {
     // Get a single connection from the pool for all DB operations
-    let conn = state.db.get_connection()
+    let conn = state
+        .db
+        .get_connection()
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    
+
     let share = conn.query_row(
             "SELECT id, book_id, token, format, password_hash, expires_at, max_accesses, access_count, revoked_at, created_at
              FROM shares WHERE token = ?1",
@@ -447,7 +468,7 @@ async fn handle_share_download(
 
     // Check revoked
     if share.revoked_at.is_some() {
-         return Err((StatusCode::GONE, "Share has been revoked".to_string()));
+        return Err((StatusCode::GONE, "Share has been revoked".to_string()));
     }
 
     // Check expiration
@@ -464,47 +485,56 @@ async fn handle_share_download(
 
     // Verify password if required
     if let Some(hash) = &share.password_hash {
-        let password = query.password
+        let password = query
+            .password
             .ok_or((StatusCode::UNAUTHORIZED, "Password required".to_string()))?;
-        
+
         let parsed_hash = PasswordHash::new(hash)
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
         let argon2 = Argon2::default();
-        
-        if argon2.verify_password(password.as_bytes(), &parsed_hash).is_err() {
+
+        if argon2
+            .verify_password(password.as_bytes(), &parsed_hash)
+            .is_err()
+        {
             return Err((StatusCode::UNAUTHORIZED, "Invalid password".to_string()));
         }
     }
 
     // Get book file path
-    let book_path: String = conn.query_row(
+    let book_path: String = conn
+        .query_row(
             "SELECT file_path FROM books WHERE id = ?1",
             params![share.book_id],
-            |row| row.get(0)
+            |row| row.get(0),
         )
         .map_err(|_| (StatusCode::NOT_FOUND, "Book file not found".to_string()))?;
 
     let full_path = state.storage_path.join(&book_path);
-    
+
     if !full_path.exists() {
-        return Err((StatusCode::NOT_FOUND, "Book file not found on disk".to_string()));
+        return Err((
+            StatusCode::NOT_FOUND,
+            "Book file not found on disk".to_string(),
+        ));
     }
 
     // Increment download count
     conn.execute(
-            "UPDATE shares SET access_count = access_count + 1 WHERE id = ?1",
-            params![share.id]
-        )
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        "UPDATE shares SET access_count = access_count + 1 WHERE id = ?1",
+        params![share.id],
+    )
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     // Log access (best-effort, don't fail the download)
     let _ = conn.execute(
         "INSERT INTO share_access_log (share_token, ip_address) VALUES (?1, ?2)",
-        params![share.token, "unknown"]
+        params![share.token, "unknown"],
     );
 
     // Serve file
-    Ok(ServeFile::new(full_path).try_call(axum::http::Request::new(axum::body::Body::empty()))
+    Ok(ServeFile::new(full_path)
+        .try_call(axum::http::Request::new(axum::body::Body::empty()))
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
         .into_response())
@@ -518,11 +548,11 @@ mod tests {
     fn test_share_service_creation() {
         let temp_dir = std::env::temp_dir().join("shiori-test-share");
         std::fs::create_dir_all(&temp_dir).unwrap();
-        
+
         let db_path = temp_dir.join("test.db");
         let db = Database::new(&db_path).unwrap();
         let service = ShareService::new(db, temp_dir, Some(8888));
-        
+
         assert_eq!(service.port, 8888);
         assert!(!service.is_running());
     }

@@ -5,13 +5,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{Result, ShioriError};
 
+pub mod annas_archive;
+pub mod libgen;
 pub mod mangadex;
 pub mod nyaa;
 pub mod registry;
 pub mod toongod;
+pub mod torrent_csv;
 pub mod weebrook;
-pub mod annas_archive;
-pub mod libgen;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -100,7 +101,12 @@ pub trait Source: Send + Sync {
     fn as_any(&self) -> &dyn std::any::Any;
     fn meta(&self) -> SourceMeta;
     async fn search(&self, query: &str, page: u32) -> Result<Vec<SearchResult>>;
-    async fn search_with_meta(&self, query: &str, page: u32, _limit: u32) -> Result<SearchResponse> {
+    async fn search_with_meta(
+        &self,
+        query: &str,
+        page: u32,
+        _limit: u32,
+    ) -> Result<SearchResponse> {
         let items = self.search(query, page).await?;
         Ok(SearchResponse {
             items,

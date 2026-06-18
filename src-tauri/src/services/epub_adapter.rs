@@ -1,7 +1,5 @@
-use crate::error::{ShioriError, Result};
-use crate::services::renderer::{
-    BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry,
-};
+use crate::error::{Result, ShioriError};
+use crate::services::renderer::{BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry};
 use async_trait::async_trait;
 use epub::doc::EpubDoc;
 use std::sync::RwLock;
@@ -29,37 +27,51 @@ impl EpubAdapter {
             .as_ref()
             .ok_or_else(|| ShioriError::Other("EPUB document not opened".to_string()))?;
 
-        let doc = doc_ref.read()
-            .map_err(|e| ShioriError::Other(format!("Failed to acquire read lock on EPUB document: {}", e)))?;
+        let doc = doc_ref.read().map_err(|e| {
+            ShioriError::Other(format!(
+                "Failed to acquire read lock on EPUB document: {}",
+                e
+            ))
+        })?;
 
-        fn parse_nav_points(nav_points: &[epub::doc::NavPoint], doc: &EpubDoc<std::io::BufReader<std::fs::File>>, level: usize) -> Vec<TocEntry> {
-            nav_points.iter().map(|nav_point| {
-                let path_str = nav_point.content.to_string_lossy().replace("\\", "/");
-                let clean_path = path_str.split('#').next().unwrap_or("").to_string();
-                
-                let mut matched_id = None;
-                for (id, item) in doc.resources.iter() {
-                    let res_path = item.path.to_string_lossy().replace("\\", "/");
-                    if res_path == clean_path || res_path.ends_with(&clean_path) || clean_path.ends_with(&res_path) {
-                        matched_id = Some(id.clone());
-                        break;
+        fn parse_nav_points(
+            nav_points: &[epub::doc::NavPoint],
+            doc: &EpubDoc<std::io::BufReader<std::fs::File>>,
+            level: usize,
+        ) -> Vec<TocEntry> {
+            nav_points
+                .iter()
+                .map(|nav_point| {
+                    let path_str = nav_point.content.to_string_lossy().replace("\\", "/");
+                    let clean_path = path_str.split('#').next().unwrap_or("").to_string();
+
+                    let mut matched_id = None;
+                    for (id, item) in doc.resources.iter() {
+                        let res_path = item.path.to_string_lossy().replace("\\", "/");
+                        if res_path == clean_path
+                            || res_path.ends_with(&clean_path)
+                            || clean_path.ends_with(&res_path)
+                        {
+                            matched_id = Some(id.clone());
+                            break;
+                        }
                     }
-                }
-                
-                let mut spine_idx = 0;
-                if let Some(id) = matched_id {
-                    if let Some(pos) = doc.spine.iter().position(|item| item.idref == id) {
-                        spine_idx = pos;
+
+                    let mut spine_idx = 0;
+                    if let Some(id) = matched_id {
+                        if let Some(pos) = doc.spine.iter().position(|item| item.idref == id) {
+                            spine_idx = pos;
+                        }
                     }
-                }
-                
-                TocEntry {
-                    label: nav_point.label.clone(),
-                    location: format!("epubcfi(/{}/)", spine_idx),
-                    level,
-                    children: parse_nav_points(&nav_point.children, doc, level + 1),
-                }
-            }).collect()
+
+                    TocEntry {
+                        label: nav_point.label.clone(),
+                        location: format!("epubcfi(/{}/)", spine_idx),
+                        level,
+                        children: parse_nav_points(&nav_point.children, doc, level + 1),
+                    }
+                })
+                .collect()
         }
 
         self.toc = parse_nav_points(&doc.toc, &doc, 0);
@@ -72,8 +84,12 @@ impl EpubAdapter {
             .as_ref()
             .ok_or_else(|| ShioriError::Other("EPUB document not opened".to_string()))?;
 
-        let doc = doc_ref.read()
-            .map_err(|e| ShioriError::Other(format!("Failed to acquire read lock on EPUB document: {}", e)))?;
+        let doc = doc_ref.read().map_err(|e| {
+            ShioriError::Other(format!(
+                "Failed to acquire read lock on EPUB document: {}",
+                e
+            ))
+        })?;
         let title = doc
             .get_title()
             .unwrap_or_else(|| "Unknown Title".to_string());
@@ -158,8 +174,12 @@ impl BookReaderAdapter for EpubAdapter {
             .as_ref()
             .ok_or_else(|| ShioriError::Other("EPUB document not opened".to_string()))?;
 
-        let mut doc = doc_ref.write()
-            .map_err(|e| ShioriError::Other(format!("Failed to acquire write lock on EPUB document: {}", e)))?;
+        let mut doc = doc_ref.write().map_err(|e| {
+            ShioriError::Other(format!(
+                "Failed to acquire write lock on EPUB document: {}",
+                e
+            ))
+        })?;
         let spine_len = doc.get_num_chapters();
 
         if index >= spine_len {
@@ -204,8 +224,12 @@ impl BookReaderAdapter for EpubAdapter {
             .as_ref()
             .ok_or_else(|| ShioriError::Other("EPUB document not opened".to_string()))?;
 
-        let mut doc = doc_ref.write()
-            .map_err(|e| ShioriError::Other(format!("Failed to acquire write lock on EPUB document: {}", e)))?;
+        let mut doc = doc_ref.write().map_err(|e| {
+            ShioriError::Other(format!(
+                "Failed to acquire write lock on EPUB document: {}",
+                e
+            ))
+        })?;
         let spine_len = doc.get_num_chapters();
 
         fn strip_html_tags(html: &str) -> String {
@@ -220,12 +244,13 @@ impl BookReaderAdapter for EpubAdapter {
                     plain_text.push(c);
                 }
             }
-            plain_text.replace("&nbsp;", " ")
-                      .replace("&amp;", "&")
-                      .replace("&lt;", "<")
-                      .replace("&gt;", ">")
-                      .replace("&quot;", "\"")
-                      .replace("&#39;", "'")
+            plain_text
+                .replace("&nbsp;", " ")
+                .replace("&amp;", "&")
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&quot;", "\"")
+                .replace("&#39;", "'")
         }
 
         for i in 0..spine_len {
@@ -242,23 +267,29 @@ impl BookReaderAdapter for EpubAdapter {
             if !matches.is_empty() {
                 // Get snippet around first match
                 let first_match_pos = matches[0].0;
-                
+
                 // Safely slice strings using character boundaries to avoid panics on emoji/unicode
                 let char_indices: Vec<(usize, char)> = content.char_indices().collect();
-                
+
                 // Find the index in our char array that corresponds to the byte position
-                let char_idx = char_indices.iter().position(|&(b_idx, _)| b_idx >= first_match_pos).unwrap_or(0);
-                
+                let char_idx = char_indices
+                    .iter()
+                    .position(|&(b_idx, _)| b_idx >= first_match_pos)
+                    .unwrap_or(0);
+
                 let start_char_idx = char_idx.saturating_sub(50);
                 let end_char_idx = (char_idx + query.chars().count() + 50).min(char_indices.len());
-                
-                let start_byte = char_indices.get(start_char_idx).map(|&(b, _)| b).unwrap_or(0);
+
+                let start_byte = char_indices
+                    .get(start_char_idx)
+                    .map(|&(b, _)| b)
+                    .unwrap_or(0);
                 let end_byte = if end_char_idx >= char_indices.len() {
                     content.len()
                 } else {
                     char_indices[end_char_idx].0
                 };
-                
+
                 let snippet = format!("...{}...", &content[start_byte..end_byte]);
 
                 results.push(SearchResult {
@@ -280,8 +311,12 @@ impl BookReaderAdapter for EpubAdapter {
             .as_ref()
             .ok_or_else(|| ShioriError::Other("EPUB document not opened".to_string()))?;
 
-        let doc = doc_ref.read()
-            .map_err(|e| ShioriError::Other(format!("Failed to acquire read lock on EPUB document: {}", e)))?;
+        let doc = doc_ref.read().map_err(|e| {
+            ShioriError::Other(format!(
+                "Failed to acquire read lock on EPUB document: {}",
+                e
+            ))
+        })?;
         Ok(doc.spine.iter().map(|item| item.idref.clone()).collect())
     }
 
@@ -293,8 +328,12 @@ impl BookReaderAdapter for EpubAdapter {
             .as_ref()
             .ok_or_else(|| ShioriError::Other("EPUB document not opened".to_string()))?;
 
-        let mut doc = doc_ref.write()
-            .map_err(|e| ShioriError::Other(format!("Failed to acquire write lock on EPUB document: {}", e)))?;
+        let mut doc = doc_ref.write().map_err(|e| {
+            ShioriError::Other(format!(
+                "Failed to acquire write lock on EPUB document: {}",
+                e
+            ))
+        })?;
 
         // ── Pass 1: Exact path ────────────────────────────────────────────
         if let Some((bytes, _)) = doc.get_resource(path) {
@@ -322,19 +361,27 @@ impl BookReaderAdapter for EpubAdapter {
                 return Ok(bytes);
             }
         }
-        
+
         // Find mapped zip paths from doc.resources
         let all_resources: Vec<(String, String)> = doc
             .resources
             .iter()
-            .map(|(id, item)| (id.clone(), item.path.to_string_lossy().to_string().replace("\\", "/")))
+            .map(|(id, item)| {
+                (
+                    id.clone(),
+                    item.path.to_string_lossy().to_string().replace("\\", "/"),
+                )
+            })
             .collect();
-            
+
         // ── Pass 3: Common EPUB root prefixes ─────────────────────────────
         for prefix in &["OEBPS/", "OPS/", "EPUB/", "content/"] {
             let candidate = format!("{}{}", prefix, clean);
             if let Some((bytes, _)) = doc.get_resource(&candidate) {
-                println!("[EpubAdapter] Found with prefix '{}': {}", prefix, candidate);
+                println!(
+                    "[EpubAdapter] Found with prefix '{}': {}",
+                    prefix, candidate
+                );
                 return Ok(bytes);
             }
         }
@@ -354,7 +401,10 @@ impl BookReaderAdapter for EpubAdapter {
         }
         if let Some(ref id) = suffix_match_id {
             if let Some((bytes, _)) = doc.get_resource(id) {
-                println!("[EpubAdapter] Case-insensitive suffix match: {} -> (id: {})", path, id);
+                println!(
+                    "[EpubAdapter] Case-insensitive suffix match: {} -> (id: {})",
+                    path, id
+                );
                 return Ok(bytes);
             }
         }
@@ -383,7 +433,8 @@ impl BookReaderAdapter for EpubAdapter {
         // ── Not found: log available paths for debugging ───────────────────
         println!(
             "[EpubAdapter::get_resource] ❌ Resource not found: '{}'. Available paths ({}):",
-            path, all_resources.len()
+            path,
+            all_resources.len()
         );
         for (_id, zip_path) in all_resources.iter().take(20) {
             println!("  • {}", zip_path);
@@ -393,14 +444,17 @@ impl BookReaderAdapter for EpubAdapter {
     }
 
     fn get_resource_mime(&self, path: &str) -> Result<String> {
-
         let doc_ref = self
             .doc
             .as_ref()
             .ok_or_else(|| ShioriError::Other("EPUB document not opened".to_string()))?;
 
-        let doc = doc_ref.read()
-            .map_err(|e| ShioriError::Other(format!("Failed to acquire read lock on EPUB document: {}", e)))?;
+        let doc = doc_ref.read().map_err(|e| {
+            ShioriError::Other(format!(
+                "Failed to acquire read lock on EPUB document: {}",
+                e
+            ))
+        })?;
         doc.get_resource_mime_by_path(path)
             .ok_or_else(|| ShioriError::Other(format!("MIME type not found for: {}", path)))
     }

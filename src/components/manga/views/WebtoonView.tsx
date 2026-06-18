@@ -5,6 +5,7 @@ import { MangaPageImage } from '../MangaPageImage';
 import { useMangaScroll } from '../hooks/useMangaScroll';
 import { preloadPages } from '../hooks/useMangaPreloader';
 import { preloadOnlinePages } from '../hooks/useUnifiedImageDecode';
+import { EndOfChapterOverlay } from '../EndOfChapterOverlay';
 
 /**
  * Webtoon/Manhwa virtualized scroll view.
@@ -163,6 +164,7 @@ export function WebtoonView() {
                     </div>
                 ))}
             </div>
+            <EndOfChapterOverlay />
         </div>
     );
 }

@@ -8,7 +8,9 @@ use tokio::sync::{Mutex, RwLock};
 
 use crate::error::{Result, ShioriError};
 use crate::services::online::anilist::fetch_cover_by_title;
-use crate::sources::{Chapter, ContentType, Page, SearchResponse, SearchResult, Source, SourceMeta};
+use crate::sources::{
+    Chapter, ContentType, Page, SearchResponse, SearchResult, Source, SourceMeta,
+};
 
 const NYAA_BASE_URL: &str = "https://nyaa.si";
 const NYAA_SEARCH_LIMIT_MAX: u32 = 200;
@@ -195,7 +197,9 @@ impl NyaaSource {
                                 if let Some(item) = current_item.as_mut() {
                                     for attr in event.attributes().flatten() {
                                         if Self::local_name(attr.key.as_ref()) == "url" {
-                                            if let Ok(value) = attr.decode_and_unescape_value(reader.decoder()) {
+                                            if let Ok(value) =
+                                                attr.decode_and_unescape_value(reader.decoder())
+                                            {
                                                 item.torrent_url = Some(value.to_string());
                                             }
                                         }
@@ -207,10 +211,14 @@ impl NyaaSource {
                     }
                 }
                 Ok(Event::Text(text)) => {
-                    if let (Some(item), Some(field)) = (current_item.as_mut(), current_field.as_deref()) {
+                    if let (Some(item), Some(field)) =
+                        (current_item.as_mut(), current_field.as_deref())
+                    {
                         let value = text
                             .unescape()
-                            .map_err(|e| ShioriError::Other(format!("Failed to parse Nyaa RSS text: {}", e)))?
+                            .map_err(|e| {
+                                ShioriError::Other(format!("Failed to parse Nyaa RSS text: {}", e))
+                            })?
                             .to_string();
 
                         if value.is_empty() {
@@ -258,7 +266,8 @@ impl NyaaSource {
     fn parse_html_items(html: &str, base_url: &str) -> Result<Vec<NyaaRssItem>> {
         use scraper::{Html, Selector};
         let document = Html::parse_document(html);
-        let tr_sel = Selector::parse("table.torrent-list tbody tr").map_err(|e| ShioriError::Other(e.to_string()))?;
+        let tr_sel = Selector::parse("table.torrent-list tbody tr")
+            .map_err(|e| ShioriError::Other(e.to_string()))?;
         let td_sel = Selector::parse("td").map_err(|e| ShioriError::Other(e.to_string()))?;
         let a_sel = Selector::parse("a").map_err(|e| ShioriError::Other(e.to_string()))?;
 
@@ -274,7 +283,11 @@ impl NyaaSource {
                 if let Some(href) = a.value().attr("href") {
                     if href.contains("/view/") && !href.contains("#comments") {
                         title = Some(a.text().collect::<String>().trim().to_string());
-                        let href_norm = if href.starts_with("http") { href.to_string() } else { format!("{}{}", base_url, href) };
+                        let href_norm = if href.starts_with("http") {
+                            href.to_string()
+                        } else {
+                            format!("{}{}", base_url, href)
+                        };
                         guid = Some(href_norm);
                     }
                 }
@@ -286,7 +299,11 @@ impl NyaaSource {
             for a in td_links.select(&a_sel) {
                 if let Some(href) = a.value().attr("href") {
                     if href.ends_with(".torrent") || href.contains("/download/") {
-                        let href_norm = if href.starts_with("http") { href.to_string() } else { format!("{}{}", base_url, href) };
+                        let href_norm = if href.starts_with("http") {
+                            href.to_string()
+                        } else {
+                            format!("{}{}", base_url, href)
+                        };
                         torrent_url = Some(href_norm);
                     } else if href.starts_with("magnet:") {
                         magnet_url = Some(href.to_string());
@@ -300,7 +317,10 @@ impl NyaaSource {
             let info_hash = magnet_url.as_ref().and_then(|url| {
                 if let Some(start) = url.find("urn:btih:") {
                     let hash_start = start + 9;
-                    let hash_end = url[hash_start..].find('&').map(|i| hash_start + i).unwrap_or(url.len());
+                    let hash_end = url[hash_start..]
+                        .find('&')
+                        .map(|i| hash_start + i)
+                        .unwrap_or(url.len());
                     Some(url[hash_start..hash_end].to_string())
                 } else {
                     None
@@ -339,18 +359,21 @@ impl NyaaSource {
 
         let mut all_parsed = Vec::new();
         let mut successful_mirror = String::new();
-        
+
         let pages_to_fetch = (safe_limit as f32 / 75.0).ceil() as u32;
 
         for mirror in NYAA_MIRRORS {
             let mut tasks = Vec::new();
             for p in 0..pages_to_fetch {
                 let current_page = safe_page + p;
-                let url = format!("{}/?page=rss&q={}&c=3_1&f=0&p={}", mirror, urlencoding::encode(query), current_page);
+                let url = format!(
+                    "{}/?page=rss&q={}&c=3_1&f=0&p={}",
+                    mirror,
+                    urlencoding::encode(query),
+                    current_page
+                );
                 let client = self.client.clone();
-                tasks.push(tokio::spawn(async move {
-                    client.get(&url).send().await
-                }));
+                tasks.push(tokio::spawn(async move { client.get(&url).send().await }));
             }
 
             let responses = futures::future::join_all(tasks).await;
@@ -361,12 +384,16 @@ impl NyaaSource {
                 match res {
                     Ok(Ok(resp)) if resp.status().is_success() => {
                         if let Ok(text) = resp.text().await {
-                            if text.contains("Enable JavaScript and cookies to continue") || text.contains("DDoS protection by Cloudflare") {
-                                diagnostics.attempted_mirrors.push(crate::sources::MirrorAttemptDiagnostic {
-                                    mirror: mirror.to_string(),
-                                    success: false,
-                                    error: Some("Cloudflare challenge".to_string()),
-                                });
+                            if text.contains("Enable JavaScript and cookies to continue")
+                                || text.contains("DDoS protection by Cloudflare")
+                            {
+                                diagnostics.attempted_mirrors.push(
+                                    crate::sources::MirrorAttemptDiagnostic {
+                                        mirror: mirror.to_string(),
+                                        success: false,
+                                        error: Some("Cloudflare challenge".to_string()),
+                                    },
+                                );
                                 mirror_failed = true;
                                 break;
                             }
@@ -374,20 +401,24 @@ impl NyaaSource {
                         }
                     }
                     Ok(Ok(resp)) => {
-                        diagnostics.attempted_mirrors.push(crate::sources::MirrorAttemptDiagnostic {
-                            mirror: mirror.to_string(),
-                            success: false,
-                            error: Some(format!("Status {}", resp.status())),
-                        });
+                        diagnostics.attempted_mirrors.push(
+                            crate::sources::MirrorAttemptDiagnostic {
+                                mirror: mirror.to_string(),
+                                success: false,
+                                error: Some(format!("Status {}", resp.status())),
+                            },
+                        );
                         mirror_failed = true;
                         break;
                     }
                     Ok(Err(e)) => {
-                        diagnostics.attempted_mirrors.push(crate::sources::MirrorAttemptDiagnostic {
-                            mirror: mirror.to_string(),
-                            success: false,
-                            error: Some(e.to_string()),
-                        });
+                        diagnostics.attempted_mirrors.push(
+                            crate::sources::MirrorAttemptDiagnostic {
+                                mirror: mirror.to_string(),
+                                success: false,
+                                error: Some(e.to_string()),
+                            },
+                        );
                         mirror_failed = true;
                         break;
                     }
@@ -400,14 +431,18 @@ impl NyaaSource {
 
             if !mirror_failed && !page_contents.is_empty() {
                 successful_mirror = mirror.to_string();
-                diagnostics.attempted_mirrors.push(crate::sources::MirrorAttemptDiagnostic {
-                    mirror: mirror.to_string(),
-                    success: true,
-                    error: None,
-                });
-                
+                diagnostics
+                    .attempted_mirrors
+                    .push(crate::sources::MirrorAttemptDiagnostic {
+                        mirror: mirror.to_string(),
+                        success: true,
+                        error: None,
+                    });
+
                 for text in page_contents {
-                    let parsed = if text.trim_start().starts_with("<?xml") || text.trim_start().starts_with("<rss") {
+                    let parsed = if text.trim_start().starts_with("<?xml")
+                        || text.trim_start().starts_with("<rss")
+                    {
                         Self::parse_rss_items(&text).unwrap_or_default()
                     } else {
                         Self::parse_html_items(&text, &successful_mirror).unwrap_or_default()
@@ -418,26 +453,38 @@ impl NyaaSource {
             }
 
             if successful_mirror.is_empty() {
-                let html_url = format!("{}/?q={}&c=3_1&f=0&p={}", mirror, urlencoding::encode(query), safe_page);
+                let html_url = format!(
+                    "{}/?q={}&c=3_1&f=0&p={}",
+                    mirror,
+                    urlencoding::encode(query),
+                    safe_page
+                );
                 match self.client.get(&html_url).send().await {
                     Ok(resp) if resp.status().is_success() => {
                         if let Ok(text) = resp.text().await {
-                            if text.contains("Enable JavaScript and cookies to continue") || text.contains("DDoS protection by Cloudflare") {
-                                diagnostics.attempted_mirrors.push(crate::sources::MirrorAttemptDiagnostic {
-                                    mirror: format!("{} (HTML)", mirror),
-                                    success: false,
-                                    error: Some("Cloudflare challenge".to_string()),
-                                });
+                            if text.contains("Enable JavaScript and cookies to continue")
+                                || text.contains("DDoS protection by Cloudflare")
+                            {
+                                diagnostics.attempted_mirrors.push(
+                                    crate::sources::MirrorAttemptDiagnostic {
+                                        mirror: format!("{} (HTML)", mirror),
+                                        success: false,
+                                        error: Some("Cloudflare challenge".to_string()),
+                                    },
+                                );
                                 continue;
                             }
-                            
+
                             successful_mirror = mirror.to_string();
-                            diagnostics.attempted_mirrors.push(crate::sources::MirrorAttemptDiagnostic {
-                                mirror: format!("{} (HTML)", mirror),
-                                success: true,
-                                error: None,
-                            });
-                            let parsed = Self::parse_html_items(&text, &successful_mirror).unwrap_or_default();
+                            diagnostics.attempted_mirrors.push(
+                                crate::sources::MirrorAttemptDiagnostic {
+                                    mirror: format!("{} (HTML)", mirror),
+                                    success: true,
+                                    error: None,
+                                },
+                            );
+                            let parsed = Self::parse_html_items(&text, &successful_mirror)
+                                .unwrap_or_default();
                             all_parsed.extend(parsed);
                             break;
                         }
@@ -483,18 +530,36 @@ impl NyaaSource {
 
             // Exclude non-manga (like Audio CDs that sneak into c=3_1)
             let is_invalid = [
-                "flac", "wav", "mp3", "ost", "soundtrack", "1080p", "720p", "x265", "x264", "bdrip",
-                "mkv", "mp4", "avi", "hevc", "h265", "web-dl", "webrip", "dual audio", "episode ", " ep ", "dubbed", "subbed", "hdtv"
+                "flac",
+                "wav",
+                "mp3",
+                "ost",
+                "soundtrack",
+                "1080p",
+                "720p",
+                "x265",
+                "x264",
+                "bdrip",
+                "mkv",
+                "mp4",
+                "avi",
+                "hevc",
+                "h265",
+                "web-dl",
+                "webrip",
+                "dual audio",
+                "episode ",
+                " ep ",
+                "dubbed",
+                "subbed",
+                "hdtv",
             ]
-                .iter()
-                .any(|&kw| title_lower.contains(kw));
+            .iter()
+            .any(|&kw| title_lower.contains(kw));
             if is_invalid {
                 continue;
             }
-            let detail_link = item
-                .link
-                .or(item.guid)
-                .filter(|v| !v.trim().is_empty());
+            let detail_link = item.link.or(item.guid).filter(|v| !v.trim().is_empty());
 
             let torrent_link = item.torrent_url.filter(|v| {
                 let normalized = v.to_ascii_lowercase();

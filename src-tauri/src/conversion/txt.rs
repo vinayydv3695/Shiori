@@ -6,22 +6,25 @@
 /// - Unformatted: hard line breaks everywhere, needs unwrapping
 ///
 /// Also: encoding detection, chapter detection, scene breaks, smart quotes.
-
 use std::path::Path;
 
-use super::epub_writer::EpubDocument;
+use super::oeb::{OebBook, OebChapter};
 use super::utils;
-use super::{ConversionError, EpubOutput};
+use super::ConversionError;
 
-/// Convert a TXT file to EPUB 3.
-pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, ConversionError> {
+/// Parse a TXT file into an OebBook.
+pub async fn parse(source: &Path) -> Result<OebBook, ConversionError> {
     let raw = tokio::fs::read(source).await?;
     let text = utils::decode_text(&raw)?;
     let text = utils::normalize_line_endings(&text);
 
     // Detect format style
     let mode = detect_text_mode(&text);
-    log::info!("[TXT→EPUB] Detected mode: {:?} for {}", mode, source.display());
+    log::info!(
+        "[TXT→EPUB] Detected mode: {:?} for {}",
+        mode,
+        source.display()
+    );
 
     // Convert to HTML based on mode
     let html = match mode {
@@ -34,27 +37,24 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
     let chapters = split_into_chapters(&html);
 
     // Infer title from filename
-    let title = source.file_stem()
+    let title = source
+        .file_stem()
         .and_then(|s| s.to_str())
         .map(|s| s.replace('_', " ").replace('-', " "))
         .unwrap_or_else(|| "Untitled".to_string());
 
-    // Build EPUB
-    let mut doc = EpubDocument::new(title.clone());
-    for (ch_title, ch_body) in &chapters {
-        doc.add_chapter(ch_title.clone(), ch_body.clone());
+    // Build OebBook
+    let mut book = OebBook::new(title);
+    for (i, (ch_title, ch_body)) in chapters.into_iter().enumerate() {
+        let id = format!("chapter_{:03}", i + 1);
+        book.chapters.push(OebChapter {
+            id,
+            title: Some(ch_title),
+            html: ch_body,
+        });
     }
 
-    doc.write_to_file(output).await?;
-
-    Ok(EpubOutput {
-        path: output.to_path_buf(),
-        title,
-        author: None,
-        cover_data: None,
-        chapter_count: chapters.len(),
-        warnings: vec![],
-    })
+    Ok(book)
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -77,13 +77,20 @@ fn detect_text_mode(text: &str) -> TextMode {
     // Markdown detection: >30% of non-empty lines start with markdown markers
     let non_empty: Vec<&&str> = lines.iter().filter(|l| !l.trim().is_empty()).collect();
     if !non_empty.is_empty() {
-        let md_count = non_empty.iter().filter(|l| {
-            let t = l.trim();
-            t.starts_with('#') || t.starts_with("* ") || t.starts_with("- ")
-                || t.starts_with("> ") || t.starts_with("```")
-                || t.starts_with("1.") || t.starts_with("[ ")
-                || t.starts_with("[^")
-        }).count();
+        let md_count = non_empty
+            .iter()
+            .filter(|l| {
+                let t = l.trim();
+                t.starts_with('#')
+                    || t.starts_with("* ")
+                    || t.starts_with("- ")
+                    || t.starts_with("> ")
+                    || t.starts_with("```")
+                    || t.starts_with("1.")
+                    || t.starts_with("[ ")
+                    || t.starts_with("[^")
+            })
+            .count();
         if md_count as f64 / non_empty.len() as f64 > 0.3 {
             return TextMode::Markdown;
         }
@@ -105,7 +112,7 @@ fn detect_text_mode(text: &str) -> TextMode {
 // ──────────────────────────────────────────────────────────────────────────
 
 fn markdown_to_html(text: &str) -> String {
-    use pulldown_cmark::{Parser, Options, html};
+    use pulldown_cmark::{html, Options, Parser};
 
     let options = Options::ENABLE_TABLES
         | Options::ENABLE_FOOTNOTES
@@ -135,7 +142,7 @@ fn formatted_to_html(text: &str) -> String {
                 } else {
                     html.push_str(&format!(
                         "  <p>{}</p>\n",
-                        super::epub_writer::escape_xml(para.trim())
+                        super::oeb::escape_xml(para.trim())
                     ));
                 }
                 para.clear();
@@ -151,7 +158,7 @@ fn formatted_to_html(text: &str) -> String {
     if !para.trim().is_empty() {
         html.push_str(&format!(
             "  <p>{}</p>\n",
-            super::epub_writer::escape_xml(para.trim())
+            super::oeb::escape_xml(para.trim())
         ));
     }
     html
@@ -166,12 +173,17 @@ fn unformatted_to_html(text: &str) -> String {
     let lines: Vec<&str> = text.lines().collect();
 
     // Compute median line length for unwrapping heuristic
-    let mut lengths: Vec<usize> = lines.iter()
+    let mut lengths: Vec<usize> = lines
+        .iter()
         .filter(|l| !l.trim().is_empty())
         .map(|l| l.len())
         .collect();
     lengths.sort_unstable();
-    let median = if lengths.is_empty() { 80 } else { lengths[lengths.len() / 2] };
+    let median = if lengths.is_empty() {
+        80
+    } else {
+        lengths[lengths.len() / 2]
+    };
 
     let mut html = String::new();
     let mut para = String::new();
@@ -183,7 +195,7 @@ fn unformatted_to_html(text: &str) -> String {
             if !para.trim().is_empty() {
                 html.push_str(&format!(
                     "  <p>{}</p>\n",
-                    super::epub_writer::escape_xml(para.trim())
+                    super::oeb::escape_xml(para.trim())
                 ));
                 para.clear();
             }
@@ -194,7 +206,7 @@ fn unformatted_to_html(text: &str) -> String {
             if !para.trim().is_empty() {
                 html.push_str(&format!(
                     "  <p>{}</p>\n",
-                    super::epub_writer::escape_xml(para.trim())
+                    super::oeb::escape_xml(para.trim())
                 ));
                 para.clear();
             }
@@ -229,7 +241,7 @@ fn unformatted_to_html(text: &str) -> String {
         if !is_soft_wrap {
             html.push_str(&format!(
                 "  <p>{}</p>\n",
-                super::epub_writer::escape_xml(para.trim())
+                super::oeb::escape_xml(para.trim())
             ));
             para.clear();
         }
@@ -238,7 +250,7 @@ fn unformatted_to_html(text: &str) -> String {
     if !para.trim().is_empty() {
         html.push_str(&format!(
             "  <p>{}</p>\n",
-            super::epub_writer::escape_xml(para.trim())
+            super::oeb::escape_xml(para.trim())
         ));
     }
 
@@ -251,14 +263,16 @@ fn unformatted_to_html(text: &str) -> String {
 
 /// Split HTML content into chapters based on heading detection.
 fn split_into_chapters(html: &str) -> Vec<(String, String)> {
-    static CHAPTER_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(
+    static CHAPTER_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
+        regex::Regex::new(
         r"(?im)^\s*<p>((?:chapter|part|book|prologue|epilogue|introduction|appendix|preface)\s*[\d\w]*\.?\s*)</p>\s*$"
-    ).unwrap());
+    ).unwrap()
+    });
 
     // Also match all-caps lines that look like chapter titles
-    static CAPS_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(
-        r"(?m)^\s*<p>([A-Z][A-Z\s\d]{2,58})</p>\s*$"
-    ).unwrap());
+    static CAPS_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
+        regex::Regex::new(r"(?m)^\s*<p>([A-Z][A-Z\s\d]{2,58})</p>\s*$").unwrap()
+    });
 
     let mut chapters: Vec<(String, String)> = Vec::new();
     let mut current_title = "Chapter 1".to_string();
@@ -272,7 +286,10 @@ fn split_into_chapters(html: &str) -> Vec<(String, String)> {
             }
             current_title = cap[1].trim().to_string();
             current_body.clear();
-            current_body.push_str(&format!("  <h2>{}</h2>\n", super::epub_writer::escape_xml(&current_title)));
+            current_body.push_str(&format!(
+                "  <h2>{}</h2>\n",
+                super::oeb::escape_xml(&current_title)
+            ));
         } else if let Some(cap) = CAPS_RE.captures(line) {
             let candidate = cap[1].trim();
             // Must not be a regular sentence fragment — require surrounded by context
@@ -282,7 +299,10 @@ fn split_into_chapters(html: &str) -> Vec<(String, String)> {
                 }
                 current_title = titlecase(candidate);
                 current_body.clear();
-                current_body.push_str(&format!("  <h2>{}</h2>\n", super::epub_writer::escape_xml(&current_title)));
+                current_body.push_str(&format!(
+                    "  <h2>{}</h2>\n",
+                    super::oeb::escape_xml(&current_title)
+                ));
                 continue;
             }
             current_body.push_str(line);
@@ -302,6 +322,22 @@ fn split_into_chapters(html: &str) -> Vec<(String, String)> {
     }
 
     chapters
+}
+
+/// Convert a TXT file to EPUB 3 (Legacy wrapper for ConversionEngine).
+pub async fn convert(source: &Path, output: &Path) -> Result<super::EpubOutput, ConversionError> {
+    let mut book = parse(source).await?;
+    book.sanitize_html();
+    super::epub_builder::build_epub(&book, output)?;
+
+    Ok(super::EpubOutput {
+        path: output.to_path_buf(),
+        title: book.title,
+        author: book.authors.first().cloned(),
+        cover_data: book.cover_image.map(|img| img.data),
+        chapter_count: book.chapters.len(),
+        warnings: vec![],
+    })
 }
 
 /// Convert "ALL CAPS TITLE" to "All Caps Title"

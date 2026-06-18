@@ -7,8 +7,7 @@
 /// - Authors and artists
 /// - Community ratings
 /// - Publication information
-
-use crate::error::{ShioriError, Result};
+use crate::error::{Result, ShioriError};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -253,12 +252,9 @@ impl MangaMetadataService {
             )));
         }
 
-        let result: GraphQLResponse = Self::bounded_json(
-            response,
-            MAX_JSON_RESPONSE_BYTES,
-            "AniList search response",
-        )
-        .await?;
+        let result: GraphQLResponse =
+            Self::bounded_json(response, MAX_JSON_RESPONSE_BYTES, "AniList search response")
+                .await?;
 
         if let Some(data) = result.data {
             if let Some(page) = data.page {
@@ -345,12 +341,8 @@ impl MangaMetadataService {
             )));
         }
 
-        let result: GraphQLResponse = Self::bounded_json(
-            response,
-            MAX_JSON_RESPONSE_BYTES,
-            "AniList manga response",
-        )
-        .await?;
+        let result: GraphQLResponse =
+            Self::bounded_json(response, MAX_JSON_RESPONSE_BYTES, "AniList manga response").await?;
 
         if let Some(data) = result.data {
             if let Some(media) = data.media {
@@ -383,12 +375,7 @@ impl MangaMetadataService {
             )));
         }
 
-        let bytes = Self::bounded_bytes(
-            response,
-            MAX_IMAGE_RESPONSE_BYTES,
-            "cover image",
-        )
-        .await?;
+        let bytes = Self::bounded_bytes(response, MAX_IMAGE_RESPONSE_BYTES, "cover image").await?;
 
         log::info!("[MangaMetadataService] ✅ Downloaded {} bytes", bytes.len());
         Ok(bytes)
@@ -413,9 +400,7 @@ impl MangaMetadataService {
         };
 
         // Strip HTML tags from description
-        let description = media.description.map(|desc| {
-            strip_html_tags(&desc)
-        });
+        let description = media.description.map(|desc| strip_html_tags(&desc));
 
         MangaMetadata {
             anilist_id: media.id,
@@ -572,10 +557,7 @@ mod tests {
             parse_manga_title("[Group] Attack on Titan Ch.139.cbz"),
             "Attack on Titan"
         );
-        assert_eq!(
-            parse_manga_title("Berserk_Vol_41.cbz"),
-            "Berserk"
-        );
+        assert_eq!(parse_manga_title("Berserk_Vol_41.cbz"), "Berserk");
         assert_eq!(
             parse_manga_title("(Digital) Vinland Saga Volume 12.cbz"),
             "Vinland Saga"

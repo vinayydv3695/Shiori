@@ -4,7 +4,9 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use crate::error::{Result, ShioriError};
-use crate::sources::{Chapter, ContentType, Page, SearchResponse, SearchResult, Source, SourceMeta};
+use crate::sources::{
+    Chapter, ContentType, Page, SearchResponse, SearchResult, Source, SourceMeta,
+};
 
 const MANGADEX_API_BASE: &str = "https://api.mangadex.org";
 const SHIORI_UA: &str = "Shiori/1.0 (github.com/vinayydv3695/Shiori)";
@@ -62,7 +64,7 @@ impl Source for MangaDexSource {
         let offset = (safe_page - 1) * safe_limit;
         // Include all content ratings so results aren't filtered out silently
         let url = format!(
-            "{}/manga?title={}&limit={}&offset={}&includes[]=cover_art&order[relevance]=desc&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica",
+            "{}/manga?title={}&limit={}&offset={}&includes%5B%5D=cover_art&order%5Brelevance%5D=desc&contentRating%5B%5D=safe&contentRating%5B%5D=suggestive&contentRating%5B%5D=erotica",
             MANGADEX_API_BASE, q, safe_limit, offset
         );
 
@@ -101,8 +103,8 @@ impl Source for MangaDexSource {
                     .and_then(|r| r.attributes.as_ref())
                     .and_then(|a| a.file_name.clone());
 
-                let cover_url =
-                    cover_file.map(|f| format!("https://uploads.mangadex.org/covers/{}/{}", item.id, f));
+                let cover_url = cover_file
+                    .map(|f| format!("https://uploads.mangadex.org/covers/{}/{}", item.id, f));
 
                 SearchResult {
                     id: item.id.clone(),
@@ -130,10 +132,10 @@ impl Source for MangaDexSource {
         let offset = (safe_page - 1) * safe_limit;
 
         let order_param = match mode {
-            "popular" => "order[followedCount]=desc",
-            "latest" => "order[latestUploadedChapter]=desc",
-            "recent" => "order[createdAt]=desc",
-            "top-rated" => "order[rating]=desc",
+            "popular" => "order%5BfollowedCount%5D=desc",
+            "latest" => "order%5BlatestUploadedChapter%5D=desc",
+            "recent" => "order%5BcreatedAt%5D=desc",
+            "top-rated" => "order%5Brating%5D=desc",
             _ => {
                 return Err(ShioriError::Validation(format!(
                     "Unsupported browse mode: {}",
@@ -143,7 +145,7 @@ impl Source for MangaDexSource {
         };
 
         let url = format!(
-            "{}/manga?limit={}&offset={}&hasAvailableChapters=true&availableTranslatedLanguage[]=en&includes[]=cover_art&includes[]=author&includes[]=artist&contentRating[]=safe&contentRating[]=suggestive&{}",
+            "{}/manga?limit={}&offset={}&hasAvailableChapters=true&availableTranslatedLanguage%5B%5D=en&includes%5B%5D=cover_art&includes%5B%5D=author&includes%5B%5D=artist&contentRating%5B%5D=safe&contentRating%5B%5D=suggestive&{}",
             MANGADEX_API_BASE, safe_limit, offset, order_param
         );
 
@@ -182,8 +184,8 @@ impl Source for MangaDexSource {
                     .and_then(|r| r.attributes.as_ref())
                     .and_then(|a| a.file_name.clone());
 
-                let cover_url =
-                    cover_file.map(|f| format!("https://uploads.mangadex.org/covers/{}/{}", item.id, f));
+                let cover_url = cover_file
+                    .map(|f| format!("https://uploads.mangadex.org/covers/{}/{}", item.id, f));
 
                 SearchResult {
                     id: item.id.clone(),
@@ -205,16 +207,13 @@ impl Source for MangaDexSource {
             // Include all contentRating filters and scanlation_group includes
             // Omitting contentRating[] causes the API to return 0 results for many titles
             let url = format!(
-                "{}/chapter?manga={}&translatedLanguage[]=en&order[chapter]=asc&limit=100&offset={}&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&contentRating[]=pornographic&includes[]=scanlation_group",
+                "{}/chapter?manga={}&translatedLanguage%5B%5D=en&order%5Bchapter%5D=asc&limit=100&offset={}&contentRating%5B%5D=safe&contentRating%5B%5D=suggestive&contentRating%5B%5D=erotica&contentRating%5B%5D=pornographic&includes%5B%5D=scanlation_group",
                 MANGADEX_API_BASE, content_id, offset
             );
 
-            let resp = self
-                .client
-                .get(&url)
-                .send()
-                .await
-                .map_err(|e| ShioriError::Other(format!("MangaDex chapter request failed: {}", e)))?;
+            let resp = self.client.get(&url).send().await.map_err(|e| {
+                ShioriError::Other(format!("MangaDex chapter request failed: {}", e))
+            })?;
 
             // Check HTTP-level errors before consuming the body
             if !resp.status().is_success() {
@@ -245,9 +244,15 @@ impl Source for MangaDexSource {
             let total = response.total.unwrap_or(0) as usize;
 
             chapters.extend(response.data.into_iter().map(|ch| {
-                let number = ch.attributes.chapter.as_deref().and_then(|n| n.parse::<f32>().ok());
+                let number = ch
+                    .attributes
+                    .chapter
+                    .as_deref()
+                    .and_then(|n| n.parse::<f32>().ok());
                 let title = match (&ch.attributes.chapter, &ch.attributes.title) {
-                    (Some(num), Some(title)) if !title.is_empty() => format!("Chapter {}: {}", num, title),
+                    (Some(num), Some(title)) if !title.is_empty() => {
+                        format!("Chapter {}: {}", num, title)
+                    }
                     (Some(num), _) => format!("Chapter {}", num),
                     (_, Some(title)) if !title.is_empty() => title.clone(),
                     _ => "Chapter".to_string(),
@@ -294,7 +299,10 @@ impl Source for MangaDexSource {
             .enumerate()
             .map(|(idx, file)| Page {
                 index: idx as u32,
-                url: format!("{}/data/{}/{}", response.base_url, response.chapter.hash, file),
+                url: format!(
+                    "{}/data/{}/{}",
+                    response.base_url, response.chapter.hash, file
+                ),
             })
             .collect())
     }

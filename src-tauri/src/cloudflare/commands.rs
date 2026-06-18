@@ -5,7 +5,6 @@
 ///  - Manually trigger a solve (open the browser and solve the challenge).
 ///  - Clear / invalidate sessions.
 ///  - Proxy manga images (with CF cookies injected).
-
 use std::sync::Arc;
 
 use serde::Serialize;
@@ -24,7 +23,6 @@ use crate::error::{Result, ShioriError};
 pub struct CloudflareState {
     pub store: Arc<SessionStore>,
 }
-
 
 // ─── DTOs ─────────────────────────────────────────────────────────────────────
 
@@ -100,9 +98,9 @@ pub async fn cf_solve(
         // The browser module already handles this gracefully.
     }
 
-    let session = solve(&url, &host, &cfg).await.map_err(|e| {
-        ShioriError::Other(format!("CF solve failed: {e}"))
-    })?;
+    let session = solve(&url, &host, &cfg)
+        .await
+        .map_err(|e| ShioriError::Other(format!("CF solve failed: {e}")))?;
 
     let cookie_count = session.cookies.len();
     let user_agent = session.user_agent.clone();

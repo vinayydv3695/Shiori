@@ -9,7 +9,6 @@
 ///
 /// For on-the-fly conversion (convert_to_epub), the dispatcher will call
 /// `crate::conversion::pdf::convert` directly and return the output path.
-
 use std::path::Path;
 
 use crate::conversion::error::ConversionError;
@@ -30,15 +29,12 @@ pub fn parse(path: &Path) -> Result<OebBook, ConversionError> {
         .map_err(|e| ConversionError::Other(format!("Failed to build runtime: {}", e)))?;
 
     let path_buf = path.to_path_buf();
-    let tmp = std::env::temp_dir().join(format!(
-        "shiori_pdf_parse_{}.epub",
-        uuid::Uuid::new_v4()
-    ));
+    let tmp = std::env::temp_dir().join(format!("shiori_pdf_parse_{}.epub", uuid::Uuid::new_v4()));
 
     // Run the existing async PDF converter synchronously
-    let epub_output = runtime.block_on(async {
-        crate::conversion::pdf::convert(&path_buf, &tmp).await
-    }).map_err(|e| ConversionError::Other(e.to_string()))?;
+    let epub_output = runtime
+        .block_on(async { crate::conversion::pdf::convert(&path_buf, &tmp).await })
+        .map_err(|e| ConversionError::Other(e.to_string()))?;
 
     // Build a minimal OebBook with the converter's metadata.
     // The actual EPUB is at epub_output.path — the dispatcher will just

@@ -1,11 +1,10 @@
+use crate::error::{Result, ShioriError};
 /// Prowlarr Integration Commands
 ///
 /// Provides Tauri commands for interacting with a locally-running Prowlarr
 /// torrent indexer proxy. Users configure their Prowlarr URL + API key in
 /// Settings, then can search for book releases and grab them for import.
-
 use serde::{Deserialize, Serialize};
-use crate::error::{Result, ShioriError};
 
 // ═══════════════════════════════════════════════════════════════
 // DATA TYPES
@@ -76,10 +75,14 @@ fn prowlarr_api_url(base_url: &str, path: &str) -> String {
 #[tauri::command]
 pub async fn test_prowlarr_connection(url: String, api_key: String) -> Result<bool> {
     if url.trim().is_empty() {
-        return Err(ShioriError::Validation("Prowlarr URL cannot be empty".to_string()));
+        return Err(ShioriError::Validation(
+            "Prowlarr URL cannot be empty".to_string(),
+        ));
     }
     if api_key.trim().is_empty() {
-        return Err(ShioriError::Validation("Prowlarr API key cannot be empty".to_string()));
+        return Err(ShioriError::Validation(
+            "Prowlarr API key cannot be empty".to_string(),
+        ));
     }
 
     let client = build_client()?;
@@ -117,13 +120,19 @@ pub async fn search_prowlarr(
     categories: Vec<i32>,
 ) -> Result<Vec<ProwlarrResult>> {
     if url.trim().is_empty() {
-        return Err(ShioriError::Validation("Prowlarr URL cannot be empty".to_string()));
+        return Err(ShioriError::Validation(
+            "Prowlarr URL cannot be empty".to_string(),
+        ));
     }
     if api_key.trim().is_empty() {
-        return Err(ShioriError::Validation("Prowlarr API key cannot be empty".to_string()));
+        return Err(ShioriError::Validation(
+            "Prowlarr API key cannot be empty".to_string(),
+        ));
     }
     if query.trim().is_empty() {
-        return Err(ShioriError::Validation("Search query cannot be empty".to_string()));
+        return Err(ShioriError::Validation(
+            "Search query cannot be empty".to_string(),
+        ));
     }
 
     let client = build_client()?;
@@ -197,10 +206,14 @@ pub async fn grab_prowlarr_release(
     indexer_id: i64,
 ) -> Result<String> {
     if url.trim().is_empty() {
-        return Err(ShioriError::Validation("Prowlarr URL cannot be empty".to_string()));
+        return Err(ShioriError::Validation(
+            "Prowlarr URL cannot be empty".to_string(),
+        ));
     }
     if api_key.trim().is_empty() {
-        return Err(ShioriError::Validation("Prowlarr API key cannot be empty".to_string()));
+        return Err(ShioriError::Validation(
+            "Prowlarr API key cannot be empty".to_string(),
+        ));
     }
 
     let client = build_client()?;

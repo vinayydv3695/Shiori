@@ -16,17 +16,18 @@ pub async fn generate_cover(
 ) -> crate::error::Result<String> {
     let uuid = Uuid::parse_str(&book_id)
         .map_err(|e| ShioriError::Other(format!("Invalid book ID: {}", e)))?;
-    
+
     let metadata = BookMetadata {
         title,
         authors: authors.unwrap_or_default(),
         ..Default::default()
     };
-    
-    let cover_set = service.get_or_generate_cover(uuid, None, &metadata)
+
+    let cover_set = service
+        .get_or_generate_cover(uuid, None, &metadata)
         .await
         .map_err(|e| ShioriError::Other(e.to_string()))?;
-    
+
     Ok(cover_set.medium.to_string_lossy().to_string())
 }
 
@@ -39,17 +40,18 @@ pub async fn get_book_cover(
 ) -> crate::error::Result<String> {
     let uuid = Uuid::parse_str(&book_id)
         .map_err(|e| ShioriError::Other(format!("Invalid book ID: {}", e)))?;
-    
+
     let metadata = BookMetadata {
         title,
         authors: authors.unwrap_or_default(),
         ..Default::default()
     };
-    
-    let cover_set = service.get_or_generate_cover(uuid, None, &metadata)
+
+    let cover_set = service
+        .get_or_generate_cover(uuid, None, &metadata)
         .await
         .map_err(|e| ShioriError::Other(e.to_string()))?;
-    
+
     Ok(cover_set.medium.to_string_lossy().to_string())
 }
 
@@ -63,20 +65,22 @@ pub async fn get_book_cover_bytes(
 ) -> crate::error::Result<tauri::ipc::Response> {
     let uuid = Uuid::parse_str(&book_id)
         .map_err(|e| ShioriError::Other(format!("Invalid book ID: {}", e)))?;
-    
+
     let metadata = BookMetadata {
         title,
         authors: authors.unwrap_or_default(),
         ..Default::default()
     };
-    
-    let cover_set = service.get_or_generate_cover(uuid, None, &metadata)
+
+    let cover_set = service
+        .get_or_generate_cover(uuid, None, &metadata)
         .await
         .map_err(|e| ShioriError::Other(e.to_string()))?;
-    
-    let bytes = tokio::fs::read(&cover_set.medium).await
+
+    let bytes = tokio::fs::read(&cover_set.medium)
+        .await
         .map_err(|e| ShioriError::Io(e))?;
-        
+
     Ok(tauri::ipc::Response::new(bytes))
 }
 
@@ -95,15 +99,24 @@ pub async fn get_cover_by_id(
     // First, try to use the extracted cover from database if it exists
     if let Some(cover_path) = &book.cover_path {
         if let Ok(bytes) = tokio::fs::read(cover_path).await {
-            log::debug!("[get_cover_by_id] Using extracted cover from: {}", cover_path);
+            log::debug!(
+                "[get_cover_by_id] Using extracted cover from: {}",
+                cover_path
+            );
             return Ok(tauri::ipc::Response::new(bytes));
         } else {
-            log::warn!("[get_cover_by_id] Cover path exists but file not found: {}", cover_path);
+            log::warn!(
+                "[get_cover_by_id] Cover path exists but file not found: {}",
+                cover_path
+            );
         }
     }
 
     // Fallback: Generate or get cover from CoverService
-    log::debug!("[get_cover_by_id] No extracted cover, using CoverService for book: {}", book.title);
+    log::debug!(
+        "[get_cover_by_id] No extracted cover, using CoverService for book: {}",
+        book.title
+    );
     let uuid = Uuid::parse_str(&book.uuid)
         .map_err(|e| ShioriError::Other(format!("Invalid book UUID: {}", e)))?;
 
@@ -113,11 +126,13 @@ pub async fn get_cover_by_id(
         ..Default::default()
     };
 
-    let cover_set = service.get_or_generate_cover(uuid, None, &metadata)
+    let cover_set = service
+        .get_or_generate_cover(uuid, None, &metadata)
         .await
         .map_err(|e| ShioriError::Other(e.to_string()))?;
 
-    let bytes = tokio::fs::read(&cover_set.medium).await
+    let bytes = tokio::fs::read(&cover_set.medium)
+        .await
         .map_err(|e| ShioriError::Io(e))?;
 
     Ok(tauri::ipc::Response::new(bytes))
@@ -134,14 +149,14 @@ pub async fn get_cover_path_by_id(
         let db = &app_state.db;
         crate::services::library_service::get_book_by_id(db, id)?
     };
-    
+
     // Try extracted cover path first
     if let Some(cover_path) = &book.cover_path {
         if std::path::Path::new(cover_path).exists() {
             return Ok(Some(cover_path.clone()));
         }
     }
-    
+
     // Fallback: Generate cover via CoverService
     let uuid = Uuid::parse_str(&book.uuid)
         .map_err(|e| ShioriError::Other(format!("Invalid book UUID: {}", e)))?;
@@ -150,10 +165,11 @@ pub async fn get_cover_path_by_id(
         authors: book.authors.iter().map(|a| a.name.clone()).collect(),
         ..Default::default()
     };
-    let cover_set = service.get_or_generate_cover(uuid, None, &metadata)
+    let cover_set = service
+        .get_or_generate_cover(uuid, None, &metadata)
         .await
         .map_err(|e| ShioriError::Other(e.to_string()))?;
-    
+
     Ok(Some(cover_set.medium.to_string_lossy().to_string()))
 }
 
@@ -192,18 +208,21 @@ pub async fn get_cover_paths_batch(
         placeholders
     );
 
-    let mut stmt = conn.prepare(&sql)
+    let mut stmt = conn
+        .prepare(&sql)
         .map_err(|e| crate::error::ShioriError::Database(e))?;
 
     // Build rusqlite params from the Vec<i64>
     use rusqlite::types::ToSql;
     let params: Vec<&dyn ToSql> = capped.iter().map(|id| id as &dyn ToSql).collect();
 
-    let rows = stmt.query_map(params.as_slice(), |row| {
-        let id: i64 = row.get(0)?;
-        let path: String = row.get(1)?;
-        Ok((id, path))
-    }).map_err(|e| crate::error::ShioriError::Database(e))?;
+    let rows = stmt
+        .query_map(params.as_slice(), |row| {
+            let id: i64 = row.get(0)?;
+            let path: String = row.get(1)?;
+            Ok((id, path))
+        })
+        .map_err(|e| crate::error::ShioriError::Database(e))?;
 
     let mut result = std::collections::HashMap::with_capacity(capped.len());
     for row in rows {
@@ -220,9 +239,7 @@ pub async fn get_cover_paths_batch(
 
 /// Clear cover cache
 #[tauri::command]
-pub async fn clear_cover_cache(
-    service: State<'_, Arc<CoverService>>,
-) -> crate::error::Result<()> {
+pub async fn clear_cover_cache(service: State<'_, Arc<CoverService>>) -> crate::error::Result<()> {
     service.inner().clear_cache().await;
     Ok(())
 }

@@ -40,11 +40,14 @@ pub async fn open_book_renderer(
     println!("format: {}", format);
 
     let service = state.service.clone();
-    let result = tokio::task::spawn_blocking(move || {
-        service.open_book(book_id, &path, &format)
-    })
-    .await
-    .unwrap_or_else(|e| Err(crate::error::ShioriError::Other(format!("Task panicked: {}", e))));
+    let result = tokio::task::spawn_blocking(move || service.open_book(book_id, &path, &format))
+        .await
+        .unwrap_or_else(|e| {
+            Err(crate::error::ShioriError::Other(format!(
+                "Task panicked: {}",
+                e
+            )))
+        });
 
     match &result {
         Ok(metadata) => {
@@ -79,7 +82,12 @@ pub async fn get_book_toc(book_id: i64, state: State<'_, RenderingState>) -> Res
     let service = state.service.clone();
     tokio::task::spawn_blocking(move || service.get_toc(book_id))
         .await
-        .unwrap_or_else(|e| Err(crate::error::ShioriError::Other(format!("Task panicked: {}", e))))
+        .unwrap_or_else(|e| {
+            Err(crate::error::ShioriError::Other(format!(
+                "Task panicked: {}",
+                e
+            )))
+        })
 }
 
 #[tauri::command]
@@ -94,11 +102,14 @@ pub async fn get_book_chapter(
         book_id, chapter_index
     );
     let service = state.service.clone();
-    let result = tokio::task::spawn_blocking(move || {
-        service.get_chapter(book_id, chapter_index)
-    })
-    .await
-    .unwrap_or_else(|e| Err(crate::error::ShioriError::Other(format!("Task panicked: {}", e))));
+    let result = tokio::task::spawn_blocking(move || service.get_chapter(book_id, chapter_index))
+        .await
+        .unwrap_or_else(|e| {
+            Err(crate::error::ShioriError::Other(format!(
+                "Task panicked: {}",
+                e
+            )))
+        });
 
     match &result {
         Ok(chapter) => println!("[get_book_chapter] Got chapter: {}", chapter.title),
@@ -109,12 +120,20 @@ pub async fn get_book_chapter(
 }
 
 #[tauri::command]
-pub async fn get_book_chapter_count(book_id: i64, state: State<'_, RenderingState>) -> Result<usize> {
+pub async fn get_book_chapter_count(
+    book_id: i64,
+    state: State<'_, RenderingState>,
+) -> Result<usize> {
     validate::require_positive_id(book_id, "book_id")?;
     let service = state.service.clone();
     tokio::task::spawn_blocking(move || service.get_chapter_count(book_id))
         .await
-        .unwrap_or_else(|e| Err(crate::error::ShioriError::Other(format!("Task panicked: {}", e))))
+        .unwrap_or_else(|e| {
+            Err(crate::error::ShioriError::Other(format!(
+                "Task panicked: {}",
+                e
+            )))
+        })
 }
 
 #[tauri::command]
@@ -129,7 +148,12 @@ pub async fn search_in_book(
     let service = state.service.clone();
     tokio::task::spawn_blocking(move || service.search_book(book_id, &query))
         .await
-        .unwrap_or_else(|e| Err(crate::error::ShioriError::Other(format!("Task panicked: {}", e))))
+        .unwrap_or_else(|e| {
+            Err(crate::error::ShioriError::Other(format!(
+                "Task panicked: {}",
+                e
+            )))
+        })
 }
 
 #[tauri::command]
@@ -143,7 +167,12 @@ pub async fn get_epub_resource(
     let service = state.service.clone();
     tokio::task::spawn_blocking(move || service.get_epub_resource(book_id, &resource_path))
         .await
-        .unwrap_or_else(|e| Err(crate::error::ShioriError::Other(format!("Task panicked: {}", e))))
+        .unwrap_or_else(|e| {
+            Err(crate::error::ShioriError::Other(format!(
+                "Task panicked: {}",
+                e
+            )))
+        })
 }
 
 // ==================== Cache Management Commands ====================
@@ -170,7 +199,12 @@ pub async fn render_pdf_page(
     let service = state.service.clone();
     tokio::task::spawn_blocking(move || service.render_page(book_id, page_index, scale))
         .await
-        .unwrap_or_else(|e| Err(crate::error::ShioriError::Other(format!("Task panicked: {}", e))))
+        .unwrap_or_else(|e| {
+            Err(crate::error::ShioriError::Other(format!(
+                "Task panicked: {}",
+                e
+            )))
+        })
 }
 
 #[tauri::command]
@@ -183,5 +217,10 @@ pub async fn get_pdf_page_dimensions(
     let service = state.service.clone();
     tokio::task::spawn_blocking(move || service.get_page_dimensions(book_id, page_index))
         .await
-        .unwrap_or_else(|e| Err(crate::error::ShioriError::Other(format!("Task panicked: {}", e))))
+        .unwrap_or_else(|e| {
+            Err(crate::error::ShioriError::Other(format!(
+                "Task panicked: {}",
+                e
+            )))
+        })
 }

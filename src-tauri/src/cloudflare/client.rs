@@ -13,11 +13,7 @@
 /// let cf = CfClient::new(store, app_data_dir).await?;
 /// let html = cf.get_html("https://www.toongod.org/webtoons/some-manga/").await?;
 /// ```
-
-use std::{
-    sync::Arc,
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
 use reqwest::header;
 use tokio::sync::Semaphore;
@@ -96,7 +92,8 @@ impl CfClient {
     /// Auto-solves CF challenges and retries.
     pub async fn get_html(&self, url: &str) -> Result<String> {
         let bytes = self.get_bytes(url, Some("text/html")).await?;
-        String::from_utf8(bytes).map_err(|e| ShioriError::Other(format!("Response is not UTF-8: {e}")))
+        String::from_utf8(bytes)
+            .map_err(|e| ShioriError::Other(format!("Response is not UTF-8: {e}")))
     }
 
     /// Fetch a URL and return the raw response bytes (images, binary files).
@@ -130,7 +127,9 @@ impl CfClient {
                 Ok(r) => r,
                 Err(e) => {
                     if attempt >= MAX_RETRIES {
-                        return Err(ShioriError::Other(format!("Request failed after {MAX_RETRIES} retries: {e}")));
+                        return Err(ShioriError::Other(format!(
+                            "Request failed after {MAX_RETRIES} retries: {e}"
+                        )));
                     }
                     attempt += 1;
                     continue;
@@ -184,9 +183,9 @@ impl CfClient {
             return Ok(sess);
         }
         self.refresh_session(&self.base_url).await?;
-        self.store.get(&self.host).ok_or_else(|| {
-            ShioriError::Other("Session was not saved after solving".to_string())
-        })
+        self.store
+            .get(&self.host)
+            .ok_or_else(|| ShioriError::Other("Session was not saved after solving".to_string()))
     }
 
     /// Force-refresh the CF session by launching the Playwright solver.
@@ -197,7 +196,9 @@ impl CfClient {
         // Double-check: another task may have refreshed while we were waiting.
         if let Some(sess) = self.store.get(&self.host) {
             if sess.has_valid_clearance() {
-                log::info!("[CfClient] Session already refreshed by another task — skipping solver");
+                log::info!(
+                    "[CfClient] Session already refreshed by another task — skipping solver"
+                );
                 return Ok(());
             }
         }
@@ -217,11 +218,7 @@ impl CfClient {
 
     // ── Internal helpers ──────────────────────────────────────────────────────
 
-    async fn build_request(
-        &self,
-        url: &str,
-        accept: &str,
-    ) -> Result<reqwest::RequestBuilder> {
+    async fn build_request(&self, url: &str, accept: &str) -> Result<reqwest::RequestBuilder> {
         let mut req = self
             .http
             .get(url)

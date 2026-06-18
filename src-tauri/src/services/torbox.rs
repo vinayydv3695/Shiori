@@ -75,7 +75,8 @@ fn extract_target_id(value: &Value) -> Option<i64> {
 }
 
 fn looks_like_direct_importable_file(link: &str) -> bool {
-    const ALLOWED_EXTENSIONS: [&str; 8] = ["cbz", "cbr", "zip", "epub", "pdf", "mobi", "azw3", "docx"];
+    const ALLOWED_EXTENSIONS: [&str; 8] =
+        ["cbz", "cbr", "zip", "epub", "pdf", "mobi", "azw3", "docx"];
 
     reqwest::Url::parse(link)
         .ok()
@@ -93,7 +94,11 @@ fn parse_torrent_file(value: &Value) -> Option<TorrentFile> {
         .get("id")
         .or_else(|| value.get("file_id"))
         .and_then(value_to_i64)?;
-    let name = value.get("name").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+    let name = value
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
     let size = value
         .get("size")
         .or_else(|| value.get("file_size"))
@@ -162,18 +167,22 @@ fn extract_torrent_entry(payload: &Value, torrent_id: i64) -> Option<Value> {
     let data = payload.get("data")?;
 
     if let Some(list) = data.as_array() {
-        let matched = list
-            .iter()
-            .find(|item| extract_target_id(item).map(|id| id == torrent_id).unwrap_or(false));
+        let matched = list.iter().find(|item| {
+            extract_target_id(item)
+                .map(|id| id == torrent_id)
+                .unwrap_or(false)
+        });
 
         return matched.cloned().or_else(|| list.first().cloned());
     }
 
     if let Some(obj) = data.as_object() {
         if let Some(torrents) = obj.get("torrents").and_then(|v| v.as_array()) {
-            let matched = torrents
-                .iter()
-                .find(|item| extract_target_id(item).map(|id| id == torrent_id).unwrap_or(false));
+            let matched = torrents.iter().find(|item| {
+                extract_target_id(item)
+                    .map(|id| id == torrent_id)
+                    .unwrap_or(false)
+            });
 
             return matched.cloned().or_else(|| torrents.first().cloned());
         }
@@ -190,18 +199,22 @@ fn extract_webdl_entry(payload: &Value, web_id: i64) -> Option<Value> {
     let data = payload.get("data")?;
 
     if let Some(list) = data.as_array() {
-        let matched = list
-            .iter()
-            .find(|item| extract_target_id(item).map(|id| id == web_id).unwrap_or(false));
+        let matched = list.iter().find(|item| {
+            extract_target_id(item)
+                .map(|id| id == web_id)
+                .unwrap_or(false)
+        });
 
         return matched.cloned().or_else(|| list.first().cloned());
     }
 
     if let Some(obj) = data.as_object() {
         if let Some(items) = obj.get("web_downloads").and_then(|v| v.as_array()) {
-            let matched = items
-                .iter()
-                .find(|item| extract_target_id(item).map(|id| id == web_id).unwrap_or(false));
+            let matched = items.iter().find(|item| {
+                extract_target_id(item)
+                    .map(|id| id == web_id)
+                    .unwrap_or(false)
+            });
 
             return matched.cloned().or_else(|| items.first().cloned());
         }
@@ -310,7 +323,7 @@ impl TorboxService {
             .connect_timeout(Duration::from_secs(15))
             .build()
             .map_err(|e| ShioriError::Other(format!("Failed to create Torbox client: {}", e)))?;
-        
+
         Ok(Self {
             client,
             api_key: RwLock::new(None),
@@ -333,29 +346,35 @@ impl TorboxService {
         let store = app_handle
             .store("sources.json")
             .map_err(|e| ShioriError::Other(format!("Failed to open source store: {}", e)))?;
-        
+
         let value = store
             .get("torbox.api_key")
             .and_then(|v| v.as_str().map(ToString::to_string));
-        
+
         self.set_api_key(value).await;
         Ok(())
     }
 
-    pub async fn save_api_key_to_store(&self, app_handle: &tauri::AppHandle, key: Option<String>) -> Result<()> {
+    pub async fn save_api_key_to_store(
+        &self,
+        app_handle: &tauri::AppHandle,
+        key: Option<String>,
+    ) -> Result<()> {
         use tauri_plugin_store::StoreExt;
 
         let store = app_handle
             .store("sources.json")
             .map_err(|e| ShioriError::Other(format!("Failed to open source store: {}", e)))?;
-        
+
         if let Some(k) = &key {
             store.set("torbox.api_key", serde_json::json!(k));
         } else {
             store.delete("torbox.api_key");
         }
-        
-        store.save().map_err(|e| ShioriError::Other(format!("Failed to save store: {}", e)))?;
+
+        store
+            .save()
+            .map_err(|e| ShioriError::Other(format!("Failed to save store: {}", e)))?;
         self.set_api_key(key).await;
         Ok(())
     }
@@ -370,17 +389,19 @@ impl TorboxService {
 
         let response = self
             .client
-            .get(format!("{}/torrents/mylist?bypassCache=true", TORBOX_API_BASE))
+            .get(format!(
+                "{}/torrents/mylist?bypassCache=true",
+                TORBOX_API_BASE
+            ))
             .header("Authorization", self.get_auth_header(key))
             .send()
             .await
             .map_err(|e| ShioriError::Other(format!("Torbox key verification failed: {}", e)))?;
 
         let status = response.status();
-        let raw_body = response
-            .text()
-            .await
-            .map_err(|e| ShioriError::Other(format!("Torbox key verification parse failed: {}", e)))?;
+        let raw_body = response.text().await.map_err(|e| {
+            ShioriError::Other(format!("Torbox key verification parse failed: {}", e))
+        })?;
 
         if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
             return Err(ShioriError::Other(
@@ -432,13 +453,18 @@ impl TorboxService {
         }
 
         let current = reqwest::Url::parse(current_url).map_err(|e| {
-            ShioriError::Other(format!("Failed to parse torrent redirect source URL: {}", e))
+            ShioriError::Other(format!(
+                "Failed to parse torrent redirect source URL: {}",
+                e
+            ))
         })?;
 
         current
             .join(location)
             .map(|url| url.to_string())
-            .map_err(|e| ShioriError::Other(format!("Failed to resolve torrent redirect URL: {}", e)))
+            .map_err(|e| {
+                ShioriError::Other(format!("Failed to resolve torrent redirect URL: {}", e))
+            })
     }
 
     /// Extract an MD5 hash from various Anna's Archive URL patterns.
@@ -471,16 +497,17 @@ impl TorboxService {
         // Derive the base mirror from the failed URL's host
         let base = reqwest::Url::parse(failed_url)
             .ok()
-            .and_then(|u| {
-                u.host_str().map(|h| format!("{}://{}", u.scheme(), h))
-            })
+            .and_then(|u| u.host_str().map(|h| format!("{}://{}", u.scheme(), h)))
             .unwrap_or_else(|| "https://annas-archive.gl".to_string());
 
         let detail_url = format!("{}/md5/{}", base, md5);
 
         let html = match client
             .get(&detail_url)
-            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            .header(
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            )
             .timeout(Duration::from_secs(20))
             .send()
             .await
@@ -515,7 +542,9 @@ impl TorboxService {
             .timeout(Duration::from_secs(60))
             .connect_timeout(Duration::from_secs(15))
             .build()
-            .map_err(|e| ShioriError::Other(format!("Failed to create torrent resolver client: {}", e)))?;
+            .map_err(|e| {
+                ShioriError::Other(format!("Failed to create torrent resolver client: {}", e))
+            })?;
 
         for _ in 0..5 {
             let torrent_resp = redirect_client
@@ -554,7 +583,9 @@ impl TorboxService {
                 let is_anna = lower_url.contains("annas-archive");
 
                 if is_anna {
-                    if let Some(magnet) = Self::try_scrape_anna_magnet(&self.client, &current_url).await {
+                    if let Some(magnet) =
+                        Self::try_scrape_anna_magnet(&self.client, &current_url).await
+                    {
                         log::info!("[TorBox] Anna's Archive .torrent returned {}, fell back to scraped magnet.", status);
                         return Ok((Some(magnet), None));
                     }
@@ -585,10 +616,9 @@ impl TorboxService {
                 .and_then(|v| v.to_str().ok())
                 .map(ToString::to_string);
 
-            let torrent_bytes = torrent_resp
-                .bytes()
-                .await
-                .map_err(|e| ShioriError::Other(format!("Failed to read torrent file bytes: {}", e)))?;
+            let torrent_bytes = torrent_resp.bytes().await.map_err(|e| {
+                ShioriError::Other(format!("Failed to read torrent file bytes: {}", e))
+            })?;
 
             if torrent_bytes.is_empty() {
                 return Err(ShioriError::Other(
@@ -596,8 +626,9 @@ impl TorboxService {
                 ));
             }
 
-            let bytes_preview = String::from_utf8_lossy(&torrent_bytes[..torrent_bytes.len().min(2048)])
-                .to_ascii_lowercase();
+            let bytes_preview =
+                String::from_utf8_lossy(&torrent_bytes[..torrent_bytes.len().min(2048)])
+                    .to_ascii_lowercase();
             let looks_like_html = content_type.contains("text/html")
                 || content_type.contains("application/xhtml")
                 || torrent_bytes.starts_with(b"<")
@@ -616,7 +647,9 @@ impl TorboxService {
                 // for a public magnet link before giving up.
                 let lower_url = current_url.to_ascii_lowercase();
                 if lower_url.contains("annas-archive") {
-                    if let Some(magnet) = Self::try_scrape_anna_magnet(&self.client, &current_url).await {
+                    if let Some(magnet) =
+                        Self::try_scrape_anna_magnet(&self.client, &current_url).await
+                    {
                         log::info!("[TorBox] Anna's Archive returned HTML challenge, fell back to scraped magnet.");
                         return Ok((Some(magnet), None));
                     }
@@ -682,21 +715,24 @@ impl TorboxService {
                 ));
             }
 
-            let (resolved_magnet, resolved_torrent) = self.resolve_torrent_input(source_link).await?;
+            let (resolved_magnet, resolved_torrent) =
+                self.resolve_torrent_input(source_link).await?;
 
             if let Some(magnet) = resolved_magnet {
                 form = form.text("magnet", magnet);
             } else {
                 let (torrent_bytes, file_name) = resolved_torrent.ok_or_else(|| {
-                    ShioriError::Other("Torrent URL did not resolve to a magnet or torrent file".to_string())
+                    ShioriError::Other(
+                        "Torrent URL did not resolve to a magnet or torrent file".to_string(),
+                    )
                 })?;
 
                 let file_part = reqwest::multipart::Part::bytes(torrent_bytes)
-                .file_name(file_name)
-                .mime_str("application/x-bittorrent")
-                .map_err(|e| {
-                    ShioriError::Other(format!("Failed to build torrent upload part: {}", e))
-                })?;
+                    .file_name(file_name)
+                    .mime_str("application/x-bittorrent")
+                    .map_err(|e| {
+                        ShioriError::Other(format!("Failed to build torrent upload part: {}", e))
+                    })?;
 
                 form = form.part("file", file_part);
             }
@@ -721,8 +757,12 @@ impl TorboxService {
             .await
             .map_err(|e| ShioriError::Other(format!("Torbox add target parse failed: {}", e)))?;
 
-        let payload: Value = serde_json::from_str(&raw_body)
-            .map_err(|e| ShioriError::Other(format!("Torbox add target response JSON parse failed: {}", e)))?;
+        let payload: Value = serde_json::from_str(&raw_body).map_err(|e| {
+            ShioriError::Other(format!(
+                "Torbox add target response JSON parse failed: {}",
+                e
+            ))
+        })?;
 
         let success = payload
             .get("success")
@@ -742,7 +782,8 @@ impl TorboxService {
             ))
         })?;
 
-        self.remember_target_kind(id, DownloadTargetKind::Torrent).await;
+        self.remember_target_kind(id, DownloadTargetKind::Torrent)
+            .await;
         Ok(id)
     }
 
@@ -768,7 +809,9 @@ impl TorboxService {
             .multipart(form)
             .send()
             .await
-            .map_err(|e| ShioriError::Other(format!("Torbox web download creation failed: {}", e)))?;
+            .map_err(|e| {
+                ShioriError::Other(format!("Torbox web download creation failed: {}", e))
+            })?;
 
         let status = resp.status();
         let raw_body = resp
@@ -777,7 +820,10 @@ impl TorboxService {
             .map_err(|e| ShioriError::Other(format!("Torbox web download parse failed: {}", e)))?;
 
         let payload: Value = serde_json::from_str(&raw_body).map_err(|e| {
-            ShioriError::Other(format!("Torbox web download response JSON parse failed: {}", e))
+            ShioriError::Other(format!(
+                "Torbox web download response JSON parse failed: {}",
+                e
+            ))
         })?;
 
         let success = payload
@@ -785,7 +831,8 @@ impl TorboxService {
             .and_then(|v| v.as_bool())
             .unwrap_or(status.is_success());
         if !status.is_success() || !success {
-            let detail = extract_error_message(&payload).unwrap_or_else(|| summarize_response_body(&raw_body));
+            let detail = extract_error_message(&payload)
+                .unwrap_or_else(|| summarize_response_body(&raw_body));
             return Err(ShioriError::Other(format!("Torbox error: {}", detail)));
         }
 
@@ -818,20 +865,17 @@ impl TorboxService {
     /// - HTTP/HTTPS torrent-style links (.torrent or /torrent) -> torrent flow
     /// - other HTTP/HTTPS links -> web download flow
     pub async fn add_download_target(&self, source_link: &str) -> Result<i64> {
-        let api_key = self
-            .api_key
-            .read()
-            .await
-            .clone()
-            .ok_or_else(|| {
-                ShioriError::Other(
-                    "Torbox API key not configured. Set it in Settings → Online Sources.".to_string(),
-                )
-            })?;
+        let api_key = self.api_key.read().await.clone().ok_or_else(|| {
+            ShioriError::Other(
+                "Torbox API key not configured. Set it in Settings → Online Sources.".to_string(),
+            )
+        })?;
 
         let normalized = source_link.trim();
         if normalized.is_empty() {
-            return Err(ShioriError::Validation("Torbox source link cannot be empty".to_string()));
+            return Err(ShioriError::Validation(
+                "Torbox source link cannot be empty".to_string(),
+            ));
         }
 
         if normalized.starts_with("magnet:") {
@@ -857,11 +901,12 @@ impl TorboxService {
 
     /// Get status for a Torbox target (torrent or web download).
     pub async fn get_torrent_status(&self, torrent_id: i64) -> Result<TorrentInfo> {
-        self
-            .get_target_status_raw(torrent_id)
+        self.get_target_status_raw(torrent_id)
             .await
             .map_err(|err| match err {
-                TargetOpError::NotFound => ShioriError::Other("Target not found on Torbox".to_string()),
+                TargetOpError::NotFound => {
+                    ShioriError::Other("Target not found on Torbox".to_string())
+                }
                 TargetOpError::Other(inner) => inner,
             })
     }
@@ -871,19 +916,24 @@ impl TorboxService {
         target_id: i64,
         kind: DownloadTargetKind,
     ) -> std::result::Result<TorrentInfo, TargetOpError> {
-        let api_key = self
-            .api_key
-            .read()
-            .await
-            .clone()
-            .ok_or_else(|| TargetOpError::Other(ShioriError::Other("Torbox API key not configured".to_string())))?;
+        let api_key = self.api_key.read().await.clone().ok_or_else(|| {
+            TargetOpError::Other(ShioriError::Other(
+                "Torbox API key not configured".to_string(),
+            ))
+        })?;
 
         let endpoint = match kind {
             DownloadTargetKind::Torrent => {
-                format!("{}/torrents/mylist?id={}&bypass_cache=true", TORBOX_API_BASE, target_id)
+                format!(
+                    "{}/torrents/mylist?id={}&bypass_cache=true",
+                    TORBOX_API_BASE, target_id
+                )
             }
             DownloadTargetKind::WebDownload => {
-                format!("{}/webdl/mylist?id={}&bypass_cache=true", TORBOX_API_BASE, target_id)
+                format!(
+                    "{}/webdl/mylist?id={}&bypass_cache=true",
+                    TORBOX_API_BASE, target_id
+                )
             }
         };
 
@@ -893,24 +943,42 @@ impl TorboxService {
             .header("Authorization", self.get_auth_header(&api_key))
             .send()
             .await
-            .map_err(|e| TargetOpError::Other(ShioriError::Other(format!("Torbox status check failed: {}", e))))?;
+            .map_err(|e| {
+                TargetOpError::Other(ShioriError::Other(format!(
+                    "Torbox status check failed: {}",
+                    e
+                )))
+            })?;
 
         let status = resp.status();
-        let raw_body = resp
-            .text()
-            .await
-            .map_err(|e| TargetOpError::Other(ShioriError::Other(format!("Torbox response parse failed: {}", e))))?;
+        let raw_body = resp.text().await.map_err(|e| {
+            TargetOpError::Other(ShioriError::Other(format!(
+                "Torbox response parse failed: {}",
+                e
+            )))
+        })?;
 
-        let payload: Value = serde_json::from_str(&raw_body)
-            .map_err(|e| TargetOpError::Other(ShioriError::Other(format!("Torbox response JSON parse failed: {}", e))))?;
+        let payload: Value = serde_json::from_str(&raw_body).map_err(|e| {
+            TargetOpError::Other(ShioriError::Other(format!(
+                "Torbox response JSON parse failed: {}",
+                e
+            )))
+        })?;
 
-        let success = payload.get("success").and_then(|v| v.as_bool()).unwrap_or(status.is_success());
+        let success = payload
+            .get("success")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(status.is_success());
         if !success {
-            let detail = extract_error_message(&payload).unwrap_or_else(|| summarize_response_body(&raw_body));
+            let detail = extract_error_message(&payload)
+                .unwrap_or_else(|| summarize_response_body(&raw_body));
             if detail.to_ascii_lowercase().contains("not found") {
                 return Err(TargetOpError::NotFound);
             }
-            return Err(TargetOpError::Other(ShioriError::Other(format!("Torbox error: {}", detail))));
+            return Err(TargetOpError::Other(ShioriError::Other(format!(
+                "Torbox error: {}",
+                detail
+            ))));
         }
 
         let entry = match kind {
@@ -927,7 +995,10 @@ impl TorboxService {
         })
     }
 
-    async fn get_target_status_raw(&self, target_id: i64) -> std::result::Result<TorrentInfo, TargetOpError> {
+    async fn get_target_status_raw(
+        &self,
+        target_id: i64,
+    ) -> std::result::Result<TorrentInfo, TargetOpError> {
         if let Some(kind) = self.get_target_kind(target_id).await {
             return self.get_status_by_kind(target_id, kind).await;
         }
@@ -989,12 +1060,9 @@ impl TorboxService {
             url.push_str("&zip_link=true");
         }
 
-        let resp = self
-            .client
-            .get(&url)
-            .send()
-            .await
-            .map_err(|e| ShioriError::Other(format!("Torbox download link request failed: {}", e)))?;
+        let resp = self.client.get(&url).send().await.map_err(|e| {
+            ShioriError::Other(format!("Torbox download link request failed: {}", e))
+        })?;
 
         let status = resp.status();
         let raw_body = resp
@@ -1043,7 +1111,9 @@ impl TorboxService {
     /// Get download link for a completed target (torrent/web download).
     pub async fn get_download_link(&self, torrent_id: i64, file_id: Option<i64>) -> Result<String> {
         if let Some(kind) = self.get_target_kind(torrent_id).await {
-            return self.get_download_link_by_kind(torrent_id, file_id, kind).await;
+            return self
+                .get_download_link_by_kind(torrent_id, file_id, kind)
+                .await;
         }
 
         match self
@@ -1072,7 +1142,11 @@ impl TorboxService {
     }
 
     /// Poll for target completion.
-    pub async fn wait_for_completion(&self, torrent_id: i64, max_wait_secs: u64) -> Result<TorrentInfo> {
+    pub async fn wait_for_completion(
+        &self,
+        torrent_id: i64,
+        max_wait_secs: u64,
+    ) -> Result<TorrentInfo> {
         let start = std::time::Instant::now();
         let max_duration = Duration::from_secs(max_wait_secs);
         let mut not_found_retries: u8 = 0;
@@ -1095,17 +1169,18 @@ impl TorboxService {
                 }
                 Err(TargetOpError::Other(err)) => return Err(err),
             };
-            
+
             // Check various completion states
             let status_lower = info.status.to_lowercase();
-            if status_lower.contains("completed") || 
-               status_lower.contains("cached") || 
-               status_lower.contains("finished") ||
-               status_lower.contains("done") ||
-               status_lower.contains("ready") ||
-               status_lower.contains("downloaded") ||
-               status_lower.contains("seeding") ||
-               info.progress >= 1.0 {
+            if status_lower.contains("completed")
+                || status_lower.contains("cached")
+                || status_lower.contains("finished")
+                || status_lower.contains("done")
+                || status_lower.contains("ready")
+                || status_lower.contains("downloaded")
+                || status_lower.contains("seeding")
+                || info.progress >= 1.0
+            {
                 return Ok(info);
             }
 
@@ -1137,8 +1212,9 @@ impl TorboxService {
         const RETRY_BACKOFF_SECS: [u64; 3] = [1, 2, 4];
 
         if let Some(parent) = dest_path.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| ShioriError::Other(format!("Failed to create download directory: {}", e)))?;
+            std::fs::create_dir_all(parent).map_err(|e| {
+                ShioriError::Other(format!("Failed to create download directory: {}", e))
+            })?;
         }
 
         for attempt in 1..=MAX_RETRIES {
@@ -1158,13 +1234,19 @@ impl TorboxService {
                         )));
                     }
 
-                    tokio::time::sleep(Duration::from_secs(RETRY_BACKOFF_SECS[(attempt - 1) as usize])).await;
+                    tokio::time::sleep(Duration::from_secs(
+                        RETRY_BACKOFF_SECS[(attempt - 1) as usize],
+                    ))
+                    .await;
                     continue;
                 }
             };
 
             if !response.status().is_success() {
-                return Err(ShioriError::Other(format!("Download failed with status: {}", response.status())));
+                return Err(ShioriError::Other(format!(
+                    "Download failed with status: {}",
+                    response.status()
+                )));
             }
 
             let total_bytes = response.content_length();
@@ -1187,7 +1269,10 @@ impl TorboxService {
                 }
             } {
                 if let Err(err) = file.write_all(&chunk).await {
-                    return Err(ShioriError::Other(format!("Failed to write chunk to disk: {}", err)));
+                    return Err(ShioriError::Other(format!(
+                        "Failed to write chunk to disk: {}",
+                        err
+                    )));
                 }
 
                 downloaded_bytes = downloaded_bytes.saturating_add(chunk.len() as u64);
@@ -1202,14 +1287,19 @@ impl TorboxService {
                         err, attempt
                     )));
                 }
-                tokio::time::sleep(Duration::from_secs(RETRY_BACKOFF_SECS[(attempt - 1) as usize])).await;
+                tokio::time::sleep(Duration::from_secs(
+                    RETRY_BACKOFF_SECS[(attempt - 1) as usize],
+                ))
+                .await;
                 continue;
             }
 
             return Ok(());
         }
 
-        Err(ShioriError::Other("Download failed after retries".to_string()))
+        Err(ShioriError::Other(
+            "Download failed after retries".to_string(),
+        ))
     }
 
     pub async fn download_file(&self, url: &str, dest_path: &std::path::Path) -> Result<()> {

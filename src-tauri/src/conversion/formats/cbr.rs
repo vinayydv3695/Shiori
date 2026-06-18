@@ -6,7 +6,6 @@
 /// If RAR extraction fails (e.g. libunrar not installed), returns a
 /// `ConversionError::ParseError` with a helpful installation message rather
 /// than crashing the process.
-
 use std::path::Path;
 
 use crate::conversion::error::ConversionError;

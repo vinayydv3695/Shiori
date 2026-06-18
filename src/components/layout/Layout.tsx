@@ -16,7 +16,6 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { PremiumTopbar } from './ImprovedToolbar'
 import { NavigationRail } from './NavigationRail'
 import { FilterPanel } from '../sidebar/ModernSidebar'
-import { StatusBar } from './ModernToolbar'
 import { DuplicateFinderDialog } from '../library/DuplicateFinderDialog'
 import { ImportDialog } from '../library/ImportDialog'
 import { cn, formatFileSize } from '@/lib/utils'
@@ -149,11 +148,6 @@ export function Layout({
         : currentView === 'torbox-discover' || currentView === 'torbox-books' || currentView === 'torbox-manga'
           ? 'Search Torbox content...'
         : `Search ${currentDomain}...`
-
-  // ── Library stats ──────────────────────────────
-  const totalBooks = books.length
-  const totalSize = books.reduce((sum, b) => sum + (b.file_size || 0), 0)
-  const librarySize = totalSize > 0 ? formatFileSize(totalSize) : '0 B'
 
   // ── Filter data extraction (memoized) ──────────────
   const filterItems = useMemo(() => {
@@ -375,15 +369,6 @@ export function Layout({
           {children}
         </main>
       </DragLayer>
-
-      {/* ── Status Bar ── */}
-      <StatusBar
-        totalBooks={totalBooks}
-        filteredBooks={books.length}
-        selectedBooks={selectedBookIds.size}
-        librarySize={librarySize}
-        syncStatus="synced"
-      />
 
       {/* ── Duplicate Finder Dialog ── */}
       <DuplicateFinderDialog

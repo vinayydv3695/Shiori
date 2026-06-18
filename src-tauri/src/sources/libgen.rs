@@ -4,7 +4,9 @@ use std::time::Duration;
 use scraper::{Html, Selector};
 
 use crate::error::{Result, ShioriError};
-use crate::sources::{Chapter, ContentType, Page, SearchResponse, SearchResult, Source, SourceMeta};
+use crate::sources::{
+    Chapter, ContentType, Page, SearchResponse, SearchResult, Source, SourceMeta,
+};
 
 const LIBGEN_BASE_URL: &str = "https://libgen.li";
 const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -80,7 +82,9 @@ impl LibgenSource {
             .first()
             .and_then(|c| {
                 if let Ok(a_sel) = Selector::parse("a") {
-                    c.select(&a_sel).next().map(|a| a.text().collect::<String>().trim().to_string())
+                    c.select(&a_sel)
+                        .next()
+                        .map(|a| a.text().collect::<String>().trim().to_string())
                 } else {
                     None
                 }
@@ -96,7 +100,7 @@ impl LibgenSource {
                     })
                     .unwrap_or_default()
             });
-            
+
         if title.is_empty() {
             return None;
         }
@@ -136,13 +140,11 @@ impl LibgenSource {
         let detail_id = mirror_links
             .iter()
             .find_map(|url| {
-                reqwest::Url::parse(url)
-                    .ok()
-                    .and_then(|u| {
-                        u.query_pairs()
-                            .find(|(k, _)| k == "md5")
-                            .map(|(_, v)| v.to_string())
-                    })
+                reqwest::Url::parse(url).ok().and_then(|u| {
+                    u.query_pairs()
+                        .find(|(k, _)| k == "md5")
+                        .map(|(_, v)| v.to_string())
+                })
             })
             .unwrap_or_else(|| format!("libgen-{}", uuid::Uuid::new_v4()));
 
@@ -202,7 +204,13 @@ impl LibgenSource {
         }
 
         let cover_url = libgen_id.map(|id| {
-            format!("{}/{}/{}/{}.jpg", LIBGEN_BASE_URL, cover_type, (id / 1000) * 1000, detail_id)
+            format!(
+                "{}/{}/{}/{}.jpg",
+                LIBGEN_BASE_URL,
+                cover_type,
+                (id / 1000) * 1000,
+                detail_id
+            )
         });
 
         let description = [author, publisher, year, language]
@@ -215,7 +223,11 @@ impl LibgenSource {
             id: detail_id,
             title,
             cover_url,
-            description: if description.is_empty() { None } else { Some(description) },
+            description: if description.is_empty() {
+                None
+            } else {
+                Some(description)
+            },
             source_id: "libgen".to_string(),
             extra,
         })
@@ -241,15 +253,20 @@ impl LibgenSource {
             .map_err(|e| ShioriError::Other(format!("Libgen search request failed: {}", e)))?
             .text()
             .await
-            .map_err(|e| ShioriError::Other(format!("Libgen search response read failed: {}", e)))?;
+            .map_err(|e| {
+                ShioriError::Other(format!("Libgen search response read failed: {}", e))
+            })?;
 
         let doc = Html::parse_document(&html);
-        let row_selector = Selector::parse("#tablelibgen tbody tr")
-            .map_err(|e| ShioriError::Other(format!("Libgen row selector parse failed: {:?}", e)))?;
-        let cell_selector = Selector::parse("td")
-            .map_err(|e| ShioriError::Other(format!("Libgen cell selector parse failed: {:?}", e)))?;
-        let link_selector = Selector::parse("a[href]")
-            .map_err(|e| ShioriError::Other(format!("Libgen link selector parse failed: {:?}", e)))?;
+        let row_selector = Selector::parse("#tablelibgen tbody tr").map_err(|e| {
+            ShioriError::Other(format!("Libgen row selector parse failed: {:?}", e))
+        })?;
+        let cell_selector = Selector::parse("td").map_err(|e| {
+            ShioriError::Other(format!("Libgen cell selector parse failed: {:?}", e))
+        })?;
+        let link_selector = Selector::parse("a[href]").map_err(|e| {
+            ShioriError::Other(format!("Libgen link selector parse failed: {:?}", e))
+        })?;
 
         let mut items = Vec::new();
         for row in doc.select(&row_selector) {
@@ -321,11 +338,14 @@ impl Source for LibgenSource {
             .map_err(|e| ShioriError::Other(format!("Libgen detail request failed: {}", e)))?
             .text()
             .await
-            .map_err(|e| ShioriError::Other(format!("Libgen detail response read failed: {}", e)))?;
+            .map_err(|e| {
+                ShioriError::Other(format!("Libgen detail response read failed: {}", e))
+            })?;
 
         let doc = Html::parse_document(&html);
-        let link_selector = Selector::parse("a[href]")
-            .map_err(|e| ShioriError::Other(format!("Libgen detail link selector parse failed: {:?}", e)))?;
+        let link_selector = Selector::parse("a[href]").map_err(|e| {
+            ShioriError::Other(format!("Libgen detail link selector parse failed: {:?}", e))
+        })?;
 
         let mut links: HashMap<String, String> = HashMap::new();
         for a in doc.select(&link_selector) {
@@ -343,15 +363,18 @@ impl Source for LibgenSource {
                     continue;
                 }
 
-                if (lower.starts_with("http://") || lower.starts_with("https://")) && lower.contains("get.php") {
+                if (lower.starts_with("http://") || lower.starts_with("https://"))
+                    && lower.contains("get.php")
+                {
                     links.insert(normalized, "direct".to_string());
                 }
             }
         }
 
         let mut cover_url = None;
-        let img_selector = Selector::parse("img[src]")
-            .map_err(|e| ShioriError::Other(format!("Libgen cover img selector parse failed: {:?}", e)))?;
+        let img_selector = Selector::parse("img[src]").map_err(|e| {
+            ShioriError::Other(format!("Libgen cover img selector parse failed: {:?}", e))
+        })?;
         for img in doc.select(&img_selector) {
             if let Some(src) = img.value().attr("src") {
                 if src.contains("/covers/") {
@@ -377,7 +400,7 @@ impl Source for LibgenSource {
         candidates.dedup();
 
         let mut index = 0;
-        
+
         // Add cover first if available
         if let Some(url) = cover_url {
             pages.push(Page {

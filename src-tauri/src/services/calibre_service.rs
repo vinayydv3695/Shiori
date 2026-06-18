@@ -10,7 +10,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
 static PERCENT_RE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"(?i)(\d{1,3})(?:\.\d+)?%") .expect("valid percent regex"));
+    Lazy::new(|| Regex::new(r"(?i)(\d{1,3})(?:\.\d+)?%").expect("valid percent regex"));
 
 #[derive(Debug, Clone)]
 pub struct CalibreSettings {

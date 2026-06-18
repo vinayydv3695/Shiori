@@ -1,11 +1,11 @@
-use std::sync::Arc;
-use std::path::PathBuf;
-use tauri::{Emitter, State};
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+use std::sync::Arc;
+use tauri::{Emitter, State};
 
 use crate::error::ShioriError;
-use crate::services::conversion_engine::{ConversionEngine, ConversionJob, CONVERSION_MATRIX};
 use crate::services::calibre_service::{self, CalibreProfile};
+use crate::services::conversion_engine::{ConversionEngine, ConversionJob, CONVERSION_MATRIX};
 use crate::utils::validate;
 use crate::AppState;
 
@@ -64,7 +64,10 @@ pub async fn cancel_conversion(
     job_id: String,
 ) -> crate::error::Result<()> {
     validate::require_non_empty(&job_id, "job_id")?;
-    engine.cancel_job(&job_id).await.map_err(|e| ShioriError::Other(e.to_string()))
+    engine
+        .cancel_job(&job_id)
+        .await
+        .map_err(|e| ShioriError::Other(e.to_string()))
 }
 
 /// Get supported conversions — derived from the CONVERSION_MATRIX constant
@@ -101,7 +104,7 @@ pub async fn check_calibre_available(state: State<'_, AppState>) -> crate::error
 /// Convert a book using Calibre's ebook-convert CLI
 /// This provides higher quality conversion than the built-in converters,
 /// especially for PDF → EPUB conversion.
-/// 
+///
 /// Arguments:
 /// - input_path: Path to the source file (PDF, MOBI, AZW3, etc.)
 /// - output_format: Target format (typically "epub")
@@ -122,26 +125,35 @@ pub async fn convert_with_calibre(
     }
 
     let input = PathBuf::from(&input_path);
-    
+
     // Verify input file exists
     if !input.exists() {
-        return Err(ShioriError::Other(format!("Input file not found: {}", input_path)));
+        return Err(ShioriError::Other(format!(
+            "Input file not found: {}",
+            input_path
+        )));
     }
 
     // Check Calibre is available
     if !calibre_service::is_available(&state.db).await {
         return Err(ShioriError::Other(
-            "Calibre's ebook-convert is not installed or not in PATH. Please install Calibre.".to_string()
+            "Calibre's ebook-convert is not installed or not in PATH. Please install Calibre."
+                .to_string(),
         ));
     }
 
     // Build output path
-    let stem = input.file_stem()
+    let stem = input
+        .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("converted");
     let output = input.with_file_name(format!("{}.{}", stem, output_format));
 
-    log::info!("[Calibre] Converting {} → {}", input.display(), output.display());
+    log::info!(
+        "[Calibre] Converting {} → {}",
+        input.display(),
+        output.display()
+    );
 
     let profile = match input
         .extension()
@@ -155,9 +167,16 @@ pub async fn convert_with_calibre(
         _ => CalibreProfile::GenericBook,
     };
 
-    calibre_service::convert_to_epub(&input, &output, &state.db, profile, || false, None::<fn(u8, &str)>)
-        .await
-        .map_err(|e| ShioriError::Other(format!("Calibre conversion failed: {}", e)))?;
+    calibre_service::convert_to_epub(
+        &input,
+        &output,
+        &state.db,
+        profile,
+        || false,
+        None::<fn(u8, &str)>,
+    )
+    .await
+    .map_err(|e| ShioriError::Other(format!("Calibre conversion failed: {}", e)))?;
 
     log::info!("[Calibre] Conversion successful: {}", output.display());
 
@@ -176,9 +195,9 @@ pub async fn convert_with_calibre(
 
         // Rename output to final path if they differ
         if output != final_path {
-            tokio::fs::rename(&output, &final_path)
-                .await
-                .map_err(|e| ShioriError::Other(format!("Failed to rename converted file: {}", e)))?;
+            tokio::fs::rename(&output, &final_path).await.map_err(|e| {
+                ShioriError::Other(format!("Failed to rename converted file: {}", e))
+            })?;
         }
 
         final_path
@@ -234,7 +253,8 @@ pub async fn convert_and_replace_book(
             "SELECT title, file_path, file_format, cover_path FROM books WHERE id = ?1",
             rusqlite::params![book_id],
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
-        ).map_err(|_| ShioriError::BookNotFound(format!("Book {} not found", book_id)))?;
+        )
+        .map_err(|_| ShioriError::BookNotFound(format!("Book {} not found", book_id)))?;
     drop(conn);
 
     let source = PathBuf::from(&file_path);
@@ -301,13 +321,12 @@ pub async fn convert_and_replace_book(
     }
 
     // 8. Canonicalize the new path for DB storage
-    let canonical_path = std::fs::canonicalize(&output)
-        .unwrap_or_else(|_| output.clone());
+    let canonical_path = std::fs::canonicalize(&output).unwrap_or_else(|_| output.clone());
     let new_path_str = canonical_path.to_string_lossy().to_string();
 
     // 9. Update DB
     let conn = state.db.get_connection()?;
-    
+
     // Check if the filesystem watcher already added the new file to the DB.
     // If so, delete that new row to preempt a UNIQUE constraint failure.
     // We want to retain the original book_id (so progress is preserved).
@@ -374,11 +393,13 @@ pub async fn open_book_for_reading(
 
     // Look up book path + format
     let conn = state.db.get_connection()?;
-    let (file_path, file_format): (String, String) = conn.query_row(
-        "SELECT file_path, file_format FROM books WHERE id = ?1",
-        rusqlite::params![book_id],
-        |row| Ok((row.get(0)?, row.get(1)?)),
-    ).map_err(|_| ShioriError::BookNotFound(format!("Book {} not found", book_id)))?;
+    let (file_path, file_format): (String, String) = conn
+        .query_row(
+            "SELECT file_path, file_format FROM books WHERE id = ?1",
+            rusqlite::params![book_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(|_| ShioriError::BookNotFound(format!("Book {} not found", book_id)))?;
     drop(conn);
 
     let ext = file_format.to_lowercase();
@@ -399,20 +420,32 @@ pub async fn open_book_for_reading(
     // the window *during* conversion (not only once at the very end).
     let window_for_cb = window.clone();
     let progress_cb: crate::conversion::ProgressCallback = Box::new(move |prog| {
-        if let Err(e) = window_for_cb.emit("conversion-progress", serde_json::json!({
-            "stage": prog.stage,
-            "percent": prog.percent,
-        })) {
-            log::warn!("[open_book_for_reading] Failed to emit conversion-progress: {}", e);
+        if let Err(e) = window_for_cb.emit(
+            "conversion-progress",
+            serde_json::json!({
+                "stage": prog.stage,
+                "percent": prog.percent,
+            }),
+        ) {
+            log::warn!(
+                "[open_book_for_reading] Failed to emit conversion-progress: {}",
+                e
+            );
         }
     });
 
     // Emit initial event so the UI shows something immediately
-    if let Err(e) = window.emit("conversion-progress", serde_json::json!({
-        "stage": "Starting conversion…",
-        "percent": 0,
-    })) {
-        log::warn!("[open_book_for_reading] Failed to emit initial conversion-progress: {}", e);
+    if let Err(e) = window.emit(
+        "conversion-progress",
+        serde_json::json!({
+            "stage": "Starting conversion…",
+            "percent": 0,
+        }),
+    ) {
+        log::warn!(
+            "[open_book_for_reading] Failed to emit initial conversion-progress: {}",
+            e
+        );
     }
 
     let output = crate::conversion::convert_to_epub_new(&path, Some(progress_cb))
@@ -448,6 +481,5 @@ pub fn book_needs_conversion(book_path: String) -> bool {
 /// Call this when the user clicks "Clear Cache" or on app exit.
 #[tauri::command]
 pub fn cleanup_converted_cache() -> crate::error::Result<()> {
-    crate::conversion::cleanup_converted_cache()
-        .map_err(|e| ShioriError::Other(e.to_string()))
+    crate::conversion::cleanup_converted_cache().map_err(|e| ShioriError::Other(e.to_string()))
 }

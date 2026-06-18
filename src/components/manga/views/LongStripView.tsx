@@ -5,6 +5,7 @@ import { MangaPageImage } from '../MangaPageImage';
 import { useMangaScroll } from '../hooks/useMangaScroll';
 import { preloadPages } from '../hooks/useMangaPreloader';
 import { preloadOnlinePages } from '../hooks/useUnifiedImageDecode';
+import { EndOfChapterOverlay } from '../EndOfChapterOverlay';
 
 /**
  * Long strip (webtoon-style) virtualized scroll view.
@@ -175,6 +176,7 @@ export function LongStripView() {
                     </div>
                 ))}
             </div>
+            <EndOfChapterOverlay />
         </div>
     );
 }

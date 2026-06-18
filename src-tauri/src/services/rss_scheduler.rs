@@ -1,9 +1,9 @@
-use std::sync::Arc;
 use anyhow::Result;
+use log::{error, info, warn};
+use std::sync::Arc;
 use tokio_cron_scheduler::{Job, JobScheduler};
-use log::{info, error, warn};
 
-use super::rss_service::{RssService, DailyEpubOptions};
+use super::rss_service::{DailyEpubOptions, RssService};
 
 /// RSS feed update scheduler
 pub struct RssScheduler {
@@ -21,7 +21,7 @@ impl RssScheduler {
         daily_epub_time: Option<String>,
     ) -> Result<Self> {
         let scheduler = JobScheduler::new().await?;
-        
+
         Ok(Self {
             scheduler,
             rss_service,
@@ -38,26 +38,36 @@ impl RssScheduler {
             let service = Arc::clone(&rss_service);
             Box::pin(async move {
                 info!("RSS Scheduler: Starting feed update cycle");
-                
+
                 // Get feeds due for update
                 match service.get_feeds_due_for_update() {
                     Ok(feeds) => {
                         info!("RSS Scheduler: Found {} feeds to update", feeds.len());
-                        
+
                         for feed in feeds {
-                            info!("RSS Scheduler: Updating feed {} - {}", feed.id, feed.title.as_deref().unwrap_or("Untitled"));
-                            
+                            info!(
+                                "RSS Scheduler: Updating feed {} - {}",
+                                feed.id,
+                                feed.title.as_deref().unwrap_or("Untitled")
+                            );
+
                             match service.update_feed_articles(feed.id).await {
                                 Ok(count) => {
-                                    info!("RSS Scheduler: Feed {} updated - {} new articles", feed.id, count);
-                                    
+                                    info!(
+                                        "RSS Scheduler: Feed {} updated - {} new articles",
+                                        feed.id, count
+                                    );
+
                                     // Schedule next check
                                     if let Err(e) = service.schedule_next_check(feed.id) {
                                         error!("RSS Scheduler: Failed to schedule next check for feed {}: {}", feed.id, e);
                                     }
                                 }
                                 Err(e) => {
-                                    error!("RSS Scheduler: Failed to update feed {}: {}", feed.id, e);
+                                    error!(
+                                        "RSS Scheduler: Failed to update feed {}: {}",
+                                        feed.id, e
+                                    );
                                 }
                             }
                         }
@@ -76,16 +86,19 @@ impl RssScheduler {
         if self.daily_epub_enabled {
             let rss_service = Arc::clone(&self.rss_service);
             let cron_schedule = self.daily_epub_time.clone();
-            
+
             let daily_epub_job = Job::new_async(cron_schedule.as_str(), move |_uuid, _lock| {
                 let service = Arc::clone(&rss_service);
                 Box::pin(async move {
                     info!("RSS Scheduler: Starting daily EPUB generation");
-                    
+
                     let options = DailyEpubOptions::default();
                     match service.generate_daily_epub(options).await {
                         Ok(path) => {
-                            info!("RSS Scheduler: Daily EPUB generated successfully at {:?}", path);
+                            info!(
+                                "RSS Scheduler: Daily EPUB generated successfully at {:?}",
+                                path
+                            );
                         }
                         Err(e) => {
                             warn!("RSS Scheduler: Failed to generate daily EPUB: {}", e);
@@ -95,7 +108,10 @@ impl RssScheduler {
             })?;
 
             self.scheduler.add(daily_epub_job).await?;
-            info!("RSS Scheduler: Added daily EPUB job (schedule: {})", self.daily_epub_time);
+            info!(
+                "RSS Scheduler: Added daily EPUB job (schedule: {})",
+                self.daily_epub_time
+            );
         }
 
         // Start the scheduler
@@ -128,14 +144,17 @@ impl RssScheduler {
     /// Manually trigger feed update (runs immediately)
     pub async fn trigger_feed_update(&self) -> Result<()> {
         info!("RSS Scheduler: Manual feed update triggered");
-        
+
         let feeds = self.rss_service.get_feeds_due_for_update()?;
         info!("RSS Scheduler: Found {} feeds to update", feeds.len());
-        
+
         for feed in feeds {
             match self.rss_service.update_feed_articles(feed.id).await {
                 Ok(count) => {
-                    info!("RSS Scheduler: Feed {} updated - {} new articles", feed.id, count);
+                    info!(
+                        "RSS Scheduler: Feed {} updated - {} new articles",
+                        feed.id, count
+                    );
                     self.rss_service.schedule_next_check(feed.id)?;
                 }
                 Err(e) => {
@@ -148,12 +167,15 @@ impl RssScheduler {
     }
 
     /// Manually trigger daily EPUB generation (runs immediately)
-    pub async fn trigger_daily_epub(&self, options: Option<DailyEpubOptions>) -> Result<std::path::PathBuf> {
+    pub async fn trigger_daily_epub(
+        &self,
+        options: Option<DailyEpubOptions>,
+    ) -> Result<std::path::PathBuf> {
         info!("RSS Scheduler: Manual daily EPUB generation triggered");
-        
+
         let opts = options.unwrap_or_default();
         let path = self.rss_service.generate_daily_epub(opts).await?;
-        
+
         info!("RSS Scheduler: Daily EPUB generated at {:?}", path);
         Ok(path)
     }
@@ -169,10 +191,10 @@ mod tests {
     async fn test_scheduler_creation() {
         let temp_dir = std::env::temp_dir().join("shiori-test-scheduler");
         std::fs::create_dir_all(&temp_dir).unwrap();
-        
+
         let db = Database::new(&temp_dir.join("test.db")).unwrap();
         let rss_service = Arc::new(RssService::new(db, temp_dir).unwrap());
-        
+
         let scheduler = RssScheduler::new(rss_service, true, None).await;
         assert!(scheduler.is_ok());
     }

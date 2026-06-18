@@ -4,11 +4,15 @@ import type { SourceKind } from './sourceStore';
 type OnlineView = 'online-books' | 'online-manga' | 'torbox';
 
 export interface OnlineAdvancedFilters {
+  title?: string;
   author?: string;
+  series?: string;
   yearStart?: number;
   yearEnd?: number;
   publisher?: string;
   language?: string;
+  format?: 'epub' | 'pdf' | 'mobi' | 'azw3' | 'any';
+  category?: 'fiction' | 'non-fiction' | 'any';
 }
 
 interface OnlineSearchStore {

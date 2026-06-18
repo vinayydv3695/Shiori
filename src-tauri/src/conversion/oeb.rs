@@ -23,6 +23,10 @@ pub struct OebBook {
     /// Optional cover image (first image shown on a cover page)
     pub cover_image: Option<OebImage>,
 
+    // ── Table of Contents ──────────────────────────────────────────────────
+    /// Hierarchical Table of Contents
+    pub toc: Vec<TocEntry>,
+
     // ── Content ───────────────────────────────────────────────────────────
     /// Ordered list of chapters (each is a self-contained XHTML body fragment)
     pub chapters: Vec<OebChapter>,
@@ -46,6 +50,17 @@ pub struct OebChapter {
     /// Valid XHTML fragment — the content that goes *inside* `<body>`. Must
     /// not contain `<html>`, `<head>`, or `<body>` wrapper tags.
     pub html: String,
+}
+
+/// An entry in the Table of Contents.
+#[derive(Debug, Clone)]
+pub struct TocEntry {
+    /// Title of the section.
+    pub title: String,
+    /// Target anchor, e.g. "chapter_001" or "chapter_001#anchor".
+    pub href: String,
+    /// Nested child sections.
+    pub children: Vec<TocEntry>,
 }
 
 /// An image resource (cover or inline).
@@ -85,7 +100,12 @@ impl OebBook {
     /// Add a named image to the resource list.
     #[allow(dead_code)]
     pub fn add_image(&mut self, id: String, filename: String, mime_type: String, data: Vec<u8>) {
-        self.images.push(OebImage { id, filename, mime_type, data });
+        self.images.push(OebImage {
+            id,
+            filename,
+            mime_type,
+            data,
+        });
     }
 
     // ── HTML sanitisation ──────────────────────────────────────────────────

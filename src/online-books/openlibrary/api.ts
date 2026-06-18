@@ -1,4 +1,4 @@
-import { OpenLibrarySearchResponse, OpenLibraryTrendingResponse, OpenLibraryWork } from './types';
+import { OpenLibrarySearchResponse, OpenLibraryTrendingResponse, OpenLibraryWork, OpenLibrarySubjectResponse } from './types';
 
 const BASE_URL = 'https://openlibrary.org';
 
@@ -8,6 +8,15 @@ export async function fetchTrendingBooks(): Promise<OpenLibraryWork[]> {
     throw new Error('Failed to fetch trending books from OpenLibrary');
   }
   const data = await response.json() as OpenLibraryTrendingResponse;
+  return data.works;
+}
+
+export async function fetchSubjectBooks(subject: string): Promise<OpenLibrarySubjectResponse['works']> {
+  const response = await fetch(`${BASE_URL}/subjects/${encodeURIComponent(subject.toLowerCase())}.json?limit=12`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch books for subject ${subject}`);
+  }
+  const data = await response.json() as OpenLibrarySubjectResponse;
   return data.works;
 }
 

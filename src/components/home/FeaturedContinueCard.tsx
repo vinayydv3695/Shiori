@@ -19,6 +19,7 @@ export function FeaturedContinueCard({
   isManga
 }: FeaturedContinueCardProps) {
   const percent = progress.progressPercent || 0;
+  const clampedProgress = Math.min(Math.max(percent, 0), 100);
   const { coverUrl } = useCoverImage(book.id, book.cover_path);
 
   return (
@@ -26,7 +27,7 @@ export function FeaturedContinueCard({
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.5, delay: 0.1 }}
-      className="relative flex flex-col justify-end h-full min-h-[280px] rounded-2xl overflow-hidden cursor-pointer group border border-border/20 shadow-xl"
+      className="relative flex flex-col justify-end h-full min-h-[280px] rounded-2xl overflow-hidden cursor-pointer group border border-transparent shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_0_0_1px_hsl(var(--border)/0.4),0_8px_32px_rgba(0,0,0,0.3)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_0_1px_hsl(var(--primary)/0.4),0_12px_40px_hsl(var(--primary)/0.15)] hover:-translate-y-[2px] transition-all duration-400 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]"
       onClick={() => onOpenBook(book)}
     >
       {/* Background Image with heavy blur */}
@@ -75,8 +76,8 @@ export function FeaturedContinueCard({
         <div className="flex items-center gap-4 mt-2">
           <div className="flex-1 h-2 rounded-full bg-foreground/10 overflow-hidden relative">
             <div 
-              className="absolute top-0 left-0 h-full bg-primary rounded-full transition-all duration-500 ease-out"
-              style={{ width: `${percent}%` }}
+              className="absolute top-0 left-0 h-full bg-gradient-to-r from-primary to-primary/60 shadow-[0_0_8px_hsl(var(--primary)/0.4)] rounded-full transition-all duration-500 ease-out"
+              style={{ width: `${clampedProgress}%` }}
             />
           </div>
           <span className="text-xs font-semibold text-foreground/80 min-w-[3ch]">

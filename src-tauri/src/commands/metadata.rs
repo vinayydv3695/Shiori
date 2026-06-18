@@ -1,8 +1,8 @@
-use crate::services::metadata_service;
-use crate::services::manga_metadata_service::{MangaMetadataService, parse_manga_title};
-use crate::services::book_metadata_service::BookMetadataService;
 use crate::error::{Result, ShioriError};
 use crate::models::Metadata;
+use crate::services::book_metadata_service::BookMetadataService;
+use crate::services::manga_metadata_service::{parse_manga_title, MangaMetadataService};
+use crate::services::metadata_service;
 use crate::utils::validate;
 use std::sync::Arc;
 use tauri::State;
@@ -80,9 +80,9 @@ pub async fn enrich_book_metadata(
 ) -> Result<bool> {
     validate::require_positive_id(book_id, "book_id")?;
     use crate::services::library_service;
-    use crate::services::online::provider::{MetadataQuery, ItemType};
-    use crate::services::online::worker::MetadataJob;
     use crate::services::manga_metadata_service::parse_manga_title;
+    use crate::services::online::provider::{ItemType, MetadataQuery};
+    use crate::services::online::worker::MetadataJob;
 
     let book = {
         let db = &app_state.db;
@@ -99,11 +99,18 @@ pub async fn enrich_book_metadata(
             MetadataQuery::Isbn(isbn)
         } else {
             let author = book.authors.first().map(|a| a.name.clone());
-            MetadataQuery::TitleAuthor { title: book.title.clone(), author }
+            MetadataQuery::TitleAuthor {
+                title: book.title.clone(),
+                author,
+            }
         }
     };
 
-    let item_type = if is_manga { ItemType::Manga } else { ItemType::Book };
+    let item_type = if is_manga {
+        ItemType::Manga
+    } else {
+        ItemType::Book
+    };
 
     let job = MetadataJob {
         item_id: book_id,
@@ -112,11 +119,18 @@ pub async fn enrich_book_metadata(
         force_refresh: true, // Manual refresh skips local cache checks
     };
 
-    metadata_state.sender.send(job).await
+    metadata_state
+        .sender
+        .send(job)
+        .await
         .map_err(|e| ShioriError::Other(format!("Failed to dispatch metadata job: {}", e)))?;
 
-    log::info!("[enrich_book_metadata] Dispatched background fetch for book {} ({:?})", book_id, item_type);
-    
+    log::info!(
+        "[enrich_book_metadata] Dispatched background fetch for book {} ({:?})",
+        book_id,
+        item_type
+    );
+
     // We return true immediately; the frontend should subscribe to Tauri events (or poll)
     Ok(true)
 }
@@ -128,33 +142,43 @@ pub async fn enrich_book_metadata(
 #[tauri::command]
 pub async fn preview_cover_url(url: String) -> Result<Vec<u8>> {
     validate::require_non_empty(&url, "url")?;
-    
+
     // Safety measures: 10 second timeout, 5MB size limit
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()
         .map_err(|e| ShioriError::Other(format!("Failed to build HTTP client: {}", e)))?;
-        
-    let mut response = client.get(&url)
+
+    let mut response = client
+        .get(&url)
         .send()
         .await
         .map_err(|e| ShioriError::Other(format!("Failed to download cover: {}", e)))?;
-        
+
     if !response.status().is_success() {
-        return Err(ShioriError::Other(format!("Cover download failed with status: {}", response.status())));
+        return Err(ShioriError::Other(format!(
+            "Cover download failed with status: {}",
+            response.status()
+        )));
     }
 
     // Read bytes in chunks to enforce size limit
     let mut bytes = Vec::new();
     let max_size: usize = 5 * 1024 * 1024; // 5MB
-    
-    while let Some(chunk) = response.chunk().await.map_err(|e| ShioriError::Other(format!("Failed to read cover chunk: {}", e)))? {
+
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|e| ShioriError::Other(format!("Failed to read cover chunk: {}", e)))?
+    {
         if bytes.len() + chunk.len() > max_size {
-            return Err(ShioriError::Other("Cover file too large (exceeds 5MB limit)".to_string()));
+            return Err(ShioriError::Other(
+                "Cover file too large (exceeds 5MB limit)".to_string(),
+            ));
         }
         bytes.extend_from_slice(&chunk);
     }
-    
+
     Ok(bytes)
 }
 
@@ -169,7 +193,7 @@ pub struct SelectedMetadata {
     pub title: Option<String>,
     pub description: Option<String>,
     pub authors: Vec<String>,
-    pub genres: Vec<String>,  // Applied as tags
+    pub genres: Vec<String>, // Applied as tags
     pub cover_url: Option<String>,
     pub publisher: Option<String>,
     pub publish_date: Option<String>,
@@ -189,12 +213,12 @@ pub async fn apply_selected_metadata(
     metadata: SelectedMetadata,
 ) -> Result<bool> {
     use crate::services::library_service;
-    
+
     validate::require_positive_id(book_id, "book_id")?;
-    
+
     let db = &app_state.db;
     let mut book = library_service::get_book_by_id(db, book_id)?;
-    
+
     let is_locked = |field: &str| -> bool {
         book.metadata_locked
             .as_ref()
@@ -202,7 +226,7 @@ pub async fn apply_selected_metadata(
             .copied()
             .unwrap_or(false)
     };
-    
+
     if let Some(title) = &metadata.title {
         if !title.is_empty() && !is_locked("title") {
             book.title = title.clone();
@@ -241,30 +265,45 @@ pub async fn apply_selected_metadata(
     if let Some(anilist_id) = &metadata.anilist_id {
         book.anilist_id = Some(anilist_id.clone());
     }
-    
+
     if !metadata.authors.is_empty() && !is_locked("author") {
-        book.authors = metadata.authors.iter().map(|name| crate::models::Author {
-            id: None,
-            name: name.clone(),
-            sort_name: None,
-            link: None,
-        }).collect();
+        book.authors = metadata
+            .authors
+            .iter()
+            .map(|name| crate::models::Author {
+                id: None,
+                name: name.clone(),
+                sort_name: None,
+                link: None,
+            })
+            .collect();
     }
-    
+
     if !metadata.genres.is_empty() && !is_locked("tags") {
-        book.tags = metadata.genres.iter().map(|g| crate::models::Tag {
-            id: None,
-            name: g.clone(),
-            color: None,
-        }).collect();
+        book.tags = metadata
+            .genres
+            .iter()
+            .map(|g| crate::models::Tag {
+                id: None,
+                name: g.clone(),
+                color: None,
+            })
+            .collect();
     }
-    
+
     book.online_metadata_fetched = true;
-    book.metadata_source = Some(if metadata.anilist_id.is_some() { "anilist" } else { "openlibrary" }.to_string());
+    book.metadata_source = Some(
+        if metadata.anilist_id.is_some() {
+            "anilist"
+        } else {
+            "openlibrary"
+        }
+        .to_string(),
+    );
     book.metadata_last_sync = Some(chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string());
-    
+
     library_service::update_book(db, book)?;
-    
+
     let conn = db.get_connection()?;
     conn.execute(
         "UPDATE books SET 
@@ -273,73 +312,98 @@ pub async fn apply_selected_metadata(
             metadata_last_sync = ?2
          WHERE id = ?3",
         rusqlite::params![
-            if metadata.anilist_id.is_some() { "anilist" } else { "openlibrary" },
+            if metadata.anilist_id.is_some() {
+                "anilist"
+            } else {
+                "openlibrary"
+            },
             chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
             book_id,
         ],
     )?;
-    
+
     if let Some(cover_url) = &metadata.cover_url {
         if !cover_url.is_empty() {
             let url = cover_url.clone();
             let db_clone = db.clone();
             let book_id_clone = book_id;
             let covers_dir = app_state.covers_dir.clone();
-            
+
             tauri::async_runtime::spawn(async move {
                 if let Ok(response) = reqwest::get(&url).await {
                     if !response.status().is_success() {
-                        log::error!("[apply_selected_metadata] Cover download failed with status: {}", response.status());
+                        log::error!(
+                            "[apply_selected_metadata] Cover download failed with status: {}",
+                            response.status()
+                        );
                         return;
                     }
-                    
-                    let content_type = response.headers()
+
+                    let content_type = response
+                        .headers()
                         .get(reqwest::header::CONTENT_TYPE)
                         .and_then(|ct| ct.to_str().ok())
                         .unwrap_or("image/jpeg");
-                    
+
                     let mut ext = match content_type {
                         ct if ct.contains("png") => "png",
                         ct if ct.contains("webp") => "webp",
                         ct if ct.contains("gif") => "gif",
                         _ => "jpg",
                     };
-                    
+
                     if let Ok(bytes) = response.bytes().await {
                         if bytes.len() > 10 * 1024 * 1024 {
-                            log::error!("[apply_selected_metadata] Cover too large: {} bytes", bytes.len());
+                            log::error!(
+                                "[apply_selected_metadata] Cover too large: {} bytes",
+                                bytes.len()
+                            );
                             return;
                         }
-                        
+
                         if bytes.starts_with(b"\x89PNG") {
                             ext = "png";
-                        } else if bytes.len() > 12 && bytes.starts_with(b"RIFF") && &bytes[8..12] == b"WEBP" {
+                        } else if bytes.len() > 12
+                            && bytes.starts_with(b"RIFF")
+                            && &bytes[8..12] == b"WEBP"
+                        {
                             ext = "webp";
                         } else if bytes.starts_with(b"GIF8") {
                             ext = "gif";
                         }
-                        
+
                         if let Ok(conn) = db_clone.get_connection() {
                             if let Ok(uuid) = conn.query_row(
                                 "SELECT uuid FROM books WHERE id = ?1",
                                 rusqlite::params![book_id_clone],
-                                |row| row.get::<_, String>(0)
+                                |row| row.get::<_, String>(0),
                             ) {
                                 if let Err(e) = std::fs::create_dir_all(&covers_dir) {
-                                    log::error!("[apply_selected_metadata] Failed to create covers dir: {}", e);
+                                    log::error!(
+                                        "[apply_selected_metadata] Failed to create covers dir: {}",
+                                        e
+                                    );
                                     return;
                                 }
-                                
+
                                 let cover_path = covers_dir.join(format!("{}.{}", uuid, ext));
-                                
+
                                 if std::fs::write(&cover_path, &bytes).is_ok() {
                                     let _ = conn.execute(
                                         "UPDATE books SET cover_path = ?1 WHERE id = ?2",
-                                        rusqlite::params![cover_path.to_string_lossy().to_string(), book_id_clone],
+                                        rusqlite::params![
+                                            cover_path.to_string_lossy().to_string(),
+                                            book_id_clone
+                                        ],
                                     );
-                                    log::info!("[apply_selected_metadata] Cover downloaded for book {}", book_id_clone);
+                                    log::info!(
+                                        "[apply_selected_metadata] Cover downloaded for book {}",
+                                        book_id_clone
+                                    );
                                 } else {
-                                    log::error!("[apply_selected_metadata] Failed to write cover file");
+                                    log::error!(
+                                        "[apply_selected_metadata] Failed to write cover file"
+                                    );
                                 }
                             }
                         }
@@ -348,8 +412,11 @@ pub async fn apply_selected_metadata(
             });
         }
     }
-    
-    log::info!("[apply_selected_metadata] Applied selected metadata to book {}", book_id);
+
+    log::info!(
+        "[apply_selected_metadata] Applied selected metadata to book {}",
+        book_id
+    );
     Ok(true)
 }
 
@@ -389,7 +456,12 @@ pub async fn apply_selected_series_metadata(
             )));
         }
 
-        if let Some(title) = metadata.title.as_ref().map(|t| t.trim()).filter(|t| !t.is_empty()) {
+        if let Some(title) = metadata
+            .title
+            .as_ref()
+            .map(|t| t.trim())
+            .filter(|t| !t.is_empty())
+        {
             conn.execute(
                 "UPDATE manga_series SET title = ?1, sort_title = ?2 WHERE id = ?3",
                 rusqlite::params![title, title.to_lowercase(), series_id],
@@ -401,7 +473,11 @@ pub async fn apply_selected_series_metadata(
             )?;
         }
 
-        if let Some(status) = metadata.status.as_ref().and_then(|s| normalize_series_status(s)) {
+        if let Some(status) = metadata
+            .status
+            .as_ref()
+            .and_then(|s| normalize_series_status(s))
+        {
             conn.execute(
                 "UPDATE manga_series SET status = ?1 WHERE id = ?2",
                 rusqlite::params![status, series_id],
@@ -409,7 +485,12 @@ pub async fn apply_selected_series_metadata(
         }
     }
 
-    if let Some(cover_url) = metadata.cover_url.as_ref().map(|u| u.trim()).filter(|u| !u.is_empty()) {
+    if let Some(cover_url) = metadata
+        .cover_url
+        .as_ref()
+        .map(|u| u.trim())
+        .filter(|u| !u.is_empty())
+    {
         let response = reqwest::get(cover_url)
             .await
             .map_err(|e| ShioriError::Other(format!("Failed to download series cover: {}", e)))?;
@@ -440,7 +521,9 @@ pub async fn apply_selected_series_metadata(
             .map_err(|e| ShioriError::Other(format!("Failed reading series cover bytes: {}", e)))?;
 
         if bytes.len() > 10 * 1024 * 1024 {
-            return Err(ShioriError::Other("Series cover too large (max 10MB)".to_string()));
+            return Err(ShioriError::Other(
+                "Series cover too large (max 10MB)".to_string(),
+            ));
         }
 
         if bytes.starts_with(b"\x89PNG") {
@@ -482,6 +565,9 @@ pub async fn apply_selected_series_metadata(
         )?;
     }
 
-    log::info!("[apply_selected_series_metadata] Applied metadata to series {}", series_id);
+    log::info!(
+        "[apply_selected_series_metadata] Applied metadata to series {}",
+        series_id
+    );
     Ok(true)
 }

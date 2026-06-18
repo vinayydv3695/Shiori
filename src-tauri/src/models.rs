@@ -53,6 +53,8 @@ pub struct Book {
     pub anilist_id: Option<String>,
 
     pub is_favorite: bool,
+    #[serde(default)]
+    pub is_wishlist: bool,
 
     #[serde(default = "default_reading_status")]
     pub reading_status: String,
@@ -82,13 +84,16 @@ pub struct BookSummary {
     pub file_path: String,
     pub file_format: String,
     pub cover_path: Option<String>,
-    pub added_date: String,
+    pub notes: Option<String>,
     pub is_favorite: bool,
+    #[serde(default)]
+    pub is_wishlist: bool,
     pub reading_status: String,
     pub domain: Option<String>,
     pub manga_series_id: Option<i64>,
     pub series_index: Option<f64>,
     pub file_size: Option<i64>,
+    pub added_date: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

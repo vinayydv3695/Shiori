@@ -1,6 +1,6 @@
 [package]
 name = "shiori"
-version = "1.1.21"
+version = "1.1.22"
 description = "A Manga/E-Book Reader"
 authors = ["vinayydv3695"]
 license = "MIT"
@@ -118,6 +118,7 @@ discord-rich-presence = "1.1.0"
 tauri-plugin-shell = "2"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
+tauri-plugin-process = "2"
 
 [features]
 default = ["custom-protocol"]
@@ -135,3 +136,6 @@ opt-level = 3
 inherits = "release"
 debug = true
 strip = false
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-updater = "2"

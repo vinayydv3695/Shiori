@@ -26,10 +26,13 @@ import { logger } from '../../lib/logger'
 import { useSourceStore } from '../../store/sourceStore'
 import { SourceManager } from './SourceManager'
 import { TorboxSettings } from './TorboxSettings'
+import { check } from '@tauri-apps/plugin-updater'
+import { relaunch } from '@tauri-apps/plugin-process'
+import { getVersion } from '@tauri-apps/api/app'
 
-import { ToonGodSettings } from './ToonGodSettings'
-import { TorrentNetworkSettings } from './TorrentNetworkSettings'
-import { ProwlarrSettings } from './ProwlarrSettings'
+
+
+
 import { READING_FONTS, normalizeLegacyFontPreference, resolveReadingFontCss } from '@/lib/readingFonts'
 
 interface SettingsDialogProps {
@@ -178,8 +181,8 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-        <Dialog.Content className="dialog-content settings-dialog fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-lg shadow-2xl w-[90vw] max-w-5xl h-[85vh] z-50 flex flex-col">
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-background/40 backdrop-blur-md z-50 transition-all duration-300" />
+        <Dialog.Content className="dialog-content settings-dialog fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background/80 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.2)] w-[90vw] max-w-5xl h-[85vh] z-50 flex flex-col overflow-hidden">
           <div className="flex items-center justify-between p-6 border-b border-border">
             <Dialog.Title className="text-2xl font-semibold">Settings</Dialog.Title>
             <div className="flex items-center gap-3">
@@ -218,7 +221,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
             orientation="vertical"
           >
             <Tabs.List
-              className="w-56 border-r border-border p-4 space-y-1 flex-shrink-0"
+              className="w-64 border-r border-white/5 bg-muted/10 p-5 space-y-1.5 flex-shrink-0 overflow-y-auto"
               aria-label="Settings categories"
             >
               {filteredTabs.map((tab) => (
@@ -226,11 +229,10 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                   key={tab.id}
                   value={tab.id}
                   className={cn(
-                    'w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    'data-[state=active]:bg-primary data-[state=active]:text-primary-foreground',
-                    'data-[state=inactive]:text-foreground/90 data-[state=inactive]:hover:bg-muted data-[state=inactive]:hover:text-foreground',
-                    'dark:data-[state=inactive]:text-zinc-100 dark:data-[state=inactive]:hover:bg-zinc-700 dark:data-[state=inactive]:hover:text-white'
+                    'w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-left font-medium text-sm',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50',
+                    'data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm',
+                    'data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-muted/50 data-[state=inactive]:hover:text-foreground'
                   )}
                 >
                   <tab.icon className="w-5 h-5 flex-shrink-0" />
@@ -320,10 +322,10 @@ const SettingSection = ({
   children: React.ReactNode
   onReset?: () => void
 }) => (
-  <div className="space-y-4 pb-8 border-b border-border last:border-0">
-    <div className="flex items-center justify-between">
+  <section className="space-y-4 pb-4">
+    <div className="flex items-center justify-between px-1">
       <div>
-        <h3 className="text-lg font-semibold">{title}</h3>
+        <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
         {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
       </div>
       {onReset && (
@@ -333,8 +335,10 @@ const SettingSection = ({
         </Button>
       )}
     </div>
-    <div className="space-y-4">{children}</div>
-  </div>
+    <div className="bg-card/40 border border-border/50 backdrop-blur-sm rounded-2xl p-6 shadow-sm space-y-6">
+      {children}
+    </div>
+  </section>
 )
 
 const SettingItem = ({
@@ -346,12 +350,14 @@ const SettingItem = ({
   description?: string
   children: React.ReactNode
 }) => (
-  <div className="flex items-center justify-between">
-    <div className="space-y-0.5">
-      <label className="text-sm font-medium">{label}</label>
-      {description && <p className="text-xs text-muted-foreground">{description}</p>}
+  <div className="flex items-center justify-between gap-6 py-1">
+    <div className="space-y-1 flex-1">
+      <label className="text-sm font-medium leading-none">{label}</label>
+      {description && <p className="text-[13px] text-muted-foreground leading-snug">{description}</p>}
     </div>
-    <div>{children}</div>
+    <div className="flex-shrink-0 flex items-center justify-end min-w-[200px]">
+      {children}
+    </div>
   </div>
 )
 
@@ -404,36 +410,49 @@ const GeneralSettings = ({
     <div className="space-y-8">
       {isSectionVisible('Theme', ['Theme', 'Dark Theme', 'Light Theme', 'System Theme']) && (
         <SettingSection title="Theme" description="Choose how Shiori looks">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
             {themeOptions.map((option) => (
               <button
                 key={option.value}
                 onClick={() => updateTheme(option.value)}
                 className={cn(
-                  'p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-2',
+                  'relative overflow-hidden p-4 rounded-xl border-2 transition-all duration-300 flex flex-col items-center gap-3',
                   preferences.theme === option.value
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border hover:border-primary/50'
+                    ? 'border-primary bg-primary/10 shadow-[0_0_15px_rgba(var(--primary),0.2)] scale-[1.02]'
+                    : 'border-border/50 bg-background/30 hover:border-primary/50 hover:bg-background/80 hover:-translate-y-1'
                 )}
                 aria-label={`${option.label} theme`}
               >
-                <option.icon className="w-6 h-6" />
-                <span className="text-sm font-medium">{option.label}</span>
+                <div className={cn(
+                  "absolute inset-0 bg-gradient-to-tr from-primary/10 to-transparent opacity-0 transition-opacity duration-300",
+                  preferences.theme === option.value && "opacity-100"
+                )} />
+                <option.icon className={cn(
+                  "w-7 h-7 transition-colors duration-300",
+                  preferences.theme === option.value ? "text-primary" : "text-muted-foreground"
+                )} />
+                <span className={cn(
+                  "text-sm font-semibold tracking-wide transition-colors duration-300",
+                  preferences.theme === option.value ? "text-foreground" : "text-muted-foreground"
+                )}>{option.label}</span>
+                {preferences.theme === option.value && (
+                  <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--primary),1)]" />
+                )}
               </button>
             ))}
           </div>
 
           {isSettingVisible('Theme Preview', 'Preview of current theme colors', 'Theme') && (
-            <div className="rounded-lg border p-4">
-              <p className="text-xs font-medium text-muted-foreground mb-3">Theme Preview</p>
-              <div className="flex gap-2">
-                <div className="w-8 h-8 rounded-full bg-primary" title="Primary" />
-                <div className="w-8 h-8 rounded-full bg-secondary" title="Secondary" />
-                <div className="w-8 h-8 rounded-full bg-accent" title="Accent" />
-                <div className="w-8 h-8 rounded-full bg-muted" title="Muted" />
-                <div className="w-8 h-8 rounded-full bg-destructive" title="Destructive" />
-                <div className="w-8 h-8 rounded-full border bg-background" title="Background" />
-                <div className="w-8 h-8 rounded-full bg-foreground" title="Foreground" />
+            <div className="rounded-xl border border-border/50 bg-background/50 backdrop-blur-md p-5 shadow-inner">
+              <p className="text-[13px] font-semibold text-muted-foreground tracking-wider uppercase mb-4">Theme Palette</p>
+              <div className="flex gap-3 items-center">
+                <div className="w-10 h-10 rounded-full bg-primary shadow-lg ring-2 ring-background transition-transform hover:scale-110 cursor-help" title="Primary" />
+                <div className="w-10 h-10 rounded-full bg-secondary shadow-lg ring-2 ring-background transition-transform hover:scale-110 cursor-help" title="Secondary" />
+                <div className="w-10 h-10 rounded-full bg-accent shadow-lg ring-2 ring-background transition-transform hover:scale-110 cursor-help" title="Accent" />
+                <div className="w-10 h-10 rounded-full bg-muted shadow-lg ring-2 ring-background transition-transform hover:scale-110 cursor-help" title="Muted" />
+                <div className="w-10 h-10 rounded-full bg-destructive shadow-lg ring-2 ring-background transition-transform hover:scale-110 cursor-help" title="Destructive" />
+                <div className="w-10 h-10 rounded-full border border-border/50 bg-background shadow-lg ring-2 ring-background transition-transform hover:scale-110 cursor-help" title="Background" />
+                <div className="w-10 h-10 rounded-full bg-foreground shadow-lg ring-2 ring-background transition-transform hover:scale-110 cursor-help" title="Foreground" />
               </div>
             </div>
           )}
@@ -481,7 +500,7 @@ const GeneralSettings = ({
               <select
                 value={preferences.uiFontFamily || 'system'}
                 onChange={(e) => updateGeneralSettings({ uiFontFamily: e.target.value })}
-                className="px-3 py-2 rounded-md border border-border bg-background"
+                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
                 aria-label="UI font family"
               >
                 <option value="system">System Default</option>
@@ -624,7 +643,7 @@ const GeneralSettings = ({
               <select
                 value={preferences.defaultSortOrder || 'title-asc'}
                 onChange={(e) => updateGeneralSettings({ defaultSortOrder: e.target.value as UserPreferences['defaultSortOrder'] })}
-                className="px-3 py-2 rounded-md border border-border bg-background"
+                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
                 aria-label="Default sort order"
               >
                 <option value="title-asc">Title (A-Z)</option>
@@ -696,7 +715,7 @@ const GeneralSettings = ({
               <select
                 value={String(preferences.autoScanIntervalMinutes || 60)}
                 onChange={(e) => updateGeneralSettings({ autoScanIntervalMinutes: Number(e.target.value) })}
-                className="px-3 py-2 rounded-md border border-border bg-background"
+                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
                 aria-label="Auto-scan interval"
               >
                 <option value="5">Every 5 minutes</option>
@@ -713,7 +732,7 @@ const GeneralSettings = ({
               <select
                 value={preferences.duplicateHandling || 'skip'}
                 onChange={(e) => updateGeneralSettings({ duplicateHandling: e.target.value as UserPreferences['duplicateHandling'] })}
-                className="px-3 py-2 rounded-md border border-border bg-background"
+                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
                 aria-label="Duplicate handling"
               >
                 <option value="skip">Skip Duplicates</option>
@@ -729,7 +748,7 @@ const GeneralSettings = ({
               <select
                 value={preferences.metadataMode || 'auto'}
                 onChange={(e) => updateGeneralSettings({ metadataMode: e.target.value })}
-                className="px-3 py-2 rounded-md border border-border bg-background"
+                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
                 aria-label="Metadata fetch policy"
               >
                 <option value="auto">Auto-fetch (Online)</option>
@@ -806,7 +825,7 @@ const GeneralSettings = ({
             <select
               value={preferredDebridProvider}
               onChange={(e) => setPreferredDebridProvider(e.target.value as 'auto' | 'torbox')}
-              className="px-3 py-2 rounded-md border border-border bg-background"
+              className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
               aria-label="Preferred debrid provider"
               disabled
             >
@@ -816,19 +835,12 @@ const GeneralSettings = ({
           </SettingItem>
 
 
-          <ToonGodSettings />
-          <div>
-            <h4 className="text-sm font-semibold mb-2">Torrent Network</h4>
-            <TorrentNetworkSettings />
-          </div>
+
           <div>
             <h4 className="text-sm font-semibold mb-2">Torbox</h4>
             <TorboxSettings />
           </div>
-          <div>
-            <h4 className="text-sm font-semibold mb-2">Prowlarr</h4>
-            <ProwlarrSettings />
-          </div>
+
         </div>
       </SettingSection>
 
@@ -892,7 +904,7 @@ const BookReadingSettings = ({
               <select
                 value={normalizedBookFontFamily}
                 onChange={(e) => updateBookDefaults({ fontFamily: normalizeLegacyFontPreference(e.target.value) })}
-                className="px-3 py-2 rounded-md border border-border bg-background"
+                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
                 aria-label="Font family"
               >
                 {READING_FONTS.map((font) => (
@@ -959,7 +971,7 @@ const BookReadingSettings = ({
               <select
                 value={preferences.book.scrollMode}
                 onChange={(e) => updateBookDefaults({ scrollMode: e.target.value as 'paged' | 'continuous' })}
-                className="px-3 py-2 rounded-md border border-border bg-background"
+                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
                 aria-label="Scroll mode"
               >
                 <option value="paged">Paged</option>
@@ -976,7 +988,7 @@ const BookReadingSettings = ({
               <select
                 value={preferences.book.justification}
                 onChange={(e) => updateBookDefaults({ justification: e.target.value as 'left' | 'justify' })}
-                className="px-3 py-2 rounded-md border border-border bg-background"
+                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
                 aria-label="Text justification"
               >
                 <option value="left">Left</option>
@@ -1104,7 +1116,7 @@ const BookReadingSettings = ({
                 value={preferences.tts?.voice ?? 'default'}
                 onChange={(e) => updateTtsDefaults({ voice: e.target.value })}
                 disabled={!isAvailable}
-                className="px-3 py-2 rounded-md border border-border bg-background max-w-[250px] disabled:opacity-50"
+                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none  max-w-[250px] disabled:opacity-50"
                 aria-label="TTS voice"
               >
                 <option value="default">System Default</option>
@@ -1123,7 +1135,7 @@ const BookReadingSettings = ({
                 value={preferences.tts?.rate ?? 1.0}
                 onChange={(e) => updateTtsDefaults({ rate: Number(e.target.value) })}
                 disabled={!isAvailable}
-                className="px-3 py-2 rounded-md border border-border bg-background disabled:opacity-50"
+                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none  disabled:opacity-50"
                 aria-label="Speech rate"
               >
                 {SPEED_OPTIONS.map((s) => (
@@ -1406,7 +1418,7 @@ const MangaReadingSettings = ({
               <select
                 value={preferences.manga?.progressBar || 'hidden'}
                 onChange={(e) => updateMangaDefaults({ progressBar: e.target.value as 'top' | 'bottom' | 'hidden' })}
-                className="px-3 py-2 rounded-md border border-border bg-background"
+                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
                 aria-label="Progress bar position"
               >
                 <option value="hidden">Hidden</option>
@@ -1731,7 +1743,7 @@ const AdvancedSettings = ({
               <select
                 value={preferences.annotationsExportFormat || 'markdown'}
                 onChange={(e) => updateGeneralSettings({ annotationsExportFormat: e.target.value })}
-                className="px-3 py-2 rounded-md border border-border bg-background"
+                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
                 aria-label="Annotations export format"
               >
                 <option value="markdown">Markdown (.md)</option>
@@ -1794,7 +1806,7 @@ const AdvancedSettings = ({
               <select
                 value={String(preferences.cacheSizeLimitMB || 500)}
                 onChange={(e) => updateGeneralSettings({ cacheSizeLimitMB: Number(e.target.value) })}
-                className="px-3 py-2 rounded-md border border-border bg-background"
+                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
                 aria-label="Max cache size"
               >
                 <option value="100">100 MB</option>
@@ -1812,7 +1824,7 @@ const AdvancedSettings = ({
               <select
                 value={preferences.cacheClearPolicy || 'manual'}
                 onChange={(e) => updateGeneralSettings({ cacheClearPolicy: e.target.value as UserPreferences['cacheClearPolicy'] })}
-                className="px-3 py-2 rounded-md border border-border bg-background"
+                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
                 aria-label="Cache clear policy"
               >
                 <option value="manual">Manual Only</option>
@@ -1935,7 +1947,7 @@ const AdvancedSettings = ({
               <select
                 value={String(preferences.historyRetentionDays ?? -1)}
                 onChange={(e) => updateGeneralSettings({ historyRetentionDays: Number(e.target.value) })}
-                className="px-3 py-2 rounded-md border border-border bg-background"
+                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
                 aria-label="Reading history retention"
               >
                 <option value="-1">Keep Forever</option>
@@ -2158,7 +2170,38 @@ const WatchFoldersSettings = ({
 }
 
 const AboutSettings = () => {
-  const appVersion = '0.1.0'
+  const [appVersion, setAppVersion] = useState('Loading...')
+  const [isChecking, setIsChecking] = useState(false)
+  const toast = useToast()
+
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(console.error)
+  }, [])
+
+  const handleCheckUpdate = async () => {
+    if (!isTauri) {
+      toast.info('Auto-updates are only available in the desktop app.')
+      return
+    }
+    
+    try {
+      setIsChecking(true)
+      const update = await check()
+      if (update) {
+        toast.info(`Update ${update.version} is available! Downloading...`)
+        await update.downloadAndInstall()
+        toast.success("Update installed successfully. Restarting...")
+        await relaunch()
+      } else {
+        toast.success("You are on the latest version.")
+      }
+    } catch (error) {
+      console.error(error)
+      toast.error("Failed to check for updates (ensure your GitHub keys are set in tauri.conf.json if you are the developer)")
+    } finally {
+      setIsChecking(false)
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -2185,9 +2228,9 @@ const AboutSettings = () => {
               You&apos;re running version {appVersion}
             </div>
           </div>
-          <Button variant="outline" size="sm" className="gap-1.5">
-            <RefreshCw size={14} />
-            Check Now
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={handleCheckUpdate} disabled={isChecking}>
+            <RefreshCw size={14} className={cn(isChecking && "animate-spin")} />
+            {isChecking ? "Checking..." : "Check Now"}
           </Button>
         </div>
       </SettingSection>
@@ -2196,8 +2239,7 @@ const AboutSettings = () => {
         <div className="space-y-2">
           {([
             { label: 'GitHub Repository', url: 'https://github.com/vinayydv3695/Shiori' },
-            { label: 'Changelog', url: 'https://github.com/vinayydv3695/Shiori/releases' },
-            { label: 'License', url: 'https://github.com/vinayydv3695/Shiori/blob/main/LICENSE' },
+            { label: 'License', url: 'https://github.com/vinayydv3695/Shiori?tab=MIT-1-ov-file' },
             { label: 'Report an Issue', url: 'https://github.com/vinayydv3695/Shiori/issues' },
           ]).map((link) => (
             <a

@@ -22,7 +22,7 @@ import {
   type SearchResult as PluginSearchResult,
 } from '@/lib/pluginSources';
 import { useSourceHealthStore, type SourceHealthLevel } from '@/store/sourceHealthStore';
-import { useTorboxStore, type TorboxJobStatus, type TorboxQueueItem } from '@/stores/useTorboxStore';
+import { useTorboxStore, type TorboxJobStatus, type TorboxQueueItem } from '@/store/useTorboxStore';
 import { useOnlineSearchStore } from '@/store/onlineSearchStore';
 import { useSourceStore } from '@/store/sourceStore';
 import { parsePageUrl } from '@/lib/utils';

@@ -9,29 +9,34 @@
 /// - Chapter detection (heading tags + all-caps heuristic)
 /// - Image extraction from pdftohtml output
 /// - Fallback to lopdf for basic text-only extraction
-
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use super::epub_writer::EpubDocument;
+use super::oeb::{OebBook, OebChapter, OebImage};
 use super::utils;
-use super::{ConversionError, EpubOutput};
+use super::ConversionError;
 
-/// Convert a PDF file to EPUB 3.
-pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, ConversionError> {
+/// Parse a PDF file into an OebBook.
+pub async fn parse(source: &Path) -> Result<OebBook, ConversionError> {
     let mut warnings = Vec::new();
 
     // Try pdftohtml first
-    match convert_with_pdftohtml(source, output, &mut warnings).await {
+    match convert_with_pdftohtml(source, &mut warnings).await {
         Ok(result) => Ok(result),
         Err(ConversionError::MissingDependency(msg)) => {
-            warnings.push(format!("pdftohtml not available ({}), falling back to basic extraction", msg));
-            convert_with_lopdf(source, output, &mut warnings).await
+            warnings.push(format!(
+                "pdftohtml not available ({}), falling back to basic extraction",
+                msg
+            ));
+            convert_with_lopdf(source, &mut warnings).await
         }
         Err(ConversionError::EmptyContent) => {
-            warnings.push("pdftohtml produced empty/blank content, falling back to basic extraction".to_string());
-            convert_with_lopdf(source, output, &mut warnings).await
+            warnings.push(
+                "pdftohtml produced empty/blank content, falling back to basic extraction"
+                    .to_string(),
+            );
+            convert_with_lopdf(source, &mut warnings).await
         }
         Err(e) => Err(e),
     }
@@ -43,9 +48,8 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
 
 async fn convert_with_pdftohtml(
     source: &Path,
-    output: &Path,
     warnings: &mut Vec<String>,
-) -> Result<EpubOutput, ConversionError> {
+) -> Result<OebBook, ConversionError> {
     // Create temp directory for pdftohtml output
     let tmp_dir = tempfile::tempdir()
         .map_err(|e| ConversionError::Other(format!("Failed to create temp dir: {}", e)))?;
@@ -55,7 +59,7 @@ async fn convert_with_pdftohtml(
     let which_result = Command::new("which").arg("pdftohtml").output();
     if which_result.is_err() || !which_result.as_ref().unwrap().status.success() {
         return Err(ConversionError::MissingDependency(
-            "pdftohtml (install poppler-utils: apt install poppler-utils)".to_string()
+            "pdftohtml (install poppler-utils: apt install poppler-utils)".to_string(),
         ));
     }
 
@@ -64,13 +68,20 @@ async fn convert_with_pdftohtml(
         .args([
             "-noframes",
             "-p",
-            "-enc", "UTF-8",
+            "-enc",
+            "UTF-8",
             "-nodrm",
-            source.to_str().ok_or_else(|| ConversionError::Other("Invalid source path".to_string()))?,
-            tmp_output.to_str().ok_or_else(|| ConversionError::Other("Invalid output path".to_string()))?,
+            source
+                .to_str()
+                .ok_or_else(|| ConversionError::Other("Invalid source path".to_string()))?,
+            tmp_output
+                .to_str()
+                .ok_or_else(|| ConversionError::Other("Invalid output path".to_string()))?,
         ])
         .output()
-        .map_err(|e| ConversionError::MissingDependency(format!("Failed to run pdftohtml: {}", e)))?;
+        .map_err(|e| {
+            ConversionError::MissingDependency(format!("Failed to run pdftohtml: {}", e))
+        })?;
 
     if !pdftohtml_result.status.success() {
         let stderr = String::from_utf8_lossy(&pdftohtml_result.stderr);
@@ -82,7 +93,9 @@ async fn convert_with_pdftohtml(
     let html_files = find_html_files(tmp_dir.path())?;
 
     if html_files.is_empty() {
-        return Err(ConversionError::Other("pdftohtml produced no output".to_string()));
+        return Err(ConversionError::Other(
+            "pdftohtml produced no output".to_string(),
+        ));
     }
 
     // Read and process HTML
@@ -129,41 +142,42 @@ async fn convert_with_pdftohtml(
 
     // Guard: avoid generating a blank EPUB when pdftohtml output is structurally present
     // but text extraction produced no readable content.
-    let has_readable_text = chapters.iter().any(|(_, body)| {
-        !utils::strip_html_tags(body).trim().is_empty()
-    });
+    let has_readable_text = chapters
+        .iter()
+        .any(|(_, body)| !utils::strip_html_tags(body).trim().is_empty());
     if !has_readable_text && images.is_empty() {
         return Err(ConversionError::EmptyContent);
     }
 
     // Infer title from filename
-    let title = source.file_stem()
+    let title = source
+        .file_stem()
         .and_then(|s| s.to_str())
         .map(|s| s.replace('_', " ").replace('-', " "))
         .unwrap_or_else(|| "Untitled".to_string());
 
-    // Build EPUB
-    let mut doc = EpubDocument::new(title.clone());
+    // Build OebBook
+    let mut book = OebBook::new(title);
 
-    for (id, filename, mime, img_data) in &images {
-        doc.add_image(id.clone(), filename.clone(), mime.clone(), img_data.clone());
+    for (id, filename, mime, img_data) in images {
+        book.images.push(OebImage {
+            id,
+            filename,
+            mime_type: mime,
+            data: img_data,
+        });
     }
 
-    for (ch_title, ch_body) in &chapters {
-        doc.add_chapter(ch_title.clone(), ch_body.clone());
+    for (i, (ch_title, ch_body)) in chapters.into_iter().enumerate() {
+        let id = format!("chapter_{:03}", i + 1);
+        book.chapters.push(OebChapter {
+            id,
+            title: Some(ch_title),
+            html: ch_body,
+        });
     }
 
-    let chapter_count = doc.chapters.len();
-    doc.write_to_file(output).await?;
-
-    Ok(EpubOutput {
-        path: output.to_path_buf(),
-        title,
-        author: None,
-        cover_data: None,
-        chapter_count,
-        warnings: warnings.clone(),
-    })
+    Ok(book)
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -172,9 +186,8 @@ async fn convert_with_pdftohtml(
 
 async fn convert_with_lopdf(
     source: &Path,
-    output: &Path,
     warnings: &mut Vec<String>,
-) -> Result<EpubOutput, ConversionError> {
+) -> Result<OebBook, ConversionError> {
     let data = tokio::fs::read(source).await?;
 
     let doc = lopdf::Document::load_mem(&data)
@@ -190,13 +203,18 @@ async fn convert_with_lopdf(
                 text_content.push_str("\n\n");
             }
             Err(e) => {
-                warnings.push(format!("Failed to extract text from page {}: {}", page_num, e));
+                warnings.push(format!(
+                    "Failed to extract text from page {}: {}",
+                    page_num, e
+                ));
             }
         }
     }
 
     if text_content.trim().is_empty() {
-        return Err(ConversionError::Other("Could not extract any text from PDF".to_string()));
+        return Err(ConversionError::Other(
+            "Could not extract any text from PDF".to_string(),
+        ));
     }
 
     // Apply text processing
@@ -207,26 +225,38 @@ async fn convert_with_lopdf(
     let html = utils::text_to_html_paragraphs(&text);
     let chapters = split_pdf_chapters(&html);
 
-    let title = source.file_stem()
+    let title = source
+        .file_stem()
         .and_then(|s| s.to_str())
         .map(|s| s.replace('_', " ").replace('-', " "))
         .unwrap_or_else(|| "Untitled".to_string());
 
-    let mut epub_doc = EpubDocument::new(title.clone());
-    for (ch_title, ch_body) in &chapters {
-        epub_doc.add_chapter(ch_title.clone(), ch_body.clone());
+    let mut book = OebBook::new(title);
+    for (i, (ch_title, ch_body)) in chapters.into_iter().enumerate() {
+        let id = format!("chapter_{:03}", i + 1);
+        book.chapters.push(OebChapter {
+            id,
+            title: Some(ch_title),
+            html: ch_body,
+        });
     }
 
-    let chapter_count = epub_doc.chapters.len();
-    epub_doc.write_to_file(output).await?;
+    Ok(book)
+}
 
-    Ok(EpubOutput {
+/// Convert a PDF file to EPUB 3 (Legacy wrapper for ConversionEngine).
+pub async fn convert(source: &Path, output: &Path) -> Result<super::EpubOutput, ConversionError> {
+    let mut book = parse(source).await?;
+    book.sanitize_html();
+    super::epub_builder::build_epub(&book, output)?;
+
+    Ok(super::EpubOutput {
         path: output.to_path_buf(),
-        title,
-        author: None,
-        cover_data: None,
-        chapter_count,
-        warnings: warnings.clone(),
+        title: book.title,
+        author: book.authors.first().cloned(),
+        cover_data: book.cover_image.map(|img| img.data),
+        chapter_count: book.chapters.len(),
+        warnings: vec![],
     })
 }
 
@@ -240,19 +270,22 @@ fn post_process_pdf_html(html: &str, warnings: &mut Vec<String>) -> String {
     let html = utils::sanitize_html_for_epub(html);
 
     // Extract paragraph text from HTML
-    static PARAGRAPH_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?is)<p[^>]*>(.*?)</p>").unwrap());
-    static BR_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?i)<br\s*/?>").unwrap());
-    static IMG_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?is)<img[^>]+>").unwrap());
+    static PARAGRAPH_RE: once_cell::sync::Lazy<regex::Regex> =
+        once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?is)<p[^>]*>(.*?)</p>").unwrap());
+    static BR_RE: once_cell::sync::Lazy<regex::Regex> =
+        once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?i)<br\s*/?>").unwrap());
+    static IMG_RE: once_cell::sync::Lazy<regex::Regex> =
+        once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?is)<img[^>]+>").unwrap());
 
     let mut paragraphs: Vec<String> = Vec::new();
 
     for cap in PARAGRAPH_RE.captures_iter(&html) {
         let inner = &cap[1];
-        
+
         // If there is an image, we should keep it separate so line unwrapping doesn't ruin it.
         // Or we can just preserve it. For pdftohtml, text and images are usually separate.
         let mut text = BR_RE.replace_all(inner, "\n").to_string();
-        
+
         // If it exclusively contains an image, just keep it safely.
         if IMG_RE.is_match(&text) {
             paragraphs.push(text.trim().to_string());
@@ -282,14 +315,18 @@ fn post_process_pdf_html(html: &str, warnings: &mut Vec<String>) -> String {
         }
     }
 
-
     // Line unwrap using median line length (calibre's algorithm)
-    let mut lengths: Vec<usize> = paragraphs.iter()
+    let mut lengths: Vec<usize> = paragraphs
+        .iter()
         .filter(|p| p.len() > 10)
         .map(|p| p.len())
         .collect();
     lengths.sort_unstable();
-    let median = if lengths.is_empty() { 80 } else { lengths[lengths.len() / 2] };
+    let median = if lengths.is_empty() {
+        80
+    } else {
+        lengths[lengths.len() / 2]
+    };
 
     let mut result = String::new();
     let mut current_para = String::new();
@@ -300,7 +337,10 @@ fn post_process_pdf_html(html: &str, warnings: &mut Vec<String>) -> String {
         // Keep extracted image tags as block elements (not escaped text inside <p>)
         if IMG_RE.is_match(plain) {
             if !current_para.is_empty() {
-                result.push_str(&format!("  <p>{}</p>\n", super::epub_writer::escape_xml(current_para.trim())));
+                result.push_str(&format!(
+                    "  <p>{}</p>\n",
+                    super::oeb::escape_xml(current_para.trim())
+                ));
                 current_para.clear();
             }
             result.push_str("  ");
@@ -317,10 +357,13 @@ fn post_process_pdf_html(html: &str, warnings: &mut Vec<String>) -> String {
 
         if is_heading {
             if !current_para.is_empty() {
-                result.push_str(&format!("  <p>{}</p>\n", super::epub_writer::escape_xml(current_para.trim())));
+                result.push_str(&format!(
+                    "  <p>{}</p>\n",
+                    super::oeb::escape_xml(current_para.trim())
+                ));
                 current_para.clear();
             }
-            result.push_str(&format!("  <h2>{}</h2>\n", super::epub_writer::escape_xml(plain)));
+            result.push_str(&format!("  <h2>{}</h2>\n", super::oeb::escape_xml(plain)));
             continue;
         }
 
@@ -335,14 +378,20 @@ fn post_process_pdf_html(html: &str, warnings: &mut Vec<String>) -> String {
             current_para.push_str(plain);
         } else {
             if !current_para.is_empty() {
-                result.push_str(&format!("  <p>{}</p>\n", super::epub_writer::escape_xml(current_para.trim())));
+                result.push_str(&format!(
+                    "  <p>{}</p>\n",
+                    super::oeb::escape_xml(current_para.trim())
+                ));
             }
             current_para = plain.to_string();
         }
     }
 
     if !current_para.is_empty() {
-        result.push_str(&format!("  <p>{}</p>\n", super::epub_writer::escape_xml(current_para.trim())));
+        result.push_str(&format!(
+            "  <p>{}</p>\n",
+            super::oeb::escape_xml(current_para.trim())
+        ));
     }
 
     let _ = warnings; // Used by caller
@@ -354,8 +403,11 @@ fn post_process_pdf_html(html: &str, warnings: &mut Vec<String>) -> String {
 // ──────────────────────────────────────────────────────────────────────────
 
 fn split_pdf_chapters(html: &str) -> Vec<(String, String)> {
-    static HEADING_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?i)<h[1-6][^>]*>(.*?)</h[1-6]>").unwrap());
-    static PARA_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?is)<p[^>]*>(.*?)</p>").unwrap());
+    static HEADING_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
+        regex::Regex::new(r"(?i)<h[1-6][^>]*>(.*?)</h[1-6]>").unwrap()
+    });
+    static PARA_RE: once_cell::sync::Lazy<regex::Regex> =
+        once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?is)<p[^>]*>(.*?)</p>").unwrap());
 
     let mut chapters: Vec<(String, String)> = Vec::new();
     let mut current_title = "Document".to_string();
@@ -369,13 +421,13 @@ fn split_pdf_chapters(html: &str) -> Vec<(String, String)> {
             let title = utils::strip_html_tags(&cap[1]).trim().to_string();
             if !title.is_empty() {
                 heading_title = Some(title.clone());
-                heading_line = Some(format!("  <h2>{}</h2>", super::epub_writer::escape_xml(&title)));
+                heading_line = Some(format!("  <h2>{}</h2>", super::oeb::escape_xml(&title)));
             }
         } else if let Some(cap) = PARA_RE.captures(line) {
             let candidate = utils::strip_html_tags(&cap[1]).trim().to_string();
             if utils::looks_like_heading(&candidate) {
                 heading_title = Some(candidate.clone());
-                heading_line = Some(format!("  <h2>{}</h2>", super::epub_writer::escape_xml(&candidate)));
+                heading_line = Some(format!("  <h2>{}</h2>", super::oeb::escape_xml(&candidate)));
             }
         }
 
@@ -400,7 +452,10 @@ fn split_pdf_chapters(html: &str) -> Vec<(String, String)> {
 
     // If no chapters detected, split every ~10 pages worth of content
     if chapters.len() <= 1 && html.len() > 50000 {
-        let single = chapters.into_iter().next().unwrap_or(("Document".to_string(), html.to_string()));
+        let single = chapters
+            .into_iter()
+            .next()
+            .unwrap_or(("Document".to_string(), html.to_string()));
         let lines: Vec<&str> = single.1.lines().collect();
         let chunk_size = (lines.len() / 10).max(50);
         let mut new_chapters = Vec::new();
@@ -467,8 +522,11 @@ fn rewrite_img_srcs(html: String, map: &[(String, String)]) -> String {
         }
     }
 
-    static IMG_TAG_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?is)<img\b[^>]*>").unwrap());
-    static SRC_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r#"(?i)\bsrc\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>]+))"#).unwrap());
+    static IMG_TAG_RE: once_cell::sync::Lazy<regex::Regex> =
+        once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?is)<img\b[^>]*>").unwrap());
+    static SRC_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
+        regex::Regex::new(r#"(?i)\bsrc\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>]+))"#).unwrap()
+    });
 
     IMG_TAG_RE
         .replace_all(&html, |caps: &regex::Captures| {
@@ -577,5 +635,4 @@ mod tests {
         let out = post_process_pdf_html(html, &mut warnings);
         assert!(out.contains("<img"));
     }
-
 }

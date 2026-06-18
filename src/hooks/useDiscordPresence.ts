@@ -46,7 +46,14 @@ export function useDiscordPresence() {
           retryCountRef.current = 0;
           logger.info('Connected to Discord RPC');
         }
-      } catch (e) {
+      } catch (e: any) {
+        const errorMessage = typeof e === 'string' ? e : (e.message || JSON.stringify(e));
+        if (errorMessage.includes('IPC socket') || errorMessage.includes('failed to find IPC socket')) {
+          logger.debug('Discord RPC: Discord not running (no IPC socket found).');
+          connectingRef.current = false;
+          return;
+        }
+
         logger.error('Failed to connect to Discord RPC:', e);
         if (mountedRef.current && retryCountRef.current < MAX_RETRY_ATTEMPTS) {
           retryCountRef.current += 1;

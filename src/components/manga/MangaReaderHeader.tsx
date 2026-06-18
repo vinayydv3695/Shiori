@@ -118,7 +118,15 @@ export function MangaReaderHeader({
         const currentIndex = onlineSource.chapters.findIndex(c => c.id === onlineSource.chapterId);
         if (currentIndex === -1) return;
 
-        const nextIndex = direction === 'next' ? currentIndex - 1 : currentIndex + 1; // Assuming 0 is latest
+                const isDescending = onlineSource.chapters.length >= 2 && 
+            (onlineSource.chapters[0].number ?? 0) > (onlineSource.chapters[onlineSource.chapters.length - 1].number ?? 0);
+        
+        let nextIndex;
+        if (isDescending) {
+            nextIndex = direction === 'next' ? currentIndex - 1 : currentIndex + 1;
+        } else {
+            nextIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
+        }
         const targetChapter = onlineSource.chapters[nextIndex];
 
         if (targetChapter) {
@@ -134,8 +142,10 @@ export function MangaReaderHeader({
         }
     };
 
-    const hasNextChapter = onlineSource && onlineSource.chapters.findIndex(c => c.id === onlineSource.chapterId) > 0;
-    const hasPrevChapter = onlineSource && onlineSource.chapters.findIndex(c => c.id === onlineSource.chapterId) < onlineSource.chapters.length - 1;
+        const currentIndex = onlineSource ? onlineSource.chapters.findIndex(c => c.id === onlineSource.chapterId) : -1;
+    const isDescending = onlineSource && onlineSource.chapters.length >= 2 && (onlineSource.chapters[0].number ?? 0) > (onlineSource.chapters[onlineSource.chapters.length - 1].number ?? 0);
+    const hasNextChapter = onlineSource && currentIndex !== -1 && (isDescending ? currentIndex > 0 : currentIndex < onlineSource.chapters.length - 1);
+    const hasPrevChapter = onlineSource && currentIndex !== -1 && (isDescending ? currentIndex < onlineSource.chapters.length - 1 : currentIndex > 0);
 
     // Use existing CSS variables and classes from manga-reader.css
     return (

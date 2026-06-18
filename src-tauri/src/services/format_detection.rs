@@ -1,11 +1,10 @@
 /// Format Detection Service - Detects book formats using magic bytes and content inspection
-/// 
+///
 /// This service provides robust format detection with three stages:
 /// 1. Extension check (fast path)
 /// 2. Magic byte verification
 /// 3. Deep content inspection
-
-use crate::services::format_adapter::{FormatError, FormatInfo, FormatResult, DetectionMethod};
+use crate::services::format_adapter::{DetectionMethod, FormatError, FormatInfo, FormatResult};
 use std::collections::HashMap;
 use std::io::Read;
 use std::path::Path;
@@ -55,52 +54,53 @@ pub async fn detect_format(path: &Path) -> FormatResult<FormatInfo> {
             }
         }
     }
-    
+
     // Stage 3: Deep content inspection
     let magic = read_magic_bytes(path, 512).await?;
-    
+
     // PDF check
     if magic.starts_with(MAGIC_PDF) {
         let mut info = FormatInfo::pdf();
         info.detected_by = DetectionMethod::MagicBytes;
         return Ok(info);
     }
-    
+
     // ZIP-based formats (EPUB, DOCX, CBZ)
     if magic.starts_with(MAGIC_ZIP) {
         let format_info = classify_zip_format(path).await?;
         return Ok(format_info);
     }
-    
+
     // MOBI/AZW3 check (magic bytes at offset 60)
     if magic.len() >= 68 && &magic[60..68] == MAGIC_MOBI {
         let format_info = classify_mobi_format(path).await?;
         return Ok(format_info);
     }
-    
+
     // XML-based formats (FB2, HTML)
     if magic.starts_with(MAGIC_XML) {
         let format_info = classify_xml_format(&magic).await?;
         return Ok(format_info);
     }
-    
+
     // HTML check
     if magic.starts_with(MAGIC_HTML_DOCTYPE) || magic.starts_with(MAGIC_HTML_TAG) {
         let mut info = FormatInfo::html();
         info.detected_by = DetectionMethod::ContentInspection;
         return Ok(info);
     }
-    
+
     // Text file check (UTF-8 validation)
     if is_valid_utf8(&magic) && is_text_like(&magic) {
         let mut info = FormatInfo::txt();
         info.detected_by = DetectionMethod::ContentInspection;
         return Ok(info);
     }
-    
-    Err(FormatError::UnsupportedFormat(
-        format!("Could not detect format for file: {}", path.display())
-    ))
+
+    Err(FormatError::UnsupportedFormat(format!(
+        "Could not detect format for file: {}",
+        path.display()
+    )))
 }
 
 /// Get file extension in lowercase
@@ -122,7 +122,7 @@ async fn read_magic_bytes(path: &Path, num_bytes: usize) -> FormatResult<Vec<u8>
 /// Verify magic bytes for a specific format
 async fn verify_magic_bytes(path: &Path, format: &str) -> FormatResult<bool> {
     let magic = read_magic_bytes(path, 512).await?;
-    
+
     let is_valid = match format {
         "pdf" => magic.starts_with(MAGIC_PDF),
         "epub" | "docx" | "cbz" => {
@@ -137,87 +137,88 @@ async fn verify_magic_bytes(path: &Path, format: &str) -> FormatResult<bool> {
             // FB2 is XML with FictionBook root
             magic.starts_with(MAGIC_XML)
         }
-        "html" => {
-            magic.starts_with(MAGIC_HTML_DOCTYPE) || magic.starts_with(MAGIC_HTML_TAG)
-        }
+        "html" => magic.starts_with(MAGIC_HTML_DOCTYPE) || magic.starts_with(MAGIC_HTML_TAG),
         "txt" => {
             // Text files should be valid UTF-8
             is_valid_utf8(&magic)
         }
         _ => false,
     };
-    
+
     Ok(is_valid)
 }
 
 /// Classify ZIP-based formats (EPUB, DOCX, CBZ)
 async fn classify_zip_format(path: &Path) -> FormatResult<FormatInfo> {
-    
     use std::io::Cursor;
-    
+
     let file_data = tokio::fs::read(path).await?;
     let cursor = Cursor::new(file_data);
-    
+
     let mut archive = zip::ZipArchive::new(cursor)
         .map_err(|e| FormatError::InvalidFormat(format!("Invalid ZIP: {}", e)))?;
-    
+
     // EPUB: contains "mimetype" file with "application/epub+zip"
     if let Ok(mut mimetype) = archive.by_name("mimetype") {
         let mut content = String::new();
-        mimetype.read_to_string(&mut content)
+        mimetype
+            .read_to_string(&mut content)
             .map_err(|e| FormatError::InvalidFormat(format!("Failed to read mimetype: {}", e)))?;
-        
+
         if content.trim().contains("epub") {
             let mut info = FormatInfo::epub();
             info.detected_by = DetectionMethod::ContentInspection;
             return Ok(info);
         }
     }
-    
+
     // DOCX: contains "[Content_Types].xml" and "word/document.xml"
-    if archive.by_name("[Content_Types].xml").is_ok() 
-        && archive.by_name("word/document.xml").is_ok() {
+    if archive.by_name("[Content_Types].xml").is_ok()
+        && archive.by_name("word/document.xml").is_ok()
+    {
         let mut info = FormatInfo::docx();
         info.detected_by = DetectionMethod::ContentInspection;
         return Ok(info);
     }
-    
+
     // CBZ: contains image files (jpg, png, webp)
     let has_images = (0..archive.len()).any(|i| {
         if let Ok(file) = archive.by_index(i) {
             let name = file.name().to_lowercase();
-            name.ends_with(".jpg") || name.ends_with(".jpeg") || 
-            name.ends_with(".png") || name.ends_with(".webp")
+            name.ends_with(".jpg")
+                || name.ends_with(".jpeg")
+                || name.ends_with(".png")
+                || name.ends_with(".webp")
         } else {
             false
         }
     });
-    
+
     if has_images {
         let mut info = FormatInfo::cbz();
         info.detected_by = DetectionMethod::ContentInspection;
         return Ok(info);
     }
-    
+
     Err(FormatError::UnsupportedFormat(
-        "ZIP file does not match EPUB, DOCX, or CBZ format".to_string()
+        "ZIP file does not match EPUB, DOCX, or CBZ format".to_string(),
     ))
 }
 
 /// Classify MOBI vs AZW3 format
 async fn classify_mobi_format(path: &Path) -> FormatResult<FormatInfo> {
     let magic = read_magic_bytes(path, 256).await?;
-    
+
     // Check for KF8 marker (AZW3)
     // KF8 books have "BOUNDARY" or "EXTH" after the MOBI header
     let content_str = String::from_utf8_lossy(&magic);
-    
+
     let format = if content_str.contains("BOUNDARY") || content_str.contains("KF8") {
         "azw3"
     } else {
         "mobi"
     };
-    
+
     let mut info = FormatInfo::new(format);
     info.detected_by = DetectionMethod::ContentInspection;
     Ok(info)
@@ -226,23 +227,23 @@ async fn classify_mobi_format(path: &Path) -> FormatResult<FormatInfo> {
 /// Classify XML-based formats (FB2, HTML)
 async fn classify_xml_format(magic: &[u8]) -> FormatResult<FormatInfo> {
     let content = String::from_utf8_lossy(magic);
-    
+
     // FB2: has <FictionBook> root element
     if content.contains("<FictionBook") || content.contains("<fictionbook") {
         let mut info = FormatInfo::fb2();
         info.detected_by = DetectionMethod::ContentInspection;
         return Ok(info);
     }
-    
+
     // Check if it's actually XHTML (treat as HTML)
     if content.contains("<html") || content.contains("<HTML") {
         let mut info = FormatInfo::html();
         info.detected_by = DetectionMethod::ContentInspection;
         return Ok(info);
     }
-    
+
     Err(FormatError::UnsupportedFormat(
-        "XML file does not match FB2 or XHTML format".to_string()
+        "XML file does not match FB2 or XHTML format".to_string(),
     ))
 }
 
@@ -256,15 +257,16 @@ fn is_text_like(bytes: &[u8]) -> bool {
     if bytes.is_empty() {
         return false;
     }
-    
+
     // Count printable characters
-    let printable_count = bytes.iter()
+    let printable_count = bytes
+        .iter()
         .filter(|&&b| {
             // Printable ASCII + whitespace + UTF-8 continuation bytes
             (b >= 32 && b <= 126) || b == 9 || b == 10 || b == 13 || b >= 128
         })
         .count();
-    
+
     // At least 95% should be printable/whitespace
     let ratio = printable_count as f32 / bytes.len() as f32;
     ratio >= 0.95
@@ -275,25 +277,26 @@ mod tests {
     use super::*;
     use std::io::Write;
     use tempfile::NamedTempFile;
-    
+
     #[tokio::test]
     async fn test_detect_pdf() {
         let mut file = NamedTempFile::new().unwrap();
         file.write_all(b"%PDF-1.7\n%\xE2\xE3\xCF\xD3\n").unwrap();
-        
+
         let result = detect_format(file.path()).await.unwrap();
         assert_eq!(result.format, "pdf");
     }
-    
+
     #[tokio::test]
     async fn test_detect_text() {
         let mut file = NamedTempFile::new().unwrap();
-        file.write_all(b"This is a plain text file.\nWith multiple lines.").unwrap();
-        
+        file.write_all(b"This is a plain text file.\nWith multiple lines.")
+            .unwrap();
+
         let result = detect_format(file.path()).await.unwrap();
         assert_eq!(result.format, "txt");
     }
-    
+
     #[test]
     fn test_is_text_like() {
         assert!(is_text_like(b"Hello, world!"));

@@ -1,4 +1,4 @@
-use crate::error::{ShioriError, Result};
+use crate::error::{Result, ShioriError};
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -98,7 +98,7 @@ fn verify_format_with_magic(path: &Path, format: &BookFormat) -> Result<bool> {
     let mut file = File::open(path)?;
     let mut buffer = vec![0u8; 512];
     let bytes_read = file.read(&mut buffer)?;
-    
+
     if bytes_read == 0 {
         return Ok(false);
     }
@@ -118,14 +118,16 @@ fn verify_format_with_magic(path: &Path, format: &BookFormat) -> Result<bool> {
         BookFormat::Cbz => Ok(buffer.starts_with(ZIP_MAGIC)),
         BookFormat::Mobi | BookFormat::Azw3 => {
             // MOBI files often start with these bytes
-            Ok(buffer.len() >= 68 
-                && &buffer[60..68] == b"BOOKMOBI" 
-                || buffer.starts_with(b"TPZ"))
+            Ok(buffer.len() >= 68 && &buffer[60..68] == b"BOOKMOBI" || buffer.starts_with(b"TPZ"))
         }
         BookFormat::Txt => {
             // Text files should be mostly valid UTF-8
             let sample = String::from_utf8_lossy(&buffer[..bytes_read.min(512)]);
-            Ok(sample.chars().filter(|c| c.is_control() && *c != '\n' && *c != '\r' && *c != '\t').count() < bytes_read / 10)
+            Ok(sample
+                .chars()
+                .filter(|c| c.is_control() && *c != '\n' && *c != '\r' && *c != '\t')
+                .count()
+                < bytes_read / 10)
         }
         BookFormat::Cbr => {
             // CBR files are RAR archives
@@ -173,7 +175,10 @@ fn detect_format_from_magic(path: &Path) -> Result<String> {
 
     // Check if it's text
     let sample = String::from_utf8_lossy(&buffer[..bytes_read.min(512)]);
-    let control_chars = sample.chars().filter(|c| c.is_control() && *c != '\n' && *c != '\r' && *c != '\t').count();
+    let control_chars = sample
+        .chars()
+        .filter(|c| c.is_control() && *c != '\n' && *c != '\r' && *c != '\t')
+        .count();
     if control_chars < bytes_read / 10 {
         return Ok("txt".to_string());
     }
@@ -185,12 +190,11 @@ fn detect_format_from_magic(path: &Path) -> Result<String> {
 
 /// Validate book file integrity based on format
 pub async fn validate_file_integrity(path: &Path, format: &str) -> Result<bool> {
-    let format_enum = BookFormat::from_str(format).ok_or_else(|| {
-        ShioriError::UnsupportedFormat {
+    let format_enum =
+        BookFormat::from_str(format).ok_or_else(|| ShioriError::UnsupportedFormat {
             format: format.to_string(),
             path: path.to_string_lossy().to_string(),
-        }
-    })?;
+        })?;
 
     match format_enum {
         BookFormat::Epub => validate_epub(path),
@@ -204,7 +208,7 @@ pub async fn validate_file_integrity(path: &Path, format: &str) -> Result<bool> 
 
 fn validate_epub(path: &Path) -> Result<bool> {
     use epub::doc::EpubDoc;
-    
+
     match EpubDoc::new(path) {
         Ok(_doc) => Ok(true),
         Err(e) => Err(ShioriError::CorruptedEpub {
@@ -216,7 +220,7 @@ fn validate_epub(path: &Path) -> Result<bool> {
 
 fn validate_pdf(path: &Path) -> Result<bool> {
     use lopdf::Document;
-    
+
     match Document::load(path) {
         Ok(_doc) => Ok(true),
         Err(e) => Err(ShioriError::CorruptedPdf {
@@ -243,7 +247,7 @@ fn validate_mobi(path: &Path) -> Result<bool> {
 
 fn validate_cbz(path: &Path) -> Result<bool> {
     use zip::ZipArchive;
-    
+
     let file = File::open(path)?;
     match ZipArchive::new(file) {
         Ok(mut archive) => {
@@ -251,14 +255,16 @@ fn validate_cbz(path: &Path) -> Result<bool> {
             let has_images = (0..archive.len()).any(|i| {
                 if let Ok(file) = archive.by_index(i) {
                     let name = file.name().to_lowercase();
-                    name.ends_with(".jpg") || name.ends_with(".jpeg") 
-                        || name.ends_with(".png") || name.ends_with(".gif")
+                    name.ends_with(".jpg")
+                        || name.ends_with(".jpeg")
+                        || name.ends_with(".png")
+                        || name.ends_with(".gif")
                         || name.ends_with(".webp")
                 } else {
                     false
                 }
             });
-            
+
             if has_images {
                 Ok(true)
             } else {
@@ -267,7 +273,10 @@ fn validate_cbz(path: &Path) -> Result<bool> {
                 ))
             }
         }
-        Err(e) => Err(ShioriError::InvalidFormat(format!("Invalid CBZ file: {}", e))),
+        Err(e) => Err(ShioriError::InvalidFormat(format!(
+            "Invalid CBZ file: {}",
+            e
+        ))),
     }
 }
 

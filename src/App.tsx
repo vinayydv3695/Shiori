@@ -1,7 +1,8 @@
 import { useEffect, useState, lazy, Suspense, useCallback } from "react"
 import { flushSync } from "react-dom"
+import { GlobalDialogs } from "./components/GlobalDialogs"
+import { ViewRouter } from "./components/ViewRouter"
 import { Layout } from "./components/layout/Layout"
-import { LibraryGrid } from "./components/library/LibraryGrid"
 import { ToastContainer } from "./components/ui/ToastContainer"
 import { DevBanner } from "./components/DevBanner"
 import { SectionErrorBoundary } from "./components/ErrorBoundary"
@@ -17,32 +18,10 @@ import { useBookActions } from "./hooks/useBookActions"
 import { useLibraryFilter } from "./hooks/useLibraryFilter"
 import { api } from "./lib/tauri"
 import { useDiscordRPCUpdater } from "./hooks/useDiscordRPCUpdater"
-import { ShortcutsDialog } from "./components/dialogs/ShortcutsDialog"
 import { useOnlineSearchStore } from "./store/onlineSearchStore"
-import { CommandPalette } from "./components/CommandPalette"
-import { ResumeReadingDialog } from "./components/reader/ResumeReadingDialog"
 
 const ReaderLayout = lazy(() => import("./components/reader/ReaderLayout").then(m => ({ default: m.ReaderLayout })))
-const EditMetadataDialog = lazy(() => import("./components/library/EditMetadataDialog").then(m => ({ default: m.EditMetadataDialog })))
-const DeleteBookDialog = lazy(() => import("./components/library/DeleteBookDialog").then(m => ({ default: m.DeleteBookDialog })))
-const SettingsDialog = lazy(() => import("./components/settings/SettingsDialog").then(m => ({ default: m.SettingsDialog })))
-const BookDetailsDialog = lazy(() => import("./components/library/BookDetailsDialog").then(m => ({ default: m.BookDetailsDialog })))
-const ConversionDialog = lazy(() => import("./components/conversion/ConversionDialog").then(m => ({ default: m.ConversionDialog })))
-const AutoConvertDialog = lazy(() => import("./components/conversion/AutoConvertDialog").then(m => ({ default: m.AutoConvertDialog })))
-const ConversionJobTracker = lazy(() => import("./components/conversion/ConversionJobTracker"))
-const MetadataSearchDialog = lazy(() => import("./components/library/MetadataSearchDialog").then(m => ({ default: m.MetadataSearchDialog })))
-const RSSFeedManager = lazy(() => import("./components/rss/RSSFeedManager"))
-const RSSArticleList = lazy(() => import("./components/rss/RSSArticleList"))
 const OnboardingWizard = lazy(() => import("./components/onboarding/OnboardingWizard").then(m => ({ default: m.OnboardingWizard })))
-const HomePage = lazy(() => import("./components/home/HomePage").then(m => ({ default: m.HomePage })))
-const AnnotationsView = lazy(() => import("./components/annotations/AnnotationsView").then(m => ({ default: m.AnnotationsView })))
-const StatisticsView = lazy(() => import("./components/statistics/StatisticsView").then(m => ({ default: m.StatisticsView })))
-const SeriesView = lazy(() => import("./components/library/SeriesView").then(m => ({ default: m.SeriesView })))
-const AdvancedFilterDialog = lazy(() => import("./components/library/AdvancedFilterDialog").then(m => ({ default: m.AdvancedFilterDialog })))
-const OnlineBooksView = lazy(() => import("./components/online/OnlineBooksView").then(m => ({ default: m.OnlineBooksView })))
-const OnlineMangaView = lazy(() => import("./components/online/OnlineMangaView").then(m => ({ default: m.OnlineMangaView })))
-const OnlineMangaReader = lazy(() => import("./components/online/OnlineMangaReader").then(m => ({ default: m.OnlineMangaReader })))
-const TorboxControlCenter = lazy(() => import("./components/TorboxControlCenter"))
 
 const LoadingSpinner = ({ className = "h-screen" }: { className?: string }) => (
   <div className={`flex items-center justify-center ${className}`}>
@@ -206,204 +185,35 @@ function App() {
         currentDomain={currentDomain}
         onDomainChange={handleDomainChange}
       >
-        {currentView === 'home' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}>
-            <HomePage onOpenBook={handleOpenBook} onViewRSS={() => handleNavigate('rss-articles')} />
-          </Suspense>
-        )}
-
-        {currentView === 'rss-feeds' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}>
-            <RSSFeedManager onClose={() => handleNavigate('library')} />
-          </Suspense>
-        )}
-
-        {currentView === 'rss-articles' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}>
-            <RSSArticleList onClose={() => handleNavigate('library')} />
-          </Suspense>
-        )}
-
-        {currentView === 'library' && (
-          <SectionErrorBoundary label="Library">
-            <LibraryGrid
-              books={displayBooks}
-              currentDomain={currentDomain}
-              onBookClick={handleOpenBook}
-              onViewDetails={handleViewDetails}
-              onEditBook={handleEditBook}
-              onDeleteBook={handleDeleteBook}
-              onConvertBook={handleConvertBook}
-              onViewSeries={dialogs.openSeriesView}
-            />
-          </SectionErrorBoundary>
-        )}
-
-        {currentView === 'annotations' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}>
-            <AnnotationsView 
-              onClose={() => handleNavigate('library')} 
-              onOpenBook={handleOpenBook}
-            />
-          </Suspense>
-        )}
-
-        {currentView === 'statistics' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}>
-            <StatisticsView onClose={() => handleNavigate('library')} />
-          </Suspense>
-        )}
-
-        {currentView === 'online-books' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}><OnlineBooksView /></Suspense>
-        )}
-
-        {currentView === 'online-manga' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}><OnlineMangaView /></Suspense>
-        )}
-
-        {currentView === 'online-manga-reader' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}><OnlineMangaReader /></Suspense>
-        )}
-
-        {currentView === 'torbox-discover' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}><TorboxControlCenter initialTab="discover" /></Suspense>
-        )}
-
-        {currentView === 'torbox-books' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}><TorboxControlCenter initialTab="books" /></Suspense>
-        )}
-
-        {currentView === 'torbox-manga' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}><TorboxControlCenter initialTab="manga" /></Suspense>
-        )}
+        <ViewRouter
+          currentView={currentView}
+          currentDomain={currentDomain}
+          displayBooks={displayBooks}
+          handleNavigate={handleNavigate}
+          handleOpenBook={handleOpenBook}
+          handleViewDetails={handleViewDetails}
+          handleEditBook={handleEditBook}
+          handleDeleteBook={handleDeleteBook}
+          handleConvertBook={handleConvertBook}
+          dialogs={dialogs}
+        />
       </Layout>
 
-      {/* Global Overlays */}
-      <Suspense fallback={null}><ConversionJobTracker /></Suspense>
-      <ToastContainer />
-
-      {/* Dialogs */}
-      {dialogs.dialogBookId !== null && (
-        <Suspense fallback={null}>
-          <EditMetadataDialog open={dialogs.editDialogOpen} onOpenChange={dialogs.setEditDialogOpen} bookId={dialogs.dialogBookId} />
-        </Suspense>
-      )}
-
-      <Suspense fallback={null}>
-        <DeleteBookDialog
-          open={dialogs.deleteDialogOpen}
-          onOpenChange={(open) => { dialogs.setDeleteDialogOpen(open); if (!open) clearSelection() }}
-          bookIds={dialogs.deleteBookIds}
-          bookTitle={dialogs.dialogBookTitle}
-        />
-      </Suspense>
-
-      <Suspense fallback={null}>
-        <MetadataSearchDialog
-          open={dialogs.batchMetadataDialogOpen}
-          onOpenChange={(open) => {
-            dialogs.setBatchMetadataDialogOpen(open)
-            if (!open) { dialogs.setBatchMetadataBookIds([]); loadInitialBooks() }
-          }}
-          bookIds={dialogs.batchMetadataBookIds}
-          onMetadataSelected={() => loadInitialBooks()}
-        />
-      </Suspense>
-
-      {dialogs.dialogBookId !== null && (
-        <Suspense fallback={null}>
-          <BookDetailsDialog
-            open={dialogs.detailsDialogOpen}
-            onOpenChange={dialogs.setDetailsDialogOpen}
-            bookId={dialogs.dialogBookId}
-            onEdit={() => { dialogs.setDetailsDialogOpen(false); dialogs.setEditDialogOpen(true) }}
-            onDelete={() => {
-              const book = books.find(b => b.id === dialogs.dialogBookId)
-              dialogs.openDeleteDialog(dialogs.dialogBookId!, book?.title || "this book")
-              dialogs.setDetailsDialogOpen(false)
-            }}
-            onRead={() => { dialogs.setDetailsDialogOpen(false); handleOpenBook(dialogs.dialogBookId!) }}
-          />
-        </Suspense>
-      )}
-
-      <Suspense fallback={null}>
-        <SettingsDialog open={dialogs.settingsDialogOpen} onOpenChange={dialogs.setSettingsDialogOpen} />
-      </Suspense>
-
-      {/* Auto-Convert on Open dialog */}
-      {autoConvert.pendingBook && (
-        <Suspense fallback={null}>
-          <AutoConvertDialog
-            isOpen={autoConvert.showDialog}
-            onOpenChange={autoConvert.onDialogOpenChange}
-            bookTitle={autoConvert.pendingBook.title}
-            currentFormat={autoConvert.pendingBook.file_format}
-            onConfirm={autoConvert.onConfirm}
-            onCancel={autoConvert.onCancel}
-            isConverting={autoConvert.isConverting}
-          />
-        </Suspense>
-      )}
-
-      {/* Resume-Reading prompt */}
-      {resumeReading.pendingResume && (
-        <ResumeReadingDialog
-          isOpen={resumeReading.showDialog}
-          onOpenChange={resumeReading.onDialogOpenChange}
-          bookTitle={resumeReading.pendingResume.bookTitle}
-          progressPercent={resumeReading.pendingResume.progress.progressPercent}
-          locationLabel={resumeReading.buildLocationLabel(resumeReading.pendingResume.progress)}
-          onResume={resumeReading.onResume}
-          onStartOver={resumeReading.onStartOver}
-        />
-      )}
-
-      {dialogs.dialogBookId !== null && (
-        <Suspense fallback={null}>
-          <ConversionDialog open={dialogs.conversionDialogOpen} onOpenChange={dialogs.setConversionDialogOpen} bookId={dialogs.dialogBookId} />
-        </Suspense>
-      )}
-
-      {dialogs.selectedSeries && (
-        <Suspense fallback={null}>
-          <SeriesView
-            series={dialogs.selectedSeries}
-            isOpen={dialogs.seriesViewOpen}
-            onClose={() => dialogs.setSeriesViewOpen(false)}
-            onSelectBook={() => {}}
-            onOpenBook={handleOpenBook}
-            onViewDetailsBook={handleViewDetails}
-            onEditBook={handleEditBook}
-            onDeleteBook={handleDeleteBook}
-            onConvertBook={handleConvertBook}
-            onFavoriteBook={async (id) => {
-              await api.toggleBookFavorite(id)
-              useLibraryStore.getState().toggleFavorite(id)
-            }}
-            selectedBookIds={new Set()}
-            favoritedBookIds={useLibraryStore.getState().favoriteBookIds}
-          />
-        </Suspense>
-      )}
-
-      <Suspense fallback={null}>
-        <AdvancedFilterDialog open={dialogs.advancedFilterOpen} onOpenChange={dialogs.setAdvancedFilterOpen} />
-      </Suspense>
-
-      <ShortcutsDialog open={dialogs.shortcutsDialogOpen} onOpenChange={dialogs.setShortcutsDialogOpen} />
-      
-      <CommandPalette 
+      {/* Global Dialogs */}
+      <GlobalDialogs
         books={books}
-        onOpenBook={handleOpenBook}
-        onImportFiles={() => {/* The Toolbar handles this, but we can trigger it via DOM or store if needed. 
-                                For now, we omit it or call a global import function */}}
-        onSettings={() => dialogs.setSettingsDialogOpen(true)}
-        onFetchMetadata={() => {}}
-        onFindDuplicates={() => {}}
+        dialogs={dialogs}
+        autoConvert={autoConvert}
+        resumeReading={resumeReading}
+        handleOpenBook={handleOpenBook}
+        handleViewDetails={handleViewDetails}
+        handleEditBook={handleEditBook}
+        handleDeleteBook={handleDeleteBook}
+        handleConvertBook={handleConvertBook}
+        clearSelection={clearSelection}
+        loadInitialBooks={loadInitialBooks}
       />
-    </>
+      </>
   )
 }
 

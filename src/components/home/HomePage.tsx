@@ -15,7 +15,7 @@ import { useMemo, useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   BookOpen, Clock, Sparkles, Rss, ArrowRight,
-  ListOrdered, Activity, HardDrive, Heart, History, CheckCircle2, PauseCircle, Globe, Search
+  ListOrdered, Activity, HardDrive, Heart, History, CheckCircle2, PauseCircle, Globe, Search, BarChart2
 } from 'lucide-react'
 import { HomeSection, ScrollStrip } from './HomeSection'
 import { ContinueReadingCard, RecentlyAddedCard } from './ContinueReadingCard'
@@ -29,7 +29,15 @@ import { api } from '@/lib/tauri'
 import { formatFileSize } from '@/lib/utils'
 
 // ── Shared constant ──────────────────────────────
-const MANGA_FORMATS = ['cbz', 'cbr']
+const MANGA_FORMATS = ['cbz', 'cbr', 'zip']
+
+const isMangaDomain = (b: any) => {
+  if (b.domain) {
+    return ['manga', 'comics', 'manga_comics'].includes(b.domain);
+  }
+  const fmt = b.file_format?.toLowerCase() || '';
+  return MANGA_FORMATS.includes(fmt);
+}
 
 // ── Animation variants ───────────────────────────
 const containerVariants = {
@@ -206,6 +214,7 @@ interface HomePageProps {
 export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
   const [libraryStats, setLibraryStats] = useState<{total_books: number, total_manga: number, total_size_bytes: number} | null>(null);
   const favoriteBookIds = useLibraryStore(s => s.favoriteBookIds)
+  const libraryBooks = useLibraryStore(s => s.books)
   const currentDomain = useUIStore(state => state.currentDomain);
   const setCurrentView = useUIStore(state => state.setCurrentView);
   const [progressMap, setProgressMap] = useState<Record<number, ReadingProgress>>({})
@@ -213,9 +222,9 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
   const [onHoldBooks, setOnHoldBooks] = useState<Book[]>([])
   const [continueReading, setContinueReading] = useState<Book[]>([])
   const [recentlyAdded, setRecentlyAdded] = useState<Book[]>([])
+  const [recommendedBooks, setRecommendedBooks] = useState<Book[]>([])
   const [favoriteBooks, setFavoriteBooks] = useState<Book[]>([])
   const [lastReadBooks, setLastReadBooks] = useState<Book[]>([])
-  const [recommendedBooks, setRecommendedBooks] = useState<Book[]>([])
   const [allInProgress, setAllInProgress] = useState<number>(0)
 
 
@@ -234,8 +243,7 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
       // 2. Continue Reading (Reading Status)
       const readingBooks = await api.getBooksByReadingStatus('reading', 50, 0);
       const domainReading = readingBooks.filter(b => 
-        domain === 'manga_comics' ? MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '') 
-                                  : !MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '')
+        domain === 'manga_comics' ? isMangaDomain(b) : !isMangaDomain(b)
       ).sort((a, b) => {
         const dateA = a.last_opened ? new Date(a.last_opened).getTime() : 0
         const dateB = b.last_opened ? new Date(b.last_opened).getTime() : 0
@@ -247,15 +255,18 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
       const favBooksPromises = favIds.slice(0, 30).map(id => api.getBook(id).catch(() => null));
       const favsResolved = (await Promise.all(favBooksPromises)).filter(Boolean) as Book[];
       const domainFavs = favsResolved.filter(b => 
-        domain === 'manga_comics' ? MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '') 
-                                  : !MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '')
+        domain === 'manga_comics' ? isMangaDomain(b) : !isMangaDomain(b)
       );
 
-      // 4. Completed & On Hold
-      const [completed, onHold] = await Promise.all([
+      // 4. Completed, On Hold & Recommended
+      const [completed, onHold, recommended] = await Promise.all([
         api.getBooksByReadingStatus('completed', 12, 0),
         api.getBooksByReadingStatus('on_hold', 12, 0),
+        api.getRecommendedBooks(15)
       ]);
+      const domainRecommended = (recommended as unknown as Book[]).filter(b =>
+        domain === 'manga_comics' ? isMangaDomain(b) : !isMangaDomain(b)
+      );;
 
       // 5. Reading Progress Map
       const bookIdsToFetch = [...domainReading, ...recent, ...domainFavs].slice(0, 30).map(b => b.id!);
@@ -275,19 +286,14 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
       setAllInProgress(readingBooks.length);
       setLastReadBooks(domainReading.slice(0, 12));
       setFavoriteBooks(domainFavs.slice(0, 12));
-      setCompletedBooks(completed.filter(b => 
-        domain === 'manga_comics' ? MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '') 
-                                  : !MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '')
-      ));
-      setOnHoldBooks(onHold.filter(b => 
-        domain === 'manga_comics' ? MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '') 
-                                  : !MANGA_FORMATS.includes(b.file_format?.toLowerCase() || '')
-      ));
+      setRecommendedBooks(domainRecommended);
+      setCompletedBooks(completed.filter(b => domain === 'manga_comics' ? isMangaDomain(b) : !isMangaDomain(b)));
+      setOnHoldBooks(onHold.filter(b => domain === 'manga_comics' ? isMangaDomain(b) : !isMangaDomain(b)));
       setProgressMap(map);
     } catch (err) {
       logger.error('Failed to load home data', err);
     }
-  }, [domain]);
+  }, [domain, favoriteBookIds, libraryBooks, isMangaDomain]);
 
   useEffect(() => {
     loadHomeData();
@@ -387,19 +393,24 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
           <div className="flex flex-col gap-4 mt-2">
             <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
               <span className="text-muted-foreground font-medium text-sm">Total {domain === 'manga_comics' ? 'Manga' : 'Books'}</span>
-              <span className="font-bold text-lg">{domain === 'manga_comics' ? (libraryStats?.total_manga || 0) : (libraryStats?.total_books || 0)}</span>
+              <span className="font-bold text-lg tabular-nums tracking-tight">{domain === 'manga_comics' ? (libraryStats?.total_manga || 0) : (libraryStats?.total_books || 0)}</span>
             </div>
             <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
               <span className="text-muted-foreground font-medium text-sm">In Progress</span>
-              <span className="font-bold text-lg text-primary">{allInProgress}</span>
+              <span className="font-bold text-lg text-primary tabular-nums tracking-tight">{allInProgress}</span>
             </div>
             <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
               <span className="text-muted-foreground font-medium text-sm">Library Size</span>
-              <span className="font-bold text-lg">{formatFileSize(libraryStats?.total_size_bytes || 0)}</span>
+              <span className="font-bold text-lg tabular-nums tracking-tight">{formatFileSize(libraryStats?.total_size_bytes || 0)}</span>
             </div>
-            <button onClick={handleViewLibrary} className="mt-2 w-full py-3 bg-primary/10 hover:bg-primary/20 text-primary font-bold rounded-xl transition-colors flex items-center justify-center gap-2">
-              Browse Library <ArrowRight size={16} />
-            </button>
+            <div className="flex gap-2 mt-2">
+              <button onClick={handleViewLibrary} className="flex-1 py-3 bg-primary/10 hover:bg-primary/20 text-primary font-bold rounded-xl transition-colors flex items-center justify-center gap-2">
+                Browse Library <ArrowRight size={16} />
+              </button>
+              <button onClick={() => setCurrentView('statistics')} className="px-4 py-3 bg-muted/50 hover:bg-muted text-foreground font-bold rounded-xl transition-colors flex items-center justify-center" title="View Detailed Statistics">
+                <BarChart2 size={18} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -415,7 +426,9 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
           <div className="bento-widget-content">
             {continueReading.slice(1, 4).map(book => (
               <div key={book.id} onClick={() => handleOpenBook(book)} className="bento-list-item">
-                <img src={convertFileSrc(book.cover_path || '')} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
+                <div className="bento-list-cover-wrapper">
+                  <img src={convertFileSrc(book.cover_path || '')} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
+                </div>
                 <div className="bento-list-info">
                   <span className="bento-list-title">{book.title}</span>
                   <span className="bento-list-meta">{progressMap[book.id!]?.progressPercent ?? 0}% completed</span>
@@ -441,7 +454,9 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
           <div className="bento-widget-content overflow-y-auto pr-2" style={{ maxHeight: '300px' }}>
             {recentlyAdded.slice(0, 5).map(book => (
               <div key={`recent-${book.id}`} onClick={() => handleOpenBook(book)} className="bento-list-item">
-                <img src={convertFileSrc(book.cover_path || '')} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
+                <div className="bento-list-cover-wrapper">
+                  <img src={convertFileSrc(book.cover_path || '')} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
+                </div>
                 <div className="bento-list-info">
                   <span className="bento-list-title">{book.title}</span>
                   <span className="bento-list-meta">Added to library</span>
@@ -456,20 +471,28 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
           </div>
         </div>
 
-        {/* Online Discovery */}
+        {/* Recommended */}
         <div className="bento-widget">
           <div className="bento-widget-header">
-            <h2 className="bento-widget-title"><Globe size={18} /> Online Discovery</h2>
+            <h2 className="bento-widget-title"><Sparkles size={18} /> Recommended</h2>
           </div>
-          <div className="flex flex-col gap-4 mt-4 h-full">
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Search and download directly from {domain === 'manga_comics' ? 'Nyaa' : 'Torbox'}.
-            </p>
-            <div className="mt-auto flex flex-col gap-2">
-              <button onClick={domain === 'manga_comics' ? handleViewOnlineManga : handleViewOnlineBooks} className="w-full py-3 bg-primary/10 hover:bg-primary/20 text-primary font-bold rounded-xl transition-colors flex items-center justify-center gap-2">
-                <Search size={16} /> Search Online
-              </button>
-            </div>
+          <div className="bento-widget-content overflow-y-auto pr-2" style={{ maxHeight: '300px' }}>
+            {recommendedBooks.slice(0, 5).map(book => (
+              <div key={`rec-${book.id}`} onClick={() => handleOpenBook(book)} className="bento-list-item">
+                <div className="bento-list-cover-wrapper">
+                  <img src={convertFileSrc(book.cover_path || '')} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
+                </div>
+                <div className="bento-list-info">
+                  <span className="bento-list-title">{book.title}</span>
+                  <span className="bento-list-meta">Suggested for you</span>
+                </div>
+              </div>
+            ))}
+            {recommendedBooks.length === 0 && (
+              <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+                Read more books to get recommendations.
+              </div>
+            )}
           </div>
         </div>
 
@@ -478,6 +501,18 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
       {/* ── ROW 3: COLLECTIONS ── */}
       <div className="bento-row collections-row">
         
+        {/* Online Discovery */}
+        <div className="bento-widget compact cursor-pointer hover:border-primary/50" onClick={domain === 'manga_comics' ? handleViewOnlineManga : handleViewOnlineBooks}>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+              <Globe size={24} />
+            </div>
+            <div>
+              <h3 className="font-bold text-foreground text-lg">Discovery</h3>
+              <p className="text-sm text-muted-foreground">Search and download</p>
+            </div>
+          </div>
+        </div>
         {/* Favorites */}
         <div className="bento-widget compact cursor-pointer hover:border-primary/50" onClick={handleViewLibrary}>
           <div className="flex items-center gap-4">
@@ -485,7 +520,7 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
               <Heart size={24} />
             </div>
             <div>
-              <h3 className="font-bold text-foreground text-lg">{favoriteBooks.length} Favorites</h3>
+              <h3 className="font-bold text-foreground text-lg tabular-nums tracking-tight">{favoriteBooks.length} Favorites</h3>
               <p className="text-sm text-muted-foreground">View your top picks</p>
             </div>
           </div>
@@ -498,7 +533,7 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
               <CheckCircle2 size={24} />
             </div>
             <div>
-              <h3 className="font-bold text-foreground text-lg">{completedBooks.length} Completed</h3>
+              <h3 className="font-bold text-foreground text-lg tabular-nums tracking-tight">{completedBooks.length} Completed</h3>
               <p className="text-sm text-muted-foreground">Revisit finished works</p>
             </div>
           </div>
@@ -511,7 +546,7 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
               <PauseCircle size={24} />
             </div>
             <div>
-              <h3 className="font-bold text-foreground text-lg">{onHoldBooks.length} On Hold</h3>
+              <h3 className="font-bold text-foreground text-lg tabular-nums tracking-tight">{onHoldBooks.length} On Hold</h3>
               <p className="text-sm text-muted-foreground">Pick up where you left off</p>
             </div>
           </div>

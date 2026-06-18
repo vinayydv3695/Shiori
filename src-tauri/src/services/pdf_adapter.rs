@@ -1,9 +1,7 @@
-use crate::error::{ShioriError, Result};
-use crate::services::renderer::{
-    BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry,
-};
+use crate::error::{Result, ShioriError};
+use crate::services::renderer::{BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry};
 use async_trait::async_trait;
-use lopdf::{Document, Object, content::Content};
+use lopdf::{content::Content, Document, Object};
 
 pub struct PdfAdapter {
     doc: Option<Document>,
@@ -28,41 +26,48 @@ impl PdfAdapter {
     }
 
     fn extract_text_from_page(&self, page_number: usize) -> Result<String> {
-        let doc = self.doc.as_ref().ok_or_else(|| ShioriError::Other("PDF not loaded".into()))?;
+        let doc = self
+            .doc
+            .as_ref()
+            .ok_or_else(|| ShioriError::Other("PDF not loaded".into()))?;
         let mut full_text = String::new();
-        
+
         if let Some(page_id) = self.page_ids.get(page_number) {
             if let Ok(content_data) = doc.get_page_content(*page_id) {
-                 if let Ok(content) = Content::decode(&content_data) {
-                     for operation in content.operations {
-                         if operation.operator == "Tj" {
-                             if let Some(obj) = operation.operands.get(0) {
-                                 if let Some(text) = Self::get_pdf_text(obj) {
-                                     full_text.push_str(&text);
-                                 }
-                             }
-                         } else if operation.operator == "TJ" {
-                             if let Some(Object::Array(arr)) = operation.operands.get(0) {
-                                 for obj in arr {
-                                     if let Some(text) = Self::get_pdf_text(obj) {
-                                         full_text.push_str(&text);
-                                     } else if let Object::Integer(spacing) = obj {
-                                         if *spacing < -100 { full_text.push(' '); }
-                                     } else if let Object::Real(spacing) = obj {
-                                         if *spacing < -100.0 { full_text.push(' '); }
-                                     }
-                                 }
-                             }
-                         } else if operation.operator == "T*" || operation.operator == "ET" {
-                             full_text.push('\n');
-                         } else if operation.operator == "TD" || operation.operator == "Td" {
-                             full_text.push('\n');
-                         }
-                     }
-                 }
+                if let Ok(content) = Content::decode(&content_data) {
+                    for operation in content.operations {
+                        if operation.operator == "Tj" {
+                            if let Some(obj) = operation.operands.get(0) {
+                                if let Some(text) = Self::get_pdf_text(obj) {
+                                    full_text.push_str(&text);
+                                }
+                            }
+                        } else if operation.operator == "TJ" {
+                            if let Some(Object::Array(arr)) = operation.operands.get(0) {
+                                for obj in arr {
+                                    if let Some(text) = Self::get_pdf_text(obj) {
+                                        full_text.push_str(&text);
+                                    } else if let Object::Integer(spacing) = obj {
+                                        if *spacing < -100 {
+                                            full_text.push(' ');
+                                        }
+                                    } else if let Object::Real(spacing) = obj {
+                                        if *spacing < -100.0 {
+                                            full_text.push(' ');
+                                        }
+                                    }
+                                }
+                            }
+                        } else if operation.operator == "T*" || operation.operator == "ET" {
+                            full_text.push('\n');
+                        } else if operation.operator == "TD" || operation.operator == "Td" {
+                            full_text.push('\n');
+                        }
+                    }
+                }
             }
         }
-        
+
         if full_text.trim().is_empty() {
             Ok(format!("Page {}", page_number + 1))
         } else {
@@ -72,25 +77,23 @@ impl PdfAdapter {
 
     fn get_pdf_string(obj: &Object) -> Option<String> {
         match obj {
-            Object::String(bytes, _) => {
-                String::from_utf8(bytes.clone())
-                    .or_else(|_| Ok::<String, ()>(bytes.iter().map(|&b| b as char).collect()))
-                    .ok()
-            }
+            Object::String(bytes, _) => String::from_utf8(bytes.clone())
+                .or_else(|_| Ok::<String, ()>(bytes.iter().map(|&b| b as char).collect()))
+                .ok(),
             Object::Name(bytes) => String::from_utf8(bytes.clone()).ok(),
             _ => None,
         }
     }
-    
+
     fn get_pdf_text(obj: &Object) -> Option<String> {
         match obj {
             Object::String(_, _) | Object::Name(_) => Self::get_pdf_string(obj),
-            Object::Array(arr) => {
-                Some(arr.iter()
+            Object::Array(arr) => Some(
+                arr.iter()
                     .filter_map(Self::get_pdf_string)
                     .collect::<Vec<_>>()
-                    .join(""))
-            }
+                    .join(""),
+            ),
             _ => None,
         }
     }
@@ -100,14 +103,16 @@ impl PdfAdapter {
 impl BookReaderAdapter for PdfAdapter {
     async fn load(&mut self, path: &str) -> Result<()> {
         let path_str = path.to_string();
-        
+
         // Load in a blocking task using Tauri's runtime to avoid panic
         let doc_result = tauri::async_runtime::spawn_blocking(move || {
             Document::load(&path_str).map_err(|e| ShioriError::CorruptedPdf {
                 path: path_str.clone(),
                 details: format!("{:?}", e),
             })
-        }).await.map_err(|e| ShioriError::Other(format!("Task spawn failed: {:?}", e)))?;
+        })
+        .await
+        .map_err(|e| ShioriError::Other(format!("Task spawn failed: {:?}", e)))?;
 
         let doc = doc_result?;
         let page_ids: Vec<_> = doc.get_pages().into_values().collect();
@@ -183,10 +188,17 @@ impl BookReaderAdapter for PdfAdapter {
 
                     // Safely slice using character boundaries to avoid panics on multi-byte UTF-8
                     let char_indices: Vec<(usize, char)> = content.char_indices().collect();
-                    let char_idx = char_indices.iter().position(|&(b_idx, _)| b_idx >= first_match_pos).unwrap_or(0);
+                    let char_idx = char_indices
+                        .iter()
+                        .position(|&(b_idx, _)| b_idx >= first_match_pos)
+                        .unwrap_or(0);
                     let start_char_idx = char_idx.saturating_sub(50);
-                    let end_char_idx = (char_idx + query.chars().count() + 50).min(char_indices.len());
-                    let start_byte = char_indices.get(start_char_idx).map(|&(b, _)| b).unwrap_or(0);
+                    let end_char_idx =
+                        (char_idx + query.chars().count() + 50).min(char_indices.len());
+                    let start_byte = char_indices
+                        .get(start_char_idx)
+                        .map(|&(b, _)| b)
+                        .unwrap_or(0);
                     let end_byte = if end_char_idx >= char_indices.len() {
                         content.len()
                     } else {
@@ -223,9 +235,11 @@ impl BookReaderAdapter for PdfAdapter {
     fn supports_images(&self) -> bool {
         false
     }
-    
+
     async fn render_page(&self, _page_number: usize, _scale: f32) -> Result<Vec<u8>> {
-         Err(ShioriError::Other("Native image rendering is configured off for lopdf".into()))
+        Err(ShioriError::Other(
+            "Native image rendering is configured off for lopdf".into(),
+        ))
     }
 
     fn get_page_dimensions(&self, _page_number: usize) -> Result<(f32, f32)> {

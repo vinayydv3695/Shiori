@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+use byteorder::{BigEndian, ReadBytesExt};
 /// MOBI / AZW3 → EPUB converter inspired by calibre's mobi reader.
 ///
 /// Implements:
@@ -10,16 +11,13 @@
 /// - KF8 (AZW3) detection via BOUNDARY record
 /// - Image extraction (JPEG/PNG by magic bytes)
 /// - TOC/chapter extraction from HTML content
-
-
 use std::collections::HashMap;
-use std::path::Path;
-use byteorder::{BigEndian, ReadBytesExt};
 use std::io::Cursor;
+use std::path::Path;
 
-use super::epub_writer::EpubDocument;
+use super::oeb::{OebBook, OebChapter, OebImage};
 use super::utils;
-use super::{ConversionError, EpubOutput};
+use super::ConversionError;
 
 #[derive(Debug, Clone)]
 struct MobiImageRef {
@@ -31,20 +29,24 @@ struct MobiImageRef {
     offset_index: u32,
 }
 
-/// Convert a MOBI/AZW3 file to EPUB 3.
-pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, ConversionError> {
+/// Parse a MOBI/AZW3 file into an OebBook.
+pub async fn parse(source: &Path) -> Result<OebBook, ConversionError> {
     let data = tokio::fs::read(source).await?;
     let mut warnings = Vec::new();
 
     if data.len() < 78 {
-        return Err(ConversionError::InvalidFormat("File too small for MOBI".to_string()));
+        return Err(ConversionError::InvalidFormat(
+            "File too small for MOBI".to_string(),
+        ));
     }
 
     // Parse PalmDB header
     let palm = parse_palmdb(&data)?;
 
     if palm.records.is_empty() {
-        return Err(ConversionError::InvalidFormat("No records in PalmDB".to_string()));
+        return Err(ConversionError::InvalidFormat(
+            "No records in PalmDB".to_string(),
+        ));
     }
 
     // Parse record 0 (PalmDOC + MOBI header)
@@ -61,13 +63,19 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
     };
 
     // Get title
-    let title = exth.title.clone()
+    let title = exth
+        .title
+        .clone()
         .or_else(|| {
             if mobi_header.full_name_offset > 0 && mobi_header.full_name_length > 0 {
                 let start = mobi_header.full_name_offset as usize;
                 let end = start + mobi_header.full_name_length as usize;
                 if end <= rec0.len() {
-                    Some(String::from_utf8_lossy(&rec0[start..end]).trim().to_string())
+                    Some(
+                        String::from_utf8_lossy(&rec0[start..end])
+                            .trim()
+                            .to_string(),
+                    )
                 } else {
                     None
                 }
@@ -79,17 +87,23 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
             // PalmDB name field (bytes 0-31)
             let name = String::from_utf8_lossy(&data[0..32]);
             let name = name.trim_end_matches('\0').trim();
-            if name.is_empty() { None } else { Some(name.to_string()) }
+            if name.is_empty() {
+                None
+            } else {
+                Some(name.to_string())
+            }
         })
         .unwrap_or_else(|| {
-            source.file_stem()
+            source
+                .file_stem()
                 .and_then(|s| s.to_str())
                 .map(|s| s.replace('_', " "))
                 .unwrap_or_else(|| "Untitled".to_string())
         });
 
     // Decompress text records
-    let text_content = decompress_text(&data, &palm.records, &palmdoc, &mobi_header, &mut warnings)?;
+    let text_content =
+        decompress_text(&data, &palm.records, &palmdoc, &mobi_header, &mut warnings)?;
 
     // Convert text to string (lossy UTF-8)
     let text = match mobi_header.encoding {
@@ -118,12 +132,15 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
                     let filename = format!("image_{:04}.{}", img_idx, ext);
 
                     // EXTH cover offset may be relative-to-first-image or absolute record index.
-                    let is_cover = exth.cover_offset.map(|co| {
-                        let co_usize = co as usize;
-                        co_usize == img_idx as usize
-                            || co_usize == i
-                            || first_img.saturating_add(co_usize) == i
-                    }).unwrap_or(false);
+                    let is_cover = exth
+                        .cover_offset
+                        .map(|co| {
+                            let co_usize = co as usize;
+                            co_usize == img_idx as usize
+                                || co_usize == i
+                                || first_img.saturating_add(co_usize) == i
+                        })
+                        .unwrap_or(false);
                     if is_cover {
                         cover_data = Some(rec.to_vec());
                     }
@@ -153,36 +170,56 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
     // Split content into chapters
     let chapters = split_mobi_into_chapters(&rewritten_text);
 
-    // Build EPUB
-    let mut doc = EpubDocument::new(title.clone());
-    doc.author = exth.author.clone();
-    doc.publisher = exth.publisher.clone();
-    doc.description = exth.description.clone();
-    doc.isbn = exth.isbn.clone();
+    // Build OebBook
+    let mut book = OebBook::new(title);
+    if let Some(author) = exth.author {
+        book.authors.push(author);
+    }
+    book.publisher = exth.publisher;
+    book.description = exth.description;
+    book.isbn = exth.isbn;
 
     // Add images
-    for img in &images {
-        if cover_data.as_ref().map(|c| c == &img.data).unwrap_or(false) {
-            doc.set_cover(img.id.clone(), img.filename.clone(), img.data.clone());
+    for img in images {
+        let is_cover = cover_data.as_ref().map(|c| c == &img.data).unwrap_or(false);
+        let oeb_img = OebImage {
+            id: img.id,
+            filename: img.filename,
+            mime_type: img.mime,
+            data: img.data,
+        };
+        if is_cover {
+            book.cover_image = Some(oeb_img);
         } else {
-            doc.add_image(img.id.clone(), img.filename.clone(), img.mime.clone(), img.data.clone());
+            book.images.push(oeb_img);
         }
     }
 
-    for (ch_title, ch_body) in &chapters {
-        doc.add_chapter(ch_title.clone(), ch_body.clone());
+    for (i, (ch_title, ch_body)) in chapters.into_iter().enumerate() {
+        let id = format!("chapter_{:03}", i + 1);
+        book.chapters.push(OebChapter {
+            id,
+            title: Some(ch_title),
+            html: ch_body,
+        });
     }
 
-    let chapter_count = doc.chapters.len();
-    doc.write_to_file(output).await?;
+    Ok(book)
+}
 
-    Ok(EpubOutput {
+/// Convert a MOBI file to EPUB 3 (Legacy wrapper for ConversionEngine).
+pub async fn convert(source: &Path, output: &Path) -> Result<super::EpubOutput, ConversionError> {
+    let mut book = parse(source).await?;
+    book.sanitize_html();
+    super::epub_builder::build_epub(&book, output)?;
+
+    Ok(super::EpubOutput {
         path: output.to_path_buf(),
-        title,
-        author: exth.author,
-        cover_data,
-        chapter_count,
-        warnings,
+        title: book.title,
+        author: book.authors.first().cloned(),
+        cover_data: book.cover_image.map(|img| img.data),
+        chapter_count: book.chapters.len(),
+        warnings: vec![],
     })
 }
 
@@ -196,7 +233,9 @@ struct PalmDb {
 
 fn parse_palmdb(data: &[u8]) -> Result<PalmDb, ConversionError> {
     if data.len() < 78 {
-        return Err(ConversionError::InvalidFormat("File too small for PalmDB header".to_string()));
+        return Err(ConversionError::InvalidFormat(
+            "File too small for PalmDB header".to_string(),
+        ));
     }
 
     // Number of records at offset 76 (u16 big-endian)
@@ -217,9 +256,16 @@ fn parse_palmdb(data: &[u8]) -> Result<PalmDb, ConversionError> {
     Ok(PalmDb { records })
 }
 
-fn get_record<'a>(data: &'a [u8], records: &[u32], index: usize) -> Result<&'a [u8], ConversionError> {
+fn get_record<'a>(
+    data: &'a [u8],
+    records: &[u32],
+    index: usize,
+) -> Result<&'a [u8], ConversionError> {
     if index >= records.len() {
-        return Err(ConversionError::InvalidFormat(format!("Record index {} out of range", index)));
+        return Err(ConversionError::InvalidFormat(format!(
+            "Record index {} out of range",
+            index
+        )));
     }
     let start = records[index] as usize;
     let end = if index + 1 < records.len() {
@@ -228,7 +274,10 @@ fn get_record<'a>(data: &'a [u8], records: &[u32], index: usize) -> Result<&'a [
         data.len()
     };
     if start > data.len() || end > data.len() || start > end {
-        return Err(ConversionError::InvalidFormat(format!("Invalid record bounds: {}-{}", start, end)));
+        return Err(ConversionError::InvalidFormat(format!(
+            "Invalid record bounds: {}-{}",
+            start, end
+        )));
     }
     Ok(&data[start..end])
 }
@@ -246,14 +295,26 @@ struct PalmdocHeader {
 
 fn parse_palmdoc_header(rec0: &[u8]) -> Result<PalmdocHeader, ConversionError> {
     if rec0.len() < 16 {
-        return Err(ConversionError::InvalidFormat("Record 0 too small for PalmDOC header".to_string()));
+        return Err(ConversionError::InvalidFormat(
+            "Record 0 too small for PalmDOC header".to_string(),
+        ));
     }
     let mut cursor = Cursor::new(rec0);
-    let compression = cursor.read_u16::<BigEndian>().map_err(|e| ConversionError::Other(e.to_string()))?;
-    let _unused = cursor.read_u16::<BigEndian>().map_err(|e| ConversionError::Other(e.to_string()))?;
-    let text_length = cursor.read_u32::<BigEndian>().map_err(|e| ConversionError::Other(e.to_string()))?;
-    let record_count = cursor.read_u16::<BigEndian>().map_err(|e| ConversionError::Other(e.to_string()))?;
-    let record_size = cursor.read_u16::<BigEndian>().map_err(|e| ConversionError::Other(e.to_string()))?;
+    let compression = cursor
+        .read_u16::<BigEndian>()
+        .map_err(|e| ConversionError::Other(e.to_string()))?;
+    let _unused = cursor
+        .read_u16::<BigEndian>()
+        .map_err(|e| ConversionError::Other(e.to_string()))?;
+    let text_length = cursor
+        .read_u32::<BigEndian>()
+        .map_err(|e| ConversionError::Other(e.to_string()))?;
+    let record_count = cursor
+        .read_u16::<BigEndian>()
+        .map_err(|e| ConversionError::Other(e.to_string()))?;
+    let record_size = cursor
+        .read_u16::<BigEndian>()
+        .map_err(|e| ConversionError::Other(e.to_string()))?;
 
     Ok(PalmdocHeader {
         compression,
@@ -289,12 +350,16 @@ struct MobiHeader {
 
 fn parse_mobi_header(rec0: &[u8]) -> Result<MobiHeader, ConversionError> {
     if rec0.len() < 132 {
-        return Err(ConversionError::InvalidFormat("Record 0 too small for MOBI header".to_string()));
+        return Err(ConversionError::InvalidFormat(
+            "Record 0 too small for MOBI header".to_string(),
+        ));
     }
 
     // Check MOBI magic at offset 16
     if &rec0[16..20] != b"MOBI" {
-        return Err(ConversionError::InvalidFormat("Missing MOBI magic".to_string()));
+        return Err(ConversionError::InvalidFormat(
+            "Missing MOBI magic".to_string(),
+        ));
     }
 
     let read_u32 = |off: usize| -> u32 {
@@ -370,12 +435,16 @@ fn parse_exth(rec0: &[u8], mobi: &MobiHeader) -> Result<ExthData, ConversionErro
     }
 
     let exth_len = u32::from_be_bytes([
-        rec0[exth_start + 4], rec0[exth_start + 5],
-        rec0[exth_start + 6], rec0[exth_start + 7],
+        rec0[exth_start + 4],
+        rec0[exth_start + 5],
+        rec0[exth_start + 6],
+        rec0[exth_start + 7],
     ]) as usize;
     let num_items = u32::from_be_bytes([
-        rec0[exth_start + 8], rec0[exth_start + 9],
-        rec0[exth_start + 10], rec0[exth_start + 11],
+        rec0[exth_start + 8],
+        rec0[exth_start + 9],
+        rec0[exth_start + 10],
+        rec0[exth_start + 11],
     ]);
 
     let _ = exth_len;
@@ -393,7 +462,8 @@ fn parse_exth(rec0: &[u8], mobi: &MobiHeader) -> Result<ExthData, ConversionErro
             break;
         }
         let idx = u32::from_be_bytes([rec0[pos], rec0[pos + 1], rec0[pos + 2], rec0[pos + 3]]);
-        let size = u32::from_be_bytes([rec0[pos + 4], rec0[pos + 5], rec0[pos + 6], rec0[pos + 7]]) as usize;
+        let size = u32::from_be_bytes([rec0[pos + 4], rec0[pos + 5], rec0[pos + 6], rec0[pos + 7]])
+            as usize;
         if size < 8 || pos + size > rec0.len() {
             break;
         }
@@ -410,19 +480,24 @@ fn parse_exth(rec0: &[u8], mobi: &MobiHeader) -> Result<ExthData, ConversionErro
         };
 
         match idx {
-            100 => { // Author
+            100 => {
+                // Author
                 data.author = Some(decode(content).trim().to_string());
             }
-            101 => { // Publisher
+            101 => {
+                // Publisher
                 data.publisher = Some(decode(content).trim().to_string());
             }
-            103 => { // Description
+            103 => {
+                // Description
                 data.description = Some(decode(content).trim().to_string());
             }
-            104 => { // ISBN
+            104 => {
+                // ISBN
                 data.isbn = Some(decode(content).trim().to_string());
             }
-            201 => { // Cover offset
+            201 => {
+                // Cover offset
                 if content.len() >= 4 {
                     let co = u32::from_be_bytes([content[0], content[1], content[2], content[3]]);
                     if co < 0xFFFFFFFF {
@@ -430,12 +505,16 @@ fn parse_exth(rec0: &[u8], mobi: &MobiHeader) -> Result<ExthData, ConversionErro
                     }
                 }
             }
-            202 => { // Thumbnail offset
+            202 => {
+                // Thumbnail offset
                 if content.len() >= 4 {
-                    data.thumbnail_offset = Some(u32::from_be_bytes([content[0], content[1], content[2], content[3]]));
+                    data.thumbnail_offset = Some(u32::from_be_bytes([
+                        content[0], content[1], content[2], content[3],
+                    ]));
                 }
             }
-            503 => { // Title (overrides PDB name)
+            503 => {
+                // Title (overrides PDB name)
                 data.title = Some(decode(content).trim().to_string());
             }
             _ => {}
@@ -609,7 +688,9 @@ impl HuffDicReader {
 
     fn load_huff(&mut self, huff: &[u8]) -> Result<(), ConversionError> {
         if huff.len() < 24 || &huff[0..8] != b"HUFF\x00\x00\x00\x18" {
-            return Err(ConversionError::InvalidFormat("Invalid HUFF header".to_string()));
+            return Err(ConversionError::InvalidFormat(
+                "Invalid HUFF header".to_string(),
+            ));
         }
 
         let off1 = u32::from_be_bytes([huff[8], huff[9], huff[10], huff[11]]) as usize;
@@ -620,7 +701,9 @@ impl HuffDicReader {
         for i in 0..256 {
             let pos = off1 + i * 4;
             if pos + 4 > huff.len() {
-                return Err(ConversionError::InvalidFormat("HUFF dict1 truncated".to_string()));
+                return Err(ConversionError::InvalidFormat(
+                    "HUFF dict1 truncated".to_string(),
+                ));
             }
             let v = u32::from_be_bytes([huff[pos], huff[pos + 1], huff[pos + 2], huff[pos + 3]]);
             let codelen = v & 0x1F;
@@ -642,8 +725,11 @@ impl HuffDicReader {
             if pos + 8 > huff.len() {
                 break;
             }
-            let mincode_val = u32::from_be_bytes([huff[pos], huff[pos + 1], huff[pos + 2], huff[pos + 3]]) as u64;
-            let maxcode_val = u32::from_be_bytes([huff[pos + 4], huff[pos + 5], huff[pos + 6], huff[pos + 7]]) as u64;
+            let mincode_val =
+                u32::from_be_bytes([huff[pos], huff[pos + 1], huff[pos + 2], huff[pos + 3]]) as u64;
+            let maxcode_val =
+                u32::from_be_bytes([huff[pos + 4], huff[pos + 5], huff[pos + 6], huff[pos + 7]])
+                    as u64;
             let cl = codelen as u64 + 1;
             self.mincode.push(mincode_val << (32 - cl));
             self.maxcode.push(((maxcode_val + 1) << (32 - cl)) - 1);
@@ -654,7 +740,9 @@ impl HuffDicReader {
 
     fn load_cdic(&mut self, cdic: &[u8]) -> Result<(), ConversionError> {
         if cdic.len() < 16 || &cdic[0..8] != b"CDIC\x00\x00\x00\x10" {
-            return Err(ConversionError::InvalidFormat("Invalid CDIC header".to_string()));
+            return Err(ConversionError::InvalidFormat(
+                "Invalid CDIC header".to_string(),
+            ));
         }
 
         let phrases = u32::from_be_bytes([cdic[8], cdic[9], cdic[10], cdic[11]]) as usize;
@@ -681,7 +769,8 @@ impl HuffDicReader {
                 self.dictionary.push(None);
                 continue;
             }
-            self.dictionary.push(Some((cdic[slice_start..slice_end].to_vec(), is_leaf)));
+            self.dictionary
+                .push(Some((cdic[slice_start..slice_end].to_vec(), is_leaf)));
         }
 
         Ok(())
@@ -693,20 +782,39 @@ impl HuffDicReader {
         Ok(result)
     }
 
-    fn unpack_inner(&self, data: &[u8], output: &mut Vec<u8>, depth: u32) -> Result<(), ConversionError> {
+    fn unpack_inner(
+        &self,
+        data: &[u8],
+        output: &mut Vec<u8>,
+        depth: u32,
+    ) -> Result<(), ConversionError> {
         if depth > 32 {
-            return Err(ConversionError::Other("HuffDic recursion depth exceeded".to_string()));
+            return Err(ConversionError::Other(
+                "HuffDic recursion depth exceeded".to_string(),
+            ));
         }
 
         let mut bitsleft = data.len() as i64 * 8;
-        let padded: Vec<u8> = data.iter().copied().chain(std::iter::repeat(0u8).take(8)).collect();
+        let padded: Vec<u8> = data
+            .iter()
+            .copied()
+            .chain(std::iter::repeat(0u8).take(8))
+            .collect();
         let mut pos = 0usize;
         let mut n = 32i32;
 
         let read_u64_be = |p: usize| -> u64 {
             if p + 8 <= padded.len() {
-                u64::from_be_bytes([padded[p], padded[p+1], padded[p+2], padded[p+3],
-                                    padded[p+4], padded[p+5], padded[p+6], padded[p+7]])
+                u64::from_be_bytes([
+                    padded[p],
+                    padded[p + 1],
+                    padded[p + 2],
+                    padded[p + 3],
+                    padded[p + 4],
+                    padded[p + 5],
+                    padded[p + 6],
+                    padded[p + 7],
+                ])
             } else {
                 0
             }
@@ -769,14 +877,20 @@ impl HuffDicReader {
     }
 }
 
-fn init_huffdic(data: &[u8], records: &[u32], mobi: &MobiHeader) -> Result<HuffDicReader, ConversionError> {
+fn init_huffdic(
+    data: &[u8],
+    records: &[u32],
+    mobi: &MobiHeader,
+) -> Result<HuffDicReader, ConversionError> {
     let mut reader = HuffDicReader::new();
 
     let huff_idx = mobi.huff_rec_index as usize;
     let huff_cnt = mobi.huff_rec_count as usize;
 
     if huff_idx == 0 || huff_cnt == 0 {
-        return Err(ConversionError::InvalidFormat("No HuffDic records found".to_string()));
+        return Err(ConversionError::InvalidFormat(
+            "No HuffDic records found".to_string(),
+        ));
     }
 
     // First record is HUFF
@@ -815,9 +929,14 @@ fn rewrite_mobi_image_tags(
         .map(|img| (img.offset_index as usize, img.filename.clone()))
         .collect();
 
-    static IMG_TAG_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?is)<img\b[^>]*>").unwrap());
-    static RECINDEX_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r#"(?i)\brecindex\s*=\s*["']?(\d+)["']?"#).unwrap());
-    static SRC_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r#"(?i)\bsrc\s*=\s*["']([^"']+)["']"#).unwrap());
+    static IMG_TAG_RE: once_cell::sync::Lazy<regex::Regex> =
+        once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?is)<img\b[^>]*>").unwrap());
+    static RECINDEX_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
+        regex::Regex::new(r#"(?i)\brecindex\s*=\s*["']?(\d+)["']?"#).unwrap()
+    });
+    static SRC_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
+        regex::Regex::new(r#"(?i)\bsrc\s*=\s*["']([^"']+)["']"#).unwrap()
+    });
 
     let mut unresolved_refs = 0usize;
 
@@ -841,11 +960,20 @@ fn rewrite_mobi_image_tags(
                 .map(|m| m.as_str().to_string());
 
             let mapped = recindex
-                .and_then(|n| resolve_mobi_image_filename(n, first_image_record, &by_record, &by_offset))
+                .and_then(|n| {
+                    resolve_mobi_image_filename(n, first_image_record, &by_record, &by_offset)
+                })
                 .or_else(|| {
                     src.as_ref()
                         .and_then(|s| extract_last_number(s))
-                        .and_then(|n| resolve_mobi_image_filename(n, first_image_record, &by_record, &by_offset))
+                        .and_then(|n| {
+                            resolve_mobi_image_filename(
+                                n,
+                                first_image_record,
+                                &by_record,
+                                &by_offset,
+                            )
+                        })
                 });
 
             if let Some(filename) = mapped {
@@ -945,8 +1073,11 @@ fn split_mobi_into_chapters(html: &str) -> Vec<(String, String)> {
     let mut chapter_num = 1;
 
     // MOBI content is HTML — look for heading tags or <mbp:pagebreak>
-    static HEADING_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?i)<h[1-3][^>]*>(.*?)</h[1-3]>").unwrap());
-    static PAGEBREAK_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?i)<mbp:pagebreak\s*/?>").unwrap());
+    static HEADING_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
+        regex::Regex::new(r"(?i)<h[1-3][^>]*>(.*?)</h[1-3]>").unwrap()
+    });
+    static PAGEBREAK_RE: once_cell::sync::Lazy<regex::Regex> =
+        once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?i)<mbp:pagebreak\s*/?>").unwrap());
 
     for line in html.lines() {
         // Check for page break

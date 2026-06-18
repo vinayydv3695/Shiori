@@ -14,7 +14,9 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use crate::error::{Result, ShioriError};
-use crate::sources::{Chapter, ContentType, Page, SearchResponse, SearchResult, Source, SourceMeta};
+use crate::sources::{
+    Chapter, ContentType, Page, SearchResponse, SearchResult, Source, SourceMeta,
+};
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -36,14 +38,14 @@ const SEL_ITEM: &str = "div.page-item-detail, div.c-tabs-item__content";
 const SEL_TITLE_LINK: &str = ".post-title a, h3 a, h4 a";
 const SEL_COVER_IMG: &str = "img";
 
-
 /// Chapter list on manga detail page
 const SEL_CHAPTER_LI: &str = "li.wp-manga-chapter";
 const SEL_CHAPTER_LINK: &str = "a";
 const SEL_CHAPTER_DATE: &str = ".chapter-release-date i, .chapter-release-date a";
 
 /// manga-page data-id attribute (for AJAX chapter loading)
-const SEL_MANGA_DATA_ID: &str = "div#manga-chapters-holder[data-id], div.manga-chapters-holder[data-id]";
+const SEL_MANGA_DATA_ID: &str =
+    "div#manga-chapters-holder[data-id], div.manga-chapters-holder[data-id]";
 
 /// Reader page images
 const SEL_PAGE_IMG: &str = "div.page-break img, .reading-content img, .text-left img";
@@ -173,7 +175,11 @@ impl WeebrookEngine {
                 break;
             }
         }
-        if buf.is_empty() || buf == "." { None } else { buf.parse().ok() }
+        if buf.is_empty() || buf == "." {
+            None
+        } else {
+            buf.parse().ok()
+        }
     }
 
     // ── HTML parsing ──────────────────────────────────────────────────────────
@@ -321,8 +327,10 @@ impl WeebrookEngine {
         let html = self.fetch(&manga_url).await?;
 
         // Try the modern AJAX endpoint that Madara uses to lazy-load chapters
-        let chapter_html =
-            self.try_ajax_chapters(&html, &manga_url).await?.unwrap_or(html.clone());
+        let chapter_html = self
+            .try_ajax_chapters(&html, &manga_url)
+            .await?
+            .unwrap_or(html.clone());
 
         let doc = Html::parse_document(&chapter_html);
         let ch_sel = Selector::parse(SEL_CHAPTER_LI)
@@ -353,7 +361,9 @@ impl WeebrookEngine {
             };
 
             let uploaded_at = date_sel.as_ref().and_then(|ds| {
-                li.select(ds).next().map(|el| el.text().collect::<String>().trim().to_string())
+                li.select(ds)
+                    .next()
+                    .map(|el| el.text().collect::<String>().trim().to_string())
             });
 
             chapters.push(Chapter {
@@ -381,11 +391,7 @@ impl WeebrookEngine {
 
     /// Try to load the chapter list via Madara's AJAX endpoint.
     /// Returns `Some(html)` if successful, `None` if the chapters are already in the page.
-    async fn try_ajax_chapters(
-        &self,
-        page_html: &str,
-        manga_url: &str,
-    ) -> Result<Option<String>> {
+    async fn try_ajax_chapters(&self, page_html: &str, manga_url: &str) -> Result<Option<String>> {
         // Extract the manga data-id BEFORE any .await so the non-Send `Html`
         // doc is fully dropped before we cross the async boundary.
         let manga_id: Option<String> = {
@@ -498,7 +504,10 @@ impl WeebrookEngine {
         Ok(pages
             .into_iter()
             .enumerate()
-            .map(|(i, url)| Page { index: i as u32, url })
+            .map(|(i, url)| Page {
+                index: i as u32,
+                url,
+            })
             .collect())
     }
 }
@@ -542,12 +551,7 @@ impl Source for WeebrookManhwaSource {
         self.engine.search(query, page, "weebrook").await
     }
 
-    async fn search_with_meta(
-        &self,
-        query: &str,
-        page: u32,
-        limit: u32,
-    ) -> Result<SearchResponse> {
+    async fn search_with_meta(&self, query: &str, page: u32, limit: u32) -> Result<SearchResponse> {
         let items = self.engine.search(query, page, "weebrook").await?;
         Ok(SearchResponse {
             items,
@@ -570,4 +574,3 @@ impl Source for WeebrookManhwaSource {
         self.engine.get_pages(chapter_id).await
     }
 }
-

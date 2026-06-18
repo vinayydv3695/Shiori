@@ -8,7 +8,6 @@ import { logger } from '@/lib/logger';
 import { useToast } from '../../store/toastStore';
 import { Button } from '../ui/button';
 import { MetadataSearchDialog } from './MetadataSearchDialog';
-import { ProwlarrSearch } from './ProwlarrSearch';
 import { FeatureHint } from '../ui/FeatureHint';
 
 interface BookDetailsDialogProps {
@@ -31,7 +30,6 @@ export const BookDetailsDialog = ({
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
   const [metadataDialogOpen, setMetadataDialogOpen] = useState(false);
-  const [prowlarrSearchOpen, setProwlarrSearchOpen] = useState(false);
   const [autoEnrichLoading, setAutoEnrichLoading] = useState(false);
   const [readingStatus, setReadingStatus] = useState(book?.reading_status || 'planning');
   const toast = useToast();
@@ -124,8 +122,8 @@ export const BookDetailsDialog = ({
       <Dialog.Root open={open} onOpenChange={onOpenChange}>
         <Dialog.Portal>
           <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="dialog-content fixed right-0 top-0 bottom-0 bg-background border-l border-border shadow-2xl w-[90vw] max-w-xl overflow-y-auto z-50 flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right duration-300">
-            <div className="flex items-center justify-center flex-1">
+          <Dialog.Content className="dialog-content fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] bg-background border border-border shadow-2xl rounded-xl w-[90vw] max-w-xl max-h-[90vh] overflow-y-auto z-50 flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-300">
+            <div className="flex items-center justify-center flex-1 py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             </div>
           </Dialog.Content>
@@ -138,7 +136,7 @@ export const BookDetailsDialog = ({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-        <Dialog.Content className="dialog-content fixed right-0 top-0 bottom-0 bg-background border-l border-border shadow-2xl w-[90vw] max-w-2xl overflow-y-auto z-50 flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right duration-300">
+        <Dialog.Content className="dialog-content fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] bg-background border border-border shadow-2xl rounded-xl w-[90vw] max-w-2xl max-h-[90vh] overflow-y-auto z-50 flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-300">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-border sticky top-0 bg-background/80 backdrop-blur-md z-10">
             <Dialog.Title className="text-xl font-semibold text-foreground tracking-tight">
@@ -349,13 +347,7 @@ export const BookDetailsDialog = ({
           {/* Footer Actions */}
           <div className="flex items-center justify-between gap-3 p-6 border-t border-border bg-background sticky bottom-0 z-10">
             <div className="flex items-center gap-2 mr-auto">
-              <Button
-                  variant="outline"
-                  onClick={() => setProwlarrSearchOpen(true)}
-                >
-                  <Search className="w-4 h-4 mr-2" />
-                  Search Prowlarr
-                </Button>
+
               <FeatureHint
                 featureId="metadata-search"
                 title="Find Book Metadata"
@@ -436,15 +428,6 @@ export const BookDetailsDialog = ({
           isManga={isManga}
           isbn={book.isbn || book.isbn13}
           onMetadataSelected={handleMetadataFetched}
-        />
-      )}
-
-      {book && (
-        <ProwlarrSearch
-          open={prowlarrSearchOpen}
-          onOpenChange={setProwlarrSearchOpen}
-          bookTitle={book.title}
-          bookAuthor={book.authors?.map(a => a.name).join(', ')}
         />
       )}
     </Dialog.Root>

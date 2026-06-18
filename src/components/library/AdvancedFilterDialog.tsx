@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as Checkbox from '@radix-ui/react-checkbox'
-import { X, Filter, Save, Trash2, ChevronDown, Check, Star } from 'lucide-react'
+import { X, Filter, Save, Trash2, ChevronDown, Check, Star, Settings, Tag, Layers, StarHalf } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { logger } from '@/lib/logger'
 import { useLibraryStore } from '@/store/libraryStore'
@@ -33,6 +33,9 @@ const EMPTY_FILTERS: FilterCriteria = {
   authors: [],
   tags: [],
   formats: [],
+  series: [],
+  languages: [],
+  publishers: [],
   ratingMin: 0,
   ratingMax: 5,
   dateFrom: '',
@@ -62,6 +65,7 @@ export function AdvancedFilterDialog({ open, onOpenChange }: AdvancedFilterDialo
   const [showPresetInput, setShowPresetInput] = useState(false)
   const [showPresetsDropdown, setShowPresetsDropdown] = useState(false)
   const [debouncedTextSearch, setDebouncedTextSearch] = useState('')
+  const [activeTab, setActiveTab] = useState<'general' | 'metadata' | 'organization' | 'ratings'>('general')
 
   useEffect(() => {
     if (open) {
@@ -82,21 +86,30 @@ export function AdvancedFilterDialog({ open, onOpenChange }: AdvancedFilterDialo
     [filters, debouncedTextSearch]
   )
 
-  const { uniqueAuthors, uniqueTags, uniqueFormats } = useMemo(() => {
+  const { uniqueAuthors, uniqueTags, uniqueFormats, uniqueSeries, uniqueLanguages, uniquePublishers } = useMemo(() => {
     const authorsSet = new Set<string>()
     const tagsSet = new Set<string>()
     const formatsSet = new Set<string>()
+    const seriesSet = new Set<string>()
+    const languagesSet = new Set<string>()
+    const publishersSet = new Set<string>()
 
     for (const book of books) {
       book.authors?.forEach(a => { if (a.name) authorsSet.add(a.name) })
       book.tags?.forEach(t => { if (t.name) tagsSet.add(t.name) })
       if (book.file_format) formatsSet.add(book.file_format.toUpperCase())
+      if (book.series) seriesSet.add(book.series)
+      if (book.language) languagesSet.add(book.language)
+      if (book.publisher) publishersSet.add(book.publisher)
     }
 
     return {
       uniqueAuthors: Array.from(authorsSet).sort(),
       uniqueTags: Array.from(tagsSet).sort(),
       uniqueFormats: Array.from(formatsSet).sort(),
+      uniqueSeries: Array.from(seriesSet).sort(),
+      uniqueLanguages: Array.from(languagesSet).sort(),
+      uniquePublishers: Array.from(publishersSet).sort(),
     }
   }, [books])
 
@@ -167,130 +180,215 @@ export function AdvancedFilterDialog({ open, onOpenChange }: AdvancedFilterDialo
             </Dialog.Close>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
-            <FilterSection title="Text Search">
-              <input
-                type="text"
-                value={filters.textSearch ?? ''}
-                onChange={e => updateFilter('textSearch', e.target.value)}
-                placeholder="Search in title, author..."
-                className="w-full h-9 px-3 text-sm rounded-md border border-border bg-muted/40 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
-              />
-            </FilterSection>
-
-            <FilterSection title="Authors">
-              <MultiSelectCheckboxList
-                items={uniqueAuthors}
-                selected={filters.authors ?? []}
-                onToggle={item => updateFilter('authors', toggleArrayItem(filters.authors, item))}
-                maxVisible={6}
-              />
-            </FilterSection>
-
-            <FilterSection title="Tags">
-              <TagChips
-                items={uniqueTags}
-                selected={filters.tags ?? []}
-                onToggle={item => updateFilter('tags', toggleArrayItem(filters.tags, item))}
-              />
-            </FilterSection>
-
-            <FilterSection title="Formats">
-              <div className="flex flex-wrap gap-2">
-                {uniqueFormats.map(fmt => (
-                  <label key={fmt} className="flex items-center gap-1.5 cursor-pointer select-none">
-                    <Checkbox.Root
-                      checked={(filters.formats ?? []).includes(fmt)}
-                      onCheckedChange={() => updateFilter('formats', toggleArrayItem(filters.formats, fmt))}
-                      className={cn(
-                        'w-4 h-4 rounded border flex items-center justify-center transition-colors',
-                        (filters.formats ?? []).includes(fmt)
-                          ? 'bg-primary border-primary'
-                          : 'border-border bg-muted/40'
-                      )}
-                    >
-                      <Checkbox.Indicator>
-                        <Check size={12} className="text-primary-foreground" />
-                      </Checkbox.Indicator>
-                    </Checkbox.Root>
-                    <span className="text-xs font-medium text-foreground">{fmt}</span>
-                  </label>
-                ))}
-                {uniqueFormats.length === 0 && (
-                  <span className="text-xs text-muted-foreground">No formats available</span>
+          <div className="flex flex-1 overflow-hidden">
+            {/* Sidebar Tabs */}
+            <div className="w-48 border-r border-border/50 bg-muted/10 p-4 space-y-1 overflow-y-auto shrink-0">
+              <button
+                onClick={() => setActiveTab('general')}
+                className={cn(
+                  "flex items-center gap-2 w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors",
+                  activeTab === 'general' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 )}
-              </div>
-            </FilterSection>
+              >
+                <Settings size={16} /> General
+              </button>
+              <button
+                onClick={() => setActiveTab('metadata')}
+                className={cn(
+                  "flex items-center gap-2 w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors",
+                  activeTab === 'metadata' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                )}
+              >
+                <Tag size={16} /> Metadata
+              </button>
+              <button
+                onClick={() => setActiveTab('organization')}
+                className={cn(
+                  "flex items-center gap-2 w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors",
+                  activeTab === 'organization' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                )}
+              >
+                <Layers size={16} /> Organization
+              </button>
+              <button
+                onClick={() => setActiveTab('ratings')}
+                className={cn(
+                  "flex items-center gap-2 w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors",
+                  activeTab === 'ratings' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                )}
+              >
+                <StarHalf size={16} /> Status
+              </button>
+            </div>
 
-            <FilterSection title="Rating">
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Min:</span>
-                  <StarRating
-                    value={filters.ratingMin ?? 0}
-                    onChange={v => updateFilter('ratingMin', v)}
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Max:</span>
-                  <StarRating
-                    value={filters.ratingMax ?? 5}
-                    onChange={v => updateFilter('ratingMax', v)}
-                  />
-                </div>
-              </div>
-            </FilterSection>
+            {/* Content Area */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-background/50">
+              {activeTab === 'general' && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
+                  <FilterSection title="Text Search">
+                    <input
+                      type="text"
+                      value={filters.textSearch ?? ''}
+                      onChange={e => updateFilter('textSearch', e.target.value)}
+                      placeholder="Search in title, author..."
+                      className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background shadow-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                    />
+                  </FilterSection>
 
-            <FilterSection title="Date Added">
-              <div className="flex items-center gap-3">
-                <div className="flex-1">
-                  <label className="block text-xs text-muted-foreground mb-1">From</label>
-                  <input
-                    type="date"
-                    value={filters.dateFrom ?? ''}
-                    onChange={e => updateFilter('dateFrom', e.target.value)}
-                    className="w-full h-9 px-3 text-sm rounded-md border border-border bg-muted/40 text-foreground focus:outline-none focus:ring-2 focus:ring-ring [color-scheme:dark]"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-xs text-muted-foreground mb-1">To</label>
-                  <input
-                    type="date"
-                    value={filters.dateTo ?? ''}
-                    onChange={e => updateFilter('dateTo', e.target.value)}
-                    className="w-full h-9 px-3 text-sm rounded-md border border-border bg-muted/40 text-foreground focus:outline-none focus:ring-2 focus:ring-ring [color-scheme:dark]"
-                  />
-                </div>
-              </div>
-            </FilterSection>
-
-            <FilterSection title="Reading Status">
-              <div className="flex flex-wrap gap-3">
-                {READING_STATUSES.map(({ value, label }) => (
-                  <label key={value} className="flex items-center gap-1.5 cursor-pointer select-none">
-                    <Checkbox.Root
-                      checked={(filters.readingStatus ?? []).includes(value)}
-                      onCheckedChange={() =>
-                        updateFilter('readingStatus', toggleArrayItem(filters.readingStatus, value))
-                      }
-                      className={cn(
-                        'w-4 h-4 rounded border flex items-center justify-center transition-colors',
-                        (filters.readingStatus ?? []).includes(value)
-                          ? 'bg-primary border-primary'
-                          : 'border-border bg-muted/40'
+                  <FilterSection title="Formats">
+                    <div className="flex flex-wrap gap-2">
+                      {uniqueFormats.map(fmt => (
+                        <label key={fmt} className="flex items-center gap-2 cursor-pointer select-none group">
+                          <Checkbox.Root
+                            checked={(filters.formats ?? []).includes(fmt)}
+                            onCheckedChange={() => updateFilter('formats', toggleArrayItem(filters.formats, fmt))}
+                            className={cn(
+                              'w-4 h-4 rounded border flex items-center justify-center transition-all',
+                              (filters.formats ?? []).includes(fmt)
+                                ? 'bg-primary border-primary shadow-sm'
+                                : 'border-border bg-background group-hover:border-primary/50'
+                            )}
+                          >
+                            <Checkbox.Indicator>
+                              <Check size={12} className="text-primary-foreground" />
+                            </Checkbox.Indicator>
+                          </Checkbox.Root>
+                          <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">{fmt}</span>
+                        </label>
+                      ))}
+                      {uniqueFormats.length === 0 && (
+                        <span className="text-sm text-muted-foreground">No formats available</span>
                       )}
-                    >
-                      <Checkbox.Indicator>
-                        <Check size={12} className="text-primary-foreground" />
-                      </Checkbox.Indicator>
-                    </Checkbox.Root>
-                    <span className="text-xs font-medium text-foreground">{label}</span>
-                  </label>
-                ))}
-              </div>
-            </FilterSection>
-          </div>
+                    </div>
+                  </FilterSection>
+                </div>
+              )}
 
+              {activeTab === 'metadata' && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
+                  <FilterSection title="Authors">
+                    <MultiSelectCheckboxList
+                      items={uniqueAuthors}
+                      selected={filters.authors ?? []}
+                      onToggle={item => updateFilter('authors', toggleArrayItem(filters.authors, item))}
+                      maxVisible={6}
+                    />
+                  </FilterSection>
+
+                  <FilterSection title="Tags">
+                    <TagChips
+                      items={uniqueTags}
+                      selected={filters.tags ?? []}
+                      onToggle={item => updateFilter('tags', toggleArrayItem(filters.tags, item))}
+                    />
+                  </FilterSection>
+
+                  <FilterSection title="Publishers">
+                    <MultiSelectCheckboxList
+                      items={uniquePublishers}
+                      selected={filters.publishers ?? []}
+                      onToggle={item => updateFilter('publishers', toggleArrayItem(filters.publishers, item))}
+                      maxVisible={4}
+                    />
+                  </FilterSection>
+                </div>
+              )}
+
+              {activeTab === 'organization' && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
+                  <FilterSection title="Series">
+                    <MultiSelectCheckboxList
+                      items={uniqueSeries}
+                      selected={filters.series ?? []}
+                      onToggle={item => updateFilter('series', toggleArrayItem(filters.series, item))}
+                      maxVisible={6}
+                    />
+                  </FilterSection>
+
+                  <FilterSection title="Languages">
+                    <MultiSelectCheckboxList
+                      items={uniqueLanguages}
+                      selected={filters.languages ?? []}
+                      onToggle={item => updateFilter('languages', toggleArrayItem(filters.languages, item))}
+                      maxVisible={4}
+                    />
+                  </FilterSection>
+                </div>
+              )}
+
+              {activeTab === 'ratings' && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
+                  <FilterSection title="Rating">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-6">
+                      <div className="flex items-center gap-3 bg-muted/30 p-3 rounded-lg border border-border/50">
+                        <span className="text-sm font-medium text-muted-foreground w-8">Min:</span>
+                        <StarRating
+                          value={filters.ratingMin ?? 0}
+                          onChange={v => updateFilter('ratingMin', v)}
+                        />
+                      </div>
+                      <div className="flex items-center gap-3 bg-muted/30 p-3 rounded-lg border border-border/50">
+                        <span className="text-sm font-medium text-muted-foreground w-8">Max:</span>
+                        <StarRating
+                          value={filters.ratingMax ?? 5}
+                          onChange={v => updateFilter('ratingMax', v)}
+                        />
+                      </div>
+                    </div>
+                  </FilterSection>
+
+                  <FilterSection title="Reading Status">
+                    <div className="flex flex-wrap gap-4">
+                      {READING_STATUSES.map(({ value, label }) => (
+                        <label key={value} className="flex items-center gap-2 cursor-pointer select-none group">
+                          <Checkbox.Root
+                            checked={(filters.readingStatus ?? []).includes(value)}
+                            onCheckedChange={() =>
+                              updateFilter('readingStatus', toggleArrayItem(filters.readingStatus, value))
+                            }
+                            className={cn(
+                              'w-4 h-4 rounded border flex items-center justify-center transition-all',
+                              (filters.readingStatus ?? []).includes(value)
+                                ? 'bg-primary border-primary shadow-sm'
+                                : 'border-border bg-background group-hover:border-primary/50'
+                            )}
+                          >
+                            <Checkbox.Indicator>
+                              <Check size={12} className="text-primary-foreground" />
+                            </Checkbox.Indicator>
+                          </Checkbox.Root>
+                          <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">{label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </FilterSection>
+
+                  <FilterSection title="Date Added">
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <label className="block text-xs font-medium text-muted-foreground mb-1.5">From Date</label>
+                        <input
+                          type="date"
+                          value={filters.dateFrom ?? ''}
+                          onChange={e => updateFilter('dateFrom', e.target.value)}
+                          className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background shadow-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all [color-scheme:dark]"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-xs font-medium text-muted-foreground mb-1.5">To Date</label>
+                        <input
+                          type="date"
+                          value={filters.dateTo ?? ''}
+                          onChange={e => updateFilter('dateTo', e.target.value)}
+                          className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background shadow-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all [color-scheme:dark]"
+                        />
+                      </div>
+                    </div>
+                  </FilterSection>
+                </div>
+              )}
+            </div>
+          </div>
           <div className="px-6 py-4 border-t border-border space-y-3 shrink-0">
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">

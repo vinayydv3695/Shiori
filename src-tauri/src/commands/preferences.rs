@@ -1,11 +1,10 @@
+use crate::error::Result;
+use crate::AppState;
 /// Preferences IPC Commands
 ///
 /// Handles user preferences, theme, and per-book overrides
-
 use serde::{Deserialize, Serialize};
 use tauri::State;
-use crate::error::Result;
-use crate::AppState;
 
 // ═══════════════════════════════════════════════════════════════
 // REQUEST/RESPONSE TYPES
@@ -196,7 +195,7 @@ pub async fn get_user_preferences(state: State<'_, AppState>) -> Result<UserPref
             })
         },
     )?;
-    
+
     Ok(prefs)
 }
 
@@ -207,9 +206,9 @@ pub async fn get_theme_sync(state: State<'_, AppState>) -> Result<String> {
     let theme: String = conn.query_row(
         "SELECT theme FROM user_preferences WHERE id = 1",
         [],
-        |row| row.get(0)
+        |row| row.get(0),
     )?;
-    
+
     Ok(theme)
 }
 
@@ -222,13 +221,13 @@ pub async fn update_user_preferences(
     let conn = state.db.get_connection()?;
     let mut set_clauses = Vec::new();
     let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
-    
+
     // Theme
     if let Some(theme) = updates.get("theme").and_then(|v| v.as_str()) {
         set_clauses.push("theme = ?".to_string());
         params.push(Box::new(theme.to_string()));
     }
-    
+
     // Book preferences
     if let Some(book) = updates.get("book") {
         if let Some(font_family) = book.get("fontFamily").and_then(|v| v.as_str()) {
@@ -272,7 +271,7 @@ pub async fn update_user_preferences(
             params.push(Box::new(custom_css.to_string()));
         }
     }
-    
+
     // Manga preferences
     if let Some(manga) = updates.get("manga") {
         if let Some(mode) = manga.get("mode").and_then(|v| v.as_str()) {
@@ -332,7 +331,7 @@ pub async fn update_user_preferences(
             params.push(Box::new(highlight_color.to_string()));
         }
     }
-    
+
     // General settings
     if let Some(auto_start) = updates.get("autoStart").and_then(|v| v.as_bool()) {
         set_clauses.push("auto_start = ?".to_string());
@@ -350,9 +349,11 @@ pub async fn update_user_preferences(
         set_clauses.push("accent_color = ?".to_string());
         params.push(Box::new(accent_color.to_string()));
     }
-    
+
     // Onboarding configs
-    if let Some(preferred_content_type) = updates.get("preferredContentType").and_then(|v| v.as_str()) {
+    if let Some(preferred_content_type) =
+        updates.get("preferredContentType").and_then(|v| v.as_str())
+    {
         set_clauses.push("preferred_content_type = ?".to_string());
         params.push(Box::new(preferred_content_type.to_string()));
     }
@@ -373,13 +374,20 @@ pub async fn update_user_preferences(
         params.push(Box::new(auto_scan_enabled));
     }
     if let Some(default_manga_path) = updates.get("defaultMangaPath").and_then(|v| {
-        if v.is_null() { Some(None) } else { v.as_str().map(|s| Some(s.to_string())) }
+        if v.is_null() {
+            Some(None)
+        } else {
+            v.as_str().map(|s| Some(s.to_string()))
+        }
     }) {
         set_clauses.push("default_manga_path = ?".to_string());
         params.push(Box::new(default_manga_path));
     }
 
-    if let Some(lang) = updates.get("translationTargetLanguage").and_then(|v| v.as_str()) {
+    if let Some(lang) = updates
+        .get("translationTargetLanguage")
+        .and_then(|v| v.as_str())
+    {
         set_clauses.push("translation_target_language = ?".to_string());
         params.push(Box::new(lang.to_string()));
     }
@@ -417,7 +425,8 @@ pub async fn update_user_preferences(
         set_clauses.push("enable_cloud_sync = ?".to_string());
         params.push(Box::new(enable_cloud_sync));
     }
-    if let Some(enable_notifications) = updates.get("enableNotifications").and_then(|v| v.as_bool()) {
+    if let Some(enable_notifications) = updates.get("enableNotifications").and_then(|v| v.as_bool())
+    {
         set_clauses.push("enable_notifications = ?".to_string());
         params.push(Box::new(enable_notifications));
     }
@@ -439,42 +448,51 @@ pub async fn update_user_preferences(
         set_clauses.push("prowlarr_categories = ?".to_string());
         params.push(Box::new(prowlarr_categories.to_string()));
     }
-    
+
     // Discord Integration
     if let Some(discord_rpc_enabled) = updates.get("discordRpcEnabled").and_then(|v| v.as_bool()) {
         set_clauses.push("discord_rpc_enabled = ?".to_string());
         params.push(Box::new(discord_rpc_enabled));
     }
-    
+
     // Annotation Auto-Sync
-    if let Some(auto_export_annotations) = updates.get("autoExportAnnotations").and_then(|v| v.as_bool()) {
+    if let Some(auto_export_annotations) = updates
+        .get("autoExportAnnotations")
+        .and_then(|v| v.as_bool())
+    {
         set_clauses.push("auto_export_annotations = ?".to_string());
         params.push(Box::new(auto_export_annotations));
     }
-    if let Some(annotations_export_path) = updates.get("annotationsExportPath").and_then(|v| v.as_str()) {
+    if let Some(annotations_export_path) = updates
+        .get("annotationsExportPath")
+        .and_then(|v| v.as_str())
+    {
         set_clauses.push("annotations_export_path = ?".to_string());
         params.push(Box::new(annotations_export_path.to_string()));
     }
-    if let Some(annotations_export_format) = updates.get("annotationsExportFormat").and_then(|v| v.as_str()) {
+    if let Some(annotations_export_format) = updates
+        .get("annotationsExportFormat")
+        .and_then(|v| v.as_str())
+    {
         set_clauses.push("annotations_export_format = ?".to_string());
         params.push(Box::new(annotations_export_format.to_string()));
     }
-    
+
     if set_clauses.is_empty() {
         return Ok(());
     }
-    
+
     // Build and execute query
     let sql = format!(
         "UPDATE user_preferences SET {} WHERE id = 1",
         set_clauses.join(", ")
     );
-    
+
     // Convert Box<dyn ToSql> to &dyn ToSql
     let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
-    
+
     conn.execute(&sql, param_refs.as_slice())?;
-    
+
     Ok(())
 }
 
@@ -489,54 +507,67 @@ pub async fn get_book_preference_overrides(
             font_family, font_size, line_height, page_width,
             scroll_mode, justification, paragraph_spacing, animation_speed,
             hyphenation, custom_css
-        FROM book_preference_overrides"
+        FROM book_preference_overrides",
     )?;
-    
-    let overrides = stmt.query_map([], |row| {
-        let book_id: i32 = row.get(0)?;
-        
-        let mut prefs = serde_json::Map::new();
-        
-        if let Ok(Some(val)) = row.get::<_, Option<String>>(1) {
-            prefs.insert("fontFamily".to_string(), serde_json::Value::String(val));
-        }
-        if let Ok(Some(val)) = row.get::<_, Option<i32>>(2) {
-            prefs.insert("fontSize".to_string(), serde_json::Value::Number(val.into()));
-        }
-        if let Ok(Some(val)) = row.get::<_, Option<f32>>(3) {
-            if let Some(num) = serde_json::Number::from_f64(val as f64) {
-                prefs.insert("lineHeight".to_string(), serde_json::Value::Number(num));
+
+    let overrides = stmt
+        .query_map([], |row| {
+            let book_id: i32 = row.get(0)?;
+
+            let mut prefs = serde_json::Map::new();
+
+            if let Ok(Some(val)) = row.get::<_, Option<String>>(1) {
+                prefs.insert("fontFamily".to_string(), serde_json::Value::String(val));
             }
-        }
-        if let Ok(Some(val)) = row.get::<_, Option<i32>>(4) {
-            prefs.insert("pageWidth".to_string(), serde_json::Value::Number(val.into()));
-        }
-        if let Ok(Some(val)) = row.get::<_, Option<String>>(5) {
-            prefs.insert("scrollMode".to_string(), serde_json::Value::String(val));
-        }
-        if let Ok(Some(val)) = row.get::<_, Option<String>>(6) {
-            prefs.insert("justification".to_string(), serde_json::Value::String(val));
-        }
-        if let Ok(Some(val)) = row.get::<_, Option<i32>>(7) {
-            prefs.insert("paragraphSpacing".to_string(), serde_json::Value::Number(val.into()));
-        }
-        if let Ok(Some(val)) = row.get::<_, Option<i32>>(8) {
-            prefs.insert("animationSpeed".to_string(), serde_json::Value::Number(val.into()));
-        }
-        if let Ok(Some(val)) = row.get::<_, Option<bool>>(9) {
-            prefs.insert("hyphenation".to_string(), serde_json::Value::Bool(val));
-        }
-        if let Ok(Some(val)) = row.get::<_, Option<String>>(10) {
-            prefs.insert("customCSS".to_string(), serde_json::Value::String(val));
-        }
-        
-        Ok(PreferenceOverride {
-            book_id,
-            preferences: serde_json::Value::Object(prefs),
-        })
-    })?
-    .collect::<rusqlite::Result<Vec<_>>>()?;
-    
+            if let Ok(Some(val)) = row.get::<_, Option<i32>>(2) {
+                prefs.insert(
+                    "fontSize".to_string(),
+                    serde_json::Value::Number(val.into()),
+                );
+            }
+            if let Ok(Some(val)) = row.get::<_, Option<f32>>(3) {
+                if let Some(num) = serde_json::Number::from_f64(val as f64) {
+                    prefs.insert("lineHeight".to_string(), serde_json::Value::Number(num));
+                }
+            }
+            if let Ok(Some(val)) = row.get::<_, Option<i32>>(4) {
+                prefs.insert(
+                    "pageWidth".to_string(),
+                    serde_json::Value::Number(val.into()),
+                );
+            }
+            if let Ok(Some(val)) = row.get::<_, Option<String>>(5) {
+                prefs.insert("scrollMode".to_string(), serde_json::Value::String(val));
+            }
+            if let Ok(Some(val)) = row.get::<_, Option<String>>(6) {
+                prefs.insert("justification".to_string(), serde_json::Value::String(val));
+            }
+            if let Ok(Some(val)) = row.get::<_, Option<i32>>(7) {
+                prefs.insert(
+                    "paragraphSpacing".to_string(),
+                    serde_json::Value::Number(val.into()),
+                );
+            }
+            if let Ok(Some(val)) = row.get::<_, Option<i32>>(8) {
+                prefs.insert(
+                    "animationSpeed".to_string(),
+                    serde_json::Value::Number(val.into()),
+                );
+            }
+            if let Ok(Some(val)) = row.get::<_, Option<bool>>(9) {
+                prefs.insert("hyphenation".to_string(), serde_json::Value::Bool(val));
+            }
+            if let Ok(Some(val)) = row.get::<_, Option<String>>(10) {
+                prefs.insert("customCSS".to_string(), serde_json::Value::String(val));
+            }
+
+            Ok(PreferenceOverride {
+                book_id,
+                preferences: serde_json::Value::Object(prefs),
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+
     Ok(overrides)
 }
 
@@ -554,11 +585,11 @@ pub async fn set_book_preference_override(
          ON CONFLICT(book_id) DO NOTHING",
         [book_id],
     )?;
-    
+
     // Update fields
     let mut set_clauses = Vec::new();
     let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
-    
+
     if let Some(font_family) = overrides.get("fontFamily").and_then(|v| v.as_str()) {
         set_clauses.push("font_family = ?");
         params.push(Box::new(font_family.to_string()));
@@ -599,21 +630,21 @@ pub async fn set_book_preference_override(
         set_clauses.push("custom_css = ?");
         params.push(Box::new(custom_css.to_string()));
     }
-    
+
     if set_clauses.is_empty() {
         return Ok(());
     }
-    
+
     let sql = format!(
         "UPDATE book_preference_overrides SET {} WHERE book_id = ?",
         set_clauses.join(", ")
     );
-    
+
     params.push(Box::new(book_id));
     let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
-    
+
     conn.execute(&sql, param_refs.as_slice())?;
-    
+
     Ok(())
 }
 
@@ -628,7 +659,7 @@ pub async fn clear_book_preference_override(
         "DELETE FROM book_preference_overrides WHERE book_id = ?",
         [book_id],
     )?;
-    
+
     Ok(())
 }
 
@@ -643,49 +674,59 @@ pub async fn get_manga_preference_overrides(
             mode, direction, margin_size, fit_width,
             background_color, progress_bar, image_smoothing, preload_count,
             gpu_acceleration
-        FROM manga_preference_overrides"
+        FROM manga_preference_overrides",
     )?;
-    
-    let overrides = stmt.query_map([], |row| {
-        let book_id: i32 = row.get(0)?;
-        
-        let mut prefs = serde_json::Map::new();
-        
-        if let Ok(Some(val)) = row.get::<_, Option<String>>(1) {
-            prefs.insert("mode".to_string(), serde_json::Value::String(val));
-        }
-        if let Ok(Some(val)) = row.get::<_, Option<String>>(2) {
-            prefs.insert("direction".to_string(), serde_json::Value::String(val));
-        }
-        if let Ok(Some(val)) = row.get::<_, Option<i32>>(3) {
-            prefs.insert("marginSize".to_string(), serde_json::Value::Number(val.into()));
-        }
-        if let Ok(Some(val)) = row.get::<_, Option<bool>>(4) {
-            prefs.insert("fitWidth".to_string(), serde_json::Value::Bool(val));
-        }
-        if let Ok(Some(val)) = row.get::<_, Option<String>>(5) {
-            prefs.insert("backgroundColor".to_string(), serde_json::Value::String(val));
-        }
-        if let Ok(Some(val)) = row.get::<_, Option<String>>(6) {
-            prefs.insert("progressBar".to_string(), serde_json::Value::String(val));
-        }
-        if let Ok(Some(val)) = row.get::<_, Option<bool>>(7) {
-            prefs.insert("imageSmoothing".to_string(), serde_json::Value::Bool(val));
-        }
-        if let Ok(Some(val)) = row.get::<_, Option<i32>>(8) {
-            prefs.insert("preloadCount".to_string(), serde_json::Value::Number(val.into()));
-        }
-        if let Ok(Some(val)) = row.get::<_, Option<bool>>(9) {
-            prefs.insert("gpuAcceleration".to_string(), serde_json::Value::Bool(val));
-        }
-        
-        Ok(PreferenceOverride {
-            book_id,
-            preferences: serde_json::Value::Object(prefs),
-        })
-    })?
-    .collect::<rusqlite::Result<Vec<_>>>()?;
-    
+
+    let overrides = stmt
+        .query_map([], |row| {
+            let book_id: i32 = row.get(0)?;
+
+            let mut prefs = serde_json::Map::new();
+
+            if let Ok(Some(val)) = row.get::<_, Option<String>>(1) {
+                prefs.insert("mode".to_string(), serde_json::Value::String(val));
+            }
+            if let Ok(Some(val)) = row.get::<_, Option<String>>(2) {
+                prefs.insert("direction".to_string(), serde_json::Value::String(val));
+            }
+            if let Ok(Some(val)) = row.get::<_, Option<i32>>(3) {
+                prefs.insert(
+                    "marginSize".to_string(),
+                    serde_json::Value::Number(val.into()),
+                );
+            }
+            if let Ok(Some(val)) = row.get::<_, Option<bool>>(4) {
+                prefs.insert("fitWidth".to_string(), serde_json::Value::Bool(val));
+            }
+            if let Ok(Some(val)) = row.get::<_, Option<String>>(5) {
+                prefs.insert(
+                    "backgroundColor".to_string(),
+                    serde_json::Value::String(val),
+                );
+            }
+            if let Ok(Some(val)) = row.get::<_, Option<String>>(6) {
+                prefs.insert("progressBar".to_string(), serde_json::Value::String(val));
+            }
+            if let Ok(Some(val)) = row.get::<_, Option<bool>>(7) {
+                prefs.insert("imageSmoothing".to_string(), serde_json::Value::Bool(val));
+            }
+            if let Ok(Some(val)) = row.get::<_, Option<i32>>(8) {
+                prefs.insert(
+                    "preloadCount".to_string(),
+                    serde_json::Value::Number(val.into()),
+                );
+            }
+            if let Ok(Some(val)) = row.get::<_, Option<bool>>(9) {
+                prefs.insert("gpuAcceleration".to_string(), serde_json::Value::Bool(val));
+            }
+
+            Ok(PreferenceOverride {
+                book_id,
+                preferences: serde_json::Value::Object(prefs),
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+
     Ok(overrides)
 }
 
@@ -703,10 +744,10 @@ pub async fn set_manga_preference_override(
          ON CONFLICT(book_id) DO NOTHING",
         [book_id],
     )?;
-    
+
     let mut set_clauses = Vec::new();
     let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
-    
+
     if let Some(mode) = overrides.get("mode").and_then(|v| v.as_str()) {
         set_clauses.push("mode = ?");
         params.push(Box::new(mode.to_string()));
@@ -743,21 +784,21 @@ pub async fn set_manga_preference_override(
         set_clauses.push("gpu_acceleration = ?");
         params.push(Box::new(gpu_acceleration));
     }
-    
+
     if set_clauses.is_empty() {
         return Ok(());
     }
-    
+
     let sql = format!(
         "UPDATE manga_preference_overrides SET {} WHERE book_id = ?",
         set_clauses.join(", ")
     );
-    
+
     params.push(Box::new(book_id));
     let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
-    
+
     conn.execute(&sql, param_refs.as_slice())?;
-    
+
     Ok(())
 }
 
@@ -772,7 +813,7 @@ pub async fn clear_manga_preference_override(
         "DELETE FROM manga_preference_overrides WHERE book_id = ?",
         [book_id],
     )?;
-    
+
     Ok(())
 }
 
@@ -785,9 +826,9 @@ pub async fn get_onboarding_state(state: State<'_, AppState>) -> Result<Onboardi
         [],
         |row| {
             let skipped_json: String = row.get(3)?;
-            let skipped_steps: Vec<String> = serde_json::from_str(&skipped_json)
-                .unwrap_or_else(|_| Vec::new());
-            
+            let skipped_steps: Vec<String> =
+                serde_json::from_str(&skipped_json).unwrap_or_else(|_| Vec::new());
+
             Ok(OnboardingState {
                 completed: row.get(0)?,
                 completed_at: row.get(1)?,
@@ -796,7 +837,7 @@ pub async fn get_onboarding_state(state: State<'_, AppState>) -> Result<Onboardi
             })
         },
     )?;
-    
+
     Ok(onboarding_state)
 }
 
@@ -807,16 +848,15 @@ pub async fn complete_onboarding(
     skipped_steps: Vec<String>,
 ) -> Result<()> {
     let conn = state.db.get_connection()?;
-    let skipped_json = serde_json::to_string(&skipped_steps)
-        .unwrap_or_else(|_| "[]".to_string());
-    
+    let skipped_json = serde_json::to_string(&skipped_steps).unwrap_or_else(|_| "[]".to_string());
+
     conn.execute(
         "UPDATE onboarding_state 
          SET completed = 1, completed_at = CURRENT_TIMESTAMP, skipped_steps = ?
          WHERE id = 1",
         [skipped_json],
     )?;
-    
+
     Ok(())
 }
 
@@ -830,7 +870,7 @@ pub async fn reset_onboarding(state: State<'_, AppState>) -> Result<()> {
          WHERE id = 1",
         [],
     )?;
-    
+
     Ok(())
 }
 
@@ -948,25 +988,50 @@ pub async fn get_startup_data(state: State<'_, AppState>) -> Result<StartupData>
                 font_family, font_size, line_height, page_width,
                 scroll_mode, justification, paragraph_spacing, animation_speed,
                 hyphenation, custom_css
-            FROM book_preference_overrides"
+            FROM book_preference_overrides",
         )?;
-        let res = stmt.query_map([], |row| {
-            let book_id: i32 = row.get(0)?;
-            let mut prefs = serde_json::Map::new();
-            if let Ok(Some(v)) = row.get::<_, Option<String>>(1)  { prefs.insert("fontFamily".into(), v.into()); }
-            if let Ok(Some(v)) = row.get::<_, Option<i32>>(2)     { prefs.insert("fontSize".into(), v.into()); }
-            if let Ok(Some(v)) = row.get::<_, Option<f32>>(3)     {
-                if let Some(n) = serde_json::Number::from_f64(v as f64) { prefs.insert("lineHeight".into(), n.into()); }
-            }
-            if let Ok(Some(v)) = row.get::<_, Option<i32>>(4)     { prefs.insert("pageWidth".into(), v.into()); }
-            if let Ok(Some(v)) = row.get::<_, Option<String>>(5)  { prefs.insert("scrollMode".into(), v.into()); }
-            if let Ok(Some(v)) = row.get::<_, Option<String>>(6)  { prefs.insert("justification".into(), v.into()); }
-            if let Ok(Some(v)) = row.get::<_, Option<i32>>(7)     { prefs.insert("paragraphSpacing".into(), v.into()); }
-            if let Ok(Some(v)) = row.get::<_, Option<i32>>(8)     { prefs.insert("animationSpeed".into(), v.into()); }
-            if let Ok(Some(v)) = row.get::<_, Option<bool>>(9)    { prefs.insert("hyphenation".into(), v.into()); }
-            if let Ok(Some(v)) = row.get::<_, Option<String>>(10) { prefs.insert("customCSS".into(), v.into()); }
-            Ok(PreferenceOverride { book_id, preferences: serde_json::Value::Object(prefs) })
-        })?.collect::<rusqlite::Result<Vec<_>>>()?;
+        let res = stmt
+            .query_map([], |row| {
+                let book_id: i32 = row.get(0)?;
+                let mut prefs = serde_json::Map::new();
+                if let Ok(Some(v)) = row.get::<_, Option<String>>(1) {
+                    prefs.insert("fontFamily".into(), v.into());
+                }
+                if let Ok(Some(v)) = row.get::<_, Option<i32>>(2) {
+                    prefs.insert("fontSize".into(), v.into());
+                }
+                if let Ok(Some(v)) = row.get::<_, Option<f32>>(3) {
+                    if let Some(n) = serde_json::Number::from_f64(v as f64) {
+                        prefs.insert("lineHeight".into(), n.into());
+                    }
+                }
+                if let Ok(Some(v)) = row.get::<_, Option<i32>>(4) {
+                    prefs.insert("pageWidth".into(), v.into());
+                }
+                if let Ok(Some(v)) = row.get::<_, Option<String>>(5) {
+                    prefs.insert("scrollMode".into(), v.into());
+                }
+                if let Ok(Some(v)) = row.get::<_, Option<String>>(6) {
+                    prefs.insert("justification".into(), v.into());
+                }
+                if let Ok(Some(v)) = row.get::<_, Option<i32>>(7) {
+                    prefs.insert("paragraphSpacing".into(), v.into());
+                }
+                if let Ok(Some(v)) = row.get::<_, Option<i32>>(8) {
+                    prefs.insert("animationSpeed".into(), v.into());
+                }
+                if let Ok(Some(v)) = row.get::<_, Option<bool>>(9) {
+                    prefs.insert("hyphenation".into(), v.into());
+                }
+                if let Ok(Some(v)) = row.get::<_, Option<String>>(10) {
+                    prefs.insert("customCSS".into(), v.into());
+                }
+                Ok(PreferenceOverride {
+                    book_id,
+                    preferences: serde_json::Value::Object(prefs),
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
         res
     };
 
@@ -977,22 +1042,45 @@ pub async fn get_startup_data(state: State<'_, AppState>) -> Result<StartupData>
                 mode, direction, margin_size, fit_width,
                 background_color, progress_bar, image_smoothing, preload_count,
                 gpu_acceleration
-            FROM manga_preference_overrides"
+            FROM manga_preference_overrides",
         )?;
-        let res = stmt.query_map([], |row| {
-            let book_id: i32 = row.get(0)?;
-            let mut prefs = serde_json::Map::new();
-            if let Ok(Some(v)) = row.get::<_, Option<String>>(1)  { prefs.insert("mode".into(), v.into()); }
-            if let Ok(Some(v)) = row.get::<_, Option<String>>(2)  { prefs.insert("direction".into(), v.into()); }
-            if let Ok(Some(v)) = row.get::<_, Option<i32>>(3)     { prefs.insert("marginSize".into(), v.into()); }
-            if let Ok(Some(v)) = row.get::<_, Option<bool>>(4)    { prefs.insert("fitWidth".into(), v.into()); }
-            if let Ok(Some(v)) = row.get::<_, Option<String>>(5)  { prefs.insert("backgroundColor".into(), v.into()); }
-            if let Ok(Some(v)) = row.get::<_, Option<String>>(6)  { prefs.insert("progressBar".into(), v.into()); }
-            if let Ok(Some(v)) = row.get::<_, Option<bool>>(7)    { prefs.insert("imageSmoothing".into(), v.into()); }
-            if let Ok(Some(v)) = row.get::<_, Option<i32>>(8)     { prefs.insert("preloadCount".into(), v.into()); }
-            if let Ok(Some(v)) = row.get::<_, Option<bool>>(9)    { prefs.insert("gpuAcceleration".into(), v.into()); }
-            Ok(PreferenceOverride { book_id, preferences: serde_json::Value::Object(prefs) })
-        })?.collect::<rusqlite::Result<Vec<_>>>()?;
+        let res = stmt
+            .query_map([], |row| {
+                let book_id: i32 = row.get(0)?;
+                let mut prefs = serde_json::Map::new();
+                if let Ok(Some(v)) = row.get::<_, Option<String>>(1) {
+                    prefs.insert("mode".into(), v.into());
+                }
+                if let Ok(Some(v)) = row.get::<_, Option<String>>(2) {
+                    prefs.insert("direction".into(), v.into());
+                }
+                if let Ok(Some(v)) = row.get::<_, Option<i32>>(3) {
+                    prefs.insert("marginSize".into(), v.into());
+                }
+                if let Ok(Some(v)) = row.get::<_, Option<bool>>(4) {
+                    prefs.insert("fitWidth".into(), v.into());
+                }
+                if let Ok(Some(v)) = row.get::<_, Option<String>>(5) {
+                    prefs.insert("backgroundColor".into(), v.into());
+                }
+                if let Ok(Some(v)) = row.get::<_, Option<String>>(6) {
+                    prefs.insert("progressBar".into(), v.into());
+                }
+                if let Ok(Some(v)) = row.get::<_, Option<bool>>(7) {
+                    prefs.insert("imageSmoothing".into(), v.into());
+                }
+                if let Ok(Some(v)) = row.get::<_, Option<i32>>(8) {
+                    prefs.insert("preloadCount".into(), v.into());
+                }
+                if let Ok(Some(v)) = row.get::<_, Option<bool>>(9) {
+                    prefs.insert("gpuAcceleration".into(), v.into());
+                }
+                Ok(PreferenceOverride {
+                    book_id,
+                    preferences: serde_json::Value::Object(prefs),
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
         res
     };
 
@@ -1013,11 +1101,13 @@ pub async fn get_startup_data(state: State<'_, AppState>) -> Result<StartupData>
     )?;
 
     // ── Reading goal (best-effort) ────────────────────────────────────────────
-    let reading_goal_minutes: Option<i64> = conn.query_row(
-        "SELECT daily_minutes_target FROM reading_goals WHERE id = 1",
-        [],
-        |row| row.get(0),
-    ).ok();
+    let reading_goal_minutes: Option<i64> = conn
+        .query_row(
+            "SELECT daily_minutes_target FROM reading_goals WHERE id = 1",
+            [],
+            |row| row.get(0),
+        )
+        .ok();
 
     Ok(StartupData {
         preferences,
@@ -1026,4 +1116,50 @@ pub async fn get_startup_data(state: State<'_, AppState>) -> Result<StartupData>
         onboarding,
         reading_goal_minutes,
     })
+}
+
+// ── Torrent Network Config ────────────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TorrentNetworkConfig {
+    pub proxy_url: Option<String>,
+    pub timeout_seconds: i32,
+    pub max_retries: i32,
+}
+
+#[tauri::command]
+pub async fn torrent_network_get_config(
+    state: State<'_, AppState>,
+) -> Result<TorrentNetworkConfig> {
+    let conn = state.db.get_connection()?;
+    let config = conn.query_row(
+        "SELECT torrent_proxy_url, torrent_timeout_seconds, torrent_max_retries FROM user_preferences WHERE id = 1",
+        [],
+        |row| {
+            Ok(TorrentNetworkConfig {
+                proxy_url: row.get(0)?,
+                timeout_seconds: row.get(1)?,
+                max_retries: row.get(2)?,
+            })
+        },
+    )?;
+    Ok(config)
+}
+
+#[tauri::command]
+pub async fn torrent_network_set_config(
+    state: State<'_, AppState>,
+    config: TorrentNetworkConfig,
+) -> Result<()> {
+    let conn = state.db.get_connection()?;
+    conn.execute(
+        "UPDATE user_preferences SET 
+            torrent_proxy_url = ?, 
+            torrent_timeout_seconds = ?, 
+            torrent_max_retries = ? 
+         WHERE id = 1",
+        rusqlite::params![config.proxy_url, config.timeout_seconds, config.max_retries,],
+    )?;
+    Ok(())
 }

@@ -1,6 +1,8 @@
 use crate::db::Database;
-use crate::services::online::provider::{ItemType, MetadataProvider, MetadataQuery, FetchedMetadata};
-use sha2::{Sha256, Digest};
+use crate::services::online::provider::{
+    FetchedMetadata, ItemType, MetadataProvider, MetadataQuery,
+};
+use sha2::{Digest, Sha256};
 use std::sync::Arc;
 use tokio::sync::{mpsc, Semaphore};
 
@@ -29,14 +31,14 @@ impl MetadataWorker {
             sender: tx,
             app_handle: None,
         };
-        
+
         (worker, rx)
     }
 
     pub fn set_app_handle(&mut self, handle: tauri::AppHandle) {
         self.app_handle = Some(handle);
     }
-    
+
     pub fn add_provider(&mut self, provider: Arc<dyn MetadataProvider>) {
         self.providers.push(provider);
     }
@@ -45,35 +47,41 @@ impl MetadataWorker {
         let db = self.db.clone();
         let providers = self.providers.clone();
         let handle_opt = self.app_handle.clone();
-        
+
         tauri::async_runtime::spawn(async move {
             let semaphore = Arc::new(Semaphore::new(2)); // Max 2 concurrent HTTP requests
 
             while let Some(job) = rx.recv().await {
-                log::info!("[MetadataWorker] Processing job for item_id: {}", job.item_id);
+                log::info!(
+                    "[MetadataWorker] Processing job for item_id: {}",
+                    job.item_id
+                );
                 // 1. Determine if manga or book
                 let is_manga = matches!(job.item_type, ItemType::Manga);
-                
+
                 // 2. Select appropriate provider
                 let provider = providers.iter().find(|p| p.supports_media(is_manga));
-                
+
                 let provider_name = provider.map(|p| p.name()).unwrap_or("unknown");
 
                 // Emit loading state
                 if let Some(handle) = &handle_opt {
                     use tauri::Emitter;
-                    let _ = handle.emit("metadata-update", serde_json::json!({
-                        "bookId": job.item_id,
-                        "status": "loading",
-                        "provider": provider_name
-                    }));
+                    let _ = handle.emit(
+                        "metadata-update",
+                        serde_json::json!({
+                            "bookId": job.item_id,
+                            "status": "loading",
+                            "provider": provider_name
+                        }),
+                    );
                 }
 
                 if let Some(p) = provider {
                     let query_hash = Self::compute_query_hash(&job.query);
 
                     let mut cached_metadata = None;
-                    
+
                     // Check local cache first (unless forced)
                     if !job.force_refresh {
                         if let Ok(conn) = db.get_connection() {
@@ -82,8 +90,14 @@ impl MetadataWorker {
                                  WHERE provider = ?1 AND query_hash = ?2 AND expires_at > CURRENT_TIMESTAMP"
                             );
                             if let Ok(mut stmt) = stmt {
-                                if let Ok(json_str) = stmt.query_row(rusqlite::params![p.name(), query_hash], |row| row.get::<_, String>(0)) {
-                                    if let Ok(metadata) = serde_json::from_str::<FetchedMetadata>(&json_str) {
+                                if let Ok(json_str) = stmt
+                                    .query_row(rusqlite::params![p.name(), query_hash], |row| {
+                                        row.get::<_, String>(0)
+                                    })
+                                {
+                                    if let Ok(metadata) =
+                                        serde_json::from_str::<FetchedMetadata>(&json_str)
+                                    {
                                         cached_metadata = Some(metadata);
                                     }
                                 }
@@ -92,30 +106,40 @@ impl MetadataWorker {
                     }
 
                     if let Some(metadata) = cached_metadata {
-                        log::info!("[MetadataWorker] Cache HIT for query {} via {}", query_hash, p.name());
+                        log::info!(
+                            "[MetadataWorker] Cache HIT for query {} via {}",
+                            query_hash,
+                            p.name()
+                        );
                         Self::apply_metadata(&db, job.item_id, metadata, is_manga).await;
-                        
+
                         if let Some(handle) = &handle_opt {
                             use tauri::Emitter;
-                            let _ = handle.emit("metadata-update", serde_json::json!({
-                                "bookId": job.item_id,
-                                "status": "success",
-                                "provider": p.name()
-                            }));
+                            let _ = handle.emit(
+                                "metadata-update",
+                                serde_json::json!({
+                                    "bookId": job.item_id,
+                                    "status": "success",
+                                    "provider": p.name()
+                                }),
+                            );
                         }
                         continue;
                     }
 
                     let sem_clone = semaphore.clone();
                     let permit = sem_clone.acquire().await;
-                    
+
                     if let Ok(_permit) = permit {
                         let mut attempts = 0;
                         while attempts < 3 {
                             match p.fetch_metadata(&job.query).await {
                                 Ok(Some(metadata)) => {
-                                    log::info!("[MetadataWorker] Successfully fetched metadata via {}", p.name());
-                                    
+                                    log::info!(
+                                        "[MetadataWorker] Successfully fetched metadata via {}",
+                                        p.name()
+                                    );
+
                                     // Cache the result
                                     if let Ok(conn) = db.get_connection() {
                                         if let Ok(json_str) = serde_json::to_string(&metadata) {
@@ -128,47 +152,71 @@ impl MetadataWorker {
                                     }
 
                                     // 5. Update DB (resolve conflicts with offline-first hierarchy)
-                                    Self::apply_metadata(&db, job.item_id, metadata, is_manga).await;
-                                    
+                                    Self::apply_metadata(&db, job.item_id, metadata, is_manga)
+                                        .await;
+
                                     // 6. Emit Tauri event
                                     if let Some(handle) = &handle_opt {
                                         use tauri::Emitter;
-                                        let _ = handle.emit("metadata-update", serde_json::json!({
-                                            "bookId": job.item_id,
-                                            "status": "success",
-                                            "provider": p.name()
-                                        }));
+                                        let _ = handle.emit(
+                                            "metadata-update",
+                                            serde_json::json!({
+                                                "bookId": job.item_id,
+                                                "status": "success",
+                                                "provider": p.name()
+                                            }),
+                                        );
                                     }
-                                    
+
                                     break;
                                 }
                                 Ok(None) => {
-                                    log::info!("[MetadataWorker] No metadata found via {}", p.name());
+                                    log::info!(
+                                        "[MetadataWorker] No metadata found via {}",
+                                        p.name()
+                                    );
                                     if let Some(handle) = &handle_opt {
                                         use tauri::Emitter;
-                                        let _ = handle.emit("metadata-update", serde_json::json!({
-                                            "bookId": job.item_id,
-                                            "status": "not_found",
-                                            "provider": p.name()
-                                        }));
+                                        let _ = handle.emit(
+                                            "metadata-update",
+                                            serde_json::json!({
+                                                "bookId": job.item_id,
+                                                "status": "not_found",
+                                                "provider": p.name()
+                                            }),
+                                        );
                                     }
                                     break;
                                 }
-                                Err(crate::services::online::provider::MetadataError::RateLimited { retry_after }) => {
-                                    log::warn!("[MetadataWorker] Rate limited, waiting {}s", retry_after);
-                                    tokio::time::sleep(std::time::Duration::from_secs(retry_after)).await;
+                                Err(
+                                    crate::services::online::provider::MetadataError::RateLimited {
+                                        retry_after,
+                                    },
+                                ) => {
+                                    log::warn!(
+                                        "[MetadataWorker] Rate limited, waiting {}s",
+                                        retry_after
+                                    );
+                                    tokio::time::sleep(std::time::Duration::from_secs(retry_after))
+                                        .await;
                                     attempts += 1;
                                 }
                                 Err(e) => {
-                                    log::error!("[MetadataWorker] Error fetching metadata: {:?}", e);
+                                    log::error!(
+                                        "[MetadataWorker] Error fetching metadata: {:?}",
+                                        e
+                                    );
                                     if let Some(handle) = &handle_opt {
                                         use tauri::Emitter;
-                                        let _ = handle.emit("metadata-update", serde_json::json!({
-                                            "bookId": job.item_id,
-                                            "status": "error",
-                                            "error": e.to_string(),
-                                            "provider": p.name()
-                                        }));
+                                        let _ = handle.emit(
+                                            "metadata-update",
+                                            serde_json::json!({
+                                                "bookId": job.item_id,
+                                                "status": "error",
+                                                "error": e.to_string(),
+                                                "provider": p.name()
+                                            }),
+                                        );
                                     }
                                     break;
                                 }
@@ -176,7 +224,10 @@ impl MetadataWorker {
                         }
                     }
                 } else {
-                    log::warn!("[MetadataWorker] No provider supports item type {:?}", job.item_type);
+                    log::warn!(
+                        "[MetadataWorker] No provider supports item type {:?}",
+                        job.item_type
+                    );
                 }
             }
         });
@@ -219,10 +270,10 @@ impl MetadataWorker {
                      notes = ?2
                  WHERE id = ?3",
                 rusqlite::params![
-                    meta.provider_id.unwrap_or_else(|| "unknown".to_string()), 
+                    meta.provider_id.unwrap_or_else(|| "unknown".to_string()),
                     new_notes,
                     item_id
-                ]
+                ],
             );
 
             // Update authors
@@ -253,7 +304,10 @@ impl MetadataWorker {
                 }
             }
 
-            log::info!("[MetadataWorker] Updated book {} with enriched metadata", item_id);
+            log::info!(
+                "[MetadataWorker] Updated book {} with enriched metadata",
+                item_id
+            );
         }
     }
 
@@ -265,7 +319,10 @@ impl MetadataWorker {
         ) {
             Ok(id) => Ok(id),
             Err(rusqlite::Error::QueryReturnedNoRows) => {
-                conn.execute("INSERT INTO authors (name) VALUES (?1)", rusqlite::params![name])?;
+                conn.execute(
+                    "INSERT INTO authors (name) VALUES (?1)",
+                    rusqlite::params![name],
+                )?;
                 Ok(conn.last_insert_rowid())
             }
             Err(e) => Err(e.into()),
@@ -280,7 +337,10 @@ impl MetadataWorker {
         ) {
             Ok(id) => Ok(id),
             Err(rusqlite::Error::QueryReturnedNoRows) => {
-                conn.execute("INSERT INTO tags (name) VALUES (?1)", rusqlite::params![name])?;
+                conn.execute(
+                    "INSERT INTO tags (name) VALUES (?1)",
+                    rusqlite::params![name],
+                )?;
                 Ok(conn.last_insert_rowid())
             }
             Err(e) => Err(e.into()),
@@ -292,7 +352,9 @@ impl MetadataWorker {
         let q_str = match query {
             MetadataQuery::Isbn(isbn) => format!("isbn:{}", isbn),
             MetadataQuery::Title(title) => format!("title:{}", title),
-            MetadataQuery::TitleAuthor { title, author } => format!("title:{},author:{:?}", title, author),
+            MetadataQuery::TitleAuthor { title, author } => {
+                format!("title:{},author:{:?}", title, author)
+            }
         };
         hasher.update(q_str.as_bytes());
         hex::encode(hasher.finalize())

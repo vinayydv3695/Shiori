@@ -2,7 +2,6 @@
 ///
 /// Provides dictionary lookups (Free Dictionary API) and text translation
 /// (MyMemory API with Lingva fallback). All APIs are free and require no keys.
-
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -121,7 +120,8 @@ fn build_client() -> std::result::Result<Client, reqwest::Error> {
 /// Returns structured definitions, phonetics, and examples.
 /// Supports English primarily; other languages via lang code.
 pub async fn dictionary_lookup(word: &str, lang: &str) -> Result<DictionaryResult> {
-    let client = build_client().map_err(|e| ShioriError::Other(format!("HTTP client error: {}", e)))?;
+    let client =
+        build_client().map_err(|e| ShioriError::Other(format!("HTTP client error: {}", e)))?;
 
     let url = format!(
         "https://api.dictionaryapi.dev/api/v2/entries/{}/{}",
@@ -160,15 +160,12 @@ pub async fn dictionary_lookup(word: &str, lang: &str) -> Result<DictionaryResul
         .ok_or_else(|| ShioriError::Other("Empty dictionary response".to_string()))?;
 
     // Extract best phonetic and audio
-    let phonetic = entry
-        .phonetic
-        .clone()
-        .or_else(|| {
-            entry
-                .phonetics
-                .as_ref()
-                .and_then(|ps| ps.iter().find_map(|p| p.text.clone()))
-        });
+    let phonetic = entry.phonetic.clone().or_else(|| {
+        entry
+            .phonetics
+            .as_ref()
+            .and_then(|ps| ps.iter().find_map(|p| p.text.clone()))
+    });
 
     let audio_url = entry.phonetics.as_ref().and_then(|ps| {
         ps.iter()
@@ -214,23 +211,27 @@ pub async fn translate_text(
     target_lang: &str,
 ) -> Result<TranslationResult> {
     // Limit text length for free APIs
-    let text = if text.len() > 500 {
-        &text[..500]
-    } else {
-        text
-    };
+    let text = if text.len() > 500 { &text[..500] } else { text };
 
     // Skip MyMemory for "auto" source — it requires specific ISO language codes
     if source_lang != "auto" {
         match translate_mymemory(text, source_lang, target_lang).await {
             Ok(result) => return Ok(result),
             Err(e) => {
-                log::warn!("MyMemory translation failed: {}, trying Lingva fallback", e);
+                log::warn!("MyMemory translation failed: {}, trying Google fallback", e);
             }
         }
     }
 
-    // Fallback to Lingva
+    // Fallback 1: Google Translate API (free)
+    match translate_google_free(text, source_lang, target_lang).await {
+        Ok(result) => return Ok(result),
+        Err(e) => {
+            log::warn!("Google translation failed: {}, trying Lingva fallback", e);
+        }
+    }
+
+    // Fallback 2: Lingva
     match translate_lingva(text, source_lang, target_lang).await {
         Ok(result) => Ok(result),
         Err(e) => Err(ShioriError::Other(format!(
@@ -246,7 +247,8 @@ async fn translate_mymemory(
     source_lang: &str,
     target_lang: &str,
 ) -> Result<TranslationResult> {
-    let client = build_client().map_err(|e| ShioriError::Other(format!("HTTP client error: {}", e)))?;
+    let client =
+        build_client().map_err(|e| ShioriError::Other(format!("HTTP client error: {}", e)))?;
 
     let langpair = format!("{}|{}", source_lang, target_lang);
 
@@ -286,43 +288,138 @@ async fn translate_mymemory(
     })
 }
 
+/// Translate using Google Translate API (free)
+async fn translate_google_free(
+    text: &str,
+    source_lang: &str,
+    target_lang: &str,
+) -> Result<TranslationResult> {
+    let client =
+        build_client().map_err(|e| ShioriError::Other(format!("HTTP client error: {}", e)))?;
+    let url = "https://translate.googleapis.com/translate_a/single";
+
+    let response = client
+        .get(url)
+        .query(&[
+            ("client", "gtx"),
+            ("sl", source_lang),
+            ("tl", target_lang),
+            ("dt", "t"),
+            ("q", text),
+        ])
+        .send()
+        .await
+        .map_err(|e| ShioriError::Other(format!("Google Translate request failed: {}", e)))?;
+
+    if !response.status().is_success() {
+        return Err(ShioriError::Other(format!(
+            "Google Translate API returned status {}",
+            response.status()
+        )));
+    }
+
+    let json_val: serde_json::Value = response.json().await.map_err(|e| {
+        ShioriError::Other(format!("Failed to parse Google Translate response: {}", e))
+    })?;
+
+    let mut translated_text = String::new();
+
+    // The response is an array: [[["translated_sentence_1", ...], ["translated_sentence_2", ...]], ...]
+    if let Some(sentences) = json_val
+        .as_array()
+        .and_then(|a| a.get(0))
+        .and_then(|v| v.as_array())
+    {
+        for sentence_group in sentences {
+            if let Some(sentence) = sentence_group
+                .as_array()
+                .and_then(|a| a.get(0))
+                .and_then(|s| s.as_str())
+            {
+                translated_text.push_str(sentence);
+            }
+        }
+    }
+
+    if translated_text.is_empty() {
+        return Err(ShioriError::Other(
+            "Empty translation from Google Translate".to_string(),
+        ));
+    }
+
+    Ok(TranslationResult {
+        translated_text,
+        source_language: source_lang.to_string(),
+        target_language: target_lang.to_string(),
+        provider: "google".to_string(),
+    })
+}
+
 /// Translate using Lingva API (fallback)
 async fn translate_lingva(
     text: &str,
     source_lang: &str,
     target_lang: &str,
 ) -> Result<TranslationResult> {
-    let client = build_client().map_err(|e| ShioriError::Other(format!("HTTP client error: {}", e)))?;
+    let client =
+        build_client().map_err(|e| ShioriError::Other(format!("HTTP client error: {}", e)))?;
 
-    let url = format!(
-        "https://lingva.ml/api/v1/{}/{}/{}",
-        urlencoding::encode(source_lang),
-        urlencoding::encode(target_lang),
-        urlencoding::encode(text)
-    );
+    let instances = [
+        "https://lingva.thedesk.top",
+        "https://lingva.lunar.icu",
+        "https://translate.plausibility.cloud",
+        "https://lingva.garudalinux.org",
+    ];
 
-    let response = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| ShioriError::Other(format!("Lingva request failed: {}", e)))?;
+    let mut last_error = String::new();
 
-    if !response.status().is_success() {
-        return Err(ShioriError::Other(format!(
-            "Lingva API returned status {}",
-            response.status()
-        )));
+    for instance in instances {
+        let url = format!(
+            "{}/api/v1/{}/{}/{}",
+            instance,
+            urlencoding::encode(source_lang),
+            urlencoding::encode(target_lang),
+            urlencoding::encode(text)
+        );
+
+        let response = match client.get(&url).send().await {
+            Ok(resp) => resp,
+            Err(e) => {
+                last_error = format!("Request failed: {}", e);
+                log::warn!("Lingva instance {} failed: {}", instance, e);
+                continue;
+            }
+        };
+
+        if !response.status().is_success() {
+            last_error = format!("Status {}", response.status());
+            log::warn!(
+                "Lingva instance {} failed with status {}",
+                instance,
+                response.status()
+            );
+            continue;
+        }
+
+        let result: LingvaResponse = match response.json().await {
+            Ok(res) => res,
+            Err(e) => {
+                last_error = format!("Parse failed: {}", e);
+                log::warn!("Lingva instance {} parse failed: {}", instance, e);
+                continue;
+            }
+        };
+
+        return Ok(TranslationResult {
+            translated_text: result.translation,
+            source_language: source_lang.to_string(),
+            target_language: target_lang.to_string(),
+            provider: "lingva".to_string(),
+        });
     }
 
-    let result: LingvaResponse = response
-        .json()
-        .await
-        .map_err(|e| ShioriError::Other(format!("Failed to parse Lingva response: {}", e)))?;
-
-    Ok(TranslationResult {
-        translated_text: result.translation,
-        source_language: source_lang.to_string(),
-        target_language: target_lang.to_string(),
-        provider: "lingva".to_string(),
-    })
+    Err(ShioriError::Other(format!(
+        "All Lingva instances failed. Last error: {}",
+        last_error
+    )))
 }

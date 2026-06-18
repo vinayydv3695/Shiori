@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useMangaContentStore, useMangaUIStore } from '@/store/mangaReaderStore';
 import { MangaPageImage } from '../MangaPageImage';
 import { useMangaPreloader } from '../hooks/useMangaPreloader';
+import { ChevronRight } from 'lucide-react';
 
 /**
  * Single page reading mode.
@@ -19,6 +20,7 @@ export function SinglePageView() {
     // Auto-hide top bar state
     const isTopBarVisible = useMangaUIStore(s => s.isTopBarVisible);
     const setTopBarVisible = useMangaUIStore(s => s.setTopBarVisible);
+    const onNextChapter = useMangaUIStore(s => s.onNextChapter);
 
     // Auto-hide top bar after 2 seconds on single page manga
     useEffect(() => {
@@ -54,12 +56,24 @@ export function SinglePageView() {
     if (!hasSource) return null;
 
     return (
-        <div className="manga-single-view">
+        <div className="manga-single-view relative">
             <div className="manga-page-container">
                 <MangaPageImage
                     pageIndex={currentPage}
                 />
             </div>
+            
+            {currentPage === totalPages - 1 && onNextChapter && (
+                <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-4">
+                    <button
+                        onClick={onNextChapter}
+                        className="bg-primary/90 hover:bg-primary text-primary-foreground backdrop-blur-md px-8 py-3 rounded-full font-bold flex items-center gap-2 shadow-xl shadow-black/50 transition-all hover:scale-105 active:scale-95"
+                    >
+                        <span>Next Chapter / Volume</span>
+                        <ChevronRight size={20} />
+                    </button>
+                </div>
+            )}
         </div>
     );
 }

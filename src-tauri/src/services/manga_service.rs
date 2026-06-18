@@ -2,8 +2,7 @@
 ///
 /// Thread-safe service for extracting and caching manga page images.
 /// Uses natural sort for page ordering and optional image downscaling.
-
-use crate::error::{ShioriError, Result};
+use crate::error::{Result, ShioriError};
 use image::GenericImageView;
 use std::collections::HashMap;
 use std::io::{Cursor, Read};
@@ -132,13 +131,12 @@ impl MangaService {
         })?;
 
         // Clone the file handle so we can store it for subsequent reads
-        let file_for_archive = file.try_clone().map_err(|e| {
-            ShioriError::Other(format!("Failed to clone file handle: {}", e))
-        })?;
+        let file_for_archive = file
+            .try_clone()
+            .map_err(|e| ShioriError::Other(format!("Failed to clone file handle: {}", e)))?;
 
-        let mut archive = ZipArchive::new(file_for_archive).map_err(|e| {
-            ShioriError::InvalidFormat(format!("Invalid CBZ/ZIP file: {}", e))
-        })?;
+        let mut archive = ZipArchive::new(file_for_archive)
+            .map_err(|e| ShioriError::InvalidFormat(format!("Invalid CBZ/ZIP file: {}", e)))?;
 
         // Collect and naturally sort image filenames
         let mut image_files: Vec<String> = Vec::new();
@@ -151,9 +149,7 @@ impl MangaService {
             }
         }
 
-        image_files.sort_by(|a, b| {
-            natural_sort_key(a).cmp(&natural_sort_key(b))
-        });
+        image_files.sort_by(|a, b| natural_sort_key(a).cmp(&natural_sort_key(b)));
 
         if image_files.is_empty() {
             return Err(ShioriError::InvalidFormat(
@@ -176,8 +172,7 @@ impl MangaService {
             .unwrap_or_else(|| "Unknown Manga".to_string());
 
         // Try to parse ComicInfo.xml
-        let (has_comic_info, series, volume, writer) =
-            Self::try_parse_comic_info(&mut archive);
+        let (has_comic_info, series, volume, writer) = Self::try_parse_comic_info(&mut archive);
 
         let metadata = MangaMetadata {
             title: title.clone(),
@@ -229,9 +224,9 @@ impl MangaService {
 
         let (file_path, page_name) = {
             let books = self.open_books.lock().unwrap();
-            let manga = books.get(&book_id).ok_or_else(|| {
-                ShioriError::BookNotFound(format!("Manga {} not open", book_id))
-            })?;
+            let manga = books
+                .get(&book_id)
+                .ok_or_else(|| ShioriError::BookNotFound(format!("Manga {} not open", book_id)))?;
 
             if page_index >= manga.sorted_pages.len() {
                 return Err(ShioriError::Other(format!(
@@ -250,9 +245,8 @@ impl MangaService {
 
         // Extract image bytes from ZIP (CPU intensive for large zips, use spawn_blocking)
         let image_bytes = tokio::task::spawn_blocking(move || -> Result<Vec<u8>> {
-            let file = std::fs::File::open(&file_path).map_err(|e| {
-                ShioriError::Other(format!("Failed to open archive: {}", e))
-            })?;
+            let file = std::fs::File::open(&file_path)
+                .map_err(|e| ShioriError::Other(format!("Failed to open archive: {}", e)))?;
             let mut archive = ZipArchive::new(file).map_err(|e| {
                 ShioriError::Other(format!("Failed to create archive from handle: {}", e))
             })?;
@@ -262,45 +256,50 @@ impl MangaService {
             })?;
 
             let mut bytes = Vec::new();
-            std::io::Read::read_to_end(&mut zip_file, &mut bytes).map_err(|e| {
-                ShioriError::Other(format!("Failed to read page: {}", e))
-            })?;
-            
+            std::io::Read::read_to_end(&mut zip_file, &mut bytes)
+                .map_err(|e| ShioriError::Other(format!("Failed to read page: {}", e)))?;
+
             Ok(bytes)
-        }).await.map_err(|e| ShioriError::Other(format!("Task Join Error: {}", e)))??;
+        })
+        .await
+        .map_err(|e| ShioriError::Other(format!("Task Join Error: {}", e)))??;
 
         // Optionally downscale (Also in the blocking task to avoid dropping frames)
         let result_bytes = tokio::task::spawn_blocking(move || -> Result<Vec<u8>> {
-             if max_dimension > 0 {
-                 let reader = image::ImageReader::new(Cursor::new(&image_bytes))
-                     .with_guessed_format()
-                     .map_err(|e| ShioriError::Other(e.to_string()))?;
-                     
-                 let img = reader.decode()
-                     .map_err(|e| ShioriError::Other(e.to_string()))?;
-                     
-                 let width = img.width();
-                 let height = img.height();
-                 
-                 if width <= max_dimension && height <= max_dimension {
-                     return Ok(image_bytes);
-                 }
-                 
-                 let resized = img.resize(
-                     max_dimension,
-                     max_dimension,
-                     image::imageops::FilterType::Lanczos3
-                 );
-                 
-                 let mut out_bytes = Vec::new();
-                 resized.write_to(&mut Cursor::new(&mut out_bytes), image::ImageFormat::Jpeg)
-                     .map_err(|e| ShioriError::Other(e.to_string()))?;
-                     
-                 Ok(out_bytes)
-             } else {
-                 Ok(image_bytes)
-             }
-        }).await.map_err(|e| ShioriError::Other(format!("Task Join Error: {}", e)))??;
+            if max_dimension > 0 {
+                let reader = image::ImageReader::new(Cursor::new(&image_bytes))
+                    .with_guessed_format()
+                    .map_err(|e| ShioriError::Other(e.to_string()))?;
+
+                let img = reader
+                    .decode()
+                    .map_err(|e| ShioriError::Other(e.to_string()))?;
+
+                let width = img.width();
+                let height = img.height();
+
+                if width <= max_dimension && height <= max_dimension {
+                    return Ok(image_bytes);
+                }
+
+                let resized = img.resize(
+                    max_dimension,
+                    max_dimension,
+                    image::imageops::FilterType::Lanczos3,
+                );
+
+                let mut out_bytes = Vec::new();
+                resized
+                    .write_to(&mut Cursor::new(&mut out_bytes), image::ImageFormat::Jpeg)
+                    .map_err(|e| ShioriError::Other(e.to_string()))?;
+
+                Ok(out_bytes)
+            } else {
+                Ok(image_bytes)
+            }
+        })
+        .await
+        .map_err(|e| ShioriError::Other(format!("Task Join Error: {}", e)))??;
 
         // Cache the result
         self.cache_page(cache_key, &result_bytes);
@@ -338,9 +337,9 @@ impl MangaService {
         page_indices: &[usize],
     ) -> Result<Vec<(u32, u32)>> {
         let mut books = self.open_books.lock().unwrap();
-        let manga = books.get_mut(&book_id).ok_or_else(|| {
-            ShioriError::BookNotFound(format!("Manga {} not open", book_id))
-        })?;
+        let manga = books
+            .get_mut(&book_id)
+            .ok_or_else(|| ShioriError::BookNotFound(format!("Manga {} not open", book_id)))?;
 
         // Check which pages still have placeholder dimensions and need resolving
         let placeholder = (800u32, 1200u32);
@@ -348,8 +347,7 @@ impl MangaService {
             .iter()
             .copied()
             .filter(|&idx| {
-                idx < manga.page_dimensions.len()
-                    && manga.page_dimensions[idx] == placeholder
+                idx < manga.page_dimensions.len() && manga.page_dimensions[idx] == placeholder
             })
             .collect();
 
@@ -361,7 +359,8 @@ impl MangaService {
                     for &idx in &needs_resolve {
                         if idx < manga.sorted_pages.len() {
                             let page_name = &manga.sorted_pages[idx];
-                            if let Some(dims) = Self::read_image_dimensions(&mut archive, page_name) {
+                            if let Some(dims) = Self::read_image_dimensions(&mut archive, page_name)
+                            {
                                 manga.page_dimensions[idx] = dims;
                             }
                         }
@@ -500,4 +499,3 @@ impl MangaService {
         None
     }
 }
-

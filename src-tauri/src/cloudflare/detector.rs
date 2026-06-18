@@ -3,7 +3,6 @@
 /// Detects whether an HTTP response is a Cloudflare interstitial page that
 /// requires real-browser JS execution to solve.  Returns a typed enum so
 /// callers can decide whether to retry, refresh, or give up.
-
 use reqwest::StatusCode;
 
 // ─── Detection result ────────────────────────────────────────────────────────
@@ -101,8 +100,7 @@ fn is_js_challenge(lo: &str) -> bool {
 fn is_captcha(lo: &str) -> bool {
     (lo.contains("captcha") || lo.contains("turnstile") || lo.contains("hcaptcha"))
         && lo.contains("cloudflare")
-        || lo.contains("attention required")
-            && lo.contains("cloudflare")
+        || lo.contains("attention required") && lo.contains("cloudflare")
 }
 
 fn is_expired_session(lo: &str) -> bool {

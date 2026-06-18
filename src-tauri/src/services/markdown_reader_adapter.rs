@@ -1,7 +1,5 @@
 use crate::error::{Result, ShioriError};
-use crate::services::renderer::{
-    BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry,
-};
+use crate::services::renderer::{BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry};
 use async_trait::async_trait;
 use pulldown_cmark::{html, Options, Parser};
 use regex::Regex;
@@ -93,10 +91,7 @@ impl MarkdownReaderAdapter {
             let caps = heading_re.captures(heading_match.as_str()).unwrap();
             let level: usize = caps[1].parse().unwrap_or(1);
             let heading_html = &caps[3];
-            let plain_text = strip_tags
-                .replace_all(heading_html, "")
-                .trim()
-                .to_string();
+            let plain_text = strip_tags.replace_all(heading_html, "").trim().to_string();
 
             let section_start = heading_match.start();
             let section_end = if i + 1 < heading_matches.len() {
@@ -142,10 +137,7 @@ impl MarkdownReaderAdapter {
             .unwrap_or(0);
         let start_char = char_idx.saturating_sub(50);
         let end_char = (char_idx + query_char_len + 50).min(char_indices.len());
-        let start_byte = char_indices
-            .get(start_char)
-            .map(|&(b, _)| b)
-            .unwrap_or(0);
+        let start_byte = char_indices.get(start_char).map(|&(b, _)| b).unwrap_or(0);
         let end_byte = if end_char >= char_indices.len() {
             content.len()
         } else {
@@ -161,15 +153,13 @@ unsafe impl Sync for MarkdownReaderAdapter {}
 #[async_trait]
 impl BookReaderAdapter for MarkdownReaderAdapter {
     async fn load(&mut self, path: &str) -> Result<()> {
-        let markdown = tokio::fs::read_to_string(path).await.map_err(ShioriError::Io)?;
+        let markdown = tokio::fs::read_to_string(path)
+            .await
+            .map_err(ShioriError::Io)?;
         self.path = path.to_string();
 
-        let title = Self::extract_first_heading(&markdown).unwrap_or_else(|| {
-            path.split('/')
-                .last()
-                .unwrap_or("Unknown")
-                .to_string()
-        });
+        let title = Self::extract_first_heading(&markdown)
+            .unwrap_or_else(|| path.split('/').last().unwrap_or("Unknown").to_string());
 
         let html_content = Self::md_to_html(&markdown);
         let (chapters, toc) = Self::split_html_by_headings(&html_content);
@@ -198,16 +188,17 @@ impl BookReaderAdapter for MarkdownReaderAdapter {
     }
 
     fn get_chapter(&self, index: usize) -> Result<Chapter> {
-        self.chapters.get(index).cloned().ok_or_else(|| {
-            ShioriError::ChapterReadFailed {
+        self.chapters
+            .get(index)
+            .cloned()
+            .ok_or_else(|| ShioriError::ChapterReadFailed {
                 chapter_index: index,
                 cause: format!(
                     "Chapter index {} out of range (total: {})",
                     index,
                     self.chapters.len()
                 ),
-            }
-        })
+            })
     }
 
     fn chapter_count(&self) -> usize {
@@ -223,8 +214,7 @@ impl BookReaderAdapter for MarkdownReaderAdapter {
             let content_lower = chapter.content.to_lowercase();
             let matches: Vec<_> = content_lower.match_indices(&query_lower).collect();
             if !matches.is_empty() {
-                let snippet =
-                    Self::safe_snippet(&chapter.content, matches[0].0, query_char_len);
+                let snippet = Self::safe_snippet(&chapter.content, matches[0].0, query_char_len);
                 results.push(SearchResult {
                     chapter_index: chapter.index,
                     chapter_title: chapter.title.clone(),

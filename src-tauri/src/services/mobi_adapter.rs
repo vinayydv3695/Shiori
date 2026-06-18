@@ -1,7 +1,5 @@
-use crate::error::{ShioriError, Result};
-use crate::services::renderer::{
-    BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry,
-};
+use crate::error::{Result, ShioriError};
+use crate::services::renderer::{BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry};
 use async_trait::async_trait;
 use mobi::Mobi;
 use regex::Regex;
@@ -109,10 +107,7 @@ impl MobiAdapter {
         let broken_tag_density = broken_tag_count as f64 / (sample_len / 100.0);
 
         // Check 4: Very long "words" (>30 chars without space) indicate garbled data
-        let long_word_count = plain
-            .split_whitespace()
-            .filter(|w| w.len() > 30)
-            .count();
+        let long_word_count = plain.split_whitespace().filter(|w| w.len() > 30).count();
         let word_count = plain.split_whitespace().count().max(1);
         let long_word_ratio = long_word_count as f64 / word_count as f64;
 
@@ -232,7 +227,12 @@ impl MobiAdapter {
         let replacement_count = text.chars().filter(|c| *c == '\u{FFFD}').count();
         let punctuation_like = text
             .chars()
-            .filter(|c| matches!(c, ' ' | '\n' | '\t' | '.' | ',' | ';' | ':' | '!' | '?' | '\'' | '"'))
+            .filter(|c| {
+                matches!(
+                    c,
+                    ' ' | '\n' | '\t' | '.' | ',' | ';' | ':' | '!' | '?' | '\'' | '"'
+                )
+            })
             .count();
 
         let alpha_ratio_bonus = if printable_count > 0 {
@@ -255,14 +255,12 @@ impl MobiAdapter {
     }
 
     fn pick_best_decoded_candidate(candidates: Vec<String>) -> Option<String> {
-        candidates
-            .into_iter()
-            .max_by_key(|s| {
-                let normalized = Self::trim_garbage_tail(s);
-                let html_score = Self::html_candidate_score(&normalized);
-                let text_score = Self::plain_text_readability_score(&normalized);
-                html_score.saturating_mul(3).saturating_add(text_score)
-            })
+        candidates.into_iter().max_by_key(|s| {
+            let normalized = Self::trim_garbage_tail(s);
+            let html_score = Self::html_candidate_score(&normalized);
+            let text_score = Self::plain_text_readability_score(&normalized);
+            html_score.saturating_mul(3).saturating_add(text_score)
+        })
     }
 
     fn score_is_poor(score: usize) -> bool {
@@ -279,7 +277,9 @@ impl MobiAdapter {
         }
 
         let mut cleaned = input[..end].to_string();
-        let binary_tail_re = Regex::new(r"(?s)[\u{0000}-\u{0008}\u{000B}\u{000C}\u{000E}-\u{001F}\u{007F}]{8,}.*$").ok();
+        let binary_tail_re =
+            Regex::new(r"(?s)[\u{0000}-\u{0008}\u{000B}\u{000C}\u{000E}-\u{001F}\u{007F}]{8,}.*$")
+                .ok();
         if let Some(re) = binary_tail_re {
             cleaned = re.replace(&cleaned, "").to_string();
         }
@@ -313,7 +313,10 @@ impl MobiAdapter {
 
     fn split_into_chapters(html: &str) -> Vec<Chapter> {
         let heading_re = Regex::new(r"(?is)<h([1-6])[^>]*>(.*?)</h[1-6]>").ok();
-        let pagebreak_re = Regex::new(r"(?is)<(?:mbp:pagebreak|pagebreak)\b[^>]*?/?>|<hr\b[^>]*pagebreak[^>]*?/?>").ok();
+        let pagebreak_re = Regex::new(
+            r"(?is)<(?:mbp:pagebreak|pagebreak)\b[^>]*?/?>|<hr\b[^>]*pagebreak[^>]*?/?>",
+        )
+        .ok();
 
         let mut breakpoints: Vec<(usize, Option<String>)> = vec![(0, None)];
 
@@ -336,7 +339,8 @@ impl MobiAdapter {
         }
 
         breakpoints.sort_by_key(|(pos, _)| *pos);
-        let mut merged_breakpoints: Vec<(usize, Option<String>)> = Vec::with_capacity(breakpoints.len());
+        let mut merged_breakpoints: Vec<(usize, Option<String>)> =
+            Vec::with_capacity(breakpoints.len());
         for (pos, title) in breakpoints {
             if let Some((last_pos, last_title)) = merged_breakpoints.last_mut() {
                 if *last_pos == pos {
@@ -424,14 +428,16 @@ impl MobiAdapter {
     }
 
     fn has_text_chapter_markers(text: &str) -> bool {
-        let chapter_line_re = Regex::new(r"(?im)^\s*(chapter|part|section)\s+[0-9ivxlcdm]+(?:[\.:\-\s].*)?$").ok();
+        let chapter_line_re =
+            Regex::new(r"(?im)^\s*(chapter|part|section)\s+[0-9ivxlcdm]+(?:[\.:\-\s].*)?$").ok();
         chapter_line_re
             .map(|re| re.find_iter(text).take(2).count() >= 2)
             .unwrap_or(false)
     }
 
     fn split_text_fallback(content: &str) -> Vec<Chapter> {
-        let block_sep_re = Regex::new(r"(?is)</(p|div|h[1-6]|li|tr|section|article)>|<br\s*/?>").ok();
+        let block_sep_re =
+            Regex::new(r"(?is)</(p|div|h[1-6]|li|tr|section|article)>|<br\s*/?>").ok();
         let preprocessed = if let Some(re) = block_sep_re {
             re.replace_all(content, "\n").to_string()
         } else {
@@ -439,7 +445,8 @@ impl MobiAdapter {
         };
         let plain = Self::strip_html_tags(&preprocessed);
         let mut chapters = Vec::new();
-        let chapter_line_re = Regex::new(r"(?im)^\s*(chapter|part|section)\s+[0-9ivxlcdm]+[\.:\-\s].*$").ok();
+        let chapter_line_re =
+            Regex::new(r"(?im)^\s*(chapter|part|section)\s+[0-9ivxlcdm]+[\.:\-\s].*$").ok();
 
         let mut starts = vec![(0usize, Some("Chapter 1".to_string()))];
         if let Some(re) = &chapter_line_re {
@@ -586,7 +593,10 @@ impl MobiAdapter {
         }
     }
 
-    fn parse_text_record_range_and_flags(data: &[u8], offsets: &[usize]) -> Option<(usize, usize, u16, u32, u16, u32)> {
+    fn parse_text_record_range_and_flags(
+        data: &[u8],
+        offsets: &[usize],
+    ) -> Option<(usize, usize, u16, u32, u16, u32)> {
         let record0 = *offsets.first()?;
         let palm_start = record0;
         let compression = Self::read_be_u16(data, palm_start)?;
@@ -747,8 +757,9 @@ impl MobiAdapter {
 
     fn decode_cp1252(raw: &[u8]) -> String {
         const CP1252_EXT: [char; 32] = [
-            '€', '\u{0081}', '‚', 'ƒ', '„', '…', '†', '‡', 'ˆ', '‰', 'Š', '‹', 'Œ', '\u{008D}', 'Ž', '\u{008F}',
-            '\u{0090}', '‘', '’', '“', '”', '•', '–', '—', '˜', '™', 'š', '›', 'œ', '\u{009D}', 'ž', 'Ÿ',
+            '€', '\u{0081}', '‚', 'ƒ', '„', '…', '†', '‡', 'ˆ', '‰', 'Š', '‹', 'Œ', '\u{008D}',
+            'Ž', '\u{008F}', '\u{0090}', '‘', '’', '“', '”', '•', '–', '—', '˜', '™', 'š', '›',
+            'œ', '\u{009D}', 'ž', 'Ÿ',
         ];
 
         let mut out = String::with_capacity(raw.len());
@@ -860,7 +871,8 @@ impl MobiAdapter {
     }
 
     fn base64_encode(data: &[u8]) -> String {
-        const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        const TABLE: &[u8; 64] =
+            b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
         let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
         let mut i = 0;
         while i + 3 <= data.len() {
@@ -939,8 +951,14 @@ impl MobiAdapter {
         map.insert(format!("{:04}", n), data_uri.to_string());
         map.insert(format!("{:05}", n), data_uri.to_string());
         map.insert(format!("image{}", n), data_uri.to_string());
-        map.insert(format!("images/image{}.{}", n, mime_suffix), data_uri.to_string());
-        map.insert(format!("images/{:05}.{}", n, mime_suffix), data_uri.to_string());
+        map.insert(
+            format!("images/image{}.{}", n, mime_suffix),
+            data_uri.to_string(),
+        );
+        map.insert(
+            format!("images/{:05}.{}", n, mime_suffix),
+            data_uri.to_string(),
+        );
         if is_jpeg {
             map.insert(format!("images/image{}.jpg", n), data_uri.to_string());
             map.insert(format!("images/{:05}.jpg", n), data_uri.to_string());
@@ -948,8 +966,10 @@ impl MobiAdapter {
     }
 
     fn inline_mobi_images(html: &str, image_map: &HashMap<String, String>) -> String {
-        let img_re =
-            Regex::new(r#"(?is)<img\b([^>]*?)\bsrc\s*=\s*(?:\"([^\"]+)\"|'([^']+)'|([^\s\"'=<>`]+))([^>]*)>"#).ok();
+        let img_re = Regex::new(
+            r#"(?is)<img\b([^>]*?)\bsrc\s*=\s*(?:\"([^\"]+)\"|'([^']+)'|([^\s\"'=<>`]+))([^>]*)>"#,
+        )
+        .ok();
         let Some(img_re) = img_re else {
             return html.to_string();
         };
@@ -963,13 +983,19 @@ impl MobiAdapter {
                     .map(|m| m.as_str().trim())
                     .unwrap_or_default();
                 if src.starts_with("data:") {
-                    return caps.get(0).map(|m| m.as_str()).unwrap_or_default().to_string();
+                    return caps
+                        .get(0)
+                        .map(|m| m.as_str())
+                        .unwrap_or_default()
+                        .to_string();
                 }
 
                 let key_candidates = {
                     let mut keys = vec![src.to_string()];
                     if let Ok(rec_re) = Regex::new(r#"(?i)\brecindex\s*=\s*[\"']?(\d+)[\"']?"#) {
-                        if let Some(cap) = rec_re.captures(caps.get(0).map(|m| m.as_str()).unwrap_or("")) {
+                        if let Some(cap) =
+                            rec_re.captures(caps.get(0).map(|m| m.as_str()).unwrap_or(""))
+                        {
                             if let Some(m) = cap.get(1) {
                                 keys.push(m.as_str().to_string());
                             }
@@ -994,7 +1020,11 @@ impl MobiAdapter {
                             keys.push(m.as_str().to_string());
                         }
                     }
-                    let attrs = format!("{} {}", caps.get(1).map(|m| m.as_str()).unwrap_or(""), caps.get(5).map(|m| m.as_str()).unwrap_or(""));
+                    let attrs = format!(
+                        "{} {}",
+                        caps.get(1).map(|m| m.as_str()).unwrap_or(""),
+                        caps.get(5).map(|m| m.as_str()).unwrap_or("")
+                    );
                     if let Ok(rec_re) = Regex::new(r#"(?i)\brecindex\s*=\s*[\"']?(\d+)[\"']?"#) {
                         if let Some(cap) = rec_re.captures(&attrs) {
                             if let Some(m) = cap.get(1) {
@@ -1013,7 +1043,10 @@ impl MobiAdapter {
                     }
                 }
 
-                caps.get(0).map(|m| m.as_str()).unwrap_or_default().to_string()
+                caps.get(0)
+                    .map(|m| m.as_str())
+                    .unwrap_or_default()
+                    .to_string()
             })
             .to_string();
 
@@ -1026,16 +1059,32 @@ impl MobiAdapter {
             .replace_all(&with_src_replaced, |caps: &regex::Captures| {
                 let attrs = caps.get(1).map(|m| m.as_str()).unwrap_or_default();
                 let Ok(rec_re) = Regex::new(r#"(?i)\brecindex\s*=\s*[\"']?(\d+)"#) else {
-                    return caps.get(0).map(|m| m.as_str()).unwrap_or_default().to_string();
+                    return caps
+                        .get(0)
+                        .map(|m| m.as_str())
+                        .unwrap_or_default()
+                        .to_string();
                 };
                 let Some(cap) = rec_re.captures(attrs) else {
-                    return caps.get(0).map(|m| m.as_str()).unwrap_or_default().to_string();
+                    return caps
+                        .get(0)
+                        .map(|m| m.as_str())
+                        .unwrap_or_default()
+                        .to_string();
                 };
                 let Some(rec_idx) = cap.get(1).map(|m| m.as_str()) else {
-                    return caps.get(0).map(|m| m.as_str()).unwrap_or_default().to_string();
+                    return caps
+                        .get(0)
+                        .map(|m| m.as_str())
+                        .unwrap_or_default()
+                        .to_string();
                 };
                 let Some(uri) = image_map.get(rec_idx) else {
-                    return caps.get(0).map(|m| m.as_str()).unwrap_or_default().to_string();
+                    return caps
+                        .get(0)
+                        .map(|m| m.as_str())
+                        .unwrap_or_default()
+                        .to_string();
                 };
                 format!("<img{} src=\"{}\">", attrs, uri)
             })
@@ -1050,7 +1099,10 @@ impl MobiAdapter {
             .unwrap_or(0);
         let start_char_idx = char_idx.saturating_sub(50);
         let end_char_idx = (char_idx + query_char_count + 50).min(char_indices.len());
-        let start_byte = char_indices.get(start_char_idx).map(|&(b, _)| b).unwrap_or(0);
+        let start_byte = char_indices
+            .get(start_char_idx)
+            .map(|&(b, _)| b)
+            .unwrap_or(0);
         let end_byte = if end_char_idx >= char_indices.len() {
             content.len()
         } else {
@@ -1068,10 +1120,10 @@ unsafe impl Sync for MobiAdapter {}
 impl BookReaderAdapter for MobiAdapter {
     async fn load(&mut self, path: &str) -> Result<()> {
         let file_data = fs::read(path).map_err(|e| ShioriError::Io(e))?;
-        
+
         let m = Mobi::from_read(&mut &file_data[..])
             .map_err(|e| ShioriError::Other(format!("Invalid MOBI file: {}", e)))?;
-        
+
         // ── Multi-strategy content extraction ──
         // Try all methods and pick the best result using readability scoring.
         let mut candidates: Vec<String> = Vec::new();
@@ -1125,14 +1177,14 @@ impl BookReaderAdapter for MobiAdapter {
                 raw
             }
         };
-        
+
         // Author extraction logic (same as the format_adapter one)
         let author = m.author().map(|a| {
             a.split(';')
-             .map(|s| s.trim().to_string())
-             .filter(|s| !s.is_empty())
-             .collect::<Vec<String>>()
-             .join(", ")
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect::<Vec<String>>()
+                .join(", ")
         });
 
         self.metadata = Some(BookMetadata {
@@ -1166,10 +1218,16 @@ impl BookReaderAdapter for MobiAdapter {
     }
 
     fn get_chapter(&self, index: usize) -> Result<Chapter> {
-        self.chapters.get(index).cloned().ok_or_else(|| ShioriError::ChapterReadFailed {
-            chapter_index: index,
-            cause: format!("Chapter index out of range (count: {})", self.chapters.len()),
-        })
+        self.chapters
+            .get(index)
+            .cloned()
+            .ok_or_else(|| ShioriError::ChapterReadFailed {
+                chapter_index: index,
+                cause: format!(
+                    "Chapter index out of range (count: {})",
+                    self.chapters.len()
+                ),
+            })
     }
 
     fn chapter_count(&self) -> usize {
@@ -1196,12 +1254,13 @@ impl BookReaderAdapter for MobiAdapter {
                     plain_text.push(c);
                 }
             }
-            plain_text.replace("&nbsp;", " ")
-                      .replace("&amp;", "&")
-                      .replace("&lt;", "<")
-                      .replace("&gt;", ">")
-                      .replace("&quot;", "\"")
-                      .replace("&#39;", "'")
+            plain_text
+                .replace("&nbsp;", " ")
+                .replace("&amp;", "&")
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&quot;", "\"")
+                .replace("&#39;", "'")
         }
 
         for chapter in &self.chapters {
@@ -1228,11 +1287,15 @@ impl BookReaderAdapter for MobiAdapter {
     }
 
     fn get_resource(&self, _path: &str) -> Result<Vec<u8>> {
-        Err(ShioriError::Other("MOBI resources not exposed natively yet".into()))
+        Err(ShioriError::Other(
+            "MOBI resources not exposed natively yet".into(),
+        ))
     }
 
     fn get_resource_mime(&self, _path: &str) -> Result<String> {
-        Err(ShioriError::Other("MOBI resources not exposed natively yet".into()))
+        Err(ShioriError::Other(
+            "MOBI resources not exposed natively yet".into(),
+        ))
     }
 
     fn supports_pagination(&self) -> bool {
@@ -1242,13 +1305,17 @@ impl BookReaderAdapter for MobiAdapter {
     fn supports_images(&self) -> bool {
         true
     }
-    
+
     async fn render_page(&self, _page_number: usize, _scale: f32) -> Result<Vec<u8>> {
-        Err(ShioriError::UnsupportedFeature("MOBI does not support strict pagination rendering".into()))
+        Err(ShioriError::UnsupportedFeature(
+            "MOBI does not support strict pagination rendering".into(),
+        ))
     }
 
     fn get_page_dimensions(&self, _page_number: usize) -> Result<(f32, f32)> {
-        Err(ShioriError::UnsupportedFeature("MOBI does not support strict pagination dimensions".into()))
+        Err(ShioriError::UnsupportedFeature(
+            "MOBI does not support strict pagination dimensions".into(),
+        ))
     }
 
     fn page_count(&self) -> usize {
@@ -1451,10 +1518,12 @@ mod tests {
 
     #[test]
     fn readability_scoring_prefers_clean_candidate() {
-        let clean = "<html><body><p>This is readable text with words and structure.</p></body></html>";
+        let clean =
+            "<html><body><p>This is readable text with words and structure.</p></body></html>";
         let garbage = "<html><body>\u{0001}\u{0002}\u{0003}��\u{0004}\u{0005}</body></html>";
-        let chosen = MobiAdapter::pick_best_decoded_candidate(vec![garbage.to_string(), clean.to_string()])
-            .unwrap_or_default();
+        let chosen =
+            MobiAdapter::pick_best_decoded_candidate(vec![garbage.to_string(), clean.to_string()])
+                .unwrap_or_default();
         assert_eq!(chosen, clean);
     }
 }

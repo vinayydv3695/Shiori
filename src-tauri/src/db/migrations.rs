@@ -115,6 +115,12 @@ impl<'a> MigrationManager<'a> {
         if current_version < 30 {
             self.run_in_savepoint("v30", |mgr| mgr.migrate_to_v30())?;
         }
+        if current_version < 31 {
+            self.run_in_savepoint("v31", |mgr| mgr.migrate_v31())?;
+        }
+        if current_version < 32 {
+            self.run_in_savepoint("v32", |mgr| mgr.migrate_to_v32())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -1812,7 +1818,11 @@ impl<'a> MigrationManager<'a> {
         )?;
 
         self.set_schema_version(25)?;
-        self.record_migration(25, "onboarding_preferences_extended", "v25_onboarding_prefs_extended")?;
+        self.record_migration(
+            25,
+            "onboarding_preferences_extended",
+            "v25_onboarding_prefs_extended",
+        )?;
 
         log::info!("[Migration] v25 applied successfully");
         Ok(())
@@ -1823,10 +1833,8 @@ impl<'a> MigrationManager<'a> {
         log::info!("[Migration] Applying v26: Add smart_query to collections");
 
         if !self.column_exists("collections", "smart_query")? {
-            self.conn.execute(
-                "ALTER TABLE collections ADD COLUMN smart_query TEXT",
-                [],
-            )?;
+            self.conn
+                .execute("ALTER TABLE collections ADD COLUMN smart_query TEXT", [])?;
         }
 
         self.set_schema_version(26)?;
@@ -2001,7 +2009,11 @@ impl<'a> MigrationManager<'a> {
         self.conn.execute_batch("PRAGMA foreign_keys = ON;")?;
 
         self.set_schema_version(29)?;
-        self.record_migration(29, "relax_user_preferences_constraints", "v29_relax_constraints")?;
+        self.record_migration(
+            29,
+            "relax_user_preferences_constraints",
+            "v29_relax_constraints",
+        )?;
 
         log::info!("[Migration] v29 applied successfully");
         Ok(())
@@ -2012,13 +2024,55 @@ impl<'a> MigrationManager<'a> {
         log::info!("[Migration] Applying v30: domain index");
 
         self.conn.execute_batch(
-            "CREATE INDEX IF NOT EXISTS idx_books_domain ON books(domain, added_date DESC);"
+            "CREATE INDEX IF NOT EXISTS idx_books_domain ON books(domain, added_date DESC);",
         )?;
 
         self.set_schema_version(30)?;
         self.record_migration(30, "domain_index", "v30_domain_index")?;
 
         log::info!("[Migration] v30 applied successfully");
+        Ok(())
+    }
+
+    /// Migration v31: Add torrent network config columns to user_preferences
+    fn migrate_v31(&self) -> Result<()> {
+        if !self.column_exists("user_preferences", "torrent_proxy_url")? {
+            self.conn.execute(
+                "ALTER TABLE user_preferences ADD COLUMN torrent_proxy_url TEXT DEFAULT NULL",
+                [],
+            )?;
+        }
+
+        if !self.column_exists("user_preferences", "torrent_timeout_seconds")? {
+            self.conn.execute(
+                "ALTER TABLE user_preferences ADD COLUMN torrent_timeout_seconds INTEGER DEFAULT 30",
+                [],
+            )?;
+        }
+
+        if !self.column_exists("user_preferences", "torrent_max_retries")? {
+            self.conn.execute(
+                "ALTER TABLE user_preferences ADD COLUMN torrent_max_retries INTEGER DEFAULT 2",
+                [],
+            )?;
+        }
+
+        Ok(())
+    }
+
+    /// Migration v32: Add is_wishlist to books
+    fn migrate_to_v32(&self) -> Result<()> {
+        log::info!("[Migration] Applying v32: Add is_wishlist to books");
+
+        if !self.column_exists("books", "is_wishlist")? {
+            self.conn.execute(
+                "ALTER TABLE books ADD COLUMN is_wishlist INTEGER NOT NULL DEFAULT 0",
+                [],
+            )?;
+        }
+
+        let hash = Self::calculate_checksum("v32_add_wishlist");
+        self.record_migration(32, "add_wishlist", &hash)?;
         Ok(())
     }
 }

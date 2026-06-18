@@ -31,6 +31,7 @@ interface LocalMangaReaderProps {
     title?: string;
     totalPages?: number;
     onClose: () => void;
+    onNextChapter?: () => void;
 }
 
 // Props for online manga
@@ -39,6 +40,7 @@ interface OnlineMangaReaderProps {
     sourceConfig: OnlineSourceConfig;
     onClose: () => void;
     onChapterChange?: (chapterId: string) => Promise<{ pageUrls: string[]; chapterTitle: string }>;
+    onNextChapter?: () => void;
 }
 
 export type MangaReaderProps = LocalMangaReaderProps | OnlineMangaReaderProps;
@@ -49,7 +51,7 @@ export type MangaReaderProps = LocalMangaReaderProps | OnlineMangaReaderProps;
  * Supports both local files and online sources.
  */
 export function MangaReader(props: MangaReaderProps) {
-    const { onClose } = props;
+    const { onClose, onNextChapter } = props;
     const mode = props.mode;
     
     const openManga = useMangaContentStore(s => s.openManga);
@@ -184,24 +186,6 @@ export function MangaReader(props: MangaReaderProps) {
                                 variant: 'info',
                                 duration: 3000,
                             });
-                        } else if (chapterId && chapterId !== onlineConfig.chapterId && onlineOnChapterChange) {
-                            try {
-                                const chapterData = await onlineOnChapterChange(chapterId);
-                                if (cancelled) return;
-
-                                setOnlineChapter(chapterId, chapterData.chapterTitle, chapterData.pageUrls);
-                                const clampedPage = Math.min(savedPage, Math.max(0, chapterData.pageUrls.length - 1));
-                                setCurrentPage(clampedPage);
-
-                                useToastStore.getState().addToast({
-                                    title: 'Resuming reading',
-                                    description: `${chapterData.chapterTitle} • Page ${clampedPage + 1}`,
-                                    variant: 'info',
-                                    duration: 3000,
-                                });
-                            } catch {
-                                // Fallback behavior: keep current chapter when restore callback fails
-                            }
                         }
                     }
                 } catch {
@@ -251,6 +235,14 @@ export function MangaReader(props: MangaReaderProps) {
     useEffect(() => {
         document.documentElement.setAttribute('data-manga-theme', theme);
     }, [theme]);
+
+    // Keep onNextChapter updated in the UI store
+    useEffect(() => {
+        useMangaUIStore.getState().setOnNextChapter(props.onNextChapter);
+        return () => {
+            useMangaUIStore.getState().setOnNextChapter(undefined);
+        };
+    }, [props.onNextChapter]);
 
     // Progressively fetch real page dimensions (local only)
     const fetchedDimsRef = useRef(new Set<number>());
@@ -393,7 +385,7 @@ export function MangaReader(props: MangaReaderProps) {
                 onChapterChange={onChapterChange}
             />
             <MangaCanvas />
-            <NavigationOverlay />
+            <NavigationOverlay onNextChapter={onNextChapter} />
             <MangaSidebar />
             <AdvancedSettingsPanel />
             <MangaProgressBar />

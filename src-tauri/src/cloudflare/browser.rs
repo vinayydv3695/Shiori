@@ -25,7 +25,6 @@
 /// `tokio::process::Command`.  This is exactly how Tauri shell commands work,
 /// so it fits naturally into the Shiori architecture.  The alternative (FFI to
 /// a Playwright Rust crate) is experimental and not production-ready.
-
 use std::{path::PathBuf, time::Duration};
 
 use serde::{Deserialize, Serialize};
@@ -83,7 +82,10 @@ fn default_playwright_root() -> PathBuf {
     // Try the Shiori project root first (works in dev).
     // Fall back to the current working directory.
     if let Ok(manifest) = std::env::var("CARGO_MANIFEST_DIR") {
-        PathBuf::from(manifest).parent().map(|p| p.to_path_buf()).unwrap_or_else(|| PathBuf::from("."))
+        PathBuf::from(manifest)
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| PathBuf::from("."))
     } else {
         PathBuf::from(".")
     }
@@ -230,8 +232,11 @@ async fn run_browser_script(
             ))
         })?;
 
-    serde_json::from_str::<SolverOutput>(json_line)
-        .map_err(|e| ShioriError::Other(format!("Failed to parse solver JSON: {e}\nRaw: {json_line}")))
+    serde_json::from_str::<SolverOutput>(json_line).map_err(|e| {
+        ShioriError::Other(format!(
+            "Failed to parse solver JSON: {e}\nRaw: {json_line}"
+        ))
+    })
 }
 
 // ─── Build CfSession from raw output ─────────────────────────────────────────
@@ -248,13 +253,13 @@ fn build_session(host: &str, output: SolverOutput) -> Result<CfSession> {
     if output.cookies.is_empty() {
         return Err(ShioriError::Other(
             "Browser script returned no cookies. CF Turnstile was not solved. \
-             Try again — if a CAPTCHA checkbox appeared, click it.".to_string(),
+             Try again — if a CAPTCHA checkbox appeared, click it."
+                .to_string(),
         ));
     }
 
     Ok(CfSession::new(host, output.cookies, output.user_agent))
 }
-
 
 // ─── Playwright helper script ─────────────────────────────────────────────────
 

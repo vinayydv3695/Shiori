@@ -8,17 +8,11 @@
 /// Storage location: `<app_data_dir>/cloudflare_sessions/<host>.json`
 ///
 /// In-memory LRU cache avoids redundant disk reads.
-
 use chrono::{DateTime, Duration, Utc};
 use lru::LruCache;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashMap,
-    num::NonZeroUsize,
-    path::PathBuf,
-    sync::Arc,
-};
+use std::{collections::HashMap, num::NonZeroUsize, path::PathBuf, sync::Arc};
 
 use crate::error::{Result, ShioriError};
 
@@ -204,8 +198,9 @@ impl SessionStore {
 
         let json = serde_json::to_string_pretty(&session)
             .map_err(|e| ShioriError::Other(format!("Failed to serialize CF session: {}", e)))?;
-        std::fs::write(&path, json)
-            .map_err(|e| ShioriError::Other(format!("Failed to write CF session to {path:?}: {e}")))?;
+        std::fs::write(&path, json).map_err(|e| {
+            ShioriError::Other(format!("Failed to write CF session to {path:?}: {e}"))
+        })?;
 
         self.cache.lock().put(host, session);
         Ok(())

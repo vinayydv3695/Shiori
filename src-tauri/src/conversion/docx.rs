@@ -8,17 +8,16 @@
 /// - List state machine (<w:numPr>)
 /// - Page break → chapter boundary
 /// - Footnote handling
-
 use std::collections::HashMap;
 use std::io::Read;
 use std::path::Path;
 
-use super::epub_writer::{EpubDocument, escape_xml};
+use super::oeb::{escape_xml, OebBook, OebChapter, OebImage};
 use super::utils;
-use super::{ConversionError, EpubOutput};
+use super::ConversionError;
 
-/// Convert a DOCX file to EPUB 3.
-pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, ConversionError> {
+/// Parse a DOCX file into an OebBook.
+pub async fn parse(source: &Path) -> Result<OebBook, ConversionError> {
     let data = tokio::fs::read(source).await?;
     let mut warnings = Vec::new();
 
@@ -28,7 +27,9 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
 
     // Verify content types
     if archive.by_name("[Content_Types].xml").is_err() {
-        return Err(ConversionError::InvalidFormat("Missing [Content_Types].xml — not a valid DOCX file".to_string()));
+        return Err(ConversionError::InvalidFormat(
+            "Missing [Content_Types].xml — not a valid DOCX file".to_string(),
+        ));
     }
 
     // Parse relationships
@@ -119,13 +120,11 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
                     }
                     "t" if in_run => {
                         // Check xml:space="preserve"
-                        preserve_space = e.attributes()
-                            .filter_map(|a| a.ok())
-                            .any(|a| {
-                                let key = String::from_utf8_lossy(a.key.as_ref()).to_string();
-                                let val = String::from_utf8_lossy(&a.value).to_string();
-                                key.ends_with("space") && val == "preserve"
-                            });
+                        preserve_space = e.attributes().filter_map(|a| a.ok()).any(|a| {
+                            let key = String::from_utf8_lossy(a.key.as_ref()).to_string();
+                            let val = String::from_utf8_lossy(&a.value).to_string();
+                            key.ends_with("space") && val == "preserve"
+                        });
                     }
                     "hyperlink" if in_paragraph => {
                         in_hyperlink = true;
@@ -133,7 +132,8 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
                             hyperlink_url = rels.get(&rid).cloned().unwrap_or_default();
                         }
                         if !hyperlink_url.is_empty() {
-                            para_html.push_str(&format!("<a href=\"{}\">", escape_xml(&hyperlink_url)));
+                            para_html
+                                .push_str(&format!("<a href=\"{}\">", escape_xml(&hyperlink_url)));
                         }
                     }
                     "drawing" | "pict" if in_run => {
@@ -141,12 +141,16 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
                     }
                     "blip" => {
                         // <a:blip r:embed="rId..."/>
-                        if let Some(rid) = get_attr(&e, "embed").or_else(|| get_attr(&e, "r:embed")) {
+                        if let Some(rid) = get_attr(&e, "embed").or_else(|| get_attr(&e, "r:embed"))
+                        {
                             if let Some(target) = rels.get(&rid) {
                                 if let Some((id, filename, mime, img_data)) =
                                     extract_docx_image(target, img_counter, &mut archive)
                                 {
-                                    para_html.push_str(&format!("<img src=\"../Images/{}\" alt=\"\"/>", filename));
+                                    para_html.push_str(&format!(
+                                        "<img src=\"../Images/{}\" alt=\"\"/>",
+                                        filename
+                                    ));
                                     images.push((id, filename, mime, img_data));
                                     img_counter += 1;
                                 }
@@ -187,12 +191,16 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
                         is_list_item = true;
                     }
                     "blip" => {
-                        if let Some(rid) = get_attr(&e, "embed").or_else(|| get_attr(&e, "r:embed")) {
+                        if let Some(rid) = get_attr(&e, "embed").or_else(|| get_attr(&e, "r:embed"))
+                        {
                             if let Some(target) = rels.get(&rid) {
                                 if let Some((id, filename, mime, img_data)) =
                                     extract_docx_image(target, img_counter, &mut archive)
                                 {
-                                    para_html.push_str(&format!("<img src=\"../Images/{}\" alt=\"\"/>", filename));
+                                    para_html.push_str(&format!(
+                                        "<img src=\"../Images/{}\" alt=\"\"/>",
+                                        filename
+                                    ));
                                     images.push((id, filename, mime, img_data));
                                     img_counter += 1;
                                 }
@@ -205,18 +213,34 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
             Ok(quick_xml::events::Event::Text(e)) => {
                 if in_run && in_paragraph {
                     let text = e.unescape().unwrap_or_default().to_string();
-                    let text = if preserve_space { text } else { text.trim().to_string() };
+                    let text = if preserve_space {
+                        text
+                    } else {
+                        text.trim().to_string()
+                    };
 
                     if !text.is_empty() {
                         let mut formatted = escape_xml(&text);
 
                         // Apply run formatting
-                        if run_bold { formatted = format!("<strong>{}</strong>", formatted); }
-                        if run_italic { formatted = format!("<em>{}</em>", formatted); }
-                        if run_underline { formatted = format!("<u>{}</u>", formatted); }
-                        if run_strike { formatted = format!("<s>{}</s>", formatted); }
-                        if run_superscript { formatted = format!("<sup>{}</sup>", formatted); }
-                        if run_subscript { formatted = format!("<sub>{}</sub>", formatted); }
+                        if run_bold {
+                            formatted = format!("<strong>{}</strong>", formatted);
+                        }
+                        if run_italic {
+                            formatted = format!("<em>{}</em>", formatted);
+                        }
+                        if run_underline {
+                            formatted = format!("<u>{}</u>", formatted);
+                        }
+                        if run_strike {
+                            formatted = format!("<s>{}</s>", formatted);
+                        }
+                        if run_superscript {
+                            formatted = format!("<sup>{}</sup>", formatted);
+                        }
+                        if run_subscript {
+                            formatted = format!("<sub>{}</sub>", formatted);
+                        }
 
                         para_html.push_str(&formatted);
                     }
@@ -267,8 +291,10 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
                             }
 
                             if !para_html.trim().is_empty() {
-                                let plain_para_text = super::utils::strip_html_tags(&para_html).trim().to_string();
-                                let style_heading = html_tag.starts_with("h1") || html_tag.starts_with("h2");
+                                let plain_para_text =
+                                    super::utils::strip_html_tags(&para_html).trim().to_string();
+                                let style_heading =
+                                    html_tag.starts_with("h1") || html_tag.starts_with("h2");
                                 let heuristic_heading = html_tag == "p"
                                     && super::utils::looks_like_heading(&plain_para_text)
                                     && plain_para_text.len() <= 120;
@@ -276,7 +302,10 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
                                 // Check for heading → new chapter title
                                 if style_heading || heuristic_heading {
                                     if !current_body.trim().is_empty() {
-                                        chapters.push((current_title.clone(), current_body.trim().to_string()));
+                                        chapters.push((
+                                            current_title.clone(),
+                                            current_body.trim().to_string(),
+                                        ));
                                         current_body.clear();
                                     }
 
@@ -288,12 +317,21 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
                                     }
 
                                     if heuristic_heading {
-                                        current_body.push_str(&format!("  <h2>{}</h2>\n", escape_xml(&plain_para_text)));
+                                        current_body.push_str(&format!(
+                                            "  <h2>{}</h2>\n",
+                                            escape_xml(&plain_para_text)
+                                        ));
                                     } else {
-                                        current_body.push_str(&format!("  <{}>{}</{}>\n", html_tag, para_html, html_tag));
+                                        current_body.push_str(&format!(
+                                            "  <{}>{}</{}>\n",
+                                            html_tag, para_html, html_tag
+                                        ));
                                     }
                                 } else {
-                                    current_body.push_str(&format!("  <{}>{}</{}>\n", html_tag, para_html, html_tag));
+                                    current_body.push_str(&format!(
+                                        "  <{}>{}</{}>\n",
+                                        html_tag, para_html, html_tag
+                                    ));
                                 }
                             }
                         }
@@ -321,7 +359,10 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
     }
 
     if chapters.is_empty() {
-        chapters.push(("Document".to_string(), "  <p>Empty document.</p>".to_string()));
+        chapters.push((
+            "Document".to_string(),
+            "  <p>Empty document.</p>".to_string(),
+        ));
     }
 
     // Append footnotes to the last chapter
@@ -331,43 +372,59 @@ pub async fn convert(source: &Path, output: &Path) -> Result<EpubOutput, Convers
             for (id, text) in &footnotes {
                 last.1.push_str(&format!(
                     "  <aside epub:type=\"footnote\" id=\"fn_{}\">\n    <p>{}</p>\n  </aside>\n",
-                    id, escape_xml(text)
+                    id,
+                    escape_xml(text)
                 ));
             }
         }
     }
 
     // Infer title
-    let title = chapters.first()
-        .map(|(t, _)| t.clone())
-        .unwrap_or_else(|| {
-            source.file_stem()
-                .and_then(|s| s.to_str())
-                .map(|s| s.replace('_', " "))
-                .unwrap_or_else(|| "Untitled".to_string())
+    let title = chapters.first().map(|(t, _)| t.clone()).unwrap_or_else(|| {
+        source
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .map(|s| s.replace('_', " "))
+            .unwrap_or_else(|| "Untitled".to_string())
+    });
+
+    // Build OebBook
+    let mut book = OebBook::new(title);
+
+    for (id, filename, mime, img_data) in images {
+        book.images.push(OebImage {
+            id,
+            filename,
+            mime_type: mime,
+            data: img_data,
         });
-
-    // Build EPUB
-    let mut doc = EpubDocument::new(title.clone());
-
-    for (id, filename, mime, img_data) in &images {
-        doc.add_image(id.clone(), filename.clone(), mime.clone(), img_data.clone());
     }
 
-    for (ch_title, ch_body) in &chapters {
-        doc.add_chapter(ch_title.clone(), ch_body.clone());
+    for (i, (ch_title, ch_body)) in chapters.into_iter().enumerate() {
+        let id = format!("chapter_{:03}", i + 1);
+        book.chapters.push(OebChapter {
+            id,
+            title: Some(ch_title),
+            html: ch_body,
+        });
     }
 
-    let chapter_count = doc.chapters.len();
-    doc.write_to_file(output).await?;
+    Ok(book)
+}
 
-    Ok(EpubOutput {
+/// Convert a DOCX file to EPUB 3 (Legacy wrapper for ConversionEngine).
+pub async fn convert(source: &Path, output: &Path) -> Result<super::EpubOutput, ConversionError> {
+    let mut book = parse(source).await?;
+    book.sanitize_html();
+    super::epub_builder::build_epub(&book, output)?;
+
+    Ok(super::EpubOutput {
         path: output.to_path_buf(),
-        title,
-        author: None,
-        cover_data: None,
-        chapter_count,
-        warnings,
+        title: book.title,
+        author: book.authors.first().cloned(),
+        cover_data: book.cover_image.map(|img| img.data),
+        chapter_count: book.chapters.len(),
+        warnings: vec![],
     })
 }
 
@@ -382,7 +439,10 @@ struct WordStyle {
     style_type: String, // "paragraph" or "character"
 }
 
-fn parse_styles(archive: &mut zip::ZipArchive<std::io::Cursor<&Vec<u8>>>, warnings: &mut Vec<String>) -> HashMap<String, WordStyle> {
+fn parse_styles(
+    archive: &mut zip::ZipArchive<std::io::Cursor<&Vec<u8>>>,
+    warnings: &mut Vec<String>,
+) -> HashMap<String, WordStyle> {
     let mut styles = HashMap::new();
 
     let xml = match read_zip_entry(archive, "word/styles.xml") {
@@ -428,11 +488,14 @@ fn parse_styles(archive: &mut zip::ZipArchive<std::io::Cursor<&Vec<u8>>>, warnin
                 let tag = local_name(e.name().as_ref());
                 if tag == "style" {
                     if let Some(id) = current_id.take() {
-                        styles.insert(id, WordStyle {
-                            name: current_name.clone(),
-                            based_on: current_based_on.take(),
-                            style_type: current_type.clone(),
-                        });
+                        styles.insert(
+                            id,
+                            WordStyle {
+                                name: current_name.clone(),
+                                based_on: current_based_on.take(),
+                                style_type: current_type.clone(),
+                            },
+                        );
                     }
                 }
             }
@@ -495,7 +558,10 @@ fn resolve_style_name(style_id: &str, styles: &HashMap<String, WordStyle>, depth
 // RELATIONSHIP PARSING
 // ──────────────────────────────────────────────────────────────────────────
 
-fn parse_relationships(archive: &mut zip::ZipArchive<std::io::Cursor<&Vec<u8>>>, _warnings: &mut Vec<String>) -> HashMap<String, String> {
+fn parse_relationships(
+    archive: &mut zip::ZipArchive<std::io::Cursor<&Vec<u8>>>,
+    _warnings: &mut Vec<String>,
+) -> HashMap<String, String> {
     let mut rels = HashMap::new();
 
     let xml = match read_zip_entry(archive, "word/_rels/document.xml.rels") {
@@ -533,7 +599,10 @@ fn parse_relationships(archive: &mut zip::ZipArchive<std::io::Cursor<&Vec<u8>>>,
 // FOOTNOTE PARSING
 // ──────────────────────────────────────────────────────────────────────────
 
-fn parse_footnotes(archive: &mut zip::ZipArchive<std::io::Cursor<&Vec<u8>>>, _warnings: &mut Vec<String>) -> Vec<(String, String)> {
+fn parse_footnotes(
+    archive: &mut zip::ZipArchive<std::io::Cursor<&Vec<u8>>>,
+    _warnings: &mut Vec<String>,
+) -> Vec<(String, String)> {
     let mut footnotes = Vec::new();
 
     let xml = match read_zip_entry(archive, "word/footnotes.xml") {
@@ -592,8 +661,12 @@ fn parse_footnotes(archive: &mut zip::ZipArchive<std::io::Cursor<&Vec<u8>>>, _wa
 // HELPERS
 // ──────────────────────────────────────────────────────────────────────────
 
-fn read_zip_entry(archive: &mut zip::ZipArchive<std::io::Cursor<&Vec<u8>>>, name: &str) -> Result<String, ConversionError> {
-    let mut file = archive.by_name(name)
+fn read_zip_entry(
+    archive: &mut zip::ZipArchive<std::io::Cursor<&Vec<u8>>>,
+    name: &str,
+) -> Result<String, ConversionError> {
+    let mut file = archive
+        .by_name(name)
         .map_err(|e| ConversionError::InvalidFormat(format!("Missing {}: {}", name, e)))?;
     let mut content = String::new();
     file.read_to_string(&mut content)
@@ -633,11 +706,7 @@ fn extract_docx_image(
     let (mime, ext) = if let Some((mime, ext)) = utils::detect_image_format(&img_data) {
         (mime.to_string(), ext.to_string())
     } else {
-        let fallback_ext = target
-            .rsplit('.')
-            .next()
-            .unwrap_or("png")
-            .to_lowercase();
+        let fallback_ext = target.rsplit('.').next().unwrap_or("png").to_lowercase();
         let fallback_mime = match fallback_ext.as_str() {
             "jpg" | "jpeg" => "image/jpeg",
             "png" => "image/png",
@@ -654,8 +723,12 @@ fn extract_docx_image(
     Some((id, filename, mime, img_data))
 }
 
-fn read_zip_entry_bytes(archive: &mut zip::ZipArchive<std::io::Cursor<&Vec<u8>>>, name: &str) -> Result<Vec<u8>, ConversionError> {
-    let mut file = archive.by_name(name)
+fn read_zip_entry_bytes(
+    archive: &mut zip::ZipArchive<std::io::Cursor<&Vec<u8>>>,
+    name: &str,
+) -> Result<Vec<u8>, ConversionError> {
+    let mut file = archive
+        .by_name(name)
         .map_err(|e| ConversionError::InvalidFormat(format!("Missing {}: {}", name, e)))?;
     let mut content = Vec::new();
     file.read_to_end(&mut content)
@@ -665,7 +738,9 @@ fn read_zip_entry_bytes(archive: &mut zip::ZipArchive<std::io::Cursor<&Vec<u8>>>
 
 fn local_name(name_bytes: &[u8]) -> String {
     let full = String::from_utf8_lossy(name_bytes).to_string();
-    full.rsplit_once(':').map(|(_, name)| name.to_string()).unwrap_or(full)
+    full.rsplit_once(':')
+        .map(|(_, name)| name.to_string())
+        .unwrap_or(full)
 }
 
 fn get_attr(e: &quick_xml::events::BytesStart, name: &str) -> Option<String> {

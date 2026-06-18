@@ -7,11 +7,15 @@ export interface ImportResult {
   duplicates: string[];
 }
 
-export async function downloadAndImportLibgen(epubUrl: string, titleHint: string): Promise<ImportResult> {
-  // Download to temp dir
-  const tempPath = await downloadLibgenEpub(epubUrl, titleHint);
+export async function downloadAndImportLibgen(
+  epubUrl: string, 
+  titleHint: string,
+  mirrors: string[] = []
+): Promise<ImportResult> {
+  const urlPayload = JSON.stringify([epubUrl, ...mirrors]);
+  
+  const tempPath = await downloadLibgenEpub(urlPayload, titleHint);
 
-  // Import to library as a book
   return invoke<ImportResult>('import_books', {
     paths: [tempPath],
   });

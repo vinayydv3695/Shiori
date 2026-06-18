@@ -57,9 +57,8 @@ impl RenderingService {
                 // Use tokio::task::block_in_place to handle async in sync context without blocking runtime
                 let path_clone = path.to_string();
                 let load_result = tokio::task::block_in_place(|| {
-                    tokio::runtime::Handle::current().block_on(async {
-                        adapter.load(&path_clone).await
-                    })
+                    tokio::runtime::Handle::current()
+                        .block_on(async { adapter.load(&path_clone).await })
                 });
                 match load_result {
                     Ok(_) => println!("[RenderingService] ✅ adapter.load() succeeded"),
@@ -107,9 +106,8 @@ impl RenderingService {
                 println!("[RenderingService] Calling adapter.load()...");
                 let path_clone = path.to_string();
                 let load_result = tokio::task::block_in_place(|| {
-                    tokio::runtime::Handle::current().block_on(async {
-                        adapter.load(&path_clone).await
-                    })
+                    tokio::runtime::Handle::current()
+                        .block_on(async { adapter.load(&path_clone).await })
                 });
                 match load_result {
                     Ok(_) => println!("[RenderingService] ✅ adapter.load() succeeded"),
@@ -157,9 +155,8 @@ impl RenderingService {
                 println!("[RenderingService] Calling adapter.load()...");
                 let path_clone = path.to_string();
                 let load_result = tokio::task::block_in_place(|| {
-                    tokio::runtime::Handle::current().block_on(async {
-                        adapter.load(&path_clone).await
-                    })
+                    tokio::runtime::Handle::current()
+                        .block_on(async { adapter.load(&path_clone).await })
                 });
                 match load_result {
                     Ok(_) => println!("[RenderingService] ✅ adapter.load() succeeded"),
@@ -191,9 +188,8 @@ impl RenderingService {
                 println!("[RenderingService] Calling adapter.load()...");
                 let path_clone = path.to_string();
                 let load_result = tokio::task::block_in_place(|| {
-                    tokio::runtime::Handle::current().block_on(async {
-                        adapter.load(&path_clone).await
-                    })
+                    tokio::runtime::Handle::current()
+                        .block_on(async { adapter.load(&path_clone).await })
                 });
                 match load_result {
                     Ok(_) => println!("[RenderingService] ✅ adapter.load() succeeded"),
@@ -223,9 +219,8 @@ impl RenderingService {
                 let mut adapter = Fb2ReaderAdapter::new();
                 let path_clone = path.to_string();
                 let load_result = tokio::task::block_in_place(|| {
-                    tokio::runtime::Handle::current().block_on(async {
-                        adapter.load(&path_clone).await
-                    })
+                    tokio::runtime::Handle::current()
+                        .block_on(async { adapter.load(&path_clone).await })
                 });
                 match load_result {
                     Ok(_) => println!("[RenderingService] ✅ adapter.load() succeeded"),
@@ -246,9 +241,8 @@ impl RenderingService {
                 let mut adapter = HtmlReaderAdapter::new();
                 let path_clone = path.to_string();
                 let load_result = tokio::task::block_in_place(|| {
-                    tokio::runtime::Handle::current().block_on(async {
-                        adapter.load(&path_clone).await
-                    })
+                    tokio::runtime::Handle::current()
+                        .block_on(async { adapter.load(&path_clone).await })
                 });
                 match load_result {
                     Ok(_) => println!("[RenderingService] ✅ adapter.load() succeeded"),
@@ -269,9 +263,8 @@ impl RenderingService {
                 let mut adapter = TxtReaderAdapter::new();
                 let path_clone = path.to_string();
                 let load_result = tokio::task::block_in_place(|| {
-                    tokio::runtime::Handle::current().block_on(async {
-                        adapter.load(&path_clone).await
-                    })
+                    tokio::runtime::Handle::current()
+                        .block_on(async { adapter.load(&path_clone).await })
                 });
                 match load_result {
                     Ok(_) => println!("[RenderingService] ✅ adapter.load() succeeded"),
@@ -292,9 +285,8 @@ impl RenderingService {
                 let mut adapter = MarkdownReaderAdapter::new();
                 let path_clone = path.to_string();
                 let load_result = tokio::task::block_in_place(|| {
-                    tokio::runtime::Handle::current().block_on(async {
-                        adapter.load(&path_clone).await
-                    })
+                    tokio::runtime::Handle::current()
+                        .block_on(async { adapter.load(&path_clone).await })
                 });
                 match load_result {
                     Ok(_) => println!("[RenderingService] ✅ adapter.load() succeeded"),
@@ -697,9 +689,8 @@ impl RenderingService {
     pub fn render_page(&self, book_id: i64, page_index: usize, scale: f32) -> Result<Vec<u8>> {
         if let Some(adapter) = self.pdf_renderers.lock().unwrap().get(&book_id) {
             return tokio::task::block_in_place(|| {
-                tokio::runtime::Handle::current().block_on(async {
-                    adapter.render_page(page_index, scale).await
-                })
+                tokio::runtime::Handle::current()
+                    .block_on(async { adapter.render_page(page_index, scale).await })
             });
         }
 

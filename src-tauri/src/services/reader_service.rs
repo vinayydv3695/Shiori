@@ -59,8 +59,11 @@ impl ReaderService {
         );
 
         let mut stmt = conn.prepare(&query)?;
-        
-        let params: Vec<&dyn rusqlite::ToSql> = book_ids.iter().map(|id| id as &dyn rusqlite::ToSql).collect();
+
+        let params: Vec<&dyn rusqlite::ToSql> = book_ids
+            .iter()
+            .map(|id| id as &dyn rusqlite::ToSql)
+            .collect();
 
         let rows = stmt.query_map(rusqlite::params_from_iter(params), |row| {
             Ok(ReadingProgress {
@@ -132,9 +135,15 @@ impl ReaderService {
             Some(conn.last_insert_rowid())
         };
 
+        let new_status = if progress_percent >= 100.0 {
+            "completed"
+        } else {
+            "reading"
+        };
+
         conn.execute(
-            "UPDATE books SET last_opened = ?1 WHERE id = ?2",
-            params![now, book_id],
+            "UPDATE books SET last_opened = ?1, reading_status = ?2 WHERE id = ?3",
+            params![now, new_status, book_id],
         )?;
 
         Ok(ReadingProgress {
@@ -265,7 +274,13 @@ impl ReaderService {
             )?;
         }
 
-        let book_id = conn.query_row("SELECT book_id FROM annotations WHERE id = ?1", params![id], |row| row.get::<_, i64>(0)).unwrap_or(-1);
+        let book_id = conn
+            .query_row(
+                "SELECT book_id FROM annotations WHERE id = ?1",
+                params![id],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap_or(-1);
         if book_id != -1 {
             Self::trigger_auto_sync(conn, book_id);
         }
@@ -274,13 +289,19 @@ impl ReaderService {
     }
 
     pub fn delete_annotation(conn: &Connection, id: i64) -> Result<()> {
-        let book_id = conn.query_row("SELECT book_id FROM annotations WHERE id = ?1", params![id], |row| row.get::<_, i64>(0)).unwrap_or(-1);
+        let book_id = conn
+            .query_row(
+                "SELECT book_id FROM annotations WHERE id = ?1",
+                params![id],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap_or(-1);
         conn.execute("DELETE FROM annotations WHERE id = ?1", params![id])?;
-        
+
         if book_id != -1 {
             Self::trigger_auto_sync(conn, book_id);
         }
-        
+
         Ok(())
     }
 
@@ -1014,7 +1035,7 @@ impl ReaderService {
     }
 
     // ==================== Auto-Sync Logic ====================
-    
+
     pub fn trigger_auto_sync(conn: &Connection, book_id: i64) {
         let prefs_result = conn.query_row(
             "SELECT auto_export_annotations, annotations_export_path, annotations_export_format FROM user_preferences WHERE id = 1",
@@ -1035,20 +1056,30 @@ impl ReaderService {
                     category_ids: None,
                     include_book_info: true,
                 };
-                
+
                 if let Ok(export_data) = Self::export_annotations(conn, &options) {
-                    if let Ok(book_title) = conn.query_row("SELECT title FROM books WHERE id = ?1", params![book_id], |row| row.get::<_, String>(0)) {
-                        let safe_title = book_title.replace(|c: char| !c.is_alphanumeric() && c != ' ' && c != '-', "_");
+                    if let Ok(book_title) = conn.query_row(
+                        "SELECT title FROM books WHERE id = ?1",
+                        params![book_id],
+                        |row| row.get::<_, String>(0),
+                    ) {
+                        let safe_title = book_title
+                            .replace(|c: char| !c.is_alphanumeric() && c != ' ' && c != '-', "_");
                         let ext = match format.as_str() {
                             "json" => "json",
                             "text" => "txt",
                             _ => "md",
                         };
-                        
-                        let file_path = std::path::Path::new(&path).join(format!("{}.{}", safe_title, ext));
-                        
+
+                        let file_path =
+                            std::path::Path::new(&path).join(format!("{}.{}", safe_title, ext));
+
                         if let Err(e) = std::fs::write(&file_path, export_data.content) {
-                            log::error!("Failed to auto-sync annotations to {:?}: {}", file_path, e);
+                            log::error!(
+                                "Failed to auto-sync annotations to {:?}: {}",
+                                file_path,
+                                e
+                            );
                         } else {
                             log::info!("Auto-synced annotations to {:?}", file_path);
                         }

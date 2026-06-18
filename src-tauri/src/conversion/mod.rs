@@ -1,3 +1,8 @@
+pub mod docx;
+pub mod fb2;
+pub mod mobi;
+pub mod pdf;
+pub mod txt;
 /// Calibre-quality format conversion module for Shiori.
 ///
 /// Implements proper format parsing for MOBI/AZW3, PDF, TXT, FB2, DOCX, CBZ, CBR
@@ -14,27 +19,20 @@
 ///
 /// - `convert_to_epub(path, progress_cb)` — main entry point, returns path to generated .epub
 /// - `ConversionProgress { stage, percent }` — emitted through the progress callback
-
 // ── Existing format parsers (kept for ConversionEngine compat) ──────────
-pub mod epub_writer;  // kept for backward compat — new code uses epub_builder
 pub mod utils;
-pub mod mobi;
-pub mod pdf;
-pub mod txt;
-pub mod fb2;
-pub mod docx;
 
 // ── New OEB-based pipeline ───────────────────────────────────────────────
-pub mod error;
-pub mod oeb;
 pub mod epub_builder;
+pub mod error;
 pub mod formats;
+pub mod oeb;
 
 #[cfg(test)]
 pub mod tests;
 
-use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 
 pub use error::ConversionError;
 

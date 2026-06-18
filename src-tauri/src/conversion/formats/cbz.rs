@@ -3,12 +3,11 @@
 /// CBZ is a ZIP archive of image files (JPEG, PNG, WebP, GIF) in page order.
 /// We produce one XHTML chapter per image page, with a comic-page layout.
 /// Optionally reads metadata from ComicInfo.xml if present.
-
 use std::io::Read;
 use std::path::Path;
 
-use crate::conversion::error::ConversionError;
 use crate::conversion::epub_builder::comic_stylesheet;
+use crate::conversion::error::ConversionError;
 use crate::conversion::oeb::{OebBook, OebChapter, OebImage};
 
 // Image file extensions we consider valid comic pages
@@ -58,10 +57,12 @@ pub fn parse(path: &Path) -> Result<OebBook, ConversionError> {
     // Process images: stream through ZIP entries in natural order
     let mut first = true;
     for (page_num, name) in image_names.iter().enumerate() {
-        let mut entry = archive.by_name(name).map_err(|e| ConversionError::ParseError {
-            format: "CBZ".to_string(),
-            detail: format!("Cannot read '{}': {}", name, e),
-        })?;
+        let mut entry = archive
+            .by_name(name)
+            .map_err(|e| ConversionError::ParseError {
+                format: "CBZ".to_string(),
+                detail: format!("Cannot read '{}': {}", name, e),
+            })?;
 
         let mut data = Vec::new();
         entry.read_to_end(&mut data)?;
@@ -238,8 +239,7 @@ fn parse_comic_info(
     let series = extract_xml_tag(&xml_content, "Series");
     let number = extract_xml_tag(&xml_content, "Number");
     let writer = extract_xml_tag(&xml_content, "Writer");
-    let language = extract_xml_tag(&xml_content, "LanguageISO")
-        .unwrap_or_else(|| "en".to_string());
+    let language = extract_xml_tag(&xml_content, "LanguageISO").unwrap_or_else(|| "en".to_string());
 
     let title = match (series, number) {
         (Some(s), Some(n)) => format!("{} Vol. {}", s, n),
@@ -257,7 +257,11 @@ fn extract_xml_tag(xml: &str, tag: &str) -> Option<String> {
     let start = xml.find(&open)? + open.len();
     let end = xml[start..].find(&close)? + start;
     let value = xml[start..end].trim().to_string();
-    if value.is_empty() { None } else { Some(value) }
+    if value.is_empty() {
+        None
+    } else {
+        Some(value)
+    }
 }
 
 // ──────────────────────────────────────────────────────────────────────────

@@ -236,6 +236,9 @@ interface MangaUIState {
     closeSettings: () => void;
     setScrollProgress: (progress: number) => void;
     resetUI: () => void;
+    
+    onNextChapter?: () => void;
+    setOnNextChapter: (fn?: () => void) => void;
 }
 
 export const useMangaUIStore = create<MangaUIState>((set) => ({
@@ -265,7 +268,9 @@ export const useMangaUIStore = create<MangaUIState>((set) => ({
         isSettingsOpen: false,
         scrollProgress: 0,
         lastScrollActivityAt: 0,
+        onNextChapter: undefined,
     }),
+    setOnNextChapter: (fn) => set({ onNextChapter: fn }),
 }));
 
 

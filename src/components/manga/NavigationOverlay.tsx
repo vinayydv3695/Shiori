@@ -7,7 +7,11 @@ import { useToastStore } from '@/store/toastStore';
  * Left 30% = prev, right 30% = next, center 40% = no-op.
  * Memoized — never changes after mount.
  */
-export const NavigationOverlay = memo(function NavigationOverlay() {
+interface NavigationOverlayProps {
+    onNextChapter?: () => void;
+}
+
+export const NavigationOverlay = memo(function NavigationOverlay({ onNextChapter }: NavigationOverlayProps) {
     const nextPage = useMangaContentStore(s => s.nextPage);
     const prevPage = useMangaContentStore(s => s.prevPage);
     const readingDirection = useMangaSettingsStore(s => s.readingDirection);
@@ -40,7 +44,15 @@ export const NavigationOverlay = memo(function NavigationOverlay() {
     };
     const handleNext = () => {
         const moved = rtl ? prevPage(step) : nextPage(step);
-        if (!moved) showBoundaryToast(rtl ? 'You\'re at the first page' : 'You\'ve reached the last page');
+        if (!moved) {
+            if (onNextChapter && !rtl) {
+                onNextChapter();
+            } else if (onNextChapter && rtl) {
+                onNextChapter();
+            } else {
+                showBoundaryToast(rtl ? 'You\'re at the first page' : 'You\'ve reached the last page');
+            }
+        }
     };
 
     return (

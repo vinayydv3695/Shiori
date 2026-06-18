@@ -19,6 +19,9 @@ export interface FilterCriteria {
   authors?: string[];
   tags?: string[];
   formats?: string[];
+  series?: string[];
+  languages?: string[];
+  publishers?: string[];
   ratingMin?: number;
   ratingMax?: number;
   dateFrom?: string;
@@ -38,10 +41,12 @@ export function countActiveFilterCriteria(filters: FilterCriteria | null): numbe
   if (filters.authors?.length) count++
   if (filters.tags?.length) count++
   if (filters.formats?.length) count++
+  if (filters.series?.length) count++
+  if (filters.languages?.length) count++
+  if (filters.publishers?.length) count++
   if (filters.ratingMin !== undefined && filters.ratingMin > 0) count++
   if (filters.ratingMax !== undefined && filters.ratingMax < 5) count++
-  if (filters.dateFrom) count++
-  if (filters.dateTo) count++
+  if (filters.dateFrom || filters.dateTo) count++
   if (filters.readingStatus?.length) count++
   return count
 }
@@ -66,6 +71,18 @@ export function matchesAdvancedFilters(book: Book, filters: FilterCriteria): boo
   if (filters.formats?.length) {
     const fmt = book.file_format?.toUpperCase() ?? ''
     if (!filters.formats.includes(fmt)) return false
+  }
+
+  if (filters.series?.length) {
+    if (!book.series || !filters.series.includes(book.series)) return false
+  }
+
+  if (filters.languages?.length) {
+    if (!book.language || !filters.languages.includes(book.language)) return false
+  }
+
+  if (filters.publishers?.length) {
+    if (!book.publisher || !filters.publishers.includes(book.publisher)) return false
   }
 
   if (filters.ratingMin !== undefined && filters.ratingMin > 0) {

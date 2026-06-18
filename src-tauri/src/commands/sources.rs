@@ -9,18 +9,6 @@ use crate::sources::{
     Chapter, ContentType, Page, SearchResponse, SearchResult, SourceMeta, SourceSearchDiagnostics,
 };
 
-
-
-
-
-
-
-
-
-
-
-
-
 #[tauri::command]
 pub async fn list_sources(state: State<'_, crate::AppState>) -> Result<Vec<SourceMeta>> {
     let registry = state.plugin_registry.read().await;
@@ -174,7 +162,7 @@ pub async fn plugin_download_chapter(
     tokio::fs::create_dir_all(&dest).await?;
 
     let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-    
+
     let referer = match source_id.as_str() {
         "toongod" => Some("https://www.toongod.org/"),
         "mangadex" => Some("https://mangadex.org/"),
@@ -239,14 +227,10 @@ pub async fn set_source_config(
     Ok(true)
 }
 
-
 #[tauri::command]
-pub async fn proxy_manga_image(
-    source_id: String,
-    image_url: String,
-) -> Result<Vec<u8>> {
+pub async fn proxy_manga_image(source_id: String, image_url: String) -> Result<Vec<u8>> {
     let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-    
+
     // Determine referer based on source
     let referer = match source_id.as_str() {
         "toongod" => Some("https://www.toongod.org/"),
@@ -259,7 +243,7 @@ pub async fn proxy_manga_image(
     let mut req = reqwest::Client::new()
         .get(&image_url)
         .header("User-Agent", user_agent);
-    
+
     if let Some(ref_url) = referer {
         req = req.header("Referer", ref_url);
     }
@@ -289,9 +273,7 @@ pub async fn proxy_manga_image(
 use crate::sources::toongod::{ToonGodConfig, ToonGodSource};
 
 #[tauri::command]
-pub async fn toongod_get_config(
-    app_handle: tauri::AppHandle,
-) -> Result<ToonGodConfig> {
+pub async fn toongod_get_config(app_handle: tauri::AppHandle) -> Result<ToonGodConfig> {
     let store = app_handle
         .store("sources.json")
         .map_err(|e| ShioriError::Other(format!("Failed to open source store: {}", e)))?;
@@ -306,7 +288,10 @@ pub async fn toongod_get_config(
         .and_then(|v| v.as_str().map(ToString::to_string))
         .filter(|s| !s.is_empty());
 
-    Ok(ToonGodConfig { cf_clearance, flaresolverr_url })
+    Ok(ToonGodConfig {
+        cf_clearance,
+        flaresolverr_url,
+    })
 }
 
 #[tauri::command]
@@ -321,13 +306,21 @@ pub async fn toongod_set_config(
         .map_err(|e| ShioriError::Other(format!("Failed to open source store: {}", e)))?;
 
     match config.cf_clearance.as_deref() {
-        Some(v) if !v.trim().is_empty() => store.set("toongod.cf_clearance", serde_json::json!(v.trim())),
-        _ => { let _ = store.delete("toongod.cf_clearance"); }
+        Some(v) if !v.trim().is_empty() => {
+            store.set("toongod.cf_clearance", serde_json::json!(v.trim()))
+        }
+        _ => {
+            let _ = store.delete("toongod.cf_clearance");
+        }
     }
 
     match config.flaresolverr_url.as_deref() {
-        Some(v) if !v.trim().is_empty() => store.set("toongod.flaresolverr_url", serde_json::json!(v.trim())),
-        _ => { let _ = store.delete("toongod.flaresolverr_url"); }
+        Some(v) if !v.trim().is_empty() => {
+            store.set("toongod.flaresolverr_url", serde_json::json!(v.trim()))
+        }
+        _ => {
+            let _ = store.delete("toongod.flaresolverr_url");
+        }
     }
 
     store
@@ -345,16 +338,15 @@ pub async fn toongod_set_config(
     Ok(())
 }
 
-
 #[tauri::command]
 pub async fn search_manga_sources(
     state: tauri::State<'_, crate::AppState>,
     query: String,
 ) -> Result<Vec<crate::sources::SearchResult>> {
     let registry = state.plugin_registry.read().await;
-    
+
     let mut tasks = Vec::new();
-    
+
     for source in registry.get_all() {
         let meta = source.meta();
         if meta.supports_download && meta.supports_search {
@@ -365,15 +357,15 @@ pub async fn search_manga_sources(
             }));
         }
     }
-    
+
     let results = futures::future::join_all(tasks).await;
     let mut all_results = Vec::new();
-    
+
     for res in results {
         if let Ok(Ok(mut r)) = res {
             all_results.append(&mut r.items);
         }
     }
-    
+
     Ok(all_results)
 }

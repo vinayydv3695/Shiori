@@ -31,7 +31,7 @@ import {
   IconX,
   IconSidebarToggle,
 } from '@/components/icons/ShioriIcons'
-import { Layers, Copy, Filter, HelpCircle } from 'lucide-react'
+import { Layers, Copy, Filter, HelpCircle, BarChart2, Globe } from 'lucide-react'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import type { CurrentView } from '@/store/uiStore'
 import {
@@ -44,8 +44,9 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { FeatureHint } from '@/components/ui/FeatureHint'
 import { SortDropdown } from '../library/SortDropdown'
+import { WindowControls } from './WindowControls'
 
-import { Globe } from 'lucide-react'
+
 
 export type DomainView = 'books' | 'manga_comics'
 
@@ -263,6 +264,7 @@ export function PremiumTopbar({
 
   return (
     <header
+      data-tauri-drag-region
       className={cn(
         'flex items-center h-[var(--topbar-height,60px)] px-4 gap-3',
         'border-b border-border/40 bg-background/70 backdrop-blur-xl',
@@ -399,6 +401,22 @@ export function PremiumTopbar({
       </div>
 
       <div className="flex items-center justify-end gap-2 w-1/3">
+        {/* ── Statistics ── */}
+        <button
+          type="button"
+          onClick={() => {
+            if (onNavigateToView) onNavigateToView('statistics')
+          }}
+          title="View Reading Statistics"
+          className={cn(
+            'flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200',
+            currentView === 'statistics'
+              ? 'text-primary bg-primary/10'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted',
+          )}
+        >
+          <BarChart2 size={16} />
+        </button>
         {/* ── Advanced Filter ── */}
         <button
           type="button"
@@ -463,6 +481,9 @@ export function PremiumTopbar({
             <IconSettings size={15} />
           </button>
         </div>
+
+        {/* ── Window Controls ── */}
+        <WindowControls />
       </div>
     </header>
   )

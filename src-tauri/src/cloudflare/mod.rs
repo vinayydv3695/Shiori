@@ -6,7 +6,6 @@
 ///   client   – reqwest wrapper that injects CF cookies + auto-refreshes.
 ///   detector – Heuristics to detect whether a response is a CF challenge page.
 ///   commands – Tauri command handlers exposed to the frontend.
-
 pub mod browser;
 pub mod client;
 pub mod commands;

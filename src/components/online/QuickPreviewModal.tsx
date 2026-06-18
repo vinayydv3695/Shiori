@@ -1,42 +1,39 @@
 import React from 'react';
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Download, BookOpen, ExternalLink, Loader2 } from 'lucide-react';
+import { Download, BookOpen, ExternalLink, Loader2, BookmarkPlus } from 'lucide-react';
 import { useOnlineDownloadStore } from '@/store/onlineDownloadStore';
 
 export interface PreviewBook {
-  id: string; // The URL or unique ID
   title: string;
   author?: string;
   coverUrl?: string;
-  description?: string;
   format?: string;
-  fileSize?: string;
-  language?: string;
   year?: number;
-  editionCount?: number;
+  language?: string;
+  size?: string;
   source: 'libgen' | 'gutenberg';
-  url: string; // The actual download URL or read online URL
+  downloadUrl: string; // The URL to download
 }
 
 interface QuickPreviewModalProps {
   book: PreviewBook | null;
-  isOpen: boolean;
   onClose: () => void;
-  onDownload: (book: PreviewBook) => void;
-  onReadOnline?: (book: PreviewBook) => void;
+  onDownload: () => void;
+  onReadNow: () => void;
+  onWishlist: () => void;
 }
 
-export function QuickPreviewModal({ book, isOpen, onClose, onDownload, onReadOnline }: QuickPreviewModalProps) {
+export function QuickPreviewModal({ book, onClose, onDownload, onReadNow, onWishlist }: QuickPreviewModalProps) {
   const downloads = useOnlineDownloadStore((state) => state.downloads);
   
   if (!book) return null;
   
-  const downloadState = downloads[book.url];
+  const downloadState = downloads[book.downloadUrl];
   const isDownloading = downloadState?.status === 'downloading';
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={!!book} onOpenChange={(open) => !open && onClose()}>
       <DialogContent aria-describedby={undefined} className="max-w-2xl bg-card/95 backdrop-blur-xl border-border/50 shadow-2xl p-0 overflow-hidden sm:rounded-2xl">
         <div className="flex flex-col sm:flex-row max-h-[85vh]">
           {/* Left Column: Cover */}
@@ -94,44 +91,53 @@ export function QuickPreviewModal({ book, isOpen, onClose, onDownload, onReadOnl
                   <p className="text-sm font-medium">{String(book.language).toUpperCase()}</p>
                 </div>
               )}
-              {book.fileSize && (
+              {book.size && (
                 <div>
                   <p className="text-xs text-muted-foreground uppercase font-semibold">Size</p>
-                  <p className="text-sm font-medium">{book.fileSize}</p>
+                  <p className="text-sm font-medium">{book.size}</p>
                 </div>
               )}
             </div>
 
-            {/* Description */}
-            {book.description ? (
-              <div className="mb-8 flex-1">
-                <p className="text-xs text-muted-foreground uppercase font-semibold mb-2">Synopsis</p>
-                <DialogDescription className="text-sm text-foreground/80 leading-relaxed">
-                  {book.description}
-                </DialogDescription>
-              </div>
-            ) : <div className="flex-1" />}
-
-            {/* Actions */}
-            <div className="flex flex-col sm:flex-row gap-3 mt-auto pt-4 border-t border-border/50">
+            <div className="mt-auto pt-6 flex flex-col sm:flex-row gap-3">
               <Button 
-                onClick={() => onDownload(book)}
-                disabled={isDownloading}
-                className="flex-1 gap-2 h-11 bg-primary text-primary-foreground hover:bg-primary/90 shadow-md"
+                onClick={onReadNow}
+                disabled={isDownloading || book.format?.toLowerCase() !== 'epub'}
+                className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 group"
               >
                 {isDownloading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Downloading...
-                  </>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
-                  <>
-                    <Download className="w-4 h-4" />
-                    Download to Library
-                  </>
+                  <BookOpen className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
                 )}
+                {isDownloading ? 'Downloading...' : 'Read Now'}
+              </Button>
+              
+              <Button 
+                onClick={onDownload}
+                disabled={isDownloading}
+                variant="secondary"
+                className="flex-1 group"
+              >
+                <Download className="w-4 h-4 mr-2 group-hover:translate-y-0.5 transition-transform" />
+                Download
+              </Button>
+
+              <Button
+                onClick={onWishlist}
+                variant="outline"
+                className="flex-none px-3"
+                title="Add to Wishlist"
+              >
+                <BookmarkPlus className="w-4 h-4" />
               </Button>
             </div>
+            
+            {book.format?.toLowerCase() !== 'epub' && (
+              <p className="text-xs text-muted-foreground mt-3 text-center">
+                "Read Now" is only available for EPUB format.
+              </p>
+            )}
           </div>
         </div>
       </DialogContent>

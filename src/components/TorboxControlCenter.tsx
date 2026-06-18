@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/store/toastStore'
 import { TrendingExplore } from './torbox/TrendingExplore'
-import { useTorboxStore, TorboxQueueItem } from '@/stores/useTorboxStore'
+import { useTorboxStore, TorboxQueueItem } from '@/store/useTorboxStore'
 import { parsePageUrl } from '@/lib/utils'
 
 type SearchType = 'manga' | 'books' | 'all'

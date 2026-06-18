@@ -2,8 +2,8 @@ use std::sync::Arc;
 use tauri::State;
 
 use crate::error::ShioriError;
-use crate::services::rss_service::{RssService, RssFeed, RssArticle, DailyEpubOptions};
 use crate::services::rss_scheduler::RssScheduler;
+use crate::services::rss_service::{DailyEpubOptions, RssArticle, RssFeed, RssService};
 use crate::utils::validate;
 
 /// Add a new RSS feed
@@ -21,7 +21,8 @@ pub async fn add_rss_feed(
             ));
         }
     }
-    service.add_feed(&url, check_interval_hours.unwrap_or(24))
+    service
+        .add_feed(&url, check_interval_hours.unwrap_or(24))
         .await
         .map_err(|e| ShioriError::Other(e.to_string()))
 }
@@ -33,7 +34,8 @@ pub async fn get_rss_feed(
     feed_id: i64,
 ) -> crate::error::Result<Option<RssFeed>> {
     validate::require_positive_id(feed_id, "feed_id")?;
-    service.get_feed(feed_id)
+    service
+        .get_feed(feed_id)
         .map_err(|e| ShioriError::Other(e.to_string()))
 }
 
@@ -43,7 +45,8 @@ pub async fn list_rss_feeds(
     service: State<'_, Arc<RssService>>,
     active_only: Option<bool>,
 ) -> crate::error::Result<Vec<RssFeed>> {
-    service.list_feeds(active_only.unwrap_or(false))
+    service
+        .list_feeds(active_only.unwrap_or(false))
         .map_err(|e| ShioriError::Other(e.to_string()))
 }
 
@@ -67,7 +70,8 @@ pub async fn update_rss_feed(
             ));
         }
     }
-    service.update_feed(feed_id, title, check_interval_hours)
+    service
+        .update_feed(feed_id, title, check_interval_hours)
         .map_err(|e| ShioriError::Other(e.to_string()))
 }
 
@@ -78,7 +82,8 @@ pub async fn delete_rss_feed(
     feed_id: i64,
 ) -> crate::error::Result<()> {
     validate::require_positive_id(feed_id, "feed_id")?;
-    service.delete_feed(feed_id)
+    service
+        .delete_feed(feed_id)
         .map_err(|e| ShioriError::Other(e.to_string()))
 }
 
@@ -89,7 +94,8 @@ pub async fn toggle_rss_feed(
     feed_id: i64,
 ) -> crate::error::Result<bool> {
     validate::require_positive_id(feed_id, "feed_id")?;
-    service.toggle_feed(feed_id)
+    service
+        .toggle_feed(feed_id)
         .map_err(|e| ShioriError::Other(e.to_string()))
 }
 
@@ -100,7 +106,8 @@ pub async fn update_rss_feed_articles(
     feed_id: i64,
 ) -> crate::error::Result<usize> {
     validate::require_positive_id(feed_id, "feed_id")?;
-    service.update_feed_articles(feed_id)
+    service
+        .update_feed_articles(feed_id)
         .await
         .map_err(|e| ShioriError::Other(e.to_string()))
 }
@@ -110,16 +117,18 @@ pub async fn update_rss_feed_articles(
 pub async fn update_all_rss_feeds(
     service: State<'_, Arc<RssService>>,
 ) -> crate::error::Result<Vec<(i64, bool, String)>> {
-    let results = service.update_all_feeds()
+    let results = service
+        .update_all_feeds()
         .await
         .map_err(|e| ShioriError::Other(e.to_string()))?;
 
-    Ok(results.into_iter().map(|(id, result)| {
-        match result {
+    Ok(results
+        .into_iter()
+        .map(|(id, result)| match result {
             Ok(count) => (id, true, format!("{} new articles", count)),
             Err(e) => (id, false, e.to_string()),
-        }
-    }).collect())
+        })
+        .collect())
 }
 
 /// Get unread articles
@@ -129,7 +138,8 @@ pub async fn get_unread_articles(
     feed_id: Option<i64>,
     limit: Option<usize>,
 ) -> crate::error::Result<Vec<RssArticle>> {
-    service.get_unread_articles(feed_id, limit)
+    service
+        .get_unread_articles(feed_id, limit)
         .map_err(|e| ShioriError::Other(e.to_string()))
 }
 
@@ -139,7 +149,8 @@ pub async fn mark_article_read(
     service: State<'_, Arc<RssService>>,
     article_id: i64,
 ) -> crate::error::Result<()> {
-    service.mark_article_read(article_id)
+    service
+        .mark_article_read(article_id)
         .map_err(|e| ShioriError::Other(e.to_string()))
 }
 
@@ -153,14 +164,17 @@ pub async fn generate_daily_epub(
     feeds: Option<Vec<i64>>,
 ) -> crate::error::Result<String> {
     let options = DailyEpubOptions {
-        title: title.unwrap_or_else(|| format!("Daily Reading - {}", chrono::Utc::now().format("%Y-%m-%d"))),
+        title: title.unwrap_or_else(|| {
+            format!("Daily Reading - {}", chrono::Utc::now().format("%Y-%m-%d"))
+        }),
         author: author.unwrap_or_else(|| "Shiori RSS".to_string()),
         max_articles,
         min_articles: Some(1),
         feeds,
     };
 
-    let path = service.generate_daily_epub(options)
+    let path = service
+        .generate_daily_epub(options)
         .await
         .map_err(|e| ShioriError::Other(e.to_string()))?;
 
@@ -174,8 +188,13 @@ pub async fn trigger_feed_update(
 ) -> crate::error::Result<()> {
     let guard = scheduler.lock().await;
     match guard.as_ref() {
-        None => Err(ShioriError::Other("RSS scheduler is still initializing, try again shortly".into())),
-        Some(s) => s.trigger_feed_update().await.map_err(|e| ShioriError::Other(e.to_string())),
+        None => Err(ShioriError::Other(
+            "RSS scheduler is still initializing, try again shortly".into(),
+        )),
+        Some(s) => s
+            .trigger_feed_update()
+            .await
+            .map_err(|e| ShioriError::Other(e.to_string())),
     }
 }
 
@@ -186,9 +205,12 @@ pub async fn trigger_daily_epub_generation(
 ) -> crate::error::Result<String> {
     let guard = scheduler.lock().await;
     match guard.as_ref() {
-        None => Err(ShioriError::Other("RSS scheduler is still initializing, try again shortly".into())),
+        None => Err(ShioriError::Other(
+            "RSS scheduler is still initializing, try again shortly".into(),
+        )),
         Some(s) => {
-            let path = s.trigger_daily_epub(None)
+            let path = s
+                .trigger_daily_epub(None)
                 .await
                 .map_err(|e| ShioriError::Other(e.to_string()))?;
             Ok(path.to_string_lossy().to_string())

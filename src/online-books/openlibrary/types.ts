@@ -21,3 +21,17 @@ export interface OpenLibraryTrendingResponse {
     first_publish_year?: number;
   }[];
 }
+
+export interface OpenLibrarySubjectResponse {
+  key: string;
+  name: string;
+  subject_type: string;
+  work_count: number;
+  works: {
+    key: string;
+    title: string;
+    authors?: { name: string }[];
+    cover_id?: number;
+    first_publish_year?: number;
+  }[];
+}

@@ -43,6 +43,7 @@ export interface Book {
   is_favorite?: boolean
   reading_status?: string
   domain?: string
+  is_wishlist?: boolean
   metadata_locked?: Record<string, boolean>
   authors?: Author[]
   tags?: Tag[]
@@ -65,6 +66,7 @@ export interface BookSummary {
   cover_path?: string
   added_date: string
   is_favorite?: boolean
+  is_wishlist?: boolean
   reading_status?: string
   domain?: string
   manga_series_id?: number

@@ -3,11 +3,11 @@ use crate::models::{MangaSeries, MangaVolume};
 use crate::services::manga_service::{MangaMetadata, MangaService};
 use crate::utils::validate;
 use crate::AppState;
+use lazy_static::lazy_static;
 use regex::Regex;
 use serde::Deserialize;
 use std::sync::Arc;
 use tauri::State;
-use lazy_static::lazy_static;
 
 /// Global manga service state
 pub struct MangaState {
@@ -25,11 +25,7 @@ impl MangaState {
 // ==================== Manga Reader Commands ====================
 
 #[tauri::command]
-pub fn open_manga(
-    book_id: i64,
-    path: String,
-    state: State<MangaState>,
-) -> Result<MangaMetadata> {
+pub fn open_manga(book_id: i64, path: String, state: State<MangaState>) -> Result<MangaMetadata> {
     validate::require_positive_id(book_id, "book_id")?;
     validate::require_safe_path(&path, "path")?;
     state.service.open(book_id, &path)
@@ -43,7 +39,10 @@ pub async fn get_manga_page(
     state: State<'_, MangaState>,
 ) -> Result<tauri::ipc::Response> {
     validate::require_positive_id(book_id, "book_id")?;
-    let bytes = state.service.get_page(book_id, page_index, max_dimension).await?;
+    let bytes = state
+        .service
+        .get_page(book_id, page_index, max_dimension)
+        .await?;
     Ok(tauri::ipc::Response::new(bytes))
 }
 
@@ -56,7 +55,10 @@ pub async fn preload_manga_pages(
 ) -> Result<()> {
     validate::require_positive_id(book_id, "book_id")?;
     validate::require_non_empty_vec(&page_indices, "page_indices")?;
-    state.service.preload_pages(book_id, &page_indices, max_dimension).await
+    state
+        .service
+        .preload_pages(book_id, &page_indices, max_dimension)
+        .await
 }
 
 #[tauri::command]
@@ -71,10 +73,7 @@ pub fn get_manga_page_dimensions(
 }
 
 #[tauri::command]
-pub fn close_manga(
-    book_id: i64,
-    state: State<MangaState>,
-) -> Result<()> {
+pub fn close_manga(book_id: i64, state: State<MangaState>) -> Result<()> {
     validate::require_positive_id(book_id, "book_id")?;
     state.service.close(book_id);
     Ok(())
@@ -88,16 +87,19 @@ pub async fn get_manga_page_path(
     state: State<'_, MangaState>,
 ) -> Result<String> {
     validate::require_positive_id(book_id, "book_id")?;
-    let bytes = state.service.get_page(book_id, page_index, max_dimension).await?;
-    
+    let bytes = state
+        .service
+        .get_page(book_id, page_index, max_dimension)
+        .await?;
+
     let mut dir = std::env::temp_dir();
     dir.push("shiori");
     dir.push("manga-pages");
     std::fs::create_dir_all(&dir).map_err(|e| crate::error::ShioriError::Io(e))?;
-    
+
     let filename = format!("manga-{}-{}-{}.img", book_id, page_index, max_dimension);
     let final_path = dir.join(&filename);
-    
+
     // If file already exists with correct size, skip writing
     if final_path.exists() {
         if let Ok(meta) = std::fs::metadata(&final_path) {
@@ -106,12 +108,12 @@ pub async fn get_manga_page_path(
             }
         }
     }
-    
+
     // Write atomically
     let tmp_path = dir.join(format!("{}.tmp", filename));
     std::fs::write(&tmp_path, &bytes).map_err(|e| crate::error::ShioriError::Io(e))?;
     std::fs::rename(&tmp_path, &final_path).map_err(|e| crate::error::ShioriError::Io(e))?;
-    
+
     Ok(final_path.to_string_lossy().into_owned())
 }
 
@@ -131,7 +133,7 @@ pub fn get_manga_series_list(
 ) -> Result<Vec<MangaSeries>> {
     let limit = limit.unwrap_or(50);
     let offset = offset.unwrap_or(0);
-    
+
     validate::require_positive_id(limit, "limit")?;
     if offset < 0 {
         return Err(crate::error::ShioriError::Validation(format!(
@@ -147,7 +149,7 @@ pub fn get_manga_series_list(
         "SELECT id, title, sort_title, cover_path, status, added_date 
          FROM manga_series 
          ORDER BY added_date DESC 
-         LIMIT ? OFFSET ?"
+         LIMIT ? OFFSET ?",
     )?;
 
     let series_iter = stmt.query_map([limit, offset], |row| {
@@ -170,10 +172,7 @@ pub fn get_manga_series_list(
 }
 
 #[tauri::command]
-pub fn get_series_volumes(
-    series_id: i64,
-    state: State<AppState>,
-) -> Result<Vec<MangaVolume>> {
+pub fn get_series_volumes(series_id: i64, state: State<AppState>) -> Result<Vec<MangaVolume>> {
     validate::require_positive_id(series_id, "series_id")?;
 
     let db = &state.db;
@@ -193,10 +192,10 @@ pub fn get_series_volumes(
     }
 
     let mut stmt = conn.prepare(
-        "SELECT id, manga_series_id, book_id, volume_number 
+        "SELECT id, manga_series_id, id as book_id, CAST(series_index AS INTEGER) as volume_number
          FROM books 
          WHERE manga_series_id = ? 
-         ORDER BY volume_number ASC NULLS LAST, added_date ASC"
+         ORDER BY series_index ASC NULLS LAST, added_date ASC",
     )?;
 
     let volumes_iter = stmt.query_map([series_id], |row| {
@@ -219,7 +218,7 @@ pub fn get_series_volumes(
 #[tauri::command]
 pub async fn auto_group_manga_volumes(state: State<'_, AppState>) -> Result<usize> {
     let db = state.db.clone();
-    
+
     tokio::task::spawn_blocking(move || {
         let conn = db.get_connection()?;
 
@@ -286,10 +285,7 @@ pub async fn auto_group_manga_volumes(state: State<'_, AppState>) -> Result<usiz
 }
 
 #[tauri::command]
-pub fn create_manga_series(
-    title: String,
-    state: State<AppState>,
-) -> Result<i64> {
+pub fn create_manga_series(title: String, state: State<AppState>) -> Result<i64> {
     let title = title.trim();
     if title.is_empty() {
         return Err(crate::error::ShioriError::Validation(
@@ -329,7 +325,7 @@ pub fn assign_book_to_series(
     state: State<AppState>,
 ) -> Result<()> {
     validate::require_positive_id(book_id, "book_id")?;
-    
+
     let series_title = series_title.trim();
     if series_title.is_empty() {
         return Err(crate::error::ShioriError::Validation(
@@ -368,10 +364,7 @@ pub fn assign_book_to_series(
 }
 
 #[tauri::command]
-pub fn remove_book_from_series(
-    book_id: i64,
-    state: State<AppState>,
-) -> Result<()> {
+pub fn remove_book_from_series(book_id: i64, state: State<AppState>) -> Result<()> {
     validate::require_positive_id(book_id, "book_id")?;
 
     let db = &state.db;
@@ -464,7 +457,11 @@ pub fn update_manga_series(
     if let Some(status) = updates.status {
         let cleaned = status.trim().to_lowercase();
         if !cleaned.is_empty() {
-            validate::require_one_of(&cleaned, &["ongoing", "completed", "hiatus", "cancelled"], "status")?;
+            validate::require_one_of(
+                &cleaned,
+                &["ongoing", "completed", "hiatus", "cancelled"],
+                "status",
+            )?;
             conn.execute(
                 "UPDATE manga_series SET status = ?1 WHERE id = ?2",
                 rusqlite::params![cleaned, series_id],
@@ -476,10 +473,7 @@ pub fn update_manga_series(
 }
 
 #[tauri::command]
-pub fn delete_manga_series(
-    series_id: i64,
-    state: State<AppState>,
-) -> Result<()> {
+pub fn delete_manga_series(series_id: i64, state: State<AppState>) -> Result<()> {
     validate::require_positive_id(series_id, "series_id")?;
 
     let db = &state.db;

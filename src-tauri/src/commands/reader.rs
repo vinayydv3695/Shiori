@@ -111,7 +111,13 @@ pub fn update_annotation(
         validate::require_max_length(c, 50, "color")?;
     }
     let conn = state.db.get_connection()?;
-    ReaderService::update_annotation(&conn, id, note_content.as_deref(), color.as_deref(), category_id)
+    ReaderService::update_annotation(
+        &conn,
+        id,
+        note_content.as_deref(),
+        color.as_deref(),
+        category_id,
+    )
 }
 
 #[tauri::command]
@@ -221,10 +227,7 @@ pub fn export_annotations(
 // ==================== Reader Settings Commands ====================
 
 #[tauri::command]
-pub fn get_reader_settings(
-    user_id: String,
-    state: State<AppState>,
-) -> Result<ReaderSettings> {
+pub fn get_reader_settings(user_id: String, state: State<AppState>) -> Result<ReaderSettings> {
     validate::require_non_empty(&user_id, "user_id")?;
     let conn = state.db.get_connection()?;
     ReaderService::get_reader_settings(&conn, &user_id)
@@ -268,19 +271,16 @@ pub struct ReaderStartupData {
 }
 
 #[tauri::command]
-pub fn get_reader_startup_data(
-    book_id: i64,
-    state: State<AppState>,
-) -> Result<ReaderStartupData> {
+pub fn get_reader_startup_data(book_id: i64, state: State<AppState>) -> Result<ReaderStartupData> {
     validate::require_positive_id(book_id, "book_id")?;
     let conn = state.db.get_connection()?;
-    
+
     // Using existing service methods synchronously
     let book = crate::services::library_service::get_book_by_id(&state.db, book_id)?;
     let progress = ReaderService::get_reading_progress(&conn, book_id)?;
     let annotations = ReaderService::get_annotations(&conn, book_id)?;
     let settings = ReaderService::get_reader_settings(&conn, "default")?;
-    
+
     Ok(ReaderStartupData {
         book,
         progress,
@@ -309,7 +309,9 @@ pub fn get_book_file_path(book_id: i64, state: State<AppState>) -> Result<String
             let new_path = epub_path.to_string_lossy().to_string();
             log::info!(
                 "[Reader] Auto-fixing stale path for book {}: {} → {}",
-                book_id, file_path, new_path
+                book_id,
+                file_path,
+                new_path
             );
             let _ = conn.execute(
                 "UPDATE books SET file_path = ?1, file_format = 'epub', modified_date = CURRENT_TIMESTAMP WHERE id = ?2",
@@ -382,10 +384,7 @@ pub fn get_daily_reading_stats(
 }
 
 #[tauri::command]
-pub fn get_book_reading_stats(
-    book_id: i64,
-    state: State<AppState>,
-) -> Result<BookReadingStats> {
+pub fn get_book_reading_stats(book_id: i64, state: State<AppState>) -> Result<BookReadingStats> {
     validate::require_positive_id(book_id, "book_id")?;
     let conn = state.db.get_connection()?;
     ReaderService::get_book_reading_stats(&conn, book_id)
@@ -442,4 +441,3 @@ pub fn get_error_details(error_message: String) -> ErrorDetails {
         technical_details: error_message,
     }
 }
-

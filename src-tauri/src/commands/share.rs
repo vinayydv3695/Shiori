@@ -2,7 +2,7 @@ use std::sync::Arc;
 use tauri::State;
 
 use crate::error::{Result, ShioriError};
-use crate::services::share_service::{ShareService, Share, ShareOptions, ShareResponse};
+use crate::services::share_service::{Share, ShareOptions, ShareResponse, ShareService};
 use crate::utils::validate;
 
 /// Create a share for a book
@@ -30,17 +30,19 @@ pub async fn create_book_share(
         }
     }
     let service = service.lock().await;
-    
+
     let options = ShareOptions {
         password,
         expires_in_hours,
         max_accesses: max_downloads,
     };
 
-    let share = service.create_share(book_id, options)
+    let share = service
+        .create_share(book_id, options)
         .map_err(|e| ShioriError::Other(e.to_string()))?;
 
-    let response = service.generate_share_url(&share.token)
+    let response = service
+        .generate_share_url(&share.token)
         .map_err(|e| ShioriError::Other(e.to_string()))?;
 
     Ok(response)
@@ -55,7 +57,8 @@ pub async fn get_share(
     validate::require_non_empty(&token, "token")?;
     validate::require_max_length(&token, 128, "token")?;
     let service = service.lock().await;
-    service.get_share(&token)
+    service
+        .get_share(&token)
         .map_err(|e| ShioriError::Other(e.to_string()))
 }
 
@@ -68,7 +71,8 @@ pub async fn is_share_valid(
     validate::require_non_empty(&token, "token")?;
     validate::require_max_length(&token, 128, "token")?;
     let service = service.lock().await;
-    service.is_share_valid(&token)
+    service
+        .is_share_valid(&token)
         .map_err(|e| ShioriError::Other(e.to_string()))
 }
 
@@ -81,7 +85,8 @@ pub async fn revoke_share(
     validate::require_non_empty(&token, "token")?;
     validate::require_max_length(&token, 128, "token")?;
     let service = service.lock().await;
-    service.revoke_share(&token)
+    service
+        .revoke_share(&token)
         .map_err(|e| ShioriError::Other(e.to_string()))
 }
 
@@ -95,7 +100,8 @@ pub async fn list_book_shares(
         validate::require_positive_id(id, "book_id")?;
     }
     let service = service.lock().await;
-    service.list_shares(book_id)
+    service
+        .list_shares(book_id)
         .map_err(|e| ShioriError::Other(e.to_string()))
 }
 
@@ -105,7 +111,9 @@ pub async fn start_share_server(
     service: State<'_, Arc<tokio::sync::Mutex<ShareService>>>,
 ) -> Result<()> {
     let mut service = service.lock().await;
-    service.start_server().await
+    service
+        .start_server()
+        .await
         .map_err(|e| ShioriError::Other(e.to_string()))
 }
 
@@ -115,7 +123,9 @@ pub async fn stop_share_server(
     service: State<'_, Arc<tokio::sync::Mutex<ShareService>>>,
 ) -> Result<()> {
     let mut service = service.lock().await;
-    service.stop_server().await
+    service
+        .stop_server()
+        .await
         .map_err(|e| ShioriError::Other(e.to_string()))
 }
 
@@ -134,6 +144,7 @@ pub async fn cleanup_expired_shares(
     service: State<'_, Arc<tokio::sync::Mutex<ShareService>>>,
 ) -> Result<usize> {
     let service = service.lock().await;
-    service.cleanup_expired_shares()
+    service
+        .cleanup_expired_shares()
         .map_err(|e| ShioriError::Other(e.to_string()))
 }

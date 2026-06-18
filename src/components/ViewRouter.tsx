@@ -20,11 +20,13 @@ const LoadingSpinner = ({ className = "h-screen" }: { className?: string }) => (
   </div>
 )
 
+import { CurrentView } from "@/store/uiStore"
+
 export interface ViewRouterProps {
-  currentView: string
+  currentView: CurrentView
   currentDomain: DomainView
   displayBooks: Book[]
-  handleNavigate: (view: string) => void
+  handleNavigate: (view: CurrentView) => void
   handleOpenBook: (id: number, location?: string) => void
   handleViewDetails: (id: number) => void
   handleEditBook: (id: number) => void

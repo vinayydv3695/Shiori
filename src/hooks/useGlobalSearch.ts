@@ -15,6 +15,8 @@ export interface UnifiedSearchResult {
   language?: string;
   downloadUrl: string;
   mirrors?: string[];
+  size?: string;
+  publisher?: string;
   extra?: Record<string, any>;
 }
 

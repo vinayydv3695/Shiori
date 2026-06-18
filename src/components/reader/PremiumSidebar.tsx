@@ -26,8 +26,9 @@ interface PremiumSidebarProps {
 
 /** Highlight search query matches in a snippet (case-insensitive) */
 function highlightMatches(text: string, query: string): string {
-  // First strip out any raw HTML tags that might be in the search snippet
-  const plainText = text.replace(/<[^>]*>?/gm, '');
+  // Safely strip out any raw HTML tags that might be in the search snippet
+  const doc = new DOMParser().parseFromString(text, 'text/html');
+  const plainText = doc.body.textContent || '';
   if (!query.trim()) return escapeHtml(plainText);
   
   const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { Minus, Square, X, Copy } from 'lucide-react'
 
+declare global {
+  interface Window {
+    __TAURI_INTERNALS__?: any;
+  }
+}
+
 export function WindowControls() {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isMaximized, setIsMaximized] = useState(false)

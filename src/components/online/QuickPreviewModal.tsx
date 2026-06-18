@@ -12,6 +12,7 @@ export interface PreviewBook {
   year?: number;
   language?: string;
   size?: string;
+  mirrors?: string[];
   source: 'libgen' | 'gutenberg';
   downloadUrl: string; // The URL to download
 }

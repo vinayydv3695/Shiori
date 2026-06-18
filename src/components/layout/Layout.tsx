@@ -343,7 +343,6 @@ export function Layout({
         <NavigationRail
           currentView={currentView}
           onNavigateToView={onNavigateToView}
-          onOpenSettings={onOpenSettings}
         />
 
         {/* Sidebar — hidden on homepage */}

@@ -61,6 +61,8 @@ export interface Chapter {
   uploaded_at?: string;
   source_id?: string;
   content_id?: string;
+  pages?: number;
+  date?: string;
 }
 
 export interface Page {

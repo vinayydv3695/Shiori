@@ -98,6 +98,8 @@ pub async fn plugin_browse(
     mode: String,
     page: Option<u32>,
     limit: Option<u32>,
+    genres: Option<Vec<String>>,
+    types: Option<Vec<String>>,
 ) -> Result<Vec<SearchResult>> {
     let source = {
         let registry = state.plugin_registry.read().await;
@@ -107,7 +109,7 @@ pub async fn plugin_browse(
     };
 
     source
-        .browse(&mode, page.unwrap_or(1), limit.unwrap_or(20))
+        .browse(&mode, page.unwrap_or(1), limit.unwrap_or(20), genres, types)
         .await
 }
 
@@ -236,6 +238,7 @@ pub async fn proxy_manga_image(source_id: String, image_url: String) -> Result<V
         "toongod" => Some("https://www.toongod.org/"),
         "mangadex" => Some("https://mangadex.org/"),
         "weebrook" => Some("https://weebrook.com/"),
+        "manhwahub" => Some("https://manhwahub.net/"),
         "libgen" => Some("https://libgen.li/"),
         _ => None,
     };

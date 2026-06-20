@@ -1,13 +1,13 @@
-//! Weebrook.com source plugin for Shiori.
+//! Manhwahub.com source plugin for Shiori.
 //!
-//! freeonlinek.top/manhwa/ and freeonlinek.top/manhwa18/ are iframe wrappers
-//! around weebrook.com, which is a standard Madara-theme WordPress manga site.
+//! ManhwaHub (manhwahub.net) source plugin for Shiori
+//! around manhwahub.net, which is a standard Madara-theme WordPress manga site.
 //!
 //! Two `Source` implementations are exposed:
-//!  - `WeebrookManhwaSource`  – SFW manhwa (id: "weebrook")
-//!  - `WeebrookManhwa18Source` – NSFW manhwa18 (id: "weebrook18")
+//!  - `ManhwahubManhwaSource`  – SFW manhwa (id: "manhwahub")
+//!  - `ManhwahubManhwa18Source` – NSFW manhwa18 (id: "manhwahub18")
 //!
-//! Both share the same parsing engine via `WeebrookEngine`.
+//! Both share the same parsing engine via `ManhwahubEngine`.
 
 use scraper::{Html, Selector};
 use std::collections::HashMap;
@@ -20,9 +20,9 @@ use crate::sources::{
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
-const BASE_URL: &str = "https://weebrook.com";
+const BASE_URL: &str = "https://manhwahub.net";
 /// The Madara post-type slug used in URLs and search queries.
-const TOON_PATH: &str = "toon";
+const TOON_PATH: &str = "webtoon";
 
 /// Rotate browser-like User-Agents to avoid simple fingerprint blocks.
 const USER_AGENTS: &[&str] = &[
@@ -33,17 +33,17 @@ const USER_AGENTS: &[&str] = &[
 
 // ─── CSS Selectors (Madara theme) ──────────────────────────────────────────────
 
-/// Listing & search result cards
-const SEL_ITEM: &str = "div.page-item-detail, div.c-tabs-item__content";
-const SEL_TITLE_LINK: &str = ".post-title a, h3 a, h4 a";
-const SEL_COVER_IMG: &str = "img";
+/// Selectors for listing pages (browse/search)
+const SEL_MANGA_ITEM: &str = "div.page-item-detail, div.c-tabs-item__content, .item";
+const SEL_MANGA_TITLE: &str = ".post-title a, h3 a, h4 a, .info-item .line-2 a";
+const SEL_MANGA_IMAGE: &str = "img";
 
-/// Chapter list on manga detail page
+// Selectors for details page
 const SEL_CHAPTER_LI: &str = "li.wp-manga-chapter";
 const SEL_CHAPTER_LINK: &str = "a";
-const SEL_CHAPTER_DATE: &str = ".chapter-release-date i, .chapter-release-date a";
+const SEL_CHAPTER_DATE: &str = ".chapter-release-date i";
 
-/// manga-page data-id attribute (for AJAX chapter loading)
+// Selectors for chapter reading page
 const SEL_MANGA_DATA_ID: &str =
     "div#manga-chapters-holder[data-id], div.manga-chapters-holder[data-id]";
 
@@ -53,7 +53,7 @@ const SEL_PAGE_IMG: &str = "div.page-break img, .reading-content img, .text-left
 // ─── Shared Engine ─────────────────────────────────────────────────────────────
 
 /// Core scraping engine shared between the SFW and NSFW source instances.
-struct WeebrookEngine {
+struct ManhwahubEngine {
     client: reqwest::Client,
     /// Category slug used to filter browse/search results.
     /// - `"manhwa"` for the SFW source
@@ -61,7 +61,7 @@ struct WeebrookEngine {
     category: &'static str,
 }
 
-impl WeebrookEngine {
+impl ManhwahubEngine {
     fn new(category: &'static str) -> Result<Self> {
         let client = reqwest::Client::builder()
             .user_agent(USER_AGENTS[0])
@@ -70,7 +70,7 @@ impl WeebrookEngine {
             .redirect(reqwest::redirect::Policy::limited(8))
             .cookie_store(true)
             .build()
-            .map_err(|e| ShioriError::Other(format!("Failed to build Weebrook client: {}", e)))?;
+            .map_err(|e| ShioriError::Other(format!("Failed to build Manhwahub client: {}", e)))?;
 
         Ok(Self { client, category })
     }
@@ -109,11 +109,11 @@ impl WeebrookEngine {
             .headers(headers)
             .send()
             .await
-            .map_err(|e| ShioriError::Other(format!("Weebrook fetch failed for {}: {}", url, e)))?;
+            .map_err(|e| ShioriError::Other(format!("Manhwahub fetch failed for {}: {}", url, e)))?;
 
         if !resp.status().is_success() {
             return Err(ShioriError::Other(format!(
-                "Weebrook returned HTTP {} for {}",
+                "Manhwahub returned HTTP {} for {}",
                 resp.status(),
                 url
             )));
@@ -121,7 +121,7 @@ impl WeebrookEngine {
 
         resp.text()
             .await
-            .map_err(|e| ShioriError::Other(format!("Weebrook read body failed: {}", e)))
+            .map_err(|e| ShioriError::Other(format!("Manhwahub read body failed: {}", e)))
     }
 
     // ── URL helpers ───────────────────────────────────────────────────────────
@@ -187,12 +187,12 @@ impl WeebrookEngine {
     /// Parse manga cards from a Madara listing page.
     fn parse_cards(&self, html: &str, source_id: &str) -> Vec<SearchResult> {
         let doc = Html::parse_document(html);
-        let item_sel = match Selector::parse(SEL_ITEM) {
+        let item_sel = match Selector::parse(SEL_MANGA_ITEM) {
             Ok(s) => s,
             Err(_) => return vec![],
         };
-        let title_sel = Selector::parse(SEL_TITLE_LINK).unwrap();
-        let img_sel = Selector::parse(SEL_COVER_IMG).unwrap();
+        let title_sel = Selector::parse(SEL_MANGA_TITLE).unwrap();
+        let img_sel = Selector::parse(SEL_MANGA_IMAGE).unwrap();
 
         let mut results = Vec::new();
         let mut seen = std::collections::HashSet::new();
@@ -246,8 +246,46 @@ impl WeebrookEngine {
 
     // ── Source operations ─────────────────────────────────────────────────────
 
-    /// Search for manga by title. Uses Madara's built-in WordPress search.
+    /// Search for manga by title or URL. Uses Madara's built-in WordPress search.
     async fn search(&self, query: &str, page: u32, source_id: &str) -> Result<Vec<SearchResult>> {
+        // Intercept direct URLs
+        if query.starts_with("http") && query.contains("manhwahub.net") {
+            let html = match self.fetch(query).await {
+                Ok(h) => h,
+                Err(e) => {
+                    eprintln!("Manhwahub direct URL fetch error: {}", e);
+                    return Ok(vec![]);
+                }
+            };
+            
+            let doc = Html::parse_document(&html);
+            let title_sel = Selector::parse(".post-title h1, .post-title h3").unwrap();
+            let img_sel = Selector::parse(".summary_image img").unwrap();
+            
+            let title = doc.select(&title_sel).next()
+                .map(|el| el.text().collect::<String>().trim().to_string())
+                .unwrap_or_else(|| "Unknown Title".to_string());
+                
+            let cover_url = doc.select(&img_sel).next()
+                .and_then(|img| {
+                    img.value().attr("data-src")
+                        .or_else(|| img.value().attr("src"))
+                        .or_else(|| img.value().attr("data-lazy-src"))
+                })
+                .map(|s| Self::absolute_url(s));
+                
+            let id = Self::slug_from_url(query);
+            
+            return Ok(vec![SearchResult {
+                id,
+                title,
+                cover_url,
+                description: None,
+                source_id: source_id.to_string(),
+                extra: HashMap::from([("url".to_string(), query.to_string())]),
+            }]);
+        }
+
         let page_segment = if page > 1 {
             format!("page/{}/", page)
         } else {
@@ -255,13 +293,53 @@ impl WeebrookEngine {
         };
 
         let url = format!(
-            "{}/{}?s={}&post_type=wp-manga",
+            "{}/search/{}?s={}",
             BASE_URL,
             page_segment,
             urlencoding::encode(query)
         );
 
-        let html = self.fetch(&url).await?;
+        let html = match self.fetch(&url).await {
+            Ok(h) => h,
+            Err(e) => {
+                // If search API is broken (500), fallback to guessing the webtoon URL
+                let slug = query.to_lowercase().replace(' ', "-").replace(|c: char| !c.is_ascii_alphanumeric() && c != '-', "");
+                let fallback_url = format!("{}/webtoon/{}", BASE_URL, slug);
+                match self.fetch(&fallback_url).await {
+                    Ok(fallback_html) => {
+                        // The user found an exact match via slug! Return it immediately
+                        let doc = Html::parse_document(&fallback_html);
+                        let title_sel = Selector::parse(".post-title h1, .post-title h3").unwrap();
+                        let img_sel = Selector::parse(".summary_image img").unwrap();
+                        
+                        let title = doc.select(&title_sel).next()
+                            .map(|el| el.text().collect::<String>().trim().to_string())
+                            .unwrap_or_else(|| query.to_string());
+                            
+                        let cover_url = doc.select(&img_sel).next()
+                            .and_then(|img| {
+                                img.value().attr("data-src")
+                                    .or_else(|| img.value().attr("src"))
+                                    .or_else(|| img.value().attr("data-lazy-src"))
+                            })
+                            .map(|s| Self::absolute_url(s));
+                            
+                        return Ok(vec![SearchResult {
+                            id: slug,
+                            title,
+                            cover_url,
+                            description: None,
+                            source_id: source_id.to_string(),
+                            extra: HashMap::from([("url".to_string(), fallback_url)]),
+                        }]);
+                    },
+                    Err(_) => {
+                        eprintln!("Manhwahub search error: {}", e);
+                        return Ok(vec![]);
+                    }
+                }
+            }
+        };
 
         // Check if this is an empty search result page
         if html.contains("No Results Found") || html.contains("nothing found") {
@@ -277,17 +355,18 @@ impl WeebrookEngine {
         mode: &str,
         page: u32,
         _limit: u32,
-        _genres: Option<Vec<String>>,
-        _types: Option<Vec<String>>,
+        genres: Option<Vec<String>>,
+        types: Option<Vec<String>>,
         source_id: &str,
     ) -> Result<Vec<SearchResult>> {
         let order_param = match mode {
-            "latest" | "Updated" => "m_orderby=latest",
+            "latest" | "Newest" => "m_orderby=latest",
             "popular" | "trending" => "m_orderby=views",
             "top-rated" | "rating" => "m_orderby=rating",
-            "new" | "recent" | "Added" | "Newest" => "m_orderby=new-manga",
+            "new" | "recent" | "Added" => "m_orderby=new-manga",
             "alphabetic" | "az" => "m_orderby=alphabet",
-            "Random" | "random" => "m_orderby=random",
+            "Updated" => "m_orderby=latest",
+            "random" | "Random" => "m_orderby=random",
             _ => "m_orderby=latest",
         };
 
@@ -297,21 +376,49 @@ impl WeebrookEngine {
             String::new()
         };
 
-        // Filter by category: manhwa or manhwa18
-        let url = format!(
-            "{}/{}/{}?{}&genre[0]={}",
-            BASE_URL, TOON_PATH, page_segment, order_param, self.category
+        let mut url = format!(
+            "{}/{}?{}",
+            BASE_URL, page_segment, order_param
         );
+
+        let mut filter_index = 0;
+        
+        // Add default category first
+        if self.category == "manhwa" {
+            // For Manhwahub, we don't always need to pass manhwa explicitly if we have other genres,
+            // but the existing logic passed it. Let's append it if no types are provided.
+        }
+
+        // Handle Types (map them to genre[] for Madara themes)
+        if let Some(t_list) = types {
+            for t in t_list {
+                url.push_str(&format!("&genre[{}]={}", filter_index, t.to_lowercase()));
+                filter_index += 1;
+            }
+        } else {
+            // Fallback to default category
+            url.push_str(&format!("&genre[{}]={}", filter_index, self.category));
+            filter_index += 1;
+        }
+
+        // Handle Genres
+        if let Some(g_list) = genres {
+            for g in g_list {
+                let slug = g.to_lowercase().replace(" ", "-");
+                url.push_str(&format!("&genre[{}]={}", filter_index, slug));
+                filter_index += 1;
+            }
+        }
 
         // Fall back to unfiltered if genre filtering fails
         let html = self.fetch(&url).await.or_else(|_| {
             let fallback = format!(
-                "{}/{}/{}?{}",
-                BASE_URL, TOON_PATH, page_segment, order_param
+                "{}/{}?{}",
+                BASE_URL, page_segment, order_param
             );
             // Can't do await here, but that's fine — we log and return empty
             Err(ShioriError::Other(format!(
-                "Weebrook browse failed; try: {}",
+                "Manhwahub browse failed; try: {}",
                 fallback
             )))
         })?;
@@ -500,7 +607,7 @@ impl WeebrookEngine {
 
         if pages.is_empty() {
             return Err(ShioriError::Other(
-                "Weebrook: no page images found. The chapter URL may be incorrect.".to_string(),
+                "Manhwahub: no page images found. The chapter URL may be incorrect.".to_string(),
             ));
         }
 
@@ -515,31 +622,31 @@ impl WeebrookEngine {
     }
 }
 
-// ─── WeebrookManhwaSource (SFW) ────────────────────────────────────────────────
+// ─── ManhwahubSource (SFW) ────────────────────────────────────────────────
 
-/// Source for freeonlinek.top/manhwa/ → weebrook.com (SFW manhwa).
-pub struct WeebrookManhwaSource {
-    engine: WeebrookEngine,
+/// Source for ManhwaHub (manhwahub.net) source plugin for Shiori.
+pub struct ManhwahubSource {
+    engine: ManhwahubEngine,
 }
 
-impl WeebrookManhwaSource {
+impl ManhwahubSource {
     pub fn new() -> Result<Self> {
         Ok(Self {
-            engine: WeebrookEngine::new("manhwa")?,
+            engine: ManhwahubEngine::new("manhwa")?,
         })
     }
 }
 
 #[async_trait::async_trait]
-impl Source for WeebrookManhwaSource {
+impl Source for ManhwahubSource {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
 
     fn meta(&self) -> SourceMeta {
         SourceMeta {
-            id: "weebrook".to_string(),
-            name: "Weebrook (Manhwa)".to_string(),
+            id: "manhwahub".to_string(),
+            name: "ManhwaHub".to_string(),
             base_url: format!("{}/{}", BASE_URL, TOON_PATH),
             version: "1.0.0".to_string(),
             content_type: ContentType::Manga,
@@ -551,11 +658,11 @@ impl Source for WeebrookManhwaSource {
     }
 
     async fn search(&self, query: &str, page: u32) -> Result<Vec<SearchResult>> {
-        self.engine.search(query, page, "weebrook").await
+        self.engine.search(query, page, "manhwahub").await
     }
 
     async fn search_with_meta(&self, query: &str, page: u32, limit: u32) -> Result<SearchResponse> {
-        let items = self.engine.search(query, page, "weebrook").await?;
+        let items = self.engine.search(query, page, "manhwahub").await?;
         Ok(SearchResponse {
             items,
             total: None,
@@ -570,14 +677,14 @@ impl Source for WeebrookManhwaSource {
         mode: &str,
         page: u32,
         limit: u32,
-        _genres: Option<Vec<String>>,
-        _types: Option<Vec<String>>,
+        genres: Option<Vec<String>>,
+        types: Option<Vec<String>>,
     ) -> Result<Vec<SearchResult>> {
-        self.engine.browse(mode, page, limit, _genres, _types, "weebrook").await
+        self.engine.browse(mode, page, limit, genres, types, "manhwahub").await
     }
 
     async fn get_chapters(&self, content_id: &str) -> Result<Vec<Chapter>> {
-        self.engine.get_chapters(content_id, "weebrook").await
+        self.engine.get_chapters(content_id, "manhwahub").await
     }
 
     async fn get_pages(&self, chapter_id: &str) -> Result<Vec<Page>> {

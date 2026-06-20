@@ -81,34 +81,40 @@ export const MangaPageImage = memo(function MangaPageImage({
         );
     }
 
-    if (loading || !url) {
-        return (
-            <div
-                className="manga-page-skeleton"
-                style={{
-                    width: '100%',
-                    maxWidth: '800px',
-                    aspectRatio: '2/3',
-                    ...style,
-                }}
-            />
-        );
-    }
-
     const fitClass = `manga-page-img--fit-${fitMode}`;
     const loadingClass = imgLoaded ? 'manga-page-img--loaded' : 'manga-page-img--loading';
 
     return (
-        <img
-            ref={setRefs}
-            src={url}
-            alt={`Page ${pageIndex + 1}`}
-            className={`manga-page-img ${fitClass} ${loadingClass} ${className}`}
-            style={style}
-            onLoad={handleImageLoad}
-            draggable={false}
-            loading="lazy"
-            decoding="async"
-        />
+        <>
+            {(!url || !imgLoaded) && (
+                <div
+                    className="manga-page-skeleton"
+                    style={{
+                        width: '100%',
+                        maxWidth: '800px',
+                        aspectRatio: '2/3',
+                        ...style,
+                    }}
+                />
+            )}
+            {url && (
+                <img
+                    ref={setRefs}
+                    src={url}
+                    alt={`Page ${pageIndex + 1}`}
+                    className={`manga-page-img ${fitClass} ${loadingClass} ${className}`}
+                    style={{
+                        ...style,
+                        position: imgLoaded ? 'relative' : 'absolute',
+                        top: 0,
+                        left: 0,
+                        visibility: imgLoaded ? 'visible' : 'hidden',
+                    }}
+                    onLoad={handleImageLoad}
+                    draggable={false}
+                    decoding="async"
+                />
+            )}
+        </>
     );
 });

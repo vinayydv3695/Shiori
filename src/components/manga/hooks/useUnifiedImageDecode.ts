@@ -60,7 +60,7 @@ export function useUnifiedImageDecode(pageIndex: number, maxDimension: number = 
                     }
 
                     // Check if we need to proxy the image (e.g., ToonGod needs Referer header)
-                    const needsProxy = onlineSource.sourceId === 'toongod' || onlineSource.sourceId === 'weebrook';
+                    const needsProxy = onlineSource.sourceId === 'toongod' || onlineSource.sourceId === 'weebrook' || onlineSource.sourceId === 'manhwahub';
                     
                     if (needsProxy) {
                         // Check cache first
@@ -149,7 +149,7 @@ export async function preloadOnlinePages(
     centerPage: number,
     radius: number = 3
 ): Promise<void> {
-    const needsProxy = sourceId === 'toongod' || sourceId === 'weebrook';
+    const needsProxy = sourceId === 'toongod' || sourceId === 'weebrook' || sourceId === 'manhwahub';
     
     for (let offset = 1; offset <= radius; offset++) {
         const indices = [centerPage + offset, centerPage - offset].filter(

@@ -36,9 +36,9 @@ export function LongStripView() {
     const estimateSize = useCallback((index: number): number => {
         if (pageDimensions[index]) {
             const [w, h] = pageDimensions[index];
-            // Scale to actual rendered width (max 900px)
+            // Scale to actual rendered width (max 900px, but won't upscale beyond w)
             const containerWidth = containerRef.current?.clientWidth || 900;
-            const actualWidth = Math.min(containerWidth, 900);
+            const actualWidth = Math.min(containerWidth, 900, w);
             const scale = actualWidth / w;
             return Math.round(h * scale);
         }
@@ -163,15 +163,16 @@ export function LongStripView() {
                     <div
                         key={virtualItem.key}
                         ref={virtualizer.measureElement}
+                        data-index={virtualItem.index}
                         className="manga-strip-page"
                         style={{
                             top: 0,
                             transform: `translateY(${virtualItem.start}px)`,
+                            paddingBottom: `${stripMargin}px`,
                         }}
                     >
                         <MangaPageImage
                             pageIndex={virtualItem.index}
-                            onLoad={() => virtualizer.measure()}
                         />
                     </div>
                 ))}

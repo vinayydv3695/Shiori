@@ -384,13 +384,11 @@
   width: 100%;
   display: flex;
   justify-content: center;
-  content-visibility: auto;
-  contain-intrinsic-size: auto 1400px;
 }
 
 .manga-strip-page .manga-page-img {
-  max-width: 100%;
-  height: auto;
+  max-width: 100% !important;
+  height: auto !important;
 }
 
 
@@ -431,13 +429,12 @@
   width: 100%;
   display: flex;
   justify-content: center;
-  content-visibility: auto;
-  contain-intrinsic-size: auto 1800px;
 }
 
 .manga-webtoon-page .manga-page-img {
-  width: 100%;
-  height: auto;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
   box-shadow: none;
   border-radius: 0;
 }

@@ -1,3 +1,4 @@
+import { Switch } from '@/components/ui/switch'
 import { useState, useEffect, useMemo } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as Tabs from '@radix-ui/react-tabs'
@@ -7,7 +8,7 @@ import {
   X, Moon, Sun, Palette, Shield, BookOpen, FileText,
   Download, Upload, HardDrive, Archive, CheckCircle2, AlertTriangle,
   Search, FolderOpen, ExternalLink, RefreshCw, Trash2, Info,
-  RotateCcw, Play, Square, Folder, Plus,
+  RotateCcw, Play, Square, Folder, Plus, Blocks, Puzzle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -40,7 +41,7 @@ interface SettingsDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
-type SettingsTab = 'general' | 'book-reading' | 'manga-reading' | 'advanced' | 'watch-folders' | 'about'
+type SettingsTab = 'general' | 'book-reading' | 'manga-reading' | 'advanced' | 'community-plugins' | 'about'
 
 interface SettingDefinition {
   label: string
@@ -109,8 +110,6 @@ const ALL_SETTINGS: SettingDefinition[] = [
   { label: 'Send Crash Reports', description: 'Automatic crash reporting', tab: 'advanced', section: 'Privacy' },
   { label: 'Reading History Retention', description: 'How long to keep reading history', tab: 'advanced', section: 'Privacy' },
   { label: 'Clear Reading History', description: 'Delete all reading history', tab: 'advanced', section: 'Privacy' },
-  { label: 'Clear Resume Prompt Memory', description: 'Forget EPUB continue/start-over choices', tab: 'advanced', section: 'Privacy' },
-  { label: 'Reset All Settings', description: 'Restore factory defaults', tab: 'advanced', section: 'Privacy' },
 ]
 
 const EPUB_RESUME_CHOICE_STORAGE_KEY = 'shiori-epub-resume-choice:v1'
@@ -170,7 +169,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
     { id: 'book-reading' as const, name: 'Reading (Books)', icon: BookOpen },
     { id: 'manga-reading' as const, name: 'Reading (Manga)', icon: FileText },
     { id: 'advanced' as const, name: 'Advanced', icon: Shield },
-    { id: 'watch-folders' as const, name: 'Watch Folders', icon: Folder },
+    { id: 'community-plugins' as const, name: 'Community Plugins', icon: Puzzle },
     { id: 'about' as const, name: 'About', icon: Info },
   ]
 
@@ -182,7 +181,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-background/40 backdrop-blur-md z-50 transition-all duration-300" />
-        <Dialog.Content className="dialog-content settings-dialog fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background/80 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.2)] w-[90vw] max-w-5xl h-[85vh] z-50 flex flex-col overflow-hidden">
+        <Dialog.Content aria-describedby={undefined} className="dialog-content settings-dialog fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background/80 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.2)] w-[90vw] max-w-5xl h-[85vh] z-50 flex flex-col overflow-hidden">
           <div className="flex items-center justify-between p-6 border-b border-border">
             <Dialog.Title className="text-2xl font-semibold">Settings</Dialog.Title>
             <div className="flex items-center gap-3">
@@ -291,9 +290,8 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                     />
                   )}
 
-                  {selectedTab === 'watch-folders' && (
-                    <WatchFoldersSettings
-                      preferences={preferences}
+                  {selectedTab === 'community-plugins' && (
+                    <CommunityPluginsSettings
                       isSectionVisible={isSectionVisible}
                     />
                   )}
@@ -322,11 +320,11 @@ const SettingSection = ({
   children: React.ReactNode
   onReset?: () => void
 }) => (
-  <section className="space-y-4 pb-4">
+  <section className="space-y-4 pb-6">
     <div className="flex items-center justify-between px-1">
       <div>
-        <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
-        {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
+        <h3 className="text-xl font-semibold tracking-tight">{title}</h3>
+        {description && <p className="text-sm text-muted-foreground mt-1.5">{description}</p>}
       </div>
       {onReset && (
         <Button variant="ghost" size="sm" onClick={onReset} className="gap-1.5 text-muted-foreground hover:text-foreground">
@@ -335,7 +333,7 @@ const SettingSection = ({
         </Button>
       )}
     </div>
-    <div className="bg-card/40 border border-border/50 backdrop-blur-sm rounded-2xl p-6 shadow-sm space-y-6">
+    <div className="bg-transparent space-y-3">
       {children}
     </div>
   </section>
@@ -350,10 +348,10 @@ const SettingItem = ({
   description?: string
   children: React.ReactNode
 }) => (
-  <div className="flex items-center justify-between gap-6 py-1">
-    <div className="space-y-1 flex-1">
-      <label className="text-sm font-medium leading-none">{label}</label>
-      {description && <p className="text-[13px] text-muted-foreground leading-snug">{description}</p>}
+  <div className="group flex items-center justify-between gap-6 p-4 rounded-2xl border border-border/50 bg-card/30 hover:bg-card/50 transition-all duration-300 shadow-sm hover:shadow-md">
+    <div className="space-y-1.5 flex-1 pr-4">
+      <label className="text-[15px] font-semibold tracking-tight leading-none text-foreground">{label}</label>
+      {description && <p className="text-[13px] text-muted-foreground leading-relaxed">{description}</p>}
     </div>
     <div className="flex-shrink-0 flex items-center justify-end min-w-[200px]">
       {children}
@@ -582,24 +580,12 @@ const GeneralSettings = ({
         <SettingSection title="General">
           {isSettingVisible('Auto-start Application', 'Start Shiori when system boots', 'General') && (
             <SettingItem label="Auto-start Application" description="Start Shiori when system boots">
-              <input
-                type="checkbox"
-                checked={preferences.autoStart}
-                onChange={(e) => updateGeneralSettings({ autoStart: e.target.checked })}
-                className="w-5 h-5"
-                aria-label="Auto-start application"
-              />
+              <Switch checked={preferences.autoStart} onChange={(checked) => updateGeneralSettings({ autoStart: checked })} />
             </SettingItem>
           )}
           {isSettingVisible('Discord Rich Presence', 'Show your reading activity on Discord', 'General') && (
             <SettingItem label="Discord Rich Presence" description="Show your reading activity on Discord">
-              <input
-                type="checkbox"
-                checked={preferences.discordRpcEnabled ?? true}
-                onChange={(e) => updateGeneralSettings({ discordRpcEnabled: e.target.checked })}
-                className="w-5 h-5"
-                aria-label="Discord Rich Presence"
-              />
+              <Switch checked={preferences.discordRpcEnabled ?? true} onChange={(checked) => updateGeneralSettings({ discordRpcEnabled: checked })} />
             </SettingItem>
           )}
         </SettingSection>
@@ -700,13 +686,7 @@ const GeneralSettings = ({
 
           {isSettingVisible('Auto-Scan Library Folders', 'Automatically import new books', 'Library') && (
             <SettingItem label="Auto-Scan Library Folders" description="Automatically import new books when detected">
-              <input
-                type="checkbox"
-                checked={preferences.autoScanEnabled ?? false}
-                onChange={(e) => updateGeneralSettings({ autoScanEnabled: e.target.checked })}
-                className="w-5 h-5"
-                aria-label="Auto-scan library folders"
-              />
+              <Switch checked={preferences.autoScanEnabled ?? false} onChange={(checked) => updateGeneralSettings({ autoScanEnabled: checked })} />
             </SettingItem>
           )}
 
@@ -761,13 +741,7 @@ const GeneralSettings = ({
 
           {isSettingVisible('Auto-fetch Cover Images', 'Download covers when missing', 'Library') && (
             <SettingItem label="Auto-fetch Cover Images" description="Download covers from online providers when missing">
-              <input
-                type="checkbox"
-                checked={preferences.autoFetchCovers ?? true}
-                onChange={(e) => updateGeneralSettings({ autoFetchCovers: e.target.checked })}
-                className="w-5 h-5"
-                aria-label="Auto-fetch cover images"
-              />
+              <Switch checked={preferences.autoFetchCovers ?? true} onChange={(checked) => updateGeneralSettings({ autoFetchCovers: checked })} />
             </SettingItem>
           )}
 
@@ -842,10 +816,6 @@ const GeneralSettings = ({
           </div>
 
         </div>
-      </SettingSection>
-
-      <SettingSection title="Online Sources" description="Enable or disable online providers used by online sections">
-        <SourceManager />
       </SettingSection>
     </div>
   )
@@ -1002,13 +972,7 @@ const BookReadingSettings = ({
               label="Hyphenation"
               description={preferences.book.hyphenation ? 'Enabled' : 'Disabled'}
             >
-              <input
-                type="checkbox"
-                checked={preferences.book.hyphenation}
-                onChange={(e) => updateBookDefaults({ hyphenation: e.target.checked })}
-                className="w-5 h-5"
-                aria-label="Hyphenation"
-              />
+              <Switch checked={preferences.book.hyphenation} onChange={(checked) => updateBookDefaults({ hyphenation: checked })} />
             </SettingItem>
           )}
 
@@ -1150,14 +1114,7 @@ const BookReadingSettings = ({
               label="Auto-advance Chapter"
               description={(preferences.tts?.autoAdvance ?? true) ? 'Automatically go to next chapter when done' : 'Stop at end of chapter'}
             >
-              <input
-                type="checkbox"
-                checked={preferences.tts?.autoAdvance ?? true}
-                onChange={(e) => updateTtsDefaults({ autoAdvance: e.target.checked })}
-                disabled={!isAvailable}
-                className="w-5 h-5 disabled:opacity-50"
-                aria-label="Auto-advance chapter"
-              />
+              <Switch checked={preferences.tts?.autoAdvance ?? true} onChange={(checked) => updateTtsDefaults({ autoAdvance: checked })} />
             </SettingItem>
           )}
 
@@ -1260,13 +1217,7 @@ const MangaReadingSettings = ({
           label="Auto-Group Series Volumes"
           description={preferences.autoGroupManga ? 'Enabled - Automatically groups books and manga by series' : 'Disabled - Manual organization'}
         >
-          <input
-            type="checkbox"
-            checked={preferences.autoGroupManga}
-            onChange={(e) => updateGeneralSettings({ autoGroupManga: e.target.checked })}
-            className="w-5 h-5"
-            aria-label="Auto-group series volumes"
-          />
+          <Switch checked={preferences.autoGroupManga} onChange={(checked) => updateGeneralSettings({ autoGroupManga: checked })} />
         </SettingItem>
       </SettingSection>
 
@@ -1345,13 +1296,7 @@ const MangaReadingSettings = ({
               label="Fit to Width"
               description={preferences.manga.fitWidth ? 'Enabled' : 'Disabled'}
             >
-              <input
-                type="checkbox"
-                checked={preferences.manga.fitWidth}
-                onChange={(e) => updateMangaDefaults({ fitWidth: e.target.checked })}
-                className="w-5 h-5"
-                aria-label="Fit to width"
-              />
+              <Switch checked={preferences.manga.fitWidth} onChange={(checked) => updateMangaDefaults({ fitWidth: checked })} />
             </SettingItem>
           )}
 
@@ -1360,13 +1305,7 @@ const MangaReadingSettings = ({
               label="Image Smoothing"
               description={preferences.manga.imageSmoothing ? 'Enabled' : 'Disabled'}
             >
-              <input
-                type="checkbox"
-                checked={preferences.manga.imageSmoothing}
-                onChange={(e) => updateMangaDefaults({ imageSmoothing: e.target.checked })}
-                className="w-5 h-5"
-                aria-label="Image smoothing"
-              />
+              <Switch checked={preferences.manga.imageSmoothing} onChange={(checked) => updateMangaDefaults({ imageSmoothing: checked })} />
             </SettingItem>
           )}
 
@@ -1375,13 +1314,7 @@ const MangaReadingSettings = ({
               label="GPU Acceleration"
               description={preferences.manga.gpuAcceleration ? 'Enabled' : 'Disabled'}
             >
-              <input
-                type="checkbox"
-                checked={preferences.manga.gpuAcceleration}
-                onChange={(e) => updateMangaDefaults({ gpuAcceleration: e.target.checked })}
-                className="w-5 h-5"
-                aria-label="GPU acceleration"
-              />
+              <Switch checked={preferences.manga.gpuAcceleration} onChange={(checked) => updateMangaDefaults({ gpuAcceleration: checked })} />
             </SettingItem>
           )}
 
@@ -1658,18 +1591,6 @@ const AdvancedSettings = ({
     }
   }
 
-  const handleResetAllSettings = async () => {
-    if (confirm('This will reset ALL settings to their default values. This action cannot be undone. Continue?')) {
-      try {
-        await api.updateUserPreferences(DEFAULT_USER_PREFERENCES)
-        await loadPreferences()
-        toast.success('All settings reset to defaults')
-      } catch {
-        toast.error('Failed to reset settings')
-      }
-    }
-  }
-
   const handleClearResumePromptMemory = () => {
     try {
       localStorage.removeItem(EPUB_RESUME_CHOICE_STORAGE_KEY)
@@ -1709,13 +1630,7 @@ const AdvancedSettings = ({
               label="Enable Logging"
               description="Save debug logs for troubleshooting"
             >
-              <input
-                type="checkbox"
-                checked={preferences.debugLogging ?? false}
-                onChange={(e) => updateGeneralSettings({ debugLogging: e.target.checked })}
-                className="w-5 h-5"
-                aria-label="Enable debug logging"
-              />
+              <Switch checked={preferences.debugLogging ?? false} onChange={(checked) => updateGeneralSettings({ debugLogging: checked })} />
             </SettingItem>
           )}
         </SettingSection>
@@ -1728,13 +1643,7 @@ const AdvancedSettings = ({
               label="Auto-Export Annotations"
               description="Automatically export annotations to a folder when created or updated"
             >
-              <input
-                type="checkbox"
-                checked={preferences.autoExportAnnotations ?? false}
-                onChange={(e) => updateGeneralSettings({ autoExportAnnotations: e.target.checked })}
-                className="w-5 h-5"
-                aria-label="Enable auto-export annotations"
-              />
+              <Switch checked={preferences.autoExportAnnotations ?? false} onChange={(checked) => updateGeneralSettings({ autoExportAnnotations: checked })} />
             </SettingItem>
           )}
 
@@ -1850,13 +1759,7 @@ const AdvancedSettings = ({
                   Include all imported book files in the backup (increases size)
                 </p>
               </div>
-              <input
-                type="checkbox"
-                checked={includeBooks}
-                onChange={(e) => setIncludeBooks(e.target.checked)}
-                className="w-5 h-5"
-                aria-label="Include book files in backup"
-              />
+              <Switch checked={includeBooks} onChange={(checked) => setIncludeBooks(checked)} />
             </div>
 
             <Button variant="outline" onClick={handleBackup} disabled={isBackingUp} className="w-full gap-2">
@@ -1916,29 +1819,17 @@ const AdvancedSettings = ({
         </SettingSection>
       )}
 
-      {isSectionVisible('Privacy', ['Send Analytics', 'Send Crash Reports', 'Reading History Retention', 'Clear Reading History', 'Clear Resume Prompt Memory', 'Reset All Settings']) && (
+      {isSectionVisible('Privacy', ['Send Analytics', 'Send Crash Reports', 'Reading History Retention', 'Clear Reading History']) && (
         <SettingSection title="Privacy & Data" description="Control your data and privacy">
           {isSettingVisible('Send Analytics', 'Anonymous usage statistics', 'Privacy') && (
             <SettingItem label="Send Anonymous Usage Statistics" description="Help improve Shiori by sending anonymous usage data">
-              <input
-                type="checkbox"
-                checked={preferences.sendAnalytics ?? false}
-                onChange={(e) => updateGeneralSettings({ sendAnalytics: e.target.checked })}
-                className="w-5 h-5"
-                aria-label="Send anonymous usage statistics"
-              />
+              <Switch checked={preferences.sendAnalytics ?? false} onChange={(checked) => updateGeneralSettings({ sendAnalytics: checked })} />
             </SettingItem>
           )}
 
           {isSettingVisible('Send Crash Reports', 'Automatic crash reporting', 'Privacy') && (
             <SettingItem label="Send Crash Reports" description="Automatically report crashes to help fix bugs">
-              <input
-                type="checkbox"
-                checked={preferences.sendCrashReports ?? false}
-                onChange={(e) => updateGeneralSettings({ sendCrashReports: e.target.checked })}
-                className="w-5 h-5"
-                aria-label="Send crash reports"
-              />
+              <Switch checked={preferences.sendCrashReports ?? false} onChange={(checked) => updateGeneralSettings({ sendCrashReports: checked })} />
             </SettingItem>
           )}
 
@@ -1959,27 +1850,13 @@ const AdvancedSettings = ({
             </SettingItem>
           )}
 
-          {(isSettingVisible('Clear Reading History', 'Delete all reading history', 'Privacy') ||
-            isSettingVisible('Clear Resume Prompt Memory', 'Forget EPUB continue/start-over choices', 'Privacy') ||
-            isSettingVisible('Reset All Settings', 'Restore factory defaults', 'Privacy')) && (
+          {isSettingVisible('Clear Reading History', 'Delete all reading history', 'Privacy') && (
             <div className="flex gap-2 pt-2 flex-wrap">
               <Button
                 variant="outline"
                 onClick={() => toast.info('Reading history clearing is not yet implemented')}
               >
                 Clear Reading History
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleClearResumePromptMemory}
-              >
-                Clear Resume Prompt Memory
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleResetAllSettings}
-              >
-                Reset All Settings
               </Button>
             </div>
           )}
@@ -1989,180 +1866,16 @@ const AdvancedSettings = ({
   )
 }
 
-const WatchFoldersSettings = ({
-  preferences,
+const CommunityPluginsSettings = ({
   isSectionVisible,
 }: {
-  preferences: UserPreferences | null
   isSectionVisible: (section: string, settings: string[]) => boolean
 }) => {
-  const [watchFolders, setWatchFolders] = useState<WatchFolder[]>([])
-  const [watchStatus, setWatchStatus] = useState<{ is_running: boolean; watched_folders_count: number; enabled_folders_count: number } | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const toast = useToast()
-
-  useEffect(() => {
-    loadWatchFolders()
-    loadWatchStatus()
-  }, [])
-
-  const loadWatchFolders = async () => {
-    try {
-      const folders = await api.getWatchFolders()
-      setWatchFolders(folders)
-    } catch (err) {
-      logger.error('Failed to load watch folders:', err)
-    }
-  }
-
-  const loadWatchStatus = async () => {
-    try {
-      const status = await api.getWatchStatus()
-      setWatchStatus(status)
-    } catch (err) {
-      logger.error('Failed to load watch status:', err)
-    }
-  }
-
-  const handleAddFolder = async () => {
-    try {
-      const path = await api.openFolderDialog()
-      if (!path) return
-
-      await api.addWatchFolder(path, true)
-      await loadWatchFolders()
-      toast.success('Folder added', `Now watching ${path}`)
-    } catch (err) {
-      logger.error('Failed to add watch folder:', err)
-      toast.error('Failed to add watch folder')
-    }
-  }
-
-  const handleRemoveFolder = async (path: string) => {
-    try {
-      await api.removeWatchFolder(path)
-      await loadWatchFolders()
-      toast.success('Folder removed', `Stopped watching ${path}`)
-    } catch (err) {
-      logger.error('Failed to remove watch folder:', err)
-      toast.error('Failed to remove watch folder')
-    }
-  }
-
-  const handleToggleWatcher = async () => {
-    try {
-      setIsLoading(true)
-      if (watchStatus?.is_running) {
-        await api.stopFolderWatch()
-        toast.info('Folder watching stopped')
-      } else {
-        await api.startFolderWatch()
-        toast.success('Folder watching started')
-      }
-      await loadWatchStatus()
-    } catch (err) {
-      logger.error('Failed to toggle folder watcher:', err)
-      toast.error('Failed to toggle folder watcher')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  if (!preferences) return null
-
   return (
     <div className="space-y-8">
-      {isSectionVisible('Watch Folders', ['Enable/Disable', 'Status', 'Folders']) && (
-        <SettingSection
-          title="Watch Folders"
-          description="Automatically import new eBooks from monitored directories"
-        >
-          <div className="space-y-4">
-            <div className="p-4 rounded-lg bg-muted border border-border space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">Folder Watcher</p>
-                  <p className="text-xs text-muted-foreground">
-                    {watchStatus?.is_running ? 'Active' : 'Inactive'} • {watchStatus?.enabled_folders_count || 0} of {watchStatus?.watched_folders_count || 0} folders enabled
-                  </p>
-                </div>
-                <Button
-                  variant={watchStatus?.is_running ? 'destructive' : 'default'}
-                  size="sm"
-                  onClick={handleToggleWatcher}
-                  disabled={isLoading || watchFolders.length === 0}
-                  className="gap-1.5"
-                >
-                  {watchStatus?.is_running ? (
-                    <>
-                      <Square size={14} />
-                      Stop
-                    </>
-                  ) : (
-                    <>
-                      <Play size={14} />
-                      Start
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              {watchStatus?.is_running && (
-                <div className="flex items-center gap-2 text-green-600 dark:text-green-400 text-xs">
-                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                  <span>Monitoring for new files (3s debounce)</span>
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">Watched Folders</label>
-                <Button variant="outline" size="sm" onClick={handleAddFolder} className="gap-1.5">
-                  <Plus size={14} />
-                  Add Folder
-                </Button>
-              </div>
-
-              {watchFolders.length === 0 ? (
-                <div className="p-8 rounded-lg border border-dashed text-center text-muted-foreground">
-                  <Folder className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p className="text-sm">No folders being watched</p>
-                  <p className="text-xs mt-1">Click &quot;Add Folder&quot; to start monitoring a directory</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {watchFolders.map((folder) => (
-                    <div
-                      key={folder.path}
-                      className="flex items-center justify-between p-3 rounded-lg border bg-background"
-                    >
-                      <div className="flex-1 min-w-0 mr-3">
-                        <p className="text-sm font-mono truncate">{folder.path}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {folder.enabled ? 'Enabled' : 'Disabled'}
-                        </p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveFolder(folder.path)}
-                        className="shrink-0"
-                      >
-                        <Trash2 size={14} />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
-              <p className="text-xs text-blue-700 dark:text-blue-300">
-                <strong>Note:</strong> New files are imported automatically after a 3-second delay. Supported formats: EPUB, PDF, MOBI, AZW3, DOCX, FB2, CBZ, CBR.
-              </p>
-            </div>
-          </div>
+      {isSectionVisible('Online Sources', ['MangaDex', 'ToonGod', 'ManhwaHub', 'Weebrook', 'Nyaa', 'Project Gutenberg', 'LibGen']) && (
+        <SettingSection title="Online Sources" description="Enable or disable online providers used by online sections">
+          <SourceManager />
         </SettingSection>
       )}
     </div>

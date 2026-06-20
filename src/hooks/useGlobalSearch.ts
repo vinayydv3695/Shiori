@@ -31,9 +31,16 @@ export function useGlobalSearch() {
     setError(null);
 
     try {
+      let libgenQuery = query;
+      if (!libgenQuery && filters) {
+        if (filters.title) libgenQuery = filters.title;
+        else if (filters.author) libgenQuery = filters.author;
+        else if (filters.series) libgenQuery = filters.series;
+      }
+
       // Execute both searches concurrently
       const [libgenRes, gutenbergRes] = await Promise.allSettled([
-        fetchLibgenBooks(query, page, 50),
+        fetchLibgenBooks(libgenQuery, page, 50),
         fetchGutenbergBooks(query, page, filters)
       ]);
 

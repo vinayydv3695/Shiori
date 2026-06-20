@@ -236,7 +236,7 @@ export function DuplicateFinderDialog({
       <Dialog.Root open={open} onOpenChange={onOpenChange}>
         <Dialog.Portal>
           <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-2xl w-[90vw] max-w-4xl max-h-[85vh] z-50 flex flex-col overflow-hidden">
+          <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-2xl w-[90vw] max-w-4xl max-h-[85vh] z-50 flex flex-col overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-border bg-muted/30">
               <div className="flex flex-col">
@@ -658,7 +658,7 @@ export function DuplicateFinderDialog({
       <Dialog.Root open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/60 backdrop-blur-md z-[60]" />
-          <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-2xl w-[90vw] max-w-md z-[60] p-6 space-y-4">
+          <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-2xl w-[90vw] max-w-md z-[60] p-6 space-y-4">
             <Dialog.Title className="text-lg font-bold text-foreground flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
               Confirm Merge

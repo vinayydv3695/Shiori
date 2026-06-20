@@ -64,7 +64,7 @@
   },
   "app": {
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https: blob: data: shiori-proxy:; font-src 'self' asset: data:; connect-src 'self' ipc: http://ipc.localhost https://openlibrary.org https://covers.openlibrary.org https://graphql.anilist.co https://api.mangadex.org https://gutendex.com https://freeonlinek.top https://weebrook.com",
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost https: blob: data: shiori-proxy: http://shiori-proxy.localhost; font-src 'self' asset: http://asset.localhost data:; connect-src 'self' ipc: http://ipc.localhost https://openlibrary.org https://covers.openlibrary.org https://graphql.anilist.co https://api.mangadex.org https://gutendex.com https://freeonlinek.top https://weebrook.com",
       "assetProtocol": {
         "enable": true,
         "scope": [
@@ -86,7 +86,8 @@
         "height": 800,
         "resizable": true,
         "fullscreen": false,
-        "decorations": false
+        "decorations": false,
+        "transparent": true
       }
     ]
   },

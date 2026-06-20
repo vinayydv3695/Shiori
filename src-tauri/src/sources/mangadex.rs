@@ -126,22 +126,25 @@ impl Source for MangaDexSource {
         })
     }
 
-    async fn browse(&self, mode: &str, page: u32, limit: u32) -> Result<Vec<SearchResult>> {
+    async fn browse(
+        &self,
+        mode: &str,
+        page: u32,
+        limit: u32,
+        _genres: Option<Vec<String>>,
+        _types: Option<Vec<String>>,
+    ) -> Result<Vec<SearchResult>> {
         let safe_page = page.max(1);
         let safe_limit = limit.max(1).min(100);
         let offset = (safe_page - 1) * safe_limit;
 
         let order_param = match mode {
+            "latest" | "Updated" => "order%5BlatestUploadedChapter%5D=desc",
             "popular" => "order%5BfollowedCount%5D=desc",
-            "latest" => "order%5BlatestUploadedChapter%5D=desc",
-            "recent" => "order%5BcreatedAt%5D=desc",
+            "recent" | "Added" | "Newest" => "order%5BcreatedAt%5D=desc",
             "top-rated" => "order%5Brating%5D=desc",
-            _ => {
-                return Err(ShioriError::Validation(format!(
-                    "Unsupported browse mode: {}",
-                    mode
-                )))
-            }
+            "Random" | "random" => "order%5BcreatedAt%5D=desc",
+            _ => return Err(ShioriError::Validation(format!("Unsupported browse mode: {}", mode))),
         };
 
         let url = format!(

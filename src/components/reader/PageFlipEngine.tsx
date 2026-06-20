@@ -1,4 +1,4 @@
-import { useCallback, forwardRef, useImperativeHandle, memo, useRef, useState } from 'react';
+import { useCallback, forwardRef, useImperativeHandle, memo, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { sanitizeBookContent } from '@/lib/sanitize';
 import '@/styles/page-flip.css';
@@ -129,6 +129,13 @@ export const PageFlipEngine = memo(
         );
 
         // ────────────────────────────────────────────────────────────
+        // MEMOIZE SANITIZATION
+        // ────────────────────────────────────────────────────────────
+        const safeCurrentContent = useMemo(() => {
+            return sanitizeBookContent(currentContent);
+        }, [currentContent]);
+
+        // ────────────────────────────────────────────────────────────
         // RENDER — disabled mode (no animation wrapper overhead)
         // ────────────────────────────────────────────────────────────
         if (!enabled) {
@@ -136,7 +143,7 @@ export const PageFlipEngine = memo(
                 <div className={className}>
                     <div
                         className="premium-chapter-content"
-                        dangerouslySetInnerHTML={{ __html: sanitizeBookContent(currentContent) }}
+                        dangerouslySetInnerHTML={{ __html: safeCurrentContent }}
                     />
                 </div>
             );
@@ -160,7 +167,7 @@ export const PageFlipEngine = memo(
                     >
                         <div
                             className="premium-chapter-content"
-                            dangerouslySetInnerHTML={{ __html: sanitizeBookContent(currentContent) }}
+                            dangerouslySetInnerHTML={{ __html: safeCurrentContent }}
                         />
                     </motion.div>
                 </AnimatePresence>

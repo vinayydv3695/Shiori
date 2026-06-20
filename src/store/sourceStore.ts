@@ -20,7 +20,7 @@ export interface SourceConfig {
 
 const SOURCE_STORE_VERSION = 7;
 
-const MANDATORY_SOURCE_IDS = new Set(['mangadex']);
+const MANDATORY_SOURCE_IDS = new Set<string>();
 
 function isMandatorySource(sourceId: string): boolean {
   return MANDATORY_SOURCE_IDS.has(sourceId);
@@ -31,7 +31,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     id: 'mangadex',
     name: 'MangaDex',
     kind: 'manga',
-    enabled: true,
+    enabled: false,
     description: 'Official API with huge catalog - Most reliable manga source.',
     status: 'active',
     implemented: true,
@@ -43,7 +43,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     id: 'toongod',
     name: 'ToonGod',
     kind: 'manga',
-    enabled: true,
+    enabled: false,
     description: 'Manhwa/Webtoons focus with large collection.',
     status: 'active',
     implemented: true,
@@ -52,10 +52,22 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     website: 'https://www.toongod.org',
   },
   {
+    id: 'manhwahub',
+    name: 'ManhwaHub',
+    kind: 'manga',
+    enabled: false,
+    description: 'Large library of manhwa titles.',
+    status: 'active',
+    implemented: true,
+    torboxCompatible: false,
+    capabilities: ['direct'],
+    website: 'https://manhwahub.io',
+  },
+  {
     id: 'weebrook',
     name: 'Weebrook',
     kind: 'manga',
-    enabled: true,
+    enabled: false,
     description: 'Manhwa and webtoons from freeonlinek.top.',
     status: 'active',
     implemented: true,
@@ -67,7 +79,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     id: 'nyaa',
     name: 'Nyaa',
     kind: 'manga',
-    enabled: true,
+    enabled: false,
     description: 'Largest anime and manga torrent tracker. Recommended for Torbox users.',
     status: 'active',
     implemented: true,
@@ -80,7 +92,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     id: 'gutenberg',
     name: 'Project Gutenberg',
     kind: 'books',
-    enabled: true,
+    enabled: false,
     description: 'Public domain library offering thousands of free EPUB books.',
     status: 'active',
     implemented: true,
@@ -92,7 +104,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     id: 'libgen',
     name: 'LibGen',
     kind: 'books',
-    enabled: true,
+    enabled: false,
     description: 'Online library offering access to millions of books.',
     status: 'active',
     implemented: true,

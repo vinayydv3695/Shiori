@@ -1,7 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Play, Bookmark, ArrowLeft, Search, Star, Info, FileText, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useVirtualizer } from '@tanstack/react-virtual';
 
 export interface UnifiedChapter {
   id: string;
@@ -57,7 +58,8 @@ export function OnlineMangaDetailView({
   onBookmark,
   onMangaClick,
 }: OnlineMangaDetailViewProps) {
-    const [expandedVolume, setExpandedVolume] = useState<string | null>(null);
+  const parentRef = useRef<HTMLDivElement>(null);
+  const [expandedVolume, setExpandedVolume] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'CHAPTER' | 'VOLUME'>('CHAPTER');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortAscending, setSortAscending] = useState(false);
@@ -147,6 +149,13 @@ export function OnlineMangaDetailView({
     const vols = new Set(filteredAndSortedChapters.map((c) => c.volume));
     return Array.from(vols);
   }, [filteredAndSortedChapters, activeTab]);
+
+  const rowVirtualizer = useVirtualizer({
+    count: filteredAndSortedChapters.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 57, 
+    overscan: 5,
+  });
 
   const ratingScore = anilistData?.averageScore ? (anilistData.averageScore / 10).toFixed(2) : rating ? rating : '?';
   const totalReviews = anilistData?.totalReviews ? anilistData.totalReviews.toLocaleString() : '0';
@@ -313,7 +322,10 @@ export function OnlineMangaDetailView({
               </div>
 
               {/* List */}
-              <div className="flex flex-col max-h-[600px] overflow-y-auto custom-scrollbar">
+              <div 
+                ref={parentRef}
+                className="flex flex-col max-h-[600px] overflow-y-auto custom-scrollbar relative"
+              >
                 {chaptersLoading ? (
                   <div className="p-8 text-center text-muted-foreground/80">Loading chapters...</div>
                 ) : chaptersError ? (
@@ -321,28 +333,40 @@ export function OnlineMangaDetailView({
                 ) : filteredAndSortedChapters.length === 0 ? (
                   <div className="p-8 text-center text-muted-foreground/80">No chapters found</div>
                 ) : activeTab === 'CHAPTER' ? (
-                  filteredAndSortedChapters.map((ch, idx) => {
-                    const chapterNumStr = ch.chapter && ch.chapter !== '?' ? `Chapter ${ch.chapter}` : (ch.title ? '' : 'Oneshot');
-                    const fullTitle = ch.title ? (chapterNumStr ? `${chapterNumStr}: ${ch.title}` : ch.title) : chapterNumStr;
-                    
-                    return (
-                      <div 
-                        key={ch.id} 
-                        onClick={() => onReadChapter(ch)}
-                        className={`flex items-center justify-between p-4 cursor-pointer transition-colors border-b border-border hover:bg-accent ${idx === 0 ? 'bg-accent/30' : ''}`}
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          {idx === 0 && <Play className="w-3 h-3 text-[#357ebd] fill-[#357ebd] shrink-0" />}
-                          <span className={`truncate text-sm ${idx === 0 ? 'text-[#357ebd] font-medium' : 'text-foreground/90'}`}>
-                            {fullTitle || 'Chapter'}
+                  <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
+                    {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                      const idx = virtualRow.index;
+                      const ch = filteredAndSortedChapters[idx];
+                      const chapterNumStr = ch.chapter && ch.chapter !== '?' ? `Chapter ${ch.chapter}` : (ch.title ? '' : 'Oneshot');
+                      const fullTitle = ch.title ? (chapterNumStr ? `${chapterNumStr}: ${ch.title}` : ch.title) : chapterNumStr;
+                      
+                      return (
+                        <div 
+                          key={ch.id} 
+                          onClick={() => onReadChapter(ch)}
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: `${virtualRow.size}px`,
+                            transform: `translateY(${virtualRow.start}px)`,
+                          }}
+                          className={`flex items-center justify-between p-4 cursor-pointer transition-colors border-b border-border hover:bg-accent ${idx === 0 ? 'bg-accent/30' : ''}`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            {idx === 0 && <Play className="w-3 h-3 text-[#357ebd] fill-[#357ebd] shrink-0" />}
+                            <span className={`truncate text-sm ${idx === 0 ? 'text-[#357ebd] font-medium' : 'text-foreground/90'}`}>
+                              {fullTitle || 'Chapter'}
+                            </span>
+                          </div>
+                          <span className="text-xs text-muted-foreground/80 shrink-0 ml-4">
+                            {ch.date || 'Unknown'}
                           </span>
                         </div>
-                        <span className="text-xs text-muted-foreground/80 shrink-0 ml-4">
-                          {ch.date || 'Unknown'}
-                        </span>
-                      </div>
-                    );
-                  })
+                      );
+                    })}
+                  </div>
                 ) : (
                   volumes.map((vol) => {
                     const volChapters = filteredAndSortedChapters.filter(c => c.volume === vol);

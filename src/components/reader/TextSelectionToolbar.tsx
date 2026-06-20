@@ -178,7 +178,6 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
   }, [bookId, currentLocation, selectedText, hideToolbar]);
 
   const handleAddNote = useCallback(async () => {
-    if (!noteText.trim()) return;
     try {
       await api.createAnnotation(
         bookId,
@@ -186,7 +185,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
         currentLocation,
         undefined,
         selectedText,
-        noteText.trim(),
+        noteText.trim() || undefined,
         '#fbbf24',
         selectedCategoryId
       );
@@ -522,7 +521,6 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
                 <button
                   className="text-selection-toolbar-btn text-selection-toolbar-btn--save"
                   onClick={handleAddNote}
-                  disabled={!noteText.trim()}
                 >
                   <span>Save</span>
                 </button>

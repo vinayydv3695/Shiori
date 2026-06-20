@@ -14,9 +14,11 @@ import { Button } from '@/components/ui/button';
 
 interface OnlineSourceSelectorProps {
   kind: SourceKind;
+  className?: string;
+  variant?: "link" | "default" | "destructive" | "outline" | "secondary" | "ghost";
 }
 
-export function OnlineSourceSelector({ kind }: OnlineSourceSelectorProps) {
+export function OnlineSourceSelector({ kind, className, variant = "outline" }: OnlineSourceSelectorProps) {
   const allSources = useSourceStore((state) => state.sources);
   const primarySourceByKind = useSourceStore((state) => state.primarySourceByKind);
   const setPrimarySource = useSourceStore((state) => state.setPrimarySource);
@@ -80,7 +82,7 @@ export function OnlineSourceSelector({ kind }: OnlineSourceSelectorProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="gap-2">
+        <Button variant={variant} className={`gap-2 ${className || ''}`}>
           {primarySource?.torboxCompatible ? <Zap className="w-4 h-4 text-cyan-500" /> : <Globe className="w-4 h-4" />}
           <span className="truncate max-w-[180px]">{sourceLabel}</span>
         </Button>

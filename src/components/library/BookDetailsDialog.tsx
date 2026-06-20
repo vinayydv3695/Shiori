@@ -122,7 +122,7 @@ export const BookDetailsDialog = ({
       <Dialog.Root open={open} onOpenChange={onOpenChange}>
         <Dialog.Portal>
           <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content className="dialog-content fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] bg-background border border-border shadow-2xl rounded-xl w-[90vw] max-w-xl max-h-[90vh] overflow-y-auto z-50 flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-300">
+          <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] bg-background border border-border shadow-2xl rounded-xl w-[90vw] max-w-xl max-h-[90vh] overflow-y-auto z-50 flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-300">
             <div className="flex items-center justify-center flex-1 py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             </div>
@@ -136,7 +136,7 @@ export const BookDetailsDialog = ({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-        <Dialog.Content className="dialog-content fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] bg-background border border-border shadow-2xl rounded-xl w-[90vw] max-w-2xl max-h-[90vh] overflow-y-auto z-50 flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-300">
+        <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] bg-background border border-border shadow-2xl rounded-xl w-[90vw] max-w-2xl max-h-[90vh] overflow-y-auto z-50 flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-300">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-border sticky top-0 bg-background/80 backdrop-blur-md z-10">
             <Dialog.Title className="text-xl font-semibold text-foreground tracking-tight">

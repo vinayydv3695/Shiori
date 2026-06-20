@@ -11,7 +11,7 @@ import { pluginApi, type Chapter as PluginChapter, type SearchResult as PluginSe
 import { useUIStore } from '@/store/uiStore';
 import { useOnlineMangaReaderStore } from '@/store/onlineMangaReaderStore';
 import { OnlineMangaDetailView, type UnifiedChapter } from './OnlineMangaDetailView';
-import { HeroMangaBanner } from './HeroMangaBanner';
+import { MangaBrowseNavBar } from './MangaBrowseNavBar';
 import { MangaRankList } from './MangaRankList';
 import { OnlineResultCard } from './OnlineResultCard';
 import { ModernBookCard } from './ModernBookCard';
@@ -122,6 +122,13 @@ export function OnlineMangaView() {
   const [lastSearchedQuery, setLastSearchedQuery] = useState('');
   
   // Browse mode state
+  const [activeGenres, setActiveGenres] = useState<string[]>([]);
+  const [activeTypes, setActiveTypes] = useState<string[]>([]);
+  const [activeMode, setActiveMode] = useState<string>('');
+  const [advancedBrowseResults, setAdvancedBrowseResults] = useState<MangaDexManga[]>([]);
+  const [isAdvancedBrowseLoading, setIsAdvancedBrowseLoading] = useState(false);
+  const isAdvancedFilterActive = activeGenres.length > 0 || activeTypes.length > 0 || activeMode !== '';
+
   const [browseData, setBrowseData] = useState<Record<BrowseMode, MangaDexManga[]>>({
     popular: [],
     latest: [],
@@ -206,6 +213,66 @@ export function OnlineMangaView() {
     void loadBrowseData('top-rated');
   }, [activeSource?.id]); // Re-run when source ID changes
 
+  // Load advanced browse data when filters change
+  useEffect(() => {
+    if (!activeSource || !isAdvancedFilterActive) return;
+
+    const loadAdvancedBrowse = async () => {
+      setIsAdvancedBrowseLoading(true);
+      try {
+        const mode = activeMode || 'latest';
+        const raw = await pluginApi.browse(
+          activeSource.id, 
+          mode, 
+          1, 
+          40, // load more for grid
+          activeGenres.length > 0 ? activeGenres : undefined,
+          activeTypes.length > 0 ? activeTypes : undefined
+        );
+        const data: MangaDexManga[] = raw.map(item => ({
+          id: item.id,
+          title: item.title,
+          description: item.summary || item.description || '',
+          coverUrl: item.coverUrl || item.cover_url,
+        }));
+        setAdvancedBrowseResults(data);
+      } catch (err) {
+        logger.error(`Failed to load advanced browse results for ${activeSource.id}:`, err);
+        setAdvancedBrowseResults([]);
+      } finally {
+        setIsAdvancedBrowseLoading(false);
+      }
+    };
+
+    void loadAdvancedBrowse();
+  }, [activeSource?.id, activeGenres, activeTypes, activeMode, isAdvancedFilterActive]);
+
+  const handleRandomClick = () => {
+    const listToChooseFrom = isAdvancedFilterActive ? advancedBrowseResults : browseData.popular;
+    if (listToChooseFrom.length > 0) {
+      const randomIndex = Math.floor(Math.random() * listToChooseFrom.length);
+      const randomManga = listToChooseFrom[randomIndex];
+      
+      if (isPluginMangaSource) {
+        // Need to find the plugin result that matches this mangadex format
+        const matchingResult = pluginResults.find(r => r.id === randomManga.id);
+        if (matchingResult) {
+          handleSelectPluginManga(matchingResult);
+        } else {
+          // It might be from browse, not search. Since handleSelectPluginManga takes a PluginSearchResult
+          // we can construct one
+          handleSelectPluginManga({
+            id: randomManga.id,
+            title: randomManga.title,
+            cover_url: randomManga.coverUrl || '',
+            summary: randomManga.description
+          });
+        }
+      } else {
+        handleSelectManga(randomManga.id, randomManga.title);
+      }
+    }
+  };
   // Convert MangaDexManga to CarouselItem
   const toCarouselItems = useCallback((manga: MangaDexManga[]): CarouselItem[] => {
     return manga.map((m) => ({
@@ -647,14 +714,61 @@ export function OnlineMangaView() {
           {!loading && !hasVisibleSearched && hasEnabledMangaSource && (
             <div className="space-y-10">
               {/* Hero Banner */}
-              <HeroMangaBanner
-                manga={browseData['top-rated']?.[0] ?? null}
-                loading={browseLoading['top-rated']}
-                onReadClick={(manga) => handleCarouselItemClick(toCarouselItems([manga])[0])}
+              <MangaBrowseNavBar 
+                activeGenres={activeGenres}
+                activeTypes={activeTypes}
+                activeMode={activeMode}
+                onFilterChange={(g, t, m) => {
+                  setActiveGenres(g);
+                  setActiveTypes(t);
+                  setActiveMode(m);
+                }}
+                onRandomClick={handleRandomClick}
               />
 
               <div className="flex flex-col xl:flex-row gap-8">
-                {/* Main Content (Left) */}
+                {isAdvancedFilterActive ? (
+                  <div className="flex-1 w-full flex flex-col items-center">
+                    {isAdvancedBrowseLoading ? (
+                      <div className="w-full flex items-center justify-center p-12">
+                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-6 w-full max-w-[1920px] pb-12">
+                        {advancedBrowseResults.map((manga, i) => (
+                          <div
+                            key={`${manga.id}-${i}`}
+                            className="animate-in fade-in slide-in-from-bottom-4 fill-mode-both"
+                            style={{ animationDelay: `${i * 50}ms`, animationDuration: '500ms' }}
+                          >
+                            <OnlineResultCard
+                              id={manga.id}
+                              title={manga.title}
+                              coverUrl={manga.coverUrl || ''}
+                              onReadOnline={() => {
+                                if (isPluginMangaSource) {
+                                  void handleViewPluginChapters({
+                                    id: manga.id,
+                                    title: manga.title,
+                                    cover_url: manga.coverUrl || '',
+                                    summary: manga.description
+                                  });
+                                } else {
+                                  void handleViewChapters(manga);
+                                }
+                              }}
+                            />
+                          </div>
+                        ))}
+                        {advancedBrowseResults.length === 0 && (
+                          <div className="col-span-full text-center text-muted-foreground p-12 text-lg">
+                            No manga found matching the selected filters.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
                 <div className="flex-1 flex flex-col gap-8 min-w-0">
                   {/* Popular Manga Carousel */}
                   <div className="bento-widget">
@@ -692,16 +806,18 @@ export function OnlineMangaView() {
                     </div>
                   </div>
                 </div>
-
+                )}
                 {/* Sidebar (Right) */}
-                <div className="w-full xl:w-80 flex-shrink-0">
-                  <MangaRankList
-                    title="Top Rated"
-                    items={toCarouselItems(browseData['top-rated'])}
-                    loading={browseLoading['top-rated']}
-                    onItemClick={handleCarouselItemClick}
-                  />
-                </div>
+                {!isAdvancedFilterActive && (
+                  <div className="w-full xl:w-80 flex-shrink-0">
+                    <MangaRankList
+                      title="Top Rated"
+                      items={toCarouselItems(browseData['top-rated'])}
+                      loading={browseLoading['top-rated']}
+                      onItemClick={handleCarouselItemClick}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           )}

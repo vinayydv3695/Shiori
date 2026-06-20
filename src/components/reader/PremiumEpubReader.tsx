@@ -107,8 +107,14 @@ async function processEpubHtml(bookId: number, html: string, searchTerm?: string
       continue;
     }
 
+    // Skip HTML files (these are internal anchor links, not embedded resources)
+    const originalPathLower = originalPath.toLowerCase();
+    if (originalPathLower.includes('.xhtml') || originalPathLower.includes('.html') || originalPathLower.includes('.htm') || originalPathLower.includes('.xml')) {
+      continue;
+    }
+
     try {
-      let cleanPath = originalPath;
+      let cleanPath = originalPath.split('#')[0]; // Strip hash if any
       while (cleanPath.startsWith('../') || cleanPath.startsWith('./')) {
         cleanPath = cleanPath.replace(/^\.\.\//, '').replace(/^\.\//, '');
       }

@@ -77,6 +77,21 @@ export function useLibraryFilter(searchQuery: string) {
       ...(advanced?.formats ?? []).map(f => f.toLowerCase()),
     ]));
 
+    const languages = Array.from(new Set([
+      ...selectedFilters.languages,
+      ...(advanced?.languages ?? []),
+    ]));
+
+    const publishers = Array.from(new Set([
+      ...selectedFilters.publishers,
+      ...(advanced?.publishers ?? []),
+    ]));
+
+    const seriesList = Array.from(new Set([
+      ...selectedFilters.series,
+      ...(advanced?.series ?? []),
+    ]));
+
     const selectedRatings = selectedFilters.ratings
       .map(r => Number(r))
       .filter(n => !Number.isNaN(n));
@@ -112,10 +127,10 @@ export function useLibraryFilter(searchQuery: string) {
       authors: authors.length > 0 ? authors : undefined,
       tags: tags.length > 0 ? tags : undefined,
       formats: formats.length > 0 ? formats : undefined,
-      languages: selectedFilters.languages.length > 0 ? selectedFilters.languages : undefined,
-      publishers: selectedFilters.publishers.length > 0 ? selectedFilters.publishers : undefined,
-      series: selectedFilters.series.length === 1 ? selectedFilters.series[0] : undefined,
-      series_list: selectedFilters.series.length > 1 ? selectedFilters.series : undefined,
+      languages: languages.length > 0 ? languages : undefined,
+      publishers: publishers.length > 0 ? publishers : undefined,
+      series: seriesList.length === 1 ? seriesList[0] : undefined,
+      series_list: seriesList.length > 1 ? seriesList : undefined,
       isbns: isbns.length > 0 ? isbns : undefined,
       isbn13s: isbn13s.length > 0 ? isbn13s : undefined,
       min_rating: minRating,

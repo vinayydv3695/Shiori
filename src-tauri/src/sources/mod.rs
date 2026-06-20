@@ -13,6 +13,7 @@ pub mod registry;
 pub mod toongod;
 pub mod torrent_csv;
 pub mod weebrook;
+pub mod manhwahub;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -116,7 +117,14 @@ pub trait Source: Send + Sync {
             diagnostics: None,
         })
     }
-    async fn browse(&self, _mode: &str, _page: u32, _limit: u32) -> Result<Vec<SearchResult>> {
+    async fn browse(
+        &self,
+        _mode: &str,
+        _page: u32,
+        _limit: u32,
+        _genres: Option<Vec<String>>,
+        _types: Option<Vec<String>>,
+    ) -> Result<Vec<SearchResult>> {
         Err(ShioriError::UnsupportedFeature(
             "Browse is not supported by this source".to_string(),
         ))

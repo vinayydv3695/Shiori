@@ -106,6 +106,7 @@ fn main() {
                     "toongod" => Some("https://www.toongod.org/"),
                     "mangadex" => Some("https://mangadex.org/"),
                     "weebrook" => Some("https://weebrook.com/"),
+                    "manhwahub" => Some("https://manhwahub.net/"),
                     "libgen" => Some("https://libgen.li/"),
                     _ => None,
                 };
@@ -185,6 +186,8 @@ fn main() {
             registry.register(toongod_source.clone() as Arc<dyn sources::Source>);
             // Weebrook (freeonlinek.top) — Madara-theme manhwa sources
             registry.register(Arc::new(sources::weebrook::WeebrookManhwaSource::new()?));
+            // ManhwaHub
+            registry.register(Arc::new(sources::manhwahub::ManhwahubSource::new()?));
             // Anna's Archive for book search and download
             registry.register(Arc::new(sources::annas_archive::AnnasArchiveSource::new()?));
             // LibGen for book search and download

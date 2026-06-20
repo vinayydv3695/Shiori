@@ -35,12 +35,15 @@ export function WebtoonView() {
     const estimateSize = useCallback((index: number): number => {
         if (pageDimensions[index]) {
             const [w, h] = pageDimensions[index];
-            const containerWidth = containerRef.current?.clientWidth || 800;
+            let containerWidth = containerRef.current?.clientWidth || 800;
+            if (isManhwa && containerWidth > 1200) {
+                containerWidth = 1200;
+            }
             const scale = containerWidth / w;
             return Math.round(h * scale);
         }
         return 1800;
-    }, [pageDimensions]);
+    }, [pageDimensions, isManhwa]);
 
     // eslint-disable-next-line react-hooks/incompatible-library
     const virtualizer = useVirtualizer({
@@ -151,6 +154,7 @@ export function WebtoonView() {
                     <div
                         key={virtualItem.key}
                         ref={virtualizer.measureElement}
+                        data-index={virtualItem.index}
                         className="manga-webtoon-page"
                         style={{
                             top: 0,
@@ -159,7 +163,6 @@ export function WebtoonView() {
                     >
                         <MangaPageImage
                             pageIndex={virtualItem.index}
-                            onLoad={() => virtualizer.measure()}
                         />
                     </div>
                 ))}

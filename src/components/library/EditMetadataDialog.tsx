@@ -122,7 +122,7 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-        <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-lg shadow-lg w-[90vw] max-w-2xl max-h-[85vh] overflow-hidden z-50">
+        <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-lg shadow-lg w-[90vw] max-w-2xl max-h-[85vh] overflow-hidden z-50">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-border">
             <Dialog.Title className="text-lg font-semibold text-foreground">

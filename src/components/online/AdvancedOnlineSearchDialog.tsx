@@ -58,7 +58,7 @@ export function AdvancedOnlineSearchDialog({ open, onOpenChange, onSearch }: Pro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[750px] max-h-[90vh] overflow-y-auto bg-background/95 backdrop-blur-xl border-border/50">
+      <DialogContent aria-describedby={undefined} className="sm:max-w-[750px] max-h-[90vh] overflow-y-auto bg-background/95 backdrop-blur-xl border-border/50">
         <DialogHeader className="pb-4 border-b border-border/40">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-primary/10 rounded-xl">

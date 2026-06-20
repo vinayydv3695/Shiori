@@ -102,8 +102,8 @@ export const pluginApi = {
     return invoke<SearchResponse>('plugin_search_with_meta', { sourceId, query, page, limit });
   },
 
-  async browse(sourceId: string, mode: BrowseMode, page: number = 1, limit: number = 20): Promise<SearchResult[]> {
-    return invoke<SearchResult[]>('plugin_browse', { sourceId, mode, page, limit });
+  async browse(sourceId: string, mode: BrowseMode | string, page: number = 1, limit: number = 20, genres?: string[], types?: string[]): Promise<SearchResult[]> {
+    return invoke<SearchResult[]>('plugin_browse', { sourceId, mode, page, limit, genres, types });
   },
 
   async getChapters(sourceId: string, contentId: string): Promise<Chapter[]> {

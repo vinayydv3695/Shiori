@@ -104,11 +104,19 @@ export function MangaReaderHeader({
         return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
     }, []);
 
-    const toggleFullscreen = () => {
-        if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch(() => {});
-        } else {
-            document.exitFullscreen().catch(() => {});
+    const toggleFullscreen = async () => {
+        try {
+            const { getCurrentWindow } = await import('@tauri-apps/api/window');
+            const window = getCurrentWindow();
+            const isFull = await window.isFullscreen();
+            await window.setFullscreen(!isFull);
+            setIsFullscreen(!isFull);
+        } catch (err) {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+            }
         }
     };
 

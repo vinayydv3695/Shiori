@@ -1,3 +1,4 @@
+import { Switch } from '@/components/ui/switch'
 import { useState, useEffect, useCallback } from 'react';
 import { api, isTauri } from '@/lib/tauri';
 import { Button } from '@/components/ui/button';

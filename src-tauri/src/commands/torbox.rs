@@ -142,7 +142,7 @@ async fn finalize_import_from_target(
     let mut user_download_dir: Option<String> = None;
     if let Ok(conn) = app_state.db.get_connection() {
         if let Ok(mut stmt) =
-            conn.prepare("SELECT default_manga_path, default_import_path FROM settings LIMIT 1")
+            conn.prepare("SELECT default_manga_path, default_import_path FROM user_preferences WHERE id = 1")
         {
             if let Ok(mut rows) = stmt.query([]) {
                 if let Ok(Some(row)) = rows.next() {

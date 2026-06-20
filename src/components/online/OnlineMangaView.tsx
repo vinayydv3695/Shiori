@@ -257,11 +257,11 @@ export function OnlineMangaView() {
         // Need to find the plugin result that matches this mangadex format
         const matchingResult = pluginResults.find(r => r.id === randomManga.id);
         if (matchingResult) {
-          handleSelectPluginManga(matchingResult);
+          void handleViewPluginChapters(matchingResult);
         } else {
           // It might be from browse, not search. Since handleSelectPluginManga takes a PluginSearchResult
           // we can construct one
-          handleSelectPluginManga({
+          void handleViewPluginChapters({
             id: randomManga.id,
             title: randomManga.title,
             cover_url: randomManga.coverUrl || '',
@@ -269,7 +269,7 @@ export function OnlineMangaView() {
           });
         }
       } else {
-        handleSelectManga(randomManga.id, randomManga.title);
+        void handleViewChapters(randomManga);
       }
     }
   };

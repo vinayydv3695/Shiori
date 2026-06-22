@@ -99,6 +99,7 @@ export interface UserPreferences {
   cacheClearPolicy?: CacheClearPolicy;
   historyRetentionDays?: number;
   watchFolders?: WatchFolder[];
+  linuxTransparentWindow?: boolean;
 }
 
 export interface PreferenceOverride {
@@ -148,6 +149,7 @@ export const DEFAULT_TTS_PREFERENCES: TtsPreferences = {
 
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   theme: 'black',
+  linuxTransparentWindow: true,
   book: DEFAULT_BOOK_PREFERENCES,
   manga: DEFAULT_MANGA_PREFERENCES,
   tts: DEFAULT_TTS_PREFERENCES,

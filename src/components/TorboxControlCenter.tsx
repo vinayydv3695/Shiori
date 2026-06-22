@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import DOMPurify from 'dompurify'
 import { invoke } from '@tauri-apps/api/core'
 import * as Tabs from '@radix-ui/react-tabs'
 import * as Dialog from '@radix-ui/react-dialog'
@@ -666,7 +667,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                                 {result.year && result.author && <span className="mx-1.5 opacity-50">•</span>}
                                 {result.author && <span>{result.author}</span>}
                               </p>
-                              {isExpanded && result.description && <p className="mt-4 text-sm text-muted-foreground/80 leading-relaxed max-h-40 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent" dangerouslySetInnerHTML={{ __html: result.description }} />}
+                              {isExpanded && result.description && <p className="mt-4 text-sm text-muted-foreground/80 leading-relaxed max-h-40 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(result.description) }} />}
                               {!isExpanded && (
                                 <div className="flex flex-wrap gap-1 mt-3">
                                   {result.tags.slice(0, 2).map((tag, i) => (
@@ -792,8 +793,17 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                                                   variant="secondary"
                                                   className="w-full h-9 rounded-lg text-xs font-semibold"
                                                   onClick={() => {
-                                                    const openedWindow = window.open(source.magnetLink, '_blank', 'noopener,noreferrer')
-                                                    if (!openedWindow) window.location.assign(source.magnetLink)
+                                                    try {
+                                                      const url = new URL(source.magnetLink);
+                                                      if (url.protocol === 'http:' || url.protocol === 'https:' || url.protocol === 'magnet:') {
+                                                        const openedWindow = window.open(source.magnetLink, '_blank', 'noopener,noreferrer')
+                                                        if (!openedWindow) window.location.assign(source.magnetLink)
+                                                      } else {
+                                                        console.error('Blocked unsafe link protocol:', url.protocol);
+                                                      }
+                                                    } catch (e) {
+                                                      console.error('Invalid link format', e);
+                                                    }
                                                   }}
                                                 >
                                                   <Link className="w-3.5 h-3.5 mr-2 opacity-70" />

@@ -138,6 +138,7 @@ pub type ProgressCallback = Box<dyn Fn(ConversionProgress) + Send + Sync>;
 pub async fn convert_to_epub_new(
     input_path: &Path,
     progress: Option<ProgressCallback>,
+    db: Option<&crate::db::Database>,
 ) -> Result<PathBuf, ConversionError> {
     let ext = input_path
         .extension()
@@ -145,12 +146,16 @@ pub async fn convert_to_epub_new(
         .map(|e| e.to_lowercase())
         .unwrap_or_default();
 
-    let report = |stage: &str, percent: u8| {
-        if let Some(ref cb) = progress {
-            cb(ConversionProgress {
-                stage: stage.to_string(),
-                percent,
-            });
+    let progress_arc = progress.map(std::sync::Arc::new);
+    let report = {
+        let p = progress_arc.clone();
+        move |stage: &str, percent: u8| {
+            if let Some(ref cb) = p {
+                cb(ConversionProgress {
+                    stage: stage.to_string(),
+                    percent,
+                });
+            }
         }
     };
 
@@ -164,6 +169,47 @@ pub async fn convert_to_epub_new(
     let tmp_dir = std::env::temp_dir().join("shiori_converted");
     std::fs::create_dir_all(&tmp_dir)?;
     let output_path = tmp_dir.join(format!("{}.epub", stem));
+
+    if let Some(db) = db {
+        use crate::services::calibre_service::{self, CalibreProfile, CalibreError};
+        let profile = match ext.as_str() {
+            "pdf" => Some(CalibreProfile::Pdf),
+            "mobi" | "azw" | "azw3" | "prc" | "fb2" | "docx" => Some(CalibreProfile::GenericBook),
+            _ => None,
+        };
+        
+        if let Some(profile) = profile {
+            let p_calibre = progress_arc.clone();
+            let calibre_cb = move |percent: u8, msg: &str| {
+                if let Some(ref cb) = p_calibre {
+                    cb(ConversionProgress {
+                        stage: msg.to_string(),
+                        percent,
+                    });
+                }
+            };
+            
+            match calibre_service::convert_to_epub(
+                input_path,
+                &output_path,
+                db,
+                profile,
+                || false,
+                Some(calibre_cb),
+            ).await {
+                Ok(_) => {
+                    log::info!("[AutoConvert] Successfully converted with Calibre!");
+                    return Ok(output_path);
+                }
+                Err(CalibreError::Disabled) | Err(CalibreError::NotFound) => {
+                    log::info!("[AutoConvert] Calibre not available or disabled, falling back to native conversion");
+                }
+                Err(e) => {
+                    log::warn!("[AutoConvert] Calibre conversion failed: {}. Falling back to native.", e);
+                }
+            }
+        }
+    }
 
     match ext.as_str() {
         "epub" => {

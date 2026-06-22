@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Play, Bookmark, ArrowLeft, Search, Star, Info, FileText, Globe } from 'lucide-react';
+import DOMPurify from 'dompurify';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -231,7 +232,7 @@ export function OnlineMangaDetailView({
             </div>
 
             <div className="text-sm text-muted-foreground leading-relaxed max-w-3xl">
-              <span dangerouslySetInnerHTML={{ __html: displayDescription.replace(/\n/g, '<br/>') }} />
+              <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(displayDescription.replace(/\n/g, '<br/>')) }} />
               {description && description.length > 250 && (
                 <button
                   onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}

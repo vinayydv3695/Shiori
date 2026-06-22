@@ -51,9 +51,9 @@ pub fn search(db: &Database, query: SearchQuery) -> Result<SearchResult> {
     if let Some(ref formats) = query.formats {
         if !formats.is_empty() {
             let placeholders = formats.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-            where_clauses.push(format!("b.file_format IN ({})", placeholders));
+            where_clauses.push(format!("LOWER(b.file_format) IN ({})", placeholders));
             for format in formats {
-                base_params.push(Value::Text(format.clone()));
+                base_params.push(Value::Text(format.to_lowercase().clone()));
             }
         }
     }
@@ -123,12 +123,12 @@ pub fn search(db: &Database, query: SearchQuery) -> Result<SearchResult> {
 
     // Filter by rating range
     if let Some(min_rating) = query.min_rating {
-        where_clauses.push("b.rating >= ?".to_string());
+        where_clauses.push("COALESCE(b.rating, 0) >= ?".to_string());
         base_params.push(Value::Integer(min_rating as i64));
     }
 
     if let Some(max_rating) = query.max_rating {
-        where_clauses.push("b.rating <= ?".to_string());
+        where_clauses.push("COALESCE(b.rating, 0) <= ?".to_string());
         base_params.push(Value::Integer(max_rating as i64));
     }
 

@@ -44,21 +44,14 @@ export function ReaderTopBar({
     };
   }, []);
 
-  const toggleFullscreen = async () => {
-    try {
-      const window = getCurrentWindow();
-      const isFull = await window.isFullscreen();
-      await window.setFullscreen(!isFull);
-      setIsFullscreen(!isFull);
-    } catch (err) {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch((err) => {
-          logger.error(`Error attempting to enable fullscreen: ${err.message}`);
-        });
-      } else {
-        if (document.exitFullscreen) {
-          document.exitFullscreen();
-        }
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch((err) => {
+        logger.error(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
       }
     }
   };

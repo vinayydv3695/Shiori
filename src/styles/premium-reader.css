@@ -1101,7 +1101,8 @@ select {
   filter: brightness(0.9);
 }
 
-.epub-highlight[data-annotation-type="note"] {
+.epub-highlight[data-annotation-type="note"],
+.epub-highlight[data-has-note="true"] {
   border-bottom: 2px dashed currentColor;
 }
 

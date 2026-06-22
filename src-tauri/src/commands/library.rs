@@ -563,6 +563,7 @@ pub async fn download_libgen_epub(
     app_handle: tauri::AppHandle,
     url: String, // This is a serialized JSON array of mirrors
     title_hint: String,
+    format_ext: Option<String>,
 ) -> Result<String> {
     use futures::StreamExt;
     use std::io::Write;
@@ -724,7 +725,8 @@ pub async fn download_libgen_epub(
         .chars()
         .filter(|c| c.is_ascii_alphanumeric() || *c == ' ' || *c == '-')
         .collect::<String>();
-    let file_name = format!("{}.epub", safe_title.trim());
+    let ext = format_ext.unwrap_or_else(|| "epub".to_string()).replace(".", "").to_lowercase();
+    let file_name = format!("{}.{}", safe_title.trim(), ext);
     let temp_dir = std::env::temp_dir();
     let file_path = temp_dir.join(file_name);
 

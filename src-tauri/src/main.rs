@@ -175,6 +175,31 @@ fn main() {
             let db_path = app_dir.join("library.db");
             let database = db::Database::new(&db_path)?;
 
+            let mut is_transparent = true;
+            if let Ok(conn) = database.get_connection() {
+                if let Ok(mut stmt) = conn.prepare("SELECT value FROM user_preferences WHERE key = 'linuxTransparentWindow'") {
+                    if let Ok(mut rows) = stmt.query([]) {
+                        if let Ok(Some(row)) = rows.next() {
+                            let value: String = row.get(0).unwrap_or_default();
+                            is_transparent = value == "true" || value == "1";
+                        }
+                    }
+                }
+            }
+
+            let _window = tauri::WebviewWindowBuilder::new(
+                app,
+                "main",
+                tauri::WebviewUrl::App("index.html".into())
+            )
+            .title("Shiori")
+            .inner_size(1200.0, 800.0)
+            .resizable(true)
+            .fullscreen(false)
+            .decorations(false)
+            .transparent(is_transparent)
+            .build()?;
+
             let covers_dir = app_dir.join("covers");
             std::fs::create_dir_all(&covers_dir)?;
 

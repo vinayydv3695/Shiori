@@ -21,6 +21,7 @@ export interface OnlineSourceConfig {
     chapterTitle: string;   // current chapter title
     chapters: Chapter[];    // all available chapters
     pageUrls: string[];     // URLs for all pages in current chapter
+    coverUrl?: string;      // remote cover URL for Discord RPC
 }
 
 export interface LocalSourceConfig {

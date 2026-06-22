@@ -183,8 +183,9 @@ function createHighlightMark(annotation: Annotation): HTMLElement {
   mark.dataset.annotationId = String(annotation.id || '');
   mark.dataset.annotationType = annotation.annotationType;
 
-  if (annotation.annotationType === 'note') {
-    mark.title = annotation.noteContent || '';
+  if (annotation.noteContent) {
+    mark.title = annotation.noteContent;
+    mark.dataset.hasNote = 'true';
   }
 
   return mark;

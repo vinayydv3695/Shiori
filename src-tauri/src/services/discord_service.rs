@@ -61,10 +61,12 @@ impl DiscordService {
         };
 
         let mut assets = activity::Assets::new();
+
+        // large_image_key can be either a Discord asset name OR an https:// URL.
+        // Discord's IPC protocol accepts URLs directly in the large_image field.
         if let Some(key) = large_image_key {
             assets = assets.large_image(key);
         } else {
-            // Default large image if none provided
             assets = assets.large_image("shiori_logo");
         }
 

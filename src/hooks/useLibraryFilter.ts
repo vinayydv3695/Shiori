@@ -99,14 +99,16 @@ export function useLibraryFilter(searchQuery: string) {
       ? Math.floor(Math.min(...selectedRatings))
       : undefined;
 
-    const minRating = Math.max(
+    const minRatingRaw = Math.max(
       selectedMinRating ?? 0,
       advanced?.ratingMin ?? 0,
-    ) || undefined;
+    );
+    const minRating = minRatingRaw > 0 ? minRatingRaw : undefined;
 
-    const maxRating = advanced?.ratingMax !== undefined
+    const maxRatingRaw = advanced?.ratingMax !== undefined
       ? Math.ceil(advanced.ratingMax)
       : undefined;
+    const maxRating = maxRatingRaw !== undefined && maxRatingRaw < 5 ? maxRatingRaw : undefined;
 
     const isbns: string[] = [];
     const isbn13s: string[] = [];

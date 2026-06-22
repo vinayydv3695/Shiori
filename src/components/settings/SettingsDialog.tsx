@@ -60,6 +60,7 @@ const ALL_SETTINGS: SettingDefinition[] = [
   { label: 'UI Density', description: 'Adjust interface spacing', tab: 'general', section: 'Appearance' },
   { label: 'UI Scale', description: 'Adjust overall application size', tab: 'general', section: 'Appearance' },
   { label: 'Cover Size', description: 'Book cover display size', tab: 'general', section: 'Appearance' },
+  { label: 'Enable Window Transparency', description: 'Toggle transparent window background (Requires restart)', tab: 'general', section: 'Appearance' },
   { label: 'Auto-start Application', description: 'Start Shiori when system boots', tab: 'general', section: 'General' },
   { label: 'Discord Rich Presence', description: 'Show your reading activity on Discord', tab: 'general', section: 'General' },
   { label: 'Import Path', description: 'Default import location', tab: 'general', section: 'Import' },
@@ -457,7 +458,7 @@ const GeneralSettings = ({
         </SettingSection>
       )}
 
-      {isSectionVisible('Appearance', ['Accent Color', 'UI Font Family', 'UI Density', 'UI Scale', 'Cover Size']) && (
+      {isSectionVisible('Appearance', ['Accent Color', 'UI Font Family', 'UI Density', 'UI Scale', 'Cover Size', 'Enable Window Transparency']) && (
         <SettingSection
           title="Appearance"
           description="Customize the interface"
@@ -571,6 +572,18 @@ const GeneralSettings = ({
                   </button>
                 ))}
               </div>
+            </SettingItem>
+          )}
+
+          {isSettingVisible('Enable Window Transparency', 'Toggle transparent window background (Requires restart)', 'Appearance') && (
+            <SettingItem label="Enable Window Transparency (Requires Restart)" description="Disable this if Shiori runs slowly on Linux. Requires app restart to take effect.">
+              <Switch 
+                checked={preferences.linuxTransparentWindow ?? true} 
+                onChange={(checked) => {
+                  updateGeneralSettings({ linuxTransparentWindow: checked });
+                  toast.success('Preference saved. Please restart Shiori for transparency changes to take effect.', { duration: 5000 });
+                }} 
+              />
             </SettingItem>
           )}
         </SettingSection>

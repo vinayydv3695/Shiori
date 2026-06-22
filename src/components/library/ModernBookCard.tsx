@@ -26,6 +26,7 @@ import {
 import { useLibraryStore } from '@/store/libraryStore'
 import { useCoverImage } from '../common/hooks/useCoverImage'
 import * as ContextMenu from '@radix-ui/react-context-menu'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Edit2, Trash2, Layers } from 'lucide-react'
 import { SeriesAssignmentDialog } from './SeriesAssignmentDialog'
 
@@ -71,46 +72,78 @@ interface OverlayProps {
 
 const HoverOverlay = ({ onOpen, onViewDetails, onEdit, onDelete, onConvert, isManga }: OverlayProps) => {
   const btnCls = cn(
-    'flex items-center justify-center w-8 h-8 rounded-lg',
-    'bg-background/90 backdrop-blur-sm',
-    'border border-border/60',
-    'text-foreground/80 hover:text-foreground hover:bg-background',
-    'transition-all duration-[100ms]',
-    'shadow-sm',
+    'flex items-center justify-center w-8 h-8 rounded-full',
+    'bg-white/10 text-white hover:bg-white/30 hover:scale-110',
+    'transition-all duration-200 backdrop-blur-md',
+    'border border-white/20',
+    'shadow-sm'
+  )
+
+  const ActionTooltip = ({ content, children }: { content: string, children: React.ReactNode }) => (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        {children}
+      </TooltipTrigger>
+      <TooltipContent sideOffset={8} className="bg-black/90 text-white border-white/10 backdrop-blur-md">
+        <p className="text-xs font-medium">{content}</p>
+      </TooltipContent>
+    </Tooltip>
   )
 
   return (
-    <div
-      className={cn(
-        'absolute inset-0 flex flex-col items-center justify-center gap-2',
-        'bg-black/60 backdrop-blur-md',
-        'opacity-0 group-hover:opacity-100',
-        'transition-opacity duration-[200ms] ease-out',
-        'rounded-t-[inherit]',
-      )}
-    >
-      <button onClick={(e) => { e.stopPropagation(); onOpen() }} className={btnCls} title={isManga ? 'Read manga' : 'Open book'}>
-        <IconBookOpen size={15} />
-      </button>
-      <div className="flex items-center gap-1.5">
-        {onViewDetails && (
-          <button onClick={(e) => { e.stopPropagation(); onViewDetails() }} className={btnCls} title="View details">
-            <Info className="w-3.5 h-3.5" />
-          </button>
+    <TooltipProvider delayDuration={200}>
+      <div
+        className={cn(
+          'absolute inset-0 flex flex-col items-center justify-center gap-3',
+          'bg-black/60 backdrop-blur-[2px]',
+          'opacity-0 group-hover:opacity-100',
+          'transition-all duration-300 ease-out',
+          'rounded-t-[inherit]',
         )}
-        <button onClick={(e) => { e.stopPropagation(); onEdit() }} className={btnCls} title="Edit metadata">
-          <IconEditMeta size={14} />
-        </button>
-        {onConvert && (
-          <button onClick={(e) => { e.stopPropagation(); onConvert() }} className={btnCls} title="Convert format">
-            <IconConvert size={14} />
+      >
+        <ActionTooltip content={isManga ? 'Read manga' : 'Open book'}>
+          <button 
+            onClick={(e) => { e.stopPropagation(); onOpen() }} 
+            className={cn(btnCls, 'w-12 h-12 bg-white/20 hover:bg-white/40 border-white/30 shadow-lg')}
+          >
+            <IconBookOpen size={22} className="opacity-90" />
           </button>
-        )}
+        </ActionTooltip>
+
+        <div className="flex items-center gap-2">
+          {onViewDetails && (
+            <ActionTooltip content="View details">
+              <button onClick={(e) => { e.stopPropagation(); onViewDetails() }} className={btnCls}>
+                <Info className="w-4 h-4 opacity-80" />
+              </button>
+            </ActionTooltip>
+          )}
+          
+          <ActionTooltip content="Edit metadata">
+            <button onClick={(e) => { e.stopPropagation(); onEdit() }} className={btnCls}>
+              <IconEditMeta size={15} className="opacity-80" />
+            </button>
+          </ActionTooltip>
+          
+          {onConvert && (
+            <ActionTooltip content="Convert format">
+              <button onClick={(e) => { e.stopPropagation(); onConvert() }} className={btnCls}>
+                <IconConvert size={15} className="opacity-80" />
+              </button>
+            </ActionTooltip>
+          )}
+          
+          <ActionTooltip content="Delete book">
+            <button 
+              onClick={(e) => { e.stopPropagation(); onDelete() }} 
+              className={cn(btnCls, 'hover:bg-red-500/80 hover:border-red-500/50 hover:text-white')}
+            >
+              <IconDelete size={15} className="opacity-80" />
+            </button>
+          </ActionTooltip>
+        </div>
       </div>
-      <button onClick={(e) => { e.stopPropagation(); onDelete() }} className={cn(btnCls, 'text-destructive hover:text-destructive-foreground hover:bg-destructive hover:border-transparent')} title="Delete">
-        <IconDelete size={14} />
-      </button>
-    </div>
+    </TooltipProvider>
   )
 }
 
@@ -193,30 +226,6 @@ export const PremiumBookCard = memo(function PremiumBookCard({
 
   const authorStr = book.authors?.map((a) => a.name).join(', ') || 'Unknown Author'
 
-  // ── 3D Tilt Effect ──
-  const x = useMotionValue(0.5)
-  const y = useMotionValue(0.5)
-  const springConfig = { damping: 20, stiffness: 150, mass: 0.5 }
-  const rotateX = useSpring(useTransform(y, [0, 1], [10, -10]), springConfig)
-  const rotateY = useSpring(useTransform(x, [0, 1], [-10, 10]), springConfig)
-  const glareOpacity = useSpring(useTransform(y, [0, 1], [0, 0.3]), springConfig)
-  const glareY = useTransform(y, [0, 1], [-50, 50])
-  const glareX = useTransform(x, [0, 1], [-50, 50])
-  
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!cardRef.current) return
-    const rect = cardRef.current.getBoundingClientRect()
-    const mouseX = e.clientX - rect.left
-    const mouseY = e.clientY - rect.top
-    x.set(mouseX / rect.width)
-    y.set(mouseY / rect.height)
-  }
-
-  const handleMouseLeave = () => {
-    x.set(0.5)
-    y.set(0.5)
-  }
-
   return (
         <>
       <ContextMenu.Root>
@@ -225,14 +234,8 @@ export const PremiumBookCard = memo(function PremiumBookCard({
             ref={cardRef}
       data-cover-size={coverSize}
       onClick={handleClick}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
       style={{ 
-        animationDelay: `${animationDelay}ms`,
-        rotateX,
-        rotateY,
-        transformPerspective: 800,
-        transformStyle: "preserve-3d"
+        animationDelay: `${animationDelay}ms`
       }}
       className={cn(
         'group relative flex flex-col rounded-xl overflow-hidden',
@@ -247,21 +250,9 @@ export const PremiumBookCard = memo(function PremiumBookCard({
         isManga && 'border-[var(--manga-accent)]/30 hover:border-[var(--manga-accent)]/60',
       )}
     >
-      {/* ── Cover Area (2:3 ratio) ── */}
       <div className="relative aspect-[2/3] bg-muted overflow-hidden">
         {/* Skeleton */}
         {(coverLoading || !imgLoaded) && !imgError && <CoverSkeleton />}
-
-        {/* Glare overlay */}
-        <motion.div 
-          className="absolute inset-0 z-20 pointer-events-none"
-          style={{
-            opacity: glareOpacity,
-            background: 'linear-gradient(105deg, transparent 20%, rgba(255,255,255,0.4) 25%, transparent 30%)',
-            x: glareX,
-            y: glareY,
-          }}
-        />
 
         {/* Cover image */}
         {coverUrl && !imgError && (

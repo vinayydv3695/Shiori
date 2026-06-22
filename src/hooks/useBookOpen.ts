@@ -17,41 +17,7 @@ const CONVERTIBLE_FORMATS = new Set(['mobi', 'azw3', 'pdf', 'txt', 'docx', 'fb2'
  */
 const MIN_RESUME_PROGRESS_PCT = 0.01;
 
-/** Persisted per-book resume behavior preference. */
-type ResumeChoice = 'resume' | 'start_over';
-const RESUME_CHOICE_STORAGE_KEY = 'shiori-epub-resume-choice:v1';
 
-function getResumeChoices(): Record<string, ResumeChoice> {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = window.localStorage.getItem(RESUME_CHOICE_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as Record<string, ResumeChoice>;
-    if (!parsed || typeof parsed !== 'object') return {};
-    return parsed;
-  } catch {
-    return {};
-  }
-}
-
-function getResumeChoiceForBook(bookId: number): ResumeChoice | null {
-  const choices = getResumeChoices();
-  return choices[String(bookId)] ?? null;
-}
-
-function setResumeChoiceForBook(bookId: number, choice: ResumeChoice): void {
-  if (typeof window === 'undefined') return;
-  const key = String(bookId);
-  const next = {
-    ...getResumeChoices(),
-    [key]: choice,
-  };
-  try {
-    window.localStorage.setItem(RESUME_CHOICE_STORAGE_KEY, JSON.stringify(next));
-  } catch {
-    // Ignore storage failures silently
-  }
-}
 
 function deriveResumeTarget(bookId: number, progress: ReadingProgress): ResumeTarget | null {
   let chapterIndex: number | null = null;
@@ -232,24 +198,7 @@ export function useBookOpen() {
           try {
             const progress = await api.getReadingProgress(bookId);
             if (progress && hasMeaningfulProgress(progress)) {
-              const rememberedChoice = getResumeChoiceForBook(bookId);
-
-              // Ask only once per book: honor remembered choice on next opens
-              if (rememberedChoice === 'resume') {
-                useReaderStore.getState().setStartFromBeginning(false);
-                setExplicitResumeTarget(deriveResumeTarget(bookId, progress));
-                openBook(bookId, filePath, book.file_format);
-                return bookId;
-              }
-
-              if (rememberedChoice === 'start_over') {
-                useReaderStore.getState().setStartFromBeginning(true);
-                setExplicitResumeTarget(null);
-                openBook(bookId, filePath, book.file_format);
-                return bookId;
-              }
-
-              // No remembered choice yet: show dialog once
+              // Show resume dialog if there is meaningful progress
               setPendingResume({ bookId, bookTitle: book.title, filePath, format, progress });
               setShowResumeDialog(true);
               return bookId;
@@ -295,7 +244,6 @@ export function useBookOpen() {
   const handleResume = useCallback(() => {
     if (!pendingResume) return;
     const { bookId, filePath, format } = pendingResume;
-    setResumeChoiceForBook(bookId, 'resume');
     // Ensure startFromBeginning is cleared so the reader auto-resumes saved progress
     useReaderStore.getState().setStartFromBeginning(false);
     setExplicitResumeTarget(deriveResumeTarget(bookId, pendingResume.progress));
@@ -308,7 +256,6 @@ export function useBookOpen() {
   const handleStartOver = useCallback(() => {
     if (!pendingResume) return;
     const { bookId, filePath, format } = pendingResume;
-    setResumeChoiceForBook(bookId, 'start_over');
     // Set flag BEFORE openBook so PremiumEpubReader can read it on mount
     useReaderStore.getState().setStartFromBeginning(true);
     setExplicitResumeTarget(null);

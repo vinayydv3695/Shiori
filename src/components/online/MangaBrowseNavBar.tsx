@@ -49,7 +49,7 @@ export function MangaBrowseNavBar({ activeGenres, activeTypes, activeMode, onFil
   };
 
   return (
-    <div className="w-full bg-background/80 backdrop-blur-xl border-y border-white/5 py-3 px-6 mb-8 mt-2 sticky top-0 z-20 flex items-center gap-8 shadow-sm">
+    <div className="w-full bg-background/95 backdrop-blur-xl border-y border-border py-3 px-6 mb-8 mt-2 sticky top-0 z-50 flex items-center gap-8 shadow-sm">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button className={`font-medium flex items-center gap-1 transition-colors outline-none ${activeTypes.length > 0 ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>

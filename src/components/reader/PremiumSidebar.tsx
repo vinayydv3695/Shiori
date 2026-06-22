@@ -5,6 +5,7 @@ import { api } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
 import type { TocEntry, Annotation, BookSearchResult, AnnotationCategory } from '@/lib/tauri';
 import { X, BookOpen, Highlighter, FileText, Bookmark, Search, Loader2, Trash2, Edit2 } from '@/components/icons';
+import DOMPurify from 'dompurify';
 import { useToastStore } from '@/store/toastStore';
 
 const HIGHLIGHT_COLORS = [
@@ -623,7 +624,7 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                                     return (
                                       <div className="flex flex-col gap-1">
                                         <span className="font-semibold" style={{ color: 'var(--primary)' }}>Definition:</span>
-                                        <span>{vocabData.data?.meanings?.[0]?.definitions?.[0]?.definition || 'No definition found.'}</span>
+                                        <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(vocabData.data?.meanings?.[0]?.definitions?.[0]?.definition || 'No definition found.') }} />
                                       </div>
                                     );
                                   }
@@ -631,7 +632,7 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                                     return (
                                       <div className="flex flex-col gap-1">
                                         <span className="font-semibold" style={{ color: 'var(--primary)' }}>Translation:</span>
-                                        <span>{vocabData.data?.translated_text || 'No translation found.'}</span>
+                                        <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(vocabData.data?.translated_text || 'No translation found.') }} />
                                       </div>
                                     );
                                   }
@@ -788,7 +789,7 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                       <p
                         className="premium-search-result-snippet"
                         dangerouslySetInnerHTML={{
-                          __html: highlightMatches(result.snippet, searchQuery),
+                          __html: DOMPurify.sanitize(highlightMatches(result.snippet, searchQuery)),
                         }}
                       />
                       <span className="premium-search-result-matches">

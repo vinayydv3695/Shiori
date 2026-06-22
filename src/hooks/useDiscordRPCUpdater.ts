@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useUIStore } from '@/store/uiStore';
 import { useReaderStore } from '@/store/readerStore';
 import { useMangaContentStore } from '@/store/mangaReaderStore';
@@ -31,13 +31,56 @@ const getViewDescription = (view: string): string => {
   }
 };
 
-const getValidCoverUrl = (url: string | undefined | null): string => {
-  if (!url) return 'shiori_logo';
-  // Discord Rich Presence cannot load local file paths or proxied localhost URLs.
-  if (url.startsWith('http') && !url.includes('127.0.0.1') && !url.includes('localhost')) {
-    return url;
+/**
+ * Returns a public https:// URL suitable for Discord's large_image field,
+ * or the 'shiori_logo' asset key as a fallback.
+ *
+ * Strategy:
+ * 1. If a real ISBN-10/13 is stored, use Open Library covers (free, no auth)
+ * 2. Otherwise fallback to the Shiori logo
+ *
+ * Local file paths and localhost URLs cannot be used — Discord can't reach them.
+ */
+const getCoverImageKey = (cover: string | undefined | null, isbn?: string | null, title?: string, author?: string): string => {
+  // Already a public https URL — pass through directly
+  if (cover && cover.startsWith('https://') && !cover.includes('127.0.0.1') && !cover.includes('localhost')) {
+    return cover;
   }
+
+  if (isbn) {
+    // Strip any surrounding quotes that may have been stored (SQLite quirk)
+    const cleanIsbn = isbn.replace(/^['"]|['"]$/g, '').trim();
+    // Only use if it looks like a real ISBN-10 or ISBN-13 (digits only, correct length)
+    if (/^\d{10}$/.test(cleanIsbn) || /^\d{13}$/.test(cleanIsbn)) {
+      return `https://covers.openlibrary.org/b/isbn/${cleanIsbn}-L.jpg`;
+    }
+  }
+
+  // Try Google Books thumbnail via title + author (works for books without a proper ISBN)
+  if (title) {
+    const q = encodeURIComponent(title + (author ? ` ${author}` : ''));
+    return `https://books.google.com/books/content?vid=ISBN&printsec=frontcover&img=1&zoom=1&source=gbs_api&q=${q}`;
+  }
+
   return 'shiori_logo';
+};
+
+/**
+ * Resolves an OpenLibrary redirect to get the direct archive.org CDN URL,
+ * which Discord can load without needing to follow redirects.
+ * Results are cached in memory to avoid repeated network calls.
+ */
+const resolvedUrlCache: Record<string, string> = {};
+const resolveOpenLibraryUrl = async (url: string): Promise<string> => {
+  if (resolvedUrlCache[url]) return resolvedUrlCache[url];
+  try {
+    const resp = await fetch(url, { method: 'HEAD', redirect: 'follow' });
+    const final = resp.url;
+    resolvedUrlCache[url] = final;
+    return final;
+  } catch {
+    return url; // fallback: use original, Discord will try and possibly fail
+  }
 };
 
 export function useDiscordRPCUpdater() {
@@ -56,63 +99,85 @@ export function useDiscordRPCUpdater() {
   const mangaOnlineSource = useMangaContentStore(s => s.onlineSource);
 
   const { setActivity, isConnected } = useDiscordPresence();
+  const cancelRef = useRef(false);
 
   useEffect(() => {
-    // 1. Prioritize Manga Reader
-    if (isMangaOpen) {
-      const title = mangaTitle || mangaOnlineSource?.contentTitle || 'Unknown Manga';
-      let state = '';
-      
-      if (mangaOnlineSource?.chapterTitle) {
-         state = `${mangaOnlineSource.chapterTitle}`;
-         if (mangaTotalPages > 0) {
-             state += ` • Page ${mangaCurrentPage + 1} of ${mangaTotalPages}`;
-         } else {
-             state += ` • Page ${mangaCurrentPage + 1}`;
-         }
-      } else if (mangaTotalPages > 0) {
-         state = `Page ${mangaCurrentPage + 1} of ${mangaTotalPages}`;
-      } else {
-         state = `Page ${mangaCurrentPage + 1}`;
-      }
+    cancelRef.current = false;
 
-      setActivity({
-        details: `Reading: ${title}`,
-        state,
-        largeImageKey: 'shiori_logo', // Manga doesn't store cover URL in its content store currently
-        largeImageText: 'Shiori Manga',
-      });
-      return;
-    }
-
-    // 2. Fallback to Standard Reader
-    if (isReaderOpen && readerContent) {
-      let state = readerContent.author ? `by ${readerContent.author}` : 'Unknown Author';
-      
-      if (readerProgress) {
-        if (readerProgress.currentPage && readerProgress.totalPages) {
-          state += ` • Page ${readerProgress.currentPage} of ${readerProgress.totalPages}`;
-        } else if (readerProgress.progressPercent > 0) {
-          state += ` • ${readerProgress.progressPercent.toFixed(1)}% Complete`;
+    const update = async () => {
+      // 1. Prioritize Manga Reader
+      if (isMangaOpen) {
+        const title = mangaTitle || mangaOnlineSource?.contentTitle || 'Unknown Manga';
+        let state = '';
+        
+        if (mangaOnlineSource?.chapterTitle) {
+           state = `${mangaOnlineSource.chapterTitle}`;
+           if (mangaTotalPages > 0) {
+               state += ` • Page ${mangaCurrentPage + 1} of ${mangaTotalPages}`;
+           } else {
+               state += ` • Page ${mangaCurrentPage + 1}`;
+           }
+        } else if (mangaTotalPages > 0) {
+           state = `Page ${mangaCurrentPage + 1} of ${mangaTotalPages}`;
+        } else {
+           state = `Page ${mangaCurrentPage + 1}`;
         }
+
+        let imageKey = getCoverImageKey(mangaOnlineSource?.coverUrl, null, title);
+        if (imageKey.startsWith('https://covers.openlibrary.org')) {
+          imageKey = await resolveOpenLibraryUrl(imageKey);
+        }
+        if (cancelRef.current) return;
+
+        setActivity({
+          details: `Reading: ${title}`,
+          state,
+          largeImageKey: imageKey,
+          largeImageText: title,
+        });
+        return;
       }
 
-      setActivity({
-        details: `Reading: ${readerContent.title}`,
-        state,
-        largeImageKey: getValidCoverUrl(readerContent.cover),
-        largeImageText: readerContent.title,
-      });
-      return;
-    }
+      // 2. Standard Reader
+      if (isReaderOpen && readerContent) {
+        let state = readerContent.author ? `by ${readerContent.author}` : 'Unknown Author';
+        
+        if (readerProgress) {
+          if (readerProgress.currentPage && readerProgress.totalPages) {
+            state += ` • Page ${readerProgress.currentPage} of ${readerProgress.totalPages}`;
+          } else if (readerProgress.progressPercent > 0) {
+            state += ` • ${readerProgress.progressPercent.toFixed(1)}% Complete`;
+          }
+        }
 
-    // 3. Fallback to Browsing Status
-    setActivity({
-      details: getViewDescription(currentView),
-      state: 'Shiori',
-      largeImageKey: 'shiori_logo',
-      largeImageText: 'Shiori',
-    });
+        let imageKey = getCoverImageKey(readerContent.cover, readerContent.isbn, readerContent.title, readerContent.author);
+        if (imageKey.startsWith('https://covers.openlibrary.org')) {
+          imageKey = await resolveOpenLibraryUrl(imageKey);
+        }
+        if (cancelRef.current) return;
+
+        setActivity({
+          details: `Reading: ${readerContent.title}`,
+          state,
+          largeImageKey: imageKey,
+          largeImageText: readerContent.title,
+        });
+        return;
+      }
+
+      // 3. Browsing
+      if (!cancelRef.current) {
+        setActivity({
+          details: getViewDescription(currentView),
+          state: 'Shiori',
+          largeImageKey: 'shiori_logo',
+          largeImageText: 'Shiori',
+        });
+      }
+    };
+
+    update();
+    return () => { cancelRef.current = true; };
   }, [
     currentView,
     

@@ -6,7 +6,7 @@ import { Search } from 'lucide-react';
 import { OnlineBooksDashboard } from './OnlineBooksDashboard';
 import { ModernBookCard } from './ModernBookCard';
 import { SkeletonGrid } from './SkeletonLoaders';
-import { QuickPreviewModal, type PreviewBook } from './QuickPreviewModal';
+import { OnlineBookSidePanel, type PreviewBook } from './OnlineBookSidePanel';
 import { useInView } from 'react-intersection-observer';
 import { downloadAndImportGutenberg } from '@/online-books/gutenberg/importer';
 import { downloadAndImportLibgen } from '@/online-books/libgen/importer';
@@ -218,7 +218,7 @@ export function OnlineBooksView() {
       )}
 
       {previewBook && (
-        <QuickPreviewModal
+        <OnlineBookSidePanel
           book={previewBook}
           onClose={() => setPreviewBook(null)}
           onDownload={() => {

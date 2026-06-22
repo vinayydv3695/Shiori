@@ -19,6 +19,7 @@ export interface ReaderContent {
   title: string;
   author?: string;
   cover?: string;
+  isbn?: string;
   html?: string;
   text?: string;
   pages?: number;

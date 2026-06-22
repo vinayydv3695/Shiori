@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { fetchTrendingBooks, fetchSubjectBooks } from '@/online-books/openlibrary/api';
 import type { OpenLibraryWork } from '@/online-books/openlibrary/types';
 import { ModernBookCard } from './ModernBookCard';
@@ -8,23 +8,37 @@ import { Search, Flame, Rocket, Library, Swords } from 'lucide-react';
 
 interface BookRowProps {
   title: string;
-  icon?: React.ReactNode;
+  subtitle: string;
   books: any[];
   onBookClick: (title: string, author?: string) => void;
   isLoading: boolean;
 }
 
-function BookRow({ title, icon, books, onBookClick, isLoading }: BookRowProps) {
+function BookRow({ title, subtitle, books, onBookClick, isLoading }: BookRowProps) {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollLeft = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({ left: -600, behavior: 'smooth' });
+    }
+  };
+
+  const scrollRight = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({ left: 600, behavior: 'smooth' });
+    }
+  };
+
   if (isLoading) {
     return (
-      <div className="mb-10">
-        <h2 className="text-2xl font-semibold mb-4 text-white/90 px-6 flex items-center gap-2">
-          {icon}
-          {title}
-        </h2>
-        <div className="flex gap-4 px-6 overflow-hidden">
+      <div className="mb-20">
+        <div className="flex justify-between items-end mb-8 px-8">
+          <h2 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h2>
+          <span className="text-xs text-muted-foreground uppercase tracking-widest">{subtitle}</span>
+        </div>
+        <div className="flex gap-6 px-8 overflow-hidden">
           {[1, 2, 3, 4, 5, 6].map(i => (
-            <div key={i} className="min-w-[160px] h-[240px] bg-white/5 rounded-xl animate-pulse" />
+            <div key={i} className="min-w-[192px] h-[288px] rounded-xl bg-secondary/40 border border-border/40 animate-pulse" />
           ))}
         </div>
       </div>
@@ -34,35 +48,101 @@ function BookRow({ title, icon, books, onBookClick, isLoading }: BookRowProps) {
   if (books.length === 0) return null;
 
   return (
-    <div className="mb-10 relative">
-      <h2 className="text-2xl font-semibold mb-4 text-white/90 px-6 flex items-center gap-2">
-        {icon}
-        {title}
-      </h2>
-      <ScrollArea className="w-full whitespace-nowrap pb-4">
-        <div className="flex w-max space-x-4 px-6">
-          {books.map((book) => {
-            const coverId = book.cover_i || book.cover_id;
-            const authorName = Array.isArray(book.author_name) 
-              ? book.author_name[0] 
-              : (book.authors && book.authors[0]?.name);
-
-            return (
-              <div key={book.key} className="w-[160px]">
-                <ModernBookCard
-                  id={book.key}
-                  title={book.title}
-                  author={authorName}
-                  coverUrl={coverId ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg` : undefined}
-                  year={book.first_publish_year}
-                  onClick={() => onBookClick(book.title, authorName)}
-                />
-              </div>
-            );
-          })}
+    <div className="mb-20 relative group/row">
+        <div className="flex justify-between items-end mb-8 px-8">
+          <h2 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h2>
+          <span className="text-xs text-muted-foreground uppercase tracking-widest">{subtitle}</span>
         </div>
-        <ScrollBar orientation="horizontal" className="bg-black/20" />
-      </ScrollArea>
+      
+      {/* Scroll Controls */}
+      <button 
+        onClick={scrollLeft}
+        className="absolute left-2 top-[55%] -translate-y-1/2 z-30 bg-black/50 hover:bg-black/80 text-white p-3 rounded-full opacity-0 group-hover/row:opacity-100 transition-all duration-300 backdrop-blur-md border border-white/10 shadow-[0_0_15px_rgba(0,0,0,0.5)]"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+      
+      <button 
+        onClick={scrollRight}
+        className="absolute right-2 top-[55%] -translate-y-1/2 z-30 bg-black/50 hover:bg-black/80 text-white p-3 rounded-full opacity-0 group-hover/row:opacity-100 transition-all duration-300 backdrop-blur-md border border-white/10 shadow-[0_0_15px_rgba(0,0,0,0.5)]"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+
+      <div 
+        ref={scrollContainerRef}
+        className="flex w-full space-x-6 px-8 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-4"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
+        {books.map((book) => {
+          const coverId = book.cover_i || book.cover_id;
+          const authorName = Array.isArray(book.author_name) 
+            ? book.author_name[0] 
+            : (book.authors && book.authors[0]?.name);
+
+          return (
+            <div key={book.key} className="w-[192px] flex-none snap-start">
+              <ModernBookCard
+                id={book.key}
+                title={book.title}
+                author={authorName}
+                coverUrl={coverId ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg` : undefined}
+                year={book.first_publish_year}
+                onClick={() => onBookClick(book.title, authorName)}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function BookGrid({ title, subtitle, books, onBookClick, isLoading }: BookRowProps) {
+  if (isLoading) {
+    return (
+      <div className="mb-20">
+        <div className="flex justify-between items-end mb-8 px-8">
+          <h2 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h2>
+          <span className="text-xs text-muted-foreground uppercase tracking-widest">{subtitle}</span>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-12 px-8">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="w-full aspect-[2/3] rounded-xl bg-secondary/40 border border-border/40 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (books.length === 0) return null;
+
+  return (
+    <div className="mb-20">
+      <div className="flex justify-between items-end mb-8 px-8">
+        <h2 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h2>
+        <span className="text-xs text-muted-foreground uppercase tracking-widest">{subtitle}</span>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-12 px-8">
+        {books.map((book) => {
+          const coverId = book.cover_i || book.cover_id;
+          const authorName = Array.isArray(book.author_name) 
+            ? book.author_name[0] 
+            : (book.authors && book.authors[0]?.name);
+
+          return (
+            <ModernBookCard
+              key={book.key}
+              id={book.key}
+              title={book.title}
+              author={authorName}
+              coverUrl={coverId ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg` : undefined}
+              year={book.first_publish_year}
+              onClick={() => onBookClick(book.title, authorName)}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -105,27 +185,12 @@ export function OnlineBooksDashboard() {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-gradient-to-b from-black/20 to-transparent">
-      {/* Hero Section */}
-      <div className="relative h-[40vh] min-h-[300px] flex items-center justify-center overflow-hidden mb-8">
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent z-10" />
-        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1507842217343-583bb7270b66?q=80&w=2000')] bg-cover bg-center opacity-20" />
-        
-        <div className="relative z-20 text-center px-4 max-w-3xl mx-auto space-y-6">
-          <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-white drop-shadow-lg">
-            Discover Your Next Adventure
-          </h1>
-          <p className="text-lg md:text-xl text-white/80 max-w-2xl mx-auto">
-            Search millions of books across Libgen and Gutenberg. Stream them instantly or add them to your wishlist.
-          </p>
-        </div>
-      </div>
-
-      <div className="pb-20 max-w-[1600px] mx-auto mt-8">
-        <BookRow icon={<Flame className="text-orange-500 w-6 h-6" />} title="Trending This Week" books={trending} isLoading={loading} onBookClick={handleBookClick} />
-        <BookRow icon={<Rocket className="text-blue-400 w-6 h-6" />} title="Sci-Fi Masterpieces" books={scifi} isLoading={loading} onBookClick={handleBookClick} />
-        <BookRow icon={<Library className="text-amber-600 w-6 h-6" />} title="Timeless Classics" books={classics} isLoading={loading} onBookClick={handleBookClick} />
-        <BookRow icon={<Swords className="text-slate-400 w-6 h-6" />} title="Epic Fantasy" books={fantasy} isLoading={loading} onBookClick={handleBookClick} />
+    <div className="flex-1 overflow-y-auto pt-8">
+      <div className="pb-32 max-w-[1440px] mx-auto mt-4">
+        <BookGrid subtitle="01 — Gallery" title="Featured Books" books={trending.slice(0, 4)} isLoading={loading} onBookClick={handleBookClick} />
+        <BookRow subtitle="02 — Global" title="Trending Now" books={scifi} isLoading={loading} onBookClick={handleBookClick} />
+        <BookRow subtitle="03 — For You" title="Recommended" books={classics} isLoading={loading} onBookClick={handleBookClick} />
+        <BookRow subtitle="04 — Explore" title="Epic Fantasy" books={fantasy} isLoading={loading} onBookClick={handleBookClick} />
       </div>
     </div>
   );

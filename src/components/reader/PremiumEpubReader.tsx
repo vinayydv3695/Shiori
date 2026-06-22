@@ -2,7 +2,7 @@ import { logger } from '@/lib/logger';
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { api } from '@/lib/tauri';
 import type { BookMetadata, Chapter } from '@/lib/tauri';
-import { useReaderUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement } from '@/store/premiumReaderStore';
+import { useReaderUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement, applyAllSettingsToDOM } from '@/store/premiumReaderStore';
 import { useReaderStore } from '@/store/readerStore';
 import { useDoodleStore } from '@/store/doodleStore';
 import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
@@ -220,7 +220,13 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const explicitResumeTarget = useReaderStore(state => state.explicitResumeTarget);
   const setExplicitResumeTarget = useReaderStore(state => state.setExplicitResumeTarget);
 
-  const { theme, width, twoPageView, toggleTwoPageView, pageFlipEnabled, pageFlipSpeed, animationStyle } = useReadingSettings();
+  const readingSettings = useReadingSettings();
+  const { theme, width, twoPageView, toggleTwoPageView, pageFlipEnabled, pageFlipSpeed, animationStyle } = readingSettings;
+
+  // Apply all reading settings (typography, margins, etc.) on mount and when they change
+  useEffect(() => {
+    applyAllSettingsToDOM(readingSettings);
+  }, [readingSettings]);
   const isDoodleMode = useDoodleStore(state => state.isDoodleMode);
   const toggleDoodleMode = useDoodleStore(state => state.toggleDoodleMode);
   const resetDoodlePage = useDoodleStore(state => state.resetPage);

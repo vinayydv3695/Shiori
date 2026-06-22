@@ -574,49 +574,17 @@ const applyBrightnessToDOM = (brightness: number) => {
   });
 };
 
-// Initialize reader typography settings on load.
-// NOTE: Reader theme (colors) are NOT applied here — they are scoped to
-// the reader container element and applied on mount via applyReaderThemeToElement().
-// The app-level theme (data-theme="black"|"white") is managed by preferencesStore.
-if (typeof window !== 'undefined') {
-  const savedSettings = localStorage.getItem('shiori-reading-settings');
-  let parsed: { state?: Partial<typeof defaultSettings> } | null = null;
-
-  if (savedSettings) {
-    try {
-      parsed = JSON.parse(savedSettings);
-    } catch {
-      // Corrupted localStorage — clear it so defaults apply cleanly
-      logger.warn('[premiumReaderStore] Corrupted saved settings, resetting to defaults');
-      localStorage.removeItem('shiori-reading-settings');
-    }
-  }
-
-  if (parsed?.state) {
-    const s = parsed.state;
-    applyFontToDOM(normalizeLegacyFontPreference(s.fontFamily || DEFAULT_READING_FONT_ID));
-    applyFontSizeToDOM(s.fontSize || 18);
-    applyLineHeightToDOM(s.lineHeight || 1.6);
-    applyParagraphSpacingToDOM(s.paragraphSpacing || '1em');
-    applyLetterSpacingToDOM(s.letterSpacing || 'normal');
-    applyTextAlignToDOM(s.textAlign || 'left');
-    applyTextureIntensityToDOM(s.paperTextureIntensity ?? 0.08);
-    applyBackgroundColorToDOM(s.backgroundColor || 'default');
-    applyTextColorToDOM(s.textColor || 'default');
-    applyMarginToDOM(s.margin ?? 0);
-    applyBrightnessToDOM(s.brightness ?? 1.0);
-  } else {
-    // Apply defaults
-    applyFontToDOM(DEFAULT_READING_FONT_ID);
-    applyFontSizeToDOM(18);
-    applyLineHeightToDOM(1.6);
-    applyParagraphSpacingToDOM('1em');
-    applyLetterSpacingToDOM('normal');
-    applyTextAlignToDOM('left');
-    applyTextureIntensityToDOM(0.08);
-    applyBackgroundColorToDOM('default');
-    applyTextColorToDOM('default');
-    applyMarginToDOM(0);
-    applyBrightnessToDOM(1.0);
-  }
-}
+export const applyAllSettingsToDOM = (state: ReadingSettings) => {
+  applyFontToDOM(state.fontFamily);
+  applyFontSizeToDOM(state.fontSize);
+  applyLineHeightToDOM(state.lineHeight);
+  applyParagraphSpacingToDOM(state.paragraphSpacing);
+  applyLetterSpacingToDOM(state.letterSpacing);
+  applyTextAlignToDOM(state.textAlign);
+  applyBackgroundColorToDOM(state.backgroundColor);
+  applyTextColorToDOM(state.textColor);
+  applyMarginToDOM(state.margin);
+  applyBrightnessToDOM(state.brightness);
+  applyTextureIntensityToDOM(state.paperTextureIntensity);
+  applyUiScaleToDOM(state.uiScale);
+};

@@ -35,59 +35,52 @@ export function OnlineSearchHeader({
   const hasFilters = Object.keys(filters || {}).length > 0;
 
   return (
-    <div className="flex-shrink-0 border-b border-white/5 bg-gradient-to-b from-background to-background/80 backdrop-blur-2xl p-8 relative overflow-hidden z-10">
-      {/* Decorative gradient orbs for a premium glow */}
-      <div className="absolute top-0 right-1/4 w-96 h-96 bg-primary/10 rounded-full blur-[128px] -z-10 pointer-events-none" />
-      <div className="absolute bottom-0 left-1/4 w-64 h-64 bg-blue-500/10 rounded-full blur-[96px] -z-10 pointer-events-none" />
-      
-      <div className="max-w-5xl mx-auto space-y-8 relative z-10">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
+    <div className="flex-shrink-0 bg-background/60 backdrop-blur-3xl border-b border-border pt-16 pb-8 px-8 relative overflow-hidden z-10 transition-colors duration-500">
+      {/* Subtle ambient glass glow */}
+      <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] -z-10 pointer-events-none" />
+      <div className="max-w-7xl mx-auto relative z-10">
+        <div className="flex flex-col gap-6">
+          <div className="flex items-center justify-between">
+            <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-foreground drop-shadow-sm">
               {title}
             </h1>
-            <p className="text-sm font-medium text-muted-foreground/80 mt-1">{subtitle}</p>
+            <OnlineSourceSelector kind={kind} variant="secondary" className="h-10 px-4 bg-secondary/80 hover:bg-secondary text-secondary-foreground border border-border rounded-md shadow-sm backdrop-blur-md" />
           </div>
-          <div className="shadow-lg shadow-black/20 rounded-xl overflow-hidden">
-            <OnlineSourceSelector kind={kind} variant="secondary" className="h-11 px-5 border-none bg-secondary/80 hover:bg-secondary backdrop-blur-xl transition-all font-medium" />
-          </div>
-        </div>
 
-        <div className="flex gap-3 items-center">
-          <div className="relative flex-1 group">
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-transparent rounded-2xl blur-md opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
-            <div className="relative flex items-center bg-background/60 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden transition-all duration-300 focus-within:border-primary/50 focus-within:bg-background/80 focus-within:shadow-2xl focus-within:shadow-primary/10">
-              <Search className="absolute left-4 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors duration-300" />
+          <div className="relative group">
+            <div className="flex items-end border-b border-border focus-within:border-primary transition-colors duration-300 pb-2">
+              <Search className="w-6 h-6 text-muted-foreground mb-4 mr-4" />
               <input
                 value={searchValue}
                 onChange={(e) => onSearchValueChange(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') onSubmit();
                 }}
-                placeholder={kind === 'books' ? 'Search by title, author, ISBN...' : 'Search manga by title...'}
-                className="w-full h-14 pl-12 pr-4 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground/60 focus:ring-0 text-base"
+                placeholder={kind === 'books' ? 'Search your library...' : 'Search manga by title...'}
+                className="w-full bg-transparent border-none outline-none text-2xl font-medium text-foreground placeholder:text-muted-foreground/50 focus:ring-0 py-4 px-0"
                 disabled={disabled}
               />
+              <div className="flex items-center gap-3 mb-2 ml-4">
+                {kind === 'books' && (
+                  <button 
+                    onClick={() => setAdvancedOpen(true)}
+                    className={`p-3 rounded-xl transition-all ${hasFilters ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/80'}`}
+                    disabled={disabled}
+                    title="Advanced Search"
+                  >
+                    <Filter className="w-5 h-5" />
+                  </button>
+                )}
+                <button 
+                  onClick={onSubmit} 
+                  disabled={loading || (!searchValue.trim() && !hasFilters) || disabled}
+                  className="px-6 py-3 rounded-xl bg-foreground text-background font-semibold hover:bg-foreground/90 disabled:opacity-50 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0"
+                >
+                  Search
+                </button>
+              </div>
             </div>
           </div>
-          {kind === 'books' && (
-            <Button 
-              variant={hasFilters ? "default" : "secondary"}
-              onClick={() => setAdvancedOpen(true)}
-              className={`h-14 w-14 rounded-2xl shadow-lg transition-all duration-300 flex items-center justify-center ${hasFilters ? 'shadow-primary/25 hover:shadow-primary/40 bg-primary text-primary-foreground' : 'bg-background/60 backdrop-blur-xl border border-white/10 hover:bg-background/80 hover:border-white/20'}`}
-              disabled={disabled}
-              title="Advanced Search"
-            >
-              <Filter className={`w-5 h-5 ${hasFilters ? '' : 'text-muted-foreground'}`} />
-            </Button>
-          )}
-          <Button 
-            onClick={onSubmit} 
-            disabled={loading || (!searchValue.trim() && !hasFilters) || disabled}
-            className="h-14 px-8 rounded-2xl bg-foreground text-background hover:bg-foreground/90 shadow-lg shadow-black/20 hover:shadow-black/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 font-semibold text-base"
-          >
-            {loading ? 'Searching...' : 'Search'}
-          </Button>
         </div>
 
         {kind === 'books' && (

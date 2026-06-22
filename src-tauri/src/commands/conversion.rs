@@ -448,7 +448,7 @@ pub async fn open_book_for_reading(
         );
     }
 
-    let output = crate::conversion::convert_to_epub_new(&path, Some(progress_cb))
+    let output = crate::conversion::convert_to_epub_new(&path, Some(progress_cb), Some(&state.db))
         .await
         .map_err(|e| ShioriError::Other(format!("Conversion failed: {}", e)))?;
 

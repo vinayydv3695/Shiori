@@ -114,7 +114,12 @@ export function LibgenBookDetails({ book, open, onOpenChange }: Props) {
         throw new Error('No direct download links found for this book on LibGen.');
       }
 
-      const result = await downloadAndImportLibgen(epubUrl, book.title, book.extra ? Object.keys(book.extra).filter(k => k.startsWith('mirror_')).map(k => book.extra![k] as string) : []);
+      const result = await downloadAndImportLibgen(
+        epubUrl, 
+        book.title, 
+        book.extra ? Object.keys(book.extra).filter(k => k.startsWith('mirror_')).map(k => book.extra![k] as string) : [],
+        format.toLowerCase()
+      );
       if (result.success.length > 0 || result.duplicates.length > 0) {
         showSuccessToast('Added to Library', `${book.title} was added to your library.`);
         onOpenChange(false);
@@ -137,7 +142,12 @@ export function LibgenBookDetails({ book, open, onOpenChange }: Props) {
       }
 
       // 1. Download and import directly
-      const result = await downloadAndImportLibgen(epubUrl, book.title, book.extra ? Object.keys(book.extra).filter(k => k.startsWith('mirror_')).map(k => book.extra![k] as string) : []);
+      const result = await downloadAndImportLibgen(
+        epubUrl, 
+        book.title, 
+        book.extra ? Object.keys(book.extra).filter(k => k.startsWith('mirror_')).map(k => book.extra![k] as string) : [],
+        format.toLowerCase()
+      );
       const path = result.success[0] || result.duplicates[0];
       
       if (!path) {

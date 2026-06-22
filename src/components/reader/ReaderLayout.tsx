@@ -130,6 +130,7 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
           title: book.title,
           author: book.authors?.[0]?.name,
           cover: book.cover_path,
+          isbn: book.isbn13 || book.isbn,
           format: effectiveFormat,
         };
         if (effectiveFormat === 'pdf' && typeof book.page_count === 'number') {

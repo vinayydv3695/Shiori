@@ -10,11 +10,12 @@ export interface ImportResult {
 export async function downloadAndImportLibgen(
   epubUrl: string, 
   titleHint: string,
-  mirrors: string[] = []
+  mirrors: string[] = [],
+  formatExt: string = 'epub'
 ): Promise<ImportResult> {
   const urlPayload = JSON.stringify([epubUrl, ...mirrors]);
   
-  const tempPath = await downloadLibgenEpub(urlPayload, titleHint);
+  const tempPath = await downloadLibgenEpub(urlPayload, titleHint, formatExt);
 
   return invoke<ImportResult>('import_books', {
     paths: [tempPath],

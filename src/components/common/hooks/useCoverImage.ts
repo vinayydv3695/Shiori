@@ -2,6 +2,11 @@ import { useState, useEffect } from 'react'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { requestCoverUrl } from '@/lib/coverCache'
 
+/** Normalize Windows backslash paths for the asset:// protocol */
+function toAssetUrl(filePath: string): string {
+  return convertFileSrc(filePath.replace(/\\/g, '/'))
+}
+
 /**
  * useCoverImage — resolves a cover URL for a book.
  *
@@ -13,7 +18,7 @@ import { requestCoverUrl } from '@/lib/coverCache'
  */
 export function useCoverImage(bookId?: number, initialCoverSrc?: string | null) {
   const [coverUrl, setCoverUrl] = useState<string | null>(
-    initialCoverSrc ? convertFileSrc(initialCoverSrc) : null
+    initialCoverSrc ? toAssetUrl(initialCoverSrc) : null
   )
   const [loading, setLoading] = useState(!initialCoverSrc && !!bookId)
   const [error, setError] = useState(false)
@@ -21,7 +26,7 @@ export function useCoverImage(bookId?: number, initialCoverSrc?: string | null) 
   useEffect(() => {
     // If an initial path was provided, use it directly — no IPC needed
     if (initialCoverSrc) {
-      setCoverUrl(convertFileSrc(initialCoverSrc))
+      setCoverUrl(toAssetUrl(initialCoverSrc))
       setLoading(false)
       setError(false)
       return

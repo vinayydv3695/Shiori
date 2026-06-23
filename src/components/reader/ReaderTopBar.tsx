@@ -34,25 +34,39 @@ export function ReaderTopBar({
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
+    // Use Tauri's native window API for true OS-level fullscreen
+    // (browser document.requestFullscreen leaves the Windows taskbar visible)
+    const appWindow = getCurrentWindow();
+    let unlisten: (() => void) | undefined;
 
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    const init = async () => {
+      try {
+        const full = await appWindow.isFullscreen();
+        setIsFullscreen(full);
+      } catch {}
+
+      try {
+        unlisten = await appWindow.onResized(async () => {
+          try {
+            const full = await appWindow.isFullscreen();
+            setIsFullscreen(full);
+          } catch {}
+        });
+      } catch {}
     };
+    init();
+
+    return () => { unlisten?.(); };
   }, []);
 
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch((err) => {
-        logger.error(`Error attempting to enable fullscreen: ${err.message}`);
-      });
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen().catch(() => {});
-      }
+  const toggleFullscreen = async () => {
+    const appWindow = getCurrentWindow();
+    try {
+      const full = await appWindow.isFullscreen();
+      await appWindow.setFullscreen(!full);
+      setIsFullscreen(!full);
+    } catch (err) {
+      logger.error('Failed to toggle fullscreen:', err);
     }
   };
 

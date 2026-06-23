@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import {
     useMangaContentStore,
     useMangaUIStore,
@@ -97,22 +98,37 @@ export function MangaReaderHeader({
     }, [isScrollMode, stickyHeader, isSidebarOpen, isSettingsOpen, lastScrollActivityAt, setTopBarVisible, isTopBarVisible]);
 
     useEffect(() => {
-        const handleFullscreenChange = () => {
-            setIsFullscreen(!!document.fullscreenElement);
+        const appWindow = getCurrentWindow();
+        let unlisten: (() => void) | undefined;
+
+        const init = async () => {
+            try {
+                const full = await appWindow.isFullscreen();
+                setIsFullscreen(full);
+            } catch {}
+
+            try {
+                unlisten = await appWindow.onResized(async () => {
+                    try {
+                        const full = await appWindow.isFullscreen();
+                        setIsFullscreen(full);
+                    } catch {}
+                });
+            } catch {}
         };
-        document.addEventListener('fullscreenchange', handleFullscreenChange);
-        return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+        init();
+
+        return () => { unlisten?.(); };
     }, []);
 
-    const toggleFullscreen = () => {
-        if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch((err) => {
-                console.error(`Error attempting to enable fullscreen: ${err.message}`);
-            });
-        } else {
-            if (document.exitFullscreen) {
-                document.exitFullscreen().catch(() => {});
-            }
+    const toggleFullscreen = async () => {
+        const appWindow = getCurrentWindow();
+        try {
+            const full = await appWindow.isFullscreen();
+            await appWindow.setFullscreen(!full);
+            setIsFullscreen(!full);
+        } catch (err) {
+            console.error('Failed to toggle fullscreen:', err);
         }
     };
 

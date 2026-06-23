@@ -16,6 +16,16 @@
 
 import { invoke, convertFileSrc } from '@tauri-apps/api/core'
 
+/**
+ * On Windows, file paths use backslashes (C:\Users\...).
+ * convertFileSrc() requires forward slashes to build a valid asset:// URL.
+ */
+function toAssetUrl(filePath: string): string {
+  // Replace all backslashes with forward slashes
+  const normalized = filePath.replace(/\\/g, '/')
+  return convertFileSrc(normalized)
+}
+
 // ─── Module-level cache (lives for the lifetime of the app) ──────────────────
 const pathCache = new Map<number, string | null>()  // null = no cover exists
 
@@ -37,7 +47,7 @@ function flushBatch() {
       for (const id of ids) {
         const path = result[String(id)] ?? null
         pathCache.set(id, path)
-        const url = path ? convertFileSrc(path) : null
+        const url = path ? toAssetUrl(path) : null
         const waiters = resolvers.get(id) ?? []
         for (const resolve of waiters) resolve(url)
       }
@@ -59,7 +69,7 @@ export function requestCoverUrl(id: number): Promise<string | null> {
   // Cache hit
   if (pathCache.has(id)) {
     const path = pathCache.get(id)!
-    return Promise.resolve(path ? convertFileSrc(path) : null)
+    return Promise.resolve(path ? toAssetUrl(path) : null)
   }
 
   // Queue into the current batch

@@ -1,6 +1,6 @@
 [package]
 name = "shiori"
-version = "1.1.28"
+version = "1.1.29"
 description = "A Manga/E-Book Reader"
 authors = ["vinayydv3695"]
 license = "MIT"
@@ -119,8 +119,6 @@ tauri-plugin-shell = "2"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
 tauri-plugin-process = "2"
-tauri-plugin-stronghold = "2.3.1"
-keyring = { version = "3.6.3", features = ["linux-native", "windows-native", "apple-native"] }
 
 [features]
 default = ["custom-protocol"]

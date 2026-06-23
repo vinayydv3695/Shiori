@@ -187,7 +187,7 @@ fn main() {
                 }
             }
 
-            let _window = tauri::WebviewWindowBuilder::new(
+            let builder = tauri::WebviewWindowBuilder::new(
                 app,
                 "main",
                 tauri::WebviewUrl::App("index.html".into())
@@ -196,9 +196,12 @@ fn main() {
             .inner_size(1200.0, 800.0)
             .resizable(true)
             .fullscreen(false)
-            .decorations(false)
-            .transparent(is_transparent)
-            .build()?;
+            .decorations(false);
+
+            #[cfg(not(target_os = "macos"))]
+            let builder = builder.transparent(is_transparent);
+
+            let _window = builder.build()?;
 
             let covers_dir = app_dir.join("covers");
             std::fs::create_dir_all(&covers_dir)?;

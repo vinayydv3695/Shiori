@@ -581,7 +581,7 @@ const GeneralSettings = ({
                 checked={preferences.linuxTransparentWindow ?? true} 
                 onChange={(checked) => {
                   updateGeneralSettings({ linuxTransparentWindow: checked });
-                  toast.success('Preference saved. Please restart Shiori for transparency changes to take effect.', { duration: 5000 });
+                  toast.success('Preference saved. Please restart Shiori for transparency changes to take effect.');
                 }} 
               />
             </SettingItem>

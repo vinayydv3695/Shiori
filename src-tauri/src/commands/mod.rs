@@ -23,6 +23,7 @@ pub mod share;
 pub mod sources;
 pub mod torbox;
 pub mod translation;
+pub mod window;
 
 #[macro_export]
 macro_rules! generate_shiori_handlers {
@@ -269,6 +270,9 @@ macro_rules! generate_shiori_handlers {
             cloudflare::commands::cf_clear_all_sessions,
             cloudflare::commands::cf_list_sessions,
             cloudflare::commands::cf_proxy_image,
+            // Window management
+            commands::window::toggle_fullscreen,
+            commands::window::get_fullscreen_state,
         ]
     };
 }

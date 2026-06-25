@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef } from 'react';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { useEffect, useRef } from 'react';
+import { useFullscreen } from '@/hooks/useFullscreen';
 import {
     useMangaContentStore,
     useMangaUIStore,
@@ -36,7 +36,7 @@ export function MangaReaderHeader({
     const readingMode = useMangaSettingsStore(s => s.readingMode);
     const isScrollMode = readingMode === 'strip' || readingMode === 'webtoon' || readingMode === 'manhwa';
 
-    const [isFullscreen, setIsFullscreen] = useState(false);
+    const { isFullscreen, toggleFullscreen } = useFullscreen();
     const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Keep the top bar visible while sidebar/settings panels are open.
@@ -44,7 +44,6 @@ export function MangaReaderHeader({
         if (isSidebarOpen || isSettingsOpen) {
             setTopBarVisible(true);
         }
-
         return () => {
             if (hideTimeoutRef.current) {
                 clearTimeout(hideTimeoutRef.current);
@@ -60,11 +59,9 @@ export function MangaReaderHeader({
             clearTimeout(hideTimeoutRef.current);
             hideTimeoutRef.current = null;
         }
-
         if (stickyHeader || isSidebarOpen || isSettingsOpen) {
             return;
         }
-
         if (isScrollMode) {
             if (lastScrollActivityAt === 0 || Date.now() - lastScrollActivityAt > TOPBAR_AUTO_HIDE_MS) {
                 return;
@@ -88,7 +85,6 @@ export function MangaReaderHeader({
                 }, 2000);
             }
         }
-
         return () => {
             if (hideTimeoutRef.current) {
                 clearTimeout(hideTimeoutRef.current);
@@ -97,48 +93,6 @@ export function MangaReaderHeader({
         };
     }, [isScrollMode, stickyHeader, isSidebarOpen, isSettingsOpen, lastScrollActivityAt, setTopBarVisible, isTopBarVisible]);
 
-    useEffect(() => {
-        const appWindow = getCurrentWindow();
-        let unlisten: (() => void) | undefined;
-
-        const init = async () => {
-            try {
-                const full = await appWindow.isFullscreen();
-                setIsFullscreen(full);
-            } catch {}
-
-            try {
-                unlisten = await appWindow.onResized(async () => {
-                    try {
-                        const full = await appWindow.isFullscreen();
-                        setIsFullscreen(full);
-                    } catch {}
-                });
-            } catch {}
-        };
-        init();
-
-        return () => { unlisten?.(); };
-    }, []);
-
-    const toggleFullscreen = async () => {
-        const appWindow = getCurrentWindow();
-        try {
-            const full = await appWindow.isFullscreen();
-            if (!full) {
-                // setAlwaysOnTop(true) first so the window is above the Windows
-                // taskbar (HWND_TOPMOST) since setFullscreen uses SWP_NOZORDER.
-                await appWindow.setAlwaysOnTop(true);
-                await appWindow.setFullscreen(true);
-            } else {
-                await appWindow.setFullscreen(false);
-                await appWindow.setAlwaysOnTop(false);
-            }
-            setIsFullscreen(!full);
-        } catch (err) {
-            console.error('Failed to toggle fullscreen:', err);
-        }
-    };
 
     const handleChapterNav = async (direction: 'prev' | 'next') => {
         if (!onlineSource || !onChapterChange) return;

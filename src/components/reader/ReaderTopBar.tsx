@@ -1,11 +1,11 @@
 import { logger } from '@/lib/logger';
-import React, { useState, useEffect } from 'react';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import React from 'react';
 import { useReaderUIStore } from '@/store/premiumReaderStore';
 import { useBookReadingTime } from '@/hooks/useBookReadingTime';
 import { ArrowLeft, Clock, Maximize2, Minimize2, Bookmark } from '@/components/icons';
 import { ReaderSettings, type ReaderFormat } from './ReaderSettings';
 import { WindowControls } from '../layout/WindowControls';
+import { useFullscreen } from '@/hooks/useFullscreen';
 
 interface ReaderTopBarProps {
   bookId: number;
@@ -31,54 +31,7 @@ export function ReaderTopBar({
   const isTopBarVisible = useReaderUIStore(state => state.isTopBarVisible);
   const toggleSidebar = useReaderUIStore(state => state.toggleSidebar);
   const { formattedTime } = useBookReadingTime(bookId);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-
-  useEffect(() => {
-    // Use Tauri's native window API for true OS-level fullscreen
-    // (browser document.requestFullscreen leaves the Windows taskbar visible)
-    const appWindow = getCurrentWindow();
-    let unlisten: (() => void) | undefined;
-
-    const init = async () => {
-      try {
-        const full = await appWindow.isFullscreen();
-        setIsFullscreen(full);
-      } catch {}
-
-      try {
-        unlisten = await appWindow.onResized(async () => {
-          try {
-            const full = await appWindow.isFullscreen();
-            setIsFullscreen(full);
-          } catch {}
-        });
-      } catch {}
-    };
-    init();
-
-    return () => { unlisten?.(); };
-  }, []);
-
-  const toggleFullscreen = async () => {
-    const appWindow = getCurrentWindow();
-    try {
-      const full = await appWindow.isFullscreen();
-      if (!full) {
-        // On Windows, the taskbar uses HWND_TOPMOST z-order.
-        // setFullscreen() calls SetWindowPos with SWP_NOZORDER so it
-        // won't move above the taskbar by itself. setAlwaysOnTop(true)
-        // first places the window at TOPMOST, then fullscreen covers the screen.
-        await appWindow.setAlwaysOnTop(true);
-        await appWindow.setFullscreen(true);
-      } else {
-        await appWindow.setFullscreen(false);
-        await appWindow.setAlwaysOnTop(false);
-      }
-      setIsFullscreen(!full);
-    } catch (err) {
-      logger.error('Failed to toggle fullscreen:', err);
-    }
-  };
+  const { isFullscreen, toggleFullscreen } = useFullscreen();
 
   return (
     <div className={`premium-top-bar ${!isTopBarVisible ? 'premium-top-bar--hidden' : ''}`} data-tauri-drag-region>

@@ -125,7 +125,15 @@ export function MangaReaderHeader({
         const appWindow = getCurrentWindow();
         try {
             const full = await appWindow.isFullscreen();
-            await appWindow.setFullscreen(!full);
+            if (!full) {
+                // setAlwaysOnTop(true) first so the window is above the Windows
+                // taskbar (HWND_TOPMOST) since setFullscreen uses SWP_NOZORDER.
+                await appWindow.setAlwaysOnTop(true);
+                await appWindow.setFullscreen(true);
+            } else {
+                await appWindow.setFullscreen(false);
+                await appWindow.setAlwaysOnTop(false);
+            }
             setIsFullscreen(!full);
         } catch (err) {
             console.error('Failed to toggle fullscreen:', err);

@@ -63,7 +63,17 @@ export function ReaderTopBar({
     const appWindow = getCurrentWindow();
     try {
       const full = await appWindow.isFullscreen();
-      await appWindow.setFullscreen(!full);
+      if (!full) {
+        // On Windows, the taskbar uses HWND_TOPMOST z-order.
+        // setFullscreen() calls SetWindowPos with SWP_NOZORDER so it
+        // won't move above the taskbar by itself. setAlwaysOnTop(true)
+        // first places the window at TOPMOST, then fullscreen covers the screen.
+        await appWindow.setAlwaysOnTop(true);
+        await appWindow.setFullscreen(true);
+      } else {
+        await appWindow.setFullscreen(false);
+        await appWindow.setAlwaysOnTop(false);
+      }
       setIsFullscreen(!full);
     } catch (err) {
       logger.error('Failed to toggle fullscreen:', err);

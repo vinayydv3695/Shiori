@@ -7,7 +7,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use serde::Deserialize;
 use std::sync::Arc;
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 
 /// Global manga service state
 pub struct MangaState {
@@ -85,6 +85,7 @@ pub async fn get_manga_page_path(
     page_index: usize,
     max_dimension: u32,
     state: State<'_, MangaState>,
+    app: AppHandle,
 ) -> Result<String> {
     validate::require_positive_id(book_id, "book_id")?;
     let bytes = state
@@ -92,8 +93,13 @@ pub async fn get_manga_page_path(
         .get_page(book_id, page_index, max_dimension)
         .await?;
 
-    let mut dir = std::env::temp_dir();
-    dir.push("shiori");
+    // Store pages inside the app's local data directory so the asset
+    // protocol scope ($APPLOCALDATA/**) covers them (system /tmp/ is blocked).
+    let base = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|e| crate::error::ShioriError::Other(e.to_string()))?;
+    let mut dir = base;
     dir.push("manga-pages");
     std::fs::create_dir_all(&dir).map_err(|e| crate::error::ShioriError::Io(e))?;
 

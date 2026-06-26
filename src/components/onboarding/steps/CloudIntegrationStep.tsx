@@ -109,19 +109,19 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
   const primaryBooks = primarySourceByKind.books;
 
   return (
-    <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden px-4 py-4 text-white md:px-8 md:py-6">
+    <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden px-4 py-4 text-foreground md:px-8 md:py-6">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(161,161,170,0.14),transparent_70%)]" />
       <OnboardingMotionStyles />
 
-      <div className="relative z-10 mx-auto flex h-full min-h-0 w-full max-w-7xl flex-1 flex-col overflow-hidden rounded-[1.6rem] border border-white/10 bg-zinc-950/70 p-4 backdrop-blur-xl md:p-6">
+      <div className="relative z-10 mx-auto flex h-full min-h-0 w-full max-w-7xl flex-1 flex-col overflow-hidden rounded-[1.6rem] border border-border/40 bg-card/60 p-4 backdrop-blur-xl md:p-6">
         <div className="onb-fade-up flex flex-wrap items-center gap-3">
-          <div className="onb-icon-badge flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-zinc-200">
+          <div className="onb-icon-badge flex h-11 w-11 items-center justify-center rounded-xl border border-border/40 bg-primary/5 text-foreground">
             <Cloud className="onb-icon-inner h-5 w-5" />
           </div>
-          <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">Cloud Integrations</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">Cloud Integrations</h2>
         </div>
 
-        <p className="onb-fade-up onb-delay-100 mt-2 max-w-3xl text-sm text-white/65 md:text-base">
+        <p className="onb-fade-up onb-delay-100 mt-2 max-w-3xl text-sm text-foreground/65 md:text-base">
           Tune recommended online providers, your debrid preference, and link your Torbox account. Safe to keep defaults and continue.
         </p>
 
@@ -130,25 +130,25 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
             <div className="onb-fade-up onb-delay-200 mt-2 grid gap-4 xl:grid-cols-2">
               
               <div className="flex flex-col gap-4">
-                <section className="flex h-full flex-col rounded-2xl border border-white/10 bg-zinc-900/50 p-5">
-                  <div className="mb-6 flex items-center gap-3 border-b border-white/5 pb-4">
-                    <span className="onb-icon-badge inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-zinc-200 shadow-sm">
+                <section className="flex h-full flex-col rounded-2xl border border-border/40 bg-card/50 p-5">
+                  <div className="mb-6 flex items-center gap-3 border-b border-border/20 pb-4">
+                    <span className="onb-icon-badge inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border/40 bg-primary/5 text-foreground shadow-sm">
                       <Globe className="onb-icon-inner h-5 w-5" />
                     </span>
                     <div>
-                      <h3 className="text-base font-semibold tracking-tight text-white/90">Primary Source Selection</h3>
-                      <p className="text-xs text-white/50">Set your preferred default catalogs</p>
+                      <h3 className="text-base font-semibold tracking-tight text-foreground/90">Primary Source Selection</h3>
+                      <p className="text-xs text-foreground/50">Set your preferred default catalogs</p>
                     </div>
                   </div>
 
                   <div className="grid flex-1 gap-6 md:grid-cols-2">
-                    <div className="flex flex-col rounded-xl border border-white/5 bg-zinc-950/40 p-4">
-                      <p className="mb-4 text-sm font-medium text-white/80">Primary Manga Source</p>
+                    <div className="flex flex-col rounded-xl border border-border/20 bg-background/40 p-4">
+                      <p className="mb-4 text-sm font-medium text-foreground/80">Primary Manga Source</p>
                       <div className="flex flex-col gap-2">
                         {availableMangaSources.map((source) => (
-                          <label key={source.id} className={`group flex cursor-pointer items-center justify-between rounded-lg border px-3 py-3 transition-colors ${primaryManga === source.id ? 'border-indigo-500/30 bg-indigo-500/10' : 'border-white/5 bg-zinc-900 hover:border-white/20'}`}>
-                            <span className={`text-sm font-medium ${primaryManga === source.id ? 'text-indigo-200' : 'text-white/80'}`}>{source.name}</span>
-                            <div className="relative flex h-4 w-4 items-center justify-center rounded-full border border-white/20 bg-zinc-950">
+                          <label key={source.id} className={`group flex cursor-pointer items-center justify-between rounded-lg border px-3 py-3 transition-colors ${primaryManga === source.id ? 'border-indigo-500/30 bg-indigo-500/10' : 'border-border/20 bg-card hover:border-border/60'}`}>
+                            <span className={`text-sm font-medium ${primaryManga === source.id ? 'text-indigo-200' : 'text-foreground/80'}`}>{source.name}</span>
+                            <div className="relative flex h-4 w-4 items-center justify-center rounded-full border border-border/60 bg-zinc-950">
                               {primaryManga === source.id && <div className="h-2 w-2 rounded-full bg-indigo-400" />}
                               <input
                                 type="radio"
@@ -164,13 +164,13 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
                       </div>
                     </div>
 
-                    <div className="flex flex-col rounded-xl border border-white/5 bg-zinc-950/40 p-4">
-                      <p className="mb-4 text-sm font-medium text-white/80">Primary Book Source</p>
+                    <div className="flex flex-col rounded-xl border border-border/20 bg-background/40 p-4">
+                      <p className="mb-4 text-sm font-medium text-foreground/80">Primary Book Source</p>
                       <div className="flex flex-col gap-2">
                         {availableBookSources.map((source) => (
-                          <label key={source.id} className={`group flex cursor-pointer items-center justify-between rounded-lg border px-3 py-3 transition-colors ${primaryBooks === source.id ? 'border-indigo-500/30 bg-indigo-500/10' : 'border-white/5 bg-zinc-900 hover:border-white/20'}`}>
-                            <span className={`text-sm font-medium ${primaryBooks === source.id ? 'text-indigo-200' : 'text-white/80'}`}>{source.name}</span>
-                            <div className="relative flex h-4 w-4 items-center justify-center rounded-full border border-white/20 bg-zinc-950">
+                          <label key={source.id} className={`group flex cursor-pointer items-center justify-between rounded-lg border px-3 py-3 transition-colors ${primaryBooks === source.id ? 'border-indigo-500/30 bg-indigo-500/10' : 'border-border/20 bg-card hover:border-border/60'}`}>
+                            <span className={`text-sm font-medium ${primaryBooks === source.id ? 'text-indigo-200' : 'text-foreground/80'}`}>{source.name}</span>
+                            <div className="relative flex h-4 w-4 items-center justify-center rounded-full border border-border/60 bg-zinc-950">
                               {primaryBooks === source.id && <div className="h-2 w-2 rounded-full bg-indigo-400" />}
                               <input
                                 type="radio"
@@ -190,17 +190,17 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
               </div>
 
               <div className="flex flex-col gap-4">
-                <section className="rounded-2xl border border-white/10 bg-zinc-900/50 p-5">
+                <section className="rounded-2xl border border-border/40 bg-card/50 p-5">
                   <div className="mb-4 flex items-center gap-3">
-                    <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-zinc-200">
+                    <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border/40 bg-primary/5 text-foreground">
                       <Shield className="onb-icon-inner h-4 w-4" />
                     </span>
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-white/90">Debrid Provider Preference</h3>
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground/90">Debrid Provider Preference</h3>
                   </div>
 
                   <div className="space-y-2">
-                    <label className="flex items-center justify-between rounded-lg border border-white/10 bg-zinc-900 px-3 py-2 text-sm">
-                      <span className="text-white/90">Auto</span>
+                    <label className="flex items-center justify-between rounded-lg border border-border/40 bg-card px-3 py-2 text-sm">
+                      <span className="text-foreground/90">Auto</span>
                       <input
                         type="radio"
                         name="onboarding-debrid"
@@ -209,8 +209,8 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
                         className="h-4 w-4 accent-zinc-400"
                       />
                     </label>
-                    <label className="flex items-center justify-between rounded-lg border border-white/10 bg-zinc-900 px-3 py-2 text-sm">
-                      <span className="text-white/90">Torbox</span>
+                    <label className="flex items-center justify-between rounded-lg border border-border/40 bg-card px-3 py-2 text-sm">
+                      <span className="text-foreground/90">Torbox</span>
                       <input
                         type="radio"
                         name="onboarding-debrid"
@@ -222,15 +222,15 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
                   </div>
                 </section>
 
-                <section className="rounded-2xl border border-white/10 bg-zinc-900/50 p-5">
+                <section className="rounded-2xl border border-border/40 bg-card/50 p-5">
                   <div className="mb-4 flex items-center gap-3">
-                    <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-zinc-200">
+                    <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border/40 bg-primary/5 text-foreground">
                       <KeyRound className="onb-icon-inner h-4 w-4" />
                     </span>
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-white/90">Torbox API Key</h3>
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground/90">Torbox API Key</h3>
                   </div>
 
-                  <p className="mb-4 text-xs text-white/60">
+                  <p className="mb-4 text-xs text-foreground/60">
                     Add your Torbox key to unlock debrid-assisted downloads and direct streaming from torrent sources.
                   </p>
 
@@ -245,13 +245,13 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
                         setTestValid(null);
                       }}
                       placeholder="tbx_..."
-                      className="h-11 w-full rounded-xl border border-white/10 bg-zinc-900 px-3 text-sm text-white outline-none transition focus-visible:ring-2 focus-visible:ring-zinc-400/60"
+                      className="h-11 w-full rounded-xl border border-border/40 bg-card px-3 text-sm text-foreground outline-none transition focus-visible:ring-2 focus-visible:ring-zinc-400/60"
                       autoComplete="off"
                       disabled={isLoading}
                     />
                     <button
                       type="button"
-                      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-zinc-900 text-white transition hover:bg-white/5"
+                      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border/40 bg-card text-foreground transition hover:bg-primary/5"
                       onClick={() => setShowKey((prev) => !prev)}
                       aria-label={showKey ? 'Hide API key' : 'Show API key'}
                       disabled={isLoading}
@@ -266,7 +266,7 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
                       variant="secondary"
                       onClick={() => void handleSave()}
                       disabled={!hasKey || isLoading || isSaving}
-                      className="border-white/10 bg-zinc-900 px-4 text-white hover:bg-white/5"
+                      className="border-border/40 bg-card px-4 text-foreground hover:bg-primary/5"
                     >
                       {isSaving ? 'Saving...' : 'Save key'}
                     </GlowButton>
@@ -276,7 +276,7 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
                       variant="secondary"
                       onClick={() => void handleTest()}
                       disabled={!hasKey || isLoading || isTesting}
-                      className="border-white/10 bg-zinc-900 px-4 text-white hover:bg-white/5"
+                      className="border-border/40 bg-card px-4 text-foreground hover:bg-primary/5"
                     >
                       {isTesting ? 'Testing...' : 'Test key'}
                     </GlowButton>
@@ -286,7 +286,7 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
                     <div
                       className={`mt-4 flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${
                         testValid === null
-                          ? 'border-white/10 bg-zinc-900/70 text-white/65'
+                          ? 'border-border/40 bg-card/70 text-foreground/65'
                           : testValid
                             ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
                             : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
@@ -310,7 +310,7 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
           </div>
         </div>
 
-        <div className="onb-fade-up onb-delay-300 mt-3 flex shrink-0 items-center justify-between border-t border-white/10 pt-3">
+        <div className="onb-fade-up onb-delay-300 mt-3 flex shrink-0 items-center justify-between border-t border-border/40 pt-3">
           <GlowButton theme="dark" variant="secondary" onClick={onBack} className="px-6">
             ← Back
           </GlowButton>

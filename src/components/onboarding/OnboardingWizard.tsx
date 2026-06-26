@@ -50,17 +50,17 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
   if (!isHydrated || isInitializing) {
     return (
-      <div className="relative flex h-screen w-screen items-center justify-center overflow-hidden bg-zinc-950 text-white">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_10%,rgba(255,255,255,0.08),transparent_60%)]" />
-        <div className="h-12 w-12 animate-spin rounded-full border border-white/20 border-b-zinc-200" />
+      <div className="relative flex h-screen w-screen items-center justify-center overflow-hidden bg-background text-foreground">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_10%,hsl(var(--foreground)/0.08),transparent_60%)]" />
+        <div className="h-12 w-12 animate-spin rounded-full border border-foreground/20 border-b-foreground/80" />
       </div>
     );
   }
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-zinc-950 text-white">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.08),transparent_62%)]" />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,0.2),rgba(0,0,0,0.55))]" />
+    <div className="relative h-screen w-screen overflow-hidden bg-background text-foreground transition-colors duration-500">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,hsl(var(--foreground)/0.08),transparent_62%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,hsl(var(--background)/0.2),hsl(var(--background)/0.55))]" />
       <ParticleCanvas />
 
       <div className="relative z-10 flex h-full min-h-0 w-full flex-col overflow-hidden">
@@ -96,10 +96,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             ) : null}
             {state.currentStep === 5 ? (
               <FinishStep
-                libraryPath={state.libraryPath}
-                selectedTheme={state.selectedTheme}
-                mangaPrefs={state.mangaPrefs}
-                bookPrefs={state.bookPrefs}
                 onBack={prevStep}
                 onOpenLibrary={handleFinish}
                 isFinishing={isFinishing}

@@ -176,6 +176,8 @@ fn main() {
             let database = db::Database::new(&db_path)?;
 
             let mut is_transparent = false;
+            #[allow(unused_variables, unused_assignments)]
+            let mut is_first_time = true;
             if let Ok(conn) = database.get_connection() {
                 if let Ok(mut stmt) = conn.prepare("SELECT value FROM user_preferences WHERE key = 'linuxTransparentWindow'") {
                     if let Ok(mut rows) = stmt.query([]) {
@@ -185,9 +187,19 @@ fn main() {
                         }
                     }
                 }
+                
+                if let Ok(mut stmt) = conn.prepare("SELECT value FROM user_preferences WHERE key = '_cachedOnboardingCompleted'") {
+                    if let Ok(mut rows) = stmt.query([]) {
+                        if let Ok(Some(row)) = rows.next() {
+                            let value: String = row.get(0).unwrap_or_default();
+                            is_first_time = value != "true" && value != "1";
+                        }
+                    }
+                }
             }
 
-            let builder = tauri::WebviewWindowBuilder::new(
+            #[allow(unused_mut)]
+            let mut builder = tauri::WebviewWindowBuilder::new(
                 app,
                 "main",
                 tauri::WebviewUrl::App("index.html".into())
@@ -197,6 +209,13 @@ fn main() {
             .resizable(true)
             .fullscreen(false)
             .decorations(false);
+
+            #[cfg(target_os = "windows")]
+            {
+                if is_first_time {
+                    builder = builder.maximized(true);
+                }
+            }
 
             #[cfg(not(target_os = "macos"))]
             let builder = builder.transparent(is_transparent);

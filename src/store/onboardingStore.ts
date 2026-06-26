@@ -67,7 +67,7 @@ export interface OnboardingWizardState {
 
 interface OnboardingStore extends OnboardingWizardState {
   initialize: () => Promise<void>;
-  setCurrentStep: (step: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8) => void;
+  setCurrentStep: (step: 1 | 2 | 3 | 4 | 5) => void;
   nextStep: () => void;
   prevStep: () => void;
   setLibraryPath: (path: string | null) => void;
@@ -377,6 +377,13 @@ export const useOnboardingStore = create<OnboardingStore>()(
 
       setSelectedTheme: (theme) => {
         set({ selectedTheme: theme });
+        // Immediately apply to DOM for live preview
+        document.documentElement.setAttribute('data-theme', THEME_NAME_TO_VALUE[theme] ?? 'black');
+        if (theme === 'White') {
+          document.documentElement.classList.remove('dark');
+        } else {
+          document.documentElement.classList.add('dark');
+        }
         void pushTheme(theme).catch((error) => {
           logger.error('Failed to persist selected theme:', error);
         });

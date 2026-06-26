@@ -70,15 +70,6 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
                 Import your local library folder now to get instant scan + progress feedback. If you skip, your library stays empty until you import from Settings.
               </p>
 
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1 font-semibold uppercase tracking-wide text-emerald-200">
-                  Required step
-                </span>
-                <span className="rounded-full border border-white/10 bg-zinc-900/70 px-2.5 py-1 text-white/70">
-                  Continue unlocks after import completes or after you choose “Skip for now”
-                </span>
-              </div>
-
               <p className="mt-3 truncate rounded-lg border border-white/10 bg-zinc-900/60 px-3 py-2 text-xs text-white/70" title={libraryPath ?? undefined}>
                 {libraryPath ? `Selected folder: ${libraryPath}` : 'No folder selected yet'}
               </p>
@@ -93,16 +84,17 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
             <div className="mt-4 min-h-[220px]">
               {showDropZone ? (
                 <div
-                  className={`flex min-h-[240px] cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed bg-zinc-900/50 transition-colors duration-200 ${
+                  className={`group relative flex min-h-[300px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-[2rem] border-2 border-dashed transition-all duration-500 ${
                     isDragOver
-                      ? 'border-zinc-400/60 bg-zinc-900/80'
-                      : 'border-white/10 hover:border-zinc-400/45'
+                      ? 'border-indigo-500/50 bg-indigo-500/10 shadow-[0_0_50px_rgba(99,102,241,0.15)]'
+                      : 'border-white/10 bg-zinc-900/30 hover:border-white/20 hover:bg-zinc-900/50'
                   }`}
                 >
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(255,255,255,0.03),transparent_60%)] pointer-events-none" />
                   <div
                     role="button"
                     tabIndex={0}
-                    className="flex w-full flex-1 cursor-pointer flex-col items-center justify-center"
+                    className="relative z-10 flex w-full flex-1 cursor-pointer flex-col items-center justify-center p-8"
                     onClick={handlePickFolder}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter' || event.key === ' ') {
@@ -128,26 +120,26 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
                       await runImport(getDroppedPath(event));
                     }}
                   >
-                    <Upload className="h-12 w-12 text-zinc-400" />
-                    <p className="mt-4 text-center text-base font-semibold text-white">Drag & drop your library folder</p>
-                    <p className="mt-1 text-center text-sm text-white/60">or click to browse for folder</p>
+                    <div className={`relative mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-white/10 bg-zinc-950/80 shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-md transition-all duration-500 ${isDragOver ? 'scale-110 border-indigo-500/30' : 'group-hover:-translate-y-1 group-hover:scale-105 group-hover:border-white/20'}`}>
+                      <Upload className={`h-8 w-8 transition-colors duration-300 ${isDragOver ? 'text-indigo-400' : 'text-zinc-400 group-hover:text-white'}`} />
+                    </div>
+                    
+                    <p className="text-center text-xl font-medium tracking-tight text-white/90">
+                      Drag & drop your library folder
+                    </p>
+                    <p className="mt-2 text-center text-sm text-white/50">
+                      or click anywhere to browse
+                    </p>
 
-                    <div className="mt-6">
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          void handlePickFolder();
-                        }}
-                        className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:border-zinc-400/40 hover:bg-zinc-800"
-                      >
-                        <FolderPlus className="h-4 w-4" />
-                        Browse Folder
-                      </button>
+                    <div className="mt-8 flex w-full max-w-md items-start gap-3 rounded-2xl border border-white/5 bg-zinc-950/40 p-4 text-left shadow-sm backdrop-blur-md">
+                      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/5 text-zinc-300">
+                        <FolderPlus className="h-3.5 w-3.5" />
+                      </div>
+                      <p className="text-xs text-zinc-300/80 leading-relaxed">
+                        <strong className="font-semibold text-zinc-200">No local books?</strong> No problem! Skip this step to explore thousands of free books and manga from our built-in online catalogs inside the app.
+                      </p>
                     </div>
                   </div>
-
-
                 </div>
               ) : (
                 <div className="rounded-2xl border border-white/5 bg-zinc-900/50 p-5">
@@ -237,6 +229,13 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
               className="rounded-xl border border-white/10 bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:border-white/20 hover:bg-zinc-800"
             >
               Clear selection
+            </button>
+            <button
+              type="button"
+              onClick={onNext}
+              className="rounded-xl border border-white/10 bg-zinc-900/50 px-4 py-2 text-sm font-medium text-white transition-colors hover:border-white/20 hover:bg-white/5"
+            >
+              Skip for now
             </button>
           </div>
 

@@ -112,6 +112,18 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     capabilities: ['direct', 'metadata'],
     website: 'https://libgen.li',
   },
+  {
+    id: 'torrent_csv',
+    name: 'TorrentCSV',
+    kind: 'books',
+    enabled: false,
+    description: 'A collaborative, open source torrent search engine.',
+    status: 'active',
+    implemented: true,
+    torboxCompatible: true,
+    capabilities: ['torbox'],
+    website: 'https://torrentcsv.com',
+  },
 ];
 
 const DEFAULT_PRIMARY_SOURCE_BY_KIND: Record<SourceKind, string> = {

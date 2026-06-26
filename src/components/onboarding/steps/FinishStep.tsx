@@ -1,9 +1,8 @@
 import { useMemo, useState, type CSSProperties } from 'react';
-import { CheckCircle2, FolderOpen, Palette, Settings } from 'lucide-react';
+import { CheckCircle2, FolderOpen, Palette, Settings, Zap } from 'lucide-react';
 import { useOnboardingState } from '../hooks/useOnboardingState';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import type { BookPrefs, MangaPrefs, ThemeName } from '../../../store/onboardingStore';
-import GlowButton from '../components/GlowButton';
 import { OnboardingMotionStyles } from '../components';
 
 type FinishStepProps = {
@@ -33,6 +32,8 @@ export function FinishStep({
   const autoTranslate = useOnboardingStore((s) => s.autoTranslate);
   const enableNotifications = useOnboardingStore((s) => s.enableNotifications);
   const resetOnboarding = useOnboardingStore((s) => s.resetOnboarding);
+  const defaultMangaSource = useOnboardingStore((s) => s.defaultMangaSource);
+  const defaultBookSource = useOnboardingStore((s) => s.defaultBookSource);
 
   const particles = useMemo(
     () =>
@@ -76,7 +77,8 @@ export function FinishStep({
   const readerHighlights = [
     `Manga: ${mangaPrefs.readingDirection.toUpperCase()} ${mangaPrefs.readingMode}`,
     `EPUB: ${bookPrefs.fontSize}px ${bookPrefs.scrollMode}`,
-    `Line height: ${bookPrefs.lineHeight}`,
+    `Manga Source: ${defaultMangaSource.charAt(0).toUpperCase() + defaultMangaSource.slice(1)}`,
+    `Book Source: ${defaultBookSource.charAt(0).toUpperCase() + defaultBookSource.slice(1)}`,
   ];
 
   const appHighlights = [
@@ -119,60 +121,82 @@ export function FinishStep({
           </div>
         </div>
 
-        <div className="onb-fade-up onb-delay-100 flex justify-center mt-0 mb-4 md:mt-2 md:mb-5">
-          <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-white/5 md:h-32 md:w-32 overflow-hidden border border-white/10">
+        <div className="onb-fade-up onb-delay-100 relative mx-auto mb-6 mt-2 flex justify-center md:mb-8 md:mt-4">
+          <div className="absolute inset-0 z-0 flex pointer-events-none items-center justify-center">
+            <div className="h-32 w-32 rounded-full bg-indigo-500/20 blur-[40px] md:h-48 md:w-48" />
+          </div>
+          <div className="relative z-10 flex h-28 w-28 overflow-hidden rounded-full border border-white/10 bg-zinc-950/80 shadow-[0_0_50px_rgba(255,255,255,0.05)] backdrop-blur-md md:h-36 md:w-36 items-center justify-center">
             <img
               src={logoSrc}
               alt="Shiori Logo"
               className="h-full w-full object-cover [animation:finish-logo-in_0.8s_cubic-bezier(0.16,1,0.3,1)_forwards,finish-logo-float_3.8s_ease-in-out_infinite_0.8s]"
             />
-            <div className="absolute inset-0 rounded-full border border-white/10 [animation:ping_3s_cubic-bezier(0,0,0.2,1)_infinite]" />
+            <div className="absolute inset-0 rounded-full border border-white/20 [animation:ping_3s_cubic-bezier(0,0,0.2,1)_infinite]" />
           </div>
         </div>
 
-        <div className="onb-fade-up onb-delay-200 min-h-0 flex-1 overflow-y-auto pr-1 [scrollbar-gutter:stable] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 hover:[&::-webkit-scrollbar-thumb]:bg-white/30">
-          <div className="grid grid-cols-1 gap-2 lg:grid-cols-2 lg:gap-3">
-            <div className="rounded-2xl border border-white/10 bg-zinc-900/55 p-3 md:p-4">
-              <div className="mb-2 flex items-center gap-2 text-[10px] md:text-xs font-semibold uppercase tracking-[0.16em] text-zinc-300/85">
-                <Palette className="h-3 w-3 md:h-4 md:w-4" /> Theme
+        <div className="onb-fade-up onb-delay-200 min-h-0 flex-1 overflow-y-auto pr-2 [scrollbar-gutter:stable] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 hover:[&::-webkit-scrollbar-thumb]:bg-white/30">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
+            <div className="group relative overflow-hidden rounded-2xl border border-white/5 bg-zinc-900/40 p-4 transition-colors hover:border-white/10 hover:bg-zinc-900/60 md:p-5">
+              <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.15em] text-zinc-400 group-hover:text-zinc-300">
+                <Palette className="h-4 w-4" /> Theme
               </div>
               <div className="flex items-center gap-3">
-                <span className="h-3 w-3 md:h-4 md:w-4 rounded-full ring-2 ring-white/20" style={{ background: themePreview[selectedTheme] }} />
-                <p className="text-sm md:text-base font-semibold text-white">{selectedTheme}</p>
+                <span className="h-5 w-5 rounded-full shadow-inner ring-1 ring-white/20" style={{ background: themePreview[selectedTheme] }} />
+                <p className="text-base font-semibold text-white">{selectedTheme}</p>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-zinc-900/55 p-3 md:p-4">
-              <div className="mb-2 flex items-center gap-2 text-[10px] md:text-xs font-semibold uppercase tracking-[0.16em] text-zinc-300/85">
-                <FolderOpen className="h-3 w-3 md:h-4 md:w-4" /> Library
+            <div className="group relative overflow-hidden rounded-2xl border border-white/5 bg-zinc-900/40 p-4 transition-colors hover:border-white/10 hover:bg-zinc-900/60 md:p-5">
+              <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.15em] text-zinc-400 group-hover:text-zinc-300">
+                <FolderOpen className="h-4 w-4" /> Library
               </div>
-              <p className="text-xs md:text-sm font-medium text-white">{libraryPath ? '1 source connected' : 'Setup skipped'}</p>
-              <p className="mt-1 truncate text-[10px] md:text-xs text-zinc-400" title={libraryPath ?? undefined}>
+              <p className="text-sm font-medium text-white">{libraryPath ? '1 source connected' : 'Setup skipped'}</p>
+              <p className="mt-1 truncate text-xs text-zinc-500" title={libraryPath ?? undefined}>
                 {libraryPath ?? 'Import anytime from Settings'}
               </p>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-zinc-900/55 p-3 md:p-4">
-              <div className="mb-2 flex items-center gap-2 text-[10px] md:text-xs font-semibold uppercase tracking-[0.16em] text-zinc-300/85">
-                <Settings className="h-3 w-3 md:h-4 md:w-4" /> Reader defaults
+            <div className="group relative overflow-hidden rounded-2xl border border-white/5 bg-zinc-900/40 p-4 transition-colors hover:border-white/10 hover:bg-zinc-900/60 md:p-5">
+              <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.15em] text-zinc-400 group-hover:text-zinc-300">
+                <Settings className="h-4 w-4" /> Reader defaults
               </div>
-              <ul className="space-y-1 text-xs md:text-sm text-zinc-300/85">
+              <ul className="space-y-1.5 text-sm text-zinc-400">
                 {readerHighlights.map((item) => (
-                  <li key={item}>• {item}</li>
+                  <li key={item} className="flex items-center gap-2">
+                    <div className="h-1 w-1 rounded-full bg-zinc-600" />
+                    {item}
+                  </li>
                 ))}
               </ul>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-zinc-900/55 p-3 md:p-4">
-              <div className="mb-2 flex items-center gap-2 text-[10px] md:text-xs font-semibold uppercase tracking-[0.16em] text-zinc-300/85">
-                <Settings className="h-3 w-3 md:h-4 md:w-4" /> App defaults
+            <div className="group relative overflow-hidden rounded-2xl border border-white/5 bg-zinc-900/40 p-4 transition-colors hover:border-white/10 hover:bg-zinc-900/60 md:p-5">
+              <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.15em] text-zinc-400 group-hover:text-zinc-300">
+                <Settings className="h-4 w-4" /> App defaults
               </div>
-              <ul className="space-y-1 text-xs md:text-sm text-zinc-300/85">
+              <ul className="space-y-1.5 text-sm text-zinc-400">
                 {appHighlights.map((item) => (
-                  <li key={item}>• {item}</li>
+                  <li key={item} className="flex items-center gap-2">
+                    <div className="h-1 w-1 rounded-full bg-zinc-600" />
+                    {item}
+                  </li>
                 ))}
               </ul>
             </div>
+          </div>
+
+          <div className="relative mt-3 overflow-hidden rounded-2xl border border-white/5 bg-zinc-900/40 p-4 backdrop-blur-md lg:mt-4 md:p-5">
+            <div className="absolute left-0 top-0 h-[1px] w-full bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+            <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.15em] text-zinc-300">
+              <Zap className="h-4 w-4" /> Capabilities Unlocked
+            </div>
+            <ul className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm text-zinc-400 md:grid-cols-2">
+              <li className="flex items-center gap-2"><div className="h-1.5 w-1.5 rounded-full bg-zinc-500" /> Seamless Window Fullscreen (F11)</li>
+              <li className="flex items-center gap-2"><div className="h-1.5 w-1.5 rounded-full bg-zinc-500" /> Premium Glassmorphism Reader UI</li>
+              <li className="flex items-center gap-2"><div className="h-1.5 w-1.5 rounded-full bg-zinc-500" /> Direct Torrent Streaming via Torbox</li>
+              <li className="flex items-center gap-2"><div className="h-1.5 w-1.5 rounded-full bg-zinc-500" /> Built-in Catalogs (LibGen, MangaDex)</li>
+            </ul>
           </div>
         </div>
 
@@ -198,17 +222,19 @@ export function FinishStep({
               </div>
             ) : null}
 
-            <GlowButton
-              theme="dark"
-              variant="primary"
+            <button
+              type="button"
               onClick={() => {
                 void handleOpen();
               }}
               disabled={Boolean(isFinishing)}
-              className="onb-cta-glow px-10 py-3.5 text-base font-bold"
+              className="group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-full bg-white px-10 py-3.5 text-base font-bold text-black transition-all duration-300 ease-out hover:scale-[1.02] hover:bg-zinc-200 hover:shadow-[0_0_30px_rgba(255,255,255,0.4)] focus:outline-none focus:ring-2 focus:ring-white/40 focus:ring-offset-0 focus:ring-offset-black disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isFinishing ? 'Launching Shiori...' : 'Launch Shiori'}
-            </GlowButton>
+              <div className="absolute inset-0 flex h-full w-full justify-center [transform:skew(-12deg)_translateX(-100%)] group-hover:duration-1000 group-hover:[transform:skew(-12deg)_translateX(100%)]">
+                <div className="relative h-full w-8 bg-white/40" />
+              </div>
+              <span className="relative z-10">{isFinishing ? 'Launching Shiori...' : 'Launch Shiori'}</span>
+            </button>
           </div>
 
           <button

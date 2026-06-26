@@ -175,7 +175,7 @@ fn main() {
             let db_path = app_dir.join("library.db");
             let database = db::Database::new(&db_path)?;
 
-            let mut is_transparent = true;
+            let mut is_transparent = false;
             if let Ok(conn) = database.get_connection() {
                 if let Ok(mut stmt) = conn.prepare("SELECT value FROM user_preferences WHERE key = 'linuxTransparentWindow'") {
                     if let Ok(mut rows) = stmt.query([]) {

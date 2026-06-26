@@ -1,3 +1,5 @@
+import { BookOpen, Image, Radio, Zap } from 'lucide-react';
+
 type WelcomeStepProps = {
   appVersion: string;
   onStart: () => void;
@@ -52,10 +54,28 @@ export function WelcomeStep({ appVersion, onStart }: WelcomeStepProps) {
           </div>
         </div>
 
-        <h1 className="animate-fade-up delay-200 mb-12 max-w-4xl text-3xl font-extralight tracking-[0.45em] text-white/90 opacity-0 md:text-5xl ml-[0.45em]">
+        <h1 className="animate-fade-up delay-200 mb-6 max-w-4xl text-3xl font-extralight tracking-[0.45em] text-white/90 opacity-0 md:text-5xl ml-[0.45em]">
           SHIORI
         </h1>
 
+        <div className="animate-fade-up delay-200 mb-12 flex flex-wrap justify-center gap-3 opacity-0 max-w-2xl px-4">
+          <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-zinc-300 backdrop-blur-md">
+            <BookOpen className="h-3.5 w-3.5 text-zinc-400" />
+            <span>LibGen & Project Gutenberg</span>
+          </div>
+          <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-zinc-300 backdrop-blur-md">
+            <Image className="h-3.5 w-3.5 text-zinc-400" />
+            <span>Manga Reader Options</span>
+          </div>
+          <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-zinc-300 backdrop-blur-md">
+            <Radio className="h-3.5 w-3.5 text-zinc-400" />
+            <span>Direct Torrent Streaming</span>
+          </div>
+          <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-zinc-300 backdrop-blur-md">
+            <Zap className="h-3.5 w-3.5 text-zinc-400" />
+            <span>Premium Fullscreen Reader</span>
+          </div>
+        </div>
 
         <button
           type="button"

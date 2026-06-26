@@ -22,6 +22,8 @@ export interface OnboardingState {
   uiScale: number;
   enableCloudSync: boolean;
   enableNotifications: boolean;
+  defaultMangaSource: string;
+  defaultBookSource: string;
 }
 
 interface UseOnboardingStateResult {
@@ -46,6 +48,8 @@ interface UseOnboardingStateResult {
   setUiScale: (uiScale: number) => void;
   setEnableCloudSync: (enableCloudSync: boolean) => void;
   setEnableNotifications: (enableNotifications: boolean) => void;
+  setDefaultMangaSource: (source: string) => void;
+  setDefaultBookSource: (source: string) => void;
   completeOnboarding: () => Promise<void>;
   initialize: () => Promise<void>;
   canGoBack: boolean;
@@ -68,6 +72,8 @@ export function useOnboardingState(): UseOnboardingStateResult {
   const uiScale = useOnboardingStore((s) => s.uiScale);
   const enableCloudSync = useOnboardingStore((s) => s.enableCloudSync);
   const enableNotifications = useOnboardingStore((s) => s.enableNotifications);
+  const defaultMangaSource = useOnboardingStore((s) => s.defaultMangaSource);
+  const defaultBookSource = useOnboardingStore((s) => s.defaultBookSource);
   const onboardingComplete = useOnboardingStore((s) => s.onboardingComplete);
   const isHydrated = useOnboardingStore((s) => s.isHydrated);
   const isInitializing = useOnboardingStore((s) => s.isInitializing);
@@ -89,6 +95,8 @@ export function useOnboardingState(): UseOnboardingStateResult {
   const setUiScale = useOnboardingStore((s) => s.setUiScale);
   const setEnableCloudSync = useOnboardingStore((s) => s.setEnableCloudSync);
   const setEnableNotifications = useOnboardingStore((s) => s.setEnableNotifications);
+  const setDefaultMangaSource = useOnboardingStore((s) => s.setDefaultMangaSource);
+  const setDefaultBookSource = useOnboardingStore((s) => s.setDefaultBookSource);
   const completeOnboarding = useOnboardingStore((s) => s.completeOnboarding);
   const initialize = useOnboardingStore((s) => s.initialize);
 
@@ -109,6 +117,8 @@ export function useOnboardingState(): UseOnboardingStateResult {
       uiScale,
       enableCloudSync,
       enableNotifications,
+      defaultMangaSource,
+      defaultBookSource,
     }),
     [
       currentStep,
@@ -126,6 +136,8 @@ export function useOnboardingState(): UseOnboardingStateResult {
       uiScale,
       enableCloudSync,
       enableNotifications,
+      defaultMangaSource,
+      defaultBookSource,
     ]
   );
 
@@ -151,6 +163,8 @@ export function useOnboardingState(): UseOnboardingStateResult {
     setUiScale,
     setEnableCloudSync,
     setEnableNotifications,
+    setDefaultMangaSource,
+    setDefaultBookSource,
     completeOnboarding,
     initialize,
     canGoBack: currentStep > 1,

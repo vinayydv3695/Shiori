@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/tauri';
-import { DEFAULT_READING_FONT_ID, normalizeLegacyFontPreference } from '@/lib/readingFonts';
+import { normalizeLegacyFontPreference } from '@/lib/readingFonts';
 import type { Theme, UserPreferences } from '@/types/preferences';
 import { usePreferencesStore } from './preferencesStore';
 
@@ -44,7 +44,7 @@ export interface BookPrefs {
 
 export interface OnboardingWizardState {
   onboardingComplete: boolean;
-  currentStep: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+  currentStep: 1 | 2 | 3 | 4 | 5;
   libraryPath: string | null;
   selectedTheme: ThemeName;
   mangaPrefs: MangaPrefs;
@@ -59,6 +59,8 @@ export interface OnboardingWizardState {
   uiScale: number;
   enableCloudSync: boolean;
   enableNotifications: boolean;
+  defaultMangaSource: string;
+  defaultBookSource: string;
   isHydrated: boolean;
   isInitializing: boolean;
 }
@@ -82,11 +84,13 @@ interface OnboardingStore extends OnboardingWizardState {
   setUiScale: (uiScale: number) => void;
   setEnableCloudSync: (enableCloudSync: boolean) => void;
   setEnableNotifications: (enableNotifications: boolean) => void;
+  setDefaultMangaSource: (source: string) => void;
+  setDefaultBookSource: (source: string) => void;
   completeOnboarding: () => Promise<void>;
   resetOnboarding: () => void;
 }
 
-const TOTAL_STEPS = 8;
+const TOTAL_STEPS = 5;
 const DEFAULT_TRANSLATION_LANGUAGE = 'en';
 const DEFAULT_CACHE_SIZE_MB = 500;
 const DEFAULT_LIBRARY_SIZE_LIMIT = 10000;
@@ -181,6 +185,8 @@ const createDefaultState = (): OnboardingWizardState => ({
   uiScale: 100,
   enableCloudSync: false,
   enableNotifications: true,
+  defaultMangaSource: 'mangadex',
+  defaultBookSource: 'libgen',
   isHydrated: false,
   isInitializing: false,
 });
@@ -326,6 +332,8 @@ export const useOnboardingStore = create<OnboardingStore>()(
                   paragraphSpacing: preferences.book.paragraphSpacing,
                   customCSS: preferences.book.customCSS,
                 },
+                defaultMangaSource: 'mangadex',
+                defaultBookSource: 'libgen',
                 onboardingComplete: true,
                 currentStep: TOTAL_STEPS,
               }));
@@ -336,11 +344,13 @@ export const useOnboardingStore = create<OnboardingStore>()(
             if (preferences) {
               set((state) => ({
                 libraryPath: state.libraryPath ?? preferences.defaultImportPath ?? preferences.defaultMangaPath ?? null,
+                defaultMangaSource: 'mangadex',
+                defaultBookSource: 'libgen',
                 onboardingComplete: false,
                 currentStep: 1,
               }));
             } else {
-              set({ onboardingComplete: false, currentStep: 1 });
+              set({ onboardingComplete: false, currentStep: 1, defaultMangaSource: 'mangadex', defaultBookSource: 'libgen' });
             }
           }
         } catch (error) {
@@ -353,10 +363,10 @@ export const useOnboardingStore = create<OnboardingStore>()(
       setCurrentStep: (step) => set({ currentStep: step }),
 
       nextStep: () =>
-        set((state) => ({ currentStep: Math.min(TOTAL_STEPS, state.currentStep + 1) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 })),
+        set((state) => ({ currentStep: Math.min(TOTAL_STEPS, state.currentStep + 1) as 1 | 2 | 3 | 4 | 5 })),
 
       prevStep: () =>
-        set((state) => ({ currentStep: Math.max(1, state.currentStep - 1) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 })),
+        set((state) => ({ currentStep: Math.max(1, state.currentStep - 1) as 1 | 2 | 3 | 4 | 5 })),
 
       setLibraryPath: (path) => {
         set({ libraryPath: path });
@@ -452,6 +462,9 @@ export const useOnboardingStore = create<OnboardingStore>()(
         void persistGeneralSettings({ enableNotifications }, 'notifications');
       },
 
+      setDefaultMangaSource: (defaultMangaSource) => set({ defaultMangaSource }),
+      setDefaultBookSource: (defaultBookSource) => set({ defaultBookSource }),
+
       completeOnboarding: async () => {
         const state = get();
 
@@ -462,6 +475,13 @@ export const useOnboardingStore = create<OnboardingStore>()(
           pushBookPrefs(state.bookPrefs),
           pushOnboardingGeneralSettings(state),
         ]);
+
+        if (state.defaultMangaSource) {
+          localStorage.setItem('shiori_default_manga_source', state.defaultMangaSource);
+        }
+        if (state.defaultBookSource) {
+          localStorage.setItem('shiori_default_book_source', state.defaultBookSource);
+        }
 
         await api.completeOnboarding([]);
         set({ onboardingComplete: true, currentStep: TOTAL_STEPS });
@@ -490,6 +510,8 @@ export const useOnboardingStore = create<OnboardingStore>()(
         uiScale: state.uiScale,
         enableCloudSync: state.enableCloudSync,
         enableNotifications: state.enableNotifications,
+        defaultMangaSource: state.defaultMangaSource,
+        defaultBookSource: state.defaultBookSource,
       }),
       onRehydrateStorage: () => (state, error) => {
         if (error) {

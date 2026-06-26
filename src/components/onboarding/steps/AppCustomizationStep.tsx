@@ -84,19 +84,19 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(161,161,170,0.14),transparent_70%)]" />
       <OnboardingMotionStyles />
 
-      <div className="relative z-10 mx-auto flex h-full min-h-0 w-full max-w-7xl flex-1 flex-col overflow-hidden rounded-[1.6rem] border border-white/10 bg-zinc-950/70 p-4 text-white backdrop-blur-xl md:p-6">
+      <div className="relative z-10 mx-auto flex h-full min-h-0 w-full max-w-7xl flex-1 flex-col overflow-hidden rounded-[1.6rem] border border-border/40 bg-card/60 p-4 text-card-foreground backdrop-blur-xl md:p-6 shadow-2xl">
         <header className="onb-fade-up mb-4 flex shrink-0 flex-col gap-4 md:mb-5">
           <div className="flex items-center gap-3">
-            <div className="onb-icon-badge flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-zinc-200 shadow-[0_0_14px_rgba(255,255,255,0.05)]">
+            <div className="onb-icon-badge flex h-11 w-11 items-center justify-center rounded-xl border border-border/50 bg-primary/5 text-primary shadow-sm">
               <Sliders size={20} strokeWidth={1.7} />
             </div>
             <div>
-              <h2 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">App Customization</h2>
-              <p className="text-sm text-zinc-400">Tailor the app experience to your liking.</p>
+              <h2 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">App Customization</h2>
+              <p className="text-sm text-muted-foreground">Tailor the app experience to your liking.</p>
             </div>
           </div>
 
-          <div className="flex gap-2 border-b border-white/10">
+          <div className="flex gap-2 border-b border-border/40">
             {[
               { id: 'appearance', label: 'Appearance', icon: Palette },
               { id: 'reader', label: 'Reader', icon: BookOpen },
@@ -110,7 +110,7 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
                   type="button"
                   onClick={() => setActiveTab(tab.id as Tab)}
                   className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                    isActive ? 'border-white text-white' : 'border-transparent text-white/50 hover:text-white/80'
+                    isActive ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   <Icon size={16} />
@@ -121,12 +121,12 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto pr-2 pb-3 [scrollbar-gutter:stable] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 hover:[&::-webkit-scrollbar-thumb]:bg-white/30">
+        <div className="min-h-0 flex-1 overflow-y-auto pr-2 pb-3 [scrollbar-gutter:stable] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/50">
           
           {activeTab === 'appearance' && (
             <div className="onb-fade-up grid gap-6 xl:grid-cols-2">
               <section className="flex flex-col gap-3">
-                <h3 className="text-sm font-semibold text-white/80">Theme Selection</h3>
+                <h3 className="text-sm font-semibold text-foreground/80">Theme Selection</h3>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {THEME_OPTIONS.map((theme) => {
                     const isSelected = selectedTheme === theme.name;
@@ -136,18 +136,21 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
                         type="button"
                         onClick={() => setSelectedTheme(theme.name)}
                         className={`group relative flex items-center justify-between rounded-xl border p-3 text-left transition-all ${
-                          isSelected ? 'border-zinc-300/90 bg-zinc-500/10' : 'border-white/10 bg-zinc-900/50 hover:border-white/20'
+                          isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border/40 bg-card/40 hover:border-border/80 hover:bg-card/80'
                         }`}
                       >
                         <div className="flex items-center gap-2.5">
-                          <span className={`inline-flex h-7 w-7 items-center justify-center rounded-lg ${isSelected ? 'bg-zinc-400/20 text-zinc-200' : 'bg-zinc-800 text-zinc-400 group-hover:text-zinc-300'}`}>
+                          <span 
+                            className={`inline-flex h-7 w-7 items-center justify-center rounded-lg shadow-inner ring-1 ring-black/10 dark:ring-white/10 ${isSelected ? 'ring-black/20 dark:ring-white/40' : 'group-hover:ring-black/15 dark:group-hover:ring-white/20'}`} 
+                            style={{ backgroundColor: previews[theme.name].background, color: previews[theme.name].text }}
+                          >
                             {isLightTheme(theme.name) ? <Sun size={14} /> : <Moon size={14} />}
                           </span>
-                          <span className={`text-sm font-medium ${isSelected ? 'text-white' : 'text-zinc-300 group-hover:text-white'}`}>
+                          <span className={`text-sm font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'}`}>
                             {theme.name}
                           </span>
                         </div>
-                        <span className={`inline-flex h-5 w-5 items-center justify-center rounded-full border text-[10px] transition-all ${isSelected ? 'border-zinc-200/80 bg-zinc-200 text-zinc-900' : 'border-white/15 bg-zinc-900 text-transparent opacity-0 group-hover:opacity-100'}`}>
+                        <span className={`inline-flex h-5 w-5 items-center justify-center rounded-full border text-[10px] transition-all ${isSelected ? 'border-primary/80 bg-primary text-primary-foreground' : 'border-border/40 bg-card text-transparent opacity-0 group-hover:opacity-100'}`}>
                           <Check size={11} strokeWidth={3} />
                         </span>
                       </button>
@@ -157,8 +160,8 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
               </section>
 
               <section className="flex flex-col gap-4">
-                <h3 className="text-sm font-semibold text-white/80">Interface Settings</h3>
-                <div className="space-y-3 rounded-xl border border-white/10 bg-zinc-900/50 p-4">
+                <h3 className="text-sm font-semibold text-foreground/80">Interface Settings</h3>
+                <div className="space-y-3 rounded-xl border border-border/40 bg-card/40 p-4">
                   <SettingControl
                     label="UI Scale"
                     description="Scale from 75% to 150%"
@@ -178,8 +181,8 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
           {activeTab === 'reader' && (
             <div className="onb-fade-up grid gap-6 xl:grid-cols-2">
               <section className="flex flex-col gap-3">
-                <h3 className="text-sm font-semibold text-white/80">Manga Settings</h3>
-                <div className="space-y-3 rounded-xl border border-white/10 bg-zinc-900/50 p-4">
+                <h3 className="text-sm font-semibold text-foreground/80">Manga Settings</h3>
+                <div className="space-y-3 rounded-xl border border-border/40 bg-card/40 p-4">
                   <SettingControl
                     theme="darkSlate"
                     label="Reading Direction"
@@ -214,8 +217,8 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
               </section>
 
               <section className="flex flex-col gap-3">
-                <h3 className="text-sm font-semibold text-white/80">Book Typography</h3>
-                <div className="space-y-3 rounded-xl border border-white/10 bg-zinc-900/50 p-4">
+                <h3 className="text-sm font-semibold text-foreground/80">Book Typography</h3>
+                <div className="space-y-3 rounded-xl border border-border/40 bg-card/40 p-4">
                   <SettingControl
                     theme="darkSlate"
                     label="Font Family"
@@ -239,8 +242,8 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
           {activeTab === 'general' && (
             <div className="onb-fade-up grid gap-6 xl:grid-cols-2">
               <section className="flex flex-col gap-3">
-                <h3 className="text-sm font-semibold text-white/80">Localization</h3>
-                <div className="space-y-3 rounded-xl border border-white/10 bg-zinc-900/50 p-4">
+                <h3 className="text-sm font-semibold text-foreground/80">Localization</h3>
+                <div className="space-y-3 rounded-xl border border-border/40 bg-card/40 p-4">
                   <SettingControl
                     label="Language"
                     description="Default translation language"
@@ -261,8 +264,8 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
               </section>
 
               <section className="flex flex-col gap-3">
-                <h3 className="text-sm font-semibold text-white/80">System & Storage</h3>
-                <div className="space-y-3 rounded-xl border border-white/10 bg-zinc-900/50 p-4">
+                <h3 className="text-sm font-semibold text-foreground/80">System & Storage</h3>
+                <div className="space-y-3 rounded-xl border border-border/40 bg-card/40 p-4">
                   <SettingControl
                     label="Cache size limit"
                     type="select"
@@ -296,7 +299,7 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
           )}
         </div>
 
-        <div className="onb-fade-up onb-delay-200 mt-3 flex shrink-0 items-center justify-between border-t border-white/10 pt-3">
+        <div className="onb-fade-up onb-delay-200 mt-3 flex shrink-0 items-center justify-between border-t border-border/40 pt-3">
           <GlowButton theme="dark" variant="secondary" onClick={onBack} className="px-5">
             ← Back
           </GlowButton>

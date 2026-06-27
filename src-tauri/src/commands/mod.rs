@@ -43,6 +43,7 @@ macro_rules! generate_shiori_handlers {
             commands::library::update_book,
             commands::library::delete_book,
             commands::library::delete_books,
+            commands::library::clean_up_database,
             commands::library::import_books,
             commands::library::scan_folder_unified,
             commands::library::import_manga,

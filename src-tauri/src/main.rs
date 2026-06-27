@@ -176,7 +176,6 @@ fn main() {
             let database = db::Database::new(&db_path)?;
 
             let mut is_transparent = false;
-            #[allow(unused_variables, unused_assignments)]
             let mut is_first_time = true;
             if let Ok(conn) = database.get_connection() {
                 if let Ok(mut stmt) = conn.prepare("SELECT value FROM user_preferences WHERE key = 'linuxTransparentWindow'") {
@@ -209,6 +208,9 @@ fn main() {
             .resizable(true)
             .fullscreen(false)
             .decorations(false);
+
+            // Silence unused_assignments on platforms where is_first_time isn't used
+            let _ = is_first_time;
 
             #[cfg(target_os = "windows")]
             {

@@ -313,18 +313,6 @@ const handleConfirmConvert = useCallback(async () => {
   }
 }, [pendingBook, openBook, loadInitialBooks, setExplicitResumeTarget]);
 
-/** User declined: open the book in its original format */
-const handleCancelConvert = useCallback(() => {
-  if (pendingBook?.id && pendingBookPath) {
-    useReaderStore.getState().setStartFromBeginning(false);
-    setExplicitResumeTarget(null);
-    openBook(pendingBook.id, pendingBookPath, pendingBook.file_format);
-  }
-  setShowConvertDialog(false);
-  setPendingBook(null);
-  setPendingBookPath(null);
-}, [pendingBook, pendingBookPath, openBook, setExplicitResumeTarget]);
-
 /** Close the dialog without opening anything */
 const handleDialogOpenChange = useCallback((open: boolean) => {
   if (!open && !isConverting) {
@@ -339,12 +327,14 @@ return {
   showConvertDialog,
   isConverting,
   pendingBook,
+  pendingBookPath,
 
   // Actions
   handleOpenBook,
-  handleConfirmConvert,
-  handleCancelConvert,
-  handleDialogOpenChange,
+
+  // Handlers
+  onConfirm: handleConfirmConvert,
+  onDialogOpenChange: handleDialogOpenChange,
 
   // Resume-reading dialog
   showResumeDialog,

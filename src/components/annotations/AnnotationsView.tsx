@@ -272,8 +272,7 @@ export function AnnotationsView({ onClose, onOpenBook }: AnnotationsViewProps) {
   const tabs = [
     { id: 'all', label: 'All Notes' },
     { id: 'highlight', label: 'Highlights' },
-    { id: 'note', label: 'Notes' },
-    { id: 'bookmark', label: 'Bookmarks' }
+    { id: 'note', label: 'Notes' }
   ];
 
   return (

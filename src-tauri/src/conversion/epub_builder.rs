@@ -436,6 +436,8 @@ h1, h2, h3, h4, h5, h6 {
   margin-top: 2em;
   margin-bottom: 0.5em;
   text-align: left;
+  font-size: 1.25em;
+  line-height: 1.3;
 }
 p {
   text-indent: 1.5em;

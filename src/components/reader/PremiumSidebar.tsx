@@ -360,7 +360,6 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
   // Filter annotations by type
   const highlights = annotations.filter(a => a.annotationType === 'highlight');
   const notes = annotations.filter(a => a.annotationType === 'note');
-  const bookmarks = annotations.filter(a => a.annotationType === 'bookmark');
 
   /** Format a raw location string for display */
   const formatLocation = (loc: string): string => {
@@ -407,7 +406,6 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
               { id: 'toc', label: 'TOC', icon: BookOpen },
               { id: 'highlights', label: 'Highlights', icon: Highlighter },
               { id: 'notes', label: 'Notes', icon: FileText },
-              { id: 'bookmarks', label: 'Bookmarks', icon: Bookmark },
               { id: 'search', label: 'Search', icon: Search }
             ].map(tab => (
               <motion.button
@@ -691,60 +689,7 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
             </div>
           )}
           
-          {/* Bookmarks Tab */}
-          {sidebarTab === 'bookmarks' && (
-            <div className="premium-sidebar-panel">
-              <h3 className="premium-sidebar-title">Bookmarks</h3>
-              {bookmarks.length === 0 ? (
-                <p className="premium-sidebar-empty">No bookmarks yet</p>
-              ) : (
-                <motion.div 
-                  className="premium-annotations-list"
-                  variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.05 } } }}
-                  initial="hidden" animate="show"
-                >
-                  {bookmarks.map((bookmark) => (
-                    <motion.div
-                      key={bookmark.id}
-                      variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
-                      className="premium-annotation-item premium-annotation-item--clickable"
-                      onClick={() => handleAnnotationClick(bookmark)}
-                      whileHover={{ scale: 1.01 }}
-                      whileTap={{ scale: 0.99 }}
-                    >
-                      <div className="premium-annotation-content">
-                        <div className="premium-annotation-header">
-                          <div className="premium-badge premium-badge--bookmark">
-                            <Bookmark size={10} />
-                            Bookmark
-                          </div>
-                        </div>
-                        {bookmark.selectedText && (
-                          <p className="premium-annotation-text">{bookmark.selectedText}</p>
-                        )}
-                        <div className="premium-annotation-meta">
-                          <span className="premium-annotation-location">{formatLocation(bookmark.location)}</span>
-                          <span className="premium-annotation-date">
-                            {new Date(bookmark.createdAt).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </div>
-                      <motion.button
-                        className="premium-annotation-delete"
-                        onClick={(e: React.MouseEvent) => handleDeleteAnnotation(e, bookmark)}
-                        title="Delete bookmark"
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                      >
-                        <Trash2 size={14} />
-                      </motion.button>
-                    </motion.div>
-                  ))}
-                </motion.div>
-              )}
-            </div>
-          )}
-          
+
           {/* Search Tab */}
           {sidebarTab === 'search' && (
             <div className="premium-sidebar-panel">

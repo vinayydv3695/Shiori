@@ -20,7 +20,7 @@ const STATUS_CONFIG: Record<
 
 const JobRow: React.FC<{ job: ConversionJob; onCancel: (id: string) => void }> = ({ job, onCancel }) => {
   const cfg = STATUS_CONFIG[job.status];
-  const filename = job.source_path.split('/').pop() ?? 'Unknown';
+  const filename = job.source_path?.split('/').pop() ?? 'Unknown';
 
   return (
     <div className={`p-3 rounded-lg border border-border ${cfg.bg} space-y-2`}>
@@ -55,14 +55,22 @@ const JobRow: React.FC<{ job: ConversionJob; onCancel: (id: string) => void }> =
 
       {/* Progress bar — only shown while active, uses real progress value */}
       {(job.status === 'Queued' || job.status === 'Processing') && (
-        <div className="w-full h-1.5 bg-border rounded-full overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all duration-500"
-            style={{
-              width: `${Math.max(job.progress, job.status === 'Processing' ? 8 : 2)}%`,
-              background: 'linear-gradient(90deg, hsl(var(--primary)), hsl(var(--primary) / 0.6))',
-            }}
-          />
+        <div className="space-y-1 mt-2">
+          <div className="flex justify-between text-xs font-medium text-muted-foreground">
+            <span>{job.status === 'Queued' ? 'Queued...' : 'Converting...'}</span>
+            <span className={job.status === 'Processing' ? 'text-primary' : ''}>
+              {Math.round(job.progress)}%
+            </span>
+          </div>
+          <div className="w-full h-1.5 bg-border rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${Math.max(job.progress, job.status === 'Processing' ? 8 : 2)}%`,
+                background: 'linear-gradient(90deg, hsl(var(--primary)), hsl(var(--primary) / 0.6))',
+              }}
+            />
+          </div>
         </div>
       )}
 

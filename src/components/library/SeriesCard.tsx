@@ -20,6 +20,7 @@ import * as ContextMenu from "@radix-ui/react-context-menu";
 import { Edit2, SplitSquareHorizontal, Trash2 } from "lucide-react";
 import { SeriesManagementDialog } from "./SeriesManagementDialog";
 import { api } from "@/lib/tauri";
+import { useLibraryStore } from "@/store/libraryStore";
 import { useToast } from "@/store/toastStore";
 
 // ─── Shimmer Skeleton ─────────────────────────
@@ -58,10 +59,25 @@ export const SeriesCard = memo(function SeriesCard({
   };
 
   const handleDeleteSeries = async () => {
-    toast.info(
-      "Not Implemented",
-      "Series deletion requires backend series ID.",
-    );
+    try {
+      const list = await api.getMangaSeriesList(1000, 0);
+      const targetSeries = list.find(s => s.title.toLowerCase() === series.title.toLowerCase());
+      
+      if (targetSeries && targetSeries.id !== undefined) {
+          await api.deleteMangaSeries(targetSeries.id);
+      }
+      
+      for (const book of series.books) {
+          if (book.id) {
+              await api.removeBookFromSeries(book.id);
+          }
+      }
+      
+      toast.success("Series deleted");
+      await useLibraryStore.getState().loadInitialBooks();
+    } catch (err) {
+        toast.error("Error", "Failed to delete series");
+    }
   };
 
   const handleUngroupAll = async () => {
@@ -72,6 +88,7 @@ export const SeriesCard = memo(function SeriesCard({
         }
       }
       toast.success("Ungrouped", "All volumes removed from series.");
+      await useLibraryStore.getState().loadInitialBooks();
     } catch (err) {
       toast.error("Error", "Failed to ungroup volumes");
     }
@@ -295,7 +312,10 @@ export const SeriesCard = memo(function SeriesCard({
         open={managementOpen}
         onOpenChange={setManagementOpen}
         seriesTitle={series.title}
+        ephemeralCover={series.firstCover}
+        ephemeralBooks={series.books}
         initialTab={managementTab}
+        onUpdated={() => useLibraryStore.getState().loadInitialBooks()}
       />
     </>
   );

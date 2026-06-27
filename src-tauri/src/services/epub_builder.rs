@@ -390,18 +390,34 @@ p {
 
 p:first-of-type {
   text-indent: 0;
+}
+
+p.list-item {
+  text-indent: 0;
+  margin-left: 2em;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
 }"#
         .to_string()
     }
 
     /// Format content as HTML paragraphs
     fn format_content(content: &str) -> String {
+        let is_list_item = |text: &str| -> bool {
+            text.starts_with('•') || text.starts_with('-') || text.starts_with('*') 
+            || (text.chars().next().map_or(false, |c| c.is_ascii_digit()) && text.contains(". "))
+        };
+
         content
             .split("\n\n")
             .filter(|p| !p.trim().is_empty())
             .map(|p| {
                 let text = p.replace('\n', " ").trim().to_string();
-                format!("    <p>{}</p>", Self::escape_xml(&text))
+                if is_list_item(&text) {
+                    format!("    <p class=\"list-item\">{}</p>", Self::escape_xml(&text))
+                } else {
+                    format!("    <p>{}</p>", Self::escape_xml(&text))
+                }
             })
             .collect::<Vec<_>>()
             .join("\n")

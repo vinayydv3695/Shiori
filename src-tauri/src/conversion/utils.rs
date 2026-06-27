@@ -483,7 +483,8 @@ fn extract_safe_attrs(tag_buf: &str, tag_name: &str) -> String {
             }
             "alt" if tag_name == "img" => true,
             "epub:type" | "type" if tag_name == "aside" => true,
-            "id" if (tag_name == "aside" || tag_name == "a") => true,
+            "id" | "name" if tag_name == "a" => true,
+            "id" if tag_name == "aside" => true,
             _ => false,
         };
 
@@ -925,12 +926,17 @@ pub fn looks_like_heading(text: &str) -> bool {
         "afterword",
         "appendix",
         "interlude",
-        "act ",
-        "scene ",
+        "act",
+        "scene",
         "volume",
     ];
     let first_lower = words[0].to_lowercase();
-    if keywords.iter().any(|k| first_lower.starts_with(k)) {
+    
+    // Check if the first word is exactly the keyword, OR if it's the keyword followed by a number/punctuation (handled by checking exact match of the first word, since `words[0]` is split by whitespace)
+    // Actually, sometimes the word might have punctuation attached if we didn't strip it, but `first_lower` is just `words[0]`.
+    // Wait, let's just check if `keywords.contains(&first_lower.as_str())`
+    let stripped_first = first_lower.trim_matches(|c: char| !c.is_alphanumeric());
+    if keywords.contains(&stripped_first) {
         return true;
     }
 

@@ -12,7 +12,7 @@ export function AnnotationSidebar() {
   const showAnnotationSidebar = useReaderStore(state => state.showAnnotationSidebar);
   const toggleAnnotationSidebar = useReaderStore(state => state.toggleAnnotationSidebar);
   const currentBookId = useReaderStore(state => state.currentBookId);
-  const [filter, setFilter] = useState<'all' | 'highlight' | 'note' | 'bookmark'>('all');
+  const [filter, setFilter] = useState<'all' | 'highlight' | 'note'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editNote, setEditNote] = useState('');
@@ -68,8 +68,7 @@ export function AnnotationSidebar() {
         return <Highlighter className="w-4 h-4 text-yellow-600" />;
       case 'note':
         return <StickyNote className="w-4 h-4 text-blue-600" />;
-      case 'bookmark':
-        return <Bookmark className="w-4 h-4 text-blue-600" />;
+
       default:
         return null;
     }
@@ -148,16 +147,7 @@ export function AnnotationSidebar() {
         >
           Notes
         </button>
-        <button
-          onClick={() => setFilter('bookmark')}
-          className={`flex-1 px-4 py-2 text-sm font-medium ${
-            filter === 'bookmark'
-              ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          Bookmarks
-        </button>
+
       </div>
 
       {/* Annotations list */}
@@ -167,7 +157,6 @@ export function AnnotationSidebar() {
             <p>No {filter === 'all' ? '' : filter} annotations yet.</p>
             <p className="text-sm mt-2">
               {filter === 'highlight' && 'Select text to create a highlight.'}
-              {filter === 'bookmark' && 'Click the bookmark button to add one.'}
               {filter === 'note' && 'Add notes to your highlights.'}
             </p>
           </div>
@@ -194,15 +183,13 @@ export function AnnotationSidebar() {
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
-                    {annotation.annotationType !== 'bookmark' && (
-                      <button
-                        onClick={() => handleEditStart(annotation)}
-                        className="p-1 hover:bg-gray-200 rounded"
-                        title="Edit note"
-                      >
-                        <Edit2 className="w-3 h-3" />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => handleEditStart(annotation)}
+                      className="p-1 hover:bg-gray-200 rounded"
+                      title="Edit note"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                    </button>
                     <button
                       onClick={() => handleDelete(annotation)}
                       className="p-1 hover:bg-red-100 rounded text-red-600"

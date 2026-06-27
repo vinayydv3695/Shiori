@@ -71,7 +71,7 @@ pub mod tests {
     #[tokio::test]
     async fn test_unsupported_format_error() {
         let result =
-            crate::conversion::convert_to_epub_new(std::path::Path::new("test.xyz"), None).await;
+            crate::conversion::convert_to_epub_new(std::path::Path::new("test.xyz"), None, None).await;
         assert!(
             matches!(
                 result,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Highlighter, StickyNote, Bookmark, X, Volume2 } from '@/components/icons';
 import { api } from '@/lib/tauri';
@@ -104,7 +104,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
       const rect = range.getBoundingClientRect();
 
       // Position the toolbar centered above the selection
-      const toolbarWidth = 240;
+      const toolbarWidth = toolbarRef.current?.offsetWidth || 550;
       let x = rect.left + rect.width / 2 - toolbarWidth / 2;
       const y = rect.top - 50;
 
@@ -118,6 +118,29 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     document.addEventListener('selectionchange', handleSelectionChange);
     return () => document.removeEventListener('selectionchange', handleSelectionChange);
   }, [hideToolbar]);
+
+  // Ensure toolbar stays within bounds after it mounts and its true size is known
+  useLayoutEffect(() => {
+    if (isVisible && toolbarRef.current) {
+      const actualWidth = toolbarRef.current.offsetWidth;
+      const actualHeight = toolbarRef.current.offsetHeight;
+      
+      let newX = position.x;
+      let newY = position.y;
+
+      if (position.x + actualWidth + 8 > window.innerWidth) {
+        newX = Math.max(8, window.innerWidth - actualWidth - 8);
+      }
+      
+      if (position.y + actualHeight + 8 > window.innerHeight) {
+        newY = Math.max(8, window.innerHeight - actualHeight - 8);
+      }
+
+      if (newX !== position.x || newY !== position.y) {
+        setPosition({ x: newX, y: newY });
+      }
+    }
+  }, [isVisible, position.x, position.y, showNoteInput, showTranslation]);
 
   // Focus note input when shown
   useEffect(() => {
@@ -206,34 +229,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     window.getSelection()?.removeAllRanges();
   }, [bookId, currentLocation, selectedText, noteText, selectedCategoryId, hideToolbar]);
 
-  const handleBookmark = useCallback(async () => {
-    try {
-      await api.createAnnotation(
-        bookId,
-        'bookmark',
-        currentLocation,
-        undefined,
-        selectedText.slice(0, 100), // Truncate for bookmark preview
-        undefined,
-        '#3b82f6'
-      );
-      useToastStore.getState().addToast({
-        title: 'Bookmark added',
-        variant: 'success',
-        duration: 2000,
-      });
-      // Notify readers to re-render highlights
-      window.dispatchEvent(new CustomEvent('annotation-changed'));
-    } catch (err) {
-      useToastStore.getState().addToast({
-        title: 'Failed to add bookmark',
-        description: String(err),
-        variant: 'error',
-      });
-    }
-    hideToolbar();
-    window.getSelection()?.removeAllRanges();
-  }, [bookId, currentLocation, selectedText, hideToolbar]);
+
 
   const handleSpeak = useCallback(() => {
     if (!TTSEngine.isAvailable()) {
@@ -407,15 +403,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
                 <span>Note</span>
               </button>
 
-              {/* Bookmark */}
-              <button
-                className="text-selection-toolbar-btn"
-                onClick={handleBookmark}
-                title="Bookmark this passage"
-              >
-                <Bookmark size={14} />
-                <span>Bookmark</span>
-              </button>
+
 
               {TTSEngine.isAvailable() && (
                 <button

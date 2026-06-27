@@ -103,9 +103,8 @@ export function useBookActions(books: Book[]) {
       showDialog: bookOpen.showConvertDialog,
       isConverting: bookOpen.isConverting,
       pendingBook: bookOpen.pendingBook,
-      onConfirm: bookOpen.handleConfirmConvert,
-      onCancel: bookOpen.handleCancelConvert,
-      onDialogOpenChange: bookOpen.handleDialogOpenChange,
+      onConfirm: bookOpen.onConfirm,
+      onDialogOpenChange: bookOpen.onDialogOpenChange,
     },
     // Expose resume-reading dialog state
     resumeReading: {

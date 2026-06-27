@@ -628,7 +628,6 @@ export function OnlineMangaView() {
             setSelectedPluginManga(null);
           }}
           onReadChapter={handleReadUnifiedChapter}
-          onBookmark={() => showInfoToast('Bookmark', 'Bookmark feature coming soon')}
         />
       </div>
     );

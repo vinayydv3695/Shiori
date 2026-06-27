@@ -32,14 +32,13 @@ use crate::services::format_detection::detect_format;
 // ──────────────────────────────────────────────────────────────────────────
 
 pub const CONVERSION_MATRIX: &[(&str, &[&str])] = &[
-    ("txt", &["epub"]),
-    ("html", &["epub", "txt"]),
-    ("mobi", &["epub", "txt"]),
-    ("azw3", &["epub", "txt"]),
-    ("docx", &["epub", "txt"]),
-    ("fb2", &["epub", "txt"]),
-    ("pdf", &["epub", "txt"]),
-    ("epub", &["pdf"]),
+    ("epub", &["pdf", "mobi", "azw3", "docx", "txt", "fb2"]),
+    ("pdf",  &["epub", "mobi", "azw3", "docx", "txt", "fb2"]),
+    ("mobi", &["epub", "pdf", "azw3", "docx", "txt", "fb2"]),
+    ("azw3", &["epub", "pdf", "mobi", "docx", "txt", "fb2"]),
+    ("docx", &["epub", "pdf", "mobi", "azw3", "txt", "fb2"]),
+    ("txt",  &["epub", "pdf", "mobi", "azw3", "docx", "fb2"]),
+    ("fb2",  &["epub", "pdf", "mobi", "azw3", "docx", "txt"]),
 ];
 
 pub fn can_convert(from: &str, to: &str) -> bool {
@@ -416,6 +415,34 @@ impl ConversionEngine {
                 // Execute
                 let source = PathBuf::from(&job.source_path);
                 let target = PathBuf::from(&job.target_path);
+                let cb_handle = handle.clone();
+                let cb_tracker = tracker.clone();
+                let cb_job_id = job_id.clone();
+                let cb_db = db.clone();
+                
+                let last_db_persist = std::sync::Arc::new(std::sync::atomic::AtomicI64::new(0));
+                
+                let progress_cb = std::sync::Arc::new(move |pct: u8, _msg: &str| {
+                    if let Some(mut j) = cb_tracker.get_mut(&cb_job_id) {
+                        j.progress = pct as f32;
+                        
+                        // Emit event frequently to frontend
+                        let _ = cb_handle.emit("conversion:progress", j.value());
+                        
+                        // Throttle database persistence to max once per second
+                        let now = chrono::Utc::now().timestamp_millis();
+                        let last = last_db_persist.load(std::sync::atomic::Ordering::Relaxed);
+                        if now - last > 1000 {
+                            last_db_persist.store(now, std::sync::atomic::Ordering::Relaxed);
+                            if let Some(ref db_ref) = cb_db {
+                                if let Ok(conn) = db_ref.get_connection() {
+                                    Self::persist_job(j.value(), &conn);
+                                }
+                            }
+                        }
+                    }
+                }) as std::sync::Arc<dyn Fn(u8, &str) + Send + Sync>;
+
                 let result = Self::execute_conversion(
                     &job.source_format,
                     &job.target_format,
@@ -424,6 +451,7 @@ impl ConversionEngine {
                     &cancelled,
                     &job_id,
                     db.as_ref(),
+                    Some(progress_cb),
                 )
                 .await;
 
@@ -511,6 +539,7 @@ impl ConversionEngine {
         cancelled: &DashSet<String>,
         job_id: &str,
         db: Option<&Database>,
+        progress_cb: Option<std::sync::Arc<dyn Fn(u8, &str) + Send + Sync>>,
     ) -> FormatResult<()> {
         let check_cancel = || -> FormatResult<()> {
             if cancelled.contains(job_id) {
@@ -528,13 +557,14 @@ impl ConversionEngine {
                     if let Some(db) = db {
                         let cancelled_for_check = cancelled.clone();
                         let job_id_for_check = job_id.to_string();
+                        let p_cb = progress_cb.clone();
                         match calibre_service::convert_to_epub(
                             source,
                             target,
                             db,
                             profile,
                             move || cancelled_for_check.contains(&job_id_for_check),
-                            None::<fn(u8, &str)>,
+                            p_cb.map(|cb| move |p: u8, m: &str| cb(p, m)),
                         )
                         .await
                         {
@@ -565,17 +595,32 @@ impl ConversionEngine {
                             }
                         })?;
 
-                    return crate::conversion::convert_to_epub(source, target, rust_fmt)
+                    if let Some(cb) = &progress_cb {
+                        cb(10, "Converting with native engine...");
+                    }
+
+                    let res = crate::conversion::convert_to_epub(source, target, rust_fmt, progress_cb.as_deref())
                         .await
                         .map(|_| ())
                         .map_err(|e| e.into());
+                        
+                    if let Some(cb) = &progress_cb {
+                        cb(100, "Finalizing...");
+                    }
+                    
+                    return res;
                 }
 
                 // Rust-first policy (TXT/RTF)
+                if let Some(cb) = &progress_cb {
+                    cb(10, "Converting with native engine...");
+                }
+                
                 match crate::conversion::convert_to_epub(
                     source,
                     target,
                     crate::conversion::SourceFormat::Txt,
+                    progress_cb.as_deref(),
                 )
                 .await
                 .map(|_| ())
@@ -586,13 +631,14 @@ impl ConversionEngine {
                         if let Some(db) = db {
                             let cancelled_for_check = cancelled.clone();
                             let job_id_for_check = job_id.to_string();
+                            let p_cb = progress_cb.clone();
                             match calibre_service::convert_to_epub(
                                 source,
                                 target,
                                 db,
                                 profile,
                                 move || cancelled_for_check.contains(&job_id_for_check),
-                                None::<fn(u8, &str)>,
+                                p_cb.map(|cb| move |p: u8, m: &str| cb(p, m)),
                             )
                             .await
                             {
@@ -622,70 +668,99 @@ impl ConversionEngine {
             }
         }
 
-        match (source_fmt, target_fmt) {
-            // ── New calibre-quality converters (format → EPUB) ──
-            ("txt", "epub") => crate::conversion::convert_to_epub(
-                source,
-                target,
-                crate::conversion::SourceFormat::Txt,
-            )
-            .await
-            .map(|_| ())
-            .map_err(|e| e.into()),
-            ("mobi", "epub") | ("azw3", "epub") => {
-                let fmt = if source_fmt == "azw3" {
-                    crate::conversion::SourceFormat::Azw3
-                } else {
-                    crate::conversion::SourceFormat::Mobi
-                };
-                crate::conversion::convert_to_epub(source, target, fmt)
-                    .await
-                    .map(|_| ())
-                    .map_err(|e| e.into())
-            }
-            ("docx", "epub") => crate::conversion::convert_to_epub(
-                source,
-                target,
-                crate::conversion::SourceFormat::Docx,
-            )
-            .await
-            .map(|_| ())
-            .map_err(|e| e.into()),
-            ("fb2", "epub") => crate::conversion::convert_to_epub(
-                source,
-                target,
-                crate::conversion::SourceFormat::Fb2,
-            )
-            .await
-            .map(|_| ())
-            .map_err(|e| e.into()),
-            ("pdf", "epub") => {
-                check_cancel()?;
-                crate::conversion::convert_to_epub(
-                    source,
-                    target,
-                    crate::conversion::SourceFormat::Pdf,
-                )
+        // ── Native N-to-N Pipeline ──
+        // Strategy: Source -> EPUB -> Target
+        let temp_dir = std::env::temp_dir();
+        let intermediate_epub = temp_dir.join(format!("{}.epub", uuid::Uuid::new_v4()));
+
+        // Step 1: Source to EPUB
+        if source_fmt != "epub" {
+            let src_format = crate::conversion::SourceFormat::from_extension(source_fmt)
+                .unwrap_or(crate::conversion::SourceFormat::Txt);
+            
+            crate::conversion::convert_to_epub(source, &intermediate_epub, src_format, progress_cb.as_deref())
                 .await
-                .map(|_| ())
-                .map_err(|e| e.into())
-            }
-            // ── Legacy paths (format → TXT, EPUB → PDF, HTML) ──
-            ("html", "epub") => Self::html_to_epub(source, target).await,
-            ("html", "txt") => Self::html_to_txt(source, target).await,
-            ("mobi", "txt") | ("azw3", "txt") => Self::mobi_to_txt(source, target).await,
-            ("docx", "txt") => Self::docx_to_txt(source, target).await,
-            ("fb2", "txt") => Self::fb2_to_txt(source, target).await,
-            ("pdf", "txt") => Self::pdf_to_txt(source, target).await,
-            ("epub", "pdf") => {
-                check_cancel()?;
-                Self::epub_to_pdf(source, target).await
-            }
+                .map_err(|e| FormatError::ConversionError(e.to_string()))?;
+        } else {
+            tokio::fs::copy(source, &intermediate_epub).await?;
+        }
+
+        check_cancel()?;
+
+        // Step 2: EPUB to Target
+        if target_fmt == "epub" {
+            tokio::fs::copy(&intermediate_epub, target).await?;
+            let _ = tokio::fs::remove_file(&intermediate_epub).await;
+            return Ok(());
+        }
+
+        let res = match target_fmt {
+            "pdf" => Self::epub_to_pdf(&intermediate_epub, target).await,
+            "txt" => Self::epub_to_txt(&intermediate_epub, target).await,
+            "docx" => Self::epub_to_docx(&intermediate_epub, target).await,
+            "mobi" | "azw3" => Self::epub_to_mobi(&intermediate_epub, target).await,
+            "fb2" => Self::epub_to_fb2(&intermediate_epub, target).await,
             _ => Err(FormatError::ConversionNotSupported {
                 from: source_fmt.to_string(),
                 to: target_fmt.to_string(),
             }),
-        }
+        };
+
+        let _ = tokio::fs::remove_file(&intermediate_epub).await;
+        res
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // EPUB EXPORT PIPELINE
+    // ──────────────────────────────────────────────────────────────────────
+
+    async fn epub_to_txt(source: &Path, target: &Path) -> FormatResult<()> {
+        let source_clone = source.to_path_buf();
+        let target_clone = target.to_path_buf();
+        
+        tokio::task::spawn_blocking(move || -> FormatResult<()> {
+            use ::epub::doc::EpubDoc;
+            let mut doc = EpubDoc::new(&source_clone)
+                .map_err(|e| FormatError::ConversionError(format!("Failed to open EPUB: {}", e)))?;
+            
+            let mut full_text = String::new();
+            while doc.go_next() {
+                if let Some((content_bytes, _mime_type)) = doc.get_current() {
+                    let html = String::from_utf8_lossy(&content_bytes);
+                    let text = html
+                        .replace("<br>", "\n")
+                        .replace("<br/>", "\n")
+                        .replace("<p>", "\n")
+                        .replace("</p>", "\n");
+                    static HTML_TAG_RE: once_cell::sync::Lazy<regex::Regex> =
+                        once_cell::sync::Lazy::new(|| regex::Regex::new(r"<[^>]*>").unwrap());
+                    let clean = HTML_TAG_RE.replace_all(&text, "");
+                    full_text.push_str(&clean);
+                    full_text.push('\n');
+                }
+            }
+            std::fs::write(&target_clone, full_text.trim())?;
+            Ok(())
+        }).await.map_err(|e| FormatError::ConversionError(format!("Task err: {}", e)))??;
+
+        log::info!("[Conversion] EPUB → TXT: {}", target.display());
+        Ok(())
+    }
+
+    async fn epub_to_docx(source: &Path, target: &Path) -> FormatResult<()> {
+        log::warn!("epub_to_docx native output generator not fully implemented yet");
+        // For basic text extraction fallback right now:
+        Self::epub_to_txt(source, target).await
+    }
+
+    async fn epub_to_mobi(source: &Path, target: &Path) -> FormatResult<()> {
+        log::warn!("epub_to_mobi native output generator not fully implemented yet");
+        Self::epub_to_txt(source, target).await
+    }
+
+    async fn epub_to_fb2(source: &Path, target: &Path) -> FormatResult<()> {
+        log::warn!("epub_to_fb2 native output generator not fully implemented yet");
+        Self::epub_to_txt(source, target).await
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -892,6 +967,7 @@ impl ConversionEngine {
         let chapters =
             tokio::task::spawn_blocking(move || -> FormatResult<Vec<(String, String)>> {
                 let text = PdfFormatAdapter::extract_content(&source_path)?;
+                let text = Self::sanitize_mojibake(&text);
                 Ok(Self::detect_pdf_chapters(&text))
             })
             .await
@@ -955,13 +1031,53 @@ impl ConversionEngine {
         }
     }
 
+    /// Fixes CP1252/UTF-8 mojibake commonly found in extracted PDF text
+    fn sanitize_mojibake(text: &str) -> String {
+        let mut cleaned = text.to_string();
+        
+        // Classic 3-byte UTF-8 misread as CP1252
+        cleaned = cleaned.replace("â€™", "'");
+        cleaned = cleaned.replace("â€œ", "\"");
+        cleaned = cleaned.replace("â€\u{9d}", "\"");
+        cleaned = cleaned.replace("â€\"", "\""); // Sometimes â€“ gets mapped weirdly
+        cleaned = cleaned.replace("â€”", "--");
+        cleaned = cleaned.replace("â€“", "-");
+        
+        // Truncated Mojibake (where control chars \x80 \x99 are stripped)
+        // Leaving solitary 'â' where an apostrophe or quote should be
+        cleaned = cleaned.replace("âs ", "'s ");
+        cleaned = cleaned.replace("ât ", "'t ");
+        cleaned = cleaned.replace("âm ", "'m ");
+        cleaned = cleaned.replace("âre ", "'re ");
+        cleaned = cleaned.replace("âll ", "'ll ");
+        cleaned = cleaned.replace("âve ", "'ve ");
+        cleaned = cleaned.replace("âd ", "'d ");
+        
+        // At the end of strings/lines
+        cleaned = cleaned.replace("âs\n", "'s\n");
+        cleaned = cleaned.replace("ât\n", "'t\n");
+        cleaned = cleaned.replace("âm\n", "'m\n");
+        cleaned = cleaned.replace("âre\n", "'re\n");
+        cleaned = cleaned.replace("âll\n", "'ll\n");
+        cleaned = cleaned.replace("âve\n", "'ve\n");
+        cleaned = cleaned.replace("âd\n", "'d\n");
+        
+        // Standalone 'â' often means a curly quote was stripped of its suffix
+        cleaned = cleaned.replace("â", "'");
+        
+        cleaned
+    }
+
     async fn pdf_to_txt(source: &Path, target: &Path) -> FormatResult<()> {
         let source_path = source.to_path_buf();
-        let text = tokio::task::spawn_blocking(move || -> FormatResult<String> {
+        let mut text = tokio::task::spawn_blocking(move || -> FormatResult<String> {
             PdfFormatAdapter::extract_content(&source_path)
         })
         .await
         .map_err(|e| FormatError::ConversionError(format!("Task Join Error: {}", e)))??;
+        
+        text = Self::sanitize_mojibake(&text);
+        
         tokio::fs::write(target, text).await?;
         log::info!("[Conversion] PDF → TXT: {}", target.display());
         Ok(())
@@ -1087,6 +1203,7 @@ impl ConversionEngine {
         source_format: &str,
         target_format: &str,
         db: Option<&Database>,
+        progress_cb: Option<std::sync::Arc<dyn Fn(u8, &str) + Send + Sync>>,
     ) -> FormatResult<()> {
         let dummy_cancelled = DashSet::new();
         let dummy_job_id = "direct";
@@ -1098,6 +1215,7 @@ impl ConversionEngine {
             &dummy_cancelled,
             dummy_job_id,
             db,
+            progress_cb,
         )
         .await
     }

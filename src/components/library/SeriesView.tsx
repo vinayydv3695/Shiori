@@ -301,7 +301,14 @@ export const SeriesView = memo(function SeriesView({
     const targetChapter = parseFloat(jumpInput);
     if (isNaN(targetChapter)) return;
     
-    const targetBook = series?.books.find(b => b.series_index === targetChapter);
+    const targetBook = series?.books.find(b => {
+      let idx = b.series_index;
+      if (idx == null || isNaN(idx)) {
+          const m = b.title.match(/\d+/g);
+          if (m) idx = parseFloat(m[m.length - 1]);
+      }
+      return idx === targetChapter;
+    });
     if (targetBook && targetBook.id) {
       const el = bookRefs.current.get(targetBook.id);
       if (el) {

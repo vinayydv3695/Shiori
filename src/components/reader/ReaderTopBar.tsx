@@ -63,14 +63,7 @@ export function ReaderTopBar({
 
         <div className="premium-top-bar-right">
           {rightExtra}
-          <button
-            onClick={() => toggleSidebar('bookmarks')}
-            className="premium-control-button"
-            aria-label="Bookmarks"
-            title="Bookmarks"
-          >
-            <Bookmark className="premium-control-icon" />
-          </button>
+
           <ReaderSettings format={format} />
           <button
             onClick={toggleFullscreen}

@@ -24,6 +24,7 @@ import { TTSEngine } from '@/lib/ttsEngine'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { useToast } from '../../store/toastStore'
 import { logger } from '../../lib/logger'
+import { useLibraryStore } from '@/store/libraryStore';
 import { useSourceStore } from '../../store/sourceStore'
 import { SourceManager } from './SourceManager'
 import { TorboxSettings } from './TorboxSettings'
@@ -99,6 +100,7 @@ const ALL_SETTINGS: SettingDefinition[] = [
   { label: 'Margin Size', description: 'Page margin in pixels', tab: 'manga-reading', section: 'Performance' },
   { label: 'Export Database', description: 'Export library data', tab: 'advanced', section: 'Database' },
   { label: 'Import Database', description: 'Import library data', tab: 'advanced', section: 'Database' },
+  { label: 'Clean Up Database', description: 'Remove orphaned records and unused covers', tab: 'advanced', section: 'Database' },
   { label: 'Reset Database', description: 'Delete all data', tab: 'advanced', section: 'Database' },
   { label: 'Reset Onboarding', description: 'Re-show welcome screens', tab: 'advanced', section: 'Database' },
   { label: 'Enable Logging', description: 'Save debug logs', tab: 'advanced', section: 'Debug' },
@@ -1069,7 +1071,7 @@ const BookReadingSettings = ({
                 Text-to-Speech is not available on this platform.
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Speech synthesis requires a Chromium-based WebView (Windows/macOS). Linux WebKitGTK does not support the Web Speech API.
+                Your browser or operating system does not support the Web Speech API.
               </p>
             </div>
           )}
@@ -1427,6 +1429,7 @@ const AdvancedSettings = ({
 }) => {
   const [isExporting, setIsExporting] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
+  const [isCleaningUp, setIsCleaningUp] = useState(false)
   const [isBackingUp, setIsBackingUp] = useState(false)
   const [isRestoring, setIsRestoring] = useState(false)
   const [includeBooks, setIncludeBooks] = useState(false)
@@ -1497,6 +1500,23 @@ const AdvancedSettings = ({
       toast.error('Failed to export database')
     } finally {
       setIsExporting(false)
+    }
+  }
+
+  const handleCleanUpDatabase = async () => {
+    if (confirm('Are you sure you want to clean up the database? This will remove records for missing files and unused covers.')) {
+      try {
+        setIsCleaningUp(true)
+        const [books, covers] = await api.cleanUpDatabase()
+        toast.success(`Database cleaned: Removed ${books} missing books and ${covers} unused covers.`)
+        // Refresh library to reflect removed books
+        await useLibraryStore.getState().loadInitialBooks()
+      } catch (err) {
+        logger.error('Cleanup failed:', err)
+        toast.error('Failed to clean up database')
+      } finally {
+        setIsCleaningUp(false)
+      }
     }
   }
 
@@ -1615,7 +1635,7 @@ const AdvancedSettings = ({
 
   return (
     <div className="space-y-8">
-      {isSectionVisible('Database', ['Export Database', 'Import Database', 'Reset Database', 'Reset Onboarding']) && (
+      {isSectionVisible('Database', ['Export Database', 'Import Database', 'Clean Up Database', 'Reset Database', 'Reset Onboarding']) && (
         <SettingSection title="Database" description="Manage your library database">
           <div className="space-y-3">
             <Button variant="outline" onClick={handleExport} disabled={isExporting}>
@@ -1623,6 +1643,9 @@ const AdvancedSettings = ({
             </Button>
             <Button variant="outline" onClick={handleImport}>
               Import Database
+            </Button>
+            <Button variant="outline" onClick={handleCleanUpDatabase} disabled={isCleaningUp}>
+              {isCleaningUp ? 'Cleaning...' : 'Clean Up Database'}
             </Button>
             <Button variant="destructive" onClick={handleReset} disabled={isResetting}>
               {isResetting ? 'Resetting...' : 'Reset Database'}

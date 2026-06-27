@@ -1,14 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api, isTauri } from '@/lib/tauri';
 import type { DailyReadingStats, ReadingStreak, ReadingGoal } from '@/lib/tauri';
-import { logger } from '@/lib/logger';
-import { Loader2, X, RotateCw } from '@/components/icons';
+import { Loader2, X, RotateCw, BarChart2, CalendarDays, Flame, Trophy, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ActivityHeatmap } from './ActivityHeatmap';
+import { ReadingCalendar } from './ReadingCalendar';
+import { Button } from '../ui/button';
+
 interface StatisticsViewProps {
   onClose: () => void;
 }
-
-import { ActivityHeatmap } from './ActivityHeatmap';
 
 export function StatisticsView({ onClose }: StatisticsViewProps) {
   const [loading, setLoading] = useState(true);
@@ -70,110 +71,151 @@ export function StatisticsView({ onClose }: StatisticsViewProps) {
     return `${minutes}m`;
   };
 
-  const goalMinutes = goal?.daily_minutes_target || 30;
-  const todayMinutes = Math.floor(todaySeconds / 60);
-  const goalProgress = Math.min(100, Math.round((todayMinutes / goalMinutes) * 100)) || 0;
-
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden">
-      <div className="flex-none p-6 border-b border-border">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Reading Statistics</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Track your reading progress and habits
-            </p>
+      {/* Sticky Header matching the dialog vibe */}
+      <div className="flex-none sticky top-0 z-10 bg-muted/20 border-b border-border backdrop-blur-md">
+        <div className="max-w-6xl mx-auto flex items-center justify-between p-6">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 shadow-sm border border-primary/20">
+              <BarChart2 className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-foreground">Reading Statistics</h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Track your reading progress and habits
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
               onClick={loadData}
               disabled={loading}
-              className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors disabled:opacity-50"
               title="Refresh statistics"
+              className="bg-background"
             >
-              <RotateCw size={20} className={cn(loading && "animate-spin")} />
-            </button>
-            <button
-              type="button"
+              <RotateCw size={18} className={cn(loading && "animate-spin")} />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
               onClick={onClose}
-              className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
               title="Close statistics"
+              className="bg-background"
             >
-              <X size={20} />
-            </button>
+              <X size={18} />
+            </Button>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 bg-background">
-        <div className="max-w-5xl mx-auto space-y-6 pb-20">
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-6 bg-background">
+        <div className="max-w-6xl mx-auto space-y-6 pb-20">
           {error ? (
-            <div className="flex flex-col items-center justify-center py-20 bg-card rounded-xl border border-destructive/50 p-6">
-              <p className="text-destructive mb-4">{error}</p>
-              <button
-                type="button"
-                onClick={loadData}
-                className="px-4 py-2 bg-destructive/10 text-destructive rounded-md hover:bg-destructive/20 transition-colors"
-              >
+            <div className="flex flex-col items-center justify-center py-20 bg-card rounded-xl border border-destructive/50 p-6 shadow-sm">
+              <p className="text-destructive mb-4 font-medium">{error}</p>
+              <Button onClick={loadData} variant="destructive">
                 Retry
-              </button>
+              </Button>
             </div>
           ) : loading ? (
-            <div className="flex items-center justify-center py-20 text-muted-foreground">
-              <Loader2 className="w-8 h-8 animate-spin" />
+            <div className="flex items-center justify-center py-32 text-muted-foreground">
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <p className="text-sm font-medium">Loading statistics...</p>
+              </div>
             </div>
           ) : (
             <>
+              {/* Stat Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-card border border-border rounded-xl p-4 md:p-6 shadow-sm">
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Today's Reading</p>
-                  <p className="text-2xl font-bold text-foreground">
+                <div className="bg-card/50 hover:bg-card border border-border rounded-xl p-5 transition-colors shadow-sm relative overflow-hidden group">
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">Today's Reading</p>
+                    <Clock className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
+                  <p className="text-3xl font-bold text-foreground tracking-tight">
                     {formatHoursMinutes(todaySeconds)}
                   </p>
                 </div>
-                <div className="bg-card border border-border rounded-xl p-4 md:p-6 shadow-sm relative overflow-hidden">
-                  <div className="absolute -right-4 -top-4 w-16 h-16 bg-orange-500/20 rounded-full blur-2xl pointer-events-none" />
-                  <p className="text-sm font-medium text-muted-foreground mb-1 relative z-10">Current Streak</p>
+
+                <div className="bg-card border-2 border-primary/20 rounded-xl p-5 shadow-md relative overflow-hidden group">
+                  <div className="absolute -right-6 -top-6 w-24 h-24 bg-primary/10 rounded-full blur-2xl pointer-events-none group-hover:bg-primary/20 transition-colors" />
+                  <div className="flex items-center justify-between mb-4 relative z-10">
+                    <p className="text-sm font-medium text-foreground">Current Streak</p>
+                    <Flame className="w-4 h-4 text-primary animate-pulse" />
+                  </div>
                   <div className="flex items-baseline gap-1.5 relative z-10">
                     <p className={cn(
-                      "text-2xl font-bold",
-                      (streak?.current_streak ?? 0) > 0
-                        ? "text-orange-500"
-                        : "text-foreground"
+                      "text-3xl font-bold tracking-tight",
+                      (streak?.current_streak ?? 0) > 0 ? "text-primary" : "text-foreground"
                     )}>
                       {streak?.current_streak || 0}
                     </p>
-                    <p className="text-sm text-muted-foreground">days</p>
+                    <p className="text-sm font-medium text-muted-foreground">days</p>
                   </div>
                   {(streak?.current_streak ?? 0) > 0 && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-orange-400 via-red-400 to-yellow-400" />
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-primary/50 via-primary to-primary/50" />
                   )}
                 </div>
-                <div className="bg-card border border-border rounded-xl p-4 md:p-6 shadow-sm">
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Longest Streak</p>
-                  <div className="flex items-baseline gap-1">
-                    <p className="text-2xl font-bold text-foreground">{streak?.longest_streak || 0}</p>
-                    <p className="text-sm text-muted-foreground">days</p>
+
+                <div className="bg-card/50 hover:bg-card border border-border rounded-xl p-5 transition-colors shadow-sm group">
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">Longest Streak</p>
+                    <Trophy className="w-4 h-4 text-muted-foreground group-hover:text-yellow-500 transition-colors" />
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <p className="text-3xl font-bold text-foreground tracking-tight">{streak?.longest_streak || 0}</p>
+                    <p className="text-sm font-medium text-muted-foreground">days</p>
                   </div>
                 </div>
-                <div className="bg-card border border-border rounded-xl p-4 md:p-6 shadow-sm">
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Total Days</p>
-                  <div className="flex items-baseline gap-1">
-                    <p className="text-2xl font-bold text-foreground">{streak?.total_reading_days || 0}</p>
-                    <p className="text-sm text-muted-foreground">days</p>
+
+                <div className="bg-card/50 hover:bg-card border border-border rounded-xl p-5 transition-colors shadow-sm group">
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">Total Days</p>
+                    <CalendarDays className="w-4 h-4 text-muted-foreground group-hover:text-blue-500 transition-colors" />
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <p className="text-3xl font-bold text-foreground tracking-tight">{streak?.total_reading_days || 0}</p>
+                    <p className="text-sm font-medium text-muted-foreground">days</p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-card border border-border rounded-xl p-4 md:p-6 shadow-sm">
-                <div className="mb-6">
-                  <h2 className="text-lg font-semibold text-foreground">Reading Activity</h2>
-                  <p className="text-sm text-muted-foreground">Last 365 Days</p>
+              {/* Activity & Calendar Section */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 bg-card border border-border rounded-xl p-6 shadow-sm overflow-hidden flex flex-col">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <CalendarDays className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold text-foreground">Reading Activity</h2>
+                      <p className="text-sm text-muted-foreground">Your reading journey over the last 365 days</p>
+                    </div>
+                  </div>
+                  <div className="bg-muted/10 rounded-lg p-6 border border-border/50 flex-1 flex items-center">
+                    <ActivityHeatmap data={yearlyStats} />
+                  </div>
                 </div>
-                <ActivityHeatmap data={yearlyStats} />
-              </div>
 
+                <div className="bg-card border border-border rounded-xl p-6 shadow-sm overflow-hidden flex flex-col">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <Clock className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold text-foreground">Monthly Calendar</h2>
+                      <p className="text-sm text-muted-foreground">Your reading days</p>
+                    </div>
+                  </div>
+                  <div className="bg-muted/10 rounded-lg p-4 border border-border/50 flex-1">
+                    <ReadingCalendar data={yearlyStats} />
+                  </div>
+                </div>
+              </div>
 
             </>
           )}
@@ -182,3 +224,4 @@ export function StatisticsView({ onClose }: StatisticsViewProps) {
     </div>
   );
 }
+

@@ -91,6 +91,7 @@ pub async fn convert_to_epub(
     source_path: &Path,
     output_path: &Path,
     format: SourceFormat,
+    progress_cb: Option<&(dyn Fn(u8, &str) + Send + Sync)>,
 ) -> Result<EpubOutput, ConversionError> {
     if !source_path.exists() {
         return Err(ConversionError::IoError(std::io::Error::new(
@@ -101,7 +102,7 @@ pub async fn convert_to_epub(
 
     match format {
         SourceFormat::Mobi | SourceFormat::Azw3 => mobi::convert(source_path, output_path).await,
-        SourceFormat::Pdf => pdf::convert(source_path, output_path).await,
+        SourceFormat::Pdf => pdf::convert(source_path, output_path, progress_cb).await,
         SourceFormat::Txt => txt::convert(source_path, output_path).await,
         SourceFormat::Fb2 => fb2::convert(source_path, output_path).await,
         SourceFormat::Docx => docx::convert(source_path, output_path).await,
@@ -166,7 +167,7 @@ pub async fn convert_to_epub_new(
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("converted");
-    let tmp_dir = std::env::temp_dir().join("shiori_converted");
+    let tmp_dir = std::env::temp_dir().join(format!("shiori_converted_{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(&tmp_dir)?;
     let output_path = tmp_dir.join(format!("{}.epub", stem));
 
@@ -237,7 +238,8 @@ pub async fn convert_to_epub_new(
         // For these, the existing async converters write the EPUB directly
         "pdf" => {
             report("Parsing PDF", 10);
-            pdf::convert(input_path, &output_path)
+            let pdf_report = |pct: u8, msg: &str| report(msg, pct);
+            pdf::convert(input_path, &output_path, Some(&pdf_report))
                 .await
                 .map_err(|e| ConversionError::Other(e.to_string()))?;
         }

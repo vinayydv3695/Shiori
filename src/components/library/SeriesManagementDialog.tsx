@@ -16,6 +16,8 @@ interface SeriesManagementDialogProps {
   onOpenChange: (open: boolean) => void;
   seriesId?: number;
   seriesTitle?: string;
+  ephemeralCover?: string;
+  ephemeralBooks?: Book[];
   initialTab?: 'edit' | 'volumes' | 'merge';
   onUpdated?: () => void;
 }
@@ -25,6 +27,8 @@ export const SeriesManagementDialog = ({
   onOpenChange,
   seriesId,
   seriesTitle,
+  ephemeralCover,
+  ephemeralBooks,
   initialTab = 'edit',
   onUpdated
 }: SeriesManagementDialogProps) => {
@@ -92,6 +96,15 @@ export const SeriesManagementDialog = ({
         setVolumes(loadedBooks.filter(b => b != null));
       } else {
         setResolvedSeriesId(null);
+        setTitle(seriesTitle || '');
+        setSortTitle(seriesTitle?.toLowerCase() || '');
+        setStatus('ongoing');
+        setCoverPath(ephemeralCover || '');
+        if (ephemeralBooks) {
+          setVolumes(ephemeralBooks);
+        } else {
+          setVolumes([]);
+        }
       }
      } catch (err) {
        logger.error("Failed to load series data:", err);
@@ -102,14 +115,29 @@ export const SeriesManagementDialog = ({
   };
 
   const handleSave = async () => {
-    if (!resolvedSeriesId) return;
     try {
-      await api.updateMangaSeries(resolvedSeriesId, {
+      let targetId = resolvedSeriesId;
+      
+      // If the series doesn't exist in the database yet (ephemeral), create it first
+      if (!targetId) {
+        targetId = await api.createMangaSeries(title || seriesTitle || '');
+        // Assign any ephemeral books to this newly created series
+        if (ephemeralBooks) {
+          for (const book of ephemeralBooks) {
+            if (book.id) {
+              await api.assignBookToSeries(book.id, title || seriesTitle || '', book.series_index);
+            }
+          }
+        }
+      }
+
+      await api.updateMangaSeries(targetId, {
         title,
         sort_title: sortTitle,
         status,
         cover_path: coverPath
       });
+      
        onUpdated?.();
        onOpenChange(false);
      } catch (err) {

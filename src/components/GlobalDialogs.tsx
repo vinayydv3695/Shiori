@@ -107,7 +107,6 @@ export function GlobalDialogs({
             bookTitle={autoConvert.pendingBook.title}
             currentFormat={autoConvert.pendingBook.file_format}
             onConfirm={autoConvert.onConfirm}
-            onCancel={autoConvert.onCancel}
             isConverting={autoConvert.isConverting}
           />
         </Suspense>

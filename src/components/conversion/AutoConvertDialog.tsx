@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X, FileWarning, Loader2, ArrowRight, BookOpen } from 'lucide-react';
+import { X, BookOpen, Loader2 } from 'lucide-react';
+import { Button } from '../ui/button';
 
 interface AutoConvertDialogProps {
   isOpen: boolean;
@@ -8,7 +9,6 @@ interface AutoConvertDialogProps {
   bookTitle: string;
   currentFormat: string;
   onConfirm: () => void;
-  onCancel: () => void;
   isConverting: boolean;
 }
 
@@ -28,94 +28,128 @@ export const AutoConvertDialog: React.FC<AutoConvertDialogProps> = ({
   bookTitle,
   currentFormat,
   onConfirm,
-  onCancel,
   isConverting,
 }) => {
   const formatLabel = FORMAT_LABELS[currentFormat.toLowerCase()] ?? currentFormat.toUpperCase();
+  const [fakeProgress, setFakeProgress] = useState(0);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    
+    if (isOpen) {
+      import('@tauri-apps/api/event').then(({ listen }) => {
+        listen('conversion:progress', (event: any) => {
+          const payload = event.payload;
+          if (payload && payload.id === 'direct' && typeof payload.progress === 'number') {
+            setFakeProgress(payload.progress);
+          }
+        }).then(fn => {
+          unlisten = fn;
+        });
+      });
+    }
+    
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, [isOpen]);
+
+  // Reset progress when conversion starts
+  useEffect(() => {
+    if (isConverting) {
+      setFakeProgress(0);
+    } else {
+      setFakeProgress(100);
+    }
+  }, [isConverting]);
+
+  // Reset when dialog opens
+  useEffect(() => {
+    if (isOpen && !isConverting) {
+      setFakeProgress(0);
+    }
+  }, [isOpen, isConverting]);
 
   return (
     <Dialog.Root open={isOpen} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-50 animate-in fade-in-0" />
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <Dialog.Content
-          className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-md bg-background border border-border rounded-xl shadow-2xl p-0 focus:outline-none animate-in fade-in-0 zoom-in-95"
+          className="dialog-content fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-lg w-[90vw] max-w-md z-50 duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]"
           aria-describedby="auto-convert-description"
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-            <Dialog.Title className="text-lg font-semibold text-foreground flex items-center gap-2">
-              <FileWarning className="w-5 h-5 text-amber-500" />
-              Convert to EPUB?
+          <div className="flex items-center justify-between p-6 border-b border-border bg-muted/20">
+            <Dialog.Title className="text-lg font-semibold text-foreground flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <BookOpen className="h-5 w-5 text-primary" />
+              </div>
+              Convert to EPUB
             </Dialog.Title>
-            {!isConverting && (
-              <Dialog.Close asChild>
-                <button
-                  className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                  title="Close"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </Dialog.Close>
-            )}
+            <Dialog.Close asChild>
+              <button 
+                className="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50" 
+                title="Close"
+                disabled={isConverting}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </Dialog.Close>
           </div>
 
-          {/* Body */}
-          <div className="px-6 py-5 space-y-4">
-            <p className="text-sm text-foreground leading-relaxed">
-              <span className="font-medium">{bookTitle}</span> is in{' '}
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent text-xs font-bold uppercase tracking-wider">
-                {formatLabel}
-              </span>{' '}
-              format. Convert it to EPUB for better readability?
+          {/* Content */}
+          <div className="p-6">
+            <p className="text-sm text-foreground mb-4">
+              Are you sure you want to convert <span className="font-semibold">"{bookTitle}"</span>?
             </p>
-
-            <div
+            <p 
               id="auto-convert-description"
-              className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20"
+              className="text-sm text-muted-foreground mb-6"
             >
-              <FileWarning className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
-              <p className="text-xs text-amber-600 dark:text-amber-400">
-                The original {formatLabel} file will be permanently deleted after successful conversion.
-              </p>
-            </div>
-
+              The original {formatLabel} file will be permanently deleted after successful conversion. This action is irreversible.
+            </p>
+            
+            {/* Progress Section */}
             {isConverting && (
-              <div className="flex items-center justify-center gap-3 py-3">
-                <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                <span className="text-sm text-muted-foreground">
-                  Converting to EPUB…
-                </span>
+              <div className="space-y-2 mt-4 p-4 bg-muted/20 border border-border rounded-lg">
+                <div className="flex justify-between text-sm font-medium text-muted-foreground">
+                  <span>Converting...</span>
+                  <span className="text-primary">{fakeProgress}%</span>
+                </div>
+                <div className="w-full h-2 bg-border rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500 ease-out"
+                    style={{
+                      width: `${fakeProgress}%`,
+                      background: 'linear-gradient(90deg, hsl(var(--primary)), hsl(var(--primary) / 0.6))',
+                    }}
+                  />
+                </div>
               </div>
             )}
           </div>
 
           {/* Footer */}
-          <div className="flex gap-3 px-6 py-4 border-t border-border">
-            <button
-              onClick={onCancel}
-              disabled={isConverting}
-              className="flex-1 px-4 py-2.5 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-            >
-              <BookOpen className="w-4 h-4" />
-              Open as {formatLabel}
-            </button>
-            <button
+          <div className="flex items-center justify-end gap-3 p-6 border-t border-border bg-muted/10">
+            <Dialog.Close asChild>
+              <Button variant="outline" disabled={isConverting}>
+                Keep Original
+              </Button>
+            </Dialog.Close>
+            <Button
               onClick={onConfirm}
               disabled={isConverting}
-              className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity flex items-center justify-center gap-2"
+              className="min-w-[140px]"
             >
               {isConverting ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Converting…
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Converting...
                 </>
               ) : (
-                <>
-                  Convert to EPUB
-                  <ArrowRight className="w-4 h-4" />
-                </>
+                'Convert to EPUB'
               )}
-            </button>
+            </Button>
           </div>
         </Dialog.Content>
       </Dialog.Portal>

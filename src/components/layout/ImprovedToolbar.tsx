@@ -145,30 +145,34 @@ interface SearchBarProps {
 }
 
 const SearchBar = ({ onSearch, currentDomain, value: controlledValue, placeholder }: SearchBarProps) => {
-  const [internalValue, setInternalValue] = useState('')
+  const [internalValue, setInternalValue] = useState(controlledValue || '')
   const [focused, setFocused] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const value = controlledValue ?? internalValue
-  const setValue = (next: string) => {
-    if (controlledValue !== undefined) {
-      onSearch?.(next)
-      return
+  // Sync external changes if they differ
+  useEffect(() => {
+    if (controlledValue !== undefined && controlledValue !== internalValue) {
+      setInternalValue(controlledValue)
     }
+  }, [controlledValue]) // Only re-sync when controlledValue changes from outside
+
+  const setValue = (next: string) => {
     setInternalValue(next)
   }
 
+  // Debounce the callback to parent
   useEffect(() => {
-    if (controlledValue !== undefined) return
-    const timer = setTimeout(() => onSearch?.(value), 280)
+    const timer = setTimeout(() => {
+      if (onSearch && internalValue !== controlledValue) {
+        onSearch(internalValue)
+      }
+    }, 280)
     return () => clearTimeout(timer)
-  }, [value, onSearch, controlledValue])
+  }, [internalValue, onSearch, controlledValue])
 
   const clear = () => {
-    setValue('')
-    if (controlledValue === undefined) {
-      onSearch?.('')
-    }
+    setInternalValue('')
+    onSearch?.('')
     inputRef.current?.focus()
   }
 
@@ -193,7 +197,7 @@ const SearchBar = ({ onSearch, currentDomain, value: controlledValue, placeholde
       <input
         ref={inputRef}
         type="text"
-        value={value}
+        value={internalValue}
         onChange={(e) => setValue(e.target.value)}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
@@ -206,7 +210,7 @@ const SearchBar = ({ onSearch, currentDomain, value: controlledValue, placeholde
           'transition-opacity duration-300',
         )}
       />
-      {value && (
+      {internalValue && (
         <button
           type="button"
           onClick={clear}
@@ -302,47 +306,56 @@ export function PremiumTopbar({
             <button
               type="button"
               className={cn(
-                'flex items-center gap-1.5 h-9 rounded-full px-4 shrink-0',
-                'text-sm font-bold',
+                'flex items-center gap-2 h-9 rounded-md px-3 shrink-0',
+                'text-sm font-medium',
                 'transition-all duration-200',
-                'bg-background/80 hover:bg-background text-foreground border border-border/50 shadow-sm backdrop-blur-md'
+                'bg-background hover:bg-accent hover:text-accent-foreground text-foreground border border-border shadow-sm'
               )}
             >
               <IconImportBook size={16} />
               <span>Import</span>
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56 rounded-xl border-border/50 shadow-xl bg-background/95 backdrop-blur-xl">
-            <DropdownMenuItem onClick={onImportFiles} className="gap-2 p-3 cursor-pointer rounded-lg">
-              <IconImportBook size={15} className="text-primary" />
-              <div className="flex flex-col">
-                <span className="font-semibold">Import Files</span>
-                <span className="text-[10px] text-muted-foreground">Select individual books or manga</span>
+          <DropdownMenuContent align="start" className="w-64 rounded-xl border-border shadow-xl bg-background/95 backdrop-blur-xl p-2">
+            <DropdownMenuItem onClick={onImportFiles} className="gap-3 p-2 cursor-pointer rounded-lg flex items-start">
+              <div className="p-2 bg-primary/10 rounded-md shrink-0 mt-0.5">
+                <IconImportBook size={16} className="text-primary" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <span className="text-sm font-medium leading-none">Import Files</span>
+                <span className="text-xs text-muted-foreground leading-snug">Select individual books or manga</span>
               </div>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={onImportFolder} className="gap-2 p-3 cursor-pointer rounded-lg">
-              <IconImportManga size={15} className="text-orange-500" />
-              <div className="flex flex-col">
-                <span className="font-semibold">Import Folder</span>
-                <span className="text-[10px] text-muted-foreground">Scan directory recursively</span>
+            
+            <DropdownMenuSeparator className="my-1 bg-border/50" />
+            
+            <DropdownMenuItem onClick={onImportFolder} className="gap-3 p-2 cursor-pointer rounded-lg flex items-start">
+              <div className="p-2 bg-primary/10 rounded-md shrink-0 mt-0.5">
+                <IconImportManga size={16} className="text-primary" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <span className="text-sm font-medium leading-none">Import Folder</span>
+                <span className="text-xs text-muted-foreground leading-snug">Scan directory recursively</span>
               </div>
             </DropdownMenuItem>
 
             {currentDomain === 'manga_comics' && (
               <>
-                <DropdownMenuSeparator className="bg-border/50" />
-                <DropdownMenuLabel className="text-xs text-muted-foreground font-semibold px-3 py-2">Organization</DropdownMenuLabel>
+                <DropdownMenuSeparator className="my-1 bg-border/50" />
+                <DropdownMenuLabel className="text-xs text-muted-foreground font-semibold px-3 py-1">Organization</DropdownMenuLabel>
                 <FeatureHint
                   featureId="auto-group-manga"
                   title="Auto-group Manga Volumes"
                   description="Automatically detect and group manga volumes by series name from filenames. Perfect for organizing your manga collection!"
                   position="left"
                 >
-                  <DropdownMenuItem onClick={onAutoGroupManga} className="gap-2 p-3 cursor-pointer rounded-lg">
-                    <Layers size={15} className="text-purple-500" />
-                    <div className="flex flex-col">
-                      <span className="font-semibold">Group Volumes</span>
-                      <span className="text-[10px] text-muted-foreground">Auto-detect series</span>
+                  <DropdownMenuItem onClick={onAutoGroupManga} className="gap-3 p-2 cursor-pointer rounded-lg flex items-start">
+                    <div className="p-2 bg-purple-500/10 rounded-md shrink-0 mt-0.5">
+                      <Layers size={16} className="text-purple-500" />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-sm font-medium leading-none">Group Volumes</span>
+                      <span className="text-xs text-muted-foreground leading-snug">Auto-detect series</span>
                     </div>
                   </DropdownMenuItem>
                 </FeatureHint>

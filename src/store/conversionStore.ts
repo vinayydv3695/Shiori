@@ -61,6 +61,10 @@ export const useConversionStore = create<ConversionState>((set) => ({
    */
   initEventListeners: async () => {
     const unlistenProgress = await listen<ConversionJob>('conversion:progress', ({ payload }) => {
+      // Ignore 'direct' conversions which are handled by the AutoConvertDialog directly
+      // and lack full ConversionJob fields like source_path.
+      if (payload.id === 'direct') return;
+
       set(state => {
         const exists = state.jobs.some(j => j.id === payload.id);
         return {

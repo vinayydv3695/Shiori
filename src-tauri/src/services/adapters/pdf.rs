@@ -22,15 +22,31 @@ impl PdfFormatAdapter {
     fn get_pdf_string(obj: &Object) -> Option<String> {
         match obj {
             Object::String(bytes, _) => {
-                // Try UTF-8 first, fallback to latin1
-                String::from_utf8(bytes.clone())
-                    .or_else(|_| {
-                        // Latin1/Windows-1252 decoding
-                        Ok::<String, ()>(bytes.iter().map(|&b| b as char).collect())
-                    })
-                    .ok()
+                if bytes.len() >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF {
+                    let u16_chars: Vec<u16> = bytes[2..]
+                        .chunks_exact(2)
+                        .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
+                        .collect();
+                    return Some(String::from_utf16_lossy(&u16_chars));
+                }
+                
+                // If it's valid UTF-8, use it.
+                if let Ok(s) = std::str::from_utf8(bytes) {
+                    return Some(s.to_string());
+                }
+                
+                // If invalid UTF-8, check if it's likely UTF-8 (few replacements).
+                let utf8_lossy = String::from_utf8_lossy(bytes);
+                let replacement_count = utf8_lossy.chars().filter(|&c| c == std::char::REPLACEMENT_CHARACTER).count();
+                
+                // If too many replacements, fallback to Latin-1 / WinAnsi
+                if replacement_count > bytes.len() / 4 {
+                    Some(bytes.iter().map(|&b| b as char).collect())
+                } else {
+                    Some(utf8_lossy.into_owned())
+                }
             }
-            Object::Name(bytes) => String::from_utf8(bytes.clone()).ok(),
+            Object::Name(bytes) => Some(String::from_utf8_lossy(bytes).into_owned()),
             _ => None,
         }
     }
@@ -117,7 +133,112 @@ impl PdfFormatAdapter {
             }
         }
 
-        Ok(full_text)
+        // Post-process text with heuristics
+        Ok(Self::post_process_text(&full_text))
+    }
+
+    /// Post-process extracted raw PDF text with heuristics for paragraphs and lists
+    pub fn post_process_text(raw_text: &str) -> String {
+        let lines: Vec<&str> = raw_text.lines().collect();
+        let mut processed = String::with_capacity(raw_text.len());
+        let mut i = 0;
+
+        let is_list_item = |line: &str| -> bool {
+            let t = line.trim_start();
+            t.starts_with('•') || t.starts_with('-') || t.starts_with('*') || t.starts_with("o ") 
+            || (t.chars().next().map_or(false, |c| c.is_ascii_digit()) && t.contains(". "))
+        };
+
+        let ends_with_punctuation = |line: &str| -> bool {
+            let t = line.trim_end();
+            t.ends_with('.') || t.ends_with('!') || t.ends_with('?') || t.ends_with('"') || t.ends_with('\'') || t.ends_with(':') || t.ends_with(';')
+        };
+
+        // Collapse spaces helper
+        let collapse_spaces = |s: &str| -> String {
+            let mut result = String::with_capacity(s.len());
+            let mut last_was_space = false;
+            for c in s.chars() {
+                if c.is_whitespace() {
+                    if !last_was_space {
+                        result.push(' ');
+                        last_was_space = true;
+                    }
+                } else {
+                    result.push(c);
+                    last_was_space = false;
+                }
+            }
+            result
+        };
+
+        while i < lines.len() {
+            let line = lines[i].trim();
+            
+            if line.is_empty() {
+                if !processed.ends_with("\n\n") && !processed.is_empty() {
+                    if processed.ends_with('\n') {
+                        processed.push('\n');
+                    } else {
+                        processed.push_str("\n\n");
+                    }
+                }
+                i += 1;
+                continue;
+            }
+
+            let collapsed_line = collapse_spaces(line);
+
+            if is_list_item(&collapsed_line) {
+                // Ensure double newline before list items
+                if !processed.ends_with("\n\n") && !processed.is_empty() {
+                    if processed.ends_with('\n') {
+                        processed.push('\n');
+                    } else {
+                        processed.push_str("\n\n");
+                    }
+                }
+            }
+
+            processed.push_str(&collapsed_line);
+
+            let has_punct = ends_with_punctuation(&collapsed_line);
+            
+            // Lookahead to next non-empty line
+            let mut j = i + 1;
+            let mut next_line = "";
+            let mut blank_lines_between = 0;
+            while j < lines.len() {
+                let n = lines[j].trim();
+                if !n.is_empty() {
+                    next_line = n;
+                    break;
+                }
+                blank_lines_between += 1;
+                j += 1;
+            }
+
+            if next_line.is_empty() {
+                // End of document
+            } else if is_list_item(next_line) {
+                processed.push_str("\n\n");
+            } else if blank_lines_between > 0 {
+                processed.push_str("\n\n");
+            } else {
+                // No blank lines between.
+                if has_punct && next_line.chars().next().map_or(false, |c| c.is_uppercase()) {
+                    processed.push(' ');
+                } else if has_punct {
+                    processed.push(' ');
+                } else {
+                    processed.push(' ');
+                }
+            }
+            
+            i = j;
+        }
+
+        processed.trim().to_string()
     }
 }
 
@@ -324,6 +445,26 @@ mod tests {
     fn test_format_id() {
         let adapter = PdfFormatAdapter::new();
         assert_eq!(adapter.format_id(), "pdf");
+    }
+
+    #[test]
+    fn test_pdf_metadata_extraction() {
+        // Simple test to ensure the logic parses authors correctly
+        let authors = PdfFormatAdapter::parse_authors("John Doe and Jane Smith");
+        assert_eq!(authors.len(), 2);
+        assert_eq!(authors[0], "John Doe");
+        assert_eq!(authors[1], "Jane Smith");
+    }
+
+    #[test]
+    fn test_post_process_text() {
+        let raw = "This is a sentence that gets\nbroken across lines without punctuation\nand continues here.\n\nNew paragraph here.";
+        let processed = PdfFormatAdapter::post_process_text(raw);
+        assert_eq!(processed, "This is a sentence that gets broken across lines without punctuation and continues here.\n\nNew paragraph here.");
+
+        let list_raw = "Here is a list:\n1. First item\n2. Second item\n• Bullet one\n• Bullet two";
+        let list_processed = PdfFormatAdapter::post_process_text(list_raw);
+        assert_eq!(list_processed, "Here is a list:\n\n1. First item\n\n2. Second item\n\n• Bullet one\n\n• Bullet two");
     }
 
     #[test]

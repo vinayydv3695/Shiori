@@ -243,6 +243,7 @@ pub struct ConvertAndReplaceResult {
 pub async fn convert_and_replace_book(
     book_id: i64,
     state: State<'_, AppState>,
+    app_handle: tauri::AppHandle,
 ) -> crate::error::Result<ConvertAndReplaceResult> {
     validate::require_positive_id(book_id, "book_id")?;
 
@@ -283,8 +284,13 @@ pub async fn convert_and_replace_book(
         )));
     }
 
-    // 5. Build output path (same dir, same stem, .epub extension)
-    let output = source.with_extension("epub");
+    // 5. Build output path (use a unique temp directory to avoid permission issues)
+    let temp_dir = std::env::temp_dir().join(format!("shiori_conv_{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&temp_dir).map_err(|e| ShioriError::Other(e.to_string()))?;
+    
+    let target = temp_dir
+        .join(source.file_stem().unwrap_or_default())
+        .with_extension("epub");
 
     log::info!(
         "[AutoConvert] Converting book {} ({}) from {} → EPUB",
@@ -295,38 +301,83 @@ pub async fn convert_and_replace_book(
 
     // 6. Run conversion (synchronous — wraps blocking work on Tokio)
     let src_clone = source.clone();
-    let out_clone = output.clone();
-    let fmt_clone = source_format.clone();
+    let out_clone = target.clone();
+    
+    let fmt_for_cb = source_format.clone();
+    let app = app_handle.clone();
+    let progress_cb = std::sync::Arc::new(move |progress: u8, message: &str| {
+        let payload = serde_json::json!({
+            "id": "direct",
+            "book_id": book_id,
+            "source_format": fmt_for_cb,
+            "target_format": "epub",
+            "status": "Processing",
+            "progress": progress,
+            "message": message,
+        });
+        let _ = app.emit("conversion:progress", payload);
+    }) as std::sync::Arc<dyn Fn(u8, &str) + Send + Sync>;
 
     let convert_result = crate::services::conversion_engine::ConversionEngine::convert_direct(
         &src_clone,
         &out_clone,
-        &fmt_clone,
+        &source_format,
         "epub",
         Some(&state.db),
+        Some(progress_cb),
     )
     .await;
 
     if let Err(e) = convert_result {
         // Cleanup on failure — remove incomplete output if it exists
-        let _ = tokio::fs::remove_file(&output).await;
-        return Err(ShioriError::Other(format!("Conversion failed: {}", e)));
+        let _ = tokio::fs::remove_file(&target).await;
+        
+        let err_msg = e.to_string();
+        let msg = if err_msg.starts_with("Conversion failed:") {
+            err_msg
+        } else {
+            format!("Conversion failed: {}", err_msg)
+        };
+        return Err(ShioriError::Other(msg));
     }
 
     // 7. Verify output was created
-    if !output.exists() {
+    if !target.exists() {
         return Err(ShioriError::Other(
             "Conversion completed but output file was not created".to_string(),
         ));
     }
 
-    // 8. Canonicalize the new path for DB storage
-    let canonical_path = std::fs::canonicalize(&output).unwrap_or_else(|_| output.clone());
+    // 8. Move to final destination (fallback to AppData if source directory is read-only)
+    let mut final_dest = source.with_extension("epub");
+    
+    if let Err(e) = tokio::fs::copy(&target, &final_dest).await {
+        log::warn!("[AutoConvert] Failed to copy to original directory: {}. Falling back to AppData.", e);
+        
+        let app_data_dir = state.covers_dir.parent().unwrap_or(&state.covers_dir);
+        let converted_dir = app_data_dir.join("converted");
+        let _ = std::fs::create_dir_all(&converted_dir);
+        
+        let safe_name = format!("{}_{}", book_id, final_dest.file_name().unwrap_or_default().to_string_lossy());
+        final_dest = converted_dir.join(safe_name);
+        
+        if let Err(e2) = tokio::fs::copy(&target, &final_dest).await {
+            let _ = tokio::fs::remove_file(&target).await;
+            return Err(ShioriError::Other(format!("Failed to save converted file: {}", e2)));
+        }
+    }
+    
+    // Clean up temporary file
+    let _ = tokio::fs::remove_file(&target).await;
+
+    // 9. Canonicalize the new path for DB storage
+    let canonical_path = std::fs::canonicalize(&final_dest).unwrap_or_else(|_| final_dest.clone());
     let new_path_str = canonical_path.to_string_lossy().to_string();
 
     // 9. Update DB
-    let conn = state.db.get_connection()?;
+    let new_size = std::fs::metadata(&final_dest)?.len();
 
+    let conn = state.db.get_connection()?;
     // Check if the filesystem watcher already added the new file to the DB.
     // If so, delete that new row to preempt a UNIQUE constraint failure.
     // We want to retain the original book_id (so progress is preserved).
@@ -336,8 +387,8 @@ pub async fn convert_and_replace_book(
     )?;
 
     conn.execute(
-        "UPDATE books SET file_path = ?1, file_format = 'epub', modified_date = CURRENT_TIMESTAMP WHERE id = ?2",
-        rusqlite::params![new_path_str, book_id],
+        "UPDATE books SET file_path = ?1, file_format = 'epub', file_size = ?2, modified_date = CURRENT_TIMESTAMP WHERE id = ?3",
+        rusqlite::params![new_path_str, new_size, book_id],
     )?;
     drop(conn);
 
@@ -348,7 +399,7 @@ pub async fn convert_and_replace_book(
     );
 
     // 10. Delete original file (only if different from output)
-    if source != output {
+    if source != final_dest {
         if let Err(e) = tokio::fs::remove_file(&source).await {
             log::warn!(
                 "[AutoConvert] Could not delete original file {}: {}",

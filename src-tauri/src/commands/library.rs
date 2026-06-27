@@ -172,6 +172,26 @@ pub fn delete_book(state: State<AppState>, id: i64) -> Result<()> {
 }
 
 #[tauri::command]
+pub fn clean_up_database(state: State<AppState>) -> Result<(usize, usize)> {
+    log::info!("[command::clean_up_database] Received request to clean up database");
+    let db = &state.db;
+    let covers_dir = state.covers_dir.clone();
+    let result = library_service::cleanup_database(db, &covers_dir);
+    match &result {
+        Ok((books, covers)) => log::info!(
+            "[command::clean_up_database] Successfully cleaned up {} missing books and {} unused covers",
+            books,
+            covers
+        ),
+        Err(e) => log::error!(
+            "[command::clean_up_database] Failed to clean up database: {:?}",
+            e
+        ),
+    }
+    result
+}
+
+#[tauri::command]
 pub async fn import_books(state: State<'_, AppState>, paths: Vec<String>) -> Result<ImportResult> {
     validate::require_non_empty_vec(&paths, "file paths")?;
     for path in &paths {

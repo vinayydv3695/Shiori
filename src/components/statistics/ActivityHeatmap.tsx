@@ -45,10 +45,10 @@ export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
 
   const getIntensityClass = (level: number) => {
     switch (level) {
-      case 1: return 'bg-orange-300 dark:bg-orange-800/60';
-      case 2: return 'bg-orange-400 dark:bg-orange-600';
-      case 3: return 'bg-orange-500 dark:bg-orange-500';
-      case 4: return 'bg-orange-600 dark:bg-orange-400';
+      case 1: return 'bg-primary/40 dark:bg-primary/40';
+      case 2: return 'bg-primary/60 dark:bg-primary/60';
+      case 3: return 'bg-primary/80 dark:bg-primary/80';
+      case 4: return 'bg-primary dark:bg-primary';
       default: return 'bg-muted/50 dark:bg-muted/30';
     }
   };

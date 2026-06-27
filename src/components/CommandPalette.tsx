@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useDeferredValue, useMemo } from 'react'
+import * as Dialog from '@radix-ui/react-dialog'
 import { Command } from 'cmdk'
 import {
   Search,
@@ -102,6 +103,7 @@ export const CommandPalette = ({
           'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200'
         )}
       >
+        <Dialog.Title className="sr-only">Command Palette</Dialog.Title>
         <div className="flex items-center border-b px-3">
           <Search className="w-4 h-4 mr-2 opacity-50" />
           <Command.Input

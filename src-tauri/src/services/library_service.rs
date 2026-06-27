@@ -434,6 +434,73 @@ pub fn delete_books(db: &Database, ids: Vec<i64>) -> Result<()> {
     Ok(())
 }
 
+pub fn cleanup_database(db: &Database, covers_dir: &std::path::Path) -> Result<(usize, usize)> {
+    log::info!("[cleanup_database] Starting database cleanup");
+    let mut conn = db.get_connection()?;
+    let tx = conn.transaction()?;
+
+    // 1. Delete books whose file_path does not exist
+    let mut missing_ids = Vec::new();
+    {
+        let mut stmt = tx.prepare("SELECT id, file_path FROM books")?;
+        let rows = stmt.query_map([], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })?;
+
+        for row in rows {
+            if let Ok((id, file_path)) = row {
+                if !std::path::Path::new(&file_path).exists() {
+                    missing_ids.push(id);
+                }
+            }
+        }
+    }
+
+    let mut deleted_books = 0;
+    for id in &missing_ids {
+        let rows = tx.execute("DELETE FROM books WHERE id = ?1", params![id])?;
+        deleted_books += rows;
+    }
+
+    tx.commit()?;
+    log::info!("[cleanup_database] Deleted {} missing books", deleted_books);
+
+    // 2. Delete unused covers
+    let mut deleted_covers = 0;
+    if covers_dir.exists() {
+        let conn = db.get_connection()?;
+        let mut stmt = conn.prepare("SELECT cover_path FROM books WHERE cover_path IS NOT NULL")?;
+        let active_covers: std::collections::HashSet<String> = stmt
+            .query_map([], |row| row.get::<_, String>(0))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        if let Ok(entries) = std::fs::read_dir(covers_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_file() {
+                    let path_str = path.to_string_lossy().to_string();
+                    // Just check if any book has exactly this path
+                    if !active_covers.contains(&path_str) {
+                        if let Err(e) = std::fs::remove_file(&path) {
+                            log::warn!("Failed to delete unused cover {:?}: {}", path, e);
+                        } else {
+                            deleted_covers += 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    log::info!("[cleanup_database] Deleted {} unused covers", deleted_covers);
+    
+    // 3. Clear renderer cache (we can just call clear_renderer_cache logic here, but it's separate so we'll leave it or we can just empty the cache dir)
+    // We'll stick to books and covers for now as requested.
+
+    Ok((deleted_books as usize, deleted_covers))
+}
+
 pub fn import_books(
     db: &Database,
     paths: Vec<String>,

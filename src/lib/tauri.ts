@@ -569,6 +569,10 @@ export const api = {
     return invoke("delete_books", { ids })
   },
 
+  async cleanUpDatabase(): Promise<[number, number]> {
+    return invoke("clean_up_database")
+  },
+
   async importBooks(paths: string[]): Promise<ImportResult> {
     logger.debug('[API] importBooks called with:', paths)
     try {

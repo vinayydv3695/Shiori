@@ -36,7 +36,7 @@ interface OnlineMangaDetailViewProps {
 
   onBack: () => void;
   onReadChapter: (chapter: UnifiedChapter) => void;
-  onBookmark?: () => void;
+
   onMangaClick?: (mangaId: string) => void;
 }
 
@@ -56,7 +56,7 @@ export function OnlineMangaDetailView({
   recommendedManga,
   onBack,
   onReadChapter,
-  onBookmark,
+
   onMangaClick,
 }: OnlineMangaDetailViewProps) {
   const parentRef = useRef<HTMLDivElement>(null);
@@ -219,10 +219,7 @@ export function OnlineMangaDetailView({
                       className="gap-2 px-8 h-10 rounded text-sm bg-[#357ebd] hover:bg-[#2b659b] text-foreground border-0">
                 START READING <Play className="w-4 h-4 ml-1 fill-current" />
               </Button>
-              <Button onClick={onBookmark} variant="outline" 
-                      className="gap-2 px-8 h-10 rounded text-sm bg-transparent border-border text-foreground/90 hover:bg-muted hover:text-primary">
-                BOOKMARK <Bookmark className="w-4 h-4 ml-1 fill-current" />
-              </Button>
+
             </div>
 
             <div className="flex items-center gap-4 text-xs text-muted-foreground mb-6 font-medium">

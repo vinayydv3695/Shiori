@@ -22,18 +22,13 @@ use crate::conversion::oeb::OebBook;
 pub fn parse(path: &Path) -> Result<OebBook, ConversionError> {
     // We need a sync runtime block since the existing pdf converter is async
     // but parse() is sync. Use tokio::task::block_in_place if inside a tokio
-    // runtime, or create a minimal runtime.
-    let runtime = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .map_err(|e| ConversionError::Other(format!("Failed to build runtime: {}", e)))?;
 
     let path_buf = path.to_path_buf();
     let tmp = std::env::temp_dir().join(format!("shiori_pdf_parse_{}.epub", uuid::Uuid::new_v4()));
 
     // Run the existing async PDF converter synchronously
-    let epub_output = runtime
-        .block_on(async { crate::conversion::pdf::convert(&path_buf, &tmp).await })
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let epub_output = rt.block_on(async { crate::conversion::pdf::convert(&path_buf, &tmp, None).await })
         .map_err(|e| ConversionError::Other(e.to_string()))?;
 
     // Build a minimal OebBook with the converter's metadata.

@@ -18,6 +18,7 @@ import { sanitizeBookContent } from '@/lib/sanitize';
 import { applyHighlightsToDOM } from '@/lib/highlightAnnotations';
 import { useToastStore } from '@/store/toastStore';
 import { ReaderTopBar } from './ReaderTopBar';
+import { ReadingProgressIndicator } from './ReadingProgressIndicator';
 import type { ReaderContent } from './readerContent';
 import '@/styles/premium-reader.css';
 import '@/styles/themes/paper-theme.css';
@@ -1092,6 +1093,13 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
           </button>
         </>
       )}
+
+      {/* Reading Progress Indicator (Bottom Left) */}
+      <ReadingProgressIndicator
+        bookId={bookId}
+        progressPercentage={progressPercentage}
+        isVisible={true}
+      />
 
       {/* Sidebar */}
       <PremiumSidebar

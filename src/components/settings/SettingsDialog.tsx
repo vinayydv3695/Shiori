@@ -62,6 +62,7 @@ const ALL_SETTINGS: SettingDefinition[] = [
   { label: 'UI Scale', description: 'Adjust overall application size', tab: 'general', section: 'Appearance' },
   { label: 'Cover Size', description: 'Book cover display size', tab: 'general', section: 'Appearance' },
   { label: 'Enable Window Transparency', description: 'Toggle transparent window background (Requires restart)', tab: 'general', section: 'Appearance' },
+  { label: 'Settings Transparency', description: 'Toggle transparent background for the settings dialog', tab: 'general', section: 'Appearance' },
   { label: 'Auto-start Application', description: 'Start Shiori when system boots', tab: 'general', section: 'General' },
   { label: 'Discord Rich Presence', description: 'Show your reading activity on Discord', tab: 'general', section: 'General' },
   { label: 'Import Path', description: 'Default import location', tab: 'general', section: 'Import' },
@@ -184,7 +185,10 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-background/40 backdrop-blur-md z-50 transition-all duration-300" />
-        <Dialog.Content aria-describedby={undefined} className="dialog-content settings-dialog fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background/80 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.2)] w-[90vw] max-w-5xl h-[85vh] z-50 flex flex-col overflow-hidden">
+        <Dialog.Content aria-describedby={undefined} className={cn(
+          "dialog-content settings-dialog fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.2)] w-[90vw] max-w-5xl h-[85vh] z-50 flex flex-col overflow-hidden",
+          preferences?.transparentSettings ?? false ? "bg-background/80 backdrop-blur-2xl" : "bg-background"
+        )}>
           <div className="flex items-center justify-between p-6 border-b border-border">
             <Dialog.Title className="text-2xl font-semibold">Settings</Dialog.Title>
             <div className="flex items-center gap-3">
@@ -460,7 +464,7 @@ const GeneralSettings = ({
         </SettingSection>
       )}
 
-      {isSectionVisible('Appearance', ['Accent Color', 'UI Font Family', 'UI Density', 'UI Scale', 'Cover Size', 'Enable Window Transparency']) && (
+      {isSectionVisible('Appearance', ['Accent Color', 'UI Font Family', 'UI Density', 'UI Scale', 'Cover Size', 'Enable Window Transparency', 'Settings Transparency']) && (
         <SettingSection
           title="Appearance"
           description="Customize the interface"
@@ -580,11 +584,20 @@ const GeneralSettings = ({
           {isSettingVisible('Enable Window Transparency', 'Toggle transparent window background (Requires restart)', 'Appearance') && (
             <SettingItem label="Enable Window Transparency (Requires Restart)" description="Disable this if Shiori runs slowly on Linux. Requires app restart to take effect.">
               <Switch 
-                checked={preferences.linuxTransparentWindow ?? true} 
+                checked={preferences?.linuxTransparentWindow ?? true} 
                 onChange={(checked) => {
                   updateGeneralSettings({ linuxTransparentWindow: checked });
                   toast.success('Preference saved. Please restart Shiori for transparency changes to take effect.');
                 }} 
+              />
+            </SettingItem>
+          )}
+
+          {isSettingVisible('Settings Transparency', 'Toggle transparent background for the settings dialog', 'Appearance') && (
+            <SettingItem label="Settings Transparency" description="Toggle transparent background for the settings dialog">
+              <Switch 
+                checked={preferences?.transparentSettings ?? false} 
+                onChange={(checked) => updateGeneralSettings({ transparentSettings: checked })} 
               />
             </SettingItem>
           )}

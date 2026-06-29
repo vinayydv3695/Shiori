@@ -18,6 +18,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { usePreferencesStore } from '@/store/preferencesStore'
 import { useToast } from '@/store/toastStore'
 import { TrendingExplore } from './torbox/TrendingExplore'
 import { useTorboxStore, TorboxQueueItem } from '@/store/useTorboxStore'
@@ -227,6 +228,9 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
 
   const [keyFeedback, setKeyFeedback] = useState<string | null>(null)
   const [searchError, setSearchError] = useState<string | null>(null)
+  const preferences = usePreferencesStore(state => state.preferences)
+  const updateGeneralSettings = usePreferencesStore(state => state.updateGeneralSettings)
+
   const [manualTitle, setManualTitle] = useState('')
   const [manualMagnet, setManualMagnet] = useState('')
   const [editingKey, setEditingKey] = useState(false)
@@ -322,7 +326,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
       
       if (searchType === 'manga' || searchType === 'all') {
         try {
-          const mangaRes = await invoke<any[]>('search_manga_metadata', { title: query })
+          const mangaRes = await invoke<any[]>('search_manga_metadata', { title: query, includeNsfw: preferences?.includeNsfw ?? false })
           const mapped = mangaRes.map(m => ({
             id: `anilist-${m.anilist_id}`,
             title: m.title_english || m.title_romaji || m.title_native || 'Unknown Title',
@@ -607,7 +611,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                     <Search className="absolute left-5 h-5 w-5 text-muted-foreground" />
                     <Input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void runSearch() }} placeholder="Search AniList or OpenLibrary..." className="flex-1 h-14 border-0 bg-transparent pl-14 pr-4 text-base font-medium shadow-none focus-visible:ring-0 focus-visible:ring-offset-0" />
                     <div className="pr-2 flex items-center gap-2">
-                      <select value={searchType} onChange={(event) => setSearchType(event.target.value as SearchType)} className="h-10 rounded-full bg-transparent border-0 px-4 text-sm font-medium text-muted-foreground hover:text-foreground cursor-pointer focus:outline-none [&>option]:bg-background [&>option]:text-foreground">
+                      <select value={searchType} onChange={(event) => setSearchType(event.target.value as SearchType)} className="h-10 rounded-full bg-transparent hover:bg-foreground focus:bg-foreground border-0 px-4 text-sm font-medium text-muted-foreground hover:text-background focus:text-background cursor-pointer focus:outline-none transition-colors [&>option]:bg-background [&>option]:text-foreground">
                         <option value="manga">Manga</option>
                         <option value="books">Books</option>
                         <option value="all">Everywhere</option>
@@ -617,6 +621,18 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                       </Button>
                     </div>
                   </div>
+                  {searchType !== 'books' && (
+                    <div className="flex items-center justify-end mt-3 pr-4 gap-2 text-sm text-muted-foreground">
+                      <input 
+                        type="checkbox" 
+                        id="nsfw-toggle"
+                        checked={preferences?.includeNsfw ?? false}
+                        onChange={(e) => updateGeneralSettings({ includeNsfw: e.target.checked })}
+                        className="rounded border-border text-primary focus:ring-primary/20 bg-background/50 cursor-pointer"
+                      />
+                      <label htmlFor="nsfw-toggle" className="cursor-pointer select-none hover:text-foreground transition-colors">Include NSFW Content</label>
+                    </div>
+                  )}
                 </div>
 
                 {searchError && <p className="mb-6 text-sm font-medium text-destructive bg-destructive/10 border border-destructive/20 p-4 rounded-xl inline-flex items-center gap-2"><AlertCircle className="h-4 w-4"/> {searchError}</p>}

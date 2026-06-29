@@ -100,6 +100,8 @@ export interface UserPreferences {
   historyRetentionDays?: number;
   watchFolders?: WatchFolder[];
   linuxTransparentWindow?: boolean;
+  transparentSettings?: boolean;
+  includeNsfw?: boolean;
 }
 
 export interface PreferenceOverride {
@@ -188,4 +190,6 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   autoScanIntervalMinutes: 60,
   cacheClearPolicy: 'manual',
   historyRetentionDays: -1,
+  transparentSettings: false,
+  includeNsfw: false,
 };

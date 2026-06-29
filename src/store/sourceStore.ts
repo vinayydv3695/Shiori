@@ -18,7 +18,7 @@ export interface SourceConfig {
   website?: string;
 }
 
-const SOURCE_STORE_VERSION = 7;
+const SOURCE_STORE_VERSION = 8;
 
 const MANDATORY_SOURCE_IDS = new Set<string>();
 
@@ -31,7 +31,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     id: 'mangadex',
     name: 'MangaDex',
     kind: 'manga',
-    enabled: false,
+    enabled: true,
     description: 'Official API with huge catalog - Most reliable manga source.',
     status: 'active',
     implemented: true,
@@ -43,7 +43,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     id: 'toongod',
     name: 'ToonGod',
     kind: 'manga',
-    enabled: false,
+    enabled: true,
     description: 'Manhwa/Webtoons focus with large collection.',
     status: 'active',
     implemented: true,
@@ -55,7 +55,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     id: 'manhwahub',
     name: 'ManhwaHub',
     kind: 'manga',
-    enabled: false,
+    enabled: true,
     description: 'Large library of manhwa titles.',
     status: 'active',
     implemented: true,
@@ -67,7 +67,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     id: 'weebrook',
     name: 'Weebrook',
     kind: 'manga',
-    enabled: false,
+    enabled: true,
     description: 'Manhwa and webtoons from freeonlinek.top.',
     status: 'active',
     implemented: true,
@@ -79,7 +79,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     id: 'nyaa',
     name: 'Nyaa',
     kind: 'manga',
-    enabled: false,
+    enabled: true,
     description: 'Largest anime and manga torrent tracker. Recommended for Torbox users.',
     status: 'active',
     implemented: true,
@@ -92,7 +92,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     id: 'gutenberg',
     name: 'Project Gutenberg',
     kind: 'books',
-    enabled: false,
+    enabled: true,
     description: 'Public domain library offering thousands of free EPUB books.',
     status: 'active',
     implemented: true,
@@ -104,7 +104,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     id: 'libgen',
     name: 'LibGen',
     kind: 'books',
-    enabled: false,
+    enabled: true,
     description: 'Online library offering access to millions of books.',
     status: 'active',
     implemented: true,
@@ -116,7 +116,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     id: 'torrent_csv',
     name: 'TorrentCSV',
     kind: 'books',
-    enabled: false,
+    enabled: true,
     description: 'A collaborative, open source torrent search engine.',
     status: 'active',
     implemented: true,
@@ -272,8 +272,15 @@ export const useSourceStore = create<SourceStore>()(
     {
       name: 'shiori-source-store',
       version: SOURCE_STORE_VERSION,
-      migrate: (persistedState) => {
+      migrate: (persistedState, version) => {
         const typedPersisted = (persistedState ?? {}) as Partial<SourceStore>;
+        
+        if (typeof version === 'number' && version < 8) {
+          if (typedPersisted.sources) {
+            typedPersisted.sources = typedPersisted.sources.map(s => ({ ...s, enabled: true }));
+          }
+        }
+
         const mergedSources = mergeSources(typedPersisted.sources as Partial<SourceConfig>[] | undefined);
         const mergedPrimary = {
           ...DEFAULT_PRIMARY_SOURCE_BY_KIND,

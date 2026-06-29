@@ -21,10 +21,11 @@ pub fn extract_metadata(file_path: String) -> Result<Metadata> {
 pub async fn search_manga_metadata(
     service: State<'_, Arc<MangaMetadataService>>,
     title: String,
+    include_nsfw: bool,
 ) -> Result<Vec<crate::services::manga_metadata_service::MangaMetadata>> {
     validate::require_non_empty(&title, "title")?;
     validate::require_max_length(&title, 500, "title")?;
-    service.search_manga(&title).await
+    service.search_manga(&title, include_nsfw).await
 }
 
 #[tauri::command]

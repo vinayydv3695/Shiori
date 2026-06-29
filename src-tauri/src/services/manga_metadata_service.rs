@@ -187,13 +187,13 @@ impl MangaMetadataService {
     }
 
     /// Search for manga by title
-    pub async fn search_manga(&self, title: &str) -> Result<Vec<MangaMetadata>> {
-        log::info!("[MangaMetadataService] Searching for: '{}'", title);
+    pub async fn search_manga(&self, title: &str, include_nsfw: bool) -> Result<Vec<MangaMetadata>> {
+        log::info!("[MangaMetadataService] Searching for: '{}', nsfw: {}", title, include_nsfw);
 
         let query = r#"
-            query ($search: String) {
+            query ($search: String, $isAdult: Boolean) {
                 Page(page: 1, perPage: 5) {
-                    media(search: $search, type: MANGA, format_in: [MANGA, ONE_SHOT], sort: SEARCH_MATCH) {
+                    media(search: $search, type: MANGA, format_in: [MANGA, ONE_SHOT], sort: SEARCH_MATCH, isAdult: $isAdult) {
                         id
                         title {
                             romaji
@@ -228,9 +228,13 @@ impl MangaMetadataService {
             }
         "#;
 
-        let variables = serde_json::json!({
+        let mut variables = serde_json::json!({
             "search": title
         });
+
+        if !include_nsfw {
+            variables["isAdult"] = serde_json::json!(false);
+        }
 
         let payload = GraphQLQuery {
             query: query.to_string(),

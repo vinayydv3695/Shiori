@@ -5,6 +5,7 @@ import { OnlineSourceSelector } from './OnlineSourceSelector';
 import { AdvancedOnlineSearchDialog } from './AdvancedOnlineSearchDialog';
 
 import { useOnlineSearchStore } from '@/store/onlineSearchStore';
+import { usePreferencesStore } from '@/store/preferencesStore';
 import type { SourceKind } from '@/store/sourceStore';
 
 interface OnlineSearchHeaderProps {
@@ -33,6 +34,8 @@ export function OnlineSearchHeader({
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const filters = useOnlineSearchStore(state => state.filters[kind === 'books' ? 'online-books' : 'online-manga']);
   const hasFilters = Object.keys(filters || {}).length > 0;
+  const preferences = usePreferencesStore(state => state.preferences);
+  const updateGeneralSettings = usePreferencesStore(state => state.updateGeneralSettings);
 
   return (
     <div className="flex-shrink-0 bg-background/60 backdrop-blur-3xl border-b border-border pt-16 pb-8 px-8 relative overflow-hidden z-10 transition-colors duration-500">
@@ -79,6 +82,17 @@ export function OnlineSearchHeader({
                   Search
                 </button>
               </div>
+            </div>
+            <div className="flex justify-end pt-3 pr-2 text-sm text-muted-foreground">
+              <label className="flex items-center gap-2 cursor-pointer hover:text-foreground transition-colors select-none">
+                <input
+                  type="checkbox"
+                  checked={preferences?.includeNsfw ?? false}
+                  onChange={(e) => updateGeneralSettings({ includeNsfw: e.target.checked })}
+                  className="rounded border-border text-primary focus:ring-primary/20 bg-background/50 cursor-pointer"
+                />
+                Include NSFW Content
+              </label>
             </div>
           </div>
         </div>

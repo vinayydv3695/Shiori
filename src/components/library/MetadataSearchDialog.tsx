@@ -6,6 +6,7 @@ import { logger } from '@/lib/logger';
 import { Button } from '../ui/button';
 import { useToast } from '@/store/toastStore';
 import { useLibraryStore } from '@/store/libraryStore';
+import { usePreferencesStore } from '@/store/preferencesStore';
 import { Book } from '@/lib/tauri';
 
 // [Keep existing interfaces]
@@ -148,6 +149,7 @@ export const MetadataSearchDialog = ({
   const isSeriesMode = typeof seriesId === 'number' && seriesId > 0;
   const isBatch = !isSeriesMode && bookIds.length > 1;
   const [searching, setSearching] = useState(false);
+  const preferences = usePreferencesStore(state => state.preferences);
   const [downloading, setDownloading] = useState<number | null>(null);
   const [results, setResults] = useState<(MangaMetadata | BookMetadata)[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -232,7 +234,7 @@ export const MetadataSearchDialog = ({
       if (isManga) {
         const parsedTitle = await invoke<string>('parse_manga_filename', { filename: bookTitle || '' }).catch(() => bookTitle || '');
         const query = searchQuery || parsedTitle;
-        const mangaResults = await invoke<MangaMetadata[]>('search_manga_metadata', { title: query });
+        const mangaResults = await invoke<MangaMetadata[]>('search_manga_metadata', { title: query, includeNsfw: preferences?.includeNsfw ?? false });
         setResults(mangaResults);
       } else {
         if (isbn) {
@@ -289,7 +291,7 @@ export const MetadataSearchDialog = ({
     try {
       if (isMangaFormat && providers.anilist) {
         const parsedTitle = await invokeWithRetry<string>('parse_manga_filename', { filename: titleToSearch }).catch(() => titleToSearch);
-        const results = await invokeWithRetry<MangaMetadata[]>('search_manga_metadata', { title: parsedTitle });
+        const results = await invokeWithRetry<MangaMetadata[]>('search_manga_metadata', { title: parsedTitle, includeNsfw: preferences?.includeNsfw ?? false });
         results.slice(0, 5).forEach(m => {
           matches.push({
             metadata: m,

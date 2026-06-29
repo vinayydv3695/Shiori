@@ -25,6 +25,7 @@ import { useSourceHealthStore, type SourceHealthLevel } from '@/store/sourceHeal
 import { useTorboxStore, type TorboxJobStatus, type TorboxQueueItem } from '@/store/useTorboxStore';
 import { useOnlineSearchStore } from '@/store/onlineSearchStore';
 import { useSourceStore } from '@/store/sourceStore';
+import { usePreferencesStore } from '@/store/preferencesStore';
 import { parsePageUrl } from '@/lib/utils';
 
 type TorboxTab = 'books' | 'manga' | 'search';
@@ -418,6 +419,7 @@ function getUiErrorMessage(error: unknown, fallback: string): string {
       if (typeof nested.error === 'string' && nested.error.trim()) return nested.error;
     }
   }
+
   return fallback;
 }
 
@@ -724,6 +726,7 @@ function ResultCover({ item }: { item: TorboxSearchResult }) {
 
   const [hasImageError, setHasImageError] = useState(false);
   const [asyncCover, setAsyncCover] = useState<string | null>(null);
+  const preferences = usePreferencesStore((state) => state.preferences);
   const baseCover = getResultCover(item);
   const cover = baseCover || asyncCover;
   
@@ -734,7 +737,7 @@ function ResultCover({ item }: { item: TorboxSearchResult }) {
     if (!baseCover && item._source === 'manga' && item.title) {
       // 500ms debounce to prevent rate-limiting on quick scrolls
       const timer = setTimeout(() => {
-        invoke<MangaMetadata[]>('search_manga_metadata', { title: item.title })
+        invoke<MangaMetadata[]>('search_manga_metadata', { title: item.title, includeNsfw: preferences?.includeNsfw ?? false })
           .then((results) => {
             if (active && results && results.length > 0 && results[0].cover_url_large) {
               setAsyncCover(results[0].cover_url_large);
@@ -872,6 +875,7 @@ function TorboxJobCard({
 }
 
 export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
+  const preferences = usePreferencesStore((state) => state.preferences);
   const setCurrentView = useUIStore((state) => state.setCurrentView);
   const sources = useSourceStore((state) => state.sources);
   const jobs = useTorboxStore((state) => state.jobs);

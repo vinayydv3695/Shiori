@@ -8,10 +8,10 @@
 use tauri::{AppHandle, Manager, Runtime};
 
 #[tauri::command]
-pub async fn toggle_fullscreen<R: Runtime>(app: AppHandle<R>) -> Result<bool, String> {
+pub async fn toggle_fullscreen<R: Runtime>(_app: AppHandle<R>) -> Result<bool, String> {
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
-        let window = app
+        let window = _app
             .get_webview_window("main")
             .ok_or_else(|| "Main window not found".to_string())?;
 

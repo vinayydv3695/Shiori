@@ -56,6 +56,7 @@ impl ToonGodSource {
     /// Attach a Cloudflare-aware client to this source.
     /// Call this after `CloudflareState` is registered so automatic
     /// Playwright solving works transparently.
+    #[allow(dead_code)]
     pub async fn set_cf_client(&self, cf: Arc<CfClient>) {
         *self.cf_client.write().await = Some(cf);
     }

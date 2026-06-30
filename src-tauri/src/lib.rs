@@ -304,9 +304,10 @@ pub fn run() {
             app.manage(cf_state);
 
             // Wire the CfClient to ToonGod source so it can auto-solve challenges.
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
+            {
             let toongod_for_cf = toongod_source.clone();
             let cf_store_for_toongod = cf_store.clone();
-            #[cfg(not(any(target_os = "android", target_os = "ios")))]
             tauri::async_runtime::spawn(async move {
                 match cloudflare::client::CfClient::new(
                     "https://www.toongod.org",
@@ -323,6 +324,7 @@ pub fn run() {
                     Err(e) => log::warn!("ToonGod: Failed to build CfClient: {}", e),
                 }
             });
+            }
 
             // Initialize discovery service
             let discovery_service = Arc::new(services::discovery_service::DiscoveryService::new().unwrap());

@@ -11,6 +11,7 @@ import { useLibraryStore, countActiveFilterCriteria } from "./store/libraryStore
 import { useReaderStore } from "./store/readerStore"
 import { useUIStore } from "./store/uiStore"
 import { useConversionStore } from "./store/conversionStore"
+import { listen } from '@tauri-apps/api/event'
 import { useOnboardingStore } from "./store/onboardingStore"
 import { usePreferencesStore } from "./store/preferencesStore"
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts"
@@ -24,6 +25,7 @@ import { useOnlineSearchStore } from "./store/onlineSearchStore"
 const ReaderLayout = lazy(() => import("./components/reader/ReaderLayout").then(m => ({ default: m.ReaderLayout })))
 const OnboardingWizard = lazy(() => import("./components/onboarding/OnboardingWizard").then(m => ({ default: m.OnboardingWizard })))
 const MigrationDialog = lazy(() => import("./components/onboarding/MigrationDialog").then(m => ({ default: m.MigrationDialog })))
+const OnlineMangaReader = lazy(() => import("./components/online/OnlineMangaReader").then(m => ({ default: m.OnlineMangaReader })))
 
 const LoadingSpinner = ({ className = "h-screen" }: { className?: string }) => (
   <div className={`flex items-center justify-center ${className}`}>
@@ -112,6 +114,16 @@ function App() {
     return () => { unlisten?.() }
   }, [])
 
+  useEffect(() => {
+    let unlisten: (() => void) | undefined
+    listen('library-updated', () => {
+      api.getBooks().then(books => {
+        useLibraryStore.getState().setBooks(books)
+      }).catch(logger.error)
+    }).then(fn => { unlisten = fn })
+    return () => { unlisten?.() }
+  }, [])
+
   // ── Search routing ──
   const handleSearchChange = (query: string) => {
     if (currentView === 'online-books') { setOnlineQuery('online-books', query); return }
@@ -162,6 +174,19 @@ function App() {
         <SectionErrorBoundary label="Reader">
           <Suspense fallback={<LoadingSpinner />}>
             <ReaderLayout bookId={selectedBookId} onClose={handleCloseReader} />
+          </Suspense>
+        </SectionErrorBoundary>
+        <ToastContainer />
+      </>
+    )
+  }
+
+  if (currentView === 'online-manga-reader') {
+    return (
+      <>
+        <SectionErrorBoundary label="Online Manga Reader">
+          <Suspense fallback={<LoadingSpinner />}>
+            <OnlineMangaReader />
           </Suspense>
         </SectionErrorBoundary>
         <ToastContainer />

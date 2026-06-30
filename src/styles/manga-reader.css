@@ -82,7 +82,8 @@
   flex-direction: column;
   background: var(--manga-canvas-bg);
   color: var(--manga-text-primary);
-  overflow: hidden;
+  overflow: auto;
+  touch-action: pan-x pan-y pinch-zoom;
   transition: background-color 400ms cubic-bezier(0.4, 0, 0.2, 1),
     color 400ms cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -139,7 +140,8 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .manga-topbar-center {
@@ -225,7 +227,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  overflow: auto;
+  touch-action: pan-x pan-y pinch-zoom;
   padding-top: 0;
 }
 
@@ -460,7 +463,6 @@
   opacity: 0;
   transition: opacity 200ms !important;
   /* Ensure touch targets work even when invisible */
-  touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
 }
@@ -1315,9 +1317,10 @@
    ──────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .manga-topbar {
-    top: env(safe-area-inset-top, 8px);
-    width: calc(100% - var(--spacing-md, 16px) * 2);
-    border-radius: var(--radius-lg, 8px);
+    top: calc(env(safe-area-inset-top, 0px) + 8px);
+    width: calc(100% - 16px);
+    height: 56px;
+    border-radius: 28px;
   }
 
   .manga-topbar-content {
@@ -1338,5 +1341,10 @@
 
   .manga-sidebar {
     width: 100%;
+  }
+
+  .manga-topbar-btn {
+    width: 44px;
+    height: 44px;
   }
 }

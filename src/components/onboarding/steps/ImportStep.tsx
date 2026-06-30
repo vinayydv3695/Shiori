@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { CheckCircle, Database, FileSearch, FolderPlus, Upload, XCircle } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-dialog';
+import { type } from '@tauri-apps/plugin-os';
+import { invoke } from '@tauri-apps/api/core';
 import FormatBadge from '../components/FormatBadge';
 import GlowButton from '../components/GlowButton';
 import { OnboardingMotionStyles } from '../components';
@@ -32,9 +34,19 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
   };
 
   const handlePickFolder = async () => {
-    const selected = await open({ directory: true, multiple: false });
-    const resolved = typeof selected === 'string' ? selected : null;
-    await runImport(resolved);
+    try {
+      let resolved: string | null = null;
+      if (type() === 'android') {
+        const response = await invoke<{uri: string}>('plugin:android-saf|select_folder');
+        resolved = response.uri;
+      } else {
+        const selected = await open({ directory: true, multiple: false });
+        resolved = typeof selected === 'string' ? selected : null;
+      }
+      await runImport(resolved);
+    } catch (e) {
+      console.warn("Folder picker cancelled or failed:", e);
+    }
   };
 
   const getDroppedPath = (event: React.DragEvent<HTMLElement>) => {
@@ -60,7 +72,7 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
           <div className="onb-icon-badge flex h-11 w-11 items-center justify-center rounded-xl border border-border/40 bg-primary/5 text-foreground">
             <FolderPlus className="onb-icon-inner h-5 w-5" />
           </div>
-          <h2 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">Import Your Collection</h2>
+          <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-4xl">Import Your Collection</h2>
         </div>
 
         <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -215,9 +227,9 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
           </div>
         </div>
 
-        <div className="mt-3 flex shrink-0 items-center justify-between border-t border-border/40 pt-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <GlowButton theme="dark" variant="secondary" onClick={onBack} className="px-5">
+        <div className="mt-3 flex flex-col-reverse md:flex-row shrink-0 items-stretch md:items-center justify-between border-t border-border/40 pt-3 gap-3 md:gap-0">
+          <div className="grid grid-cols-2 md:flex md:flex-wrap items-center gap-2">
+            <GlowButton theme="dark" variant="secondary" onClick={onBack} className="w-full md:w-auto justify-center px-5">
               ← Back
             </GlowButton>
             <button
@@ -226,14 +238,14 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
                 onSelectPath(null);
                 reset();
               }}
-              className="rounded-xl border border-border/40 bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-border/60 hover:bg-secondary"
+              className="w-full md:w-auto rounded-xl border border-border/40 bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-border/60 hover:bg-secondary"
             >
               Clear selection
             </button>
             <button
               type="button"
               onClick={onNext}
-              className="rounded-xl border border-border/40 bg-card/50 px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-border/60 hover:bg-primary/5"
+              className="col-span-2 md:col-span-1 w-full md:w-auto rounded-xl border border-border/40 bg-card/50 px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-border/60 hover:bg-primary/5"
             >
               Skip for now
             </button>
@@ -244,7 +256,7 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
             variant="primary"
             onClick={onNext}
             disabled={!canContinue}
-            className="onb-cta-glow px-8"
+            className="w-full md:w-auto justify-center onb-cta-glow px-8"
           >
             Continue →
           </GlowButton>

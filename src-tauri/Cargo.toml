@@ -1,6 +1,6 @@
 [package]
 name = "shiori"
-version = "1.1.48"
+version = "1.1.49"
 description = "A Manga/E-Book Reader"
 authors = ["vinayydv3695"]
 license = "GPL-3.0"
@@ -26,6 +26,7 @@ serde = { version = "1.0", features = ["derive"] }
 tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-store = "2"
+tauri-plugin-android-saf = { path = "plugins/tauri-plugin-android-saf" }
 tauri-plugin-tts = { version = "0.1", optional = true }
 
 # Database & storage
@@ -127,6 +128,7 @@ pdf-extract = "0.12.0"
 mdns-sd = "0.20.1"
 local-ip-address = "0.6.13"
 hostname = "0.4.2"
+tauri-plugin-os = "2.0.0"
 
 [features]
 default = ["custom-protocol"]

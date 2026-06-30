@@ -64,6 +64,7 @@ export function ViewRouter({
               searchQuery={searchQuery}
               onSearchChange={onSearchChange}
               onOpenAdvancedFilter={onOpenAdvancedFilter}
+              onOpenSettings={() => dialogs.setSettingsDialogOpen(true)}
             />
           </Suspense>
         )}
@@ -121,9 +122,6 @@ export function ViewRouter({
           <Suspense fallback={<LoadingSpinner className="py-24" />}><OnlineMangaView /></Suspense>
         )}
 
-        {currentView === 'online-manga-reader' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}><OnlineMangaReader /></Suspense>
-        )}
 
         {currentView === 'torbox-discover' && (
           <Suspense fallback={<LoadingSpinner className="py-24" />}><TorboxControlCenter initialTab="discover" /></Suspense>

@@ -171,11 +171,11 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
     ? activeTab
     : ((visibleTabSet?.values().next().value as SettingsTab | undefined) ?? 'general')
 
-  const preferredContentType = preferences?.preferredContentType ?? 'both'
+
   const tabs = [
     { id: 'general' as const, name: 'General', icon: Palette },
-    ...(preferredContentType !== 'manga' ? [{ id: 'book-reading' as const, name: 'Reading (Books)', icon: BookOpen }] : []),
-    ...(preferredContentType !== 'books' ? [{ id: 'manga-reading' as const, name: 'Reading (Manga)', icon: FileText }] : []),
+    { id: 'book-reading' as const, name: 'Reading (Books)', icon: BookOpen },
+    { id: 'manga-reading' as const, name: 'Reading (Manga)', icon: FileText },
     { id: 'advanced' as const, name: 'Advanced', icon: Shield },
     { id: 'companion' as const, name: 'Companion App', icon: MonitorSmartphone },
     { id: 'community-plugins' as const, name: 'Community Plugins', icon: Puzzle },
@@ -232,7 +232,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
             orientation="vertical"
           >
             <Tabs.List
-              className="w-64 max-md:w-full max-md:flex max-md:flex-row max-md:overflow-x-auto max-md:border-b max-md:border-r-0 max-md:p-2 max-md:space-y-0 max-md:gap-1 border-r border-white/5 bg-muted/10 p-5 space-y-1.5 flex-shrink-0 overflow-y-auto scrollbar-none"
+              className="w-64 max-md:w-full max-md:flex max-md:flex-row max-md:flex-nowrap max-md:overflow-x-auto max-md:scrollbar-none max-md:border-b max-md:border-r-0 max-md:p-2 max-md:gap-1 border-r border-white/5 bg-muted/10 p-5 space-y-1.5 flex-shrink-0 overflow-y-auto scrollbar-none"
               aria-label="Settings categories"
             >
               {filteredTabs.map((tab) => (
@@ -240,14 +240,14 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                   key={tab.id}
                   value={tab.id}
                   className={cn(
-                    'w-full max-md:w-auto max-md:whitespace-nowrap max-md:flex-shrink-0 flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-left font-medium text-sm',
+                    'w-full max-md:w-auto max-md:flex-shrink-0 max-md:justify-center flex items-center gap-2 px-4 py-3 max-md:px-3 max-md:py-2 rounded-xl transition-all duration-200 text-left font-medium text-sm',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50',
                     'data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm',
                     'data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-muted/50 data-[state=inactive]:hover:text-foreground'
                   )}
                 >
                   <tab.icon className="w-5 h-5 flex-shrink-0" />
-                  <span className="font-sans font-semibold tracking-wide">{tab.name}</span>
+                  <span className="font-sans font-semibold tracking-wide max-md:hidden sm:max-md:inline">{tab.name}</span>
                 </Tabs.Trigger>
               ))}
             </Tabs.List>

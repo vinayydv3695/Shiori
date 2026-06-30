@@ -204,7 +204,7 @@ function Row({ title, items, onSelect }: { title: string, items: TrendingItem[],
   return (
     <div className="relative group/row">
       <div className="flex items-center justify-between px-6 mb-4">
-        <h2 className="text-xl font-bold tracking-tight text-foreground/90">
+        <h2 className="text-xl md:text-2xl font-bold tracking-tight text-foreground/90">
           {title}
         </h2>
         

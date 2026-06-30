@@ -5,7 +5,7 @@ import { BookOpen, Info, Download, Loader2, X, Search } from 'lucide-react';
 import { useMangaDex, type MangaDexManga, type MangaDexChapter, type BrowseMode } from '@/hooks/useMangaDex';
 import { Button } from '@/components/ui/button';
 import { logger } from '@/lib/logger';
-import * as Dialog from '@radix-ui/react-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useSourceStore } from '@/store/sourceStore';
 import { useOnlineSearchStore } from '@/store/onlineSearchStore';
 import { OnlineSearchHeader } from './OnlineSearchHeader';
@@ -130,6 +130,7 @@ export function OnlineMangaView() {
   const [activeMode, setActiveMode] = useState<string>('');
   const [advancedBrowseResults, setAdvancedBrowseResults] = useState<MangaDexManga[]>([]);
   const [isAdvancedBrowseLoading, setIsAdvancedBrowseLoading] = useState(false);
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const isAdvancedFilterActive = activeGenres.length > 0 || activeTypes.length > 0 || activeMode !== '';
 
   const [browseData, setBrowseData] = useState<Record<BrowseMode, MangaDexManga[]>>({
@@ -652,9 +653,10 @@ export function OnlineMangaView() {
           if (!q) return;
           void handleSearch(1, q);
         }}
+        onMobileFilterClick={() => setMobileFilterOpen(true)}
       />
 
-      <div className="px-6 pt-3 max-w-5xl mx-auto w-full">
+      <div className="px-3 md:px-6 pt-1 md:pt-3 max-w-5xl mx-auto w-full">
 
         {error && (
           <div className="mt-3 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
@@ -689,7 +691,7 @@ export function OnlineMangaView() {
         )}
       </div>
 
-      <div className={cn("flex-1 overflow-y-auto", isMobile ? "pb-24 p-6" : "p-6")}>
+      <div className={cn("flex-1 overflow-y-auto", isMobile ? "pb-24 p-3 pt-4" : "p-6")}>
         <div className="max-w-7xl mx-auto">
           {loading && (
             <div className="py-8">
@@ -714,19 +716,43 @@ export function OnlineMangaView() {
           )}
 
           {!loading && !hasVisibleSearched && hasEnabledMangaSource && (
-            <div className="space-y-10">
-              {/* Hero Banner */}
-              <MangaBrowseNavBar 
-                activeGenres={activeGenres}
-                activeTypes={activeTypes}
-                activeMode={activeMode}
-                onFilterChange={(g, t, m) => {
-                  setActiveGenres(g);
-                  setActiveTypes(t);
-                  setActiveMode(m);
-                }}
-                onRandomClick={handleRandomClick}
-              />
+            <div className="space-y-4 md:space-y-10">
+              {/* Hero Banner Desktop */}
+              <div className="hidden md:block">
+                <MangaBrowseNavBar 
+                  activeGenres={activeGenres}
+                  activeTypes={activeTypes}
+                  activeMode={activeMode}
+                  onFilterChange={(g, t, m) => {
+                    setActiveGenres(g);
+                    setActiveTypes(t);
+                    setActiveMode(m);
+                  }}
+                  onRandomClick={handleRandomClick}
+                />
+              </div>
+
+              <Dialog open={mobileFilterOpen} onOpenChange={setMobileFilterOpen}>
+                <DialogContent className="max-w-[90vw] rounded-2xl p-6 bg-background/95 backdrop-blur-xl border-white/10">
+                  <DialogHeader>
+                    <DialogTitle>Browse Filters</DialogTitle>
+                  </DialogHeader>
+                  <div className="mt-4">
+                    <MangaBrowseNavBar 
+                      activeGenres={activeGenres}
+                      activeTypes={activeTypes}
+                      activeMode={activeMode}
+                      onFilterChange={(g, t, m) => {
+                        setActiveGenres(g);
+                        setActiveTypes(t);
+                        setActiveMode(m);
+                      }}
+                      onRandomClick={handleRandomClick}
+                      isMobileDialog={true}
+                    />
+                  </div>
+                </DialogContent>
+              </Dialog>
 
               <div className="flex flex-col xl:flex-row gap-8">
                 {isAdvancedFilterActive ? (
@@ -736,7 +762,7 @@ export function OnlineMangaView() {
                         <Loader2 className="w-8 h-8 animate-spin text-primary" />
                       </div>
                     ) : (
-                      <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-6 w-full max-w-[1920px] pb-12">
+                      <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 md:gap-4 w-full max-w-[1920px] pb-12">
                         {advancedBrowseResults.map((manga, i) => (
                           <div
                             key={`${manga.id}-${i}`}
@@ -777,7 +803,7 @@ export function OnlineMangaView() {
                     <div className="bento-widget-header">
                       <h2 className="bento-widget-title">{isMangaDexEnabled ? "Trending This Week" : "Popular"}</h2>
                     </div>
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-x-4 gap-y-8 mt-4">
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(105px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 md:gap-4 mt-4">
                       {browseLoading.popular ? <SkeletonGrid count={5} /> : toCarouselItems(browseData.popular).slice(0, 5).map((item) => (
                         <ModernBookCard key={item.id} id={item.id} title={item.title} coverUrl={item.coverUrl} author={item.subtitle} onClick={() => handleCarouselItemClick(item)} />
                       ))}
@@ -789,7 +815,7 @@ export function OnlineMangaView() {
                     <div className="bento-widget-header">
                       <h2 className="bento-widget-title">Latest Updates</h2>
                     </div>
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-x-4 gap-y-8 mt-4">
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(105px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 md:gap-4 mt-4">
                       {browseLoading.latest ? <SkeletonGrid count={5} /> : toCarouselItems(browseData.latest).slice(0, 5).map((item) => (
                         <ModernBookCard key={item.id} id={item.id} title={item.title} coverUrl={item.coverUrl} author={item.subtitle} onClick={() => handleCarouselItemClick(item)} />
                       ))}
@@ -801,7 +827,7 @@ export function OnlineMangaView() {
                     <div className="bento-widget-header">
                       <h2 className="bento-widget-title">{isMangaDexEnabled ? "Staff Picks / You Should Read" : "Recent"}</h2>
                     </div>
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-x-4 gap-y-8 mt-4">
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(105px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 md:gap-4 mt-4">
                       {browseLoading.recent ? <SkeletonGrid count={5} /> : toCarouselItems(browseData.recent).slice(0, 5).map((item) => (
                         <ModernBookCard key={item.id} id={item.id} title={item.title} coverUrl={item.coverUrl} author={item.subtitle} onClick={() => handleCarouselItemClick(item)} />
                       ))}

@@ -6,6 +6,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { usePreferencesStore } from '@/store/preferencesStore';
 
 const GENRES = [
   'Action', 'Adventure', 'Avant Garde', 'Boys Love', 'Comedy', 'Demons',
@@ -25,9 +26,12 @@ interface MangaBrowseNavBarProps {
   activeMode: string;
   onFilterChange: (genres: string[], types: string[], mode: string) => void;
   onRandomClick: () => void;
+  isMobileDialog?: boolean;
 }
 
-export function MangaBrowseNavBar({ activeGenres, activeTypes, activeMode, onFilterChange, onRandomClick }: MangaBrowseNavBarProps) {
+export function MangaBrowseNavBar({ activeGenres, activeTypes, activeMode, onFilterChange, onRandomClick, isMobileDialog }: MangaBrowseNavBarProps) {
+  const preferences = usePreferencesStore(state => state.preferences);
+  const updateGeneralSettings = usePreferencesStore(state => state.updateGeneralSettings);
   const toggleGenre = (genre: string) => {
     const newGenres = activeGenres.includes(genre) 
       ? activeGenres.filter(g => g !== genre)
@@ -49,11 +53,11 @@ export function MangaBrowseNavBar({ activeGenres, activeTypes, activeMode, onFil
   };
 
   return (
-    <div className="w-full bg-background/95 backdrop-blur-xl border-y border-border py-3 px-6 mb-8 mt-2 sticky top-0 z-50 flex items-center gap-8 shadow-sm">
+    <div className={`w-full bg-background/95 backdrop-blur-xl border-y border-border shadow-sm flex ${isMobileDialog ? 'flex-col gap-4 py-4 px-2 border-none items-stretch' : 'py-2 md:py-3 px-3 md:px-6 mb-2 md:mb-8 mt-0 md:mt-2 sticky top-0 z-50 items-center gap-4 md:gap-8 overflow-x-auto scrollbar-hide'}`}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className={`font-medium flex items-center gap-1 transition-colors outline-none ${activeTypes.length > 0 ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
-            Types {activeTypes.length > 0 && `(${activeTypes.length})`} <ChevronDown className="w-4 h-4 opacity-50" />
+          <button className={`font-medium flex items-center justify-between gap-1 transition-colors outline-none shrink-0 text-sm md:text-base ${isMobileDialog ? 'w-full bg-secondary/20 p-3 rounded-xl' : ''} ${activeTypes.length > 0 ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+            <span>Types {activeTypes.length > 0 && `(${activeTypes.length})`}</span> <ChevronDown className="w-4 h-4 opacity-50" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-48 bg-background/95 backdrop-blur-xl border-white/10" align="start">
@@ -67,8 +71,8 @@ export function MangaBrowseNavBar({ activeGenres, activeTypes, activeMode, onFil
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className={`font-medium flex items-center gap-1 transition-colors outline-none ${activeGenres.length > 0 ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
-            Genres {activeGenres.length > 0 && `(${activeGenres.length})`} <ChevronDown className="w-4 h-4 opacity-50" />
+          <button className={`font-medium flex items-center justify-between gap-1 transition-colors outline-none shrink-0 text-sm md:text-base ${isMobileDialog ? 'w-full bg-secondary/20 p-3 rounded-xl' : ''} ${activeGenres.length > 0 ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+            <span>Genres {activeGenres.length > 0 && `(${activeGenres.length})`}</span> <ChevronDown className="w-4 h-4 opacity-50" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-[min(600px,90vw)] bg-background/95 backdrop-blur-xl border-white/10 p-4" align="start">
@@ -82,19 +86,31 @@ export function MangaBrowseNavBar({ activeGenres, activeTypes, activeMode, onFil
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <div className="flex items-center gap-6 flex-1">
-        <button onClick={() => setMode('Newest')} className={`font-medium transition-colors ${activeMode === 'Newest' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+      <div className={`flex flex-1 ${isMobileDialog ? 'flex-col gap-2 w-full mt-2' : 'items-center gap-3 md:gap-6 min-w-max'}`}>
+        <button onClick={() => setMode('Newest')} className={`font-medium transition-colors ${isMobileDialog ? 'text-left p-3 rounded-xl bg-secondary/10' : ''} ${activeMode === 'Newest' ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-foreground'}`}>
           Newest
         </button>
-        <button onClick={() => setMode('Updated')} className={`font-medium transition-colors ${activeMode === 'Updated' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+        <button onClick={() => setMode('Updated')} className={`font-medium transition-colors ${isMobileDialog ? 'text-left p-3 rounded-xl bg-secondary/10' : ''} ${activeMode === 'Updated' ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-foreground'}`}>
           Updated
         </button>
-        <button onClick={() => setMode('Added')} className={`font-medium transition-colors ${activeMode === 'Added' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+        <button onClick={() => setMode('Added')} className={`font-medium transition-colors ${isMobileDialog ? 'text-left p-3 rounded-xl bg-secondary/10' : ''} ${activeMode === 'Added' ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-foreground'}`}>
           Added
         </button>
       </div>
 
-      <Button variant="ghost" className="text-muted-foreground hover:text-foreground hover:bg-white/5 gap-2" onClick={onRandomClick}>
+      <div className={`flex items-center gap-2 cursor-pointer text-sm font-medium hover:text-foreground transition-colors select-none text-muted-foreground shrink-0 ${isMobileDialog ? 'w-full p-3 bg-secondary/10 rounded-xl justify-between' : ''}`}>
+        <label className="flex items-center gap-2 cursor-pointer w-full">
+          <input
+            type="checkbox"
+            checked={preferences?.includeNsfw ?? false}
+            onChange={(e) => updateGeneralSettings({ includeNsfw: e.target.checked })}
+            className="rounded border-border text-primary focus:ring-primary/20 bg-background/50 cursor-pointer w-4 h-4"
+          />
+          Include NSFW Content
+        </label>
+      </div>
+
+      <Button variant="ghost" className={`text-muted-foreground hover:text-foreground hover:bg-white/5 gap-2 shrink-0 ${isMobileDialog ? 'w-full h-12 mt-4 bg-primary/10 text-primary' : 'h-8 md:h-10 text-xs md:text-sm px-2 md:px-4'}`} onClick={onRandomClick}>
         <Shuffle className="w-4 h-4" /> Random
       </Button>
     </div>

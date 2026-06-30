@@ -48,11 +48,11 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
   }
 
   return (
-    <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/40 p-3 flex flex-col gap-3 md:hidden shadow-sm">
+    <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/40 px-3 pb-3 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] flex flex-col gap-3 md:hidden shadow-sm">
       <div className="flex items-center justify-between gap-3">
         {/* Domain Tabs */}
         {preferences?.preferredContentType === 'both' && (
-          <div className="relative flex items-center p-1 bg-muted/50 border border-border/50 rounded-full h-9 flex-1 max-w-[200px] shadow-inner">
+          <div className="relative flex items-center p-1 bg-muted/50 border border-border/50 rounded-full h-12 flex-1 max-w-[200px] shadow-inner">
             <div 
               className="absolute top-1 bottom-1 rounded-full bg-background shadow-sm border border-border/50 transition-all duration-300 ease-out z-0"
               style={{ 
@@ -92,7 +92,7 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
           type="button"
           onClick={onOpenAdvancedFilter}
           className={cn(
-            'relative flex items-center justify-center h-9 px-3 rounded-full border shadow-sm transition-all duration-200',
+            'relative flex items-center justify-center min-h-[48px] px-4 rounded-full border shadow-sm transition-all duration-200',
             activeFilterCount > 0
               ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
               : 'bg-background text-foreground border-border hover:bg-accent'

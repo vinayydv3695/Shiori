@@ -42,27 +42,27 @@
     --ui-scale: 1.0;
   }
 
-  /* Black theme */
+  /* Black theme (Stitch 'Precision Noir' MD3) */
   [data-theme="black"] {
-    --background: 0 0% 6%;
-    --foreground: 0 0% 95%;
-    --card: 0 0% 9%;
-    --card-foreground: 0 0% 95%;
-    --popover: 0 0% 9%;
-    --popover-foreground: 0 0% 95%;
-    --primary: 0 0% 95%;
-    --primary-foreground: 0 0% 6%;
-    --secondary: 0 0% 16%;
-    --secondary-foreground: 0 0% 90%;
-    --muted: 0 0% 12%;
-    --muted-foreground: 0 0% 55%;
-    --accent: 0 0% 16%;
-    --accent-foreground: 0 0% 90%;
-    --destructive: 0 72% 42%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 18%;
+    --background: 0 0% 7%; /* #131313 */
+    --foreground: 0 0% 89%; /* #e2e2e2 */
+    --card: 0 0% 5%; /* #0e0e0e */
+    --card-foreground: 0 0% 89%; /* #e2e2e2 */
+    --popover: 0 0% 5%;
+    --popover-foreground: 0 0% 89%;
+    --primary: 0 0% 100%; /* #ffffff */
+    --primary-foreground: 0 0% 7%; /* #131313 */
+    --secondary: 0 0% 22%; /* #393939 surface-bright */
+    --secondary-foreground: 0 0% 89%; 
+    --muted: 0 0% 12%; /* #1f1f1f surface-container */
+    --muted-foreground: 0 0% 55%; /* #8e9192 */
+    --accent: 0 0% 22%; 
+    --accent-foreground: 0 0% 89%;
+    --destructive: 0 100% 83%; /* #ffb4ab error */
+    --destructive-foreground: 0 100% 20%; /* #690005 on-error */
+    --border: 0 0% 18%; /* #2a2a2a */
     --input: 0 0% 18%;
-    --ring: 0 0% 80%;
+    --ring: 0 0% 89%;
   }
 
   html {

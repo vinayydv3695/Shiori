@@ -4,7 +4,7 @@
 /// Extracts metadata from PDF Info dictionary and document properties.
 /// Renders first page as cover image using pdf-extract.
 use async_trait::async_trait;
-use lopdf::content::Content;
+
 use lopdf::{Document, Object};
 use std::path::Path;
 use tokio::fs;
@@ -87,51 +87,13 @@ impl PdfFormatAdapter {
             .collect()
     }
 
-    /// Extract text content from PDF (simple extraction)
+    /// Extract text content from PDF (using pdf-extract for robust CMAP resolution)
     pub fn extract_content(path: &Path) -> FormatResult<String> {
-        let doc = Document::load(path)
-            .map_err(|e| FormatError::ConversionError(format!("Failed to load PDF: {}", e)))?;
-
-        // PDF pages are stored in a BTreeMap<u32, ObjectId>, so iteration is sorted by page number
-        let mut full_text = String::new();
-
-        for (_page_num, page_id) in doc.get_pages() {
-            if let Ok(content_data) = doc.get_page_content(page_id) {
-                if let Ok(content) = Content::decode(&content_data) {
-                    for operation in content.operations {
-                        // Very basic text extraction
-                        if operation.operator == "Tj" {
-                            if let Some(obj) = operation.operands.get(0) {
-                                if let Some(text) = Self::get_pdf_text(obj) {
-                                    full_text.push_str(&text);
-                                }
-                            }
-                        } else if operation.operator == "TJ" {
-                            if let Some(Object::Array(arr)) = operation.operands.get(0) {
-                                for obj in arr {
-                                    if let Some(text) = Self::get_pdf_text(obj) {
-                                        full_text.push_str(&text);
-                                    } else if let Object::Integer(spacing) = obj {
-                                        if *spacing < -100 {
-                                            full_text.push(' ');
-                                        }
-                                    } else if let Object::Real(spacing) = obj {
-                                        if *spacing < -100.0 {
-                                            full_text.push(' ');
-                                        }
-                                    }
-                                }
-                            }
-                        } else if operation.operator == "T*" || operation.operator == "ET" {
-                            full_text.push('\n');
-                        } else if operation.operator == "TD" || operation.operator == "Td" {
-                            full_text.push('\n');
-                        }
-                    }
-                    full_text.push_str("\n\n");
-                }
-            }
-        }
+        let bytes = std::fs::read(path)
+            .map_err(|e| FormatError::ConversionError(format!("Failed to read PDF file: {}", e)))?;
+            
+        let full_text = pdf_extract::extract_text_from_mem(&bytes)
+            .map_err(|e| FormatError::ConversionError(format!("Failed to extract text from PDF: {}", e)))?;
 
         // Post-process text with heuristics
         Ok(Self::post_process_text(&full_text))

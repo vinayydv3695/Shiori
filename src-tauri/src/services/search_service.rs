@@ -147,6 +147,13 @@ pub fn search(db: &Database, query: SearchQuery) -> Result<SearchResult> {
         }
     }
 
+    // Filter by in_trash
+    if let Some(in_trash) = query.in_trash {
+        where_clauses.push(if in_trash { "b.in_trash = 1".to_string() } else { "b.in_trash = 0".to_string() });
+    } else {
+        where_clauses.push("b.in_trash = 0".to_string());
+    }
+
     // Filter by reading status
     if let Some(ref statuses) = query.reading_status {
         if !statuses.is_empty() {

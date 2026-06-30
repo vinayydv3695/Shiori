@@ -70,7 +70,7 @@ const SeriesHeader = memo(function SeriesHeader({
         </button>
       </Dialog.Close>
 
-      <div className="relative z-10 p-6 md:p-8 flex flex-col md:flex-row gap-8 items-center md:items-end">
+      <div className="relative z-10 p-6 pt-14 md:p-8 flex flex-col md:flex-row gap-8 items-center md:items-end">
         <div className="w-32 h-48 md:w-48 md:h-72 rounded-lg overflow-hidden shadow-2xl border border-white/10 flex-shrink-0 bg-muted/50 transform transition-transform hover:scale-105 duration-300">
           {coverUrl ? (
             <img src={coverUrl} alt={series.title} className="w-full h-full object-cover" />
@@ -257,7 +257,6 @@ export const SeriesView = memo(function SeriesView({
   onViewDetailsBook,
   onEditBook,
   onDeleteBook,
-  onConvertBook,
   onFavoriteBook,
   selectedBookIds,
   favoritedBookIds,
@@ -382,10 +381,19 @@ export const SeriesView = memo(function SeriesView({
 
   const handleDeleteSeries = async () => {
     try {
-      for (const book of series.books) {
-        if (book.id) await api.removeBookFromSeries(book.id);
+      const list = await api.getMangaSeriesList(1000, 0);
+      const targetSeries = list.find(s => s.title.toLowerCase() === series.title.toLowerCase());
+      
+      if (targetSeries && targetSeries.id !== undefined) {
+          await api.deleteMangaSeries(targetSeries.id);
       }
-      toast.success('Series Deleted', 'All volumes have been ungrouped.');
+
+      const bookIds = series.books.map(b => b.id).filter((id): id is number => id !== undefined);
+      if (bookIds.length > 0) {
+          await api.deleteBooks(bookIds);
+      }
+      
+      toast.success('Series Deleted', 'Series and all volumes have been deleted.');
       onClose();
      } catch (err) {
        logger.error(err);
@@ -497,7 +505,7 @@ export const SeriesView = memo(function SeriesView({
                 </div>
               ) : (
                 viewMode === 'grid' ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-4">
                     {processedBooks.map((book, index) => (
                       <div 
                         key={book.id ?? book.uuid} 
@@ -512,7 +520,6 @@ export const SeriesView = memo(function SeriesView({
                           onViewDetails={onViewDetailsBook}
                           onEdit={onEditBook}
                           onDelete={onDeleteBook}
-                          onConvert={onConvertBook}
                           isFavorited={favoritedBookIds?.has(book.id!) ?? false}
                           onFavorite={onFavoriteBook}
                           animationDelay={index * 20}

@@ -136,7 +136,7 @@ interface ReadingSettings {
 }
 
 const defaultSettings = {
-  theme: 'black' as ReaderTheme,
+  theme: 'paper' as ReaderTheme,
   fontFamily: 'eb-garamond',
   fontSize: 24,
   lineHeight: 1.6,

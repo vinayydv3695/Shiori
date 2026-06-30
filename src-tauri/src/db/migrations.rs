@@ -110,7 +110,6 @@ impl<'a> MigrationManager<'a> {
         }
         if current_version < 29 {
             self.run_in_savepoint("v29", |mgr| mgr.migrate_to_v29())?;
-            self.run_in_savepoint("v28", |mgr| mgr.migrate_to_v28())?;
         }
         if current_version < 30 {
             self.run_in_savepoint("v30", |mgr| mgr.migrate_to_v30())?;
@@ -120,6 +119,12 @@ impl<'a> MigrationManager<'a> {
         }
         if current_version < 32 {
             self.run_in_savepoint("v32", |mgr| mgr.migrate_to_v32())?;
+        }
+        if current_version < 33 {
+            self.run_in_savepoint("v33", |mgr| mgr.migrate_to_v33())?;
+        }
+        if current_version < 34 {
+            self.run_in_savepoint("v34", |mgr| mgr.migrate_to_v34())?;
         }
 
         // Always ensure the FTS table has the correct schema.
@@ -2073,6 +2078,42 @@ impl<'a> MigrationManager<'a> {
 
         let hash = Self::calculate_checksum("v32_add_wishlist");
         self.record_migration(32, "add_wishlist", &hash)?;
+        Ok(())
+    }
+
+    /// Migration v33: Add recycle_bin support
+    fn migrate_to_v33(&self) -> Result<()> {
+        log::info!("[Migration] Applying v33: Add recycle_bin support");
+
+        self.conn.execute_batch(
+            r#"
+            CREATE TABLE IF NOT EXISTS recycle_bin (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                book_id INTEGER NOT NULL,
+                original_path TEXT NOT NULL,
+                deleted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            "#,
+        )?;
+
+        let hash = Self::calculate_checksum("v33_add_recycle_bin");
+        self.record_migration(33, "add_recycle_bin", &hash)?;
+        Ok(())
+    }
+
+    /// Migration v34: Add legacy_library_migration_status to user_preferences
+    fn migrate_to_v34(&self) -> Result<()> {
+        log::info!("[Migration] Applying v34: Add legacy_library_migration_status");
+
+        if !self.column_exists("user_preferences", "legacy_library_migration_status")? {
+            self.conn.execute(
+                "ALTER TABLE user_preferences ADD COLUMN legacy_library_migration_status TEXT DEFAULT 'unmigrated'",
+                [],
+            )?;
+        }
+
+        let hash = Self::calculate_checksum("v34_add_migration_status");
+        self.record_migration(34, "add_migration_status", &hash)?;
         Ok(())
     }
 }

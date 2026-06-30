@@ -13,6 +13,7 @@ const OnlineBooksView = lazy(() => import("./online/OnlineBooksView").then(m => 
 const OnlineMangaView = lazy(() => import("./online/OnlineMangaView").then(m => ({ default: m.OnlineMangaView })))
 const OnlineMangaReader = lazy(() => import("./online/OnlineMangaReader").then(m => ({ default: m.OnlineMangaReader })))
 const TorboxControlCenter = lazy(() => import("./TorboxControlCenter"))
+const RecycleBinView = lazy(() => import("./RecycleBinView").then(m => ({ default: m.RecycleBinView })))
 
 const LoadingSpinner = ({ className = "h-screen" }: { className?: string }) => (
   <div className={`flex items-center justify-center ${className}`}>
@@ -31,7 +32,10 @@ export interface ViewRouterProps {
   handleViewDetails: (id: number) => void
   handleEditBook: (id: number) => void
   handleDeleteBook: (id: number) => void
-  handleConvertBook: (id: number) => void
+  searchQuery: string
+  onSearchChange: (query: string) => void
+  onOpenAdvancedFilter: () => void
+
   dialogs: any
 }
 
@@ -44,14 +48,23 @@ export function ViewRouter({
   handleViewDetails,
   handleEditBook,
   handleDeleteBook,
-  handleConvertBook,
+  searchQuery,
+  onSearchChange,
+  onOpenAdvancedFilter,
+
   dialogs
 }: ViewRouterProps) {
   return (
     <>
         {currentView === 'home' && (
           <Suspense fallback={<LoadingSpinner className="py-24" />}>
-            <HomePage onOpenBook={handleOpenBook} onViewRSS={() => handleNavigate('rss-articles')} />
+            <HomePage 
+              onOpenBook={handleOpenBook} 
+              onViewRSS={() => handleNavigate('rss-articles')} 
+              searchQuery={searchQuery}
+              onSearchChange={onSearchChange}
+              onOpenAdvancedFilter={onOpenAdvancedFilter}
+            />
           </Suspense>
         )}
 
@@ -76,7 +89,10 @@ export function ViewRouter({
               onViewDetails={handleViewDetails}
               onEditBook={handleEditBook}
               onDeleteBook={handleDeleteBook}
-              onConvertBook={handleConvertBook}
+              searchQuery={searchQuery}
+              onSearchChange={onSearchChange}
+              onOpenAdvancedFilter={onOpenAdvancedFilter}
+
               onViewSeries={dialogs.openSeriesView}
             />
           </SectionErrorBoundary>
@@ -119,6 +135,10 @@ export function ViewRouter({
 
         {currentView === 'torbox-manga' && (
           <Suspense fallback={<LoadingSpinner className="py-24" />}><TorboxControlCenter initialTab="manga" /></Suspense>
+        )}
+
+        {currentView === 'recycle-bin' && (
+          <Suspense fallback={<LoadingSpinner className="py-24" />}><RecycleBinView /></Suspense>
         )}
     </>
   )

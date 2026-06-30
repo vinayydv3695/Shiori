@@ -5,6 +5,7 @@ import { X, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
 import { api } from '../../lib/tauri';
 import { useToast } from '../../store/toastStore';
 import { useLibraryStore } from '../../store/libraryStore';
+import { usePreferencesStore } from '../../store/preferencesStore';
 import { Button } from '../ui/button';
 
 interface DeleteBookDialogProps {
@@ -19,6 +20,7 @@ export const DeleteBookDialog = ({ open, onOpenChange, bookIds, bookTitle }: Del
   const toast = useToast();
   const setBooks = useLibraryStore(state => state.setBooks);
   const clearSelection = useLibraryStore(state => state.clearSelection);
+  const enableRecycleBin = usePreferencesStore(state => state.preferences?.enableRecycleBin ?? false);
 
   const isMultiple = bookIds.length > 1;
 
@@ -84,8 +86,10 @@ export const DeleteBookDialog = ({ open, onOpenChange, bookIds, bookTitle }: Del
               )}?
             </p>
             <p className="text-sm text-muted-foreground">
-              This action cannot be undone. The {isMultiple ? 'books' : 'book'} will be permanently removed from your library,
-              but the {isMultiple ? 'files' : 'file'} will remain on your disk.
+              {enableRecycleBin 
+                ? `The ${isMultiple ? 'books' : 'book'} will be moved to the Recycle Bin and kept for 7 days before being permanently deleted.`
+                : `This action cannot be undone. The ${isMultiple ? 'books' : 'book'} will be permanently removed from your library, but the ${isMultiple ? 'files' : 'file'} will remain on your disk.`
+              }
             </p>
           </div>
 

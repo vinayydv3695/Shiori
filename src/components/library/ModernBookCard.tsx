@@ -20,7 +20,7 @@ import {
   IconBookOpen,
   IconEditMeta,
   IconDelete,
-  IconConvert,
+  
   IconCheck,
 } from '@/components/icons/ShioriIcons'
 import { useLibraryStore } from '@/store/libraryStore'
@@ -66,11 +66,10 @@ interface OverlayProps {
   onViewDetails?: () => void
   onEdit: () => void
   onDelete: () => void
-  onConvert?: () => void
   isManga: boolean
 }
 
-const HoverOverlay = ({ onOpen, onViewDetails, onEdit, onDelete, onConvert, isManga }: OverlayProps) => {
+const HoverOverlay = ({ onOpen, onViewDetails, onEdit, onDelete, isManga }: OverlayProps) => {
   const btnCls = cn(
     'flex items-center justify-center w-8 h-8 rounded-full',
     'bg-white/10 text-white hover:bg-white/30 hover:scale-110',
@@ -125,13 +124,7 @@ const HoverOverlay = ({ onOpen, onViewDetails, onEdit, onDelete, onConvert, isMa
             </button>
           </ActionTooltip>
           
-          {onConvert && (
-            <ActionTooltip content="Convert format">
-              <button onClick={(e) => { e.stopPropagation(); onConvert() }} className={btnCls}>
-                <IconConvert size={15} className="opacity-80" />
-              </button>
-            </ActionTooltip>
-          )}
+
           
           <ActionTooltip content="Delete book">
             <button 
@@ -165,7 +158,6 @@ interface BookCardProps {
   onViewDetails?: (id: number) => void
   onEdit: (id: number) => void
   onDelete: (id: number) => void
-  onConvert?: (id: number) => void
   isFavorited?: boolean
   onFavorite?: (id: number) => void
   animationDelay?: number
@@ -181,7 +173,6 @@ export const PremiumBookCard = memo(function PremiumBookCard({
   onViewDetails,
   onEdit,
   onDelete,
-  onConvert,
   isFavorited: propIsFavorited,
   onFavorite,
   animationDelay = 0,
@@ -292,7 +283,6 @@ export const PremiumBookCard = memo(function PremiumBookCard({
           onViewDetails={onViewDetails ? () => onViewDetails(book.id!) : undefined}
           onEdit={() => onEdit(book.id!)}
           onDelete={() => onDelete(book.id!)}
-          onConvert={onConvert ? () => onConvert(book.id!) : undefined}
           isManga={isManga}
         />
 

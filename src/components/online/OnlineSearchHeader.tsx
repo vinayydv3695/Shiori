@@ -1,4 +1,4 @@
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, Globe, BookOpen } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { OnlineSourceSelector } from './OnlineSourceSelector';
@@ -6,6 +6,8 @@ import { AdvancedOnlineSearchDialog } from './AdvancedOnlineSearchDialog';
 
 import { useOnlineSearchStore } from '@/store/onlineSearchStore';
 import { usePreferencesStore } from '@/store/preferencesStore';
+import { useUIStore } from '@/store/uiStore';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import type { SourceKind } from '@/store/sourceStore';
 
 interface OnlineSearchHeaderProps {
@@ -36,6 +38,8 @@ export function OnlineSearchHeader({
   const hasFilters = Object.keys(filters || {}).length > 0;
   const preferences = usePreferencesStore(state => state.preferences);
   const updateGeneralSettings = usePreferencesStore(state => state.updateGeneralSettings);
+  const isMobile = useIsMobile();
+  const setCurrentView = useUIStore(state => state.setCurrentView);
 
   return (
     <div className="flex-shrink-0 bg-background/60 backdrop-blur-3xl border-b border-border pt-16 pb-8 px-8 relative overflow-hidden z-10 transition-colors duration-500">
@@ -49,6 +53,31 @@ export function OnlineSearchHeader({
             </h1>
             <OnlineSourceSelector kind={kind} variant="secondary" className="h-10 px-4 bg-secondary/80 hover:bg-secondary text-secondary-foreground border border-border rounded-md shadow-sm backdrop-blur-md" />
           </div>
+
+          {isMobile && preferences?.preferredContentType === 'both' && (
+            <div className="flex p-1 bg-secondary/50 rounded-lg backdrop-blur-md border border-border mt-[-0.5rem] mb-2">
+              <button
+                onClick={() => setCurrentView('online-books')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all ${
+                  kind === 'books'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Globe className="w-4 h-4" /> Books
+              </button>
+              <button
+                onClick={() => setCurrentView('online-manga')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all ${
+                  kind === 'manga'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <BookOpen className="w-4 h-4" /> Manga
+              </button>
+            </div>
+          )}
 
           <div className="relative group">
             <div className="flex items-end border-b border-border focus-within:border-primary transition-colors duration-300 pb-2">

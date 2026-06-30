@@ -14,7 +14,6 @@ import type { ReaderFormat } from './ReaderSettings';
 import type { ReaderContent } from './readerContent';
 import { PremiumSidebar } from './PremiumSidebar';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
-import { TTSControlBar } from './TTSControlBar';
 import { sanitizeBookContent } from '@/lib/sanitize';
 import { applyHighlightsToDOM } from '@/lib/highlightAnnotations';
 import { resolveReadingFontCss } from '@/lib/readingFonts';
@@ -452,11 +451,6 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
                 currentLocation={`${locationPrefix}-chapter-${currentChapter}`}
             />
 
-            {/* TTS Control Bar */}
-            <TTSControlBar
-                contentRef={contentRef}
-                onChapterEnd={nextPage}
-            />
         </div>
     );
 }

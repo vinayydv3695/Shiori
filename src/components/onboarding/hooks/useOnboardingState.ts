@@ -7,7 +7,7 @@ import {
 } from '@/store/onboardingStore';
 
 export interface OnboardingState {
-  currentStep: 1 | 2 | 3 | 4 | 5;
+  currentStep: 1 | 2 | 3 | 4 | 5 | 6;
   libraryPath: string | null;
   selectedTheme: ThemeName;
   mangaPrefs: MangaPrefs;
@@ -22,8 +22,10 @@ export interface OnboardingState {
   uiScale: number;
   enableCloudSync: boolean;
   enableNotifications: boolean;
+  preferredContentType: 'books' | 'manga' | 'both';
   defaultMangaSource: string;
   defaultBookSource: string;
+  onboardingPath: 'local' | 'cloud' | null;
 }
 
 interface UseOnboardingStateResult {
@@ -33,7 +35,7 @@ interface UseOnboardingStateResult {
   isInitializing: boolean;
   nextStep: () => void;
   prevStep: () => void;
-  setCurrentStep: (step: 1 | 2 | 3 | 4 | 5) => void;
+  setCurrentStep: (step: 1 | 2 | 3 | 4 | 5 | 6) => void;
   setLibraryPath: (path: string | null) => void;
   setSelectedTheme: (theme: ThemeName) => void;
   setMangaPrefs: (updates: Partial<MangaPrefs>) => void;
@@ -48,8 +50,10 @@ interface UseOnboardingStateResult {
   setUiScale: (uiScale: number) => void;
   setEnableCloudSync: (enableCloudSync: boolean) => void;
   setEnableNotifications: (enableNotifications: boolean) => void;
+  setPreferredContentType: (type: 'books' | 'manga' | 'both') => void;
   setDefaultMangaSource: (source: string) => void;
   setDefaultBookSource: (source: string) => void;
+  setOnboardingPath: (path: 'local' | 'cloud' | null) => void;
   completeOnboarding: () => Promise<void>;
   initialize: () => Promise<void>;
   canGoBack: boolean;
@@ -72,8 +76,10 @@ export function useOnboardingState(): UseOnboardingStateResult {
   const uiScale = useOnboardingStore((s) => s.uiScale);
   const enableCloudSync = useOnboardingStore((s) => s.enableCloudSync);
   const enableNotifications = useOnboardingStore((s) => s.enableNotifications);
+  const preferredContentType = useOnboardingStore((s) => s.preferredContentType);
   const defaultMangaSource = useOnboardingStore((s) => s.defaultMangaSource);
   const defaultBookSource = useOnboardingStore((s) => s.defaultBookSource);
+  const onboardingPath = useOnboardingStore((s) => s.onboardingPath);
   const onboardingComplete = useOnboardingStore((s) => s.onboardingComplete);
   const isHydrated = useOnboardingStore((s) => s.isHydrated);
   const isInitializing = useOnboardingStore((s) => s.isInitializing);
@@ -95,8 +101,10 @@ export function useOnboardingState(): UseOnboardingStateResult {
   const setUiScale = useOnboardingStore((s) => s.setUiScale);
   const setEnableCloudSync = useOnboardingStore((s) => s.setEnableCloudSync);
   const setEnableNotifications = useOnboardingStore((s) => s.setEnableNotifications);
+  const setPreferredContentType = useOnboardingStore((s) => s.setPreferredContentType);
   const setDefaultMangaSource = useOnboardingStore((s) => s.setDefaultMangaSource);
   const setDefaultBookSource = useOnboardingStore((s) => s.setDefaultBookSource);
+  const setOnboardingPath = useOnboardingStore((s) => s.setOnboardingPath);
   const completeOnboarding = useOnboardingStore((s) => s.completeOnboarding);
   const initialize = useOnboardingStore((s) => s.initialize);
 
@@ -117,8 +125,10 @@ export function useOnboardingState(): UseOnboardingStateResult {
       uiScale,
       enableCloudSync,
       enableNotifications,
+      preferredContentType,
       defaultMangaSource,
       defaultBookSource,
+      onboardingPath,
     }),
     [
       currentStep,
@@ -136,8 +146,10 @@ export function useOnboardingState(): UseOnboardingStateResult {
       uiScale,
       enableCloudSync,
       enableNotifications,
+      preferredContentType,
       defaultMangaSource,
       defaultBookSource,
+      onboardingPath,
     ]
   );
 
@@ -163,8 +175,10 @@ export function useOnboardingState(): UseOnboardingStateResult {
     setUiScale,
     setEnableCloudSync,
     setEnableNotifications,
+    setPreferredContentType,
     setDefaultMangaSource,
     setDefaultBookSource,
+    setOnboardingPath,
     completeOnboarding,
     initialize,
     canGoBack: currentStep > 1,

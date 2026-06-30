@@ -172,10 +172,54 @@ pub fn delete_book(state: State<AppState>, id: i64) -> Result<()> {
 }
 
 #[tauri::command]
+pub fn restore_book(state: State<AppState>, id: i64) -> Result<()> {
+    validate::require_positive_id(id, "book id")?;
+    log::info!("[command::restore_book] Received request to restore book id: {}", id);
+    let db = &state.db;
+    let result = library_service::restore_book(db, id);
+    match &result {
+        Ok(_) => log::info!("[command::restore_book] Successfully restored book id: {}", id),
+        Err(e) => log::error!("[command::restore_book] Failed to restore book id {}: {:?}", id, e),
+    }
+    result
+}
+
+#[tauri::command]
+pub fn permanent_delete_book(state: State<AppState>, id: i64) -> Result<()> {
+    validate::require_positive_id(id, "book id")?;
+    log::info!("[command::permanent_delete_book] Received request to permanently delete book id: {}", id);
+    let db = &state.db;
+    let result = library_service::permanent_delete_book(db, id);
+    match &result {
+        Ok(_) => log::info!("[command::permanent_delete_book] Successfully deleted book id: {}", id),
+        Err(e) => log::error!("[command::permanent_delete_book] Failed to delete book id {}: {:?}", id, e),
+    }
+    result
+}
+
+#[tauri::command]
+pub fn empty_trash(state: State<AppState>) -> Result<()> {
+    log::info!("[command::empty_trash] Received request to empty trash");
+    let db = &state.db;
+    let result = library_service::empty_trash(db);
+    match &result {
+        Ok(_) => log::info!("[command::empty_trash] Successfully emptied trash"),
+        Err(e) => log::error!("[command::empty_trash] Failed to empty trash: {:?}", e),
+    }
+    result
+}
+
+#[tauri::command]
 pub fn clean_up_database(state: State<AppState>) -> Result<(usize, usize)> {
     log::info!("[command::clean_up_database] Received request to clean up database");
     let db = &state.db;
     let covers_dir = state.covers_dir.clone();
+    
+    // Clean up recycle bin automatically
+    if let Err(e) = library_service::clean_recycle_bin(db) {
+        log::error!("[command::clean_up_database] Failed to clean recycle bin: {:?}", e);
+    }
+
     let result = library_service::cleanup_database(db, &covers_dir);
     match &result {
         Ok((books, covers)) => log::info!(

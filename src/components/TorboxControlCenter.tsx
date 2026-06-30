@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import { motion, AnimatePresence } from 'framer-motion'
 import DOMPurify from 'dompurify'
 import { invoke } from '@tauri-apps/api/core'
@@ -210,13 +211,20 @@ function parseSearchSource(record: any, index: number, fallbackTitle: string): S
 }
 
 export default function TorboxControlCenter({ initialTab = 'discover' }: { initialTab?: TorboxInitialTab }) {
+  const isMobile = useIsMobile()
   const { success, error, info } = useToast()
   const { jobs, enqueueJob, removeJob, importJob, resolveJob, clearCompleted: clearStoreCompleted } = useTorboxStore()
 
   const [apiKey, setApiKey] = useState<string>('')
   const [keyStatus, setKeyStatus] = useState<KeyStatus>('unknown')
+  const preferences = usePreferencesStore(state => state.preferences)
+  const preferredContentType = preferences?.preferredContentType ?? 'both'
+  const updateGeneralSettings = usePreferencesStore(state => state.updateGeneralSettings)
+
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchType, setSearchType] = useState<SearchType>('manga')
+  const [searchType, setSearchType] = useState<SearchType>(
+    preferredContentType === 'books' ? 'books' : (preferredContentType === 'manga' ? 'manga' : 'all')
+  )
   const [searchResults, setSearchResults] = useState<UnifiedMetadata[]>([])
   
   const [activeModalResult, setActiveModalResult] = useState<SearchResult | null>(null)
@@ -224,12 +232,15 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
   const [sourceBusy, setSourceBusy] = useState<Record<string, boolean>>({})
 
   const [isSearching, setIsSearching] = useState(false)
-  const [activeTab, setActiveTab] = useState<TabValue>(() => mapInitialTabToValue(initialTab))
+  const [activeTab, setActiveTab] = useState<TabValue>(() => {
+    const val = mapInitialTabToValue(initialTab)
+    if (val === 'books' && preferredContentType !== 'manga') return 'books'
+    if (val === 'manga' && preferredContentType !== 'books') return 'manga'
+    return 'search'
+  })
 
   const [keyFeedback, setKeyFeedback] = useState<string | null>(null)
   const [searchError, setSearchError] = useState<string | null>(null)
-  const preferences = usePreferencesStore(state => state.preferences)
-  const updateGeneralSettings = usePreferencesStore(state => state.updateGeneralSettings)
 
   const [manualTitle, setManualTitle] = useState('')
   const [manualMagnet, setManualMagnet] = useState('')
@@ -241,8 +252,11 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
   const mangaJobs = useMemo(() => jobs.filter((job) => job.source === 'manga'), [jobs])
 
   useEffect(() => {
-    setActiveTab(mapInitialTabToValue(initialTab))
-  }, [initialTab])
+    const val = mapInitialTabToValue(initialTab)
+    if (val === 'books' && preferredContentType !== 'manga') setActiveTab('books')
+    else if (val === 'manga' && preferredContentType !== 'books') setActiveTab('manga')
+    else setActiveTab('search')
+  }, [initialTab, preferredContentType])
 
   useEffect(() => {
     let mounted = true
@@ -540,7 +554,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
   }, [removeJob, resolveJob, importJob])
 
   return (
-    <div className="flex h-full flex-col bg-background p-6 text-foreground relative overflow-hidden">
+    <div className={`flex h-full flex-col bg-background p-6 text-foreground relative overflow-hidden ${isMobile ? 'pb-24 pt-2 px-4' : ''}`}>
       <header className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6">
         <div className="flex items-center gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -588,6 +602,8 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
       <Tabs.Root value={activeTab} onValueChange={(next) => setActiveTab(next as TabValue)} className="flex min-h-0 flex-1 flex-col z-10">
         <Tabs.List className="flex items-center gap-6 border-b border-border/50 pb-2 mb-4">
           {(['search', 'books', 'manga'] as const).map((tab) => {
+            if (tab === 'books' && preferredContentType === 'manga') return null;
+            if (tab === 'manga' && preferredContentType === 'books') return null;
             const isActive = activeTab === tab;
             let label = tab === 'search' ? 'Discover' : tab === 'books' ? 'Books Queue' : 'Manga Queue';
             let count = tab === 'books' ? booksJobs.length : tab === 'manga' ? mangaJobs.length : null;
@@ -612,9 +628,9 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                     <Input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void runSearch() }} placeholder="Search AniList or OpenLibrary..." className="flex-1 h-14 border-0 bg-transparent pl-14 pr-4 text-base font-medium shadow-none focus-visible:ring-0 focus-visible:ring-offset-0" />
                     <div className="pr-2 flex items-center gap-2">
                       <select value={searchType} onChange={(event) => setSearchType(event.target.value as SearchType)} className="h-10 rounded-full bg-transparent hover:bg-foreground focus:bg-foreground border-0 px-4 text-sm font-medium text-muted-foreground hover:text-background focus:text-background cursor-pointer focus:outline-none transition-colors [&>option]:bg-background [&>option]:text-foreground">
-                        <option value="manga">Manga</option>
-                        <option value="books">Books</option>
-                        <option value="all">Everywhere</option>
+                        {(preferredContentType === 'manga' || preferredContentType === 'both') && <option value="manga">Manga</option>}
+                        {(preferredContentType === 'books' || preferredContentType === 'both') && <option value="books">Books</option>}
+                        {preferredContentType === 'both' && <option value="all">Everywhere</option>}
                       </select>
                       <Button size="icon" className="h-10 w-10 rounded-full shrink-0" onClick={() => void runSearch()} disabled={isSearching}>
                         {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
@@ -637,7 +653,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
 
                 {searchError && <p className="mb-6 text-sm font-medium text-destructive bg-destructive/10 border border-destructive/20 p-4 rounded-xl inline-flex items-center gap-2"><AlertCircle className="h-4 w-4"/> {searchError}</p>}
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 items-start pb-8">
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4 items-start pb-8">
                   <AnimatePresence>
                     {searchResults.map((result) => {
                       const isExpanded = activeModalResult?.id === result.id;

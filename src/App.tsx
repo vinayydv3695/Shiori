@@ -12,6 +12,7 @@ import { useReaderStore } from "./store/readerStore"
 import { useUIStore } from "./store/uiStore"
 import { useConversionStore } from "./store/conversionStore"
 import { useOnboardingStore } from "./store/onboardingStore"
+import { usePreferencesStore } from "./store/preferencesStore"
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts"
 import { useDialogManager } from "./hooks/useDialogManager"
 import { useBookActions } from "./hooks/useBookActions"
@@ -22,6 +23,7 @@ import { useOnlineSearchStore } from "./store/onlineSearchStore"
 
 const ReaderLayout = lazy(() => import("./components/reader/ReaderLayout").then(m => ({ default: m.ReaderLayout })))
 const OnboardingWizard = lazy(() => import("./components/onboarding/OnboardingWizard").then(m => ({ default: m.OnboardingWizard })))
+const MigrationDialog = lazy(() => import("./components/onboarding/MigrationDialog").then(m => ({ default: m.MigrationDialog })))
 
 const LoadingSpinner = ({ className = "h-screen" }: { className?: string }) => (
   <div className={`flex items-center justify-center ${className}`}>
@@ -45,6 +47,28 @@ function App() {
   const setCurrentView = useUIStore(s => s.setCurrentView)
   const setCurrentDomain = useUIStore(s => s.setCurrentDomain)
   const resetToHome = useUIStore(s => s.resetToHome)
+  
+  const preferredContentType = usePreferencesStore(s => s.preferences?.preferredContentType)
+  
+  // Enforce preferredContentType restriction
+  useEffect(() => {
+    if (preferredContentType === 'books') {
+      if (currentDomain !== 'books') setCurrentDomain('books')
+      if (currentView === 'online-manga') setCurrentView('home')
+    } else if (preferredContentType === 'manga') {
+      if (currentDomain !== 'manga_comics') setCurrentDomain('manga_comics')
+      if (currentView === 'online-books' || currentView === 'annotations') setCurrentView('home')
+    }
+  }, [preferredContentType, currentDomain, currentView, setCurrentDomain, setCurrentView])
+
+  const legacyLibraryMigrationStatus = usePreferencesStore(s => s.preferences?.legacyLibraryMigrationStatus)
+  const [showMigrationDialog, setShowMigrationDialog] = useState(false)
+
+  useEffect(() => {
+    if (onboardingComplete && legacyLibraryMigrationStatus === 'unmigrated') {
+      setShowMigrationDialog(true)
+    }
+  }, [onboardingComplete, legacyLibraryMigrationStatus])
 
   const handleNavigate = (view: typeof currentView) => {
     setCurrentView(view)
@@ -130,7 +154,6 @@ function App() {
 
   const handleDeleteBooks = useCallback((bookIds: number[]) => dialogs.openDeleteMultipleDialog(bookIds), [dialogs])
   const handleViewDetails = useCallback((bookId: number) => dialogs.openDetailsDialog(bookId), [dialogs])
-  const handleConvertBook = useCallback((bookId: number) => dialogs.openConversionDialog(bookId), [dialogs])
 
   // ── Render ──
   if (isReaderOpen && selectedBookId) {
@@ -170,7 +193,6 @@ function App() {
         onDeleteBooks={handleDeleteBooks}
         onDownloadBook={handleDownloadBook}
         onViewDetails={handleViewDetails}
-        onConvertBook={handleConvertBook}
         onOpenRSSFeeds={() => handleNavigate('rss-feeds')}
         onOpenRSSArticles={() => handleNavigate('rss-articles')}
         onGoHome={() => resetToHome()}
@@ -194,7 +216,9 @@ function App() {
           handleViewDetails={handleViewDetails}
           handleEditBook={handleEditBook}
           handleDeleteBook={handleDeleteBook}
-          handleConvertBook={handleConvertBook}
+          searchQuery={activeTopbarSearchQuery}
+          onSearchChange={handleSearchChange}
+          onOpenAdvancedFilter={() => dialogs.setAdvancedFilterOpen(true)}
           dialogs={dialogs}
         />
       </Layout>
@@ -209,10 +233,15 @@ function App() {
         handleViewDetails={handleViewDetails}
         handleEditBook={handleEditBook}
         handleDeleteBook={handleDeleteBook}
-        handleConvertBook={handleConvertBook}
         clearSelection={clearSelection}
         loadInitialBooks={loadInitialBooks}
       />
+      <Suspense fallback={null}>
+        <MigrationDialog 
+          open={showMigrationDialog} 
+          onOpenChange={setShowMigrationDialog} 
+        />
+      </Suspense>
       </>
   )
 }

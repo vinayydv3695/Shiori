@@ -366,11 +366,12 @@ impl NyaaSource {
             let mut tasks = Vec::new();
             for p in 0..pages_to_fetch {
                 let current_page = safe_page + p;
+                let p_param = if current_page > 1 { format!("&p={}", current_page) } else { String::new() };
                 let url = format!(
-                    "{}/?page=rss&q={}&c=3_1&f=0&p={}",
+                    "{}/?page=rss&q={}&c=3_1&f=0{}",
                     mirror,
                     urlencoding::encode(query),
-                    current_page
+                    p_param
                 );
                 let client = self.client.clone();
                 tasks.push(tokio::spawn(async move { client.get(&url).send().await }));
@@ -386,6 +387,8 @@ impl NyaaSource {
                         if let Ok(text) = resp.text().await {
                             if text.contains("Enable JavaScript and cookies to continue")
                                 || text.contains("DDoS protection by Cloudflare")
+                                || text.contains("Please wait while your request is being verified")
+                                || text.contains("Just a moment...")
                             {
                                 diagnostics.attempted_mirrors.push(
                                     crate::sources::MirrorAttemptDiagnostic {
@@ -397,6 +400,14 @@ impl NyaaSource {
                                 mirror_failed = true;
                                 break;
                             }
+
+                            if !text.trim_start().starts_with("<?xml") && !text.trim_start().starts_with("<rss") {
+                                // Mirror returned HTML instead of RSS, meaning the RSS endpoint is likely broken
+                                // or ignoring query params (like nyaa.iss.one). Fallback to HTML endpoint.
+                                mirror_failed = true;
+                                break;
+                            }
+
                             page_contents.push(text);
                         }
                     }
@@ -453,17 +464,20 @@ impl NyaaSource {
             }
 
             if successful_mirror.is_empty() {
+                let p_param = if safe_page > 1 { format!("&p={}", safe_page) } else { String::new() };
                 let html_url = format!(
-                    "{}/?q={}&c=3_1&f=0&p={}",
+                    "{}/?q={}&c=3_1&f=0{}",
                     mirror,
                     urlencoding::encode(query),
-                    safe_page
+                    p_param
                 );
                 match self.client.get(&html_url).send().await {
                     Ok(resp) if resp.status().is_success() => {
                         if let Ok(text) = resp.text().await {
                             if text.contains("Enable JavaScript and cookies to continue")
                                 || text.contains("DDoS protection by Cloudflare")
+                                || text.contains("Please wait while your request is being verified")
+                                || text.contains("Just a moment...")
                             {
                                 diagnostics.attempted_mirrors.push(
                                     crate::sources::MirrorAttemptDiagnostic {

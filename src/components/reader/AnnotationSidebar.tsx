@@ -4,6 +4,9 @@ import { Trash2, Edit2, Bookmark, Highlighter, StickyNote, X } from '@/component
 import { useState, useMemo } from 'react';
 import { formatDate } from '@/lib/utils';
 import { AnnotationExportDialog } from './AnnotationExportDialog';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { cn } from '@/lib/utils';
 
 export function AnnotationSidebar() {
   const annotations = useReaderStore(state => state.annotations);
@@ -17,6 +20,8 @@ export function AnnotationSidebar() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editNote, setEditNote] = useState('');
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  
+  const isMobile = useIsMobile();
 
   const filteredAnnotations = useMemo(() => {
     return annotations.filter((a) => {
@@ -30,8 +35,6 @@ export function AnnotationSidebar() {
       return true;
     });
   }, [annotations, filter, searchQuery]);
-
-  if (!showAnnotationSidebar) return null;
 
   const handleDelete = async (annotation: Annotation) => {
     if (!annotation.id) return;
@@ -75,8 +78,32 @@ export function AnnotationSidebar() {
   };
 
   return (
-    <div className="w-80 bg-white border-l border-gray-200 flex flex-col h-full z-10 shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.05)]">
-      {/* Header */}
+    <AnimatePresence>
+      {showAnnotationSidebar && (
+        <>
+          {isMobile && (
+            <motion.div
+              className="fixed inset-0 bg-black/60 z-[400] backdrop-blur-sm"
+              onClick={toggleAnnotationSidebar}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+            />
+          )}
+          <motion.div 
+            initial={isMobile ? { y: "100%" } : { x: "100%", width: "0px", opacity: 0 }}
+            animate={isMobile ? { y: 0 } : { x: 0, width: "320px", opacity: 1 }}
+            exit={isMobile ? { y: "100%" } : { x: "100%", width: "0px", opacity: 0 }}
+            transition={{ type: "spring", bounce: 0, duration: 0.4 }}
+            className={cn(
+              "bg-white flex flex-col overflow-hidden",
+              isMobile
+                ? "fixed inset-x-0 bottom-0 h-[80vh] z-[500] rounded-t-2xl shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"
+                : "relative h-full z-10 border-l border-gray-200 shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.05)] w-80 shrink-0"
+            )}
+          >
+            {/* Header */}
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
         <h2 className="font-semibold text-lg text-gray-900">Annotations</h2>
         <div className="flex items-center gap-1">
@@ -279,6 +306,9 @@ export function AnnotationSidebar() {
         onOpenChange={setExportDialogOpen}
         bookId={currentBookId ?? undefined}
       />
-    </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }

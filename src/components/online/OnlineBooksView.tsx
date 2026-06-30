@@ -1,4 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { cn } from '@/lib/utils';
 import { useOnlineSearchStore } from '@/store/onlineSearchStore';
 import { useGlobalSearch } from '@/hooks/useGlobalSearch';
 import { OnlineSearchHeader } from './OnlineSearchHeader';
@@ -19,6 +21,7 @@ import { api } from '@/lib/tauri';
 let searchTimeout: number | undefined;
 
 export function OnlineBooksView() {
+  const isMobile = useIsMobile();
   const searchQuery = useOnlineSearchStore((state) => state.queries['online-books']);
   const filters = useOnlineSearchStore((state) => state.filters['online-books']);
   const { results, search, loading, error, hasMore } = useGlobalSearch();
@@ -175,7 +178,7 @@ export function OnlineBooksView() {
       {!hasSearched ? (
         <OnlineBooksDashboard />
       ) : (
-        <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
+        <div className={cn("flex-1 overflow-y-auto scroll-smooth", isMobile ? "pb-24 p-6" : "p-6")}>
           <div className="max-w-[1600px] mx-auto">
             {error && (
               <div className="bg-red-500/10 text-red-500 p-4 rounded-lg mb-6 border border-red-500/20">
@@ -184,7 +187,7 @@ export function OnlineBooksView() {
             )}
 
             {results.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-6">
                 {results.map((book) => (
                   <ModernBookCard
                     key={`${book.source}-${book.id}`}

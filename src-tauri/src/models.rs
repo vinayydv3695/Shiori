@@ -56,8 +56,14 @@ pub struct Book {
     #[serde(default)]
     pub is_wishlist: bool,
 
+    #[serde(default)]
+    pub in_trash: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub deleted_at: Option<String>,
+
     #[serde(default = "default_reading_status")]
     pub reading_status: String,
+
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,
@@ -88,6 +94,9 @@ pub struct BookSummary {
     pub is_favorite: bool,
     #[serde(default)]
     pub is_wishlist: bool,
+    #[serde(default)]
+    pub in_trash: bool,
+    pub deleted_at: Option<String>,
     pub reading_status: String,
     pub domain: Option<String>,
     pub manga_series_id: Option<i64>,
@@ -139,6 +148,7 @@ pub struct SearchQuery {
     pub max_rating: Option<i32>,
     pub date_from: Option<String>,
     pub date_to: Option<String>,
+    pub in_trash: Option<bool>,
     pub reading_status: Option<Vec<String>>,
     pub sort_by: Option<String>,
     pub sort_order: Option<String>,

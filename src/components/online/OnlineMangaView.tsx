@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { cn } from '@/lib/utils';
 import { BookOpen, Info, Download, Loader2, X, Search } from 'lucide-react';
 import { useMangaDex, type MangaDexManga, type MangaDexChapter, type BrowseMode } from '@/hooks/useMangaDex';
 import { Button } from '@/components/ui/button';
@@ -97,6 +99,7 @@ function getUiErrorMessage(error: unknown, fallback: string): string {
 }
 
 export function OnlineMangaView() {
+  const isMobile = useIsMobile();
   const searchQuery = useOnlineSearchStore((state) => state.queries['online-manga']);
   const setSearchQuery = useOnlineSearchStore((state) => state.setQueryForKind);
   const [results, setResults] = useState<MangaDexManga[]>([]);
@@ -686,7 +689,7 @@ export function OnlineMangaView() {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className={cn("flex-1 overflow-y-auto", isMobile ? "pb-24 p-6" : "p-6")}>
         <div className="max-w-7xl mx-auto">
           {loading && (
             <div className="py-8">
@@ -774,7 +777,7 @@ export function OnlineMangaView() {
                     <div className="bento-widget-header">
                       <h2 className="bento-widget-title">{isMangaDexEnabled ? "Trending This Week" : "Popular"}</h2>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-8 mt-4">
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-x-4 gap-y-8 mt-4">
                       {browseLoading.popular ? <SkeletonGrid count={5} /> : toCarouselItems(browseData.popular).slice(0, 5).map((item) => (
                         <ModernBookCard key={item.id} id={item.id} title={item.title} coverUrl={item.coverUrl} author={item.subtitle} onClick={() => handleCarouselItemClick(item)} />
                       ))}
@@ -786,7 +789,7 @@ export function OnlineMangaView() {
                     <div className="bento-widget-header">
                       <h2 className="bento-widget-title">Latest Updates</h2>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-8 mt-4">
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-x-4 gap-y-8 mt-4">
                       {browseLoading.latest ? <SkeletonGrid count={5} /> : toCarouselItems(browseData.latest).slice(0, 5).map((item) => (
                         <ModernBookCard key={item.id} id={item.id} title={item.title} coverUrl={item.coverUrl} author={item.subtitle} onClick={() => handleCarouselItemClick(item)} />
                       ))}
@@ -798,7 +801,7 @@ export function OnlineMangaView() {
                     <div className="bento-widget-header">
                       <h2 className="bento-widget-title">{isMangaDexEnabled ? "Staff Picks / You Should Read" : "Recent"}</h2>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-8 mt-4">
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-x-4 gap-y-8 mt-4">
                       {browseLoading.recent ? <SkeletonGrid count={5} /> : toCarouselItems(browseData.recent).slice(0, 5).map((item) => (
                         <ModernBookCard key={item.id} id={item.id} title={item.title} coverUrl={item.coverUrl} author={item.subtitle} onClick={() => handleCarouselItemClick(item)} />
                       ))}

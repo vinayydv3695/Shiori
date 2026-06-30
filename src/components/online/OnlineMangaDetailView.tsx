@@ -4,6 +4,7 @@ import DOMPurify from 'dompurify';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { fetchWithRetry } from '@/lib/utils';
 
 export interface UnifiedChapter {
   id: string;
@@ -92,7 +93,7 @@ export function OnlineMangaDetailView({
               }
             }
           `;
-          const res = await fetch('https://graphql.anilist.co', {
+          const res = await fetchWithRetry('https://graphql.anilist.co', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ query, variables: { search: title } })

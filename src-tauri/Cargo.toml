@@ -1,9 +1,9 @@
 [package]
 name = "shiori"
-version = "1.1.41"
+version = "1.1.42"
 description = "A Manga/E-Book Reader"
 authors = ["vinayydv3695"]
-license = "MIT"
+license = "GPL-3.0"
 repository = ""
 default-run = "shiori"
 edition = "2021"
@@ -11,6 +11,10 @@ rust-version = "1.80"
 build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "shiori"
+crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -114,11 +118,15 @@ natord = "1.0"                  # Natural sort ordering
 futures = "0.3.31"
 notify = "6.1"                  # File system notifications
 notify-debouncer-full = "0.3"   # Debouncer for notify
-discord-rich-presence = "1.1.0"
+
 tauri-plugin-shell = "2"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
-tauri-plugin-process = "2"
+
+pdf-extract = "0.12.0"
+mdns-sd = "0.20.1"
+local-ip-address = "0.6.13"
+hostname = "0.4.2"
 
 [features]
 default = ["custom-protocol"]
@@ -139,3 +147,5 @@ strip = false
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2"
+discord-rich-presence = "1.1.0"
+tauri-plugin-process = "2"

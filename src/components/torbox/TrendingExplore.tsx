@@ -4,6 +4,7 @@ import { Search, Image as ImageIcon, Loader2, ChevronRight, ChevronLeft, Star } 
 import { MagnetSourcesModal } from '../online/MagnetSourcesModal'
 import { useTorboxStore } from '@/store/useTorboxStore'
 import { toast } from 'sonner'
+import { fetchWithRetry } from '@/lib/utils'
 
 export interface TrendingItem {
   id: string
@@ -68,7 +69,7 @@ export function TrendingExplore({ type }: TrendingExploreProps) {
               }
             }
           `
-          const res = await fetch('https://graphql.anilist.co', {
+          const res = await fetchWithRetry('https://graphql.anilist.co', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

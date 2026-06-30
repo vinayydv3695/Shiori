@@ -405,16 +405,6 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
 
 
 
-              {TTSEngine.isAvailable() && (
-                <button
-                  className="text-selection-toolbar-btn"
-                  onClick={handleSpeak}
-                  title="Speak selected text"
-                >
-                  <Volume2 size={14} />
-                  <span>Speak</span>
-                </button>
-              )}
 
               <button
                 className="text-selection-toolbar-btn"

@@ -4,6 +4,7 @@ import { useOnboardingState } from './hooks/useOnboardingState';
 import { useLibraryStore } from '@/store/libraryStore';
 import { ParticleCanvas } from '@/components/onboarding/components';
 import { WelcomeStep } from './steps/WelcomeStep';
+import { ContentTypeStep } from './steps/ContentTypeStep';
 import { AppCustomizationStep } from './steps/AppCustomizationStep';
 import { ImportStep } from './steps/ImportStep';
 import { CloudIntegrationStep } from './steps/CloudIntegrationStep';
@@ -26,6 +27,16 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const loadInitialBooks = useLibraryStore((s) => s.loadInitialBooks);
 
   const [isFinishing, setIsFinishing] = useState(false);
+
+  // If path is cloud, we skip step 4, so total steps is 5, else 6
+  const totalSteps = state.onboardingPath === 'cloud' ? 5 : 6;
+  
+  // Calculate visual step based on current step and path
+  let visualStep = state.currentStep;
+  if (state.onboardingPath === 'cloud' && state.currentStep > 4) {
+    visualStep -= 1;
+  }
+  const progressPercent = ((visualStep - 1) / (totalSteps - 1)) * 100;
 
   const handleFinish = async () => {
     if (isFinishing) return;
@@ -64,6 +75,18 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       <ParticleCanvas />
 
       <div className="relative z-10 flex h-full min-h-0 w-full flex-col overflow-hidden">
+        {/* Unified Top Progress Indicator */}
+        {state.currentStep > 1 && (
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-border/20 z-50">
+            <motion.div
+              className="h-full bg-primary"
+              initial={{ width: 0 }}
+              animate={{ width: `${progressPercent}%` }}
+              transition={{ duration: 0.5, ease: 'easeInOut' }}
+            />
+          </div>
+        )}
+
         <AnimatePresence mode="wait">
           <motion.div
             key={state.currentStep}
@@ -75,12 +98,18 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           >
             {state.currentStep === 1 ? <WelcomeStep appVersion={appVersion} onStart={nextStep} /> : null}
             {state.currentStep === 2 ? (
-              <AppCustomizationStep
+              <ContentTypeStep
                 onBack={prevStep}
                 onNext={nextStep}
               />
             ) : null}
             {state.currentStep === 3 ? (
+              <AppCustomizationStep
+                onBack={prevStep}
+                onNext={nextStep}
+              />
+            ) : null}
+            {state.currentStep === 4 ? (
               <ImportStep 
                 libraryPath={state.libraryPath} 
                 onSelectPath={setLibraryPath} 
@@ -88,13 +117,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 onNext={handleImportNext} 
               />
             ) : null}
-            {state.currentStep === 4 ? (
+            {state.currentStep === 5 ? (
               <CloudIntegrationStep
                 onBack={prevStep}
                 onNext={nextStep}
               />
             ) : null}
-            {state.currentStep === 5 ? (
+            {state.currentStep === 6 ? (
               <FinishStep
                 onBack={prevStep}
                 onOpenLibrary={handleFinish}

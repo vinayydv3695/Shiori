@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { cn } from '@/lib/utils';
 import { invoke } from '@tauri-apps/api/core';
 import {
   Activity,
@@ -875,6 +877,7 @@ function TorboxJobCard({
 }
 
 export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
+  const isMobile = useIsMobile();
   const preferences = usePreferencesStore((state) => state.preferences);
   const setCurrentView = useUIStore((state) => state.setCurrentView);
   const sources = useSourceStore((state) => state.sources);
@@ -884,10 +887,17 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
   const enqueueFromAnna = useTorboxStore((state) => state.enqueueFromAnna);
   const enqueueFromMangadex = useTorboxStore((state) => state.enqueueFromMangadex);
 
-  const [activeTab, setActiveTab] = useState<TorboxTab>(
-    initialTab === 'books' || initialTab === 'manga' ? initialTab : 'search'
+  const preferredContentType = usePreferencesStore((state) => state.preferences?.preferredContentType ?? 'both');
+  
+  const [activeTab, setActiveTab] = useState<TorboxTab>(() => {
+    if (initialTab === 'books' && preferredContentType !== 'manga') return 'books';
+    if (initialTab === 'manga' && preferredContentType !== 'books') return 'manga';
+    return 'search';
+  });
+  
+  const [searchKind, setSearchKind] = useState<SearchKind>(
+    preferredContentType === 'books' ? 'books' : (preferredContentType === 'manga' ? 'manga' : 'all')
   );
-  const [searchKind, setSearchKind] = useState<SearchKind>('all');
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<TorboxSearchResult[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -1545,25 +1555,29 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
 
           <div className="torbox-toolbar torbox-mobile-stack flex items-center gap-2 flex-wrap">
             <TabButton
-              label="Search"
+              label="Discover"
               icon={Search}
               active={activeTab === 'search'}
               onClick={() => switchTab('search')}
             />
-            <TabButton
-              label="Books Queue"
-              icon={BookOpen}
-              count={bookJobs.length}
-              active={activeTab === 'books'}
-              onClick={() => switchTab('books')}
-            />
-            <TabButton
-              label="Manga Queue"
-              icon={Activity}
-              count={mangaJobs.length}
-              active={activeTab === 'manga'}
-              onClick={() => switchTab('manga')}
-            />
+            {(preferredContentType === 'books' || preferredContentType === 'both') && (
+              <TabButton
+                label="Books Queue"
+                icon={BookOpen}
+                count={bookJobs.length}
+                active={activeTab === 'books'}
+                onClick={() => switchTab('books')}
+              />
+            )}
+            {(preferredContentType === 'manga' || preferredContentType === 'both') && (
+              <TabButton
+                label="Manga Queue"
+                icon={Activity}
+                count={mangaJobs.length}
+                active={activeTab === 'manga'}
+                onClick={() => switchTab('manga')}
+              />
+            )}
           </div>
 
           {(activeTab === 'search' || activeTab === 'books' || activeTab === 'manga') && (
@@ -1600,7 +1614,7 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
         </div>
       </div>
 
-      <div className="torbox-layer flex-1 overflow-y-auto p-6">
+      <div className={cn("torbox-layer flex-1 overflow-y-auto", isMobile ? "pb-24 p-6" : "p-6")}>
         <div className="max-w-5xl mx-auto space-y-4 torbox-animate-in">
           {activeTab === 'books' && (
             <>
@@ -1635,30 +1649,38 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
           {activeTab === 'search' && (
             <>
               <div className="flex items-center gap-2">
-                <TabButton
-                  icon={Sparkles}
-                  label="All"
-                  active={searchKind === 'all'}
-                  onClick={() => setSearchKind('all')}
-                />
-                <TabButton
-                  icon={BookOpen}
-                  label="Books"
-                  active={searchKind === 'books'}
-                  onClick={() => setSearchKind('books')}
-                />
-                <TabButton
-                  icon={Activity}
-                  label="Manga"
-                  active={searchKind === 'manga'}
-                  onClick={() => setSearchKind('manga')}
-                />
-                <TabButton
-                  icon={BookOpen}
-                  label="Comics"
-                  active={searchKind === 'comics'}
-                  onClick={() => setSearchKind('comics')}
-                />
+                {preferredContentType === 'both' && (
+                  <TabButton
+                    icon={Sparkles}
+                    label="All"
+                    active={searchKind === 'all'}
+                    onClick={() => setSearchKind('all')}
+                  />
+                )}
+                {(preferredContentType === 'books' || preferredContentType === 'both') && (
+                  <TabButton
+                    icon={BookOpen}
+                    label="Books"
+                    active={searchKind === 'books'}
+                    onClick={() => setSearchKind('books')}
+                  />
+                )}
+                {(preferredContentType === 'manga' || preferredContentType === 'both') && (
+                  <TabButton
+                    icon={Activity}
+                    label="Manga"
+                    active={searchKind === 'manga'}
+                    onClick={() => setSearchKind('manga')}
+                  />
+                )}
+                {(preferredContentType === 'manga' || preferredContentType === 'both') && (
+                  <TabButton
+                    icon={BookOpen}
+                    label="Comics"
+                    active={searchKind === 'comics'}
+                    onClick={() => setSearchKind('comics')}
+                  />
+                )}
               </div>
 
               {searchError && (

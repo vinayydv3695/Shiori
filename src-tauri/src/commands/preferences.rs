@@ -48,6 +48,8 @@ pub struct UserPreferences {
     pub auto_export_annotations: bool,
     pub annotations_export_path: String,
     pub annotations_export_format: String,
+    pub enable_recycle_bin: bool,
+    pub legacy_library_migration_status: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -129,7 +131,9 @@ pub async fn get_user_preferences(state: State<'_, AppState>) -> Result<UserPref
             COALESCE(enable_cloud_sync, 0), COALESCE(enable_notifications, 1),
             COALESCE(prowlarr_enabled, 0), COALESCE(prowlarr_url, ''), COALESCE(prowlarr_api_key, ''), COALESCE(prowlarr_categories, '[7000,8000]'),
             COALESCE(discord_rpc_enabled, 1),
-            COALESCE(auto_export_annotations, 0), COALESCE(annotations_export_path, ''), COALESCE(annotations_export_format, 'markdown')
+            COALESCE(auto_export_annotations, 0), COALESCE(annotations_export_path, ''), COALESCE(annotations_export_format, 'markdown'),
+            COALESCE(enable_recycle_bin, 1),
+            COALESCE(legacy_library_migration_status, 'none')
         FROM user_preferences WHERE id = 1",
         [],
         |row| {
@@ -192,6 +196,8 @@ pub async fn get_user_preferences(state: State<'_, AppState>) -> Result<UserPref
                 auto_export_annotations: row.get::<_, bool>(49).unwrap_or(false),
                 annotations_export_path: row.get(50).unwrap_or_default(),
                 annotations_export_format: row.get(51).unwrap_or_else(|_| "markdown".to_string()),
+                enable_recycle_bin: row.get::<_, bool>(52).unwrap_or(true),
+                legacy_library_migration_status: row.get(53).unwrap_or_else(|_| "none".to_string()),
             })
         },
     )?;
@@ -476,6 +482,16 @@ pub async fn update_user_preferences(
     {
         set_clauses.push("annotations_export_format = ?".to_string());
         params.push(Box::new(annotations_export_format.to_string()));
+    }
+
+    if let Some(enable_recycle_bin) = updates.get("enableRecycleBin").and_then(|v| v.as_bool()) {
+        set_clauses.push("enable_recycle_bin = ?".to_string());
+        params.push(Box::new(enable_recycle_bin));
+    }
+
+    if let Some(migration_status) = updates.get("legacyLibraryMigrationStatus").and_then(|v| v.as_str()) {
+        set_clauses.push("legacy_library_migration_status = ?".to_string());
+        params.push(Box::new(migration_status.to_string()));
     }
 
     if set_clauses.is_empty() {
@@ -914,7 +930,9 @@ pub async fn get_startup_data(state: State<'_, AppState>) -> Result<StartupData>
             COALESCE(enable_cloud_sync, 0), COALESCE(enable_notifications, 1),
             COALESCE(prowlarr_enabled, 0), COALESCE(prowlarr_url, ''), COALESCE(prowlarr_api_key, ''), COALESCE(prowlarr_categories, '[7000,8000]'),
             COALESCE(discord_rpc_enabled, 1),
-            COALESCE(auto_export_annotations, 0), COALESCE(annotations_export_path, ''), COALESCE(annotations_export_format, 'markdown')
+            COALESCE(auto_export_annotations, 0), COALESCE(annotations_export_path, ''), COALESCE(annotations_export_format, 'markdown'),
+            COALESCE(enable_recycle_bin, 1),
+            COALESCE(legacy_library_migration_status, 'none')
         FROM user_preferences WHERE id = 1",
         [],
         |row| {
@@ -977,6 +995,8 @@ pub async fn get_startup_data(state: State<'_, AppState>) -> Result<StartupData>
                 auto_export_annotations: row.get::<_, bool>(49).unwrap_or(false),
                 annotations_export_path: row.get(50).unwrap_or_default(),
                 annotations_export_format: row.get(51).unwrap_or_else(|_| "markdown".to_string()),
+                enable_recycle_bin: row.get::<_, bool>(52).unwrap_or(true),
+                legacy_library_migration_status: row.get(53).unwrap_or_else(|_| "none".to_string()),
             })
         },
     )?;

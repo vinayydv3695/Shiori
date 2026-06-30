@@ -1,6 +1,7 @@
 import { Library, Tag, Settings, ChevronLeft, ChevronRight, FolderOpen, Highlighter, BarChart2 } from "../icons"
-import { Globe, BookOpen } from "lucide-react"
+import { Globe, BookOpen, Trash2 } from "lucide-react"
 import { useUIStore } from "../../store/uiStore"
+import { usePreferencesStore } from "../../store/preferencesStore"
 import { cn } from "../../lib/utils"
 import { Button } from "../ui/button"
 import { motion } from "framer-motion"
@@ -23,6 +24,9 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
   const [editCollection, setEditCollection] = useState<Collection | null>(null)
   const [parentId, setParentId] = useState<number | undefined>(undefined)
 
+  const preferredContentType = usePreferencesStore(state => state.preferences?.preferredContentType ?? 'both')
+  const enableRecycleBin = usePreferencesStore(state => state.preferences?.enableRecycleBin ?? false)
+
   const navItems = [
     { icon: Library, label: "Library", action: () => setCurrentView("library") },
     { icon: Globe, label: "Online Books", action: () => setCurrentView("online-books") },
@@ -30,7 +34,22 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
     { icon: Highlighter, label: "Annotations", action: () => setCurrentView("annotations") },
     { icon: Tag, label: "Tags", action: () => setCurrentView("library") },
     { icon: Settings, label: "Settings", action: () => onOpenSettings?.() },
-  ]
+  ].filter(item => {
+    if (preferredContentType === 'books' && item.label === 'Online Manga') return false;
+    if (preferredContentType === 'manga' && item.label === 'Online Books') return false;
+    if (preferredContentType === 'manga' && item.label === 'Annotations') return false;
+    return true;
+  })
+
+  if (enableRecycleBin) {
+    // Insert Recycle Bin before Settings
+    const settingsIndex = navItems.findIndex(i => i.label === 'Settings');
+    navItems.splice(settingsIndex !== -1 ? settingsIndex : navItems.length, 0, {
+      icon: Trash2 as any,
+      label: "Recycle Bin",
+      action: () => setCurrentView("recycle-bin" as any)
+    });
+  }
 
   const handleCreateCollection = (parentCollectionId?: number) => {
     setEditCollection(null)
@@ -69,6 +88,7 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
               (item.label === "Library" && currentView === "library") ||
               (item.label === "Online Books" && currentView === "online-books") ||
               (item.label === "Online Manga" && currentView === "online-manga") ||
+              (item.label === "Recycle Bin" && currentView === "recycle-bin" as any) ||
               (item.label === "Annotations" && currentView === "annotations");
 
             return (

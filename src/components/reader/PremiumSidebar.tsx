@@ -7,6 +7,7 @@ import type { TocEntry, Annotation, BookSearchResult, AnnotationCategory } from 
 import { X, BookOpen, Highlighter, FileText, Bookmark, Search, Loader2, Trash2, Edit2 } from '@/components/icons';
 import DOMPurify from 'dompurify';
 import { useToastStore } from '@/store/toastStore';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 const HIGHLIGHT_COLORS = [
   { name: 'Yellow', value: '#fbbf24' },
@@ -53,6 +54,7 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
   const closeSidebar = useReaderUIStore(state => state.closeSidebar);
   const setSidebarTab = useReaderUIStore(state => state.setSidebarTab);
   const setPendingAnnotationId = useReaderUIStore(state => state.setPendingAnnotationId);
+  const isMobile = useIsMobile();
   
   // Tab data states
   const [toc, setToc] = useState<TocEntry[]>([]);
@@ -394,9 +396,9 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
           {/* Sidebar */}
           <motion.div 
             className="premium-sidebar"
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
+            initial={isMobile ? { y: "100%" } : { x: "100%" }}
+            animate={isMobile ? { y: 0 } : { x: 0 }}
+            exit={isMobile ? { y: "100%" } : { x: "100%" }}
             transition={{ type: "spring", bounce: 0, duration: 0.4 }}
           >
             {/* Header with tabs */}

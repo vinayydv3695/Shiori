@@ -567,7 +567,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
@@ -575,7 +575,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 'lts/*'
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -591,20 +591,30 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install Android NDK
+        run: sdkmanager --install "ndk;27.0.12077973"
+
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Initialize Tauri Android project
+        run: npm run tauri android init
+
       - name: Build Android App (APK)
+        env:
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
         run: npm run tauri android build -- --apk
 
       - name: Upload Android APK to Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "v${{ needs.check-version.outputs.version }}" src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk --clobber || true
-          gh release upload "v${{ needs.check-version.outputs.version }}" src-tauri/gen/android/app/build/outputs/apk/arm64-v8a/release/app-arm64-v8a-release-unsigned.apk --clobber || true
-          gh release upload "v${{ needs.check-version.outputs.version }}" src-tauri/gen/android/app/build/outputs/apk/armeabi-v7a/release/app-armeabi-v7a-release-unsigned.apk --clobber || true
-          gh release upload "v${{ needs.check-version.outputs.version }}" src-tauri/gen/android/app/build/outputs/apk/x86_64/release/app-x86_64-release-unsigned.apk --clobber || true
+          VERSION="v${{ needs.check-version.outputs.version }}"
+          APK_DIR="src-tauri/gen/android/app/build/outputs/apk"
+          for apk in $(find "$APK_DIR" -name '*.apk' -type f 2>/dev/null); do
+            echo "Uploading: $apk"
+            gh release upload "$VERSION" "$apk" --clobber || true
+          done
 
   # ── Step 5: Build for iOS ──────────────────────────────────────────
   build-ios:
@@ -620,29 +630,50 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 'lts/*'
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-ios,x86_64-apple-ios
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
 
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Initialize and Build iOS App
+      - name: Initialize Tauri iOS project
+        run: npm run tauri ios init
+
+      - name: Build iOS App (Simulator - unsigned)
+        env:
+          # Skip code signing for CI - no Apple Developer account needed
+          TAURI_APPLE_DEVELOPMENT_TEAM: ''
         run: |
-          npm run tauri ios init
-          npm run tauri ios build
+          # Patch the Xcode project to disable code signing
+          PBXPROJ="src-tauri/gen/apple/shiori.xcodeproj/project.pbxproj"
+          if [ -f "$PBXPROJ" ]; then
+            sed -i '' 's/CODE_SIGN_IDENTITY = ".*"/CODE_SIGN_IDENTITY = "-"/g' "$PBXPROJ"
+            # Add CODE_SIGNING_ALLOWED = NO
+            sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER/CODE_SIGNING_ALLOWED = NO;\n\t\t\t\tCODE_SIGNING_REQUIRED = NO;\n\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER/g' "$PBXPROJ"
+          fi
+          # Build for simulator (no signing required)
+          npm run tauri ios build -- --target aarch64-apple-ios-sim
 
       - name: Compress iOS .app to zip
         run: |
-          cd src-tauri/gen/apple/build/Release-iphoneos
-          zip -r Shiori.app.zip Shiori.app || true
+          APP_DIR=$(find src-tauri/gen/apple/build -name '*.app' -type d | head -1)
+          if [ -n "$APP_DIR" ]; then
+            cd "$(dirname "$APP_DIR")"
+            zip -r Shiori-ios-simulator.app.zip "$(basename "$APP_DIR")"
+          fi
 
       - name: Upload iOS App to Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.check-version.outputs.version }}
         run: |
-          gh release upload "v${VERSION}" src-tauri/gen/apple/build/Release-iphoneos/Shiori.app.zip --clobber || true
+          ZIP_FILE=$(find src-tauri/gen/apple/build -name '*.zip' -type f | head -1)
+          if [ -n "$ZIP_FILE" ]; then
+            gh release upload "v${VERSION}" "$ZIP_FILE" --clobber || true
+          else
+            echo "No iOS app zip found - skipping upload"
+          fi

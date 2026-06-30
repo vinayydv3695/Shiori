@@ -87,7 +87,7 @@ export function OnlineSourceSelector({ kind, className, variant = "outline" }: O
           <span className="truncate max-w-[180px]">{sourceLabel}</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[300px]">
+      <DropdownMenuContent align="end" className="w-[280px] md:w-[300px] bg-background/95 backdrop-blur-xl shadow-xl border-white/10">
         <DropdownMenuLabel className="text-xs uppercase tracking-wide text-muted-foreground">
           {kind === 'books' ? 'Book sources' : 'Manga sources'}
         </DropdownMenuLabel>
@@ -106,7 +106,7 @@ export function OnlineSourceSelector({ kind, className, variant = "outline" }: O
                   setPrimarySource(kind, source.id);
                 }
               }}
-              className={`items-start gap-3 py-2.5 transition-colors cursor-pointer ${isSelected ? 'bg-primary/5 dark:bg-primary/10' : ''}`}
+              className={`items-start gap-2.5 py-2 md:py-2.5 transition-colors cursor-pointer rounded-lg md:rounded-sm ${isSelected ? 'bg-primary/10 dark:bg-primary/15' : 'hover:bg-white/5'}`}
               disabled={!isAvailable}
             >
               <div className="pt-0.5">

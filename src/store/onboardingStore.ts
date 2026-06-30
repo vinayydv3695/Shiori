@@ -300,6 +300,7 @@ export const useOnboardingStore = create<OnboardingStore>()(
       ...createDefaultState(),
 
       initialize: async () => {
+        if (get().isInitializing) return; // Prevent concurrent initializations
         set({ isInitializing: true });
         try {
           const preferencesStore = usePreferencesStore.getState();
@@ -307,8 +308,10 @@ export const useOnboardingStore = create<OnboardingStore>()(
             await preferencesStore.loadPreferences();
           }
 
-          const completed = usePreferencesStore.getState()._cachedOnboardingCompleted ?? false;
-          const preferences = usePreferencesStore.getState().preferences;
+          // Fetch the fresh state after ensuring it is loaded
+          const freshPreferencesStore = usePreferencesStore.getState();
+          const completed = freshPreferencesStore._cachedOnboardingCompleted ?? false;
+          const preferences = freshPreferencesStore.preferences;
           
           if (completed) {
             if (preferences) {

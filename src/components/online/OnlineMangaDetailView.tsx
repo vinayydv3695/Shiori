@@ -190,15 +190,17 @@ export function OnlineMangaDetailView({
         </button>
 
         {/* Hero Section */}
-        <div className="flex flex-col md:flex-row gap-8 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-[250px_1fr] lg:grid-cols-[250px_1fr_288px] gap-8 mb-12">
           
           {/* Left Column (Cover) */}
-          <div className="flex-shrink-0 w-64 h-96 rounded-md overflow-hidden shadow-2xl bg-card border border-border">
+          <div className="w-full shrink-0">
+            <div className="w-[200px] md:w-full mx-auto aspect-[2/3] rounded-md overflow-hidden shadow-2xl bg-card border border-border">
             {coverUrl ? (
               <img src={coverUrl} alt={title} className="w-full h-full object-cover" loading="lazy" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-muted-foreground/80">No Cover</div>
             )}
+            </div>
           </div>
 
           {/* Middle Column (Title, Description, Buttons) */}

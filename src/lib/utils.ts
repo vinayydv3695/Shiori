@@ -11,6 +11,18 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Check if a book belongs to the manga/comics domain
+ */
+export function isMangaDomain(book: any): boolean {
+  if (book.domain) {
+    return ['manga', 'comics', 'manga_comics'].includes(book.domain);
+  }
+  const fmt = book.file_format?.toLowerCase() || '';
+  // Support both "cbz" and ".cbz"
+  return ['cbz', 'cbr', 'zip', '.cbz', '.cbr', '.zip'].includes(fmt);
+}
+
+/**
  * Format file size to human readable format
  * @param bytes - File size in bytes
  * @returns Formatted string (e.g., "2.3 MB")

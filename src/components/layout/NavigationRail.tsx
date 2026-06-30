@@ -9,8 +9,7 @@ interface NavigationRailProps {
 
 export function NavigationRail(props: NavigationRailProps) {
   const isMobile = useIsMobile()
-  const isTablet = useIsTablet()
-  const hideRail = isMobile || isTablet
+  const hideRail = isMobile
 
   if (hideRail) {
     // Navigation is handled by BottomNav on small screens

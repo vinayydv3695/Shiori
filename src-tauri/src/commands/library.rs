@@ -236,16 +236,23 @@ pub fn clean_up_database(state: State<AppState>) -> Result<(usize, usize)> {
 }
 
 #[tauri::command]
-pub async fn import_books(state: State<'_, AppState>, paths: Vec<String>) -> Result<ImportResult> {
+pub async fn import_books(
+    app_handle: tauri::AppHandle,
+    state: State<'_, AppState>,
+    paths: Vec<String>,
+) -> Result<ImportResult> {
     validate::require_non_empty_vec(&paths, "file paths")?;
     for path in &paths {
         validate::require_safe_path(path, "import path")?;
     }
     let db = state.db.clone();
     let covers_dir = state.covers_dir.clone();
-    tokio::task::spawn_blocking(move || library_service::import_books(&db, paths, &covers_dir))
+    let result = tokio::task::spawn_blocking(move || library_service::import_books(&db, paths, &covers_dir))
         .await
-        .map_err(|e| crate::error::ShioriError::Other(e.to_string()))?
+        .map_err(|e| crate::error::ShioriError::Other(e.to_string()))??;
+        
+    let _ = app_handle.emit("library-updated", ());
+    Ok(result)
 }
 
 #[tauri::command]
@@ -282,7 +289,11 @@ pub async fn scan_folder_unified(
 }
 
 #[tauri::command]
-pub async fn import_manga(state: State<'_, AppState>, paths: Vec<String>) -> Result<ImportResult> {
+pub async fn import_manga(
+    app_handle: tauri::AppHandle,
+    state: State<'_, AppState>,
+    paths: Vec<String>,
+) -> Result<ImportResult> {
     validate::require_non_empty_vec(&paths, "file paths")?;
     for path in &paths {
         validate::require_safe_path(path, "import path")?;
@@ -309,6 +320,7 @@ pub async fn import_manga(state: State<'_, AppState>, paths: Vec<String>) -> Res
         let _ = crate::commands::manga::auto_group_manga_volumes(state).await;
     }
 
+    let _ = app_handle.emit("library-updated", ());
     Ok(result)
 }
 

@@ -322,40 +322,44 @@ export const PremiumBookCard = memo(function PremiumBookCard({
         </button>
 
         {/* Format badge */}
-        <div className="absolute bottom-1.5 left-1.5 z-10">
+        <div className="absolute top-1.5 left-1.5 z-10">
           <FormatPill format={book.file_format} />
         </div>
-      </div>
 
-      {/* ── Info Strip ── */}
-      <div className={cn(
-        'flex flex-col gap-0.5',
-        coverSize === 'small' && 'px-1.5 pt-0.5 pb-2',
-        coverSize === 'medium' && 'px-2 pt-1 pb-2.5',
-        coverSize === 'large' && 'px-2.5 pt-1 pb-3',
-      )}>
-        <h3
-          className={cn(
-            'font-bold leading-tight text-foreground line-clamp-1',
-            coverSize === 'small' && 'text-[10px]',
-            coverSize === 'medium' && 'text-[12px]',
-            coverSize === 'large' && 'text-[13px]',
+        {/* ── Info Strip (Tachiyomi Style) ── */}
+        <div className={cn(
+          'absolute bottom-0 left-0 right-0 z-10',
+          'flex flex-col gap-0.5',
+          'bg-gradient-to-t from-black/90 via-black/50 to-transparent text-white',
+          coverSize === 'small' && 'px-1.5 pt-4 pb-1.5',
+          coverSize === 'medium' && 'px-2 pt-6 pb-2',
+          coverSize === 'large' && 'px-2.5 pt-8 pb-2.5',
+        )}>
+          <h3
+            className={cn(
+              'font-bold leading-tight line-clamp-2 drop-shadow-md text-white/95',
+              coverSize === 'small' && 'text-xs',
+              coverSize === 'medium' && 'text-sm',
+              coverSize === 'large' && 'text-base',
+            )}
+            title={book.title}
+          >
+            {book.title}
+          </h3>
+          {authorStr && authorStr !== 'Unknown Author' && (
+            <p
+              className={cn(
+                'truncate drop-shadow-md text-white/70 font-medium mt-0.5',
+                coverSize === 'small' && 'text-[11px]',
+                coverSize === 'medium' && 'text-xs',
+                coverSize === 'large' && 'text-sm',
+              )}
+              title={authorStr}
+            >
+              {authorStr}
+            </p>
           )}
-          title={book.title}
-        >
-          {book.title}
-        </h3>
-        <p
-          className={cn(
-            'text-muted-foreground truncate',
-            coverSize === 'small' && 'text-[9px]',
-            coverSize === 'medium' && 'text-[10px]',
-            coverSize === 'large' && 'text-[11px]',
-          )}
-          title={authorStr}
-        >
-          {authorStr}
-        </p>
+        </div>
       </div>
           </motion.div>
         </ContextMenu.Trigger>

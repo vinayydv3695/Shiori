@@ -555,23 +555,23 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
 
   return (
     <div className={`flex h-full flex-col bg-background p-6 text-foreground relative overflow-hidden ${isMobile ? 'pb-24 pt-2 px-4' : ''}`}>
-      <header className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6">
+      <header className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-4 pb-2 md:pb-6">
         <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <div className="hidden md:flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
             <Cloud className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-3">
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground flex items-center gap-3">
               Torbox Control Center
               <Badge variant="outline" className={`h-5 px-2 rounded-md font-bold tracking-wider uppercase text-[10px] ${apiKey ? 'border-emerald-500/30 text-emerald-500 bg-emerald-500/10' : 'border-amber-500/30 text-amber-500 bg-amber-500/10'}`}>
                 {apiKey ? 'API Active' : 'No Key'}
               </Badge>
             </h1>
-            <p className="text-sm font-medium text-muted-foreground mt-0.5">Manage your cloud downloads and resolve premium sources.</p>
+            <p className="hidden md:block text-sm font-medium text-muted-foreground mt-0.5">Manage your cloud downloads and resolve premium sources.</p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="hidden md:flex flex-wrap items-center gap-4">
           <AnimatePresence mode="wait">
             {keyStatus === 'set' && !editingKey ? (
               <motion.div key="connected" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-2">
@@ -600,7 +600,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
       </header>
 
       <Tabs.Root value={activeTab} onValueChange={(next) => setActiveTab(next as TabValue)} className="flex min-h-0 flex-1 flex-col z-10">
-        <Tabs.List className="flex items-center gap-6 border-b border-border/50 pb-2 mb-4">
+        <Tabs.List className="flex items-center gap-4 md:gap-6 border-b border-border/50 pb-0 md:pb-2 mb-2 md:mb-4">
           {(['search', 'books', 'manga'] as const).map((tab) => {
             if (tab === 'books' && preferredContentType === 'manga') return null;
             if (tab === 'manga' && preferredContentType === 'books') return null;
@@ -622,12 +622,12 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
           <motion.div key={activeTab} initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }} transition={{ duration: 0.2 }} className="mt-4 flex-1 min-h-0 overflow-y-auto">
             {activeTab === 'search' && (
               <Tabs.Content value="search" className="h-full outline-none overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
-                <div className="max-w-2xl mx-auto mb-8 pt-4">
+                <div className="max-w-2xl mx-auto mb-4 md:mb-8 pt-2 md:pt-4">
                   <div className="relative flex items-center shadow-sm bg-card border border-border rounded-full hover:border-border/80 ring-1 ring-transparent focus-within:border-primary focus-within:ring-primary transition-shadow duration-200">
-                    <Search className="absolute left-5 h-5 w-5 text-muted-foreground" />
-                    <Input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void runSearch() }} placeholder="Search AniList or OpenLibrary..." className="flex-1 h-14 border-0 bg-transparent pl-14 pr-4 text-base font-medium shadow-none focus-visible:ring-0 focus-visible:ring-offset-0" />
-                    <div className="pr-2 flex items-center gap-2">
-                      <select value={searchType} onChange={(event) => setSearchType(event.target.value as SearchType)} className="h-10 rounded-full bg-transparent hover:bg-foreground focus:bg-foreground border-0 px-4 text-sm font-medium text-muted-foreground hover:text-background focus:text-background cursor-pointer focus:outline-none transition-colors [&>option]:bg-background [&>option]:text-foreground">
+                    <Search className="hidden md:block absolute left-5 h-5 w-5 text-muted-foreground" />
+                    <Input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void runSearch() }} placeholder="Search AniList or OpenLibrary..." className="flex-1 h-12 md:h-14 border-0 bg-transparent pl-4 md:pl-14 pr-2 text-sm md:text-base font-medium shadow-none focus-visible:ring-0 focus-visible:ring-offset-0" />
+                    <div className="pr-1 md:pr-2 flex items-center gap-1 md:gap-2">
+                      <select value={searchType} onChange={(event) => setSearchType(event.target.value as SearchType)} className="h-8 md:h-10 rounded-full bg-transparent hover:bg-foreground focus:bg-foreground border-0 px-2 md:px-4 text-xs md:text-sm font-medium text-muted-foreground hover:text-background focus:text-background cursor-pointer focus:outline-none transition-colors [&>option]:bg-background [&>option]:text-foreground">
                         {(preferredContentType === 'manga' || preferredContentType === 'both') && <option value="manga">Manga</option>}
                         {(preferredContentType === 'books' || preferredContentType === 'both') && <option value="books">Books</option>}
                         {preferredContentType === 'both' && <option value="all">Everywhere</option>}
@@ -638,7 +638,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                     </div>
                   </div>
                   {searchType !== 'books' && (
-                    <div className="flex items-center justify-end mt-3 pr-4 gap-2 text-sm text-muted-foreground">
+                    <div className="flex items-center justify-end mt-1 md:mt-3 pr-2 md:pr-4 gap-2 text-xs md:text-sm text-muted-foreground">
                       <input 
                         type="checkbox" 
                         id="nsfw-toggle"
@@ -653,7 +653,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
 
                 {searchError && <p className="mb-6 text-sm font-medium text-destructive bg-destructive/10 border border-destructive/20 p-4 rounded-xl inline-flex items-center gap-2"><AlertCircle className="h-4 w-4"/> {searchError}</p>}
 
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4 items-start pb-8">
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(105px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 md:gap-4 items-start pb-8">
                   <AnimatePresence>
                     {searchResults.map((result) => {
                       const isExpanded = activeModalResult?.id === result.id;

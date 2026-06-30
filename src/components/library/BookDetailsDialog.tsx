@@ -151,10 +151,10 @@ export const BookDetailsDialog = ({
 
           {/* Content */}
           <div className="flex-1 p-6 overflow-y-auto">
-            <div className="flex flex-col md:flex-row gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-[250px_1fr] gap-8">
               {/* Cover Image */}
-              <div className="w-full md:w-1/3 shrink-0">
-                <div className="aspect-[2/3] bg-muted rounded-xl overflow-hidden border border-border/50 shadow-lg sticky top-6">
+              <div className="w-full shrink-0">
+                <div className="aspect-[2/3] w-[200px] md:w-full mx-auto bg-muted rounded-xl overflow-hidden border border-border/50 shadow-lg sticky top-6">
                    {coverSrc ? (
                      <img
                        src={coverSrc}

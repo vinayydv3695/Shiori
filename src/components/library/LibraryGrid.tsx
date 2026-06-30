@@ -34,7 +34,7 @@ import { usePreferencesStore } from "@/store/preferencesStore";
 import { prefetchCovers } from "@/lib/coverCache";
 import { MobileStickyHeader } from "../layout/MobileStickyHeader";
 
-import { cn } from "@/lib/utils";
+import { cn, isMangaDomain } from "@/lib/utils";
 
 const COVER_PREFETCH_BATCH_LIMIT = 120;
 
@@ -188,10 +188,9 @@ export function LibraryGrid({
 
   const estimatedRowHeight = useMemo(() => {
     const coverHeight = densityColumnSize * 1.5; // 2:3 aspect ratio
-    const metadataHeight =
-      coverSize === "small" ? 42 : coverSize === "large" ? 72 : 56;
-    const rowPadding = 6; // 3px top + 3px bottom
-    const rowVerticalGap = 3;
+    const metadataHeight = 0; // Title is now overlaid on the cover
+    const rowPadding = 8; // 4px top + 4px bottom
+    const rowVerticalGap = 8;
     return Math.ceil(
       coverHeight + metadataHeight + rowPadding + rowVerticalGap,
     );
@@ -203,8 +202,7 @@ export function LibraryGrid({
   // Hard domain filter — strict separation between books and manga & comics
   const visibleLibrary = useMemo(() => {
     return books.filter((book) => {
-      const fmt = book.file_format?.toLowerCase();
-      const isMangaComics = fmt === "cbz" || fmt === "cbr";
+      const isMangaComics = isMangaDomain(book);
       return currentDomain === "manga_comics" ? isMangaComics : !isMangaComics;
     });
   }, [books, currentDomain]);
@@ -368,8 +366,8 @@ export function LibraryGrid({
                   height: `${virtualRow.size}px`,
                   transform: `translateY(${virtualRow.start}px)`,
                   display: "flex",
-                  gap: "12px",
-                  padding: "3px 12px",
+                  gap: "8px",
+                  padding: "4px 8px",
                 }}
                 role="row"
               >

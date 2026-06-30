@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useOnlineSearchStore, type OnlineAdvancedFilters } from '@/store/onlineSearchStore';
+import { usePreferencesStore } from '@/store/preferencesStore';
 import { 
   Search, 
   X, 
@@ -29,6 +30,8 @@ export function AdvancedOnlineSearchDialog({ open, onOpenChange, onSearch }: Pro
   const setFilters = useOnlineSearchStore(state => state.setFilters);
 
   const [localFilters, setLocalFilters] = useState<OnlineAdvancedFilters>({});
+  const preferences = usePreferencesStore(state => state.preferences);
+  const updateGeneralSettings = usePreferencesStore(state => state.updateGeneralSettings);
 
   useEffect(() => {
     if (open) {
@@ -207,6 +210,18 @@ export function AdvancedOnlineSearchDialog({ open, onOpenChange, onSearch }: Pro
             </div>
           </div>
 
+        </div>
+
+        <div className="pt-4 border-t border-border/40 flex items-center justify-between">
+          <label className="flex items-center gap-2 cursor-pointer text-sm font-medium hover:text-foreground transition-colors select-none text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={preferences?.includeNsfw ?? false}
+              onChange={(e) => updateGeneralSettings({ includeNsfw: e.target.checked })}
+              className="rounded border-border text-primary focus:ring-primary/20 bg-background/50 cursor-pointer w-4 h-4"
+            />
+            Include NSFW Content
+          </label>
         </div>
 
         <DialogFooter className="flex items-center justify-between sm:justify-between w-full pt-4 border-t border-border/40">

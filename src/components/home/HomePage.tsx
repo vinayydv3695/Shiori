@@ -15,7 +15,8 @@ import { useMemo, useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   BookOpen, Clock, Sparkles, Rss, ArrowRight,
-  ListOrdered, Activity, HardDrive, Heart, History, CheckCircle2, PauseCircle, Globe, Search, BarChart2
+  ListOrdered, Activity, HardDrive, Heart, History, CheckCircle2, PauseCircle, Globe, Search, BarChart2,
+  Trash2, Settings, Highlighter, Tag
 } from 'lucide-react'
 import { HomeSection, ScrollStrip } from './HomeSection'
 import { ContinueReadingCard, RecentlyAddedCard } from './ContinueReadingCard'
@@ -25,21 +26,12 @@ import { useThumbnail } from '@/hooks/useThumbnail'
 import { FeaturedContinueCard } from './FeaturedContinueCard'
 import { useLibraryStore } from '@/store/libraryStore'
 import { useUIStore, type DomainView } from '@/store/uiStore'
+import { usePreferencesStore } from '@/store/preferencesStore'
 import type { Book, ReadingProgress } from '@/lib/tauri'
 import { api } from '@/lib/tauri'
-import { formatFileSize } from '@/lib/utils'
+import { formatFileSize, isMangaDomain } from '@/lib/utils'
 
 // ── Shared constant ──────────────────────────────
-const MANGA_FORMATS = ['cbz', 'cbr', 'zip']
-
-const isMangaDomain = (b: any) => {
-  if (b.domain) {
-    return ['manga', 'comics', 'manga_comics'].includes(b.domain);
-  }
-  const fmt = b.file_format?.toLowerCase() || '';
-  return MANGA_FORMATS.includes(fmt);
-}
-
 // ── Animation variants ───────────────────────────
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -213,9 +205,46 @@ interface HomePageProps {
   searchQuery?: string
   onSearchChange?: (query: string) => void
   onOpenAdvancedFilter?: () => void
+  onOpenSettings?: () => void
 }
 
-export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChange = () => {}, onOpenAdvancedFilter = () => {} }: HomePageProps) {
+function MobileQuickLinks({ onOpenSettings }: { onOpenSettings: () => void }) {
+  const setCurrentView = useUIStore(s => s.setCurrentView)
+  const enableRecycleBin = usePreferencesStore(s => s.preferences?.enableRecycleBin ?? false)
+
+  return (
+    <div className="md:hidden grid grid-cols-4 sm:grid-cols-6 gap-3 mb-6 px-2">
+      <button onClick={() => setCurrentView('online-books')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
+        <Globe className="w-5 h-5 text-primary" />
+        <span className="text-[10px] font-medium tracking-tight">Online Books</span>
+      </button>
+      <button onClick={() => setCurrentView('online-manga')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
+        <BookOpen className="w-5 h-5 text-primary" />
+        <span className="text-[10px] font-medium tracking-tight">Online Manga</span>
+      </button>
+      <button onClick={() => setCurrentView('annotations')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
+        <Highlighter className="w-5 h-5 text-primary" />
+        <span className="text-[10px] font-medium tracking-tight">Annotations</span>
+      </button>
+      <button onClick={() => setCurrentView('library')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
+        <Tag className="w-5 h-5 text-primary" />
+        <span className="text-[10px] font-medium tracking-tight">Tags</span>
+      </button>
+      {enableRecycleBin && (
+        <button onClick={() => setCurrentView('recycle-bin' as any)} className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
+          <Trash2 className="w-5 h-5 text-destructive" />
+          <span className="text-[10px] font-medium tracking-tight text-destructive">Trash</span>
+        </button>
+      )}
+      <button onClick={onOpenSettings} className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
+        <Settings className="w-5 h-5 text-muted-foreground" />
+        <span className="text-[10px] font-medium tracking-tight text-muted-foreground">Settings</span>
+      </button>
+    </div>
+  )
+}
+
+export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChange = () => {}, onOpenAdvancedFilter = () => {}, onOpenSettings = () => {} }: HomePageProps) {
   const [libraryStats, setLibraryStats] = useState<{total_books: number, total_manga: number, total_size_bytes: number} | null>(null);
   const favoriteBookIds = useLibraryStore(s => s.favoriteBookIds)
   const libraryBooks = useLibraryStore(s => s.books)
@@ -366,6 +395,7 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
         onSearchChange={onSearchChange} 
         onOpenAdvancedFilter={onOpenAdvancedFilter}
       />
+      <MobileQuickLinks onOpenSettings={onOpenSettings} />
       {/* ── ROW 1: THE "NOW" ROW ── */}
       <div className="bento-row now-row">
         {continueReading.length > 0 ? (

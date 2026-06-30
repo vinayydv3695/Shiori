@@ -194,20 +194,20 @@ export function MangaReaderHeader({
 
                     <button 
                         type="button"
-                        className="manga-topbar-btn" 
-                        onClick={toggleFullscreen}
-                        title={isFullscreen ? "Exit Fullscreen (F)" : "Fullscreen (F)"}
-                    >
-                        {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
-                    </button>
-                    
-                    <button 
-                        type="button"
                         className={`manga-topbar-btn ${isSidebarOpen ? 'manga-topbar-btn--active' : ''}`}
                         onClick={toggleSidebar}
                         title="Toggle Sidebar (S)"
                     >
                         <Settings size={18} />
+                    </button>
+                    
+                    <button 
+                        type="button"
+                        className="manga-topbar-btn" 
+                        onClick={toggleFullscreen}
+                        title={isFullscreen ? "Exit Fullscreen (F)" : "Fullscreen (F)"}
+                    >
+                        {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
                     </button>
                 </div>
 

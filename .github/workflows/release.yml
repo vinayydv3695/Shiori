@@ -609,10 +609,12 @@ jobs:
         run: |
           keytool -genkey -v -keystore release.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" -storepass android -keypass android
           APK_DIR="src-tauri/gen/android/app/build/outputs/apk"
+          # Find the highest version of build-tools
+          APKSIGNER=$(ls -1d $ANDROID_HOME/build-tools/* | sort -V | tail -n 1)/apksigner
           for apk in $(find "$APK_DIR" -name '*-unsigned.apk' -type f 2>/dev/null); do
             SIGNED_APK="${apk/-unsigned/}"
             cp "$apk" "$SIGNED_APK"
-            $ANDROID_HOME/build-tools/*/apksigner sign --ks release.keystore --ks-pass pass:android --key-pass pass:android "$SIGNED_APK"
+            "$APKSIGNER" sign --ks release.keystore --ks-pass pass:android --key-pass pass:android "$SIGNED_APK"
           done
 
       - name: Upload Android APK to Release
@@ -658,12 +660,11 @@ jobs:
           # Skip code signing for CI - no Apple Developer account needed
           TAURI_APPLE_DEVELOPMENT_TEAM: ''
         run: |
-          # Patch the Xcode project to disable code signing
+          # Patch the Xcode project to disable code signing (using perl for better cross-platform newline support)
           PBXPROJ="src-tauri/gen/apple/shiori.xcodeproj/project.pbxproj"
           if [ -f "$PBXPROJ" ]; then
-            sed -i '' 's/CODE_SIGN_IDENTITY = ".*"/CODE_SIGN_IDENTITY = "-"/g' "$PBXPROJ"
-            # Add CODE_SIGNING_ALLOWED = NO
-            sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER/CODE_SIGNING_ALLOWED = NO;\n\t\t\t\tCODE_SIGNING_REQUIRED = NO;\n\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER/g' "$PBXPROJ"
+            perl -pi -e 's/CODE_SIGN_IDENTITY = ".*"/CODE_SIGN_IDENTITY = "-"/g' "$PBXPROJ"
+            perl -pi -e 's/PRODUCT_BUNDLE_IDENTIFIER/CODE_SIGNING_ALLOWED = NO;\n\t\t\t\tCODE_SIGNING_REQUIRED = NO;\n\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER/g' "$PBXPROJ"
           fi
           # Build for simulator (no signing required)
           npm run tauri ios build -- --target aarch64-apple-ios-sim

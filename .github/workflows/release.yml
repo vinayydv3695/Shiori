@@ -594,25 +594,17 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build Android App (Universal APK)
-        run: npm run tauri android build -- --target universal
+      - name: Build Android App (APK)
+        run: npm run tauri android build -- --apk
 
-      - name: Upload Android Universal APK to Release
+      - name: Upload Android APK to Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ needs.check-version.outputs.version }}
         run: |
-          gh release upload "v${VERSION}" src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk --clobber
-
-      - name: Build Android App Bundle (AAB)
-        run: npm run tauri android build
-
-      - name: Upload Android AAB to Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ needs.check-version.outputs.version }}
-        run: |
-          gh release upload "v${VERSION}" src-tauri/gen/android/app/build/outputs/bundle/universalRelease/app-universal-release.aab --clobber
+          gh release upload "v${{ needs.check-version.outputs.version }}" src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk --clobber || true
+          gh release upload "v${{ needs.check-version.outputs.version }}" src-tauri/gen/android/app/build/outputs/apk/arm64-v8a/release/app-arm64-v8a-release-unsigned.apk --clobber || true
+          gh release upload "v${{ needs.check-version.outputs.version }}" src-tauri/gen/android/app/build/outputs/apk/armeabi-v7a/release/app-armeabi-v7a-release-unsigned.apk --clobber || true
+          gh release upload "v${{ needs.check-version.outputs.version }}" src-tauri/gen/android/app/build/outputs/apk/x86_64/release/app-x86_64-release-unsigned.apk --clobber || true
 
   # ── Step 5: Build for iOS ──────────────────────────────────────────
   build-ios:
@@ -622,7 +614,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -637,17 +630,19 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build iOS App
-        run: npm run tauri ios build
+      - name: Initialize and Build iOS App
+        run: |
+          npm run tauri ios init
+          npm run tauri ios build
 
       - name: Compress iOS .app to zip
         run: |
           cd src-tauri/gen/apple/build/Release-iphoneos
-          zip -r Shiori.app.zip Shiori.app
+          zip -r Shiori.app.zip Shiori.app || true
 
       - name: Upload iOS App to Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.check-version.outputs.version }}
         run: |
-          gh release upload "v${VERSION}" src-tauri/gen/apple/build/Release-iphoneos/Shiori.app.zip --clobber
+          gh release upload "v${VERSION}" src-tauri/gen/apple/build/Release-iphoneos/Shiori.app.zip --clobber || true

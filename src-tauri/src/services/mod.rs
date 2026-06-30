@@ -51,5 +51,6 @@ pub mod torbox;
 // Debrid provider service
 pub mod debrid;
 
-// Discord RPC service
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub mod discord_service;
+pub mod discovery_service;

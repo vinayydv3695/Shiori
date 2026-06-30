@@ -40,18 +40,6 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     website: 'https://mangadex.org',
   },
   {
-    id: 'toongod',
-    name: 'ToonGod',
-    kind: 'manga',
-    enabled: true,
-    description: 'Manhwa/Webtoons focus with large collection.',
-    status: 'active',
-    implemented: true,
-    torboxCompatible: false,
-    capabilities: ['direct'],
-    website: 'https://www.toongod.org',
-  },
-  {
     id: 'manhwahub',
     name: 'ManhwaHub',
     kind: 'manga',
@@ -111,18 +99,6 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     torboxCompatible: false,
     capabilities: ['direct', 'metadata'],
     website: 'https://libgen.li',
-  },
-  {
-    id: 'torrent_csv',
-    name: 'TorrentCSV',
-    kind: 'books',
-    enabled: true,
-    description: 'A collaborative, open source torrent search engine.',
-    status: 'active',
-    implemented: true,
-    torboxCompatible: true,
-    capabilities: ['torbox'],
-    website: 'https://torrentcsv.com',
   },
 ];
 

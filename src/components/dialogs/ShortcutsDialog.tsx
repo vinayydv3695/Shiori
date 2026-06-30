@@ -1,8 +1,9 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import { X, Keyboard, Search, Settings, BookOpen, Image as ImageIcon, Grid } from 'lucide-react'
 import { SHORTCUTS_CATALOG } from '@/lib/shortcutsCatalog'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { cn } from '@/lib/utils'
+import { usePreferencesStore } from '@/store/preferencesStore'
 
 interface ShortcutsDialogProps {
   open: boolean
@@ -28,11 +29,28 @@ export const ShortcutsDialog = ({ open, onOpenChange }: ShortcutsDialogProps) =>
   const isMacOS = isMac()
   const [activeTab, setActiveTab] = useState<string>('All')
   const [searchQuery, setSearchQuery] = useState('')
+  const preferences = usePreferencesStore(state => state.preferences)
+  const preferredContentType = preferences?.preferredContentType ?? 'both'
 
-  const tabs = ['All', ...SHORTCUTS_CATALOG.map(c => c.title)]
+  const relevantCatalog = useMemo(() => {
+    return SHORTCUTS_CATALOG.filter(category => {
+      if (category.title === 'Book Reader' && preferredContentType === 'manga') return false;
+      if (category.title === 'Manga Reader' && preferredContentType === 'books') return false;
+      return true;
+    })
+  }, [preferredContentType])
+
+  const tabs = ['All', ...relevantCatalog.map(c => c.title)]
+
+  // Adjust active tab if it becomes hidden
+  useEffect(() => {
+    if (activeTab !== 'All' && !tabs.includes(activeTab)) {
+      setActiveTab('All')
+    }
+  }, [tabs, activeTab])
 
   const filteredCatalog = useMemo(() => {
-    return SHORTCUTS_CATALOG
+    return relevantCatalog
       .filter(category => activeTab === 'All' || category.title === activeTab)
       .map(category => {
         const query = searchQuery.toLowerCase()
@@ -42,7 +60,7 @@ export const ShortcutsDialog = ({ open, onOpenChange }: ShortcutsDialogProps) =>
         return { ...category, shortcuts }
       })
       .filter(category => category.shortcuts.length > 0)
-  }, [activeTab, searchQuery])
+  }, [activeTab, searchQuery, relevantCatalog])
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>

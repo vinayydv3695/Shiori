@@ -135,3 +135,25 @@ export function parsePageUrl(raw: string): { kind: string; url: string } {
   const url = value.slice(delimiterIndex + 1).trim()
   return { kind, url }
 }
+
+/**
+ * Fetch wrapper with exponential backoff for rate limits and CORS errors (which often mask 429s)
+ */
+export async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 3, backoff = 1000): Promise<Response> {
+  try {
+    const res = await fetch(url, options)
+    if (res.status === 429 && retries > 0) {
+      console.warn(`Rate limited (429) fetching ${url}. Retrying in ${backoff}ms...`)
+      await new Promise(r => setTimeout(r, backoff))
+      return fetchWithRetry(url, options, retries - 1, backoff * 2)
+    }
+    return res
+  } catch (err) {
+    if (retries > 0) {
+      console.warn(`Fetch error (possibly CORS masking a 429) for ${url}. Retrying in ${backoff}ms...`, err)
+      await new Promise(r => setTimeout(r, backoff))
+      return fetchWithRetry(url, options, retries - 1, backoff * 2)
+    }
+    throw err
+  }
+}

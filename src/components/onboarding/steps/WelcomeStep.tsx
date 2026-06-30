@@ -1,4 +1,5 @@
 import { BookOpen, Image, Radio, Zap } from 'lucide-react';
+import { useOnboardingState } from '../hooks/useOnboardingState';
 
 type WelcomeStepProps = {
   appVersion: string;
@@ -7,6 +8,12 @@ type WelcomeStepProps = {
 
 export function WelcomeStep({ onStart }: WelcomeStepProps) {
   const logoSrc = `${import.meta.env.BASE_URL}logo.png`;
+  const { setOnboardingPath } = useOnboardingState();
+
+  const handleStart = () => {
+    setOnboardingPath('local'); // Default to local so we don't skip import step, preserving old behavior
+    onStart();
+  };
 
   return (
     <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden px-6 py-6 text-foreground md:px-10 md:py-8">
@@ -79,7 +86,7 @@ export function WelcomeStep({ onStart }: WelcomeStepProps) {
 
         <button
           type="button"
-          onClick={onStart}
+          onClick={handleStart}
           className="animate-fade-up delay-300 group relative overflow-hidden rounded-full border border-primary/20 bg-primary px-9 py-3.5 text-sm font-bold uppercase tracking-[0.14em] text-primary-foreground opacity-0 transition-all hover:scale-105 hover:bg-primary/90 hover:shadow-lg focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 active:scale-95"
         >
           <span className="relative z-10 flex items-center gap-2">Start Setup →</span>

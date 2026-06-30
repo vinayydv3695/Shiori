@@ -106,7 +106,7 @@ function BookGrid({ title, subtitle, books, onBookClick, isLoading }: BookRowPro
           <h2 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h2>
           <span className="text-xs text-muted-foreground uppercase tracking-widest">{subtitle}</span>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-12 px-8">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-x-6 gap-y-12 px-8">
           {[1, 2, 3, 4].map(i => (
             <div key={i} className="w-full aspect-[2/3] rounded-xl bg-secondary/40 border border-border/40 animate-pulse" />
           ))}
@@ -123,7 +123,7 @@ function BookGrid({ title, subtitle, books, onBookClick, isLoading }: BookRowPro
         <h2 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h2>
         <span className="text-xs text-muted-foreground uppercase tracking-widest">{subtitle}</span>
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-12 px-8">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-x-6 gap-y-12 px-8">
         {books.map((book) => {
           const coverId = book.cover_i || book.cover_id;
           const authorName = Array.isArray(book.author_name) 

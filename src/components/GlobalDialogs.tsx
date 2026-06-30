@@ -9,7 +9,6 @@ const EditMetadataDialog = lazy(() => import("./library/EditMetadataDialog").the
 const DeleteBookDialog = lazy(() => import("./library/DeleteBookDialog").then(m => ({ default: m.DeleteBookDialog })))
 const SettingsDialog = lazy(() => import("./settings/SettingsDialog").then(m => ({ default: m.SettingsDialog })))
 const BookDetailsDialog = lazy(() => import("./library/BookDetailsDialog").then(m => ({ default: m.BookDetailsDialog })))
-const ConversionDialog = lazy(() => import("./conversion/ConversionDialog").then(m => ({ default: m.ConversionDialog })))
 const AutoConvertDialog = lazy(() => import("./conversion/AutoConvertDialog").then(m => ({ default: m.AutoConvertDialog })))
 const ConversionJobTracker = lazy(() => import("./conversion/ConversionJobTracker"))
 const MetadataSearchDialog = lazy(() => import("./library/MetadataSearchDialog").then(m => ({ default: m.MetadataSearchDialog })))
@@ -28,7 +27,6 @@ export interface GlobalDialogsProps {
   handleViewDetails: (id: number) => void
   handleEditBook: (id: number) => void
   handleDeleteBook: (id: number) => void
-  handleConvertBook: (id: number) => void
   clearSelection: () => void
   loadInitialBooks: () => void
 }
@@ -42,7 +40,6 @@ export function GlobalDialogs({
   handleViewDetails,
   handleEditBook,
   handleDeleteBook,
-  handleConvertBook,
   clearSelection,
   loadInitialBooks
 }: GlobalDialogsProps) {
@@ -124,12 +121,6 @@ export function GlobalDialogs({
         />
       )}
 
-      {dialogs.dialogBookId !== null && (
-        <Suspense fallback={null}>
-          <ConversionDialog open={dialogs.conversionDialogOpen} onOpenChange={dialogs.setConversionDialogOpen} bookId={dialogs.dialogBookId} />
-        </Suspense>
-      )}
-
       {dialogs.selectedSeries && (
         <Suspense fallback={null}>
           <SeriesView
@@ -141,7 +132,7 @@ export function GlobalDialogs({
             onViewDetailsBook={handleViewDetails}
             onEditBook={handleEditBook}
             onDeleteBook={handleDeleteBook}
-            onConvertBook={handleConvertBook}
+
             onFavoriteBook={async (id) => {
               await api.toggleBookFavorite(id)
               useLibraryStore.getState().toggleFavorite(id)

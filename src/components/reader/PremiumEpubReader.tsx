@@ -12,7 +12,6 @@ import { DoodleCanvas } from './DoodleCanvas';
 import { DoodleToolbar } from './DoodleToolbar';
 import { PageFlipEngine, type PageFlipHandle } from './PageFlipEngine';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
-import { TTSControlBar } from './TTSControlBar';
 import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Search, BookOpen } from '@/components/icons';
 import { sanitizeBookContent } from '@/lib/sanitize';
 import { applyHighlightsToDOM } from '@/lib/highlightAnnotations';
@@ -1062,12 +1061,6 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
           currentLocation={`chapter_${currentIndex}`}
         />
       )}
-
-      {/* TTS Control Bar */}
-      <TTSControlBar
-        contentRef={contentContainerRef}
-        onChapterEnd={nextPage}
-      />
 
 
 

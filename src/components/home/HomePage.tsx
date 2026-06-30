@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { HomeSection, ScrollStrip } from './HomeSection'
 import { ContinueReadingCard, RecentlyAddedCard } from './ContinueReadingCard'
+import { MobileStickyHeader } from '../layout/MobileStickyHeader'
 import { LazyRow } from './LazyRow'
 import { useThumbnail } from '@/hooks/useThumbnail'
 import { FeaturedContinueCard } from './FeaturedContinueCard'
@@ -209,9 +210,12 @@ function HeroSection({
 interface HomePageProps {
   onOpenBook: (bookId: number) => void
   onViewRSS: () => void
+  searchQuery?: string
+  onSearchChange?: (query: string) => void
+  onOpenAdvancedFilter?: () => void
 }
 
-export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
+export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChange = () => {}, onOpenAdvancedFilter = () => {} }: HomePageProps) {
   const [libraryStats, setLibraryStats] = useState<{total_books: number, total_manga: number, total_size_bytes: number} | null>(null);
   const favoriteBookIds = useLibraryStore(s => s.favoriteBookIds)
   const libraryBooks = useLibraryStore(s => s.books)
@@ -357,6 +361,11 @@ export function HomePage({ onOpenBook, onViewRSS }: HomePageProps) {
       initial="hidden"
       animate="show"
     >
+      <MobileStickyHeader 
+        searchQuery={searchQuery} 
+        onSearchChange={onSearchChange} 
+        onOpenAdvancedFilter={onOpenAdvancedFilter}
+      />
       {/* ── ROW 1: THE "NOW" ROW ── */}
       <div className="bento-row now-row">
         {continueReading.length > 0 ? (

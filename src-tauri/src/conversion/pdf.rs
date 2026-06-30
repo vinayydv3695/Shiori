@@ -11,7 +11,7 @@
 /// - Fallback to lopdf for basic text-only extraction
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use tokio::process::Command;
+use std::process::Command;
 
 use super::oeb::{OebBook, OebChapter, OebImage};
 use super::utils;
@@ -20,29 +20,105 @@ use super::ConversionError;
 /// Parse a PDF file into an OebBook.
 pub async fn parse(
     source: &Path,
-    progress_cb: Option<&(dyn Fn(u8, &str) + Send + Sync)>,
+    _progress_cb: Option<&(dyn Fn(u8, &str) + Send + Sync)>,
 ) -> Result<OebBook, ConversionError> {
     let mut warnings = Vec::new();
 
     // Try pdftohtml first
-    match convert_with_pdftohtml(source, &mut warnings, progress_cb).await {
-        Ok(result) => Ok(result),
+    let mut book = match convert_with_pdftohtml(source, &mut warnings).await {
+        Ok(result) => result,
         Err(ConversionError::MissingDependency(msg)) => {
             warnings.push(format!(
                 "pdftohtml not available ({}), falling back to basic extraction",
                 msg
             ));
-            convert_with_lopdf(source, &mut warnings).await
+            convert_with_lopdf(source, &mut warnings).await?
         }
         Err(ConversionError::EmptyContent) => {
             warnings.push(
                 "pdftohtml produced empty/blank content, falling back to basic extraction"
                     .to_string(),
             );
-            convert_with_lopdf(source, &mut warnings).await
+            convert_with_lopdf(source, &mut warnings).await?
         }
-        Err(e) => Err(e),
+        Err(e) => return Err(e),
+    };
+
+    // Attempt to extract a cover image using lopdf
+    if let Ok(data) = tokio::fs::read(source).await {
+        if let Ok(doc) = lopdf::Document::load_mem(&data) {
+            let pdf_pages = doc.get_pages();
+            let mut found_cover = false;
+            
+            // Only look in the first 3 pages for a cover image
+            for (_, object_id) in pdf_pages.into_iter().take(3) {
+                if found_cover { break; }
+                if let Ok(lopdf::Object::Dictionary(page_dict)) = doc.get_object(object_id) {
+                    if let Ok(lopdf::Object::Dictionary(resources)) = page_dict.get(b"Resources").and_then(|obj| {
+                        match obj {
+                            lopdf::Object::Reference(id) => doc.get_object(*id),
+                            _ => Ok(obj)
+                        }
+                    }) {
+                        if let Ok(lopdf::Object::Dictionary(xobjects)) = resources.get(b"XObject").and_then(|obj| {
+                            match obj {
+                                lopdf::Object::Reference(id) => doc.get_object(*id),
+                                _ => Ok(obj)
+                            }
+                        }) {
+                            for (_key, xobj_ref) in xobjects.iter() {
+                                if let Ok(lopdf::Object::Stream(stream)) = doc.get_object(xobj_ref.as_reference().unwrap_or((0,0))) {
+                                    if let Ok(subtype) = stream.dict.get(b"Subtype").and_then(|obj| obj.as_name()) {
+                                        if subtype == b"Image" {
+                                            // Found an image! Let's extract it as the cover
+                                            if let Ok(filter) = stream.dict.get(b"Filter").and_then(|obj| {
+                                                match obj {
+                                                    lopdf::Object::Name(n) => Ok(vec![n.to_vec()]),
+                                                    lopdf::Object::Array(arr) => {
+                                                        let mut names = vec![];
+                                                        for item in arr {
+                                                            if let Ok(n) = item.as_name() { names.push(n.to_vec()); }
+                                                        }
+                                                        Ok(names)
+                                                    }
+                                                    _ => Err(lopdf::Error::Header)
+                                                }
+                                            }) {
+                                                if filter.iter().any(|f| f == b"DCTDecode") {
+                                                    // It's a JPEG!
+                                                    book.images.push(OebImage {
+                                                        id: "cover_img".to_string(),
+                                                        filename: "cover.jpg".to_string(),
+                                                        mime_type: "image/jpeg".to_string(),
+                                                        data: stream.content.clone(),
+                                                    });
+                                                    // Insert it into the first chapter
+                                                    found_cover = true;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // If we found a cover, prepend it to the first chapter
+            if found_cover && !book.chapters.is_empty() {
+                // If the first chapter is just a headline or empty, we can just prepend
+                let img_html = "  <div style=\"text-align: center; margin-bottom: 2em;\">
+    <img src=\"cover.jpg\" alt=\"Cover\" style=\"max-width: 100%; height: auto;\"/>
+  </div>
+".to_string();
+                book.chapters[0].html = format!("{}{}", img_html, book.chapters[0].html);
+            }
+        }
     }
+
+    Ok(book)
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -52,7 +128,6 @@ pub async fn parse(
 async fn convert_with_pdftohtml(
     source: &Path,
     warnings: &mut Vec<String>,
-    progress_cb: Option<&(dyn Fn(u8, &str) + Send + Sync)>,
 ) -> Result<OebBook, ConversionError> {
     // Create temp directory for pdftohtml output
     let tmp_dir = tempfile::tempdir()
@@ -60,97 +135,35 @@ async fn convert_with_pdftohtml(
     let tmp_output = tmp_dir.path().join("output");
 
     // Check if pdftohtml exists
-    let which_result = Command::new("which").arg("pdftohtml").output().await;
+    let which_result = Command::new("which").arg("pdftohtml").output();
     if which_result.is_err() || !which_result.as_ref().unwrap().status.success() {
         return Err(ConversionError::MissingDependency(
             "pdftohtml (install poppler-utils: apt install poppler-utils)".to_string(),
         ));
     }
 
-    // Try to get total pages
-    let mut total_pages = 0;
-    if let Ok(info_out) = Command::new("pdfinfo").arg(source).output().await {
-        if info_out.status.success() {
-            let out_str = String::from_utf8_lossy(&info_out.stdout);
-            if let Some(cap) = regex::Regex::new(r"Pages:\s+(\d+)").unwrap().captures(&out_str) {
-                total_pages = cap[1].parse::<u32>().unwrap_or(0);
-            }
-        }
-    }
+    // Run pdftohtml
+    let pdftohtml_result = Command::new("pdftohtml")
+        .args([
+            "-noframes",
+            "-p",
+            "-enc",
+            "UTF-8",
+            "-nodrm",
+            source
+                .to_str()
+                .ok_or_else(|| ConversionError::Other("Invalid source path".to_string()))?,
+            tmp_output
+                .to_str()
+                .ok_or_else(|| ConversionError::Other("Invalid output path".to_string()))?,
+        ])
+        .output()
+        .map_err(|e| {
+            ConversionError::MissingDependency(format!("Failed to run pdftohtml: {}", e))
+        })?;
 
-    // Run pdftohtml with streaming output
-    use std::process::Stdio;
-    use tokio::io::{AsyncBufReadExt, BufReader};
-
-    let args = vec![
-        "-noframes",
-        "-p",
-        "-enc",
-        "UTF-8",
-        "-nodrm",
-        source
-            .to_str()
-            .ok_or_else(|| ConversionError::Other("Invalid source path".to_string()))?,
-        tmp_output
-            .to_str()
-            .ok_or_else(|| ConversionError::Other("Invalid output path".to_string()))?,
-    ];
-
-    let mut child = if cfg!(unix) {
-        let mut stdbuf_args = vec!["-oL", "pdftohtml"];
-        stdbuf_args.extend(args.clone());
-        Command::new("stdbuf")
-            .args(&stdbuf_args)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .or_else(|e| {
-                if e.kind() == std::io::ErrorKind::NotFound {
-                    Command::new("pdftohtml")
-                        .args(&args)
-                        .stdout(Stdio::piped())
-                        .stderr(Stdio::piped())
-                        .spawn()
-                } else {
-                    Err(e)
-                }
-            })
-    } else {
-        Command::new("pdftohtml")
-            .args(&args)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-    }
-    .map_err(|e| {
-        ConversionError::MissingDependency(format!("Failed to run pdftohtml: {}", e))
-    })?;
-
-    if let Some(stdout) = child.stdout.take() {
-        let mut reader = BufReader::new(stdout).lines();
-        let page_re = regex::Regex::new(r"^Page-(\d+)").unwrap();
-        while let Ok(Some(line)) = reader.next_line().await {
-            if let Some(caps) = page_re.captures(&line) {
-                if let Ok(page) = caps[1].parse::<u32>() {
-                    if total_pages > 0 && total_pages >= page {
-                        let pct = 10 + (page as f32 / total_pages as f32 * 80.0) as u8;
-                        if let Some(cb) = progress_cb {
-                            cb(pct, &format!("Converting page {} of {}...", page, total_pages));
-                        }
-                    } else {
-                        if let Some(cb) = progress_cb {
-                            cb(10, &format!("Converting page {}...", page));
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    let output = child.wait_with_output().await.map_err(|e| ConversionError::Other(e.to_string()))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
+    if !pdftohtml_result.status.success() {
+        let stderr = String::from_utf8_lossy(&pdftohtml_result.stderr);
         warnings.push(format!("pdftohtml warnings: {}", stderr));
         // Continue anyway — pdftohtml may produce partial output even with errors
     }
@@ -203,11 +216,8 @@ async fn convert_with_pdftohtml(
     // pdftohtml outputs e.g. src="output001.png" but we embed as image_0000.png
     let processed = rewrite_img_srcs(processed, &img_rename_map);
 
-    // Try to extract TOC via lopdf
-    let toc = extract_pdf_toc(source);
-
     // Split into chapters
-    let chapters = split_pdf_chapters(&processed, toc.as_deref());
+    let chapters = split_pdf_chapters(&processed);
 
     // Guard: avoid generating a blank EPUB when pdftohtml output is structurally present
     // but text extraction produced no readable content.
@@ -290,12 +300,9 @@ async fn convert_with_lopdf(
     let text = utils::normalize_line_endings(&text_content);
     let text = utils::smart_quotes(&text);
 
-    // Try to extract TOC
-    let toc = extract_pdf_toc(source);
-
     // Simple chapter detection and conversion
     let html = utils::text_to_html_paragraphs(&text);
-    let chapters = split_pdf_chapters(&html, toc.as_deref());
+    let chapters = split_pdf_chapters(&html);
 
     let title = source
         .file_stem()
@@ -340,106 +347,61 @@ pub async fn convert(
 // HTML POST-PROCESSING
 // ──────────────────────────────────────────────────────────────────────────
 
-fn fix_mojibake(mut text: String) -> String {
-    text = text.replace("â€™", "’");
-    text = text.replace("â€œ", "“");
-    text = text.replace("â€\u{9d}", "”");
-    text = text.replace("â€\u{94}", "”");
-    text = text.replace("â€˜", "‘");
-    text = text.replace("â€“", "–");
-    text = text.replace("â€”", "—");
-    text = text.replace("â€¦", "…");
-    text = text.replace("â\u{80}\u{99}", "’");
-    text = text.replace("â\u{80}\u{9c}", "“");
-    text = text.replace("â\u{80}\u{9d}", "”");
-    text = text.replace("â\u{80}\u{98}", "‘");
-    text = text.replace("â\u{80}\u{93}", "–");
-    text = text.replace("â\u{80}\u{94}", "—");
-    text = text.replace("â\u{80}\u{a6}", "…");
-    
-    // Heuristic for orphaned "â" where control characters were dropped by the PDF generator
-    text = text.replace("âs ", "’s ");
-    text = text.replace("âs.", "’s.");
-    text = text.replace("âs,", "’s,");
-    text = text.replace("âd ", "’d ");
-    text = text.replace("âm ", "’m ");
-    text = text.replace("âre ", "’re ");
-    text = text.replace("âve ", "’ve ");
-    text = text.replace("âll ", "’ll ");
-    text = text.replace("ât ", "’t ");
-    
-    text
-}
-
 fn post_process_pdf_html(html: &str, warnings: &mut Vec<String>) -> String {
     // 1. First, use our sanitize function to convert to valid XHTML,
     // which safely limits everything to approved tags (like <img>, <br>, <b>, etc).
-    let html = fix_mojibake(utils::sanitize_html_for_epub(html));
+    let html = utils::sanitize_html_for_epub(html);
 
-    // Extract paragraph text and page anchors from HTML
-    static BLOCK_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
-        regex::Regex::new(r#"(?is)(<p[^>]*>.*?</p>)|(<a[^>]*name=["']?\d+["']?[^>]*>)"#).unwrap()
-    });
+    // Extract paragraph text from HTML
+    static PARAGRAPH_RE: once_cell::sync::Lazy<regex::Regex> =
+        once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?is)<p[^>]*>(.*?)</p>").unwrap());
     static BR_RE: once_cell::sync::Lazy<regex::Regex> =
         once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?i)<br\s*/?>").unwrap());
     static IMG_RE: once_cell::sync::Lazy<regex::Regex> =
         once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?is)<img[^>]+>").unwrap());
 
-    let mut blocks: Vec<String> = Vec::new();
+    let mut paragraphs: Vec<String> = Vec::new();
 
-    for cap in BLOCK_RE.captures_iter(&html) {
-        if let Some(p_match) = cap.get(1) {
-            let inner = p_match.as_str();
-            
-            // It's mostly text, we can strip remaining tags for line-length calculations
-            let mut text = BR_RE.replace_all(inner, "\n").to_string();
+    for cap in PARAGRAPH_RE.captures_iter(&html) {
+        let inner = &cap[1];
 
-            if IMG_RE.is_match(&text) {
-                blocks.push(text.trim().to_string());
-                continue;
-            }
+        // If there is an image, we should keep it separate so line unwrapping doesn't ruin it.
+        // Or we can just preserve it. For pdftohtml, text and images are usually separate.
+        let mut text = BR_RE.replace_all(inner, "\n").to_string();
 
-            text = utils::strip_html_tags(&text).trim().to_string();
-            if !text.is_empty() {
-                blocks.push(text);
-            }
-        } else if let Some(a_match) = cap.get(2) {
-            // It's a page anchor
-            blocks.push(a_match.as_str().to_string());
+        // If it exclusively contains an image, just keep it safely.
+        if IMG_RE.is_match(&text) {
+            paragraphs.push(text.trim().to_string());
+            continue;
+        }
+
+        // It's mostly text, we can strip remaining tags for line-length calculations
+        text = utils::strip_html_tags(&text).trim().to_string();
+        if !text.is_empty() {
+            paragraphs.push(text);
         }
     }
 
     // If regex didn't capture much, fall back to simple extraction
-    if blocks.is_empty() {
-        // Fallback: preserve order of images and text
-        let html_lines = html.replace("<br/>", "\n").replace("<br>", "\n");
-        let html_lines = IMG_RE.replace_all(&html_lines, |caps: &regex::Captures| {
-            format!("\n{}\n", &caps[0])
-        });
+    if paragraphs.is_empty() {
+        // Fallback for flat HTML: search for any img tags before stripping
+        for cap in IMG_RE.captures_iter(&html) {
+            paragraphs.push(cap[0].to_string());
+        }
 
-        for line in html_lines.lines() {
-            let line = line.trim();
-            if line.is_empty() {
-                continue;
-            }
-            if IMG_RE.is_match(line) {
-                for cap in IMG_RE.captures_iter(line) {
-                    blocks.push(cap[0].to_string());
-                }
-            } else {
-                let text = utils::strip_html_tags(line);
-                let trimmed = text.trim();
-                if !trimmed.is_empty() {
-                    blocks.push(trimmed.to_string());
-                }
+        let text = utils::strip_html_tags(&html);
+        for line in text.lines() {
+            let trimmed = line.trim();
+            if !trimmed.is_empty() {
+                paragraphs.push(trimmed.to_string());
             }
         }
     }
 
-    // Line unwrap using median line length
-    let mut lengths: Vec<usize> = blocks
+    // Line unwrap using median line length (calibre's algorithm)
+    let mut lengths: Vec<usize> = paragraphs
         .iter()
-        .filter(|p| p.len() > 10 && !p.starts_with("<a "))
+        .filter(|p| p.len() > 10)
         .map(|p| p.len())
         .collect();
     lengths.sort_unstable();
@@ -452,21 +414,8 @@ fn post_process_pdf_html(html: &str, warnings: &mut Vec<String>) -> String {
     let mut result = String::new();
     let mut current_para = String::new();
 
-    for block in &blocks {
-        let plain = block.trim();
-        
-        // Output anchors as-is
-        if plain.starts_with("<a name=") {
-            if !current_para.is_empty() {
-                result.push_str(&format!(
-                    "  <p>{}</p>\n",
-                    super::oeb::escape_xml(current_para.trim())
-                ));
-                current_para.clear();
-            }
-            result.push_str(&format!("  {}\n", plain));
-            continue;
-        }
+    for para in &paragraphs {
+        let plain = para.trim();
 
         // Keep extracted image tags as block elements (not escaped text inside <p>)
         if IMG_RE.is_match(plain) {
@@ -502,19 +451,14 @@ fn post_process_pdf_html(html: &str, warnings: &mut Vec<String>) -> String {
         }
 
         // Line unwrap heuristic
-        let is_continuation = block.len() as f64 > median as f64 * 0.85
-            && !block.ends_with('.')
-            && !block.ends_with('!')
-            && !block.ends_with('?');
+        let is_continuation = para.len() as f64 > median as f64 * 0.85
+            && !para.ends_with('.')
+            && !para.ends_with('!')
+            && !para.ends_with('?');
 
         if is_continuation && !current_para.is_empty() {
-            if current_para.ends_with('-') {
-                current_para.pop(); // remove hyphen
-                current_para.push_str(plain);
-            } else {
-                current_para.push(' ');
-                current_para.push_str(plain);
-            }
+            current_para.push(' ');
+            current_para.push_str(plain);
         } else {
             if !current_para.is_empty() {
                 result.push_str(&format!(
@@ -541,61 +485,46 @@ fn post_process_pdf_html(html: &str, warnings: &mut Vec<String>) -> String {
 // CHAPTER SPLITTING
 // ──────────────────────────────────────────────────────────────────────────
 
-fn extract_pdf_toc(pdf_path: &std::path::Path) -> Option<Vec<(String, u32)>> {
-    let doc = lopdf::Document::load(pdf_path).ok()?;
-    let toc = doc.get_toc().ok()?;
-    if toc.toc.is_empty() {
-        return None;
-    }
-    
-    let mut chapters = Vec::new();
-    for item in toc.toc {
-        chapters.push((item.title, item.page as u32));
-    }
-    Some(chapters)
-}
+fn split_pdf_chapters(html: &str) -> Vec<(String, String)> {
+    static HEADING_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
+        regex::Regex::new(r"(?i)<h[1-6][^>]*>(.*?)</h[1-6]>").unwrap()
+    });
+    static PARA_RE: once_cell::sync::Lazy<regex::Regex> =
+        once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?is)<p[^>]*>(.*?)</p>").unwrap());
 
-fn split_pdf_chapters(html: &str, toc: Option<&[(String, u32)]>) -> Vec<(String, String)> {
-    if let Some(toc) = toc {
-        if !toc.is_empty() {
-            return split_pdf_chapters_by_toc(html, toc);
-        }
-    }
-    split_pdf_chapters_heuristic(html)
-}
-
-fn split_pdf_chapters_by_toc(html: &str, toc: &[(String, u32)]) -> Vec<(String, String)> {
-    let mut chapters = Vec::new();
+    let mut chapters: Vec<(String, String)> = Vec::new();
     let mut current_title = "Document".to_string();
     let mut current_body = String::new();
-    
-    // Convert TOC to a map/lookup of page -> title
-    // Since multiple bookmarks can exist on one page, we just take the first one or combine them.
-    let mut page_to_title = std::collections::HashMap::new();
-    for (title, page) in toc {
-        page_to_title.entry(*page).or_insert_with(Vec::new).push(title.clone());
-    }
-
-    static PAGE_ANCHOR_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
-        regex::Regex::new(r#"(?i)<a[^>]*name="(\d+)"[^>]*>"#).unwrap()
-    });
 
     for line in html.lines() {
-        if let Some(cap) = PAGE_ANCHOR_RE.captures(line) {
-            if let Ok(page_num) = cap[1].parse::<u32>() {
-                if let Some(titles) = page_to_title.get(&page_num) {
-                    let title = titles.join(" / ");
-                    
-                    if !current_body.trim().is_empty() {
-                        chapters.push((current_title.clone(), current_body.trim().to_string()));
-                        current_body.clear();
-                    }
-                    
-                    current_title = title.clone();
-                    current_body.push_str(&format!("  <h2>{}</h2>\n", super::oeb::escape_xml(&current_title)));
-                }
+        let mut heading_title: Option<String> = None;
+        let mut heading_line: Option<String> = None;
+
+        if let Some(cap) = HEADING_RE.captures(line) {
+            let title = utils::strip_html_tags(&cap[1]).trim().to_string();
+            if !title.is_empty() {
+                heading_title = Some(title.clone());
+                heading_line = Some(format!("  <h2>{}</h2>", super::oeb::escape_xml(&title)));
+            }
+        } else if let Some(cap) = PARA_RE.captures(line) {
+            let candidate = utils::strip_html_tags(&cap[1]).trim().to_string();
+            if utils::looks_like_heading(&candidate) {
+                heading_title = Some(candidate.clone());
+                heading_line = Some(format!("  <h2>{}</h2>", super::oeb::escape_xml(&candidate)));
             }
         }
+
+        if let Some(title) = heading_title {
+            if !current_body.trim().is_empty() {
+                chapters.push((current_title.clone(), current_body.trim().to_string()));
+                current_body.clear();
+            }
+            current_title = title;
+            current_body.push_str(heading_line.as_deref().unwrap_or(line));
+            current_body.push('\n');
+            continue;
+        }
+
         current_body.push_str(line);
         current_body.push('\n');
     }
@@ -603,102 +532,13 @@ fn split_pdf_chapters_by_toc(html: &str, toc: &[(String, u32)]) -> Vec<(String, 
     if !current_body.trim().is_empty() {
         chapters.push((current_title, current_body.trim().to_string()));
     }
-    
-    chapters
-}
-
-fn split_pdf_chapters_heuristic(html: &str) -> Vec<(String, String)> {
-    static HEADING_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
-        regex::Regex::new(r"(?i)<h[1-6][^>]*>(.*?)</h[1-6]>").unwrap()
-    });
-    static PARA_RE: once_cell::sync::Lazy<regex::Regex> =
-        once_cell::sync::Lazy::new(|| regex::Regex::new(r"(?is)<p[^>]*>(.*?)</p>").unwrap());
-
-    let mut raw_chapters: Vec<(String, String, bool)> = Vec::new();
-    let mut current_title = "Document".to_string();
-    let mut current_body = String::new();
-    let mut has_body_text = false;
-
-    for line in html.lines() {
-        let mut heading_title: Option<String> = None;
-
-        if let Some(cap) = HEADING_RE.captures(line) {
-            let title = utils::strip_html_tags(&cap[1]).trim().to_string();
-            let title = title.split_whitespace().collect::<Vec<_>>().join(" ");
-            if !title.is_empty() {
-                heading_title = Some(title.clone());
-            }
-        } else if let Some(cap) = PARA_RE.captures(line) {
-            let candidate = utils::strip_html_tags(&cap[1]).trim().to_string();
-            let candidate = candidate.split_whitespace().collect::<Vec<_>>().join(" ");
-            if utils::looks_like_heading(&candidate) {
-                heading_title = Some(candidate.clone());
-            }
-        }
-
-        if let Some(title) = heading_title {
-            let is_definitive = {
-                let t = title.trim().to_lowercase();
-                let kw = ["chapter ", "part ", "book ", "prologue", "epilogue", "introduction", "preface", "afterword", "appendix", "interlude"];
-                kw.iter().any(|&k| t.starts_with(k))
-            };
-            
-            let force_break = is_definitive && !current_title.is_empty() && current_title != "Document";
-
-            if has_body_text || force_break {
-                raw_chapters.push((current_title.clone(), current_body.trim().to_string(), has_body_text));
-                current_body.clear();
-                has_body_text = false;
-                current_title = title;
-                current_body.push_str(&format!("  <h2>{}</h2>\n", super::oeb::escape_xml(&current_title)));
-            } else {
-                if current_title == "Document" {
-                    current_title = title;
-                    current_body.push_str(&format!("  <h2>{}</h2>\n", super::oeb::escape_xml(&current_title)));
-                } else {
-                    current_title = format!("{} {}", current_title, title);
-                    if let Some(idx) = current_body.rfind("  <h2>") {
-                        current_body.truncate(idx);
-                    }
-                    current_body.push_str(&format!("  <h2>{}</h2>\n", super::oeb::escape_xml(&current_title)));
-                }
-            }
-            continue;
-        }
-
-        let plain = utils::strip_html_tags(line).trim().to_string();
-        let has_image = line.to_lowercase().contains("<img");
-        if !plain.is_empty() || has_image {
-            has_body_text = true;
-        }
-
-        current_body.push_str(line);
-        current_body.push('\n');
-    }
-
-    if !current_body.trim().is_empty() {
-        raw_chapters.push((current_title, current_body.trim().to_string(), has_body_text));
-    }
-
-    // Post-process to merge empty chapters (like TOC entries) into the previous chapter
-    let mut chapters: Vec<(String, String)> = Vec::new();
-    for (title, body, had_body) in raw_chapters {
-        if !had_body && !chapters.is_empty() {
-            // It's likely a TOC entry or a structural page with no body.
-            // Demote its <h2> to <p><strong> and append it to the previous chapter.
-            let demoted_body = body.replace("<h2>", "<p><strong>").replace("</h2>", "</strong></p>");
-            let last = chapters.last_mut().unwrap();
-            last.1.push_str("\n<br/>\n");
-            last.1.push_str(&demoted_body);
-        } else {
-            chapters.push((title, body));
-        }
-    }
 
     // If no chapters detected, split every ~10 pages worth of content
     if chapters.len() <= 1 && html.len() > 50000 {
-        let single = chapters.pop().unwrap_or_else(|| ("Document".to_string(), "".to_string()));
-        
+        let single = chapters
+            .into_iter()
+            .next()
+            .unwrap_or(("Document".to_string(), html.to_string()));
         let lines: Vec<&str> = single.1.lines().collect();
         let chunk_size = (lines.len() / 10).max(50);
         let mut new_chapters = Vec::new();

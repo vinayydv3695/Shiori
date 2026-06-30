@@ -24,7 +24,6 @@ interface TableViewProps {
   onEditBook: (id: number) => void
   onDeleteBook: (id: number) => void
   onDownloadBook: (id: number) => void
-  onConvertBook?: (id: number) => void
 }
 
 function SortIcon({ field, sortField, sortDirection }: { field: SortField; sortField: SortField; sortDirection: 'asc' | 'desc' }) {
@@ -45,7 +44,6 @@ export const ModernTableView = ({
   onEditBook,
   onDeleteBook,
   onDownloadBook,
-  onConvertBook,
 }: TableViewProps) => {
   const [sortField, setSortField] = useState<SortField>('title')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
@@ -401,17 +399,7 @@ export const ModernTableView = ({
                           <Download className="w-4 h-4 mr-2" />
                           Download
                         </DropdownMenuItem>
-                        {onConvertBook && (
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onConvertBook(book.id!)
-                            }}
-                          >
-                            <RefreshCw className="w-4 h-4 mr-2" />
-                            Convert Format
-                          </DropdownMenuItem>
-                        )}
+
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           onClick={(e) => {

@@ -16,10 +16,12 @@ pub mod discord;
 pub mod doodle;
 pub mod folder_watch;
 pub mod manga;
+pub mod migration;
 pub mod preferences;
 pub mod prowlarr;
 pub mod rss;
 pub mod share;
+pub mod discovery;
 pub mod sources;
 pub mod torbox;
 pub mod translation;
@@ -42,6 +44,9 @@ macro_rules! generate_shiori_handlers {
             commands::library::add_book,
             commands::library::update_book,
             commands::library::delete_book,
+            commands::library::restore_book,
+            commands::library::permanent_delete_book,
+            commands::library::empty_trash,
             commands::library::delete_books,
             commands::library::clean_up_database,
             commands::library::import_books,
@@ -180,6 +185,7 @@ macro_rules! generate_shiori_handlers {
             commands::manga::get_manga_series_list,
             commands::manga::get_series_volumes,
             commands::manga::auto_group_manga_volumes,
+            commands::migration::migrate_library,
             commands::manga::create_manga_series,
             commands::manga::update_manga_series,
             commands::manga::assign_book_to_series,
@@ -271,6 +277,12 @@ macro_rules! generate_shiori_handlers {
             cloudflare::commands::cf_clear_all_sessions,
             cloudflare::commands::cf_list_sessions,
             cloudflare::commands::cf_proxy_image,
+            // Discovery commands
+            commands::discovery::start_companion_broadcast,
+            commands::discovery::stop_companion_broadcast,
+            commands::discovery::scan_for_companions,
+            commands::discovery::get_local_ips,
+            commands::discovery::generate_pairing_qr,
             // Window management
             commands::window::toggle_fullscreen,
             commands::window::get_fullscreen_state,

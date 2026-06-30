@@ -8,7 +8,7 @@ import {
   X, Moon, Sun, Palette, Shield, BookOpen, FileText,
   Download, Upload, HardDrive, Archive, CheckCircle2, AlertTriangle,
   Search, FolderOpen, ExternalLink, RefreshCw, Trash2, Info,
-  RotateCcw, Play, Square, Folder, Plus, Blocks, Puzzle,
+  RotateCcw, Play, Square, Folder, Plus, Blocks, Puzzle, MonitorSmartphone
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -31,6 +31,7 @@ import { TorboxSettings } from './TorboxSettings'
 import { check } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { getVersion } from '@tauri-apps/api/app'
+import { DesktopCompanionSettings } from './DesktopCompanionSettings'
 
 
 
@@ -42,7 +43,7 @@ interface SettingsDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
-type SettingsTab = 'general' | 'book-reading' | 'manga-reading' | 'advanced' | 'community-plugins' | 'about'
+type SettingsTab = 'general' | 'book-reading' | 'manga-reading' | 'companion' | 'advanced' | 'community-plugins' | 'about'
 
 interface SettingDefinition {
   label: string
@@ -65,6 +66,7 @@ const ALL_SETTINGS: SettingDefinition[] = [
   { label: 'Settings Transparency', description: 'Toggle transparent background for the settings dialog', tab: 'general', section: 'Appearance' },
   { label: 'Auto-start Application', description: 'Start Shiori when system boots', tab: 'general', section: 'General' },
   { label: 'Discord Rich Presence', description: 'Show your reading activity on Discord', tab: 'general', section: 'General' },
+  { label: 'Primary Content Type', description: 'What type of content you prefer to read', tab: 'general', section: 'General' },
   { label: 'Import Path', description: 'Default import location', tab: 'general', section: 'Import' },
   { label: 'Default Sort Order', description: 'How books are sorted', tab: 'general', section: 'Library' },
   { label: 'Default View Mode', description: 'Grid list or table view', tab: 'general', section: 'Library' },
@@ -74,6 +76,7 @@ const ALL_SETTINGS: SettingDefinition[] = [
   { label: 'Duplicate Handling', description: 'What to do with duplicate imports', tab: 'general', section: 'Library' },
   { label: 'Metadata Fetch Policy', description: 'How to fetch book metadata', tab: 'general', section: 'Library' },
   { label: 'Auto-fetch Cover Images', description: 'Download covers when missing', tab: 'general', section: 'Library' },
+  { label: 'Enable Recycle Bin', description: 'Move deleted items to trash (kept for 7 days)', tab: 'general', section: 'Library' },
   { label: 'Daily Reading Goal', description: 'Daily reading target in minutes', tab: 'general', section: 'Library' },
   { label: 'Translation Target Language', description: 'Language for text translation', tab: 'general', section: 'Translation' },
   { label: 'Font Family', description: 'Book reader font', tab: 'book-reading', section: 'Font Settings' },
@@ -168,11 +171,13 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
     ? activeTab
     : ((visibleTabSet?.values().next().value as SettingsTab | undefined) ?? 'general')
 
+  const preferredContentType = preferences?.preferredContentType ?? 'both'
   const tabs = [
     { id: 'general' as const, name: 'General', icon: Palette },
-    { id: 'book-reading' as const, name: 'Reading (Books)', icon: BookOpen },
-    { id: 'manga-reading' as const, name: 'Reading (Manga)', icon: FileText },
+    ...(preferredContentType !== 'manga' ? [{ id: 'book-reading' as const, name: 'Reading (Books)', icon: BookOpen }] : []),
+    ...(preferredContentType !== 'books' ? [{ id: 'manga-reading' as const, name: 'Reading (Manga)', icon: FileText }] : []),
     { id: 'advanced' as const, name: 'Advanced', icon: Shield },
+    { id: 'companion' as const, name: 'Companion App', icon: MonitorSmartphone },
     { id: 'community-plugins' as const, name: 'Community Plugins', icon: Puzzle },
     { id: 'about' as const, name: 'About', icon: Info },
   ]
@@ -186,20 +191,20 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-background/40 backdrop-blur-md z-50 transition-all duration-300" />
         <Dialog.Content aria-describedby={undefined} className={cn(
-          "dialog-content settings-dialog fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.2)] w-[90vw] max-w-5xl h-[85vh] z-50 flex flex-col overflow-hidden",
+          "dialog-content settings-dialog fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.2)] w-[95vw] max-w-5xl h-[90vh] max-md:h-[95vh] max-md:rounded-xl z-50 flex flex-col overflow-hidden",
           preferences?.transparentSettings ?? false ? "bg-background/80 backdrop-blur-2xl" : "bg-background"
         )}>
-          <div className="flex items-center justify-between p-6 border-b border-border">
-            <Dialog.Title className="text-2xl font-semibold">Settings</Dialog.Title>
-            <div className="flex items-center gap-3">
-              <div className="relative">
+          <div className="flex items-center justify-between p-4 md:p-6 border-b border-border gap-3">
+            <Dialog.Title className="text-xl md:text-2xl font-semibold">Settings</Dialog.Title>
+            <div className="flex items-center gap-2">
+              <div className="relative hidden sm:block">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
                 <Input
                   type="search"
                   placeholder="Search settings..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 w-64"
+                  className="pl-9 w-48 md:w-64"
                   aria-label="Search settings"
                 />
                 {searchQuery && (
@@ -223,11 +228,11 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
           <Tabs.Root
             value={selectedTab}
             onValueChange={(val) => setActiveTab(val as SettingsTab)}
-            className="flex flex-1 overflow-hidden"
+            className="flex flex-1 overflow-hidden max-md:flex-col"
             orientation="vertical"
           >
             <Tabs.List
-              className="w-64 border-r border-white/5 bg-muted/10 p-5 space-y-1.5 flex-shrink-0 overflow-y-auto"
+              className="w-64 max-md:w-full max-md:flex max-md:flex-row max-md:overflow-x-auto max-md:border-b max-md:border-r-0 max-md:p-2 max-md:space-y-0 max-md:gap-1 border-r border-white/5 bg-muted/10 p-5 space-y-1.5 flex-shrink-0 overflow-y-auto scrollbar-none"
               aria-label="Settings categories"
             >
               {filteredTabs.map((tab) => (
@@ -235,7 +240,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                   key={tab.id}
                   value={tab.id}
                   className={cn(
-                    'w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-left font-medium text-sm',
+                    'w-full max-md:w-auto max-md:whitespace-nowrap max-md:flex-shrink-0 flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-left font-medium text-sm',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50',
                     'data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm',
                     'data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-muted/50 data-[state=inactive]:hover:text-foreground'
@@ -285,6 +290,10 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                       isSettingVisible={isSettingVisible}
                       isSectionVisible={isSectionVisible}
                     />
+                  )}
+
+                  {selectedTab === 'companion' && (
+                    <DesktopCompanionSettings />
                   )}
 
                   {selectedTab === 'advanced' && (
@@ -355,12 +364,12 @@ const SettingItem = ({
   description?: string
   children: React.ReactNode
 }) => (
-  <div className="group flex items-center justify-between gap-6 p-4 rounded-2xl border border-border/50 bg-card/30 hover:bg-card/50 transition-all duration-300 shadow-sm hover:shadow-md">
-    <div className="space-y-1.5 flex-1 pr-4">
+  <div className="group flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6 p-4 rounded-2xl border border-border/50 bg-card/30 hover:bg-card/50 transition-all duration-300 shadow-sm hover:shadow-md">
+    <div className="space-y-1.5 flex-1 md:pr-4">
       <label className="text-[15px] font-semibold tracking-tight leading-none text-foreground">{label}</label>
       {description && <p className="text-[13px] text-muted-foreground leading-relaxed">{description}</p>}
     </div>
-    <div className="flex-shrink-0 flex items-center justify-end min-w-[200px]">
+    <div className="flex-shrink-0 flex items-center justify-start md:justify-end w-full md:w-auto md:min-w-[200px]">
       {children}
     </div>
   </div>
@@ -518,13 +527,13 @@ const GeneralSettings = ({
 
           {isSettingVisible('UI Density', 'Adjust interface spacing', 'Appearance') && (
             <SettingItem label="UI Density" description="Adjust interface spacing">
-              <div className="flex gap-2">
+              <div className="flex gap-2 w-full md:w-auto">
                 {(['compact', 'comfortable'] as const).map((density) => (
                   <button
                     key={density}
                     onClick={() => updateGeneralSettings({ uiDensity: density })}
                     className={cn(
-                      'px-4 py-2 rounded-md border text-sm transition-all capitalize',
+                      'flex-1 md:flex-none px-4 py-2 rounded-md border text-sm transition-all capitalize',
                       preferences.uiDensity === density
                         ? 'border-primary bg-primary/5 font-medium'
                         : 'border-border hover:border-primary/50'
@@ -539,8 +548,8 @@ const GeneralSettings = ({
 
           {isSettingVisible('UI Scale', 'Adjust overall application size', 'Appearance') && (
             <SettingItem label="UI Scale" description={`${scalePercent}%`}>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground w-8 text-right">75%</span>
+              <div className="flex items-center gap-3 w-full md:w-auto">
+                <span className="text-xs text-muted-foreground w-8 text-right shrink-0">75%</span>
                 <input
                   type="range"
                   min="75"
@@ -548,17 +557,17 @@ const GeneralSettings = ({
                   step="5"
                   value={scalePercent}
                   onChange={(e) => updateGeneralSettings({ uiScale: Number(e.target.value) / 100 })}
-                  className="w-40"
+                  className="flex-1 md:w-40"
                   aria-label="UI scale"
                 />
-                <span className="text-xs text-muted-foreground w-10">150%</span>
+                <span className="text-xs text-muted-foreground w-10 shrink-0">150%</span>
               </div>
             </SettingItem>
           )}
 
           {isSettingVisible('Cover Size', 'Book cover display size', 'Appearance') && (
             <SettingItem label="Cover Size" description="Book cover display size in library">
-              <div className="flex gap-2">
+              <div className="flex gap-2 w-full md:w-auto">
                 {([
                   { value: 'small' as const, label: 'Small' },
                   { value: 'medium' as const, label: 'Medium' },
@@ -568,7 +577,7 @@ const GeneralSettings = ({
                     key={size.value}
                     onClick={() => updateGeneralSettings({ coverSize: size.value })}
                     className={cn(
-                      'px-3 py-1.5 rounded-md border text-sm transition-all',
+                      'flex-1 md:flex-none px-3 py-1.5 rounded-md border text-sm transition-all',
                       preferences.coverSize === size.value
                         ? 'border-primary bg-primary/5 font-medium'
                         : 'border-border hover:border-primary/50'
@@ -604,7 +613,7 @@ const GeneralSettings = ({
         </SettingSection>
       )}
 
-      {isSectionVisible('General', ['Auto-start Application', 'Discord Rich Presence']) && (
+      {isSectionVisible('General', ['Auto-start Application', 'Discord Rich Presence', 'Primary Content Type']) && (
         <SettingSection title="General">
           {isSettingVisible('Auto-start Application', 'Start Shiori when system boots', 'General') && (
             <SettingItem label="Auto-start Application" description="Start Shiori when system boots">
@@ -614,6 +623,19 @@ const GeneralSettings = ({
           {isSettingVisible('Discord Rich Presence', 'Show your reading activity on Discord', 'General') && (
             <SettingItem label="Discord Rich Presence" description="Show your reading activity on Discord">
               <Switch checked={preferences.discordRpcEnabled ?? true} onChange={(checked) => updateGeneralSettings({ discordRpcEnabled: checked })} />
+            </SettingItem>
+          )}
+          {isSettingVisible('Primary Content Type', 'What type of content you prefer to read', 'General') && (
+            <SettingItem label="Primary Content Type" description="What type of content you prefer to read">
+              <select
+                className="flex h-10 w-full md:w-[200px] items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={preferences.preferredContentType ?? 'both'}
+                onChange={(e) => updateGeneralSettings({ preferredContentType: e.target.value as any })}
+              >
+                <option value="both" className="bg-background">Both Books & Manga</option>
+                <option value="books" className="bg-background">Only Books</option>
+                <option value="manga" className="bg-background">Only Manga & Comics</option>
+              </select>
             </SettingItem>
           )}
         </SettingSection>
@@ -672,13 +694,13 @@ const GeneralSettings = ({
 
           {isSettingVisible('Default View Mode', 'Grid list or table view', 'Library') && (
             <SettingItem label="Default View Mode" description="Library display mode">
-              <div className="flex gap-2">
+              <div className="flex gap-2 w-full md:w-auto">
                 {(['grid', 'list', 'table'] as const).map((mode) => (
                   <button
                     key={mode}
                     onClick={() => updateGeneralSettings({ defaultViewMode: mode })}
                     className={cn(
-                      'px-3 py-1.5 rounded-md border text-sm transition-all capitalize',
+                      'flex-1 md:flex-none px-3 py-1.5 rounded-md border text-sm transition-all capitalize',
                       preferences.defaultViewMode === mode
                         ? 'border-primary bg-primary/5 font-medium'
                         : 'border-border hover:border-primary/50'
@@ -693,13 +715,13 @@ const GeneralSettings = ({
 
           {isSettingVisible('Library Display Density', 'Compact comfortable or spacious', 'Library') && (
             <SettingItem label="Library Display Density" description="Items per row density">
-              <div className="flex gap-2">
+              <div className="flex gap-2 w-full md:w-auto">
                 {(['compact', 'comfortable', 'spacious'] as const).map((density) => (
                   <button
                     key={density}
                     onClick={() => updateGeneralSettings({ libraryDensity: density })}
                     className={cn(
-                      'px-3 py-1.5 rounded-md border text-sm transition-all capitalize',
+                      'flex-1 md:flex-none px-3 py-1.5 rounded-md border text-sm transition-all capitalize',
                       preferences.libraryDensity === density
                         ? 'border-primary bg-primary/5 font-medium'
                         : 'border-border hover:border-primary/50'
@@ -751,6 +773,15 @@ const GeneralSettings = ({
             </SettingItem>
           )}
 
+          {isSettingVisible('Enable Recycle Bin', 'Move deleted items to trash (kept for 7 days)', 'Library') && (
+            <SettingItem label="Enable Recycle Bin" description="Move deleted items to trash (kept for 7 days)">
+              <Switch 
+                checked={preferences?.enableRecycleBin ?? false} 
+                onChange={(checked) => updateGeneralSettings({ enableRecycleBin: checked })} 
+              />
+            </SettingItem>
+          )}
+
           {isSettingVisible('Metadata Fetch Policy', 'How to fetch book metadata', 'Library') && (
             <SettingItem label="Metadata Fetch Policy" description="How to fetch book metadata">
               <select
@@ -782,7 +813,7 @@ const GeneralSettings = ({
                 step="5"
                 value={preferences.dailyReadingGoalMinutes || 30}
                 onChange={(e) => updateGeneralSettings({ dailyReadingGoalMinutes: Number(e.target.value) })}
-                className="w-48"
+                className="w-full md:w-48"
                 aria-label="Daily reading goal"
               />
             </SettingItem>
@@ -920,7 +951,7 @@ const BookReadingSettings = ({
                 max="32"
                 value={preferences.book.fontSize}
                 onChange={(e) => updateBookDefaults({ fontSize: Number(e.target.value) })}
-                className="w-48"
+                className="w-full md:w-48"
                 aria-label="Font size"
               />
             </SettingItem>
@@ -935,7 +966,7 @@ const BookReadingSettings = ({
                 step="0.1"
                 value={preferences.book.lineHeight}
                 onChange={(e) => updateBookDefaults({ lineHeight: Number(e.target.value) })}
-                className="w-48"
+                className="w-full md:w-48"
                 aria-label="Line height"
               />
             </SettingItem>
@@ -1013,7 +1044,7 @@ const BookReadingSettings = ({
                 step="50"
                 value={preferences.book.animationSpeed}
                 onChange={(e) => updateBookDefaults({ animationSpeed: Number(e.target.value) })}
-                className="w-48"
+                className="w-full md:w-48"
                 aria-label="Animation speed"
               />
             </SettingItem>
@@ -1032,7 +1063,7 @@ const BookReadingSettings = ({
                 step="50"
                 value={preferences.book.pageWidth}
                 onChange={(e) => updateBookDefaults({ pageWidth: Number(e.target.value) })}
-                className="w-48"
+                className="w-full md:w-48"
                 aria-label="Page width"
               />
             </SettingItem>
@@ -1047,7 +1078,7 @@ const BookReadingSettings = ({
                 step="0.1"
                 value={preferences.book.paragraphSpacing}
                 onChange={(e) => updateBookDefaults({ paragraphSpacing: Number(e.target.value) })}
-                className="w-48"
+                className="w-full md:w-48"
                 aria-label="Paragraph spacing"
               />
             </SettingItem>
@@ -1401,7 +1432,7 @@ const MangaReadingSettings = ({
                 max="10"
                 value={preferences.manga.preloadCount}
                 onChange={(e) => updateMangaDefaults({ preloadCount: Number(e.target.value) })}
-                className="w-48"
+                className="w-full md:w-48"
                 aria-label="Preload pages"
               />
             </SettingItem>
@@ -1416,7 +1447,7 @@ const MangaReadingSettings = ({
                 step="5"
                 value={preferences.manga.marginSize}
                 onChange={(e) => updateMangaDefaults({ marginSize: Number(e.target.value) })}
-                className="w-48"
+                className="w-full md:w-48"
                 aria-label="Manga margin size"
               />
             </SettingItem>

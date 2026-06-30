@@ -71,8 +71,8 @@ export function MangaBrowseNavBar({ activeGenres, activeTypes, activeMode, onFil
             Genres {activeGenres.length > 0 && `(${activeGenres.length})`} <ChevronDown className="w-4 h-4 opacity-50" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-[600px] bg-background/95 backdrop-blur-xl border-white/10 p-4" align="start">
-          <div className="grid grid-cols-3 gap-2">
+        <DropdownMenuContent className="w-[min(600px,90vw)] bg-background/95 backdrop-blur-xl border-white/10 p-4" align="start">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {GENRES.map(genre => (
               <DropdownMenuItem key={genre} onClick={() => toggleGenre(genre)} className={`cursor-pointer text-sm rounded-md px-3 py-2 ${activeGenres.includes(genre) ? 'bg-white/10 text-primary hover:bg-white/15' : 'hover:bg-white/5'}`}>
                 {genre}

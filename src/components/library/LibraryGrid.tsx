@@ -22,6 +22,7 @@ import { useLibraryStore } from "@/store/libraryStore";
 import type { DomainView } from "@/store/uiStore";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useGroupedLibrary, type SeriesGroup } from "@/hooks/useGroupedLibrary";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   IconBookOpen,
   IconManga,
@@ -31,6 +32,9 @@ import {
 import { FeatureHint } from "@/components/ui/FeatureHint";
 import { usePreferencesStore } from "@/store/preferencesStore";
 import { prefetchCovers } from "@/lib/coverCache";
+import { MobileStickyHeader } from "../layout/MobileStickyHeader";
+
+import { cn } from "@/lib/utils";
 
 const COVER_PREFETCH_BATCH_LIMIT = 120;
 
@@ -41,7 +45,10 @@ interface LibraryGridProps {
   onViewDetails?: (bookId: number) => void;
   onEditBook?: (bookId: number) => void;
   onDeleteBook?: (bookId: number) => void;
-  onConvertBook?: (bookId: number) => void;
+  searchQuery?: string;
+  onSearchChange?: (query: string) => void;
+  onOpenAdvancedFilter?: () => void;
+
   onImport?: () => void;
   onViewSeries?: (series: SeriesGroup) => void;
 }
@@ -141,7 +148,10 @@ export function LibraryGrid({
   onViewDetails,
   onEditBook,
   onDeleteBook,
-  onConvertBook,
+  searchQuery = "",
+  onSearchChange = () => {},
+  onOpenAdvancedFilter = () => {},
+
   onImport,
   onViewSeries,
 }: LibraryGridProps) {
@@ -163,13 +173,19 @@ export function LibraryGrid({
   const autoGroupManga = usePreferencesStore(
     (state) => state.preferences?.autoGroupManga,
   );
+  
+  const isMobile = useIsMobile();
 
-  const densityColumnSize =
+  const baseDensityColumnSize =
     libraryDensity === "compact"
       ? 140
       : libraryDensity === "spacious"
         ? 240
         : 180;
+        
+  // Scale down column size slightly on mobile for better fit
+  const densityColumnSize = isMobile ? Math.min(baseDensityColumnSize, 140) : baseDensityColumnSize;
+
   const estimatedRowHeight = useMemo(() => {
     const coverHeight = densityColumnSize * 1.5; // 2:3 aspect ratio
     const metadataHeight =
@@ -238,7 +254,9 @@ export function LibraryGrid({
     const observer = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width;
       if (width) {
-        setColumns(Math.max(2, Math.floor(width / densityColumnSize)));
+        // Force at least 2 columns on mobile for normal density, but allow 1 if spacious
+        const minCols = (isMobile && libraryDensity === "spacious") ? 1 : 2;
+        setColumns(Math.max(minCols, Math.floor(width / densityColumnSize)));
       }
     });
 
@@ -247,7 +265,7 @@ export function LibraryGrid({
     }
 
     return () => observer.disconnect();
-  }, [densityColumnSize]);
+  }, [densityColumnSize, isMobile, libraryDensity]);
 
   const rowsCount = Math.ceil(groupedItems.length / columns);
 
@@ -307,9 +325,15 @@ export function LibraryGrid({
 
   return (
     <div
-      className="flex flex-col h-full w-full relative overflow-y-auto"
+      className={cn("flex flex-col h-full w-full relative overflow-y-auto", isMobile ? "pb-24 pt-2" : "pb-4")}
       ref={parentRef}
     >
+      <MobileStickyHeader 
+        searchQuery={searchQuery} 
+        onSearchChange={onSearchChange} 
+        onOpenAdvancedFilter={onOpenAdvancedFilter}
+      />
+
       {isEmpty ? (
         <EmptyState
           domain={currentDomain}
@@ -370,7 +394,7 @@ export function LibraryGrid({
                           onViewDetails={onViewDetails}
                           onEdit={handleEditBook}
                           onDelete={handleDeleteBook}
-                          onConvert={onConvertBook}
+
                           onFavorite={handleFavorite}
                           animationDelay={Math.min(absoluteIndex * 10, 150)}
                           scrollRoot={parentRef.current}

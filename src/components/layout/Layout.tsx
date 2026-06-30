@@ -15,14 +15,15 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 
 import { PremiumTopbar } from './ImprovedToolbar'
 import { NavigationRail } from './NavigationRail'
-import { FilterPanel } from '../sidebar/ModernSidebar'
+import { BottomNav } from './BottomNav'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import { DuplicateFinderDialog } from '../library/DuplicateFinderDialog'
 import { ImportDialog } from '../library/ImportDialog'
 import { cn, formatFileSize } from '@/lib/utils'
 import { api, type Book } from '@/lib/tauri'
 import { useLibraryStore } from '@/store/libraryStore'
 import { useToast } from '@/store/toastStore'
-import type { CurrentView } from '@/store/uiStore'
+import { useUIStore, type CurrentView } from '@/store/uiStore'
 import { logger } from '@/lib/logger'
 
 type DragLayerProps = {
@@ -120,7 +121,7 @@ export function Layout({
   currentDomain = 'books',
   onDomainChange = () => { },
 }: LayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const isMobile = useIsMobile()
   const [duplicateFinderOpen, setDuplicateFinderOpen] = useState(false)
   const [isDragActive, setIsDragActive] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
@@ -323,13 +324,13 @@ export function Layout({
           onOpenSettings={onOpenSettings}
           onOpenShortcuts={onOpenShortcuts}
           onOpenAdvancedFilter={onOpenAdvancedFilter}
-          onToggleSidebar={() => setSidebarOpen((o) => !o)}
+          onToggleSidebar={onOpenAdvancedFilter}
           onGoHome={onGoHome}
           onAutoGroupManga={onAutoGroupManga}
           currentView={currentView}
           onNavigateToView={onNavigateToView}
           activeFilterCount={activeFilterCount}
-          sidebarOpen={sidebarOpen}
+          sidebarOpen={false}
         />
       )}
 
@@ -345,29 +346,23 @@ export function Layout({
           onNavigateToView={onNavigateToView}
         />
 
-        {/* Sidebar — hidden on homepage */}
-        {currentView !== 'home' && !isOnlineView && sidebarOpen && (
-          <FilterPanel
-            authors={filterItems.authors}
-            languages={filterItems.languages}
-            series={filterItems.series}
-            formats={filterItems.formats}
-            publishers={filterItems.publishers}
-            ratings={filterItems.ratings}
-            tags={filterItems.tags}
-            identifiers={filterItems.identifiers}
-            selectedFilters={selectedFilters}
-            onFilterToggle={handleFilterToggle}
-            onClearAll={clearFilters}
-            domain={currentDomain}
-          />
-        )}
-
-        {/* Main content */}
-        <main className={cn('flex-1 min-w-0 overflow-y-auto bg-background')}>
+        {/* ── Mobile Bottom Nav ── */}
+        <main className={cn('flex-1 min-w-0 overflow-y-auto bg-background md:pb-0', 'max-md:pb-16')}>
           {children}
         </main>
       </DragLayer>
+      
+      {/* ── Mobile Bottom Nav ── */}
+      {isMobile && (
+        <BottomNav
+          currentView={currentView}
+          onNavigateToView={(view) => {
+            if (onNavigateToView) onNavigateToView(view)
+          }}
+          onOpenSettings={onOpenSettings}
+          onToggleDrawer={onOpenAdvancedFilter || (() => {})}
+        />
+      )}
 
       {/* ── Duplicate Finder Dialog ── */}
       <DuplicateFinderDialog

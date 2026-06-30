@@ -228,7 +228,7 @@ export const BookDetailsDialog = ({
                 </div>
 
                 {/* Metadata Grid */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {book.publisher && (
                     <div className="flex items-start gap-2">
                       <FileText className="w-4 h-4 text-muted-foreground mt-0.5" />

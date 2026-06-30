@@ -459,10 +459,22 @@
   justify-content: center;
   opacity: 0;
   transition: opacity 200ms !important;
+  /* Ensure touch targets work even when invisible */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 
 .manga-nav-zone:hover {
   opacity: 1;
+}
+
+/* On touch devices, briefly flash opacity on active state for feedback */
+@media (hover: none) and (pointer: coarse) {
+  .manga-nav-zone:active {
+    opacity: 0.15;
+    background: rgba(255, 255, 255, 0.05);
+  }
 }
 
 .manga-nav-zone--prev {
@@ -490,6 +502,13 @@
   -webkit-backdrop-filter: blur(8px);
   box-shadow: 0 4px 12px var(--manga-shadow);
   pointer-events: none;
+  /* Hide nav hints on touch devices - they're hover-only */
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .manga-nav-hint {
+    display: none;
+  }
 }
 
 
@@ -1289,4 +1308,35 @@
   align-items: center;
   gap: 8px;
   overflow: hidden;
+}
+
+/* ────────────────────────────────────────────────────────────
+   RESPONSIVE ADJUSTMENTS
+   ──────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .manga-topbar {
+    top: env(safe-area-inset-top, 8px);
+    width: calc(100% - var(--spacing-md, 16px) * 2);
+    border-radius: var(--radius-lg, 8px);
+  }
+
+  .manga-topbar-content {
+    padding: 0 12px;
+  }
+
+  .manga-topbar-center {
+    display: none;
+  }
+
+  .manga-header-title {
+    max-width: 120px;
+  }
+
+  .manga-header-chapter {
+    display: none;
+  }
+
+  .manga-sidebar {
+    width: 100%;
+  }
 }

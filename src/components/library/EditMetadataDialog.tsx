@@ -193,7 +193,7 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
                 </div>
 
                 {/* ISBN Fields */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="block text-sm font-medium text-foreground">
@@ -229,7 +229,7 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
                 </div>
 
                 {/* Publisher & Publication Date */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="block text-sm font-medium text-foreground">
@@ -275,8 +275,8 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
                 </div>
 
                 {/* Series */}
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="col-span-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="sm:col-span-2">
                     <label className="block text-sm font-medium text-foreground mb-1.5">
                       Series
                     </label>
@@ -303,7 +303,7 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
                 </div>
 
                 {/* Rating & Language */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-1.5">
                       Rating

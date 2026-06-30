@@ -247,9 +247,9 @@ export const SeriesManagementDialog = ({
 
               <div className="flex-1 overflow-y-auto p-6 bg-background">
                 <Tabs.Content value="edit" className="space-y-6 outline-none">
-                  <div className="grid grid-cols-3 gap-8">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
                     <div className="col-span-1 flex flex-col gap-3">
-                      <div className="aspect-[2/3] bg-muted rounded-lg overflow-hidden border border-border relative flex items-center justify-center group">
+                      <div className="aspect-[2/3] sm:aspect-[2/3] bg-muted rounded-lg overflow-hidden border border-border relative flex items-center justify-center group">
                         {coverPath ? (
                           <img src={convertFileSrc(coverPath)} className="absolute inset-0 w-full h-full object-cover bg-muted" alt="Cover" />
                         ) : (
@@ -269,7 +269,7 @@ export const SeriesManagementDialog = ({
                       )}
                     </div>
                     
-                    <div className="col-span-2 space-y-4">
+                    <div className="sm:col-span-2 space-y-4">
                       <div className="space-y-2">
                         <label className="text-sm font-medium text-foreground">Series Title</label>
                         <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. One Piece" className="bg-muted/50 focus:bg-background" />

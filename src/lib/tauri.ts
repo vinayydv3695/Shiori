@@ -44,6 +44,8 @@ export interface Book {
   reading_status?: string
   domain?: string
   is_wishlist?: boolean
+  in_trash?: boolean
+  deleted_at?: string
   metadata_locked?: Record<string, boolean>
   authors?: Author[]
   tags?: Tag[]
@@ -71,6 +73,8 @@ export interface BookSummary {
   domain?: string
   manga_series_id?: number
   series_index?: number
+  in_trash?: boolean
+  deleted_at?: string
 }
 
 export interface Author {
@@ -122,6 +126,7 @@ export interface SearchQuery {
   sort_order?: string
   limit?: number
   offset?: number
+  in_trash?: boolean
 }
 
 export interface SearchResult {
@@ -569,6 +574,18 @@ export const api = {
     return invoke("delete_books", { ids })
   },
 
+  restoreBook: async (id: number): Promise<void> => {
+    return invoke('restore_book', { id })
+  },
+
+  permanentDeleteBook: async (id: number): Promise<void> => {
+    return invoke('permanent_delete_book', { id })
+  },
+
+  emptyTrash: async (): Promise<void> => {
+    return invoke('empty_trash')
+  },
+
   async cleanUpDatabase(): Promise<[number, number]> {
     return invoke("clean_up_database")
   },
@@ -884,8 +901,14 @@ export const api = {
     return invoke("preview_smart_collection", { smartRules })
   },
 
-  // Import/Export
   async scanFolderUnified(folderPath: string): Promise<ImportResult> {
+    if (!isTauri) {
+      return Promise.resolve({
+        success: [],
+        failed: [],
+        duplicates: []
+      })
+    }
     return invoke("scan_folder_unified", { folderPath })
   },
 
@@ -996,7 +1019,7 @@ export const api = {
   async openFolderDialog(): Promise<string | null> {
     if (!isTauri) {
       logger.warn("File dialogs only work in Tauri environment. Please run: npm run tauri dev")
-      return Promise.resolve(null)
+      return Promise.resolve("/mock/library/path")
     }
     return open({
       directory: true,
@@ -1081,14 +1104,44 @@ export const api = {
 
   // Preferences System (v2.0)
   async getUserPreferences(): Promise<UserPreferences> {
+    if (!isTauri) {
+      return Promise.resolve({
+        theme: 'system',
+        language: 'en',
+        libraryPath: '',
+        mangaLibraryPath: '',
+        defaultView: 'grid',
+        readingMode: 'continuous',
+        compactMode: false,
+        autoSync: true,
+        downloadTorbox: false,
+        torboxApiKey: '',
+        preferredContentType: 'both',
+        libraryViewMode: 'grid',
+        mangaViewMode: 'grid',
+        showRecentInHome: true,
+        autoGroupMangaVolumes: false,
+        groupMangaThreshold: 2,
+        readerSettings: {
+          fontFamily: 'Inter',
+          fontSize: 16,
+          lineHeight: 1.5,
+          theme: 'dark',
+          pageMode: 'single',
+          marginSize: 40
+        }
+      } as any)
+    }
     return invoke("get_user_preferences")
   },
 
   async getThemeSync(): Promise<string> {
+    if (!isTauri) return Promise.resolve('system')
     return invoke("get_theme_sync")
   },
 
   async updateUserPreferences(updates: Partial<UserPreferences>): Promise<void> {
+    if (!isTauri) return Promise.resolve()
     return invoke("update_user_preferences", { updates })
   },
 
@@ -1117,14 +1170,29 @@ export const api = {
   },
 
   async getOnboardingState(): Promise<OnboardingState> {
+    if (!isTauri) {
+      return Promise.resolve({
+        has_completed_onboarding: false,
+        completed_steps: [],
+        skipped_steps: [],
+        last_step: '',
+        updated_at: new Date().toISOString(),
+        completed: false,
+        completedAt: null,
+        version: 1,
+        skippedSteps: []
+      })
+    }
     return invoke("get_onboarding_state")
   },
 
   async completeOnboarding(skippedSteps: string[]): Promise<void> {
+    if (!isTauri) return Promise.resolve()
     return invoke("complete_onboarding", { skippedSteps })
   },
 
   async resetOnboarding(): Promise<void> {
+    if (!isTauri) return Promise.resolve()
     return invoke("reset_onboarding")
   },
 
@@ -1289,6 +1357,7 @@ export const api = {
   },
 
   async verifyTorboxKey(apiKey: string): Promise<VerifyTorboxKeyResult> {
+    if (!isTauri) return Promise.resolve({ valid: true, email: "mock@example.com", plan: 1, message: "Mocked key" })
     return invoke<VerifyTorboxKeyResult>("verify_torbox_key", { apiKey })
   },
 
@@ -1305,10 +1374,12 @@ export const api = {
   },
 
   async saveTorboxKey(apiKey: string): Promise<void> {
+    if (!isTauri) return Promise.resolve()
     return invoke("save_torbox_key", { apiKey })
   },
 
   async getTorboxKey(): Promise<string | null> {
+    if (!isTauri) return Promise.resolve("mock_torbox_key_123")
     return invoke("get_torbox_key")
   },
 

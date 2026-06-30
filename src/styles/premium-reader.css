@@ -236,6 +236,16 @@ select {
   padding: 0 var(--spacing-md);
 }
 
+@media (max-width: 768px) {
+  .premium-top-bar-content {
+    min-width: auto;
+    width: 100%;
+  }
+  .premium-reading-time, .premium-top-bar-separator {
+    display: none;
+  }
+}
+
 .premium-top-bar-left {
   display: flex;
   align-items: center;
@@ -611,6 +621,21 @@ select {
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-xl);
+}
+
+@media (max-width: 768px) {
+  .premium-sidebar {
+    width: 100%;
+    height: 85vh;
+    top: auto;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    border-left: none;
+    border-top: 1px solid color-mix(in srgb, var(--ui-border) 50%, transparent);
+    border-radius: 24px 24px 0 0;
+    transform: translateY(100%);
+  }
 }
 
 .premium-sidebar--open {
@@ -1784,8 +1809,45 @@ select {
     display: none;
   }
 
+  .premium-top-bar {
+    top: env(safe-area-inset-top, 8px);
+    width: calc(100% - var(--spacing-md) * 2);
+    border-radius: var(--radius-lg);
+  }
+
+  .premium-top-bar-content {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .premium-top-bar-center {
+    display: none; /* Hide progress/time in top bar on mobile, shown in bottom indicator */
+  }
+
+  .premium-book-title,
+  .premium-chapter-indicator {
+    max-width: 140px; /* Prevent title from pushing buttons out */
+  }
+
   .premium-top-bar__content {
     padding: 0 var(--spacing-md);
+  }
+
+  /* PDF reader mobile: allow pinch-zoom and native touch scroll */
+  .pdf-reading-canvas {
+    touch-action: pan-y pinch-zoom;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* PDF page: remove hover lift on touch to avoid sticky state */
+  .pdf-page-frame:hover {
+    transform: none;
+    box-shadow: var(--shadow-lg);
+  }
+
+  /* Reduce padding in PDF canvas on mobile */
+  .pdf-document-shell {
+    padding: var(--spacing-sm) 0 var(--spacing-xl);
   }
 }
 

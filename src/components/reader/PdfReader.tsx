@@ -17,7 +17,6 @@ import { PremiumSidebar } from './PremiumSidebar';
 import { DoodleCanvas } from './DoodleCanvas';
 import { DoodleToolbar } from './DoodleToolbar';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
-import { TTSControlBar } from './TTSControlBar';
 import { useReadingSession } from '@/hooks/useReadingSession';
 import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
 import { useReaderAutoHide } from '@/hooks/useReaderAutoHide';
@@ -870,11 +869,6 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
       <TextSelectionToolbar
         bookId={bookId}
         currentLocation={`page-${pageNumber}`}
-      />
-
-      <TTSControlBar
-        contentRef={containerRef}
-        onChapterEnd={nextPage}
       />
 
       {isDoodleMode && (

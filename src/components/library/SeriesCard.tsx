@@ -67,10 +67,9 @@ export const SeriesCard = memo(function SeriesCard({
           await api.deleteMangaSeries(targetSeries.id);
       }
       
-      for (const book of series.books) {
-          if (book.id) {
-              await api.removeBookFromSeries(book.id);
-          }
+      const bookIds = series.books.map(b => b.id).filter((id): id is number => id !== undefined);
+      if (bookIds.length > 0) {
+          await api.deleteBooks(bookIds);
       }
       
       toast.success("Series deleted");

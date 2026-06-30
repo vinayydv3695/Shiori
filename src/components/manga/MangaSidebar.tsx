@@ -7,12 +7,15 @@ import {
     type ReadingMode,
 } from '@/store/mangaReaderStore';
 import { X, Settings } from 'lucide-react';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { cn } from '@/lib/utils';
 
 /**
  * Right sidebar overlay with reading controls.
  * Fixed overlay — no layout shift. Slides in via CSS transform.
  */
 export const MangaSidebar = memo(function MangaSidebar() {
+    const isMobile = useIsMobile();
     const title = useMangaContentStore(s => s.title);
     const currentPage = useMangaContentStore(s => s.currentPage);
     const totalPages = useMangaContentStore(s => s.totalPages);
@@ -61,10 +64,15 @@ export const MangaSidebar = memo(function MangaSidebar() {
 
                     {/* Sidebar */}
                     <motion.div 
-                        className="manga-sidebar"
-                        initial={{ x: "100%" }}
-                        animate={{ x: 0 }}
-                        exit={{ x: "100%" }}
+                        className={cn(
+                            "manga-sidebar flex flex-col",
+                            isMobile 
+                              ? "!top-auto !bottom-0 !right-0 !left-0 !h-[80vh] !w-full rounded-t-2xl !border-l-0 border-t" 
+                              : ""
+                        )}
+                        initial={isMobile ? { y: "100%" } : { x: "100%" }}
+                        animate={isMobile ? { y: 0 } : { x: 0 }}
+                        exit={isMobile ? { y: "100%" } : { x: "100%" }}
                         transition={{ type: "spring", bounce: 0, duration: 0.4 }}
                     >
                         {/* Header */}

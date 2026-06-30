@@ -13,7 +13,6 @@ import { useReadingSession } from '@/hooks/useReadingSession';
 import { ReaderTopBar } from './ReaderTopBar';
 import { PremiumSidebar } from './PremiumSidebar';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
-import { TTSControlBar } from './TTSControlBar';
 import { DoodleCanvas } from './DoodleCanvas';
 import { DoodleToolbar } from './DoodleToolbar';
 import { sanitizeBookContent } from '@/lib/sanitize';
@@ -546,12 +545,6 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
             <TextSelectionToolbar
                 bookId={bookId}
                 currentLocation={currentPageId}
-            />
-
-            {/* TTS */}
-            <TTSControlBar
-                contentRef={containerRef}
-                onChapterEnd={nextChapter}
             />
 
             {/* Doodle */}

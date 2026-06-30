@@ -68,7 +68,9 @@ export interface UserPreferences {
   uiDensity: UIDensity;
   accentColor: string;
   uiScale: number;
-  preferredContentType: string;
+  preferredContentType: 'books' | 'manga' | 'both';
+  defaultMangaSource?: string;
+  defaultBookSource?: string;
   performanceMode: string;
   metadataMode: string;
   autoScanEnabled: boolean;
@@ -96,12 +98,14 @@ export interface UserPreferences {
   duplicateHandling?: DuplicateHandling;
   autoFetchCovers?: boolean;
   autoScanIntervalMinutes?: number;
+  enableRecycleBin?: boolean;
   cacheClearPolicy?: CacheClearPolicy;
   historyRetentionDays?: number;
   watchFolders?: WatchFolder[];
   linuxTransparentWindow?: boolean;
   transparentSettings?: boolean;
   includeNsfw?: boolean;
+  legacyLibraryMigrationStatus?: 'none' | 'unmigrated' | 'migrated';
 }
 
 export interface PreferenceOverride {
@@ -131,7 +135,7 @@ export const DEFAULT_BOOK_PREFERENCES: BookPreferences = {
 };
 
 export const DEFAULT_MANGA_PREFERENCES: MangaPreferences = {
-  mode: 'long-strip',
+  mode: 'single',
   direction: 'ltr',
   marginSize: 0,
   fitWidth: true,
@@ -192,4 +196,6 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   historyRetentionDays: -1,
   transparentSettings: false,
   includeNsfw: false,
+  enableRecycleBin: true,
+  legacyLibraryMigrationStatus: 'none',
 };

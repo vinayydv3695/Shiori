@@ -10,12 +10,18 @@ type CloudIntegrationStepProps = {
   onNext: () => void;
 };
 
-export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepProps) {
-  const sources = useSourceStore((state) => state.sources);
-  const primarySourceByKind = useSourceStore((state) => state.primarySourceByKind);
-  const preferredDebridProvider = useSourceStore((state) => state.preferredDebridProvider);
+import { useOnboardingState } from '../hooks/useOnboardingState';
 
-  const setPrimarySource = useSourceStore((state) => state.setPrimarySource);
+export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepProps) {
+  const { state, setDefaultMangaSource, setDefaultBookSource } = useOnboardingState();
+  const primaryManga = state.defaultMangaSource;
+  const primaryBooks = state.defaultBookSource;
+  const preferredContentType = state.preferredContentType;
+  const sources = useSourceStore(s => s.sources);
+  const mangaSources = useMemo(() => sources.filter(x => x.kind === 'manga' && x.enabled), [sources]);
+  const bookSources = useMemo(() => sources.filter(x => x.kind === 'books' && x.enabled), [sources]);
+
+  const preferredDebridProvider = useSourceStore((state) => state.preferredDebridProvider);
   const setPreferredDebridProvider = useSourceStore((state) => state.setPreferredDebridProvider);
 
   const [hasTorboxKey, setHasTorboxKey] = useState<boolean | null>(null);
@@ -91,22 +97,7 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
     }
   };
 
-  const availableSources = useMemo(
-    () => sources.filter((source) => source.implemented),
-    [sources]
-  );
 
-  const availableMangaSources = useMemo(
-    () => availableSources.filter((source) => source.kind === 'manga'),
-    [availableSources]
-  );
-  const availableBookSources = useMemo(
-    () => availableSources.filter((source) => source.kind === 'books'),
-    [availableSources]
-  );
-
-  const primaryManga = primarySourceByKind.manga;
-  const primaryBooks = primarySourceByKind.books;
 
   return (
     <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden px-4 py-4 text-foreground md:px-8 md:py-6">
@@ -127,64 +118,49 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
 
         <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="min-h-0 flex-1 overflow-y-auto pr-2 pb-3 [scrollbar-gutter:stable] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 hover:[&::-webkit-scrollbar-thumb]:bg-white/30">
-            <div className="onb-fade-up onb-delay-200 mt-2 grid gap-4 xl:grid-cols-2">
-              
+            <div className="onb-fade-up onb-delay-200 mt-2 grid gap-4 lg:grid-cols-2">
               <div className="flex flex-col gap-4">
-                <section className="flex h-full flex-col rounded-2xl border border-border/40 bg-card/50 p-5">
-                  <div className="mb-6 flex items-center gap-3 border-b border-border/20 pb-4">
-                    <span className="onb-icon-badge inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border/40 bg-primary/5 text-foreground shadow-sm">
-                      <Globe className="onb-icon-inner h-5 w-5" />
+                <section className="rounded-2xl border border-border/40 bg-card/50 p-5">
+                  <div className="mb-4 flex items-center gap-3">
+                    <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border/40 bg-primary/5 text-foreground">
+                      <Database className="onb-icon-inner h-4 w-4" />
                     </span>
-                    <div>
-                      <h3 className="text-base font-semibold tracking-tight text-foreground/90">Primary Source Selection</h3>
-                      <p className="text-xs text-foreground/50">Set your preferred default catalogs</p>
-                    </div>
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground/90">Primary Source Selection</h3>
                   </div>
-
-                  <div className="grid flex-1 gap-6 md:grid-cols-2">
-                    <div className="flex flex-col rounded-xl border border-border/20 bg-background/40 p-4">
-                      <p className="mb-4 text-sm font-medium text-foreground/80">Primary Manga Source</p>
-                      <div className="flex flex-col gap-2">
-                        {availableMangaSources.map((source) => (
-                          <label key={source.id} className={`group flex cursor-pointer items-center justify-between rounded-lg border px-3 py-3 transition-colors ${primaryManga === source.id ? 'border-indigo-500/30 bg-indigo-500/10' : 'border-border/20 bg-card hover:border-border/60'}`}>
-                            <span className={`text-sm font-medium ${primaryManga === source.id ? 'text-indigo-200' : 'text-foreground/80'}`}>{source.name}</span>
-                            <div className="relative flex h-4 w-4 items-center justify-center rounded-full border border-border/60 bg-zinc-950">
-                              {primaryManga === source.id && <div className="h-2 w-2 rounded-full bg-indigo-400" />}
-                              <input
-                                type="radio"
-                                name="onboarding-primary-manga"
-                                checked={primaryManga === source.id}
-                                onChange={() => setPrimarySource('manga', source.id)}
-                                className="absolute inset-0 cursor-pointer opacity-0"
-                                aria-label={`Set ${source.name} as primary manga source`}
-                              />
-                            </div>
-                          </label>
-                        ))}
+                  
+                  <div className="space-y-4">
+                    {(preferredContentType === 'manga' || preferredContentType === 'both') && (
+                      <div>
+                        <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Manga & Comics</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {mangaSources.map(source => (
+                            <label key={source.id} className={`flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-colors ${primaryManga === source.id ? 'border-primary/50 bg-primary/5' : 'border-border/20 bg-card hover:border-border/60'}`}>
+                              <span className={`text-sm font-medium ${primaryManga === source.id ? 'text-primary' : 'text-foreground/80'}`}>{source.name}</span>
+                              <div className="relative flex h-4 w-4 items-center justify-center rounded-full border border-border/60 bg-zinc-950">
+                                {primaryManga === source.id && <div className="h-2 w-2 rounded-full bg-primary" />}
+                                <input type="radio" name="onboarding-primary-manga" checked={primaryManga === source.id} onChange={() => setDefaultMangaSource(source.id)} className="absolute inset-0 cursor-pointer opacity-0" aria-label={`Set ${source.name} as primary`} />
+                              </div>
+                            </label>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-
-                    <div className="flex flex-col rounded-xl border border-border/20 bg-background/40 p-4">
-                      <p className="mb-4 text-sm font-medium text-foreground/80">Primary Book Source</p>
-                      <div className="flex flex-col gap-2">
-                        {availableBookSources.map((source) => (
-                          <label key={source.id} className={`group flex cursor-pointer items-center justify-between rounded-lg border px-3 py-3 transition-colors ${primaryBooks === source.id ? 'border-indigo-500/30 bg-indigo-500/10' : 'border-border/20 bg-card hover:border-border/60'}`}>
-                            <span className={`text-sm font-medium ${primaryBooks === source.id ? 'text-indigo-200' : 'text-foreground/80'}`}>{source.name}</span>
-                            <div className="relative flex h-4 w-4 items-center justify-center rounded-full border border-border/60 bg-zinc-950">
-                              {primaryBooks === source.id && <div className="h-2 w-2 rounded-full bg-indigo-400" />}
-                              <input
-                                type="radio"
-                                name="onboarding-primary-books"
-                                checked={primaryBooks === source.id}
-                                onChange={() => setPrimarySource('books', source.id)}
-                                className="absolute inset-0 cursor-pointer opacity-0"
-                                aria-label={`Set ${source.name} as primary book source`}
-                              />
-                            </div>
-                          </label>
-                        ))}
+                    )}
+                    {(preferredContentType === 'books' || preferredContentType === 'both') && (
+                      <div>
+                        <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Books</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {bookSources.map(source => (
+                            <label key={source.id} className={`flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-colors ${primaryBooks === source.id ? 'border-primary/50 bg-primary/5' : 'border-border/20 bg-card hover:border-border/60'}`}>
+                              <span className={`text-sm font-medium ${primaryBooks === source.id ? 'text-primary' : 'text-foreground/80'}`}>{source.name}</span>
+                              <div className="relative flex h-4 w-4 items-center justify-center rounded-full border border-border/60 bg-zinc-950">
+                                {primaryBooks === source.id && <div className="h-2 w-2 rounded-full bg-primary" />}
+                                <input type="radio" name="onboarding-primary-books" checked={primaryBooks === source.id} onChange={() => setDefaultBookSource(source.id)} className="absolute inset-0 cursor-pointer opacity-0" aria-label={`Set ${source.name} as primary`} />
+                              </div>
+                            </label>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </section>
               </div>

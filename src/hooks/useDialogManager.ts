@@ -12,7 +12,6 @@ export function useDialogManager() {
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false);
-  const [conversionDialogOpen, setConversionDialogOpen] = useState(false);
   const [advancedFilterOpen, setAdvancedFilterOpen] = useState(false);
   const [batchMetadataDialogOpen, setBatchMetadataDialogOpen] = useState(false);
   const [seriesViewOpen, setSeriesViewOpen] = useState(false);
@@ -46,10 +45,7 @@ export function useDialogManager() {
     setDetailsDialogOpen(true);
   }, []);
 
-  const openConversionDialog = useCallback((bookId: number) => {
-    setDialogBookId(bookId);
-    setConversionDialogOpen(true);
-  }, []);
+
 
   const openBatchMetadataDialog = useCallback(() => {
     const lib = useLibraryStore.getState();
@@ -71,7 +67,6 @@ export function useDialogManager() {
     settingsDialogOpen, setSettingsDialogOpen,
     detailsDialogOpen, setDetailsDialogOpen,
     shortcutsDialogOpen, setShortcutsDialogOpen,
-    conversionDialogOpen, setConversionDialogOpen,
     advancedFilterOpen, setAdvancedFilterOpen,
     batchMetadataDialogOpen, setBatchMetadataDialogOpen,
     seriesViewOpen, setSeriesViewOpen,
@@ -88,7 +83,6 @@ export function useDialogManager() {
     openDeleteDialog,
     openDeleteMultipleDialog,
     openDetailsDialog,
-    openConversionDialog,
     openBatchMetadataDialog,
     openSeriesView,
   };

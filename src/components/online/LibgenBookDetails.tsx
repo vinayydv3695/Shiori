@@ -212,7 +212,7 @@ export function LibgenBookDetails({ book, open, onOpenChange }: Props) {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {publisher && (
                 <div className="bg-muted/10 p-3 rounded-2xl border border-border/30">
                   <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Publisher</span>

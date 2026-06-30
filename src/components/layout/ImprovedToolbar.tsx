@@ -20,7 +20,7 @@ import {
   IconImportBook,
   IconImportManga,
   IconRSS,
-  IconConvert,
+  
   IconEditMeta,
   IconInfo,
   IconDelete,
@@ -182,9 +182,10 @@ const SearchBar = ({ onSearch, currentDomain, value: controlledValue, placeholde
         'relative flex items-center h-9',
         'rounded-full',
         'transition-all duration-300 ease-out',
+        'max-w-full',
         focused
-          ? 'bg-background w-80 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1),0_0_0_2px_rgba(var(--primary),0.2)] dark:shadow-[inset_0_1px_3px_rgba(0,0,0,0.4),0_0_0_2px_rgba(var(--primary),0.3)] ring-1 ring-primary/20'
-          : 'bg-muted/50 hover:bg-muted/80 w-64 ring-1 ring-border/50',
+          ? 'bg-background w-full sm:w-80 shadow-[inset_0_1px_3px_rgba(0,0,0,0.1),0_0_0_2px_rgba(var(--primary),0.2)] dark:shadow-[inset_0_1px_3px_rgba(0,0,0,0.4),0_0_0_2px_rgba(var(--primary),0.3)] ring-1 ring-primary/20'
+          : 'bg-muted/50 hover:bg-muted/80 w-40 sm:w-64 ring-1 ring-border/50',
       )}
     >
       <IconSearch
@@ -273,35 +274,31 @@ export function PremiumTopbar({
         'flex items-center h-[var(--topbar-height,60px)] px-4 gap-3',
         'border-b border-border/40 bg-background/70 backdrop-blur-xl',
         'shrink-0 z-[var(--z-topbar,200)]',
-        'select-none',
+        'select-none max-md:hidden',
       )}
     >
       <div className="flex items-center gap-2 w-1/3">
-        {/* ── Sidebar toggle ── */}
-        <button
-          type="button"
-          onClick={onToggleSidebar}
-          className="flex items-center justify-center w-9 h-9 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          aria-label="Toggle sidebar"
-        >
-          <IconSidebarToggle size={18} />
-        </button>
+      {/* ── Left side ── */}
+      <div className="flex items-center gap-1.5 min-w-0" data-tauri-drag-region>
+        <div className="max-md:hidden">
+          <TBtn
+            icon={<IconSidebarToggle size={16} />}
+            label="Toggle Sidebar"
+            showLabel={false}
+            onClick={onToggleSidebar}
+            active={sidebarOpen}
+          />
+        </div>
+        
+        <div className="flex items-center mx-1 gap-2 cursor-pointer hover:opacity-80 transition-opacity max-md:hidden" onClick={onGoHome} title="Go to Home">
+          <ShioriWordmark size={24} className="text-foreground" />
+        </div>
 
-        {/* ── Logo (clickable → home) ── */}
-        <button
-          type="button"
-          onClick={onGoHome}
-          className="flex items-center justify-center h-9 px-2 rounded-lg hover:bg-muted transition-colors cursor-pointer overflow-hidden shrink-0"
-          title="Go to Home"
-          aria-label="Go to Home"
-        >
-          <ShioriWordmark size={20} />
-        </button>
-
-        <div className="w-px h-6 bg-border/50 mx-1" />
+        <div className="w-px h-6 bg-border/50 mx-1 max-md:hidden" />
 
         {/* ── Import zone (Moved to Left) ── */}
-        <DropdownMenu>
+        <div className="max-md:hidden">
+          <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
@@ -363,44 +360,46 @@ export function PremiumTopbar({
             )}
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
 
         {/* ── Domain Tabs (Segmented Control) ── */}
-        <div className="relative flex items-center p-1 bg-muted/50 border border-border/50 rounded-full h-9 ml-2 shadow-inner">
-          {/* Animated Background Pill */}
-          <div 
-            className="absolute top-1 bottom-1 rounded-full bg-background shadow-sm border border-border/50 transition-all duration-300 ease-out z-0"
-            style={{ 
-              left: currentDomain === 'books' ? '4px' : 'calc(50% + 2px)', 
-              width: 'calc(50% - 6px)' 
-            }} 
-          />
-          
-          <button
-            type="button"
-            onClick={() => onDomainChange('books')}
-            className={cn(
-              'relative z-10 flex items-center justify-center gap-1.5 flex-1 px-4 text-xs font-bold rounded-full transition-colors duration-200',
-              currentDomain === 'books' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-            )}
-            style={{ width: '90px' }}
-          >
-            <IconBooks size={14} />
-            Books
-          </button>
-          
-          <button
-            type="button"
-            onClick={() => onDomainChange('manga_comics')}
-            className={cn(
-              'relative z-10 flex items-center justify-center gap-1.5 flex-1 px-4 text-xs font-bold rounded-full transition-colors duration-200',
-              currentDomain === 'manga_comics' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-            )}
-            style={{ width: '130px' }}
-          >
-            <IconManga size={14} />
-            Manga
-          </button>
-        </div>
+        {preferences?.preferredContentType === 'both' && (
+          <div className="relative flex items-center p-1 bg-muted/50 border border-border/50 rounded-full h-9 ml-2 shadow-inner">
+            {/* Animated Background Pill */}
+            <div 
+              className="absolute top-1 bottom-1 rounded-full bg-background shadow-sm border border-border/50 transition-all duration-300 ease-out z-0"
+              style={{ 
+                left: currentDomain === 'books' ? '4px' : 'calc(50% + 2px)', 
+                width: 'calc(50% - 6px)' 
+              }} 
+            />
+            
+            <button
+              type="button"
+              onClick={() => onDomainChange('books')}
+              className={cn(
+                'relative z-10 flex items-center justify-center gap-1.5 flex-1 px-3 sm:px-4 text-xs font-bold rounded-full transition-colors duration-200',
+                currentDomain === 'books' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <IconBooks size={14} />
+              Books
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => onDomainChange('manga_comics')}
+              className={cn(
+                'relative z-10 flex items-center justify-center gap-1.5 flex-1 px-3 sm:px-4 text-xs font-bold rounded-full transition-colors duration-200',
+                currentDomain === 'manga_comics' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <IconManga size={14} />
+              Manga
+            </button>
+          </div>
+        )}
+      </div>
       </div>
 
       {/* ── Search (center) ── */}
@@ -413,7 +412,8 @@ export function PremiumTopbar({
         />
       </div>
 
-      <div className="flex items-center justify-end gap-2 w-1/3">
+      {/* ── Right side ── */}
+      <div className="flex items-center justify-end gap-1.5 min-w-0 max-md:hidden" data-tauri-drag-region>
         {/* ── Statistics ── */}
         <button
           type="button"

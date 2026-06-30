@@ -16,7 +16,7 @@ const BOOK_COLUMNS: &str =
      b.file_hash, b.cover_path, b.page_count, b.word_count, b.language, 
      b.added_date, b.modified_date, b.last_opened, b.notes,
      b.online_metadata_fetched, b.metadata_source, b.metadata_last_sync, b.anilist_id,
-     b.is_favorite, b.reading_status, b.domain, b.metadata_locked, b.is_wishlist";
+     b.is_favorite, b.reading_status, b.domain, b.metadata_locked, b.is_wishlist, b.in_trash, b.deleted_at";
 
 /// Map a single row (using the BOOK_COLUMNS order) into a Book with empty authors/tags.
 fn book_from_row(row: &rusqlite::Row) -> rusqlite::Result<Book> {
@@ -56,6 +56,8 @@ fn book_from_row(row: &rusqlite::Row) -> rusqlite::Result<Book> {
         domain: row.get(29).ok().flatten(),
         metadata_locked,
         is_wishlist: row.get::<_, i64>(31).unwrap_or(0) != 0,
+        in_trash: row.get::<_, i64>(32).unwrap_or(0) != 0,
+        deleted_at: row.get(33).ok().flatten(),
         authors: vec![],
         tags: vec![],
     })
@@ -396,7 +398,23 @@ pub fn delete_book(db: &Database, id: i64) -> Result<()> {
     let fk_enabled: i32 = conn.query_row("PRAGMA foreign_keys", [], |row| row.get(0))?;
     log::info!("[delete_book] Foreign keys enabled: {}", fk_enabled);
 
-    let rows_affected = conn.execute("DELETE FROM books WHERE id = ?1", params![id])?;
+    let enable_recycle_bin: bool = conn
+        .query_row(
+            "SELECT enable_recycle_bin FROM user_preferences WHERE id = 1",
+            [],
+            |row| row.get::<_, i32>(0).map(|v| v != 0),
+        )
+        .unwrap_or(true);
+
+    let rows_affected = if enable_recycle_bin {
+        conn.execute(
+            "UPDATE books SET in_trash = 1, deleted_at = CURRENT_TIMESTAMP WHERE id = ?1",
+            params![id],
+        )?
+    } else {
+        conn.execute("DELETE FROM books WHERE id = ?1", params![id])?
+    };
+
     log::info!("[delete_book] Rows affected: {}", rows_affected);
 
     if rows_affected == 0 {
@@ -415,11 +433,28 @@ pub fn delete_books(db: &Database, ids: Vec<i64>) -> Result<()> {
         ids
     );
     let mut conn = db.get_connection()?;
+    
+    let enable_recycle_bin: bool = conn
+        .query_row(
+            "SELECT enable_recycle_bin FROM user_preferences WHERE id = 1",
+            [],
+            |row| row.get::<_, i32>(0).map(|v| v != 0),
+        )
+        .unwrap_or(true);
+
     let tx = conn.transaction()?;
 
     let mut deleted_count = 0;
     for id in ids {
-        let rows = tx.execute("DELETE FROM books WHERE id = ?1", params![id])?;
+        let rows = if enable_recycle_bin {
+            tx.execute(
+                "UPDATE books SET in_trash = 1, deleted_at = CURRENT_TIMESTAMP WHERE id = ?1",
+                params![id],
+            )?
+        } else {
+            tx.execute("DELETE FROM books WHERE id = ?1", params![id])?
+        };
+        
         log::info!(
             "[delete_books] Deleted book id {} - rows affected: {}",
             id,
@@ -431,6 +466,44 @@ pub fn delete_books(db: &Database, ids: Vec<i64>) -> Result<()> {
     log::info!("[delete_books] Total rows deleted: {}", deleted_count);
     tx.commit()?;
     log::info!("[delete_books] Transaction committed successfully");
+    Ok(())
+}
+
+pub fn restore_book(db: &Database, id: i64) -> Result<()> {
+    log::info!("[restore_book] Attempting to restore book with id: {}", id);
+    let conn = db.get_connection()?;
+    let rows_affected = conn.execute(
+        "UPDATE books SET in_trash = 0, deleted_at = NULL WHERE id = ?1",
+        params![id],
+    )?;
+    log::info!("[restore_book] Rows affected: {}", rows_affected);
+    Ok(())
+}
+
+pub fn permanent_delete_book(db: &Database, id: i64) -> Result<()> {
+    log::info!("[permanent_delete_book] Attempting to permanently delete book with id: {}", id);
+    let conn = db.get_connection()?;
+    let rows_affected = conn.execute("DELETE FROM books WHERE id = ?1 AND in_trash = 1", params![id])?;
+    log::info!("[permanent_delete_book] Rows affected: {}", rows_affected);
+    Ok(())
+}
+
+pub fn empty_trash(db: &Database) -> Result<()> {
+    log::info!("[empty_trash] Attempting to empty trash");
+    let conn = db.get_connection()?;
+    let rows_affected = conn.execute("DELETE FROM books WHERE in_trash = 1", [])?;
+    log::info!("[empty_trash] Rows affected: {}", rows_affected);
+    Ok(())
+}
+
+pub fn clean_recycle_bin(db: &Database) -> Result<()> {
+    log::info!("[clean_recycle_bin] Deleting items in trash older than 7 days");
+    let conn = db.get_connection()?;
+    let rows_affected = conn.execute(
+        "DELETE FROM books WHERE in_trash = 1 AND deleted_at <= datetime('now', '-7 days')",
+        [],
+    )?;
+    log::info!("[clean_recycle_bin] Rows affected: {}", rows_affected);
     Ok(())
 }
 
@@ -613,6 +686,8 @@ pub fn import_single_book(db: &Database, path: &str, covers_dir: &std::path::Pat
         anilist_id: None,
         is_favorite: false,
         is_wishlist: false,
+        in_trash: false,
+        deleted_at: None,
         reading_status: "planning".to_string(),
         domain: None,
         metadata_locked: None,
@@ -753,6 +828,8 @@ pub fn scan_and_import_folder(
                 anilist_id: None,
                 is_favorite: false,
                 is_wishlist: false,
+                in_trash: false,
+                deleted_at: None,
                 reading_status: "planning".to_string(),
                 domain: Some(domain.to_string()),
                 metadata_locked: None,
@@ -1216,7 +1293,7 @@ pub fn get_books_by_reading_status(
 const BOOK_SUMMARY_COLUMNS: &str =
     "b.id, b.uuid, b.title, b.sort_title, b.file_path, b.file_format, b.file_size,
      b.cover_path, b.added_date, b.is_favorite, b.reading_status, b.domain, 
-     b.manga_series_id, b.series_index, b.is_wishlist";
+     b.manga_series_id, b.series_index, b.is_wishlist, b.in_trash, b.deleted_at";
 
 fn book_summary_from_row(row: &rusqlite::Row) -> rusqlite::Result<crate::models::BookSummary> {
     Ok(crate::models::BookSummary {
@@ -1235,6 +1312,8 @@ fn book_summary_from_row(row: &rusqlite::Row) -> rusqlite::Result<crate::models:
         manga_series_id: row.get(12).ok().flatten(),
         series_index: row.get(13)?,
         is_wishlist: row.get::<_, i64>(14).unwrap_or(0) != 0,
+        in_trash: row.get::<_, i64>(15).unwrap_or(0) != 0,
+        deleted_at: row.get(16).ok().flatten(),
         notes: None,
     })
 }

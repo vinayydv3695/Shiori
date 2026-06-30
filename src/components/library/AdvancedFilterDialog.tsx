@@ -167,7 +167,7 @@ export function AdvancedFilterDialog({ open, onOpenChange }: AdvancedFilterDialo
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-        <Dialog.Content aria-describedby={undefined} className="dialog-content fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-2xl w-[640px] max-w-[95vw] max-h-[90vh] flex flex-col z-50">
+        <Dialog.Content aria-describedby={undefined} className="dialog-content fixed top-0 left-0 sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 bg-background sm:border border-border sm:rounded-xl shadow-2xl w-full h-[100dvh] sm:w-[640px] sm:max-w-[95vw] sm:max-h-[90vh] sm:h-auto flex flex-col z-50">
           <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
             <Dialog.Title className="flex items-center gap-2 text-lg font-semibold text-foreground">
               <Filter size={18} />
@@ -180,13 +180,13 @@ export function AdvancedFilterDialog({ open, onOpenChange }: AdvancedFilterDialo
             </Dialog.Close>
           </div>
 
-          <div className="flex flex-1 overflow-hidden">
+          <div className="flex flex-col sm:flex-row flex-1 overflow-hidden">
             {/* Sidebar Tabs */}
-            <div className="w-48 border-r border-border/50 bg-muted/10 p-4 space-y-1 overflow-y-auto shrink-0">
+            <div className="flex sm:flex-col sm:w-40 border-b sm:border-b-0 sm:border-r border-border/50 bg-muted/10 p-2 sm:p-4 gap-1 overflow-x-auto sm:overflow-y-auto shrink-0 scrollbar-none">
               <button
                 onClick={() => setActiveTab('general')}
                 className={cn(
-                  "flex items-center gap-2 w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors",
+                  "flex items-center gap-2 w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap flex-shrink-0 sm:w-full sm:flex-shrink",
                   activeTab === 'general' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 )}
               >
@@ -195,7 +195,7 @@ export function AdvancedFilterDialog({ open, onOpenChange }: AdvancedFilterDialo
               <button
                 onClick={() => setActiveTab('metadata')}
                 className={cn(
-                  "flex items-center gap-2 w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors",
+                  "flex items-center gap-2 w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap flex-shrink-0 sm:w-full sm:flex-shrink",
                   activeTab === 'metadata' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 )}
               >
@@ -204,7 +204,7 @@ export function AdvancedFilterDialog({ open, onOpenChange }: AdvancedFilterDialo
               <button
                 onClick={() => setActiveTab('organization')}
                 className={cn(
-                  "flex items-center gap-2 w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors",
+                  "flex items-center gap-2 w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap flex-shrink-0 sm:w-full sm:flex-shrink",
                   activeTab === 'organization' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 )}
               >
@@ -213,7 +213,7 @@ export function AdvancedFilterDialog({ open, onOpenChange }: AdvancedFilterDialo
               <button
                 onClick={() => setActiveTab('ratings')}
                 className={cn(
-                  "flex items-center gap-2 w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors",
+                  "flex items-center gap-2 w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap flex-shrink-0 sm:w-full sm:flex-shrink",
                   activeTab === 'ratings' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 )}
               >
@@ -399,7 +399,7 @@ export function AdvancedFilterDialog({ open, onOpenChange }: AdvancedFilterDialo
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 mt-3">
               <div className="relative">
                 {showPresetInput ? (
                   <div className="flex items-center gap-1.5">

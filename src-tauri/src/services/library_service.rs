@@ -180,18 +180,24 @@ pub fn get_books_by_ids(db: &Database, ids: &[i64]) -> Result<Vec<Book>> {
     }
 
     let conn = db.get_connection()?;
+    let mut books: Vec<Book> = Vec::with_capacity(ids.len());
 
-    let placeholders = ids.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-    let sql = format!(
-        "SELECT {} FROM books b WHERE b.id IN ({})",
-        BOOK_COLUMNS, placeholders
-    );
+    // SQLite on Android (and older versions) limits bound parameters to 999.
+    // Chunk requests into batches of 500 to stay safely under the limit.
+    for chunk in ids.chunks(500) {
+        let placeholders = chunk.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+        let sql = format!(
+            "SELECT {} FROM books b WHERE b.id IN ({})",
+            BOOK_COLUMNS, placeholders
+        );
 
-    let mut stmt = conn.prepare(&sql)?;
-
-    let mut books: Vec<Book> = stmt
-        .query_map(rusqlite::params_from_iter(ids.iter()), book_from_row)?
-        .collect::<std::result::Result<Vec<_>, _>>()?;
+        let mut stmt = conn.prepare(&sql)?;
+        let chunk_books: Vec<Book> = stmt
+            .query_map(rusqlite::params_from_iter(chunk.iter()), book_from_row)?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        
+        books.extend(chunk_books);
+    }
 
     attach_authors_and_tags(&conn, &mut books)?;
 

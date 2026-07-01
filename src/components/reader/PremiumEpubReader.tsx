@@ -876,7 +876,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   // RENDER
   // ────────────────────────────────────────────────────────────
 
-  const handleContainerClick = useCallback((e: React.MouseEvent) => {
+  const handleContainerDoubleClick = useCallback((e: React.MouseEvent) => {
     // If doodle mode or text selection is active, let them handle it
     if (isDoodleMode) return;
     
@@ -888,15 +888,20 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       return;
     }
 
-    const { clientX } = e;
-    const { innerWidth } = window;
-    
-    // Clicking the center 40% toggles the top bar
-    if (clientX > innerWidth * 0.3 && clientX < innerWidth * 0.7) {
-      setTopBarVisible(!useReaderUIStore.getState().isTopBarVisible);
+    const uiStore = useReaderUIStore.getState();
+    const newState = !uiStore.isTopBarVisible;
+    setTopBarVisible(newState);
+    if (newState && !uiStore.isSidebarOpen) {
+      uiStore.toggleSidebar();
+    } else if (!newState && uiStore.isSidebarOpen) {
+      uiStore.closeSidebar();
     }
-    // Edges are handled by the next/prev buttons natively or page flip engine
   }, [isDoodleMode, setTopBarVisible]);
+
+  const handleContainerClick = useCallback((e: React.MouseEvent) => {
+    // Single click handler handles page turns (edges)
+    // The center tap is now handled by double click to avoid accidental toggles
+  }, []);
 
   // ────────────────────────────────────────────────────────────
   // RENDER
@@ -942,7 +947,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     : 0;
 
   return (
-    <div ref={readerContainerRef} className={`premium-reader ${isFocusMode ? 'premium-reader--focus-mode' : ''}`} onClick={handleContainerClick}>
+    <div ref={readerContainerRef} className={`premium-reader ${isFocusMode ? 'premium-reader--focus-mode' : ''}`} onClick={handleContainerClick} onDoubleClick={handleContainerDoubleClick}>
       {/* Auto-hide Top Bar */}
       <ReaderTopBar
         bookId={bookId}

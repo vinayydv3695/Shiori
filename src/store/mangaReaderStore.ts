@@ -294,6 +294,7 @@ interface MangaSettingsState {
     theme: 'light' | 'dark';
     imageQuality: number; // 0.5–1.0
     preloadIntensity: 'light' | 'normal' | 'aggressive';
+    zoomLevel: number; // 0.5 - 3.0
 
     // Actions
     setReadingMode: (mode: ReadingMode) => void;
@@ -307,6 +308,9 @@ interface MangaSettingsState {
     toggleTheme: () => void;
     setImageQuality: (quality: number) => void;
     setPreloadIntensity: (intensity: 'light' | 'normal' | 'aggressive') => void;
+    setZoomLevel: (level: number) => void;
+    zoomIn: () => void;
+    zoomOut: () => void;
     resetToDefaults: () => void;
 }
 
@@ -321,6 +325,7 @@ const defaultMangaSettings = {
     theme: 'dark' as const,
     imageQuality: 0.85,
     preloadIntensity: 'aggressive' as const,
+    zoomLevel: 1.0,
 };
 
 const READING_MODE_OPTIONS: ReadingMode[] = ['single', 'strip', 'webtoon', 'manhwa', 'comic'];
@@ -354,6 +359,7 @@ const normalizeMangaSettingsState = (raw: unknown) => {
         theme: clampStringEnum(source.theme, defaultMangaSettings.theme, MANGA_THEME_OPTIONS),
         imageQuality: clampNumber(source.imageQuality, defaultMangaSettings.imageQuality, 0.5, 1.0),
         preloadIntensity: clampStringEnum(source.preloadIntensity, defaultMangaSettings.preloadIntensity, PRELOAD_INTENSITY_OPTIONS),
+        zoomLevel: clampNumber(source.zoomLevel, defaultMangaSettings.zoomLevel, 0.5, 3.0),
     };
 };
 
@@ -396,6 +402,9 @@ export const useMangaSettingsStore = create<MangaSettingsState>()(
                 set({ imageQuality: clamped });
             },
             setPreloadIntensity: (intensity) => set({ preloadIntensity: intensity }),
+            setZoomLevel: (level) => set({ zoomLevel: Math.max(0.5, Math.min(3.0, level)) }),
+            zoomIn: () => set((s) => ({ zoomLevel: Math.min(3.0, s.zoomLevel + 0.25) })),
+            zoomOut: () => set((s) => ({ zoomLevel: Math.max(0.5, s.zoomLevel - 0.25) })),
             resetToDefaults: () => {
                 set(defaultMangaSettings);
                 applyMangaThemeToDOM(defaultMangaSettings.theme);

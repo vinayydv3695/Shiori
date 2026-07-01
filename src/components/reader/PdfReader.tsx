@@ -175,6 +175,7 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
   const setScrollProgress = useReaderUIStore(state => state.setScrollProgress);
   const pendingAnnotationId = useReaderUIStore(state => state.pendingAnnotationId);
   const setPendingAnnotationId = useReaderUIStore(state => state.setPendingAnnotationId);
+  const setTopBarVisible = useReaderUIStore(state => state.setTopBarVisible);
   const { theme, width, margin, brightness, backgroundColor, textColor } = useReadingSettings();
 
   const isDoodleMode = useDoodleStore(state => state.isDoodleMode);
@@ -712,8 +713,17 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
     );
   }
 
+  const handleContainerDoubleClick = (e: React.MouseEvent) => {
+    // Ignore if clicking an interactive element
+    const target = e.target as Element;
+    if (e.defaultPrevented || !target || typeof target.closest !== 'function') return;
+    if (target.closest('a') || target.closest('button') || target.closest('.premium-top-bar') || target.closest('.premium-sidebar') || target.closest('.pdf-doodle-layer')) return;
+    
+    setTopBarVisible(!useReaderUIStore.getState().isTopBarVisible);
+  };
+
   return (
-    <div ref={readerContainerRef} className={`premium-reader ${isFocusMode ? 'premium-reader--focus-mode' : ''}`}>
+    <div ref={readerContainerRef} className={`premium-reader ${isFocusMode ? 'premium-reader--focus-mode' : ''}`} onDoubleClick={handleContainerDoubleClick}>
       <ReaderTopBar
         bookId={bookId}
         title={metadata?.title || readerContent?.title || 'Loading...'}

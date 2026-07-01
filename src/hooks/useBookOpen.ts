@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { api, type Book, type ReadingProgress } from '@/lib/tauri';
+import { useUIStore } from '@/store/uiStore';
 import { useReaderStore, type ResumeTarget } from '@/store/readerStore';
 import { useToastStore } from '@/store/toastStore';
 import { useLibraryStore } from '@/store/libraryStore';
@@ -190,6 +191,29 @@ export function useBookOpen() {
       const book = await api.getBook(bookId);
       const filePath = await api.getBookFilePath(bookId);
       const format = book.file_format.toLowerCase();
+
+      if (format === 'online-manga') {
+        const { useOnlineMangaBrowseStore } = await import('@/store/onlineMangaBrowseStore');
+        const [protocol, rest] = filePath.split('://');
+        if (protocol === 'online-manga' && rest) {
+            const [sourceId, contentId] = rest.split('/');
+            
+            // Set up the store to view this manga's details
+            // Note: Since we only have the ID, we construct a partial MangaDexManga
+            // The OnlineMangaView might need to fetch the rest, but setting the ID works
+            // if we are routing back to the MangaDetailsView.
+            useOnlineMangaBrowseStore.getState().setSelectedManga({
+              id: contentId,
+              title: book.title,
+              description: book.notes || '',
+              coverUrl: book.cover_path,
+            });
+            
+            // Navigate to the online-manga view
+            useUIStore.getState().setCurrentView('online-manga');
+            return bookId;
+        }
+      }
 
       // Direct open for EPUB and comic formats
       if (DIRECT_OPEN_FORMATS.has(format)) {

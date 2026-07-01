@@ -28,6 +28,7 @@ export const MangaPageImage = memo(function MangaPageImage({
     imageRef,
 }: MangaPageImageProps) {
     const fitMode = useMangaSettingsStore(s => s.fitMode);
+    const zoomLevel = useMangaSettingsStore(s => s.zoomLevel);
 
     // Use the centralized maxDimension calculation so cache keys match preloading
     const effectiveMaxDimension = maxDimension ?? getEffectiveMaxDimension();
@@ -93,6 +94,9 @@ export const MangaPageImage = memo(function MangaPageImage({
                         width: '100%',
                         maxWidth: '800px',
                         aspectRatio: '2/3',
+                        transform: `scale(${zoomLevel})`,
+                        transformOrigin: 'top center',
+                        transition: 'transform 0.2s ease-in-out',
                         ...style,
                     }}
                 />
@@ -109,6 +113,9 @@ export const MangaPageImage = memo(function MangaPageImage({
                         top: 0,
                         left: 0,
                         visibility: imgLoaded ? 'visible' : 'hidden',
+                        transform: `scale(${zoomLevel})`,
+                        transformOrigin: 'top center',
+                        transition: 'transform 0.2s ease-in-out',
                     }}
                     onLoad={handleImageLoad}
                     draggable={false}

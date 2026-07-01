@@ -1,6 +1,8 @@
 import React, { memo, useRef, useEffect } from 'react';
 import { useMangaContentStore, useMangaUIStore, useMangaSettingsStore } from '@/store/mangaReaderStore';
-import { PanelRightOpen, X } from 'lucide-react';
+import { PanelRightOpen, X, ZoomIn, ZoomOut, Library, CheckCircle2 } from 'lucide-react';
+import { useOnlineMangaReaderStore } from '@/store/onlineMangaReaderStore';
+import { useLibraryStore } from '@/store/libraryStore';
 
 interface MangaTopBarProps {
     onClose: () => void;
@@ -17,6 +19,21 @@ export const MangaTopBar = memo(function MangaTopBar({ onClose }: MangaTopBarPro
     const toggleSidebar = useMangaUIStore(s => s.toggleSidebar);
     const isTopBarVisible = useMangaUIStore(s => s.isTopBarVisible);
     const stickyHeader = useMangaSettingsStore(s => s.stickyHeader);
+    const zoomIn = useMangaSettingsStore(s => s.zoomIn);
+    const zoomOut = useMangaSettingsStore(s => s.zoomOut);
+    const sourceType = useMangaContentStore(s => s.sourceType);
+    
+    // Online specific
+    const addToLibrary = useOnlineMangaReaderStore(s => s.addToLibrary);
+    const onlineSourceId = useOnlineMangaReaderStore(s => s.sourceId);
+    const onlineContentId = useOnlineMangaReaderStore(s => s.contentId);
+    const libraryBooks = useLibraryStore(s => s.books);
+    
+    const isAlreadyInLibrary = React.useMemo(() => {
+        if (sourceType !== 'online' || !onlineSourceId || !onlineContentId) return false;
+        const expectedPath = `online-manga://${onlineSourceId}/${onlineContentId}`;
+        return libraryBooks.some(b => b.file_path === expectedPath);
+    }, [sourceType, onlineSourceId, onlineContentId, libraryBooks]);
 
     const topBarRef = useRef<HTMLDivElement>(null);
 
@@ -63,6 +80,31 @@ export const MangaTopBar = memo(function MangaTopBar({ onClose }: MangaTopBarPro
 
                 {/* Right: Actions */}
                 <div className="manga-topbar-right">
+                    <button
+                        className="manga-topbar-btn"
+                        onClick={zoomOut}
+                        title="Zoom Out"
+                    >
+                        <ZoomOut />
+                    </button>
+                    <button
+                        className="manga-topbar-btn"
+                        onClick={zoomIn}
+                        title="Zoom In"
+                    >
+                        <ZoomIn />
+                    </button>
+                    {sourceType === 'online' && (
+                        <button
+                            className="manga-topbar-btn"
+                            onClick={addToLibrary}
+                            disabled={isAlreadyInLibrary}
+                            title={isAlreadyInLibrary ? "Already in Library" : "Add to Library"}
+                        >
+                            {isAlreadyInLibrary ? <CheckCircle2 className="text-green-500" /> : <Library />}
+                        </button>
+                    )}
+                    <div className="manga-topbar-divider" />
                     <button
                         className="manga-topbar-btn"
                         onClick={toggleSidebar}

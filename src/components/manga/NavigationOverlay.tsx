@@ -1,5 +1,5 @@
 import React, { memo, useRef } from 'react';
-import { useMangaContentStore, useMangaSettingsStore } from '@/store/mangaReaderStore';
+import { useMangaContentStore, useMangaSettingsStore, useMangaUIStore } from '@/store/mangaReaderStore';
 import { useToastStore } from '@/store/toastStore';
 
 /**
@@ -17,6 +17,7 @@ export const NavigationOverlay = memo(function NavigationOverlay({ onNextChapter
     const readingDirection = useMangaSettingsStore(s => s.readingDirection);
     const showTips = useMangaSettingsStore(s => s.showNavigationTips);
     const readingMode = useMangaSettingsStore(s => s.readingMode);
+    const setTopBarVisible = useMangaUIStore(s => s.setTopBarVisible);
     const rtl = readingDirection === 'rtl';
 
     // Debounce boundary toasts to avoid spam
@@ -56,7 +57,10 @@ export const NavigationOverlay = memo(function NavigationOverlay({ onNextChapter
     };
 
     return (
-        <div className="manga-nav-overlay">
+        <div 
+            className="manga-nav-overlay"
+            onDoubleClick={() => setTopBarVisible(!useMangaUIStore.getState().isTopBarVisible)}
+        >
             <div
                 className="manga-nav-zone manga-nav-zone--prev"
                 onClick={handlePrev}

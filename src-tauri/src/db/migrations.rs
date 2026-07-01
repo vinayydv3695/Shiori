@@ -126,6 +126,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 34 {
             self.run_in_savepoint("v34", |mgr| mgr.migrate_to_v34())?;
         }
+        if current_version < 35 {
+            self.run_in_savepoint("v35", |mgr| mgr.migrate_to_v35())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -2114,6 +2117,22 @@ impl<'a> MigrationManager<'a> {
 
         let hash = Self::calculate_checksum("v34_add_migration_status");
         self.record_migration(34, "add_migration_status", &hash)?;
+        Ok(())
+    }
+
+    /// Migration v35: Add deleted_at to books
+    fn migrate_to_v35(&self) -> Result<()> {
+        log::info!("[Migration] Applying v35: Add deleted_at to books");
+
+        if !self.column_exists("books", "deleted_at")? {
+            self.conn.execute(
+                "ALTER TABLE books ADD COLUMN deleted_at TEXT",
+                [],
+            )?;
+        }
+
+        let hash = Self::calculate_checksum("v35_add_deleted_at");
+        self.record_migration(35, "add_deleted_at", &hash)?;
         Ok(())
     }
 }

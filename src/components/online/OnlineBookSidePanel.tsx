@@ -17,16 +17,12 @@ interface OnlineBookSidePanelProps {
   book: PreviewBook;
   onClose: () => void;
   onDownload: () => void;
-  onReadNow: () => void;
-  onWishlist: () => void;
 }
 
 export function OnlineBookSidePanel({
   book,
   onClose,
   onDownload,
-  onReadNow,
-  onWishlist,
 }: OnlineBookSidePanelProps) {
   return (
     <AnimatePresence>
@@ -112,23 +108,6 @@ export function OnlineBookSidePanel({
                 <Download className="w-5 h-5" />
                 Download to Library
               </button>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <button 
-                  onClick={onReadNow}
-                  className="py-3 rounded-xl bg-muted/30 hover:bg-muted/60 text-foreground font-medium flex items-center justify-center gap-2 border border-border/30 transition-colors"
-                >
-                  <BookOpen className="w-4 h-4" />
-                  Read Now
-                </button>
-                <button 
-                  onClick={onWishlist}
-                  className="py-3 rounded-xl bg-muted/30 hover:bg-muted/60 text-foreground font-medium flex items-center justify-center gap-2 border border-border/30 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  Wishlist
-                </button>
-              </div>
             </div>
 
             {/* Additional Info / Synopsis could go here if fetched */}

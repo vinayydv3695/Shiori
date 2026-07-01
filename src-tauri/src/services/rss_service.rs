@@ -72,18 +72,22 @@ pub struct RssService {
 }
 
 // Helper functions for DateTime conversion
+fn parse_datetime_str(s: &str) -> Option<DateTime<Utc>> {
+    if let Ok(dt) = DateTime::parse_from_rfc3339(s) {
+        return Some(dt.with_timezone(&Utc));
+    }
+    if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S") {
+        return Some(DateTime::from_naive_utc_and_offset(naive, Utc));
+    }
+    None
+}
+
 fn parse_datetime(s: Option<String>) -> Option<DateTime<Utc>> {
-    s.and_then(|s| {
-        DateTime::parse_from_rfc3339(&s)
-            .ok()
-            .map(|dt| dt.with_timezone(&Utc))
-    })
+    s.and_then(|s| parse_datetime_str(&s))
 }
 
 fn parse_datetime_required(s: String) -> rusqlite::Result<DateTime<Utc>> {
-    DateTime::parse_from_rfc3339(&s)
-        .map(|dt| dt.with_timezone(&Utc))
-        .map_err(|_| rusqlite::Error::InvalidQuery)
+    parse_datetime_str(&s).ok_or(rusqlite::Error::InvalidQuery)
 }
 
 impl RssService {

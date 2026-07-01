@@ -21,6 +21,7 @@ import { useLibraryFilter } from "./hooks/useLibraryFilter"
 import { api } from "./lib/tauri"
 import { useDiscordRPCUpdater } from "./hooks/useDiscordRPCUpdater"
 import { useOnlineSearchStore } from "./store/onlineSearchStore"
+import { AndroidSplashScreen } from "./components/ui/AndroidSplashScreen"
 
 const ReaderLayout = lazy(() => import("./components/reader/ReaderLayout").then(m => ({ default: m.ReaderLayout })))
 const OnboardingWizard = lazy(() => import("./components/onboarding/OnboardingWizard").then(m => ({ default: m.OnboardingWizard })))
@@ -34,6 +35,8 @@ const LoadingSpinner = ({ className = "h-screen" }: { className?: string }) => (
 )
 
 function App() {
+  const [splashFinished, setSplashFinished] = useState(false)
+
   // ── Onboarding ──
   const onboardingComplete = useOnboardingStore(s => s.onboardingComplete)
   const isOnboardingHydrated = useOnboardingStore(s => s.isHydrated)
@@ -168,50 +171,53 @@ function App() {
   const handleViewDetails = useCallback((bookId: number) => dialogs.openDetailsDialog(bookId), [dialogs])
 
   // ── Render ──
-  if (isReaderOpen && selectedBookId) {
+  const isAppReady = isOnboardingHydrated && !isOnboardingInitializing;
+
+  const renderContent = () => {
+    if (isReaderOpen && selectedBookId) {
+      return (
+        <>
+          <SectionErrorBoundary label="Reader">
+            <Suspense fallback={<LoadingSpinner />}>
+              <ReaderLayout bookId={selectedBookId} onClose={handleCloseReader} />
+            </Suspense>
+          </SectionErrorBoundary>
+          <ToastContainer />
+        </>
+      )
+    }
+
+    if (currentView === 'online-manga-reader') {
+      return (
+        <>
+          <SectionErrorBoundary label="Online Manga Reader">
+            <Suspense fallback={<LoadingSpinner />}>
+              <OnlineMangaReader />
+            </Suspense>
+          </SectionErrorBoundary>
+          <ToastContainer />
+        </>
+      )
+    }
+
+    if (!isOnboardingHydrated || isOnboardingInitializing) {
+      return <LoadingSpinner />
+    }
+
+    if (!onboardingComplete) {
+      return (
+        <Suspense fallback={<LoadingSpinner />}>
+          <OnboardingWizard />
+        </Suspense>
+      )
+    }
+
     return (
       <>
-        <SectionErrorBoundary label="Reader">
-          <Suspense fallback={<LoadingSpinner />}>
-            <ReaderLayout bookId={selectedBookId} onClose={handleCloseReader} />
-          </Suspense>
-        </SectionErrorBoundary>
-        <ToastContainer />
-      </>
-    )
-  }
-
-  if (currentView === 'online-manga-reader') {
-    return (
-      <>
-        <SectionErrorBoundary label="Online Manga Reader">
-          <Suspense fallback={<LoadingSpinner />}>
-            <OnlineMangaReader />
-          </Suspense>
-        </SectionErrorBoundary>
-        <ToastContainer />
-      </>
-    )
-  }
-
-  if (!isOnboardingHydrated || isOnboardingInitializing) {
-    return <LoadingSpinner />
-  }
-
-  if (!onboardingComplete) {
-    return (
-      <Suspense fallback={<LoadingSpinner />}>
-        <OnboardingWizard />
-      </Suspense>
-    )
-  }
-
-  return (
-    <>
-      <DevBanner />
-      <Layout
-        onOpenSettings={() => dialogs.setSettingsDialogOpen(true)}
-        onOpenShortcuts={() => dialogs.setShortcutsDialogOpen(true)}
+        <DevBanner />
+        <Layout
+          onOpenSettings={() => dialogs.setSettingsDialogOpen(true)}
+          onOpenShortcuts={() => dialogs.setShortcutsDialogOpen(true)}
         onEditMetadata={handleEditBook}
         onFetchMetadata={dialogs.openBatchMetadataDialog}
         onDeleteBook={handleDeleteBook}
@@ -261,13 +267,26 @@ function App() {
         clearSelection={clearSelection}
         loadInitialBooks={loadInitialBooks}
       />
-      <Suspense fallback={null}>
-        <MigrationDialog 
-          open={showMigrationDialog} 
-          onOpenChange={setShowMigrationDialog} 
-        />
-      </Suspense>
+        <Suspense fallback={null}>
+          <MigrationDialog 
+            open={showMigrationDialog} 
+            onOpenChange={setShowMigrationDialog} 
+          />
+        </Suspense>
       </>
+    )
+  }
+
+  return (
+    <>
+      {!splashFinished && (
+        <AndroidSplashScreen
+          isReady={isAppReady}
+          onAnimationEnd={() => setSplashFinished(true)}
+        />
+      )}
+      {renderContent()}
+    </>
   )
 }
 

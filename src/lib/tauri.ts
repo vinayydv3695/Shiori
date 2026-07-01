@@ -12,6 +12,9 @@ export const isTauri = (() => {
   return hasTauri
 })()
 
+import { type as osType } from '@tauri-apps/plugin-os'
+export const isAndroid = isTauri ? osType() === 'android' : false
+
 export interface Book {
   id?: number
   uuid: string
@@ -1021,6 +1024,17 @@ export const api = {
       logger.warn("File dialogs only work in Tauri environment. Please run: npm run tauri dev")
       return Promise.resolve("/mock/library/path")
     }
+    
+    if (isAndroid) {
+      try {
+        const result = await invoke<{uri: string}>("plugin:saf|selectFolder")
+        return result.uri
+      } catch (error) {
+        logger.error('[API] SAF folder selection error:', error)
+        return null
+      }
+    }
+    
     return open({
       directory: true,
     }) as Promise<string | null>

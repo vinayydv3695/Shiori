@@ -47,7 +47,7 @@ export function ShioriWordmark({ size = 20, className }: { size?: number; classN
                 <img 
                     src={`${import.meta.env.BASE_URL}logo.png`} 
                     alt="Shiori Logo" 
-                    className="w-full h-full object-cover" 
+                    className="w-full h-full object-contain p-[2px]" 
                 />
             </div>
             <span

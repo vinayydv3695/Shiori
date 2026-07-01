@@ -271,21 +271,13 @@ export function LibgenBookDetails({ book, open, onOpenChange }: Props) {
             </Dialog.Close>
             
             <Button 
-              variant="secondary" 
+              variant="default" 
               onClick={handleDownload}
-              disabled={isDownloading || isReading}
-              className="gap-2 rounded-2xl shadow-sm hover:shadow-md transition-all"
-            >
-              {isDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-              Add to Library
-            </Button>
-            <Button 
-              onClick={handleReadNow}
               disabled={isDownloading || isReading}
               className="gap-2 rounded-2xl shadow-primary/20 shadow-lg hover:shadow-primary/30 transition-all"
             >
-              {isReading ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookOpen className="w-4 h-4" />}
-              Read Now
+              {isDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              Add to Library
             </Button>
           </div>
 

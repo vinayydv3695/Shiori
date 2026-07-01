@@ -96,7 +96,7 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
             </div>
           </div>
 
-          <div className="flex gap-2 border-b border-border/40">
+          <div className="flex w-full overflow-x-auto no-scrollbar p-1 bg-muted/30 rounded-xl border border-border/40">
             {[
               { id: 'appearance', label: 'Appearance', icon: Palette },
               { id: 'reader', label: 'Reader', icon: BookOpen },
@@ -109,11 +109,13 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id as Tab)}
-                  className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                    isActive ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+                  className={`flex items-center justify-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 text-xs md:text-sm font-medium transition-all whitespace-nowrap flex-1 rounded-lg ${
+                    isActive 
+                      ? 'bg-background text-foreground shadow-sm ring-1 ring-border/50' 
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                   }`}
                 >
-                  <Icon size={16} />
+                  <Icon size={16} className="shrink-0" />
                   {tab.label}
                 </button>
               );
@@ -121,7 +123,7 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto pr-2 pb-3 [scrollbar-gutter:stable] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/50">
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1 md:pr-2 pb-3 [&::-webkit-scrollbar]:w-1 md:[&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/50">
           
           {activeTab === 'appearance' && (
             <div className="onb-fade-up grid gap-6 xl:grid-cols-2">
@@ -299,11 +301,11 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
           )}
         </div>
 
-        <div className="onb-fade-up onb-delay-200 mt-3 flex shrink-0 items-center justify-between border-t border-border/40 pt-3">
-          <GlowButton theme="dark" variant="secondary" onClick={onBack} className="px-5">
+        <div className="onb-fade-up onb-delay-200 mt-3 flex shrink-0 items-center justify-between gap-3 border-t border-border/40 pt-4">
+          <GlowButton theme="dark" variant="secondary" onClick={onBack} className="flex-1 sm:flex-none px-2 sm:px-5 justify-center">
             ← Back
           </GlowButton>
-          <GlowButton theme="dark" variant="primary" onClick={onNext} className="onb-cta-glow px-8">
+          <GlowButton theme="dark" variant="primary" onClick={onNext} className="flex-[2] sm:flex-none onb-cta-glow px-4 sm:px-8 justify-center">
             Continue →
           </GlowButton>
         </div>

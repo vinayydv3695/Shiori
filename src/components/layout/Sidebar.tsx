@@ -1,5 +1,5 @@
 import { Library, Tag, Settings, ChevronLeft, ChevronRight, FolderOpen, Highlighter, BarChart2 } from "../icons"
-import { Globe, BookOpen, Trash2 } from "lucide-react"
+import { Globe, BookOpen, Trash2, Rss } from "lucide-react"
 import { useUIStore } from "../../store/uiStore"
 import { usePreferencesStore } from "../../store/preferencesStore"
 import { cn } from "../../lib/utils"
@@ -32,6 +32,7 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
     { icon: Globe, label: "Online Books", action: () => setCurrentView("online-books") },
     { icon: BookOpen, label: "Online Manga", action: () => setCurrentView("online-manga") },
     { icon: Highlighter, label: "Annotations", action: () => setCurrentView("annotations") },
+    { icon: Rss, label: "RSS Feeds", action: () => setCurrentView("rss-feeds") },
     { icon: Tag, label: "Tags", action: () => setCurrentView("library") },
     { icon: Settings, label: "Settings", action: () => onOpenSettings?.() },
   ].filter(item => {
@@ -89,7 +90,8 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
               (item.label === "Online Books" && currentView === "online-books") ||
               (item.label === "Online Manga" && currentView === "online-manga") ||
               (item.label === "Recycle Bin" && currentView === "recycle-bin" as any) ||
-              (item.label === "Annotations" && currentView === "annotations");
+              (item.label === "Annotations" && currentView === "annotations") ||
+              (item.label === "RSS Feeds" && currentView === "rss-feeds");
 
             return (
               <button

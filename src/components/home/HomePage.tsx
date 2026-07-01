@@ -213,33 +213,31 @@ function MobileQuickLinks({ onOpenSettings }: { onOpenSettings: () => void }) {
   const enableRecycleBin = usePreferencesStore(s => s.preferences?.enableRecycleBin ?? false)
 
   return (
-    <div className="md:hidden grid grid-cols-4 sm:grid-cols-6 gap-3 mb-6 px-2">
-      <button onClick={() => setCurrentView('online-books')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
-        <Globe className="w-5 h-5 text-primary" />
-        <span className="text-[10px] font-medium tracking-tight">Online Books</span>
-      </button>
-      <button onClick={() => setCurrentView('online-manga')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
-        <BookOpen className="w-5 h-5 text-primary" />
-        <span className="text-[10px] font-medium tracking-tight">Online Manga</span>
-      </button>
-      <button onClick={() => setCurrentView('annotations')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
-        <Highlighter className="w-5 h-5 text-primary" />
-        <span className="text-[10px] font-medium tracking-tight">Annotations</span>
-      </button>
-      <button onClick={() => setCurrentView('library')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
-        <Tag className="w-5 h-5 text-primary" />
-        <span className="text-[10px] font-medium tracking-tight">Tags</span>
-      </button>
-      {enableRecycleBin && (
-        <button onClick={() => setCurrentView('recycle-bin' as any)} className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
-          <Trash2 className="w-5 h-5 text-destructive" />
-          <span className="text-[10px] font-medium tracking-tight text-destructive">Trash</span>
+    <div className="md:hidden mb-6 px-4">
+      <div className="flex gap-2 overflow-x-auto hide-scrollbar snap-x pb-2">
+        <button onClick={() => setCurrentView('annotations')} className="flex items-center flex-none snap-start gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
+          <Highlighter className="w-4 h-4 text-primary" />
+          <span className="text-[11px] font-medium tracking-tight">Annotations</span>
         </button>
-      )}
-      <button onClick={onOpenSettings} className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
-        <Settings className="w-5 h-5 text-muted-foreground" />
-        <span className="text-[10px] font-medium tracking-tight text-muted-foreground">Settings</span>
-      </button>
+        <button onClick={() => setCurrentView('statistics')} className="flex items-center flex-none snap-start gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
+          <BarChart2 className="w-4 h-4 text-primary" />
+          <span className="text-[11px] font-medium tracking-tight">Statistics</span>
+        </button>
+        <button onClick={() => setCurrentView('rss-feeds')} className="flex items-center flex-none snap-start gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
+          <Rss className="w-4 h-4 text-primary" />
+          <span className="text-[11px] font-medium tracking-tight">RSS</span>
+        </button>
+        {enableRecycleBin && (
+          <button onClick={() => setCurrentView('recycle-bin' as any)} className="flex items-center flex-none snap-start gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
+            <Trash2 className="w-4 h-4 text-destructive" />
+            <span className="text-[11px] font-medium tracking-tight text-destructive">Trash</span>
+          </button>
+        )}
+        <button onClick={onOpenSettings} className="flex items-center flex-none snap-start gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
+          <Settings className="w-4 h-4 text-muted-foreground" />
+          <span className="text-[11px] font-medium tracking-tight text-muted-foreground">Settings</span>
+        </button>
+      </div>
     </div>
   )
 }
@@ -425,7 +423,7 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
           </div>
         )}
 
-        <div className="bento-widget">
+        <div className="bento-widget hidden md:flex flex-col">
           <div className="bento-widget-header">
             <h2 className="bento-widget-title"><Activity size={18} /> Quick Stats</h2>
           </div>
@@ -458,7 +456,7 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
       <div className="bento-row activity-row">
         
         {/* Jump Back In */}
-        <div className="bento-widget">
+        <div className="bento-widget hidden md:flex flex-col">
           <div className="bento-widget-header">
             <h2 className="bento-widget-title"><Clock size={18} /> Jump Back In</h2>
           </div>
@@ -511,7 +509,7 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
         </div>
 
         {/* Recommended */}
-        <div className="bento-widget">
+        <div className="bento-widget hidden md:flex flex-col">
           <div className="bento-widget-header">
             <h2 className="bento-widget-title"><Sparkles size={18} /> Recommended</h2>
           </div>
@@ -538,7 +536,7 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
       </div>
 
       {/* ── ROW 3: COLLECTIONS ── */}
-      <div className="bento-row collections-row">
+      <div className="bento-row collections-row hidden md:grid">
         
         {/* Online Discovery */}
         <div className="bento-widget compact cursor-pointer hover:border-primary/50" onClick={domain === 'manga_comics' ? handleViewOnlineManga : handleViewOnlineBooks}>

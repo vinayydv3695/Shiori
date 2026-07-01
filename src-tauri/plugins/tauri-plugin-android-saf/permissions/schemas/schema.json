@@ -307,10 +307,34 @@
           "markdownDescription": "Denies the ping command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`",
+          "description": "Enables the select_files command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-select-files",
+          "markdownDescription": "Enables the select_files command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the select_files command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-select-files",
+          "markdownDescription": "Denies the select_files command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the select_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-select-folder",
+          "markdownDescription": "Enables the select_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the select_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-select-folder",
+          "markdownDescription": "Denies the select_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`\n- `allow-select-folder`\n- `allow-select-files`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`\n- `allow-select-folder`\n- `allow-select-files`"
         }
       ]
     }

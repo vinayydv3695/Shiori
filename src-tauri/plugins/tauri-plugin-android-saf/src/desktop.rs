@@ -16,4 +16,8 @@ impl<R: Runtime> AndroidSaf<R> {
   pub fn select_folder(&self) -> crate::Result<SelectFolderResponse> {
     Ok(SelectFolderResponse { uri: String::new() })
   }
+
+  pub fn select_files(&self) -> crate::Result<SelectFilesResponse> {
+    Ok(SelectFilesResponse { uris: vec![] })
+  }
 }

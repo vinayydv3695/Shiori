@@ -243,7 +243,7 @@ interface MangaUIState {
 }
 
 export const useMangaUIStore = create<MangaUIState>((set) => ({
-    isTopBarVisible: true,
+    isTopBarVisible: false,
     isSidebarOpen: false,
     isSettingsOpen: false,
     scrollProgress: 0,
@@ -264,7 +264,7 @@ export const useMangaUIStore = create<MangaUIState>((set) => ({
     closeSettings: () => set({ isSettingsOpen: false }),
     setScrollProgress: (progress) => set({ scrollProgress: progress }),
     resetUI: () => set({
-        isTopBarVisible: true,
+        isTopBarVisible: false,
         isSidebarOpen: false,
         isSettingsOpen: false,
         scrollProgress: 0,

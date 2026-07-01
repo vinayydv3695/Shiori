@@ -354,6 +354,7 @@ struct MangaDexCoverAttributes {
 struct MangaDexChapterResponse {
     /// API-level result; "ok" on success, "error" on failure
     result: Option<String>,
+    #[serde(default)]
     data: Vec<MangaDexChapter>,
     /// Total number of chapters available (used to terminate pagination)
     total: Option<u32>,
@@ -363,12 +364,10 @@ struct MangaDexChapterResponse {
 struct MangaDexChapter {
     id: String,
     attributes: MangaDexChapterAttributes,
-    #[allow(dead_code)]
     relationships: Option<Vec<MangaDexChapterRelationship>>,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Deserialize, Default)]
 struct MangaDexChapterAttributes {
     chapter: Option<String>,
     title: Option<String>,
@@ -388,9 +387,8 @@ struct MangaDexChapterRelationship {
     attributes: Option<MangaDexScanlationGroupAttributes>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
 struct MangaDexScanlationGroupAttributes {
-    #[allow(dead_code)]
     name: Option<String>,
 }
 

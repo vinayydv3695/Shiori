@@ -4,6 +4,11 @@ import { cn, formatFileSize, formatDate } from '@/lib/utils'
 import type { Book } from '@/lib/tauri'
 import { Badge } from '@/components/ui/badge'
 import { convertFileSrc } from '@tauri-apps/api/core'
+
+function resolveCoverSrc(path: string): string {
+  if (path.startsWith('http://') || path.startsWith('https://')) return path
+  return convertFileSrc(path.replace(/\\/g, '/'))
+}
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -271,7 +276,7 @@ export const ModernTableView = ({
                     <div className="w-10 h-14 bg-muted rounded overflow-hidden">
                        {book.cover_path ? (
                          <img
-                           src={convertFileSrc(book.cover_path)}
+                           src={resolveCoverSrc(book.cover_path)}
                            alt={book.title}
                            loading="lazy"
                            decoding="async"

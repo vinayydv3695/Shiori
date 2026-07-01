@@ -2,6 +2,11 @@ import { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X, BookOpen, Calendar, FileText, Tag, Star, Globe, Hash, Download, Loader2, BookmarkCheck, Search } from 'lucide-react';
 import { convertFileSrc } from '@tauri-apps/api/core';
+
+function resolveCoverSrc(path: string): string {
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  return convertFileSrc(path.replace(/\\/g, '/'));
+}
 import { listen } from '@tauri-apps/api/event';
 import { api, type Book } from '../../lib/tauri';
 import { logger } from '@/lib/logger';
@@ -95,7 +100,7 @@ export const BookDetailsDialog = ({
     }
   };
 
-  const coverSrc = book?.cover_path ? convertFileSrc(book.cover_path) : null;
+  const coverSrc = book?.cover_path ? resolveCoverSrc(book.cover_path) : null;
 
   const isManga = book?.file_format.toLowerCase() === 'cbz' || book?.file_format.toLowerCase() === 'cbr';
 

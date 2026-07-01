@@ -1118,16 +1118,32 @@ pub async fn get_startup_data(state: State<'_, AppState>) -> Result<StartupData>
     };
 
     // ── Onboarding state ──────────────────────────────────────────────────────
+    // Fix any bad version strings from a previous bug where version was stored as '2.0'
+    let _ = conn.execute("UPDATE onboarding_state SET version = 2 WHERE typeof(version) = 'text'", []);
+
     let onboarding = conn.query_row(
         "SELECT completed, completed_at, version, skipped_steps FROM onboarding_state WHERE id = 1",
         [],
         |row| {
             let skipped_json: String = row.get(3)?;
             let skipped_steps = serde_json::from_str(&skipped_json).unwrap_or_default();
+            
+            // Be resilient in case of other issues with version type
+            let version = match row.get::<_, i32>(2) {
+                Ok(v) => v,
+                Err(_) => {
+                    if let Ok(v_str) = row.get::<_, String>(2) {
+                        v_str.parse::<f32>().unwrap_or(2.0) as i32
+                    } else {
+                        2
+                    }
+                }
+            };
+
             Ok(OnboardingState {
                 completed: row.get(0)?,
                 completed_at: row.get(1)?,
-                version: row.get(2)?,
+                version,
                 skipped_steps,
             })
         },

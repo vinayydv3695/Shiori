@@ -124,12 +124,16 @@ export const useOnlineMangaReaderStore = create<OnlineMangaReaderState>((set, ge
       const { useLibraryStore } = await import('@/store/libraryStore');
       const { useToastStore } = await import('@/store/toastStore');
       
+      const now = new Date().toISOString();
       const book = {
         title: state.contentTitle,
         file_path: `online-manga://${state.sourceId}/${state.contentId}`,
         file_format: 'online-manga',
         domain: 'manga',
-        added_date: new Date().toISOString(),
+        added_date: now,
+        modified_date: now,
+        language: 'en',
+        is_favorite: false,
         cover_path: state.coverUrl,
         uuid: crypto.randomUUID(),
         notes: state.description,

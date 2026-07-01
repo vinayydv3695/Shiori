@@ -222,10 +222,11 @@ impl Source for MangaDexSource {
             if !resp.status().is_success() {
                 let status = resp.status();
                 let body = resp.text().await.unwrap_or_default();
+                let truncated_body: String = body.chars().take(300).collect();
                 return Err(ShioriError::Other(format!(
                     "MangaDex chapter API returned HTTP {}: {}",
                     status,
-                    &body[..body.len().min(300)]
+                    truncated_body
                 )));
             }
 

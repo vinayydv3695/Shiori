@@ -368,6 +368,7 @@ export function OnlineMangaView() {
   );
 
   const handleViewChapters = useCallback(async (manga: MangaDexManga) => {
+    console.log("handleViewChapters FIRED!");
     setSelectedManga(manga);
     setSelectedPluginManga(null);
     setChapters([]);
@@ -609,7 +610,22 @@ export function OnlineMangaView() {
     }
   };
 
+
+  // Auto-fetch chapters if we navigated from the library and they haven't been fetched
+  useEffect(() => {
+    if (selectedManga && chapters.length === 0 && !chaptersLoading) {
+      void handleViewChapters(selectedManga);
+    }
+  }, [selectedManga?.id]);
+
+  useEffect(() => {
+    if (selectedPluginManga && pluginChapters.length === 0 && !chaptersLoading) {
+      void handleViewPluginChapters(selectedPluginManga);
+    }
+  }, [selectedPluginManga?.id]);
+
   if (selectedManga || selectedPluginManga) {
+
     const isPlugin = !!selectedPluginManga;
     const title = isPlugin ? selectedPluginManga!.title : selectedManga!.title;
     const description = isPlugin ? (selectedPluginManga!.summary || selectedPluginManga!.description) : selectedManga!.description;
@@ -621,6 +637,8 @@ export function OnlineMangaView() {
     return (
       <div className="flex flex-col h-full bg-background">
         <OnlineMangaDetailView
+          sourceId={isPlugin ? activePluginSourceId! : 'mangadex'}
+          contentId={isPlugin ? selectedPluginManga!.id : selectedManga!.id}
           title={title}
           coverUrl={coverUrl}
           description={description}

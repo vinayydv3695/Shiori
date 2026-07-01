@@ -1000,6 +1000,18 @@ export const api = {
       logger.warn("File dialogs only work in Tauri environment. Please run: npm run tauri dev")
       return Promise.resolve(null)
     }
+
+    if (isAndroid) {
+      try {
+        logger.debug('[API] Opening Android SAF file dialog')
+        const result = await invoke<{uris: string[]}>("plugin:android-saf|select_files")
+        return result.uris
+      } catch (error) {
+        logger.error('[API] SAF file selection error:', error)
+        return null
+      }
+    }
+
     try {
       logger.debug('[API] Opening file dialog')
       const result = await open({
@@ -1027,7 +1039,7 @@ export const api = {
     
     if (isAndroid) {
       try {
-        const result = await invoke<{uri: string}>("plugin:saf|selectFolder")
+        const result = await invoke<{uri: string}>("plugin:android-saf|select_folder")
         return result.uri
       } catch (error) {
         logger.error('[API] SAF folder selection error:', error)

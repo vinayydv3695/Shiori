@@ -15,11 +15,11 @@ export function cn(...inputs: ClassValue[]) {
  */
 export function isMangaDomain(book: any): boolean {
   if (book.domain) {
-    return ['manga', 'comics', 'manga_comics'].includes(book.domain);
+    return ['manga', 'comics', 'manga_comics', 'online-manga'].includes(book.domain);
   }
   const fmt = book.file_format?.toLowerCase() || '';
   // Support both "cbz" and ".cbz"
-  return ['cbz', 'cbr', 'zip', '.cbz', '.cbr', '.zip'].includes(fmt);
+  return ['cbz', 'cbr', 'zip', '.cbz', '.cbr', '.zip', 'online-manga'].includes(fmt);
 }
 
 /**

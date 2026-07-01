@@ -6,6 +6,7 @@ import android.net.Uri
 import app.tauri.annotation.Command
 import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.JSObject
+import app.tauri.plugin.JSArray
 import app.tauri.plugin.Plugin
 import app.tauri.plugin.Invoke
 
@@ -24,6 +25,16 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
             }
         }
         launchFolderPicker(invoke)
+    }
+
+    @Command
+    fun selectFiles(invoke: Invoke) {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT)
+        intent.addCategory(Intent.CATEGORY_OPENABLE)
+        intent.type = "*/*" // allow all files, or we could filter by mimetype
+        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        startActivityForResult(invoke, intent, "safFilesResult")
     }
 
     private fun launchFolderPicker(invoke: Invoke) {
@@ -77,6 +88,36 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
             }
         } else {
             invoke.reject("User cancelled folder selection")
+        }
+    }
+
+    @app.tauri.annotation.ActivityCallback
+    fun safFilesResult(invoke: Invoke, result: androidx.activity.result.ActivityResult) {
+        if (result.resultCode == Activity.RESULT_OK) {
+            val clipData = result.data?.clipData
+            val uri = result.data?.data
+            val paths = JSArray()
+            
+            if (clipData != null) {
+                for (i in 0 until clipData.itemCount) {
+                    val itemUri = clipData.getItemAt(i).uri
+                    activity.contentResolver.takePersistableUriPermission(itemUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    paths.put(getPathFromTreeUri(itemUri))
+                }
+            } else if (uri != null) {
+                activity.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                paths.put(getPathFromTreeUri(uri))
+            }
+
+            if (paths.length() > 0) {
+                val ret = JSObject()
+                ret.put("uris", paths)
+                invoke.resolve(ret)
+            } else {
+                invoke.reject("No files selected")
+            }
+        } else {
+            invoke.reject("User cancelled file selection")
         }
     }
 }

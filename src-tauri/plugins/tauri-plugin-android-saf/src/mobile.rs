@@ -31,4 +31,11 @@ impl<R: Runtime> AndroidSaf<R> {
       .run_mobile_plugin("selectFolder", json!({}))
       .map_err(Into::into)
   }
+
+  pub fn select_files(&self) -> crate::Result<SelectFilesResponse> {
+    self
+      .0
+      .run_mobile_plugin("selectFiles", json!({}))
+      .map_err(Into::into)
+  }
 }

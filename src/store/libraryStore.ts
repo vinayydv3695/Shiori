@@ -238,7 +238,7 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
     set({ isLoading: true })
     try {
       const state = get()
-      const pageSize = 5000
+      const pageSize = 50
 
       const query = {
         ...(state.serverSearchQuery || {}),
@@ -265,7 +265,7 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
 
     set({ isLoading: true });
     try {
-      const pageSize = 5000
+      const pageSize = 50
 
       const query = {
         ...(state.serverSearchQuery || {}),

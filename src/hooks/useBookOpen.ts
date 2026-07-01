@@ -198,16 +198,28 @@ export function useBookOpen() {
         if (protocol === 'online-manga' && rest) {
             const [sourceId, contentId] = rest.split('/');
             
-            // Set up the store to view this manga's details
-            // Note: Since we only have the ID, we construct a partial MangaDexManga
-            // The OnlineMangaView might need to fetch the rest, but setting the ID works
-            // if we are routing back to the MangaDetailsView.
-            useOnlineMangaBrowseStore.getState().setSelectedManga({
-              id: contentId,
-              title: book.title,
-              description: book.notes || '',
-              coverUrl: book.cover_path,
-            });
+            if (sourceId === 'mangadex') {
+              // MangaDex path — handled by the MangaDex hook
+              useOnlineMangaBrowseStore.getState().setSelectedManga({
+                id: contentId,
+                title: book.title,
+                description: book.notes || '',
+                coverUrl: book.cover_path,
+              });
+            } else {
+              // Plugin source path — handled by the plugin API
+              // setSelectedPluginManga clears selectedManga automatically
+              useOnlineMangaBrowseStore.getState().setSelectedPluginManga({
+                id: contentId,
+                title: book.title,
+                summary: book.notes || '',
+                description: book.notes || '',
+                cover_url: book.cover_path,
+                coverUrl: book.cover_path,
+                // Store sourceId in extra so OnlineMangaView can pick the right plugin
+                extra: { librarySourceId: sourceId },
+              });
+            }
             
             // Navigate to the online-manga view
             useUIStore.getState().setCurrentView('online-manga');

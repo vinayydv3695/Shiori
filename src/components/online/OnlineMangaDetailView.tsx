@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Play, Bookmark, ArrowLeft, Search, Star, Info, FileText, Globe } from 'lucide-react';
+import { Play, Bookmark, BookmarkCheck, ArrowLeft, Search, Star, Info, FileText, Globe } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +39,8 @@ interface OnlineMangaDetailViewProps {
 
   onBack: () => void;
   onReadChapter: (chapter: UnifiedChapter) => void;
+  onSaveToLibrary?: () => Promise<void>;
+  isInLibrary?: boolean;
 
   onMangaClick?: (mangaId: string) => void;
 }
@@ -61,6 +63,8 @@ export function OnlineMangaDetailView({
   recommendedManga,
   onBack,
   onReadChapter,
+  onSaveToLibrary,
+  isInLibrary,
 
   onMangaClick,
 }: OnlineMangaDetailViewProps) {
@@ -257,6 +261,18 @@ export function OnlineMangaDetailView({
                         variant="secondary"
                         className="gap-2 px-8 h-10 rounded text-sm text-foreground border border-border/50">
                   CONTINUE READING <Play className="w-4 h-4 ml-1 fill-current" />
+                </Button>
+              )}
+              {onSaveToLibrary && (
+                <Button
+                  onClick={onSaveToLibrary}
+                  variant="outline"
+                  disabled={isInLibrary}
+                  className="gap-2 px-6 h-10 rounded text-sm border-border/50 hover:bg-accent"
+                >
+                  {isInLibrary
+                    ? <><BookmarkCheck className="w-4 h-4" /> IN LIBRARY</>
+                    : <><Bookmark className="w-4 h-4" /> ADD TO LIBRARY</>}
                 </Button>
               )}
             </div>

@@ -119,6 +119,7 @@ pub async fn plugin_get_chapters(
     source_id: String,
     content_id: String,
 ) -> Result<Vec<Chapter>> {
+    eprintln!("plugin_get_chapters invoked: source_id='{}', content_id='{}'", source_id, content_id);
     let source = {
         let registry = state.plugin_registry.read().await;
         registry

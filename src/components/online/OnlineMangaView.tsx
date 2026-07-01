@@ -118,6 +118,8 @@ export function OnlineMangaView() {
   const [pluginError, setPluginError] = useState<string | null>(null);
   const [queueingManga, setQueueingManga] = useState<Record<string, boolean>>({});
   const [hasTorboxKey, setHasTorboxKey] = useState(false);
+  const [isSavingToLibrary, setIsSavingToLibrary] = useState(false);
+  const [savedToLibraryIds, setSavedToLibraryIds] = useState<Set<string>>(new Set());
   const setCurrentView = useUIStore((state) => state.setCurrentView);
   const { success: showSuccessToast, error: showErrorToast, info: showInfoToast } = useToast();
   const setSource = useOnlineMangaReaderStore((state) => state.setSource);
@@ -380,7 +382,9 @@ export function OnlineMangaView() {
   }, [getChapters]);
 
   const handleViewPluginChapters = async (manga: PluginSearchResult) => {
-    if (!activePluginSourceId) return;
+    // If the manga was opened from the library, use the stored sourceId; otherwise fall back to the active one
+    const effectiveSourceId = (manga.extra as any)?.librarySourceId ?? activePluginSourceId;
+    if (!effectiveSourceId) return;
 
     setSelectedManga(null);
     setSelectedPluginManga(manga);
@@ -388,7 +392,7 @@ export function OnlineMangaView() {
     setChaptersLoading(true);
 
     try {
-      const chapterList = await pluginApi.getChapters(activePluginSourceId, manga.id);
+      const chapterList = await pluginApi.getChapters(effectiveSourceId, manga.id);
       setPluginChapters(chapterList);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load plugin chapters';
@@ -606,7 +610,57 @@ export function OnlineMangaView() {
       const pluginFormat = mapMangaDexChapterToPlugin(unifiedCh.originalChapter);
       await handleReadChapter('mangadex', selectedManga!.id, pluginFormat, mangaDexPluginChapters, selectedManga!.title);
     } else {
-      await handleReadChapter(activePluginSourceId!, selectedPluginManga!.id, unifiedCh.originalChapter, pluginChapters, selectedPluginManga!.title);
+      const effectiveSourceId = (selectedPluginManga!.extra as any)?.librarySourceId ?? activePluginSourceId!;
+      await handleReadChapter(effectiveSourceId, selectedPluginManga!.id, unifiedCh.originalChapter, pluginChapters, selectedPluginManga!.title);
+    }
+  };
+
+  const handleSaveToLibrary = async () => {
+    const manga = selectedManga || selectedPluginManga;
+    if (!manga || isSavingToLibrary) return;
+
+    const isPlugin = !!selectedPluginManga;
+    const effectiveSourceId = isPlugin
+      ? ((selectedPluginManga!.extra as any)?.librarySourceId ?? activePluginSourceId!)
+      : 'mangadex';
+
+    const contentId = manga.id;
+    const title = manga.title;
+    const coverUrl = isPlugin
+      ? (selectedPluginManga!.coverUrl || selectedPluginManga!.cover_url)
+      : selectedManga!.coverUrl;
+    const description = isPlugin
+      ? (selectedPluginManga!.summary || selectedPluginManga!.description)
+      : selectedManga!.description;
+
+    setIsSavingToLibrary(true);
+    try {
+      const now = new Date().toISOString();
+      await api.addBook({
+        title,
+        file_path: `online-manga://${effectiveSourceId}/${contentId}`,
+        file_format: 'online-manga',
+        domain: 'manga',
+        added_date: now,
+        modified_date: now,
+        language: 'en',
+        is_favorite: false,
+        cover_path: coverUrl,
+        uuid: crypto.randomUUID(),
+        notes: description || '',
+      });
+
+      setSavedToLibraryIds((prev) => new Set(prev).add(contentId));
+      showSuccessToast(`"${title}" added to your library!`);
+
+      // Refresh library in background
+      const { useLibraryStore } = await import('@/store/libraryStore');
+      void useLibraryStore.getState().loadInitialBooks();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      showErrorToast(`Failed to add to library: ${msg}`);
+    } finally {
+      setIsSavingToLibrary(false);
     }
   };
 
@@ -620,8 +674,10 @@ export function OnlineMangaView() {
 
   useEffect(() => {
     if (selectedPluginManga && pluginChapters.length === 0 && !chaptersLoading) {
+      // handleViewPluginChapters will use extra.librarySourceId if present
       void handleViewPluginChapters(selectedPluginManga);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPluginManga?.id]);
 
   if (selectedManga || selectedPluginManga) {
@@ -637,7 +693,7 @@ export function OnlineMangaView() {
     return (
       <div className="flex flex-col h-full bg-background">
         <OnlineMangaDetailView
-          sourceId={isPlugin ? activePluginSourceId! : 'mangadex'}
+          sourceId={isPlugin ? ((selectedPluginManga!.extra as any)?.librarySourceId ?? activePluginSourceId!) : 'mangadex'}
           contentId={isPlugin ? selectedPluginManga!.id : selectedManga!.id}
           title={title}
           coverUrl={coverUrl}
@@ -653,6 +709,8 @@ export function OnlineMangaView() {
             setSelectedPluginManga(null);
           }}
           onReadChapter={handleReadUnifiedChapter}
+          onSaveToLibrary={handleSaveToLibrary}
+          isInLibrary={savedToLibraryIds.has(isPlugin ? selectedPluginManga!.id : selectedManga!.id)}
         />
       </div>
     );
@@ -914,7 +972,18 @@ export function OnlineMangaView() {
                     format={manga.status}
                     language={manga.contentRating}
                     year={manga.year}
-                    onReadOnline={() => handleViewChapters(manga)}
+                    onReadOnline={() => {
+                      if (isPluginMangaSource) {
+                        void handleViewPluginChapters({
+                          id: manga.id,
+                          title: manga.title,
+                          cover_url: manga.coverUrl || '',
+                          summary: manga.description
+                        });
+                      } else {
+                        void handleViewChapters(manga);
+                      }
+                    }}
                   />
                 ))}
               </div>

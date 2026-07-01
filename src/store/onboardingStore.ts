@@ -517,19 +517,32 @@ export const useOnboardingStore = create<OnboardingStore>()(
       completeOnboarding: async () => {
         const state = get();
 
-        await Promise.all([
-          pushLibraryPath(state.libraryPath),
-          pushTheme(state.selectedTheme),
-          pushMangaPrefs(state.mangaPrefs),
-          pushBookPrefs(state.bookPrefs),
-          pushOnboardingGeneralSettings(state),
-        ]);
+        try {
+          await Promise.all([
+            pushLibraryPath(state.libraryPath),
+            pushTheme(state.selectedTheme),
+            pushMangaPrefs(state.mangaPrefs),
+            pushBookPrefs(state.bookPrefs),
+            pushOnboardingGeneralSettings(state),
+          ]);
+        } catch (e) {
+          logger.warn("Failed to push some onboarding settings", e);
+        }
 
-
-
-
-        await api.completeOnboarding([]);
+        try {
+          await api.completeOnboarding([]);
+        } catch (e) {
+          logger.warn("Failed to save onboarding state to backend", e);
+        }
+        
+        // Always complete onboarding in local state to unblock the user
         set({ onboardingComplete: true, currentStep: TOTAL_STEPS });
+        
+        // Also force-update the preferences store so initialize() doesn't revert it
+        const prefsState = usePreferencesStore.getState();
+        if (prefsState) {
+          prefsState._cachedOnboardingCompleted = true;
+        }
       },
 
       resetOnboarding: () => {

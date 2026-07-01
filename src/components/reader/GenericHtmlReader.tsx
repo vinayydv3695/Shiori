@@ -3,7 +3,7 @@ import { api } from '@/lib/tauri';
 import type { BookMetadata } from '@/lib/tauri';
 import { ChevronLeft, ChevronRight, Loader2, AlertCircle } from '@/components/icons';
 import { logger } from '@/lib/logger';
-import { useReadingSettings } from '@/store/premiumReaderStore';
+import { useReadingSettings, useReaderUIStore } from '@/store/premiumReaderStore';
 import { useToastStore } from '@/store/toastStore';
 import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
 import { useReaderAutoHide } from '@/hooks/useReaderAutoHide';
@@ -379,8 +379,26 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
         );
     }
 
+    const handleContainerDoubleClick = (e: React.MouseEvent) => {
+        const target = e.target as Element;
+        if (e.defaultPrevented || !target || typeof target.closest !== 'function') return;
+        if (target.closest('a') || target.closest('button') || target.closest('.premium-top-bar') || target.closest('.premium-sidebar') || target.closest('.text-selection-toolbar')) {
+            return;
+        }
+
+        const uiStore = useReaderUIStore.getState();
+        const newState = !uiStore.isTopBarVisible;
+        uiStore.setTopBarVisible(newState);
+        if (newState && !uiStore.isSidebarOpen) {
+            uiStore.toggleSidebar();
+        } else if (!newState && uiStore.isSidebarOpen) {
+            uiStore.closeSidebar();
+        }
+    };
+
     return (
         <div ref={readerContainerRef} className={`premium-reader ${isFocusMode ? 'premium-reader--focus-mode' : ''}`}
+            onDoubleClick={handleContainerDoubleClick}
             style={{
                 backgroundColor: 'var(--bg-primary)',
             }}

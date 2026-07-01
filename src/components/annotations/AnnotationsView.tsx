@@ -334,26 +334,45 @@ export function AnnotationsView({ onClose, onOpenBook }: AnnotationsViewProps) {
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         
         {/* Header & Tabs */}
-        <div className="flex-none pt-6 px-6 border-b border-border bg-card z-20 shadow-sm relative">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">
+        <div className="flex-none pt-4 md:pt-6 px-4 md:px-6 border-b border-border bg-card z-20 shadow-sm relative">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 md:mb-6">
+            <div className="w-full md:w-auto flex flex-col relative">
+              <div className="md:hidden mb-2 flex items-center gap-2">
+                <select
+                  value={selectedBookId}
+                  onChange={(e) => setSelectedBookId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                  className="w-full bg-muted/50 border border-border/50 rounded-lg px-3 py-2 text-sm font-semibold focus:ring-2 focus:ring-primary outline-none truncate"
+                >
+                  <option value="all">All Annotations</option>
+                  {uniqueBooks.map(b => (
+                    <option key={b.id} value={b.id}>{b.title} ({b.count})</option>
+                  ))}
+                </select>
+                <button
+                  onClick={onClose}
+                  className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors flex-none"
+                  title="Close annotations"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <h1 className="text-xl md:text-2xl font-bold tracking-tight hidden md:block pr-8">
                 {selectedBookId === 'all' ? 'All Annotations' : uniqueBooks.find(b => b.id === selectedBookId)?.title}
               </h1>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-sm text-muted-foreground mt-1 hidden md:block">
                 {displayedAnnotations.length} item{displayedAnnotations.length !== 1 ? 's' : ''} found
               </p>
             </div>
             
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full md:w-auto">
               {/* Integrated Search Bar */}
-              <div className="relative min-w-[240px] max-w-sm">
+              <div className="relative flex-1 min-w-[200px] md:min-w-[240px] max-w-full md:max-w-sm">
                 <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <input
                   type="text"
-                  placeholder="Search in these annotations..."
+                  placeholder="Search annotations..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-9 pr-4 py-2 bg-muted/50 hover:bg-muted border border-border/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all text-sm text-foreground placeholder:text-muted-foreground"
@@ -362,7 +381,8 @@ export function AnnotationsView({ onClose, onOpenBook }: AnnotationsViewProps) {
 
               <button
                 onClick={() => setExportDialogOpen(true)}
-                className="px-3 py-2 text-sm font-medium border border-border hover:bg-muted rounded-lg transition-colors flex items-center gap-2"
+                className="px-3 py-2 text-sm font-medium border border-border hover:bg-muted rounded-lg transition-colors flex items-center justify-center gap-2 flex-none"
+                title="Export"
               >
                 <Share2 size={16} />
                 <span className="hidden sm:inline">Export</span>
@@ -370,7 +390,7 @@ export function AnnotationsView({ onClose, onOpenBook }: AnnotationsViewProps) {
               
               <button
                 onClick={onClose}
-                className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+                className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors flex-none hidden md:block"
                 title="Close annotations"
               >
                 <X size={20} />
@@ -379,8 +399,8 @@ export function AnnotationsView({ onClose, onOpenBook }: AnnotationsViewProps) {
           </div>
 
           {/* Navigation Tabs */}
-          <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-end">
-            <div className="flex gap-6 overflow-x-auto w-full no-scrollbar">
+          <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-end">
+            <div className="flex gap-6 overflow-x-auto w-full no-scrollbar pb-1 sm:pb-0">
               {tabs.map(tab => (
                 <button
                   key={tab.id}
@@ -397,11 +417,11 @@ export function AnnotationsView({ onClose, onOpenBook }: AnnotationsViewProps) {
             </div>
 
             {/* View Controls */}
-            <div className="flex items-center gap-3 pb-3 shrink-0">
+            <div className="flex items-center gap-2 md:gap-3 pb-3 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                className="px-3 py-1.5 bg-background border border-border/80 hover:border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm min-w-[140px] text-foreground transition-colors dark:[color-scheme:dark]"
+                className="flex-1 sm:flex-none px-3 py-1.5 bg-background border border-border/80 hover:border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm min-w-[120px] md:min-w-[140px] text-foreground transition-colors dark:[color-scheme:dark]"
               >
                 <option value="all">All Categories</option>
                 {categories.map((c) => (
@@ -409,7 +429,7 @@ export function AnnotationsView({ onClose, onOpenBook }: AnnotationsViewProps) {
                 ))}
               </select>
 
-              <div className="flex items-center bg-muted/50 rounded-lg p-1 border border-border/50">
+              <div className="flex items-center bg-muted/50 rounded-lg p-1 border border-border/50 shrink-0">
                 <button
                   onClick={() => setViewMode('grid')}
                   className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}

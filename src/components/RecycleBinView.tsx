@@ -145,39 +145,39 @@ export function RecycleBinView() {
   }
 
   return (
-    <div className="h-full flex flex-col p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-destructive/10 text-destructive rounded-lg">
+    <div className="h-full flex flex-col p-4 md:p-6 space-y-4 md:space-y-6">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="p-2 bg-destructive/10 text-destructive rounded-lg shrink-0">
             <Trash2 className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Recycle Bin</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="text-xl md:text-2xl font-bold text-foreground">Recycle Bin</h1>
+            <p className="text-xs md:text-sm text-muted-foreground hidden sm:block">
               Items in the recycle bin will be automatically deleted after 7 days.
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full md:w-auto">
           {selectedIds.size > 0 && (
             <>
               <Button 
                 variant="secondary" 
                 onClick={handleRestoreSelected}
                 disabled={isActioning}
-                className="gap-2"
+                className="gap-1.5 flex-1 md:flex-none h-9 md:h-10 text-[11px] md:text-sm px-2 md:px-4"
               >
-                <RefreshCw className="h-4 w-4" />
-                Restore ({selectedIds.size})
+                <RefreshCw className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                <span className="truncate">Restore ({selectedIds.size})</span>
               </Button>
               <Button 
                 variant="destructive" 
                 onClick={handleDeleteSelected}
                 disabled={isActioning}
-                className="gap-2"
+                className="gap-1.5 flex-1 md:flex-none h-9 md:h-10 text-[11px] md:text-sm px-2 md:px-4"
               >
-                <XCircle className="h-4 w-4" />
-                Delete ({selectedIds.size})
+                <XCircle className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                <span className="truncate">Delete ({selectedIds.size})</span>
               </Button>
             </>
           )}
@@ -185,23 +185,25 @@ export function RecycleBinView() {
             variant="outline" 
             onClick={handleSelectAll} 
             disabled={trashedBooks.length === 0 || isActioning || loading}
-            className="gap-2"
+            className="gap-1.5 flex-1 md:flex-none h-9 md:h-10 text-[11px] md:text-sm px-2 md:px-4"
           >
             {selectedIds.size === trashedBooks.length && trashedBooks.length > 0 ? (
-              <CheckSquare className="h-4 w-4" />
+              <CheckSquare className="h-3.5 w-3.5 md:h-4 md:w-4" />
             ) : (
-              <Square className="h-4 w-4" />
+              <Square className="h-3.5 w-3.5 md:h-4 md:w-4" />
             )}
-            Select All
+            <span className="truncate hidden sm:inline">Select All</span>
+            <span className="truncate sm:hidden">All</span>
           </Button>
           <Button 
             variant="destructive" 
             onClick={handleEmptyTrash} 
             disabled={trashedBooks.length === 0 || isActioning || loading}
-            className="gap-2"
+            className="gap-1.5 flex-1 md:flex-none h-9 md:h-10 text-[11px] md:text-sm px-2 md:px-4"
           >
-            <Trash2 className="h-4 w-4" />
-            Empty Recycle Bin
+            <Trash2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
+            <span className="truncate hidden sm:inline">Empty Recycle Bin</span>
+            <span className="truncate sm:hidden">Empty</span>
           </Button>
         </div>
       </div>
@@ -224,13 +226,13 @@ export function RecycleBinView() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4 p-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-4 p-3 md:p-4">
             {trashedBooks.map((book) => (
               <motion.div
                 key={book.id}
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className={`group relative flex flex-col gap-3 p-3 rounded-xl border bg-card hover:border-border/80 hover:shadow-md transition-all duration-300 cursor-pointer ${
+                className={`group relative flex flex-col gap-2 md:gap-3 p-2 md:p-3 rounded-xl border bg-card hover:border-border/80 hover:shadow-md transition-all duration-300 cursor-pointer ${
                   book.id && selectedIds.has(book.id) ? 'ring-2 ring-primary border-primary' : ''
                 }`}
                 onClick={() => book.id && toggleSelection(book.id)}

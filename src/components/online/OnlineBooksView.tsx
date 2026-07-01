@@ -106,6 +106,9 @@ export function OnlineBooksView() {
         await useLibraryStore.getState().loadInitialBooks();
         showSuccessToast('Download Complete', `${book.title} added to your library`);
       }
+      if (result.failed && result.failed.length > 0) {
+        showErrorToast('Import Failed', result.failed[0][1] || 'Unknown error occurred during import.');
+      }
     } catch (err: any) {
       showErrorToast('Download Failed', err.message);
     }
@@ -118,10 +121,16 @@ export function OnlineBooksView() {
       let bookId: number;
       if (book.source === 'gutenberg') {
         const result = await downloadAndImportGutenberg(book.downloadUrl, book.title);
-        if (result.success.length === 0) throw new Error('Failed to import book');
+        if (result.success.length === 0) {
+          const errMsg = result.failed && result.failed.length > 0 ? result.failed[0][1] : 'Failed to import book';
+          throw new Error(errMsg);
+        }
       } else {
         const result = await downloadAndImportLibgen(book.downloadUrl, book.title, book.mirrors);
-        if (result.success.length === 0) throw new Error('Failed to import book');
+        if (result.success.length === 0) {
+          const errMsg = result.failed && result.failed.length > 0 ? result.failed[0][1] : 'Failed to import book';
+          throw new Error(errMsg);
+        }
       }
       
       const searchRes = await api.searchBooks({ query: book.title });
@@ -226,14 +235,6 @@ export function OnlineBooksView() {
           onClose={() => setPreviewBook(null)}
           onDownload={() => {
             handleDownload(previewBook);
-            setPreviewBook(null);
-          }}
-          onReadNow={() => {
-            handleReadNow(previewBook);
-            setPreviewBook(null);
-          }}
-          onWishlist={() => {
-            handleAddToWishlist(previewBook);
             setPreviewBook(null);
           }}
         />

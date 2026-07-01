@@ -866,12 +866,19 @@ pub async fn complete_onboarding(
     let conn = state.db.get_connection()?;
     let skipped_json = serde_json::to_string(&skipped_steps).unwrap_or_else(|_| "[]".to_string());
 
+    // Use UPSERT to guarantee id = 1 exists and is updated.
     conn.execute(
-        "UPDATE onboarding_state 
-         SET completed = 1, completed_at = CURRENT_TIMESTAMP, skipped_steps = ?
-         WHERE id = 1",
+        "INSERT INTO onboarding_state (id, completed, completed_at, skipped_steps, version)
+         VALUES (1, 1, CURRENT_TIMESTAMP, ?, '2.0')
+         ON CONFLICT(id) DO UPDATE SET 
+            completed = 1, 
+            completed_at = CURRENT_TIMESTAMP, 
+            skipped_steps = excluded.skipped_steps",
         [skipped_json],
     )?;
+
+    // Force checkpoint WAL so the update persists immediately even on mobile app-kill.
+    let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
 
     Ok(())
 }
@@ -881,11 +888,17 @@ pub async fn complete_onboarding(
 pub async fn reset_onboarding(state: State<'_, AppState>) -> Result<()> {
     let conn = state.db.get_connection()?;
     conn.execute(
-        "UPDATE onboarding_state 
-         SET completed = 0, completed_at = NULL, skipped_steps = '[]'
-         WHERE id = 1",
+        "INSERT INTO onboarding_state (id, completed, completed_at, skipped_steps, version)
+         VALUES (1, 0, NULL, '[]', '2.0')
+         ON CONFLICT(id) DO UPDATE SET 
+            completed = 0, 
+            completed_at = NULL, 
+            skipped_steps = '[]'",
         [],
     )?;
+
+    // Force checkpoint WAL
+    let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
 
     Ok(())
 }
@@ -1118,7 +1131,12 @@ pub async fn get_startup_data(state: State<'_, AppState>) -> Result<StartupData>
                 skipped_steps,
             })
         },
-    )?;
+    ).unwrap_or_else(|_| OnboardingState {
+        completed: false,
+        completed_at: None,
+        version: 2,
+        skipped_steps: vec![],
+    });
 
     // ── Reading goal (best-effort) ────────────────────────────────────────────
     let reading_goal_minutes: Option<i64> = conn

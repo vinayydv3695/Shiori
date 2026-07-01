@@ -5,6 +5,8 @@ interface OnlineMangaReaderState {
   sourceId: string | null;
   contentId: string | null;
   contentTitle: string;
+  coverUrl?: string;
+  description?: string;
   chapterId: string | null;
   chapters: Chapter[];
   pages: Page[];
@@ -13,7 +15,7 @@ interface OnlineMangaReaderState {
   error: string | null;
 
   setSource: (sourceId: string | null) => void;
-  setContent: (contentId: string | null, chapters?: Chapter[], contentTitle?: string) => void;
+  setContent: (contentId: string | null, chapters?: Chapter[], contentTitle?: string, coverUrl?: string, description?: string) => void;
   setChapter: (chapterId: string | null) => Promise<void>;
   setChapters: (chapters: Chapter[]) => void;
   nextPage: () => boolean;
@@ -21,12 +23,15 @@ interface OnlineMangaReaderState {
   goToPage: (index: number) => void;
   loadChapterPages: (sourceId: string, contentId: string, chapterId: string) => Promise<void>;
   reset: () => void;
+  addToLibrary: () => Promise<void>;
 }
 
 export const useOnlineMangaReaderStore = create<OnlineMangaReaderState>((set, get) => ({
   sourceId: null,
   contentId: null,
-  contentTitle: '',
+  contentTitle: 'Unknown Manga',
+  coverUrl: undefined,
+  description: undefined,
   chapterId: null,
   chapters: [],
   pages: [],
@@ -36,10 +41,12 @@ export const useOnlineMangaReaderStore = create<OnlineMangaReaderState>((set, ge
 
   setSource: (sourceId) => set({ sourceId }),
 
-  setContent: (contentId, chapters = [], contentTitle = '') =>
+  setContent: (contentId, chapters = [], contentTitle = 'Unknown Manga', coverUrl, description) =>
     set({
       contentId,
       contentTitle,
+      coverUrl,
+      description,
       chapters,
       chapterId: null,
       pages: [],
@@ -97,7 +104,9 @@ export const useOnlineMangaReaderStore = create<OnlineMangaReaderState>((set, ge
     set({
       sourceId: null,
       contentId: null,
-      contentTitle: '',
+      contentTitle: 'Unknown Manga',
+      coverUrl: undefined,
+      description: undefined,
       chapterId: null,
       chapters: [],
       pages: [],
@@ -105,4 +114,42 @@ export const useOnlineMangaReaderStore = create<OnlineMangaReaderState>((set, ge
       isLoading: false,
       error: null,
     }),
+
+  addToLibrary: async () => {
+    const state = get();
+    if (!state.sourceId || !state.contentId) return;
+
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const { useLibraryStore } = await import('@/store/libraryStore');
+      const { useToastStore } = await import('@/store/toastStore');
+      
+      const book = {
+        title: state.contentTitle,
+        file_path: `online-manga://${state.sourceId}/${state.contentId}`,
+        file_format: 'online-manga',
+        domain: 'manga',
+        added_date: new Date().toISOString(),
+        cover_path: state.coverUrl,
+        uuid: crypto.randomUUID(),
+        notes: state.description,
+      };
+
+      await invoke('add_book', { book });
+      await useLibraryStore.getState().loadInitialBooks();
+      useToastStore.getState().addToast({
+        title: 'Added to Library',
+        description: `${state.contentTitle} has been saved to your library.`,
+        variant: 'success',
+      });
+    } catch (error) {
+      console.error('Failed to add online manga to library:', error);
+      const { useToastStore } = await import('@/store/toastStore');
+      useToastStore.getState().addToast({
+        title: 'Error',
+        description: 'Failed to add to library',
+        variant: 'error',
+      });
+    }
+  },
 }));

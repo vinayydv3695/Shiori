@@ -2001,7 +2001,7 @@ const AboutSettings = () => {
       <SettingSection title="Shiori eBook Manager">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-xl overflow-hidden shadow-sm flex-shrink-0">
-            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Shiori Logo" className="w-full h-full object-cover" />
+            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Shiori Logo" className="w-full h-full object-contain p-[2px]" />
           </div>
           <div>
             <h3 className="text-xl font-semibold">Shiori</h3>

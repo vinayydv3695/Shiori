@@ -2,10 +2,11 @@ import { logger } from '@/lib/logger';
 import React from 'react';
 import { useReaderUIStore } from '@/store/premiumReaderStore';
 import { useBookReadingTime } from '@/hooks/useBookReadingTime';
-import { ArrowLeft, Clock, Maximize2, Minimize2, Bookmark } from '@/components/icons';
+import { ArrowLeft, Clock, Maximize2, Minimize2, Bookmark, ZoomIn, ZoomOut } from '@/components/icons';
 import { ReaderSettings, type ReaderFormat } from './ReaderSettings';
 import { WindowControls } from '../layout/WindowControls';
 import { useFullscreen } from '@/hooks/useFullscreen';
+import { useReadingSettings } from '@/store/premiumReaderStore';
 
 interface ReaderTopBarProps {
   bookId: number;
@@ -32,6 +33,8 @@ export function ReaderTopBar({
   const toggleSidebar = useReaderUIStore(state => state.toggleSidebar);
   const { formattedTime } = useBookReadingTime(bookId);
   const { isFullscreen, toggleFullscreen } = useFullscreen();
+  const increaseFontSize = useReadingSettings(state => state.increaseFontSize);
+  const decreaseFontSize = useReadingSettings(state => state.decreaseFontSize);
 
   return (
     <div className={`premium-top-bar ${!isTopBarVisible ? 'premium-top-bar--hidden' : ''}`} data-tauri-drag-region>
@@ -62,6 +65,16 @@ export function ReaderTopBar({
         </div>
 
         <div className="premium-top-bar-right">
+          {format !== 'pdf' && (
+            <div className="flex items-center gap-1 mr-2 border-r border-white/10 pr-2">
+              <button onClick={decreaseFontSize} className="premium-control-button" title="Zoom Out (Decrease font size)">
+                <ZoomOut className="premium-control-icon" />
+              </button>
+              <button onClick={increaseFontSize} className="premium-control-button" title="Zoom In (Increase font size)">
+                <ZoomIn className="premium-control-icon" />
+              </button>
+            </div>
+          )}
           {rightExtra}
 
           <ReaderSettings format={format} />

@@ -8,6 +8,7 @@ import {
 import { api } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
 import { useToastStore } from '@/store/toastStore';
+import { useLibraryStore } from '@/store/libraryStore';
 import { MangaCanvas } from './MangaCanvas';
 import { MangaSidebar } from './MangaSidebar';
 import { AdvancedSettingsPanel } from './AdvancedSettingsPanel';
@@ -313,12 +314,27 @@ export function MangaReader(props: MangaReaderProps) {
                         page: currentPage,
                         timestamp: Date.now(),
                     }));
+                    
+                    // Also save to library database if the user added it
+                    const expectedPath = `online-manga://${onlineSource.sourceId}/${onlineSource.contentId}`;
+                    const libBook = useLibraryStore.getState().books.find(b => b.file_path === expectedPath);
+                    if (libBook) {
+                        await api.saveReadingProgress(
+                            libBook.id!,
+                            `chapter_${onlineSource.chapterId}_page_${currentPage}`,
+                            progressPercent,
+                            currentPage,
+                            mangaTotalPages
+                        );
+                    }
+
                     logger.debug('[MangaReader] Saved online progress:', { 
                         sourceId: onlineSource.sourceId,
                         contentId: onlineSource.contentId,
                         chapterId: onlineSource.chapterId,
                         currentPage, 
-                        total: mangaTotalPages 
+                        total: mangaTotalPages,
+                        inLibrary: !!libBook
                     });
                 }
             } catch (err) {
@@ -345,6 +361,13 @@ export function MangaReader(props: MangaReaderProps) {
         closeManga();
         onClose();
     }, [sourceType, bookId, closeManga, onClose]);
+
+    const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+        const uiStore = useMangaUIStore.getState();
+        uiStore.setTopBarVisible(true);
+        // Only toggle sidebar if they are actively trying to show UI, or just toggle both
+        uiStore.toggleSidebar();
+    }, []);
 
     // Register keyboard shortcuts
     useMangaKeyboard(handleClose);
@@ -379,7 +402,12 @@ export function MangaReader(props: MangaReaderProps) {
     const onChapterChange = props.mode === 'online' ? props.onChapterChange : undefined;
 
     return (
-        <div className="manga-reader" tabIndex={-1}>
+        <div 
+            className="manga-reader" 
+            data-manga-theme={theme}
+            tabIndex={-1}
+            onDoubleClick={handleDoubleClick}
+        >
             <MangaReaderHeader 
                 onClose={handleClose} 
                 onChapterChange={onChapterChange}

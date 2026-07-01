@@ -12,6 +12,7 @@ import { OnlineSearchHeader } from './OnlineSearchHeader';
 import { pluginApi, type Chapter as PluginChapter, type SearchResult as PluginSearchResult } from '@/lib/pluginSources';
 import { useUIStore } from '@/store/uiStore';
 import { useOnlineMangaReaderStore } from '@/store/onlineMangaReaderStore';
+import { useOnlineMangaBrowseStore } from '@/store/onlineMangaBrowseStore';
 import { OnlineMangaDetailView, type UnifiedChapter } from './OnlineMangaDetailView';
 import { MangaBrowseNavBar } from './MangaBrowseNavBar';
 import { MangaRankList } from './MangaRankList';
@@ -106,11 +107,13 @@ export function OnlineMangaView() {
   const [totalResults, setTotalResults] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasSearched, setHasSearched] = useState(Boolean(searchQuery.trim()));
-  const [selectedManga, setSelectedManga] = useState<MangaDexManga | null>(null);
+  const selectedManga = useOnlineMangaBrowseStore((state) => state.selectedManga);
+  const selectedPluginManga = useOnlineMangaBrowseStore((state) => state.selectedPluginManga);
+  const setSelectedManga = useOnlineMangaBrowseStore((state) => state.setSelectedManga);
+  const setSelectedPluginManga = useOnlineMangaBrowseStore((state) => state.setSelectedPluginManga);
   const [chapters, setChapters] = useState<MangaDexChapter[]>([]);
   const [pluginResults, setPluginResults] = useState<PluginSearchResult[]>([]);
   const [pluginChapters, setPluginChapters] = useState<PluginChapter[]>([]);
-  const [selectedPluginManga, setSelectedPluginManga] = useState<PluginSearchResult | null>(null);
   const [chaptersLoading, setChaptersLoading] = useState(false);
   const [pluginError, setPluginError] = useState<string | null>(null);
   const [queueingManga, setQueueingManga] = useState<Record<string, boolean>>({});
@@ -536,7 +539,7 @@ export function OnlineMangaView() {
     }
   }, [extractTorboxCandidate, openInBrowser, setCurrentView, showErrorToast, showInfoToast, showSuccessToast]);
 
-  const handleReadChapter = async (sourceId: string, contentId: string, chapter: PluginChapter, allChapters: PluginChapter[], contentTitle?: string) => {
+  const handleReadChapter = async (sourceId: string, contentId: string, chapter: PluginChapter, allChapters: PluginChapter[], contentTitle?: string, coverUrl?: string, description?: string) => {
     // Filter duplicates to make Next/Prev predictable
     const uniqueChapters = [];
     const seenNumbers = new Set();
@@ -552,7 +555,7 @@ export function OnlineMangaView() {
     }
     
     setSource(sourceId);
-    setContent(contentId, uniqueChapters, contentTitle);
+    setContent(contentId, uniqueChapters, contentTitle, coverUrl, description);
     await setChapter(chapter.id);
     setCurrentView('online-manga-reader');
   };

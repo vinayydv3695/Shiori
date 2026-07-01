@@ -5,7 +5,10 @@ import {
     useMangaUIStore,
     useMangaSettingsStore
 } from '@/store/mangaReaderStore';
-import { X, Settings, ChevronLeft, ChevronRight, Maximize, Minimize } from 'lucide-react';
+import { X, Settings, ChevronLeft, ChevronRight, Maximize, Minimize, ZoomIn, ZoomOut, Library, CheckCircle2 } from 'lucide-react';
+import React from 'react';
+import { useOnlineMangaReaderStore } from '@/store/onlineMangaReaderStore';
+import { useLibraryStore } from '@/store/libraryStore';
 
 const TOPBAR_AUTO_HIDE_MS = 10_000;
 
@@ -34,7 +37,20 @@ export function MangaReaderHeader({
     
     const stickyHeader = useMangaSettingsStore(s => s.stickyHeader);
     const readingMode = useMangaSettingsStore(s => s.readingMode);
+    const zoomIn = useMangaSettingsStore(s => s.zoomIn);
+    const zoomOut = useMangaSettingsStore(s => s.zoomOut);
     const isScrollMode = readingMode === 'strip' || readingMode === 'webtoon' || readingMode === 'manhwa';
+
+    const onlineSourceId = useOnlineMangaReaderStore(s => s.sourceId);
+    const onlineContentId = useOnlineMangaReaderStore(s => s.contentId);
+    const addToLibrary = useOnlineMangaReaderStore(s => s.addToLibrary);
+    const libraryBooks = useLibraryStore(s => s.books);
+
+    const isAlreadyInLibrary = React.useMemo(() => {
+        if (sourceType !== 'online' || !onlineSourceId || !onlineContentId) return false;
+        const expectedPath = `online-manga://${onlineSourceId}/${onlineContentId}`;
+        return libraryBooks.some(b => b.file_path === expectedPath);
+    }, [sourceType, onlineSourceId, onlineContentId, libraryBooks]);
 
     const { isFullscreen, toggleFullscreen } = useFullscreen();
     const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -63,17 +79,15 @@ export function MangaReaderHeader({
             return;
         }
         if (isScrollMode) {
-            if (lastScrollActivityAt === 0 || Date.now() - lastScrollActivityAt > TOPBAR_AUTO_HIDE_MS) {
-                return;
+            if (isTopBarVisible) {
+                hideTimeoutRef.current = setTimeout(() => {
+                    const uiState = useMangaUIStore.getState();
+                    const settingsState = useMangaSettingsStore.getState();
+                    if (!settingsState.stickyHeader && !uiState.isSidebarOpen && !uiState.isSettingsOpen) {
+                        setTopBarVisible(false);
+                    }
+                }, TOPBAR_AUTO_HIDE_MS);
             }
-            setTopBarVisible(true);
-            hideTimeoutRef.current = setTimeout(() => {
-                const uiState = useMangaUIStore.getState();
-                const settingsState = useMangaSettingsStore.getState();
-                if (!settingsState.stickyHeader && !uiState.isSidebarOpen && !uiState.isSettingsOpen) {
-                    setTopBarVisible(false);
-                }
-            }, TOPBAR_AUTO_HIDE_MS);
         } else {
             if (isTopBarVisible) {
                 hideTimeoutRef.current = setTimeout(() => {
@@ -166,6 +180,24 @@ export function MangaReaderHeader({
 
                 {/* Right Side: Chapter Nav (Online), Settings, Fullscreen */}
                 <div className="manga-topbar-right">
+                    <button
+                        type="button"
+                        className="manga-topbar-btn"
+                        onClick={zoomOut}
+                        title="Zoom Out"
+                    >
+                        <ZoomOut size={18} />
+                    </button>
+                    <button
+                        type="button"
+                        className="manga-topbar-btn"
+                        onClick={zoomIn}
+                        title="Zoom In"
+                    >
+                        <ZoomIn size={18} />
+                    </button>
+                    <div className="manga-topbar-divider" />
+
                     {sourceType === 'online' && (
                         <>
                             <button 
@@ -187,6 +219,15 @@ export function MangaReaderHeader({
                                 title="Next Chapter"
                             >
                                 <ChevronRight size={20} />
+                            </button>
+                            <button
+                                type="button"
+                                className="manga-topbar-btn"
+                                onClick={addToLibrary}
+                                disabled={isAlreadyInLibrary}
+                                title={isAlreadyInLibrary ? "Already in Library" : "Add to Library"}
+                            >
+                                {isAlreadyInLibrary ? <CheckCircle2 size={18} className="text-green-500" /> : <Library size={18} />}
                             </button>
                             <div className="manga-topbar-divider" />
                         </>

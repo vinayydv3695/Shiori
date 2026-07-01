@@ -91,7 +91,7 @@ export function FinishStep({
             <img
               src={logoSrc}
               alt="Shiori Logo"
-              className="h-full w-full object-cover [animation:finish-logo-in_0.8s_cubic-bezier(0.16,1,0.3,1)_forwards,finish-logo-float_3.8s_ease-in-out_infinite_0.8s]"
+              className="h-full w-full object-contain p-4 md:p-6 [animation:finish-logo-in_0.8s_cubic-bezier(0.16,1,0.3,1)_forwards,finish-logo-float_3.8s_ease-in-out_infinite_0.8s]"
             />
             <div className="absolute inset-0 rounded-full border border-primary/30 [animation:ping_3s_cubic-bezier(0,0,0.2,1)_infinite]" />
           </div>

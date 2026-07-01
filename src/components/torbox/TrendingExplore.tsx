@@ -156,7 +156,7 @@ export function TrendingExplore({ type }: TrendingExploreProps) {
           </h2>
           <div className="flex gap-4 overflow-hidden px-4">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="min-w-[140px] h-[200px] bg-muted/20 rounded-xl animate-pulse" />
+              <div key={i} className="min-w-[130px] md:min-w-[180px] lg:min-w-[225px] aspect-[2/3] bg-muted/20 rounded-xl animate-pulse flex-none" />
             ))}
           </div>
         </div>
@@ -236,7 +236,7 @@ function Row({ title, items, onSelect }: { title: string, items: TrendingItem[],
             transition={{ delay: i * 0.03 }}
             key={item.id}
             onClick={() => onSelect(item)}
-            className="relative flex-none w-[225px] snap-center group cursor-pointer"
+            className="relative flex-none w-[130px] md:w-[180px] lg:w-[225px] snap-start md:snap-center group cursor-pointer"
           >
             <div className="relative aspect-[2/3] w-full rounded-lg overflow-hidden bg-muted/20 border border-white/5 shadow-md group-hover:shadow-xl transition-all duration-300 group-hover:-translate-y-1">
               {item.coverUrl ? (

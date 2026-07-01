@@ -24,14 +24,18 @@ pub fn save_doodle(
         ));
     }
 
-    conn.execute(
-        "INSERT INTO doodles (book_id, page_number, strokes_json)
-         VALUES (?1, ?2, ?3)
-         ON CONFLICT(book_id, page_number)
-         DO UPDATE SET strokes_json = excluded.strokes_json,
-                       updated_at = CURRENT_TIMESTAMP",
-        rusqlite::params![book_id, page_number, strokes_json],
+    // Fallback approach since Android API 28 doesn't support UPSERT syntax (requires SQLite 3.24.0)
+    let updated = conn.execute(
+        "UPDATE doodles SET strokes_json = ?1, updated_at = CURRENT_TIMESTAMP WHERE book_id = ?2 AND page_number = ?3",
+        rusqlite::params![strokes_json, book_id, page_number],
     )?;
+
+    if updated == 0 {
+        conn.execute(
+            "INSERT INTO doodles (book_id, page_number, strokes_json) VALUES (?1, ?2, ?3)",
+            rusqlite::params![book_id, page_number, strokes_json],
+        )?;
+    }
 
     // Return the saved doodle
     let doodle = conn.query_row(

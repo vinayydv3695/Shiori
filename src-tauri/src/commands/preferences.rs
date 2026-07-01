@@ -597,8 +597,7 @@ pub async fn set_book_preference_override(
     let conn = state.db.get_connection()?;
     // Upsert book override entry
     conn.execute(
-        "INSERT INTO book_preference_overrides (book_id) VALUES (?)
-         ON CONFLICT(book_id) DO NOTHING",
+        "INSERT OR IGNORE INTO book_preference_overrides (book_id) VALUES (?)",
         [book_id],
     )?;
 
@@ -756,8 +755,7 @@ pub async fn set_manga_preference_override(
     let conn = state.db.get_connection()?;
     // Upsert manga override entry
     conn.execute(
-        "INSERT INTO manga_preference_overrides (book_id) VALUES (?)
-         ON CONFLICT(book_id) DO NOTHING",
+        "INSERT OR IGNORE INTO manga_preference_overrides (book_id) VALUES (?)",
         [book_id],
     )?;
 
@@ -866,14 +864,14 @@ pub async fn complete_onboarding(
     let conn = state.db.get_connection()?;
     let skipped_json = serde_json::to_string(&skipped_steps).unwrap_or_else(|_| "[]".to_string());
 
-    // Use UPSERT to guarantee id = 1 exists and is updated.
+    // Use UPDATE to guarantee id = 1 is updated (inserted during migrations).
     conn.execute(
-        "INSERT INTO onboarding_state (id, completed, completed_at, skipped_steps, version)
-         VALUES (1, 1, CURRENT_TIMESTAMP, ?, 2)
-         ON CONFLICT(id) DO UPDATE SET 
+        "UPDATE onboarding_state SET 
             completed = 1, 
             completed_at = CURRENT_TIMESTAMP, 
-            skipped_steps = excluded.skipped_steps",
+            skipped_steps = ?,
+            version = 2
+         WHERE id = 1",
         [skipped_json],
     )?;
 
@@ -888,12 +886,12 @@ pub async fn complete_onboarding(
 pub async fn reset_onboarding(state: State<'_, AppState>) -> Result<()> {
     let conn = state.db.get_connection()?;
     conn.execute(
-        "INSERT INTO onboarding_state (id, completed, completed_at, skipped_steps, version)
-         VALUES (1, 0, NULL, '[]', 2)
-         ON CONFLICT(id) DO UPDATE SET 
+        "UPDATE onboarding_state SET 
             completed = 0, 
             completed_at = NULL, 
-            skipped_steps = '[]'",
+            skipped_steps = '[]',
+            version = 2
+         WHERE id = 1",
         [],
     )?;
 

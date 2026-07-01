@@ -22,7 +22,7 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
     }
 
     @app.tauri.annotation.ActivityCallback
-    fun safFolderResult(invoke: Invoke, result: app.tauri.plugin.ActivityResult) {
+    fun safFolderResult(invoke: Invoke, result: androidx.activity.result.ActivityResult) {
         if (result.resultCode == Activity.RESULT_OK) {
             val uri: Uri? = result.data?.data
             if (uri != null) {

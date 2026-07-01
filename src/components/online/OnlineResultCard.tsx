@@ -216,9 +216,9 @@ export const OnlineResultCard = memo(function OnlineResultCard({
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-end w-full sm:w-auto mt-auto gap-2 p-1.5 bg-background/50 backdrop-blur-sm rounded-lg border border-border/40 shadow-sm self-end" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-end w-full sm:w-auto mt-auto gap-2 p-1.5 bg-background/50 backdrop-blur-sm rounded-lg border border-border/40 shadow-sm self-end">
           {onReadOnline && (
-            <Button size="sm" onClick={onReadOnline} className="gap-1.5 h-8 text-xs bg-primary/90 hover:bg-primary">
+            <Button size="sm" onClick={(e) => { e.stopPropagation(); onReadOnline(); }} className="gap-1.5 h-8 text-xs bg-primary/90 hover:bg-primary">
               <BookOpen className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Read Online</span>
               <span className="sm:hidden">Read</span>
@@ -226,7 +226,7 @@ export const OnlineResultCard = memo(function OnlineResultCard({
           )}
           
           {onViewDetails && (
-            <Button variant="outline" size="sm" onClick={onViewDetails} className="gap-1.5 h-8 text-xs border-border/50 hover:bg-accent">
+            <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); onViewDetails(); }} className="gap-1.5 h-8 text-xs border-border/50 hover:bg-accent">
               <Info className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Details</span>
               <span className="sm:hidden">Info</span>
@@ -237,7 +237,7 @@ export const OnlineResultCard = memo(function OnlineResultCard({
             <Button 
               variant="secondary" 
               size="sm" 
-              onClick={onDownload}
+              onClick={(e) => { e.stopPropagation(); onDownload(); }}
               disabled={Boolean(isDownloading)}
               className="gap-1.5 h-8 text-xs font-medium"
             >
@@ -253,7 +253,7 @@ export const OnlineResultCard = memo(function OnlineResultCard({
           )}
 
           {onTorbox && torboxAvailable && (
-            <Button variant="outline" size="sm" onClick={onTorbox} className="gap-1.5 h-8 text-xs border-border/50 hover:bg-accent">
+            <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); onTorbox(); }} className="gap-1.5 h-8 text-xs border-border/50 hover:bg-accent">
               <Download className="w-3.5 h-3.5" />
               Torbox
             </Button>

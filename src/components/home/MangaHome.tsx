@@ -11,7 +11,7 @@ interface MangaHomeProps {
     onOpenManga: (book: Book) => void
 }
 
-const MANGA_FORMATS = ['cbz', 'cbr']
+const MANGA_FORMATS = ['cbz', 'cbr', 'zip', 'online-manga']
 
 export function MangaHome({ onOpenManga }: MangaHomeProps) {
     const allBooks = useLibraryStore((s) => s.books)

@@ -35,7 +35,7 @@ impl<R: Runtime, T: Manager<R>> crate::AndroidSafExt<R> for T {
 /// Initializes the plugin.
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
   Builder::new("android-saf")
-    .invoke_handler(tauri::generate_handler![commands::select_folder])
+    .invoke_handler(tauri::generate_handler![commands::select_folder, commands::select_files])
     .setup(|app, api| {
       #[cfg(mobile)]
       let android_saf = mobile::init(app, api)?;

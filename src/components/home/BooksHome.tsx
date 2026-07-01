@@ -12,7 +12,7 @@ interface BooksHomeProps {
     onViewRSS: () => void
 }
 
-const MANGA_FORMATS = ['cbz', 'cbr']
+const MANGA_FORMATS = ['cbz', 'cbr', 'zip', 'online-manga']
 
 export function BooksHome({ onOpenBook, onViewRSS }: BooksHomeProps) {
     const allBooks = useLibraryStore((s) => s.books)

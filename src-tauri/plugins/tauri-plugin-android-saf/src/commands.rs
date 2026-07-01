@@ -10,3 +10,10 @@ pub(crate) async fn select_folder<R: Runtime>(
 ) -> Result<SelectFolderResponse> {
     app.android_saf().select_folder()
 }
+
+#[command]
+pub(crate) async fn select_files<R: Runtime>(
+    app: AppHandle<R>,
+) -> Result<SelectFilesResponse> {
+    app.android_saf().select_files()
+}

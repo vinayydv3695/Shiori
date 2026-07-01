@@ -869,7 +869,7 @@ pub async fn complete_onboarding(
     // Use UPSERT to guarantee id = 1 exists and is updated.
     conn.execute(
         "INSERT INTO onboarding_state (id, completed, completed_at, skipped_steps, version)
-         VALUES (1, 1, CURRENT_TIMESTAMP, ?, '2.0')
+         VALUES (1, 1, CURRENT_TIMESTAMP, ?, 2)
          ON CONFLICT(id) DO UPDATE SET 
             completed = 1, 
             completed_at = CURRENT_TIMESTAMP, 
@@ -889,7 +889,7 @@ pub async fn reset_onboarding(state: State<'_, AppState>) -> Result<()> {
     let conn = state.db.get_connection()?;
     conn.execute(
         "INSERT INTO onboarding_state (id, completed, completed_at, skipped_steps, version)
-         VALUES (1, 0, NULL, '[]', '2.0')
+         VALUES (1, 0, NULL, '[]', 2)
          ON CONFLICT(id) DO UPDATE SET 
             completed = 0, 
             completed_at = NULL, 

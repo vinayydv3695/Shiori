@@ -31,6 +31,8 @@ interface OnlineMangaDetailViewProps {
   chaptersLoading: boolean;
   chaptersError: string | null;
   unifiedChapters: UnifiedChapter[];
+  sourceId?: string;
+  contentId?: string;
 
   relatedManga?: any[];
   recommendedManga?: any[];
@@ -53,6 +55,8 @@ export function OnlineMangaDetailView({
   chaptersLoading,
   chaptersError,
   unifiedChapters,
+  sourceId,
+  contentId,
   relatedManga,
   recommendedManga,
   onBack,
@@ -61,6 +65,31 @@ export function OnlineMangaDetailView({
   onMangaClick,
 }: OnlineMangaDetailViewProps) {
   const parentRef = useRef<HTMLDivElement>(null);
+
+  const [resumeChapterId, setResumeChapterId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (sourceId && contentId) {
+      const progressKey = `online:${sourceId}:${contentId}`;
+      const savedProgressStr = localStorage.getItem(`shiori-manga-progress:${progressKey}`);
+      if (savedProgressStr) {
+        try {
+          const savedProgress = JSON.parse(savedProgressStr);
+          if (savedProgress?.chapterId) {
+            setResumeChapterId(savedProgress.chapterId);
+          }
+        } catch (e) {
+          console.error('Failed to parse manga progress', e);
+        }
+      }
+    }
+  }, [sourceId, contentId]);
+
+  const resumeChapter = useMemo(() => {
+    if (!resumeChapterId) return null;
+    return unifiedChapters.find(c => c.id === resumeChapterId) || null;
+  }, [resumeChapterId, unifiedChapters]);
+
   const [expandedVolume, setExpandedVolume] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'CHAPTER' | 'VOLUME'>('CHAPTER');
   const [searchQuery, setSearchQuery] = useState('');
@@ -217,13 +246,21 @@ export function OnlineMangaDetailView({
               {alternateTitles}
             </p>
 
+
             <div className="flex flex-wrap gap-4 mb-6">
-              <Button onClick={() => unifiedChapters.length > 0 && onReadChapter(filteredAndSortedChapters[filteredAndSortedChapters.length - 1])} 
+              <Button onClick={() => unifiedChapters.length > 0 && onReadChapter(filteredAndSortedChapters[filteredAndSortedChapters.length - 1])}
                       className="gap-2 px-8 h-10 rounded text-sm bg-[#357ebd] hover:bg-[#2b659b] text-foreground border-0">
                 START READING <Play className="w-4 h-4 ml-1 fill-current" />
               </Button>
-
+              {resumeChapter && (
+                <Button onClick={() => onReadChapter(resumeChapter)}
+                        variant="secondary"
+                        className="gap-2 px-8 h-10 rounded text-sm text-foreground border border-border/50">
+                  CONTINUE READING <Play className="w-4 h-4 ml-1 fill-current" />
+                </Button>
+              )}
             </div>
+
 
             <div className="flex items-center gap-4 text-xs text-muted-foreground mb-6 font-medium">
               <span>{formatText}</span>

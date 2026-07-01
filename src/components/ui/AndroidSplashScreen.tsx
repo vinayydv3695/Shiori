@@ -58,7 +58,7 @@ export const AndroidSplashScreen = ({ onAnimationEnd, isReady }: AndroidSplashSc
     >
       <div className="relative flex flex-col items-center justify-center">
         <img
-          src="/logo.svg"
+          src={`${import.meta.env.BASE_URL}logo.png`}
           alt="Shiori Logo"
           className="w-40 h-40 object-contain animate-splash-logo"
         />

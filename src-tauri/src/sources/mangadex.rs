@@ -364,6 +364,7 @@ struct MangaDexChapterResponse {
 struct MangaDexChapter {
     id: String,
     attributes: MangaDexChapterAttributes,
+    #[allow(dead_code)]
     relationships: Option<Vec<MangaDexChapterRelationship>>,
 }
 
@@ -389,6 +390,7 @@ struct MangaDexChapterRelationship {
 
 #[derive(Debug, Deserialize, Default)]
 struct MangaDexScanlationGroupAttributes {
+    #[allow(dead_code)]
     name: Option<String>,
 }
 

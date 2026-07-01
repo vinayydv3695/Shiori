@@ -38,7 +38,7 @@ const SeriesHeader = memo(function SeriesHeader({
   
   if (!series) return null;
   const firstBook = series.books[0];
-  const { coverUrl } = useCoverImage(firstBook?.id, null)
+  const { coverUrl } = useCoverImage(firstBook?.id, firstBook?.cover_path)
 
   const totalPages = useMemo(() => series.books.reduce((acc, b) => acc + (b.page_count || 0), 0), [series.books]);
   
@@ -190,7 +190,7 @@ const ListBookCard = memo(function ListBookCard({
   onSelect: (id: number) => void
   onOpen: (id: number) => void
 }) {
-  const { coverUrl } = useCoverImage(book.id, null);
+  const { coverUrl } = useCoverImage(book.id, book.cover_path);
   const status = getBookReadStatus(book);
   const isRead = status === 'completed';
 

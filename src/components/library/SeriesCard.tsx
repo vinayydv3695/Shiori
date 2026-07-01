@@ -97,7 +97,7 @@ export const SeriesCard = memo(function SeriesCard({
   const firstBook = series.books[0];
   const { coverUrl, loading: coverLoading } = useCoverImage(
     visible ? firstBook?.id : undefined,
-    null,
+    firstBook?.cover_path
   );
 
   useEffect(() => {

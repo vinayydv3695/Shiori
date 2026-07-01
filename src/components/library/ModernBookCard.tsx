@@ -192,7 +192,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
   // Cover is only requested once the card is visible in the viewport.
   // The coverCache batcher groups all cards visible in the same render
   // cycle into a single batch IPC call.
-  const { coverUrl, loading: coverLoading } = useCoverImage(visible ? book.id : undefined, null)
+  const { coverUrl, loading: coverLoading } = useCoverImage(visible ? book.id : undefined, book.cover_path)
 
   const isManga = book.file_format === 'cbz' || book.file_format === 'cbr'
 

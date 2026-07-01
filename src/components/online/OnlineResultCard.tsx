@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, memo } from 'react';
 import { api } from '@/lib/tauri';
 import { fetchCoverForBook } from "@/online-books/openlibrary/api";
-import { BookOpen, User, Calendar, ExternalLink, Download, Loader2 } from 'lucide-react';
+import { BookOpen, User, Calendar, ExternalLink, Download, Loader2, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -110,10 +110,11 @@ export const OnlineResultCard = memo(function OnlineResultCard({
   return (
     <div
       ref={cardRef}
+      onClick={onReadOnline || onViewDetails}
       className={cn(
         'group relative flex gap-4 p-4 rounded-xl border border-border bg-card/60 backdrop-blur-sm',
         'hover:bg-accent/40 hover:border-border/80 transition-all duration-300',
-        'shadow-sm hover:shadow-md',
+        'shadow-sm hover:shadow-md cursor-pointer',
         !visible && 'opacity-0 translate-y-4',
         visible && 'animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-forwards'
       )}
@@ -215,50 +216,48 @@ export const OnlineResultCard = memo(function OnlineResultCard({
         </div>
 
         {/* Actions */}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex items-center justify-end w-full sm:w-auto mt-auto gap-2 p-1.5 bg-background/50 backdrop-blur-sm rounded-lg border border-border/40 shadow-sm self-end" onClick={(e) => e.stopPropagation()}>
           {onReadOnline && (
             <Button size="sm" onClick={onReadOnline} className="gap-1.5 h-8 text-xs bg-primary/90 hover:bg-primary">
               <BookOpen className="w-3.5 h-3.5" />
-              Read Online
+              <span className="hidden sm:inline">Read Online</span>
+              <span className="sm:hidden">Read</span>
             </Button>
           )}
           
           {onViewDetails && (
             <Button variant="outline" size="sm" onClick={onViewDetails} className="gap-1.5 h-8 text-xs border-border/50 hover:bg-accent">
-              <ExternalLink className="w-3.5 h-3.5" />
-              Details
+              <Info className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Details</span>
+              <span className="sm:hidden">Info</span>
             </Button>
           )}
 
           {onDownload && (
-            <Button
-              variant={isDownloading ? "secondary" : "default"}
-              size="sm"
+            <Button 
+              variant="secondary" 
+              size="sm" 
               onClick={onDownload}
-              disabled={!!isDownloading}
-              className={cn("gap-1.5 h-8 text-xs", !isDownloading && "bg-primary/90 hover:bg-primary")}
+              disabled={Boolean(isDownloading)}
+              className="gap-1.5 h-8 text-xs font-medium"
             >
               {isDownloading ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  {typeof isDownloading === 'string' ? isDownloading : 'Downloading...'}
-                </>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
-                <>
-                  <Download className="w-3.5 h-3.5" />
-                  Download
-                </>
+                <Download className="w-3.5 h-3.5" />
               )}
+              <span className="hidden sm:inline">
+                {isDownloading ? (typeof isDownloading === 'string' ? isDownloading : 'Downloading...') : 'Download'}
+              </span>
             </Button>
           )}
 
-          {torboxAvailable && onTorbox && !isDownloading && (
+          {onTorbox && torboxAvailable && (
             <Button variant="outline" size="sm" onClick={onTorbox} className="gap-1.5 h-8 text-xs border-border/50 hover:bg-accent">
               <Download className="w-3.5 h-3.5" />
               Torbox
             </Button>
           )}
-          
           {torboxAvailable === false && (
             <p className="text-[10px] text-muted-foreground/60 flex items-center ml-1">
               Torbox unavailable

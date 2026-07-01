@@ -152,6 +152,10 @@ pub async fn get_cover_path_by_id(
 
     // Try extracted cover path first
     if let Some(cover_path) = &book.cover_path {
+        // Online manga covers are HTTP URLs — return them directly
+        if cover_path.starts_with("http://") || cover_path.starts_with("https://") {
+            return Ok(Some(cover_path.clone()));
+        }
         if std::path::Path::new(cover_path).exists() {
             return Ok(Some(cover_path.clone()));
         }
@@ -227,8 +231,11 @@ pub async fn get_cover_paths_batch(
     let mut result = std::collections::HashMap::with_capacity(capped.len());
     for row in rows {
         if let Ok((id, path)) = row {
-            // Only include if the file actually exists on disk
-            if std::path::Path::new(&path).exists() {
+            // Online manga covers are HTTP URLs — include directly without a file-exists check
+            if path.starts_with("http://") || path.starts_with("https://") {
+                result.insert(id.to_string(), path);
+            } else if std::path::Path::new(&path).exists() {
+                // Only include local files if they actually exist on disk
                 result.insert(id.to_string(), path);
             }
         }

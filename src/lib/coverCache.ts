@@ -21,6 +21,10 @@ import { invoke, convertFileSrc } from '@tauri-apps/api/core'
  * convertFileSrc() requires forward slashes to build a valid asset:// URL.
  */
 function toAssetUrl(filePath: string): string {
+  // HTTP(S) URLs (e.g. online manga cover CDN links) — return as-is
+  if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+    return filePath
+  }
   // Replace all backslashes with forward slashes
   const normalized = filePath.replace(/\\/g, '/')
   return convertFileSrc(normalized)

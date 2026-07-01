@@ -4,6 +4,10 @@ import { requestCoverUrl } from '@/lib/coverCache'
 
 /** Normalize Windows backslash paths for the asset:// protocol */
 function toAssetUrl(filePath: string): string {
+  // HTTP(S) URLs (e.g. online manga cover CDN links) — use directly
+  if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+    return filePath
+  }
   return convertFileSrc(filePath.replace(/\\/g, '/'))
 }
 

@@ -111,7 +111,9 @@ impl Database {
                 notes TEXT,
                 reading_status TEXT NOT NULL DEFAULT 'planning',
                 domain TEXT DEFAULT NULL,
-                is_wishlist INTEGER NOT NULL DEFAULT 0
+                is_wishlist INTEGER NOT NULL DEFAULT 0,
+                in_trash INTEGER NOT NULL DEFAULT 0,
+                deleted_at TEXT
             )",
             [],
         )?;
@@ -280,6 +282,14 @@ impl Database {
         );
         let _ = conn.execute(
             "ALTER TABLE reader_settings ADD COLUMN updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            [],
+        );
+        let _ = conn.execute(
+            "ALTER TABLE books ADD COLUMN in_trash INTEGER NOT NULL DEFAULT 0",
+            [],
+        );
+        let _ = conn.execute(
+            "ALTER TABLE books ADD COLUMN deleted_at TEXT",
             [],
         );
 

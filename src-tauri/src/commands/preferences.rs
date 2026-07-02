@@ -839,14 +839,16 @@ pub async fn get_onboarding_state(state: State<'_, AppState>) -> Result<Onboardi
         "SELECT completed, completed_at, version, skipped_steps FROM onboarding_state WHERE id = 1",
         [],
         |row| {
-            let skipped_json: String = row.get(3)?;
+            let skipped_json = row.get::<_, Option<String>>(3)
+                .unwrap_or(None)
+                .unwrap_or_else(|| "[]".to_string());
             let skipped_steps: Vec<String> =
                 serde_json::from_str(&skipped_json).unwrap_or_else(|_| Vec::new());
 
             Ok(OnboardingState {
-                completed: row.get(0)?,
-                completed_at: row.get(1)?,
-                version: row.get(2)?,
+                completed: row.get::<_, Option<bool>>(0).unwrap_or(Some(false)).unwrap_or(false),
+                completed_at: row.get::<_, Option<String>>(1).unwrap_or(None),
+                version: row.get::<_, Option<i32>>(2).unwrap_or(Some(1)).unwrap_or(1),
                 skipped_steps,
             })
         },
@@ -864,14 +866,10 @@ pub async fn complete_onboarding(
     let conn = state.db.get_connection()?;
     let skipped_json = serde_json::to_string(&skipped_steps).unwrap_or_else(|_| "[]".to_string());
 
-    // Use UPDATE to guarantee id = 1 is updated (inserted during migrations).
+    // Ensure id = 1 is created or updated
     conn.execute(
-        "UPDATE onboarding_state SET 
-            completed = 1, 
-            completed_at = CURRENT_TIMESTAMP, 
-            skipped_steps = ?,
-            version = 2
-         WHERE id = 1",
+        "INSERT OR REPLACE INTO onboarding_state (id, completed, completed_at, skipped_steps, version) 
+         VALUES (1, 1, CURRENT_TIMESTAMP, ?, 2)",
         [skipped_json],
     )?;
 
@@ -1123,7 +1121,9 @@ pub async fn get_startup_data(state: State<'_, AppState>) -> Result<StartupData>
         "SELECT completed, completed_at, version, skipped_steps FROM onboarding_state WHERE id = 1",
         [],
         |row| {
-            let skipped_json: String = row.get(3)?;
+            let skipped_json = row.get::<_, Option<String>>(3)
+                .unwrap_or(None)
+                .unwrap_or_else(|| "[]".to_string());
             let skipped_steps = serde_json::from_str(&skipped_json).unwrap_or_default();
             
             // Be resilient in case of other issues with version type
@@ -1139,8 +1139,8 @@ pub async fn get_startup_data(state: State<'_, AppState>) -> Result<StartupData>
             };
 
             Ok(OnboardingState {
-                completed: row.get(0)?,
-                completed_at: row.get(1)?,
+                completed: row.get::<_, Option<bool>>(0).unwrap_or(Some(false)).unwrap_or(false),
+                completed_at: row.get::<_, Option<String>>(1).unwrap_or(None),
                 version,
                 skipped_steps,
             })

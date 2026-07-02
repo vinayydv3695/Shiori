@@ -28,8 +28,8 @@ export function useMangaScroll(
 
                 // Auto-hide TopBar logic
                 const diff = scrollTop - lastScrollTopRef.current;
-                if (Math.abs(diff) > 20) {
-                    if (diff > 0 && scrollTop > 100) {
+                if (Math.abs(diff) > 5) {
+                    if (diff > 0 && scrollTop > 50) {
                         useMangaUIStore.getState().setTopBarVisible(false);
                     } else if (diff < 0 || scrollTop < 50) {
                         useMangaUIStore.getState().setTopBarVisible(true);

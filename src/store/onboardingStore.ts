@@ -137,8 +137,13 @@ const THEME_VALUE_TO_NAME = Object.fromEntries(
 ) as Record<Theme, ThemeName>;
 
 const getDefaultThemeName = (): ThemeName => {
-  if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
-    return 'Black';
+  if (typeof window !== 'undefined') {
+    if (window.navigator.userAgent.toLowerCase().includes('android')) {
+      return 'Black';
+    }
+    if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
+      return 'Black';
+    }
   }
   return 'White';
 };

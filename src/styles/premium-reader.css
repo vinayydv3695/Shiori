@@ -198,7 +198,7 @@ select {
    ──────────────────────────────────────────────────────────── */
 .premium-top-bar {
   position: fixed;
-  top: var(--spacing-sm);
+  top: calc(var(--spacing-sm) + env(safe-area-inset-top, 0px));
   left: 50%;
   transform: translateX(-50%);
   height: 40px;
@@ -372,8 +372,8 @@ select {
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   /* SHIORI-FIX: padding-top tracks toolbar height (48px) */
-  padding-top: 48px;
-  padding-bottom: 80px;
+  padding-top: calc(48px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
   /* Extra space at bottom */
 }
 
@@ -446,6 +446,35 @@ select {
   grid-template-columns: 1fr 1fr;
   gap: 4rem;
   position: relative;
+}
+
+/* Horizontal Pagination adjustments */
+.premium-reading-canvas--paginated {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+}
+
+.premium-content-container--paginated {
+  column-width: 100vw;
+  column-gap: 0;
+  height: calc(100vh - 48px - env(safe-area-inset-top, 0px) - 80px - env(safe-area-inset-bottom, 0px));
+  padding: 0;
+  max-width: none;
+}
+
+.premium-content-container--paginated .premium-chapter-page {
+  height: 100%;
+}
+
+.premium-content-container--paginated .premium-chapter-content {
+  column-width: 100vw;
+  column-gap: 0;
+  height: 100%;
+}
+
+.premium-content-container--paginated .premium-chapter-content > * {
+  break-inside: avoid;
 }
 
 /* Vertical divider line to separate chapters visually */

@@ -310,7 +310,7 @@ export function Layout({
   }
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-background">
+    <div className={cn("flex flex-col h-screen overflow-hidden bg-background", isMobile && "pt-10")}>
       {/* ── Topbar ── */}
       {currentView !== 'online-manga-reader' && (
         <PremiumTopbar

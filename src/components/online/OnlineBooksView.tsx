@@ -172,7 +172,7 @@ export function OnlineBooksView() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-background relative z-10">
+    <div className="flex flex-col h-full bg-background relative z-10 pt-10 md:pt-0">
       <OnlineSearchHeader 
         kind="books"
         title="Online Library"
@@ -196,7 +196,7 @@ export function OnlineBooksView() {
             )}
 
             {results.length > 0 ? (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(105px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 md:gap-4">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 md:gap-4">
                 {results.map((book) => (
                   <ModernBookCard
                     key={`${book.source}-${book.id}`}

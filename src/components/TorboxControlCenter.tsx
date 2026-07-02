@@ -486,39 +486,45 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                 {!isDone && !isErr && <div className="absolute -top-10 -right-10 h-32 w-32 rounded-full bg-blue-500/10 blur-3xl" />}
                 {isDone && <div className="absolute -top-10 -right-10 h-32 w-32 rounded-full bg-emerald-500/10 blur-3xl" />}
                 
-                <div className="relative z-10">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-foreground tracking-tight">{job.title || `Job #${job.id}`}</p>
-                      <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground font-mono">
-                        <span>{formatBytes(job.size || 0)}</span>
-                        <span className="opacity-50">•</span>
-                        <span className="truncate">ID {job.torrentId || '...'}</span>
+                <div className="relative z-10 flex flex-row items-start gap-3 md:gap-4">
+                  {job.coverPath || job.metadata?.coverUrl ? (
+                    <img src={job.coverPath ? convertFileSrc(job.coverPath) : job.metadata!.coverUrl} alt="Cover" className="h-24 w-16 md:h-28 md:w-20 rounded-md object-cover shadow-sm bg-muted shrink-0" />
+                  ) : (
+                    <div className="flex h-24 w-16 md:h-28 md:w-20 items-center justify-center rounded-md bg-muted/50 text-muted-foreground/50 shrink-0">
+                      <Image className="h-6 w-6 md:h-8 md:w-8" />
+                    </div>
+                  )}
+                  
+                  <div className="flex-1 min-w-0 flex flex-col text-left">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 pr-4">
+                        <h3 className="font-semibold text-sm md:text-base text-foreground truncate" title={job.title || 'Unknown Title'}>{job.title || 'Unknown Title'}</h3>
+                        <p className="mt-0.5 md:mt-1 truncate text-xs text-muted-foreground" title={job.sourceLink}>{job.sourceLink}</p>
+                      </div>
+                      <button onClick={() => void removeJob(job.id)} className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors" title="Cancel/Remove">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    <div className="mt-4 flex items-end justify-between">
+                      <Badge className={`border text-[10px] uppercase tracking-wider font-semibold ${queueStatusBadgeClass(job)}`} variant="outline">
+                        {job.status || 'queued'}
+                      </Badge>
+                      <div className="text-right">
+                        <p className="text-xs font-medium text-foreground/80">{Math.round(progress)}%</p>
                       </div>
                     </div>
-                    <button type="button" className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted/50 text-muted-foreground opacity-0 transition-all hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100" onClick={() => removeJob(job.id)}>
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
 
-                  <div className="mt-4 flex items-end justify-between">
-                    <Badge className={`border text-[10px] uppercase tracking-wider font-semibold ${queueStatusBadgeClass(job)}`} variant="outline">
-                      {job.status || 'queued'}
-                    </Badge>
-                    <div className="text-right">
-                      <p className="text-xs font-medium text-foreground/80">{Math.round(progress)}%</p>
+                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted/50">
+                      <motion.div className={`h-full rounded-full ${progressFillClass(job)}`} initial={{ width: 0 }} animate={{ width: `${progress}%` }} />
                     </div>
-                  </div>
 
-                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted/50">
-                    <motion.div className={`h-full rounded-full ${progressFillClass(job)}`} initial={{ width: 0 }} animate={{ width: `${progress}%` }} />
-                  </div>
-
-                  <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground font-medium">
-                    <span className="truncate pr-2">{statusPhaseText(job.status)}</span>
-                    <div className="flex shrink-0 items-center gap-2 text-right">
-                      {eta && <span className="text-blue-400/80">{eta}</span>}
-                      {(job.downloadSpeed || 0) > 0 && <span>{formatSpeed(job.downloadSpeed!)}</span>}
+                    <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground font-medium">
+                      <span className="truncate pr-2">{statusPhaseText(job.status)}</span>
+                      <div className="flex shrink-0 items-center gap-2 text-right">
+                        {eta && <span className="text-blue-400/80">{eta}</span>}
+                        {(job.downloadSpeed || 0) > 0 && <span>{formatSpeed(job.downloadSpeed!)}</span>}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -554,14 +560,14 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
   }, [removeJob, resolveJob, importJob])
 
   return (
-    <div className={`flex h-full flex-col bg-background p-6 text-foreground relative overflow-hidden ${isMobile ? 'pb-24 pt-2 px-4' : ''}`}>
+    <div className={`flex h-full flex-col bg-background p-6 text-foreground relative overflow-hidden ${isMobile ? 'pb-24 pt-10 px-4' : ''}`}>
       <header className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-4 pb-2 md:pb-6">
         <div className="flex items-center gap-4">
           <div className="hidden md:flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
             <Cloud className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground flex items-center gap-3">
+            <h1 className="text-lg md:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
               Torbox Control Center
               <Badge variant="outline" className={`h-5 px-2 rounded-md font-bold tracking-wider uppercase text-[10px] ${apiKey ? 'border-emerald-500/30 text-emerald-500 bg-emerald-500/10' : 'border-amber-500/30 text-amber-500 bg-amber-500/10'}`}>
                 {apiKey ? 'API Active' : 'No Key'}
@@ -625,14 +631,14 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                 <div className="max-w-2xl mx-auto mb-4 md:mb-8 pt-2 md:pt-4">
                   <div className="relative flex items-center shadow-sm bg-card border border-border rounded-full hover:border-border/80 ring-1 ring-transparent focus-within:border-primary focus-within:ring-primary transition-shadow duration-200">
                     <Search className="hidden md:block absolute left-5 h-5 w-5 text-muted-foreground" />
-                    <Input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void runSearch() }} placeholder="Search AniList or OpenLibrary..." className="flex-1 h-12 md:h-14 border-0 bg-transparent pl-4 md:pl-14 pr-2 text-sm md:text-base font-medium shadow-none focus-visible:ring-0 focus-visible:ring-offset-0" />
+                    <Input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void runSearch() }} placeholder="Search AniList or OpenLibrary..." className="flex-1 h-12 md:h-14 border-0 bg-transparent pl-4 md:pl-14 pr-1 md:pr-2 text-sm md:text-base font-medium shadow-none focus-visible:ring-0 focus-visible:ring-offset-0" />
                     <div className="pr-1 md:pr-2 flex items-center gap-1 md:gap-2">
-                      <select value={searchType} onChange={(event) => setSearchType(event.target.value as SearchType)} className="h-8 md:h-10 rounded-full bg-transparent hover:bg-foreground focus:bg-foreground border-0 px-2 md:px-4 text-xs md:text-sm font-medium text-muted-foreground hover:text-background focus:text-background cursor-pointer focus:outline-none transition-colors [&>option]:bg-background [&>option]:text-foreground">
+                      <select value={searchType} onChange={(event) => setSearchType(event.target.value as SearchType)} className="h-8 md:h-10 rounded-full bg-transparent hover:bg-foreground focus:bg-foreground border-0 px-2 md:px-4 text-xs md:text-sm font-medium text-muted-foreground hover:text-background focus:text-background cursor-pointer focus:outline-none transition-colors [&>option]:bg-background [&>option]:text-foreground max-w-[85px] md:max-w-none truncate">
                         {(preferredContentType === 'manga' || preferredContentType === 'both') && <option value="manga">Manga</option>}
                         {(preferredContentType === 'books' || preferredContentType === 'both') && <option value="books">Books</option>}
                         {preferredContentType === 'both' && <option value="all">Everywhere</option>}
                       </select>
-                      <Button size="icon" className="h-10 w-10 rounded-full shrink-0" onClick={() => void runSearch()} disabled={isSearching}>
+                      <Button size="icon" className="h-9 w-9 md:h-10 md:w-10 rounded-full shrink-0" onClick={() => void runSearch()} disabled={isSearching}>
                         {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                       </Button>
                     </div>
@@ -669,12 +675,12 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                           className={`group flex flex-col overflow-hidden rounded-xl bg-card border shadow-sm transition-all ${isExpanded ? 'col-span-full sm:col-span-full md:col-span-full lg:col-span-full xl:col-span-full border-primary shadow-md' : 'border-border/50 hover:border-primary/50 hover:shadow-md cursor-pointer'}`}
                         >
                           <div 
-                            className={`flex ${isExpanded ? 'flex-col md:flex-row gap-6 p-6 items-start bg-muted/10 relative' : 'flex-col h-full'}`}
+                            className={`flex ${isExpanded ? 'flex-col md:flex-row gap-4 md:gap-6 p-4 md:p-6 items-start bg-muted/10 relative' : 'flex-col h-full'}`}
                             onClick={() => {
                               if (!isExpanded) fetchTorrentsForMetadata(result);
                             }}
                           >
-                            <div className={`relative overflow-hidden bg-muted flex-shrink-0 ${isExpanded ? 'w-32 md:w-48 rounded-lg shadow-lg aspect-[2/3]' : 'w-full aspect-[2/3]'}`}>
+                            <div className={`relative overflow-hidden bg-muted flex-shrink-0 ${isExpanded ? 'w-28 md:w-48 rounded-lg shadow-lg aspect-[2/3]' : 'w-full aspect-[2/3]'}`}>
                               {result.coverUrl ? (
                                 <img src={result.coverUrl} alt={result.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
                               ) : (
@@ -686,14 +692,14 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                                 <div className="absolute top-2 right-2 bg-background/90 text-amber-500 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm backdrop-blur-md">★ {(result.rating / 10).toFixed(1)}</div>
                               )}
                               {isLoading && (
-                                <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center">
+                                <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center z-10">
                                   <Loader2 className="w-8 h-8 animate-spin text-primary" />
                                 </div>
                               )}
                             </div>
 
-                            <div className={`flex flex-col min-w-0 ${isExpanded ? 'flex-1' : 'p-3'}`}>
-                              <h3 className={`font-semibold text-foreground transition-colors group-hover:text-primary leading-snug ${isExpanded ? 'text-xl md:pr-8' : 'text-sm line-clamp-2'}`}>{result.title}</h3>
+                            <div className={`flex flex-col min-w-0 ${isExpanded ? 'flex-1 pr-6 md:pr-0' : 'p-3'}`}>
+                              <h3 className={`font-semibold text-foreground transition-colors group-hover:text-primary leading-snug ${isExpanded ? 'text-lg md:text-xl md:pr-8' : 'text-sm line-clamp-2'}`}>{result.title}</h3>
                               <p className={`mt-1 text-muted-foreground truncate ${isExpanded ? 'text-sm' : 'text-xs'}`}>
                                 {result.year && <span>{result.year}</span>}
                                 {result.year && result.author && <span className="mx-1.5 opacity-50">•</span>}
@@ -710,8 +716,8 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                             </div>
                             
                             {isExpanded && (
-                              <Button size="icon" variant="ghost" className="absolute top-4 right-4 rounded-full" onClick={(e) => { e.stopPropagation(); setActiveModalResult(null); }}>
-                                <X className="w-5 h-5" />
+                              <Button size="icon" variant="ghost" className="absolute top-2 right-2 md:top-4 md:right-4 rounded-full bg-background/50 backdrop-blur-sm border shadow-sm z-20" onClick={(e) => { e.stopPropagation(); setActiveModalResult(null); }}>
+                                <X className="w-4 h-4 md:w-5 md:h-5" />
                               </Button>
                             )}
                           </div>
@@ -722,9 +728,9 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                                 initial={{ height: 0, opacity: 0 }}
                                 animate={{ height: 'auto', opacity: 1 }}
                                 exit={{ height: 0, opacity: 0 }}
-                                className="border-t border-border/50 bg-background/50"
+                                className="border-t border-border/50 bg-background/50 relative z-10"
                               >
-                                <div className="p-6 max-h-[60vh] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+                                <div className="p-4 md:p-6 max-h-[50vh] md:max-h-[60vh] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
                                   <div className="flex items-center justify-between mb-4">
                                     <h4 className="text-sm font-semibold tracking-tight">
                                       Available Torrents {isFetchingTorrents === activeModalResult.id ? '' : `(${activeModalResult.sources.length})`}
@@ -894,22 +900,22 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                   )}
                 </div>
 
-                <div className="mt-auto pt-8 border-t border-border/50">
-                  <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                <div className="mt-auto pt-6 border-t border-border/50 pb-2">
+                  <div className="max-w-3xl mx-auto flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 lg:gap-4">
+                    <div className="flex items-center gap-3 w-full lg:w-auto">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
                         <Link className="h-4 w-4 text-muted-foreground" />
                       </div>
-                      <div>
-                        <h4 className="text-sm font-semibold tracking-tight text-foreground/80">Manual Magnet Add</h4>
-                        <p className="text-[11px] text-muted-foreground">Inject a magnet link if search is unavailable</p>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-sm font-semibold tracking-tight text-foreground/80 truncate">Manual Magnet Add</h4>
+                        <p className="text-[11px] text-muted-foreground truncate">Inject a magnet link if search is unavailable</p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      <Input value={manualTitle} onChange={(event) => setManualTitle(event.target.value)} placeholder="Custom Title" className="h-9 w-32 text-xs font-medium bg-background border-border/40 focus:border-primary/40 rounded-full" />
-                      <Input value={manualMagnet} onChange={(event) => setManualMagnet(event.target.value)} placeholder="magnet:?xt=urn:btih:..." className="h-9 w-48 text-xs font-medium bg-background border-border/40 focus:border-primary/40 font-mono rounded-full" />
-                      <Button size="sm" variant="secondary" className="h-9 rounded-full px-4 font-semibold shadow-sm" onClick={() => void addManualLink()}>Inject</Button>
+                    <div className="flex w-full lg:w-auto items-center gap-2 lg:gap-3">
+                      <Input value={manualTitle} onChange={(event) => setManualTitle(event.target.value)} placeholder="Title" className="h-9 flex-[0.7] lg:w-32 text-xs font-medium bg-background border-border/40 focus:border-primary/40 rounded-full min-w-0" />
+                      <Input value={manualMagnet} onChange={(event) => setManualMagnet(event.target.value)} placeholder="magnet:?xt..." className="h-9 flex-1 lg:w-48 text-xs font-medium bg-background border-border/40 focus:border-primary/40 font-mono rounded-full min-w-0" />
+                      <Button size="sm" variant="secondary" className="h-9 rounded-full px-3 lg:px-4 font-semibold shadow-sm shrink-0" onClick={() => void addManualLink()}>Inject</Button>
                     </div>
                   </div>
                 </div>

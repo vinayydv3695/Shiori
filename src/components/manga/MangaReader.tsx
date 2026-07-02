@@ -321,7 +321,7 @@ export function MangaReader(props: MangaReaderProps) {
                     if (libBook) {
                         await api.saveReadingProgress(
                             libBook.id!,
-                            `chapter_${onlineSource.chapterId}_page_${currentPage}`,
+                            `${onlineSource.chapterId}|${onlineSource.chapterTitle}|${currentPage}`,
                             progressPercent,
                             currentPage,
                             mangaTotalPages

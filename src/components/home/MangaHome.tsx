@@ -94,7 +94,7 @@ export function MangaHome({ onOpenManga }: MangaHomeProps) {
                             <ContinueReadingCard
                                 key={item.id}
                                 book={item}
-                                progress={progressMap[item.id!]?.progressPercent ?? 0}
+                                progress={progressMap[item.id!]!}
                                 domain="manga_comics"
                                 onClick={onOpenManga}
                             />

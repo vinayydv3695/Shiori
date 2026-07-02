@@ -27,7 +27,7 @@ import { useLibraryStore } from '@/store/libraryStore'
 import { useCoverImage } from '../common/hooks/useCoverImage'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Edit2, Trash2, Layers } from 'lucide-react'
+import { Edit2, Trash2, Layers, Globe } from 'lucide-react'
 import { SeriesAssignmentDialog } from './SeriesAssignmentDialog'
 
 // ─── Format Badge ─────────────────────────────
@@ -44,8 +44,38 @@ const fmtColors: Record<string, string> = {
   CBR: 'bg-[var(--manga-accent)] text-white',
 }
 
-const FormatPill = ({ format }: { format?: string }) => {
+const FormatPill = ({ format, filePath, bookId }: { format?: string, filePath?: string, bookId?: number }) => {
+  const progress = useLibraryStore(s => bookId ? s.progress[bookId] : undefined);
+  
   if (!format) return null
+
+  if (format.toLowerCase() === 'online-manga') {
+    const sourceMatch = filePath?.match(/online-manga:\/\/([^/]+)\//);
+    const source = sourceMatch ? sourceMatch[1] : 'Online';
+    const displaySource = source === 'mangadex' ? 'MangaDex' : source.charAt(0).toUpperCase() + source.slice(1);
+
+    let chapterText = '';
+    if (progress && typeof progress === 'object' && progress.currentLocation) {
+        const parts = progress.currentLocation.split('|');
+        if (parts.length > 1) {
+            chapterText = parts[1];
+        }
+    }
+
+    return (
+      <span className="flex items-center gap-1 px-2 py-[3px] text-[9px] font-bold rounded-full tracking-wide shadow-md backdrop-blur-md bg-[var(--manga-accent)] text-white border border-white/20">
+        <Globe size={10} className="opacity-80" />
+        {displaySource}
+        {chapterText && (
+          <>
+            <span className="w-[1px] h-3 bg-white/30 mx-0.5"></span>
+            <span className="truncate max-w-[80px]">{chapterText}</span>
+          </>
+        )}
+      </span>
+    )
+  }
+
   const fmt = format.toUpperCase()
   const isManga = fmt === 'CBZ' || fmt === 'CBR'
   const cls = fmtColors[fmt] ?? 'bg-muted text-muted-foreground'
@@ -323,24 +353,25 @@ export const PremiumBookCard = memo(function PremiumBookCard({
 
         {/* Format badge */}
         <div className="absolute top-1.5 left-1.5 z-10">
-          <FormatPill format={book.file_format} />
+          <FormatPill format={book.file_format} filePath={book.file_path} />
         </div>
 
         {/* ── Info Strip (Tachiyomi Style) ── */}
         <div className={cn(
           'absolute bottom-0 left-0 right-0 z-10',
-          'flex flex-col gap-0.5',
-          'bg-gradient-to-t from-black/90 via-black/50 to-transparent text-white',
-          coverSize === 'small' && 'px-1.5 pt-4 pb-1.5',
-          coverSize === 'medium' && 'px-2 pt-6 pb-2',
-          coverSize === 'large' && 'px-2.5 pt-8 pb-2.5',
+          'flex flex-col justify-end',
+          'bg-gradient-to-t from-black/90 via-black/40 to-transparent text-white',
+          coverSize === 'small' && 'px-1.5 pt-6 pb-1.5',
+          coverSize === 'medium' && 'px-2 pt-8 pb-2',
+          coverSize === 'large' && 'px-2.5 pt-10 pb-2.5',
         )}>
           <h3
             className={cn(
-              'font-bold leading-tight line-clamp-2 drop-shadow-md text-white/95',
-              coverSize === 'small' && 'text-xs',
-              coverSize === 'medium' && 'text-sm',
-              coverSize === 'large' && 'text-base',
+              'font-bold leading-tight drop-shadow-md text-white/95',
+              book.file_format === 'online-manga' ? 'line-clamp-1 text-[13px]' : 'line-clamp-2',
+              book.file_format !== 'online-manga' && coverSize === 'small' && 'text-xs',
+              book.file_format !== 'online-manga' && coverSize === 'medium' && 'text-sm',
+              book.file_format !== 'online-manga' && coverSize === 'large' && 'text-base',
             )}
             title={book.title}
           >

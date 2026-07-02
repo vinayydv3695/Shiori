@@ -13,6 +13,7 @@ import { pluginApi, type Chapter as PluginChapter, type SearchResult as PluginSe
 import { useUIStore } from '@/store/uiStore';
 import { useOnlineMangaReaderStore } from '@/store/onlineMangaReaderStore';
 import { useOnlineMangaBrowseStore } from '@/store/onlineMangaBrowseStore';
+import { useLibraryStore } from '@/store/libraryStore';
 import { OnlineMangaDetailView, type UnifiedChapter } from './OnlineMangaDetailView';
 import { MangaBrowseNavBar } from './MangaBrowseNavBar';
 import { MangaRankList } from './MangaRankList';
@@ -119,7 +120,8 @@ export function OnlineMangaView() {
   const [queueingManga, setQueueingManga] = useState<Record<string, boolean>>({});
   const [hasTorboxKey, setHasTorboxKey] = useState(false);
   const [isSavingToLibrary, setIsSavingToLibrary] = useState(false);
-  const [savedToLibraryIds, setSavedToLibraryIds] = useState<Set<string>>(new Set());
+  const libraryBooks = useLibraryStore((s) => s.books);
+  const [lastReadChapterId, setLastReadChapterId] = useState<string | undefined>();
   const setCurrentView = useUIStore((state) => state.setCurrentView);
   const { success: showSuccessToast, error: showErrorToast, info: showInfoToast } = useToast();
   const setSource = useOnlineMangaReaderStore((state) => state.setSource);
@@ -127,39 +129,6 @@ export function OnlineMangaView() {
   const setChapter = useOnlineMangaReaderStore((state) => state.setChapter);
   const sources = useSourceStore((state) => state.sources);
   const primarySourceByKind = useSourceStore((state) => state.primarySourceByKind);
-  const [lastSearchedQuery, setLastSearchedQuery] = useState('');
-  
-  // Browse mode state
-  const [activeGenres, setActiveGenres] = useState<string[]>([]);
-  const [activeTypes, setActiveTypes] = useState<string[]>([]);
-  const [activeMode, setActiveMode] = useState<string>('');
-  const [advancedBrowseResults, setAdvancedBrowseResults] = useState<MangaDexManga[]>([]);
-  const [isAdvancedBrowseLoading, setIsAdvancedBrowseLoading] = useState(false);
-  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
-  const isAdvancedFilterActive = activeGenres.length > 0 || activeTypes.length > 0 || activeMode !== '';
-
-  const [browseData, setBrowseData] = useState<Record<BrowseMode, MangaDexManga[]>>({
-    popular: [],
-    latest: [],
-    recent: [],
-    'top-rated': [],
-  });
-  const [browseLoading, setBrowseLoading] = useState<Record<BrowseMode, boolean>>({
-    popular: false,
-    latest: false,
-    recent: false,
-    'top-rated': false,
-  });
-  const [browseInitialized, setBrowseInitialized] = useState(false);
-  
-  const { searchManga, browseManga, getChapters, loading, error } = useMangaDex();
-
-  useEffect(() => {
-    api
-      .getTorboxKey()
-      .then((key) => setHasTorboxKey(Boolean(key)))
-      .catch(() => setHasTorboxKey(false));
-  }, []);
 
   const mangaSources = useMemo(
     () => sources.filter((source) => source.kind === 'manga'),
@@ -175,11 +144,75 @@ export function OnlineMangaView() {
     return preferred ?? enabledSources[0];
   }, [enabledSources, primarySourceByKind.manga]);
 
-  const hasEnabledMangaSource = enabledSources.length > 0;
   const isMangaDexEnabled = activeSource?.id === 'mangadex';
   const isPluginMangaSource = activeSource?.id !== 'mangadex' && activeSource?.kind === 'manga';
   const activePluginSourceId = isPluginMangaSource ? activeSource?.id : null;
+
+  const [lastSearchedQuery, setLastSearchedQuery] = useState('');
+  
+  // Browse mode state
+  const [activeGenres, setActiveGenres] = useState<string[]>([]);
+  const [activeTypes, setActiveTypes] = useState<string[]>([]);
+  const [activeMode, setActiveMode] = useState<string>('');
+  const [advancedBrowseResults, setAdvancedBrowseResults] = useState<MangaDexManga[]>([]);
+  const [isAdvancedBrowseLoading, setIsAdvancedBrowseLoading] = useState(false);
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+
+
+  const isAdvancedFilterActive = activeGenres.length > 0 || activeTypes.length > 0 || activeMode !== '';
+
+  const [browseData, setBrowseData] = useState<Record<BrowseMode, MangaDexManga[]>>({
+    popular: [],
+    latest: [],
+    recent: [],
+    'top-rated': [],
+  });
+  const [browseLoading, setBrowseLoading] = useState<Record<BrowseMode, boolean>>({
+    popular: false,
+    recent: false,
+    'top-rated': false,
+  });
+  const [browseInitialized, setBrowseInitialized] = useState(false);
+  
+  const { searchManga, browseManga, getChapters, loading, error } = useMangaDex();
+
+  useEffect(() => {
+    api
+      .getTorboxKey()
+      .then((key) => setHasTorboxKey(Boolean(key)))
+      .catch(() => setHasTorboxKey(false));
+  }, []);
+
+  const hasEnabledMangaSource = enabledSources.length > 0;
   const sourceSupportsTorboxTorrents = Boolean(activeSource?.torboxCompatible);
+
+  useEffect(() => {
+    let expectedPath: string | undefined;
+    if (selectedPluginManga) {
+      const sourceIdForLib = (selectedPluginManga.extra as any)?.librarySourceId ?? activePluginSourceId!;
+      expectedPath = `online-manga://${sourceIdForLib}/${selectedPluginManga.id}`;
+    } else if (selectedManga) {
+      expectedPath = `online-manga://mangadex/${selectedManga.id}`;
+    }
+
+    if (expectedPath) {
+      const libraryBook = libraryBooks.find(b => b.file_path === expectedPath);
+      if (libraryBook?.id) {
+        api.getReadingProgress(libraryBook.id).then(progress => {
+          if (progress && progress.currentLocation) {
+            const parts = progress.currentLocation.split('|');
+            setLastReadChapterId(parts[0]);
+          } else {
+            setLastReadChapterId(undefined);
+          }
+        }).catch(console.error);
+      } else {
+        setLastReadChapterId(undefined);
+      }
+    } else {
+      setLastReadChapterId(undefined);
+    }
+  }, [selectedManga, selectedPluginManga, libraryBooks, activePluginSourceId]);
 
   // Load browse data on mount or when active source changes
   useEffect(() => {
@@ -375,10 +408,18 @@ export function OnlineMangaView() {
     setSelectedPluginManga(null);
     setChapters([]);
     setChaptersLoading(true);
-    
-    const chapterList = await getChapters(manga.id);
-    setChapters(chapterList);
-    setChaptersLoading(false);
+    setPluginError(null);
+
+    try {
+      const chapterList = await getChapters(manga.id);
+      setChapters(chapterList);
+    } catch (err) {
+      logger.error('Failed to load MangaDex chapters:', err);
+      setPluginError(err instanceof Error ? err.message : 'Failed to load chapters');
+      setChapters([]);
+    } finally {
+      setChaptersLoading(false);
+    }
   }, [getChapters]);
 
   const handleViewPluginChapters = async (manga: PluginSearchResult) => {
@@ -559,8 +600,11 @@ export function OnlineMangaView() {
       }
     }
     
+    const expectedPath = `online-manga://${sourceId}/${contentId}`;
+    const libBook = useLibraryStore.getState().books.find(b => b.file_path === expectedPath);
+
     setSource(sourceId);
-    setContent(contentId, uniqueChapters, contentTitle, coverUrl, description);
+    setContent(contentId, uniqueChapters, contentTitle, coverUrl, description, libBook?.id);
     await setChapter(chapter.id);
     setCurrentView('online-manga-reader');
   };
@@ -650,7 +694,6 @@ export function OnlineMangaView() {
         notes: description || '',
       });
 
-      setSavedToLibraryIds((prev) => new Set(prev).add(contentId));
       showSuccessToast(`"${title}" added to your library!`);
 
       // Refresh library in background
@@ -690,11 +733,16 @@ export function OnlineMangaView() {
     const status = isPlugin ? undefined : selectedManga!.status;
     const year = isPlugin ? undefined : selectedManga!.year;
 
+    const sourceIdForLib = isPlugin ? ((selectedPluginManga!.extra as any)?.librarySourceId ?? activePluginSourceId!) : 'mangadex';
+    const contentIdForLib = isPlugin ? selectedPluginManga!.id : selectedManga!.id;
+    const expectedPath = `online-manga://${sourceIdForLib}/${contentIdForLib}`;
+    const libraryBook = libraryBooks.find(b => b.file_path === expectedPath);
+
     return (
-      <div className="flex flex-col h-full bg-background">
+      <div className="flex flex-col h-full bg-background pt-10 md:pt-0">
         <OnlineMangaDetailView
-          sourceId={isPlugin ? ((selectedPluginManga!.extra as any)?.librarySourceId ?? activePluginSourceId!) : 'mangadex'}
-          contentId={isPlugin ? selectedPluginManga!.id : selectedManga!.id}
+          sourceId={sourceIdForLib}
+          contentId={contentIdForLib}
           title={title}
           coverUrl={coverUrl}
           description={description}
@@ -702,7 +750,7 @@ export function OnlineMangaView() {
           status={status}
           year={year}
           chaptersLoading={chaptersLoading}
-          chaptersError={pluginError}
+          chaptersError={isPlugin ? pluginError : error}
           unifiedChapters={unifiedChapters}
           onBack={() => {
             setSelectedManga(null);
@@ -710,14 +758,15 @@ export function OnlineMangaView() {
           }}
           onReadChapter={handleReadUnifiedChapter}
           onSaveToLibrary={handleSaveToLibrary}
-          isInLibrary={savedToLibraryIds.has(isPlugin ? selectedPluginManga!.id : selectedManga!.id)}
+          isInLibrary={!!libraryBook}
+          lastReadChapterId={lastReadChapterId}
         />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-full bg-background pt-10 md:pt-0">
       <OnlineSearchHeader
         kind="manga"
         title="Online Manga"
@@ -882,7 +931,7 @@ export function OnlineMangaView() {
                     <div className="bento-widget-header">
                       <h2 className="bento-widget-title">{isMangaDexEnabled ? "Trending This Week" : "Popular"}</h2>
                     </div>
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(105px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 md:gap-4 mt-4">
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 md:gap-4 mt-4">
                       {browseLoading.popular ? <SkeletonGrid count={5} /> : toCarouselItems(browseData.popular).slice(0, 5).map((item) => (
                         <ModernBookCard key={item.id} id={item.id} title={item.title} coverUrl={item.coverUrl} author={item.subtitle} onClick={() => handleCarouselItemClick(item)} />
                       ))}
@@ -894,7 +943,7 @@ export function OnlineMangaView() {
                     <div className="bento-widget-header">
                       <h2 className="bento-widget-title">Latest Updates</h2>
                     </div>
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(105px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 md:gap-4 mt-4">
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 md:gap-4 mt-4">
                       {browseLoading.latest ? <SkeletonGrid count={5} /> : toCarouselItems(browseData.latest).slice(0, 5).map((item) => (
                         <ModernBookCard key={item.id} id={item.id} title={item.title} coverUrl={item.coverUrl} author={item.subtitle} onClick={() => handleCarouselItemClick(item)} />
                       ))}
@@ -906,7 +955,7 @@ export function OnlineMangaView() {
                     <div className="bento-widget-header">
                       <h2 className="bento-widget-title">{isMangaDexEnabled ? "Staff Picks / You Should Read" : "Recent"}</h2>
                     </div>
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(105px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 md:gap-4 mt-4">
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 md:gap-4 mt-4">
                       {browseLoading.recent ? <SkeletonGrid count={5} /> : toCarouselItems(browseData.recent).slice(0, 5).map((item) => (
                         <ModernBookCard key={item.id} id={item.id} title={item.title} coverUrl={item.coverUrl} author={item.subtitle} onClick={() => handleCarouselItemClick(item)} />
                       ))}

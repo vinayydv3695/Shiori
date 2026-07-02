@@ -7,6 +7,7 @@ interface OnlineMangaReaderState {
   contentTitle: string;
   coverUrl?: string;
   description?: string;
+  libraryBookId?: number;
   chapterId: string | null;
   chapters: Chapter[];
   pages: Page[];
@@ -15,7 +16,7 @@ interface OnlineMangaReaderState {
   error: string | null;
 
   setSource: (sourceId: string | null) => void;
-  setContent: (contentId: string | null, chapters?: Chapter[], contentTitle?: string, coverUrl?: string, description?: string) => void;
+  setContent: (contentId: string | null, chapters?: Chapter[], contentTitle?: string, coverUrl?: string, description?: string, libraryBookId?: number) => void;
   setChapter: (chapterId: string | null) => Promise<void>;
   setChapters: (chapters: Chapter[]) => void;
   nextPage: () => boolean;
@@ -32,6 +33,7 @@ export const useOnlineMangaReaderStore = create<OnlineMangaReaderState>((set, ge
   contentTitle: 'Unknown Manga',
   coverUrl: undefined,
   description: undefined,
+  libraryBookId: undefined,
   chapterId: null,
   chapters: [],
   pages: [],
@@ -41,18 +43,18 @@ export const useOnlineMangaReaderStore = create<OnlineMangaReaderState>((set, ge
 
   setSource: (sourceId) => set({ sourceId }),
 
-  setContent: (contentId, chapters = [], contentTitle = 'Unknown Manga', coverUrl, description) =>
-    set({
-      contentId,
-      contentTitle,
-      coverUrl,
-      description,
-      chapters,
-      chapterId: null,
-      pages: [],
-      currentPageIndex: 0,
-      error: null,
-    }),
+  setContent: (contentId, chapters = [], contentTitle = 'Unknown Manga', coverUrl, description, libraryBookId) => set({
+    contentId,
+    chapters,
+    contentTitle,
+    coverUrl,
+    description,
+    libraryBookId,
+    chapterId: null,
+    pages: [],
+    currentPageIndex: 0,
+    error: null,
+  }),
 
   setChapters: (chapters) => set({ chapters }),
 

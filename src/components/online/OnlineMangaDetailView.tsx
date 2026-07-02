@@ -41,6 +41,7 @@ interface OnlineMangaDetailViewProps {
   onReadChapter: (chapter: UnifiedChapter) => void;
   onSaveToLibrary?: () => Promise<void>;
   isInLibrary?: boolean;
+  lastReadChapterId?: string;
 
   onMangaClick?: (mangaId: string) => void;
 }
@@ -65,7 +66,7 @@ export function OnlineMangaDetailView({
   onReadChapter,
   onSaveToLibrary,
   isInLibrary,
-
+  lastReadChapterId,
   onMangaClick,
 }: OnlineMangaDetailViewProps) {
   const parentRef = useRef<HTMLDivElement>(null);
@@ -394,6 +395,8 @@ export function OnlineMangaDetailView({
                       const chapterNumStr = ch.chapter && ch.chapter !== '?' ? `Chapter ${ch.chapter}` : (ch.title ? '' : 'Oneshot');
                       const fullTitle = ch.title ? (chapterNumStr ? `${chapterNumStr}: ${ch.title}` : ch.title) : chapterNumStr;
                       
+                      const isHighlighted = lastReadChapterId ? ch.id === lastReadChapterId : idx === 0;
+
                       return (
                         <div 
                           key={ch.id} 
@@ -406,11 +409,11 @@ export function OnlineMangaDetailView({
                             height: `${virtualRow.size}px`,
                             transform: `translateY(${virtualRow.start}px)`,
                           }}
-                          className={`flex items-center justify-between p-4 cursor-pointer transition-colors border-b border-border hover:bg-accent ${idx === 0 ? 'bg-accent/30' : ''}`}
+                          className={`flex items-center justify-between p-4 cursor-pointer transition-colors border-b border-border hover:bg-accent ${isHighlighted ? 'bg-accent/30' : ''}`}
                         >
                           <div className="flex items-center gap-3 min-w-0">
-                            {idx === 0 && <Play className="w-3 h-3 text-[#357ebd] fill-[#357ebd] shrink-0" />}
-                            <span className={`truncate text-sm ${idx === 0 ? 'text-[#357ebd] font-medium' : 'text-foreground/90'}`}>
+                            {isHighlighted && <Play className="w-3 h-3 text-[#357ebd] fill-[#357ebd] shrink-0" />}
+                            <span className={`truncate text-sm ${isHighlighted ? 'text-[#357ebd] font-medium' : 'text-foreground/90'}`}>
                               {fullTitle || 'Chapter'}
                             </span>
                           </div>
@@ -439,13 +442,17 @@ export function OnlineMangaDetailView({
                             {volChapters.map((ch) => {
                               const chapterNumStr = ch.chapter && ch.chapter !== '?' ? `Chapter ${ch.chapter}` : '';
                               const fullTitle = ch.title ? (chapterNumStr ? `${chapterNumStr}: ${ch.title}` : ch.title) : chapterNumStr || 'Oneshot';
+                              const isHighlighted = lastReadChapterId ? ch.id === lastReadChapterId : false;
                               return (
                                 <div 
                                   key={ch.id} 
                                   onClick={() => onReadChapter(ch)}
-                                  className="flex items-center justify-between p-3 pl-8 cursor-pointer transition-colors border-t border-border/50 hover:bg-accent"
+                                  className={`flex items-center justify-between p-3 pl-8 cursor-pointer transition-colors border-t border-border/50 hover:bg-accent ${isHighlighted ? 'bg-accent/30' : ''}`}
                                 >
-                                  <span className="truncate text-sm text-foreground/90">{fullTitle}</span>
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    {isHighlighted && <Play className="w-3 h-3 text-[#357ebd] fill-[#357ebd] shrink-0" />}
+                                    <span className={`truncate text-sm ${isHighlighted ? 'text-[#357ebd] font-medium' : 'text-foreground/90'}`}>{fullTitle}</span>
+                                  </div>
                                   <span className="text-xs text-muted-foreground/80 shrink-0 ml-4">{ch.date || 'Unknown'}</span>
                                 </div>
                               );

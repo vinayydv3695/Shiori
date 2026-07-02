@@ -15,7 +15,7 @@ import { useState, useEffect, useRef, memo } from 'react'
 import { Heart, Info } from 'lucide-react'
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import type { Book } from '@/lib/tauri'
+import { api, type Book, type ReadingProgress } from '@/lib/tauri'
 import {
   IconBookOpen,
   IconEditMeta,
@@ -50,8 +50,8 @@ const FormatPill = ({ format, filePath, bookId }: { format?: string, filePath?: 
 
   useEffect(() => {
     if (format?.toLowerCase() === 'online-manga' && bookId) {
-      api.getReadingProgress(bookId).then((prog) => {
-        if (prog) setProgress(prog);
+      api.getReadingProgress(bookId).then((prog: any) => {
+        if (prog) setProgress(prog as ReadingProgress);
       }).catch(() => {});
     }
   }, [format, bookId]);

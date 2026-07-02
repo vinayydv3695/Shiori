@@ -342,7 +342,7 @@ const RSSFeedManager: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-background pt-10 md:pt-0">
+    <div className="flex flex-col h-full bg-background">
       {/* Header */}
       <div className="bg-surface-1 border-b border-border px-6 py-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">

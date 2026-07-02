@@ -740,7 +740,7 @@ export function OnlineMangaView() {
     const libraryBook = libraryBooks.find(b => b.file_path === expectedPath);
 
     return (
-      <div className="flex flex-col h-full bg-background pt-10 md:pt-0">
+      <div className="flex flex-col h-full bg-background">
         <OnlineMangaDetailView
           sourceId={sourceIdForLib}
           contentId={contentIdForLib}
@@ -767,7 +767,7 @@ export function OnlineMangaView() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-background pt-10 md:pt-0">
+    <div className="flex flex-col h-full bg-background">
       <OnlineSearchHeader
         kind="manga"
         title="Online Manga"

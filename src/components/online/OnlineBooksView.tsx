@@ -172,7 +172,7 @@ export function OnlineBooksView() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-background relative z-10 pt-10 md:pt-0">
+    <div className="flex flex-col h-full bg-background relative z-10">
       <OnlineSearchHeader 
         kind="books"
         title="Online Library"

@@ -13,6 +13,10 @@
 import type { ReactNode } from 'react'
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
+import { Plus } from 'lucide-react'
+import { IconImportBook, IconImportManga } from '@/components/icons/ShioriIcons'
+
 import { PremiumTopbar } from './ImprovedToolbar'
 import { NavigationRail } from './NavigationRail'
 import { BottomNav } from './BottomNav'
@@ -310,7 +314,7 @@ export function Layout({
   }
 
   return (
-    <div className={cn("flex flex-col h-screen overflow-hidden bg-background", isMobile && "pt-10")}>
+    <div className={cn("flex flex-col h-screen overflow-hidden bg-background", isMobile && "pt-[2px]")}>
       {/* ── Topbar ── */}
       {currentView !== 'online-manga-reader' && (
         <PremiumTopbar
@@ -362,6 +366,45 @@ export function Layout({
           onOpenSettings={onOpenSettings}
           onToggleDrawer={onOpenAdvancedFilter || (() => {})}
         />
+      )}
+
+      {/* ── Mobile FAB for Import ── */}
+      {isMobile && currentView === 'library' && (
+        <div className="fixed bottom-20 right-4 z-50">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="flex items-center justify-center w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-transform hover:scale-105 active:scale-95"
+              >
+                <Plus size={24} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" sideOffset={12} className="w-56 rounded-xl border-border shadow-xl bg-background/95 backdrop-blur-xl p-2">
+              <DropdownMenuItem onClick={handleOpenImportFilesDialog} className="gap-3 p-3 cursor-pointer rounded-lg flex items-center">
+                <div className="p-2 bg-primary/10 rounded-md shrink-0">
+                  <IconImportBook size={18} className="text-primary" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm font-medium leading-none">Import Files</span>
+                  <span className="text-xs text-muted-foreground leading-snug">Individual files</span>
+                </div>
+              </DropdownMenuItem>
+              
+              <DropdownMenuSeparator className="my-1 bg-border/50" />
+              
+              <DropdownMenuItem onClick={handleOpenImportFolderDialog} className="gap-3 p-3 cursor-pointer rounded-lg flex items-center">
+                <div className="p-2 bg-primary/10 rounded-md shrink-0">
+                  <IconImportManga size={18} className="text-primary" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm font-medium leading-none">Import Folder</span>
+                  <span className="text-xs text-muted-foreground leading-snug">Scan directory</span>
+                </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       )}
 
       {/* ── Duplicate Finder Dialog ── */}

@@ -32,7 +32,8 @@ import { check } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { getVersion } from '@tauri-apps/api/app'
 import { DesktopCompanionSettings } from './DesktopCompanionSettings'
-
+import { CompanionDiscovery } from '../companion/CompanionDiscovery'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 
 
@@ -122,6 +123,7 @@ const ALL_SETTINGS: SettingDefinition[] = [
 const EPUB_RESUME_CHOICE_STORAGE_KEY = 'shiori-epub-resume-choice:v1'
 
 export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
+  const isMobile = useIsMobile()
   const [activeTab, setActiveTab] = useState<SettingsTab>('general')
   const [searchQuery, setSearchQuery] = useState('')
   const preferences = usePreferencesStore((state) => state.preferences)
@@ -293,7 +295,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                   )}
 
                   {selectedTab === 'companion' && (
-                    <DesktopCompanionSettings />
+                    isMobile ? <CompanionDiscovery /> : <DesktopCompanionSettings />
                   )}
 
                   {selectedTab === 'advanced' && (

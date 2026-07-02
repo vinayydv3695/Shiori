@@ -342,23 +342,34 @@ const RSSFeedManager: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-full bg-background pt-10 md:pt-0">
       {/* Header */}
       <div className="bg-surface-1 border-b border-border px-6 py-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <Rss className="w-6 h-6 text-orange-500" />
-            <h1 className="text-2xl font-bold text-foreground">
-              RSS Feeds
-            </h1>
-            <span className="px-2 py-1 text-xs font-medium bg-muted text-muted-foreground rounded-full">
-              {feeds.length} feeds
-            </span>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+          <div className="flex items-center justify-between min-w-0">
+            <div className="flex items-center gap-2 md:gap-3 min-w-0">
+              <Rss className="w-5 h-5 md:w-6 md:h-6 shrink-0 text-orange-500" />
+              <h1 className="text-lg md:text-2xl font-bold text-foreground truncate">
+                RSS Feeds
+              </h1>
+              <span className="px-2 py-0.5 md:py-1 text-[10px] md:text-xs font-medium bg-muted text-muted-foreground rounded-full shrink-0">
+                {feeds.length} feeds
+              </span>
+            </div>
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="flex md:hidden items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0 ml-2"
+                title="Back to library"
+              >
+                <X className="w-4 h-4 md:w-5 md:h-5" />
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowAddDialog(true)}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary rounded-lg hover:bg-primary/85 transition-colors"
+              className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary rounded-lg hover:bg-primary/85 transition-colors shrink-0"
             >
               <Plus className="w-4 h-4" />
               Add Feed
@@ -366,7 +377,7 @@ const RSSFeedManager: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
             {onClose && (
               <button
                 onClick={onClose}
-                className="flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                className="hidden md:flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
                 title="Back to library"
               >
                 <X className="w-5 h-5" />
@@ -376,21 +387,21 @@ const RSSFeedManager: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
         </div>
 
         {/* Actions Bar */}
-        <div className="flex gap-3">
+        <div className="flex gap-2 md:gap-3 overflow-x-auto pb-1 scrollbar-none">
           <button
             onClick={handleUpdateAll}
             disabled={isUpdatingAll || feeds.length === 0}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground bg-muted border border-border rounded-lg hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="shrink-0 flex items-center justify-center gap-2 px-3 md:px-4 py-2 text-xs md:text-sm font-medium text-foreground bg-muted border border-border rounded-lg hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <RefreshCw className={`w-4 h-4 ${isUpdatingAll ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 md:w-4 md:h-4 ${isUpdatingAll ? 'animate-spin' : ''}`} />
             Update All
           </button>
           <button
             onClick={handleGenerateDailyEpub}
             disabled={isGeneratingEpub || feeds.length === 0}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground bg-muted border border-border rounded-lg hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="shrink-0 flex items-center justify-center gap-2 px-3 md:px-4 py-2 text-xs md:text-sm font-medium text-foreground bg-muted border border-border rounded-lg hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <BookOpen className={`w-4 h-4 ${isGeneratingEpub ? 'animate-pulse' : ''}`} />
+            <BookOpen className={`w-3.5 h-3.5 md:w-4 md:h-4 ${isGeneratingEpub ? 'animate-pulse' : ''}`} />
             Generate Daily EPUB
           </button>
         </div>

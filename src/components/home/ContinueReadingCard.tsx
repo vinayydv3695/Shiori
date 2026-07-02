@@ -2,12 +2,12 @@ import { useState, useEffect, useRef } from 'react'
 import { useCoverImage } from '../common/hooks/useCoverImage'
 import { BookOpen } from 'lucide-react'
 import { usePreferencesStore } from '@/store/preferencesStore'
-import type { Book } from '@/lib/tauri'
+import type { Book, ReadingProgress } from '@/lib/tauri'
 import { useThumbnail } from '@/hooks/useThumbnail'
 
 interface ContinueReadingCardProps {
     book: Book
-    progress: number // 0-100
+    progress: number | ReadingProgress // 0-100 or full ReadingProgress object
     domain: 'books' | 'manga_comics'
     onClick: (book: Book) => void
 }
@@ -45,9 +45,21 @@ export function ContinueReadingCard({ book, progress, domain, onClick }: Continu
         return () => observer.disconnect()
     }, [])
 
-    const progressLabel = domain === 'manga_comics'
-        ? `Page ${Math.round((progress / 100) * (book.page_count || 0))} of ${book.page_count || '?'}`
-        : `${Math.round(progress)}%`
+    const progressPercent = typeof progress === 'number' ? progress : progress.progressPercent
+
+    let progressLabel = domain === 'manga_comics'
+        ? `Page ${Math.round((progressPercent / 100) * (book.page_count || 0))} of ${book.page_count || '?'}`
+        : `${Math.round(progressPercent)}%`
+
+    if (book.file_format === 'online-manga' && typeof progress === 'object') {
+        const parts = progress.currentLocation.split('|')
+        if (parts.length > 1) {
+            progressLabel = parts[1] // The human-readable chapter name
+        } else {
+            progressLabel = 'Reading' // Fallback
+        }
+    }
+
     const titleInitial = getTitleInitialToken(book.title)
 
     const showPlaceholder = coverLoading || !coverSrc || failedCoverSrc === coverSrc
@@ -96,9 +108,9 @@ export function ContinueReadingCard({ book, progress, domain, onClick }: Continu
                     <div
                         className={`continue-card-progress-fill ${isVisible ? 'animate' : ''}`}
                         data-domain={domain}
-                        style={{ 
-                            width: isVisible ? `${Math.min(100, Math.max(0, progress))}%` : '0%',
-                            '--target-width': `${Math.min(100, Math.max(0, progress))}%`
+                        style={{
+                            width: isVisible ? `${Math.min(100, Math.max(0, progressPercent))}%` : '0%',
+                            '--target-width': `${Math.min(100, Math.max(0, progressPercent))}%`
                         } as React.CSSProperties}
                     />
                 </div>

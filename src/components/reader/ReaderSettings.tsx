@@ -28,6 +28,7 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
     brightness,
     width,
     twoPageView,
+    isPaginated,
     pageFlipEnabled,
     pageFlipSpeed,
     animationStyle,
@@ -46,6 +47,7 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
     setBrightness,
     setWidth,
     toggleTwoPageView,
+    setIsPaginated,
     setPageFlipEnabled,
     setPageFlipSpeed,
     setAnimationStyle,
@@ -423,7 +425,29 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
 
           {showLayout && (
             <div className="premium-settings-section">
-              <label className="premium-settings-label">Layout</label>
+              <label className="premium-settings-label">Layout Mode</label>
+              <div className="premium-settings-segment-group" style={{ marginBottom: 12 }}>
+                <button
+                  onClick={() => setIsPaginated(false)}
+                  className={`premium-settings-segment-button ${!isPaginated ? 'premium-settings-segment-button--active' : ''}`}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 6 }}>
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <polyline points="19 12 12 19 5 12" />
+                  </svg>
+                  Scroll
+                </button>
+                <button
+                  onClick={() => setIsPaginated(true)}
+                  className={`premium-settings-segment-button ${isPaginated ? 'premium-settings-segment-button--active' : ''}`}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 6 }}>
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                  </svg>
+                  Paginate
+                </button>
+              </div>
               <button
                 onClick={toggleTwoPageView}
                 className={`premium-settings-toggle ${twoPageView ? 'premium-settings-toggle--active' : ''}`}

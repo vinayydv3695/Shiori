@@ -54,7 +54,7 @@ export function ReaderTopBar({
           </div>
         </div>
 
-        <div className="premium-top-bar-center">
+        <div className="premium-top-bar-center hidden md:flex">
           <div className="premium-reading-time" title="Reading time">
             <Clock />
             <span>{formattedTime}</span>
@@ -65,22 +65,12 @@ export function ReaderTopBar({
         </div>
 
         <div className="premium-top-bar-right">
-          {format !== 'pdf' && (
-            <div className="flex items-center gap-1 mr-2 border-r border-white/10 pr-2">
-              <button onClick={decreaseFontSize} className="premium-control-button" title="Zoom Out (Decrease font size)">
-                <ZoomOut className="premium-control-icon" />
-              </button>
-              <button onClick={increaseFontSize} className="premium-control-button" title="Zoom In (Increase font size)">
-                <ZoomIn className="premium-control-icon" />
-              </button>
-            </div>
-          )}
           {rightExtra}
 
           <ReaderSettings format={format} />
           <button
             onClick={toggleFullscreen}
-            className="premium-control-button premium-fullscreen-button"
+            className="premium-control-button premium-fullscreen-button hidden md:flex"
             aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
             title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
           >
@@ -90,7 +80,7 @@ export function ReaderTopBar({
               <Maximize2 className="premium-control-icon" />
             )}
           </button>
-          <div className="ml-2 pl-2 border-l border-white/10 h-6 flex items-center">
+          <div className="ml-2 pl-2 border-l border-white/10 h-6 hidden md:flex items-center">
             <WindowControls />
           </div>
         </div>

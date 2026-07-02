@@ -221,7 +221,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const setExplicitResumeTarget = useReaderStore(state => state.setExplicitResumeTarget);
 
   const readingSettings = useReadingSettings();
-  const { theme, width, twoPageView, toggleTwoPageView, pageFlipEnabled, pageFlipSpeed, animationStyle } = readingSettings;
+  const { theme, width, twoPageView, isPaginated, toggleTwoPageView, pageFlipEnabled, pageFlipSpeed, animationStyle } = readingSettings;
 
   // Apply all reading settings (typography, margins, etc.) on mount and when they change
   useEffect(() => {
@@ -812,18 +812,29 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       return;
     }
 
-    // Normal scroll mode
+    // Normal scroll mode or paginated mode
     if (canvasRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = canvasRef.current;
-      const isAtBottom = scrollTop + clientHeight >= scrollHeight - 50;
-
-      if (isAtBottom) {
-        nextChapter();
+      if (isPaginated) {
+        const { scrollLeft, scrollWidth, clientWidth } = canvasRef.current;
+        const isAtEnd = scrollLeft + clientWidth >= scrollWidth - 10;
+        
+        if (isAtEnd) {
+          nextChapter();
+        } else {
+          canvasRef.current.scrollBy({ left: clientWidth, behavior: 'smooth' }); // Un-optional page flip effect
+        }
       } else {
-        canvasRef.current.scrollBy({ top: clientHeight * 0.85, behavior: 'smooth' });
+        const { scrollTop, scrollHeight, clientHeight } = canvasRef.current;
+        const isAtBottom = scrollTop + clientHeight >= scrollHeight - 50;
+
+        if (isAtBottom) {
+          nextChapter();
+        } else {
+          canvasRef.current.scrollBy({ top: clientHeight * 0.85, behavior: animationStyle !== 'none' ? 'smooth' : 'auto' });
+        }
       }
     }
-  }, [nextChapter, pageFlipEnabled]);
+  }, [nextChapter, pageFlipEnabled, isPaginated, animationStyle]);
 
   const prevPage = useCallback(() => {
     if (!isFocusMode && !isTopBarShortcutOnly) {
@@ -839,18 +850,29 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       return;
     }
 
-    // Normal scroll mode
+    // Normal scroll mode or paginated mode
     if (canvasRef.current) {
-      const { scrollTop, clientHeight } = canvasRef.current;
-      const isAtTop = scrollTop <= 50;
-
-      if (isAtTop) {
-        prevChapter();
+      if (isPaginated) {
+        const { scrollLeft, clientWidth } = canvasRef.current;
+        const isAtStart = scrollLeft <= 10;
+        
+        if (isAtStart) {
+          prevChapter();
+        } else {
+          canvasRef.current.scrollBy({ left: -clientWidth, behavior: 'smooth' }); // Un-optional page flip effect
+        }
       } else {
-        canvasRef.current.scrollBy({ top: -clientHeight * 0.85, behavior: 'smooth' });
+        const { scrollTop, clientHeight } = canvasRef.current;
+        const isAtTop = scrollTop <= 50;
+
+        if (isAtTop) {
+          prevChapter();
+        } else {
+          canvasRef.current.scrollBy({ top: -clientHeight * 0.85, behavior: animationStyle !== 'none' ? 'smooth' : 'auto' });
+        }
       }
     }
-  }, [prevChapter, pageFlipEnabled]);
+  }, [prevChapter, pageFlipEnabled, isPaginated, animationStyle]);
 
   // Keyboard shortcuts
   usePremiumReaderKeyboard({
@@ -889,19 +911,40 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     }
 
     const uiStore = useReaderUIStore.getState();
-    const newState = !uiStore.isTopBarVisible;
-    setTopBarVisible(newState);
-    if (newState && !uiStore.isSidebarOpen) {
-      uiStore.toggleSidebar();
-    } else if (!newState && uiStore.isSidebarOpen) {
+    if (uiStore.isSidebarOpen) {
       uiStore.closeSidebar();
+    } else {
+      setTopBarVisible(!uiStore.isTopBarVisible);
     }
   }, [isDoodleMode, setTopBarVisible]);
 
   const handleContainerClick = useCallback((e: React.MouseEvent) => {
-    // Single click handler handles page turns (edges)
-    // The center tap is now handled by double click to avoid accidental toggles
-  }, []);
+    if (isDoodleMode) return;
+    const target = e.target as Element;
+    if (e.defaultPrevented || !target || typeof target.closest !== 'function') return;
+    if (target.closest('a') || target.closest('button') || target.closest('.premium-top-bar') || target.closest('.premium-sidebar') || target.closest('.text-selection-toolbar')) {
+      return;
+    }
+
+    // Determine click region (left 20%, right 20%, center 60%)
+    const windowWidth = window.innerWidth;
+    const clickX = e.clientX;
+    const clickRatio = clickX / windowWidth;
+
+    if (clickRatio < 0.2) {
+      prevPage();
+    } else if (clickRatio > 0.8) {
+      nextPage();
+    } else {
+      // Center tap toggles UI or dismisses sidebar
+      const uiStore = useReaderUIStore.getState();
+      if (uiStore.isSidebarOpen) {
+        uiStore.closeSidebar();
+      } else {
+        setTopBarVisible(!uiStore.isTopBarVisible);
+      }
+    }
+  }, [isDoodleMode, prevPage, nextPage, setTopBarVisible]);
 
   // ────────────────────────────────────────────────────────────
   // RENDER
@@ -979,7 +1022,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
             <button
               type="button"
               onClick={toggleTwoPageView}
-              className={`premium-control-button ${twoPageView ? 'premium-control-button--active' : ''}`}
+              className={`premium-control-button hidden md:flex ${twoPageView ? 'premium-control-button--active' : ''}`}
               aria-label="Two-page view"
               title="Two-page view"
             >
@@ -991,7 +1034,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
             <button
               type="button"
               onClick={toggleDoodleMode}
-              className={`premium-control-button ${isDoodleMode ? 'premium-control-button--active' : ''}`}
+              className={`premium-control-button hidden md:flex ${isDoodleMode ? 'premium-control-button--active' : ''}`}
               aria-label="Drawing mode"
               title="Toggle drawing mode"
             >
@@ -1007,11 +1050,11 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       {/* Reading Canvas */}
       <div
         ref={canvasRef}
-        className={`premium-reading-canvas ${isFocusMode ? 'premium-reading-canvas--focus-mode' : ''}`}
+        className={`premium-reading-canvas ${isFocusMode ? 'premium-reading-canvas--focus-mode' : ''} ${isPaginated ? 'premium-reading-canvas--paginated' : ''}`}
       >
         <div
           ref={contentContainerRef}
-          className={`premium-content-container premium-content-container--${width} ${twoPageView ? 'premium-content-container--two-page' : ''}`}
+          className={`premium-content-container premium-content-container--${width} ${twoPageView ? 'premium-content-container--two-page' : ''} ${isPaginated ? 'premium-content-container--paginated' : ''}`}
         >
           {twoPageView && adjacentChapter ? (
             /* Two-page layout */

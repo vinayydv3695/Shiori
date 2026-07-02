@@ -9,8 +9,7 @@ import { X, Settings, ChevronLeft, ChevronRight, Maximize, Minimize, ZoomIn, Zoo
 import React from 'react';
 import { useOnlineMangaReaderStore } from '@/store/onlineMangaReaderStore';
 import { useLibraryStore } from '@/store/libraryStore';
-
-const TOPBAR_AUTO_HIDE_MS = 10_000;
+const TOPBAR_AUTO_HIDE_MS = 3000;
 
 export function MangaReaderHeader({ 
     onClose, 

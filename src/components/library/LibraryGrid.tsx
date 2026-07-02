@@ -186,15 +186,28 @@ export function LibraryGrid({
   // Scale down column size slightly on mobile for better fit
   const densityColumnSize = isMobile ? Math.min(baseDensityColumnSize, 140) : baseDensityColumnSize;
 
+  const [containerWidth, setContainerWidth] = useState(0);
+  const [columns, setColumns] = useState(6);
+
   const estimatedRowHeight = useMemo(() => {
-    const coverHeight = densityColumnSize * 1.5; // 2:3 aspect ratio
-    const metadataHeight = 0; // Title is now overlaid on the cover
+    if (!containerWidth || columns === 0) {
+      const coverHeight = densityColumnSize * 1.5; // 2:3 aspect ratio
+      const rowPadding = 8; // 4px top + 4px bottom
+      return Math.ceil(coverHeight + rowPadding);
+    }
+
+    // Row has padding "4px 8px" (16px total horiz) and gap "8px"
+    const horizontalPadding = 16;
+    const totalGapWidth = (columns - 1) * 8;
+    const availableWidth = containerWidth - horizontalPadding - totalGapWidth;
+    
+    // Calculate exact rendered width of each column to perfectly match the CSS flex grid
+    const actualColumnWidth = availableWidth / columns;
+    const actualCoverHeight = actualColumnWidth * 1.5;
+    
     const rowPadding = 8; // 4px top + 4px bottom
-    const rowVerticalGap = 8;
-    return Math.ceil(
-      coverHeight + metadataHeight + rowPadding + rowVerticalGap,
-    );
-  }, [densityColumnSize, coverSize]);
+    return Math.ceil(actualCoverHeight + rowPadding);
+  }, [containerWidth, columns, densityColumnSize]);
 
   const [isFirstSeries, setIsFirstSeries] = useState(true);
   const prefetchedCoverIdsRef = useRef<Set<number>>(new Set());
@@ -246,12 +259,12 @@ export function LibraryGrid({
   const handleDeleteBook = useCallback((id: number) => onDeleteBook?.(id), [onDeleteBook]);
 
   const parentRef = useRef<HTMLDivElement>(null);
-  const [columns, setColumns] = useState(6);
 
   useEffect(() => {
     const observer = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width;
       if (width) {
+        setContainerWidth(width);
         // Force at least 2 columns on mobile for normal density, but allow 1 if spacious
         const minCols = (isMobile && libraryDensity === "spacious") ? 1 : 2;
         setColumns(Math.max(minCols, Math.floor(width / densityColumnSize)));

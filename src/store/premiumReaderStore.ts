@@ -98,7 +98,10 @@ interface ReadingSettings {
   // Brightness
   brightness: number; // 0.5-1.5
 
-  // Page Transition Animation
+  // Layout Mode
+  isPaginated: boolean;
+
+  // Page Transition Animation (Chapter-level or page-level)
   pageFlipEnabled: boolean;
   pageFlipSpeed: number; // ms (100-800)
   animationStyle: 'slide' | 'fade' | 'none';
@@ -126,6 +129,7 @@ interface ReadingSettings {
   setMargin: (margin: number) => void;
   cycleWidth: () => void;
   toggleTwoPageView: () => void;
+  setIsPaginated: (paginated: boolean) => void;
   setBrightness: (brightness: number) => void;
   setPageFlipEnabled: (enabled: boolean) => void;
   setPageFlipSpeed: (speed: number) => void;
@@ -145,9 +149,10 @@ const defaultSettings = {
   textAlign: 'justify' as const,
   backgroundColor: 'default',
   textColor: 'default',
-  width: 'full' as const,
-  margin: 0,
+  width: 'medium' as const,
+  margin: 40,
   twoPageView: false,
+  isPaginated: false,
   brightness: 1.0,
   pageFlipEnabled: true,
   pageFlipSpeed: 300,
@@ -188,6 +193,7 @@ const normalizeReadingSettingsState = (raw: unknown): Omit<ReadingSettings, keyo
   setMargin: 0;
   cycleWidth: 0;
   toggleTwoPageView: 0;
+  setIsPaginated: 0;
   setBrightness: 0;
   setPageFlipEnabled: 0;
   setPageFlipSpeed: 0;
@@ -213,6 +219,7 @@ const normalizeReadingSettingsState = (raw: unknown): Omit<ReadingSettings, keyo
     width: clampStringEnum(source.width, defaultSettings.width, WIDTH_OPTIONS),
     margin: clampNumber(source.margin, defaultSettings.margin, 0, 80),
     twoPageView: typeof source.twoPageView === 'boolean' ? source.twoPageView : defaultSettings.twoPageView,
+    isPaginated: typeof source.isPaginated === 'boolean' ? source.isPaginated : defaultSettings.isPaginated,
     brightness: clampNumber(source.brightness, defaultSettings.brightness, 0.5, 1.5),
     pageFlipEnabled: typeof source.pageFlipEnabled === 'boolean' ? source.pageFlipEnabled : defaultSettings.pageFlipEnabled,
     pageFlipSpeed: clampNumber(source.pageFlipSpeed, defaultSettings.pageFlipSpeed, 100, 800),
@@ -332,6 +339,8 @@ export const useReadingSettings = create<ReadingSettings>()(
       },
 
       toggleTwoPageView: () => set((state) => ({ twoPageView: !state.twoPageView })),
+
+      setIsPaginated: (paginated) => set({ isPaginated: paginated }),
 
       setBrightness: (brightness) => {
         const clamped = Math.max(0.5, Math.min(1.5, brightness));

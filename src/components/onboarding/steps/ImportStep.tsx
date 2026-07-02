@@ -82,21 +82,28 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
                 Import your local library folder now to get instant scan + progress feedback. If you skip, your library stays empty until you import from Settings.
               </p>
 
-              <p className="mt-3 truncate rounded-lg border border-border/40 bg-card/60 px-3 py-2 text-xs text-foreground/70" title={libraryPath ?? undefined}>
-                {libraryPath ? `Selected folder: ${libraryPath}` : 'No folder selected yet'}
-              </p>
+              <div className="mt-3 flex items-center justify-between rounded-lg border border-border/40 bg-card/60 px-3 py-2">
+                <p className="truncate text-xs text-foreground/70" title={libraryPath ?? undefined}>
+                  {libraryPath ? `Selected folder: ${libraryPath}` : 'No folder selected yet'}
+                </p>
+                {libraryPath && (
+                  <button onClick={() => { onSelectPath(null); reset(); }} className="ml-2 shrink-0 rounded-md p-1 hover:bg-white/10" aria-label="Clear selection" title="Clear selection">
+                    <XCircle className="h-4 w-4 text-foreground/60 hover:text-foreground" />
+                  </button>
+                )}
+              </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-2 md:mt-4 hidden md:flex flex-wrap gap-2">
                 {formats.map((fmt) => (
                   <FormatBadge key={fmt} format={`.${fmt}`} />
                 ))}
               </div>
             </div>
 
-            <div className="mt-4 min-h-[220px]">
+            <div className="mt-2 md:mt-4 min-h-[140px] md:min-h-[220px]">
               {showDropZone ? (
                 <div
-                  className={`group relative flex min-h-[300px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-[2rem] border-2 border-dashed transition-all duration-500 ${
+                  className={`group relative flex min-h-[140px] md:min-h-[300px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-[1.5rem] md:rounded-[2rem] border-2 border-dashed transition-all duration-500 ${
                     isDragOver
                       ? 'border-indigo-500/50 bg-indigo-500/10 shadow-[0_0_50px_rgba(99,102,241,0.15)]'
                       : 'border-border/40 bg-card/30 hover:border-border/60 hover:bg-card/50'
@@ -106,7 +113,7 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
                   <div
                     role="button"
                     tabIndex={0}
-                    className="relative z-10 flex w-full flex-1 cursor-pointer flex-col items-center justify-center p-8"
+                    className="relative z-10 flex w-full flex-1 cursor-pointer flex-col items-center justify-center p-4 md:p-8"
                     onClick={handlePickFolder}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter' || event.key === ' ') {
@@ -132,18 +139,19 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
                       await runImport(getDroppedPath(event));
                     }}
                   >
-                    <div className={`relative mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-border/40 bg-background/80 shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-md transition-all duration-500 ${isDragOver ? 'scale-110 border-indigo-500/30' : 'group-hover:-translate-y-1 group-hover:scale-105 group-hover:border-border/60'}`}>
-                      <Upload className={`h-8 w-8 transition-colors duration-300 ${isDragOver ? 'text-indigo-400' : 'text-muted-foreground group-hover:text-foreground'}`} />
+                    <div className={`relative mb-3 md:mb-6 flex h-12 w-12 md:h-20 md:w-20 items-center justify-center rounded-full border border-border/40 bg-background/80 shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-md transition-all duration-500 ${isDragOver ? 'scale-110 border-indigo-500/30' : 'group-hover:-translate-y-1 group-hover:scale-105 group-hover:border-border/60'}`}>
+                      <Upload className={`h-6 w-6 md:h-8 md:w-8 transition-colors duration-300 ${isDragOver ? 'text-indigo-400' : 'text-muted-foreground group-hover:text-foreground'}`} />
                     </div>
                     
-                    <p className="text-center text-xl font-medium tracking-tight text-foreground/90">
-                      Drag & drop your library folder
+                    <p className="text-center text-base md:text-xl font-medium tracking-tight text-foreground/90">
+                      <span className="hidden md:inline">Drag & drop your library folder or click to browse</span>
+                      <span className="md:hidden">Tap to browse your files</span>
                     </p>
-                    <p className="mt-2 text-center text-sm text-foreground/50">
+                    <p className="mt-1 md:mt-2 text-center text-xs md:text-sm text-foreground/50 hidden md:block">
                       or click anywhere to browse
                     </p>
 
-                    <div className="mt-8 flex w-full max-w-md items-start gap-3 rounded-2xl border border-border/20 bg-background/40 p-4 text-left shadow-sm backdrop-blur-md">
+                    <div className="mt-8 hidden md:flex w-full max-w-md items-start gap-3 rounded-2xl border border-border/20 bg-background/40 p-4 text-left shadow-sm backdrop-blur-md">
                       <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/5 text-muted-foreground">
                         <FolderPlus className="h-3.5 w-3.5" />
                       </div>
@@ -228,24 +236,14 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
         </div>
 
         <div className="mt-3 flex flex-col-reverse md:flex-row shrink-0 items-stretch md:items-center justify-between border-t border-border/40 pt-3 gap-3 md:gap-0">
-          <div className="grid grid-cols-2 md:flex md:flex-wrap items-center gap-2">
-            <GlowButton theme="dark" variant="secondary" onClick={onBack} className="w-full md:w-auto justify-center px-5">
+          <div className="flex items-center justify-between md:justify-start gap-2">
+            <GlowButton theme="dark" variant="secondary" onClick={onBack} className="flex-1 md:flex-none justify-center px-5">
               ← Back
             </GlowButton>
             <button
               type="button"
-              onClick={() => {
-                onSelectPath(null);
-                reset();
-              }}
-              className="w-full md:w-auto rounded-xl border border-border/40 bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-border/60 hover:bg-secondary"
-            >
-              Clear selection
-            </button>
-            <button
-              type="button"
               onClick={onNext}
-              className="col-span-2 md:col-span-1 w-full md:w-auto rounded-xl border border-border/40 bg-card/50 px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-border/60 hover:bg-primary/5"
+              className="flex-1 md:flex-none rounded-xl border border-border/40 bg-card/50 px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-border/60 hover:bg-primary/5"
             >
               Skip for now
             </button>

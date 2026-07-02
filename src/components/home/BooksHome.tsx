@@ -95,7 +95,7 @@ export function BooksHome({ onOpenBook, onViewRSS }: BooksHomeProps) {
                             <ContinueReadingCard
                                 key={book.id}
                                 book={book}
-                                progress={progressMap[book.id!]?.progressPercent ?? 0}
+                                progress={progressMap[book.id!]!}
                                 domain="books"
                                 onClick={onOpenBook}
                             />

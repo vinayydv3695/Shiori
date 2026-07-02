@@ -42,6 +42,7 @@ function App() {
   const isOnboardingHydrated = useOnboardingStore(s => s.isHydrated)
   const isOnboardingInitializing = useOnboardingStore(s => s.isInitializing)
   const initializeOnboarding = useOnboardingStore(s => s.initialize)
+  const isPreferencesLoaded = usePreferencesStore(s => s.isLoaded)
 
   // ── Discord RPC ──
   useDiscordRPCUpdater()
@@ -200,7 +201,7 @@ function App() {
       )
     }
 
-    if (!isOnboardingHydrated || isOnboardingInitializing) {
+    if (!isOnboardingHydrated || isOnboardingInitializing || !isPreferencesLoaded) {
       return <LoadingSpinner />
     }
 

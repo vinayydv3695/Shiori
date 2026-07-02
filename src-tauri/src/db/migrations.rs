@@ -129,6 +129,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 35 {
             self.run_in_savepoint("v35", |mgr| mgr.migrate_to_v35())?;
         }
+        if current_version < 36 {
+            self.run_in_savepoint("v36", |mgr| mgr.migrate_to_v36())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -2133,6 +2136,22 @@ impl<'a> MigrationManager<'a> {
 
         let hash = Self::calculate_checksum("v35_add_deleted_at");
         self.record_migration(35, "add_deleted_at", &hash)?;
+        Ok(())
+    }
+
+    /// Migration v36: Add enable_recycle_bin to user_preferences
+    fn migrate_to_v36(&self) -> Result<()> {
+        log::info!("[Migration] Applying v36: Add enable_recycle_bin to user_preferences");
+
+        if !self.column_exists("user_preferences", "enable_recycle_bin")? {
+            self.conn.execute(
+                "ALTER TABLE user_preferences ADD COLUMN enable_recycle_bin BOOLEAN DEFAULT 1",
+                [],
+            )?;
+        }
+
+        let hash = Self::calculate_checksum("v36_add_enable_recycle_bin");
+        self.record_migration(36, "add_enable_recycle_bin", &hash)?;
         Ok(())
     }
 }

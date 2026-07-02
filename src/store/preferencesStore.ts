@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { api } from "../lib/tauri";
+import { api, isTauri } from "../lib/tauri";
 import { invoke } from "@tauri-apps/api/core";
 
 import { logger } from "../lib/logger";
@@ -65,13 +65,25 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
     try {
       // One IPC call returns preferences + both override tables + onboarding + reading goal.
       // Previously this was 4 separate invoke() calls run sequentially in onboardingStore.
-      const startup = await invoke<{
-        preferences: UserPreferences & { dailyReadingGoalMinutes?: number }
-        bookOverrides: Array<{ bookId: number; preferences: Record<string, unknown> }>
-        mangaOverrides: Array<{ bookId: number; preferences: Record<string, unknown> }>
-        onboarding: { completed: boolean }
-        readingGoalMinutes: number | null
-      }>('get_startup_data');
+      let startup;
+      if (!isTauri) {
+        logger.warn("Running in browser mode - using mock startup data");
+        startup = {
+          preferences: { ...DEFAULT_USER_PREFERENCES },
+          bookOverrides: [],
+          mangaOverrides: [],
+          onboarding: { completed: true },
+          readingGoalMinutes: null
+        };
+      } else {
+        startup = await invoke<{
+          preferences: UserPreferences & { dailyReadingGoalMinutes?: number }
+          bookOverrides: Array<{ bookId: number; preferences: Record<string, unknown> }>
+          mangaOverrides: Array<{ bookId: number; preferences: Record<string, unknown> }>
+          onboarding: { completed: boolean }
+          readingGoalMinutes: number | null
+        }>('get_startup_data');
+      }
 
       const preferences = startup.preferences;
 

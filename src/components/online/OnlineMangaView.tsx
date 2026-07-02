@@ -169,6 +169,7 @@ export function OnlineMangaView() {
   });
   const [browseLoading, setBrowseLoading] = useState<Record<BrowseMode, boolean>>({
     popular: false,
+    latest: false,
     recent: false,
     'top-rated': false,
   });

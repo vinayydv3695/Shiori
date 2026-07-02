@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { motion, AnimatePresence } from 'framer-motion'
 import DOMPurify from 'dompurify'
-import { invoke } from '@tauri-apps/api/core'
+import { invoke, convertFileSrc } from '@tauri-apps/api/core'
 import * as Tabs from '@radix-ui/react-tabs'
 import * as Dialog from '@radix-ui/react-dialog'
 import {
@@ -15,6 +15,7 @@ import {
   Loader2,
   Search,
   X,
+  Image as ImageIcon,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -487,11 +488,11 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                 {isDone && <div className="absolute -top-10 -right-10 h-32 w-32 rounded-full bg-emerald-500/10 blur-3xl" />}
                 
                 <div className="relative z-10 flex flex-row items-start gap-3 md:gap-4">
-                  {job.coverPath || job.metadata?.coverUrl ? (
-                    <img src={job.coverPath ? convertFileSrc(job.coverPath) : job.metadata!.coverUrl} alt="Cover" className="h-24 w-16 md:h-28 md:w-20 rounded-md object-cover shadow-sm bg-muted shrink-0" />
+                  {(job as any).coverPath || (job as any).metadata?.coverUrl ? (
+                    <img src={(job as any).coverPath ? convertFileSrc((job as any).coverPath) : (job as any).metadata!.coverUrl} alt="Cover" className="h-24 w-16 md:h-28 md:w-20 rounded-md object-cover shadow-sm bg-muted shrink-0" />
                   ) : (
                     <div className="flex h-24 w-16 md:h-28 md:w-20 items-center justify-center rounded-md bg-muted/50 text-muted-foreground/50 shrink-0">
-                      <Image className="h-6 w-6 md:h-8 md:w-8" />
+                      <ImageIcon className="h-6 w-6 md:h-8 md:w-8" />
                     </div>
                   )}
                   

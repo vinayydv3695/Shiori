@@ -44,9 +44,18 @@ const fmtColors: Record<string, string> = {
   CBR: 'bg-[var(--manga-accent)] text-white',
 }
 
+
 const FormatPill = ({ format, filePath, bookId }: { format?: string, filePath?: string, bookId?: number }) => {
-  const progress = useLibraryStore(s => bookId ? s.progress[bookId] : undefined);
-  
+  const [progress, setProgress] = useState<ReadingProgress | null>(null);
+
+  useEffect(() => {
+    if (format?.toLowerCase() === 'online-manga' && bookId) {
+      api.getReadingProgress(bookId).then((prog) => {
+        if (prog) setProgress(prog);
+      }).catch(() => {});
+    }
+  }, [format, bookId]);
+
   if (!format) return null
 
   if (format.toLowerCase() === 'online-manga') {
@@ -55,7 +64,7 @@ const FormatPill = ({ format, filePath, bookId }: { format?: string, filePath?: 
     const displaySource = source === 'mangadex' ? 'MangaDex' : source.charAt(0).toUpperCase() + source.slice(1);
 
     let chapterText = '';
-    if (progress && typeof progress === 'object' && progress.currentLocation) {
+    if (progress && progress.currentLocation) {
         const parts = progress.currentLocation.split('|');
         if (parts.length > 1) {
             chapterText = parts[1];

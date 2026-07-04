@@ -2193,6 +2193,13 @@ select {
 .text-selection-toolbar-actions {
   display: flex;
   gap: 4px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.text-selection-toolbar-actions::-webkit-scrollbar {
+  display: none;
 }
 
 .text-selection-toolbar-btn {
@@ -2210,6 +2217,15 @@ select {
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .text-selection-toolbar-btn {
+    padding: 6px 10px;
+    font-size: 12.5px;
+    gap: 4px;
+  }
 }
 
 .text-selection-toolbar-btn:hover {

@@ -65,6 +65,21 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     setTranslationError(null);
   }, []);
 
+  // Prevent native context menu from overriding custom toolbar, especially on Android WebViews
+  useEffect(() => {
+    const preventNativeContextMenu = (e: MouseEvent) => {
+      // Only prevent if we have a selection (so regular long-presses for other things might still work if needed, though typically we want it off while reading)
+      const selection = window.getSelection();
+      if (selection && !selection.isCollapsed) {
+        e.preventDefault();
+      }
+    };
+    
+    // Some Android devices need it on the document level, capturing phase helps ensure it runs first
+    document.addEventListener('contextmenu', preventNativeContextMenu, { capture: true });
+    return () => document.removeEventListener('contextmenu', preventNativeContextMenu, { capture: true });
+  }, []);
+
   // Listen for text selection changes
   useEffect(() => {
     const handleSelectionChange = () => {

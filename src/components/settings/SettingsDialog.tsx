@@ -18,7 +18,7 @@ import type {
   Theme, UserPreferences, BookPreferences, MangaPreferences, TtsPreferences, WatchFolder,
 } from '../../types/preferences'
 import { DEFAULT_USER_PREFERENCES, DEFAULT_BOOK_PREFERENCES, DEFAULT_MANGA_PREFERENCES } from '../../types/preferences'
-import { api, isTauri } from '../../lib/tauri'
+import { api, isTauri, isAndroid } from '../../lib/tauri'
 import type { BackupInfo, CacheStats } from '../../lib/tauri'
 import { TTSEngine } from '@/lib/ttsEngine'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
@@ -295,7 +295,10 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                   )}
 
                   {selectedTab === 'companion' && (
-                    isMobile ? <CompanionDiscovery /> : <DesktopCompanionSettings />
+                    <div className="p-4 md:p-6 pb-20 max-md:pb-32 overflow-y-auto max-h-full scroll-smooth">
+                      {/* Companion Tab Content */}
+                      {isAndroid ? <CompanionDiscovery /> : <DesktopCompanionSettings />}
+                    </div>
                   )}
 
                   {selectedTab === 'advanced' && (

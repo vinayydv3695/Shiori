@@ -413,13 +413,9 @@ select {
   /* SHIORI-FIX: content padding 2rem 3rem (desktop) per spec */
   padding: 2rem 3rem;
   transition: max-width var(--transition-normal), padding var(--transition-normal);
-}
-
-/* SHIORI-FIX: Mobile padding per spec (≤640px) */
-@media (max-width: 640px) {
-  .premium-content-container {
-    padding: 1rem 1.25rem;
-  }
+  
+  /* Prevent native Android/iOS context menu popup while allowing text selection */
+  -webkit-touch-callout: none;
 }
 
 .premium-content-container--narrow {
@@ -437,6 +433,36 @@ select {
 .premium-content-container--full {
   max-width: var(--readable-width-full);
   padding: var(--spacing-xxl) 10vw;
+}
+
+/* SHIORI-FIX: Mobile padding per spec (≤640px) */
+@media (max-width: 640px) {
+  /* Base top/bottom padding for all mobile containers to clear UI elements */
+  .premium-content-container {
+    padding-top: 80px; /* clear top bar */
+    padding-bottom: 60px; /* clear bottom indicator */
+  }
+
+  /* Differentiate reading width on mobile using side padding */
+  .premium-content-container--narrow {
+    padding-left: 15vw;
+    padding-right: 15vw;
+  }
+
+  .premium-content-container--medium {
+    padding-left: 8vw;
+    padding-right: 8vw;
+  }
+
+  .premium-content-container--wide {
+    padding-left: 4vw;
+    padding-right: 4vw;
+  }
+
+  .premium-content-container--full {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
 }
 
 /* Two-page view adjustments */
@@ -669,6 +695,12 @@ select {
 
 .premium-sidebar--open {
   transform: translateX(0);
+}
+
+@media (max-width: 768px) {
+  .premium-sidebar--open {
+    transform: translateY(0);
+  }
 }
 
 
@@ -1249,6 +1281,23 @@ select {
   animation: slideDown var(--transition-fast) ease-out;
 }
 
+@media (max-width: 640px) {
+  .premium-settings-panel {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    transform: translateY(100%);
+    animation: slideUp var(--transition-normal) forwards;
+    width: 100vw;
+    max-width: none;
+    max-height: 85vh;
+    right: auto;
+    border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+    padding-bottom: calc(var(--spacing-lg) + env(safe-area-inset-bottom, 20px));
+  }
+}
+
 @keyframes slideDown {
   from {
     opacity: 0;
@@ -1257,6 +1306,16 @@ select {
 
   to {
     opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+
+  to {
     transform: translateY(0);
   }
 }

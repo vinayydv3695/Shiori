@@ -122,7 +122,7 @@ export const useReaderStore = create<ReaderState>((set) => ({
   settings: {
     userId: 'default',
     fontFamily: 'EB Garamond',
-    fontSize: 24,
+    fontSize: 14,
     lineHeight: 1.6,
     theme: 'black',
     pageMode: 'paginated',

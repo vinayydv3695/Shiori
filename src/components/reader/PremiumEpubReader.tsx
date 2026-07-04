@@ -926,9 +926,16 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       return;
     }
 
+    // If user is selecting text, don't toggle UI on click
+    if (window.getSelection()?.toString().trim()) {
+      return;
+    }
+
     // Determine click region (left 20%, right 20%, center 60%)
     const windowWidth = window.innerWidth;
-    const clickX = e.clientX;
+    // On mobile touch events, clientX might sometimes be 0 in click events if not properly synthesized,
+    // though React normally handles it. We fallback to screenX or just assume center if 0 and width > 0.
+    const clickX = e.clientX || (e.nativeEvent as any).changedTouches?.[0]?.clientX || e.clientX;
     const clickRatio = clickX / windowWidth;
 
     if (clickRatio < 0.2) {
@@ -1022,7 +1029,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
             <button
               type="button"
               onClick={toggleTwoPageView}
-              className={`premium-control-button hidden md:flex ${twoPageView ? 'premium-control-button--active' : ''}`}
+              className={`premium-control-button ${twoPageView ? 'premium-control-button--active' : ''}`}
               aria-label="Two-page view"
               title="Two-page view"
             >
@@ -1034,7 +1041,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
             <button
               type="button"
               onClick={toggleDoodleMode}
-              className={`premium-control-button hidden md:flex ${isDoodleMode ? 'premium-control-button--active' : ''}`}
+              className={`premium-control-button ${isDoodleMode ? 'premium-control-button--active' : ''}`}
               aria-label="Drawing mode"
               title="Toggle drawing mode"
             >
@@ -1087,16 +1094,15 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
             </div>
           )}
 
+          {/* Doodle Canvas Overlay — must be inside the scrolling container to match its height */}
+          {isDoodleMode && (
+            <DoodleCanvas
+              bookId={bookId}
+              pageId={currentPageId}
+              containerRef={contentContainerRef}
+            />
+          )}
         </div>
-
-        {/* Doodle Canvas Overlay — only mount when active */}
-        {isDoodleMode && (
-          <DoodleCanvas
-            bookId={bookId}
-            pageId={currentPageId}
-            containerRef={contentContainerRef}
-          />
-        )}
       </div>
 
       {/* Doodle Toolbar (floating, only when active) */}

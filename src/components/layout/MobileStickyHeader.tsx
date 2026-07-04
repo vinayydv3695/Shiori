@@ -5,6 +5,7 @@ import { usePreferencesStore } from "@/store/preferencesStore"
 import { useLibraryStore, countActiveFilterCriteria } from "@/store/libraryStore"
 import { useState, useRef, useEffect } from "react"
 import { IconX } from "@/components/icons/ShioriIcons"
+import { isAndroid } from "@/lib/tauri"
 
 interface MobileStickyHeaderProps {
   searchQuery: string
@@ -48,7 +49,7 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
   }
 
   return (
-    <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/40 px-3 pb-3 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] flex flex-col gap-3 md:hidden shadow-sm">
+    <div className={`sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/40 px-3 pb-3 ${isAndroid ? 'pt-[calc(env(safe-area-inset-top,0px)+2px)]' : 'pt-[calc(env(safe-area-inset-top,0px)+0.75rem)]'} flex flex-col gap-3 md:hidden shadow-sm`}>
       <div className="flex items-center justify-between gap-3">
         {/* Domain Tabs */}
         {preferences?.preferredContentType === 'both' && (

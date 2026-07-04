@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Highlighter, StickyNote, Bookmark, X, Volume2 } from '@/components/icons';
-import { api } from '@/lib/tauri';
+import { api, isAndroid } from '@/lib/tauri';
 import type { AnnotationCategory, DictionaryResponse, TranslationResponse } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
 import { useToastStore } from '@/store/toastStore';
@@ -374,11 +374,11 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
       {isVisible && (
         <motion.div
           ref={toolbarRef}
-          className="text-selection-toolbar"
-          style={{ left: position.x, top: position.y }}
-          initial={{ opacity: 0, y: 8, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 8, scale: 0.95 }}
+          className={`text-selection-toolbar ${isAndroid ? 'text-selection-toolbar--android' : ''}`}
+          style={isAndroid ? undefined : { left: position.x, top: position.y }}
+          initial={isAndroid ? { opacity: 0, y: 20 } : { opacity: 0, y: 10, scale: 0.95 }}
+          animate={isAndroid ? { opacity: 1, y: 0 } : { opacity: 1, y: 0, scale: 1 }}
+          exit={isAndroid ? { opacity: 0, y: 20 } : { opacity: 0, y: 8, scale: 0.95 }}
           transition={{ duration: 0.15 }}
           onMouseDown={(e) => e.stopPropagation()}
         >

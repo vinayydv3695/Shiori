@@ -690,6 +690,7 @@ select {
     border-top: 1px solid color-mix(in srgb, var(--ui-border) 50%, transparent);
     border-radius: 24px 24px 0 0;
     transform: translateY(100%);
+    padding-bottom: env(safe-area-inset-bottom, 20px);
   }
 }
 
@@ -2160,6 +2161,18 @@ select {
    TEXT SELECTION TOOLBAR
    Floating popup on text selection with highlight/note/copy/bookmark
    ═══════════════════════════════════════════════════════════ */
+
+.text-selection-toolbar--android {
+  position: fixed !important;
+  left: 16px !important;
+  right: 16px !important;
+  bottom: calc(env(safe-area-inset-bottom, 16px) + 24px) !important;
+  top: auto !important;
+  width: auto !important;
+  max-width: 500px;
+  margin: 0 auto;
+  transform: none !important;
+}
 
 .text-selection-toolbar {
   position: fixed;

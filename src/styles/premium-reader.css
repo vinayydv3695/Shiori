@@ -436,7 +436,7 @@ select {
 }
 
 /* SHIORI-FIX: Mobile padding per spec (≤640px) */
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   /* Base top/bottom padding for all mobile containers to clear UI elements */
   .premium-content-container {
     padding-top: 80px; /* clear top bar */
@@ -1282,7 +1282,7 @@ select {
   animation: slideDown var(--transition-fast) ease-out;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .premium-settings-panel {
     position: fixed;
     top: auto;

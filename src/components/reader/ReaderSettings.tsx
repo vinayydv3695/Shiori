@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { useReadingSettings, BG_COLOR_PRESETS, TEXT_COLOR_PRESETS, type ReaderTheme } from '@/store/premiumReaderStore';
+import { useReadingSettings, BG_COLOR_PRESETS, TEXT_COLOR_PRESETS, type ReaderTheme, applyReaderThemeToElement } from '@/store/premiumReaderStore';
 import { Settings, Columns, ChevronDown, ChevronUp } from '@/components/icons';
 import { READING_FONTS, normalizeLegacyFontPreference } from '@/lib/readingFonts';
 
@@ -61,6 +61,12 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
     setUiScale,
     setTextAlign,
   } = useReadingSettings();
+
+  useEffect(() => {
+    if (panelRef.current) {
+      applyReaderThemeToElement(panelRef.current, theme);
+    }
+  }, [theme, isOpen, isMobile]);
 
   const showTypography = format === 'epub' || format === 'mobi' || format === 'azw' || format === 'azw3';
   const showLayout = format === 'epub';

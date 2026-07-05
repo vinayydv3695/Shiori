@@ -1,4 +1,4 @@
-import { Home, Library, Settings, Search, Menu, Cloud } from 'lucide-react'
+import { Home, Library, Settings, Compass, Menu, Cloud } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { CurrentView } from '@/store/uiStore'
 
@@ -36,8 +36,8 @@ export function BottomNav({
         onClick={() => onNavigateToView('torbox-discover')}
       />
       <NavItem
-        icon={<Search className="w-5 h-5" />}
-        label="Search"
+        icon={<Compass className="w-5 h-5" />}
+        label="Browse"
         isActive={currentView === 'online-books' || currentView === 'online-manga'}
         onClick={() => onNavigateToView('online-books')}
       />

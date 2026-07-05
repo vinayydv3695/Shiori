@@ -45,7 +45,7 @@ export const DeleteBookDialog = ({ open, onOpenChange, bookIds, bookTitle }: Del
         ? `${bookIds.length} books have been removed from your library`
         : `"${bookTitle || 'Book'}" has been removed from your library`;
 
-      toast.success(isMultiple ? 'Books deleted' : 'Book deleted', message);
+      toast.error(isMultiple ? 'Books deleted' : 'Book deleted', message);
       onOpenChange(false);
     } catch (error) {
       logger.error('Failed to delete book(s):', error);

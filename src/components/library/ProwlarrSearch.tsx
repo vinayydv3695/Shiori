@@ -131,7 +131,7 @@ export const ProwlarrSearch = ({ open, onOpenChange, bookTitle, bookAuthor }: Pr
         toast.success('Sent to download queue', result.title)
         onOpenChange(false)
       } else {
-        toast.info('Sent to Prowlarr download client', result.title)
+        toast.success('Sent to Prowlarr download client', result.title)
         onOpenChange(false)
       }
     } catch (err) {

@@ -55,3 +55,30 @@ pub fn is_supported_format(path: &Path) -> bool {
     }
     false
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn test_is_supported_format() {
+        // Supported extensions
+        assert!(is_supported_format(Path::new("book.epub")));
+        assert!(is_supported_format(Path::new("document.pdf")));
+        assert!(is_supported_format(Path::new("manga.cbz")));
+        assert!(is_supported_format(Path::new("text.txt")));
+
+        // Case insensitivity
+        assert!(is_supported_format(Path::new("book.EPUB")));
+        assert!(is_supported_format(Path::new("document.PdF")));
+
+        // Unsupported extensions
+        assert!(!is_supported_format(Path::new("image.jpg")));
+        assert!(!is_supported_format(Path::new("script.sh")));
+        
+        // Edge cases
+        assert!(!is_supported_format(Path::new("no_extension")));
+        assert!(!is_supported_format(Path::new(".hidden_file"))); // .hidden_file is considered extension "hidden_file" in Rust Path if there's no other dot, wait no, actually Path::new(".hidden_file").extension() returns None in Rust.
+    }
+}

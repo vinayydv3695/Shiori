@@ -1479,3 +1479,132 @@ pub fn get_recommended_books(db: &Database, limit: u32) -> Result<Vec<crate::mod
 
     Ok(books)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    fn setup_test_db() -> (Database, tempfile::TempDir) {
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().join("test_lib.db");
+        let db = Database::new(&db_path).unwrap();
+        (db, dir)
+    }
+
+    fn create_test_book() -> Book {
+        Book {
+            id: None,
+            uuid: Uuid::new_v4().to_string(),
+            title: "Test Book".to_string(),
+            sort_title: None,
+            authors: vec![
+                Author { id: None, name: "Author 1".to_string(), sort_name: None, link: None },
+                Author { id: None, name: "Author 2".to_string(), sort_name: None, link: None },
+            ],
+            isbn: Some("1234567890".to_string()),
+            isbn13: None,
+            publisher: Some("Test Publisher".to_string()),
+            pubdate: Some("2023-01-01".to_string()),
+            series: Some("Test Series".to_string()),
+            series_index: Some(1.0),
+            rating: Some(4),
+            tags: vec![
+                Tag { id: None, name: "Fiction".to_string(), color: None },
+                Tag { id: None, name: "Sci-Fi".to_string(), color: None },
+            ],
+            file_path: "/dummy/path/test.epub".to_string(),
+            file_format: "epub".to_string(),
+            file_size: Some(1024),
+            file_hash: Some("dummyhash".to_string()),
+            cover_path: None,
+            page_count: Some(300),
+            word_count: None,
+            language: "en".to_string(),
+            added_date: "2023-10-01T12:00:00Z".to_string(),
+            modified_date: "2023-10-01T12:00:00Z".to_string(),
+            last_opened: None,
+            notes: None,
+            online_metadata_fetched: false,
+            metadata_source: None,
+            metadata_last_sync: None,
+            anilist_id: None,
+            is_favorite: false,
+            reading_status: "Unread".to_string(),
+            domain: Some("books".to_string()),
+            metadata_locked: None,
+            is_wishlist: false,
+            in_trash: false,
+            deleted_at: None,
+        }
+    }
+
+    #[test]
+    fn test_add_and_get_book() {
+        let (db, _dir) = setup_test_db();
+        let book = create_test_book();
+        
+        let id = add_book(&db, book.clone()).expect("Failed to add book");
+        assert!(id > 0);
+
+        let fetched_book = get_book_by_id(&db, id).expect("Failed to get book");
+        assert_eq!(fetched_book.title, book.title);
+        assert_eq!(fetched_book.authors.len(), book.authors.len());
+        assert_eq!(fetched_book.authors[0].name, book.authors[0].name);
+    }
+
+    #[test]
+    fn test_update_book() {
+        let (db, _dir) = setup_test_db();
+        let book = create_test_book();
+        let id = add_book(&db, book).unwrap();
+
+        let mut fetched_book = get_book_by_id(&db, id).unwrap();
+        fetched_book.title = "Updated Title".to_string();
+        fetched_book.authors.push(Author { id: None, name: "Author 3".to_string(), sort_name: None, link: None });
+        
+        update_book(&db, fetched_book.clone()).expect("Failed to update book");
+        
+        let updated_book = get_book_by_id(&db, id).unwrap();
+        assert_eq!(updated_book.title, "Updated Title");
+        assert_eq!(updated_book.authors.len(), 3);
+    }
+
+    #[test]
+    fn test_delete_and_restore_book() {
+        let (db, _dir) = setup_test_db();
+        let book = create_test_book();
+        let id = add_book(&db, book).unwrap();
+
+        // Move to trash
+        delete_book(&db, id).expect("Failed to delete book");
+        
+        let deleted_book = get_book_by_id(&db, id).unwrap();
+        assert!(deleted_book.in_trash);
+        assert!(deleted_book.deleted_at.is_some());
+
+        // Restore
+        restore_book(&db, id).expect("Failed to restore book");
+        let restored_book = get_book_by_id(&db, id).unwrap();
+        assert!(!restored_book.in_trash);
+        assert!(restored_book.deleted_at.is_none());
+    }
+
+    #[test]
+    fn test_get_total_books() {
+        let (db, _dir) = setup_test_db();
+        
+        assert_eq!(get_total_books(&db).unwrap(), 0);
+        
+        let book1 = create_test_book();
+        let mut book2 = create_test_book();
+        book2.uuid = Uuid::new_v4().to_string();
+        book2.file_path = "/dummy/path/test2.epub".to_string();
+        book2.file_hash = Some("dummyhash2".to_string());
+
+        add_book(&db, book1).unwrap();
+        add_book(&db, book2).unwrap();
+        
+        assert_eq!(get_total_books(&db).unwrap(), 2);
+    }
+}

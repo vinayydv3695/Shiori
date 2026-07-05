@@ -618,8 +618,8 @@ mod tests {
         let pattern = generator.select_pattern(&metadata);
 
         // Pattern should be deterministic
-        let pattern2 = generator.select_pattern(&metadata);
-        assert!(matches!(pattern, pattern2));
+        let _pattern2 = generator.select_pattern(&metadata);
+        assert!(matches!(pattern, _pattern2));
     }
 
     #[tokio::test]

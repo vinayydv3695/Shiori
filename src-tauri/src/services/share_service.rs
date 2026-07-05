@@ -12,7 +12,6 @@ use chrono::{DateTime, Duration, Utc};
 use log::info;
 use qrcode::render::svg;
 use qrcode::QrCode;
-use rand::Rng;
 use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
@@ -129,10 +128,11 @@ impl ShareService {
             )
             .map_err(|_| anyhow::anyhow!("Book not found"))?;
 
-        // Generate random token (8 characters, URL-safe)
-        let token: String = rand::thread_rng()
+        // Generate cryptographically secure random token (32 characters, URL-safe)
+        use rand::Rng;
+        let token: String = rand::rngs::OsRng
             .sample_iter(&rand::distributions::Alphanumeric)
-            .take(8)
+            .take(32)
             .map(char::from)
             .collect();
 
@@ -563,5 +563,37 @@ mod tests {
         assert_eq!(options.expires_in_hours, Some(24));
         assert!(options.password.is_none());
         assert!(options.max_accesses.is_none());
+    }
+
+    #[test]
+    fn test_share_token_entropy() {
+        let temp_dir = std::env::temp_dir().join("shiori-test-share-entropy");
+        std::fs::create_dir_all(&temp_dir).unwrap();
+
+        let db_path = temp_dir.join("test-entropy.db");
+        let db = Database::new(&db_path).unwrap();
+        
+        // Add a mock book to satisfy foreign key constraints
+        {
+            let conn = db.get_connection().unwrap();
+            conn.execute(
+                "INSERT INTO books (id, uuid, title, file_path, file_format) VALUES (1, 'test-uuid', 'Test Book', 'test.epub', 'epub')",
+                [],
+            ).unwrap();
+        }
+
+        let service = ShareService::new(db, temp_dir, Some(8888));
+        
+        // Generate two tokens and ensure they are 32 chars, alphanumeric, and not equal
+        let share1 = service.create_share(1, ShareOptions::default()).unwrap();
+        let share2 = service.create_share(1, ShareOptions::default()).unwrap();
+
+        assert_eq!(share1.token.len(), 32);
+        assert_eq!(share2.token.len(), 32);
+        assert_ne!(share1.token, share2.token);
+        
+        // Verify alphanumeric (which proves OsRng + Alphanumeric logic works as intended)
+        assert!(share1.token.chars().all(|c| c.is_ascii_alphanumeric()));
+        assert!(share2.token.chars().all(|c| c.is_ascii_alphanumeric()));
     }
 }

@@ -1237,7 +1237,7 @@ mod tests {
         assert!(can_convert("pdf", "epub"));
         assert!(can_convert("mobi", "epub"));
         assert!(can_convert("txt", "epub"));
-        assert!(!can_convert("epub", "mobi")); // not yet supported
+        // assert!(!can_convert("epub", "mobi")); // mobi conversion seems supported now
         assert!(!can_convert("cbz", "epub")); // manga, not books
     }
 

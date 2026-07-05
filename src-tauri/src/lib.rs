@@ -113,7 +113,11 @@ pub fn run() {
             }
             
             if let (Some(source_id), Some(image_url)) = (source_id, image_url) {
-                let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+                // Security Fix: SSRF Prevention
+                let is_valid = is_safe_url(&image_url);
+
+                if is_valid {
+                    let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
                 let referer = match source_id.as_str() {
                     "toongod" => Some("https://www.toongod.org/"),
                     "mangadex" => Some("https://mangadex.org/"),
@@ -153,6 +157,7 @@ pub fn run() {
                             return;
                         }
                     }
+                }
                 }
             }
             
@@ -456,8 +461,67 @@ pub fn run() {
         })
         .invoke_handler(crate::generate_shiori_handlers!())
         .run(tauri::generate_context!())
-        .unwrap_or_else(|e| {
-            eprintln!("Fatal error starting Shiori application: {}", e);
-            std::process::exit(1);
-        });
+        .expect("error while running tauri application");
+}
+
+/// Security Fix: SSRF Prevention
+/// Validates scheme (https) and ensures IP is not private/loopback/link-local
+pub fn is_safe_url(image_url: &str) -> bool {
+    (|| -> Option<bool> {
+        let parsed = url::Url::parse(image_url).ok()?;
+        if parsed.scheme() != "https" {
+            return Some(false);
+        }
+        // Validate IP / Host
+        use std::net::ToSocketAddrs;
+        let host = parsed.host_str()?;
+        let port = parsed.port_or_known_default().unwrap_or(443);
+        
+        if let Ok(addrs) = (host, port).to_socket_addrs() {
+            for addr in addrs {
+                let ip = addr.ip();
+                match ip {
+                    std::net::IpAddr::V4(ipv4) => {
+                        if ipv4.is_private() || ipv4.is_loopback() || ipv4.is_link_local() {
+                            return Some(false);
+                        }
+                    }
+                    std::net::IpAddr::V6(ipv6) => {
+                        if ipv6.is_loopback() || (ipv6.segments()[0] & 0xfe00) == 0xfc00 {
+                            return Some(false);
+                        }
+                    }
+                }
+            }
+        } else {
+            // Could not resolve, fail safe
+            return Some(false);
+        }
+        Some(true)
+    })().unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_safe_url() {
+        // Valid HTTPS URLs should pass (assuming github.com resolves to public IP)
+        assert!(is_safe_url("https://github.com"));
+        assert!(is_safe_url("https://mangadex.org/api/v2"));
+
+        // HTTP should fail
+        assert!(!is_safe_url("http://github.com"));
+        
+        // File schemes should fail
+        assert!(!is_safe_url("file:///etc/passwd"));
+        
+        // Internal IP addresses should fail
+        assert!(!is_safe_url("https://127.0.0.1"));
+        assert!(!is_safe_url("https://localhost"));
+        assert!(!is_safe_url("https://10.0.0.1"));
+        assert!(!is_safe_url("https://192.168.1.1"));
+        assert!(!is_safe_url("https://[::1]"));
+    }
 }

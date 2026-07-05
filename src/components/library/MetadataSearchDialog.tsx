@@ -580,7 +580,7 @@ export const MetadataSearchDialog = ({
       <Dialog.Root open={open} onOpenChange={onOpenChange}>
         <Dialog.Portal>
           <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-2xl w-[90vw] max-w-5xl max-h-[85vh] z-50 flex flex-col overflow-hidden">
+          <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-2xl w-[95vw] md:w-[90vw] max-w-5xl max-h-[85vh] z-50 flex flex-col overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b border-border bg-muted/30">
               <div className="flex flex-col">
                 <Dialog.Title className="text-xl font-bold text-foreground">
@@ -737,7 +737,7 @@ export const MetadataSearchDialog = ({
       <Dialog.Root open={open} onOpenChange={onOpenChange}>
         <Dialog.Portal>
           <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-lg shadow-lg w-[90vw] max-w-3xl max-h-[85vh] z-50 flex flex-col">
+          <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-lg shadow-lg w-[95vw] md:w-[90vw] max-w-3xl max-h-[85vh] z-50 flex flex-col overflow-x-hidden">
             <div className="flex items-center justify-between p-6 border-b border-border flex-shrink-0">
               <Dialog.Title className="text-lg font-semibold text-foreground">
                 Fetch Metadata from {isManga ? 'AniList' : 'Open Library'}
@@ -786,24 +786,26 @@ export const MetadataSearchDialog = ({
                     const isDownloading = downloading === index;
                     if (isMangaResult(result)) {
                       return (
-                        <div key={result.anilist_id} className="flex gap-4 p-4 border border-border rounded-lg hover:border-primary/50 transition-colors bg-card">
-                          <img src={result.cover_url_large} alt={result.title_romaji} className="w-24 h-36 object-contain bg-muted rounded" />
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-foreground mb-1 truncate">{result.title_english || result.title_romaji}</h3>
-                            {result.title_english && result.title_romaji && <p className="text-sm text-muted-foreground mb-2">{result.title_romaji}</p>}
-                            {result.description && <p className="text-sm text-muted-foreground line-clamp-3 mb-2">{result.description.substring(0, 200)}...</p>}
-                            <div className="flex flex-wrap gap-2 mb-2">
-                              {result.genres.slice(0, 4).map((genre) => <span key={genre} className="px-2 py-0.5 bg-primary/10 text-primary text-xs rounded">{genre}</span>)}
-                            </div>
-                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                              {result.average_score && <span>⭐ {result.average_score}%</span>}
-                              {result.volumes && <span>📚 {result.volumes} vols</span>}
-                              {result.status && <span>{result.status}</span>}
-                              {result.start_year && <span>{result.start_year}</span>}
+                        <div key={result.anilist_id} className="flex flex-col sm:flex-row gap-4 p-4 border border-border rounded-lg hover:border-primary/50 transition-colors bg-card">
+                          <div className="flex gap-4 flex-1 min-w-0">
+                            <img src={result.cover_url_large} alt={result.title_romaji} className="w-24 h-36 object-contain bg-muted rounded flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-foreground mb-1 truncate">{result.title_english || result.title_romaji}</h3>
+                              {result.title_english && result.title_romaji && <p className="text-sm text-muted-foreground mb-2 truncate">{result.title_romaji}</p>}
+                              {result.description && <p className="text-sm text-muted-foreground line-clamp-2 md:line-clamp-3 mb-2">{result.description.substring(0, 200)}...</p>}
+                              <div className="flex flex-wrap gap-2 mb-2">
+                                {result.genres.slice(0, 4).map((genre) => <span key={genre} className="px-2 py-0.5 bg-primary/10 text-primary text-xs rounded truncate max-w-full">{genre}</span>)}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                                {result.average_score && <span>⭐ {result.average_score}%</span>}
+                                {result.volumes && <span>📚 {result.volumes} vols</span>}
+                                {result.status && <span className="truncate">{result.status}</span>}
+                                {result.start_year && <span>{result.start_year}</span>}
+                              </div>
                             </div>
                           </div>
-                          <div className="flex-shrink-0">
-                            <Button size="sm" onClick={() => handleSelectMetadata(result)} disabled={isDownloading}>
+                          <div className="w-full sm:w-auto sm:flex-shrink-0 mt-2 sm:mt-0">
+                            <Button className="w-full sm:w-auto h-10 sm:h-auto" size="sm" onClick={() => handleSelectMetadata(result)} disabled={isDownloading}>
                               {isDownloading ? <><Loader2 className="h-3 w-3 animate-spin mr-1" />Applying...</> : <><Download className="h-3 w-3 mr-1" />Use This</>}
                             </Button>
                           </div>
@@ -812,23 +814,25 @@ export const MetadataSearchDialog = ({
                     } else {
                       const bookResult = result as BookMetadata;
                       return (
-                        <div key={bookResult.open_library_id || index} className="flex gap-4 p-4 border border-border rounded-lg hover:border-primary/50 transition-colors bg-card">
-                          {bookResult.cover_url_medium ? (
-                            <img src={bookResult.cover_url_medium} alt={bookResult.title} className="w-24 h-36 object-contain bg-muted rounded" />
-                          ) : (
-                            <div className="w-24 h-36 bg-muted rounded flex items-center justify-center text-muted-foreground"><span className="text-3xl">📚</span></div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-foreground mb-1">{bookResult.title}</h3>
-                            {bookResult.subtitle && <p className="text-sm text-muted-foreground mb-2">{bookResult.subtitle}</p>}
-                            {bookResult.authors.length > 0 && <p className="text-sm text-muted-foreground mb-2">by {bookResult.authors.map(a => a.name).join(', ')}</p>}
-                            {bookResult.description && <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{bookResult.description.substring(0, 200)}...</p>}
-                            <div className="flex flex-wrap gap-2 mb-2">
-                              {bookResult.subjects.slice(0, 3).map((subject, idx) => <span key={idx} className="px-2 py-0.5 bg-primary/10 text-primary text-xs rounded">{subject}</span>)}
+                        <div key={bookResult.open_library_id || index} className="flex flex-col sm:flex-row gap-4 p-4 border border-border rounded-lg hover:border-primary/50 transition-colors bg-card">
+                          <div className="flex gap-4 flex-1 min-w-0">
+                            {bookResult.cover_url_medium ? (
+                              <img src={bookResult.cover_url_medium} alt={bookResult.title} className="w-24 h-36 object-contain bg-muted rounded flex-shrink-0" />
+                            ) : (
+                              <div className="w-24 h-36 bg-muted rounded flex items-center justify-center text-muted-foreground flex-shrink-0"><span className="text-3xl">📚</span></div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-foreground mb-1 truncate">{bookResult.title}</h3>
+                              {bookResult.subtitle && <p className="text-sm text-muted-foreground mb-2 truncate">{bookResult.subtitle}</p>}
+                              {bookResult.authors.length > 0 && <p className="text-sm text-muted-foreground mb-2 truncate">by {bookResult.authors.map(a => a.name).join(', ')}</p>}
+                              {bookResult.description && <p className="text-sm text-muted-foreground line-clamp-2 md:line-clamp-3 mb-2">{bookResult.description.substring(0, 200)}...</p>}
+                              <div className="flex flex-wrap gap-2 mb-2">
+                                {bookResult.subjects.slice(0, 3).map((subject, idx) => <span key={idx} className="px-2 py-0.5 bg-primary/10 text-primary text-xs rounded truncate max-w-full">{subject}</span>)}
+                              </div>
                             </div>
                           </div>
-                          <div className="flex-shrink-0">
-                            <Button size="sm" onClick={() => handleSelectMetadata(bookResult)} disabled={isDownloading}>
+                          <div className="w-full sm:w-auto sm:flex-shrink-0 mt-2 sm:mt-0">
+                            <Button className="w-full sm:w-auto h-10 sm:h-auto" size="sm" onClick={() => handleSelectMetadata(bookResult)} disabled={isDownloading}>
                               {isDownloading ? <><Loader2 className="h-3 w-3 animate-spin mr-1" />Applying...</> : <><Download className="h-3 w-3 mr-1" />Use This</>}
                             </Button>
                           </div>

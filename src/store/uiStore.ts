@@ -25,6 +25,8 @@ interface UIStore {
   setCurrentView: (view: CurrentView) => void
   setCurrentDomain: (domain: DomainView) => void
   resetToHome: () => void
+  viewHistory: CurrentView[]
+  goBack: () => void
 }
 
 export const useUIStore = create<UIStore>()(
@@ -33,11 +35,28 @@ export const useUIStore = create<UIStore>()(
       sidebarCollapsed: false,
       currentView: "home",
       currentDomain: "books",
+      viewHistory: [],
       toggleSidebar: () =>
         set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
-      setCurrentView: (view: CurrentView) => set({ currentView: view }),
+      setCurrentView: (view: CurrentView) => 
+        set((state) => {
+          if (state.currentView === view) return {};
+          return {
+            currentView: view,
+            viewHistory: [...state.viewHistory, state.currentView]
+          };
+        }),
       setCurrentDomain: (domain: DomainView) => set({ currentDomain: domain }),
-      resetToHome: () => set({ currentView: "home", currentDomain: "books" }),
+      resetToHome: () => set({ currentView: "home", currentDomain: "books", viewHistory: [] }),
+      goBack: () =>
+        set((state) => {
+          if (state.viewHistory.length === 0) {
+            return { currentView: "home", currentDomain: "books" };
+          }
+          const newHistory = [...state.viewHistory];
+          const previousView = newHistory.pop()!;
+          return { currentView: previousView, viewHistory: newHistory };
+        }),
     }),
     {
       name: "shiori-ui-settings",

@@ -262,7 +262,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                   animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
                   exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }}
                   transition={{ duration: 0.2 }}
-                  className="absolute inset-0 p-8 overflow-y-auto"
+                  className="absolute inset-0 p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto"
                 >
                   {selectedTab === 'general' && (
                     <GeneralSettings
@@ -1296,7 +1296,7 @@ const MangaReadingSettings = ({
             })
           }}
         >
-          <div className="grid grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
             {mangaModes.map((mode) => (
               <button
                 key={mode.value}

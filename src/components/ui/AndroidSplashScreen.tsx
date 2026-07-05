@@ -29,7 +29,7 @@ export const AndroidSplashScreen = ({ onAnimationEnd, isReady }: AndroidSplashSc
     // Minimum time to show the splash screen so the animation plays out
     const timeout = setTimeout(() => {
       setHasWaitedMinTime(true);
-    }, 1200);
+    }, 2000); // Increased minimum time to let the new 1.2s + 0.3s text animation breathe
 
     return () => clearTimeout(timeout);
   }, [shouldRender]);
@@ -52,16 +52,19 @@ export const AndroidSplashScreen = ({ onAnimationEnd, isReady }: AndroidSplashSc
 
   return (
     <div
-      className={`fixed inset-0 z-[9999] bg-background flex flex-col items-center justify-center transition-opacity duration-500 ease-in-out ${
+      className={`fixed inset-0 z-[9999] bg-background splash-gradient flex flex-col items-center justify-center transition-opacity duration-500 ease-in-out ${
         isFadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
     >
-      <div className="relative flex flex-col items-center justify-center">
+      <div className="relative flex flex-col items-center justify-center gap-6">
         <img
           src={`${import.meta.env.BASE_URL}logo.png`}
           alt="Shiori Logo"
-          className="w-40 h-40 object-contain animate-splash-logo"
+          className="w-32 h-32 object-contain animate-splash-logo"
         />
+        <h1 className="text-primary font-bold text-2xl tracking-[0.6em] animate-splash-text ml-[0.6em] select-none">
+          SHIORI
+        </h1>
       </div>
     </div>
   );

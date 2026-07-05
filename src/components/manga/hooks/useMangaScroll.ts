@@ -9,6 +9,7 @@ export function useMangaScroll(
     containerRef: React.RefObject<HTMLElement | null>,
     onProgressChange: (progress: number) => void,
     onScrollActivity?: () => void,
+    isActive: boolean = true
 ) {
     const ticking = useRef(false);
     const lastActivityMark = useRef(0);
@@ -65,10 +66,11 @@ export function useMangaScroll(
     }, [containerRef, onProgressChange, onScrollActivity]);
 
     useEffect(() => {
+        if (!isActive) return;
         const el = containerRef.current;
         if (!el) return;
 
         el.addEventListener('scroll', onScroll, { passive: true });
         return () => el.removeEventListener('scroll', onScroll);
-    }, [containerRef, onScroll]);
+    }, [containerRef, onScroll, isActive]);
 }

@@ -101,7 +101,7 @@ export const ModernBookCard = memo(function ModernBookCard({
       )}
     >
       {/* Cover Container with Aspect Ratio */}
-      <div className="relative w-full aspect-[2/3] rounded-xl bg-secondary/40 backdrop-blur-md shadow-md border border-border/40 group-hover/card:border-border group-hover/card:shadow-xl transition-all duration-500 overflow-hidden">
+      <div className="relative w-full aspect-[2/3] rounded-2xl bg-secondary/40 backdrop-blur-md shadow-md border border-border/40 group-hover/card:border-border group-hover/card:shadow-xl transition-all duration-500 overflow-hidden">
         
         {/* Actual Image */}
         {visible && proxyUrl && !imgError ? (
@@ -194,14 +194,15 @@ export const ModernBookCard = memo(function ModernBookCard({
         <div className={cn(
           'absolute bottom-0 left-0 right-0 z-10',
           'flex flex-col gap-0.5',
-          'bg-gradient-to-t from-black/90 via-black/50 to-transparent text-white',
-          'px-2.5 pt-8 pb-2.5'
+          'md:bg-gradient-to-t md:from-black/90 md:via-black/50 md:to-transparent',
+          'max-md:bg-surface-container-low/70 max-md:backdrop-blur-xl max-md:border-t max-md:border-white/5 max-md:pt-2.5 max-md:pb-2.5 max-md:px-2.5',
+          'px-2.5 pt-8 pb-2.5 text-white max-md:text-foreground'
         )}>
-          <h3 className="font-bold leading-tight line-clamp-2 drop-shadow-md text-white/95 text-[14px]">
+          <h3 className="font-bold leading-tight line-clamp-2 drop-shadow-md text-white/95 max-md:text-foreground/95 text-[14px]">
             {title}
           </h3>
           {author && author !== 'Unknown Author' && (
-            <p className="truncate drop-shadow-md text-white/70 font-medium text-[11px]">
+            <p className="truncate drop-shadow-md text-white/70 max-md:text-muted-foreground font-medium text-[11px]">
               {author}
             </p>
           )}

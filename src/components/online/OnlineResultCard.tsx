@@ -112,15 +112,21 @@ export const OnlineResultCard = memo(function OnlineResultCard({
       ref={cardRef}
       onClick={onReadOnline || onViewDetails}
       className={cn(
-        'group relative flex gap-4 p-4 rounded-xl border border-border bg-card/60 backdrop-blur-sm',
+        'group relative flex rounded-2xl border border-border/60 bg-card/60 backdrop-blur-md',
         'hover:bg-accent/40 hover:border-border/80 transition-all duration-300',
         'shadow-sm hover:shadow-md cursor-pointer',
+        'md:gap-4 md:p-4',
+        'max-md:flex-col max-md:p-0 max-md:overflow-hidden',
         !visible && 'opacity-0 translate-y-4',
         visible && 'animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-forwards'
       )}
     >
       {/* Cover */}
-      <div className="w-24 h-36 sm:w-28 sm:h-40 flex-shrink-0 bg-muted/50 rounded-lg overflow-hidden relative shadow-sm border border-border/40">
+      <div className={cn(
+        "flex-shrink-0 bg-muted/50 overflow-hidden relative shadow-sm border",
+        "w-24 h-36 sm:w-28 sm:h-40 rounded-lg border-border/40",
+        "max-md:w-full max-md:aspect-[2/3] max-md:rounded-none max-md:border-none"
+      )}>
         {!visible && <div className="absolute inset-0 bg-muted animate-pulse" />}
         {visible && proxyUrl && !imgError && (
           <>
@@ -166,27 +172,30 @@ export const OnlineResultCard = memo(function OnlineResultCard({
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-w-0 flex flex-col">
-        <div className="mb-2">
-          <h3 className="font-semibold text-base sm:text-lg text-foreground line-clamp-2 leading-tight group-hover:text-primary transition-colors">
+      <div className={cn(
+        "flex-1 min-w-0 flex flex-col",
+        "max-md:absolute max-md:bottom-0 max-md:left-0 max-md:right-0 max-md:bg-background/60 max-md:backdrop-blur-md max-md:border-t max-md:border-white/10 max-md:p-2 max-md:z-10"
+      )}>
+        <div className="mb-2 max-md:mb-0">
+          <h3 className="font-semibold text-base sm:text-lg text-foreground max-md:text-[14px] max-md:leading-tight line-clamp-2 leading-tight group-hover:text-primary transition-colors max-md:text-foreground/95">
             {title}
           </h3>
           {author && (
             <div className="flex items-center gap-1.5 mt-1.5 text-sm text-muted-foreground">
-              <User className="w-3.5 h-3.5" />
-              <span className="line-clamp-1">{author}</span>
+              <User className="w-3.5 h-3.5 max-md:hidden" />
+              <span className="line-clamp-1 max-md:text-[11px] max-md:font-medium">{author}</span>
             </div>
           )}
         </div>
 
         {description && (
-          <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 mb-3">
+          <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 mb-3 max-md:hidden">
             {description}
           </p>
         )}
 
         {/* Badges */}
-        <div className="flex flex-wrap items-center gap-2 mt-auto pb-3">
+        <div className="flex flex-wrap items-center gap-2 mt-auto pb-3 max-md:hidden">
           {format && (
             <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-primary/10 text-primary border border-primary/20">
               {format}
@@ -216,7 +225,7 @@ export const OnlineResultCard = memo(function OnlineResultCard({
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-end w-full sm:w-auto mt-auto gap-2 p-1.5 bg-background/50 backdrop-blur-sm rounded-lg border border-border/40 shadow-sm self-end">
+        <div className="flex items-center justify-end w-full sm:w-auto mt-auto gap-2 p-1.5 bg-background/50 backdrop-blur-sm rounded-lg border border-border/40 shadow-sm self-end max-md:hidden">
           {onReadOnline && (
             <Button size="sm" onClick={(e) => { e.stopPropagation(); onReadOnline(); }} className="gap-1.5 h-8 text-xs bg-primary/90 hover:bg-primary">
               <BookOpen className="w-3.5 h-3.5" />

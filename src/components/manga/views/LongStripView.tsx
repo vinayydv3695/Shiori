@@ -98,7 +98,7 @@ export function LongStripView() {
         markScrollActivity();
     }, [markScrollActivity]);
 
-    useMangaScroll(containerRef, handleProgressChange, handleScrollActivity);
+    useMangaScroll(containerRef, handleProgressChange, handleScrollActivity, hasSource);
 
     // On mount, scroll to the resumed page (if any). Run once after virtualizer is ready.
     useEffect(() => {

@@ -64,12 +64,12 @@ const SeriesHeader = memo(function SeriesHeader({
         </>
       )}
 
-      <div className="relative z-10 p-4 pt-12 md:p-8 flex flex-col gap-6 md:gap-8">
+      <div className="relative z-10 p-4 pt-14 md:p-8 flex flex-col gap-5 md:gap-8">
         
         {/* Top Section: Cover & Info */}
         <div className="flex flex-row gap-4 md:gap-8 items-start md:items-end w-full">
           {/* Cover */}
-          <div className="w-28 h-40 md:w-48 md:h-72 rounded-lg overflow-hidden shadow-2xl border border-white/10 flex-shrink-0 bg-muted/50 transform transition-transform hover:scale-105 duration-300">
+          <div className="w-24 h-36 md:w-48 md:h-72 rounded-lg overflow-hidden shadow-2xl border border-white/10 flex-shrink-0 bg-muted/50 transform transition-transform hover:scale-105 duration-300">
             {coverUrl ? (
               <img src={coverUrl} alt={series.title} className="w-full h-full object-cover" />
             ) : (
@@ -85,7 +85,7 @@ const SeriesHeader = memo(function SeriesHeader({
               <span className="px-2 py-0.5 md:px-2.5 md:py-1 rounded text-[10px] md:text-xs font-bold tracking-wider bg-primary text-primary-foreground shadow-sm uppercase">
                 {status}
               </span>
-              <span className="text-xs md:text-sm text-foreground/90 font-medium flex items-center gap-1 backdrop-blur-md bg-background/30 px-2 py-0.5 md:px-2.5 md:py-1 rounded border border-border/20">
+              <span className="text-[10px] md:text-sm text-foreground/90 font-medium flex items-center gap-1 backdrop-blur-md bg-background/30 px-2 py-0.5 md:px-2.5 md:py-1 rounded border border-border/20">
                 <Layers className="w-3 h-3 md:w-4 md:h-4" />
                 {series.bookCount} {series.bookCount === 1 ? 'Vol' : 'Vols'}
               </span>
@@ -97,56 +97,39 @@ const SeriesHeader = memo(function SeriesHeader({
               )}
             </div>
             
-            <Dialog.Title className="text-2xl sm:text-3xl md:text-5xl font-black text-foreground line-clamp-3 md:truncate tracking-tight mb-1 md:mb-2 drop-shadow-md leading-tight">
+            <Dialog.Title className="text-xl sm:text-2xl md:text-5xl font-black text-foreground line-clamp-2 md:line-clamp-none md:truncate tracking-tight mb-1 md:mb-2 drop-shadow-md leading-tight break-words whitespace-normal">
               {series.title}
             </Dialog.Title>
-            <p className="text-sm md:text-xl text-foreground/80 truncate font-medium drop-shadow-sm">
+            <p className="text-xs md:text-xl text-foreground/80 truncate font-medium drop-shadow-sm">
               {Array.from(series.authors).join(', ') || 'Unknown Author'}
             </p>
           </div>
         </div>
 
         {/* Actions Section */}
-        <div className="flex flex-col md:flex-row items-center gap-5 md:gap-6 w-full">
-          {/* Primary Action */}
-          <div className="w-full md:w-auto md:flex-none">
+        <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6 w-full mt-1 md:mt-2">
+          {/* Primary & Secondary Buttons Group */}
+          <div className="flex items-center gap-2 w-full md:w-auto">
             <Button 
               size="lg" 
               onClick={() => {
                 if (nextUnreadBook?.id) onOpenBook(nextUnreadBook.id);
                 else if (sortedBooks[0]?.id) onOpenBook(sortedBooks[0].id);
               }} 
-              className="w-full gap-2.5 font-bold text-base shadow-lg shadow-primary/20 transition-all hover:scale-105"
+              className="flex-1 md:flex-none md:w-48 gap-2 font-bold text-sm md:text-base shadow-lg shadow-primary/20 transition-all hover:scale-105 h-11 md:h-12"
             >
-              <Play className="w-5 h-5 fill-current" /> 
+              <Play className="w-4 h-4 md:w-5 md:h-5 fill-current" /> 
               {nextUnreadBook ? `Continue Vol. ${nextUnreadBook.series_index || ''}` : 'Read Again'}
             </Button>
-          </div>
 
-          {/* Reading Progress */}
-          <div className="flex-1 flex flex-col justify-center w-full max-w-sm md:mx-4">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] md:text-xs font-bold text-foreground/80 uppercase tracking-wider drop-shadow-sm">Reading Progress</span>
-              <span className="text-[10px] md:text-xs font-black text-primary drop-shadow-sm">{progressPercent}%</span>
-            </div>
-            <div className="h-1.5 md:h-2 w-full bg-background/40 backdrop-blur-sm rounded-full overflow-hidden border border-border/30 shadow-inner">
-              <div className="h-full bg-primary transition-all duration-1000 ease-out" style={{ width: `${progressPercent}%` }} />
-            </div>
-          </div>
-
-          {/* Secondary Actions (Dropdown) */}
-          <div className="flex items-center gap-2 justify-center w-full md:w-auto md:justify-end mt-2 md:mt-0">
-            <Button variant="secondary" size="icon" onClick={onMarkAllRead} className="h-10 w-10 bg-background/30 hover:bg-background/50 text-foreground border-border/20 backdrop-blur-md transition-colors shadow-sm" title="Mark All Read">
-              <CheckCircle2 className="w-4 h-4" />
-            </Button>
-            <Button variant="secondary" size="icon" disabled className="h-10 w-10 bg-background/30 hover:bg-background/50 text-foreground border-border/20 backdrop-blur-md opacity-50 cursor-not-allowed shadow-sm" title="Download">
-              <DownloadCloud className="w-4 h-4" />
+            <Button variant="secondary" size="lg" onClick={onMarkAllRead} className="w-12 h-11 md:h-12 md:w-12 shrink-0 px-0 bg-background/40 hover:bg-background/60 text-foreground border-border/20 backdrop-blur-md shadow-sm transition-colors" title="Mark All Read">
+              <CheckCircle2 className="w-5 h-5" />
             </Button>
             
             <DropdownMenu.Root>
               <DropdownMenu.Trigger asChild>
-                <Button variant="secondary" size="icon" className="h-10 w-10 bg-background/30 hover:bg-background/50 text-foreground border-border/20 backdrop-blur-md transition-colors shadow-sm">
-                  <MoreVertical className="w-4 h-4" />
+                <Button variant="secondary" size="lg" className="w-12 h-11 md:h-12 md:w-12 shrink-0 px-0 bg-background/40 hover:bg-background/60 text-foreground border-border/20 backdrop-blur-md shadow-sm transition-colors">
+                  <MoreVertical className="w-5 h-5" />
                 </Button>
               </DropdownMenu.Trigger>
               <DropdownMenu.Portal>
@@ -171,6 +154,17 @@ const SeriesHeader = memo(function SeriesHeader({
                 </DropdownMenu.Content>
               </DropdownMenu.Portal>
             </DropdownMenu.Root>
+          </div>
+
+          {/* Reading Progress */}
+          <div className="flex-1 flex flex-col w-full max-w-none md:max-w-sm ml-0 md:ml-auto">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] md:text-xs font-bold text-foreground/80 uppercase tracking-wider drop-shadow-sm">Reading Progress</span>
+              <span className="text-[10px] md:text-xs font-black text-primary drop-shadow-sm">{progressPercent}%</span>
+            </div>
+            <div className="h-1.5 md:h-2 w-full bg-background/60 backdrop-blur-sm rounded-full overflow-hidden border border-border/30 shadow-inner">
+              <div className="h-full bg-primary transition-all duration-1000 ease-out" style={{ width: `${progressPercent}%` }} />
+            </div>
           </div>
         </div>
       </div>
@@ -428,8 +422,8 @@ export const SeriesView = memo(function SeriesView({
           )}
         >
           <Dialog.Close asChild>
-            <button className="absolute top-4 right-4 text-foreground/70 hover:text-foreground transition-colors flex-shrink-0 z-[60] bg-background/20 hover:bg-background/40 backdrop-blur-md p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-primary border border-border/10" title="Close series view">
-              <X className="h-5 w-5" />
+            <button className="absolute top-2 right-2 md:top-4 md:right-4 text-foreground/70 hover:text-foreground transition-colors flex-shrink-0 z-[60] bg-background/40 hover:bg-background/60 backdrop-blur-md p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-primary border border-border/20 shadow-md" title="Close series view">
+              <X className="h-4 w-4 md:h-5 md:w-5" />
             </button>
           </Dialog.Close>
           
@@ -453,10 +447,10 @@ export const SeriesView = memo(function SeriesView({
                   className="pl-9 h-10 bg-background/50 border-border/50 focus-visible:ring-primary/20 rounded-full transition-all"
                 />
               </div>
-              <form onSubmit={handleJumpSubmit} className="relative flex-shrink-0 w-28 group">
+              <form onSubmit={handleJumpSubmit} className="relative flex-shrink-0 w-24 md:w-28 group">
                 <Input 
                   id="chapter-jump-input"
-                  placeholder="Jump to..." 
+                  placeholder="Jump..." 
                   value={jumpInput}
                   onChange={(e) => setJumpInput(e.target.value)}
                   className="h-10 bg-background/50 border-border/50 focus-visible:ring-primary/20 rounded-full text-center transition-all"
@@ -464,14 +458,14 @@ export const SeriesView = memo(function SeriesView({
               </form>
             </div>
 
-            <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end overflow-x-auto pb-1 md:pb-0 scrollbar-none">
-              <div className="flex items-center bg-background/50 border border-border/50 rounded-full p-1 shadow-inner">
+            <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end overflow-x-auto pb-2 md:pb-0 scrollbar-none snap-x snap-mandatory">
+              <div className="flex items-center bg-background/50 border border-border/50 rounded-full p-1 shadow-inner shrink-0 snap-center">
                 <button onClick={() => setFilterStatus('all')} className={cn("px-4 py-1.5 text-xs font-bold rounded-full transition-all duration-200", filterStatus === 'all' ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:text-foreground hover:bg-muted/50")}>All</button>
                 <button onClick={() => setFilterStatus('unread')} className={cn("px-4 py-1.5 text-xs font-bold rounded-full transition-all duration-200", filterStatus === 'unread' ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:text-foreground hover:bg-muted/50")}>Unread</button>
                 <button onClick={() => setFilterStatus('read')} className={cn("px-4 py-1.5 text-xs font-bold rounded-full transition-all duration-200", filterStatus === 'read' ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:text-foreground hover:bg-muted/50")}>Read</button>
               </div>
 
-              <div className="flex items-center gap-1 bg-background/50 border border-border/50 rounded-full p-1 shadow-inner">
+              <div className="flex items-center gap-1 bg-background/50 border border-border/50 rounded-full p-1 shadow-inner shrink-0 snap-center">
                 <Button variant="ghost" size="icon" className={cn("h-8 w-8 rounded-full hover:bg-muted", sortOrder === 'chapter_asc' && "bg-muted text-foreground")} onClick={() => setSortOrder('chapter_asc')} title="Sort Ascending">
                   <SortAsc className="w-4 h-4" />
                 </Button>
@@ -483,9 +477,9 @@ export const SeriesView = memo(function SeriesView({
                 </Button>
               </div>
 
-              <div className="h-6 w-px bg-border/50 mx-1 hidden md:block" />
+              <div className="h-6 w-px bg-border/50 mx-1 hidden md:block shrink-0" />
 
-              <div className="flex items-center bg-background/50 border border-border/50 rounded-full p-1 shadow-inner">
+              <div className="flex items-center bg-background/50 border border-border/50 rounded-full p-1 shadow-inner shrink-0 snap-center">
                 <button onClick={() => setViewMode('grid')} className={cn("p-2 rounded-full transition-all duration-200", viewMode === 'grid' ? "bg-muted text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")} title="Grid View">
                   <LayoutGrid className="w-4 h-4" />
                 </button>

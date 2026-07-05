@@ -1265,6 +1265,7 @@ select {
 }
 
 .premium-settings-panel {
+  color: var(--text-primary);
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
@@ -1363,10 +1364,12 @@ select {
   transition: all var(--transition-fast);
 }
 
-.premium-settings-theme-button:hover {
+@media (hover: hover) {
+  .premium-settings-theme-button:hover  {
   background: color-mix(in srgb, var(--ui-focus) 10%, var(--bg-secondary));
   border-color: var(--ui-focus);
   transform: translateY(-1px);
+}
 }
 
 .premium-settings-icon {
@@ -1394,9 +1397,11 @@ select {
   transition: all var(--transition-fast);
 }
 
-.premium-settings-font-option:hover {
+@media (hover: hover) {
+  .premium-settings-font-option:hover  {
   background: color-mix(in srgb, var(--ui-focus) 10%, var(--bg-secondary));
   border-color: color-mix(in srgb, var(--ui-focus) 30%, transparent);
+}
 }
 
 .premium-settings-font-option--active {
@@ -1426,10 +1431,12 @@ select {
   transition: all var(--transition-fast);
 }
 
-.premium-settings-slider-button:hover:not(:disabled) {
+@media (hover: hover) {
+  .premium-settings-slider-button:hover:not(:disabled)  {
   background: color-mix(in srgb, var(--ui-focus) 10%, var(--bg-secondary));
   border-color: var(--ui-focus);
   transform: translateY(-1px);
+}
 }
 
 .premium-settings-slider-button:disabled {
@@ -1501,10 +1508,12 @@ select {
   transition: all var(--transition-fast);
 }
 
-.premium-settings-width-option:hover {
+@media (hover: hover) {
+  .premium-settings-width-option:hover  {
   background: color-mix(in srgb, var(--ui-focus) 10%, var(--bg-secondary));
   border-color: color-mix(in srgb, var(--ui-focus) 30%, transparent);
   transform: translateY(-1px);
+}
 }
 
 .premium-settings-width-option--active {
@@ -1547,10 +1556,12 @@ select {
   transition: all var(--transition-fast);
 }
 
-.premium-settings-toggle:hover {
+@media (hover: hover) {
+  .premium-settings-toggle:hover  {
   background: color-mix(in srgb, var(--ui-focus) 10%, var(--bg-secondary));
   border-color: color-mix(in srgb, var(--ui-focus) 30%, transparent);
   transform: translateY(-1px);
+}
 }
 
 .premium-settings-toggle--active {
@@ -1579,8 +1590,10 @@ select {
   padding: 0;
 }
 
-.premium-settings-color-swatch:hover {
+@media (hover: hover) {
+  .premium-settings-color-swatch:hover  {
   transform: scale(1.1);
+}
 }
 
 .premium-settings-color-swatch--active {
@@ -1634,9 +1647,11 @@ select {
   border-right: none;
 }
 
-.premium-settings-segment-button:hover:not(.premium-settings-segment-button--active) {
+@media (hover: hover) {
+  .premium-settings-segment-button:hover:not(.premium-settings-segment-button--active)  {
   background: color-mix(in srgb, var(--ui-focus) 10%, transparent);
   color: var(--text-primary);
+}
 }
 
 .premium-settings-segment-button--active {

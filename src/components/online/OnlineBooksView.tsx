@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { useOnlineSearchStore } from '@/store/onlineSearchStore';
 import { useGlobalSearch } from '@/hooks/useGlobalSearch';
 import { OnlineSearchHeader } from './OnlineSearchHeader';
-import { Search } from 'lucide-react';
+import { Compass } from 'lucide-react';
 import { OnlineBooksDashboard } from './OnlineBooksDashboard';
 import { ModernBookCard } from './ModernBookCard';
 import { SkeletonGrid } from './SkeletonLoaders';
@@ -212,7 +212,7 @@ export function OnlineBooksView() {
               </div>
             ) : !loading && hasSearched && !error ? (
               <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-                <Search className="w-12 h-12 mb-4 opacity-20" />
+                <Compass className="w-12 h-12 mb-4 opacity-20" />
                 <p className="text-lg">No books found for this search.</p>
                 <p className="text-sm opacity-70">Try using different keywords or removing filters.</p>
               </div>

@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { useReadingSettings, BG_COLOR_PRESETS, TEXT_COLOR_PRESETS, type ReaderTheme } from '@/store/premiumReaderStore';
 import { Settings, Columns, ChevronDown, ChevronUp } from '@/components/icons';
 import { READING_FONTS, normalizeLegacyFontPreference } from '@/lib/readingFonts';
@@ -10,10 +12,16 @@ interface ReaderSettingsProps {
   format?: ReaderFormat;
 }
 
+const PortalWrapper = ({ children, usePortal }: { children: React.ReactNode, usePortal: boolean }) => {
+  if (!usePortal) return <>{children}</>;
+  return createPortal(children, document.body);
+};
+
 export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const isMobile = useIsMobile();
 
   const {
     theme,
@@ -127,7 +135,7 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
       </button>
 
       {isOpen && (
-        <>
+        <PortalWrapper usePortal={isMobile}>
           <div className="md:hidden fixed inset-0 bg-black/40 z-[105]" onClick={() => setIsOpen(false)} />
           <div ref={panelRef} className="premium-settings-panel z-[110]">
             <div className="premium-settings-section">
@@ -525,7 +533,8 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
             </div>
           </div>
         </div>
-        </>
+        </div>
+        </PortalWrapper>
       )}
     </div>
   );

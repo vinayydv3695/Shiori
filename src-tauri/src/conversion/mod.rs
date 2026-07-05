@@ -11,7 +11,7 @@ pub mod txt;
 ///
 /// ## Architecture
 ///
-/// ```
+/// ```text
 /// Input File → [Format Parser] → existing EPUB writer OR OebBook → [epub_builder] → .epub
 /// ```
 ///

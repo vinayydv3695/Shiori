@@ -4,10 +4,7 @@ use crate::models::{SearchQuery, SearchResult};
 use crate::services::library_service;
 use rusqlite::types::Value;
 
-pub fn search(db: &Database, query: SearchQuery) -> Result<SearchResult> {
-    let conn = db.get_connection()?;
-
-    // Build FROM + WHERE once, reuse for both count and page query.
+pub fn build_search_query(query: &SearchQuery) -> (String, Vec<Value>, String, Vec<Value>) {
     let mut from_sql = String::from(" FROM books b");
     let mut where_clauses: Vec<String> = Vec::new();
     let mut base_params: Vec<Value> = Vec::new();
@@ -173,12 +170,6 @@ pub fn search(db: &Database, query: SearchQuery) -> Result<SearchResult> {
 
     // Count total matches (without page limit/offset)
     let count_sql = format!("SELECT COUNT(DISTINCT b.id){}{}", from_sql, where_sql);
-    let count_params_refs: Vec<&dyn rusqlite::ToSql> = base_params
-        .iter()
-        .map(|v| v as &dyn rusqlite::ToSql)
-        .collect();
-    let total_matches: i64 =
-        conn.query_row(&count_sql, count_params_refs.as_slice(), |row| row.get(0))?;
 
     let mut order_clause = String::from("ORDER BY b.added_date DESC");
 
@@ -234,6 +225,20 @@ pub fn search(db: &Database, query: SearchQuery) -> Result<SearchResult> {
         page_params.push(Value::Integer(offset));
     }
 
+    (count_sql, base_params, ids_sql, page_params)
+}
+
+pub fn search(db: &Database, query: SearchQuery) -> Result<SearchResult> {
+    let conn = db.get_connection()?;
+    let (count_sql, base_params, ids_sql, page_params) = build_search_query(&query);
+
+    let count_params_refs: Vec<&dyn rusqlite::ToSql> = base_params
+        .iter()
+        .map(|v| v as &dyn rusqlite::ToSql)
+        .collect();
+    let total_matches: i64 =
+        conn.query_row(&count_sql, count_params_refs.as_slice(), |row| row.get(0))?;
+
     // Execute paged IDs query
     let mut stmt = conn.prepare(&ids_sql)?;
     let page_params_refs: Vec<&dyn rusqlite::ToSql> = page_params
@@ -251,6 +256,62 @@ pub fn search(db: &Database, query: SearchQuery) -> Result<SearchResult> {
     Ok(SearchResult {
         total: total_matches.max(0) as usize,
         books,
-        query: query.query.unwrap_or_default(),
+        query: query.query.clone().unwrap_or_default(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_search_query_empty() {
+        let query = SearchQuery::default();
+        let (count_sql, base_params, ids_sql, page_params) = build_search_query(&query);
+
+        assert_eq!(count_sql, "SELECT COUNT(DISTINCT b.id) FROM books b WHERE b.in_trash = 0");
+        assert!(base_params.is_empty());
+        assert!(ids_sql.contains("ORDER BY b.added_date DESC"));
+        assert!(page_params.is_empty());
+    }
+
+    #[test]
+    fn test_build_search_query_fts() {
+        let mut query = SearchQuery::default();
+        query.query = Some("manga".to_string());
+        
+        let (count_sql, base_params, _ids_sql, _page_params) = build_search_query(&query);
+        assert!(count_sql.contains("JOIN books_fts fts"));
+        assert!(count_sql.contains("books_fts MATCH ?"));
+        assert_eq!(base_params.len(), 1);
+        assert_eq!(base_params[0], Value::Text("manga".to_string()));
+    }
+
+    #[test]
+    fn test_build_search_query_filters() {
+        let mut query = SearchQuery::default();
+        query.authors = Some(vec!["Author A".to_string()]);
+        query.tags = Some(vec!["Action".to_string()]);
+        query.in_trash = Some(true);
+        query.limit = Some(10);
+        query.offset = Some(20);
+
+        let (count_sql, base_params, ids_sql, page_params) = build_search_query(&query);
+        
+        // Count should not have limit/offset
+        assert!(count_sql.contains("JOIN books_authors"));
+        assert!(count_sql.contains("a.name IN (?)"));
+        assert!(count_sql.contains("t.name IN (?)"));
+        assert!(count_sql.contains("b.in_trash = 1"));
+        assert!(!count_sql.contains("LIMIT"));
+        
+        assert_eq!(base_params.len(), 2); // 1 author, 1 tag
+
+        // IDs query should have limit and offset
+        assert!(ids_sql.contains("LIMIT ?"));
+        assert!(ids_sql.contains("OFFSET ?"));
+        assert_eq!(page_params.len(), 4); // author, tag, limit, offset
+        assert_eq!(page_params[2], Value::Integer(10));
+        assert_eq!(page_params[3], Value::Integer(20));
+    }
 }

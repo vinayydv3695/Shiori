@@ -105,7 +105,7 @@ pub struct BookSummary {
     pub added_date: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Author {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<i64>,
@@ -116,7 +116,7 @@ pub struct Author {
     pub link: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Tag {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<i64>,
@@ -132,7 +132,7 @@ pub struct SearchResult {
     pub query: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SearchQuery {
     pub query: Option<String>,
     pub authors: Option<Vec<String>>,

@@ -7,7 +7,7 @@ pub mod mobi;
 ///
 /// Each module exposes exactly one public function:
 ///
-/// ```rust
+/// ```rust,ignore
 /// pub fn parse(path: &std::path::Path) -> Result<OebBook, ConversionError>
 /// ```
 ///

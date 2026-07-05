@@ -365,3 +365,42 @@ impl Database {
             .map_err(|e| crate::error::ShioriError::Other(e.to_string()))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_database_initialization() {
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().join("test.db");
+        
+        // Should create a new database, run migrations, and initialize schema
+        let db = Database::new(&db_path).expect("Failed to initialize database");
+        
+        let conn = db.get_connection().expect("Failed to get connection");
+        
+        // Verify a table exists (e.g. books)
+        let mut stmt = conn.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='books'").unwrap();
+        let exists = stmt.exists([]).unwrap();
+        assert!(exists, "books table should be created");
+
+        // Verify FTS table exists
+        let mut stmt_fts = conn.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='books_fts'").unwrap();
+        let fts_exists = stmt_fts.exists([]).unwrap();
+        assert!(fts_exists, "books_fts table should be created");
+    }
+
+    #[test]
+    fn test_database_performance_pragmas() {
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().join("test_pragmas.db");
+        let db = Database::new(&db_path).unwrap();
+        let conn = db.get_connection().unwrap();
+
+        // Check if journal mode is WAL (set in the manager init)
+        let journal_mode: String = conn.query_row("PRAGMA journal_mode", [], |row| row.get(0)).unwrap();
+        assert_eq!(journal_mode.to_lowercase(), "wal");
+    }
+}

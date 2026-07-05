@@ -128,3 +128,92 @@ pub fn require_non_empty_vec<T>(items: &[T], field: &str) -> Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_require_positive_id() {
+        assert!(require_positive_id(1, "id").is_ok());
+        assert!(require_positive_id(100, "id").is_ok());
+        assert!(require_positive_id(0, "id").is_err());
+        assert!(require_positive_id(-1, "id").is_err());
+    }
+
+    #[test]
+    fn test_require_non_empty() {
+        assert!(require_non_empty("valid", "field").is_ok());
+        assert!(require_non_empty("  valid  ", "field").is_ok());
+        assert!(require_non_empty("", "field").is_err());
+        assert!(require_non_empty("   ", "field").is_err());
+    }
+
+    #[test]
+    fn test_require_max_length() {
+        assert!(require_max_length("123", 5, "field").is_ok());
+        assert!(require_max_length("12345", 5, "field").is_ok());
+        assert!(require_max_length("123456", 5, "field").is_err());
+        assert!(require_max_length("", 5, "field").is_ok());
+    }
+
+    #[test]
+    fn test_require_safe_path() {
+        assert!(require_safe_path("normal/path/file.txt", "field").is_ok());
+        assert!(require_safe_path("file.txt", "field").is_ok());
+        assert!(require_safe_path("C:\\Windows\\System32", "field").is_ok());
+        
+        // Traversal
+        assert!(require_safe_path("../file.txt", "field").is_err());
+        assert!(require_safe_path("some/dir/../../file.txt", "field").is_err());
+        assert!(require_safe_path("..", "field").is_err());
+        assert!(require_safe_path("some/..\\file.txt", "field").is_err());
+        
+        // Empty
+        assert!(require_safe_path("", "field").is_err());
+    }
+
+    #[test]
+    fn test_require_valid_url() {
+        assert!(require_valid_url("https://example.com", "url").is_ok());
+        assert!(require_valid_url("http://example.com/path?q=1", "url").is_ok());
+        
+        // Invalid schemes
+        assert!(require_valid_url("ftp://example.com", "url").is_err());
+        assert!(require_valid_url("file:///etc/passwd", "url").is_err());
+        assert!(require_valid_url("example.com", "url").is_err());
+        
+        // Private networks (allowed by default in require_valid_url for desktop LAN)
+        assert!(require_valid_url("http://localhost:8080", "url").is_ok());
+        assert!(require_valid_url("http://192.168.1.100", "url").is_ok());
+    }
+
+    #[test]
+    fn test_require_valid_url_no_private() {
+        assert!(require_valid_url_with_options("https://example.com", "url", false).is_ok());
+        
+        assert!(require_valid_url_with_options("http://localhost", "url", false).is_err());
+        assert!(require_valid_url_with_options("http://127.0.0.1", "url", false).is_err());
+        assert!(require_valid_url_with_options("http://192.168.1.1", "url", false).is_err());
+        assert!(require_valid_url_with_options("http://10.0.0.1", "url", false).is_err());
+        assert!(require_valid_url_with_options("http://172.16.0.1", "url", false).is_err());
+        assert!(require_valid_url_with_options("http://169.254.169.254", "url", false).is_err());
+    }
+
+    #[test]
+    fn test_require_one_of() {
+        let allowed = vec!["a", "b", "c"];
+        assert!(require_one_of("a", &allowed, "field").is_ok());
+        assert!(require_one_of("c", &allowed, "field").is_ok());
+        assert!(require_one_of("d", &allowed, "field").is_err());
+        assert!(require_one_of("", &allowed, "field").is_err());
+    }
+
+    #[test]
+    fn test_require_non_empty_vec() {
+        let empty: Vec<i32> = vec![];
+        let non_empty = vec![1, 2, 3];
+        assert!(require_non_empty_vec(&non_empty, "field").is_ok());
+        assert!(require_non_empty_vec(&empty, "field").is_err());
+    }
+}

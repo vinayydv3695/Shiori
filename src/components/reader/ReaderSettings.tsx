@@ -533,7 +533,6 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
             </div>
           </div>
         </div>
-        </div>
         </PortalWrapper>
       )}
     </div>

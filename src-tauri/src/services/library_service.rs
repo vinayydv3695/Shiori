@@ -158,7 +158,7 @@ pub fn get_all_books(db: &Database, limit: u32, offset: u32) -> Result<Vec<Book>
     let conn = db.get_connection()?;
 
     let sql = format!(
-        "SELECT {} FROM books b ORDER BY b.added_date DESC LIMIT ?1 OFFSET ?2",
+        "SELECT {} FROM books b WHERE b.in_trash = 0 ORDER BY b.added_date DESC LIMIT ?1 OFFSET ?2",
         BOOK_COLUMNS
     );
     let mut stmt = conn.prepare(&sql)?;
@@ -218,7 +218,7 @@ pub fn get_books_by_ids(db: &Database, ids: &[i64]) -> Result<Vec<Book>> {
 
 pub fn get_total_books(db: &Database) -> Result<i64> {
     let conn = db.get_connection()?;
-    let count: i64 = conn.query_row("SELECT COUNT(*) FROM books", [], |row| row.get(0))?;
+    let count: i64 = conn.query_row("SELECT COUNT(*) FROM books WHERE in_trash = 0", [], |row| row.get(0))?;
     Ok(count)
 }
 
@@ -1128,10 +1128,10 @@ pub fn get_books_by_domain(
     let conn = db.get_connection()?;
 
     let where_clause = match domain {
-        "books" => "WHERE b.domain = 'books'",
-        "manga" => "WHERE b.domain = 'manga'",
-        "comics" => "WHERE b.domain = 'comics'",
-        _ => "",
+        "books" => "WHERE b.domain = 'books' AND b.in_trash = 0",
+        "manga" => "WHERE b.domain = 'manga' AND b.in_trash = 0",
+        "comics" => "WHERE b.domain = 'comics' AND b.in_trash = 0",
+        _ => "WHERE b.in_trash = 0",
     };
 
     let sql = format!(
@@ -1153,10 +1153,10 @@ pub fn get_books_by_domain(
 pub fn get_total_books_by_domain(db: &Database, domain: &str) -> Result<i64> {
     let conn = db.get_connection()?;
     let query = match domain {
-        "books" => "SELECT COUNT(*) FROM books WHERE domain = 'books'",
-        "manga" => "SELECT COUNT(*) FROM books WHERE domain = 'manga'",
-        "comics" => "SELECT COUNT(*) FROM books WHERE domain = 'comics'",
-        _ => "SELECT COUNT(*) FROM books",
+        "books" => "SELECT COUNT(*) FROM books WHERE domain = 'books' AND in_trash = 0",
+        "manga" => "SELECT COUNT(*) FROM books WHERE domain = 'manga' AND in_trash = 0",
+        "comics" => "SELECT COUNT(*) FROM books WHERE domain = 'comics' AND in_trash = 0",
+        _ => "SELECT COUNT(*) FROM books WHERE in_trash = 0",
     };
     let count: i64 = conn.query_row(query, [], |row| row.get(0))?;
     Ok(count)

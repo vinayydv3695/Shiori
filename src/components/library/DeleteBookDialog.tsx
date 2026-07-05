@@ -39,9 +39,7 @@ export const DeleteBookDialog = ({ open, onOpenChange, bookIds, bookTitle }: Del
         await api.deleteBook(bookIds[0]);
       }
 
-      // Final synchronization
-      const books = await api.getBooks();
-      setBooks(books);
+      // The optimistic UI update above is sufficient and prevents resetting pagination or search state.
 
       const message = isMultiple
         ? `${bookIds.length} books have been removed from your library`

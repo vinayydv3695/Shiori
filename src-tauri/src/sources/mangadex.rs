@@ -26,6 +26,8 @@ impl MangaDexSource {
             .default_headers(headers)
             .timeout(Duration::from_secs(30))
             .connect_timeout(Duration::from_secs(10))
+            .pool_idle_timeout(Duration::from_secs(10))
+            .pool_max_idle_per_host(0)
             .build()
             .map_err(|e| ShioriError::Other(format!("Failed to create MangaDex client: {}", e)))?;
 
@@ -215,14 +217,18 @@ impl Source for MangaDexSource {
             );
 
             let resp = self.client.get(&url).send().await.map_err(|e| {
-                ShioriError::Other(format!("MangaDex chapter request failed: {}", e))
+                let err_msg = e.to_string();
+                let short_err = err_msg.split("url (").next().unwrap_or(&err_msg);
+                let inner = std::error::Error::source(&e).map(|s| s.to_string()).unwrap_or_default();
+                ShioriError::Other(format!("MangaDex chapter request failed: {} | Inner: {}", short_err, inner))
             })?;
 
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+
             // Check HTTP-level errors before consuming the body
-            if !resp.status().is_success() {
-                let status = resp.status();
-                let body = resp.text().await.unwrap_or_default();
-                let truncated_body: String = body.chars().take(300).collect();
+            if !status.is_success() {
+                let truncated_body: String = body.chars().take(500).collect();
                 return Err(ShioriError::Other(format!(
                     "MangaDex chapter API returned HTTP {}: {}",
                     status,
@@ -230,17 +236,16 @@ impl Source for MangaDexSource {
                 )));
             }
 
-            let response: MangaDexChapterResponse = resp
-                .json()
-                .await
-                .map_err(|e| ShioriError::Other(format!("MangaDex chapter parse failed: {}", e)))?;
+            let response: MangaDexChapterResponse = serde_json::from_str(&body)
+                .map_err(|e| ShioriError::Other(format!("MangaDex chapter parse failed: {}. Body: {}", e, body.chars().take(500).collect::<String>())))?;
 
             // Check API-level error result field
             if let Some(ref result) = response.result {
                 if result == "error" {
-                    return Err(ShioriError::Other(
-                        "MangaDex API returned an error for chapter list. The manga may not be accessible or the ID is invalid.".to_string(),
-                    ));
+                    return Err(ShioriError::Other(format!(
+                        "MangaDex API returned an error for chapter list. Body: {}",
+                        body.chars().take(500).collect::<String>()
+                    )));
                 }
             }
 

@@ -974,6 +974,32 @@
     .home-section-header {
         flex-wrap: wrap;
     }
+
+    /* Transform horizontal strips into responsive grids on mobile for better Android UX */
+    .scroll-strip {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
+        gap: 12px;
+        overflow-x: visible;
+        padding: 4px 0 14px;
+        scroll-snap-type: none;
+    }
+
+    .scroll-strip > * {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        scroll-snap-align: none;
+    }
+
+    .scroll-strip-wrapper::before,
+    .scroll-strip-wrapper::after {
+        display: none !important;
+    }
+
+    .scroll-nav-btn {
+        display: none !important;
+    }
 }
 
 /* ═══════════════════════════════════════════════════

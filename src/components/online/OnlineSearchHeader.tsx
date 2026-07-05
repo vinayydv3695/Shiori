@@ -1,4 +1,4 @@
-import { Search, Filter, Globe, BookOpen } from 'lucide-react';
+import { Compass, Filter, Globe, BookOpen } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { OnlineSourceSelector } from './OnlineSourceSelector';
@@ -83,7 +83,7 @@ export function OnlineSearchHeader({
 
           <div className="relative group">
             <div className="flex items-end border-b border-border focus-within:border-primary transition-colors duration-300 pb-1 md:pb-2">
-              <Search className="w-5 h-5 md:w-6 md:h-6 text-muted-foreground mb-2 md:mb-4 mr-2 md:mr-4" />
+              <Compass className="w-5 h-5 md:w-6 md:h-6 text-muted-foreground mb-2 md:mb-4 mr-2 md:mr-4" />
               <input
                 value={searchValue}
                 onChange={(e) => onSearchValueChange(e.target.value)}

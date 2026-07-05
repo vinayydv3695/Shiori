@@ -167,7 +167,7 @@ export function AdvancedFilterDialog({ open, onOpenChange }: AdvancedFilterDialo
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-        <Dialog.Content aria-describedby={undefined} className="dialog-content fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-2xl w-[95vw] md:w-[640px] max-w-[640px] max-h-[90vh] flex flex-col z-50 overflow-hidden">
+        <Dialog.Content aria-describedby={undefined} className="dialog-content fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-2xl w-[90vw] md:w-[640px] max-w-[640px] max-h-[85vh] md:max-h-[90vh] flex flex-col z-50 overflow-hidden">
           <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
             <Dialog.Title className="flex items-center gap-2 text-lg font-semibold text-foreground">
               <Filter size={18} />
@@ -186,7 +186,7 @@ export function AdvancedFilterDialog({ open, onOpenChange }: AdvancedFilterDialo
               <button
                 onClick={() => setActiveTab('general')}
                 className={cn(
-                  "flex items-center gap-2 w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap flex-shrink-0 sm:w-full sm:flex-shrink",
+                  "flex items-center gap-2 w-auto sm:w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap flex-shrink-0 sm:w-full sm:flex-shrink",
                   activeTab === 'general' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 )}
               >
@@ -195,7 +195,7 @@ export function AdvancedFilterDialog({ open, onOpenChange }: AdvancedFilterDialo
               <button
                 onClick={() => setActiveTab('metadata')}
                 className={cn(
-                  "flex items-center gap-2 w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap flex-shrink-0 sm:w-full sm:flex-shrink",
+                  "flex items-center gap-2 w-auto sm:w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap flex-shrink-0 sm:w-full sm:flex-shrink",
                   activeTab === 'metadata' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 )}
               >
@@ -204,7 +204,7 @@ export function AdvancedFilterDialog({ open, onOpenChange }: AdvancedFilterDialo
               <button
                 onClick={() => setActiveTab('organization')}
                 className={cn(
-                  "flex items-center gap-2 w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap flex-shrink-0 sm:w-full sm:flex-shrink",
+                  "flex items-center gap-2 w-auto sm:w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap flex-shrink-0 sm:w-full sm:flex-shrink",
                   activeTab === 'organization' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 )}
               >
@@ -213,7 +213,7 @@ export function AdvancedFilterDialog({ open, onOpenChange }: AdvancedFilterDialo
               <button
                 onClick={() => setActiveTab('ratings')}
                 className={cn(
-                  "flex items-center gap-2 w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap flex-shrink-0 sm:w-full sm:flex-shrink",
+                  "flex items-center gap-2 w-auto sm:w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap flex-shrink-0 sm:w-full sm:flex-shrink",
                   activeTab === 'ratings' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 )}
               >

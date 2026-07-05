@@ -579,7 +579,13 @@ impl Source for ToonGodSource {
                 .filter(|s| !s.contains("data:image") && !s.is_empty())
                 .map(|s| s.trim().to_string());
 
-            if let Some(u) = url {
+            if let Some(mut u) = url {
+                // Strip WordPress thumbnail dimensions like "-175x238" from the end of the filename
+                lazy_static::lazy_static! {
+                    static ref RE_WP_THUMB: regex::Regex = regex::Regex::new(r"-\d+x\d+(\.(?:jpg|jpeg|png|webp|gif)(?:\?|$))").unwrap();
+                }
+                u = RE_WP_THUMB.replace(&u, "${1}").to_string();
+
                 let abs_url = Self::absolute_url(&u);
                 if !seen_urls.contains(&abs_url) {
                     seen_urls.insert(abs_url.clone());

@@ -59,7 +59,7 @@ export function MangaReaderHeader({
         if (!currentLocalBook?.series) return [];
         return libraryBooks
             .filter(b => b.series === currentLocalBook.series)
-            .sort((a, b) => (a.chapter_number || 0) - (b.chapter_number || 0));
+            .sort((a, b) => (a.series_index || 0) - (b.series_index || 0));
     }, [currentLocalBook, libraryBooks]);
     
     const currentLocalIndex = React.useMemo(() => 

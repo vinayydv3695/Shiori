@@ -392,12 +392,12 @@ impl ManhwahubEngine {
         // Handle Types (map them to genre[] for Madara themes)
         if let Some(t_list) = types {
             for t in t_list {
-                url.push_str(&format!("&genre[{}]={}", filter_index, t.to_lowercase()));
+                url.push_str(&format!("&genre%5B{}%5D={}", filter_index, t.to_lowercase()));
                 filter_index += 1;
             }
         } else {
             // Fallback to default category
-            url.push_str(&format!("&genre[{}]={}", filter_index, self.category));
+            url.push_str(&format!("&genre%5B{}%5D={}", filter_index, self.category));
             filter_index += 1;
         }
 
@@ -405,23 +405,22 @@ impl ManhwahubEngine {
         if let Some(g_list) = genres {
             for g in g_list {
                 let slug = g.to_lowercase().replace(" ", "-");
-                url.push_str(&format!("&genre[{}]={}", filter_index, slug));
+                url.push_str(&format!("&genre%5B{}%5D={}", filter_index, slug));
                 filter_index += 1;
             }
         }
 
         // Fall back to unfiltered if genre filtering fails
-        let html = self.fetch(&url).await.or_else(|_| {
-            let fallback = format!(
-                "{}/{}?{}",
-                BASE_URL, page_segment, order_param
-            );
-            // Can't do await here, but that's fine — we log and return empty
-            Err(ShioriError::Other(format!(
-                "Manhwahub browse failed; try: {}",
-                fallback
-            )))
-        })?;
+        let html = match self.fetch(&url).await {
+            Ok(h) => h,
+            Err(e) => {
+                let fallback = format!("{}/{}?{}", BASE_URL, page_segment, order_param);
+                match self.fetch(&fallback).await {
+                    Ok(fb) => fb,
+                    Err(fb_err) => return Err(ShioriError::Other(format!("Manhwahub browse failed. URL: {} (Err: {}). Fallback: {} (Err: {})", url, e, fallback, fb_err)))
+                }
+            }
+        };
 
         Ok(self.parse_cards(&html, source_id))
     }
@@ -597,7 +596,13 @@ impl ManhwahubEngine {
                 .filter(|s| !s.contains("data:image") && !s.is_empty())
                 .map(|s| s.trim().to_string());
 
-            if let Some(u) = url_str {
+            if let Some(mut u) = url_str {
+                // Strip WordPress thumbnail dimensions like "-175x238" from the end of the filename
+                lazy_static::lazy_static! {
+                    static ref RE_WP_THUMB: regex::Regex = regex::Regex::new(r"-\d+x\d+(\.(?:jpg|jpeg|png|webp|gif)(?:\?|$))").unwrap();
+                }
+                u = RE_WP_THUMB.replace(&u, "${1}").to_string();
+
                 let abs = Self::absolute_url(&u);
                 if seen.insert(abs.clone()) {
                     pages.push(abs);

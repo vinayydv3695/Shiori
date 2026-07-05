@@ -490,7 +490,13 @@ impl WeebrookEngine {
                 .filter(|s| !s.contains("data:image") && !s.is_empty())
                 .map(|s| s.trim().to_string());
 
-            if let Some(u) = url_str {
+            if let Some(mut u) = url_str {
+                // Strip WordPress thumbnail dimensions like "-175x238" from the end of the filename
+                lazy_static::lazy_static! {
+                    static ref RE_WP_THUMB: regex::Regex = regex::Regex::new(r"-\d+x\d+(\.(?:jpg|jpeg|png|webp|gif)(?:\?|$))").unwrap();
+                }
+                u = RE_WP_THUMB.replace(&u, "${1}").to_string();
+
                 let abs = Self::absolute_url(&u);
                 if seen.insert(abs.clone()) {
                     pages.push(abs);

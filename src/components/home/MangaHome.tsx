@@ -85,11 +85,11 @@ export function MangaHome({ onOpenManga }: MangaHomeProps) {
             <StatsBar books={manga} domain="manga_comics" />
 
             {continueReading.length > 0 && (
-                <HomeSection
-                    icon={<Clock size={18} />}
-                    title="Continue Reading"
-                >
-                    <div className="scroll-strip">
+                <div className="bento-widget">
+                    <div className="bento-widget-header">
+                        <h2 className="bento-widget-title flex items-center gap-2"><Clock size={18} /> Continue Reading</h2>
+                    </div>
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6 mt-4">
                         {continueReading.map((item) => (
                             <ContinueReadingCard
                                 key={item.id}
@@ -100,14 +100,14 @@ export function MangaHome({ onOpenManga }: MangaHomeProps) {
                             />
                         ))}
                     </div>
-                </HomeSection>
+                </div>
             )}
 
-            <HomeSection
-                icon={<Sparkles size={18} />}
-                title="Recently Added"
-            >
-                <div className="scroll-strip">
+            <div className="bento-widget">
+                <div className="bento-widget-header">
+                    <h2 className="bento-widget-title flex items-center gap-2"><Sparkles size={18} /> Recently Added</h2>
+                </div>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6 mt-4">
                     {recentlyAdded.map((item) => (
                         <RecentlyAddedCard
                             key={item.id}
@@ -116,7 +116,7 @@ export function MangaHome({ onOpenManga }: MangaHomeProps) {
                         />
                     ))}
                 </div>
-            </HomeSection>
+            </div>
         </div>
     )
 }

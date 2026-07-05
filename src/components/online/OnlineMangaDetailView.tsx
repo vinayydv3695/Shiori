@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Play, Bookmark, BookmarkCheck, ArrowLeft, Search, Star, Info, FileText, Globe } from 'lucide-react';
+import { Play, Bookmark, BookmarkCheck, ArrowLeft, Search, Star, Info, FileText, Globe, Download } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { fetchWithRetry } from '@/lib/utils';
+import { MangaDownloadDialog } from './MangaDownloadDialog';
 
 export interface UnifiedChapter {
   id: string;
@@ -44,6 +45,7 @@ interface OnlineMangaDetailViewProps {
   lastReadChapterId?: string;
 
   onMangaClick?: (mangaId: string) => void;
+  onDownloadChapters?: (chapters: UnifiedChapter[]) => void;
 }
 
 export function OnlineMangaDetailView({
@@ -68,6 +70,7 @@ export function OnlineMangaDetailView({
   isInLibrary,
   lastReadChapterId,
   onMangaClick,
+  onDownloadChapters,
 }: OnlineMangaDetailViewProps) {
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -101,6 +104,7 @@ export function OnlineMangaDetailView({
   const [sortAscending, setSortAscending] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [anilistData, setAnilistData] = useState<any>(null);
+  const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
 
   useEffect(() => {
     if (title) {
@@ -202,16 +206,17 @@ export function OnlineMangaDetailView({
     <div className="flex flex-col h-full bg-background text-foreground overflow-y-auto overflow-x-hidden relative font-sans">
       {/* Background Gradient / Blur */}
       <div
-        className="absolute top-0 left-0 right-0 h-[60vh] opacity-20 pointer-events-none"
+        className="absolute top-0 left-0 right-0 h-[65vh] opacity-30 pointer-events-none transition-all duration-1000"
         style={{
           backgroundImage: `url(${coverUrl})`,
           backgroundSize: 'cover',
-          backgroundPosition: 'center 20%',
-          filter: 'blur(30px) saturate(1.5)',
-          maskImage: 'linear-gradient(to bottom, black 0%, transparent 100%)',
-          WebkitMaskImage: 'linear-gradient(to bottom, black 0%, transparent 100%)',
+          backgroundPosition: 'center',
+          filter: 'blur(60px) saturate(2)',
+          WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)',
+          maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)',
         }}
       />
+      <div className="absolute top-0 left-0 right-0 h-[65vh] bg-gradient-to-b from-background/20 via-background/60 to-background pointer-events-none" />
 
       {/* Main Content Area */}
       <div className="relative z-10 p-6 md:p-10 max-w-[1400px] mx-auto w-full">
@@ -224,44 +229,53 @@ export function OnlineMangaDetailView({
         </button>
 
         {/* Hero Section */}
-        <div className="grid grid-cols-1 md:grid-cols-[250px_1fr] lg:grid-cols-[250px_1fr_288px] gap-8 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-10 mb-12">
           
           {/* Left Column (Cover) */}
-          <div className="w-full shrink-0">
-            <div className="w-[200px] md:w-full mx-auto aspect-[2/3] rounded-md overflow-hidden shadow-2xl bg-card border border-border">
+          <div className="w-full shrink-0 flex flex-col items-center md:items-start relative z-20">
+            <div className="w-[220px] md:w-full aspect-[2/3] rounded-xl overflow-hidden shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)] border border-white/10 bg-card/50 backdrop-blur-sm relative group">
             {coverUrl ? (
-              <img src={coverUrl} alt={title} className="w-full h-full object-cover" loading="lazy" />
+              <>
+                <img src={coverUrl} alt={title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              </>
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-muted-foreground/80">No Cover</div>
+              <div className="w-full h-full flex items-center justify-center text-muted-foreground/80 font-medium">No Cover</div>
             )}
             </div>
           </div>
 
-          {/* Middle Column (Title, Description, Buttons) */}
-          <div className="flex flex-col flex-1 min-w-0 pt-2">
-            <div className="text-sm font-semibold tracking-[0.2em] text-muted-foreground uppercase mb-2">
-              {status || 'RELEASING'}
+          {/* Right/Middle Column (Title, Description, Details) */}
+          <div className="flex flex-col min-w-0 pt-2 md:pt-4 relative z-20">
+            <div className="flex items-center gap-3 mb-3">
+              <span className="px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded-full text-xs font-bold tracking-widest uppercase">
+                {status || 'RELEASING'}
+              </span>
+              <span className="px-3 py-1 bg-white/5 border border-white/10 text-foreground/80 rounded-full text-xs font-medium">
+                {formatText}
+              </span>
             </div>
             
-            <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-2 leading-tight">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-3 leading-tight tracking-tight drop-shadow-md">
               {title}
             </h1>
             
-            <p className="text-sm text-muted-foreground/80 mb-6 truncate" title={alternateTitles}>
+            <p className="text-sm md:text-base text-muted-foreground/80 mb-6 line-clamp-2 max-w-3xl" title={alternateTitles}>
               {alternateTitles}
             </p>
 
 
-            <div className="flex flex-wrap gap-4 mb-6">
+            {/* Action Buttons */}
+            <div className="flex flex-wrap gap-3 mb-8">
               <Button onClick={() => unifiedChapters.length > 0 && onReadChapter(filteredAndSortedChapters[filteredAndSortedChapters.length - 1])}
-                      className="gap-2 px-8 h-10 rounded text-sm bg-[#357ebd] hover:bg-[#2b659b] text-foreground border-0">
+                      className="gap-2 px-8 h-12 rounded-full text-sm font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5">
                 START READING <Play className="w-4 h-4 ml-1 fill-current" />
               </Button>
               {resumeChapter && (
                 <Button onClick={() => onReadChapter(resumeChapter)}
                         variant="secondary"
-                        className="gap-2 px-8 h-10 rounded text-sm text-foreground border border-border/50">
-                  CONTINUE READING <Play className="w-4 h-4 ml-1 fill-current" />
+                        className="gap-2 px-8 h-12 rounded-full text-sm font-semibold shadow-md transition-all hover:-translate-y-0.5">
+                  CONTINUE <Play className="w-4 h-4 ml-1 fill-current" />
                 </Button>
               )}
               {onSaveToLibrary && (
@@ -269,114 +283,122 @@ export function OnlineMangaDetailView({
                   onClick={onSaveToLibrary}
                   variant="outline"
                   disabled={isInLibrary}
-                  className="gap-2 px-6 h-10 rounded text-sm border-border/50 hover:bg-accent"
+                  className="gap-2 px-6 h-12 rounded-full text-sm font-medium border-white/10 bg-white/5 hover:bg-white/10 backdrop-blur-sm transition-all"
                 >
                   {isInLibrary
-                    ? <><BookmarkCheck className="w-4 h-4" /> IN LIBRARY</>
+                    ? <><BookmarkCheck className="w-4 h-4 text-green-400" /> IN LIBRARY</>
                     : <><Bookmark className="w-4 h-4" /> ADD TO LIBRARY</>}
+                </Button>
+              )}
+              {onDownloadChapters && unifiedChapters.length > 0 && (
+                <Button
+                  onClick={() => setDownloadDialogOpen(true)}
+                  variant="outline"
+                  className="gap-2 px-6 h-12 rounded-full text-sm font-medium border-white/10 bg-white/5 hover:bg-white/10 backdrop-blur-sm transition-all"
+                >
+                  <Download className="w-4 h-4" /> DOWNLOAD
                 </Button>
               )}
             </div>
 
-
-            <div className="flex items-center gap-4 text-xs text-muted-foreground mb-6 font-medium">
-              <span>{formatText}</span>
-              <div className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> {filteredAndSortedChapters.length}</div>
-              <div className="flex items-center gap-1"><span className="font-bold text-foreground/90">{ratingScore}</span> AniList by {totalReviews} users</div>
+            {/* Stats Row */}
+            <div className="flex flex-wrap items-center gap-6 mb-8 p-4 rounded-2xl bg-white/5 border border-white/5 backdrop-blur-md">
+              <div className="flex flex-col">
+                <span className="text-xs text-muted-foreground uppercase tracking-wider mb-1 font-semibold">Rating</span>
+                <div className="flex items-center gap-2">
+                  <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                  <span className="font-bold text-foreground text-lg leading-none">{ratingScore}</span>
+                  <span className="text-xs text-muted-foreground ml-1">({totalReviews} revs)</span>
+                </div>
+              </div>
+              <div className="w-px h-8 bg-white/10 hidden sm:block"></div>
+              <div className="flex flex-col">
+                <span className="text-xs text-muted-foreground uppercase tracking-wider mb-1 font-semibold">Chapters</span>
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-blue-400" />
+                  <span className="font-bold text-foreground text-lg leading-none">{filteredAndSortedChapters.length}</span>
+                </div>
+              </div>
+              <div className="w-px h-8 bg-white/10 hidden sm:block"></div>
+              <div className="flex flex-col">
+                <span className="text-xs text-muted-foreground uppercase tracking-wider mb-1 font-semibold">Author</span>
+                <span className="font-medium text-foreground text-sm max-w-[150px] truncate" title={author || 'Unknown'}>{author || 'Unknown'}</span>
+              </div>
+              <div className="w-px h-8 bg-white/10 hidden sm:block"></div>
+              <div className="flex flex-col">
+                <span className="text-xs text-muted-foreground uppercase tracking-wider mb-1 font-semibold">Published</span>
+                <span className="font-medium text-foreground text-sm">{year || '?'}</span>
+              </div>
             </div>
 
-            <div className="text-sm text-muted-foreground leading-relaxed max-w-3xl">
+            <div className="text-sm md:text-base text-foreground/80 leading-relaxed max-w-4xl bg-white/[0.02] border border-white/5 rounded-xl p-5 backdrop-blur-sm">
               <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(displayDescription.replace(/\n/g, '<br/>')) }} />
               {description && description.length > 250 && (
                 <button
                   onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-                  className="text-foreground/90 hover:underline ml-2 font-medium focus:outline-none"
+                  className="text-primary hover:text-primary/80 hover:underline ml-2 font-semibold focus:outline-none transition-colors"
                 >
-                  {isDescriptionExpanded ? 'Read less -' : 'Read more +'}
+                  {isDescriptionExpanded ? 'Read less' : 'Read more'}
                 </button>
               )}
-            </div>
-          </div>
-
-          {/* Right Column (Info & Ratings) */}
-          <div className="w-full md:w-72 flex-shrink-0 flex flex-col gap-6 pt-2">
-            <div className="text-sm text-muted-foreground space-y-3">
-              <div className="flex">
-                <span className="w-24 shrink-0">Author:</span>
-                <span className="text-foreground">{author || 'Unknown'}</span>
-              </div>
-              <div className="flex">
-                <span className="w-24 shrink-0">Published:</span>
-                <span className="text-foreground">{year || '?'}</span>
-              </div>
-              <div className="flex">
-                <span className="w-24 shrink-0">Genres:</span>
-                <span className="text-foreground">{genres && genres.length > 0 ? genres.join(', ') : 'None'}</span>
-              </div>
-            </div>
-
-            <div className="border border-[#eab308]/20 bg-[#eab308]/5 rounded p-4 flex items-center justify-between">
-              <div>
-                <div className="text-2xl font-bold text-foreground leading-none mb-1">
-                  {ratingScore} <span className="text-sm font-normal text-muted-foreground">/ 10</span>
+              
+              {/* Genres Inline */}
+              {genres && genres.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-6 pt-4 border-t border-white/5">
+                  {genres.map(g => (
+                    <span key={g} className="px-3 py-1 bg-white/5 border border-white/10 rounded-md text-xs font-medium text-foreground/70">
+                      {g}
+                    </span>
+                  ))}
                 </div>
-                <div className="text-xs text-muted-foreground/80">by {totalReviews} reviews</div>
-              </div>
-              <div className="flex gap-1 text-[#eab308]">
-                <Star className="w-4 h-4 fill-current" />
-                <Star className="w-4 h-4 fill-current" />
-                <Star className="w-4 h-4 fill-current" />
-                <Star className="w-4 h-4 fill-current" />
-                <Star className="w-4 h-4 fill-current opacity-50" />
-              </div>
+              )}
             </div>
           </div>
         </div>
 
         {/* Chapters & Related Layout */}
-        <div className="flex flex-col lg:flex-row gap-8">
+        <div className="flex flex-col lg:flex-row gap-8 relative z-20 mt-4">
           
           {/* Main Left Area: Chapters */}
           <div className="flex-1 min-w-0">
-            {/* Tabs */}
-            <div className="flex gap-1 mb-6 border-b border-border">
-              <button
-                className={`px-6 py-3 text-sm font-bold tracking-widest uppercase transition-colors ${activeTab === 'CHAPTER' ? 'text-foreground border-b-2 border-[#357ebd]' : 'text-muted-foreground/80 hover:text-foreground/90'}`}
-                onClick={() => setActiveTab('CHAPTER')}
-              >
-                Chapter
-              </button>
-              <button
-                className={`px-6 py-3 text-sm font-bold tracking-widest uppercase transition-colors ${activeTab === 'VOLUME' ? 'text-foreground border-b-2 border-[#357ebd]' : 'text-muted-foreground/80 hover:text-foreground/90'}`}
-                onClick={() => setActiveTab('VOLUME')}
-              >
-                Volume
-              </button>
-            </div>
+            {/* Tabs & Search Row */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-white/10">
+              <div className="flex gap-6">
+                <button
+                  className={`pb-2 text-sm font-bold tracking-widest uppercase transition-all relative ${activeTab === 'CHAPTER' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                  onClick={() => setActiveTab('CHAPTER')}
+                >
+                  Chapters
+                  {activeTab === 'CHAPTER' && <div className="absolute bottom-[-17px] left-0 right-0 h-[2px] bg-primary rounded-t-full shadow-[0_0_8px_rgba(var(--primary),0.8)]" />}
+                </button>
+                <button
+                  className={`pb-2 text-sm font-bold tracking-widest uppercase transition-all relative ${activeTab === 'VOLUME' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                  onClick={() => setActiveTab('VOLUME')}
+                >
+                  Volumes
+                  {activeTab === 'VOLUME' && <div className="absolute bottom-[-17px] left-0 right-0 h-[2px] bg-primary rounded-t-full shadow-[0_0_8px_rgba(var(--primary),0.8)]" />}
+                </button>
+              </div>
 
-            {/* Chapter Container */}
-            <div className="border border-border bg-card rounded-md overflow-hidden">
-              
-              {/* Header / Search */}
-              <div className="bg-muted/50 border-b border-border p-4 flex flex-col sm:flex-row gap-4 items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="px-3 py-1.5 rounded-full border border-border bg-muted text-xs font-medium text-foreground/90 flex items-center gap-2">
-                    <Globe className="w-3.5 h-3.5" /> Language: EN
-                  </div>
+              <div className="flex items-center gap-3">
+                <div className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-foreground/80 flex items-center gap-2 backdrop-blur-sm">
+                  <Globe className="w-3.5 h-3.5" /> EN
                 </div>
                 
-                <div className="relative w-full sm:w-64">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/80" />
+                <div className="relative w-full sm:w-48 group">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <Input
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Chap number..."
-                    className="h-9 pl-9 bg-background border-border text-foreground/90 text-sm focus-visible:ring-1 focus-visible:ring-[#357ebd]"
+                    placeholder="Search chap..."
+                    className="h-9 pl-9 bg-black/20 border-white/10 text-foreground text-sm focus-visible:ring-1 focus-visible:ring-primary rounded-full transition-all"
                   />
                 </div>
               </div>
+            </div>
 
-              {/* List */}
+            {/* Chapter Container */}
+            <div className="bento-widget rounded-2xl overflow-hidden border border-white/10 bg-card/40 backdrop-blur-md shadow-xl">
               <div 
                 ref={parentRef}
                 className="flex flex-col max-h-[600px] overflow-y-auto custom-scrollbar relative"
@@ -409,15 +431,15 @@ export function OnlineMangaDetailView({
                             height: `${virtualRow.size}px`,
                             transform: `translateY(${virtualRow.start}px)`,
                           }}
-                          className={`flex items-center justify-between p-4 cursor-pointer transition-colors border-b border-border hover:bg-accent ${isHighlighted ? 'bg-accent/30' : ''}`}
+                          className={`flex items-center justify-between p-4 cursor-pointer transition-colors border-b border-white/5 hover:bg-white/5 ${isHighlighted ? 'bg-primary/10 border-l-2 border-l-primary' : 'border-l-2 border-l-transparent'}`}
                         >
                           <div className="flex items-center gap-3 min-w-0">
-                            {isHighlighted && <Play className="w-3 h-3 text-[#357ebd] fill-[#357ebd] shrink-0" />}
-                            <span className={`truncate text-sm ${isHighlighted ? 'text-[#357ebd] font-medium' : 'text-foreground/90'}`}>
+                            {isHighlighted && <Play className="w-3.5 h-3.5 text-primary fill-primary shrink-0 drop-shadow-sm" />}
+                            <span className={`truncate text-sm ${isHighlighted ? 'text-primary font-bold' : 'text-foreground/90 font-medium'}`}>
                               {fullTitle || 'Chapter'}
                             </span>
                           </div>
-                          <span className="text-xs text-muted-foreground/80 shrink-0 ml-4">
+                          <span className="text-xs text-muted-foreground shrink-0 ml-4">
                             {ch.date || 'Unknown'}
                           </span>
                         </div>
@@ -429,16 +451,16 @@ export function OnlineMangaDetailView({
                     const volChapters = filteredAndSortedChapters.filter(c => c.volume === vol);
                     const isExpanded = expandedVolume === vol;
                     return (
-                      <div key={vol} className="border-b border-border">
+                      <div key={vol} className="border-b border-white/5">
                         <div 
-                          className="flex items-center justify-between p-4 cursor-pointer hover:bg-accent transition-colors font-medium text-sm text-foreground/90"
+                          className="flex items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition-colors font-medium text-sm text-foreground"
                           onClick={() => setExpandedVolume(isExpanded ? null : vol)}
                         >
-                          <span>Volume {vol !== 'None' ? vol : '?'}</span>
-                          <span className="text-xs text-muted-foreground">{volChapters.length} chapters</span>
+                          <span className="font-semibold text-base">Volume {vol !== 'None' ? vol : '?'}</span>
+                          <span className="text-xs px-2 py-1 bg-white/5 rounded-md text-muted-foreground">{volChapters.length} chapters</span>
                         </div>
                         {isExpanded && (
-                          <div className="bg-muted/20">
+                          <div className="bg-black/20">
                             {volChapters.map((ch) => {
                               const chapterNumStr = ch.chapter && ch.chapter !== '?' ? `Chapter ${ch.chapter}` : '';
                               const fullTitle = ch.title ? (chapterNumStr ? `${chapterNumStr}: ${ch.title}` : ch.title) : chapterNumStr || 'Oneshot';
@@ -447,13 +469,13 @@ export function OnlineMangaDetailView({
                                 <div 
                                   key={ch.id} 
                                   onClick={() => onReadChapter(ch)}
-                                  className={`flex items-center justify-between p-3 pl-8 cursor-pointer transition-colors border-t border-border/50 hover:bg-accent ${isHighlighted ? 'bg-accent/30' : ''}`}
+                                  className={`flex items-center justify-between p-3 pl-8 cursor-pointer transition-colors border-t border-white/5 hover:bg-white/5 ${isHighlighted ? 'bg-primary/10 border-l-2 border-l-primary' : 'border-l-2 border-l-transparent'}`}
                                 >
                                   <div className="flex items-center gap-3 min-w-0">
-                                    {isHighlighted && <Play className="w-3 h-3 text-[#357ebd] fill-[#357ebd] shrink-0" />}
-                                    <span className={`truncate text-sm ${isHighlighted ? 'text-[#357ebd] font-medium' : 'text-foreground/90'}`}>{fullTitle}</span>
+                                    {isHighlighted && <Play className="w-3 h-3 text-primary fill-primary shrink-0" />}
+                                    <span className={`truncate text-sm ${isHighlighted ? 'text-primary font-bold' : 'text-foreground/80 font-medium'}`}>{fullTitle}</span>
                                   </div>
-                                  <span className="text-xs text-muted-foreground/80 shrink-0 ml-4">{ch.date || 'Unknown'}</span>
+                                  <span className="text-xs text-muted-foreground shrink-0 ml-4">{ch.date || 'Unknown'}</span>
                                 </div>
                               );
                             })}
@@ -472,14 +494,14 @@ export function OnlineMangaDetailView({
             
             {/* Related Manga */}
             {relatedManga && relatedManga.length > 0 && (
-              <div className="border border-border bg-card rounded-md overflow-hidden">
-                <div className="bg-muted/50 border-b border-border px-4 py-3 flex items-center justify-between">
-                  <h3 className="font-semibold text-foreground">Related Manga</h3>
-                  <button className="text-xs text-muted-foreground hover:text-primary">More ▾</button>
+              <div className="bento-widget rounded-2xl overflow-hidden border border-white/10 bg-card/40 backdrop-blur-md shadow-xl">
+                <div className="px-5 py-4 flex items-center justify-between border-b border-white/10 bg-black/20">
+                  <h3 className="font-bold text-sm text-foreground tracking-wide uppercase">Related Manga</h3>
+                  <button className="text-xs text-primary font-medium hover:text-primary/80 transition-colors">More</button>
                 </div>
-                <div className="p-2 flex flex-col">
+                <div className="p-3 flex flex-col">
                   {relatedManga.slice(0, 5).map((m, i) => (
-                    <div key={i} className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer rounded truncate"
+                    <div key={i} className="px-3 py-2.5 text-sm font-medium text-foreground/80 hover:text-foreground hover:bg-white/5 cursor-pointer rounded-lg transition-colors truncate"
                          onClick={() => onMangaClick && onMangaClick(m.id)}>
                       {m.title}
                     </div>
@@ -490,19 +512,19 @@ export function OnlineMangaDetailView({
 
             {/* You may also like */}
             {recommendedManga && recommendedManga.length > 0 && (
-              <div className="border border-border bg-card rounded-md overflow-hidden">
-                <div className="bg-muted/50 border-b border-border px-4 py-3">
-                  <h3 className="font-semibold text-foreground">You may also like</h3>
+              <div className="bento-widget rounded-2xl overflow-hidden border border-white/10 bg-card/40 backdrop-blur-md shadow-xl">
+                <div className="px-5 py-4 border-b border-white/10 bg-black/20">
+                  <h3 className="font-bold text-sm text-foreground tracking-wide uppercase">You may also like</h3>
                 </div>
-                <div className="p-3 flex flex-col gap-3">
+                <div className="p-4 flex flex-col gap-4">
                   {recommendedManga.slice(0, 4).map((m, i) => (
-                    <div key={i} className="flex gap-3 cursor-pointer group" onClick={() => onMangaClick && onMangaClick(m.id)}>
-                      <div className="w-12 h-16 bg-muted rounded shrink-0 overflow-hidden">
-                        {m.coverUrl && <img src={m.coverUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="" />}
+                    <div key={i} className="flex gap-4 cursor-pointer group" onClick={() => onMangaClick && onMangaClick(m.id)}>
+                      <div className="w-14 h-20 bg-black/40 rounded-md shrink-0 overflow-hidden shadow-md">
+                        {m.coverUrl && <img src={m.coverUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />}
                       </div>
-                      <div className="flex flex-col justify-center min-w-0">
-                        <div className="text-sm font-medium text-foreground/90 truncate group-hover:text-[#357ebd] transition-colors">{m.title}</div>
-                        <div className="text-xs text-muted-foreground/80">Chap {m.latestChapter || '?'}</div>
+                      <div className="flex flex-col justify-center min-w-0 py-1">
+                        <div className="text-sm font-bold text-foreground/90 truncate group-hover:text-primary transition-colors mb-1">{m.title}</div>
+                        <div className="text-xs font-medium text-muted-foreground bg-white/5 w-fit px-2 py-0.5 rounded-md">Chap {m.latestChapter || '?'}</div>
                       </div>
                     </div>
                   ))}
@@ -511,6 +533,13 @@ export function OnlineMangaDetailView({
             )}
           </div>
         </div>
+
+        <MangaDownloadDialog
+          open={downloadDialogOpen}
+          onOpenChange={setDownloadDialogOpen}
+          chapters={filteredAndSortedChapters}
+          onDownload={onDownloadChapters || (() => {})}
+        />
 
       </div>
     </div>

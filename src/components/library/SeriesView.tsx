@@ -64,11 +64,7 @@ const SeriesHeader = memo(function SeriesHeader({
         </>
       )}
 
-      <Dialog.Close asChild>
-        <button className="absolute top-4 right-4 text-foreground/70 hover:text-foreground transition-colors flex-shrink-0 z-20 bg-background/20 hover:bg-background/40 backdrop-blur-md p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-primary border border-border/10" title="Close series view">
-          <X className="h-5 w-5" />
-        </button>
-      </Dialog.Close>
+
 
       <div className="relative z-10 p-6 pt-14 md:p-8 flex flex-col md:flex-row gap-8 items-center md:items-end">
         <div className="w-32 h-48 md:w-48 md:h-72 rounded-lg overflow-hidden shadow-2xl border border-white/10 flex-shrink-0 bg-muted/50 transform transition-transform hover:scale-105 duration-300">
@@ -428,13 +424,20 @@ export const SeriesView = memo(function SeriesView({
             'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95'
           )}
         >
-          <SeriesHeader 
-            series={series} 
-            onFindMetadata={handleFindSeriesMetadata}
-            onDelete={handleDeleteSeries}
-            onMarkAllRead={handleMarkAllRead}
-            onOpenBook={onOpenBook}
-          />
+          <Dialog.Close asChild>
+            <button className="absolute top-4 right-4 text-foreground/70 hover:text-foreground transition-colors flex-shrink-0 z-[60] bg-background/20 hover:bg-background/40 backdrop-blur-md p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-primary border border-border/10" title="Close series view">
+              <X className="h-5 w-5" />
+            </button>
+          </Dialog.Close>
+          
+          <ScrollArea className="flex-1 bg-background/50">
+            <SeriesHeader 
+              series={series} 
+              onFindMetadata={handleFindSeriesMetadata}
+              onDelete={handleDeleteSeries}
+              onMarkAllRead={handleMarkAllRead}
+              onOpenBook={onOpenBook}
+            />
 
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 border-b border-border bg-card/80 backdrop-blur-md shrink-0 sticky top-0 z-20 shadow-sm">
             <div className="flex items-center gap-2 w-full md:w-auto">
@@ -490,8 +493,7 @@ export const SeriesView = memo(function SeriesView({
             </div>
           </div>
 
-          <ScrollArea className="flex-1 bg-background/50">
-            <div className="p-4 md:p-6 animate-in slide-in-from-bottom-4 fade-in duration-500 ease-out fill-mode-both">
+          <div className="p-4 md:p-6 animate-in slide-in-from-bottom-4 fade-in duration-500 ease-out fill-mode-both">
               {processedBooks.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 text-muted-foreground border-2 border-dashed border-border/50 rounded-xl">
                   <Search className="w-12 h-12 mb-4 opacity-20" />

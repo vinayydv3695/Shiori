@@ -2129,10 +2129,22 @@ select {
   }
 
   .doodle-toolbar {
-    bottom: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
     padding: 6px 8px;
     border-radius: 10px;
     gap: 4px;
+    max-width: calc(100vw - 24px);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    justify-content: flex-start;
+  }
+  
+  .doodle-toolbar::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .doodle-toolbar__group, .doodle-toolbar__divider {
+    flex-shrink: 0;
   }
 
   .doodle-toolbar__color {

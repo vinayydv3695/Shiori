@@ -243,6 +243,7 @@ macro_rules! generate_shiori_handlers {
             commands::sources::plugin_get_chapters,
             commands::sources::plugin_get_pages,
             commands::sources::plugin_download_chapter,
+            commands::sources::download_manga_chapter_as_cbz,
             commands::sources::set_source_config,
             commands::sources::proxy_manga_image,
             commands::sources::toongod_get_config,

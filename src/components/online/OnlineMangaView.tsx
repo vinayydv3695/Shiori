@@ -24,6 +24,8 @@ import { type CarouselItem } from './ContentCarousel';
 import { api } from '@/lib/tauri';
 import { parsePageUrl } from '@/lib/utils';
 import { useToast } from '@/store/toastStore';
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 
 let onlineMangaSearchTimeout: number | undefined;
 const SUPPORTED_QUEUE_FORMATS = ['cbz', 'cbr', 'epub', 'pdf', 'mobi', 'azw3', 'docx'] as const;
@@ -176,6 +178,21 @@ export function OnlineMangaView() {
   const [browseInitialized, setBrowseInitialized] = useState(false);
   
   const { searchManga, browseManga, getChapters, loading, error } = useMangaDex();
+
+  const [downloadProgress, setDownloadProgress] = useState<{ chapterTitle: string, progress: number, total: number } | null>(null);
+
+  useEffect(() => {
+    const unlisten = listen<{ chapter_id: string, chapter_title: string, pages_downloaded: number, total_pages: number }>('online-manga-download-progress', (event) => {
+      setDownloadProgress({
+        chapterTitle: event.payload.chapter_title,
+        progress: event.payload.pages_downloaded,
+        total: event.payload.total_pages
+      });
+    });
+    return () => {
+      unlisten.then(f => f());
+    };
+  }, []);
 
   useEffect(() => {
     api
@@ -708,6 +725,49 @@ export function OnlineMangaView() {
     }
   };
 
+  const handleDownloadChapters = async (selectedChapters: UnifiedChapter[]) => {
+    if (selectedChapters.length === 0) return;
+    const manga = selectedManga || selectedPluginManga;
+    if (!manga) return;
+    
+    const isPlugin = !!selectedPluginManga;
+    const effectiveSourceId = isPlugin
+      ? ((selectedPluginManga!.extra as any)?.librarySourceId ?? activePluginSourceId!)
+      : 'mangadex';
+    const mangaTitle = manga.title;
+
+    const pathsToImport: string[] = [];
+    showInfoToast(`Started downloading ${selectedChapters.length} chapters...`);
+    
+    for (const ch of selectedChapters) {
+      try {
+        setDownloadProgress({ chapterTitle: ch.title || `Chapter ${ch.chapter}`, progress: 0, total: 1 });
+        const cbzPath = await invoke<string>('download_manga_chapter_as_cbz', {
+          sourceId: effectiveSourceId,
+          mangaTitle: mangaTitle,
+          chapterId: ch.id,
+          chapterTitle: ch.title || `Chapter ${ch.chapter}`
+        });
+        pathsToImport.push(cbzPath);
+      } catch (err) {
+        showErrorToast(`Failed to download chapter ${ch.chapter}: ${String(err)}`);
+      }
+    }
+    
+    setDownloadProgress(null);
+    
+    if (pathsToImport.length > 0) {
+      try {
+        await invoke('import_manga', { paths: pathsToImport });
+        showSuccessToast(`Imported ${pathsToImport.length} chapters to library!`);
+        const { useLibraryStore } = await import('@/store/libraryStore');
+        void useLibraryStore.getState().loadInitialBooks();
+      } catch (err) {
+        showErrorToast(`Failed to import chapters: ${String(err)}`);
+      }
+    }
+  };
+
 
   // Auto-fetch chapters if we navigated from the library and they haven't been fetched
   useEffect(() => {
@@ -723,6 +783,22 @@ export function OnlineMangaView() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPluginManga?.id]);
+
+  const downloadProgressToast = downloadProgress ? (
+    <div className="fixed bottom-6 right-6 z-50 bg-[#09090b]/90 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_0_50px_-10px_rgba(0,0,0,0.7)] p-5 w-80 animate-in fade-in slide-in-from-bottom-6">
+      <div className="flex justify-between items-center mb-3">
+        <h4 className="font-bold text-sm text-foreground truncate pr-2">Downloading {downloadProgress.chapterTitle}</h4>
+        <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
+      </div>
+      <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden border border-white/5">
+        <div 
+          className="bg-primary h-2 transition-all duration-300 rounded-full shadow-[0_0_10px_rgba(var(--primary),0.8)]" 
+          style={{ width: `${Math.max(5, (downloadProgress.progress / downloadProgress.total) * 100)}%` }}
+        />
+      </div>
+      <p className="text-xs text-foreground/60 mt-3 text-right font-medium">{downloadProgress.progress} / {downloadProgress.total} pages</p>
+    </div>
+  ) : null;
 
   if (selectedManga || selectedPluginManga) {
 
@@ -740,7 +816,8 @@ export function OnlineMangaView() {
     const libraryBook = libraryBooks.find(b => b.file_path === expectedPath);
 
     return (
-      <div className="flex flex-col h-full bg-background">
+      <div className="flex flex-col h-full bg-background relative">
+        {downloadProgressToast}
         <OnlineMangaDetailView
           sourceId={sourceIdForLib}
           contentId={contentIdForLib}
@@ -761,13 +838,16 @@ export function OnlineMangaView() {
           onSaveToLibrary={handleSaveToLibrary}
           isInLibrary={!!libraryBook}
           lastReadChapterId={lastReadChapterId}
+          onDownloadChapters={handleDownloadChapters}
         />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-full bg-background relative">
+      {/* Download Progress Toast Overlay */}
+      {downloadProgressToast}
       <OnlineSearchHeader
         kind="manga"
         title="Online Manga"

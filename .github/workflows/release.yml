@@ -667,7 +667,7 @@ jobs:
             perl -pi -e 's/PRODUCT_BUNDLE_IDENTIFIER/CODE_SIGNING_ALLOWED = NO;\n\t\t\t\tCODE_SIGNING_REQUIRED = NO;\n\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER/g' "$PBXPROJ"
           fi
           # Build for simulator (no signing required)
-          npm run tauri ios build -- --target aarch64-apple-ios-sim
+          npm run tauri ios build -- --target aarch64-sim
 
       - name: Compress iOS .app to zip
         run: |

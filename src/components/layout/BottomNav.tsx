@@ -30,16 +30,16 @@ export function BottomNav({
         onClick={() => onNavigateToView('library')}
       />
       <NavItem
-        icon={<Cloud className="w-5 h-5" />}
-        label="Torbox"
-        isActive={currentView.startsWith('torbox')}
-        onClick={() => onNavigateToView('torbox-discover')}
-      />
-      <NavItem
         icon={<Compass className="w-5 h-5" />}
         label="Browse"
         isActive={currentView === 'online-books' || currentView === 'online-manga'}
         onClick={() => onNavigateToView('online-books')}
+      />
+      <NavItem
+        icon={<Cloud className="w-5 h-5" />}
+        label="Torbox"
+        isActive={currentView.startsWith('torbox')}
+        onClick={() => onNavigateToView('torbox-discover')}
       />
       <NavItem
         icon={<Settings className="w-5 h-5" />}

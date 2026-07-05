@@ -5,10 +5,11 @@ import {
     useMangaUIStore,
     useMangaSettingsStore
 } from '@/store/mangaReaderStore';
-import { X, Settings, ChevronLeft, ChevronRight, Maximize, Minimize, ZoomIn, ZoomOut, Library, CheckCircle2 } from 'lucide-react';
+import { X, Settings, ChevronLeft, ChevronRight, Maximize, Minimize, Library, CheckCircle2, List } from 'lucide-react';
 import React from 'react';
 import { useOnlineMangaReaderStore } from '@/store/onlineMangaReaderStore';
 import { useLibraryStore } from '@/store/libraryStore';
+import { isAndroid } from '@/lib/tauri';
 const TOPBAR_AUTO_HIDE_MS = 3000;
 
 export function MangaReaderHeader({ 
@@ -36,8 +37,6 @@ export function MangaReaderHeader({
     
     const stickyHeader = useMangaSettingsStore(s => s.stickyHeader);
     const readingMode = useMangaSettingsStore(s => s.readingMode);
-    const zoomIn = useMangaSettingsStore(s => s.zoomIn);
-    const zoomOut = useMangaSettingsStore(s => s.zoomOut);
     const isScrollMode = readingMode === 'strip' || readingMode === 'webtoon' || readingMode === 'manhwa';
 
     const onlineSourceId = useOnlineMangaReaderStore(s => s.sourceId);
@@ -50,6 +49,25 @@ export function MangaReaderHeader({
         const expectedPath = `online-manga://${onlineSourceId}/${onlineContentId}`;
         return libraryBooks.some(b => b.file_path === expectedPath);
     }, [sourceType, onlineSourceId, onlineContentId, libraryBooks]);
+
+    const localSource = useMangaContentStore(s => s.localSource);
+    const currentLocalBook = React.useMemo(() => 
+        localSource ? libraryBooks.find(b => b.id === localSource.bookId) : null
+    , [localSource, libraryBooks]);
+    
+    const seriesBooks = React.useMemo(() => {
+        if (!currentLocalBook?.series) return [];
+        return libraryBooks
+            .filter(b => b.series === currentLocalBook.series)
+            .sort((a, b) => (a.chapter_number || 0) - (b.chapter_number || 0));
+    }, [currentLocalBook, libraryBooks]);
+    
+    const currentLocalIndex = React.useMemo(() => 
+        seriesBooks.findIndex(b => b.id === currentLocalBook?.id)
+    , [seriesBooks, currentLocalBook]);
+    
+    const hasNextLocalVolume = currentLocalIndex !== -1 && currentLocalIndex < seriesBooks.length - 1;
+    const hasPrevLocalVolume = currentLocalIndex > 0;
 
     const { isFullscreen, toggleFullscreen } = useFullscreen();
     const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -179,23 +197,87 @@ export function MangaReaderHeader({
 
                 {/* Right Side: Chapter Nav (Online), Settings, Fullscreen */}
                 <div className="manga-topbar-right">
-                    <button
-                        type="button"
-                        className="manga-topbar-btn"
-                        onClick={zoomOut}
-                        title="Zoom Out"
-                    >
-                        <ZoomOut size={18} />
-                    </button>
-                    <button
-                        type="button"
-                        className="manga-topbar-btn"
-                        onClick={zoomIn}
-                        title="Zoom In"
-                    >
-                        <ZoomIn size={18} />
-                    </button>
-                    <div className="manga-topbar-divider" />
+                    {(sourceType === 'online' || seriesBooks.length > 1) && (
+                        <div className="relative flex items-center justify-center">
+                            <button type="button" className="manga-topbar-btn" title={sourceType === 'online' ? "Choose Chapter" : "Choose Volume"}>
+                                <List size={18} />
+                            </button>
+                            <select 
+                                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                                value={sourceType === 'online' ? (onlineSource?.chapterId || '') : (currentLocalBook?.id || '')}
+                                onChange={(e) => {
+                                    if (sourceType === 'online') {
+                                        const target = onlineSource?.chapters.find(c => c.id === e.target.value);
+                                        if (target) {
+                                            setLoading(true);
+                                            if (onChapterChange) {
+                                                onChapterChange(target.id).then(data => {
+                                                    setOnlineChapter(target.id, data.chapterTitle, data.pageUrls);
+                                                    setLoading(false);
+                                                }).catch(err => {
+                                                    setError(err instanceof Error ? String(err) : 'Failed');
+                                                    setLoading(false);
+                                                });
+                                            }
+                                        }
+                                    } else {
+                                        const targetBookId = Number(e.target.value);
+                                        window.dispatchEvent(new CustomEvent('open-book', { detail: { bookId: targetBookId } }));
+                                    }
+                                }}
+                            >
+                                {sourceType === 'online' ? (
+                                    onlineSource?.chapters.map(c => (
+                                        <option key={c.id} value={c.id}>
+                                            {c.number != null ? `Chapter ${c.number}` : c.title}
+                                        </option>
+                                    ))
+                                ) : (
+                                    seriesBooks.map(b => (
+                                        <option key={b.id} value={b.id}>
+                                            {b.title}
+                                        </option>
+                                    ))
+                                )}
+                            </select>
+                        </div>
+                    )}
+
+                    {sourceType === 'local' && seriesBooks.length > 1 && (
+                        <>
+                            <button 
+                                type="button"
+                                className="manga-topbar-btn"
+                                onClick={() => {
+                                    const prevBook = seriesBooks[currentLocalIndex - 1];
+                                    if (prevBook) {
+                                        window.dispatchEvent(new CustomEvent('open-book', { detail: { bookId: prevBook.id } }));
+                                    }
+                                }}
+                                disabled={!hasPrevLocalVolume}
+                                style={{ opacity: hasPrevLocalVolume ? 1 : 0.4 }}
+                                title="Previous Volume"
+                            >
+                                <ChevronLeft size={20} />
+                            </button>
+                            <button 
+                                type="button"
+                                className="manga-topbar-btn"
+                                onClick={() => {
+                                    const nextBook = seriesBooks[currentLocalIndex + 1];
+                                    if (nextBook) {
+                                        window.dispatchEvent(new CustomEvent('open-book', { detail: { bookId: nextBook.id } }));
+                                    }
+                                }}
+                                disabled={!hasNextLocalVolume}
+                                style={{ opacity: hasNextLocalVolume ? 1 : 0.4 }}
+                                title="Next Volume"
+                            >
+                                <ChevronRight size={20} />
+                            </button>
+                            <div className="manga-topbar-divider" />
+                        </>
+                    )}
 
                     {sourceType === 'online' && (
                         <>

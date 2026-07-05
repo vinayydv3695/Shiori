@@ -22,6 +22,7 @@ import { api } from "./lib/tauri"
 import { useDiscordRPCUpdater } from "./hooks/useDiscordRPCUpdater"
 import { useOnlineSearchStore } from "./store/onlineSearchStore"
 import { AndroidSplashScreen } from "./components/ui/AndroidSplashScreen"
+import { SwipeGestureHandler } from "./components/layout/SwipeGestureHandler"
 
 const ReaderLayout = lazy(() => import("./components/reader/ReaderLayout").then(m => ({ default: m.ReaderLayout })))
 const OnboardingWizard = lazy(() => import("./components/onboarding/OnboardingWizard").then(m => ({ default: m.OnboardingWizard })))
@@ -286,7 +287,9 @@ function App() {
           onAnimationEnd={() => setSplashFinished(true)}
         />
       )}
-      {renderContent()}
+      <SwipeGestureHandler>
+        {renderContent()}
+      </SwipeGestureHandler>
     </>
   )
 }

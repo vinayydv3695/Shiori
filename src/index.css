@@ -363,6 +363,6 @@ input:-webkit-autofill:active{
 }
 
 .splash-gradient {
-  background: radial-gradient(circle at center, rgba(32,31,31,0.5) 0%, rgba(14,14,14,0.9) 100%);
+  background: radial-gradient(circle at center, rgba(32,31,31,1) 0%, rgba(14,14,14,1) 100%);
 }
 

@@ -139,25 +139,27 @@ interface ReadingSettings {
   resetToDefaults: () => void;
 }
 
+import { isAndroid } from '@/lib/tauri';
+
 const defaultSettings = {
   theme: 'paper' as ReaderTheme,
   fontFamily: 'eb-garamond',
-  fontSize: 14,
-  lineHeight: 1.6,
-  paragraphSpacing: '1em',
-  letterSpacing: 'normal',
+  fontSize: isAndroid ? 16 : 14,
+  lineHeight: isAndroid ? 1.8 : 1.6,
+  paragraphSpacing: isAndroid ? '2em' : '1em',
+  letterSpacing: isAndroid ? 'wide' : 'normal',
   textAlign: 'justify' as const,
   backgroundColor: 'default',
   textColor: 'default',
   width: 'full' as const,
-  margin: 40,
+  margin: isAndroid ? 0 : 40,
   twoPageView: false,
   isPaginated: false,
   brightness: 1.0,
   pageFlipEnabled: true,
   pageFlipSpeed: 300,
   animationStyle: 'fade' as const,
-  paperTextureIntensity: 0.08,
+  paperTextureIntensity: isAndroid ? 0.11 : 0.08,
   uiScale: 1.0,
 };
 

@@ -127,7 +127,7 @@ export const BookDetailsDialog = ({
       <Dialog.Root open={open} onOpenChange={onOpenChange}>
         <Dialog.Portal>
           <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-          <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] bg-background border border-border shadow-2xl rounded-xl w-[90vw] max-w-xl max-h-[90vh] overflow-y-auto z-50 flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-300">
+          <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] bg-background border border-border shadow-2xl rounded-xl w-[95vw] md:w-[90vw] max-w-xl max-h-[90vh] overflow-y-auto overflow-x-hidden z-50 flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-300">
             <div className="flex items-center justify-center flex-1 py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             </div>
@@ -141,7 +141,7 @@ export const BookDetailsDialog = ({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-        <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] bg-background border border-border shadow-2xl rounded-xl w-[90vw] max-w-2xl max-h-[90vh] overflow-y-auto z-50 flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-300">
+        <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] bg-background border border-border shadow-2xl rounded-xl w-[95vw] md:w-[90vw] max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden z-50 flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-300">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-border sticky top-0 bg-background/80 backdrop-blur-md z-10">
             <Dialog.Title className="text-xl font-semibold text-foreground tracking-tight">
@@ -350,8 +350,8 @@ export const BookDetailsDialog = ({
           </div>
 
           {/* Footer Actions */}
-          <div className="flex items-center justify-between gap-3 p-6 border-t border-border bg-background sticky bottom-0 z-10">
-            <div className="flex items-center gap-2 mr-auto">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 p-4 md:p-6 border-t border-border bg-background sticky bottom-0 z-10">
+            <div className="grid grid-cols-2 md:flex md:items-center gap-2 w-full md:w-auto">
 
               <FeatureHint
                 featureId="metadata-search"
@@ -362,13 +362,16 @@ export const BookDetailsDialog = ({
                 <Button
                   variant="outline"
                   onClick={() => setMetadataDialogOpen(true)}
+                  className="w-full"
                 >
-                  <Download className="w-4 h-4 mr-2" />
-                  Find Metadata
+                  <Download className="w-4 h-4 md:mr-2" />
+                  <span className="hidden md:inline">Find Metadata</span>
+                  <span className="md:hidden ml-2">Find</span>
                 </Button>
               </FeatureHint>
               <Button
                 variant="secondary"
+                className="w-full"
                 disabled={autoEnrichLoading}
                 onClick={async () => {
                   try {
@@ -383,8 +386,8 @@ export const BookDetailsDialog = ({
               >
                 {autoEnrichLoading ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Enriching...
+                    <Loader2 className="w-4 h-4 md:mr-2 animate-spin" />
+                    <span className="hidden md:inline">Enriching...</span>
                   </>
                 ) : (
                   "Auto-Enrich"
@@ -392,9 +395,9 @@ export const BookDetailsDialog = ({
               </Button>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:flex md:items-center gap-2 w-full md:w-auto">
               {onDelete && (
-                <Button variant="outline" onClick={() => {
+                <Button variant="outline" className="w-full" onClick={() => {
                   onOpenChange(false);
                   onDelete();
                 }}>
@@ -402,20 +405,21 @@ export const BookDetailsDialog = ({
                 </Button>
               )}
               {onEdit && (
-                <Button variant="outline" onClick={() => {
+                <Button variant="outline" className="w-full" onClick={() => {
                   onOpenChange(false);
                   onEdit();
                 }}>
-                  Edit Metadata
+                  <span className="hidden md:inline">Edit Metadata</span>
+                  <span className="md:hidden">Edit</span>
                 </Button>
               )}
               {onRead && (
-                <Button onClick={() => {
+                <Button className="w-full col-span-2 sm:col-span-1" onClick={() => {
                   onOpenChange(false);
                   onRead();
                 }}>
                   <BookOpen className="w-4 h-4 mr-2" />
-                  Read Now
+                  Read
                 </Button>
               )}
             </div>

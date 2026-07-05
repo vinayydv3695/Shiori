@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { type as osType } from '@tauri-apps/plugin-os';
-import { isTauri } from '../../lib/tauri';
+import { isAndroid } from '../../lib/tauri';
 
 interface AndroidSplashScreenProps {
   onAnimationEnd: () => void;
@@ -8,17 +7,13 @@ interface AndroidSplashScreenProps {
 }
 
 export const AndroidSplashScreen = ({ onAnimationEnd, isReady }: AndroidSplashScreenProps) => {
-  const [shouldRender, setShouldRender] = useState(false);
+  // Initialize synchronously so there's no first-tick flash
+  const [shouldRender] = useState(isAndroid);
   const [isFadingOut, setIsFadingOut] = useState(false);
   const [hasWaitedMinTime, setHasWaitedMinTime] = useState(false);
 
   useEffect(() => {
-    // Determine if we should show the splash screen (only on Android)
-    const isAndroid = isTauri ? osType() === 'android' : false;
-    if (isAndroid) {
-      setShouldRender(true);
-    } else {
-      // If not Android, just finish immediately
+    if (!isAndroid) {
       onAnimationEnd();
     }
   }, [onAnimationEnd]);

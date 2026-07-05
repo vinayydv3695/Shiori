@@ -47,7 +47,7 @@ export function OnlineSearchHeader({
   return (
     <div className={cn(
       "flex-shrink-0 relative overflow-hidden z-10 transition-colors duration-500",
-      isMobile ? "pt-2 pb-2 px-3 bg-background" : "bg-background/60 backdrop-blur-3xl border-b border-border pt-16 pb-8 px-8"
+      isMobile ? "pt-12 pb-2 px-3 bg-background" : "bg-background/60 backdrop-blur-3xl border-b border-border pt-16 pb-8 px-8"
     )}>
       {/* Subtle ambient glass glow */}
       {!isMobile && <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] -z-10 pointer-events-none" />}
@@ -64,32 +64,18 @@ export function OnlineSearchHeader({
           <div className="relative group">
             {isMobile ? (
               // Mobile Premium Search Bar (Precision Noir)
-              <div className="flex items-center bg-surface-container-low/50 backdrop-blur-xl border border-border/50 rounded-2xl p-1.5 focus-within:border-primary/50 focus-within:bg-surface-container-low transition-all duration-300 shadow-sm">
-                <div className="pl-3 pr-2 text-muted-foreground">
-                  <Search className="w-5 h-5" />
-                </div>
-                <input
-                  value={searchValue}
-                  onChange={(e) => onSearchValueChange(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') onSubmit();
-                  }}
-                  placeholder={kind === 'books' ? 'Search books...' : 'Search manga...'}
-                  className="flex-1 bg-transparent border-none outline-none text-[15px] font-medium text-foreground placeholder:text-muted-foreground/60 focus:ring-0 py-2.5 px-0"
-                  disabled={disabled}
-                />
+              <div className="flex items-center bg-background/60 backdrop-blur-xl border border-border/50 rounded-full p-1.5 focus-within:border-primary/50 focus-within:bg-background transition-all duration-300 shadow-sm">
                 
-                <div className="flex items-center gap-1.5 pr-1">
-                  <OnlineSourceSelector 
-                    kind={kind} 
-                    variant="ghost" 
-                    className="w-10 h-10 p-0 rounded-xl flex items-center justify-center transition-all hover:bg-secondary/80 text-muted-foreground max-md:[&>span]:hidden" 
-                  />
+                {/* Left side actions */}
+                <div className="flex items-center gap-1 pl-1 shrink-0">
+                  <Search className="w-4 h-4 text-muted-foreground ml-2 mr-1 hidden sm:block" />
+                  
+                  {/* Filter Option */}
                   {(kind === 'books' || kind === 'manga') && (
                     <button 
                       onClick={() => kind === 'books' ? setAdvancedOpen(true) : onMobileFilterClick?.()}
                       className={cn(
-                        "w-10 h-10 rounded-xl flex items-center justify-center transition-all",
+                        "w-9 h-9 rounded-full flex items-center justify-center transition-all shrink-0",
                         (kind === 'books' && hasFilters) || kind === 'manga'
                           ? "bg-primary text-primary-foreground shadow-md" 
                           : "text-muted-foreground hover:text-foreground hover:bg-secondary/80 bg-background/50"
@@ -100,11 +86,34 @@ export function OnlineSearchHeader({
                       <Filter className="w-4 h-4" />
                     </button>
                   )}
+
+                  {/* Sources Option */}
+                  <OnlineSourceSelector 
+                    kind={kind} 
+                    variant="ghost" 
+                    className="w-9 h-9 p-0 rounded-full flex items-center justify-center transition-all hover:bg-secondary/80 text-muted-foreground shrink-0 max-md:[&>span]:hidden" 
+                  />
+                </div>
+                
+                {/* Input */}
+                <input
+                  value={searchValue}
+                  onChange={(e) => onSearchValueChange(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') onSubmit();
+                  }}
+                  placeholder={kind === 'books' ? 'Search books...' : 'Search manga...'}
+                  className="flex-1 bg-transparent border-none outline-none text-[15px] font-medium text-foreground placeholder:text-muted-foreground/60 focus:ring-0 py-2 px-3 min-w-0"
+                  disabled={disabled}
+                />
+                
+                {/* Right side actions */}
+                <div className="flex items-center pr-1 shrink-0">
                   {searchValue.trim() && (
                     <button 
                       onClick={onSubmit} 
                       disabled={loading || disabled}
-                      className="ml-1 px-4 py-2 rounded-xl bg-foreground text-background text-sm font-semibold hover:bg-foreground/90 disabled:opacity-50 transition-all shadow-md active:scale-95"
+                      className="px-4 py-1.5 rounded-full bg-foreground text-background text-sm font-semibold hover:bg-foreground/90 disabled:opacity-50 transition-all shadow-md active:scale-95"
                     >
                       Go
                     </button>
@@ -149,34 +158,28 @@ export function OnlineSearchHeader({
           </div>
 
           {isMobile && preferences?.preferredContentType === 'both' && (
-            <div className="flex px-1 gap-1">
+            <div className="flex px-2 gap-2 mt-2">
               <button
                 onClick={() => setCurrentView('online-books')}
                 className={cn(
-                  "flex-1 flex items-center justify-center gap-2 py-2.5 text-[13px] font-semibold rounded-xl transition-all relative overflow-hidden",
+                  "flex-1 flex items-center justify-center gap-2 py-3 text-[14px] font-semibold rounded-full transition-all relative overflow-hidden",
                   kind === 'books'
-                    ? "text-foreground bg-secondary/30"
+                    ? "text-foreground bg-secondary/40 shadow-sm"
                     : "text-muted-foreground hover:text-foreground hover:bg-secondary/10"
                 )}
               >
-                <Globe className="w-3.5 h-3.5" /> Books
-                {kind === 'books' && (
-                  <div className="absolute bottom-0 left-1/4 right-1/4 h-[2px] bg-foreground rounded-t-full shadow-[0_-2px_8px_rgba(255,255,255,0.5)]" />
-                )}
+                <Globe className="w-4 h-4" /> Books
               </button>
               <button
                 onClick={() => setCurrentView('online-manga')}
                 className={cn(
-                  "flex-1 flex items-center justify-center gap-2 py-2.5 text-[13px] font-semibold rounded-xl transition-all relative overflow-hidden",
+                  "flex-1 flex items-center justify-center gap-2 py-3 text-[14px] font-semibold rounded-full transition-all relative overflow-hidden",
                   kind === 'manga'
-                    ? "text-foreground bg-secondary/30"
+                    ? "text-foreground bg-secondary/40 shadow-sm"
                     : "text-muted-foreground hover:text-foreground hover:bg-secondary/10"
                 )}
               >
-                <BookOpen className="w-3.5 h-3.5" /> Manga
-                {kind === 'manga' && (
-                  <div className="absolute bottom-0 left-1/4 right-1/4 h-[2px] bg-foreground rounded-t-full shadow-[0_-2px_8px_rgba(255,255,255,0.5)]" />
-                )}
+                <BookOpen className="w-4 h-4" /> Manga
               </button>
             </div>
           )}

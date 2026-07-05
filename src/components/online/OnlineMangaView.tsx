@@ -909,7 +909,7 @@ export function OnlineMangaView() {
         )}
       </div>
 
-      <div className={cn("flex-1 overflow-y-auto", isMobile ? "pb-24 p-3 pt-4" : "p-6")}>
+      <div className={cn("flex-1 overflow-y-auto", isMobile ? "pb-24 p-3 pt-8" : "p-6")}>
         <div className="max-w-7xl mx-auto">
           {displayLoading && (
             <div className="py-8">

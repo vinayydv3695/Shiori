@@ -185,8 +185,8 @@ export function OnlineBooksDashboard() {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto pt-8">
-      <div className="pb-32 max-w-[1440px] mx-auto mt-4">
+    <div className="flex-1 overflow-y-auto pt-12 md:pt-16">
+      <div className="pb-32 max-w-[1440px] mx-auto mt-6 flex flex-col gap-8 md:gap-16">
         <BookGrid subtitle="01 — Gallery" title="Featured Books" books={trending.slice(0, 4)} isLoading={loading} onBookClick={handleBookClick} />
         <BookRow subtitle="02 — Global" title="Trending Now" books={scifi} isLoading={loading} onBookClick={handleBookClick} />
         <BookRow subtitle="03 — For You" title="Recommended" books={classics} isLoading={loading} onBookClick={handleBookClick} />

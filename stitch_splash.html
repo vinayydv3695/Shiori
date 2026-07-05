@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Monolith - Precision Noir</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;300;400;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary-fixed-variant": "#005142",
+                    "on-tertiary-fixed": "#002019",
+                    "inverse-on-surface": "#313030",
+                    "error": "#ffb4ab",
+                    "inverse-surface": "#e5e2e1",
+                    "surface-container-lowest": "#0e0e0e",
+                    "surface-container-highest": "#353534",
+                    "surface-container-high": "#2a2a2a",
+                    "outline": "#8b90a0",
+                    "on-primary-fixed-variant": "#454747",
+                    "primary-fixed-dim": "#c6c6c7",
+                    "on-primary": "#2f3131",
+                    "secondary-container": "#508eff",
+                    "primary-container": "#757676",
+                    "on-secondary-fixed-variant": "#004397",
+                    "on-error": "#690005",
+                    "background": "#131313",
+                    "outline-variant": "#414754",
+                    "on-tertiary": "#00382d",
+                    "on-surface": "#e5e2e1",
+                    "on-error-container": "#ffdad6",
+                    "tertiary-fixed": "#6bfad8",
+                    "surface-tint": "#c6c6c7",
+                    "on-tertiary-container": "#ffffff",
+                    "on-secondary-fixed": "#001a43",
+                    "secondary-fixed-dim": "#aec6ff",
+                    "inverse-primary": "#5d5f5f",
+                    "tertiary-container": "#00866f",
+                    "surface-variant": "#353534",
+                    "on-background": "#e5e2e1",
+                    "surface-container": "#201f1f",
+                    "on-primary-fixed": "#1a1c1c",
+                    "surface-dim": "#131313",
+                    "surface-container-low": "#1c1b1b",
+                    "on-surface-variant": "#c1c6d7",
+                    "surface-bright": "#3a3939",
+                    "primary-fixed": "#e2e2e2",
+                    "secondary-fixed": "#d8e2ff",
+                    "on-secondary": "#002e6b",
+                    "secondary": "#aec6ff",
+                    "primary": "#c6c6c7",
+                    "surface": "#131313",
+                    "on-primary-container": "#ffffff",
+                    "tertiary-fixed-dim": "#48ddbc",
+                    "on-secondary-container": "#00275e",
+                    "tertiary": "#48ddbc",
+                    "error-container": "#93000a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "display": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        @keyframes reveal {
+            0% { transform: scale(0.9); opacity: 0; filter: blur(10px); }
+            100% { transform: scale(1); opacity: 1; filter: blur(0px); }
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { filter: drop-shadow(0 0 10px rgba(198, 198, 199, 0.2)); }
+            50% { filter: drop-shadow(0 0 30px rgba(174, 198, 255, 0.4)); }
+        }
+
+        @keyframes text-slide-up {
+            0% { transform: translateY(20px); opacity: 0; letter-spacing: 0.5em; }
+            100% { transform: translateY(0); opacity: 1; letter-spacing: 0.8em; }
+        }
+
+        @keyframes scanline {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100%); }
+        }
+
+        @keyframes fade-out-overlay {
+            0% { opacity: 1; }
+            100% { opacity: 0; pointer-events: none; }
+        }
+
+        .animate-reveal { animation: reveal 1.8s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+        .animate-glow { animation: pulse-glow 4s ease-in-out infinite; }
+        .animate-text { animation: text-slide-up 2.2s cubic-bezier(0.16, 1, 0.3, 1) 0.5s forwards; }
+        
+        .precision-gradient {
+            background: radial-gradient(circle at center, #201F1F 0%, #0E0E0E 100%);
+        }
+
+        .scanline-effect {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, transparent 0%, rgba(255,255,255,0.03) 50%, transparent 100%);
+            height: 20%;
+            animation: scanline 8s linear infinite;
+            pointer-events: none;
+        }
+
+        .letter-spacing-extreme {
+            letter-spacing: 0.8em;
+            margin-right: -0.8em; /* Offset for centering due to tracking */
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface-container-lowest font-body overflow-hidden h-screen w-screen flex items-center justify-center">
+<!-- Cinematic Background Layer -->
+<div class="fixed inset-0 precision-gradient z-0"></div>
+<!-- Atmospheric Noise/Grain Texture -->
+<div class="fixed inset-0 opacity-[0.03] z-10 pointer-events-none" style="background-image: url('https://www.transparenttextures.com/patterns/stardust.png');"></div>
+<!-- Interactive Canvas Overlay (Optional Shader Simulation) -->
+<div class="fixed inset-0 z-20 pointer-events-none">
+<div class="scanline-effect"></div>
+</div>
+<!-- Main Content Container -->
+<main class="relative z-30 flex flex-col items-center justify-center w-full px-8 text-center">
+<!-- Logo Element -->
+<div class="relative group cursor-pointer active:scale-95 transition-transform duration-500">
+<!-- Glow Backlight -->
+<div class="absolute inset-0 bg-primary/20 blur-[80px] rounded-full scale-150 opacity-0 group-hover:opacity-40 transition-opacity duration-1000"></div>
+<!-- The Logo Asset -->
+<div class="w-48 h-48 md:w-64 md:h-64 mb-12 flex items-center justify-center opacity-0 animate-reveal animate-glow">
+<img class="w-full h-full object-contain filter brightness-125" data-alt="A futuristic, minimalist logo for a high-performance tech app named Monolith. The logo consists of sharp, geometric obsidian shards arranged in a circular, architectural formation. It features metallic silver highlights and deep indigo shadows. The background is a stark, cinematic dark mode gradient with subtle light flares. The overall aesthetic is precision-engineered, luxurious, and authoritative, like a high-end luxury vehicle interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBFnRoMxYdQt-qKGID3hjVQ7iuzfke5S3Hze4p3m1GYPA3nueciRHPPA7s9JXWijVE1uk-1GRabCRf4Rj52SFKLmcK142kJDMM8cWq1vvcE49fdDwGZLynSl-M3DeEWMZcdJP9E7aigJqYsA4zaf_8_KR17SWjMjLIZiRTWVXVBsv0PQhobh3-X1gWSh5U-IJ_A4lPS3zCoB7MwKAQt6SoggzcUv9CMxJV7RV3OMeZ4YchALedte9zeB-N-Y2IpLHlpHz9t_jjHCus"/>
+</div>
+</div>
+<!-- Brand Text -->
+<div class="opacity-0 animate-text flex flex-col items-center">
+<h1 class="text-on-surface font-black text-xl md:text-2xl letter-spacing-extreme uppercase antialiased">
+                Monolith
+            </h1>
+<p class="mt-6 text-on-surface-variant font-label text-[10px] tracking-[0.3em] uppercase opacity-40">
+                Precision Client 1.0.42
+            </p>
+</div>
+<!-- Interactive Skip/Enter (Appears after delay) -->
+<div class="mt-24 opacity-0 transition-opacity duration-1000 delay-[2500ms]" id="action-container">
+<button class="group relative px-10 py-4 bg-transparent border border-outline-variant/20 hover:border-primary/40 transition-all duration-500 rounded-lg overflow-hidden" onclick="simulateTransition()">
+<!-- Button Background Fill Effect -->
+<div class="absolute inset-0 bg-primary/5 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out"></div>
+<span class="relative z-10 text-on-surface-variant group-hover:text-primary font-label text-[11px] tracking-widest uppercase transition-colors">
+                    Initialize System
+                </span>
+</button>
+</div>
+</main>
+<!-- Navigation/Bottom Status Indicator -->
+<div class="fixed bottom-12 left-0 w-full flex flex-col items-center gap-4 z-40 opacity-0 animate-[reveal_1s_ease-out_2s_forwards]">
+<div class="w-1 h-12 bg-gradient-to-b from-primary/40 to-transparent"></div>
+<div class="flex gap-2">
+<div class="w-1 h-1 bg-primary rounded-full animate-pulse"></div>
+<div class="w-1 h-1 bg-outline-variant/30 rounded-full"></div>
+<div class="w-1 h-1 bg-outline-variant/30 rounded-full"></div>
+</div>
+</div>
+<!-- Transition Overlay (Flash) -->
+<div class="fixed inset-0 bg-white opacity-0 z-[100] pointer-events-none transition-opacity duration-700" id="flash-overlay"></div>
+<script>
+        // Auto-show action button
+        setTimeout(() => {
+            document.getElementById('action-container').classList.remove('opacity-0');
+        }, 500);
+
+        function simulateTransition() {
+            const overlay = document.getElementById('flash-overlay');
+            overlay.classList.remove('opacity-0');
+            overlay.classList.add('opacity-20');
+            
+            // Subtle vibration feedback simulation
+            if ('vibrate' in navigator) {
+                navigator.vibrate(10);
+            }
+
+            setTimeout(() => {
+                overlay.classList.remove('opacity-20');
+                overlay.classList.add('opacity-0');
+                // In a real app, window.location would change here
+                alert("Monolith Precision System Initialized.");
+            }, 800);
+        }
+
+        // Mouse parallax effect for the logo
+        document.addEventListener('mousemove', (e) => {
+            const logo = document.querySelector('.animate-reveal');
+            if (logo) {
+                const xAxis = (window.innerWidth / 2 - e.pageX) / 45;
+                const yAxis = (window.innerHeight / 2 - e.pageY) / 45;
+                logo.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg)`;
+            }
+        });
+    </script>
+</body></html>

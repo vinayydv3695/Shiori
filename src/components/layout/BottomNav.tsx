@@ -1,6 +1,7 @@
 import { Home, Library, Settings, Compass, Menu, Cloud } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { CurrentView } from '@/store/uiStore'
+import { usePreferencesStore } from '@/store/preferencesStore'
 
 interface BottomNavProps {
   currentView: CurrentView
@@ -33,7 +34,10 @@ export function BottomNav({
         icon={<Compass className="w-5 h-5" />}
         label="Browse"
         isActive={currentView === 'online-books' || currentView === 'online-manga'}
-        onClick={() => onNavigateToView('online-books')}
+        onClick={() => {
+          const preferredContentType = usePreferencesStore.getState().preferences?.preferredContentType;
+          onNavigateToView(preferredContentType === 'manga' ? 'online-manga' : 'online-books');
+        }}
       />
       <NavItem
         icon={<Cloud className="w-5 h-5" />}

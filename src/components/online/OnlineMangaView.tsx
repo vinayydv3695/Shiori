@@ -891,7 +891,7 @@ export function OnlineMangaView() {
                         <Loader2 className="w-8 h-8 animate-spin text-primary" />
                       </div>
                     ) : (
-                      <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 md:gap-4 w-full max-w-[1920px] pb-12">
+                      <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6 w-full max-w-[1920px] pb-12">
                         {advancedBrowseResults.map((manga, i) => (
                           <div
                             key={`${manga.id}-${i}`}
@@ -932,7 +932,7 @@ export function OnlineMangaView() {
                     <div className="bento-widget-header">
                       <h2 className="bento-widget-title">{isMangaDexEnabled ? "Trending This Week" : "Popular"}</h2>
                     </div>
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 md:gap-4 mt-4">
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6 mt-4">
                       {browseLoading.popular ? <SkeletonGrid count={5} /> : toCarouselItems(browseData.popular).slice(0, 5).map((item) => (
                         <ModernBookCard key={item.id} id={item.id} title={item.title} coverUrl={item.coverUrl} author={item.subtitle} onClick={() => handleCarouselItemClick(item)} />
                       ))}
@@ -944,7 +944,7 @@ export function OnlineMangaView() {
                     <div className="bento-widget-header">
                       <h2 className="bento-widget-title">Latest Updates</h2>
                     </div>
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 md:gap-4 mt-4">
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6 mt-4">
                       {browseLoading.latest ? <SkeletonGrid count={5} /> : toCarouselItems(browseData.latest).slice(0, 5).map((item) => (
                         <ModernBookCard key={item.id} id={item.id} title={item.title} coverUrl={item.coverUrl} author={item.subtitle} onClick={() => handleCarouselItemClick(item)} />
                       ))}
@@ -956,7 +956,7 @@ export function OnlineMangaView() {
                     <div className="bento-widget-header">
                       <h2 className="bento-widget-title">{isMangaDexEnabled ? "Staff Picks / You Should Read" : "Recent"}</h2>
                     </div>
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 md:gap-4 mt-4">
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6 mt-4">
                       {browseLoading.recent ? <SkeletonGrid count={5} /> : toCarouselItems(browseData.recent).slice(0, 5).map((item) => (
                         <ModernBookCard key={item.id} id={item.id} title={item.title} coverUrl={item.coverUrl} author={item.subtitle} onClick={() => handleCarouselItemClick(item)} />
                       ))}
@@ -1010,7 +1010,7 @@ export function OnlineMangaView() {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] md:grid-cols-2 lg:grid-cols-2 gap-3 md:gap-6">
                 {visibleResults.map((manga) => (
                   <OnlineResultCard
                     key={manga.id}
@@ -1070,7 +1070,7 @@ export function OnlineMangaView() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] md:grid-cols-2 lg:grid-cols-2 gap-3 md:gap-6">
                 {pluginResultWithTorboxSource.map(({ item: manga, torboxSource }) => (
                   <OnlineResultCard
                     key={manga.id}

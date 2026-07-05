@@ -193,7 +193,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-background/40 backdrop-blur-md z-50 transition-all duration-300" />
         <Dialog.Content aria-describedby={undefined} className={cn(
-          "dialog-content settings-dialog fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.2)] w-[95vw] max-w-5xl h-[90vh] max-md:h-[95vh] max-md:rounded-xl z-50 flex flex-col overflow-hidden",
+          "dialog-content settings-dialog fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.2)] w-[95vw] max-md:w-full max-w-5xl h-[90vh] max-md:h-[100dvh] max-md:rounded-none max-md:border-none z-50 flex flex-col overflow-hidden",
           preferences?.transparentSettings ?? false ? "bg-background/80 backdrop-blur-2xl" : "bg-background"
         )}>
           <div className="flex items-center justify-between p-4 md:p-6 border-b border-border gap-3">
@@ -369,8 +369,8 @@ const SettingItem = ({
   description?: string
   children: React.ReactNode
 }) => (
-  <div className="group flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6 p-4 rounded-2xl border border-border/50 bg-card/30 hover:bg-card/50 transition-all duration-300 shadow-sm hover:shadow-md">
-    <div className="space-y-1.5 flex-1 md:pr-4">
+  <div className="group flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6 p-3 md:p-4 rounded-xl md:rounded-2xl border border-border/50 bg-card/30 hover:bg-card/50 transition-all duration-300 shadow-sm hover:shadow-md">
+    <div className="space-y-1 md:space-y-1.5 flex-1 md:pr-4">
       <label className="text-[15px] font-semibold tracking-tight leading-none text-foreground">{label}</label>
       {description && <p className="text-[13px] text-muted-foreground leading-relaxed">{description}</p>}
     </div>
@@ -530,7 +530,7 @@ const GeneralSettings = ({
             </SettingItem>
           )}
 
-          {isSettingVisible('UI Density', 'Adjust interface spacing', 'Appearance') && (
+          {!isAndroid && isSettingVisible('UI Density', 'Adjust interface spacing', 'Appearance') && (
             <SettingItem label="UI Density" description="Adjust interface spacing">
               <div className="flex gap-2 w-full md:w-auto">
                 {(['compact', 'comfortable'] as const).map((density) => (
@@ -551,7 +551,7 @@ const GeneralSettings = ({
             </SettingItem>
           )}
 
-          {isSettingVisible('UI Scale', 'Adjust overall application size', 'Appearance') && (
+          {!isAndroid && isSettingVisible('UI Scale', 'Adjust overall application size', 'Appearance') && (
             <SettingItem label="UI Scale" description={`${scalePercent}%`}>
               <div className="flex items-center gap-3 w-full md:w-auto">
                 <span className="text-xs text-muted-foreground w-8 text-right shrink-0">75%</span>
@@ -595,7 +595,7 @@ const GeneralSettings = ({
             </SettingItem>
           )}
 
-          {isSettingVisible('Enable Window Transparency', 'Toggle transparent window background (Requires restart)', 'Appearance') && (
+          {!isAndroid && isSettingVisible('Enable Window Transparency', 'Toggle transparent window background (Requires restart)', 'Appearance') && (
             <SettingItem label="Enable Window Transparency (Requires Restart)" description="Disable this if Shiori runs slowly on Linux. Requires app restart to take effect.">
               <Switch 
                 checked={preferences?.linuxTransparentWindow ?? true} 
@@ -607,7 +607,7 @@ const GeneralSettings = ({
             </SettingItem>
           )}
 
-          {isSettingVisible('Settings Transparency', 'Toggle transparent background for the settings dialog', 'Appearance') && (
+          {!isAndroid && isSettingVisible('Settings Transparency', 'Toggle transparent background for the settings dialog', 'Appearance') && (
             <SettingItem label="Settings Transparency" description="Toggle transparent background for the settings dialog">
               <Switch 
                 checked={preferences?.transparentSettings ?? false} 
@@ -620,12 +620,12 @@ const GeneralSettings = ({
 
       {isSectionVisible('General', ['Auto-start Application', 'Discord Rich Presence', 'Primary Content Type']) && (
         <SettingSection title="General">
-          {isSettingVisible('Auto-start Application', 'Start Shiori when system boots', 'General') && (
+          {!isAndroid && isSettingVisible('Auto-start Application', 'Start Shiori when system boots', 'General') && (
             <SettingItem label="Auto-start Application" description="Start Shiori when system boots">
               <Switch checked={preferences.autoStart} onChange={(checked) => updateGeneralSettings({ autoStart: checked })} />
             </SettingItem>
           )}
-          {isSettingVisible('Discord Rich Presence', 'Show your reading activity on Discord', 'General') && (
+          {!isAndroid && isSettingVisible('Discord Rich Presence', 'Show your reading activity on Discord', 'General') && (
             <SettingItem label="Discord Rich Presence" description="Show your reading activity on Discord">
               <Switch checked={preferences.discordRpcEnabled ?? true} onChange={(checked) => updateGeneralSettings({ discordRpcEnabled: checked })} />
             </SettingItem>
@@ -646,7 +646,7 @@ const GeneralSettings = ({
         </SettingSection>
       )}
 
-      {isSectionVisible('Import', ['Import Path']) && (
+      {!isAndroid && isSectionVisible('Import', ['Import Path']) && (
         <SettingSection title="Import Path">
           <div className="space-y-3">
             <div className="p-4 rounded-lg bg-muted border border-border">
@@ -739,13 +739,13 @@ const GeneralSettings = ({
             </SettingItem>
           )}
 
-          {isSettingVisible('Auto-Scan Library Folders', 'Automatically import new books', 'Library') && (
+          {!isAndroid && isSettingVisible('Auto-Scan Library Folders', 'Automatically import new books', 'Library') && (
             <SettingItem label="Auto-Scan Library Folders" description="Automatically import new books when detected">
               <Switch checked={preferences.autoScanEnabled ?? false} onChange={(checked) => updateGeneralSettings({ autoScanEnabled: checked })} />
             </SettingItem>
           )}
 
-          {preferences.autoScanEnabled && isSettingVisible('Auto-Scan Interval', 'How often to check for new books', 'Library') && (
+          {!isAndroid && preferences.autoScanEnabled && isSettingVisible('Auto-Scan Interval', 'How often to check for new books', 'Library') && (
             <SettingItem label="Auto-Scan Interval" description="How often to check for new books">
               <select
                 value={String(preferences.autoScanIntervalMinutes || 60)}

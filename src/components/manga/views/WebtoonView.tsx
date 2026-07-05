@@ -91,7 +91,7 @@ export function WebtoonView() {
         markScrollActivity();
     }, [markScrollActivity]);
 
-    useMangaScroll(containerRef, handleProgressChange, handleScrollActivity);
+    useMangaScroll(containerRef, handleProgressChange, handleScrollActivity, hasSource);
 
     useEffect(() => {
         if (hasScrolledToResume.current) return;

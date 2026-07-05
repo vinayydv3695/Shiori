@@ -1,50 +1,14 @@
-import { cn } from '@/lib/utils';
-import { Compass, Filter, Globe, BookOpen, Search } from 'lucide-react';
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { OnlineSourceSelector } from './OnlineSourceSelector';
-import { AdvancedOnlineSearchDialog } from './AdvancedOnlineSearchDialog';
+import re
 
-import { useOnlineSearchStore } from '@/store/onlineSearchStore';
-import { usePreferencesStore } from '@/store/preferencesStore';
-import { useUIStore } from '@/store/uiStore';
-import { useIsMobile } from '@/hooks/useIsMobile';
-import type { SourceKind } from '@/store/sourceStore';
+with open('src/components/online/OnlineSearchHeader.tsx', 'r') as f:
+    content = f.read()
 
-interface OnlineSearchHeaderProps {
-  kind: SourceKind;
-  title: string;
-  subtitle: string;
-  searchValue: string;
-  loading: boolean;
-  disabled: boolean;
-  disabledMessage?: string;
-  onSearchValueChange: (value: string) => void;
-  onSubmit: () => void;
-  onMobileFilterClick?: () => void;
-}
+# I will replace the main return block.
+# Let's find the start of the return statement and replace it.
 
-export function OnlineSearchHeader({
-  kind,
-  title,
-  subtitle,
-  searchValue,
-  loading,
-  disabled,
-  disabledMessage,
-  onSearchValueChange,
-  onSubmit,
-  onMobileFilterClick,
-}: OnlineSearchHeaderProps) {
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-  const filters = useOnlineSearchStore(state => state.filters[kind === 'books' ? 'online-books' : 'online-manga']);
-  const hasFilters = Object.keys(filters || {}).length > 0;
-  const preferences = usePreferencesStore(state => state.preferences);
-  const updateGeneralSettings = usePreferencesStore(state => state.updateGeneralSettings);
-  const isMobile = useIsMobile();
-  const setCurrentView = useUIStore(state => state.setCurrentView);
+pattern = r'  return \(\n    <div className="flex-shrink-0 bg-background/60.*?  \);\n}'
 
-  return (
+replacement = """  return (
     <div className={cn(
       "flex-shrink-0 relative overflow-hidden z-10 transition-colors duration-500",
       isMobile ? "pt-2 pb-2 px-3 bg-background" : "bg-background/60 backdrop-blur-3xl border-b border-border pt-16 pb-8 px-8"
@@ -198,4 +162,13 @@ export function OnlineSearchHeader({
       </div>
     </div>
   );
-}
+}"""
+
+# Check if search is imported, if not, add it.
+if "Search," not in content and "Search " not in content:
+    content = content.replace("Compass, Filter", "Compass, Filter, Search")
+
+new_content = re.sub(pattern, replacement, content, flags=re.DOTALL)
+
+with open('src/components/online/OnlineSearchHeader.tsx', 'w') as f:
+    f.write(new_content)

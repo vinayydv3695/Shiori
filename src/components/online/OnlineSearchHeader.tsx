@@ -85,12 +85,12 @@ export function OnlineSearchHeader({
                     variant="ghost" 
                     className="w-10 h-10 p-0 rounded-xl flex items-center justify-center transition-all hover:bg-secondary/80 text-muted-foreground max-md:[&>span]:hidden" 
                   />
-                  {(kind === 'books' || (kind === 'manga' && isMobile)) && (
+                  {(kind === 'books' || kind === 'manga') && (
                     <button 
                       onClick={() => kind === 'books' ? setAdvancedOpen(true) : onMobileFilterClick?.()}
                       className={cn(
                         "w-10 h-10 rounded-xl flex items-center justify-center transition-all",
-                        (kind === 'books' && hasFilters) 
+                        (kind === 'books' && hasFilters) || kind === 'manga'
                           ? "bg-primary text-primary-foreground shadow-md" 
                           : "text-muted-foreground hover:text-foreground hover:bg-secondary/80 bg-background/50"
                       )}
@@ -126,10 +126,10 @@ export function OnlineSearchHeader({
                   disabled={disabled}
                 />
                 <div className="flex items-center gap-3 mb-0.5 ml-4">
-                  {kind === 'books' && (
+                  {(kind === 'books' || kind === 'manga') && (
                     <button 
-                      onClick={() => setAdvancedOpen(true)}
-                      className={`p-3 rounded-xl transition-all ${hasFilters ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/80'}`}
+                      onClick={() => kind === 'books' ? setAdvancedOpen(true) : onMobileFilterClick?.()}
+                      className={`p-3 rounded-xl transition-all ${hasFilters || kind === 'manga' ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/80'}`}
                       disabled={disabled}
                       title="Filters"
                     >

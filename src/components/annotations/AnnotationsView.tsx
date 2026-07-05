@@ -2,7 +2,7 @@ import { logger } from '@/lib/logger';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api, AnnotationSearchResult, AnnotationCategory } from '@/lib/tauri';
 import { useToastStore } from '@/store/toastStore';
-import { Highlighter, StickyNote, Bookmark, BookmarkPlus, X, LayoutGrid, List, Library, Share2, ExternalLink, BookOpen } from 'lucide-react';
+import { Highlighter, StickyNote, Bookmark, BookmarkPlus, X, LayoutGrid, List, Library, Share2, ExternalLink, BookOpen, Quote } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { AnnotationExportDialog } from '../reader/AnnotationExportDialog';
 import { QuoteCardDialog } from './QuoteCardDialog';
@@ -141,15 +141,15 @@ export function AnnotationsView({ onClose, onOpenBook }: AnnotationsViewProps) {
         key={result.annotation.id} 
         className="break-inside-avoid mb-8 relative group transition-all duration-500 hover:-translate-y-1"
       >
-        {/* Premium Card Background & Borders */}
-        <div className="absolute inset-0 bg-gradient-to-br from-card/90 to-background border border-border/30 group-hover:border-border/60 rounded-[1.5rem] shadow-[0_8px_30px_rgba(0,0,0,0.08)] group-hover:shadow-[0_16px_40px_rgba(0,0,0,0.15)] ring-1 ring-white/[0.01] transition-all duration-500 z-0" />
+        {/* Premium Minimalist Card Background */}
+        <div className="absolute inset-0 bg-muted/20 hover:bg-muted/40 border border-transparent group-hover:border-border/50 rounded-[1.25rem] transition-all duration-500 z-0 backdrop-blur-sm" />
         
         {/* Subtle Accent Glow */}
         <div className="absolute inset-0 opacity-0 group-hover:opacity-[0.04] transition-opacity duration-700 pointer-events-none rounded-[1.5rem] z-0" style={{ backgroundImage: `radial-gradient(circle at top right, ${tintColor}, transparent 70%)` }} />
 
-        <div className="p-7 flex flex-col h-full relative z-10">
+        <div className="p-4 md:p-6 flex flex-col h-full relative z-10">
           {/* Header */}
-          <div className="flex items-start justify-between mb-6">
+          <div className="flex items-start justify-between mb-4 md:mb-5">
             <div className="flex items-center gap-3.5">
               <div className="shrink-0 text-muted-foreground/40 group-hover:text-primary/80 transition-colors duration-500">
                 {isVocabulary ? (
@@ -158,12 +158,12 @@ export function AnnotationsView({ onClose, onOpenBook }: AnnotationsViewProps) {
                   getAnnotationIcon(result.annotation.annotationType)
                 )}
               </div>
-              <div className="flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground/60">
-                <span className="font-bold tracking-[0.15em] uppercase text-[9px]">{formatDate(result.annotation.createdAt || '')}</span>
+              <div className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground/60">
+                <span className="font-bold tracking-[0.1em] uppercase text-[10px]">{formatDate(result.annotation.createdAt || '')}</span>
                 {result.annotation.chapterTitle && (
                   <>
                     <span className="w-1 h-1 rounded-full bg-border" />
-                    <span className="truncate max-w-[150px] sm:max-w-[200px] font-medium font-serif italic text-[13px]" title={result.annotation.chapterTitle}>
+                    <span className="truncate max-w-[120px] sm:max-w-[200px] font-medium font-serif italic text-[12px] md:text-[13px]" title={result.annotation.chapterTitle}>
                       {result.annotation.chapterTitle}
                     </span>
                   </>
@@ -196,11 +196,11 @@ export function AnnotationsView({ onClose, onOpenBook }: AnnotationsViewProps) {
 
           {/* Category Tag */}
           {result.annotation.categoryId && categories.find(c => c.id === result.annotation.categoryId) && (
-            <div className="mb-6">
-              <span className="text-[9px] uppercase tracking-[0.2em] px-3 py-1.5 rounded-full font-bold shadow-sm backdrop-blur-md" style={{ 
-                backgroundColor: `${categories.find(c => c.id === result.annotation.categoryId)?.color}10`, 
+            <div className="mb-4">
+              <span className="text-[10px] uppercase tracking-[0.15em] px-2.5 py-1 rounded-md font-bold shadow-sm backdrop-blur-md border" style={{ 
+                backgroundColor: `${categories.find(c => c.id === result.annotation.categoryId)?.color}15`, 
                 color: categories.find(c => c.id === result.annotation.categoryId)?.color,
-                boxShadow: `inset 0 1px 0 ${categories.find(c => c.id === result.annotation.categoryId)?.color}20`
+                borderColor: `${categories.find(c => c.id === result.annotation.categoryId)?.color}30`
               }}>
                 {categories.find(c => c.id === result.annotation.categoryId)?.name}
               </span>
@@ -210,9 +210,9 @@ export function AnnotationsView({ onClose, onOpenBook }: AnnotationsViewProps) {
           {/* Content */}
           <div className="flex-1 space-y-6">
             {result.annotation.selectedText && (
-              <div className="relative pl-5 py-1 group/quote">
+              <div className="relative pl-7 py-1 group/quote">
                 {/* Decorative background quote mark */}
-                <div className="absolute -top-4 -left-1 text-[70px] leading-none font-serif text-foreground/[0.03] select-none pointer-events-none transition-transform duration-700 group-hover:-translate-y-1">"</div>
+                <Quote className="absolute left-0 top-0 w-5 h-5 text-muted-foreground/30 -rotate-12 transition-transform duration-700 group-hover:-rotate-0" />
                 
                 {/* Glowing vertical accent line */}
                 <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-full transition-all duration-500 group-hover/quote:w-[4px]" style={{ 
@@ -220,15 +220,17 @@ export function AnnotationsView({ onClose, onOpenBook }: AnnotationsViewProps) {
                   boxShadow: `0 0 12px ${tintColor}30`
                 }} />
                 
-                <span className="text-foreground/95 text-[18px] md:text-[20px] leading-[1.65] font-serif font-medium tracking-tight relative z-10 block">
+                <span className="text-foreground/95 text-[16px] md:text-[18px] leading-[1.6] font-serif font-medium tracking-tight relative z-10 block">
                   {result.annotation.selectedText}
                 </span>
               </div>
             )}
 
             {result.annotation.noteContent && !isVocabulary && (
-              <div className="text-[14px] prose prose-sm dark:prose-invert max-w-none text-muted-foreground/80 bg-muted/20 hover:bg-muted/30 transition-colors p-5 rounded-2xl border border-border/20 shadow-inner">
-                <ReactMarkdown>{result.annotation.noteContent}</ReactMarkdown>
+              <div className="pt-4 mt-2 border-t border-border/40 relative z-10">
+                <div className="text-[14px] prose prose-sm dark:prose-invert max-w-none text-muted-foreground/90 font-serif italic">
+                  <ReactMarkdown>{result.annotation.noteContent}</ReactMarkdown>
+                </div>
               </div>
             )}
             
@@ -334,116 +336,56 @@ export function AnnotationsView({ onClose, onOpenBook }: AnnotationsViewProps) {
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         
         {/* Header & Tabs */}
-        <div className="flex-none pt-4 md:pt-6 px-4 md:px-6 border-b border-border bg-card z-20 shadow-sm relative">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 md:mb-6">
-            <div className="w-full md:w-auto flex flex-col relative">
-              <div className="md:hidden mb-2 flex items-center gap-2">
+        <div className="flex-none pt-[max(env(safe-area-inset-top,1rem),1rem)] md:pt-6 px-4 md:px-6 border-b border-border/40 bg-background/80 backdrop-blur-xl z-20 sticky top-0">
+          <div className="flex flex-col gap-3 mb-3">
+            {/* Top Row: Dropdown, Actions, Close */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex-1 min-w-0 md:hidden">
                 <select
                   value={selectedBookId}
                   onChange={(e) => setSelectedBookId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                  className="w-full bg-muted/50 border border-border/50 rounded-lg px-3 py-2 text-sm font-semibold focus:ring-2 focus:ring-primary outline-none truncate"
+                  className="w-full bg-transparent text-xl font-bold truncate focus:outline-none appearance-none"
                 >
                   <option value="all">All Annotations</option>
                   {uniqueBooks.map(b => (
-                    <option key={b.id} value={b.id}>{b.title} ({b.count})</option>
+                    <option key={b.id} value={b.id}>{b.title}</option>
                   ))}
                 </select>
-                <button
-                  onClick={onClose}
-                  className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors flex-none"
-                  title="Close annotations"
-                >
-                  <X size={20} />
-                </button>
               </div>
-              <h1 className="text-xl md:text-2xl font-bold tracking-tight hidden md:block pr-8">
+              <h1 className="text-xl md:text-2xl font-bold tracking-tight hidden md:block">
                 {selectedBookId === 'all' ? 'All Annotations' : uniqueBooks.find(b => b.id === selectedBookId)?.title}
               </h1>
-              <p className="text-sm text-muted-foreground mt-1 hidden md:block">
-                {displayedAnnotations.length} item{displayedAnnotations.length !== 1 ? 's' : ''} found
-              </p>
-            </div>
-            
-            <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full md:w-auto">
-              {/* Integrated Search Bar */}
-              <div className="relative flex-1 min-w-[200px] md:min-w-[240px] max-w-full md:max-w-sm">
-                <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Search annotations..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 bg-muted/50 hover:bg-muted border border-border/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all text-sm text-foreground placeholder:text-muted-foreground"
-                />
-              </div>
-
-              <button
-                onClick={() => setExportDialogOpen(true)}
-                className="px-3 py-2 text-sm font-medium border border-border hover:bg-muted rounded-lg transition-colors flex items-center justify-center gap-2 flex-none"
-                title="Export"
-              >
-                <Share2 size={16} />
-                <span className="hidden sm:inline">Export</span>
-              </button>
               
-              <button
-                onClick={onClose}
-                className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors flex-none hidden md:block"
-                title="Close annotations"
-              >
-                <X size={20} />
-              </button>
-            </div>
-          </div>
-
-          {/* Navigation Tabs */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-end">
-            <div className="flex gap-6 overflow-x-auto w-full no-scrollbar pb-1 sm:pb-0">
-              {tabs.map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setTypeFilter(tab.id)}
-                  className={`pb-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
-                    typeFilter === tab.id 
-                      ? 'border-primary text-foreground' 
-                      : 'border-transparent text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+              <div className="flex items-center gap-1 shrink-0 text-muted-foreground">
+                <button onClick={() => setExportDialogOpen(true)} className="p-2 hover:bg-muted rounded-full transition-colors" title="Export"><Share2 size={18} /></button>
+                <button onClick={onClose} className="p-2 hover:bg-muted rounded-full transition-colors md:hidden" title="Close"><X size={20} /></button>
+              </div>
             </div>
 
-            {/* View Controls */}
-            <div className="flex items-center gap-2 md:gap-3 pb-3 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                className="flex-1 sm:flex-none px-3 py-1.5 bg-background border border-border/80 hover:border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm min-w-[120px] md:min-w-[140px] text-foreground transition-colors dark:[color-scheme:dark]"
-              >
-                <option value="all">All Categories</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+            {/* Search Bar */}
+            <div className="relative w-full">
+              <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input type="text" placeholder="Search annotations..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-muted/30 hover:bg-muted/50 border border-border/50 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary transition-all text-sm text-foreground placeholder:text-muted-foreground" />
+            </div>
+
+            {/* Tabs & Categories Row */}
+            <div className="flex items-center justify-between gap-4 overflow-x-auto no-scrollbar">
+              <div className="flex gap-4 shrink-0">
+                {tabs.map(tab => (
+                  <button key={tab.id} onClick={() => setTypeFilter(tab.id)} className={`pb-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${typeFilter === tab.id ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{tab.label}</button>
                 ))}
-              </select>
-
-              <div className="flex items-center bg-muted/50 rounded-lg p-1 border border-border/50 shrink-0">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                  title="Grid view"
-                >
-                  <LayoutGrid size={16} />
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                  title="List view"
-                >
-                  <List size={16} />
-                </button>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 pb-2">
+                <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))} className="bg-muted/30 border border-border/50 rounded-lg px-2.5 py-1 text-xs font-medium text-foreground focus:outline-none dark:[color-scheme:dark]">
+                  <option value="all">All Categories</option>
+                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <div className="hidden md:flex items-center bg-muted/50 rounded-lg p-0.5 border border-border/50">
+                   <button onClick={() => setViewMode('grid')} className={`p-1 rounded-md transition-all ${viewMode==='grid'?'bg-background text-foreground shadow-sm':'text-muted-foreground hover:text-foreground'}`}><LayoutGrid size={14}/></button>
+                   <button onClick={() => setViewMode('list')} className={`p-1 rounded-md transition-all ${viewMode==='list'?'bg-background text-foreground shadow-sm':'text-muted-foreground hover:text-foreground'}`}><List size={14}/></button>
+                </div>
               </div>
             </div>
           </div>

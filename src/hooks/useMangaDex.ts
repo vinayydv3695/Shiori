@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { logger } from '@/lib/logger';
 import { pluginApi, type Chapter as PluginChapter, type SearchResult as PluginSearchResult } from '@/lib/pluginSources';
 
@@ -55,74 +55,67 @@ function parsePluginChapters(chapters: PluginChapter[]): MangaDexChapter[] {
 }
 
 export function useMangaDex() {
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const searchManga = async (
-    query: string,
-    page: number = 1,
-    limit: number = 20
-  ): Promise<MangaDexSearchResult | null> => {
-    if (!query.trim()) {
-      return null;
-    }
+  const searchManga = useCallback(
+    async (
+      query: string,
+      page: number = 1,
+      limit: number = 20
+    ): Promise<MangaDexSearchResult> => {
+      setError(null);
 
-    setLoading(true);
-    setError(null);
+      try {
+        logger.info('MangaDex search via plugin:', { query, page, limit });
 
-    try {
-      const offset = (page - 1) * limit;
-      logger.info('MangaDex search via plugin:', { query, page, limit });
+        const searchResponse = await pluginApi.searchWithMeta('mangadex', query, page, limit);
+        const mangaList = parsePluginSearchResults(searchResponse.items);
+        const responseOffset = searchResponse.offset ?? (page - 1) * limit;
+        const responseLimit = searchResponse.limit ?? limit;
+        const estimatedTotal =
+          responseOffset + mangaList.length + (mangaList.length >= responseLimit ? 1 : 0);
 
-      const searchResponse = await pluginApi.searchWithMeta('mangadex', query, page, limit);
-      const mangaList = parsePluginSearchResults(searchResponse.items);
-      const responseOffset = searchResponse.offset ?? offset;
-      const responseLimit = searchResponse.limit ?? limit;
-      const estimatedTotal =
-        responseOffset + mangaList.length + (mangaList.length >= responseLimit ? 1 : 0);
-
-      return {
-        data: mangaList,
-        total: searchResponse.total ?? estimatedTotal,
-        offset: responseOffset,
-        limit: responseLimit,
-      };
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to search MangaDex';
-      logger.error('MangaDex search failed:', err);
-      setError(errorMessage);
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  };
+        return {
+          data: mangaList,
+          total: searchResponse.total ?? estimatedTotal,
+          offset: responseOffset,
+          limit: responseLimit,
+        };
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to search MangaDex';
+        logger.error('MangaDex search failed:', err);
+        setError(errorMessage);
+        return { data: [], total: 0, offset: 0, limit };
+      }
+    },
+    []
+  );
 
   /**
    * Browse manga by different modes (popular, latest, recent, top-rated)
    */
-  const browseManga = async (
-    mode: BrowseMode,
-    limit: number = 20
-  ): Promise<MangaDexManga[]> => {
-    setLoading(true);
-    setError(null);
+  const browseManga = useCallback(
+    async (
+      mode: BrowseMode = 'popular',
+      limit: number = 20
+    ): Promise<MangaDexManga[]> => {
+      setError(null);
 
-    try {
-      logger.info('MangaDex browse via plugin:', { mode, limit });
-      const browseResults = await pluginApi.browse('mangadex', mode, 1, limit);
-      return parsePluginSearchResults(browseResults);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to browse MangaDex';
-      logger.error('MangaDex browse failed:', err);
-      setError(errorMessage);
-      return [];
-    } finally {
-      setLoading(false);
-    }
-  };
+      try {
+        logger.info('MangaDex browse via plugin:', { mode, limit });
+        const browseResults = await pluginApi.browse('mangadex', mode, 1, limit);
+        return parsePluginSearchResults(browseResults);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to browse MangaDex';
+        logger.error('MangaDex browse failed:', err);
+        setError(errorMessage);
+        return [];
+      }
+    },
+    []
+  );
 
   const getChapters = async (mangaId: string): Promise<MangaDexChapter[]> => {
-    setLoading(true);
     setError(null);
 
     try {
@@ -134,8 +127,6 @@ export function useMangaDex() {
       logger.error('MangaDex chapters failed:', err);
       setError(errorMessage);
       return [];
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -153,7 +144,7 @@ export function useMangaDex() {
     getChapters,
     getMangaUrl,
     getChapterUrl,
-    loading,
     error,
+    setError,
   };
 }

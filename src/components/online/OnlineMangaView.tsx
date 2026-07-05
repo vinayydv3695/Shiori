@@ -169,16 +169,24 @@ export function OnlineMangaView() {
     recent: [],
     'top-rated': [],
   });
+  const { searchManga, browseManga, getChapters, error: mangadexError, setError: setMangadexError } = useMangaDex();
   const [browseLoading, setBrowseLoading] = useState<Record<BrowseMode, boolean>>({
     popular: false,
     latest: false,
     recent: false,
-    'top-rated': false,
+    'top-rated': false
   });
+  const [searchLoading, setSearchLoading] = useState(false);
+
+  // We determine the overall "loading" state. 
+  // For others, it's the active browse modes that are loading.
+  const isAnyBrowseLoading = Object.values(browseLoading).some(Boolean);
+  const isAnySearchLoading = searchLoading;
+  
+  // Overall display loading
+  
   const [browseInitialized, setBrowseInitialized] = useState(false);
   
-  const { searchManga, browseManga, getChapters, loading, error } = useMangaDex();
-
   const [downloadProgress, setDownloadProgress] = useState<{ chapterTitle: string, progress: number, total: number } | null>(null);
 
   useEffect(() => {
@@ -398,6 +406,7 @@ export function OnlineMangaView() {
   const visibleTotalResults = searchQuery.trim().length === 0 || !isMangaDexEnabled ? 0 : totalResults;
   const visibleCurrentPage = searchQuery.trim().length === 0 || !isMangaDexEnabled ? 1 : currentPage;
   const hasVisibleSearched = hasSearched && searchQuery.trim().length > 0 && (isMangaDexEnabled || isPluginMangaSource);
+  const displayLoading = hasVisibleSearched ? isAnySearchLoading : isAnyBrowseLoading;
   const totalPages = Math.ceil(visibleTotalResults / 20);
 
   const scheduleSearch = useCallback(
@@ -828,7 +837,7 @@ export function OnlineMangaView() {
           status={status}
           year={year}
           chaptersLoading={chaptersLoading}
-          chaptersError={isPlugin ? pluginError : error}
+          chaptersError={isPlugin ? pluginError : mangadexError}
           unifiedChapters={unifiedChapters}
           onBack={() => {
             setSelectedManga(null);
@@ -853,7 +862,7 @@ export function OnlineMangaView() {
         title="Online Manga"
         subtitle="Search and explore manga from online providers"
         searchValue={searchQuery}
-        loading={loading}
+        loading={displayLoading}
         disabled={!hasEnabledMangaSource}
         disabledMessage="No active manga source. Enable MangaDex in Settings → Online Sources."
         onSearchValueChange={scheduleSearch}
@@ -867,9 +876,9 @@ export function OnlineMangaView() {
 
       <div className="px-3 md:px-6 pt-1 md:pt-3 max-w-5xl mx-auto w-full">
 
-        {error && (
+        {mangadexError && (
           <div className="mt-3 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
-            {error}
+            {mangadexError}
           </div>
         )}
 
@@ -902,13 +911,13 @@ export function OnlineMangaView() {
 
       <div className={cn("flex-1 overflow-y-auto", isMobile ? "pb-24 p-3 pt-4" : "p-6")}>
         <div className="max-w-7xl mx-auto">
-          {loading && (
+          {displayLoading && (
             <div className="py-8">
               <SkeletonGrid count={12} />
             </div>
           )}
 
-          {!loading && hasVisibleSearched && visibleResults.length === 0 && hasEnabledMangaSource && (
+          {!displayLoading && hasVisibleSearched && visibleResults.length === 0 && hasEnabledMangaSource && (
             <div className="text-center py-12">
               <BookOpen className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
               <p className="text-lg font-medium text-muted-foreground">No manga found</p>
@@ -916,7 +925,7 @@ export function OnlineMangaView() {
             </div>
           )}
 
-          {!loading && hasVisibleSearched && isPluginMangaSource && visiblePluginResults.length === 0 && hasEnabledMangaSource && (
+          {!displayLoading && hasVisibleSearched && isPluginMangaSource && visiblePluginResults.length === 0 && hasEnabledMangaSource && (
             <div className="text-center py-12">
               <BookOpen className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
               <p className="text-lg font-medium text-muted-foreground">No manga found</p>
@@ -924,7 +933,7 @@ export function OnlineMangaView() {
             </div>
           )}
 
-          {!loading && !hasVisibleSearched && hasEnabledMangaSource && (
+          {!displayLoading && !hasVisibleSearched && hasEnabledMangaSource && (
             <div className="space-y-4 md:space-y-10">
               {/* Hero Banner Desktop */}
               <div className="hidden md:block">
@@ -1059,7 +1068,7 @@ export function OnlineMangaView() {
             </div>
           )}
 
-          {!loading && visibleResults.length > 0 && isMangaDexEnabled && (
+          {!displayLoading && visibleResults.length > 0 && isMangaDexEnabled && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
@@ -1142,7 +1151,7 @@ export function OnlineMangaView() {
             </div>
           )}
 
-          {!loading && visiblePluginResults.length > 0 && isPluginMangaSource && (
+          {!displayLoading && visiblePluginResults.length > 0 && isPluginMangaSource && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">

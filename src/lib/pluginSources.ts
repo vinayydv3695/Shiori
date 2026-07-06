@@ -21,6 +21,7 @@ export interface SearchResult {
   coverUrl?: string;
   description?: string;
   summary?: string;
+  author?: string;
   source_id?: string;
   extra?: Record<string, unknown>;
   url?: string;

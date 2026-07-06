@@ -7,6 +7,7 @@ export interface AnilistUser {
     large: string;
     medium: string;
   };
+  bannerImage?: string | null;
 }
 
 export interface AnilistMedia {
@@ -22,6 +23,7 @@ export interface AnilistMedia {
     large: string;
     medium: string;
   };
+  bannerImage?: string | null;
   description: string;
   format: string;
   status: string;

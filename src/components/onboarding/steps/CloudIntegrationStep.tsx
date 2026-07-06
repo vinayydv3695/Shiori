@@ -203,7 +203,7 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
                     </p>
 
                     <div className="flex items-center gap-3">
-                      {preferences.anilistToken ? (
+                      {preferences?.anilistToken ? (
                         <div className="flex w-full items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
                           <div className="flex items-center gap-2 text-emerald-300">
                             <ShieldCheck className="h-4 w-4" />

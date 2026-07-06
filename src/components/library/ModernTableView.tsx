@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BookOpen, Star, ArrowUp, ArrowDown, MoreVertical, Edit, Trash2, Download, RefreshCw, Share2, Info } from 'lucide-react'
+import { BookOpen, Star, ArrowUp, ArrowDown, MoreVertical, Edit, Trash2, Download, Info } from 'lucide-react'
 import { cn, formatFileSize, formatDate } from '@/lib/utils'
 import type { Book } from '@/lib/tauri'
 import { Badge } from '@/components/ui/badge'

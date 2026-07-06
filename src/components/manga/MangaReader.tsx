@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import {
     useMangaContentStore,
     useMangaUIStore,
@@ -9,6 +9,9 @@ import { api } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
 import { useToastStore } from '@/store/toastStore';
 import { useLibraryStore } from '@/store/libraryStore';
+import { usePreferencesStore } from '@/store/preferencesStore';
+import { safeUpdateMediaListEntry, searchMedia } from '@/lib/anilist';
+import { CompletionPromptDialog } from './CompletionPromptDialog';
 import { MangaCanvas } from './MangaCanvas';
 import { MangaSidebar } from './MangaSidebar';
 import { AdvancedSettingsPanel } from './AdvancedSettingsPanel';
@@ -76,6 +79,9 @@ export function MangaReader(props: MangaReaderProps) {
 
     // Guard: don't save progress until initialization + resume is complete
     const initCompleteRef = useRef(false);
+
+    const [showCompletionPrompt, setShowCompletionPrompt] = useState(false);
+    const [completionData, setCompletionData] = useState<{mediaId: number, title: string, totalChapters: number, token: string} | null>(null);
 
     // Extract stable values from props for dependencies
     const localBookId = mode === 'local' ? props.bookId : null;
@@ -306,6 +312,43 @@ export function MangaReader(props: MangaReaderProps) {
                         mangaTotalPages
                     );
                     logger.debug('[MangaReader] Saved local progress:', { currentPage, total: mangaTotalPages, percent: progressPercent });
+
+                    const libBook = useLibraryStore.getState().books.find(b => b.id === bookId);
+                    if (libBook && currentPage === mangaTotalPages - 1) {
+                        const prefs = usePreferencesStore.getState().preferences;
+                        if (prefs?.anilistToken) {
+                            const match = libBook.title.match(/chapter\s+(\d+)/i) || libBook.title.match(/(?:ch|c)\.?\s*(\d+)/i);
+                            const chapterNum = match ? parseInt(match[1]) : 0;
+                            
+                            try {
+                                let mediaId = libBook.anilist_id ? Number(libBook.anilist_id) : null;
+                                
+                                // Auto-match
+                                if (!mediaId) {
+                                    const results = await searchMedia(libBook.title, prefs.anilistToken);
+                                    if (results && results.length > 0) {
+                                        mediaId = results[0].id;
+                                        const updatedBook = { ...libBook, anilist_id: mediaId.toString() };
+                                        await api.updateBook(updatedBook);
+                                        useLibraryStore.getState().updateBook(updatedBook);
+                                    }
+                                }
+                                
+                                if (mediaId) {
+                                    // Local manga usually means one file is the whole book or volume. Let's just prompt.
+                                    setCompletionData({
+                                        mediaId,
+                                        title: libBook.title,
+                                        totalChapters: chapterNum,
+                                        token: prefs.anilistToken
+                                    });
+                                    setShowCompletionPrompt(true);
+                                }
+                            } catch (err) {
+                                logger.warn('[MangaReader] Failed to sync local manga to AniList:', err);
+                            }
+                        }
+                    }
                 } else if (sourceType === 'online' && onlineSource) {
                     // Save online progress to localStorage
                     const progressKey = `online:${onlineSource.sourceId}:${onlineSource.contentId}`;
@@ -326,6 +369,56 @@ export function MangaReader(props: MangaReaderProps) {
                             currentPage,
                             mangaTotalPages
                         );
+                    }
+
+                    if (currentPage === mangaTotalPages - 1) {
+                        const prefs = usePreferencesStore.getState().preferences;
+                        if (prefs?.anilistToken) {
+                            const chapterInfo = onlineSource.chapters.find(c => c.id === onlineSource.chapterId);
+                            const chapterNum = typeof chapterInfo?.number === 'number' ? chapterInfo.number : 0;
+                            
+                            try {
+                                let mediaId = libBook?.anilist_id ? Number(libBook.anilist_id) : null;
+                                
+                                // Auto-match
+                                if (!mediaId) {
+                                    const titleToSearch = onlineSource.contentTitle || libBook?.title;
+                                    if (titleToSearch) {
+                                        const results = await searchMedia(titleToSearch, prefs.anilistToken);
+                                        if (results && results.length > 0) {
+                                            mediaId = results[0].id;
+                                            
+                                            // If it's a library book, save the matched ID
+                                            if (libBook) {
+                                                const updatedBook = { ...libBook, anilist_id: mediaId.toString() };
+                                                await api.updateBook(updatedBook);
+                                                useLibraryStore.getState().updateBook(updatedBook);
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                if (mediaId) {
+                                    const maxChapterNum = Math.max(...onlineSource.chapters.map(c => typeof c.number === 'number' ? c.number : 0));
+                                    const isLastChapter = chapterNum >= maxChapterNum && chapterNum > 0;
+                                    
+                                    if (isLastChapter) {
+                                        setCompletionData({
+                                            mediaId,
+                                            title: onlineSource.contentTitle || libBook?.title || '',
+                                            totalChapters: chapterNum,
+                                            token: prefs.anilistToken
+                                        });
+                                        setShowCompletionPrompt(true);
+                                    } else {
+                                        await safeUpdateMediaListEntry(mediaId, chapterNum, 'CURRENT', prefs.anilistToken);
+                                        logger.debug(`[MangaReader] Synced online progress to AniList for ${mediaId}`);
+                                    }
+                                }
+                            } catch (err) {
+                                logger.warn('[MangaReader] Failed to sync online manga to AniList:', err);
+                            }
+                        }
                     }
 
                     logger.debug('[MangaReader] Saved online progress:', { 
@@ -417,6 +510,17 @@ export function MangaReader(props: MangaReaderProps) {
             <MangaSidebar />
             <AdvancedSettingsPanel />
             <MangaProgressBar />
+            {completionData && (
+                <CompletionPromptDialog
+                    isOpen={showCompletionPrompt}
+                    onClose={() => setShowCompletionPrompt(false)}
+                    mangaTitle={completionData.title}
+                    mediaId={completionData.mediaId}
+                    anilistToken={completionData.token}
+                    totalChapters={completionData.totalChapters}
+                    onComplete={() => setShowCompletionPrompt(false)}
+                />
+            )}
         </div>
     );
 }

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { RefreshCw, QrCode, MonitorSmartphone, Wifi } from 'lucide-react';
+import { RefreshCw, MonitorSmartphone, Wifi } from 'lucide-react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { useToast } from '@/store/toastStore';
 

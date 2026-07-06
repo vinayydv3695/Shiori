@@ -1,5 +1,4 @@
 import { Book, ImageIcon, Sparkles, CheckCircle2, Shapes } from 'lucide-react';
-import { motion } from 'framer-motion';
 import GlowButton from '../components/GlowButton';
 import { OnboardingMotionStyles } from '../components';
 import { useOnboardingState } from '../hooks/useOnboardingState';

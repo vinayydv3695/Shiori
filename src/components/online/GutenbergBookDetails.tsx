@@ -1,12 +1,11 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { Button } from '@/components/ui/button';
 import { GutendexBook } from '@/online-books/gutenberg/types';
-import { Download, BookOpen, Loader2, X } from 'lucide-react';
+import { Download, Loader2, X } from 'lucide-react';
 import { useState } from 'react';
 import { downloadAndImportGutenberg } from '@/online-books/gutenberg/importer';
 import { useToast } from '@/store/toastStore';
 import { useBookOpen } from '@/hooks/useBookOpen';
-import { downloadGutenbergEpub } from '@/online-books/gutenberg/downloads';
 
 interface Props {
   book: GutendexBook | null;

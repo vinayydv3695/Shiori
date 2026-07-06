@@ -1,6 +1,6 @@
 [package]
 name = "shiori"
-version = "1.57.4"
+version = "1.57.5"
 description = "A beautiful, cross-platform e-book and manga reader"
 authors = ["vinayydv3695"]
 license = "GPL-3.0"
@@ -151,4 +151,8 @@ strip = false
 tauri-plugin-updater = "2"
 discord-rich-presence = "1.1.0"
 tauri-plugin-process = "2"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+wiremock = "0.6.5"
 

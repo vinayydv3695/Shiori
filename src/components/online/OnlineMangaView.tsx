@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { cn } from '@/lib/utils';
-import { BookOpen, Info, Download, Loader2, X, Search, Compass } from 'lucide-react';
+import { BookOpen, Loader2 } from 'lucide-react';
 import { useMangaDex, type MangaDexManga, type MangaDexChapter, type BrowseMode } from '@/hooks/useMangaDex';
 import { Button } from '@/components/ui/button';
 import { logger } from '@/lib/logger';
@@ -917,7 +917,7 @@ export function OnlineMangaView() {
             </div>
           )}
 
-          {!displayLoading && hasVisibleSearched && visibleResults.length === 0 && hasEnabledMangaSource && (
+          {!displayLoading && hasVisibleSearched && !isPluginMangaSource && visibleResults.length === 0 && hasEnabledMangaSource && (
             <div className="text-center py-12">
               <BookOpen className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
               <p className="text-lg font-medium text-muted-foreground">No manga found</p>
@@ -987,11 +987,12 @@ export function OnlineMangaView() {
                             className="animate-in fade-in slide-in-from-bottom-4 fill-mode-both"
                             style={{ animationDelay: `${i * 50}ms`, animationDuration: '500ms' }}
                           >
-                            <OnlineResultCard
+                            <ModernBookCard
                               id={manga.id}
                               title={manga.title}
                               coverUrl={manga.coverUrl || ''}
-                              onReadOnline={() => {
+                              author={manga.author}
+                              onClick={() => {
                                 if (isPluginMangaSource) {
                                   void handleViewPluginChapters({
                                     id: manga.id,
@@ -1099,19 +1100,15 @@ export function OnlineMangaView() {
                 )}
               </div>
 
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] md:grid-cols-2 lg:grid-cols-2 gap-3 md:gap-6">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6">
                 {visibleResults.map((manga) => (
-                  <OnlineResultCard
+                  <ModernBookCard
                     key={manga.id}
                     id={manga.id}
                     title={manga.title}
                     coverUrl={manga.coverUrl}
                     author={manga.author}
-                    description={manga.description}
-                    format={manga.status}
-                    language={manga.contentRating}
-                    year={manga.year}
-                    onReadOnline={() => {
+                    onClick={() => {
                       if (isPluginMangaSource) {
                         void handleViewPluginChapters({
                           id: manga.id,
@@ -1159,18 +1156,15 @@ export function OnlineMangaView() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] md:grid-cols-2 lg:grid-cols-2 gap-3 md:gap-6">
-                {pluginResultWithTorboxSource.map(({ item: manga, torboxSource }) => (
-                  <OnlineResultCard
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6">
+                {pluginResultWithTorboxSource.map(({ item: manga }) => (
+                  <ModernBookCard
                     key={manga.id}
                     id={manga.id}
                     title={manga.title}
                     coverUrl={manga.coverUrl || manga.cover_url}
-                    description={manga.summary || manga.description}
-                    onReadOnline={() => handleViewPluginChapters(manga)}
-                    isDownloading={queueingManga[manga.id] ? "Queueing..." : false}
-                    torboxAvailable={hasTorboxKey ? sourceSupportsTorboxTorrents : undefined}
-                    onTorbox={(hasTorboxKey && torboxSource && sourceSupportsTorboxTorrents) ? () => handleQueueInTorbox(manga) : undefined}
+                    author={manga.author}
+                    onClick={() => handleViewPluginChapters(manga)}
                   />
                 ))}
               </div>

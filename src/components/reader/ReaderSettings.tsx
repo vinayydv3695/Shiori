@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { useReadingSettings, BG_COLOR_PRESETS, TEXT_COLOR_PRESETS, type ReaderTheme, applyReaderThemeToElement } from '@/store/premiumReaderStore';
+import { useReadingSettings, type ReaderTheme, applyReaderThemeToElement } from '@/store/premiumReaderStore';
 import { Settings, Columns, ChevronDown, ChevronUp } from '@/components/icons';
 import { READING_FONTS, normalizeLegacyFontPreference } from '@/lib/readingFonts';
 

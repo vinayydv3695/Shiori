@@ -1,7 +1,6 @@
 import { useMemo, useEffect, useState, useCallback } from 'react'
 import { BookOpen, Clock, Sparkles } from 'lucide-react'
 import { StatsBar } from './StatsBar'
-import { HomeSection } from './HomeSection'
 import { ContinueReadingCard, RecentlyAddedCard } from './ContinueReadingCard'
 import { useLibraryStore } from '@/store/libraryStore'
 import type { Book, ReadingProgress } from '@/lib/tauri'

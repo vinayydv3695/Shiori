@@ -4,12 +4,12 @@
 mod cloudflare;
 mod commands;
 mod conversion;
-mod db;
-mod error;
-mod models;
-mod services;
-mod sources;
-mod utils;
+pub mod db;
+pub mod error;
+pub mod models;
+pub mod services;
+pub mod sources;
+pub mod utils;
 
 use error::ShioriError;
 use std::sync::Arc;
@@ -123,6 +123,7 @@ pub fn run() {
                     "mangadex" => Some("https://mangadex.org/"),
                     "weebrook" => Some("https://weebrook.com/"),
                     "manhwahub" => Some("https://manhwahub.net/"),
+                    "mangafire" => Some("https://mangafire.to/"),
                     "libgen" => Some("https://libgen.li/"),
                     _ => None,
                 };
@@ -262,6 +263,8 @@ pub fn run() {
             // LibGen for book search and download
             registry.register(Arc::new(sources::libgen::LibgenSource::new()?));
             registry.register(Arc::new(sources::torrent_csv::TorrentCsvSource::new()?));
+            let mangafire_source = Arc::new(sources::mangafire::MangaFireSource::new());
+            registry.register(mangafire_source.clone() as Arc<dyn sources::Source>);
 
             // Load source configs from the Tauri store in the background so the UI
             // appears immediately. Sources use defaults until async hydration completes.
@@ -329,6 +332,25 @@ pub fn run() {
                         );
                     }
                     Err(e) => log::warn!("ToonGod: Failed to build CfClient: {}", e),
+                }
+            });
+
+            let mangafire_for_cf = mangafire_source.clone();
+            let cf_store_for_mangafire = cf_store.clone();
+            tauri::async_runtime::spawn(async move {
+                match cloudflare::client::CfClient::new(
+                    "https://mangafire.to",
+                    cf_store_for_mangafire,
+                ) {
+                    Ok(cf_client) => {
+                        mangafire_for_cf
+                            .set_cf_client(std::sync::Arc::new(cf_client))
+                            .await;
+                        log::info!(
+                            "MangaFire: CfClient attached (automatic Playwright solver active)"
+                        );
+                    }
+                    Err(e) => log::warn!("MangaFire: Failed to build CfClient: {}", e),
                 }
             });
             }

@@ -12,16 +12,13 @@
 import { logger } from '@/lib/logger';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useMemo, useEffect, useState, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import {
   BookOpen, Clock, Sparkles, Rss, ArrowRight,
-  ListOrdered, Activity, HardDrive, Heart, History, CheckCircle2, PauseCircle, Globe, Search, BarChart2,
-  Trash2, Settings, Highlighter, Tag
+  ListOrdered, Activity, HardDrive, Heart, History, CheckCircle2, PauseCircle, Globe, BarChart2,
+  Trash2, Settings, Highlighter, List
 } from 'lucide-react'
-import { HomeSection, ScrollStrip } from './HomeSection'
-import { ContinueReadingCard, RecentlyAddedCard } from './ContinueReadingCard'
 import { MobileStickyHeader } from '../layout/MobileStickyHeader'
-import { LazyRow } from './LazyRow'
 import { useThumbnail } from '@/hooks/useThumbnail'
 import { FeaturedContinueCard } from './FeaturedContinueCard'
 import { useLibraryStore } from '@/store/libraryStore'
@@ -215,6 +212,10 @@ function MobileQuickLinks({ onOpenSettings }: { onOpenSettings: () => void }) {
   return (
     <div className="md:hidden mb-6 px-4">
       <div className="flex gap-2 overflow-x-auto hide-scrollbar snap-x pb-2">
+        <button onClick={() => setCurrentView('anilist')} className="flex items-center flex-none snap-start gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
+          <List className="w-4 h-4 text-primary" />
+          <span className="text-[11px] font-medium tracking-tight">AniList</span>
+        </button>
         <button onClick={() => setCurrentView('annotations')} className="flex items-center flex-none snap-start gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
           <Highlighter className="w-4 h-4 text-primary" />
           <span className="text-[11px] font-medium tracking-tight">Annotations</span>

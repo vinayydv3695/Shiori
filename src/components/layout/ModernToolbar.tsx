@@ -12,7 +12,6 @@ import {
   Trash2,
   Database,
   Save,
-  Share2,
   BookOpen,
   Search,
   Grid3x3,

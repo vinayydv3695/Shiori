@@ -50,6 +50,7 @@ pub struct UserPreferences {
     pub annotations_export_format: String,
     pub enable_recycle_bin: bool,
     pub legacy_library_migration_status: String,
+    pub anilist_token: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -133,7 +134,8 @@ pub async fn get_user_preferences(state: State<'_, AppState>) -> Result<UserPref
             COALESCE(discord_rpc_enabled, 1),
             COALESCE(auto_export_annotations, 0), COALESCE(annotations_export_path, ''), COALESCE(annotations_export_format, 'markdown'),
             COALESCE(enable_recycle_bin, 1),
-            COALESCE(legacy_library_migration_status, 'none')
+            COALESCE(legacy_library_migration_status, 'none'),
+            anilist_token
         FROM user_preferences WHERE id = 1",
         [],
         |row| {
@@ -198,6 +200,7 @@ pub async fn get_user_preferences(state: State<'_, AppState>) -> Result<UserPref
                 annotations_export_format: row.get(51).unwrap_or_else(|_| "markdown".to_string()),
                 enable_recycle_bin: row.get::<_, bool>(52).unwrap_or(true),
                 legacy_library_migration_status: row.get(53).unwrap_or_else(|_| "none".to_string()),
+                anilist_token: row.get(54).unwrap_or(None),
             })
         },
     )?;
@@ -492,6 +495,17 @@ pub async fn update_user_preferences(
     if let Some(migration_status) = updates.get("legacyLibraryMigrationStatus").and_then(|v| v.as_str()) {
         set_clauses.push("legacy_library_migration_status = ?".to_string());
         params.push(Box::new(migration_status.to_string()));
+    }
+
+    if let Some(anilist_token) = updates.get("anilistToken").and_then(|v| {
+        if v.is_null() {
+            Some(None)
+        } else {
+            v.as_str().map(|s| Some(s.to_string()))
+        }
+    }) {
+        set_clauses.push("anilist_token = ?".to_string());
+        params.push(Box::new(anilist_token));
     }
 
     if set_clauses.is_empty() {
@@ -941,7 +955,8 @@ pub async fn get_startup_data(state: State<'_, AppState>) -> Result<StartupData>
             COALESCE(discord_rpc_enabled, 1),
             COALESCE(auto_export_annotations, 0), COALESCE(annotations_export_path, ''), COALESCE(annotations_export_format, 'markdown'),
             COALESCE(enable_recycle_bin, 1),
-            COALESCE(legacy_library_migration_status, 'none')
+            COALESCE(legacy_library_migration_status, 'none'),
+            anilist_token
         FROM user_preferences WHERE id = 1",
         [],
         |row| {
@@ -1006,6 +1021,7 @@ pub async fn get_startup_data(state: State<'_, AppState>) -> Result<StartupData>
                 annotations_export_format: row.get(51).unwrap_or_else(|_| "markdown".to_string()),
                 enable_recycle_bin: row.get::<_, bool>(52).unwrap_or(true),
                 legacy_library_migration_status: row.get(53).unwrap_or_else(|_| "none".to_string()),
+                anilist_token: row.get(54).unwrap_or(None),
             })
         },
     )?;

@@ -174,10 +174,7 @@ impl BookFormatAdapter for DocxFormatAdapter {
                                 // Extract image from relationships
                                 // This is complex - for now return None
                                 // CoverService will generate a pattern
-
-                                // TODO: Extract embedded images from DOCX
-                                // Need to parse document/word/document.xml.rels
-                                // and extract image data from media/ folder
+                                return Ok(None);
                             }
                         }
                     }

@@ -7,6 +7,7 @@ import {
   Highlighter,
   Home,
   Library,
+  ListVideo,
   Trash2,
 } from "lucide-react"
 
@@ -54,6 +55,12 @@ const NAV_ITEMS: NavItem[] = [
     isActive: (view) => view === "annotations",
     icon: Highlighter,
   },
+  {
+    label: "AniList",
+    targetView: "anilist",
+    isActive: (view) => view === "anilist",
+    icon: ListVideo,
+  },
 ]
 
 export function useNavigationRail() {
@@ -66,6 +73,7 @@ export function useNavigationRail() {
     if (preferredContentType === 'books' && item.targetView === 'online-manga') return false;
     if (preferredContentType === 'manga' && item.targetView === 'online-books') return false;
     if (preferredContentType === 'manga' && item.targetView === 'annotations') return false;
+    if (preferredContentType === 'books' && item.targetView === 'anilist') return false;
     return true;
   });
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X, BookOpen, Calendar, FileText, Tag, Star, Globe, Hash, Download, Loader2, BookmarkCheck, Search } from 'lucide-react';
+import { X, BookOpen, Calendar, FileText, Tag, Star, Globe, Hash, Download, Loader2, BookmarkCheck } from 'lucide-react';
 import { convertFileSrc } from '@tauri-apps/api/core';
 
 function resolveCoverSrc(path: string): string {

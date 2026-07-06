@@ -28,6 +28,7 @@ export function isMangaDomain(book: any): boolean {
  * @returns Formatted string (e.g., "2.3 MB")
  */
 export function formatFileSize(bytes: number): string {
+  if (!bytes || isNaN(bytes) || bytes < 0) return '0 B'
   if (bytes === 0) return '0 B'
   const k = 1024
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB']

@@ -245,16 +245,15 @@ pub fn add_book(db: &Database, mut book: Book) -> Result<i64> {
     }
 
     // Check for duplicates by file hash (before starting transaction)
-    if let Some(ref hash) = book.file_hash {
-        let exists: bool = conn.query_row(
-            "SELECT EXISTS(SELECT 1 FROM books WHERE file_hash = ?1)",
-            params![hash],
-            |row| row.get(0),
-        )?;
+    let hash_val = book.file_hash.as_deref().unwrap_or("");
+    let exists: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM books WHERE (file_hash != '' AND file_hash = ?1) OR file_path = ?2)",
+        params![hash_val, book.file_path],
+        |row| row.get(0),
+    )?;
 
-        if exists {
-            return Err(ShioriError::DuplicateBook(hash.clone()));
-        }
+    if exists {
+        return Err(ShioriError::DuplicateBook(book.file_hash.unwrap_or_default()));
     }
 
     // Use a transaction so book + authors + tags are inserted atomically
@@ -624,8 +623,8 @@ pub fn import_single_book(db: &Database, path: &str, covers_dir: &std::path::Pat
     // Check for duplicates
     let conn = db.get_connection()?;
     let exists: bool = conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM books WHERE file_hash = ?1)",
-        params![file_hash],
+        "SELECT EXISTS(SELECT 1 FROM books WHERE (file_hash != '' AND file_hash = ?1) OR file_path = ?2)",
+        params![file_hash, path],
         |row| row.get(0),
     )?;
 
@@ -853,8 +852,8 @@ pub fn scan_and_import_folder(
             Ok(pre) => {
                 let exists: bool = tx
                     .query_row(
-                        "SELECT EXISTS(SELECT 1 FROM books WHERE file_hash = ?1)",
-                        rusqlite::params![pre.book.file_hash],
+                        "SELECT EXISTS(SELECT 1 FROM books WHERE (file_hash IS NOT NULL AND file_hash != '' AND file_hash = ?1) OR file_path = ?2)",
+                        rusqlite::params![pre.book.file_hash, pre.book.file_path],
                         |row| row.get(0),
                     )
                     .unwrap_or(false);

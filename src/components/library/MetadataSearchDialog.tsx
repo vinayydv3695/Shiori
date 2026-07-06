@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X, Search, Loader2, Download, ExternalLink, ImageIcon, CheckCircle, AlertTriangle, Play, FastForward, Settings2 } from 'lucide-react';
+import { X, Search, Loader2, Download, ExternalLink, ImageIcon, CheckCircle, AlertTriangle, FastForward } from 'lucide-react';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { logger } from '@/lib/logger';
 import { Button } from '../ui/button';

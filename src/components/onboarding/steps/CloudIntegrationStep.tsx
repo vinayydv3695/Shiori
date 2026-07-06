@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Cloud, Database, Globe, Shield, KeyRound, Eye, EyeOff, ShieldCheck, ShieldX } from 'lucide-react';
+import { AlertTriangle, Cloud, Database, Shield, KeyRound, Eye, EyeOff, ShieldCheck, ShieldX, Link2 } from 'lucide-react';
 import GlowButton from '../components/GlowButton';
 import { OnboardingMotionStyles } from '../components';
 import { api } from '@/lib/tauri';
 import { useSourceStore } from '@/store/sourceStore';
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
+import { usePreferencesStore } from '@/store/preferencesStore';
 
 type CloudIntegrationStepProps = {
   onBack: () => void;
@@ -24,6 +27,9 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
   const preferredDebridProvider = useSourceStore((state) => state.preferredDebridProvider);
   const setPreferredDebridProvider = useSourceStore((state) => state.setPreferredDebridProvider);
 
+  const preferences = usePreferencesStore((state) => state.preferences);
+  const updateGeneralSettings = usePreferencesStore((state) => state.updateGeneralSettings);
+
   const [hasTorboxKey, setHasTorboxKey] = useState<boolean | null>(null);
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
@@ -33,8 +39,25 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
   const [message, setMessage] = useState<string | null>(null);
   const [testValid, setTestValid] = useState<boolean | null>(null);
 
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
   useEffect(() => {
+    const unlisten = listen<string>('anilist-token', (event) => {
+      updateGeneralSettings({ anilistToken: event.payload });
+      setIsLoggingIn(false);
+    });
+
+    const unlistenError = listen<string>('anilist-error', (event) => {
+      setIsLoggingIn(false);
+    });
+
     let isMounted = true;
+    let unlistenFn: (() => void) | null = null;
+    let unlistenErrorFn: (() => void) | null = null;
+
+    unlisten.then(fn => unlistenFn = fn);
+    unlistenError.then(fn => unlistenErrorFn = fn);
+
     const loadTorboxKey = async () => {
       try {
         const key = await api.getTorboxKey();
@@ -58,6 +81,8 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
     void loadTorboxKey();
     return () => {
       isMounted = false;
+      if (unlistenFn) unlistenFn();
+      if (unlistenErrorFn) unlistenErrorFn();
     };
   }, []);
 
@@ -163,6 +188,53 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
                     )}
                   </div>
                 </section>
+
+                {(preferredContentType === 'manga' || preferredContentType === 'both') && (
+                  <section className="rounded-2xl border border-border/40 bg-card/50 p-5">
+                    <div className="mb-4 flex items-center gap-3">
+                      <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border/40 bg-primary/5 text-foreground">
+                        <Link2 className="onb-icon-inner h-4 w-4" />
+                      </span>
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground/90">AniList Integration</h3>
+                    </div>
+
+                    <p className="mb-4 text-xs text-foreground/60">
+                      Link your AniList account to automatically track your reading progress across online manga sources.
+                    </p>
+
+                    <div className="flex items-center gap-3">
+                      {preferences.anilistToken ? (
+                        <div className="flex w-full items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+                          <div className="flex items-center gap-2 text-emerald-300">
+                            <ShieldCheck className="h-4 w-4" />
+                            <span className="text-sm font-medium">Account Linked</span>
+                          </div>
+                          <GlowButton
+                            theme="dark"
+                            variant="secondary"
+                            className="border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-200 hover:bg-emerald-500/20"
+                            onClick={() => updateGeneralSettings({ anilistToken: '' })}
+                          >
+                            Unlink
+                          </GlowButton>
+                        </div>
+                      ) : (
+                        <GlowButton
+                          theme="dark"
+                          variant="secondary"
+                          className="w-full border-border/40 bg-card px-4 py-3 text-sm text-foreground hover:bg-primary/5"
+                          onClick={() => {
+                            setIsLoggingIn(true);
+                            invoke('start_anilist_login').catch(() => setIsLoggingIn(false));
+                          }}
+                          disabled={isLoggingIn}
+                        >
+                          {isLoggingIn ? 'Awaiting Login...' : 'Login with AniList'}
+                        </GlowButton>
+                      )}
+                    </div>
+                  </section>
+                )}
               </div>
 
               <div className="flex flex-col gap-4">

@@ -5,11 +5,10 @@ import {
     useMangaUIStore,
     useMangaSettingsStore
 } from '@/store/mangaReaderStore';
-import { X, Settings, ChevronLeft, ChevronRight, Maximize, Minimize, Library, CheckCircle2, List } from 'lucide-react';
+import { X, Settings, ChevronLeft, ChevronRight, Maximize, Minimize, Library, CheckCircle2, List, ZoomIn, ZoomOut } from 'lucide-react';
 import React from 'react';
 import { useOnlineMangaReaderStore } from '@/store/onlineMangaReaderStore';
 import { useLibraryStore } from '@/store/libraryStore';
-import { isAndroid } from '@/lib/tauri';
 const TOPBAR_AUTO_HIDE_MS = 3000;
 
 export function MangaReaderHeader({ 
@@ -37,6 +36,8 @@ export function MangaReaderHeader({
     
     const stickyHeader = useMangaSettingsStore(s => s.stickyHeader);
     const readingMode = useMangaSettingsStore(s => s.readingMode);
+    const zoomIn = useMangaSettingsStore(s => s.zoomIn);
+    const zoomOut = useMangaSettingsStore(s => s.zoomOut);
     const isScrollMode = readingMode === 'strip' || readingMode === 'webtoon' || readingMode === 'manhwa';
 
     const onlineSourceId = useOnlineMangaReaderStore(s => s.sourceId);

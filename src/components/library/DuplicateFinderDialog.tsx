@@ -9,7 +9,7 @@
  * Uses the find_duplicate_books Tauri command for backend fuzzy matching.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import {
   X,

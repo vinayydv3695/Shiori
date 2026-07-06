@@ -29,7 +29,6 @@ import {
   IconImportBook,
   IconImportManga,
 } from "@/components/icons/ShioriIcons";
-import { FeatureHint } from "@/components/ui/FeatureHint";
 import { usePreferencesStore } from "@/store/preferencesStore";
 import { prefetchCovers } from "@/lib/coverCache";
 import { MobileStickyHeader } from "../layout/MobileStickyHeader";

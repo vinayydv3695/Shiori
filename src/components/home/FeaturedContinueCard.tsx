@@ -1,7 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { PlayCircle, ArrowRight, BookOpen } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { PlayCircle, BookOpen } from 'lucide-react';
 import type { Book, ReadingProgress } from '@/lib/tauri';
 import { useCoverImage } from '../common/hooks/useCoverImage';
 

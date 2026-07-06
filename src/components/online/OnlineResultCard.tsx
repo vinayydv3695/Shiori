@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef, memo } from 'react';
-import { api } from '@/lib/tauri';
-import { fetchCoverForBook } from "@/online-books/openlibrary/api";
-import { BookOpen, User, Calendar, ExternalLink, Download, Loader2, Info } from 'lucide-react';
+import { BookOpen, User, Calendar, Download, Loader2, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 

@@ -1,4 +1,3 @@
-import type { Book, MangaSeries } from '@/lib/tauri'
 import type { SeriesGroup as HookSeriesGroup } from '@/hooks/useGroupedLibrary'
 
 export type SeriesGroup = HookSeriesGroup

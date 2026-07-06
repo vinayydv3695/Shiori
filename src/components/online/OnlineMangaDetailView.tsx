@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Play, Bookmark, BookmarkCheck, ArrowLeft, Search, Star, Info, FileText, Globe, Download } from 'lucide-react';
+import { Play, Bookmark, BookmarkCheck, ArrowLeft, Search, Star, FileText, Globe, Download } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

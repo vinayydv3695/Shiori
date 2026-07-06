@@ -47,7 +47,7 @@ function parsePluginChapters(chapters: PluginChapter[]): MangaDexChapter[] {
   return chapters.map((chapter) => ({
     id: chapter.id,
     title: chapter.title,
-    chapter: typeof chapter.number === 'number' && chapter.number > 0 ? String(chapter.number) : undefined,
+    chapter: typeof chapter.number === 'number' && chapter.number >= 0 ? String(chapter.number) : undefined,
     volume: chapter.volume,
     pages: 0,
     publishAt: chapter.uploaded_at || '',

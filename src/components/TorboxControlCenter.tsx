@@ -4,16 +4,17 @@ import { motion, AnimatePresence } from 'framer-motion'
 import DOMPurify from 'dompurify'
 import { invoke, convertFileSrc } from '@tauri-apps/api/core'
 import * as Tabs from '@radix-ui/react-tabs'
-import * as Dialog from '@radix-ui/react-dialog'
 import {
   AlertCircle,
-  ChevronDown,
   Cloud,
   DownloadCloud,
-  Filter,
+  Download,
   Link,
   Loader2,
   Search,
+  Server,
+  HardDrive,
+  ShieldCheck,
   X,
   Image as ImageIcon,
 } from 'lucide-react'
@@ -26,6 +27,7 @@ import { TrendingExplore } from './torbox/TrendingExplore'
 import { useTorboxStore, TorboxQueueItem } from '@/store/useTorboxStore'
 import { parsePageUrl } from '@/lib/utils'
 import { isAndroid } from '@/lib/tauri'
+import { useOnlineSearchStore } from '@/store/onlineSearchStore'
 
 type SearchType = 'manga' | 'books' | 'all'
 type QueueType = 'manga' | 'books'
@@ -223,7 +225,9 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
   const preferredContentType = preferences?.preferredContentType ?? 'both'
   const updateGeneralSettings = usePreferencesStore(state => state.updateGeneralSettings)
 
-  const [searchQuery, setSearchQuery] = useState('')
+  const searchQuery = useOnlineSearchStore(state => state.queries.torbox)
+  const setSearchQuery = (val: string) => useOnlineSearchStore.getState().setQuery('torbox', val)
+
   const [searchType, setSearchType] = useState<SearchType>(
     preferredContentType === 'books' ? 'books' : (preferredContentType === 'manga' ? 'manga' : 'all')
   )
@@ -259,6 +263,12 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
     else if (val === 'manga' && preferredContentType !== 'books') setActiveTab('manga')
     else setActiveTab('search')
   }, [initialTab, preferredContentType])
+
+  useEffect(() => {
+    if (activeTab === 'search' && searchQuery.trim() && searchResults.length === 0 && !isSearching) {
+      void runSearch()
+    }
+  }, [activeTab])
 
   useEffect(() => {
     let mounted = true
@@ -398,8 +408,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
     setIsFetchingTorrents(meta.id)
     if (!customQuery) {
       setActiveModalResult({
-        id: meta.id,
-        title: meta.title,
+        ...meta,
         sources: [],
       })
       setLinkSearchFilter('')
@@ -428,8 +437,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
       })
 
       setActiveModalResult({
-        id: meta.id,
-        title: meta.title,
+        ...meta,
         sources,
       })
     } catch (err) {
@@ -613,8 +621,8 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
             if (tab === 'books' && preferredContentType === 'manga') return null;
             if (tab === 'manga' && preferredContentType === 'books') return null;
             const isActive = activeTab === tab;
-            let label = tab === 'search' ? 'Discover' : tab === 'books' ? 'Books Queue' : 'Manga Queue';
-            let count = tab === 'books' ? booksJobs.length : tab === 'manga' ? mangaJobs.length : null;
+            const label = tab === 'search' ? 'Discover' : tab === 'books' ? 'Books Queue' : 'Manga Queue';
+            const count = tab === 'books' ? booksJobs.length : tab === 'manga' ? mangaJobs.length : null;
 
             return (
               <Tabs.Trigger key={tab} value={tab} className={`relative flex items-center gap-2 pb-2 text-sm outline-none transition-colors hover:text-foreground ${isActive ? 'text-foreground font-semibold' : 'text-muted-foreground font-medium'}`}>
@@ -664,7 +672,6 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(105px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 md:gap-4 items-start pb-8">
                   <AnimatePresence>
                     {searchResults.map((result) => {
-                      const isExpanded = activeModalResult?.id === result.id;
                       const isLoading = isFetchingTorrents === result.id;
 
                       return (
@@ -674,15 +681,13 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.95 }}
                           key={result.id} 
-                          className={`group flex flex-col overflow-hidden rounded-xl bg-card border shadow-sm transition-all ${isExpanded ? 'col-span-full sm:col-span-full md:col-span-full lg:col-span-full xl:col-span-full border-primary shadow-md' : 'border-border/50 hover:border-primary/50 hover:shadow-md cursor-pointer'}`}
+                          className="group flex flex-col overflow-hidden rounded-xl bg-card border shadow-sm transition-all border-border/50 hover:border-primary/50 hover:shadow-md cursor-pointer h-full"
+                          onClick={() => {
+                            fetchTorrentsForMetadata(result);
+                          }}
                         >
-                          <div 
-                            className={`flex ${isExpanded ? 'flex-col md:flex-row gap-4 md:gap-6 p-4 md:p-6 items-start bg-muted/10 relative' : 'flex-col h-full'}`}
-                            onClick={() => {
-                              if (!isExpanded) fetchTorrentsForMetadata(result);
-                            }}
-                          >
-                            <div className={`relative overflow-hidden bg-muted flex-shrink-0 ${isExpanded ? 'w-28 md:w-48 rounded-lg shadow-lg aspect-[2/3]' : 'w-full aspect-[2/3]'}`}>
+                          <div className="flex flex-col h-full">
+                            <div className="relative overflow-hidden bg-muted flex-shrink-0 w-full aspect-[2/3]">
                               {result.coverUrl ? (
                                 <img src={result.coverUrl} alt={result.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
                               ) : (
@@ -690,7 +695,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                                   <Search className="h-8 w-8 opacity-50" />
                                 </div>
                               )}
-                              {typeof result.rating === 'number' && !isExpanded && (
+                              {typeof result.rating === 'number' && (
                                 <div className="absolute top-2 right-2 bg-background/90 text-amber-500 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm backdrop-blur-md">★ {(result.rating / 10).toFixed(1)}</div>
                               )}
                               {isLoading && (
@@ -700,194 +705,25 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                               )}
                             </div>
 
-                            <div className={`flex flex-col min-w-0 ${isExpanded ? 'flex-1 pr-6 md:pr-0' : 'p-3'}`}>
-                              <h3 className={`font-semibold text-foreground transition-colors group-hover:text-primary leading-snug ${isExpanded ? 'text-lg md:text-xl md:pr-8' : 'text-sm line-clamp-2'}`}>{result.title}</h3>
-                              <p className={`mt-1 text-muted-foreground truncate ${isExpanded ? 'text-sm' : 'text-xs'}`}>
+                            <div className="flex flex-col min-w-0 p-3 flex-1">
+                              <h3 className="font-semibold text-foreground transition-colors group-hover:text-primary leading-snug text-sm line-clamp-2">{result.title}</h3>
+                              <p className="mt-1 text-muted-foreground truncate text-xs">
                                 {result.year && <span>{result.year}</span>}
                                 {result.year && result.author && <span className="mx-1.5 opacity-50">•</span>}
                                 {result.author && <span>{result.author}</span>}
                               </p>
-                              {isExpanded && result.description && <p className="mt-4 text-sm text-muted-foreground/80 leading-relaxed max-h-40 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(result.description) }} />}
-                              {!isExpanded && (
-                                <div className="flex flex-wrap gap-1 mt-3">
-                                  {result.tags.slice(0, 2).map((tag, i) => (
-                                    <Badge key={i} variant="secondary" className="px-1.5 py-0 text-[9px] bg-primary/10 text-primary border-0">{tag}</Badge>
-                                  ))}
-                                </div>
-                              )}
+                              <div className="flex flex-wrap gap-1 mt-auto pt-3">
+                                {result.tags.slice(0, 2).map((tag, i) => (
+                                  <Badge key={i} variant="secondary" className="px-1.5 py-0 text-[9px] bg-primary/10 text-primary border-0">{tag}</Badge>
+                                ))}
+                              </div>
                             </div>
-                            
-                            {isExpanded && (
-                              <Button size="icon" variant="ghost" className="absolute top-2 right-2 md:top-4 md:right-4 rounded-full bg-background/50 backdrop-blur-sm border shadow-sm z-20" onClick={(e) => { e.stopPropagation(); setActiveModalResult(null); }}>
-                                <X className="w-4 h-4 md:w-5 md:h-5" />
-                              </Button>
-                            )}
                           </div>
-
-                          <AnimatePresence>
-                            {isExpanded && activeModalResult && (
-                              <motion.div 
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: 'auto', opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                className="border-t border-border/50 bg-background/50 relative z-10"
-                              >
-                                <div className="p-4 md:p-6 max-h-[50vh] md:max-h-[60vh] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
-                                  <div className="flex items-center justify-between mb-4">
-                                    <h4 className="text-sm font-semibold tracking-tight">
-                                      Available Torrents {isFetchingTorrents === activeModalResult.id ? '' : `(${activeModalResult.sources.length})`}
-                                    </h4>
-                                  </div>
-
-                                  <div className="flex flex-col sm:flex-row items-center gap-2 mb-6">
-                                    <div className="relative flex-1 w-full">
-                                      <input 
-                                        type="text" 
-                                        placeholder="Refine search query..." 
-                                        value={refineQuery}
-                                        onChange={e => setRefineQuery(e.target.value)}
-                                        onKeyDown={e => { if (e.key === 'Enter') fetchTorrentsForMetadata(result, refineQuery) }}
-                                        className="w-full bg-background border border-border rounded-md px-4 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary transition-shadow"
-                                      />
-                                    </div>
-                                    <Button 
-                                      size="sm" 
-                                      className="h-9 px-4 font-semibold w-full sm:w-auto"
-                                      onClick={() => fetchTorrentsForMetadata(result, refineQuery)}
-                                      disabled={isFetchingTorrents === activeModalResult.id}
-                                    >
-                                      Search
-                                    </Button>
-                                  </div>
-
-                                  {isFetchingTorrents !== activeModalResult.id && activeModalResult.sources.length > 0 && (
-                                    <div className="mb-4 relative">
-                                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                      <input 
-                                        type="text" 
-                                        placeholder="Filter links..." 
-                                        value={linkSearchFilter}
-                                        onChange={e => setLinkSearchFilter(e.target.value)}
-                                        className="w-full bg-background border border-border rounded-md pl-9 pr-4 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary transition-shadow"
-                                      />
-                                    </div>
-                                  )}
-                                  
-                                  {isFetchingTorrents === activeModalResult.id ? (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                                      {Array.from({ length: 4 }).map((_, i) => (
-                                        <div key={i} className="bg-card border border-border/50 rounded-xl p-4 flex flex-col gap-3 h-[116px]">
-                                          <div className="flex flex-col gap-1.5 animate-pulse">
-                                            <div className="h-4 bg-muted rounded w-3/4"></div>
-                                            <div className="flex items-center gap-2 mt-1">
-                                              <div className="h-4 w-12 bg-muted rounded"></div>
-                                              <div className="h-4 w-16 bg-muted rounded"></div>
-                                            </div>
-                                          </div>
-                                          <div className="pt-2 mt-auto animate-pulse">
-                                            <div className="w-full h-9 bg-muted rounded-lg"></div>
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ) : activeModalResult.sources.length === 0 ? (
-                                    <div className="text-center py-10">
-                                      <AlertCircle className="mx-auto h-10 w-10 text-muted-foreground opacity-50 mb-3" />
-                                      <p className="text-muted-foreground">No torrents found for this series.</p>
-                                    </div>
-                                  ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                                      {activeModalResult.sources
-                                        .filter(s => s.label.toLowerCase().includes(linkSearchFilter.toLowerCase()))
-                                        .map((source) => {
-                                        const busyId = `${activeModalResult.id}:${source.id}`
-                                        const busy = sourceBusy[busyId] === true
-
-                                        const getBadgeColor = (type: string) => {
-                                          const t = type.toUpperCase()
-                                          if (t === 'CBZ' || t === 'CBR') return 'bg-blue-500/10 text-blue-500 hover:bg-blue-500/20'
-                                          if (t === 'EPUB') return 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20'
-                                          if (t === 'PDF') return 'bg-red-500/10 text-red-500 hover:bg-red-500/20'
-                                          if (t === 'ZIP' || t === 'RAR') return 'bg-amber-500/10 text-amber-500 hover:bg-amber-500/20'
-                                          return 'bg-secondary text-secondary-foreground'
-                                        }
-
-                                        return (
-                                          <div key={source.id} className="bg-card border border-border/50 rounded-xl p-4 flex flex-col gap-3 transition-colors hover:border-border">
-                                            <div className="flex flex-col gap-1.5">
-                                              <h3 className="text-sm font-medium text-foreground truncate" title={source.label}>{source.label}</h3>
-                                              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                                                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 uppercase border-0 ${getBadgeColor(source.fileType || '')}`}>
-                                                  {source.fileType || 'UNKNOWN'}
-                                                </Badge>
-                                                {typeof source.sizeBytes === 'number' && <span>{formatBytes(source.sizeBytes)}</span>}
-                                                {typeof source.seeders === 'number' && (
-                                                  <span className="text-primary font-bold">{source.seeders} seeders</span>
-                                                )}
-                                              </div>
-                                            </div>
-
-                                            <div className="pt-2 mt-auto">
-                                              {source.linkKind === 'direct' || source.linkKind === 'anna' || source.linkKind === 'external' ? (
-                                                <Button
-                                                  variant="secondary"
-                                                  className="w-full h-9 rounded-lg text-xs font-semibold"
-                                                  onClick={() => {
-                                                    try {
-                                                      const url = new URL(source.magnetLink);
-                                                      if (url.protocol === 'http:' || url.protocol === 'https:' || url.protocol === 'magnet:') {
-                                                        const openedWindow = window.open(source.magnetLink, '_blank', 'noopener,noreferrer')
-                                                        if (!openedWindow) window.location.assign(source.magnetLink)
-                                                      } else {
-                                                        console.error('Blocked unsafe link protocol:', url.protocol);
-                                                      }
-                                                    } catch (e) {
-                                                      console.error('Invalid link format', e);
-                                                    }
-                                                  }}
-                                                >
-                                                  <Link className="w-3.5 h-3.5 mr-2 opacity-70" />
-                                                  Direct Download
-                                                </Button>
-                                              ) : (
-                                                <Button
-                                                  className="w-full h-9 rounded-lg text-xs font-semibold"
-                                                  disabled={busy}
-                                                  onClick={async () => {
-                                                    setSourceBusy((prev) => ({ ...prev, [busyId]: true }))
-                                                    try {
-                                                      await enqueueJob({
-                                                        title: activeModalResult.title,
-                                                        sourceLink: source.magnetLink,
-                                                        kind: searchType === 'books' ? 'books' : 'manga'
-                                                      })
-                                                      success('Added to Cloud', 'Job is now queued.')
-                                                    } catch (e) {
-                                                      error('Queue failed', getErrorMessage(e, 'Could not add to Torbox'))
-                                                    } finally {
-                                                      setSourceBusy((prev) => { const n = { ...prev }; delete n[busyId]; return n; })
-                                                    }
-                                                  }}
-                                                >
-                                                  {busy ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <DownloadCloud className="mr-2 h-3.5 w-3.5" />}
-                                                  Add to Cloud
-                                                </Button>
-                                              )}
-                                            </div>
-                                          </div>
-                                        )
-                                      })}
-                                    </div>
-                                  )}
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
                         </motion.div>
                       )
                     })}
                   </AnimatePresence>
-
+                </div>
                   {!isSearching && searchResults.length === 0 && searchQuery.trim() && !searchError && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="col-span-full flex flex-col items-center justify-center rounded-3xl border border-dashed border-border py-20 bg-muted/5">
                       <Search className="h-10 w-10 text-muted-foreground/30 mb-4" />
@@ -900,8 +736,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                       <TrendingExplore type={searchType === 'all' ? 'manga' : searchType} />
                     </div>
                   )}
-                </div>
-
+                  
                 <div className="mt-auto pt-6 border-t border-border/50 pb-2">
                   <div className="max-w-3xl mx-auto flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 lg:gap-4">
                     <div className="flex items-center gap-3 w-full lg:w-auto">
@@ -952,7 +787,208 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
           </motion.div>
         </AnimatePresence>
       </Tabs.Root>
-      {/* Modal removed to use inline accordion */}
+
+      <AnimatePresence>
+        {activeModalResult && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setActiveModalResult(null)}
+              className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-4xl overflow-hidden rounded-xl border border-border bg-card shadow-2xl flex flex-col max-h-[90vh]"
+            >
+              {/* Header with Manga Info */}
+              <div className="flex flex-col sm:flex-row gap-4 p-5 sm:p-6 bg-muted/20 border-b border-border relative shrink-0">
+                <Button 
+                  size="icon" 
+                  variant="ghost" 
+                  className="absolute top-2 right-2 sm:top-4 sm:right-4 rounded-full hover:bg-accent hover:text-foreground transition-colors z-20" 
+                  onClick={() => setActiveModalResult(null)}
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+                
+                <div className="w-24 sm:w-32 aspect-[2/3] shrink-0 rounded-md overflow-hidden bg-muted border border-border/50 shadow-sm relative">
+                  {activeModalResult.coverUrl ? (
+                    <img src={activeModalResult.coverUrl} alt={activeModalResult.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-muted-foreground"><ImageIcon className="w-8 h-8 opacity-20" /></div>
+                  )}
+                </div>
+                
+                <div className="flex flex-col flex-1 min-w-0 pr-6">
+                  <h2 className="text-xl sm:text-2xl font-bold leading-tight text-foreground">{activeModalResult.title}</h2>
+                  <p className="mt-1 text-sm text-muted-foreground flex items-center gap-2">
+                    {activeModalResult.year && <span>{activeModalResult.year}</span>}
+                    {activeModalResult.year && activeModalResult.author && <span className="opacity-50">•</span>}
+                    {activeModalResult.author && <span>{activeModalResult.author}</span>}
+                  </p>
+                  
+                  {activeModalResult.description && (
+                    <p className="mt-3 text-sm text-muted-foreground/90 line-clamp-3 overflow-hidden text-ellipsis leading-relaxed" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(activeModalResult.description) }} />
+                  )}
+                </div>
+              </div>
+
+              {/* Torrents Section */}
+              <div className="flex flex-col flex-1 overflow-hidden bg-background">
+                <div className="p-4 sm:p-5 border-b border-border/50 shrink-0">
+                  <h3 className="font-semibold text-sm mb-3">Available Torrents {isFetchingTorrents === activeModalResult.id ? '' : `(${activeModalResult.sources.length})`}</h3>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1">
+                      <input 
+                        type="text" 
+                        placeholder="Refine search query..." 
+                        value={refineQuery}
+                        onChange={e => setRefineQuery(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') fetchTorrentsForMetadata(activeModalResult, refineQuery) }}
+                        className="w-full bg-muted/50 border border-border rounded-md px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary transition-shadow"
+                      />
+                    </div>
+                    <Button 
+                      size="sm" 
+                      className="h-9 px-4 font-semibold shrink-0"
+                      onClick={() => fetchTorrentsForMetadata(activeModalResult, refineQuery)}
+                      disabled={isFetchingTorrents === activeModalResult.id}
+                    >
+                      Search
+                    </Button>
+                  </div>
+                  
+                  {isFetchingTorrents !== activeModalResult.id && activeModalResult.sources.length > 0 && (
+                    <div className="mt-3 relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <input 
+                        type="text" 
+                        placeholder="Filter links..." 
+                        value={linkSearchFilter}
+                        onChange={e => setLinkSearchFilter(e.target.value)}
+                        className="w-full bg-background border border-border rounded-md pl-9 pr-4 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary transition-shadow"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+                  {isFetchingTorrents === activeModalResult.id ? (
+                    <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-4">
+                      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                      <p className="text-sm font-medium">Searching for torrents...</p>
+                    </div>
+                  ) : activeModalResult.sources.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-16 text-center px-4">
+                      <AlertCircle className="w-10 h-10 text-muted-foreground opacity-50 mb-3" />
+                      <p className="text-muted-foreground font-medium mb-1">No torrents found</p>
+                      <p className="text-sm text-muted-foreground/70">Try refining your search query above.</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {activeModalResult.sources
+                        .filter(s => s.label.toLowerCase().includes(linkSearchFilter.toLowerCase()))
+                        .map((source) => {
+                          const busyId = `${activeModalResult.id}:${source.id}`
+                          const busy = sourceBusy[busyId] === true
+
+                          const getBadgeColor = (type: string) => {
+                            const t = type.toUpperCase()
+                            if (t === 'CBZ' || t === 'CBR') return 'bg-blue-500/10 text-blue-500 hover:bg-blue-500/20'
+                            if (t === 'EPUB') return 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20'
+                            if (t === 'PDF') return 'bg-red-500/10 text-red-500 hover:bg-red-500/20'
+                            if (t === 'ZIP' || t === 'RAR') return 'bg-amber-500/10 text-amber-500 hover:bg-amber-500/20'
+                            return 'bg-secondary text-secondary-foreground'
+                          }
+
+                          return (
+                            <div key={source.id} className="group relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-3 rounded-lg border border-border/50 bg-muted/20 hover:bg-muted/40 hover:border-primary/30 transition-all">
+                              <div className="flex-1 min-w-0 pr-4">
+                                <h4 className="font-medium text-sm leading-tight break-words text-foreground group-hover:text-primary transition-colors">
+                                  {source.label}
+                                </h4>
+                                <div className="flex items-center flex-wrap gap-3 mt-2 text-xs font-medium">
+                                  <span className={`flex items-center gap-1.5 border px-2 py-0.5 rounded shadow-sm ${getBadgeColor(source.fileType || '')}`}>
+                                    {source.fileType || 'UNKNOWN'}
+                                  </span>
+                                  <span className="flex items-center gap-1.5 text-muted-foreground bg-background border border-border px-2 py-0.5 rounded shadow-sm">
+                                    <ShieldCheck className="w-3.5 h-3.5 text-primary" /> {source.linkKind === 'nyaa' ? 'Nyaa.si' : source.linkKind === 'anna' ? 'Anna\'s Archive' : 'Unknown'}
+                                  </span>
+                                  {typeof source.sizeBytes === 'number' && (
+                                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                                      <HardDrive className="w-3.5 h-3.5" /> {formatBytes(source.sizeBytes)}
+                                    </span>
+                                  )}
+                                  {typeof source.seeders === 'number' && (
+                                    <span className="flex items-center gap-1.5 text-emerald-500">
+                                      <Server className="w-3.5 h-3.5" /> {source.seeders} seeders
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="shrink-0 flex items-center">
+                                {source.linkKind === 'direct' || source.linkKind === 'anna' || source.linkKind === 'external' ? (
+                                  <Button
+                                    variant="secondary"
+                                    className="bg-white text-black hover:bg-white/90 h-9 px-4 rounded-md text-sm font-medium shadow-sm"
+                                    onClick={() => {
+                                      try {
+                                        const url = new URL(source.magnetLink);
+                                        if (url.protocol === 'http:' || url.protocol === 'https:' || url.protocol === 'magnet:') {
+                                          const openedWindow = window.open(source.magnetLink, '_blank', 'noopener,noreferrer')
+                                          if (!openedWindow) window.location.assign(source.magnetLink)
+                                        } else {
+                                          console.error('Blocked unsafe link protocol:', url.protocol);
+                                        }
+                                      } catch (e) {
+                                        console.error('Invalid link format', e);
+                                      }
+                                    }}
+                                  >
+                                    <Link className="w-4 h-4 mr-2 opacity-70" />
+                                    Direct Download
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    className="bg-white text-black hover:bg-white/90 h-9 px-4 rounded-md text-sm font-medium shadow-sm"
+                                    disabled={busy}
+                                    onClick={async () => {
+                                      setSourceBusy((prev) => ({ ...prev, [busyId]: true }))
+                                      try {
+                                        await enqueueJob({
+                                          title: activeModalResult.title,
+                                          sourceLink: source.magnetLink,
+                                          kind: searchType === 'books' ? 'books' : 'manga'
+                                        })
+                                        success('Added to Cloud', 'Job is now queued.')
+                                      } catch (e) {
+                                        error('Queue failed', getErrorMessage(e, 'Could not add to Torbox'))
+                                      } finally {
+                                        setSourceBusy((prev) => { const n = { ...prev }; delete n[busyId]; return n; })
+                                      }
+                                    }}
+                                  >
+                                    {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                                    Add
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

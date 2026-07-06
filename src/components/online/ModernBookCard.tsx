@@ -1,6 +1,4 @@
 import { useState, useEffect, useRef, memo } from 'react';
-import { api } from '@/lib/tauri';
-import { fetchCoverForBook } from '@/online-books/openlibrary/api';
 import { Download, CheckCircle2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useOnlineDownloadStore } from '@/store/onlineDownloadStore';
@@ -54,7 +52,7 @@ export const ModernBookCard = memo(function ModernBookCard({
   useEffect(() => {
     if (!visible || !coverUrl || imgError) return;
     let active = true;
-    let objectUrl: string | null = null;
+    const objectUrl: string | null = null;
     
     if (coverUrl.includes('libgen')) {
       const proxyUri = `shiori-proxy://localhost?source=libgen&url=${encodeURIComponent(coverUrl)}`;

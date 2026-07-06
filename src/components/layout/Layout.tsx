@@ -23,11 +23,12 @@ import { BottomNav } from './BottomNav'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { DuplicateFinderDialog } from '../library/DuplicateFinderDialog'
 import { ImportDialog } from '../library/ImportDialog'
-import { cn, formatFileSize } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { api, type Book } from '@/lib/tauri'
 import { useLibraryStore } from '@/store/libraryStore'
 import { useToast } from '@/store/toastStore'
-import { useUIStore, type CurrentView } from '@/store/uiStore'
+import { type CurrentView } from '@/store/uiStore'
+import { useOfflineSyncStore } from '@/store/offlineSyncStore'
 import { logger } from '@/lib/logger'
 
 type DragLayerProps = {
@@ -103,6 +104,8 @@ interface LayoutProps {
   onDomainChange?: (domain: 'books' | 'manga_comics') => void
 }
 
+import { usePreferencesStore } from '@/store/preferencesStore'
+
 export function Layout({
   children,
   onOpenSettings,
@@ -127,9 +130,31 @@ export function Layout({
 }: LayoutProps) {
   const isMobile = useIsMobile()
   const [duplicateFinderOpen, setDuplicateFinderOpen] = useState(false)
-  const [isDragActive, setIsDragActive] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [importDialogFilePaths, setImportDialogFilePaths] = useState<string[]>([])
+  const [isDragActive, setIsDragActive] = useState(false)
+
+  const processQueue = useOfflineSyncStore((state) => state.processQueue)
+  const anilistToken = usePreferencesStore((state) => state.preferences?.anilistToken)
+
+  useEffect(() => {
+    if (anilistToken) {
+      processQueue(anilistToken).catch(console.error)
+      
+      // Try again every time they regain focus/online
+      const handleOnline = () => {
+        processQueue(anilistToken).catch(console.error)
+      }
+      window.addEventListener('online', handleOnline)
+      window.addEventListener('focus', handleOnline)
+      
+      return () => {
+        window.removeEventListener('online', handleOnline)
+        window.removeEventListener('focus', handleOnline)
+      }
+    }
+  }, [anilistToken, processQueue])
+
   const toast = useToast()
 
   const books = useLibraryStore((s) => s.books)

@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react';
 import { fetchLibgenBooks } from '@/online-books/libgen/api';
 import { fetchGutenbergBooks } from '@/online-books/gutenberg/api';
 import type { OnlineAdvancedFilters } from '@/store/onlineSearchStore';
-import { fetchCoverForBook } from '@/online-books/openlibrary/api';
 
 export interface UnifiedSearchResult {
   id: string; // The URL to download

@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Download, BookOpen, Plus } from 'lucide-react';
+import { X, Download } from 'lucide-react';
 export interface PreviewBook {
   title: string;
   author?: string;

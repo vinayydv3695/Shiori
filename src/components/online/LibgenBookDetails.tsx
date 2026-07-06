@@ -1,7 +1,7 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { Button } from '@/components/ui/button';
 import { SearchResult } from '@/lib/pluginSources';
-import { Download, BookOpen, Loader2, X, AlertTriangle } from 'lucide-react';
+import { Download, Loader2, X, AlertTriangle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { downloadAndImportLibgen } from '@/online-books/libgen/importer';
 import { useToast } from '@/store/toastStore';

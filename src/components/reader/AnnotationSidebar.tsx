@@ -1,6 +1,6 @@
 import { useReaderStore, Annotation } from '@/store/readerStore';
 import { api } from '@/lib/tauri';
-import { Trash2, Edit2, Bookmark, Highlighter, StickyNote, X } from '@/components/icons';
+import { Trash2, Edit2, Highlighter, StickyNote, X } from '@/components/icons';
 import { useState, useMemo } from 'react';
 import { formatDate } from '@/lib/utils';
 import { AnnotationExportDialog } from './AnnotationExportDialog';

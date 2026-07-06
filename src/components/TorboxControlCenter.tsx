@@ -60,9 +60,7 @@ interface SearchSource {
   seeders?: number
 }
 
-interface SearchResult {
-  id: string
-  title: string
+interface SearchResult extends UnifiedMetadata {
   sources: SearchSource[]
 }
 

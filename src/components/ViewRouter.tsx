@@ -14,6 +14,7 @@ const OnlineMangaView = lazy(() => import("./online/OnlineMangaView").then(m => 
 const OnlineMangaReader = lazy(() => import("./online/OnlineMangaReader").then(m => ({ default: m.OnlineMangaReader })))
 const TorboxControlCenter = lazy(() => import("./TorboxControlCenter"))
 const RecycleBinView = lazy(() => import("./RecycleBinView").then(m => ({ default: m.RecycleBinView })))
+const AniListDashboard = lazy(() => import("./online/AniListDashboard").then(m => ({ default: m.AniListDashboard })))
 
 const LoadingSpinner = ({ className = "h-screen" }: { className?: string }) => (
   <div className={`flex items-center justify-center ${className}`}>
@@ -137,6 +138,12 @@ export function ViewRouter({
 
         {currentView === 'recycle-bin' && (
           <Suspense fallback={<LoadingSpinner className="py-24" />}><RecycleBinView /></Suspense>
+        )}
+
+        {currentView === 'anilist' && (
+          <Suspense fallback={<LoadingSpinner className="py-24" />}>
+            <AniListDashboard />
+          </Suspense>
         )}
     </>
   )

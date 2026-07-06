@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { logger } from '@/lib/logger';
-import { DEFAULT_READING_FONT_ID, normalizeLegacyFontPreference, resolveReadingFontCss } from '@/lib/readingFonts';
+import { normalizeLegacyFontPreference, resolveReadingFontCss } from '@/lib/readingFonts';
 
 // ═══════════════════════════════════════════════════════════
 // PREMIUM READER STATE MANAGEMENT

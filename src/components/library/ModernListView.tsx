@@ -1,4 +1,4 @@
-import { BookOpen, Star, Download, Edit, Trash2, Calendar, FileType, RefreshCw, Share2 } from 'lucide-react'
+import { BookOpen, Star, Download, Edit, Trash2, Calendar, FileType } from 'lucide-react'
 import { cn, formatFileSize, formatDate } from '@/lib/utils'
 import type { Book } from '@/lib/tauri'
 import { Badge } from '@/components/ui/badge'

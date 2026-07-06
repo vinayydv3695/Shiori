@@ -35,6 +35,9 @@ export function AdvancedSettingsPanel() {
     const preloadIntensity = useMangaSettingsStore(s => s.preloadIntensity);
     const setPreloadIntensity = useMangaSettingsStore(s => s.setPreloadIntensity);
     const resetToDefaults = useMangaSettingsStore(s => s.resetToDefaults);
+    const zoomLevel = useMangaSettingsStore(s => s.zoomLevel);
+    const zoomIn = useMangaSettingsStore(s => s.zoomIn);
+    const zoomOut = useMangaSettingsStore(s => s.zoomOut);
 
     const [activeTab, setActiveTab] = useState<SettingsTab>('layout');
 
@@ -208,6 +211,30 @@ export function AdvancedSettingsPanel() {
                                             <div style={{ fontSize: '10px', opacity: 0.7 }}>{opt.desc}</div>
                                         </button>
                                     ))}
+                                </div>
+                            </div>
+
+                            <div className="manga-settings-group">
+                                <div className="manga-settings-group-title">Zoom</div>
+                                <div className="manga-settings-option">
+                                    <div>
+                                        <div className="manga-settings-option-label">Zoom Level</div>
+                                        <div className="manga-settings-option-hint">{(zoomLevel * 100).toFixed(0)}%</div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                        <button 
+                                            className="manga-position-pill"
+                                            onClick={zoomOut}
+                                        >
+                                            Zoom Out
+                                        </button>
+                                        <button 
+                                            className="manga-position-pill"
+                                            onClick={zoomIn}
+                                        >
+                                            Zoom In
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 

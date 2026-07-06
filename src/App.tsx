@@ -1,5 +1,4 @@
 import { useEffect, useState, lazy, Suspense, useCallback } from "react"
-import { flushSync } from "react-dom"
 import { GlobalDialogs } from "./components/GlobalDialogs"
 import { ViewRouter } from "./components/ViewRouter"
 import { Layout } from "./components/layout/Layout"

@@ -1,8 +1,7 @@
-import { logger } from '@/lib/logger';
 import React from 'react';
 import { useReaderUIStore } from '@/store/premiumReaderStore';
 import { useBookReadingTime } from '@/hooks/useBookReadingTime';
-import { ArrowLeft, Clock, Maximize2, Minimize2, Bookmark, ZoomIn, ZoomOut, MoreVertical } from '@/components/icons';
+import { ArrowLeft, Clock, Maximize2, Minimize2, MoreVertical } from '@/components/icons';
 // Removed DropdownMenu imports
 import { ReaderSettings, type ReaderFormat } from './ReaderSettings';
 import { WindowControls } from '../layout/WindowControls';

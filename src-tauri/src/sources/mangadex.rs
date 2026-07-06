@@ -8,11 +8,12 @@ use crate::sources::{
     Chapter, ContentType, Page, SearchResponse, SearchResult, Source, SourceMeta,
 };
 
-const MANGADEX_API_BASE: &str = "https://api.mangadex.org";
+const DEFAULT_MANGADEX_API_BASE: &str = "https://api.mangadex.org";
 const SHIORI_UA: &str = "Shiori/1.0 (github.com/vinayydv3695/Shiori)";
 
 pub struct MangaDexSource {
     client: reqwest::Client,
+    api_base: String,
 }
 
 impl MangaDexSource {
@@ -31,7 +32,9 @@ impl MangaDexSource {
             .build()
             .map_err(|e| ShioriError::Other(format!("Failed to create MangaDex client: {}", e)))?;
 
-        Ok(Self { client })
+        let api_base = std::env::var("MANGADEX_API_BASE").unwrap_or_else(|_| DEFAULT_MANGADEX_API_BASE.to_string());
+
+        Ok(Self { client, api_base })
     }
 }
 
@@ -67,7 +70,7 @@ impl Source for MangaDexSource {
         // Include all content ratings so results aren't filtered out silently
         let url = format!(
             "{}/manga?title={}&limit={}&offset={}&includes%5B%5D=cover_art&order%5Brelevance%5D=desc&contentRating%5B%5D=safe&contentRating%5B%5D=suggestive&contentRating%5B%5D=erotica",
-            MANGADEX_API_BASE, q, safe_limit, offset
+            self.api_base, q, safe_limit, offset
         );
 
         let response: MangaDexMangaResponse = self
@@ -103,7 +106,9 @@ impl Source for MangaDexSource {
                     .as_ref()
                     .and_then(|rels| rels.iter().find(|r| r.r#type == "cover_art"))
                     .and_then(|r| r.attributes.as_ref())
-                    .and_then(|a| a.file_name.clone());
+                    .and_then(|a| a.get("fileName"))
+                    .and_then(|f| f.as_str())
+                    .map(|s| s.to_string());
 
                 let cover_url = cover_file
                     .map(|f| format!("https://uploads.mangadex.org/covers/{}/{}", item.id, f));
@@ -151,7 +156,7 @@ impl Source for MangaDexSource {
 
         let url = format!(
             "{}/manga?limit={}&offset={}&hasAvailableChapters=true&availableTranslatedLanguage%5B%5D=en&includes%5B%5D=cover_art&includes%5B%5D=author&includes%5B%5D=artist&contentRating%5B%5D=safe&contentRating%5B%5D=suggestive&{}",
-            MANGADEX_API_BASE, safe_limit, offset, order_param
+            self.api_base, safe_limit, offset, order_param
         );
 
         let response: MangaDexMangaResponse = self
@@ -187,7 +192,9 @@ impl Source for MangaDexSource {
                     .as_ref()
                     .and_then(|rels| rels.iter().find(|r| r.r#type == "cover_art"))
                     .and_then(|r| r.attributes.as_ref())
-                    .and_then(|a| a.file_name.clone());
+                    .and_then(|a| a.get("fileName"))
+                    .and_then(|f| f.as_str())
+                    .map(|s| s.to_string());
 
                 let cover_url = cover_file
                     .map(|f| format!("https://uploads.mangadex.org/covers/{}/{}", item.id, f));
@@ -213,7 +220,7 @@ impl Source for MangaDexSource {
             // Omitting contentRating[] causes the API to return 0 results for many titles
             let url = format!(
                 "{}/chapter?manga={}&translatedLanguage%5B%5D=en&order%5Bchapter%5D=asc&limit=100&offset={}&contentRating%5B%5D=safe&contentRating%5B%5D=suggestive&contentRating%5B%5D=erotica&contentRating%5B%5D=pornographic&includes%5B%5D=scanlation_group",
-                MANGADEX_API_BASE, content_id, offset
+                self.api_base, content_id, offset
             );
 
             let resp = self.client.get(&url).send().await.map_err(|e| {
@@ -290,7 +297,7 @@ impl Source for MangaDexSource {
     }
 
     async fn get_pages(&self, chapter_id: &str) -> Result<Vec<Page>> {
-        let url = format!("{}/at-home/server/{}", MANGADEX_API_BASE, chapter_id);
+        let url = format!("{}/at-home/server/{}", self.api_base, chapter_id);
         let response: MangaDexAtHomeResponse = self
             .client
             .get(url)
@@ -344,13 +351,7 @@ struct MangaDexMangaAttributes {
 struct MangaDexRelationship {
     #[serde(rename = "type")]
     r#type: String,
-    attributes: Option<MangaDexCoverAttributes>,
-}
-
-#[derive(Debug, Deserialize)]
-struct MangaDexCoverAttributes {
-    #[serde(rename = "fileName")]
-    file_name: Option<String>,
+    attributes: Option<serde_json::Value>,
 }
 
 // ─── Chapter response structs ─────────────────────────────────────────────────
@@ -369,8 +370,6 @@ struct MangaDexChapterResponse {
 struct MangaDexChapter {
     id: String,
     attributes: MangaDexChapterAttributes,
-    #[allow(dead_code)]
-    relationships: Option<Vec<MangaDexChapterRelationship>>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -382,21 +381,6 @@ struct MangaDexChapterAttributes {
     pages: Option<u32>,
     #[serde(rename = "publishAt")]
     publish_at: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct MangaDexChapterRelationship {
-    #[allow(dead_code)]
-    #[serde(rename = "type")]
-    r#type: String,
-    #[allow(dead_code)]
-    attributes: Option<MangaDexScanlationGroupAttributes>,
-}
-
-#[derive(Debug, Deserialize, Default)]
-struct MangaDexScanlationGroupAttributes {
-    #[allow(dead_code)]
-    name: Option<String>,
 }
 
 // ─── At-Home (page CDN) structs ────────────────────────────────────────────────

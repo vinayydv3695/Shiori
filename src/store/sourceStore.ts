@@ -40,6 +40,18 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     website: 'https://mangadex.org',
   },
   {
+    id: 'mangafire',
+    name: 'MangaFire',
+    kind: 'manga',
+    enabled: true,
+    description: 'High quality manga source with large library.',
+    status: 'active',
+    implemented: true,
+    torboxCompatible: false,
+    capabilities: ['direct'],
+    website: 'https://mangafire.to',
+  },
+  {
     id: 'manhwahub',
     name: 'ManhwaHub',
     kind: 'manga',
@@ -104,7 +116,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
 
 const DEFAULT_PRIMARY_SOURCE_BY_KIND: Record<SourceKind, string> = {
   books: 'gutenberg',
-  manga: 'mangadex',
+  manga: 'mangafire',
 };
 
 function mergeSources(persistedSources?: Partial<SourceConfig>[]): SourceConfig[] {

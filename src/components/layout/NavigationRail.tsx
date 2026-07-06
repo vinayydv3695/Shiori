@@ -1,5 +1,5 @@
 import type { CurrentView } from "@/store/uiStore"
-import { useIsMobile, useIsTablet } from "@/hooks/useIsMobile"
+import { useIsMobile } from "@/hooks/useIsMobile"
 import { NavigationRailDesktop } from "./NavigationRailDesktop"
 
 interface NavigationRailProps {

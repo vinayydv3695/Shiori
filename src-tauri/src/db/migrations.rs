@@ -132,6 +132,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 36 {
             self.run_in_savepoint("v36", |mgr| mgr.migrate_to_v36())?;
         }
+        if current_version < 37 {
+            self.run_in_savepoint("v37", |mgr| mgr.migrate_to_v37())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -2152,6 +2155,21 @@ impl<'a> MigrationManager<'a> {
 
         let hash = Self::calculate_checksum("v36_add_enable_recycle_bin");
         self.record_migration(36, "add_enable_recycle_bin", &hash)?;
+        Ok(())
+    }
+    /// Migration v37: Add anilist_token to user_preferences
+    fn migrate_to_v37(&self) -> Result<()> {
+        log::info!("[Migration] Applying v37: Add anilist_token to user_preferences");
+
+        if !self.column_exists("user_preferences", "anilist_token")? {
+            self.conn.execute(
+                "ALTER TABLE user_preferences ADD COLUMN anilist_token TEXT",
+                [],
+            )?;
+        }
+
+        let hash = Self::calculate_checksum("v37_add_anilist_token");
+        self.record_migration(37, "add_anilist_token", &hash)?;
         Ok(())
     }
 }

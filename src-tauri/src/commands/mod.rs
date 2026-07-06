@@ -8,6 +8,7 @@ pub mod search;
 pub mod tags;
 
 // New v2.0 commands
+pub mod anilist;
 pub mod backup;
 pub mod conversion;
 pub mod cover;
@@ -287,6 +288,8 @@ macro_rules! generate_shiori_handlers {
             // Window management
             commands::window::toggle_fullscreen,
             commands::window::get_fullscreen_state,
+            // AniList
+            commands::anilist::start_anilist_login,
         ]
     };
 }

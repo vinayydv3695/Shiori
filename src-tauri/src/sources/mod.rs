@@ -8,6 +8,7 @@ use crate::error::{Result, ShioriError};
 pub mod annas_archive;
 pub mod libgen;
 pub mod mangadex;
+pub mod mangafire;
 pub mod nyaa;
 pub mod registry;
 pub mod toongod;

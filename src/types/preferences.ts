@@ -1,4 +1,3 @@
-import { DEFAULT_READING_FONT_ID } from '@/lib/readingFonts';
 
 /**
  * Preference Types for Shiori v2.0
@@ -106,6 +105,7 @@ export interface UserPreferences {
   transparentSettings?: boolean;
   includeNsfw?: boolean;
   legacyLibraryMigrationStatus?: 'none' | 'unmigrated' | 'migrated';
+  anilistToken?: string;
 }
 
 export interface PreferenceOverride {

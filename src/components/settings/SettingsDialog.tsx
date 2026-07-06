@@ -4,18 +4,19 @@ import * as Dialog from '@radix-ui/react-dialog'
 import * as Tabs from '@radix-ui/react-tabs'
 import { motion, AnimatePresence } from 'framer-motion'
 import { open } from '@tauri-apps/plugin-shell'
+import { invoke } from '@tauri-apps/api/core'
 import {
   X, Moon, Sun, Palette, Shield, BookOpen, FileText,
   Download, Upload, HardDrive, Archive, CheckCircle2, AlertTriangle,
   Search, FolderOpen, ExternalLink, RefreshCw, Trash2, Info,
-  RotateCcw, Play, Square, Folder, Plus, Blocks, Puzzle, MonitorSmartphone
+  RotateCcw, Puzzle, MonitorSmartphone
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { usePreferencesStore } from '../../store/preferencesStore'
 import type {
-  Theme, UserPreferences, BookPreferences, MangaPreferences, TtsPreferences, WatchFolder,
+  Theme, UserPreferences, BookPreferences, MangaPreferences, TtsPreferences,
 } from '../../types/preferences'
 import { DEFAULT_USER_PREFERENCES, DEFAULT_BOOK_PREFERENCES, DEFAULT_MANGA_PREFERENCES } from '../../types/preferences'
 import { api, isTauri, isAndroid } from '../../lib/tauri'
@@ -24,6 +25,7 @@ import { TTSEngine } from '@/lib/ttsEngine'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { useToast } from '../../store/toastStore'
 import { logger } from '../../lib/logger'
+import { listen } from '@tauri-apps/api/event'
 import { useLibraryStore } from '@/store/libraryStore';
 import { useSourceStore } from '../../store/sourceStore'
 import { SourceManager } from './SourceManager'
@@ -118,6 +120,7 @@ const ALL_SETTINGS: SettingDefinition[] = [
   { label: 'Send Crash Reports', description: 'Automatic crash reporting', tab: 'advanced', section: 'Privacy' },
   { label: 'Reading History Retention', description: 'How long to keep reading history', tab: 'advanced', section: 'Privacy' },
   { label: 'Clear Reading History', description: 'Delete all reading history', tab: 'advanced', section: 'Privacy' },
+  { label: 'AniList Token', description: 'API Token for AniList two-way sync', tab: 'general', section: 'Integrations' },
 ]
 
 const EPUB_RESUME_CHOICE_STORAGE_KEY = 'shiori-epub-resume-choice:v1'
@@ -396,6 +399,29 @@ const GeneralSettings = ({
   const toast = useToast()
   const preferredDebridProvider = useSourceStore((state) => state.preferredDebridProvider)
   const setPreferredDebridProvider = useSourceStore((state) => state.setPreferredDebridProvider)
+
+  useEffect(() => {
+    if (!isTauri) return;
+    
+    const unlisten = listen<string>('anilist-token', (event) => {
+      updateGeneralSettings({ anilistToken: event.payload });
+      toast.success('Successfully linked AniList account');
+    });
+    const unlistenError = listen<string>('anilist-error', (event) => {
+      logger.error('AniList OAuth Error:', event.payload);
+      toast.error('AniList OAuth Error', event.payload);
+    });
+
+    const unlistenDebug = listen<string>('anilist-debug', (event) => {
+      logger.debug('AniList Nav:', event.payload);
+    });
+    
+    return () => {
+      unlisten.then(f => f());
+      unlistenError.then(f => f());
+      unlistenDebug.then(f => f());
+    };
+  }, [updateGeneralSettings, toast]);
 
   if (!preferences) return null
 
@@ -881,6 +907,48 @@ const GeneralSettings = ({
 
         </div>
       </SettingSection>
+
+      {isSectionVisible('Integrations', ['AniList Token']) && (
+        <SettingSection title="Integrations" description="Connect to third-party services">
+          {isSettingVisible('AniList Token', 'API Token for AniList two-way sync', 'Integrations') && (
+            <SettingItem label="AniList API Token" description="Token for two-way sync with AniList.">
+              <div className="flex items-center gap-2">
+                {preferences.anilistToken ? (
+                  <>
+                    <span className="text-sm text-green-500 font-medium px-2 flex items-center gap-1"><CheckCircle2 size={16} /> Connected</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        updateGeneralSettings({ anilistToken: '' });
+                        toast.success('Unlinked AniList account');
+                      }}
+                    >
+                      Disconnect
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      if (isTauri) {
+                        invoke('start_anilist_login').catch(e => {
+                          logger.error('Failed to start AniList login:', e);
+                          toast.error('Failed to start login flow');
+                        });
+                      } else {
+                        toast.error('Not available in browser');
+                      }
+                    }}
+                  >
+                    Login with AniList
+                  </Button>
+                )}
+              </div>
+            </SettingItem>
+          )}
+        </SettingSection>
+      )}
     </div>
   )
 }
@@ -1958,7 +2026,7 @@ const CommunityPluginsSettings = ({
 }) => {
   return (
     <div className="space-y-8">
-      {isSectionVisible('Online Sources', ['MangaDex', 'ToonGod', 'ManhwaHub', 'Weebrook', 'Nyaa', 'Project Gutenberg', 'LibGen']) && (
+      {isSectionVisible('Online Sources', ['MangaDex', 'MangaFire', 'ToonGod', 'ManhwaHub', 'Weebrook', 'Nyaa', 'Project Gutenberg', 'LibGen']) && (
         <SettingSection title="Online Sources" description="Enable or disable online providers used by online sections">
           <SourceManager />
         </SettingSection>

@@ -1,7 +1,4 @@
 import * as React from 'react';
-import { X } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '@/lib/utils';
 import { useFeatureDiscoveryStore, type FeatureId } from '@/store/featureDiscoveryStore';
 
 interface FeatureHintProps {

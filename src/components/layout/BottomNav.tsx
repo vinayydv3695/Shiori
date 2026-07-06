@@ -1,4 +1,4 @@
-import { Home, Library, Settings, Compass, Menu, Cloud } from 'lucide-react'
+import { Home, Library, Settings, Compass, Cloud, List } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { CurrentView } from '@/store/uiStore'
 import { usePreferencesStore } from '@/store/preferencesStore'
@@ -45,6 +45,7 @@ export function BottomNav({
         isActive={currentView.startsWith('torbox')}
         onClick={() => onNavigateToView('torbox-discover')}
       />
+
       <NavItem
         icon={<Settings className="w-5 h-5" />}
         label="Settings"

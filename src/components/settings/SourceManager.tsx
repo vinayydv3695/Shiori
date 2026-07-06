@@ -1,5 +1,5 @@
 import { useSourceStore } from '@/store/sourceStore';
-import { ExternalLink, Database, Globe, Puzzle, Zap } from 'lucide-react';
+import { ExternalLink, Database, Globe, Puzzle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 

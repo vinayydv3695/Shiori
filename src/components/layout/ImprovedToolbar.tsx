@@ -19,11 +19,6 @@ import {
   IconManga,
   IconImportBook,
   IconImportManga,
-  IconRSS,
-  
-  IconEditMeta,
-  IconInfo,
-  IconDelete,
   IconSearch,
   IconSettings,
   IconSun,
@@ -31,7 +26,7 @@ import {
   IconX,
   IconSidebarToggle,
 } from '@/components/icons/ShioriIcons'
-import { Layers, Copy, Filter, HelpCircle, BarChart2, Globe } from 'lucide-react'
+import { Layers, Filter, HelpCircle, BarChart2, Globe } from 'lucide-react'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import type { CurrentView } from '@/store/uiStore'
 import {
@@ -43,7 +38,6 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu'
 import { FeatureHint } from '@/components/ui/FeatureHint'
-import { SortDropdown } from '../library/SortDropdown'
 import { WindowControls } from './WindowControls'
 
 

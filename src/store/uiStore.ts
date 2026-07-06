@@ -15,6 +15,7 @@ export type CurrentView =
   | "torbox-manga"
   | "torbox-discover"
   | "recycle-bin"
+  | "anilist"
 export type DomainView = "books" | "manga_comics"
 
 interface UIStore {

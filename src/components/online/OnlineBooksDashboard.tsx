@@ -2,9 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { fetchTrendingBooks, fetchSubjectBooks } from '@/online-books/openlibrary/api';
 import type { OpenLibraryWork } from '@/online-books/openlibrary/types';
 import { ModernBookCard } from './ModernBookCard';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { useOnlineSearchStore } from '@/store/onlineSearchStore';
-import { Search, Flame, Rocket, Library, Swords } from 'lucide-react';
 
 interface BookRowProps {
   title: string;

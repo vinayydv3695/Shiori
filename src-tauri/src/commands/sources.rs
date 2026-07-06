@@ -242,6 +242,7 @@ pub async fn proxy_manga_image(source_id: String, image_url: String) -> Result<V
         "weebrook" => Some("https://weebrook.com/"),
         "manhwahub" => Some("https://manhwahub.net/"),
         "libgen" => Some("https://libgen.li/"),
+        "mangafire" => Some("https://mangafire.to/"),
         _ => None,
     };
 
@@ -462,7 +463,13 @@ pub async fn download_manga_chapter_as_cbz(
         let bytes = response.bytes().await
             .map_err(|e| ShioriError::Other(format!("Failed to read image bytes: {}", e)))?;
 
-        let file_name = format!("{:03}.jpg", idx + 1);
+        let bytes_vec = bytes.to_vec();
+        
+        let ext = crate::conversion::utils::detect_image_format(&bytes_vec)
+            .map(|(_, ext)| ext)
+            .unwrap_or("jpg");
+
+        let file_name = format!("{:03}.{}", idx + 1, ext);
         let opts = options.clone();
         
         // Use spawn_blocking for zip writing since it's synchronous IO
@@ -470,7 +477,7 @@ pub async fn download_manga_chapter_as_cbz(
         zip = tokio::task::spawn_blocking(move || -> Result<zip::ZipWriter<std::fs::File>> {
             zip_clone.start_file(file_name, opts)
                 .map_err(|e| ShioriError::Other(format!("Zip error: {}", e)))?;
-            zip_clone.write_all(&bytes)
+            zip_clone.write_all(&bytes_vec)
                 .map_err(|e| ShioriError::Other(format!("Write error: {}", e)))?;
             Ok(zip_clone)
         }).await.map_err(|e| ShioriError::Other(format!("Task error: {}", e)))??;

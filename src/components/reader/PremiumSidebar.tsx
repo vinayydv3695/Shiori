@@ -4,7 +4,7 @@ import { useReaderUIStore } from '@/store/premiumReaderStore';
 import { api } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
 import type { TocEntry, Annotation, BookSearchResult, AnnotationCategory } from '@/lib/tauri';
-import { X, BookOpen, Highlighter, FileText, Bookmark, Search, Loader2, Trash2, Edit2 } from '@/components/icons';
+import { X, BookOpen, Highlighter, FileText, Search, Loader2, Trash2, Edit2 } from '@/components/icons';
 import DOMPurify from 'dompurify';
 import { useToastStore } from '@/store/toastStore';
 import { useIsMobile } from '@/hooks/useIsMobile';

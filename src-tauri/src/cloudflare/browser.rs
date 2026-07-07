@@ -110,11 +110,42 @@ pub struct SolverOutput {
 ///  2. Spawns `node` with the script.
 ///  3. Reads the JSON output from stdout.
 ///  4. Packages the result into a [`CfSession`].
-pub async fn solve(url: &str, host: &str, cfg: &BrowserConfig) -> Result<CfSession> {
+pub async fn solve(url: &str, host: &str, cfg: &BrowserConfig, app_handle: Option<&tauri::AppHandle>) -> Result<CfSession> {
+    log::info!("[CF Browser] Attempting to solve CF for {url}");
+
+    #[cfg(target_os = "android")]
+    if let Some(app) = app_handle {
+        use tauri_plugin_android_saf::AndroidSafExt;
+        log::info!("[CF Browser] Trying Android WebView solver for {url}");
+        match app.android_saf().solve_cloudflare(url.to_string()) {
+            Ok(output) => {
+                let cookies: Vec<StoredCookie> = output.cookies
+                    .split(';')
+                    .filter(|s| !s.trim().is_empty())
+                    .map(|cookie_str| {
+                        let parts: Vec<&str> = cookie_str.trim().splitn(2, '=').collect();
+                        StoredCookie {
+                            name: parts[0].to_string(),
+                            value: parts.get(1).unwrap_or(&"").to_string(),
+                            domain: host.to_string(),
+                            path: "/".to_string(),
+                        }
+                    })
+                    .collect();
+                
+                let session = CfSession::new(host, cookies, output.user_agent);
+                log::info!("[CF Browser] ✓ Solved on Android — captured cookies");
+                return Ok(session);
+            }
+            Err(e) => {
+                log::warn!("[CF Browser] Android WebView solver failed: {e}");
+                return Err(ShioriError::Other(format!("Android CF solver failed for {url}: {e}")));
+            }
+        }
+    }
+
     // Write the helper script to a temp file.
     let script_path = write_helper_script().await?;
-
-    log::info!("[CF Browser] Attempting to solve CF for {url}");
 
     // Try headless first, then visible fallback.
     let modes: &[bool] = if cfg.try_headless_first {

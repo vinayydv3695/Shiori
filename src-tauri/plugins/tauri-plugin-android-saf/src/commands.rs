@@ -17,3 +17,11 @@ pub(crate) async fn select_files<R: Runtime>(
 ) -> Result<SelectFilesResponse> {
     app.android_saf().select_files()
 }
+
+#[command]
+pub(crate) async fn solve_cloudflare<R: Runtime>(
+    app: AppHandle<R>,
+    url: String,
+) -> Result<SolveCloudflareResponse> {
+    app.android_saf().solve_cloudflare(url)
+}

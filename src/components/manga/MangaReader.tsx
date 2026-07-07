@@ -375,7 +375,7 @@ export function MangaReader(props: MangaReaderProps) {
                         const prefs = usePreferencesStore.getState().preferences;
                         if (prefs?.anilistToken) {
                             const chapterInfo = onlineSource.chapters.find(c => c.id === onlineSource.chapterId);
-                            const chapterNum = typeof chapterInfo?.number === 'number' ? chapterInfo.number : 0;
+                            const chapterNum = typeof chapterInfo?.number === 'number' ? Math.floor(chapterInfo.number) : 0;
                             
                             try {
                                 let mediaId = libBook?.anilist_id ? Number(libBook.anilist_id) : null;
@@ -399,7 +399,7 @@ export function MangaReader(props: MangaReaderProps) {
                                 }
                                 
                                 if (mediaId) {
-                                    const maxChapterNum = Math.max(...onlineSource.chapters.map(c => typeof c.number === 'number' ? c.number : 0));
+                                    const maxChapterNum = Math.max(...onlineSource.chapters.map(c => typeof c.number === 'number' ? Math.floor(c.number) : 0));
                                     const isLastChapter = chapterNum >= maxChapterNum && chapterNum > 0;
                                     
                                     if (isLastChapter) {

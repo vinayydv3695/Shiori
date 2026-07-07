@@ -173,11 +173,12 @@ pub async fn cf_list_sessions(
 /// Used so the frontend can display images from CF-protected sources.
 #[tauri::command]
 pub async fn cf_proxy_image(
+    app: tauri::AppHandle,
     cf_state: State<'_, CloudflareState>,
     image_url: String,
     source_base_url: String,
 ) -> Result<Vec<u8>> {
-    let client = CfClient::new(&source_base_url, cf_state.store.inner_arc())?;
+    let client = CfClient::new(&source_base_url, cf_state.store.inner_arc())?.with_app_handle(app);
     client.get_image(&image_url).await
 }
 

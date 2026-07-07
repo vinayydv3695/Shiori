@@ -320,16 +320,16 @@ pub fn run() {
             app.manage(cf_state);
 
             // Wire the CfClient to ToonGod source so it can auto-solve challenges.
-            #[cfg(not(any(target_os = "android", target_os = "ios")))]
-            {
             let toongod_for_cf = toongod_source.clone();
             let cf_store_for_toongod = cf_store.clone();
+            let app_handle_for_toongod = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 match cloudflare::client::CfClient::new(
                     "https://www.toongod.org",
                     cf_store_for_toongod,
                 ) {
                     Ok(cf_client) => {
+                        let cf_client = cf_client.with_app_handle(app_handle_for_toongod);
                         toongod_for_cf
                             .set_cf_client(std::sync::Arc::new(cf_client))
                             .await;
@@ -343,12 +343,14 @@ pub fn run() {
 
             let mangafire_for_cf = mangafire_source.clone();
             let cf_store_for_mangafire = cf_store.clone();
+            let app_handle_for_mangafire = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 match cloudflare::client::CfClient::new(
                     "https://mangafire.to",
                     cf_store_for_mangafire,
                 ) {
                     Ok(cf_client) => {
+                        let cf_client = cf_client.with_app_handle(app_handle_for_mangafire);
                         mangafire_for_cf
                             .set_cf_client(std::sync::Arc::new(cf_client))
                             .await;
@@ -359,7 +361,6 @@ pub fn run() {
                     Err(e) => log::warn!("MangaFire: Failed to build CfClient: {}", e),
                 }
             });
-            }
 
             // Initialize discovery service
             let discovery_service = Arc::new(services::discovery_service::DiscoveryService::new().unwrap());

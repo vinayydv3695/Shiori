@@ -11,3 +11,10 @@ pub struct SelectFolderResponse {
 pub struct SelectFilesResponse {
     pub uris: Vec<String>,
 }
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolveCloudflareResponse {
+    pub cookies: String,
+    pub user_agent: String,
+}

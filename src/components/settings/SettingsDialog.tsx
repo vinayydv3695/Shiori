@@ -928,21 +928,37 @@ const GeneralSettings = ({
                     </Button>
                   </>
                 ) : (
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      if (isTauri) {
-                        invoke('start_anilist_login').catch(e => {
-                          logger.error('Failed to start AniList login:', e);
-                          toast.error('Failed to start login flow');
-                        });
-                      } else {
-                        toast.error('Not available in browser');
-                      }
-                    }}
-                  >
-                    Login with AniList
-                  </Button>
+                  <div className="flex flex-col gap-2 w-full">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        if (isTauri) {
+                          invoke('start_anilist_login').catch(e => {
+                            logger.error('Failed to start AniList login:', e);
+                            toast.error('Failed to start login flow');
+                          });
+                        } else {
+                          toast.error('Not available in browser');
+                        }
+                      }}
+                    >
+                      Login with AniList
+                    </Button>
+                    <div className="flex items-center gap-2 mt-2">
+                      <input
+                        type="text"
+                        placeholder="Or manually paste token (e.g. Android)..."
+                        className="h-9 flex-1 rounded-lg border border-border/40 bg-background px-3 text-sm text-foreground outline-none focus:ring-1 focus:ring-primary/50"
+                        onChange={(e) => {
+                          if (e.target.value.length > 50) {
+                            updateGeneralSettings({ anilistToken: e.target.value });
+                            e.target.value = '';
+                            toast.success('AniList token saved');
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
                 )}
               </div>
             </SettingItem>

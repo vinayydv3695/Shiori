@@ -20,4 +20,8 @@ impl<R: Runtime> AndroidSaf<R> {
   pub fn select_files(&self) -> crate::Result<SelectFilesResponse> {
     Ok(SelectFilesResponse { uris: vec![] })
   }
+
+  pub fn solve_cloudflare(&self, _url: String) -> crate::Result<SolveCloudflareResponse> {
+    Ok(SolveCloudflareResponse { cookies: String::new(), user_agent: String::new() })
+  }
 }

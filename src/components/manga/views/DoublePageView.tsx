@@ -2,6 +2,8 @@ import React, { useEffect } from 'react';
 import { useMangaContentStore, useMangaSettingsStore } from '@/store/mangaReaderStore';
 import { MangaPageImage } from '../MangaPageImage';
 import { useMangaPreloader } from '../hooks/useMangaPreloader';
+import { ChevronRight } from 'lucide-react';
+import { useMangaUIStore } from '@/store/mangaReaderStore';
 
 /**
  * Double page (spread) reading mode.
@@ -17,6 +19,7 @@ export function DoublePageView() {
     const readingDirection = useMangaSettingsStore(s => s.readingDirection);
     const { preloadAround } = useMangaPreloader();
     const rtl = readingDirection === 'rtl';
+    const onNextChapter = useMangaUIStore(s => s.onNextChapter);
 
     const hasSource = sourceType === 'local' ? bookId !== null : onlineSource !== null;
 
@@ -58,6 +61,18 @@ export function DoublePageView() {
                     <MangaPageImage
                         pageIndex={rightPage}
                     />
+                </div>
+            )}
+            
+            {(leftPage === totalPages - 1 || rightPage === totalPages - 1) && onNextChapter && (
+                <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-4">
+                    <button
+                        onClick={onNextChapter}
+                        className="bg-primary/90 hover:bg-primary text-primary-foreground backdrop-blur-md px-8 py-3 rounded-full font-bold flex items-center gap-2 shadow-xl shadow-black/50 transition-all hover:scale-105 active:scale-95"
+                    >
+                        <span>Next Chapter / Volume</span>
+                        <ChevronRight size={20} />
+                    </button>
                 </div>
             )}
         </div>

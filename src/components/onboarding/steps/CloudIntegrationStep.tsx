@@ -219,18 +219,46 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
                           </GlowButton>
                         </div>
                       ) : (
-                        <GlowButton
-                          theme="dark"
-                          variant="secondary"
-                          className="w-full border-border/40 bg-card px-4 py-3 text-sm text-foreground hover:bg-primary/5"
-                          onClick={() => {
-                            setIsLoggingIn(true);
-                            invoke('start_anilist_login').catch(() => setIsLoggingIn(false));
-                          }}
-                          disabled={isLoggingIn}
-                        >
-                          {isLoggingIn ? 'Awaiting Login...' : 'Login with AniList'}
-                        </GlowButton>
+                        <div className="flex w-full flex-col gap-3">
+                          <GlowButton
+                            theme="dark"
+                            variant="secondary"
+                            className="w-full border-border/40 bg-card px-4 py-3 text-sm text-foreground hover:bg-primary/5"
+                            onClick={() => {
+                              setIsLoggingIn(true);
+                              invoke('start_anilist_login').catch(() => setIsLoggingIn(false));
+                            }}
+                            disabled={isLoggingIn}
+                          >
+                            {isLoggingIn ? 'Awaiting Login...' : 'Login with AniList'}
+                          </GlowButton>
+                          <div className="flex flex-col gap-2 rounded-xl border border-border/40 bg-card/30 p-3">
+                            <p className="text-xs text-foreground/60">
+                              Or manually paste your AniList token (useful for Android):
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                placeholder="eyJ0eXAi..."
+                                className="h-9 flex-1 rounded-lg border border-border/40 bg-background px-3 text-sm text-foreground outline-none transition focus-visible:ring-1 focus-visible:ring-primary/50"
+                                onChange={(e) => {
+                                  if (e.target.value.length > 50) {
+                                    updateGeneralSettings({ anilistToken: e.target.value });
+                                    e.target.value = '';
+                                  }
+                                }}
+                              />
+                            </div>
+                            <a
+                              href="https://anilist.co/api/v2/oauth/authorize?client_id=22152&response_type=token"
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[10px] text-primary/80 hover:text-primary hover:underline"
+                            >
+                              Get a token here
+                            </a>
+                          </div>
+                        </div>
                       )}
                     </div>
                   </section>

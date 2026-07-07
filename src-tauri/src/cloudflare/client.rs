@@ -51,6 +51,8 @@ pub struct CfClient {
     concurrency: Arc<Semaphore>,
     /// Lock that serialises browser-solver invocations (only one solve at a time).
     solve_lock: Arc<tokio::sync::Mutex<()>>,
+    /// Tauri AppHandle to call Android SAF plugins if needed
+    app_handle: Option<tauri::AppHandle>,
 }
 
 impl CfClient {
@@ -76,7 +78,14 @@ impl CfClient {
             http,
             concurrency: Arc::new(Semaphore::new(MAX_CONCURRENCY)),
             solve_lock: Arc::new(tokio::sync::Mutex::new(())),
+            app_handle: None,
         })
+    }
+
+    /// Set the Tauri AppHandle (needed for Android Cloudflare bypass).
+    pub fn with_app_handle(mut self, app: tauri::AppHandle) -> Self {
+        self.app_handle = Some(app);
+        self
     }
 
     /// Override the browser configuration (useful for testing or CI).
@@ -204,7 +213,7 @@ impl CfClient {
         }
 
         log::info!("[CfClient] Launching Playwright solver for {}", self.host);
-        let session = browser::solve(url, &self.host, &self.browser_cfg).await?;
+        let session = browser::solve(url, &self.host, &self.browser_cfg, self.app_handle.as_ref()).await?;
         self.store.save(session)?;
         log::info!("[CfClient] ✓ Session saved for {}", self.host);
         Ok(())

@@ -154,4 +154,46 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
             invoke.reject("User cancelled file selection")
         }
     }
+
+    @Command
+    fun solveCloudflare(invoke: Invoke) {
+        val url = invoke.getString("url") ?: "https://mangafire.to"
+        activity.runOnUiThread {
+            val webView = android.webkit.WebView(activity)
+            webView.settings.javaScriptEnabled = true
+            webView.settings.domStorageEnabled = true
+            
+            // Generate a more standard user agent (Tauri's default usually contains wv or something, but standard is better)
+            val userAgent = webView.settings.userAgentString
+            
+            var solved = false
+            webView.webViewClient = object : android.webkit.WebViewClient() {
+                override fun onPageFinished(view: android.webkit.WebView, url: String) {
+                    if (solved) return
+                    // Evaluate document title to check if we bypassed CF
+                    view.evaluateJavascript("document.title") { title ->
+                        if (title != null && !title.contains("Just a moment") && !title.contains("Attention Required")) {
+                            solved = true
+                            val cookies = android.webkit.CookieManager.getInstance().getCookie(url)
+                            val ret = JSObject()
+                            ret.put("cookies", cookies ?: "")
+                            ret.put("userAgent", userAgent)
+                            invoke.resolve(ret)
+                            view.destroy()
+                        }
+                    }
+                }
+            }
+            webView.loadUrl(url)
+            
+            // Timeout after 30 seconds
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                if (!solved) {
+                    solved = true
+                    invoke.reject("Cloudflare solver timed out on Android WebView")
+                    webView.destroy()
+                }
+            }, 30000)
+        }
+    }
 }

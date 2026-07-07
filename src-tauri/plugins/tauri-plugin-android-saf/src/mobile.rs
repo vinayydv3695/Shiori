@@ -38,4 +38,11 @@ impl<R: Runtime> AndroidSaf<R> {
       .run_mobile_plugin("selectFiles", json!({}))
       .map_err(Into::into)
   }
+
+  pub fn solve_cloudflare(&self, url: String) -> crate::Result<SolveCloudflareResponse> {
+    self
+      .0
+      .run_mobile_plugin("solveCloudflare", json!({ "url": url }))
+      .map_err(Into::into)
+  }
 }

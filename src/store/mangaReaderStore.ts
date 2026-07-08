@@ -325,7 +325,7 @@ const defaultMangaSettings = {
     theme: 'dark' as const,
     imageQuality: 1.0,
     preloadIntensity: 'aggressive' as const,
-    zoomLevel: 1.1,
+    zoomLevel: 1.0,
 };
 
 const READING_MODE_OPTIONS: ReadingMode[] = ['single', 'strip', 'webtoon', 'manhwa', 'comic'];

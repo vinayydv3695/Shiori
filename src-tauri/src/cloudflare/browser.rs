@@ -110,7 +110,7 @@ pub struct SolverOutput {
 ///  2. Spawns `node` with the script.
 ///  3. Reads the JSON output from stdout.
 ///  4. Packages the result into a [`CfSession`].
-pub async fn solve(url: &str, host: &str, cfg: &BrowserConfig, app_handle: Option<&tauri::AppHandle>) -> Result<CfSession> {
+pub async fn solve(url: &str, host: &str, cfg: &BrowserConfig, #[allow(unused_variables)] app_handle: Option<&tauri::AppHandle>) -> Result<CfSession> {
     log::info!("[CF Browser] Attempting to solve CF for {url}");
 
     #[cfg(target_os = "android")]

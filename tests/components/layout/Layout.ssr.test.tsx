@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderToString } from 'react-dom/server';
-import { Layout } from './Layout';
+import { Layout } from '@/components/layout/Layout';
 
 vi.mock('@/store/libraryStore', () => ({
   useLibraryStore: vi.fn((selector) => {

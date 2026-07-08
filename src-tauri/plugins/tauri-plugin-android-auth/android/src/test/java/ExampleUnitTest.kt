@@ -1,4 +1,4 @@
-package com.plugin.android-authcom.tauri.shiori.auth
+package com.tauri.shiori.auth
 
 import org.junit.Test
 

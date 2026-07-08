@@ -1,4 +1,4 @@
-package com.plugin.android-authcom.tauri.shiori.auth
+package com.tauri.shiori.auth
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -19,6 +19,6 @@ class ExampleInstrumentedTest {
     fun useAppContext() {
         // Context of the app under test.
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("com.plugin.android-authcom.tauri.shiori.auth", appContext.packageName)
+        assertEquals("com.tauri.shiori.auth", appContext.packageName)
     }
 }

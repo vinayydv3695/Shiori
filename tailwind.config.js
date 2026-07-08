@@ -42,6 +42,15 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        // Unified mobile scale (use these with max-md: or isAndroid)
+        'ui-none': "var(--radius-none)",
+        'ui-xs': "var(--radius-xs)",
+        'ui-sm': "var(--radius-sm)",
+        'ui-base': "var(--radius-base)",
+        'ui-md': "var(--radius-md)",
+        'ui-lg': "var(--radius-lg)",
+        'ui-xl': "var(--radius-xl)",
+        'ui-full': "var(--radius-full)",
       },
       typography: {
         DEFAULT: {

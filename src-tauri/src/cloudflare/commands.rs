@@ -85,6 +85,7 @@ pub async fn cf_session_status(
 /// This can open a visible browser window if headless fails.
 #[tauri::command]
 pub async fn cf_solve(
+    app: tauri::AppHandle,
     cf_state: State<'_, CloudflareState>,
     url: String,
     headless_only: Option<bool>,
@@ -98,7 +99,7 @@ pub async fn cf_solve(
         // The browser module already handles this gracefully.
     }
 
-    let session = solve(&url, &host, &cfg)
+    let session = solve(&url, &host, &cfg, Some(&app))
         .await
         .map_err(|e| ShioriError::Other(format!("CF solve failed: {e}")))?;
 

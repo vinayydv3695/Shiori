@@ -17,7 +17,7 @@ import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts"
 import { useDialogManager } from "./hooks/useDialogManager"
 import { useBookActions } from "./hooks/useBookActions"
 import { useLibraryFilter } from "./hooks/useLibraryFilter"
-import { api } from "./lib/tauri"
+import { api, isAndroid } from "./lib/tauri"
 import { useDiscordRPCUpdater } from "./hooks/useDiscordRPCUpdater"
 import { useOnlineSearchStore } from "./store/onlineSearchStore"
 import { AndroidSplashScreen } from "./components/ui/AndroidSplashScreen"
@@ -43,6 +43,13 @@ function App() {
   const isOnboardingInitializing = useOnboardingStore(s => s.isInitializing)
   const initializeOnboarding = useOnboardingStore(s => s.initialize)
   const isPreferencesLoaded = usePreferencesStore(s => s.isLoaded)
+
+  // ── Android Performance Enhancements ──
+  useEffect(() => {
+    if (isAndroid) {
+      document.documentElement.classList.add('is-android')
+    }
+  }, [])
 
   // ── Discord RPC ──
   useDiscordRPCUpdater()

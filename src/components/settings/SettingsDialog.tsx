@@ -36,6 +36,7 @@ import { getVersion } from '@tauri-apps/api/app'
 import { DesktopCompanionSettings } from './DesktopCompanionSettings'
 import { CompanionDiscovery } from '../companion/CompanionDiscovery'
 import { useIsMobile } from '@/hooks/useIsMobile'
+import { AniListSettings } from './AniListSettings'
 
 
 
@@ -912,80 +913,7 @@ const GeneralSettings = ({
         <SettingSection title="Integrations" description="Connect to third-party services">
           {isSettingVisible('AniList Token', 'API Token for AniList two-way sync', 'Integrations') && (
             <SettingItem label="AniList API Token" description="Token for two-way sync with AniList.">
-              <div className="flex items-center gap-2">
-                {preferences.anilistToken ? (
-                  <>
-                    <span className="text-sm text-green-500 font-medium px-2 flex items-center gap-1"><CheckCircle2 size={16} /> Connected</span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        updateGeneralSettings({ anilistToken: '' });
-                        toast.success('Unlinked AniList account');
-                      }}
-                    >
-                      Disconnect
-                    </Button>
-                  </>
-                ) : (
-                  <div className="flex flex-col gap-2 w-full">
-                    {isAndroid ? (
-                      // Android: WebviewWindowBuilder not supported — guide user to get token manually
-                      <div className="flex flex-col gap-3">
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                          Open the link below in your browser, log in with AniList, then copy the access token from the URL and paste it here.
-                        </p>
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            invoke('plugin:opener|open_url', {
-                              url: 'https://anilist.co/api/v2/oauth/authorize?client_id=45197&response_type=token'
-                            }).catch(() => {
-                              // Fallback: copy URL to clipboard
-                              void navigator.clipboard?.writeText(
-                                'https://anilist.co/api/v2/oauth/authorize?client_id=45197&response_type=token'
-                              );
-                              toast.success('URL copied', 'Paste it in your browser to log in');
-                            });
-                          }}
-                        >
-                          Open AniList Login Page
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          if (isTauri) {
-                            invoke('start_anilist_login').catch(e => {
-                              logger.error('Failed to start AniList login:', e);
-                              toast.error('Failed to start login flow');
-                            });
-                          } else {
-                            toast.error('Not available in browser');
-                          }
-                        }}
-                      >
-                        Login with AniList
-                      </Button>
-                    )}
-                    <div className="flex items-center gap-2 mt-2">
-                      <input
-                        type="text"
-                        placeholder={isAndroid ? 'Paste your AniList access token here...' : 'Or manually paste token...'}
-                        className="h-9 flex-1 rounded-lg border border-border/40 bg-background px-3 text-sm text-foreground outline-none focus:ring-1 focus:ring-primary/50"
-                        onChange={(e) => {
-                          if (e.target.value.length > 50) {
-                            updateGeneralSettings({ anilistToken: e.target.value });
-                            e.target.value = '';
-                            toast.success('AniList token saved');
-                          }
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
+              <AniListSettings />
             </SettingItem>
           )}
         </SettingSection>

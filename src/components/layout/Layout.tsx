@@ -29,6 +29,8 @@ import { useLibraryStore } from '@/store/libraryStore'
 import { useToast } from '@/store/toastStore'
 import { type CurrentView } from '@/store/uiStore'
 import { useOfflineSyncStore } from '@/store/offlineSyncStore'
+import { anilistAuth } from '@/auth'
+import { useQuery } from '@tanstack/react-query'
 import { logger } from '@/lib/logger'
 
 type DragLayerProps = {
@@ -135,7 +137,20 @@ export function Layout({
   const [isDragActive, setIsDragActive] = useState(false)
 
   const processQueue = useOfflineSyncStore((state) => state.processQueue)
-  const anilistToken = usePreferencesStore((state) => state.preferences?.anilistToken)
+  const [anilistToken, setAnilistToken] = useState<string | null>(null)
+  const preferencesToken = usePreferencesStore((state) => state.preferences?.anilistToken)
+
+  useEffect(() => {
+    const fetchToken = async () => {
+      const token = await anilistAuth.getAccessToken()
+      setAnilistToken(token)
+    }
+    fetchToken()
+
+    const handleAuthChange = () => fetchToken()
+    window.addEventListener('anilist-auth-changed', handleAuthChange)
+    return () => window.removeEventListener('anilist-auth-changed', handleAuthChange)
+  }, [preferencesToken])
 
   useEffect(() => {
     if (anilistToken) {

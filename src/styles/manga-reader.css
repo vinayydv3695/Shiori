@@ -1091,11 +1091,12 @@
   bottom: 0;
   left: 0;
   right: 0;
-  height: 3px;
+  height: 4px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .manga-progress-bar--top {
-  top: 52px;
+  top: calc(52px + env(safe-area-inset-top, 0px));
   left: 0;
   right: 0;
   height: 3px;
@@ -1325,7 +1326,7 @@
   }
 
   .manga-topbar-content {
-    padding: 0 12px;
+    padding: 0 calc(12px + env(safe-area-inset-right, 0px)) 0 calc(12px + env(safe-area-inset-left, 0px));
   }
 
   .manga-topbar-center {

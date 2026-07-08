@@ -17,7 +17,14 @@ export function BottomNav({
   onToggleDrawer
 }: BottomNavProps) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around h-16 bg-background/80 backdrop-blur-xl border-t border-border pb-[env(safe-area-inset-bottom,0px)] md:hidden">
+    <nav 
+      className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around h-16 bg-background/80 backdrop-blur-xl border-t border-border md:hidden"
+      style={{
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        paddingLeft: 'env(safe-area-inset-left, 0px)',
+        paddingRight: 'env(safe-area-inset-right, 0px)'
+      }}
+    >
       <NavItem
         icon={<Home className="w-5 h-5" />}
         label="Home"

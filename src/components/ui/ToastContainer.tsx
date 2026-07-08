@@ -17,7 +17,7 @@ export const ToastContainer = () => {
       offset={isMobileOrTablet ? (isAndroid ? 48 : 24) : 72}
       expand={!isMobileOrTablet}
       toastOptions={{
-        className: 'rounded-2xl px-4 py-3 text-sm shadow-xl font-medium tracking-tight border-0 ring-1 ring-black/5 dark:ring-white/10 backdrop-blur-xl bg-background/80',
+        className: 'rounded-2xl max-md:rounded-ui-xl px-4 py-3 text-sm shadow-xl font-medium tracking-tight border-0 ring-1 ring-black/5 dark:ring-white/10 backdrop-blur-xl bg-background/80',
         style: {
           minHeight: 'auto',
           borderRadius: '16px',

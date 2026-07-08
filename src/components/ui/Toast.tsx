@@ -41,7 +41,7 @@ export const Toast = ({
       onOpenChange={onOpenChange}
       duration={duration}
       className={cn(
-        'flex items-start gap-3 rounded-lg border-2 bg-white dark:bg-gray-900 p-4 shadow-lg',
+        'flex items-start gap-3 rounded-lg max-md:rounded-ui-xl border-2 bg-white dark:bg-gray-900 p-4 shadow-lg',
         'data-[state=open]:animate-in data-[state=closed]:animate-out',
         'data-[swipe=end]:animate-out data-[state=closed]:fade-out-80',
         'data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full',

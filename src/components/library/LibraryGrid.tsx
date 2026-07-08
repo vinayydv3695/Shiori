@@ -379,7 +379,7 @@ export function LibraryGrid({
                   transform: `translateY(${virtualRow.start}px)`,
                   display: "flex",
                   gap: "8px",
-                  padding: "4px 8px",
+                  padding: "4px calc(8px + env(safe-area-inset-right, 0px)) 4px calc(8px + env(safe-area-inset-left, 0px))",
                 }}
                 role="row"
               >

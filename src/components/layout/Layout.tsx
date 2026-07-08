@@ -376,7 +376,13 @@ export function Layout({
         />
 
         {/* ── Mobile Bottom Nav ── */}
-        <main className={cn('flex-1 min-w-0 overflow-y-auto bg-background md:pb-0', 'max-md:pb-16')}>
+        <main 
+          className={cn('flex-1 min-w-0 overflow-y-auto bg-background md:pb-0', 'max-md:pb-16')}
+          style={isMobile ? {
+            paddingLeft: 'env(safe-area-inset-left, 0px)',
+            paddingRight: 'env(safe-area-inset-right, 0px)'
+          } : undefined}
+        >
           {children}
         </main>
       </DragLayer>

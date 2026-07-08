@@ -691,6 +691,8 @@ select {
     border-radius: 24px 24px 0 0;
     transform: translateY(100%);
     padding-bottom: env(safe-area-inset-bottom, 20px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
   }
 }
 
@@ -1296,7 +1298,7 @@ select {
     max-height: 85vh;
     right: auto;
     border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
-    padding-bottom: calc(var(--spacing-lg) + env(safe-area-inset-bottom, 20px));
+    padding: var(--spacing-lg) calc(var(--spacing-lg) + env(safe-area-inset-right, 0px)) calc(var(--spacing-lg) + env(safe-area-inset-bottom, 20px)) calc(var(--spacing-lg) + env(safe-area-inset-left, 0px));
   }
 }
 
@@ -1666,7 +1668,7 @@ select {
 /* SHIORI-FIX: progress bar moved to top, height 2px → 4px per spec */
 .premium-progress-bar {
   position: fixed;
-  top: 0;
+  top: env(safe-area-inset-top, 0px);
   left: 0;
   right: 0;
   height: 4px;
@@ -1922,6 +1924,7 @@ select {
   .premium-top-bar-content {
     min-width: 0;
     width: 100%;
+    padding: 0 calc(var(--spacing-md) + env(safe-area-inset-right, 0px)) 0 calc(var(--spacing-md) + env(safe-area-inset-left, 0px));
   }
 
   .premium-top-bar-center {
@@ -2605,8 +2608,8 @@ select {
    ──────────────────────────────────────────────────────────── */
 .premium-reading-progress-indicator {
   position: absolute;
-  bottom: 24px;
-  left: 32px;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  left: calc(32px + env(safe-area-inset-left, 0px));
   display: flex;
   align-items: center;
   gap: 8px;

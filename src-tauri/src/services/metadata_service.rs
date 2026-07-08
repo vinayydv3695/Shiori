@@ -579,6 +579,8 @@ fn extract_epub_metadata(file_path: &str) -> Result<Metadata> {
         language: doc.mdata("language").map(|s| s.value.clone()),
         description: doc.mdata("description").map(|s| s.value.clone()),
         page_count: None,
+        series: None,
+        series_index: None,
     };
 
     // Get authors (can be multiple)
@@ -602,6 +604,8 @@ fn extract_pdf_metadata(file_path: &str) -> Result<Metadata> {
         language: None,
         description: None,
         page_count: Some(doc.get_pages().len() as i32),
+        series: None,
+        series_index: None,
     };
 
     // Extract metadata from PDF info dictionary
@@ -670,6 +674,8 @@ fn extract_mobi_metadata(file_path: &str) -> Result<Metadata> {
         language: None,
         description: None,
         page_count: None,
+        series: None,
+        series_index: None,
     };
 
     let clean_opt = |value: Option<String>| -> Option<String> {
@@ -833,6 +839,8 @@ fn extract_fb2_metadata(file_path: &str) -> Result<Metadata> {
         language: None,
         description: None,
         page_count: None,
+        series: None,
+        series_index: None,
     };
 
     let mut reader = Reader::from_str(&content);
@@ -975,6 +983,8 @@ fn extract_docx_metadata(file_path: &str) -> Result<Metadata> {
         language: None,
         description: None,
         page_count: None,
+        series: None,
+        series_index: None,
     };
 
     // Try to read docProps/core.xml for Dublin Core metadata
@@ -1039,7 +1049,30 @@ fn extract_docx_metadata(file_path: &str) -> Result<Metadata> {
 
 impl Metadata {
     fn default_from_filename(path: &Path) -> Self {
-        let title = path.file_stem().and_then(|s| s.to_str()).map(String::from);
+        let title_str = path.file_stem().and_then(|s| s.to_str()).unwrap_or("Unknown Title");
+        let mut title = Some(title_str.to_string());
+        let mut series = None;
+        let mut series_index = None;
+        
+        if let Some((s_name, c_name)) = title_str.rsplit_once(" - ") {
+            series = Some(s_name.trim().to_string());
+            title = Some(c_name.trim().to_string());
+            
+            let lower_c = c_name.to_lowercase();
+            let num_str = if lower_c.starts_with("chapter ") {
+                lower_c.strip_prefix("chapter ").unwrap()
+            } else if lower_c.starts_with("ch ") {
+                lower_c.strip_prefix("ch ").unwrap()
+            } else if lower_c.starts_with("ch.") {
+                lower_c.strip_prefix("ch.").unwrap()
+            } else {
+                c_name
+            };
+            
+            if let Ok(idx) = num_str.trim().parse::<f64>() {
+                series_index = Some(idx);
+            }
+        }
 
         Metadata {
             title,
@@ -1050,6 +1083,8 @@ impl Metadata {
             language: Some("eng".to_string()),
             description: None,
             page_count: None,
+            series,
+            series_index,
         }
     }
 }

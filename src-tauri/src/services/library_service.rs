@@ -659,8 +659,8 @@ pub fn import_single_book(db: &Database, path: &str, covers_dir: &std::path::Pat
         isbn13: None,
         publisher: metadata.publisher,
         pubdate: metadata.pubdate,
-        series: None,
-        series_index: None,
+        series: metadata.series,
+        series_index: metadata.series_index,
         rating: None,
         file_path: path.to_string(),
         file_format,
@@ -777,6 +777,8 @@ pub fn scan_and_import_folder(
                     page_count: None,
                     language: None,
                     description: None,
+                    series: None,
+                    series_index: None,
                 },
             };
 

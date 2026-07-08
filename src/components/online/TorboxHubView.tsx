@@ -1514,7 +1514,7 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
   );
 
   return (
-    <div className={`torbox-cloud flex h-full flex-col bg-background ${isAndroid ? 'pt-[calc(env(safe-area-inset-top,0px)+2px)]' : ''}`}>
+    <div className={`torbox-cloud flex h-full flex-col bg-background pt-[env(safe-area-inset-top,0px)]`}>
       <div className="torbox-layer p-6">
         <div className="torbox-hero-panel max-w-5xl mx-auto space-y-4 rounded-2xl p-5">
           <div className="flex items-center justify-between gap-3 flex-wrap">

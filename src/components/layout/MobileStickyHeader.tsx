@@ -49,7 +49,7 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
   }
 
   return (
-    <div className={`sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/40 px-3 pb-3 ${isAndroid ? 'pt-[calc(env(safe-area-inset-top,0px)+2px)]' : 'pt-[calc(env(safe-area-inset-top,0px)+0.75rem)]'} flex flex-col gap-3 md:hidden shadow-sm`}>
+    <div className={`sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/40 px-3 pb-3 pt-[env(safe-area-inset-top,0px)] flex flex-col gap-3 md:hidden shadow-sm`}>
       <div className="flex items-center justify-between gap-3">
         {/* Domain Tabs */}
         {preferences?.preferredContentType === 'both' && (
@@ -112,7 +112,7 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
       {/* Search Input */}
       <div
         className={cn(
-          'relative flex items-center h-10 w-full rounded-full transition-all duration-300 ease-out',
+          'relative flex items-center h-10 w-full rounded-ui-full transition-all duration-300 ease-out',
           searchFocused
             ? 'bg-background shadow-[inset_0_1px_3px_rgba(0,0,0,0.1),0_0_0_2px_rgba(var(--primary),0.2)] dark:shadow-[inset_0_1px_3px_rgba(0,0,0,0.4),0_0_0_2px_rgba(var(--primary),0.3)] ring-1 ring-primary/20'
             : 'bg-muted/50 ring-1 ring-border/50'

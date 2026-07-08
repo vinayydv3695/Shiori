@@ -568,7 +568,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
   }, [removeJob, resolveJob, importJob])
 
   return (
-    <div className={`flex h-full flex-col bg-background p-6 text-foreground relative overflow-hidden ${isAndroid ? 'pt-[calc(env(safe-area-inset-top,0px)+2px)]' : ''} ${isMobile ? 'pb-4 px-4' : ''}`}>
+    <div className={`flex h-full flex-col bg-background p-6 text-foreground relative overflow-hidden pt-[env(safe-area-inset-top,0px)] ${isMobile ? 'pb-4 px-4' : ''}`}>
       <header className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-4 pb-2 md:pb-6">
         <div className="flex items-center gap-4">
           <div className="hidden md:flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">

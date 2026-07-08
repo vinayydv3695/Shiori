@@ -129,6 +129,10 @@ pub async fn solve(url: &str, host: &str, cfg: &BrowserConfig, #[allow(unused_va
                             value: parts.get(1).unwrap_or(&"").to_string(),
                             domain: host.to_string(),
                             path: "/".to_string(),
+                            expires: 0,
+                            http_only: false,
+                            secure: true,
+                            same_site: None,
                         }
                     })
                     .collect();

@@ -19,3 +19,9 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Ignore missing annotation classes used by Tink/Security Crypto
+-dontwarn javax.annotation.**
+-keep class javax.annotation.** { *; }
+-dontwarn com.google.errorprone.annotations.**
+-keep class com.google.errorprone.annotations.** { *; }

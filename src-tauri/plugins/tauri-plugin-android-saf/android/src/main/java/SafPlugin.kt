@@ -10,7 +10,14 @@ import app.tauri.plugin.JSArray
 import app.tauri.plugin.Plugin
 import app.tauri.plugin.Invoke
 
-@TauriPlugin
+@TauriPlugin(
+    permissions = [
+        app.tauri.annotation.Permission(
+            strings = [android.Manifest.permission.READ_EXTERNAL_STORAGE],
+            alias = "readExternalStorage"
+        )
+    ]
+)
 class SafPlugin(private val activity: Activity): Plugin(activity) {
 
     @Command
@@ -27,7 +34,7 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
         } else {
             val perm = android.Manifest.permission.READ_EXTERNAL_STORAGE
             if (androidx.core.content.ContextCompat.checkSelfPermission(activity, perm) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(invoke, arrayOf(perm), "readExternalStorageResultFolder")
+                requestPermissionForAlias("readExternalStorage", invoke, "readExternalStorageResultFolder")
                 return
             }
             launchFolderPicker(invoke)
@@ -48,7 +55,7 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
         } else {
             val perm = android.Manifest.permission.READ_EXTERNAL_STORAGE
             if (androidx.core.content.ContextCompat.checkSelfPermission(activity, perm) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(invoke, arrayOf(perm), "readExternalStorageResultFiles")
+                requestPermissionForAlias("readExternalStorage", invoke, "readExternalStorageResultFiles")
                 return
             }
             launchFilePicker(invoke)

@@ -23,8 +23,15 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
                 startActivityForResult(invoke, intent, "manageStorageResult")
                 return
             }
+            launchFolderPicker(invoke)
+        } else {
+            val perm = android.Manifest.permission.READ_EXTERNAL_STORAGE
+            if (androidx.core.content.ContextCompat.checkSelfPermission(activity, perm) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(invoke, arrayOf(perm), "readExternalStorageResultFolder")
+                return
+            }
+            launchFolderPicker(invoke)
         }
-        launchFolderPicker(invoke)
     }
 
     @Command
@@ -37,7 +44,24 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
                 startActivityForResult(invoke, intent, "manageStorageFilesResult")
                 return
             }
+            launchFilePicker(invoke)
+        } else {
+            val perm = android.Manifest.permission.READ_EXTERNAL_STORAGE
+            if (androidx.core.content.ContextCompat.checkSelfPermission(activity, perm) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(invoke, arrayOf(perm), "readExternalStorageResultFiles")
+                return
+            }
+            launchFilePicker(invoke)
         }
+    }
+
+    @app.tauri.annotation.PermissionCallback
+    fun readExternalStorageResultFolder(invoke: Invoke) {
+        launchFolderPicker(invoke)
+    }
+
+    @app.tauri.annotation.PermissionCallback
+    fun readExternalStorageResultFiles(invoke: Invoke) {
         launchFilePicker(invoke)
     }
 

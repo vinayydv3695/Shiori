@@ -40,10 +40,16 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
       if (path) {
         setSelectedPath(path);
       }
-     } catch (error) {
-       logger.error('Failed to select folder:', error);
-       toast.error('Failed to select folder', 'Could not open folder selection dialog');
-     }
+    } catch (error: any) {
+      logger.error('Failed to select folder:', error);
+      if (typeof error === 'string' && error.toLowerCase().includes('permission denied')) {
+        toast.error('Permission denied', 'Please grant "All files access" or storage permissions in Android Settings to import your library.');
+      } else if (error?.message && error.message.toLowerCase().includes('permission denied')) {
+        toast.error('Permission denied', 'Please grant "All files access" or storage permissions in Android Settings to import your library.');
+      } else {
+        toast.error('Failed to select folder', 'Could not open folder selection dialog');
+      }
+    }
   };
 
   const handleSelectFiles = async () => {
@@ -53,10 +59,16 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
         setSelectedPath(`${paths.length} file(s) selected`);
         setSelectedFilePaths(paths);
       }
-     } catch (error) {
-       logger.error('Failed to select files:', error);
-       toast.error('Failed to select files', 'Could not open file selection dialog');
-     }
+    } catch (error: any) {
+      logger.error('Failed to select files:', error);
+      if (typeof error === 'string' && error.toLowerCase().includes('permission denied')) {
+        toast.error('Permission denied', 'Please grant "All files access" or storage permissions in Android Settings to import your library.');
+      } else if (error?.message && error.message.toLowerCase().includes('permission denied')) {
+        toast.error('Permission denied', 'Please grant "All files access" or storage permissions in Android Settings to import your library.');
+      } else {
+        toast.error('Failed to select files', 'Could not open file selection dialog');
+      }
+    }
   };
 
   const MANGA_COMIC_EXTENSIONS = /\.(cbz|cbr)$/i;

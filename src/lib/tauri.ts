@@ -1008,6 +1008,9 @@ export const api = {
         return result.uris
       } catch (error) {
         logger.error('[API] SAF file selection error:', error)
+        if (typeof error === 'string' && error.toLowerCase().includes('permission denied')) {
+            throw error;
+        }
         return null
       }
     }
@@ -1043,6 +1046,9 @@ export const api = {
         return result.uri
       } catch (error) {
         logger.error('[API] SAF folder selection error:', error)
+        if (typeof error === 'string' && error.toLowerCase().includes('permission denied')) {
+            throw error;
+        }
         return null
       }
     }

@@ -173,6 +173,8 @@ pub struct Metadata {
     pub language: Option<String>,
     pub description: Option<String>,
     pub page_count: Option<i32>,
+    pub series: Option<String>,
+    pub series_index: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -439,6 +439,7 @@ pub async fn download_manga_chapter_as_cbz(
         "weebrook" => Some("https://weebrook.com/"),
         "manhwahub" => Some("https://manhwahub.net/"),
         "libgen" => Some("https://libgen.li/"),
+        "mangafire" => Some("https://mangafire.to/"),
         _ => None,
     };
 

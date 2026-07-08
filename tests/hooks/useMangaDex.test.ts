@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useMangaDex } from './useMangaDex';
+import { useMangaDex } from '@/hooks/useMangaDex';
 import { pluginApi } from '@/lib/pluginSources';
 
 // Mock the pluginApi

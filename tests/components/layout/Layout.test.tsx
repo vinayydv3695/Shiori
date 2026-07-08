@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { Layout } from './Layout';
+import { Layout } from '@/components/layout/Layout';
 
 // Mock the zustand stores
 vi.mock('@/store/libraryStore', () => ({

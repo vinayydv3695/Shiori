@@ -5,7 +5,7 @@ import {
   truncate,
   parsePageUrl,
   formatRelativeTime
-} from './utils';
+} from '@/lib/utils';
 
 describe('utils.ts', () => {
   afterEach(() => {

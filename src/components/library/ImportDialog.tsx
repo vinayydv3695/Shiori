@@ -2,7 +2,7 @@ import { useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { motion } from 'framer-motion';
 import { X, FolderOpen, File, Upload, Loader2, CheckCircle, AlertCircle, Info } from 'lucide-react';
-import { api, ImportResult } from '../../lib/tauri';
+import { api, ImportResult, isAndroid } from '../../lib/tauri';
 import { logger } from '@/lib/logger';
 import { useToast } from '../../store/toastStore';
 import { useLibraryStore } from '../../store/libraryStore';
@@ -21,7 +21,8 @@ type ImportMode = 'files' | 'folder';
 type ImportStatus = 'idle' | 'importing' | 'completed' | 'error';
 
 export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDialogProps) => {
-  const [mode, setMode] = useState<ImportMode>(initialFilePaths && initialFilePaths.length > 0 ? 'files' : 'folder');
+  // On Android, only folder mode is supported (SAF file URIs can't be resolved by Rust)
+  const [mode, setMode] = useState<ImportMode>(isAndroid ? 'folder' : (initialFilePaths && initialFilePaths.length > 0 ? 'files' : 'folder'));
   const [status, setStatus] = useState<ImportStatus>('idle');
   const [result, setResult] = useState<ImportResult | null>(null);
   const [selectedPath, setSelectedPath] = useState<string>(
@@ -206,27 +207,29 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
                         </p>
                       </div>
                     </button>
-                    <button
-                      onClick={() => {
-                        setMode('files');
-                        setSelectedPath('');
-                      }}
-                      className={`group flex-1 flex flex-col items-center text-center gap-4 px-6 py-8 rounded-xl border transition-all duration-300 relative overflow-hidden ${
-                        mode === 'files'
-                          ? 'border-primary ring-1 ring-primary/50 bg-primary/5 shadow-md'
-                          : 'border-border bg-card/30 hover:bg-card/60 hover:border-border/80'
-                      }`}
-                    >
-                      <div className={`p-4 rounded-full transition-transform duration-300 ${mode === 'files' ? 'bg-primary/20 text-primary scale-110' : 'bg-secondary text-muted-foreground group-hover:text-foreground group-hover:scale-105'}`}>
-                        <File className="w-8 h-8" />
-                      </div>
-                      <div className="space-y-1">
-                        <h3 className="text-base font-semibold text-foreground tracking-tight">Select Files</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Choose individual eBook, Manga, or Comic files
-                        </p>
-                      </div>
-                    </button>
+                    {!isAndroid && (
+                      <button
+                        onClick={() => {
+                          setMode('files');
+                          setSelectedPath('');
+                        }}
+                        className={`group flex-1 flex flex-col items-center text-center gap-4 px-6 py-8 rounded-xl border transition-all duration-300 relative overflow-hidden ${
+                          mode === 'files'
+                            ? 'border-primary ring-1 ring-primary/50 bg-primary/5 shadow-md'
+                            : 'border-border bg-card/30 hover:bg-card/60 hover:border-border/80'
+                        }`}
+                      >
+                        <div className={`p-4 rounded-full transition-transform duration-300 ${mode === 'files' ? 'bg-primary/20 text-primary scale-110' : 'bg-secondary text-muted-foreground group-hover:text-foreground group-hover:scale-105'}`}>
+                          <File className="w-8 h-8" />
+                        </div>
+                        <div className="space-y-1">
+                          <h3 className="text-base font-semibold text-foreground tracking-tight">Select Files</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Choose individual eBook, Manga, or Comic files
+                          </p>
+                        </div>
+                      </button>
+                    )}
                   </div>
 
                   <div className="space-y-2.5">

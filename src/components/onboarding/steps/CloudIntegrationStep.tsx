@@ -2,11 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Cloud, Database, Shield, KeyRound, Eye, EyeOff, ShieldCheck, ShieldX, Link2 } from 'lucide-react';
 import GlowButton from '../components/GlowButton';
 import { OnboardingMotionStyles } from '../components';
-import { api } from '@/lib/tauri';
+import { api, isAndroid } from '@/lib/tauri';
 import { useSourceStore } from '@/store/sourceStore';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { usePreferencesStore } from '@/store/preferencesStore';
+
+const ANILIST_CLIENT_ID = '45197';
+const ANILIST_IMPLICIT_URL = `https://anilist.co/api/v2/oauth/authorize?client_id=${ANILIST_CLIENT_ID}&response_type=token`;
 
 type CloudIntegrationStepProps = {
   onBack: () => void;
@@ -220,21 +223,42 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
                         </div>
                       ) : (
                         <div className="flex w-full flex-col gap-3">
-                          <GlowButton
-                            theme="dark"
-                            variant="secondary"
-                            className="w-full border-border/40 bg-card px-4 py-3 text-sm text-foreground hover:bg-primary/5"
-                            onClick={() => {
-                              setIsLoggingIn(true);
-                              invoke('start_anilist_login').catch(() => setIsLoggingIn(false));
-                            }}
-                            disabled={isLoggingIn}
-                          >
-                            {isLoggingIn ? 'Awaiting Login...' : 'Login with AniList'}
-                          </GlowButton>
+                          {isAndroid ? (
+                            // Android: open system browser for implicit token flow
+                            <div className="flex flex-col gap-2">
+                              <p className="text-xs text-foreground/60 leading-relaxed">
+                                Tap the button below to open AniList in your browser. After logging in, copy the access token from the URL and paste it below.
+                              </p>
+                              <GlowButton
+                                theme="dark"
+                                variant="secondary"
+                                className="w-full border-border/40 bg-card px-4 py-3 text-sm text-foreground hover:bg-primary/5"
+                                onClick={() => {
+                                  invoke('plugin:opener|open_url', { url: ANILIST_IMPLICIT_URL }).catch(() => {
+                                    void navigator.clipboard?.writeText(ANILIST_IMPLICIT_URL);
+                                  });
+                                }}
+                              >
+                                Open AniList Login Page
+                              </GlowButton>
+                            </div>
+                          ) : (
+                            <GlowButton
+                              theme="dark"
+                              variant="secondary"
+                              className="w-full border-border/40 bg-card px-4 py-3 text-sm text-foreground hover:bg-primary/5"
+                              onClick={() => {
+                                setIsLoggingIn(true);
+                                invoke('start_anilist_login').catch(() => setIsLoggingIn(false));
+                              }}
+                              disabled={isLoggingIn}
+                            >
+                              {isLoggingIn ? 'Awaiting Login...' : 'Login with AniList'}
+                            </GlowButton>
+                          )}
                           <div className="flex flex-col gap-2 rounded-xl border border-border/40 bg-card/30 p-3">
                             <p className="text-xs text-foreground/60">
-                              Or manually paste your AniList token (useful for Android):
+                              {isAndroid ? 'Paste your AniList access token here:' : 'Or manually paste your AniList token:'}
                             </p>
                             <div className="flex items-center gap-2">
                               <input
@@ -249,14 +273,16 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
                                 }}
                               />
                             </div>
-                            <a
-                              href="https://anilist.co/api/v2/oauth/authorize?client_id=22152&response_type=token"
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-[10px] text-primary/80 hover:text-primary hover:underline"
-                            >
-                              Get a token here
-                            </a>
+                            {!isAndroid && (
+                              <a
+                                href={ANILIST_IMPLICIT_URL}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[10px] text-primary/80 hover:text-primary hover:underline"
+                              >
+                                Get a token here
+                              </a>
+                            )}
                           </div>
                         </div>
                       )}

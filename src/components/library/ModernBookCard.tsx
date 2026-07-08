@@ -268,7 +268,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
         animationDelay: `${animationDelay}ms`
       }}
       className={cn(
-        'group relative flex flex-col rounded-xl overflow-hidden',
+        'group relative flex flex-col rounded-xl max-md:rounded-ui-xl overflow-hidden',
         'bg-card/90 backdrop-blur-lg border border-border/40',
         'cursor-pointer select-none',
         'transition-all duration-[250ms] cubic-bezier(0.25, 0.8, 0.25, 1)',

@@ -49,13 +49,20 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
   }
 
   return (
-    <div className={`sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/40 px-3 pb-3 pt-[env(safe-area-inset-top,0px)] flex flex-col gap-3 md:hidden shadow-sm`}>
+    <div 
+      className="sticky top-0 z-40 px-3 bg-background/80 backdrop-blur-xl border-b border-border/40 pb-3 flex flex-col gap-3 md:hidden shadow-sm"
+      style={{
+        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)',
+        paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 12px)',
+        paddingRight: 'calc(env(safe-area-inset-right, 0px) + 12px)'
+      }}
+    >
       <div className="flex items-center justify-between gap-3">
         {/* Domain Tabs */}
         {preferences?.preferredContentType === 'both' && (
-          <div className="relative flex items-center p-1 bg-muted/50 border border-border/50 rounded-full h-12 flex-1 max-w-[200px] shadow-inner">
+          <div className="relative flex items-center p-1 bg-muted/50 border border-border/50 rounded-ui-full h-12 flex-1 max-w-[200px] shadow-inner">
             <div 
-              className="absolute top-1 bottom-1 rounded-full bg-background shadow-sm border border-border/50 transition-all duration-300 ease-out z-0"
+              className="absolute top-1 bottom-1 rounded-ui-full bg-background shadow-sm border border-border/50 transition-all duration-300 ease-out z-0"
               style={{ 
                 left: currentDomain === 'books' ? '4px' : 'calc(50% + 2px)', 
                 width: 'calc(50% - 6px)' 
@@ -66,7 +73,7 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
               type="button"
               onClick={() => setCurrentDomain('books')}
               className={cn(
-                'relative z-10 flex items-center justify-center gap-1.5 flex-1 text-xs font-bold rounded-full transition-colors duration-200',
+                'relative z-10 flex items-center justify-center gap-1.5 flex-1 text-xs font-bold rounded-ui-full transition-colors duration-200',
                 currentDomain === 'books' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
               )}
             >
@@ -78,7 +85,7 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
               type="button"
               onClick={() => setCurrentDomain('manga_comics')}
               className={cn(
-                'relative z-10 flex items-center justify-center gap-1.5 flex-1 text-xs font-bold rounded-full transition-colors duration-200',
+                'relative z-10 flex items-center justify-center gap-1.5 flex-1 text-xs font-bold rounded-ui-full transition-colors duration-200',
                 currentDomain === 'manga_comics' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
               )}
             >
@@ -93,7 +100,7 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
           type="button"
           onClick={onOpenAdvancedFilter}
           className={cn(
-            'relative flex items-center justify-center min-h-[48px] px-4 rounded-full border shadow-sm transition-all duration-200',
+            'relative flex items-center justify-center min-h-[48px] px-4 rounded-ui-full border shadow-sm transition-all duration-200',
             activeFilterCount > 0
               ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
               : 'bg-background text-foreground border-border hover:bg-accent'
@@ -102,7 +109,7 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
           <IconFilter size={14} className="mr-1.5" />
           <span className="text-xs font-semibold">Filter</span>
           {activeFilterCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-background text-foreground text-[10px] font-black shadow-sm ring-2 ring-background">
+            <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-ui-full bg-background text-foreground text-[10px] font-black shadow-sm ring-2 ring-background">
               {activeFilterCount}
             </span>
           )}
@@ -134,7 +141,7 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
           onBlur={() => setSearchFocused(false)}
           placeholder={`Search ${currentDomain === 'books' ? 'Books' : 'Manga'}…`}
           className={cn(
-            'w-full h-full pl-10 pr-9 rounded-full',
+            'w-full h-full pl-10 pr-9 rounded-ui-full',
             'bg-transparent text-sm text-foreground placeholder:text-muted-foreground',
             'focus:outline-none caret-primary'
           )}
@@ -143,7 +150,7 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
           <button
             type="button"
             onClick={clear}
-            className="absolute right-3 flex items-center justify-center w-5 h-5 rounded-full bg-muted-foreground/20 text-muted-foreground hover:bg-muted-foreground/30 hover:text-foreground transition-colors"
+            className="absolute right-3 flex items-center justify-center w-5 h-5 rounded-ui-full bg-muted-foreground/20 text-muted-foreground hover:bg-muted-foreground/30 hover:text-foreground transition-colors"
           >
             <IconX size={10} />
           </button>

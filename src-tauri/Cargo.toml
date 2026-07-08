@@ -1,6 +1,6 @@
 [package]
 name = "shiori"
-version = "1.57.14"
+version = "1.57.15"
 description = "A beautiful, cross-platform e-book and manga reader"
 authors = ["vinayydv3695"]
 license = "GPL-3.0"
@@ -159,3 +159,4 @@ wiremock = "0.6.5"
 
 [target.'cfg(target_os = "android")'.dependencies]
 tauri-plugin-android-saf = { path = "plugins/tauri-plugin-android-saf" }
+tauri-plugin-android-auth = { path = "plugins/tauri-plugin-android-auth" }

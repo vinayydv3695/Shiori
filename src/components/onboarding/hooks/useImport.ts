@@ -68,7 +68,52 @@ export function useImport(): UseImportResult {
         error: null,
       });
 
-      const result = await api.scanFolderUnified(path);
+      let result: ApiImportResult;
+
+      if (path.startsWith('content://')) {
+        // Android SAF Workflow
+        const { files } = await api.enumerateTree(path);
+        
+        if (files.length === 0) {
+          throw new Error('No supported book files found in this folder.');
+        }
+
+        const localPaths: string[] = [];
+        let copiedCount = 0;
+
+        for (const file of files) {
+          setState((prev) => ({
+            ...prev,
+            status: 'importing',
+            currentFile: `Copying ${file.name}...`,
+            progress: 10 + Math.round((copiedCount / files.length) * 40),
+          }));
+
+          try {
+            const { path: localPath } = await api.copyDocument(file.uri, file.name);
+            localPaths.push(localPath);
+          } catch (e) {
+            logger.warn(`Failed to copy document ${file.name}`, e);
+          }
+          copiedCount++;
+        }
+
+        if (localPaths.length === 0) {
+          throw new Error('Failed to copy any files from the selected folder.');
+        }
+
+        setState((prev) => ({
+          ...prev,
+          status: 'importing',
+          currentFile: 'Adding to library...',
+          progress: 60,
+        }));
+
+        result = await api.importBooks(localPaths);
+      } else {
+        // Standard Workflow
+        result = await api.scanFolderUnified(path);
+      }
 
       setState((prev) => ({
         ...prev,

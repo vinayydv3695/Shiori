@@ -45,4 +45,18 @@ impl<R: Runtime> AndroidSaf<R> {
       .run_mobile_plugin("solveCloudflare", json!({ "url": url }))
       .map_err(Into::into)
   }
+
+  pub fn enumerate_tree(&self, uri: String) -> crate::Result<EnumerateTreeResponse> {
+    self
+      .0
+      .run_mobile_plugin("enumerateTree", json!({ "uri": uri }))
+      .map_err(Into::into)
+  }
+
+  pub fn copy_document(&self, uri: String, name: String) -> crate::Result<CopyDocumentResponse> {
+    self
+      .0
+      .run_mobile_plugin("copyDocument", json!({ "uri": uri, "name": name }))
+      .map_err(Into::into)
+  }
 }

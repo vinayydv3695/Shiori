@@ -87,7 +87,38 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
           return;
         }
         
-        const result = await api.scanFolderUnified(selectedPath);
+        let result: ImportResult;
+        
+        if (selectedPath.startsWith('content://')) {
+          // Android SAF Workflow
+          const { files } = await api.enumerateTree(selectedPath);
+          if (files.length === 0) {
+            throw new Error('No supported book files found in this folder.');
+          }
+
+          const localPaths: string[] = [];
+          let copiedCount = 0;
+
+          for (const file of files) {
+            try {
+              const { path: localPath } = await api.copyDocument(file.uri, file.name);
+              localPaths.push(localPath);
+            } catch (e) {
+              logger.warn(`Failed to copy document ${file.name}`, e);
+            }
+            copiedCount++;
+            // Could add progress updates here if ImportDialog supported it
+          }
+
+          if (localPaths.length === 0) {
+            throw new Error('Failed to copy any files from the selected folder.');
+          }
+
+          result = await api.importBooks(localPaths);
+        } else {
+          result = await api.scanFolderUnified(selectedPath);
+        }
+        
         importResult.success.push(...result.success);
         importResult.failed.push(...result.failed);
         importResult.duplicates.push(...result.duplicates);

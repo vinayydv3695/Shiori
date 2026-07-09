@@ -462,6 +462,20 @@ export interface DebridResolveResult {
   importedPath: string
 }
 
+export interface SAFDocumentInfo {
+  uri: string
+  name: string
+  size: number
+}
+
+export interface SAFEnumerateTreeResponse {
+  files: SAFDocumentInfo[]
+}
+
+export interface SAFCopyDocumentResponse {
+  path: string
+}
+
 function normalizeReadingProgress(raw: unknown): ReadingProgress | null {
   if (!raw || typeof raw !== 'object') return null
   const obj = raw as Record<string, unknown>
@@ -1056,6 +1070,20 @@ export const api = {
     return open({
       directory: true,
     }) as Promise<string | null>
+  },
+
+  async enumerateTree(uri: string): Promise<SAFEnumerateTreeResponse> {
+    if (!isAndroid) {
+      throw new Error("SAF enumeration is only supported on Android");
+    }
+    return invoke<SAFEnumerateTreeResponse>("plugin:android-saf|enumerate_tree", { uri });
+  },
+
+  async copyDocument(uri: string, name: string): Promise<SAFCopyDocumentResponse> {
+    if (!isAndroid) {
+      throw new Error("SAF document copying is only supported on Android");
+    }
+    return invoke<SAFCopyDocumentResponse>("plugin:android-saf|copy_document", { uri, name });
   },
 
   async saveFileDialog(defaultPath?: string): Promise<string | null> {

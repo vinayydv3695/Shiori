@@ -3,7 +3,7 @@ import { listen } from '@tauri-apps/api/event';
 import { AniListAuthProvider, ViewerInfo } from '../AniListProvider';
 import { toast } from 'sonner';
 
-const ANILIST_CLIENT_ID = '45197'; // Use the same client ID
+const ANILIST_CLIENT_ID = '45479'; // Use the client ID registered with shiori://auth
 const REDIRECT_URI = 'shiori://auth'; // Must match the Intent Filter
 
 function generateRandomString(length: number): string {
@@ -44,84 +44,46 @@ export class AniListAndroidProvider implements AniListAuthProvider {
         this.isLoggingIn = true;
         
         try {
-            // 1. Generate PKCE
-            const codeVerifier = generateRandomString(64);
-            const hashed = await sha256(codeVerifier);
-            const codeChallenge = base64urlencode(hashed);
+            // 1. Build Auth URL using Implicit Grant
+            const authUrl = `https://anilist.co/api/v2/oauth/authorize?client_id=${ANILIST_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token`;
 
-            // Save verifier to exchange later
-            sessionStorage.setItem('pkce_code_verifier', codeVerifier);
-
-            // 2. Build Auth URL
-            const authUrl = `https://anilist.co/api/v2/oauth/authorize?client_id=${ANILIST_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&code_challenge=${codeChallenge}&code_challenge_method=S256`;
-
-            // 3. Listen for Deep Link Callback
-            const unlisten = await listen<{code: string}>('oauth-code-received', async (event) => {
+            // 2. Listen for Deep Link Callback with the token
+            const unlisten = await listen<{access_token: string}>('oauth-token-received', async (event) => {
                 unlisten(); // Stop listening
                 
-                const code = event.payload.code;
-                if (!code) {
-                    toast.error('Authentication Failed', { description: 'No authorization code received.' });
+                const token = event.payload.access_token;
+                if (!token) {
+                    toast.error('Authentication Failed', { description: 'No access token received.' });
                     this.isLoggingIn = false;
                     return;
                 }
 
                 try {
-                    await this.exchangeToken(code);
+                    await invoke('plugin:android-auth|set_secure_token', { token });
+                    toast.success('Successfully linked AniList account');
+                    window.dispatchEvent(new Event('anilist-auth-changed'));
                 } catch (e: any) {
-                    console.error('Token exchange failed:', e);
-                    toast.error('Authentication Failed', { description: e.message || 'Could not exchange authorization code.' });
+                    console.error('Failed to save secure token:', e);
+                    toast.error('Authentication Failed', { description: e.message || 'Could not save authorization token.' });
                 } finally {
                     this.isLoggingIn = false;
                 }
             });
 
-            // 4. Launch Custom Tab
+            // Fallback for code just in case, though not expected
+            const unlistenCode = await listen<{code: string}>('oauth-code-received', async (event) => {
+                unlistenCode();
+                unlisten();
+                toast.error('Authentication Failed', { description: 'Received authorization code instead of token.' });
+                this.isLoggingIn = false;
+            });
+
+            // 3. Launch Custom Tab
             await invoke('plugin:android-auth|start_oauth_login', { url: authUrl });
         } catch (error) {
             console.error('Failed to start Android AniList login:', error);
             toast.error('Login Failed', { description: 'Could not launch AniList authentication.' });
             this.isLoggingIn = false;
-        }
-    }
-
-    private async exchangeToken(code: string): Promise<void> {
-        const codeVerifier = sessionStorage.getItem('pkce_code_verifier');
-        if (!codeVerifier) {
-            throw new Error('Security Error: Missing PKCE code verifier.');
-        }
-
-        const response = await fetch('https://anilist.co/api/v2/oauth/token', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-            },
-            body: JSON.stringify({
-                client_id: ANILIST_CLIENT_ID,
-                grant_type: 'authorization_code',
-                redirect_uri: REDIRECT_URI,
-                code: code,
-                code_verifier: codeVerifier
-            })
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Failed to retrieve token: ${response.status} ${errorText}`);
-        }
-
-        const data = await response.json();
-        if (data.access_token) {
-            // Save securely
-            await invoke('plugin:android-auth|set_secure_token', { token: data.access_token });
-            sessionStorage.removeItem('pkce_code_verifier');
-            toast.success('Successfully linked AniList account');
-            
-            // Force re-render of settings or anything waiting for auth
-            window.dispatchEvent(new Event('anilist-auth-changed'));
-        } else {
-            throw new Error('Invalid token response from AniList');
         }
     }
 

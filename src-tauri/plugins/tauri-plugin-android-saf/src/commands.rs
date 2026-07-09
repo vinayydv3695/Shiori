@@ -25,3 +25,20 @@ pub(crate) async fn solve_cloudflare<R: Runtime>(
 ) -> Result<SolveCloudflareResponse> {
     app.android_saf().solve_cloudflare(url)
 }
+
+#[command]
+pub(crate) async fn enumerate_tree<R: Runtime>(
+    app: AppHandle<R>,
+    uri: String,
+) -> Result<EnumerateTreeResponse> {
+    app.android_saf().enumerate_tree(uri)
+}
+
+#[command]
+pub(crate) async fn copy_document<R: Runtime>(
+    app: AppHandle<R>,
+    uri: String,
+    name: String,
+) -> Result<CopyDocumentResponse> {
+    app.android_saf().copy_document(uri, name)
+}

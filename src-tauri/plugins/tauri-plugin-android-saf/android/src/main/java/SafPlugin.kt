@@ -9,73 +9,26 @@ import app.tauri.plugin.JSObject
 import app.tauri.plugin.JSArray
 import app.tauri.plugin.Plugin
 import app.tauri.plugin.Invoke
+import java.io.File
+import java.io.FileOutputStream
 
-@TauriPlugin(
-    permissions = [
-        app.tauri.annotation.Permission(
-            strings = [android.Manifest.permission.READ_EXTERNAL_STORAGE],
-            alias = "readExternalStorage"
-        )
-    ]
-)
+@TauriPlugin
 class SafPlugin(private val activity: Activity): Plugin(activity) {
 
     @Command
     fun selectFolder(invoke: Invoke) {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            if (!android.os.Environment.isExternalStorageManager()) {
-                val intent = Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
-                val pkgUri = Uri.fromParts("package", activity.packageName, null)
-                intent.data = pkgUri
-                startActivityForResult(invoke, intent, "manageStorageResult")
-                return
-            }
-            launchFolderPicker(invoke)
-        } else {
-            val perm = android.Manifest.permission.READ_EXTERNAL_STORAGE
-            if (androidx.core.content.ContextCompat.checkSelfPermission(activity, perm) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                requestPermissionForAlias("readExternalStorage", invoke, "readExternalStorageResultFolder")
-                return
-            }
-            launchFolderPicker(invoke)
-        }
+        launchFolderPicker(invoke)
     }
 
     @Command
     fun selectFiles(invoke: Invoke) {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            if (!android.os.Environment.isExternalStorageManager()) {
-                val intent = Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
-                val pkgUri = Uri.fromParts("package", activity.packageName, null)
-                intent.data = pkgUri
-                startActivityForResult(invoke, intent, "manageStorageFilesResult")
-                return
-            }
-            launchFilePicker(invoke)
-        } else {
-            val perm = android.Manifest.permission.READ_EXTERNAL_STORAGE
-            if (androidx.core.content.ContextCompat.checkSelfPermission(activity, perm) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                requestPermissionForAlias("readExternalStorage", invoke, "readExternalStorageResultFiles")
-                return
-            }
-            launchFilePicker(invoke)
-        }
-    }
-
-    @app.tauri.annotation.PermissionCallback
-    fun readExternalStorageResultFolder(invoke: Invoke) {
-        launchFolderPicker(invoke)
-    }
-
-    @app.tauri.annotation.PermissionCallback
-    fun readExternalStorageResultFiles(invoke: Invoke) {
         launchFilePicker(invoke)
     }
 
     private fun launchFilePicker(invoke: Invoke) {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT)
         intent.addCategory(Intent.CATEGORY_OPENABLE)
-        intent.type = "*/*" // allow all files, or we could filter by mimetype
+        intent.type = "*/*"
         intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         startActivityForResult(invoke, intent, "safFilesResult")
@@ -89,64 +42,19 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
     }
 
     @app.tauri.annotation.ActivityCallback
-    fun manageStorageResult(invoke: Invoke, result: androidx.activity.result.ActivityResult) {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            if (android.os.Environment.isExternalStorageManager()) {
-                launchFolderPicker(invoke)
-            } else {
-                invoke.reject("Storage permission denied")
-            }
-        } else {
-            launchFolderPicker(invoke)
-        }
-    }
-
-    @app.tauri.annotation.ActivityCallback
-    fun manageStorageFilesResult(invoke: Invoke, result: androidx.activity.result.ActivityResult) {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            if (android.os.Environment.isExternalStorageManager()) {
-                launchFilePicker(invoke)
-            } else {
-                invoke.reject("Storage permission denied")
-            }
-        } else {
-            launchFilePicker(invoke)
-        }
-    }
-
-    private fun getPathFromTreeUri(treeUri: Uri): String {
-        val path = treeUri.path ?: return treeUri.toString()
-        if (path.startsWith("/tree/primary:")) {
-            val relativePath = path.substringAfter("/tree/primary:")
-            return "/storage/emulated/0/$relativePath"
-        } else if (path.startsWith("/document/primary:")) {
-            val relativePath = path.substringAfter("/document/primary:")
-            return "/storage/emulated/0/$relativePath"
-        } else if (path.startsWith("/tree/")) {
-            val parts = path.substringAfter("/tree/").split(":")
-            if (parts.size == 2) {
-                return "/storage/${parts[0]}/${parts[1]}"
-            }
-        } else if (path.startsWith("/document/")) {
-            val parts = path.substringAfter("/document/").split(":")
-            if (parts.size == 2) {
-                return "/storage/${parts[0]}/${parts[1]}"
-            }
-        }
-        return treeUri.toString()
-    }
-
-    @app.tauri.annotation.ActivityCallback
     fun safFolderResult(invoke: Invoke, result: androidx.activity.result.ActivityResult) {
         if (result.resultCode == Activity.RESULT_OK) {
             val uri: Uri? = result.data?.data
             if (uri != null) {
-                // Take persistable permissions
                 val takeFlags: Int = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                activity.contentResolver.takePersistableUriPermission(uri, takeFlags)
+                try {
+                    activity.contentResolver.takePersistableUriPermission(uri, takeFlags)
+                } catch (e: Exception) {
+                    // Ignore if we can't take persistable permission
+                }
 
                 val ret = JSObject()
-                ret.put("uri", getPathFromTreeUri(uri))
+                ret.put("uri", uri.toString())
                 invoke.resolve(ret)
             } else {
                 invoke.reject("No folder selected or URI is null")
@@ -166,12 +74,12 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
             if (clipData != null) {
                 for (i in 0 until clipData.itemCount) {
                     val itemUri = clipData.getItemAt(i).uri
-                    activity.contentResolver.takePersistableUriPermission(itemUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    paths.put(getPathFromTreeUri(itemUri))
+                    try { activity.contentResolver.takePersistableUriPermission(itemUri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (e: Exception) {}
+                    paths.put(itemUri.toString())
                 }
             } else if (uri != null) {
-                activity.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                paths.put(getPathFromTreeUri(uri))
+                try { activity.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (e: Exception) {}
+                paths.put(uri.toString())
             }
 
             if (paths.length() > 0) {
@@ -187,21 +95,117 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
     }
 
     @Command
+    fun enumerateTree(invoke: Invoke) {
+        val treeUriStr = invoke.getString("uri")
+        if (treeUriStr == null) {
+            invoke.reject("Missing uri")
+            return
+        }
+        val treeUri = Uri.parse(treeUriStr)
+        val docFile = androidx.documentfile.provider.DocumentFile.fromTreeUri(activity, treeUri)
+        if (docFile == null) {
+            invoke.reject("Invalid tree uri")
+            return
+        }
+
+        val supportedExtensions = listOf("epub", "pdf", "mobi", "azw3", "cbz", "cbr", "zip")
+        val results = JSArray()
+
+        fun traverse(dir: androidx.documentfile.provider.DocumentFile) {
+            val files = dir.listFiles()
+            for (file in files) {
+                if (file.isDirectory) {
+                    traverse(file)
+                } else {
+                    val name = file.name ?: ""
+                    val ext = name.substringAfterLast('.', "").lowercase()
+                    if (supportedExtensions.contains(ext)) {
+                        val obj = JSObject()
+                        obj.put("uri", file.uri.toString())
+                        obj.put("name", name)
+                        obj.put("size", file.length())
+                        results.put(obj)
+                    }
+                }
+            }
+        }
+        
+        Thread {
+            try {
+                traverse(docFile)
+                val ret = JSObject()
+                ret.put("files", results)
+                invoke.resolve(ret)
+            } catch (e: Exception) {
+                invoke.reject(e.message ?: "Unknown error during enumeration")
+            }
+        }.start()
+    }
+
+    @Command
+    fun copyDocument(invoke: Invoke) {
+        val uriStr = invoke.getString("uri")
+        if (uriStr == null) {
+            invoke.reject("Missing uri")
+            return
+        }
+        val name = invoke.getString("name")
+        if (name == null) {
+            invoke.reject("Missing name")
+            return
+        }
+
+        Thread {
+            try {
+                val uri = Uri.parse(uriStr)
+                val inputStream = activity.contentResolver.openInputStream(uri)
+                if (inputStream == null) {
+                    invoke.reject("Could not open input stream for $uriStr")
+                    return@Thread
+                }
+
+                // Shiori app cache directory for imported books
+                val cacheDir = File(activity.cacheDir, "imported_books")
+                if (!cacheDir.exists()) {
+                    cacheDir.mkdirs()
+                }
+
+                val destFile = File(cacheDir, name)
+                
+                val outputStream = FileOutputStream(destFile)
+                val buffer = ByteArray(8192)
+                var bytesRead: Int
+                while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                    outputStream.write(buffer, 0, bytesRead)
+                }
+                
+                outputStream.flush()
+                outputStream.close()
+                inputStream.close()
+
+                val ret = JSObject()
+                ret.put("path", destFile.absolutePath)
+                invoke.resolve(ret)
+            } catch (e: Exception) {
+                invoke.reject(e.message ?: "Unknown error copying document")
+            }
+        }.start()
+    }
+
+    @Command
     fun solveCloudflare(invoke: Invoke) {
-        val url = invoke.getArgs().getString("url", null) ?: "https://mangafire.to"
+        val url = invoke.getString("url") ?: "https://mangafire.to"
         activity.runOnUiThread {
             val webView = android.webkit.WebView(activity)
             webView.settings.javaScriptEnabled = true
             webView.settings.domStorageEnabled = true
             
-            // Generate a more standard user agent (Tauri's default usually contains wv or something, but standard is better)
             val userAgent = webView.settings.userAgentString
             
             var solved = false
             webView.webViewClient = object : android.webkit.WebViewClient() {
                 override fun onPageFinished(view: android.webkit.WebView, url: String) {
                     if (solved) return
-                    // Evaluate document title to check if we bypassed CF
                     view.evaluateJavascript("document.title") { title ->
                         if (title != null && !title.contains("Just a moment") && !title.contains("Attention Required")) {
                             solved = true
@@ -217,7 +221,6 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
             }
             webView.loadUrl(url)
             
-            // Timeout after 30 seconds
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                 if (!solved) {
                     solved = true

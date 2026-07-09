@@ -24,4 +24,12 @@ impl<R: Runtime> AndroidSaf<R> {
   pub fn solve_cloudflare(&self, _url: String) -> crate::Result<SolveCloudflareResponse> {
     Ok(SolveCloudflareResponse { cookies: String::new(), user_agent: String::new() })
   }
+
+  pub fn enumerate_tree(&self, _uri: String) -> crate::Result<EnumerateTreeResponse> {
+    Ok(EnumerateTreeResponse { files: vec![] })
+  }
+
+  pub fn copy_document(&self, _uri: String, _name: String) -> crate::Result<CopyDocumentResponse> {
+    Ok(CopyDocumentResponse { path: String::new() })
+  }
 }

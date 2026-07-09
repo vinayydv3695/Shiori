@@ -571,7 +571,7 @@ export const SeriesView = memo(function SeriesView({
               onOpenBook={onOpenBook}
             />
 
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 border-b border-border bg-card/80 backdrop-blur-md shrink-0 sticky top-0 z-20 shadow-sm">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-3 p-3 md:gap-4 md:p-4 border-b border-border bg-card/80 backdrop-blur-md shrink-0 sticky top-0 z-20 shadow-sm">
             <div className="flex items-center gap-2 w-full md:w-auto">
               <div className="relative flex-1 md:w-64 group">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
@@ -593,14 +593,14 @@ export const SeriesView = memo(function SeriesView({
               </form>
             </div>
 
-            <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end overflow-x-auto pb-2 md:pb-0 scrollbar-none snap-x snap-mandatory">
-              <div className="flex items-center bg-background/50 border border-border/50 rounded-full p-1 shadow-inner shrink-0 snap-center">
-                <button onClick={() => setFilterStatus('all')} className={cn("px-4 py-1.5 text-xs font-bold rounded-full transition-all duration-200", filterStatus === 'all' ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:text-foreground hover:bg-muted/50")}>All</button>
-                <button onClick={() => setFilterStatus('unread')} className={cn("px-4 py-1.5 text-xs font-bold rounded-full transition-all duration-200", filterStatus === 'unread' ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:text-foreground hover:bg-muted/50")}>Unread</button>
-                <button onClick={() => setFilterStatus('read')} className={cn("px-4 py-1.5 text-xs font-bold rounded-full transition-all duration-200", filterStatus === 'read' ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:text-foreground hover:bg-muted/50")}>Read</button>
+            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-center md:justify-end pb-1 md:pb-0">
+              <div className="flex items-center bg-background/50 border border-border/50 rounded-full p-1 shadow-inner shrink-0">
+                <button onClick={() => setFilterStatus('all')} className={cn("px-3 md:px-4 py-1.5 text-xs font-bold rounded-full transition-all duration-200", filterStatus === 'all' ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:text-foreground hover:bg-muted/50")}>All</button>
+                <button onClick={() => setFilterStatus('unread')} className={cn("px-3 md:px-4 py-1.5 text-xs font-bold rounded-full transition-all duration-200", filterStatus === 'unread' ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:text-foreground hover:bg-muted/50")}>Unread</button>
+                <button onClick={() => setFilterStatus('read')} className={cn("px-3 md:px-4 py-1.5 text-xs font-bold rounded-full transition-all duration-200", filterStatus === 'read' ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:text-foreground hover:bg-muted/50")}>Read</button>
               </div>
 
-              <div className="flex items-center gap-1 bg-background/50 border border-border/50 rounded-full p-1 shadow-inner shrink-0 snap-center">
+              <div className="flex items-center gap-1 bg-background/50 border border-border/50 rounded-full p-1 shadow-inner shrink-0">
                 <Button variant="ghost" size="icon" className={cn("h-8 w-8 rounded-full hover:bg-muted", sortOrder === 'chapter_asc' && "bg-muted text-foreground")} onClick={() => setSortOrder('chapter_asc')} title="Sort Ascending">
                   <SortAsc className="w-4 h-4" />
                 </Button>
@@ -614,7 +614,7 @@ export const SeriesView = memo(function SeriesView({
 
               <div className="h-6 w-px bg-border/50 mx-1 hidden md:block shrink-0" />
 
-              <div className="flex items-center bg-background/50 border border-border/50 rounded-full p-1 shadow-inner shrink-0 snap-center">
+              <div className="flex items-center bg-background/50 border border-border/50 rounded-full p-1 shadow-inner shrink-0">
                 <button onClick={() => setViewMode('grid')} className={cn("p-2 rounded-full transition-all duration-200", viewMode === 'grid' ? "bg-muted text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")} title="Grid View">
                   <LayoutGrid className="w-4 h-4" />
                 </button>

@@ -7,6 +7,7 @@ import FormatBadge from '../components/FormatBadge';
 import GlowButton from '../components/GlowButton';
 import { OnboardingMotionStyles } from '../components';
 import { useImport } from '../hooks/useImport';
+import { useToast } from '@/store/toastStore';
 
 type ImportStepProps = {
   libraryPath: string | null;
@@ -21,6 +22,7 @@ const normalizeToFolderPath = (path: string) => path.replace(/[/\\][^/\\]+$/, ''
 
 export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: ImportStepProps) {
   const [isDragOver, setIsDragOver] = useState(false);
+  const toast = useToast();
 
   const { status, progress, results, currentFile, error, importFromPath, reset } = useImport();
 
@@ -44,8 +46,15 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
         resolved = typeof selected === 'string' ? selected : null;
       }
       await runImport(resolved);
-    } catch (e) {
+    } catch (e: any) {
       console.warn("Folder picker cancelled or failed:", e);
+      if (typeof e === 'string' && e.toLowerCase().includes('permission denied')) {
+        toast.error('Permission denied', 'Please grant "All files access" or storage permissions in Android Settings to import your library.');
+      } else if (e?.message && e.message.toLowerCase().includes('permission denied')) {
+        toast.error('Permission denied', 'Please grant "All files access" or storage permissions in Android Settings to import your library.');
+      } else if (typeof e === 'string' && !e.toLowerCase().includes('cancelled')) {
+        toast.error('Failed to select folder', 'Could not open folder selection dialog');
+      }
     }
   };
 

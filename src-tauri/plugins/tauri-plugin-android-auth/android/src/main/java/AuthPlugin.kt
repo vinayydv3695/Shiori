@@ -49,6 +49,27 @@ class AuthPlugin(private val activity: Activity) : Plugin(activity) {
         
         if (Intent.ACTION_VIEW == action && data != null) {
             if (data.scheme == "shiori" && data.host == "auth") {
+                // For Implicit Grant, the token is in the fragment part of the URL
+                // e.g., shiori://auth#access_token=...&token_type=Bearer&expires_in=...
+                val fragment = data.encodedFragment ?: data.fragment
+                if (fragment != null) {
+                    val params = fragment.split("&").mapNotNull { 
+                        val parts = it.split("=")
+                        if (parts.size == 2) parts[0] to parts[1] else null
+                    }.toMap()
+                    
+                    val accessToken = params["access_token"]
+                    if (accessToken != null) {
+                        val ret = JSObject()
+                        ret.put("access_token", accessToken)
+                        ret.put("expires_in", params["expires_in"] ?: "")
+                        ret.put("token_type", params["token_type"] ?: "")
+                        trigger("oauth-token-received", ret)
+                        return
+                    }
+                }
+                
+                // Fallback for query param (just in case)
                 val code = data.getQueryParameter("code")
                 if (code != null) {
                     val ret = JSObject()

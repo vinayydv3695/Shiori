@@ -96,7 +96,7 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
 
     @Command
     fun enumerateTree(invoke: Invoke) {
-        val treeUriStr = invoke.getString("uri")
+        val treeUriStr = invoke.getArgs().getString("uri", null)
         if (treeUriStr == null) {
             invoke.reject("Missing uri")
             return
@@ -144,12 +144,12 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
 
     @Command
     fun copyDocument(invoke: Invoke) {
-        val uriStr = invoke.getString("uri")
+        val uriStr = invoke.getArgs().getString("uri", null)
         if (uriStr == null) {
             invoke.reject("Missing uri")
             return
         }
-        val name = invoke.getString("name")
+        val name = invoke.getArgs().getString("name", null)
         if (name == null) {
             invoke.reject("Missing name")
             return
@@ -194,7 +194,7 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
 
     @Command
     fun solveCloudflare(invoke: Invoke) {
-        val url = invoke.getString("url") ?: "https://mangafire.to"
+        val url = invoke.getArgs().getString("url", null) ?: "https://mangafire.to"
         activity.runOnUiThread {
             val webView = android.webkit.WebView(activity)
             webView.settings.javaScriptEnabled = true

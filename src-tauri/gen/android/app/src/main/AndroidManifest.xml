@@ -1,7 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+    <!-- Pre-API 33 "Files and media" runtime permission (Android 13+ uses READ_MEDIA_* below). -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <!-- API 33+ (Android 13+) split media permissions. Note these only cover files indexed by
+         MediaStore (photos/videos/audio) — they do NOT cover .epub/.pdf/.cbz/.cbr/.mobi/.azw3.
+         Actual access to those comes from the SAF folder/file picker itself, which needs none
+         of these. They exist purely so Settings > Shiori > Permissions has something to show
+         and grant for the storage-access nudge (see tauri-plugin-android-saf's checkStoragePermission
+         / openAppSettings commands); import is never gated on them. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
 
     <!-- AndroidTV support -->
     <uses-feature android:name="android.software.leanback" android:required="false" />

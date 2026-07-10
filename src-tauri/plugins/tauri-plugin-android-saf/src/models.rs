@@ -38,3 +38,9 @@ pub struct EnumerateTreeResponse {
 pub struct CopyDocumentResponse {
     pub path: String,
 }
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckStoragePermissionResponse {
+    pub granted: bool,
+}

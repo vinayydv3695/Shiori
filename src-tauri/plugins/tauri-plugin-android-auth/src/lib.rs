@@ -1,6 +1,6 @@
 use tauri::{
-  plugin::{Builder, TauriPlugin},
-  Manager, Runtime,
+    plugin::{Builder, TauriPlugin},
+    Manager, Runtime,
 };
 
 pub use models::*;
@@ -23,26 +23,32 @@ use mobile::AndroidAuth;
 
 /// Extensions to [`tauri::App`], [`tauri::AppHandle`] and [`tauri::Window`] to access the android-auth APIs.
 pub trait AndroidAuthExt<R: Runtime> {
-  fn android_auth(&self) -> &AndroidAuth<R>;
+    fn android_auth(&self) -> &AndroidAuth<R>;
 }
 
 impl<R: Runtime, T: Manager<R>> crate::AndroidAuthExt<R> for T {
-  fn android_auth(&self) -> &AndroidAuth<R> {
-    self.state::<AndroidAuth<R>>().inner()
-  }
+    fn android_auth(&self) -> &AndroidAuth<R> {
+        self.state::<AndroidAuth<R>>().inner()
+    }
 }
 
 /// Initializes the plugin.
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
-  Builder::new("android-auth")
-    .invoke_handler(tauri::generate_handler![commands::ping])
-    .setup(|app, api| {
-      #[cfg(mobile)]
-      let android_auth = mobile::init(app, api)?;
-      #[cfg(desktop)]
-      let android_auth = desktop::init(app, api)?;
-      app.manage(android_auth);
-      Ok(())
-    })
-    .build()
+    Builder::new("android-auth")
+        .invoke_handler(tauri::generate_handler![
+            commands::ping,
+            commands::start_oauth_login,
+            commands::set_secure_token,
+            commands::get_secure_token,
+            commands::clear_secure_token
+        ])
+        .setup(|app, api| {
+            #[cfg(mobile)]
+            let android_auth = mobile::init(app, api)?;
+            #[cfg(desktop)]
+            let android_auth = desktop::init(app, api)?;
+            app.manage(android_auth);
+            Ok(())
+        })
+        .build()
 }

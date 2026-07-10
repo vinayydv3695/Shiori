@@ -295,6 +295,54 @@
       "type": "string",
       "oneOf": [
         {
+          "description": "Enables the check_storage_permission command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-check-storage-permission",
+          "markdownDescription": "Enables the check_storage_permission command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the check_storage_permission command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-check-storage-permission",
+          "markdownDescription": "Denies the check_storage_permission command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the copy_document command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-copy-document",
+          "markdownDescription": "Enables the copy_document command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the copy_document command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-copy-document",
+          "markdownDescription": "Denies the copy_document command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the enumerate_tree command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-enumerate-tree",
+          "markdownDescription": "Enables the enumerate_tree command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the enumerate_tree command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-enumerate-tree",
+          "markdownDescription": "Denies the enumerate_tree command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the open_app_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-open-app-settings",
+          "markdownDescription": "Enables the open_app_settings command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the open_app_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-open-app-settings",
+          "markdownDescription": "Denies the open_app_settings command without any pre-configured scope."
+        },
+        {
           "description": "Enables the ping command without any pre-configured scope.",
           "type": "string",
           "const": "allow-ping",
@@ -331,10 +379,22 @@
           "markdownDescription": "Denies the select_folder command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`\n- `allow-select-folder`\n- `allow-select-files`",
+          "description": "Enables the solve_cloudflare command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-solve-cloudflare",
+          "markdownDescription": "Enables the solve_cloudflare command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the solve_cloudflare command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-solve-cloudflare",
+          "markdownDescription": "Denies the solve_cloudflare command without any pre-configured scope."
+        },
+        {
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`\n- `allow-select-folder`\n- `allow-select-files`\n- `allow-solve-cloudflare`\n- `allow-enumerate-tree`\n- `allow-copy-document`\n- `allow-check-storage-permission`\n- `allow-open-app-settings`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`\n- `allow-select-folder`\n- `allow-select-files`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`\n- `allow-select-folder`\n- `allow-select-files`\n- `allow-solve-cloudflare`\n- `allow-enumerate-tree`\n- `allow-copy-document`\n- `allow-check-storage-permission`\n- `allow-open-app-settings`"
         }
       ]
     }

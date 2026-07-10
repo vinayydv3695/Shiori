@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-set-secure-token"
+description = "Enables the set_secure_token command without any pre-configured scope."
+commands.allow = ["set_secure_token"]
+
+[[permission]]
+identifier = "deny-set-secure-token"
+description = "Denies the set_secure_token command without any pre-configured scope."
+commands.deny = ["set_secure_token"]

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-check-storage-permission"
+description = "Enables the check_storage_permission command without any pre-configured scope."
+commands.allow = ["check_storage_permission"]
+
+[[permission]]
+identifier = "deny-check-storage-permission"
+description = "Denies the check_storage_permission command without any pre-configured scope."
+commands.deny = ["check_storage_permission"]

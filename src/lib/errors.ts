@@ -15,30 +15,30 @@
  */
 
 export interface ShioriError {
-  message: string
-  userMessage: string
-  suggestions: string[]
-  technicalDetails: string
-  kind: ErrorKind
+  message: string;
+  userMessage: string;
+  suggestions: string[];
+  technicalDetails: string;
+  kind: ErrorKind;
 }
 
 export type ErrorKind =
-  | 'database'
-  | 'io'
-  | 'serialization'
-  | 'rendering'
-  | 'not_found'
-  | 'file_not_found'
-  | 'format'
-  | 'metadata'
-  | 'duplicate'
-  | 'invalid_operation'
-  | 'permission'
-  | 'unsupported'
-  | 'validation'
-  | 'corrupted'
-  | 'size_limit'
-  | 'unknown'
+  | "database"
+  | "io"
+  | "serialization"
+  | "rendering"
+  | "not_found"
+  | "file_not_found"
+  | "format"
+  | "metadata"
+  | "duplicate"
+  | "invalid_operation"
+  | "permission"
+  | "unsupported"
+  | "validation"
+  | "corrupted"
+  | "size_limit"
+  | "unknown";
 
 /**
  * Parse a Tauri invoke error into a structured `ShioriError`.
@@ -52,21 +52,22 @@ export type ErrorKind =
 export function parseError(error: unknown): ShioriError {
   // 1. Already a ShioriError-shaped object
   if (isShioriError(error)) {
-    return error
+    return error;
   }
 
   // 2. String — may be JSON or a plain message
-  const errorStr = typeof error === 'string'
-    ? error
-    : error instanceof Error
-      ? error.message
-      : String(error)
+  const errorStr =
+    typeof error === "string"
+      ? error
+      : error instanceof Error
+        ? error.message
+        : String(error);
 
   // Try parsing as JSON
   try {
-    const parsed = JSON.parse(errorStr)
+    const parsed = JSON.parse(errorStr);
     if (isShioriError(parsed)) {
-      return parsed
+      return parsed;
     }
   } catch {
     // Not JSON — fall through
@@ -78,8 +79,8 @@ export function parseError(error: unknown): ShioriError {
     userMessage: errorStr,
     suggestions: [],
     technicalDetails: errorStr,
-    kind: 'unknown',
-  }
+    kind: "unknown",
+  };
 }
 
 /**
@@ -87,40 +88,80 @@ export function parseError(error: unknown): ShioriError {
  * Shorthand for `parseError(error).userMessage`.
  */
 export function getUserMessage(error: unknown): string {
-  return parseError(error).userMessage
+  return parseError(error).userMessage;
 }
 
 /**
  * Check whether an error is of a specific kind.
  */
 export function isErrorKind(error: unknown, kind: ErrorKind): boolean {
-  return parseError(error).kind === kind
+  return parseError(error).kind === kind;
 }
 
 /**
  * Check whether an error is a "not found" variant.
  */
 export function isNotFoundError(error: unknown): boolean {
-  const parsed = parseError(error)
-  return parsed.kind === 'not_found' || parsed.kind === 'file_not_found'
+  const parsed = parseError(error);
+  return parsed.kind === "not_found" || parsed.kind === "file_not_found";
 }
 
 /**
  * Check whether an error is a validation error.
  */
 export function isValidationError(error: unknown): boolean {
-  return parseError(error).kind === 'validation'
+  return parseError(error).kind === "validation";
+}
+
+/**
+ * Extracts the best available human-readable message from a caught error,
+ * without requiring the error to match the full `ShioriError` shape.
+ *
+ * Every Tauri command in this codebase that returns `Result<T>` (the `ShioriError`
+ * alias, see `src-tauri/src/error.rs`) rejects the frontend's `invoke()` promise with
+ * a structured object shape: `{ message, userMessage, suggestions, technicalDetails, kind }`
+ * — not a plain string and not a JS `Error`. Calling `String(err)` or `${err}` directly
+ * on that plain object (which has no custom `toString()`) produces the literal string
+ * "[object Object]" instead of anything useful.
+ *
+ * Fallback chain: `err.userMessage` -> `err.message` -> `String(err)`. Unlike
+ * `getUserMessage`/`parseError` above, this does not require every ShioriError field
+ * to be present (just whichever of `userMessage`/`message` exists on the caught value),
+ * so it degrades gracefully even if the error shape is only partially ShioriError-like.
+ */
+export function getErrorMessage(err: unknown): string {
+  if (typeof err === "string" && err.trim().length > 0) {
+    return err;
+  }
+
+  if (err && typeof err === "object") {
+    const candidate = err as { userMessage?: unknown; message?: unknown };
+    if (
+      typeof candidate.userMessage === "string" &&
+      candidate.userMessage.trim().length > 0
+    ) {
+      return candidate.userMessage;
+    }
+    if (
+      typeof candidate.message === "string" &&
+      candidate.message.trim().length > 0
+    ) {
+      return candidate.message;
+    }
+  }
+
+  return String(err);
 }
 
 // ── Internal ─────────────────────────────────────────
 
 function isShioriError(value: unknown): value is ShioriError {
-  if (typeof value !== 'object' || value === null) return false
-  const obj = value as Record<string, unknown>
+  if (typeof value !== "object" || value === null) return false;
+  const obj = value as Record<string, unknown>;
   return (
-    typeof obj.message === 'string' &&
-    typeof obj.userMessage === 'string' &&
+    typeof obj.message === "string" &&
+    typeof obj.userMessage === "string" &&
     Array.isArray(obj.suggestions) &&
-    typeof obj.kind === 'string'
-  )
+    typeof obj.kind === "string"
+  );
 }

@@ -1,6 +1,6 @@
 use tauri::{
-  plugin::{Builder, TauriPlugin},
-  Manager, Runtime,
+    plugin::{Builder, TauriPlugin},
+    Manager, Runtime,
 };
 
 pub use models::*;
@@ -23,26 +23,34 @@ use mobile::AndroidSaf;
 
 /// Extensions to [`tauri::App`], [`tauri::AppHandle`] and [`tauri::Window`] to access the android-saf APIs.
 pub trait AndroidSafExt<R: Runtime> {
-  fn android_saf(&self) -> &AndroidSaf<R>;
+    fn android_saf(&self) -> &AndroidSaf<R>;
 }
 
 impl<R: Runtime, T: Manager<R>> crate::AndroidSafExt<R> for T {
-  fn android_saf(&self) -> &AndroidSaf<R> {
-    self.state::<AndroidSaf<R>>().inner()
-  }
+    fn android_saf(&self) -> &AndroidSaf<R> {
+        self.state::<AndroidSaf<R>>().inner()
+    }
 }
 
 /// Initializes the plugin.
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
-  Builder::new("android-saf")
-    .invoke_handler(tauri::generate_handler![commands::select_folder, commands::select_files, commands::solve_cloudflare, commands::enumerate_tree, commands::copy_document])
-    .setup(|app, api| {
-      #[cfg(mobile)]
-      let android_saf = mobile::init(app, api)?;
-      #[cfg(desktop)]
-      let android_saf = desktop::init(app, api)?;
-      app.manage(android_saf);
-      Ok(())
-    })
-    .build()
+    Builder::new("android-saf")
+        .invoke_handler(tauri::generate_handler![
+            commands::select_folder,
+            commands::select_files,
+            commands::solve_cloudflare,
+            commands::enumerate_tree,
+            commands::copy_document,
+            commands::check_storage_permission,
+            commands::open_app_settings
+        ])
+        .setup(|app, api| {
+            #[cfg(mobile)]
+            let android_saf = mobile::init(app, api)?;
+            #[cfg(desktop)]
+            let android_saf = desktop::init(app, api)?;
+            app.manage(android_saf);
+            Ok(())
+        })
+        .build()
 }

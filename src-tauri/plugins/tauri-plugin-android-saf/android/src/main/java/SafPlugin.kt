@@ -1,8 +1,13 @@
 package com.tauri.shiori.saf
 
+import android.Manifest
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
+import android.provider.Settings
+import androidx.core.content.ContextCompat
 import app.tauri.annotation.Command
 import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.JSObject
@@ -23,6 +28,49 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
     @Command
     fun selectFiles(invoke: Invoke) {
         launchFilePicker(invoke)
+    }
+
+    /**
+     * Reports whether the standard Android "Files and media" runtime permission is currently
+     * granted. This is a UX nudge only — the SAF folder/file pickers (ACTION_OPEN_DOCUMENT_TREE /
+     * ACTION_OPEN_DOCUMENT) do NOT require this permission to work, since picking a folder/file
+     * is itself the access grant. Callers must not gate the picker on this result.
+     */
+    @Command
+    fun checkStoragePermission(invoke: Invoke) {
+        val ret = JSObject()
+        ret.put("granted", hasStoragePermission())
+        invoke.resolve(ret)
+    }
+
+    /**
+     * Opens the app's own "App info" system Settings screen (ACTION_APPLICATION_DETAILS_SETTINGS,
+     * scoped to this app's package) so the user can grant storage/media permissions manually.
+     */
+    @Command
+    fun openAppSettings(invoke: Invoke) {
+        try {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+            intent.data = Uri.fromParts("package", activity.packageName, null)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            activity.startActivity(intent)
+            invoke.resolve()
+        } catch (e: Exception) {
+            invoke.reject("Failed to open app settings: ${e.message}")
+        }
+    }
+
+    private fun hasStoragePermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= 33) {
+            // Android 13+ (API 33+): "Files and media" maps to the READ_MEDIA_* permissions.
+            // These only cover MediaStore-indexed photos/videos/audio, not document formats
+            // like .epub/.pdf/.cbz/.cbr/.mobi/.azw3 — hence this is a nudge, not a gate.
+            ContextCompat.checkSelfPermission(activity, Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(activity, Manifest.permission.READ_MEDIA_VIDEO) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(activity, Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED
+        } else {
+            ContextCompat.checkSelfPermission(activity, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+        }
     }
 
     private fun launchFilePicker(invoke: Invoke) {
@@ -129,7 +177,7 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
                 }
             }
         }
-        
+
         Thread {
             try {
                 traverse(docFile)
@@ -171,14 +219,14 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
                 }
 
                 val destFile = File(cacheDir, name)
-                
+
                 val outputStream = FileOutputStream(destFile)
                 val buffer = ByteArray(8192)
                 var bytesRead: Int
                 while (inputStream.read(buffer).also { bytesRead = it } != -1) {
                     outputStream.write(buffer, 0, bytesRead)
                 }
-                
+
                 outputStream.flush()
                 outputStream.close()
                 inputStream.close()
@@ -199,9 +247,9 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
             val webView = android.webkit.WebView(activity)
             webView.settings.javaScriptEnabled = true
             webView.settings.domStorageEnabled = true
-            
+
             val userAgent = webView.settings.userAgentString
-            
+
             var solved = false
             webView.webViewClient = object : android.webkit.WebViewClient() {
                 override fun onPageFinished(view: android.webkit.WebView, url: String) {
@@ -220,7 +268,7 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
                 }
             }
             webView.loadUrl(url)
-            
+
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                 if (!solved) {
                     solved = true

@@ -174,12 +174,22 @@ pub fn delete_book(state: State<AppState>, id: i64) -> Result<()> {
 #[tauri::command]
 pub fn restore_book(state: State<AppState>, id: i64) -> Result<()> {
     validate::require_positive_id(id, "book id")?;
-    log::info!("[command::restore_book] Received request to restore book id: {}", id);
+    log::info!(
+        "[command::restore_book] Received request to restore book id: {}",
+        id
+    );
     let db = &state.db;
     let result = library_service::restore_book(db, id);
     match &result {
-        Ok(_) => log::info!("[command::restore_book] Successfully restored book id: {}", id),
-        Err(e) => log::error!("[command::restore_book] Failed to restore book id {}: {:?}", id, e),
+        Ok(_) => log::info!(
+            "[command::restore_book] Successfully restored book id: {}",
+            id
+        ),
+        Err(e) => log::error!(
+            "[command::restore_book] Failed to restore book id {}: {:?}",
+            id,
+            e
+        ),
     }
     result
 }
@@ -187,12 +197,22 @@ pub fn restore_book(state: State<AppState>, id: i64) -> Result<()> {
 #[tauri::command]
 pub fn permanent_delete_book(state: State<AppState>, id: i64) -> Result<()> {
     validate::require_positive_id(id, "book id")?;
-    log::info!("[command::permanent_delete_book] Received request to permanently delete book id: {}", id);
+    log::info!(
+        "[command::permanent_delete_book] Received request to permanently delete book id: {}",
+        id
+    );
     let db = &state.db;
     let result = library_service::permanent_delete_book(db, id);
     match &result {
-        Ok(_) => log::info!("[command::permanent_delete_book] Successfully deleted book id: {}", id),
-        Err(e) => log::error!("[command::permanent_delete_book] Failed to delete book id {}: {:?}", id, e),
+        Ok(_) => log::info!(
+            "[command::permanent_delete_book] Successfully deleted book id: {}",
+            id
+        ),
+        Err(e) => log::error!(
+            "[command::permanent_delete_book] Failed to delete book id {}: {:?}",
+            id,
+            e
+        ),
     }
     result
 }
@@ -214,10 +234,13 @@ pub fn clean_up_database(state: State<AppState>) -> Result<(usize, usize)> {
     log::info!("[command::clean_up_database] Received request to clean up database");
     let db = &state.db;
     let covers_dir = state.covers_dir.clone();
-    
+
     // Clean up recycle bin automatically
     if let Err(e) = library_service::clean_recycle_bin(db) {
-        log::error!("[command::clean_up_database] Failed to clean recycle bin: {:?}", e);
+        log::error!(
+            "[command::clean_up_database] Failed to clean recycle bin: {:?}",
+            e
+        );
     }
 
     let result = library_service::cleanup_database(db, &covers_dir);
@@ -242,15 +265,16 @@ pub async fn import_books(
     paths: Vec<String>,
 ) -> Result<ImportResult> {
     validate::require_non_empty_vec(&paths, "file paths")?;
-    for path in &paths {
-        validate::require_safe_path(path, "import path")?;
-    }
+    // Per-path safety validation happens inside library_service::import_books so that one
+    // unsafe/invalid path is recorded as a failed entry instead of aborting the whole batch
+    // (see library_service::import_books).
     let db = state.db.clone();
     let covers_dir = state.covers_dir.clone();
-    let result = tokio::task::spawn_blocking(move || library_service::import_books(&db, paths, &covers_dir))
-        .await
-        .map_err(|e| crate::error::ShioriError::Other(e.to_string()))??;
-        
+    let result =
+        tokio::task::spawn_blocking(move || library_service::import_books(&db, paths, &covers_dir))
+            .await
+            .map_err(|e| crate::error::ShioriError::Other(e.to_string()))??;
+
     let _ = app_handle.emit("library-updated", ());
     Ok(result)
 }
@@ -295,9 +319,9 @@ pub async fn import_manga(
     paths: Vec<String>,
 ) -> Result<ImportResult> {
     validate::require_non_empty_vec(&paths, "file paths")?;
-    for path in &paths {
-        validate::require_safe_path(path, "import path")?;
-    }
+    // Per-path safety validation happens inside library_service::import_manga so that one
+    // unsafe/invalid path (or one failed download) is recorded as a failed entry instead of
+    // aborting the whole batch (see library_service::import_manga).
     let db = state.db.clone();
     let covers_dir = state.covers_dir.clone();
 
@@ -360,9 +384,9 @@ pub async fn scan_folder_for_manga(
 #[tauri::command]
 pub async fn import_comics(state: State<'_, AppState>, paths: Vec<String>) -> Result<ImportResult> {
     validate::require_non_empty_vec(&paths, "file paths")?;
-    for path in &paths {
-        validate::require_safe_path(path, "import path")?;
-    }
+    // Per-path safety validation happens inside library_service::import_comics so that one
+    // unsafe/invalid path is recorded as a failed entry instead of aborting the whole batch
+    // (see library_service::import_comics).
     let db = state.db.clone();
     let covers_dir = state.covers_dir.clone();
     tokio::task::spawn_blocking(move || library_service::import_comics(&db, paths, &covers_dir))
@@ -801,7 +825,10 @@ pub async fn download_libgen_epub(
         .chars()
         .filter(|c| c.is_ascii_alphanumeric() || *c == ' ' || *c == '-')
         .collect::<String>();
-    let ext = format_ext.unwrap_or_else(|| "epub".to_string()).replace(".", "").to_lowercase();
+    let ext = format_ext
+        .unwrap_or_else(|| "epub".to_string())
+        .replace(".", "")
+        .to_lowercase();
     let file_name = format!("{}.{}", safe_title.trim(), ext);
     let temp_dir = std::env::temp_dir();
     let file_path = temp_dir.join(file_name);
@@ -883,9 +910,9 @@ pub fn get_next_book_in_series(
 
         // Find the next book in the series (lowest index greater than current)
         let mut next_stmt = conn.prepare(
-            "SELECT id FROM books 
-             WHERE series = ? AND series_index > ? 
-             ORDER BY series_index ASC 
+            "SELECT id FROM books
+             WHERE series = ? AND series_index > ?
+             ORDER BY series_index ASC
              LIMIT 1",
         )?;
 

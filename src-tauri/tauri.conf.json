@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Shiori",
-  "version": "1.58.2",
+  "version": "1.58.3",
   "identifier": "com.tauri.shiori",
   "build": {
     "beforeDevCommand": "vite",
@@ -13,14 +13,7 @@
     "active": true,
     "category": "Productivity",
     "copyright": "2026 Shiori Contributors",
-    "targets": [
-      "deb",
-      "rpm",
-      "appimage",
-      "nsis",
-      "app",
-      "dmg"
-    ],
+    "targets": ["deb", "rpm", "appimage", "nsis", "app", "dmg"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -51,11 +44,7 @@
         "section": "utils"
       },
       "rpm": {
-        "depends": [
-          "webkit2gtk4.1",
-          "libayatana-appindicator-gtk3",
-          "librsvg2"
-        ]
+        "depends": ["webkit2gtk4.1", "libayatana-appindicator-gtk3", "librsvg2"]
       },
       "appimage": {
         "bundleMediaFramework": false
@@ -67,15 +56,9 @@
       "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost https: blob: data: shiori-proxy: http://shiori-proxy.localhost; font-src 'self' asset: http://asset.localhost data:; connect-src 'self' ipc: http://ipc.localhost https://openlibrary.org https://covers.openlibrary.org https://graphql.anilist.co https://api.mangadex.org https://gutendex.com https://freeonlinek.top https://weebrook.com",
       "assetProtocol": {
         "enable": true,
-        "scope": [
-          "$APPLOCALDATA/**",
-          "$APPDATA/**",
-          "$HOME/**"
-        ]
+        "scope": ["$APPLOCALDATA/**", "$APPDATA/**", "$HOME/**"]
       },
-      "capabilities": [
-        "default"
-      ]
+      "capabilities": ["default"]
     },
     "windows": []
   },

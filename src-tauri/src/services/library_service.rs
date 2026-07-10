@@ -3,6 +3,7 @@ use crate::error::{Result, ShioriError};
 use crate::models::{Author, Book, ImportResult, Tag};
 use crate::services::metadata_service;
 use crate::utils::file::{calculate_file_hash, get_file_size};
+use crate::utils::validate;
 use rayon::prelude::*;
 use rusqlite::params;
 use std::collections::HashMap;
@@ -11,9 +12,9 @@ use walkdir::WalkDir;
 
 /// Base SELECT columns for the books table — used by all list/get queries.
 const BOOK_COLUMNS: &str =
-    "b.id, b.uuid, b.title, b.sort_title, b.isbn, b.isbn13, b.publisher, b.pubdate, 
-     b.series, b.series_index, b.rating, b.file_path, b.file_format, b.file_size, 
-     b.file_hash, b.cover_path, b.page_count, b.word_count, b.language, 
+    "b.id, b.uuid, b.title, b.sort_title, b.isbn, b.isbn13, b.publisher, b.pubdate,
+     b.series, b.series_index, b.rating, b.file_path, b.file_format, b.file_size,
+     b.file_hash, b.cover_path, b.page_count, b.word_count, b.language,
      b.added_date, b.modified_date, b.last_opened, b.notes,
      b.online_metadata_fetched, b.metadata_source, b.metadata_last_sync, b.anilist_id,
      b.is_favorite, b.reading_status, b.domain, b.metadata_locked, b.is_wishlist, b.in_trash, b.deleted_at";
@@ -195,7 +196,7 @@ pub fn get_books_by_ids(db: &Database, ids: &[i64]) -> Result<Vec<Book>> {
         let chunk_books: Vec<Book> = stmt
             .query_map(rusqlite::params_from_iter(chunk.iter()), book_from_row)?
             .collect::<std::result::Result<Vec<_>, _>>()?;
-        
+
         books.extend(chunk_books);
     }
 
@@ -218,7 +219,10 @@ pub fn get_books_by_ids(db: &Database, ids: &[i64]) -> Result<Vec<Book>> {
 
 pub fn get_total_books(db: &Database) -> Result<i64> {
     let conn = db.get_connection()?;
-    let count: i64 = conn.query_row("SELECT COUNT(*) FROM books WHERE in_trash = 0", [], |row| row.get(0))?;
+    let count: i64 =
+        conn.query_row("SELECT COUNT(*) FROM books WHERE in_trash = 0", [], |row| {
+            row.get(0)
+        })?;
     Ok(count)
 }
 
@@ -253,7 +257,9 @@ pub fn add_book(db: &Database, mut book: Book) -> Result<i64> {
     )?;
 
     if exists {
-        return Err(ShioriError::DuplicateBook(book.file_hash.unwrap_or_default()));
+        return Err(ShioriError::DuplicateBook(
+            book.file_hash.unwrap_or_default(),
+        ));
     }
 
     // Use a transaction so book + authors + tags are inserted atomically
@@ -329,7 +335,7 @@ pub fn update_book(db: &Database, book: Book) -> Result<()> {
     let tx = conn.transaction()?;
 
     tx.execute(
-        "UPDATE books SET 
+        "UPDATE books SET
             title = ?1, sort_title = ?2, isbn = ?3, isbn13 = ?4, publisher = ?5,
             pubdate = ?6, series = ?7, series_index = ?8, rating = ?9, language = ?10,
             notes = ?11, reading_status = ?12, metadata_locked = ?13, modified_date = CURRENT_TIMESTAMP
@@ -438,7 +444,7 @@ pub fn delete_books(db: &Database, ids: Vec<i64>) -> Result<()> {
         ids
     );
     let mut conn = db.get_connection()?;
-    
+
     let enable_recycle_bin: bool = conn
         .query_row(
             "SELECT enable_recycle_bin FROM user_preferences WHERE id = 1",
@@ -459,7 +465,7 @@ pub fn delete_books(db: &Database, ids: Vec<i64>) -> Result<()> {
         } else {
             tx.execute("DELETE FROM books WHERE id = ?1", params![id])?
         };
-        
+
         log::info!(
             "[delete_books] Deleted book id {} - rows affected: {}",
             id,
@@ -486,9 +492,15 @@ pub fn restore_book(db: &Database, id: i64) -> Result<()> {
 }
 
 pub fn permanent_delete_book(db: &Database, id: i64) -> Result<()> {
-    log::info!("[permanent_delete_book] Attempting to permanently delete book with id: {}", id);
+    log::info!(
+        "[permanent_delete_book] Attempting to permanently delete book with id: {}",
+        id
+    );
     let conn = db.get_connection()?;
-    let rows_affected = conn.execute("DELETE FROM books WHERE id = ?1 AND in_trash = 1", params![id])?;
+    let rows_affected = conn.execute(
+        "DELETE FROM books WHERE id = ?1 AND in_trash = 1",
+        params![id],
+    )?;
     log::info!("[permanent_delete_book] Rows affected: {}", rows_affected);
     Ok(())
 }
@@ -570,9 +582,12 @@ pub fn cleanup_database(db: &Database, covers_dir: &std::path::Path) -> Result<(
             }
         }
     }
-    
-    log::info!("[cleanup_database] Deleted {} unused covers", deleted_covers);
-    
+
+    log::info!(
+        "[cleanup_database] Deleted {} unused covers",
+        deleted_covers
+    );
+
     // 3. Clear renderer cache (we can just call clear_renderer_cache logic here, but it's separate so we'll leave it or we can just empty the cache dir)
     // We'll stick to books and covers for now as requested.
 
@@ -591,6 +606,11 @@ pub fn import_books(
     };
 
     for path in paths {
+        if let Err(e) = validate::require_safe_path(&path, "import path") {
+            result.failed.push((path, e.to_string()));
+            continue;
+        }
+
         match import_single_book(db, &path, covers_dir) {
             Ok(is_duplicate) => {
                 if is_duplicate {
@@ -992,6 +1012,11 @@ pub fn import_manga(
     };
 
     for path in paths {
+        if let Err(e) = validate::require_safe_path(&path, "import path") {
+            result.failed.push((path, e.to_string()));
+            continue;
+        }
+
         if let Err(e) = validate_domain(&path, "manga") {
             result.failed.push((path, e.to_string()));
             continue;
@@ -1060,6 +1085,11 @@ pub fn import_comics(
     };
 
     for path in paths {
+        if let Err(e) = validate::require_safe_path(&path, "import path") {
+            result.failed.push((path, e.to_string()));
+            continue;
+        }
+
         if let Err(e) = validate_domain(&path, "comics") {
             result.failed.push((path, e.to_string()));
             continue;
@@ -1299,7 +1329,7 @@ pub fn get_books_by_reading_status(
 }
 const BOOK_SUMMARY_COLUMNS: &str =
     "b.id, b.uuid, b.title, b.sort_title, b.file_path, b.file_format, b.file_size,
-     b.cover_path, b.added_date, b.is_favorite, b.reading_status, b.domain, 
+     b.cover_path, b.added_date, b.is_favorite, b.reading_status, b.domain,
      b.manga_series_id, b.series_index, b.is_wishlist, b.in_trash, b.deleted_at";
 
 fn book_summary_from_row(row: &rusqlite::Row) -> rusqlite::Result<crate::models::BookSummary> {
@@ -1368,7 +1398,7 @@ pub fn get_book_summaries_by_domain(
 
 pub fn get_library_stats(db: &Database) -> Result<crate::models::LibraryStats> {
     let conn = db.get_connection()?;
-    let sql = "SELECT 
+    let sql = "SELECT
         COALESCE(SUM(CASE WHEN domain = 'books' THEN 1 ELSE 0 END), 0) as total_books,
         COALESCE(SUM(CASE WHEN domain IN ('manga', 'comics', 'manga_comics') THEN 1 ELSE 0 END), 0) as total_manga,
         COALESCE(SUM(file_size), 0) as total_size_bytes
@@ -1441,11 +1471,11 @@ pub fn get_recommended_books(db: &Database, limit: u32) -> Result<Vec<crate::mod
     let conn = db.get_connection()?;
     let sql = format!(
         "
-        SELECT DISTINCT {} FROM books b 
+        SELECT DISTINCT {} FROM books b
         JOIN books_authors ba ON b.id = ba.book_id
         WHERE b.id NOT IN (SELECT id FROM books WHERE reading_status IN ('completed', 'favorite'))
         AND ba.author_id IN (
-            SELECT ba2.author_id FROM books b2 
+            SELECT ba2.author_id FROM books b2
             JOIN books_authors ba2 ON b2.id = ba2.book_id
             WHERE b2.reading_status IN ('completed', 'favorite')
         )
@@ -1464,7 +1494,7 @@ pub fn get_recommended_books(db: &Database, limit: u32) -> Result<Vec<crate::mod
     if books.is_empty() {
         let fallback_sql = format!(
             "
-            SELECT {} FROM books b 
+            SELECT {} FROM books b
             WHERE b.reading_status != 'completed'
             ORDER BY RANDOM() LIMIT ?1
         ",
@@ -1500,8 +1530,18 @@ mod tests {
             title: "Test Book".to_string(),
             sort_title: None,
             authors: vec![
-                Author { id: None, name: "Author 1".to_string(), sort_name: None, link: None },
-                Author { id: None, name: "Author 2".to_string(), sort_name: None, link: None },
+                Author {
+                    id: None,
+                    name: "Author 1".to_string(),
+                    sort_name: None,
+                    link: None,
+                },
+                Author {
+                    id: None,
+                    name: "Author 2".to_string(),
+                    sort_name: None,
+                    link: None,
+                },
             ],
             isbn: Some("1234567890".to_string()),
             isbn13: None,
@@ -1511,8 +1551,16 @@ mod tests {
             series_index: Some(1.0),
             rating: Some(4),
             tags: vec![
-                Tag { id: None, name: "Fiction".to_string(), color: None },
-                Tag { id: None, name: "Sci-Fi".to_string(), color: None },
+                Tag {
+                    id: None,
+                    name: "Fiction".to_string(),
+                    color: None,
+                },
+                Tag {
+                    id: None,
+                    name: "Sci-Fi".to_string(),
+                    color: None,
+                },
             ],
             file_path: "/dummy/path/test.epub".to_string(),
             file_format: "epub".to_string(),
@@ -1544,7 +1592,7 @@ mod tests {
     fn test_add_and_get_book() {
         let (db, _dir) = setup_test_db();
         let book = create_test_book();
-        
+
         let id = add_book(&db, book.clone()).expect("Failed to add book");
         assert!(id > 0);
 
@@ -1562,10 +1610,15 @@ mod tests {
 
         let mut fetched_book = get_book_by_id(&db, id).unwrap();
         fetched_book.title = "Updated Title".to_string();
-        fetched_book.authors.push(Author { id: None, name: "Author 3".to_string(), sort_name: None, link: None });
-        
+        fetched_book.authors.push(Author {
+            id: None,
+            name: "Author 3".to_string(),
+            sort_name: None,
+            link: None,
+        });
+
         update_book(&db, fetched_book.clone()).expect("Failed to update book");
-        
+
         let updated_book = get_book_by_id(&db, id).unwrap();
         assert_eq!(updated_book.title, "Updated Title");
         assert_eq!(updated_book.authors.len(), 3);
@@ -1579,7 +1632,7 @@ mod tests {
 
         // Move to trash
         delete_book(&db, id).expect("Failed to delete book");
-        
+
         let deleted_book = get_book_by_id(&db, id).unwrap();
         assert!(deleted_book.in_trash);
         assert!(deleted_book.deleted_at.is_some());
@@ -1594,9 +1647,9 @@ mod tests {
     #[test]
     fn test_get_total_books() {
         let (db, _dir) = setup_test_db();
-        
+
         assert_eq!(get_total_books(&db).unwrap(), 0);
-        
+
         let book1 = create_test_book();
         let mut book2 = create_test_book();
         book2.uuid = Uuid::new_v4().to_string();
@@ -1605,7 +1658,68 @@ mod tests {
 
         add_book(&db, book1).unwrap();
         add_book(&db, book2).unwrap();
-        
+
         assert_eq!(get_total_books(&db).unwrap(), 2);
+    }
+
+    /// Regression test: a single unsafe/invalid path in a batch must not abort the whole
+    /// `import_manga` call. Every path is resolved independently and lands in exactly one
+    /// of `success` / `failed` — chapters that are otherwise importable must still succeed
+    /// even when other entries in the same batch are invalid.
+    #[test]
+    fn test_import_manga_partial_failure_does_not_abort_batch() {
+        let (db, dir) = setup_test_db();
+        let covers_dir = dir.path().join("covers");
+        std::fs::create_dir_all(&covers_dir).unwrap();
+
+        // Two genuinely importable manga files ("successes").
+        let good_path_1 = dir.path().join("good1.cbz");
+        let good_path_2 = dir.path().join("good2.cbz");
+        std::fs::write(&good_path_1, b"fake cbz bytes 1").unwrap();
+        std::fs::write(&good_path_2, b"fake cbz bytes 2").unwrap();
+
+        // Fails validate::require_safe_path (path traversal) before any file I/O happens.
+        let unsafe_path = "../evil.cbz".to_string();
+
+        // A syntactically safe, correctly-typed path that simply doesn't exist on disk —
+        // fails later, inside import_single_book's calculate_file_hash.
+        let missing_path = dir.path().join("missing.cbz").to_string_lossy().to_string();
+
+        let paths = vec![
+            good_path_1.to_string_lossy().to_string(),
+            unsafe_path.clone(),
+            missing_path.clone(),
+            good_path_2.to_string_lossy().to_string(),
+        ];
+
+        let result = import_manga(&db, paths, &covers_dir)
+            .expect("import_manga must not abort the whole batch on one bad path");
+
+        // Both good files still made it into the library despite the two bad entries.
+        assert_eq!(
+            result.success.len(),
+            2,
+            "both valid chapters should still import: failed={:?}",
+            result.failed
+        );
+        assert!(result.success.iter().any(|p| p.ends_with("good1.cbz")));
+        assert!(result.success.iter().any(|p| p.ends_with("good2.cbz")));
+
+        // Both bad entries are captured individually with distinct, real, readable reasons —
+        // not a whole-batch abort that would have silently dropped the good paths too.
+        assert_eq!(result.failed.len(), 2);
+        let unsafe_failure = result
+            .failed
+            .iter()
+            .find(|(p, _)| p == &unsafe_path)
+            .expect("unsafe path should be recorded as a failed entry, not abort the batch");
+        assert!(!unsafe_failure.1.is_empty());
+
+        let missing_failure = result
+            .failed
+            .iter()
+            .find(|(p, _)| p == &missing_path)
+            .expect("missing path should be recorded as a failed entry, not abort the batch");
+        assert!(!missing_failure.1.is_empty());
     }
 }

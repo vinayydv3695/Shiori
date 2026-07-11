@@ -1,5 +1,4 @@
 import { useEffect, useState, useMemo } from 'react';
-import { usePreferencesStore } from '@/store/preferencesStore';
 import { useUIStore } from '@/store/uiStore';
 import { useOnlineSearchStore } from '@/store/onlineSearchStore';
 import {
@@ -13,13 +12,14 @@ import {
   safeUpdateMediaListEntry
 } from '@/lib/anilist';
 import { api } from '@/lib/tauri';
-import { Loader2, BookOpen, AlertTriangle, RefreshCw, Search, ListOrdered, Activity, CheckCircle2, LayoutGrid } from 'lucide-react';
-import { ModernBookCard } from './ModernBookCard';
+import { Loader2, BookOpen, AlertTriangle, RefreshCw, Search, CheckCircle2, LayoutGrid, Star } from 'lucide-react';
+import { AniListBookCard } from './AniListBookCard';
 import { AniListMangaDetailsView } from './AniListMangaDetailsView';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/store/toastStore';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAniListAccessToken } from '@/auth/useAniListAccessToken';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -34,13 +34,8 @@ const itemVariants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' as const } },
 };
 
-const cardHover = {
-  y: -4,
-  transition: { duration: 0.2, ease: 'easeOut' as const },
-};
-
 export function AniListDashboard() {
-  const anilistToken = usePreferencesStore(state => state.preferences?.anilistToken);
+  const { token: anilistToken } = useAniListAccessToken();
   const setCurrentView = useUIStore(state => state.setCurrentView);
   const setSearchQuery = useOnlineSearchStore(state => state.setQuery);
   const { error: showErrorToast } = useToast();
@@ -182,7 +177,7 @@ export function AniListDashboard() {
                     mediaId = results[0].id;
                     await api.updateBook({ ...book, anilist_id: mediaId.toString() });
                 }
-            } catch (err) {
+            } catch {
                 console.warn(`Failed to search anilist for ${book.title}`);
             }
         }
@@ -203,7 +198,7 @@ export function AniListDashboard() {
                 else if (book.reading_status === 'completed') status = 'COMPLETED';
                 
                 await safeUpdateMediaListEntry(mediaId, chapterNum, status, anilistToken);
-            } catch (err) {
+            } catch {
                 console.warn(`Failed to update list entry for ${book.title}`);
             }
         }
@@ -245,7 +240,7 @@ export function AniListDashboard() {
         </div>
         <h2 className="text-2xl font-semibold">AniList Not Connected</h2>
         <p className="text-muted-foreground max-w-md">
-          To view your AniList library, please go to Settings &gt; Integrations and enter your AniList API token.
+          To view your AniList library, please go to Settings &gt; Integrations and log in with AniList.
         </p>
         <Button onClick={() => document.getElementById('settings-dialog-trigger')?.click()}>
           Open Settings
@@ -281,17 +276,26 @@ export function AniListDashboard() {
   const currentListGroup = collection?.lists.find(l => l.name === activeTab);
   
   // Calculate Stats
-  let totalEntries = 0;
-  let readingCount = 0;
+  let totalChaptersRead = 0;
+  let totalScore = 0;
+  let scoredCount = 0;
   let completedCount = 0;
   
   if (collection) {
     collection.lists.forEach(list => {
-      totalEntries += list.entries.length;
-      if (list.name === 'Reading' || list.name === 'CURRENT') readingCount += list.entries.length;
       if (list.name === 'Completed' || list.name === 'COMPLETED') completedCount += list.entries.length;
+      
+      list.entries.forEach(entry => {
+        if (entry.progress) totalChaptersRead += entry.progress;
+        if (entry.score && entry.score > 0) {
+          totalScore += entry.score;
+          scoredCount++;
+        }
+      });
     });
   }
+  
+  const meanScore = scoredCount > 0 ? (totalScore / scoredCount).toFixed(1) : '0.0';
 
   // Derive Hero Banner Image
   let heroImage = user?.bannerImage;
@@ -304,47 +308,67 @@ export function AniListDashboard() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-background/50 overflow-hidden relative">
+    <div className="h-full flex flex-col bg-background overflow-hidden relative">
       <div className="flex-1 overflow-y-auto overflow-x-hidden hide-scrollbar">
         {/* Dynamic Hero Section */}
-        <div className="relative w-full h-[280px] md:h-[320px] overflow-hidden rounded-b-[2.5rem]">
-          {/* Background Image with Parallax & Blur */}
+        <div className="relative w-full h-[150px] md:h-[220px] overflow-hidden">
+          {/* Background Image (Cover/Banner) */}
           {heroImage ? (
              <motion.img 
-               initial={{ scale: 1.1, opacity: 0 }}
-               animate={{ scale: 1, opacity: 0.4 }}
-               transition={{ duration: 1.5, ease: 'easeOut' }}
+               initial={{ scale: 1.05, opacity: 0 }}
+               animate={{ scale: 1, opacity: 0.6 }}
+               transition={{ duration: 1.2, ease: 'easeOut' }}
                src={heroImage} 
                alt="Hero Background" 
-               className="absolute inset-0 w-full h-full object-cover blur-3xl pointer-events-none scale-110"
+               className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+               style={{ objectPosition: 'center 30%' }}
              />
           ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/40 via-background to-background" />
+             <div className="absolute inset-0 bg-gradient-to-r from-secondary/50 to-background" />
           )}
           
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
+          {/* Bottom Fade Gradient for seamless blend into theme background */}
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
+        </div>
 
-          {/* Hero Content */}
-          <div className="absolute inset-0 flex flex-col md:flex-row items-end md:items-center justify-between p-6 md:p-12 pb-8 max-w-[1400px] mx-auto w-full gap-6">
+        {/* Profile Info Bar */}
+        <div className="max-w-[1400px] mx-auto w-full px-4 md:px-8 relative z-20">
+          <div className="flex flex-col md:flex-row items-center md:items-end justify-between gap-4 -mt-12 md:-mt-16 mb-6">
             <motion.div 
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="flex items-center gap-6"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="flex flex-col md:flex-row items-center md:items-end gap-5 w-full"
             >
               {user && (
-                <div className="relative">
-                  <img src={user.avatar.large || user.avatar.medium} alt={user.name} className="w-20 h-20 md:w-28 md:h-28 rounded-full ring-4 ring-background shadow-2xl object-cover relative z-10" />
-                  <div className="absolute inset-[-4px] bg-gradient-to-tr from-primary to-purple-500 rounded-full blur-md opacity-50 z-0"></div>
+                <div className="relative shrink-0">
+                  <img 
+                    src={user.avatar.large || user.avatar.medium} 
+                    alt={user.name} 
+                    className="w-24 h-24 md:w-28 md:h-28 rounded-full border-4 border-background shadow-xl object-cover" 
+                  />
                 </div>
               )}
-              <div className="flex flex-col">
-                <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight bg-gradient-to-br from-foreground via-foreground to-foreground/60 bg-clip-text text-transparent drop-shadow-sm">
-                  {user ? `${user.name}` : 'AniList Dashboard'}
+              <div className="flex flex-col text-center md:text-left mb-1">
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+                  {user ? user.name : 'AniList Dashboard'}
                 </h1>
-                <p className="text-sm md:text-base font-medium text-muted-foreground mt-2 flex items-center gap-2">
-                  <BookOpen size={16} className="text-primary/70" /> My Manga Library
-                </p>
+                
+                {/* Compact Stats inline for desktop, or just below for mobile */}
+                <div className="flex items-center justify-center md:justify-start gap-4 mt-2 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1.5" title="Chapters Read">
+                    <BookOpen size={14} className="text-primary/70" />
+                    <span className="font-semibold text-foreground">{totalChaptersRead}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5" title="Completed Series">
+                    <CheckCircle2 size={14} className="text-primary/70" />
+                    <span className="font-semibold text-foreground">{completedCount}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5" title="Mean Score">
+                    <Star size={14} className="text-primary/70" />
+                    <span className="font-semibold text-foreground">{meanScore}</span>
+                  </div>
+                </div>
               </div>
             </motion.div>
 
@@ -352,80 +376,40 @@ export function AniListDashboard() {
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-              className="flex flex-col items-end gap-3 w-full md:w-auto"
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto mb-1"
             >
-              <form onSubmit={handleDashboardSearch} className="relative w-full md:w-64 group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+              <form onSubmit={handleDashboardSearch} className="relative w-full md:w-56 group">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                 <input 
                   type="text" 
                   placeholder="Search AniList..." 
                   value={dashboardSearch}
                   onChange={e => setDashboardSearch(e.target.value)}
-                  className="w-full bg-background/40 backdrop-blur-md border border-white/10 rounded-full py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all placeholder:text-muted-foreground shadow-sm"
+                  className="w-full bg-secondary/50 border border-border rounded-full py-1.5 pl-9 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-primary transition-all placeholder:text-muted-foreground"
                 />
                 {isSearching && (
-                  <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary animate-spin" />
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary animate-spin" />
                 )}
               </form>
               <Button 
-                variant="secondary" 
+                variant="outline" 
+                size="sm"
                 onClick={handleSyncLibrary} 
                 disabled={syncingLibrary}
-                className="w-full md:w-auto gap-2 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 hover:text-indigo-300 transition-all border border-indigo-500/20 rounded-full font-semibold shadow-sm"
+                className="w-full md:w-auto gap-2 border-border hover:bg-secondary/80 text-foreground transition-all rounded-full font-medium"
               >
-                <RefreshCw className={cn("w-4 h-4", syncingLibrary && "animate-spin")} />
+                <RefreshCw className={cn("w-3.5 h-3.5", syncingLibrary && "animate-spin")} />
                 {syncingLibrary 
-                  ? `Syncing... ${syncProgress.current}/${syncProgress.total}`
-                  : "Sync Local Library"}
+                  ? `${syncProgress.current}/${syncProgress.total}`
+                  : "Sync"}
               </Button>
             </motion.div>
           </div>
-        </div>
-
-        <div className="max-w-[1400px] mx-auto w-full px-4 md:px-8 -mt-6 relative z-20">
           
-          {/* Quick Stats Row */}
-          <motion.div 
-             variants={containerVariants}
-             initial="hidden"
-             animate="show"
-             className="grid grid-cols-3 gap-4 mb-8"
-          >
-            <motion.div variants={itemVariants} className="bg-background/60 backdrop-blur-xl border border-white/5 rounded-2xl p-4 md:p-5 flex items-center gap-4 shadow-lg hover:bg-background/80 transition-colors">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                <ListOrdered size={20} />
-              </div>
-              <div>
-                <div className="text-xl md:text-2xl font-bold tabular-nums tracking-tight text-foreground">{totalEntries}</div>
-                <div className="text-xs md:text-sm font-medium text-muted-foreground">Total Entries</div>
-              </div>
-            </motion.div>
-            
-            <motion.div variants={itemVariants} className="bg-background/60 backdrop-blur-xl border border-white/5 rounded-2xl p-4 md:p-5 flex items-center gap-4 shadow-lg hover:bg-background/80 transition-colors">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 shrink-0">
-                <Activity size={20} />
-              </div>
-              <div>
-                <div className="text-xl md:text-2xl font-bold tabular-nums tracking-tight text-foreground">{readingCount}</div>
-                <div className="text-xs md:text-sm font-medium text-muted-foreground">Reading</div>
-              </div>
-            </motion.div>
-            
-            <motion.div variants={itemVariants} className="bg-background/60 backdrop-blur-xl border border-white/5 rounded-2xl p-4 md:p-5 flex items-center gap-4 shadow-lg hover:bg-background/80 transition-colors">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 shrink-0">
-                <CheckCircle2 size={20} />
-              </div>
-              <div>
-                <div className="text-xl md:text-2xl font-bold tabular-nums tracking-tight text-foreground">{completedCount}</div>
-                <div className="text-xs md:text-sm font-medium text-muted-foreground">Completed</div>
-              </div>
-            </motion.div>
-          </motion.div>
-
-          {/* Segmented Tabs */}
+          {/* Segmented Tabs (Underline Style) */}
           {tabs.length > 0 && (
-            <div className="flex gap-2 overflow-x-auto hide-scrollbar mb-8 p-1.5 bg-secondary/30 backdrop-blur-md rounded-2xl border border-white/5 inline-flex">
+            <div className="flex gap-6 overflow-x-auto hide-scrollbar mb-4 border-b border-border/50">
               {tabs.map((tab) => {
                 const isActive = activeTab === tab;
                 const count = collection?.lists.find(l => l.name === tab)?.entries.length || 0;
@@ -435,24 +419,24 @@ export function AniListDashboard() {
                     key={tab}
                     onClick={() => setActiveTab(tab)}
                     className={cn(
-                      "relative px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap flex items-center gap-2",
-                      isActive ? "text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                      "relative pb-2.5 text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-1.5",
+                      isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
                     )}
                   >
-                    {isActive && (
-                      <motion.div 
-                        layoutId="active-anilist-tab"
-                        className="absolute inset-0 bg-primary rounded-xl -z-10"
-                        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                      />
-                    )}
-                    <span className="relative z-10">{tab}</span>
+                    <span>{tab}</span>
                     <span className={cn(
-                      "relative z-10 text-[11px] px-1.5 py-0.5 rounded-md",
-                      isActive ? "bg-black/20 text-white" : "bg-muted text-muted-foreground"
+                      "text-[10px] px-1.5 py-0.5 rounded-sm font-bold",
+                      isActive ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
                     )}>
                       {count}
                     </span>
+                    {isActive && (
+                      <motion.div 
+                        layoutId="active-anilist-underline"
+                        className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary rounded-t-full"
+                        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                      />
+                    )}
                   </button>
                 );
               })}
@@ -468,16 +452,17 @@ export function AniListDashboard() {
             className="pb-24"
           >
             {activeTab === 'Search Results' ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4 md:gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
                 {searchResults.map((media) => {
                   const title = media.title.userPreferred || media.title.english || media.title.romaji;
                   return (
                     <motion.div variants={itemVariants} key={media.id}>
-                      <ModernBookCard
+                      <AniListBookCard
                         id={media.id.toString()}
                         title={title}
-                        author={media.format}
+                        format={media.format}
                         coverUrl={media.coverImage.extraLarge || media.coverImage.large}
+                        score={media.averageScore}
                         onClick={() => handleRawEntryClick(media)}
                       />
                     </motion.div>
@@ -495,7 +480,7 @@ export function AniListDashboard() {
                 </p>
               </motion.div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4 md:gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
                 {currentListGroup.entries.map((entry) => {
                   const manga = entry.media;
                   const title = manga.title.userPreferred || manga.title.english || manga.title.romaji;
@@ -503,23 +488,18 @@ export function AniListDashboard() {
                   const total = manga.chapters;
                   
                   return (
-                    <motion.div variants={itemVariants} key={entry.id} className="relative group">
-                      <ModernBookCard
+                    <motion.div variants={itemVariants} key={entry.id}>
+                      <AniListBookCard
                         id={entry.id.toString()}
                         title={title}
-                        author={manga.format}
+                        format={manga.format}
                         coverUrl={manga.coverImage.extraLarge || manga.coverImage.large}
+                        score={entry.score || manga.averageScore}
+                        progress={progress}
+                        total={total}
+                        status={entry.status}
                         onClick={() => handleEntryClick(entry)}
                       />
-                      {/* Floating Progress Badge */}
-                      {(activeTab === 'Reading' || activeTab === 'CURRENT' || progress > 0) && (
-                         <div className="absolute top-3 right-3 z-30 pointer-events-none transition-transform group-hover:scale-105">
-                           <div className="bg-black/70 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-lg border border-white/10 flex items-center gap-1">
-                             <BookOpen size={10} className="opacity-80" />
-                             {progress}{total ? ` / ${total}` : ''}
-                           </div>
-                         </div>
-                      )}
                     </motion.div>
                   );
                 })}
@@ -546,4 +526,3 @@ export function AniListDashboard() {
     </div>
   );
 }
-

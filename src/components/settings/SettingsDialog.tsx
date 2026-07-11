@@ -4,7 +4,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import * as Tabs from '@radix-ui/react-tabs'
 import { motion, AnimatePresence } from 'framer-motion'
 import { open } from '@tauri-apps/plugin-shell'
-import { invoke } from '@tauri-apps/api/core'
+
 import {
   X, Moon, Sun, Palette, Shield, BookOpen, FileText,
   Download, Upload, HardDrive, Archive, CheckCircle2, AlertTriangle,
@@ -662,7 +662,7 @@ const GeneralSettings = ({
               <select
                 className="flex h-10 w-full md:w-[200px] items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 value={preferences.preferredContentType ?? 'both'}
-                onChange={(e) => updateGeneralSettings({ preferredContentType: e.target.value as any })}
+                onChange={(e) => updateGeneralSettings({ preferredContentType: e.target.value as 'books' | 'manga' | 'both' })}
               >
                 <option value="both" className="bg-background">Both Books & Manga</option>
                 <option value="books" className="bg-background">Only Books</option>

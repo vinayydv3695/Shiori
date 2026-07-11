@@ -16,6 +16,7 @@ import app.tauri.plugin.Plugin
 import app.tauri.plugin.Invoke
 import java.io.File
 import java.io.FileOutputStream
+import androidx.documentfile.provider.DocumentFile
 
 @TauriPlugin
 class SafPlugin(private val activity: Activity): Plugin(activity) {
@@ -117,22 +118,34 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
         if (result.resultCode == Activity.RESULT_OK) {
             val clipData = result.data?.clipData
             val uri = result.data?.data
-            val paths = JSArray()
+            val files = JSArray()
+
+            fun appendFile(uri: Uri) {
+                try {
+                    activity.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                } catch (e: Exception) {
+                }
+
+                val docFile = DocumentFile.fromSingleUri(activity, uri)
+                val name = docFile?.name ?: uri.lastPathSegment ?: "selected-file"
+                val obj = JSObject()
+                obj.put("uri", uri.toString())
+                obj.put("name", name)
+                obj.put("size", docFile?.length() ?: 0)
+                files.put(obj)
+            }
 
             if (clipData != null) {
                 for (i in 0 until clipData.itemCount) {
-                    val itemUri = clipData.getItemAt(i).uri
-                    try { activity.contentResolver.takePersistableUriPermission(itemUri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (e: Exception) {}
-                    paths.put(itemUri.toString())
+                    appendFile(clipData.getItemAt(i).uri)
                 }
             } else if (uri != null) {
-                try { activity.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (e: Exception) {}
-                paths.put(uri.toString())
+                appendFile(uri)
             }
 
-            if (paths.length() > 0) {
+            if (files.length() > 0) {
                 val ret = JSObject()
-                ret.put("uris", paths)
+                ret.put("files", files)
                 invoke.resolve(ret)
             } else {
                 invoke.reject("No files selected")
@@ -156,7 +169,7 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
             return
         }
 
-        val supportedExtensions = listOf("epub", "pdf", "mobi", "azw3", "cbz", "cbr", "zip")
+        val supportedExtensions = listOf("epub", "pdf", "mobi", "azw", "azw3", "txt", "fb2", "docx", "html", "htm", "md", "djvu", "cbz", "cbr", "zip")
         val results = JSArray()
 
         fun traverse(dir: androidx.documentfile.provider.DocumentFile) {
@@ -218,7 +231,21 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
                     cacheDir.mkdirs()
                 }
 
-                val destFile = File(cacheDir, name)
+                val sourceFile = File(name)
+                val baseName = sourceFile.nameWithoutExtension
+                val extension = sourceFile.extension
+
+                var destFile = File(cacheDir, name)
+                var duplicateIndex = 1
+                while (destFile.exists()) {
+                    val candidateName = if (extension.isNotEmpty()) {
+                        "$baseName ($duplicateIndex).$extension"
+                    } else {
+                        "$baseName ($duplicateIndex)"
+                    }
+                    destFile = File(cacheDir, candidateName)
+                    duplicateIndex += 1
+                }
 
                 val outputStream = FileOutputStream(destFile)
                 val buffer = ByteArray(8192)

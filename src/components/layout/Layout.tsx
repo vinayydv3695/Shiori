@@ -30,7 +30,7 @@ import { useToast } from '@/store/toastStore'
 import { type CurrentView } from '@/store/uiStore'
 import { useOfflineSyncStore } from '@/store/offlineSyncStore'
 import { anilistAuth } from '@/auth'
-import { useQuery } from '@tanstack/react-query'
+
 import { logger } from '@/lib/logger'
 
 type DragLayerProps = {

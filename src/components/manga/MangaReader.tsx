@@ -9,7 +9,7 @@ import { api } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
 import { useToastStore } from '@/store/toastStore';
 import { useLibraryStore } from '@/store/libraryStore';
-import { usePreferencesStore } from '@/store/preferencesStore';
+import { anilistAuth } from '@/auth';
 import { safeUpdateMediaListEntry, searchMedia } from '@/lib/anilist';
 import { CompletionPromptDialog } from './CompletionPromptDialog';
 import { MangaCanvas } from './MangaCanvas';
@@ -315,8 +315,8 @@ export function MangaReader(props: MangaReaderProps) {
 
                     const libBook = useLibraryStore.getState().books.find(b => b.id === bookId);
                     if (libBook && currentPage === mangaTotalPages - 1) {
-                        const prefs = usePreferencesStore.getState().preferences;
-                        if (prefs?.anilistToken) {
+                        const anilistToken = await anilistAuth.getAccessToken();
+                        if (anilistToken) {
                             const match = libBook.title.match(/chapter\s+(\d+)/i) || libBook.title.match(/(?:ch|c)\.?\s*(\d+)/i);
                             const chapterNum = match ? parseInt(match[1]) : 0;
                             
@@ -325,7 +325,7 @@ export function MangaReader(props: MangaReaderProps) {
                                 
                                 // Auto-match
                                 if (!mediaId) {
-                                    const results = await searchMedia(libBook.title, prefs.anilistToken);
+                                    const results = await searchMedia(libBook.title, anilistToken);
                                     if (results && results.length > 0) {
                                         mediaId = results[0].id;
                                         const updatedBook = { ...libBook, anilist_id: mediaId.toString() };
@@ -340,7 +340,7 @@ export function MangaReader(props: MangaReaderProps) {
                                         mediaId,
                                         title: libBook.title,
                                         totalChapters: chapterNum,
-                                        token: prefs.anilistToken
+                                        token: anilistToken
                                     });
                                     setShowCompletionPrompt(true);
                                 }
@@ -372,8 +372,8 @@ export function MangaReader(props: MangaReaderProps) {
                     }
 
                     if (currentPage === mangaTotalPages - 1) {
-                        const prefs = usePreferencesStore.getState().preferences;
-                        if (prefs?.anilistToken) {
+                        const anilistToken = await anilistAuth.getAccessToken();
+                        if (anilistToken) {
                             const chapterInfo = onlineSource.chapters.find(c => c.id === onlineSource.chapterId);
                             const chapterNum = typeof chapterInfo?.number === 'number' ? Math.floor(chapterInfo.number) : 0;
                             
@@ -384,7 +384,7 @@ export function MangaReader(props: MangaReaderProps) {
                                 if (!mediaId) {
                                     const titleToSearch = onlineSource.contentTitle || libBook?.title;
                                     if (titleToSearch) {
-                                        const results = await searchMedia(titleToSearch, prefs.anilistToken);
+                                        const results = await searchMedia(titleToSearch, anilistToken);
                                         if (results && results.length > 0) {
                                             mediaId = results[0].id;
                                             
@@ -407,11 +407,11 @@ export function MangaReader(props: MangaReaderProps) {
                                             mediaId,
                                             title: onlineSource.contentTitle || libBook?.title || '',
                                             totalChapters: chapterNum,
-                                            token: prefs.anilistToken
+                                            token: anilistToken
                                         });
                                         setShowCompletionPrompt(true);
                                     } else {
-                                        await safeUpdateMediaListEntry(mediaId, chapterNum, 'CURRENT', prefs.anilistToken);
+                                        await safeUpdateMediaListEntry(mediaId, chapterNum, 'CURRENT', anilistToken);
                                         logger.debug(`[MangaReader] Synced online progress to AniList for ${mediaId}`);
                                     }
                                 }
@@ -455,7 +455,7 @@ export function MangaReader(props: MangaReaderProps) {
         onClose();
     }, [sourceType, bookId, closeManga, onClose]);
 
-    const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+    const handleDoubleClick = useCallback((_e: React.MouseEvent) => {
         const uiStore = useMangaUIStore.getState();
         uiStore.setTopBarVisible(true);
         // Only toggle sidebar if they are actively trying to show UI, or just toggle both

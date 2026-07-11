@@ -3,10 +3,10 @@ import { AlertTriangle, Cloud, Database, Shield, KeyRound, Eye, EyeOff, ShieldCh
 import GlowButton from '../components/GlowButton';
 import { OnboardingMotionStyles } from '../components';
 import { api, isAndroid } from '@/lib/tauri';
-import { useSourceStore } from '@/store/sourceStore';
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
+import { useSourceStore } from '@/store/sourceStore';
 import { usePreferencesStore } from '@/store/preferencesStore';
+import { anilistAuth, ViewerInfo } from '@/auth';
 
 const ANILIST_CLIENT_ID = '45197';
 const ANILIST_IMPLICIT_URL = `https://anilist.co/api/v2/oauth/authorize?client_id=${ANILIST_CLIENT_ID}&response_type=token`;
@@ -30,7 +30,6 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
   const preferredDebridProvider = useSourceStore((state) => state.preferredDebridProvider);
   const setPreferredDebridProvider = useSourceStore((state) => state.setPreferredDebridProvider);
 
-  const preferences = usePreferencesStore((state) => state.preferences);
   const updateGeneralSettings = usePreferencesStore((state) => state.updateGeneralSettings);
 
   const [hasTorboxKey, setHasTorboxKey] = useState<boolean | null>(null);
@@ -43,23 +42,33 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
   const [testValid, setTestValid] = useState<boolean | null>(null);
 
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isAniListLinked, setIsAniListLinked] = useState(false);
+  const [aniListViewer, setAniListViewer] = useState<ViewerInfo | null>(null);
 
   useEffect(() => {
-    const unlisten = listen<string>('anilist-token', (event) => {
-      updateGeneralSettings({ anilistToken: event.payload });
-      setIsLoggingIn(false);
-    });
-
-    const unlistenError = listen<string>('anilist-error', (event) => {
-      setIsLoggingIn(false);
-    });
-
     let isMounted = true;
-    let unlistenFn: (() => void) | null = null;
-    let unlistenErrorFn: (() => void) | null = null;
 
-    unlisten.then(fn => unlistenFn = fn);
-    unlistenError.then(fn => unlistenErrorFn = fn);
+    const loadAniListState = async () => {
+      const linked = await anilistAuth.isAuthenticated();
+      if (!isMounted) return;
+
+      setIsAniListLinked(linked);
+      if (linked) {
+        const viewer = await anilistAuth.getViewerInfo();
+        if (!isMounted) return;
+        setAniListViewer(viewer);
+      } else {
+        setAniListViewer(null);
+      }
+      setIsLoggingIn(false);
+    };
+
+    void loadAniListState();
+
+    const handleAniListChange = () => {
+      void loadAniListState();
+    };
+    window.addEventListener('anilist-auth-changed', handleAniListChange);
 
     const loadTorboxKey = async () => {
       try {
@@ -84,8 +93,7 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
     void loadTorboxKey();
     return () => {
       isMounted = false;
-      if (unlistenFn) unlistenFn();
-      if (unlistenErrorFn) unlistenErrorFn();
+      window.removeEventListener('anilist-auth-changed', handleAniListChange);
     };
   }, []);
 
@@ -206,17 +214,19 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
                     </p>
 
                     <div className="flex items-center gap-3">
-                      {preferences?.anilistToken ? (
+                      {isAniListLinked ? (
                         <div className="flex w-full items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
                           <div className="flex items-center gap-2 text-emerald-300">
                             <ShieldCheck className="h-4 w-4" />
-                            <span className="text-sm font-medium">Account Linked</span>
+                            <span className="text-sm font-medium">{aniListViewer?.name ? `Linked as ${aniListViewer.name}` : 'Account Linked'}</span>
                           </div>
                           <GlowButton
                             theme="dark"
                             variant="secondary"
                             className="border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-200 hover:bg-emerald-500/20"
-                            onClick={() => updateGeneralSettings({ anilistToken: '' })}
+                            onClick={() => {
+                              void anilistAuth.logout();
+                            }}
                           >
                             Unlink
                           </GlowButton>
@@ -224,22 +234,25 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
                       ) : (
                         <div className="flex w-full flex-col gap-3">
                           {isAndroid ? (
-                            // Android: open system browser for implicit token flow
                             <div className="flex flex-col gap-2">
                               <p className="text-xs text-foreground/60 leading-relaxed">
-                                Tap the button below to open AniList in your browser. After logging in, copy the access token from the URL and paste it below.
+                                Link AniList with the Android login flow to sync reading progress without copying tokens manually.
                               </p>
                               <GlowButton
                                 theme="dark"
                                 variant="secondary"
                                 className="w-full border-border/40 bg-card px-4 py-3 text-sm text-foreground hover:bg-primary/5"
-                                onClick={() => {
-                                  invoke('plugin:opener|open_url', { url: ANILIST_IMPLICIT_URL }).catch(() => {
-                                    void navigator.clipboard?.writeText(ANILIST_IMPLICIT_URL);
-                                  });
+                                onClick={async () => {
+                                  setIsLoggingIn(true);
+                                  try {
+                                    await anilistAuth.login();
+                                  } catch {
+                                    setIsLoggingIn(false);
+                                  }
                                 }}
+                                disabled={isLoggingIn}
                               >
-                                Open AniList Login Page
+                                {isLoggingIn ? 'Awaiting Login...' : 'Login with AniList'}
                               </GlowButton>
                             </div>
                           ) : (
@@ -256,24 +269,22 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
                               {isLoggingIn ? 'Awaiting Login...' : 'Login with AniList'}
                             </GlowButton>
                           )}
-                          <div className="flex flex-col gap-2 rounded-xl border border-border/40 bg-card/30 p-3">
-                            <p className="text-xs text-foreground/60">
-                              {isAndroid ? 'Paste your AniList access token here:' : 'Or manually paste your AniList token:'}
-                            </p>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="text"
-                                placeholder="eyJ0eXAi..."
-                                className="h-9 flex-1 rounded-lg border border-border/40 bg-background px-3 text-sm text-foreground outline-none transition focus-visible:ring-1 focus-visible:ring-primary/50"
-                                onChange={(e) => {
-                                  if (e.target.value.length > 50) {
-                                    updateGeneralSettings({ anilistToken: e.target.value });
-                                    e.target.value = '';
-                                  }
-                                }}
-                              />
-                            </div>
-                            {!isAndroid && (
+                          {!isAndroid && (
+                            <div className="flex flex-col gap-2 rounded-xl border border-border/40 bg-card/30 p-3">
+                              <p className="text-xs text-foreground/60">Or manually paste your AniList token:</p>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  placeholder="eyJ0eXAi..."
+                                  className="h-9 flex-1 rounded-lg border border-border/40 bg-background px-3 text-sm text-foreground outline-none transition focus-visible:ring-1 focus-visible:ring-primary/50"
+                                  onChange={(e) => {
+                                    if (e.target.value.length > 50) {
+                                      updateGeneralSettings({ anilistToken: e.target.value });
+                                      e.target.value = '';
+                                    }
+                                  }}
+                                />
+                              </div>
                               <a
                                 href={ANILIST_IMPLICIT_URL}
                                 target="_blank"
@@ -282,8 +293,8 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
                               >
                                 Get a token here
                               </a>
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { CheckCircle, Database, FileSearch, FolderPlus, Upload, XCircle } from 'lucide-react';
-import { open } from '@tauri-apps/plugin-dialog';
-import { type } from '@tauri-apps/plugin-os';
-import { invoke } from '@tauri-apps/api/core';
 import FormatBadge from '../components/FormatBadge';
 import GlowButton from '../components/GlowButton';
 import { OnboardingMotionStyles } from '../components';
 import { useImport } from '../hooks/useImport';
 import { useToast } from '@/store/toastStore';
+import { api } from '@/lib/tauri';
 
 type ImportStepProps = {
   libraryPath: string | null;
@@ -19,6 +17,18 @@ type ImportStepProps = {
 const formats = ['epub', 'pdf', 'mobi', 'cbz', 'cbr', 'azw3'] as const;
 
 const normalizeToFolderPath = (path: string) => path.replace(/[/\\][^/\\]+$/, '');
+
+function isPermissionDeniedError(error: unknown) {
+  if (typeof error === 'string') {
+    return error.toLowerCase().includes('permission denied');
+  }
+
+  if (error instanceof Error) {
+    return error.message.toLowerCase().includes('permission denied');
+  }
+
+  return false;
+}
 
 export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: ImportStepProps) {
   const [isDragOver, setIsDragOver] = useState(false);
@@ -37,20 +47,11 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
 
   const handlePickFolder = async () => {
     try {
-      let resolved: string | null = null;
-      if (type() === 'android') {
-        const response = await invoke<{uri: string}>('plugin:android-saf|select_folder');
-        resolved = response.uri;
-      } else {
-        const selected = await open({ directory: true, multiple: false });
-        resolved = typeof selected === 'string' ? selected : null;
-      }
+      const resolved = await api.openFolderDialog();
       await runImport(resolved);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.warn("Folder picker cancelled or failed:", e);
-      if (typeof e === 'string' && e.toLowerCase().includes('permission denied')) {
-        toast.error('Permission denied', 'Please grant "All files access" or storage permissions in Android Settings to import your library.');
-      } else if (e?.message && e.message.toLowerCase().includes('permission denied')) {
+      if (isPermissionDeniedError(e)) {
         toast.error('Permission denied', 'Please grant "All files access" or storage permissions in Android Settings to import your library.');
       } else if (typeof e === 'string' && !e.toLowerCase().includes('cancelled')) {
         toast.error('Failed to select folder', 'Could not open folder selection dialog');

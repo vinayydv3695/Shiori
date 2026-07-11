@@ -2,6 +2,14 @@ use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
+const DESKTOP_ANILIST_CLIENT_ID: &str = "45197";
+const DESKTOP_ANILIST_CLIENT_SECRET: &str = "vXYsl7taXO0YSgpjLRp0xTWLWoHbbEsWMsbf3lLD";
+const DESKTOP_ANILIST_REDIRECT_URI: &str = "https://shiori.local/auth";
+
+const ANDROID_ANILIST_CLIENT_ID: &str = "45479";
+const ANDROID_ANILIST_CLIENT_SECRET: &str = "eb4zstd1FYg89DbVdJ4kp0inyq76Zp46oPH5UM4d";
+const ANDROID_ANILIST_REDIRECT_URI: &str = "shiori://auth";
+
 #[derive(Serialize)]
 struct TokenRequest {
     grant_type: String,
@@ -20,15 +28,63 @@ struct TokenResponse {
     expires_in: u64,
 }
 
+async fn exchange_authorization_code(
+    client_id: &str,
+    client_secret: &str,
+    redirect_uri: &str,
+    code: String,
+) -> Result<String, String> {
+    let client = Client::builder()
+        .user_agent("Shiori")
+        .build()
+        .unwrap_or_else(|_| Client::new());
+
+    let req_body = TokenRequest {
+        grant_type: "authorization_code".to_string(),
+        client_id: client_id.to_string(),
+        client_secret: client_secret.to_string(),
+        redirect_uri: redirect_uri.to_string(),
+        code,
+    };
+
+    let resp = client
+        .post("https://anilist.co/api/v2/oauth/token")
+        .json(&req_body)
+        .send()
+        .await
+        .map_err(|e| format!("Request failed: {}", e))?;
+
+    let status = resp.status();
+    if !status.is_success() {
+        let error_text = resp.text().await.unwrap_or_default();
+        return Err(format!("HTTP {}: {}", status, error_text));
+    }
+
+    let token_data = resp
+        .json::<TokenResponse>()
+        .await
+        .map_err(|e| format!("Failed to parse token response: {}", e))?;
+
+    Ok(token_data.access_token)
+}
+
+#[tauri::command]
+pub async fn exchange_android_anilist_code(code: String) -> Result<String, String> {
+    exchange_authorization_code(
+        ANDROID_ANILIST_CLIENT_ID,
+        ANDROID_ANILIST_CLIENT_SECRET,
+        ANDROID_ANILIST_REDIRECT_URI,
+        code,
+    )
+    .await
+}
+
 #[tauri::command]
 pub async fn start_anilist_login(app: AppHandle) -> Result<(), String> {
-    let client_id = "45197";
-    let client_secret = "vXYsl7taXO0YSgpjLRp0xTWLWoHbbEsWMsbf3lLD";
-    let redirect_uri = "https://shiori.local/auth";
-    
     let auth_url_str = format!(
-        "https://anilist.co/api/v2/oauth/authorize?client_id={}&response_type=code",
-        client_id
+        "https://anilist.co/api/v2/oauth/authorize?client_id={}&redirect_uri={}&response_type=code",
+        DESKTOP_ANILIST_CLIENT_ID,
+        urlencoding::encode(DESKTOP_ANILIST_REDIRECT_URI)
     );
     let auth_url = url::Url::parse(&auth_url_str).map_err(|e| e.to_string())?;
 
@@ -49,7 +105,7 @@ pub async fn start_anilist_login(app: AppHandle) -> Result<(), String> {
             // Emit every navigation URL for debugging
             let _ = handle.emit("anilist-debug", url_str.to_string());
 
-            if url_str.starts_with("https://shiori.local/auth") {
+            if url_str.starts_with(DESKTOP_ANILIST_REDIRECT_URI) {
                 let mut code = None;
                 
                 if let Some(query) = url.query() {
@@ -63,43 +119,19 @@ pub async fn start_anilist_login(app: AppHandle) -> Result<(), String> {
                 
                 if let Some(c) = code {
                     let h = handle.clone();
-                    let cid = client_id.to_string();
-                    let sec = client_secret.to_string();
-                    let ruri = redirect_uri.to_string();
                     
                     tauri::async_runtime::spawn(async move {
-                        let client = Client::builder()
-                            .user_agent("Shiori")
-                            .build()
-                            .unwrap_or_else(|_| Client::new());
-                            
-                        let req_body = TokenRequest {
-                            grant_type: "authorization_code".to_string(),
-                            client_id: cid,
-                            client_secret: sec,
-                            redirect_uri: ruri,
-                            code: c,
-                        };
-                        
-                        match client.post("https://anilist.co/api/v2/oauth/token")
-                            .json(&req_body)
-                            .send()
-                            .await {
-                            Ok(resp) => {
-                                let status = resp.status();
-                                if status.is_success() {
-                                    if let Ok(token_data) = resp.json::<TokenResponse>().await {
-                                        let _ = h.emit("anilist-token", token_data.access_token);
-                                    } else {
-                                        let _ = h.emit("anilist-error", "Failed to parse token response");
-                                    }
-                                } else {
-                                    let error_text = resp.text().await.unwrap_or_default();
-                                    let _ = h.emit("anilist-error", format!("HTTP {}: {}", status, error_text));
-                                }
+                        match exchange_authorization_code(
+                            DESKTOP_ANILIST_CLIENT_ID,
+                            DESKTOP_ANILIST_CLIENT_SECRET,
+                            DESKTOP_ANILIST_REDIRECT_URI,
+                            c,
+                        ).await {
+                            Ok(token) => {
+                                let _ = h.emit("anilist-token", token);
                             }
-                            Err(e) => {
-                                let _ = h.emit("anilist-error", format!("Request failed: {}", e));
+                            Err(error) => {
+                                let _ = h.emit("anilist-error", error);
                             }
                         }
                     });

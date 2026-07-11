@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Download, ExternalLink, X, Star, Calendar, Bookmark, Edit3, ArrowLeft, BookOpen } from 'lucide-react';
+import { Download, ExternalLink, Bookmark, ArrowLeft, BookOpen } from 'lucide-react';
 import { AnilistMediaList, AnilistMediaDetails, getMediaDetails, updateMediaListEntry } from '@/lib/anilist';
-import { usePreferencesStore } from '@/store/preferencesStore';
 import { toast } from 'sonner';
+import { useAniListAccessToken } from '@/auth/useAniListAccessToken';
 
 interface AniListMangaDetailsViewProps {
   mediaId: number;
@@ -23,7 +23,7 @@ export function AniListMangaDetailsView({
   onSearchOnlineManga,
   onSearchTorbox
 }: AniListMangaDetailsViewProps) {
-  const anilistToken = usePreferencesStore(state => state.preferences?.anilistToken);
+  const { token: anilistToken } = useAniListAccessToken();
   
   const [details, setDetails] = useState<AnilistMediaDetails | null>(null);
   const [loading, setLoading] = useState(true);

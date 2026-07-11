@@ -1673,10 +1673,18 @@ const AdvancedSettings = ({
 
     try {
       if (!isTauri) return
-      const filePath = await openDialog({
-        multiple: false,
-        filters: [{ name: 'Shiori Backup', extensions: ['zip'] }],
-      }) as string | null
+      let filePath: string | null = null;
+      if (isAndroid) {
+        const result = await api.openFileDialog();
+        if (result && result.length > 0) {
+          filePath = result[0];
+        }
+      } else {
+        filePath = await openDialog({
+          multiple: false,
+          filters: [{ name: 'Shiori Backup', extensions: ['zip'] }],
+        }) as string | null
+      }
       if (!filePath) return
 
       setIsRestoring(true)

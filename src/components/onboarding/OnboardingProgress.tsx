@@ -5,20 +5,19 @@ type OnboardingProgressProps = {
 
 const FULL_ONBOARDING_STEPS = [
   { title: 'Welcome', required: true },
-  { title: 'Theme', required: true },
+  { title: 'Content Type', required: true },
+  { title: 'Customization', required: true },
   { title: 'Import Library', required: true },
-  { title: 'Torbox Integration', required: false },
-  { title: 'Cloud Integrations', required: false },
-  { title: 'Reader Preferences', required: true },
-  { title: 'App Settings', required: true },
+  { title: 'Source & Debrid', required: false },
+  { title: 'Integrations', required: false },
   { title: 'Finish', required: true },
 ] as const;
 
 export function OnboardingProgress({ currentStep, totalSteps = FULL_ONBOARDING_STEPS.length }: OnboardingProgressProps) {
   const totalDots = Math.max(1, Math.min(totalSteps, FULL_ONBOARDING_STEPS.length));
   const visibleSteps =
-    totalDots === 7
-      ? FULL_ONBOARDING_STEPS.filter((step) => step.title !== 'Cloud Integrations')
+    totalDots === (FULL_ONBOARDING_STEPS.length - 1)
+      ? FULL_ONBOARDING_STEPS.filter((step) => step.title !== 'Import Library')
       : FULL_ONBOARDING_STEPS;
 
   const activeDot = Math.min(totalDots, Math.max(1, Math.floor(currentStep)));

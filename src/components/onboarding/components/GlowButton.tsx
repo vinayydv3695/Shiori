@@ -30,8 +30,8 @@ export const GlowButton: React.FC<GlowButtonProps> = ({
   const variantClasses =
     theme === 'dark'
       ? variant === 'primary'
-        ? 'bg-black text-white border border-white/20 hover:bg-slate-950 hover:border-white/30 hover:scale-[1.02]'
-        : 'bg-slate-900 text-white border border-white/10 hover:bg-slate-800 hover:border-white/20 hover:scale-[1.02]'
+        ? 'bg-gradient-to-b from-white to-zinc-200 text-zinc-950 shadow-[inset_0_1px_0_rgba(255,255,255,1),inset_0_-1px_0_rgba(0,0,0,0.1),0_4px_12px_rgba(0,0,0,0.4),0_0_20px_rgba(255,255,255,0.15)] hover:from-white hover:to-zinc-100 hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),inset_0_-1px_0_rgba(0,0,0,0.05),0_6px_16px_rgba(0,0,0,0.5),0_0_30px_rgba(255,255,255,0.3)] hover:-translate-y-0.5'
+        : 'bg-gradient-to-b from-white/10 to-white/5 backdrop-blur-md text-zinc-200 border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),inset_0_-1px_0_rgba(255,255,255,0.05),0_4px_12px_rgba(0,0,0,0.3)] hover:from-white/15 hover:to-white/10 hover:text-white hover:border-white/20 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),inset_0_-1px_0_rgba(255,255,255,0.1),0_6px_16px_rgba(0,0,0,0.4),0_0_15px_rgba(255,255,255,0.05)] hover:-translate-y-0.5'
       : variant === 'primary'
         ? 'text-white bg-gradient-to-r from-zinc-700 via-zinc-600 to-zinc-500 shadow-[0_0_18px_rgba(161,161,170,0.25)] hover:shadow-[0_0_24px_rgba(161,161,170,0.35)] hover:scale-[1.02]'
         : 'text-white/90 bg-white/5 backdrop-blur-md border border-white/20 shadow-[0_0_14px_rgba(161,161,170,0.22)] hover:bg-white/10 hover:border-white/35 hover:shadow-[0_0_18px_rgba(161,161,170,0.3)] hover:scale-[1.02]';

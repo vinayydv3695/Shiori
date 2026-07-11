@@ -44,7 +44,7 @@ export interface BookPrefs {
 
 export interface OnboardingWizardState {
   onboardingComplete: boolean;
-  currentStep: 1 | 2 | 3 | 4 | 5 | 6;
+  currentStep: 1 | 2 | 3 | 4 | 5 | 6 | 7;
   libraryPath: string | null;
   selectedTheme: ThemeName;
   mangaPrefs: MangaPrefs;
@@ -69,7 +69,7 @@ export interface OnboardingWizardState {
 
 interface OnboardingStore extends OnboardingWizardState {
   initialize: () => Promise<void>;
-  setCurrentStep: (step: 1 | 2 | 3 | 4 | 5 | 6) => void;
+  setCurrentStep: (step: 1 | 2 | 3 | 4 | 5 | 6 | 7) => void;
   nextStep: () => void;
   prevStep: () => void;
   setLibraryPath: (path: string | null) => void;
@@ -94,7 +94,7 @@ interface OnboardingStore extends OnboardingWizardState {
   resetOnboarding: () => void;
 }
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 7;
 const DEFAULT_TRANSLATION_LANGUAGE = 'en';
 const DEFAULT_CACHE_SIZE_MB = 500;
 const DEFAULT_LIBRARY_SIZE_LIMIT = 10000;
@@ -386,7 +386,7 @@ export const useOnboardingStore = create<OnboardingStore>()(
           if (next === 4 && state.onboardingPath === 'cloud') {
             next = 5;
           }
-          return { currentStep: Math.min(TOTAL_STEPS, next) as 1 | 2 | 3 | 4 | 5 | 6 };
+          return { currentStep: Math.min(TOTAL_STEPS, next) as 1 | 2 | 3 | 4 | 5 | 6 | 7 };
         }),
 
       prevStep: () =>
@@ -396,7 +396,7 @@ export const useOnboardingStore = create<OnboardingStore>()(
           if (prev === 4 && state.onboardingPath === 'cloud') {
             prev = 3;
           }
-          return { currentStep: Math.max(1, prev) as 1 | 2 | 3 | 4 | 5 | 6 };
+          return { currentStep: Math.max(1, prev) as 1 | 2 | 3 | 4 | 5 | 6 | 7 };
         }),
 
       setLibraryPath: (path) => {

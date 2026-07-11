@@ -8,6 +8,7 @@ import { ContentTypeStep } from './steps/ContentTypeStep';
 import { AppCustomizationStep } from './steps/AppCustomizationStep';
 import { ImportStep } from './steps/ImportStep';
 import { CloudIntegrationStep } from './steps/CloudIntegrationStep';
+import { IntegrationsStep } from './steps/IntegrationsStep';
 import { FinishStep } from './steps/FinishStep';
 
 interface OnboardingWizardProps {
@@ -28,8 +29,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
   const [isFinishing, setIsFinishing] = useState(false);
 
-  // If path is cloud, we skip step 4, so total steps is 5, else 6
-  const totalSteps = state.onboardingPath === 'cloud' ? 5 : 6;
+  // If path is cloud, we skip step 4, so total steps is 6, else 7
+  const totalSteps = state.onboardingPath === 'cloud' ? 6 : 7;
   
   // Calculate visual step based on current step and path
   let visualStep = state.currentStep;
@@ -124,6 +125,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               />
             ) : null}
             {state.currentStep === 6 ? (
+              <IntegrationsStep
+                onBack={prevStep}
+                onNext={nextStep}
+              />
+            ) : null}
+            {state.currentStep === 7 ? (
               <FinishStep
                 onBack={prevStep}
                 onOpenLibrary={handleFinish}

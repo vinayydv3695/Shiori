@@ -1298,7 +1298,7 @@ export function OnlineMangaView() {
             )}
 
           {!displayLoading && !hasVisibleSearched && hasEnabledMangaSource && (
-            <div className="space-y-4 md:space-y-10">
+            <div className="space-y-4">
               {/* Hero Banner Desktop */}
               <div className="hidden md:block">
                 <MangaBrowseNavBar
@@ -1388,9 +1388,9 @@ export function OnlineMangaView() {
                 ) : (
                   <div className="flex-1 flex flex-col gap-8 min-w-0">
                     {/* Popular Manga Carousel */}
-                    <div className="bento-widget">
-                      <div className="bento-widget-header">
-                        <h2 className="bento-widget-title">
+                    <div className="mb-10">
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-bold tracking-tight text-foreground">
                           {isMangaDexEnabled ? "Trending This Week" : "Popular"}
                         </h2>
                       </div>
@@ -1415,9 +1415,9 @@ export function OnlineMangaView() {
                     </div>
 
                     {/* Latest Updates Carousel */}
-                    <div className="bento-widget">
-                      <div className="bento-widget-header">
-                        <h2 className="bento-widget-title">Latest Updates</h2>
+                    <div className="mb-10">
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-bold tracking-tight text-foreground">Latest Updates</h2>
                       </div>
                       <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6 mt-4">
                         {browseLoading.latest ? (
@@ -1440,9 +1440,9 @@ export function OnlineMangaView() {
                     </div>
 
                     {/* You Should Read (Recent) */}
-                    <div className="bento-widget">
-                      <div className="bento-widget-header">
-                        <h2 className="bento-widget-title">
+                    <div className="mb-10">
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-bold tracking-tight text-foreground">
                           {isMangaDexEnabled
                             ? "Staff Picks / You Should Read"
                             : "Recent"}

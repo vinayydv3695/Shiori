@@ -53,7 +53,7 @@ export function MangaBrowseNavBar({ activeGenres, activeTypes, activeMode, onFil
   };
 
   return (
-    <div className={`w-full bg-background/95 backdrop-blur-xl border-y border-border shadow-sm flex ${isMobileDialog ? 'flex-col gap-4 py-4 px-2 border-none items-stretch' : 'py-2 md:py-3 px-3 md:px-6 mb-2 md:mb-8 mt-0 md:mt-2 sticky top-0 z-50 items-center gap-4 md:gap-8 overflow-x-auto scrollbar-hide'}`}>
+    <div className={`w-full bg-black/20 hover:bg-black/30 backdrop-blur-xl border border-white/10 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] flex transition-all duration-300 ${isMobileDialog ? 'flex-col gap-4 py-4 px-2 border-none items-stretch bg-transparent shadow-none' : 'py-2 md:py-3 px-4 md:px-6 mb-2 md:mb-8 mt-0 sticky top-0 z-50 items-center gap-4 md:gap-8 overflow-x-auto scrollbar-hide'}`}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button className={`font-medium flex items-center justify-between gap-1 transition-colors outline-none shrink-0 text-sm md:text-base ${isMobileDialog ? 'w-full bg-secondary/20 p-3 rounded-xl' : ''} ${activeTypes.length > 0 ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>

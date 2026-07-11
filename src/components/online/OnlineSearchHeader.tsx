@@ -46,7 +46,7 @@ export function OnlineSearchHeader({
   return (
     <div className={cn(
       "flex-shrink-0 relative overflow-hidden z-10 transition-colors duration-500",
-      isMobile ? "pt-12 pb-2 px-3 bg-background" : "bg-background/60 backdrop-blur-3xl border-b border-border pt-16 pb-8 px-8"
+      isMobile ? "pt-12 pb-2 px-3 bg-background" : "bg-background/60 backdrop-blur-3xl border-b border-border pt-8 pb-6 px-8"
     )}>
       {/* Subtle ambient glass glow */}
       {!isMobile && <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] -z-10 pointer-events-none" />}
@@ -54,7 +54,7 @@ export function OnlineSearchHeader({
       <div className="max-w-7xl mx-auto relative z-10">
         <div className="flex flex-col gap-3 md:gap-6">
           <div className="hidden md:flex items-center justify-between">
-            <h1 className="text-5xl font-semibold tracking-tight text-foreground drop-shadow-sm">
+            <h1 className="text-3xl font-semibold tracking-tight text-foreground drop-shadow-sm">
               {title}
             </h1>
             <OnlineSourceSelector kind={kind} variant="secondary" className="h-10 px-4 bg-secondary/80 hover:bg-secondary text-secondary-foreground border border-border rounded-md shadow-sm backdrop-blur-md" />
@@ -120,9 +120,8 @@ export function OnlineSearchHeader({
                 </div>
               </div>
             ) : (
-              // Desktop Search Bar
-              <div className="flex items-end border-b border-border focus-within:border-primary transition-colors duration-300 pb-2">
-                <Compass className="w-6 h-6 text-muted-foreground mb-4 mr-4" />
+              <div className="flex items-center bg-black/20 hover:bg-black/30 focus-within:bg-black/40 border border-white/10 focus-within:border-primary/50 rounded-2xl p-2 transition-all duration-300 shadow-[0_8px_30px_rgba(0,0,0,0.12)] backdrop-blur-md">
+                <Compass className="w-6 h-6 text-muted-foreground ml-4 shrink-0 transition-colors duration-300" />
                 <input
                   value={searchValue}
                   onChange={(e) => onSearchValueChange(e.target.value)}
@@ -130,14 +129,19 @@ export function OnlineSearchHeader({
                     if (e.key === 'Enter') onSubmit();
                   }}
                   placeholder={kind === 'books' ? 'Search your library...' : 'Search manga by title...'}
-                  className="w-full bg-transparent border-none outline-none text-2xl font-medium text-foreground placeholder:text-muted-foreground/50 focus:ring-0 py-4 px-0"
+                  className="w-full bg-transparent border-none outline-none text-xl md:text-2xl font-medium text-foreground placeholder:text-muted-foreground/40 focus:ring-0 py-3 px-4 h-14 transition-all"
                   disabled={disabled}
                 />
-                <div className="flex items-center gap-3 mb-0.5 ml-4">
+                <div className="flex items-center gap-2 pr-1 shrink-0">
                   {(kind === 'books' || kind === 'manga') && (
                     <button 
                       onClick={() => kind === 'books' ? setAdvancedOpen(true) : onMobileFilterClick?.()}
-                      className={`p-3 rounded-xl transition-all ${hasFilters || kind === 'manga' ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/80'}`}
+                      className={cn(
+                        "p-3.5 rounded-xl transition-all flex items-center justify-center",
+                        (kind === 'books' && hasFilters) || kind === 'manga'
+                          ? "bg-primary/20 text-primary hover:bg-primary/30 border border-primary/20" 
+                          : "text-muted-foreground hover:text-foreground hover:bg-white/10 bg-transparent"
+                      )}
                       disabled={disabled}
                       title="Filters"
                     >
@@ -147,7 +151,7 @@ export function OnlineSearchHeader({
                   <button 
                     onClick={onSubmit} 
                     disabled={loading || (!searchValue.trim() && !hasFilters) || disabled}
-                    className="px-6 py-3 text-base rounded-xl bg-foreground text-background font-semibold hover:bg-foreground/90 disabled:opacity-50 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0"
+                    className="px-8 py-3.5 text-base rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:bg-muted disabled:text-muted-foreground transition-all shadow-lg hover:shadow-primary/20 hover:-translate-y-0.5 active:translate-y-0"
                   >
                     Search
                   </button>

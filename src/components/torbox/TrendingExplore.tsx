@@ -238,7 +238,7 @@ function Row({ title, items, onSelect }: { title: string, items: TrendingItem[],
             onClick={() => onSelect(item)}
             className="relative flex-none w-[130px] md:w-[180px] lg:w-[225px] snap-start md:snap-center group cursor-pointer"
           >
-            <div className="relative aspect-[2/3] w-full rounded-lg overflow-hidden bg-muted/20 border border-white/5 shadow-md group-hover:shadow-xl transition-all duration-300 group-hover:-translate-y-1">
+            <div className="relative aspect-[2/3] w-full rounded-lg overflow-hidden bg-muted/20 border border-white/5 shadow-md group-hover:shadow-[0_8px_30px_rgba(139,92,246,0.25)] group-hover:border-violet-500/40 transition-all duration-500 group-hover:-translate-y-2">
               {item.coverUrl ? (
                 <img
                   src={item.coverUrl}

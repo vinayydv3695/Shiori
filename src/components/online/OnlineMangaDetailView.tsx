@@ -4,7 +4,7 @@ import DOMPurify from 'dompurify';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { fetchWithRetry } from '@/lib/utils';
+import { fetchWithRetry, cn } from '@/lib/utils';
 import { MangaDownloadDialog } from './MangaDownloadDialog';
 
 export interface UnifiedChapter {
@@ -266,93 +266,101 @@ export function OnlineMangaDetailView({
 
 
             {/* Action Buttons */}
-            <div className="flex flex-wrap gap-3 mb-8">
-              <Button onClick={() => unifiedChapters.length > 0 && onReadChapter(filteredAndSortedChapters[filteredAndSortedChapters.length - 1])}
-                      className="gap-2 px-8 h-12 rounded-full text-sm font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5">
-                START READING <Play className="w-4 h-4 ml-1 fill-current" />
-              </Button>
-              {resumeChapter && (
-                <Button onClick={() => onReadChapter(resumeChapter)}
-                        variant="secondary"
-                        className="gap-2 px-8 h-12 rounded-full text-sm font-semibold shadow-md transition-all hover:-translate-y-0.5">
-                  CONTINUE <Play className="w-4 h-4 ml-1 fill-current" />
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-3 mb-6">
+              <div className="flex gap-2 w-full sm:w-auto">
+                <Button onClick={() => unifiedChapters.length > 0 && onReadChapter(filteredAndSortedChapters[filteredAndSortedChapters.length - 1])}
+                        className="flex-1 sm:flex-none gap-2 px-6 sm:px-8 h-10 sm:h-12 rounded-full text-xs sm:text-sm font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5">
+                  READ <Play className="w-3 h-3 sm:w-4 sm:h-4 ml-1 fill-current" />
                 </Button>
-              )}
-              {onSaveToLibrary && (
-                <Button
-                  onClick={onSaveToLibrary}
-                  variant="outline"
-                  disabled={isInLibrary}
-                  className="gap-2 px-6 h-12 rounded-full text-sm font-medium border-white/10 bg-white/5 hover:bg-white/10 backdrop-blur-sm transition-all"
-                >
-                  {isInLibrary
-                    ? <><BookmarkCheck className="w-4 h-4 text-green-400" /> IN LIBRARY</>
-                    : <><Bookmark className="w-4 h-4" /> ADD TO LIBRARY</>}
-                </Button>
-              )}
-              {onDownloadChapters && unifiedChapters.length > 0 && (
-                <Button
-                  onClick={() => setDownloadDialogOpen(true)}
-                  variant="outline"
-                  className="gap-2 px-6 h-12 rounded-full text-sm font-medium border-white/10 bg-white/5 hover:bg-white/10 backdrop-blur-sm transition-all"
-                >
-                  <Download className="w-4 h-4" /> DOWNLOAD
-                </Button>
-              )}
+                {resumeChapter && (
+                  <Button onClick={() => onReadChapter(resumeChapter)}
+                          variant="secondary"
+                          className="flex-1 sm:flex-none gap-2 px-6 sm:px-8 h-10 sm:h-12 rounded-full text-xs sm:text-sm font-semibold shadow-md transition-all hover:-translate-y-0.5">
+                    RESUME <Play className="w-3 h-3 sm:w-4 sm:h-4 ml-1 fill-current" />
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-2 w-full sm:w-auto">
+                {onSaveToLibrary && (
+                  <Button
+                    onClick={onSaveToLibrary}
+                    variant="outline"
+                    disabled={isInLibrary}
+                    className="flex-1 sm:flex-none gap-2 px-4 sm:px-6 h-10 sm:h-12 rounded-full text-xs sm:text-sm font-medium border-white/10 bg-white/5 hover:bg-white/10 backdrop-blur-sm transition-all"
+                  >
+                    {isInLibrary
+                      ? <><BookmarkCheck className="w-4 h-4 text-green-400" /> SAVED</>
+                      : <><Bookmark className="w-4 h-4" /> SAVE</>}
+                  </Button>
+                )}
+                {onDownloadChapters && unifiedChapters.length > 0 && (
+                  <Button
+                    onClick={() => setDownloadDialogOpen(true)}
+                    variant="outline"
+                    className="flex-1 sm:flex-none gap-2 px-4 sm:px-6 h-10 sm:h-12 rounded-full text-xs sm:text-sm font-medium border-white/10 bg-white/5 hover:bg-white/10 backdrop-blur-sm transition-all"
+                  >
+                    <Download className="w-4 h-4" /> DL
+                  </Button>
+                )}
+              </div>
             </div>
 
             {/* Stats Row */}
-            <div className="flex flex-wrap items-center gap-6 mb-8 p-4 rounded-2xl bg-white/5 border border-white/5 backdrop-blur-md">
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-y-3 gap-x-4 sm:gap-6 mb-6 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-white/5 border border-white/5 backdrop-blur-md">
               <div className="flex flex-col">
-                <span className="text-xs text-muted-foreground uppercase tracking-wider mb-1 font-semibold">Rating</span>
-                <div className="flex items-center gap-2">
-                  <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                  <span className="font-bold text-foreground text-lg leading-none">{ratingScore}</span>
-                  <span className="text-xs text-muted-foreground ml-1">({totalReviews} revs)</span>
+                <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider mb-0.5 font-semibold">Rating</span>
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <Star className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-400 fill-yellow-400" />
+                  <span className="font-bold text-foreground text-sm sm:text-lg leading-none">{ratingScore}</span>
+                  <span className="text-[10px] sm:text-xs text-muted-foreground hidden sm:inline-block ml-1">({totalReviews} revs)</span>
                 </div>
               </div>
               <div className="w-px h-8 bg-white/10 hidden sm:block"></div>
               <div className="flex flex-col">
-                <span className="text-xs text-muted-foreground uppercase tracking-wider mb-1 font-semibold">Chapters</span>
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-blue-400" />
-                  <span className="font-bold text-foreground text-lg leading-none">{filteredAndSortedChapters.length}</span>
+                <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider mb-0.5 font-semibold">Chapters</span>
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <FileText className="w-3 h-3 sm:w-4 sm:h-4 text-blue-400" />
+                  <span className="font-bold text-foreground text-sm sm:text-lg leading-none">{filteredAndSortedChapters.length}</span>
                 </div>
               </div>
               <div className="w-px h-8 bg-white/10 hidden sm:block"></div>
               <div className="flex flex-col">
-                <span className="text-xs text-muted-foreground uppercase tracking-wider mb-1 font-semibold">Author</span>
-                <span className="font-medium text-foreground text-sm max-w-[150px] truncate" title={author || 'Unknown'}>{author || 'Unknown'}</span>
+                <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider mb-0.5 font-semibold">Author</span>
+                <span className="font-medium text-foreground text-xs sm:text-sm max-w-[120px] sm:max-w-[150px] truncate" title={author || 'Unknown'}>{author || 'Unknown'}</span>
               </div>
               <div className="w-px h-8 bg-white/10 hidden sm:block"></div>
               <div className="flex flex-col">
-                <span className="text-xs text-muted-foreground uppercase tracking-wider mb-1 font-semibold">Published</span>
-                <span className="font-medium text-foreground text-sm">{year || '?'}</span>
+                <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider mb-0.5 font-semibold">Published</span>
+                <span className="font-medium text-foreground text-xs sm:text-sm">{year || '?'}</span>
               </div>
             </div>
 
-            <div className="text-sm md:text-base text-foreground/80 leading-relaxed max-w-4xl bg-white/[0.02] border border-white/5 rounded-xl p-5 backdrop-blur-sm">
-              <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(displayDescription.replace(/\n/g, '<br/>')) }} />
-              {description && description.length > 250 && (
-                <button
-                  onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-                  className="text-primary hover:text-primary/80 hover:underline ml-2 font-semibold focus:outline-none transition-colors"
-                >
-                  {isDescriptionExpanded ? 'Read less' : 'Read more'}
-                </button>
-              )}
-              
-              {/* Genres Inline */}
-              {genres && genres.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-6 pt-4 border-t border-white/5">
-                  {genres.map(g => (
-                    <span key={g} className="px-3 py-1 bg-white/5 border border-white/10 rounded-md text-xs font-medium text-foreground/70">
-                      {g}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
+            {(displayDescription || (genres && genres.length > 0)) && (
+              <div className="text-sm md:text-base text-foreground/80 leading-relaxed max-w-4xl bg-white/[0.02] border border-white/5 rounded-xl p-5 backdrop-blur-sm">
+                {displayDescription && (
+                  <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(displayDescription.replace(/\n/g, '<br/>')) }} />
+                )}
+                {description && description.length > 250 && (
+                  <button
+                    onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                    className="text-primary hover:text-primary/80 hover:underline ml-2 font-semibold focus:outline-none transition-colors"
+                  >
+                    {isDescriptionExpanded ? 'Read less' : 'Read more'}
+                  </button>
+                )}
+                
+                {/* Genres Inline */}
+                {genres && genres.length > 0 && (
+                  <div className={cn("flex flex-wrap gap-2", displayDescription && "mt-6 pt-4 border-t border-white/5")}>
+                    {genres.map(g => (
+                      <span key={g} className="px-3 py-1 bg-white/5 border border-white/10 rounded-md text-xs font-medium text-foreground/70">
+                        {g}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

@@ -1343,8 +1343,8 @@ export function OnlineMangaView() {
                 {isAdvancedFilterActive ? (
                   <div className="flex-1 w-full flex flex-col items-center">
                     {isAdvancedBrowseLoading ? (
-                      <div className="w-full flex items-center justify-center p-12">
-                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                      <div className="w-full">
+                        <SkeletonGrid count={12} />
                       </div>
                     ) : (
                       <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6 w-full max-w-[1920px] pb-12">

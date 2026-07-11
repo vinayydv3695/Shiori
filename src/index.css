@@ -10,59 +10,88 @@
 /* ==================== BASE LAYER ==================== */
 @layer base {
 
-  /* Default (white theme) — also applied explicitly via [data-theme="white"] in tokens.css */
+  /* Premium Light (Frosted Alabaster & Indigo) */
   :root,
   [data-theme="white"] {
-    --safe-area-top: env(safe-area-inset-top, 0px);
-    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
-    --safe-area-left: env(safe-area-inset-left, 0px);
-    --safe-area-right: env(safe-area-inset-right, 0px);
+    --background: 210 20% 98%; /* #f8f9fa */
+    --foreground: 222 47% 11%; /* #0f172a */
     
-    --background: 0 0% 100%;
-    --foreground: 0 0% 7%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 7%;
+    --surface-1: 210 20% 97%;
+    --surface-2: 210 20% 95%;
+    --surface-3: 210 20% 92%;
+    --surface-4: 210 20% 88%;
+    
+    --card: 0 0% 100%; /* #ffffff */
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 7%;
-    --primary: 0 0% 7%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 234 89% 64%; /* #5a67d8 */
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 93%;
-    --secondary-foreground: 0 0% 20%;
-    --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 45%;
-    --accent: 0 0% 93%;
-    --accent-foreground: 0 0% 10%;
-    --destructive: 0 84% 55%;
+    --secondary: 210 40% 96%; /* #f1f5f9 */
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%; /* #64748b */
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 52%;
-    --input: 0 0% 52%;
-    --ring: 0 0% 7%;
+    --border: 214 32% 91%; /* #e2e8f0 */
+    --input: 214 32% 91%;
+    --ring: 234 89% 64%;
     --radius: 0.5rem;
-    /* UI Scaling — changed via preferencesStore.updateGeneralSettings */
     --ui-scale: 1.0;
   }
 
-  /* Black theme (Stitch 'Precision Noir' MD3) */
+  /* OLED Midnight (True Black & Electric Violet) */
   [data-theme="black"] {
-    --background: 0 0% 7%; /* #131313 */
-    --foreground: 0 0% 89%; /* #e2e2e2 */
-    --card: 0 0% 5%; /* #0e0e0e */
-    --card-foreground: 0 0% 89%; /* #e2e2e2 */
-    --popover: 0 0% 5%;
-    --popover-foreground: 0 0% 89%;
-    --primary: 0 0% 100%; /* #ffffff */
-    --primary-foreground: 0 0% 7%; /* #131313 */
-    --secondary: 0 0% 22%; /* #393939 surface-bright */
-    --secondary-foreground: 0 0% 89%; 
-    --muted: 0 0% 12%; /* #1f1f1f surface-container */
-    --muted-foreground: 0 0% 55%; /* #8e9192 */
-    --accent: 0 0% 22%; 
-    --accent-foreground: 0 0% 89%;
-    --destructive: 0 100% 83%; /* #ffb4ab error */
-    --destructive-foreground: 0 100% 20%; /* #690005 on-error */
-    --border: 0 0% 18%; /* #2a2a2a */
-    --input: 0 0% 18%;
-    --ring: 0 0% 89%;
+    --background: 0 0% 0%; /* #000000 */
+    --foreground: 210 40% 98%; /* #fafafa */
+    
+    --surface-1: 0 0% 5%;
+    --surface-2: 0 0% 8%;
+    --surface-3: 0 0% 12%;
+    --surface-4: 0 0% 16%;
+    
+    --card: 0 0% 3%; /* #080808 */
+    --card-foreground: 210 40% 98%;
+    --popover: 0 0% 3%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 262 83% 58%; /* #7c3aed */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 9%; /* #171717 */
+    --secondary-foreground: 210 40% 98%;
+    --muted: 0 0% 9%;
+    --muted-foreground: 215 20% 65%; /* #9ca3af */
+    --accent: 0 0% 9%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 100% 65%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 15%; /* #262626 */
+    --input: 0 0% 15%;
+    --ring: 262 83% 58%;
+  }
+
+  /* Premium Dark (Midnight Blue / Navy) */
+  [data-theme="premium-dark"] {
+    --background: 223 47% 7%; /* #0a0f1c */
+    --foreground: 210 40% 96%; /* #f1f5f9 */
+    --card: 221 39% 11%; /* #111827 */
+    --card-foreground: 210 40% 96%;
+    --popover: 221 39% 11%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 234 89% 74%; /* #818cf8 */
+    --primary-foreground: 223 47% 7%;
+    --secondary: 215 28% 17%; /* #1f2937 */
+    --secondary-foreground: 210 40% 96%;
+    --muted: 215 28% 17%;
+    --muted-foreground: 215 14% 65%; /* #9ca3af */
+    --accent: 215 28% 17%;
+    --accent-foreground: 210 40% 96%;
+    --destructive: 0 100% 75%;
+    --destructive-foreground: 0 100% 20%;
+    --border: 217 19% 27%; /* #374151 */
+    --input: 217 19% 27%;
+    --ring: 234 89% 74%;
   }
 
   html {
@@ -204,6 +233,44 @@
   }
 }
 
+@keyframes ambient-drift {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.4;
+  }
+  33% {
+    transform: translate(3%, 5%) scale(1.05);
+    opacity: 0.6;
+  }
+  66% {
+    transform: translate(-3%, 2%) scale(0.95);
+    opacity: 0.5;
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.4;
+  }
+}
+
+@keyframes ambient-drift-slow {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.3;
+  }
+  33% {
+    transform: translate(-4%, -4%) scale(0.9);
+    opacity: 0.5;
+  }
+  66% {
+    transform: translate(4%, 3%) scale(1.1);
+    opacity: 0.4;
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.3;
+  }
+}
+
 .animate-fadeIn {
   animation: fadeIn var(--duration-base) var(--ease-standard) forwards;
 }
@@ -222,6 +289,14 @@
 
 .animate-card-in {
   animation: cardEntrance var(--duration-slow) var(--ease-decelerate) both;
+}
+
+.animate-ambient {
+  animation: ambient-drift 15s ease-in-out infinite alternate;
+}
+
+.animate-ambient-slow {
+  animation: ambient-drift-slow 20s ease-in-out infinite alternate;
 }
 
 /* ==================== RADIX UI ANIMATIONS ==================== */
@@ -364,5 +439,28 @@ input:-webkit-autofill:active{
 
 .splash-gradient {
   background: radial-gradient(circle at center, rgba(32,31,31,1) 0%, rgba(14,14,14,1) 100%);
+}
+
+/* ==================== SKELETON SHIMMER ==================== */
+@keyframes glass-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.animate-glass-shimmer {
+  background: linear-gradient(
+    110deg,
+    rgba(var(--muted), 0.0) 0%,
+    rgba(var(--muted), 0.0) 40%,
+    rgba(255, 255, 255, 0.15) 50%,
+    rgba(var(--muted), 0.0) 60%,
+    rgba(var(--muted), 0.0) 100%
+  );
+  background-size: 200% 100%;
+  animation: glass-shimmer 2s infinite linear;
 }
 

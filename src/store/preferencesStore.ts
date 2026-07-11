@@ -12,7 +12,7 @@ import type {
 } from "../types/preferences";
 import { DEFAULT_USER_PREFERENCES } from "../types/preferences";
 
-const themeMap: Record<string, string> = { light: 'white', dark: 'black' };
+const themeMap: Record<string, string> = { light: 'white', dark: 'black', 'premium-dark': 'premium-dark' };
 
 interface PreferencesStore {
   // State
@@ -112,7 +112,7 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
 
       // Apply theme and scale to DOM
       document.documentElement.setAttribute("data-theme", themeMap[preferences.theme] ?? preferences.theme);
-      if (preferences.theme === 'dark') {
+      if (preferences.theme !== 'light' && preferences.theme !== 'white') {
         document.documentElement.classList.add('dark');
       } else {
         document.documentElement.classList.remove('dark');
@@ -138,7 +138,7 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
     }));
     document.documentElement.setAttribute("data-theme", themeMap[theme] ?? theme);
     // Also toggle 'dark' class for Tailwind dark: variants
-    if (theme === 'dark') {
+    if (theme !== 'light' && theme !== 'white') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
@@ -156,8 +156,7 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
             : DEFAULT_USER_PREFERENCES,
         }));
         document.documentElement.setAttribute("data-theme", themeMap[previousTheme] ?? previousTheme);
-        // Also rollback 'dark' class
-        if (previousTheme === 'dark') {
+        if (previousTheme !== 'light' && previousTheme !== 'white') {
           document.documentElement.classList.add('dark');
         } else {
           document.documentElement.classList.remove('dark');

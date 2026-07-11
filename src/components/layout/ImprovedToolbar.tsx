@@ -266,7 +266,7 @@ export function PremiumTopbar({
       data-tauri-drag-region
       className={cn(
         'flex items-center h-[var(--topbar-height,60px)] px-4 gap-3',
-        'border-b border-border/40 bg-background/70 backdrop-blur-xl',
+        'border-b border-border/20 bg-background/50 backdrop-blur-2xl',
         'shrink-0 z-[var(--z-topbar,200)]',
         'select-none max-md:hidden',
       )}

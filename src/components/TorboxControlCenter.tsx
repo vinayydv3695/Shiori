@@ -18,6 +18,7 @@ import {
   X,
   Image as ImageIcon,
 } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -569,7 +570,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
 
   return (
     <div 
-      className={`flex h-full flex-col bg-background text-foreground relative overflow-hidden ${isMobile ? 'pb-4 px-4' : 'p-6'}`}
+      className={`flex h-full flex-col bg-transparent text-foreground relative overflow-hidden ${isMobile ? 'pb-4 px-4' : 'p-6'}`}
       style={{
         paddingTop: isMobile ? 'calc(env(safe-area-inset-top, 0px) + 16px)' : '24px',
         paddingLeft: isMobile ? 'calc(env(safe-area-inset-left, 0px) + 16px)' : '24px',
@@ -582,7 +583,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
             <Cloud className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-lg md:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <h1 className="text-lg md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-zinc-100 to-zinc-400 bg-clip-text text-transparent flex items-center gap-2">
               Torbox Control Center
               <Badge variant="outline" className={`h-5 px-2 rounded-md font-bold tracking-wider uppercase text-[10px] ${apiKey ? 'border-emerald-500/30 text-emerald-500 bg-emerald-500/10' : 'border-amber-500/30 text-amber-500 bg-amber-500/10'}`}>
                 {apiKey ? 'API Active' : 'No Key'}
@@ -704,9 +705,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                                 <div className="absolute top-2 right-2 bg-background/90 text-amber-500 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm backdrop-blur-md">★ {(result.rating / 10).toFixed(1)}</div>
                               )}
                               {isLoading && (
-                                <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center z-10">
-                                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                                </div>
+                                <Skeleton className="absolute inset-0 z-10" />
                               )}
                             </div>
 
@@ -883,9 +882,23 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
 
                 <div className="flex-1 overflow-y-auto p-4 sm:p-5">
                   {isFetchingTorrents === activeModalResult.id ? (
-                    <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-4">
-                      <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                      <p className="text-sm font-medium">Searching for torrents...</p>
+                    <div className="flex flex-col gap-3 py-2">
+                      {[1, 2, 3, 4, 5].map(i => (
+                        <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-3 rounded-lg border border-border/20 bg-muted/5">
+                          <div className="flex-1 w-full space-y-3">
+                            <Skeleton className="h-5 w-3/4 rounded-md" />
+                            <div className="flex items-center gap-3">
+                              <Skeleton className="h-4 w-16 rounded-sm" />
+                              <Skeleton className="h-4 w-24 rounded-sm" />
+                              <Skeleton className="h-4 w-16 rounded-sm" />
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 mt-2 sm:mt-0">
+                            <Skeleton className="h-9 w-24 rounded-md" />
+                            <Skeleton className="h-9 w-9 rounded-md" />
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   ) : activeModalResult.sources.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-16 text-center px-4">

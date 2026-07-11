@@ -4,7 +4,7 @@
  * Matches Rust backend types in src-tauri/src/commands/preferences.rs
  */
 
-export type Theme = 'white' | 'black' | 'light' | 'dark' | 'system' | 'sepia' | 'high-contrast' | 'rose-pine-moon' | 'catppuccin-mocha' | 'nord' | 'dracula' | 'tokyo-night';
+export type Theme = 'white' | 'black' | 'light' | 'dark' | 'system' | 'sepia' | 'high-contrast' | 'rose-pine-moon' | 'catppuccin-mocha' | 'nord' | 'dracula' | 'tokyo-night' | 'premium-dark';
 export type ScrollMode = 'paged' | 'continuous';
 export type Justification = 'left' | 'justify';
 export type MangaMode = 'long-strip' | 'single' | 'double' | 'webtoon' | 'manhwa' | 'comic';

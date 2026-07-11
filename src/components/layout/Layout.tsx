@@ -378,6 +378,13 @@ export function Layout({
         />
       )}
 
+      {/* ── Ambient Glows for Dark Theme ── */}
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-0 transition-opacity duration-1000 dark:opacity-100">
+        <div className="animate-ambient absolute -left-[10%] -top-[10%] h-[50vh] w-[50vw] rounded-full bg-violet-600/10 blur-[120px]" />
+        <div className="animate-ambient-slow absolute -right-[5%] top-[20%] h-[40vh] w-[40vw] rounded-full bg-indigo-600/10 blur-[120px]" />
+        <div className="animate-ambient absolute -bottom-[10%] left-[20%] h-[60vh] w-[60vw] rounded-full bg-violet-900/15 blur-[150px]" />
+      </div>
+
       {/* ── Body ── */}
       <DragLayer
         isDragActive={isDragActive}
@@ -392,7 +399,7 @@ export function Layout({
 
         {/* ── Mobile Bottom Nav ── */}
         <main 
-          className={cn('flex-1 min-w-0 overflow-y-auto bg-background md:pb-0', 'max-md:pb-16')}
+          className={cn('flex-1 min-w-0 overflow-y-auto bg-transparent relative z-10 md:pb-0', 'max-md:pb-16')}
           style={isMobile ? {
             paddingLeft: 'env(safe-area-inset-left, 0px)',
             paddingRight: 'env(safe-area-inset-right, 0px)'

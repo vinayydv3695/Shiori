@@ -4,6 +4,8 @@ import { X, Search, Loader2, Download, ExternalLink, ImageIcon, CheckCircle, Ale
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { logger } from '@/lib/logger';
 import { Button } from '../ui/button';
+import { toast } from '@/components/ui/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/store/toastStore';
 import { useLibraryStore } from '@/store/libraryStore';
 import { usePreferencesStore } from '@/store/preferencesStore';
@@ -769,11 +771,17 @@ export const MetadataSearchDialog = ({
 
             <div className="flex-1 overflow-y-auto p-6">
               {searching ? (
-                <div className="flex items-center justify-center h-40">
-                  <div className="text-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">Searching {isManga ? 'AniList' : 'Open Library'}...</p>
-                  </div>
+                <div className="space-y-4">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex gap-4 p-4 border border-border/40 rounded-lg bg-muted/10">
+                      <Skeleton className="w-16 h-24 sm:w-24 sm:h-36 rounded-md shrink-0" />
+                      <div className="flex-1 space-y-3 py-1">
+                        <Skeleton className="h-5 w-3/4 rounded-md" />
+                        <Skeleton className="h-4 w-1/2 rounded-md" />
+                        <Skeleton className="h-3 w-1/4 mt-4 rounded-md" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : results.length === 0 ? (
                 <div className="text-center py-12">

@@ -15,6 +15,7 @@ import { api } from '@/lib/tauri';
 import { Loader2, BookOpen, AlertTriangle, RefreshCw, Search, CheckCircle2, LayoutGrid, Star } from 'lucide-react';
 import { AniListBookCard } from './AniListBookCard';
 import { AniListMangaDetailsView } from './AniListMangaDetailsView';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/store/toastStore';
@@ -251,9 +252,23 @@ export function AniListDashboard() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-full space-y-4">
-        <Loader2 className="w-12 h-12 animate-spin text-primary" />
-        <p className="text-muted-foreground font-medium">Syncing with AniList...</p>
+      <div className="flex flex-col h-full space-y-6 p-6 overflow-hidden">
+        <div className="flex items-center gap-4">
+          <Skeleton className="w-10 h-10 rounded-full" />
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
+          {[...Array(12)].map((_, i) => (
+            <div key={i} className="flex flex-col gap-2">
+              <Skeleton className="w-full aspect-[2/3] rounded-xl" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

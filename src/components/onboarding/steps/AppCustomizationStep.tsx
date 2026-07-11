@@ -32,13 +32,14 @@ const languageOptions = Object.keys(LANGUAGE_NAMES);
 const cacheOptions = [100, 250, 500, 1000, 2000, -1] as const;
 
 const previews: Record<ThemeName, { background: string; text: string; accent: string; surface: string; border: string }> = {
-  White: { background: '#f8fafc', surface: '#e4e4e7', text: '#18181b', accent: '#52525b', border: '#d4d4d8' },
-  Black: { background: '#09090b', surface: '#18181b', text: '#f4f4f5', accent: '#a1a1aa', border: '#3f3f46' },
+  White: { background: '#f8f9fa', surface: '#ffffff', text: '#0f172a', accent: '#5a67d8', border: '#e2e8f0' },
+  Black: { background: '#000000', surface: '#080808', text: '#fafafa', accent: '#7c3aed', border: '#262626' },
   'Rose Pine Moon': { background: '#232136', surface: '#2a273f', text: '#e0def4', accent: '#b8b0d9', border: '#524f67' },
   'Catppuccin Mocha': { background: '#1e1e2e', surface: '#181825', text: '#cdd6f4', accent: '#b8bed8', border: '#45475a' },
   Nord: { background: '#2e3440', surface: '#3b4252', text: '#eceff4', accent: '#c4ccd8', border: '#4c566a' },
   Dracula: { background: '#282a36', surface: '#44475a', text: '#f8f8f2', accent: '#d4d1df', border: '#6272a4' },
   'Tokyo Night': { background: '#1a1b26', surface: '#24283b', text: '#c0caf5', accent: '#c2c8de', border: '#414868' },
+  'Premium Dark': { background: '#0a0f1c', surface: '#111827', text: '#f1f5f9', accent: '#818cf8', border: '#1e293b' },
 };
 
 const isLightTheme = (themeName: ThemeName) => themeName === 'White';

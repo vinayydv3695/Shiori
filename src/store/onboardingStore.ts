@@ -7,13 +7,14 @@ import type { Theme, UserPreferences } from '@/types/preferences';
 import { usePreferencesStore } from './preferencesStore';
 
 export type ThemeName =
-  | 'White'
-  | 'Black'
+  | 'Premium Light'
+  | 'OLED Midnight'
   | 'Rose Pine Moon'
   | 'Catppuccin Mocha'
   | 'Nord'
   | 'Dracula'
-  | 'Tokyo Night';
+  | 'Tokyo Night'
+  | 'Premium Dark';
 
 export interface MangaPrefs {
   readingDirection: 'rtl' | 'ltr';
@@ -119,13 +120,14 @@ const SUPPORTED_CACHE_SIZES_MB = new Set([100, 250, 500, 1000, 2000, -1]);
 type ThemeOption = { name: ThemeName; value: Theme };
 
 export const THEME_OPTIONS: ThemeOption[] = [
-  { name: 'White', value: 'white' },
-  { name: 'Black', value: 'black' },
+  { name: 'Premium Light', value: 'white' },
+  { name: 'OLED Midnight', value: 'black' },
   { name: 'Rose Pine Moon', value: 'rose-pine-moon' },
   { name: 'Catppuccin Mocha', value: 'catppuccin-mocha' },
   { name: 'Nord', value: 'nord' },
   { name: 'Dracula', value: 'dracula' },
   { name: 'Tokyo Night', value: 'tokyo-night' },
+  { name: 'Premium Dark', value: 'premium-dark' },
 ];
 
 const THEME_NAME_TO_VALUE: Record<ThemeName, Theme> = Object.fromEntries(
@@ -139,13 +141,13 @@ const THEME_VALUE_TO_NAME = Object.fromEntries(
 const getDefaultThemeName = (): ThemeName => {
   if (typeof window !== 'undefined') {
     if (window.navigator.userAgent.toLowerCase().includes('android')) {
-      return 'Black';
+      return 'OLED Midnight';
     }
     if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
-      return 'Black';
+      return 'OLED Midnight';
     }
   }
-  return 'White';
+  return 'Premium Light';
 };
 
 const mapMangaMode = (mode: string): MangaPrefs['readingMode'] => {
@@ -410,7 +412,7 @@ export const useOnboardingStore = create<OnboardingStore>()(
         set({ selectedTheme: theme });
         // Immediately apply to DOM for live preview
         document.documentElement.setAttribute('data-theme', THEME_NAME_TO_VALUE[theme] ?? 'black');
-        if (theme === 'White') {
+        if (theme === 'Premium Light') {
           document.documentElement.classList.remove('dark');
         } else {
           document.documentElement.classList.add('dark');

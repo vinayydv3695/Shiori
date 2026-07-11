@@ -2,7 +2,7 @@ import { useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { motion } from 'framer-motion';
 import { X, FolderOpen, File, Upload, Loader2, CheckCircle, AlertCircle, Info } from 'lucide-react';
-import { api, ImportResult } from '../../lib/tauri';
+import { api, ImportResult, isAndroid } from '../../lib/tauri';
 import { logger } from '@/lib/logger';
 import { useToast } from '../../store/toastStore';
 import { useLibraryStore } from '../../store/libraryStore';

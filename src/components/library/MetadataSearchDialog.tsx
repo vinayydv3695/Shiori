@@ -4,7 +4,7 @@ import { X, Search, Loader2, Download, ExternalLink, ImageIcon, CheckCircle, Ale
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { logger } from '@/lib/logger';
 import { Button } from '../ui/button';
-import { toast } from '@/components/ui/use-toast';
+
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/store/toastStore';
 import { useLibraryStore } from '@/store/libraryStore';

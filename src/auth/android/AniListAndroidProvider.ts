@@ -3,7 +3,7 @@ import { listen } from '@tauri-apps/api/event';
 import { AniListAuthProvider, ViewerInfo } from '../AniListProvider';
 import { toast } from 'sonner';
 
-const ANILIST_CLIENT_ID = '45479'; // Use the client ID registered with shiori://auth
+const ANILIST_CLIENT_ID = import.meta.env.VITE_ANILIST_ANDROID_CLIENT_ID ?? '';
 const REDIRECT_URI = 'shiori://auth'; // Must match the Intent Filter
 
 export class AniListAndroidProvider implements AniListAuthProvider {

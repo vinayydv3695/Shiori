@@ -81,10 +81,11 @@ pub async fn exchange_android_anilist_code(code: String) -> Result<String, Strin
 
 #[tauri::command]
 pub async fn start_anilist_login(app: AppHandle) -> Result<(), String> {
+    // For Desktop, AniList clients are often configured for Implicit Grant (response_type=token)
+    // which redirects to /oauth/pin#access_token=...
     let auth_url_str = format!(
-        "https://anilist.co/api/v2/oauth/authorize?client_id={}&redirect_uri={}&response_type=code",
-        DESKTOP_ANILIST_CLIENT_ID,
-        urlencoding::encode(DESKTOP_ANILIST_REDIRECT_URI)
+        "https://anilist.co/api/v2/oauth/authorize?client_id={}&response_type=token",
+        DESKTOP_ANILIST_CLIENT_ID
     );
     let auth_url = url::Url::parse(&auth_url_str).map_err(|e| e.to_string())?;
 
@@ -105,45 +106,27 @@ pub async fn start_anilist_login(app: AppHandle) -> Result<(), String> {
             // Emit every navigation URL for debugging
             let _ = handle.emit("anilist-debug", url_str.to_string());
 
-            if url_str.starts_with(DESKTOP_ANILIST_REDIRECT_URI) {
-                let mut code = None;
+            if url_str.starts_with("https://anilist.co/api/v2/oauth/pin") || url_str.contains("#access_token=") {
+                let mut token = None;
                 
-                if let Some(query) = url.query() {
-                    for (key, value) in url::form_urlencoded::parse(query.as_bytes()) {
-                        if key == "code" {
-                            code = Some(value.into_owned());
+                if let Some(fragment) = url.fragment() {
+                    for (key, value) in url::form_urlencoded::parse(fragment.as_bytes()) {
+                        if key == "access_token" {
+                            token = Some(value.into_owned());
                             break;
                         }
                     }
                 }
                 
-                if let Some(c) = code {
-                    let h = handle.clone();
-                    
-                    tauri::async_runtime::spawn(async move {
-                        match exchange_authorization_code(
-                            DESKTOP_ANILIST_CLIENT_ID,
-                            DESKTOP_ANILIST_CLIENT_SECRET,
-                            DESKTOP_ANILIST_REDIRECT_URI,
-                            c,
-                        ).await {
-                            Ok(token) => {
-                                let _ = h.emit("anilist-token", token);
-                            }
-                            Err(error) => {
-                                let _ = h.emit("anilist-error", error);
-                            }
-                        }
-                    });
+                if let Some(t) = token {
+                    let _ = handle.emit("anilist-token", t);
                     
                     if let Some(window) = handle.get_webview_window(label) {
                         let _ = window.close();
                     }
                     return false;
                 } else {
-                    // If we hit the pin page but there's no code in the URL, let it load so we can see what's on it!
-                    // And emit an error
-                    let _ = handle.emit("anilist-error", format!("No code found in URL: {}", url_str));
+                    let _ = handle.emit("anilist-error", format!("No access token found in fragment: {}", url_str));
                     return true;
                 }
             }

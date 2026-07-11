@@ -50,3 +50,21 @@ pub(crate) async fn check_storage_permission<R: Runtime>(
 pub(crate) async fn open_app_settings<R: Runtime>(app: AppHandle<R>) -> Result<()> {
     app.android_saf().open_app_settings()
 }
+
+#[command]
+pub(crate) async fn create_document<R: Runtime>(
+    app: AppHandle<R>,
+    mime_type: String,
+    file_name: String,
+) -> Result<CreateDocumentResponse> {
+    app.android_saf().create_document(mime_type, file_name)
+}
+
+#[command]
+pub(crate) async fn write_document<R: Runtime>(
+    app: AppHandle<R>,
+    uri: String,
+    path: String,
+) -> Result<WriteDocumentResponse> {
+    app.android_saf().write_document(uri, path)
+}

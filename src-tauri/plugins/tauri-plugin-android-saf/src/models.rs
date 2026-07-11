@@ -44,3 +44,13 @@ pub struct CopyDocumentResponse {
 pub struct CheckStoragePermissionResponse {
     pub granted: bool,
 }
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateDocumentResponse {
+    pub uri: String,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WriteDocumentResponse {}

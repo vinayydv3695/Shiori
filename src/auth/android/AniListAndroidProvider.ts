@@ -68,7 +68,7 @@ export class AniListAndroidProvider implements AniListAuthProvider {
             unlistenToken?.();
             unlistenCode?.();
             console.error('Failed to start Android AniList login:', error);
-            toast.error('Login Failed', { description: 'Could not launch AniList authentication.' });
+            toast.error('Login Failed', { description: error instanceof Error ? error.message : String(error) });
             this.isLoggingIn = false;
         }
     }

@@ -25,3 +25,7 @@
 -keep class javax.annotation.** { *; }
 -dontwarn com.google.errorprone.annotations.**
 -keep class com.google.errorprone.annotations.** { *; }
+
+# Keep Tauri plugins and annotations
+-keep class app.tauri.** { *; }
+-keep @app.tauri.annotation.TauriPlugin class * { *; }

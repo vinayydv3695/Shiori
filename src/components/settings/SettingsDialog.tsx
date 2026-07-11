@@ -1571,17 +1571,35 @@ const AdvancedSettings = ({
   const handleExport = async () => {
     try {
       setIsExporting(true)
-      const savePath = await api.saveFileDialog('shiori_export.json')
-      if (savePath) {
-        await api.exportLibrary({
-          format: 'json',
-          include_metadata: true,
-          include_collections: true,
-          include_reading_progress: true,
-          file_path: savePath,
-        })
-        toast.success('Database exported successfully')
+      
+      let finalUri: string | null = null;
+      let rustSavePath: string | null = null;
+      const fileName = 'shiori_export.json';
+
+      if (isAndroid) {
+        finalUri = await api.saveFileDialog(fileName);
+        if (!finalUri) return;
+        const { appCacheDir, join } = await import('@tauri-apps/api/path');
+        const cacheDir = await appCacheDir();
+        rustSavePath = await join(cacheDir, fileName);
+      } else {
+        rustSavePath = await api.saveFileDialog(fileName);
+        if (!rustSavePath) return;
       }
+
+      await api.exportLibrary({
+        format: 'json',
+        include_metadata: true,
+        include_collections: true,
+        include_reading_progress: true,
+        file_path: rustSavePath,
+      })
+
+      if (isAndroid && finalUri && rustSavePath) {
+        await api.writeDocument(finalUri, rustSavePath);
+      }
+
+      toast.success('Database exported successfully')
     } catch (err) {
       logger.error('Export failed:', err)
       toast.error('Failed to export database')
@@ -1645,15 +1663,32 @@ const AdvancedSettings = ({
     setBackupResult(null)
     try {
       const defaultName = `shiori-backup-${new Date().toISOString().slice(0, 10)}.zip`
-      const savePath = await api.saveFileDialog(defaultName)
-      if (!savePath) return
+      
+      let finalUri: string | null = null;
+      let rustSavePath: string | null = null;
+
+      if (isAndroid) {
+        finalUri = await api.saveFileDialog(defaultName);
+        if (!finalUri) return;
+        const { appCacheDir, join } = await import('@tauri-apps/api/path');
+        const cacheDir = await appCacheDir();
+        rustSavePath = await join(cacheDir, defaultName);
+      } else {
+        rustSavePath = await api.saveFileDialog(defaultName);
+        if (!rustSavePath) return;
+      }
 
       setIsBackingUp(true)
       const frontendSettings = collectFrontendSettings()
-      const info = await api.createBackup(savePath, {
+      const info = await api.createBackup(rustSavePath, {
         include_books: includeBooks,
         frontend_settings: frontendSettings,
       })
+
+      if (isAndroid && finalUri && rustSavePath) {
+        await api.writeDocument(finalUri, rustSavePath);
+      }
+
       setBackupResult(info)
       toast.success('Backup created successfully')
     } catch (err) {

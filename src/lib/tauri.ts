@@ -1035,7 +1035,8 @@ export const api = {
         if (typeof error === 'string' && error.toLowerCase().includes('permission denied')) {
             throw error;
         }
-        return null
+        // Instead of returning null, throw the error so the caller knows it failed
+        throw error;
       }
     }
 
@@ -1073,7 +1074,7 @@ export const api = {
         if (typeof error === 'string' && error.toLowerCase().includes('permission denied')) {
             throw error;
         }
-        return null
+        throw error;
       }
     }
     
@@ -1101,9 +1102,36 @@ export const api = {
       logger.warn("File dialogs only work in Tauri environment. Please run: npm run tauri dev")
       return Promise.resolve(null)
     }
+
+    if (isAndroid) {
+      try {
+        const ext = defaultPath ? defaultPath.split('.').pop()?.toLowerCase() : null
+        let mimeType = '*/*'
+        if (ext === 'json') mimeType = 'application/json'
+        else if (ext === 'zip') mimeType = 'application/zip'
+        
+        const fileName = defaultPath ? defaultPath.split('/').pop() || defaultPath.split('\\').pop() : 'export'
+        const result = await invoke<{uri: string}>("plugin:android-saf|create_document", { mimeType, fileName })
+        return result.uri
+      } catch (error) {
+        logger.error('[API] SAF save file dialog error:', error)
+        if (typeof error === 'string' && error.toLowerCase().includes('permission denied')) {
+            throw error;
+        }
+        throw error;
+      }
+    }
+
     return save({
       defaultPath,
     }) as Promise<string | null>
+  },
+
+  async writeDocument(uri: string, path: string): Promise<void> {
+    if (!isAndroid) {
+      throw new Error("SAF document writing is only supported on Android");
+    }
+    return invoke("plugin:android-saf|write_document", { uri, path });
   },
 
   // Phase 2 Rendering System

@@ -276,6 +276,8 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=4096'
           TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+          VITE_ANILIST_ANDROID_CLIENT_ID: ${{ secrets.VITE_ANILIST_ANDROID_CLIENT_ID }}
+          VITE_ANILIST_DESKTOP_CLIENT_ID: ${{ secrets.VITE_ANILIST_DESKTOP_CLIENT_ID }}
         with:
           tagName: v${{ needs.check-version.outputs.version }}
           releaseName: 'Shiori v${{ needs.check-version.outputs.version }}'
@@ -603,6 +605,8 @@ jobs:
       - name: Build Android App (APK)
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
+          VITE_ANILIST_ANDROID_CLIENT_ID: ${{ secrets.VITE_ANILIST_ANDROID_CLIENT_ID }}
+          VITE_ANILIST_DESKTOP_CLIENT_ID: ${{ secrets.VITE_ANILIST_DESKTOP_CLIENT_ID }}
         run: npm run tauri android build -- --apk
 
       - name: Sign Android APKs

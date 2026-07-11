@@ -42,7 +42,9 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::enumerate_tree,
             commands::copy_document,
             commands::check_storage_permission,
-            commands::open_app_settings
+            commands::open_app_settings,
+            commands::create_document,
+            commands::write_document
         ])
         .setup(|app, api| {
             #[cfg(mobile)]

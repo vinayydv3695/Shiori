@@ -272,6 +272,76 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
     }
 
     @Command
+    fun createDocument(invoke: Invoke) {
+        val mimeType = invoke.getArgs().getString("mimeType", "*/*")
+        val fileName = invoke.getArgs().getString("fileName", "export.zip")
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = mimeType
+            putExtra(Intent.EXTRA_TITLE, fileName)
+        }
+        activity.runOnUiThread {
+            startActivityForResult(invoke, intent, "safCreateDocumentResult")
+        }
+    }
+
+    @app.tauri.annotation.ActivityCallback
+    fun safCreateDocumentResult(invoke: Invoke, result: androidx.activity.result.ActivityResult) {
+        if (result.resultCode == Activity.RESULT_OK) {
+            val uri = result.data?.data
+            if (uri != null) {
+                try {
+                    activity.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                } catch (e: Exception) {
+                }
+                val ret = JSObject()
+                ret.put("uri", uri.toString())
+                invoke.resolve(ret)
+            } else {
+                invoke.reject("No location selected")
+            }
+        } else {
+            invoke.reject("User cancelled save location selection")
+        }
+    }
+
+    @Command
+    fun writeDocument(invoke: Invoke) {
+        val uriStr = invoke.getArgs().getString("uri", null)
+        val srcPath = invoke.getArgs().getString("path", null)
+        if (uriStr == null || srcPath == null) {
+            invoke.reject("Missing uri or path")
+            return
+        }
+
+        Thread {
+            try {
+                val uri = Uri.parse(uriStr)
+                val srcFile = File(srcPath)
+                if (!srcFile.exists()) {
+                    invoke.reject("Source file does not exist")
+                    return@Thread
+                }
+                
+                val outputStream = activity.contentResolver.openOutputStream(uri)
+                if (outputStream == null) {
+                    invoke.reject("Could not open output stream for $uriStr")
+                    return@Thread
+                }
+                
+                srcFile.inputStream().use { input ->
+                    outputStream.use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                invoke.resolve()
+            } catch (e: Exception) {
+                invoke.reject(e.message ?: "Unknown error writing document")
+            }
+        }.start()
+    }
+
+    @Command
     fun solveCloudflare(invoke: Invoke) {
         val url = invoke.getArgs().getString("url", null) ?: "https://mangafire.to"
         activity.runOnUiThread {

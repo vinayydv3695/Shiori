@@ -9,7 +9,7 @@ pub struct SelectFolderResponse {
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SelectFilesResponse {
-    pub uris: Vec<String>,
+    pub files: Vec<DocumentInfo>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]

@@ -50,6 +50,16 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
       const path = await api.openFolderDialog();
       if (path) {
         setSelectedPath(path);
+        // On Android, we need to enumerate the folder contents now to get the total count
+        if (isAndroid) {
+            try {
+                const result = await api.enumerateTree(path);
+                toast.success('Folder scanned', `${result.files.length} file(s) found in folder`);
+            } catch (error) {
+                logger.error('[API] SAF folder enumeration error:', error);
+                toast.error('Failed to scan folder', 'Could not read the contents of the selected folder');
+            }
+        }
       }
     } catch (error: unknown) {
       logger.error('Failed to select folder:', error);

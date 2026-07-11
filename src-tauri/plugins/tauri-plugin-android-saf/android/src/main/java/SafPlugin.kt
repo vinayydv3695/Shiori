@@ -80,14 +80,18 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
         intent.type = "*/*"
         intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        startActivityForResult(invoke, intent, "safFilesResult")
+        activity.runOnUiThread {
+            startActivityForResult(invoke, intent, "safFilesResult")
+        }
     }
 
     private fun launchFolderPicker(invoke: Invoke) {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
         intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
-        startActivityForResult(invoke, intent, "safFolderResult")
+        activity.runOnUiThread {
+            startActivityForResult(invoke, intent, "safFolderResult")
+        }
     }
 
     @app.tauri.annotation.ActivityCallback

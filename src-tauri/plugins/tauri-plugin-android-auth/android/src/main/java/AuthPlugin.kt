@@ -86,12 +86,23 @@ class AuthPlugin(private val activity: Activity) : Plugin(activity) {
             val args = invoke.parseArgs(StartOAuthArgs::class.java)
             val uri = Uri.parse(args.url)
             
-            val customTabsIntent = CustomTabsIntent.Builder().build()
-            customTabsIntent.launchUrl(activity, uri)
-            
-            invoke.resolve()
+            activity.runOnUiThread {
+                try {
+                    val customTabsIntent = CustomTabsIntent.Builder().build()
+                    customTabsIntent.launchUrl(activity, uri)
+                    invoke.resolve()
+                } catch (e: Exception) {
+                    try {
+                        val browserIntent = Intent(Intent.ACTION_VIEW, uri)
+                        activity.startActivity(browserIntent)
+                        invoke.resolve()
+                    } catch (e2: Exception) {
+                        invoke.reject("Failed to launch auth URL: ${e.message}")
+                    }
+                }
+            }
         } catch (e: Exception) {
-            invoke.reject("Failed to launch auth URL: ${e.message}")
+            invoke.reject("Failed to parse args: ${e.message}")
         }
     }
 

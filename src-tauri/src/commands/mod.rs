@@ -290,6 +290,7 @@ macro_rules! generate_shiori_handlers {
             commands::window::get_fullscreen_state,
             // AniList
             commands::anilist::start_anilist_login,
+            commands::anilist::exchange_android_anilist_code,
         ]
     };
 }

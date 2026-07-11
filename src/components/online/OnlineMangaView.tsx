@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { cn } from "@/lib/utils";
-import { BookOpen, Loader2 } from "lucide-react";
+import { BookOpen, Loader2, Download } from "lucide-react";
 import {
   useMangaDex,
   type MangaDexManga,
@@ -267,6 +267,8 @@ export function OnlineMangaView() {
     chapterTitle: string;
     progress: number;
     total: number;
+    chapterIndex?: number;
+    totalChapters?: number;
   } | null>(null);
 
   useEffect(() => {
@@ -276,10 +278,14 @@ export function OnlineMangaView() {
       pages_downloaded: number;
       total_pages: number;
     }>("online-manga-download-progress", (event) => {
-      setDownloadProgress({
-        chapterTitle: event.payload.chapter_title,
-        progress: event.payload.pages_downloaded,
-        total: event.payload.total_pages,
+      setDownloadProgress((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          chapterTitle: event.payload.chapter_title,
+          progress: event.payload.pages_downloaded,
+          total: event.payload.total_pages,
+        };
       });
     });
     return () => {
@@ -985,12 +991,16 @@ export function OnlineMangaView() {
     const downloadFailures: { chapter: string; reason: string }[] = [];
     showInfoToast(`Started downloading ${selectedChapters.length} chapters...`);
 
+    let i = 0;
     for (const ch of selectedChapters) {
+      i++;
       try {
         setDownloadProgress({
           chapterTitle: ch.title || `Chapter ${ch.chapter}`,
           progress: 0,
           total: 1,
+          chapterIndex: i,
+          totalChapters: selectedChapters.length,
         });
         const cbzPath = await invoke<string>("download_manga_chapter_as_cbz", {
           sourceId: effectiveSourceId,
@@ -1078,24 +1088,40 @@ export function OnlineMangaView() {
   }, [selectedPluginManga?.id]);
 
   const downloadProgressToast = downloadProgress ? (
-    <div className="fixed bottom-6 right-6 z-50 bg-[#09090b]/90 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_0_50px_-10px_rgba(0,0,0,0.7)] p-5 w-80 animate-in fade-in slide-in-from-bottom-6">
-      <div className="flex justify-between items-center mb-3">
-        <h4 className="font-bold text-sm text-foreground truncate pr-2">
-          Downloading {downloadProgress.chapterTitle}
-        </h4>
-        <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
+    <div className="fixed bottom-6 right-6 z-50 bg-background/95 backdrop-blur-2xl border border-border rounded-xl shadow-[0_0_50px_-10px_rgba(0,0,0,0.7)] p-5 w-80 animate-in fade-in slide-in-from-bottom-6 flex flex-col gap-3">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Download className="w-4 h-4 text-primary animate-pulse" />
+          <h4 className="font-semibold text-sm text-foreground truncate max-w-[180px]">
+            {downloadProgress.totalChapters && downloadProgress.totalChapters > 1 
+              ? `Downloading Chapters (${downloadProgress.chapterIndex}/${downloadProgress.totalChapters})`
+              : 'Downloading Chapter'}
+          </h4>
+        </div>
+        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground shrink-0" />
       </div>
-      <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden border border-white/5">
-        <div
-          className="bg-primary h-2 transition-all duration-300 rounded-full shadow-[0_0_10px_rgba(var(--primary),0.8)]"
-          style={{
-            width: `${Math.max(5, (downloadProgress.progress / downloadProgress.total) * 100)}%`,
-          }}
-        />
-      </div>
-      <p className="text-xs text-foreground/60 mt-3 text-right font-medium">
-        {downloadProgress.progress} / {downloadProgress.total} pages
+      
+      {/* Chapter Title */}
+      <p className="text-xs text-muted-foreground truncate" title={downloadProgress.chapterTitle}>
+        {downloadProgress.chapterTitle}
       </p>
+
+      {/* Progress Bar */}
+      <div className="space-y-1.5">
+        <div className="w-full bg-secondary rounded-full h-1.5 overflow-hidden">
+          <div
+            className="bg-primary h-full transition-all duration-300 rounded-full"
+            style={{
+              width: `${Math.max(2, (downloadProgress.progress / downloadProgress.total) * 100)}%`,
+            }}
+          />
+        </div>
+        <div className="flex justify-between items-center text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+          <span>{Math.round((downloadProgress.progress / downloadProgress.total) * 100)}%</span>
+          <span>{downloadProgress.progress} / {downloadProgress.total} pages</span>
+        </div>
+      </div>
     </div>
   ) : null;
 

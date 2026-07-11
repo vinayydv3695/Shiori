@@ -152,7 +152,7 @@ export interface PluginSearchResponse {
   total: number | null
   offset: number | null
   limit: number | null
-  diagnostics: any | null
+  diagnostics: unknown | null
 }
 
 export interface ImportResult {
@@ -469,6 +469,10 @@ export interface SAFDocumentInfo {
 }
 
 export interface SAFEnumerateTreeResponse {
+  files: SAFDocumentInfo[]
+}
+
+export interface SAFSelectedFilesResponse {
   files: SAFDocumentInfo[]
 }
 
@@ -1018,8 +1022,14 @@ export const api = {
     if (isAndroid) {
       try {
         logger.debug('[API] Opening Android SAF file dialog')
-        const result = await invoke<{uris: string[]}>("plugin:android-saf|select_files")
-        return result.uris
+        const result = await invoke<SAFSelectedFilesResponse>("plugin:android-saf|select_files")
+        const localPaths = await Promise.all(
+          result.files.map(async (file) => {
+            const copied = await api.copyDocument(file.uri, file.name)
+            return copied.path
+          })
+        )
+        return localPaths
       } catch (error) {
         logger.error('[API] SAF file selection error:', error)
         if (typeof error === 'string' && error.toLowerCase().includes('permission denied')) {
@@ -1190,7 +1200,7 @@ export const api = {
           pageMode: 'single',
           marginSize: 40
         }
-      } as any)
+      } as unknown as UserPreferences)
     }
     return invoke("get_user_preferences")
   },

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { anilistAuth, ViewerInfo } from '@/auth';
-import { isAndroid, api } from '@/lib/tauri';
+import { isAndroid } from '@/lib/tauri';
 import { usePreferencesStore } from '@/store/preferencesStore';
 import { toast } from 'sonner';
 
@@ -26,7 +26,6 @@ export function AniListSettings() {
                     setViewerInfo(null);
                 }
             } else {
-                // Desktop uses preferences
                 setIsAuthenticated(!!preferences?.anilistToken);
             }
             setLoading(false);

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { motion } from 'framer-motion';
 import { X, FolderOpen, File, Upload, Loader2, CheckCircle, AlertCircle, Info } from 'lucide-react';
-import { api, ImportResult, isAndroid } from '../../lib/tauri';
+import { api, ImportResult } from '../../lib/tauri';
 import { logger } from '@/lib/logger';
 import { useToast } from '../../store/toastStore';
 import { useLibraryStore } from '../../store/libraryStore';
@@ -10,6 +10,18 @@ import { generateCollectionSuggestions } from '../../lib/collectionSuggestions';
 import { SmartCollectionSuggestionDialog } from './SmartCollectionSuggestionDialog';
 import type { CollectionSuggestion } from '../../lib/collectionSuggestions';
 import { Button } from '../ui/button';
+
+function isPermissionDeniedError(error: unknown) {
+  if (typeof error === 'string') {
+    return error.toLowerCase().includes('permission denied');
+  }
+
+  if (error instanceof Error) {
+    return error.message.toLowerCase().includes('permission denied');
+  }
+
+  return false;
+}
 
 interface ImportDialogProps {
   open: boolean;
@@ -21,8 +33,7 @@ type ImportMode = 'files' | 'folder';
 type ImportStatus = 'idle' | 'importing' | 'completed' | 'error';
 
 export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDialogProps) => {
-  // On Android, only folder mode is supported (SAF file URIs can't be resolved by Rust)
-  const [mode, setMode] = useState<ImportMode>(isAndroid ? 'folder' : (initialFilePaths && initialFilePaths.length > 0 ? 'files' : 'folder'));
+  const [mode, setMode] = useState<ImportMode>(initialFilePaths && initialFilePaths.length > 0 ? 'files' : 'folder');
   const [status, setStatus] = useState<ImportStatus>('idle');
   const [result, setResult] = useState<ImportResult | null>(null);
   const [selectedPath, setSelectedPath] = useState<string>(
@@ -40,11 +51,9 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
       if (path) {
         setSelectedPath(path);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Failed to select folder:', error);
-      if (typeof error === 'string' && error.toLowerCase().includes('permission denied')) {
-        toast.error('Permission denied', 'Please grant "All files access" or storage permissions in Android Settings to import your library.');
-      } else if (error?.message && error.message.toLowerCase().includes('permission denied')) {
+      if (isPermissionDeniedError(error)) {
         toast.error('Permission denied', 'Please grant "All files access" or storage permissions in Android Settings to import your library.');
       } else {
         toast.error('Failed to select folder', 'Could not open folder selection dialog');
@@ -59,11 +68,9 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
         setSelectedPath(`${paths.length} file(s) selected`);
         setSelectedFilePaths(paths);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Failed to select files:', error);
-      if (typeof error === 'string' && error.toLowerCase().includes('permission denied')) {
-        toast.error('Permission denied', 'Please grant "All files access" or storage permissions in Android Settings to import your library.');
-      } else if (error?.message && error.message.toLowerCase().includes('permission denied')) {
+      if (isPermissionDeniedError(error)) {
         toast.error('Permission denied', 'Please grant "All files access" or storage permissions in Android Settings to import your library.');
       } else {
         toast.error('Failed to select files', 'Could not open file selection dialog');
@@ -97,8 +104,6 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
           }
 
           const localPaths: string[] = [];
-          let copiedCount = 0;
-
           for (const file of files) {
             try {
               const { path: localPath } = await api.copyDocument(file.uri, file.name);
@@ -106,8 +111,6 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
             } catch (e) {
               logger.warn(`Failed to copy document ${file.name}`, e);
             }
-            copiedCount++;
-            // Could add progress updates here if ImportDialog supported it
           }
 
           if (localPaths.length === 0) {
@@ -250,29 +253,27 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
                         </p>
                       </div>
                     </button>
-                    {!isAndroid && (
-                      <button
-                        onClick={() => {
-                          setMode('files');
-                          setSelectedPath('');
-                        }}
-                        className={`group flex-1 flex flex-col items-center text-center gap-4 px-6 py-8 rounded-xl border transition-all duration-300 relative overflow-hidden ${
-                          mode === 'files'
-                            ? 'border-primary ring-1 ring-primary/50 bg-primary/5 shadow-md'
-                            : 'border-border bg-card/30 hover:bg-card/60 hover:border-border/80'
-                        }`}
-                      >
-                        <div className={`p-4 rounded-full transition-transform duration-300 ${mode === 'files' ? 'bg-primary/20 text-primary scale-110' : 'bg-secondary text-muted-foreground group-hover:text-foreground group-hover:scale-105'}`}>
-                          <File className="w-8 h-8" />
-                        </div>
-                        <div className="space-y-1">
-                          <h3 className="text-base font-semibold text-foreground tracking-tight">Select Files</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Choose individual eBook, Manga, or Comic files
-                          </p>
-                        </div>
-                      </button>
-                    )}
+                    <button
+                      onClick={() => {
+                        setMode('files');
+                        setSelectedPath('');
+                      }}
+                      className={`group flex-1 flex flex-col items-center text-center gap-4 px-6 py-8 rounded-xl border transition-all duration-300 relative overflow-hidden ${
+                        mode === 'files'
+                          ? 'border-primary ring-1 ring-primary/50 bg-primary/5 shadow-md'
+                          : 'border-border bg-card/30 hover:bg-card/60 hover:border-border/80'
+                      }`}
+                    >
+                      <div className={`p-4 rounded-full transition-transform duration-300 ${mode === 'files' ? 'bg-primary/20 text-primary scale-110' : 'bg-secondary text-muted-foreground group-hover:text-foreground group-hover:scale-105'}`}>
+                        <File className="w-8 h-8" />
+                      </div>
+                      <div className="space-y-1">
+                        <h3 className="text-base font-semibold text-foreground tracking-tight">Select Files</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Choose individual eBook, Manga, or Comic files
+                        </p>
+                      </div>
+                    </button>
                   </div>
 
                   <div className="space-y-2.5">

@@ -6,36 +6,6 @@ import { toast } from 'sonner';
 const ANILIST_CLIENT_ID = '45479'; // Use the client ID registered with shiori://auth
 const REDIRECT_URI = 'shiori://auth'; // Must match the Intent Filter
 
-function generateRandomString(length: number): string {
-    const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
-    let result = '';
-    const randomValues = new Uint8Array(length);
-    window.crypto.getRandomValues(randomValues);
-    for (let i = 0; i < length; i++) {
-        result += charset[randomValues[i] % charset.length];
-    }
-    return result;
-}
-
-async function sha256(plain: string): Promise<ArrayBuffer> {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(plain);
-    return window.crypto.subtle.digest('SHA-256', data);
-}
-
-function base64urlencode(a: ArrayBuffer): string {
-    const bytes = new Uint8Array(a);
-    const len = bytes.byteLength;
-    let base64 = '';
-    for (let i = 0; i < len; i++) {
-        base64 += String.fromCharCode(bytes[i]);
-    }
-    return btoa(base64)
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, '');
-}
-
 export class AniListAndroidProvider implements AniListAuthProvider {
     private isLoggingIn = false;
 
@@ -43,13 +13,15 @@ export class AniListAndroidProvider implements AniListAuthProvider {
         if (this.isLoggingIn) return;
         this.isLoggingIn = true;
         
-        try {
-            // 1. Build Auth URL using Implicit Grant
-            const authUrl = `https://anilist.co/api/v2/oauth/authorize?client_id=${ANILIST_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token`;
+        let unlistenToken: (() => void) | undefined;
+        let unlistenCode: (() => void) | undefined;
 
-            // 2. Listen for Deep Link Callback with the token
-            const unlisten = await listen<{access_token: string}>('oauth-token-received', async (event) => {
-                unlisten(); // Stop listening
+        try {
+            const authUrl = `https://anilist.co/api/v2/oauth/authorize?client_id=${ANILIST_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code`;
+
+            unlistenToken = await listen<{access_token: string}>('oauth-token-received', async (event) => {
+                unlistenToken?.();
+                unlistenCode?.();
                 
                 const token = event.payload.access_token;
                 if (!token) {
@@ -62,25 +34,39 @@ export class AniListAndroidProvider implements AniListAuthProvider {
                     await invoke('plugin:android-auth|set_secure_token', { token });
                     toast.success('Successfully linked AniList account');
                     window.dispatchEvent(new Event('anilist-auth-changed'));
-                } catch (e: any) {
+                } catch (e: unknown) {
                     console.error('Failed to save secure token:', e);
-                    toast.error('Authentication Failed', { description: e.message || 'Could not save authorization token.' });
+                    toast.error('Authentication Failed', {
+                        description: e instanceof Error ? e.message : 'Could not save authorization token.',
+                    });
                 } finally {
                     this.isLoggingIn = false;
                 }
             });
 
-            // Fallback for code just in case, though not expected
-            const unlistenCode = await listen<{code: string}>('oauth-code-received', async (event) => {
-                unlistenCode();
-                unlisten();
-                toast.error('Authentication Failed', { description: 'Received authorization code instead of token.' });
-                this.isLoggingIn = false;
+            unlistenCode = await listen<{code: string}>('oauth-code-received', async (event) => {
+                unlistenCode?.();
+                unlistenToken?.();
+
+                try {
+                    const token = await invoke<string>('exchange_android_anilist_code', { code: event.payload.code });
+                    await invoke('plugin:android-auth|set_secure_token', { token });
+                    toast.success('Successfully linked AniList account');
+                    window.dispatchEvent(new Event('anilist-auth-changed'));
+                } catch (error) {
+                    console.error('Failed to exchange AniList authorization code:', error);
+                    toast.error('Authentication Failed', {
+                        description: error instanceof Error ? error.message : 'Could not complete AniList login.',
+                    });
+                } finally {
+                    this.isLoggingIn = false;
+                }
             });
 
-            // 3. Launch Custom Tab
             await invoke('plugin:android-auth|start_oauth_login', { url: authUrl });
         } catch (error) {
+            unlistenToken?.();
+            unlistenCode?.();
             console.error('Failed to start Android AniList login:', error);
             toast.error('Login Failed', { description: 'Could not launch AniList authentication.' });
             this.isLoggingIn = false;

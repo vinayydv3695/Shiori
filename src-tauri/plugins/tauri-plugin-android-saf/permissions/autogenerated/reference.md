@@ -12,6 +12,8 @@ Default permissions for the plugin
 - `allow-copy-document`
 - `allow-check-storage-permission`
 - `allow-open-app-settings`
+- `allow-create-document`
+- `allow-write-document`
 
 ## Permission Table
 
@@ -70,6 +72,19 @@ Enables the copy_document command without any pre-configured scope.
 <td>
 
 Denies the copy_document command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-saf:allow-create-document`
+
+</td>
+<td>
+
+Enables the create_document command without any pre-configured scope.
 
 </td>
 </tr>
@@ -226,6 +241,19 @@ Enables the solve_cloudflare command without any pre-configured scope.
 <td>
 
 Denies the solve_cloudflare command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-saf:allow-write-document`
+
+</td>
+<td>
+
+Enables the write_document command without any pre-configured scope.
 
 </td>
 </tr>

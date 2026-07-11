@@ -97,7 +97,7 @@ class AuthPlugin(private val activity: Activity) : Plugin(activity) {
                         activity.startActivity(browserIntent)
                         invoke.resolve()
                     } catch (e2: Exception) {
-                        invoke.reject("Failed to launch auth URL: ${e.message}")
+                        invoke.reject("Failed to launch auth URL: ${e2.message}")
                     }
                 }
             }

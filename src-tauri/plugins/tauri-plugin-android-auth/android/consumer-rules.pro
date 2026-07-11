@@ -1,2 +1,3 @@
 -dontwarn javax.annotation.**
 -keep class javax.annotation.** { *; }
+-keep class com.tauri.shiori.auth.** { *; }

@@ -319,6 +319,12 @@
           "markdownDescription": "Denies the copy_document command without any pre-configured scope."
         },
         {
+          "description": "Enables the create_document command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-create-document",
+          "markdownDescription": "Enables the create_document command without any pre-configured scope."
+        },
+        {
           "description": "Enables the enumerate_tree command without any pre-configured scope.",
           "type": "string",
           "const": "allow-enumerate-tree",
@@ -391,10 +397,16 @@
           "markdownDescription": "Denies the solve_cloudflare command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`\n- `allow-select-folder`\n- `allow-select-files`\n- `allow-solve-cloudflare`\n- `allow-enumerate-tree`\n- `allow-copy-document`\n- `allow-check-storage-permission`\n- `allow-open-app-settings`",
+          "description": "Enables the write_document command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-write-document",
+          "markdownDescription": "Enables the write_document command without any pre-configured scope."
+        },
+        {
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`\n- `allow-select-folder`\n- `allow-select-files`\n- `allow-solve-cloudflare`\n- `allow-enumerate-tree`\n- `allow-copy-document`\n- `allow-check-storage-permission`\n- `allow-open-app-settings`\n- `allow-create-document`\n- `allow-write-document`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`\n- `allow-select-folder`\n- `allow-select-files`\n- `allow-solve-cloudflare`\n- `allow-enumerate-tree`\n- `allow-copy-document`\n- `allow-check-storage-permission`\n- `allow-open-app-settings`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`\n- `allow-select-folder`\n- `allow-select-files`\n- `allow-solve-cloudflare`\n- `allow-enumerate-tree`\n- `allow-copy-document`\n- `allow-check-storage-permission`\n- `allow-open-app-settings`\n- `allow-create-document`\n- `allow-write-document`"
         }
       ]
     }

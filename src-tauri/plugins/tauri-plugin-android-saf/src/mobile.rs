@@ -69,4 +69,16 @@ impl<R: Runtime> AndroidSaf<R> {
             .run_mobile_plugin("openAppSettings", json!({}))
             .map_err(Into::into)
     }
+
+    pub fn create_document(&self, mime_type: String, file_name: String) -> crate::Result<CreateDocumentResponse> {
+        self.0
+            .run_mobile_plugin("createDocument", json!({ "mimeType": mime_type, "fileName": file_name }))
+            .map_err(Into::into)
+    }
+
+    pub fn write_document(&self, uri: String, path: String) -> crate::Result<WriteDocumentResponse> {
+        self.0
+            .run_mobile_plugin("writeDocument", json!({ "uri": uri, "path": path }))
+            .map_err(Into::into)
+    }
 }

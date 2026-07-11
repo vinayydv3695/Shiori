@@ -443,13 +443,14 @@ const GeneralSettings = ({
   }
 
   const themeOptions: { value: Theme; label: string; icon: typeof Moon }[] = [
-    { value: 'light', label: 'Light', icon: Sun },
-    { value: 'dark', label: 'Dark', icon: Moon },
+    { value: 'light', label: 'Premium Light', icon: Sun },
+    { value: 'dark', label: 'OLED Midnight', icon: Moon },
     { value: 'rose-pine-moon', label: 'Rosé Pine', icon: Palette },
     { value: 'catppuccin-mocha', label: 'Catppuccin', icon: Palette },
     { value: 'nord', label: 'Nord', icon: Palette },
     { value: 'dracula', label: 'Dracula', icon: Palette },
     { value: 'tokyo-night', label: 'Tokyo Night', icon: Palette },
+    { value: 'premium-dark', label: 'Premium Dark', icon: Palette },
   ]
 
   return (

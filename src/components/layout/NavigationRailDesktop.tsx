@@ -15,7 +15,7 @@ export function NavigationRailDesktop({ currentView, onNavigateToView }: Navigat
     <TooltipProvider delayDuration={120}>
       <nav
         aria-label="Primary"
-        className={`flex h-full flex-col border-r border-border/40 bg-background/60 backdrop-blur-xl p-3 transition-[width] duration-300 ease-in-out z-10 shadow-[1px_0_10px_rgba(0,0,0,0.02)] max-md:hidden ${
+        className={`flex h-full flex-col border-r border-border/20 bg-background/40 backdrop-blur-2xl p-3 transition-[width] duration-300 ease-in-out z-10 shadow-[1px_0_10px_rgba(0,0,0,0.02)] max-md:hidden ${
           sidebarCollapsed ? "w-[72px]" : "w-60"
         }`}
       >

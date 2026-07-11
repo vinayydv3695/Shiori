@@ -30,49 +30,7 @@
   --manga-accent: #e85d4a;
   --manga-accent-dim: rgba(232, 93, 74, 0.15);
 
-  /* ==================== WHITE THEME (default) ==================== */
-  --background: 0 0% 100%;
-  /* #ffffff */
-  --foreground: 0 0% 7%;
-  /* #111111 */
-
-  --surface-1: 0 0% 98%;
-  /* panels, cards */
-  --surface-2: 0 0% 96%;
-  /* hover, muted inputs */
-  --surface-3: 0 0% 93%;
-  /* active/selected rows */
-  --surface-4: 0 0% 89%;
-  /* borders, dividers */
-
-  --card: 0 0% 100%;
-  --card-foreground: 0 0% 7%;
-
-  --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 7%;
-
-  --primary: 0 0% 7%;
-  /* black ink */
-  --primary-foreground: 0 0% 100%;
-  /* white text on black */
-
-  --secondary: 0 0% 93%;
-  --secondary-foreground: 0 0% 20%;
-
-  --muted: 0 0% 96%;
-  --muted-foreground: 0 0% 45%;
-
-  --accent: 0 0% 93%;
-  --accent-foreground: 0 0% 10%;
-
-  --destructive: 0 84% 55%;
-  --destructive-foreground: 0 0% 100%;
-
-  --border: 0 0% 52%;
-  --input: 0 0% 52%;
-  --ring: 0 0% 7%;
-
-  --radius: 0.5rem;
+  /* White theme is defined in index.css (Premium Light) */
 
   /* ==================== INTERACTIVE / OVERLAY TOKENS ==================== */
   --overlay-bg: rgba(250, 250, 250, 0.85);
@@ -205,67 +163,7 @@
 
 /* ==================== BLACK THEME ([data-theme="black"]) ==================== */
 /* Matches Shiori's attribute-based theme system */
-[data-theme="black"] {
-  --background: 0 0% 6%;
-  /* #0f0f0f */
-  --foreground: 0 0% 95%;
-  /* #f2f2f2 */
-
-  --surface-1: 0 0% 9%;
-  --surface-2: 0 0% 12%;
-  --surface-3: 0 0% 16%;
-  --surface-4: 0 0% 20%;
-
-  --card: 0 0% 9%;
-  --card-foreground: 0 0% 95%;
-
-  --popover: 0 0% 9%;
-  --popover-foreground: 0 0% 95%;
-
-  --primary: 0 0% 95%;
-  /* near-white ink */
-  --primary-foreground: 0 0% 6%;
-
-  --secondary: 0 0% 16%;
-  --secondary-foreground: 0 0% 90%;
-
-  --muted: 0 0% 12%;
-  --muted-foreground: 0 0% 55%;
-
-  --accent: 0 0% 16%;
-  --accent-foreground: 0 0% 90%;
-
-  --destructive: 0 72% 42%;
-  --destructive-foreground: 0 0% 100%;
-
-  --border: 0 0% 18%;
-  --input: 0 0% 18%;
-  --ring: 0 0% 80%;
-
-  /* ==================== INTERACTIVE / OVERLAY TOKENS ==================== */
-  --overlay-bg: rgba(15, 15, 15, 0.85);
-  --loading-spinner: hsl(var(--primary));
-  --text-secondary: hsl(var(--muted-foreground));
-  --text-tertiary: var(--neutral-600);
-  --interactive-accent: #60a5fa;
-  --reader-bg: hsl(var(--background));
-  --reader-fg: hsl(var(--foreground));
-  --surface-hover: hsl(var(--surface-2));
-  --surface-active: hsl(var(--surface-3));
-  --btn-secondary-bg: hsl(var(--secondary));
-  --btn-secondary-fg: hsl(var(--secondary-foreground));
-  --btn-secondary-hover: hsl(var(--surface-3));
-  --btn-primary-bg: #3b82f6;
-  --btn-primary-hover: #2563eb;
-  --btn-primary-fg: #ffffff;
-
-  /* Dark shadows */
-  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.3);
-  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.45), 0 1px 2px -1px rgb(0 0 0 / 0.35);
-  --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.35);
-  --shadow-lg: 0 12px 24px -4px rgb(0 0 0 / 0.55), 0 4px 8px -4px rgb(0 0 0 / 0.35);
-  --shadow-xl: 0 24px 48px -8px rgb(0 0 0 / 0.7);
-}
+/* Black theme is defined in index.css (OLED Midnight) */
 
 /* ==================== BASE STYLES ==================== */
 * {

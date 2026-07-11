@@ -2,13 +2,13 @@ use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-const DESKTOP_ANILIST_CLIENT_ID: &str = "45197";
-const DESKTOP_ANILIST_CLIENT_SECRET: &str = "vXYsl7taXO0YSgpjLRp0xTWLWoHbbEsWMsbf3lLD";
-const DESKTOP_ANILIST_REDIRECT_URI: &str = "https://shiori.local/auth";
+const DESKTOP_ANILIST_CLIENT_ID: &str = env!("ANILIST_DESKTOP_CLIENT_ID");
+const DESKTOP_ANILIST_CLIENT_SECRET: &str = env!("ANILIST_DESKTOP_CLIENT_SECRET");
+const DESKTOP_ANILIST_REDIRECT_URI: &str = env!("ANILIST_DESKTOP_REDIRECT_URI");
 
-const ANDROID_ANILIST_CLIENT_ID: &str = "45479";
-const ANDROID_ANILIST_CLIENT_SECRET: &str = "eb4zstd1FYg89DbVdJ4kp0inyq76Zp46oPH5UM4d";
-const ANDROID_ANILIST_REDIRECT_URI: &str = "shiori://auth";
+const ANDROID_ANILIST_CLIENT_ID: &str = env!("ANILIST_ANDROID_CLIENT_ID");
+const ANDROID_ANILIST_CLIENT_SECRET: &str = env!("ANILIST_ANDROID_CLIENT_SECRET");
+const ANDROID_ANILIST_REDIRECT_URI: &str = env!("ANILIST_ANDROID_REDIRECT_URI");
 
 #[derive(Serialize)]
 struct TokenRequest {

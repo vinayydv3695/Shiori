@@ -32,8 +32,8 @@ const languageOptions = Object.keys(LANGUAGE_NAMES);
 const cacheOptions = [100, 250, 500, 1000, 2000, -1] as const;
 
 const previews: Record<ThemeName, { background: string; text: string; accent: string; surface: string; border: string }> = {
-  White: { background: '#f8f9fa', surface: '#ffffff', text: '#0f172a', accent: '#5a67d8', border: '#e2e8f0' },
-  Black: { background: '#000000', surface: '#080808', text: '#fafafa', accent: '#7c3aed', border: '#262626' },
+  'Premium Light': { background: '#f8f9fa', surface: '#ffffff', text: '#0f172a', accent: '#5a67d8', border: '#e2e8f0' },
+  'OLED Midnight': { background: '#000000', surface: '#080808', text: '#fafafa', accent: '#7c3aed', border: '#262626' },
   'Rose Pine Moon': { background: '#232136', surface: '#2a273f', text: '#e0def4', accent: '#b8b0d9', border: '#524f67' },
   'Catppuccin Mocha': { background: '#1e1e2e', surface: '#181825', text: '#cdd6f4', accent: '#b8bed8', border: '#45475a' },
   Nord: { background: '#2e3440', surface: '#3b4252', text: '#eceff4', accent: '#c4ccd8', border: '#4c566a' },
@@ -42,7 +42,7 @@ const previews: Record<ThemeName, { background: string; text: string; accent: st
   'Premium Dark': { background: '#0a0f1c', surface: '#111827', text: '#f1f5f9', accent: '#818cf8', border: '#1e293b' },
 };
 
-const isLightTheme = (themeName: ThemeName) => themeName === 'White';
+const isLightTheme = (themeName: ThemeName) => themeName === 'Premium Light';
 
 type Tab = 'appearance' | 'reader' | 'general';
 

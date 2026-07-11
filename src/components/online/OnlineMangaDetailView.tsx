@@ -119,6 +119,14 @@ export function OnlineMangaDetailView({
                   romaji
                   native
                 }
+                description
+                startDate { year }
+                staff(perPage: 3) {
+                  edges {
+                    role
+                    node { name { full } }
+                  }
+                }
                 averageScore
                 stats {
                   scoreDistribution {
@@ -140,7 +148,10 @@ export function OnlineMangaDetailView({
           if (data.data?.Media) {
             const media = data.data.Media;
             const totalReviews = media.stats?.scoreDistribution?.reduce((acc: number, cur: any) => acc + cur.amount, 0) || 0;
-            setAnilistData({ ...media, totalReviews });
+            const authorNode = media.staff?.edges?.find((e: any) => e.role?.toLowerCase().includes('story') || e.role?.toLowerCase().includes('art')) || media.staff?.edges?.[0];
+            const fetchedAuthor = authorNode?.node?.name?.full;
+            const fetchedYear = media.startDate?.year;
+            setAnilistData({ ...media, totalReviews, fetchedAuthor, fetchedYear });
           }
         } catch (e) {
           console.error("Anilist fetch error:", e);
@@ -150,11 +161,15 @@ export function OnlineMangaDetailView({
     }
   }, [title]);
 
+  const finalDescription = description || anilistData?.description || '';
+  const finalAuthor = author && author !== 'Unknown' ? author : anilistData?.fetchedAuthor || 'Unknown';
+  const finalYear = year && year !== '?' ? year : anilistData?.fetchedYear || '?';
+
   const displayDescription = useMemo(() => {
-    if (!description) return '';
-    if (isDescriptionExpanded) return description;
-    return description.length > 250 ? description.slice(0, 250) + '...' : description;
-  }, [description, isDescriptionExpanded]);
+    if (!finalDescription) return '';
+    if (isDescriptionExpanded) return finalDescription;
+    return finalDescription.length > 250 ? finalDescription.slice(0, 250) + '...' : finalDescription;
+  }, [finalDescription, isDescriptionExpanded]);
 
   const filteredAndSortedChapters = useMemo(() => {
     let list = [...unifiedChapters];
@@ -326,12 +341,12 @@ export function OnlineMangaDetailView({
               <div className="w-px h-8 bg-white/10 hidden sm:block"></div>
               <div className="flex flex-col">
                 <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider mb-0.5 font-semibold">Author</span>
-                <span className="font-medium text-foreground text-xs sm:text-sm max-w-[120px] sm:max-w-[150px] truncate" title={author || 'Unknown'}>{author || 'Unknown'}</span>
+                <span className="font-medium text-foreground text-xs sm:text-sm max-w-[120px] sm:max-w-[150px] truncate" title={finalAuthor}>{finalAuthor}</span>
               </div>
               <div className="w-px h-8 bg-white/10 hidden sm:block"></div>
               <div className="flex flex-col">
                 <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider mb-0.5 font-semibold">Published</span>
-                <span className="font-medium text-foreground text-xs sm:text-sm">{year || '?'}</span>
+                <span className="font-medium text-foreground text-xs sm:text-sm">{finalYear}</span>
               </div>
             </div>
 
@@ -340,7 +355,7 @@ export function OnlineMangaDetailView({
                 {displayDescription && (
                   <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(displayDescription.replace(/\n/g, '<br/>')) }} />
                 )}
-                {description && description.length > 250 && (
+                {finalDescription && finalDescription.length > 250 && (
                   <button
                     onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
                     className="text-primary hover:text-primary/80 hover:underline ml-2 font-semibold focus:outline-none transition-colors"
@@ -399,7 +414,7 @@ export function OnlineMangaDetailView({
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search chap..."
-                    className="h-9 pl-9 bg-black/20 border-white/10 text-foreground text-sm focus-visible:ring-1 focus-visible:ring-primary rounded-full transition-all"
+                    className="h-9 pl-9 bg-white/5 hover:bg-white/10 border-white/10 text-foreground text-sm focus-visible:ring-1 focus-visible:ring-primary rounded-full transition-all"
                   />
                 </div>
               </div>
@@ -447,9 +462,18 @@ export function OnlineMangaDetailView({
                               {fullTitle || 'Chapter'}
                             </span>
                           </div>
-                          <span className="text-xs text-muted-foreground shrink-0 ml-4">
-                            {ch.date || 'Unknown'}
-                          </span>
+                          <div className="flex flex-col items-end shrink-0 ml-4">
+                            {ch.scanlationGroup && (
+                              <span className="text-[11px] font-medium text-foreground/60 max-w-[100px] sm:max-w-[150px] truncate" title={ch.scanlationGroup}>
+                                {ch.scanlationGroup}
+                              </span>
+                            )}
+                            {ch.date && ch.date !== 'Unknown' && (
+                              <span className="text-[11px] text-muted-foreground/70">
+                                {ch.date}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
@@ -483,7 +507,18 @@ export function OnlineMangaDetailView({
                                     {isHighlighted && <Play className="w-3 h-3 text-primary fill-primary shrink-0" />}
                                     <span className={`truncate text-sm ${isHighlighted ? 'text-primary font-bold' : 'text-foreground/80 font-medium'}`}>{fullTitle}</span>
                                   </div>
-                                  <span className="text-xs text-muted-foreground shrink-0 ml-4">{ch.date || 'Unknown'}</span>
+                                  <div className="flex flex-col items-end shrink-0 ml-4">
+                                    {ch.scanlationGroup && (
+                                      <span className="text-[11px] font-medium text-foreground/60 max-w-[100px] sm:max-w-[150px] truncate" title={ch.scanlationGroup}>
+                                        {ch.scanlationGroup}
+                                      </span>
+                                    )}
+                                    {ch.date && ch.date !== 'Unknown' && (
+                                      <span className="text-[11px] text-muted-foreground/70">
+                                        {ch.date}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               );
                             })}

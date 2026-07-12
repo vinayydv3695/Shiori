@@ -193,7 +193,7 @@ export function IntegrationsStep({ onBack, onNext }: IntegrationsStepProps) {
                                   setIsLoggingIn(true);
                                   try {
                                     await anilistAuth.login();
-                                  } catch {
+                                  } finally {
                                     setIsLoggingIn(false);
                                   }
                                 }}

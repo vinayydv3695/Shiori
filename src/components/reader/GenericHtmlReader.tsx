@@ -365,7 +365,7 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
         );
     }
 
-    if (isLoading || !content) {
+    if (!content) {
         return (
             <div className="premium-reader premium-reader--loading">
                 <div className="premium-loading-container">
@@ -416,7 +416,7 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
             {/* Reading Canvas */}
             <div
                 ref={containerRef}
-                className={`premium-reading-canvas ${isFocusMode ? 'premium-reading-canvas--focus-mode' : ''} h-full overflow-y-auto`}
+                className={`premium-reading-canvas ${isFocusMode ? 'premium-reading-canvas--focus-mode' : ''} h-full overflow-y-auto ${isLoading ? 'opacity-50 pointer-events-none transition-opacity duration-300' : 'opacity-100 transition-opacity duration-300'}`}
                 style={{ scrollBehavior: 'smooth' }}
             >
                 <div className={`premium-content-container premium-content-container--${width}`}>

@@ -22,6 +22,7 @@ import { useDiscordRPCUpdater } from "./hooks/useDiscordRPCUpdater"
 import { useOnlineSearchStore } from "./store/onlineSearchStore"
 import { AndroidSplashScreen } from "./components/ui/AndroidSplashScreen"
 import { SwipeGestureHandler } from "./components/layout/SwipeGestureHandler"
+import { useBackButton } from "./hooks/useBackButton"
 
 const ReaderLayout = lazy(() => import("./components/reader/ReaderLayout").then(m => ({ default: m.ReaderLayout })))
 const OnboardingWizard = lazy(() => import("./components/onboarding/OnboardingWizard").then(m => ({ default: m.OnboardingWizard })))
@@ -108,6 +109,9 @@ function App() {
   const { displayBooks, books } = useLibraryFilter(searchQuery)
   const { selectedBookId, handleOpenBook, handleCloseReader, handleDownloadBook, handleAutoGroupManga, autoConvert, resumeReading } = useBookActions(books)
   const dialogs = useDialogManager()
+
+  useBackButton(isReaderOpen, handleCloseReader)
+  useBackButton(currentView === 'online-manga-reader', () => setCurrentView('home'))
 
   // ── Initialization ──
   useEffect(() => { void initializeOnboarding() }, [initializeOnboarding])

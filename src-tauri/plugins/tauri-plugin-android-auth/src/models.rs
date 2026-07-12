@@ -31,10 +31,14 @@ pub struct GetSecureTokenResponse {
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct GetPendingOAuthDataResponse {
+    #[serde(default)]
     pub access_token: Option<String>,
+    #[serde(default)]
     pub expires_in: Option<String>,
+    #[serde(default)]
     pub token_type: Option<String>,
+    #[serde(default)]
     pub code: Option<String>,
 }
+

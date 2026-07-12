@@ -99,6 +99,7 @@ interface ReadingSettings {
 
   // Layout Mode
   isPaginated: boolean;
+  continuousFlow: boolean;
 
   // Page Transition Animation (Chapter-level or page-level)
   pageFlipEnabled: boolean;
@@ -129,6 +130,7 @@ interface ReadingSettings {
   cycleWidth: () => void;
   toggleTwoPageView: () => void;
   setIsPaginated: (paginated: boolean) => void;
+  setContinuousFlow: (flow: boolean) => void;
   setBrightness: (brightness: number) => void;
   setPageFlipEnabled: (enabled: boolean) => void;
   setPageFlipSpeed: (speed: number) => void;
@@ -154,6 +156,7 @@ const defaultSettings = {
   margin: isAndroid ? 0 : 40,
   twoPageView: false,
   isPaginated: false,
+  continuousFlow: false,
   brightness: 1.0,
   pageFlipEnabled: true,
   pageFlipSpeed: 300,
@@ -195,6 +198,7 @@ const normalizeReadingSettingsState = (raw: unknown): Omit<ReadingSettings, keyo
   cycleWidth: 0;
   toggleTwoPageView: 0;
   setIsPaginated: 0;
+  setContinuousFlow: 0;
   setBrightness: 0;
   setPageFlipEnabled: 0;
   setPageFlipSpeed: 0;
@@ -221,6 +225,7 @@ const normalizeReadingSettingsState = (raw: unknown): Omit<ReadingSettings, keyo
     margin: clampNumber(source.margin, defaultSettings.margin, 0, 80),
     twoPageView: typeof source.twoPageView === 'boolean' ? source.twoPageView : defaultSettings.twoPageView,
     isPaginated: typeof source.isPaginated === 'boolean' ? source.isPaginated : defaultSettings.isPaginated,
+    continuousFlow: typeof source.continuousFlow === 'boolean' ? source.continuousFlow : defaultSettings.continuousFlow,
     brightness: clampNumber(source.brightness, defaultSettings.brightness, 0.5, 1.5),
     pageFlipEnabled: typeof source.pageFlipEnabled === 'boolean' ? source.pageFlipEnabled : defaultSettings.pageFlipEnabled,
     pageFlipSpeed: clampNumber(source.pageFlipSpeed, defaultSettings.pageFlipSpeed, 100, 800),
@@ -341,7 +346,21 @@ export const useReadingSettings = create<ReadingSettings>()(
 
       toggleTwoPageView: () => set((state) => ({ twoPageView: !state.twoPageView })),
 
-      setIsPaginated: (paginated) => set({ isPaginated: paginated }),
+      setIsPaginated: (paginated) => {
+        if (paginated) {
+          set({ isPaginated: true, continuousFlow: false, pageFlipEnabled: true });
+        } else {
+          set({ isPaginated: false, pageFlipEnabled: false });
+        }
+      },
+
+      setContinuousFlow: (flow) => {
+        if (flow) {
+          set({ continuousFlow: true, isPaginated: false, twoPageView: false, pageFlipEnabled: false });
+        } else {
+          set({ continuousFlow: false });
+        }
+      },
 
       setBrightness: (brightness) => {
         const clamped = Math.max(0.5, Math.min(1.5, brightness));

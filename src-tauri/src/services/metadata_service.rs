@@ -276,7 +276,59 @@ fn extract_epub_cover(
         .map_err(|e| ShioriError::MetadataExtraction(format!("Failed to parse EPUB: {}", e)))?;
 
     // Try to get cover image - returns (Vec<u8>, String) where String is media type
-    if let Some((cover_data, media_type)) = doc.get_cover() {
+    let mut cover_result = doc.get_cover();
+    
+    // Fallback: search resources for a cover if explicit metadata is missing
+    if cover_result.is_none() {
+        let mut fallback_id = None;
+        let resources = doc.resources.clone();
+        
+        // 1. Look for 'cover' in resource ID or path
+        for (id, res) in &resources {
+            if res.mime.starts_with("image/") {
+                let id_lower = id.to_lowercase();
+                let path_lower = res.path.to_string_lossy().to_lowercase();
+                if id_lower.contains("cover") || path_lower.contains("cover") {
+                    fallback_id = Some(id.clone());
+                    break;
+                }
+            }
+        }
+        
+        // 2. Look for 'title' or 'front' in image name
+        if fallback_id.is_none() {
+            for (id, res) in &resources {
+                if res.mime.starts_with("image/") {
+                    let id_lower = id.to_lowercase();
+                    let path_lower = res.path.to_string_lossy().to_lowercase();
+                    if id_lower.contains("title") || path_lower.contains("title") || id_lower.contains("front") || path_lower.contains("front") {
+                        fallback_id = Some(id.clone());
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // 3. Fallback to the very first image found
+        if fallback_id.is_none() {
+            for (id, res) in &resources {
+                if res.mime.starts_with("image/") {
+                    fallback_id = Some(id.clone());
+                    break;
+                }
+            }
+        }
+        
+        if let Some(id) = fallback_id {
+            log::info!("[extract_epub_cover] Falling back to image resource ID: {}", id);
+            if let Some((data, mime)) = doc.get_resource(&id) {
+                let final_mime = resources.get(&id).map(|res| res.mime.clone()).unwrap_or(mime);
+                cover_result = Some((data, final_mime));
+            }
+        }
+    }
+
+    if let Some((cover_data, media_type)) = cover_result {
         fs::create_dir_all(covers_dir).map_err(|e| {
             ShioriError::MetadataExtraction(format!("Failed to create covers dir: {}", e))
         })?;
@@ -445,124 +497,100 @@ fn extract_pdf_cover(
         return Ok(None);
     }
 
-    let first_page_id = pages.iter().next().map(|(_, &id)| id);
-    if first_page_id.is_none() {
-        log::warn!("[extract_pdf_cover] Could not get first page ID");
-        return Ok(None);
-    }
+    // Check up to the first 5 pages for an image
+    let page_ids: Vec<lopdf::ObjectId> = pages.values().take(5).copied().collect();
 
-    let page_id = first_page_id.unwrap();
-
-    let page_dict = match doc.get_dictionary(page_id) {
-        Ok(dict) => dict,
-        Err(e) => {
-            log::warn!("[extract_pdf_cover] Failed to get page dictionary: {}", e);
-            return Ok(None);
-        }
-    };
-
-    let resources_ref = match page_dict.get(b"Resources") {
-        Ok(res) => res,
-        Err(_) => {
-            log::warn!("[extract_pdf_cover] No Resources found in first page");
-            return Ok(None);
-        }
-    };
-
-    let resources_dict = match resources_ref {
-        Object::Reference(ref_id) => match doc.get_dictionary(*ref_id) {
+    for page_id in page_ids {
+        let page_dict = match doc.get_dictionary(page_id) {
             Ok(dict) => dict,
-            Err(_) => {
-                log::warn!("[extract_pdf_cover] Failed to resolve Resources reference");
-                return Ok(None);
-            }
-        },
-        Object::Dictionary(dict) => dict,
-        _ => {
-            log::warn!("[extract_pdf_cover] Resources is not a dictionary");
-            return Ok(None);
-        }
-    };
+            Err(_) => continue,
+        };
 
-    let xobject_ref = match resources_dict.get(b"XObject") {
-        Ok(xobj) => xobj,
-        Err(_) => {
-            log::warn!("[extract_pdf_cover] No XObject found in Resources");
-            return Ok(None);
-        }
-    };
+        let resources_ref = match page_dict.get(b"Resources") {
+            Ok(res) => res,
+            Err(_) => continue,
+        };
 
-    let xobject_dict = match xobject_ref {
-        Object::Reference(ref_id) => match doc.get_dictionary(*ref_id) {
-            Ok(dict) => dict,
-            Err(_) => {
-                log::warn!("[extract_pdf_cover] Failed to resolve XObject reference");
-                return Ok(None);
-            }
-        },
-        Object::Dictionary(dict) => dict,
-        _ => {
-            log::warn!("[extract_pdf_cover] XObject is not a dictionary");
-            return Ok(None);
-        }
-    };
-
-    for (_, xobj_ref) in xobject_dict.iter() {
-        let stream = match xobj_ref {
-            Object::Reference(ref_id) => match doc.get_object(*ref_id) {
-                Ok(Object::Stream(s)) => s,
-                _ => continue,
+        let resources_dict = match resources_ref {
+            Object::Reference(ref_id) => match doc.get_dictionary(*ref_id) {
+                Ok(dict) => dict,
+                Err(_) => continue,
             },
-            Object::Stream(s) => s,
+            Object::Dictionary(dict) => dict,
             _ => continue,
         };
 
-        let subtype = stream.dict.get(b"Subtype");
-        if let Ok(Object::Name(ref name)) = subtype {
-            if name != b"Image" {
-                continue;
-            }
-        } else {
-            continue;
-        }
-
-        let filter = stream.dict.get(b"Filter");
-        let is_jpeg = match filter {
-            Ok(Object::Name(ref name)) => name == b"DCTDecode",
-            Ok(Object::Array(ref arr)) => arr
-                .iter()
-                .any(|obj| matches!(obj, Object::Name(ref name) if name == b"DCTDecode")),
-            _ => false,
+        let xobject_ref = match resources_dict.get(b"XObject") {
+            Ok(xobj) => xobj,
+            Err(_) => continue,
         };
 
-        if !is_jpeg {
-            log::info!("[extract_pdf_cover] Found image but not JPEG (DCTDecode), skipping");
-            continue;
+        let xobject_dict = match xobject_ref {
+            Object::Reference(ref_id) => match doc.get_dictionary(*ref_id) {
+                Ok(dict) => dict,
+                Err(_) => continue,
+            },
+            Object::Dictionary(dict) => dict,
+            _ => continue,
+        };
+
+        for (_, xobj_ref) in xobject_dict.iter() {
+            let stream = match xobj_ref {
+                Object::Reference(ref_id) => match doc.get_object(*ref_id) {
+                    Ok(Object::Stream(s)) => s,
+                    _ => continue,
+                },
+                Object::Stream(s) => s,
+                _ => continue,
+            };
+
+            let subtype = stream.dict.get(b"Subtype");
+            if let Ok(Object::Name(ref name)) = subtype {
+                if name != b"Image" {
+                    continue;
+                }
+            } else {
+                continue;
+            }
+
+            let filter = stream.dict.get(b"Filter");
+            let is_jpeg = match filter {
+                Ok(Object::Name(ref name)) => name == b"DCTDecode",
+                Ok(Object::Array(ref arr)) => arr
+                    .iter()
+                    .any(|obj| matches!(obj, Object::Name(ref name) if name == b"DCTDecode")),
+                _ => false,
+            };
+
+            if !is_jpeg {
+                log::info!("[extract_pdf_cover] Found image but not JPEG (DCTDecode), skipping");
+                continue;
+            }
+
+            fs::create_dir_all(covers_dir).map_err(|e| {
+                ShioriError::MetadataExtraction(format!("Failed to create covers dir: {}", e))
+            })?;
+
+            let cover_filename = format!("{}.jpg", book_uuid);
+            let cover_path = covers_dir.join(&cover_filename);
+
+            let mut file = fs::File::create(&cover_path).map_err(|e| {
+                ShioriError::MetadataExtraction(format!("Failed to create cover file: {}", e))
+            })?;
+
+            file.write_all(&stream.content).map_err(|e| {
+                ShioriError::MetadataExtraction(format!("Failed to write cover data: {}", e))
+            })?;
+
+            log::info!(
+                "[extract_pdf_cover] ✅ Cover extracted to: {}",
+                cover_path.display()
+            );
+            return Ok(Some(cover_path.to_string_lossy().to_string()));
         }
-
-        fs::create_dir_all(covers_dir).map_err(|e| {
-            ShioriError::MetadataExtraction(format!("Failed to create covers dir: {}", e))
-        })?;
-
-        let cover_filename = format!("{}.jpg", book_uuid);
-        let cover_path = covers_dir.join(&cover_filename);
-
-        let mut file = fs::File::create(&cover_path).map_err(|e| {
-            ShioriError::MetadataExtraction(format!("Failed to create cover file: {}", e))
-        })?;
-
-        file.write_all(&stream.content).map_err(|e| {
-            ShioriError::MetadataExtraction(format!("Failed to write cover data: {}", e))
-        })?;
-
-        log::info!(
-            "[extract_pdf_cover] ✅ Cover extracted to: {}",
-            cover_path.display()
-        );
-        return Ok(Some(cover_path.to_string_lossy().to_string()));
     }
 
-    log::warn!("[extract_pdf_cover] No suitable cover image found in first page");
+    log::warn!("[extract_pdf_cover] No suitable cover image found in first pages");
     Ok(None)
 }
 

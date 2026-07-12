@@ -18,6 +18,7 @@ import { applyHighlightsToDOM } from '@/lib/highlightAnnotations';
 import { useToastStore } from '@/store/toastStore';
 import { ReaderTopBar } from './ReaderTopBar';
 import { ReadingProgressIndicator } from './ReadingProgressIndicator';
+import { ContinuousEpubView } from './ContinuousEpubView';
 import type { ReaderContent } from './readerContent';
 import '@/styles/premium-reader.css';
 import '@/styles/themes/paper-theme.css';
@@ -30,7 +31,7 @@ interface PremiumEpubReaderProps {
   onClose: () => void;
 }
 
-function ChapterHtml({ content }: { content: string }) {
+export function ChapterHtml({ content }: { content: string }) {
   const htmlRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -56,7 +57,7 @@ function bytesToBase64(data: number[] | Uint8Array | ArrayBuffer): string {
   return btoa(binary);
 }
 
-async function processEpubHtml(bookId: number, html: string, searchTerm?: string | null): Promise<string> {
+export async function processEpubHtml(bookId: number, html: string, searchTerm?: string | null): Promise<string> {
   let processedHtml = html;
 
   // Step 1: Process CSS stylesheets - Convert <link> tags to <style> tags
@@ -221,7 +222,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const setExplicitResumeTarget = useReaderStore(state => state.setExplicitResumeTarget);
 
   const readingSettings = useReadingSettings();
-  const { theme, width, twoPageView, isPaginated, toggleTwoPageView, pageFlipEnabled, pageFlipSpeed, animationStyle } = readingSettings;
+  const { theme, width, twoPageView, isPaginated, continuousFlow, toggleTwoPageView, pageFlipEnabled, pageFlipSpeed, animationStyle } = readingSettings;
 
   // Apply all reading settings (typography, margins, etc.) on mount and when they change
   useEffect(() => {
@@ -976,13 +977,13 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     );
   }
 
-  if (isLoading || !currentChapter) {
+  if (!currentChapter) {
     return (
       <div ref={readerContainerRef} className="premium-reader premium-reader--loading">
         <div className="premium-loading-container">
           <Loader2 className="premium-loading-spinner" />
           <p className="premium-loading-text">
-            {isLoading && currentChapter ? 'Loading chapter...' : 'Loading book...'}
+            Loading book...
           </p>
           {(metadata || readerContent) && (
             <p className="premium-loading-subtitle">{metadata?.title ?? readerContent?.title}</p>
@@ -1055,15 +1056,36 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       />
 
       {/* Reading Canvas */}
-      <div
-        ref={canvasRef}
-        className={`premium-reading-canvas ${isFocusMode ? 'premium-reading-canvas--focus-mode' : ''} ${isPaginated ? 'premium-reading-canvas--paginated' : ''}`}
-      >
+      {continuousFlow && metadata ? (
+        <ContinuousEpubView
+          bookId={bookId}
+          metadata={metadata}
+          initialChapterIndex={currentIndex}
+          initialScrollRatio={scrollPositionsRef.current.get(currentIndex)}
+          onChapterChange={(idx) => {
+            setCurrentIndex(idx);
+            // Save progress directly instead of calling loadChapter which causes duplicate fetching
+            const progressPercent = metadata
+              ? ((idx + 1) / metadata.total_chapters) * 100
+              : 0;
+            const location = `chapter_${idx}`;
+            const cfi = `epubcfi(/0/${idx}!/scroll/0.000000)`;
+            api.saveReadingProgress(bookId, location, progressPercent, undefined, undefined, cfi).catch(() => {});
+          }}
+          widthClass={width}
+          isFocusMode={isFocusMode}
+          searchTerm={searchHighlight}
+        />
+      ) : (
         <div
-          ref={contentContainerRef}
-          className={`premium-content-container premium-content-container--${width} ${twoPageView ? 'premium-content-container--two-page' : ''} ${isPaginated ? 'premium-content-container--paginated' : ''}`}
+          ref={canvasRef}
+          className={`premium-reading-canvas ${isFocusMode ? 'premium-reading-canvas--focus-mode' : ''} ${isPaginated ? 'premium-reading-canvas--paginated' : ''} ${isLoading ? 'opacity-50 pointer-events-none transition-opacity duration-300' : 'opacity-100 transition-opacity duration-300'}`}
         >
-          {twoPageView && adjacentChapter ? (
+          <div
+            ref={contentContainerRef}
+            className={`premium-content-container premium-content-container--${width} ${twoPageView ? 'premium-content-container--two-page' : ''} ${isPaginated ? 'premium-content-container--paginated' : ''}`}
+          >
+            {twoPageView && adjacentChapter ? (
             /* Two-page layout */
             <>
               <div className="premium-chapter-page">
@@ -1104,6 +1126,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
           )}
         </div>
       </div>
+      )}
 
       {/* Doodle Toolbar (floating, only when active) */}
       {isDoodleMode && <DoodleToolbar />}
@@ -1119,7 +1142,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
 
 
       {/* Floating Navigation Arrows */}
-      {!isFocusMode && (
+      {!isFocusMode && !continuousFlow && (
         <>
           <button
             type="button"

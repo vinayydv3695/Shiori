@@ -3,6 +3,7 @@ import { ToastContainer } from "./ui/ToastContainer"
 import { useLibraryStore } from "@/store/libraryStore"
 import { api } from "@/lib/tauri"
 import { Book } from "@/lib/tauri"
+import { useBackButton } from "@/hooks/useBackButton"
 
 // Lazy load dialogs
 const EditMetadataDialog = lazy(() => import("./library/EditMetadataDialog").then(m => ({ default: m.EditMetadataDialog })))
@@ -43,6 +44,16 @@ export function GlobalDialogs({
   clearSelection,
   loadInitialBooks
 }: GlobalDialogsProps) {
+  useBackButton(dialogs.editDialogOpen, () => dialogs.setEditDialogOpen(false));
+  useBackButton(dialogs.deleteDialogOpen, () => dialogs.setDeleteDialogOpen(false));
+  useBackButton(dialogs.settingsDialogOpen, () => dialogs.setSettingsDialogOpen(false));
+  useBackButton(dialogs.detailsDialogOpen, () => dialogs.setDetailsDialogOpen(false));
+  useBackButton(dialogs.advancedFilterOpen, () => dialogs.setAdvancedFilterOpen(false));
+  useBackButton(dialogs.seriesViewOpen, () => dialogs.setSeriesViewOpen(false));
+  useBackButton(dialogs.batchMetadataDialogOpen, () => dialogs.setBatchMetadataDialogOpen(false));
+  useBackButton(autoConvert.showDialog, () => autoConvert.onDialogOpenChange(false));
+  useBackButton(resumeReading.showDialog, () => resumeReading.onDialogOpenChange(false));
+
   return (
     <>
       <Suspense fallback={null}><ConversionJobTracker /></Suspense>

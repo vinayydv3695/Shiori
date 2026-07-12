@@ -11,6 +11,9 @@ interface MangaPageImageProps {
     style?: React.CSSProperties;
     onLoad?: () => void;
     imageRef?: React.Ref<HTMLImageElement>;
+    overrideUrl?: string;
+    overrideChapterId?: string;
+    overrideSourceId?: string;
 }
 
 /**
@@ -26,6 +29,9 @@ export const MangaPageImage = memo(function MangaPageImage({
     style,
     onLoad,
     imageRef,
+    overrideUrl,
+    overrideChapterId,
+    overrideSourceId,
 }: MangaPageImageProps) {
     const fitMode = useMangaSettingsStore(s => s.fitMode);
     const zoomLevel = useMangaSettingsStore(s => s.zoomLevel);
@@ -34,7 +40,7 @@ export const MangaPageImage = memo(function MangaPageImage({
     const effectiveMaxDimension = maxDimension ?? getEffectiveMaxDimension();
 
     // Unified hook handles both local and online sources
-    const { url, loading, error, retry } = useUnifiedImageDecode(pageIndex, effectiveMaxDimension);
+    const { url, loading, error, retry } = useUnifiedImageDecode(pageIndex, effectiveMaxDimension, overrideUrl, overrideChapterId, overrideSourceId);
     const [imgLoaded, setImgLoaded] = useState(false);
     const imgRef = useRef<HTMLImageElement>(null);
 

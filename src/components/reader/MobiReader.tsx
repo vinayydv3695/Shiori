@@ -432,7 +432,7 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
     }
 
     // ── Loading State ──
-    if (isLoading && !currentChapter) {
+    if (!currentChapter) {
         return (
             <div className="premium-reader premium-reader--loading">
                 <div className="premium-loading-container">
@@ -479,7 +479,7 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
             {/* Reading Canvas */}
             <div
                 ref={containerRef}
-                className={`premium-reading-canvas ${isFocusMode ? 'premium-reading-canvas--focus-mode' : ''} h-full overflow-y-auto`}
+                className={`premium-reading-canvas ${isFocusMode ? 'premium-reading-canvas--focus-mode' : ''} ${isLoading ? 'opacity-50 pointer-events-none transition-opacity duration-300' : 'opacity-100 transition-opacity duration-300'} h-full overflow-y-auto`}
                 style={{ scrollBehavior: 'smooth' }}
             >
                 {isLoading && (

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -61,7 +61,10 @@ export function AdvancedOnlineSearchDialog({ open, onOpenChange, onSearch }: Pro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent aria-describedby={undefined} className="sm:max-w-[750px] max-h-[90vh] overflow-y-auto bg-background/95 backdrop-blur-xl border-border/50">
+      <DialogContent aria-describedby="advanced-search-dialog-description" className="w-[calc(100vw-2rem)] max-w-[750px] max-h-[90vh] overflow-y-auto bg-background/95 backdrop-blur-xl border-border/50">
+        <DialogDescription id="advanced-search-dialog-description" className="sr-only">
+          Advanced search options for finding books and manga online.
+        </DialogDescription>
         <DialogHeader className="pb-4 border-b border-border/40">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-primary/10 rounded-xl">

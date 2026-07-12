@@ -14,7 +14,13 @@ import { logger } from '@/lib/logger';
 // Cache for proxied online images (blob URLs)
 const onlineImageCache = new Map<string, string>();
 
-export function useUnifiedImageDecode(pageIndex: number, maxDimension: number = 1600) {
+export function useUnifiedImageDecode(
+    pageIndex: number, 
+    maxDimension: number = 1600,
+    overrideUrl?: string,
+    overrideChapterId?: string,
+    overrideSourceId?: string
+) {
     const sourceType = useMangaContentStore(s => s.sourceType);
     const bookId = useMangaContentStore(s => s.bookId);
     const onlineSource = useMangaContentStore(s => s.onlineSource);
@@ -54,17 +60,20 @@ export function useUnifiedImageDecode(pageIndex: number, maxDimension: number = 
                     setLoading(false);
                 } else if (sourceType === 'online' && onlineSource) {
                     // Online source
-                    const pageUrl = onlineSource.pageUrls[pageIndex];
+                    const pageUrl = overrideUrl || onlineSource.pageUrls[pageIndex];
                     if (!pageUrl) {
                         throw new Error(`No URL for page ${pageIndex + 1}`);
                     }
 
+                    const activeSourceId = overrideSourceId || onlineSource.sourceId;
+                    const activeChapterId = overrideChapterId || onlineSource.chapterId;
+
                     // Check if we need to proxy the image (e.g., ToonGod needs Referer header)
-                    const needsProxy = onlineSource.sourceId === 'toongod' || onlineSource.sourceId === 'weebrook' || onlineSource.sourceId === 'manhwahub' || onlineSource.sourceId === 'mangafire';
+                    const needsProxy = activeSourceId === 'toongod' || activeSourceId === 'weebrook' || activeSourceId === 'manhwahub' || activeSourceId === 'mangafire';
                     
                     if (needsProxy) {
                         // Check cache first
-                        const cacheKey = `${onlineSource.sourceId}:${onlineSource.chapterId}:${pageIndex}`;
+                        const cacheKey = `${activeSourceId}:${activeChapterId}:${pageUrl}`; // Use pageUrl instead of pageIndex for uniqueness across chapters
                         const cached = onlineImageCache.get(cacheKey);
                         
                         if (cached) {
@@ -75,7 +84,7 @@ export function useUnifiedImageDecode(pageIndex: number, maxDimension: number = 
                         }
 
                         // Proxy the image through backend
-                        const bytes = await api.proxyMangaImage(onlineSource.sourceId, pageUrl);
+                        const bytes = await api.proxyMangaImage(activeSourceId, pageUrl);
                         if (cancelled || !mountedRef.current) return;
                         
                         const blob = new Blob([new Uint8Array(bytes)], { type: 'image/jpeg' });
@@ -109,12 +118,17 @@ export function useUnifiedImageDecode(pageIndex: number, maxDimension: number = 
         loadImage();
 
         return () => { cancelled = true; };
-    }, [sourceType, bookId, onlineSource, pageIndex, maxDimension, retryCount]);
+    }, [sourceType, bookId, onlineSource, pageIndex, maxDimension, retryCount, overrideUrl, overrideChapterId, overrideSourceId]);
 
     const retry = useCallback(() => {
         // Clear cache entry on retry for online sources
-        if (sourceType === 'online' && onlineSource) {
-            const cacheKey = `${onlineSource.sourceId}:${onlineSource.chapterId}:${pageIndex}`;
+        if (sourceType === 'online' && (onlineSource || (overrideSourceId && overrideUrl))) {
+            const activeSourceId = overrideSourceId || onlineSource?.sourceId;
+            const activeChapterId = overrideChapterId || onlineSource?.chapterId;
+            const activeUrl = overrideUrl || onlineSource?.pageUrls[pageIndex];
+            if (!activeSourceId || !activeUrl) return;
+
+            const cacheKey = `${activeSourceId}:${activeChapterId}:${activeUrl}`;
             const cached = onlineImageCache.get(cacheKey);
             if (cached && cached.startsWith('blob:')) {
                 URL.revokeObjectURL(cached);
@@ -122,7 +136,7 @@ export function useUnifiedImageDecode(pageIndex: number, maxDimension: number = 
             onlineImageCache.delete(cacheKey);
         }
         setRetryCount(c => c + 1);
-    }, [sourceType, onlineSource, pageIndex]);
+    }, [sourceType, onlineSource, pageIndex, overrideSourceId, overrideChapterId, overrideUrl]);
 
     return { url, loading, error, retry };
 }
@@ -157,11 +171,11 @@ export async function preloadOnlinePages(
         );
         
         for (const idx of indices) {
-            const cacheKey = `${sourceId}:${chapterId}:${idx}`;
-            if (onlineImageCache.has(cacheKey)) continue;
-            
             const pageUrl = pageUrls[idx];
             if (!pageUrl) continue;
+            
+            const cacheKey = `${sourceId}:${chapterId}:${pageUrl}`;
+            if (onlineImageCache.has(cacheKey)) continue;
 
             try {
                 if (needsProxy) {

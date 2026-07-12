@@ -142,7 +142,7 @@ export function ViewRouter({
 
         {currentView === 'anilist' && (
           <Suspense fallback={<LoadingSpinner className="py-24" />}>
-            <AniListDashboard />
+            <AniListDashboard onOpenSettings={() => dialogs.setSettingsDialogOpen(true)} />
           </Suspense>
         )}
     </>

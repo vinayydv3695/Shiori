@@ -35,7 +35,11 @@ const itemVariants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' as const } },
 };
 
-export function AniListDashboard() {
+interface AniListDashboardProps {
+  onOpenSettings?: () => void;
+}
+
+export function AniListDashboard({ onOpenSettings }: AniListDashboardProps = {}) {
   const { token: anilistToken } = useAniListAccessToken();
   const setCurrentView = useUIStore(state => state.setCurrentView);
   const setSearchQuery = useOnlineSearchStore(state => state.setQuery);
@@ -243,7 +247,7 @@ export function AniListDashboard() {
         <p className="text-muted-foreground max-w-md">
           To view your AniList library, please go to Settings &gt; Integrations and log in with AniList.
         </p>
-        <Button onClick={() => document.getElementById('settings-dialog-trigger')?.click()}>
+        <Button onClick={onOpenSettings}>
           Open Settings
         </Button>
       </div>

@@ -18,7 +18,7 @@ impl<R: Runtime> AndroidSaf<R> {
     }
 
     pub fn select_files(&self) -> crate::Result<SelectFilesResponse> {
-        Ok(SelectFilesResponse { uris: vec![] })
+        Ok(SelectFilesResponse { files: vec![] })
     }
 
     pub fn solve_cloudflare(&self, _url: String) -> crate::Result<SolveCloudflareResponse> {
@@ -40,6 +40,24 @@ impl<R: Runtime> AndroidSaf<R> {
         Ok(CopyDocumentResponse {
             path: String::new(),
         })
+    }
+
+    pub fn create_document(
+        &self,
+        _mime_type: String,
+        _file_name: String,
+    ) -> crate::Result<CreateDocumentResponse> {
+        Ok(CreateDocumentResponse {
+            uri: String::new(),
+        })
+    }
+
+    pub fn write_document(
+        &self,
+        _uri: String,
+        _path: String,
+    ) -> crate::Result<WriteDocumentResponse> {
+        Ok(WriteDocumentResponse {})
     }
 
     /// No-op on desktop: the storage-permission nudge only applies to Android. Desktop always

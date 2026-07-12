@@ -92,11 +92,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::new().build());
 
-    #[cfg(target_os = "android")]
-    {
-        builder = builder.plugin(tauri_plugin_android_saf::init());
-        builder = builder.plugin(tauri_plugin_android_auth::init());
-    }
+    builder = builder.plugin(tauri_plugin_android_saf::init());
+    builder = builder.plugin(tauri_plugin_android_auth::init());
 
     builder = builder
         .plugin(tauri_plugin_os::init())

@@ -66,7 +66,7 @@ export function ViewRouter({
     type: "tween",
     ease: "easeOut",
     duration: 0.2
-  };
+  } as const;
 
   return (
     <AnimatePresence mode="wait">

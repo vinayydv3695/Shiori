@@ -201,6 +201,7 @@ interface BookCardProps {
   onFavorite?: (id: number) => void
   animationDelay?: number
   scrollRoot?: HTMLElement | null
+  forceVisible?: boolean
 }
 
 export const PremiumBookCard = memo(function PremiumBookCard({
@@ -216,6 +217,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
   onFavorite,
   animationDelay = 0,
   scrollRoot,
+  forceVisible = false,
 }: BookCardProps) {
   const storeIsSelected = useLibraryStore((s) => s.selectedBookIds.has(book.id!))
   const storeIsFavorited = useLibraryStore((s) => s.favoriteBookIds.has(book.id!))
@@ -225,7 +227,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
   const [imgLoaded, setImgLoaded] = useState(false)
   const [imgError, setImgError] = useState(false)
   const cardRef = useRef<HTMLDivElement>(null)
-  const [visible, setVisible] = useState(false)
+  const [visible, setVisible] = useState(forceVisible)
   const [assignOpen, setAssignOpen] = useState(false)
 
   // Cover is only requested once the card is visible in the viewport.
@@ -236,6 +238,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
   const isManga = book.file_format === 'cbz' || book.file_format === 'cbr'
 
   useEffect(() => {
+    if (forceVisible) return;
     const el = cardRef.current
     if (!el) return
     const observer = new IntersectionObserver(
@@ -244,7 +247,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
     )
     observer.observe(el)
     return () => observer.disconnect()
-  }, [scrollRoot])
+  }, [scrollRoot, forceVisible])
 
   const handleClick = (e: React.MouseEvent) => {
     if (e.shiftKey || e.ctrlKey || e.metaKey) {

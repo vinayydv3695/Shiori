@@ -9,6 +9,7 @@ export interface SeriesCardProps {
   onOpen?: (series: SeriesGroup) => void
   animationDelay?: number
   scrollRoot?: HTMLElement | null
+  forceVisible?: boolean
 }
 
 export interface SeriesViewProps {

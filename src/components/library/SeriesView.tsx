@@ -56,7 +56,7 @@ const DesktopSeriesHeader = memo(function DesktopSeriesHeader({
       {coverUrl && (
         <>
           <div 
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-30 blur-3xl scale-110 saturate-150 transform-gpu dark:opacity-40"
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-10"
             style={{ backgroundImage: `url(${coverUrl})` }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />

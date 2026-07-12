@@ -486,13 +486,6 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     };
   }, [setScrollProgress, metadata, currentIndex, bookId, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (canvas) {
-      canvas.addEventListener('scroll', handleScroll, { passive: true });
-      return () => canvas.removeEventListener('scroll', handleScroll);
-    }
-  }, [handleScroll]);
 
   // ────────────────────────────────────────────────────────────
   // BOOK LOADING
@@ -1075,10 +1068,13 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
           widthClass={width}
           isFocusMode={isFocusMode}
           searchTerm={searchHighlight}
+          scrollRef={canvasRef}
+          onScroll={handleScroll as any}
         />
       ) : (
         <div
           ref={canvasRef}
+          onScroll={handleScroll as any}
           className={`premium-reading-canvas ${isFocusMode ? 'premium-reading-canvas--focus-mode' : ''} ${isPaginated ? 'premium-reading-canvas--paginated' : ''} ${isLoading ? 'opacity-50 pointer-events-none transition-opacity duration-300' : 'opacity-100 transition-opacity duration-300'}`}
         >
           <div

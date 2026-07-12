@@ -398,27 +398,9 @@ const GeneralSettings = ({
   const setPreferredDebridProvider = useSourceStore((state) => state.setPreferredDebridProvider)
 
   useEffect(() => {
-    if (!isTauri) return;
-    
-    const unlisten = listen<string>('anilist-token', (event) => {
-      updateGeneralSettings({ anilistToken: event.payload });
-      toast.success('Successfully linked AniList account');
-    });
-    const unlistenError = listen<string>('anilist-error', (event) => {
-      logger.error('AniList OAuth Error:', event.payload);
-      toast.error('AniList OAuth Error', event.payload);
-    });
-
-    const unlistenDebug = listen<string>('anilist-debug', (event) => {
-      logger.debug('AniList Nav:', event.payload);
-    });
-    
-    return () => {
-      unlisten.then(f => f());
-      unlistenError.then(f => f());
-      unlistenDebug.then(f => f());
-    };
-  }, [updateGeneralSettings, toast]);
+    // Keep useEffect empty or remove it if not needed, but there are other things?
+    // Actually we can just remove the whole useEffect since it only did AniList stuff.
+  }, []);
 
   if (!preferences) return null
 

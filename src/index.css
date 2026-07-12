@@ -139,6 +139,20 @@
   background: hsl(var(--muted-foreground) / 0.4);
 }
 
+/* ==================== TOUCH TARGETS (MOBILE) ==================== */
+.touch-target {
+  position: relative;
+}
+
+.touch-target::after {
+  content: '';
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  bottom: -12px;
+  left: -12px;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

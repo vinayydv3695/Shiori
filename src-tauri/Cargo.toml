@@ -1,6 +1,6 @@
 [package]
 name = "shiori"
-version = "1.59.13"
+version = "1.59.14"
 description = "A sleek, modern reader for ebooks and manga."
 authors = ["vinayydv3695"]
 license = "GPL-3.0"
@@ -30,7 +30,6 @@ tauri-plugin-store = "2"
 
 tauri-plugin-tts = { version = "0.1", optional = true }
 tauri-plugin-android-saf = { path = "plugins/tauri-plugin-android-saf" }
-tauri-plugin-android-auth = { path = "plugins/tauri-plugin-android-auth" }
 
 # Database & storage
 rusqlite = { version = "0.32", features = ["bundled", "blob", "serde_json"] }

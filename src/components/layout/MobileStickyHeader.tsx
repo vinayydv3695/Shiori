@@ -50,7 +50,7 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
 
   return (
     <div 
-      className="sticky top-0 z-40 px-3 bg-background/80 backdrop-blur-xl border-b border-border/40 pb-3 flex flex-col gap-3 md:hidden shadow-sm"
+      className="sticky top-0 z-40 px-3 bg-background/80 backdrop-blur-xl pb-3 flex flex-col gap-3 md:hidden"
       style={{
         paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)',
         paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 12px)',
@@ -100,7 +100,7 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
           type="button"
           onClick={onOpenAdvancedFilter}
           className={cn(
-            'relative flex items-center justify-center min-h-[48px] px-4 rounded-ui-full border shadow-sm transition-all duration-200',
+            'relative flex items-center justify-center min-h-[48px] px-4 rounded-ui-full border shadow-sm transition-all duration-200 touch-target',
             activeFilterCount > 0
               ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
               : 'bg-background text-foreground border-border hover:bg-accent'
@@ -150,7 +150,7 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
           <button
             type="button"
             onClick={clear}
-            className="absolute right-3 flex items-center justify-center w-5 h-5 rounded-ui-full bg-muted-foreground/20 text-muted-foreground hover:bg-muted-foreground/30 hover:text-foreground transition-colors"
+            className="absolute right-3 flex items-center justify-center w-5 h-5 rounded-ui-full bg-muted-foreground/20 text-muted-foreground hover:bg-muted-foreground/30 hover:text-foreground transition-colors touch-target"
           >
             <IconX size={10} />
           </button>

@@ -29,6 +29,12 @@ import { api } from '@/lib/tauri'
 import { formatFileSize, isMangaDomain } from '@/lib/utils'
 
 // ── Shared constant ──────────────────────────────
+function getCoverUrl(path: string | null | undefined): string {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  return convertFileSrc(path.replace(/\\/g, '/'));
+}
+
 // ── Animation variants ───────────────────────────
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -211,30 +217,30 @@ function MobileQuickLinks({ onOpenSettings }: { onOpenSettings: () => void }) {
 
   return (
     <div className="md:hidden mb-6 px-4">
-      <div className="flex gap-2 overflow-x-auto hide-scrollbar snap-x pb-2">
-        <button onClick={() => setCurrentView('anilist')} className="flex items-center flex-none snap-start gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
+      <div className="flex flex-wrap gap-2 pb-2">
+        <button onClick={() => setCurrentView('anilist')} className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
           <List className="w-4 h-4 text-primary" />
           <span className="text-[11px] font-medium tracking-tight">AniList</span>
         </button>
-        <button onClick={() => setCurrentView('annotations')} className="flex items-center flex-none snap-start gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
+        <button onClick={() => setCurrentView('annotations')} className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
           <Highlighter className="w-4 h-4 text-primary" />
           <span className="text-[11px] font-medium tracking-tight">Annotations</span>
         </button>
-        <button onClick={() => setCurrentView('statistics')} className="flex items-center flex-none snap-start gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
+        <button onClick={() => setCurrentView('statistics')} className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
           <BarChart2 className="w-4 h-4 text-primary" />
           <span className="text-[11px] font-medium tracking-tight">Statistics</span>
         </button>
-        <button onClick={() => setCurrentView('rss-feeds')} className="flex items-center flex-none snap-start gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
+        <button onClick={() => setCurrentView('rss-feeds')} className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
           <Rss className="w-4 h-4 text-primary" />
           <span className="text-[11px] font-medium tracking-tight">RSS</span>
         </button>
         {enableRecycleBin && (
-          <button onClick={() => setCurrentView('recycle-bin' as any)} className="flex items-center flex-none snap-start gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
+          <button onClick={() => setCurrentView('recycle-bin' as any)} className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
             <Trash2 className="w-4 h-4 text-destructive" />
             <span className="text-[11px] font-medium tracking-tight text-destructive">Trash</span>
           </button>
         )}
-        <button onClick={onOpenSettings} className="flex items-center flex-none snap-start gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
+        <button onClick={onOpenSettings} className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
           <Settings className="w-4 h-4 text-muted-foreground" />
           <span className="text-[11px] font-medium tracking-tight text-muted-foreground">Settings</span>
         </button>
@@ -465,7 +471,7 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
             {continueReading.slice(1, 4).map(book => (
               <div key={book.id} onClick={() => handleOpenBook(book)} className="bento-list-item">
                 <div className="bento-list-cover-wrapper">
-                  <img src={convertFileSrc(book.cover_path || '')} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
+                  <img src={getCoverUrl(book.cover_path)} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
                 </div>
                 <div className="bento-list-info">
                   <span className="bento-list-title">{book.title}</span>
@@ -493,7 +499,7 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
             {recentlyAdded.slice(0, 5).map(book => (
               <div key={`recent-${book.id}`} onClick={() => handleOpenBook(book)} className="bento-list-item">
                 <div className="bento-list-cover-wrapper">
-                  <img src={convertFileSrc(book.cover_path || '')} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
+                  <img src={getCoverUrl(book.cover_path)} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
                 </div>
                 <div className="bento-list-info">
                   <span className="bento-list-title">{book.title}</span>
@@ -518,7 +524,7 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
             {recommendedBooks.slice(0, 5).map(book => (
               <div key={`rec-${book.id}`} onClick={() => handleOpenBook(book)} className="bento-list-item">
                 <div className="bento-list-cover-wrapper">
-                  <img src={convertFileSrc(book.cover_path || '')} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
+                  <img src={getCoverUrl(book.cover_path)} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
                 </div>
                 <div className="bento-list-info">
                   <span className="bento-list-title">{book.title}</span>

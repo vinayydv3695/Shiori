@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import { LibraryGrid } from "./library/LibraryGrid"
 import { SectionErrorBoundary } from "./ErrorBoundary"
 import { Book } from "@/lib/tauri"
@@ -55,8 +56,29 @@ export function ViewRouter({
 
   dialogs
 }: ViewRouterProps) {
+  const pageVariants = {
+    initial: { opacity: 0, y: 10 },
+    in: { opacity: 1, y: 0 },
+    out: { opacity: 0, y: -10 }
+  };
+
+  const pageTransition = {
+    type: "tween",
+    ease: "easeOut",
+    duration: 0.2
+  };
+
   return (
-    <>
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={currentView}
+        initial="initial"
+        animate="in"
+        exit="out"
+        variants={pageVariants}
+        transition={pageTransition}
+        className="w-full h-full flex flex-col flex-1"
+      >
         {currentView === 'home' && (
           <Suspense fallback={<LoadingSpinner className="py-24" />}>
             <HomePage 
@@ -145,6 +167,7 @@ export function ViewRouter({
             <AniListDashboard onOpenSettings={() => dialogs.setSettingsDialogOpen(true)} />
           </Suspense>
         )}
-    </>
+      </motion.div>
+    </AnimatePresence>
   )
 }

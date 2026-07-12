@@ -13,6 +13,8 @@ interface ContinuousEpubViewProps {
   widthClass: string;
   isFocusMode: boolean;
   searchTerm?: string | null;
+  scrollRef?: React.RefObject<HTMLDivElement>;
+  onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
 }
 
 interface LoadedChapter {
@@ -228,9 +230,15 @@ export function ContinuousEpubView({
 
   return (
     <div 
-      ref={containerRef} 
+      ref={el => {
+        containerRef.current = el;
+        if (scrollRef && 'current' in scrollRef) {
+          (scrollRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+        }
+      }} 
       className={`premium-reading-canvas ${isFocusMode ? 'premium-reading-canvas--focus-mode' : ''}`}
       style={{ overflowY: 'auto', overflowAnchor: 'auto', height: '100%' }}
+      onScroll={onScroll}
     >
       <div className={`premium-content-container premium-content-container--${widthClass}`}>
         
@@ -246,7 +254,7 @@ export function ContinuousEpubView({
                 }
               }}
               className="premium-chapter-page"
-              style={{ minHeight: '50vh', paddingBottom: '2rem' }}
+              style={{ minHeight: '50vh', paddingBottom: '2rem', contentVisibility: 'auto', containIntrinsicSize: 'auto 1000px' }}
             >
               <ChapterHtml content={ch.content} />
             </div>

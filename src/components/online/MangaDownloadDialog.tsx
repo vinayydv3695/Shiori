@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { UnifiedChapter } from './OnlineMangaDetailView';
@@ -48,7 +48,10 @@ export function MangaDownloadDialog({ open, onOpenChange, chapters, onDownload }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[460px] bg-[#09090b]/80 backdrop-blur-2xl text-foreground border-white/10 shadow-[0_0_60px_-15px_rgba(0,0,0,0.7)] rounded-3xl overflow-hidden p-0">
+      <DialogContent aria-describedby="manga-download-dialog-description" className="w-[calc(100vw-2rem)] max-w-[460px] bg-[#09090b]/80 backdrop-blur-2xl text-foreground border-white/10 shadow-[0_0_60px_-15px_rgba(0,0,0,0.7)] rounded-3xl overflow-hidden p-0">
+        <DialogDescription id="manga-download-dialog-description" className="sr-only">
+          Manga download options.
+        </DialogDescription>
         
         {/* Header with gradient line */}
         <div className="relative px-8 pt-8 pb-4">

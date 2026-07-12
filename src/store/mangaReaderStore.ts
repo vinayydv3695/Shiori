@@ -295,6 +295,7 @@ interface MangaSettingsState {
     imageQuality: number; // 0.5–1.0
     preloadIntensity: 'light' | 'normal' | 'aggressive';
     zoomLevel: number; // 0.5 - 3.0
+    continuousChapter: boolean;
 
     // Actions
     setReadingMode: (mode: ReadingMode) => void;
@@ -311,6 +312,7 @@ interface MangaSettingsState {
     setZoomLevel: (level: number) => void;
     zoomIn: () => void;
     zoomOut: () => void;
+    toggleContinuousChapter: () => void;
     resetToDefaults: () => void;
 }
 
@@ -326,6 +328,7 @@ const defaultMangaSettings = {
     imageQuality: 1.0,
     preloadIntensity: 'aggressive' as const,
     zoomLevel: 1.0,
+    continuousChapter: true,
 };
 
 const READING_MODE_OPTIONS: ReadingMode[] = ['single', 'strip', 'webtoon', 'manhwa', 'comic'];
@@ -360,6 +363,7 @@ const normalizeMangaSettingsState = (raw: unknown) => {
         imageQuality: clampNumber(source.imageQuality, defaultMangaSettings.imageQuality, 0.5, 1.0),
         preloadIntensity: clampStringEnum(source.preloadIntensity, defaultMangaSettings.preloadIntensity, PRELOAD_INTENSITY_OPTIONS),
         zoomLevel: clampNumber(source.zoomLevel, defaultMangaSettings.zoomLevel, 0.5, 3.0),
+        continuousChapter: typeof source.continuousChapter === 'boolean' ? source.continuousChapter : defaultMangaSettings.continuousChapter,
     };
 };
 
@@ -405,6 +409,7 @@ export const useMangaSettingsStore = create<MangaSettingsState>()(
             setZoomLevel: (level) => set({ zoomLevel: Math.max(0.5, Math.min(3.0, level)) }),
             zoomIn: () => set((s) => ({ zoomLevel: Math.min(3.0, s.zoomLevel + 0.25) })),
             zoomOut: () => set((s) => ({ zoomLevel: Math.max(0.5, s.zoomLevel - 0.25) })),
+            toggleContinuousChapter: () => set((s) => ({ continuousChapter: !s.continuousChapter })),
             resetToDefaults: () => {
                 set(defaultMangaSettings);
                 applyMangaThemeToDOM(defaultMangaSettings.theme);

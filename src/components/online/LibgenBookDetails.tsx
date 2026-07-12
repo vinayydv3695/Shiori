@@ -181,7 +181,10 @@ export function LibgenBookDetails({ book, open, onOpenChange }: Props) {
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-background/80 backdrop-blur-sm z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <Dialog.Content aria-describedby={undefined} className="dialog-content fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card/40 backdrop-blur-2xl border border-border/50 rounded-[2rem] shadow-2xl w-[600px] max-h-[90vh] flex flex-col z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-500 overflow-hidden">
+        <Dialog.Content aria-describedby="libgen-dialog-description" className="dialog-content fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card/40 backdrop-blur-2xl border border-border/50 rounded-[2rem] shadow-2xl w-[calc(100vw-2rem)] max-w-[600px] max-h-[90vh] flex flex-col z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-500 overflow-hidden">
+          <Dialog.Description id="libgen-dialog-description" className="sr-only">
+            Libgen book details and download options.
+          </Dialog.Description>
           
           <div className="flex-none bg-transparent backdrop-blur-xl border-b border-border/50 px-8 py-6 z-10 flex flex-col justify-between relative">
             <Dialog.Title className="text-2xl font-black tracking-tight text-foreground pr-8">

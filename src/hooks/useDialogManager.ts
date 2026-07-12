@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useLibraryStore } from '@/store/libraryStore';
 import type { SeriesGroup } from '@/hooks/useGroupedLibrary';
 
@@ -21,7 +21,14 @@ export function useDialogManager() {
   const [dialogBookTitle, setDialogBookTitle] = useState<string>('');
   const [deleteBookIds, setDeleteBookIds] = useState<number[]>([]);
   const [batchMetadataBookIds, setBatchMetadataBookIds] = useState<number[]>([]);
-  const [selectedSeries, setSelectedSeries] = useState<SeriesGroup | null>(null);
+  const [initialSeries, setInitialSeries] = useState<SeriesGroup | null>(null);
+  const books = useLibraryStore(s => s.books);
+
+  const selectedSeries = useMemo(() => {
+    if (!initialSeries) return null;
+    const freshBooks = initialSeries.books.map(b => books.find(fb => fb.id === b.id) || b);
+    return { ...initialSeries, books: freshBooks };
+  }, [initialSeries, books]);
 
   const openEditDialog = useCallback((bookId: number) => {
     setDialogBookId(bookId);
@@ -56,7 +63,7 @@ export function useDialogManager() {
   }, []);
 
   const openSeriesView = useCallback((series: SeriesGroup) => {
-    setSelectedSeries(series);
+    setInitialSeries(series);
     setSeriesViewOpen(true);
   }, []);
 

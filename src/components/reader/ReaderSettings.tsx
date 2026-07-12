@@ -60,6 +60,9 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
     setPaperTextureIntensity,
     setUiScale,
     setTextAlign,
+    continuousFlow,
+    setContinuousFlow,
+    setIsPaginated,
   } = useReadingSettings();
 
   useEffect(() => {
@@ -460,6 +463,16 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
           {showLayout && (
             <div className="premium-settings-section">
               <label className="premium-settings-label">Layout Mode</label>
+              
+              <button
+                onClick={() => setContinuousFlow(!continuousFlow)}
+                className={`premium-settings-toggle ${continuousFlow ? 'premium-settings-toggle--active' : ''}`}
+              >
+                <svg className="premium-settings-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 5v14M19 12l-7 7-7-7" />
+                </svg>
+                <span>Continuous Flow</span>
+              </button>
 
               <button
                 onClick={toggleTwoPageView}

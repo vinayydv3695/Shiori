@@ -38,6 +38,8 @@ export function AdvancedSettingsPanel() {
     const zoomLevel = useMangaSettingsStore(s => s.zoomLevel);
     const zoomIn = useMangaSettingsStore(s => s.zoomIn);
     const zoomOut = useMangaSettingsStore(s => s.zoomOut);
+    const continuousChapter = useMangaSettingsStore(s => s.continuousChapter);
+    const toggleContinuousChapter = useMangaSettingsStore(s => s.toggleContinuousChapter);
 
     const [activeTab, setActiveTab] = useState<SettingsTab>('layout');
 
@@ -182,6 +184,19 @@ export function AdvancedSettingsPanel() {
                                     <div
                                         className={`manga-toggle ${showNavigationTips ? 'manga-toggle--active' : ''}`}
                                         onClick={toggleNavigationTips}
+                                    >
+                                        <div className="manga-toggle-knob" />
+                                    </div>
+                                </div>
+                                
+                                <div className="manga-settings-option">
+                                    <div>
+                                        <div className="manga-settings-option-label">Continuous Chapter Flow</div>
+                                        <div className="manga-settings-option-hint">Seamlessly load next chapter for scroll views</div>
+                                    </div>
+                                    <div
+                                        className={`manga-toggle ${continuousChapter ? 'manga-toggle--active' : ''}`}
+                                        onClick={toggleContinuousChapter}
                                     >
                                         <div className="manga-toggle-knob" />
                                     </div>

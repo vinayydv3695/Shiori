@@ -109,7 +109,21 @@ export function useImport(): UseImportResult {
           progress: 60,
         }));
 
-        result = await api.importBooks(localPaths);
+        const bookPaths = localPaths.filter(p => !/\.(cbz|cbr|zip)$/i.test(p));
+        const mangaPaths = localPaths.filter(p => /\.(cbz|cbr|zip)$/i.test(p));
+
+        const importPromises: Promise<ApiImportResult>[] = [];
+        if (bookPaths.length > 0) importPromises.push(api.importBooks(bookPaths));
+        if (mangaPaths.length > 0) importPromises.push(api.importManga(mangaPaths));
+
+        const results = await Promise.all(importPromises);
+        
+        result = results.reduce((acc, curr) => ({
+          success: [...acc.success, ...curr.success],
+          failed: [...acc.failed, ...curr.failed],
+          duplicates: [...acc.duplicates, ...curr.duplicates],
+        }), { success: [], failed: [], duplicates: [] });
+
       } else {
         // Standard Workflow
         result = await api.scanFolderUnified(path);

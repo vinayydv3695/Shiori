@@ -14,7 +14,7 @@ import type { ReactNode } from 'react'
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
-import { Plus } from 'lucide-react'
+import { Plus, ArrowUp, Loader2 } from 'lucide-react'
 import { IconImportBook, IconImportManga } from '@/components/icons/ShioriIcons'
 
 import { PremiumTopbar } from './ImprovedToolbar'
@@ -135,6 +135,14 @@ export function Layout({
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [importDialogFilePaths, setImportDialogFilePaths] = useState<string[]>([])
   const [isDragActive, setIsDragActive] = useState(false)
+
+  // UX additions
+  const [showScrollTop, setShowScrollTop] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [pullDistance, setPullDistance] = useState(0)
+  const mainRef = useRef<HTMLDivElement>(null)
+  const touchStartY = useRef(0)
+  const maxPullDistance = 80
 
   const processQueue = useOfflineSyncStore((state) => state.processQueue)
   const [anilistToken, setAnilistToken] = useState<string | null>(null)
@@ -353,6 +361,55 @@ export function Layout({
     toggleFilter(category, id)
   }
 
+  // --- Scroll to top & Pull to refresh ---
+  const handleScroll = () => {
+    if (mainRef.current) {
+      setShowScrollTop(mainRef.current.scrollTop > 300)
+    }
+  }
+
+  const scrollToTop = () => {
+    mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (mainRef.current && mainRef.current.scrollTop === 0) {
+      touchStartY.current = e.touches[0].clientY
+    } else {
+      touchStartY.current = 0
+    }
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartY.current === 0 || isRefreshing) return
+    const currentY = e.touches[0].clientY
+    const diff = currentY - touchStartY.current
+    if (diff > 0) {
+      // Pulling down
+      if (mainRef.current && mainRef.current.scrollTop === 0) {
+        setPullDistance(Math.min(diff * 0.5, maxPullDistance))
+        if (e.cancelable) e.preventDefault()
+      }
+    }
+  }
+
+  const handleTouchEnd = async () => {
+    if (pullDistance > maxPullDistance * 0.8 && !isRefreshing) {
+      setIsRefreshing(true)
+      try {
+        // Trigger the refresh action
+        await useLibraryStore.getState().loadInitialBooks()
+        // If there's an online refresh needed, we can trigger it here too.
+      } finally {
+        setIsRefreshing(false)
+        setPullDistance(0)
+      }
+    } else {
+      setPullDistance(0)
+    }
+    touchStartY.current = 0
+  }
+
   return (
     <div className={cn("flex flex-col h-screen overflow-hidden bg-background", isMobile && "pt-[2px]")}>
       {/* ── Topbar ── */}
@@ -399,12 +456,32 @@ export function Layout({
 
         {/* ── Mobile Bottom Nav ── */}
         <main 
-          className={cn('flex-1 min-w-0 overflow-y-auto bg-transparent relative z-10 md:pb-0', 'max-md:pb-16')}
+          ref={mainRef}
+          onScroll={handleScroll}
+          onTouchStart={isMobile ? handleTouchStart : undefined}
+          onTouchMove={isMobile ? handleTouchMove : undefined}
+          onTouchEnd={isMobile ? handleTouchEnd : undefined}
+          className={cn('flex-1 min-w-0 overflow-y-auto bg-transparent relative z-10 md:pb-0 transition-transform', 'max-md:pb-24')}
           style={isMobile ? {
+            paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
             paddingLeft: 'env(safe-area-inset-left, 0px)',
-            paddingRight: 'env(safe-area-inset-right, 0px)'
+            paddingRight: 'env(safe-area-inset-right, 0px)',
+            transform: `translateY(${pullDistance}px)`
           } : undefined}
         >
+          {isMobile && (
+            <div 
+              className="absolute top-0 left-0 right-0 flex justify-center overflow-hidden transition-all duration-200"
+              style={{ 
+                height: `${pullDistance}px`,
+                opacity: pullDistance > 20 ? 1 : 0 
+              }}
+            >
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className={cn("w-6 h-6 text-primary", isRefreshing || pullDistance > maxPullDistance * 0.8 ? "animate-spin" : "")} />
+              </div>
+            </div>
+          )}
           {children}
         </main>
       </DragLayer>
@@ -464,11 +541,21 @@ export function Layout({
       <DuplicateFinderDialog
         open={duplicateFinderOpen}
         onOpenChange={setDuplicateFinderOpen}
-        onBooksDeleted={async () => {
-          const updated = await api.getBooks()
-          setBooks(updated)
-        }}
+        duplicates={[]}
       />
+
+      {/* ── Scroll to Top FAB ── */}
+      {showScrollTop && (
+        <button
+          onClick={scrollToTop}
+          className={cn(
+            "fixed z-50 flex items-center justify-center w-12 h-12 bg-primary/90 text-primary-foreground backdrop-blur-md rounded-full shadow-lg hover:bg-primary transition-all duration-300 hover:-translate-y-1",
+            isMobile ? "bottom-24 right-4" : "bottom-8 right-8"
+          )}
+        >
+          <ArrowUp size={24} />
+        </button>
+      )}
 
       {/* ── Import Dialog ── */}
       <ImportDialog

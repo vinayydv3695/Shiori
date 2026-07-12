@@ -2,5 +2,5 @@
   "identifier": "android-capability",
   "platforms": ["android"],
   "windows": ["main"],
-  "permissions": ["android-saf:default", "android-auth:default"]
+  "permissions": ["android-saf:default"]
 }

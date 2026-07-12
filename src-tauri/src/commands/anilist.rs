@@ -1,4 +1,4 @@
-use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
@@ -80,7 +80,7 @@ pub async fn exchange_android_anilist_code(code: String) -> Result<String, Strin
 }
 
 #[tauri::command]
-pub async fn start_anilist_login(app: AppHandle) -> Result<(), String> {
+pub async fn start_anilist_login(app: AppHandle) -> Result<String, String> {
     let auth_url_str = format!(
         "https://anilist.co/api/v2/oauth/authorize?client_id={}&redirect_uri={}&response_type=code",
         DESKTOP_ANILIST_CLIENT_ID,
@@ -96,59 +96,81 @@ pub async fn start_anilist_login(app: AppHandle) -> Result<(), String> {
         let _ = window.close();
     }
 
+    let (tx, rx) = tokio::sync::oneshot::channel::<Result<String, String>>();
+    let tx = std::sync::Arc::new(std::sync::Mutex::new(Some(tx)));
+
     WebviewWindowBuilder::new(&app, label, WebviewUrl::External(auth_url))
         .title("AniList Login")
         .inner_size(600.0, 800.0)
-        .on_navigation(move |url| {
-            let url_str = url.as_str();
-            
-            // Emit every navigation URL for debugging
-            let _ = handle.emit("anilist-debug", url_str.to_string());
+        .on_navigation({
+            let tx = std::sync::Arc::clone(&tx);
+            let handle = handle.clone();
+            move |url| {
+                let url_str = url.as_str();
 
-            if url_str.starts_with(DESKTOP_ANILIST_REDIRECT_URI) {
-                let mut code = None;
-                
-                if let Some(query) = url.query() {
-                    for (key, value) in url::form_urlencoded::parse(query.as_bytes()) {
-                        if key == "code" {
-                            code = Some(value.into_owned());
-                            break;
+                if url_str.starts_with(DESKTOP_ANILIST_REDIRECT_URI) {
+                    let mut code = None;
+                    
+                    if let Some(query) = url.query() {
+                        for (key, value) in url::form_urlencoded::parse(query.as_bytes()) {
+                            if key == "code" {
+                                code = Some(value.into_owned());
+                                break;
+                            }
                         }
                     }
-                }
-                
-                if let Some(c) = code {
-                    let h = handle.clone();
                     
-                    tauri::async_runtime::spawn(async move {
-                        match exchange_authorization_code(
-                            DESKTOP_ANILIST_CLIENT_ID,
-                            DESKTOP_ANILIST_CLIENT_SECRET,
-                            DESKTOP_ANILIST_REDIRECT_URI,
-                            c,
-                        ).await {
-                            Ok(token) => {
-                                let _ = h.emit("anilist-token", token);
+                    let tx_clone = std::sync::Arc::clone(&tx);
+                    
+                    if let Some(c) = code {
+                        tauri::async_runtime::spawn(async move {
+                            let res = exchange_authorization_code(
+                                DESKTOP_ANILIST_CLIENT_ID,
+                                DESKTOP_ANILIST_CLIENT_SECRET,
+                                DESKTOP_ANILIST_REDIRECT_URI,
+                                c,
+                            ).await;
+                            
+                            if let Ok(mut lock) = tx_clone.lock() {
+                                if let Some(sender) = lock.take() {
+                                    let _ = sender.send(res);
+                                }
                             }
-                            Err(error) => {
-                                let _ = h.emit("anilist-error", error);
+                        });
+                    } else {
+                        if let Ok(mut lock) = tx.lock() {
+                            if let Some(sender) = lock.take() {
+                                let _ = sender.send(Err(format!("No code found in URL: {}", url_str)));
                             }
                         }
-                    });
-                    
+                    }
+
                     if let Some(window) = handle.get_webview_window(label) {
                         let _ = window.close();
                     }
-                    return false;
-                } else {
-                    let _ = handle.emit("anilist-error", format!("No code found in URL: {}", url_str));
-                    return true;
+                    return false; // Cancel navigation
                 }
+                true // Allow navigation
             }
-            true
         })
         .build()
         .map_err(|e| e.to_string())?;
 
-    Ok(())
+    let window = app.get_webview_window(label).ok_or("Failed to get window")?;
+    
+    let tx_close = std::sync::Arc::clone(&tx);
+    window.on_window_event(move |event| {
+        if let tauri::WindowEvent::CloseRequested { .. } = event {
+            if let Ok(mut lock) = tx_close.lock() {
+                if let Some(sender) = lock.take() {
+                    let _ = sender.send(Err("User closed the login window".to_string()));
+                }
+            }
+        }
+    });
+
+    match rx.await {
+        Ok(res) => res,
+        Err(_) => Err("Login cancelled or failed internally".to_string())
+    }
 }

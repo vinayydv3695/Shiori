@@ -6,10 +6,13 @@ import { toast } from 'sonner';
 export class AniListDesktopProvider implements AniListAuthProvider {
     async login(): Promise<void> {
         try {
-            await invoke('start_anilist_login');
+            const token = await invoke<string>('start_anilist_login');
+            usePreferencesStore.getState().updateGeneralSettings({ anilistToken: token });
+            toast.success('Successfully linked AniList account');
+            window.dispatchEvent(new Event('anilist-auth-changed'));
         } catch (error) {
             console.error('Failed to start AniList login:', error);
-            toast.error('Login Failed', { description: 'Could not launch AniList authentication window.' });
+            toast.error('Login Failed', { description: String(error) });
         }
     }
 

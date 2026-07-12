@@ -13,7 +13,7 @@ interface ContinuousEpubViewProps {
   widthClass: string;
   isFocusMode: boolean;
   searchTerm?: string | null;
-  scrollRef?: React.RefObject<HTMLDivElement>;
+  scrollRef?: React.RefObject<HTMLDivElement | null>;
   onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
 }
 
@@ -31,6 +31,8 @@ export function ContinuousEpubView({
   widthClass,
   isFocusMode,
   searchTerm,
+  scrollRef,
+  onScroll,
 }: ContinuousEpubViewProps) {
   const [chapters, setChapters] = useState<LoadedChapter[]>([]);
   const [loadingTop, setLoadingTop] = useState(false);

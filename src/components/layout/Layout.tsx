@@ -541,7 +541,6 @@ export function Layout({
       <DuplicateFinderDialog
         open={duplicateFinderOpen}
         onOpenChange={setDuplicateFinderOpen}
-        duplicates={[]}
       />
 
       {/* ── Scroll to Top FAB ── */}

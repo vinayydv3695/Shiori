@@ -88,7 +88,7 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
     }
   };
 
-  const MANGA_COMIC_EXTENSIONS = /\.(cbz|cbr)$/i;
+  const MANGA_COMIC_EXTENSIONS = /\.(cbz|cbr|zip)$/i;
 
   const handleImport = async () => {
     setStatus('importing');

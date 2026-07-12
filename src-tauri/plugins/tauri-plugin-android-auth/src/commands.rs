@@ -33,3 +33,10 @@ pub(crate) async fn get_secure_token<R: Runtime>(
 pub(crate) async fn clear_secure_token<R: Runtime>(app: AppHandle<R>) -> Result<()> {
     app.android_auth().clear_secure_token()
 }
+
+#[command]
+pub(crate) async fn get_pending_oauth_data<R: Runtime>(
+    app: AppHandle<R>,
+) -> Result<GetPendingOAuthDataResponse> {
+    app.android_auth().get_pending_oauth_data()
+}

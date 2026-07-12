@@ -9,6 +9,31 @@ const REDIRECT_URI = 'shiori://auth'; // Must match the Intent Filter
 export class AniListAndroidProvider implements AniListAuthProvider {
     private isLoggingIn = false;
 
+    constructor() {
+        this.processPendingAuthData();
+    }
+
+    private async processPendingAuthData() {
+        try {
+            const data = await invoke<{access_token?: string; code?: string}>('plugin:android-auth|get_pending_oauth_data');
+            if (data.access_token) {
+                await invoke('plugin:android-auth|set_secure_token', { token: data.access_token });
+                toast.success('Successfully linked AniList account');
+                window.dispatchEvent(new Event('anilist-auth-changed'));
+            } else if (data.code) {
+                const token = await invoke<string>('exchange_android_anilist_code', { code: data.code });
+                await invoke('plugin:android-auth|set_secure_token', { token });
+                toast.success('Successfully linked AniList account');
+                window.dispatchEvent(new Event('anilist-auth-changed'));
+            }
+        } catch (error) {
+            console.error('Failed to process pending OAuth data:', error);
+            if (error && typeof error === 'string' && !error.includes('Missing')) {
+                // Ignore silent errors
+            }
+        }
+    }
+
     async login(): Promise<void> {
         if (this.isLoggingIn) return;
         this.isLoggingIn = true;

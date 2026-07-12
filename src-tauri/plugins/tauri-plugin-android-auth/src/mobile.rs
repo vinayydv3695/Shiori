@@ -63,4 +63,12 @@ impl<R: Runtime> AndroidAuth<R> {
             .run_mobile_plugin("clearSecureToken", json!({}))
             .map_err(Into::into)
     }
+
+    /// Reads back the pending AniList authorization code or implicit token from Kotlin.
+    /// Calls the Kotlin `getPendingOAuthData` command (see AuthPlugin.kt).
+    pub fn get_pending_oauth_data(&self) -> crate::Result<GetPendingOAuthDataResponse> {
+        self.0
+            .run_mobile_plugin("getPendingOAuthData", json!({}))
+            .map_err(Into::into)
+    }
 }

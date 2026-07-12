@@ -40,4 +40,8 @@ impl<R: Runtime> AndroidAuth<R> {
     pub fn clear_secure_token(&self) -> crate::Result<()> {
         Ok(())
     }
+
+    pub fn get_pending_oauth_data(&self) -> crate::Result<GetPendingOAuthDataResponse> {
+        Ok(GetPendingOAuthDataResponse::default())
+    }
 }

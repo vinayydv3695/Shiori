@@ -40,7 +40,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::start_oauth_login,
             commands::set_secure_token,
             commands::get_secure_token,
-            commands::clear_secure_token
+            commands::clear_secure_token,
+            commands::get_pending_oauth_data
         ])
         .setup(|app, api| {
             #[cfg(mobile)]

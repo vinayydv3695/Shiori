@@ -29,3 +29,12 @@ pub struct SetSecureTokenRequest {
 pub struct GetSecureTokenResponse {
     pub token: String,
 }
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetPendingOAuthDataResponse {
+    pub access_token: Option<String>,
+    pub expires_in: Option<String>,
+    pub token_type: Option<String>,
+    pub code: Option<String>,
+}

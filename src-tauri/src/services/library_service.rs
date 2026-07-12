@@ -611,6 +611,11 @@ pub fn import_books(
             continue;
         }
 
+        if let Err(e) = validate_domain(&path, "books") {
+            result.failed.push((path, e.to_string()));
+            continue;
+        }
+
         match import_single_book(db, &path, covers_dir) {
             Ok(is_duplicate) => {
                 if is_duplicate {

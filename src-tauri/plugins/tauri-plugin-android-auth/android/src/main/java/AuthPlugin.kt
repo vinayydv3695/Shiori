@@ -26,6 +26,11 @@ class SetSecureTokenArgs {
 @TauriPlugin
 class AuthPlugin(private val activity: Activity) : Plugin(activity) {
     private val PREFS_FILE = "shiori_secure_auth_prefs"
+    
+    private var pendingToken: String? = null
+    private var pendingExpiresIn: String? = null
+    private var pendingTokenType: String? = null
+    private var pendingCode: String? = null
 
     private val sharedPreferences by lazy {
         val masterKey = MasterKey.Builder(activity)
@@ -64,6 +69,11 @@ class AuthPlugin(private val activity: Activity) : Plugin(activity) {
                         ret.put("access_token", accessToken)
                         ret.put("expires_in", params["expires_in"] ?: "")
                         ret.put("token_type", params["token_type"] ?: "")
+                        
+                        pendingToken = accessToken
+                        pendingExpiresIn = params["expires_in"] ?: ""
+                        pendingTokenType = params["token_type"] ?: ""
+                        
                         trigger("oauth-token-received", ret)
                         return
                     }
@@ -74,10 +84,31 @@ class AuthPlugin(private val activity: Activity) : Plugin(activity) {
                 if (code != null) {
                     val ret = JSObject()
                     ret.put("code", code)
+                    
+                    pendingCode = code
+                    
                     trigger("oauth-code-received", ret)
                 }
             }
         }
+    }
+
+    @Command
+    fun getPendingOAuthData(invoke: Invoke) {
+        val ret = JSObject()
+        if (pendingToken != null) {
+            ret.put("access_token", pendingToken)
+            ret.put("expires_in", pendingExpiresIn)
+            ret.put("token_type", pendingTokenType)
+            
+            pendingToken = null
+            pendingExpiresIn = null
+            pendingTokenType = null
+        } else if (pendingCode != null) {
+            ret.put("code", pendingCode)
+            pendingCode = null
+        }
+        invoke.resolve(ret)
     }
 
     @Command

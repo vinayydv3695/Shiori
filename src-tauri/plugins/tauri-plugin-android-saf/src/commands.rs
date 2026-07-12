@@ -47,6 +47,13 @@ pub(crate) async fn check_storage_permission<R: Runtime>(
 }
 
 #[command]
+pub(crate) async fn request_storage_permission<R: Runtime>(
+    app: AppHandle<R>,
+) -> Result<CheckStoragePermissionResponse> {
+    app.android_saf().request_storage_permission()
+}
+
+#[command]
 pub(crate) async fn open_app_settings<R: Runtime>(app: AppHandle<R>) -> Result<()> {
     app.android_saf().open_app_settings()
 }

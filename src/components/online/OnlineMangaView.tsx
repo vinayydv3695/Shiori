@@ -1471,7 +1471,7 @@ export function OnlineMangaView() {
                 )}
                 {/* Sidebar (Right) */}
                 {!isAdvancedFilterActive && (
-                  <div className="w-full xl:w-80 flex-shrink-0">
+                  <div className="w-full xl:w-80 2xl:w-96 flex-shrink-0">
                     <MangaRankList
                       title="Top Rated"
                       items={toCarouselItems(browseData["top-rated"])}

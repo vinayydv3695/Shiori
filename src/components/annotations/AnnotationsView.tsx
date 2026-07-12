@@ -139,7 +139,7 @@ export function AnnotationsView({ onClose, onOpenBook }: AnnotationsViewProps) {
     return (
       <div 
         key={result.annotation.id} 
-        className="break-inside-avoid mb-8 relative group transition-all duration-500 hover:-translate-y-1"
+        className="break-inside-avoid mb-8 relative z-0 isolation-isolate group transition-all duration-500 hover:-translate-y-1"
       >
         {/* Premium Minimalist Card Background */}
         <div className="absolute inset-0 bg-muted/20 hover:bg-muted/40 border border-transparent group-hover:border-border/50 rounded-[1.25rem] transition-all duration-500 z-0 backdrop-blur-sm" />
@@ -411,10 +411,10 @@ export function AnnotationsView({ onClose, onOpenBook }: AnnotationsViewProps) {
             ) : (
               <div className="space-y-10">
                 {selectedBookId === 'all' && groupedAnnotations ? (
-                  <div className="space-y-12">
+                  <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     {groupedAnnotations.map(([bookId, group]) => (
-                      <div key={bookId} className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="flex items-center gap-4 mb-8 pb-3 pt-2 border-b border-border/40 sticky top-0 bg-background/95 backdrop-blur-xl z-20 shadow-[0_4px_12px_-8px_rgba(0,0,0,0.3)] -mx-4 px-4 rounded-b-xl lg:-mx-8 lg:px-8">
+                      <div key={bookId} className="relative">
+                        <div className="flex items-center gap-4 mb-8 pb-3 pt-2 border-b border-border/40 sticky top-0 bg-background/95 backdrop-blur-xl z-40 shadow-[0_4px_12px_-8px_rgba(0,0,0,0.3)] -mx-4 px-4 rounded-b-xl lg:-mx-8 lg:px-8">
                           <div className="p-2.5 bg-primary/10 rounded-xl text-primary shadow-sm ring-1 ring-primary/20">
                             <BookOpen size={22} />
                           </div>

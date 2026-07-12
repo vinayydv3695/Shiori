@@ -17,27 +17,27 @@
   --manga-canvas-bg: #000000;
   --manga-topbar-bg: rgba(0, 0, 0, 0.88);
   --manga-topbar-border: rgba(255, 255, 255, 0.06);
-  --manga-sidebar-bg: #0A0A0A;
+  --manga-sidebar-bg: #000000;
   --manga-sidebar-border: rgba(255, 255, 255, 0.06);
-  --manga-text-primary: #E7E5E4;
-  --manga-text-secondary: #A8A29E;
-  --manga-text-tertiary: #78716C;
+  --manga-text-primary: #F3F4F6;
+  --manga-text-secondary: #9CA3AF;
+  --manga-text-tertiary: #6B7280;
   --manga-control-hover: rgba(255, 255, 255, 0.08);
-  --manga-control-active: rgba(96, 165, 250, 0.15);
-  --manga-accent: #60A5FA;
-  --manga-accent-subtle: rgba(96, 165, 250, 0.12);
+  --manga-control-active: rgba(167, 139, 250, 0.15);
+  --manga-accent: #A78BFA;
+  --manga-accent-subtle: rgba(167, 139, 250, 0.12);
   --manga-border: rgba(255, 255, 255, 0.08);
-  --manga-elevated: rgba(15, 15, 15, 0.95);
-  --manga-shadow: rgba(0, 0, 0, 0.5);
-  --manga-overlay: rgba(0, 0, 0, 0.5);
-  --manga-page-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --manga-elevated: #050505;
+  --manga-shadow: rgba(0, 0, 0, 0.7);
+  --manga-overlay: rgba(0, 0, 0, 0.7);
+  --manga-page-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
   --manga-progress-track: rgba(255, 255, 255, 0.1);
-  --manga-progress-fill: #60A5FA;
+  --manga-progress-fill: #A78BFA;
   --manga-vignette: none;
-  --manga-input-bg: rgba(255, 255, 255, 0.06);
+  --manga-input-bg: rgba(255, 255, 255, 0.04);
   --manga-input-border: rgba(255, 255, 255, 0.1);
-  --manga-dropdown-bg: #121212;
-  --manga-tooltip-bg: rgba(15, 15, 15, 0.95);
+  --manga-dropdown-bg: #000000;
+  --manga-tooltip-bg: #050505;
 }
 
 /* ────────────────────────────────────────────────────────────

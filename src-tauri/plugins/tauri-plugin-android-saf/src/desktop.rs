@@ -66,6 +66,10 @@ impl<R: Runtime> AndroidSaf<R> {
         Ok(CheckStoragePermissionResponse { granted: true })
     }
 
+    pub fn request_storage_permission(&self) -> crate::Result<CheckStoragePermissionResponse> {
+        Ok(CheckStoragePermissionResponse { granted: true })
+    }
+
     pub fn open_app_settings(&self) -> crate::Result<()> {
         Ok(())
     }

@@ -146,3 +146,78 @@
 [data-reader-theme="paper-dark"] .premium-reading-canvas::-webkit-scrollbar-thumb:hover {
     background: #6A6058;
 }
+
+/* ────────────────────────────────────────────────────────────
+   SEPIA THEME
+   ──────────────────────────────────────────────────────────── */
+[data-reader-theme="sepia"] {
+    --bg-primary: #F4ECD8;
+    --bg-secondary: #EBE0C5;
+    --bg-elevated: #FAF6EB;
+    --text-primary: #433422;
+    --text-secondary: #5C4A35;
+    --text-tertiary: #7D6B54;
+    --text-link: #9C5A24;
+    --text-selection: #D8BD9780;
+    --ui-border: #DBC4A5;
+    --ui-divider: #DBC4A5;
+    --ui-hover: #EBE0C5;
+    --ui-active: #DBC4A5;
+    --ui-focus: #9C5A24;
+    --shadow: rgba(67, 52, 34, 0.1);
+    --overlay: rgba(67, 52, 34, 0.2);
+    --progress-bar: #9C5A24;
+    color-scheme: light;
+}
+
+/* Sepia top bar / sidebar styling */
+[data-reader-theme="sepia"] .premium-top-bar,
+[data-reader-theme="sepia"] .premium-sidebar {
+    background: #FAF6EB;
+    border-color: #DBC4A5;
+}
+
+[data-reader-theme="sepia"] .premium-reading-canvas::-webkit-scrollbar-thumb {
+    background: #DBC4A5;
+}
+
+[data-reader-theme="sepia"] .premium-reading-canvas::-webkit-scrollbar-thumb:hover {
+    background: #C4AE8F;
+}
+
+/* ────────────────────────────────────────────────────────────
+   DARK (GRAY) THEME
+   ──────────────────────────────────────────────────────────── */
+[data-reader-theme="dark"] {
+    --bg-primary: #202020;
+    --bg-secondary: #2C2C2C;
+    --bg-elevated: #282828;
+    --text-primary: #E0E0E0;
+    --text-secondary: #A0A0A0;
+    --text-tertiary: #808080;
+    --text-link: #60A5FA;
+    --text-selection: #3B82F640;
+    --ui-border: #404040;
+    --ui-divider: #404040;
+    --ui-hover: #353535;
+    --ui-active: #454545;
+    --ui-focus: #3B82F6;
+    --shadow: rgba(0, 0, 0, 0.3);
+    --overlay: rgba(0, 0, 0, 0.4);
+    --progress-bar: #60A5FA;
+    color-scheme: dark;
+}
+
+[data-reader-theme="dark"] .premium-top-bar,
+[data-reader-theme="dark"] .premium-sidebar {
+    background: #282828;
+    border-color: #404040;
+}
+
+[data-reader-theme="dark"] .premium-reading-canvas::-webkit-scrollbar-thumb {
+    background: #404040;
+}
+
+[data-reader-theme="dark"] .premium-reading-canvas::-webkit-scrollbar-thumb:hover {
+    background: #505050;
+}

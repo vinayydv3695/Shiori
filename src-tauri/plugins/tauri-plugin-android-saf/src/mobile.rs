@@ -63,6 +63,12 @@ impl<R: Runtime> AndroidSaf<R> {
             .map_err(Into::into)
     }
 
+    pub fn request_storage_permission(&self) -> crate::Result<CheckStoragePermissionResponse> {
+        self.0
+            .run_mobile_plugin("requestStoragePermission", json!({}))
+            .map_err(Into::into)
+    }
+
     /// Opens the app's system "App info" Settings screen via ACTION_APPLICATION_DETAILS_SETTINGS.
     pub fn open_app_settings(&self) -> crate::Result<()> {
         self.0

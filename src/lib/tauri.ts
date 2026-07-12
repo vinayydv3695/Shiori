@@ -1021,6 +1021,8 @@ export const api = {
 
     if (isAndroid) {
       try {
+        logger.debug('[API] Requesting storage permission')
+        await invoke("plugin:android-saf|request_storage_permission")
         logger.debug('[API] Opening Android SAF file dialog')
         const result = await invoke<SAFSelectedFilesResponse>("plugin:android-saf|select_files")
         const localPaths = await Promise.all(
@@ -1067,6 +1069,9 @@ export const api = {
     
     if (isAndroid) {
       try {
+        logger.debug('[API] Requesting storage permission')
+        await invoke("plugin:android-saf|request_storage_permission")
+        logger.debug('[API] Opening Android SAF folder dialog')
         const result = await invoke<{uri: string}>("plugin:android-saf|select_folder")
         return result.uri
       } catch (error) {

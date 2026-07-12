@@ -11,6 +11,7 @@ Default permissions for the plugin
 - `allow-enumerate-tree`
 - `allow-copy-document`
 - `allow-check-storage-permission`
+- `allow-request-storage-permission`
 - `allow-open-app-settings`
 - `allow-create-document`
 - `allow-write-document`
@@ -163,6 +164,32 @@ Enables the ping command without any pre-configured scope.
 <td>
 
 Denies the ping command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-saf:allow-request-storage-permission`
+
+</td>
+<td>
+
+Enables the request_storage_permission command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-saf:deny-request-storage-permission`
+
+</td>
+<td>
+
+Denies the request_storage_permission command without any pre-configured scope.
 
 </td>
 </tr>

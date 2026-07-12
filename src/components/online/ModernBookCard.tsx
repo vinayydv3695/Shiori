@@ -192,15 +192,15 @@ export const ModernBookCard = memo(function ModernBookCard({
         <div className={cn(
           'absolute bottom-0 left-0 right-0 z-10',
           'flex flex-col gap-0.5',
-          'md:bg-gradient-to-t md:from-black/90 md:via-black/50 md:to-transparent',
+          'md:bg-gradient-to-t md:from-black md:via-black/80 md:to-transparent',
           'max-md:bg-surface-container-low/70 max-md:backdrop-blur-xl max-md:border-t max-md:border-white/5 max-md:pt-2.5 max-md:pb-2.5 max-md:px-2.5',
-          'px-2.5 pt-8 pb-2.5 text-white max-md:text-foreground'
+          'px-3 pt-12 pb-3 text-white max-md:text-foreground backdrop-blur-[2px]'
         )}>
-          <h3 className="font-bold leading-tight line-clamp-2 drop-shadow-md text-white/95 max-md:text-foreground/95 text-[14px]">
+          <h3 className="font-bold leading-tight line-clamp-2 drop-shadow-lg text-white max-md:text-foreground text-[14px]">
             {title}
           </h3>
           {author && author !== 'Unknown Author' && (
-            <p className="truncate drop-shadow-md text-white/70 max-md:text-muted-foreground font-medium text-[11px]">
+            <p className="truncate drop-shadow-lg text-white/80 max-md:text-muted-foreground font-medium text-[11px] mt-0.5">
               {author}
             </p>
           )}

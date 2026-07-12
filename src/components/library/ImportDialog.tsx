@@ -127,7 +127,24 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
             throw new Error('Failed to copy any files from the selected folder.');
           }
 
-          result = await api.importBooks(localPaths);
+          const mangaFiles = localPaths.filter(p => MANGA_COMIC_EXTENSIONS.test(p));
+          const bookFiles = localPaths.filter(p => !MANGA_COMIC_EXTENSIONS.test(p));
+
+          result = { success: [], failed: [], duplicates: [] };
+          
+          if (mangaFiles.length > 0) {
+            const mangaResult = await api.importManga(mangaFiles);
+            result.success.push(...mangaResult.success);
+            result.failed.push(...mangaResult.failed);
+            result.duplicates.push(...mangaResult.duplicates);
+          }
+          
+          if (bookFiles.length > 0) {
+            const bookResult = await api.importBooks(bookFiles);
+            result.success.push(...bookResult.success);
+            result.failed.push(...bookResult.failed);
+            result.duplicates.push(...bookResult.duplicates);
+          }
         } else {
           result = await api.scanFolderUnified(selectedPath);
         }

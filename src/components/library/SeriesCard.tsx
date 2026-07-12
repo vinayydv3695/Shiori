@@ -36,11 +36,12 @@ export const SeriesCard = memo(function SeriesCard({
   onOpen,
   animationDelay = 0,
   scrollRoot,
+  forceVisible = false,
 }: SeriesCardProps) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(forceVisible);
 
   const [managementOpen, setManagementOpen] = useState(false);
   const [managementTab, setManagementTab] = useState<
@@ -101,6 +102,7 @@ export const SeriesCard = memo(function SeriesCard({
   );
 
   useEffect(() => {
+    if (forceVisible) return;
     const el = cardRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
@@ -114,7 +116,7 @@ export const SeriesCard = memo(function SeriesCard({
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [scrollRoot]);
+  }, [scrollRoot, forceVisible]);
 
   const handleClick = (e: React.MouseEvent) => {
     if ((e.shiftKey || e.ctrlKey || e.metaKey) && onSelect) {

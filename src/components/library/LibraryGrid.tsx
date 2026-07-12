@@ -408,6 +408,7 @@ export function LibraryGrid({
                           onFavorite={handleFavorite}
                           animationDelay={Math.min(absoluteIndex * 10, 150)}
                           scrollRoot={parentRef.current}
+                          forceVisible={true}
                         />
                       ) : (
                         <SeriesCard
@@ -420,6 +421,7 @@ export function LibraryGrid({
                           }}
                           animationDelay={Math.min(absoluteIndex * 10, 150)}
                           scrollRoot={parentRef.current}
+                          forceVisible={true}
                         />
                       )}
                     </div>

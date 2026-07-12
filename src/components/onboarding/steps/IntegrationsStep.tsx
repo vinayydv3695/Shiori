@@ -8,7 +8,7 @@ import { usePreferencesStore } from '@/store/preferencesStore';
 import { useSourceStore } from '@/store/sourceStore';
 import { anilistAuth, ViewerInfo } from '@/auth';
 
-const ANILIST_CLIENT_ID = import.meta.env.VITE_ANILIST_DESKTOP_CLIENT_ID ?? '';
+const ANILIST_CLIENT_ID = '45197';
 const ANILIST_IMPLICIT_URL = `https://anilist.co/api/v2/oauth/authorize?client_id=${ANILIST_CLIENT_ID}&response_type=token`;
 
 type IntegrationsStepProps = {

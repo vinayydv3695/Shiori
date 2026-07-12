@@ -50,21 +50,21 @@ export function MangaRankList({ title, items, loading, onItemClick, className, i
             key={item.id}
             type="button"
             onClick={() => onItemClick?.(item)}
-            className="w-full flex items-center gap-4 p-2 rounded-lg hover:bg-accent/50 transition-colors text-left group focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="w-full flex items-center gap-4 p-2 rounded-xl hover:bg-primary/5 border border-transparent hover:border-primary/10 transition-all text-left group focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             {/* Rank Number */}
             <div className={cn(
-              "w-6 text-center font-black text-xl flex-shrink-0 transition-colors",
-              index === 0 ? "text-yellow-500 drop-shadow-sm" : 
-              index === 1 ? "text-slate-400" :
-              index === 2 ? "text-amber-700" :
-              "text-muted-foreground/40 group-hover:text-muted-foreground"
+              "w-8 text-center font-black text-2xl flex-shrink-0 transition-all duration-300",
+              index === 0 ? "text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)] scale-110" : 
+              index === 1 ? "text-slate-300 drop-shadow-[0_0_8px_rgba(203,213,225,0.4)] scale-105" :
+              index === 2 ? "text-orange-400 drop-shadow-[0_0_8px_rgba(251,146,60,0.4)] scale-105" :
+              "text-muted-foreground/30 group-hover:text-muted-foreground/60"
             )}>
               {index + 1}
             </div>
 
             {/* Thumbnail */}
-            <div className="relative w-12 h-16 rounded overflow-hidden bg-muted flex-shrink-0 border border-border group-hover:border-primary/50 transition-colors">
+            <div className="relative w-14 h-20 rounded-md overflow-hidden bg-muted flex-shrink-0 border border-white/5 shadow-sm group-hover:border-primary/40 group-hover:shadow-md transition-all">
               {item.coverUrl ? (
                 <img
                   src={item.coverUrl}

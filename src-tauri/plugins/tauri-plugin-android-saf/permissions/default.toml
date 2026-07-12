@@ -1,3 +1,3 @@
 [default]
 description = "Default permissions for the plugin"
-permissions = ["allow-ping", "allow-select-folder", "allow-select-files", "allow-solve-cloudflare", "allow-enumerate-tree", "allow-copy-document", "allow-check-storage-permission", "allow-open-app-settings", "allow-create-document", "allow-write-document"]
+permissions = ["allow-ping", "allow-select-folder", "allow-select-files", "allow-solve-cloudflare", "allow-enumerate-tree", "allow-copy-document", "allow-check-storage-permission", "allow-request-storage-permission", "allow-open-app-settings", "allow-create-document", "allow-write-document"]

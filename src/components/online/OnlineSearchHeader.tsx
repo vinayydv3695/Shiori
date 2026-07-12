@@ -46,7 +46,7 @@ export function OnlineSearchHeader({
   return (
     <div className={cn(
       "flex-shrink-0 relative overflow-hidden z-10 transition-colors duration-500",
-      isMobile ? "pt-12 pb-2 px-3 bg-background" : "bg-background/60 backdrop-blur-3xl border-b border-border pt-8 pb-6 px-8"
+      isMobile ? "pt-12 pb-2 px-3 bg-background" : "bg-background/60 backdrop-blur-3xl pt-8 pb-6 px-8"
     )}>
       {/* Subtle ambient glass glow */}
       {!isMobile && <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] -z-10 pointer-events-none" />}
@@ -120,8 +120,8 @@ export function OnlineSearchHeader({
                 </div>
               </div>
             ) : (
-              <div className="flex items-center bg-black/20 hover:bg-black/30 focus-within:bg-black/40 border border-white/10 focus-within:border-primary/50 rounded-2xl p-2 transition-all duration-300 shadow-[0_8px_30px_rgba(0,0,0,0.12)] backdrop-blur-md">
-                <Compass className="w-6 h-6 text-muted-foreground ml-4 shrink-0 transition-colors duration-300" />
+              <div className="flex items-center bg-secondary/40 hover:bg-secondary/60 focus-within:bg-secondary/80 border border-white/5 focus-within:border-primary/50 rounded-2xl p-2 transition-all duration-300 shadow-xl backdrop-blur-2xl">
+                <Compass className="w-6 h-6 text-muted-foreground ml-4 shrink-0 transition-colors duration-300 group-focus-within:text-primary" />
                 <input
                   value={searchValue}
                   onChange={(e) => onSearchValueChange(e.target.value)}
@@ -139,7 +139,7 @@ export function OnlineSearchHeader({
                       className={cn(
                         "p-3.5 rounded-xl transition-all flex items-center justify-center",
                         (kind === 'books' && hasFilters) || kind === 'manga'
-                          ? "bg-primary/20 text-primary hover:bg-primary/30 border border-primary/20" 
+                          ? "bg-primary/20 text-primary hover:bg-primary/30 border border-primary/20 shadow-inner" 
                           : "text-muted-foreground hover:text-foreground hover:bg-white/10 bg-transparent"
                       )}
                       disabled={disabled}
@@ -151,7 +151,7 @@ export function OnlineSearchHeader({
                   <button 
                     onClick={onSubmit} 
                     disabled={loading || (!searchValue.trim() && !hasFilters) || disabled}
-                    className="px-8 py-3.5 text-base rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:bg-muted disabled:text-muted-foreground transition-all shadow-lg hover:shadow-primary/20 hover:-translate-y-0.5 active:translate-y-0"
+                    className="px-8 py-3.5 text-base rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground font-semibold hover:opacity-90 disabled:opacity-50 disabled:bg-muted disabled:from-muted disabled:to-muted disabled:text-muted-foreground transition-all shadow-[0_0_20px_rgba(var(--primary),0.3)] hover:shadow-[0_0_30px_rgba(var(--primary),0.5)] hover:-translate-y-0.5 active:translate-y-0"
                   >
                     Search
                   </button>

@@ -387,6 +387,198 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`\n- `allow-start-oauth-login`\n- `allow-set-secure-token`\n- `allow-get-secure-token`\n- `allow-clear-secure-token`",
+          "type": "string",
+          "const": "android-auth:default",
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`\n- `allow-start-oauth-login`\n- `allow-set-secure-token`\n- `allow-get-secure-token`\n- `allow-clear-secure-token`"
+        },
+        {
+          "description": "Enables the clear_secure_token command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-auth:allow-clear-secure-token",
+          "markdownDescription": "Enables the clear_secure_token command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_secure_token command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-auth:allow-get-secure-token",
+          "markdownDescription": "Enables the get_secure_token command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the ping command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-auth:allow-ping",
+          "markdownDescription": "Enables the ping command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_secure_token command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-auth:allow-set-secure-token",
+          "markdownDescription": "Enables the set_secure_token command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the start_oauth_login command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-auth:allow-start-oauth-login",
+          "markdownDescription": "Enables the start_oauth_login command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the clear_secure_token command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-auth:deny-clear-secure-token",
+          "markdownDescription": "Denies the clear_secure_token command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_secure_token command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-auth:deny-get-secure-token",
+          "markdownDescription": "Denies the get_secure_token command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the ping command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-auth:deny-ping",
+          "markdownDescription": "Denies the ping command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_secure_token command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-auth:deny-set-secure-token",
+          "markdownDescription": "Denies the set_secure_token command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the start_oauth_login command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-auth:deny-start-oauth-login",
+          "markdownDescription": "Denies the start_oauth_login command without any pre-configured scope."
+        },
+        {
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`\n- `allow-select-folder`\n- `allow-select-files`\n- `allow-solve-cloudflare`\n- `allow-enumerate-tree`\n- `allow-copy-document`\n- `allow-check-storage-permission`\n- `allow-request-storage-permission`\n- `allow-open-app-settings`\n- `allow-create-document`\n- `allow-write-document`",
+          "type": "string",
+          "const": "android-saf:default",
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`\n- `allow-select-folder`\n- `allow-select-files`\n- `allow-solve-cloudflare`\n- `allow-enumerate-tree`\n- `allow-copy-document`\n- `allow-check-storage-permission`\n- `allow-request-storage-permission`\n- `allow-open-app-settings`\n- `allow-create-document`\n- `allow-write-document`"
+        },
+        {
+          "description": "Enables the check_storage_permission command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-saf:allow-check-storage-permission",
+          "markdownDescription": "Enables the check_storage_permission command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the copy_document command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-saf:allow-copy-document",
+          "markdownDescription": "Enables the copy_document command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the create_document command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-saf:allow-create-document",
+          "markdownDescription": "Enables the create_document command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the enumerate_tree command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-saf:allow-enumerate-tree",
+          "markdownDescription": "Enables the enumerate_tree command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the open_app_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-saf:allow-open-app-settings",
+          "markdownDescription": "Enables the open_app_settings command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the ping command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-saf:allow-ping",
+          "markdownDescription": "Enables the ping command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the request_storage_permission command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-saf:allow-request-storage-permission",
+          "markdownDescription": "Enables the request_storage_permission command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the select_files command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-saf:allow-select-files",
+          "markdownDescription": "Enables the select_files command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the select_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-saf:allow-select-folder",
+          "markdownDescription": "Enables the select_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the solve_cloudflare command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-saf:allow-solve-cloudflare",
+          "markdownDescription": "Enables the solve_cloudflare command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the write_document command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-saf:allow-write-document",
+          "markdownDescription": "Enables the write_document command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the check_storage_permission command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-saf:deny-check-storage-permission",
+          "markdownDescription": "Denies the check_storage_permission command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the copy_document command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-saf:deny-copy-document",
+          "markdownDescription": "Denies the copy_document command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the enumerate_tree command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-saf:deny-enumerate-tree",
+          "markdownDescription": "Denies the enumerate_tree command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the open_app_settings command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-saf:deny-open-app-settings",
+          "markdownDescription": "Denies the open_app_settings command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the ping command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-saf:deny-ping",
+          "markdownDescription": "Denies the ping command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the request_storage_permission command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-saf:deny-request-storage-permission",
+          "markdownDescription": "Denies the request_storage_permission command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the select_files command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-saf:deny-select-files",
+          "markdownDescription": "Denies the select_files command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the select_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-saf:deny-select-folder",
+          "markdownDescription": "Denies the select_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the solve_cloudflare command without any pre-configured scope.",
+          "type": "string",
+          "const": "android-saf:deny-solve-cloudflare",
+          "markdownDescription": "Denies the solve_cloudflare command without any pre-configured scope."
+        },
+        {
           "description": "Default core plugins set.\n#### This default permission set includes:\n\n- `core:path:default`\n- `core:event:default`\n- `core:window:default`\n- `core:webview:default`\n- `core:app:default`\n- `core:image:default`\n- `core:resources:default`\n- `core:menu:default`\n- `core:tray:default`",
           "type": "string",
           "const": "core:default",

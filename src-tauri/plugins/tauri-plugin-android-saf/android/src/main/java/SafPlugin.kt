@@ -44,6 +44,29 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
         invoke.resolve(ret)
     }
 
+    @Command
+    fun requestStoragePermission(invoke: Invoke) {
+        if (hasStoragePermission()) {
+            val ret = JSObject()
+            ret.put("granted", true)
+            invoke.resolve(ret)
+            return
+        }
+
+        val permissions = if (Build.VERSION.SDK_INT >= 33) {
+            arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO, Manifest.permission.READ_MEDIA_AUDIO)
+        } else {
+            arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
+
+        activity.requestPermissions(permissions, 9999)
+        
+        val ret = JSObject()
+        ret.put("granted", false)
+        ret.put("requested", true)
+        invoke.resolve(ret)
+    }
+
     /**
      * Opens the app's own "App info" system Settings screen (ACTION_APPLICATION_DETAILS_SETTINGS,
      * scoped to this app's package) so the user can grant storage/media permissions manually.

@@ -62,7 +62,6 @@ const ALL_SETTINGS: SettingDefinition[] = [
   { label: 'Light Theme', description: 'Light color scheme', tab: 'general', section: 'Theme' },
   { label: 'System Theme', description: 'Follow system preference', tab: 'general', section: 'Theme' },
   { label: 'Accent Color', description: 'Used for buttons links and highlights', tab: 'general', section: 'Appearance' },
-  { label: 'UI Font Family', description: 'Application font', tab: 'general', section: 'Appearance' },
   { label: 'UI Density', description: 'Adjust interface spacing', tab: 'general', section: 'Appearance' },
   { label: 'UI Scale', description: 'Adjust overall application size', tab: 'general', section: 'Appearance' },
   { label: 'Cover Size', description: 'Book cover display size', tab: 'general', section: 'Appearance' },
@@ -89,7 +88,6 @@ const ALL_SETTINGS: SettingDefinition[] = [
   { label: 'Scroll Mode', description: 'Paged or continuous scrolling', tab: 'book-reading', section: 'Reading Experience' },
   { label: 'Text Justification', description: 'Left-aligned or justified', tab: 'book-reading', section: 'Reading Experience' },
   { label: 'Hyphenation', description: 'Automatic word hyphenation', tab: 'book-reading', section: 'Reading Experience' },
-  { label: 'Animation Speed', description: 'Page transition speed', tab: 'book-reading', section: 'Reading Experience' },
   { label: 'Page Width', description: 'Maximum content width', tab: 'book-reading', section: 'Layout' },
   { label: 'Paragraph Spacing', description: 'Space between paragraphs in em', tab: 'book-reading', section: 'Layout' },
   { label: 'Custom CSS', description: 'Inject custom CSS into book reader', tab: 'book-reading', section: 'Advanced' },
@@ -100,8 +98,6 @@ const ALL_SETTINGS: SettingDefinition[] = [
   { label: 'Reading Mode', description: 'Single double or long strip', tab: 'manga-reading', section: 'Reading Mode' },
   { label: 'Reading Direction', description: 'Left-to-right or right-to-left', tab: 'manga-reading', section: 'Reading Direction' },
   { label: 'Fit to Width', description: 'Scale images to fit width', tab: 'manga-reading', section: 'Display Options' },
-  { label: 'Image Smoothing', description: 'Anti-aliasing for images', tab: 'manga-reading', section: 'Display Options' },
-  { label: 'GPU Acceleration', description: 'Hardware accelerated rendering', tab: 'manga-reading', section: 'Display Options' },
   { label: 'Background Color', description: 'Reader background color', tab: 'manga-reading', section: 'Display Options' },
   { label: 'Progress Bar', description: 'Progress bar position', tab: 'manga-reading', section: 'Display Options' },
   { label: 'Preload Pages', description: 'Number of pages to preload', tab: 'manga-reading', section: 'Performance' },
@@ -238,7 +234,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
             orientation="vertical"
           >
             <Tabs.List
-              className="w-64 max-md:w-full max-md:flex max-md:flex-row max-md:flex-nowrap max-md:overflow-x-auto max-md:scrollbar-none max-md:border-b max-md:border-r-0 max-md:p-2 max-md:gap-1 border-r border-white/5 bg-muted/10 p-5 space-y-1.5 flex-shrink-0 overflow-y-auto scrollbar-none"
+              className="w-56 max-md:w-full max-md:flex max-md:flex-row max-md:flex-nowrap max-md:overflow-x-auto max-md:scrollbar-none max-md:border-b max-md:border-r-0 max-md:p-2 max-md:gap-1 border-r border-border/40 bg-background/50 p-4 space-y-1 flex-shrink-0 overflow-y-auto scrollbar-none"
               aria-label="Settings categories"
             >
               {filteredTabs.map((tab) => (
@@ -246,7 +242,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                   key={tab.id}
                   value={tab.id}
                   className={cn(
-                    'w-full max-md:w-auto max-md:flex-shrink-0 max-md:justify-center flex items-center gap-2 px-4 py-3 max-md:px-3 max-md:py-2 rounded-xl transition-all duration-200 text-left font-medium text-sm',
+                    'w-full max-md:w-auto max-md:flex-shrink-0 max-md:justify-center flex items-center gap-3 px-3 py-2.5 max-md:px-3 max-md:py-2 rounded-lg transition-all duration-200 text-left font-medium text-[13px]',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50',
                     'data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm',
                     'data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-muted/50 data-[state=inactive]:hover:text-foreground'
@@ -358,7 +354,7 @@ const SettingSection = ({
         </Button>
       )}
     </div>
-    <div className="bg-transparent space-y-3">
+    <div className="bg-card/20 border border-border/40 rounded-2xl overflow-hidden shadow-sm divide-y divide-border/40">
       {children}
     </div>
   </section>
@@ -373,10 +369,10 @@ const SettingItem = ({
   description?: string
   children: React.ReactNode
 }) => (
-  <div className="group flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6 p-3 md:p-4 rounded-xl md:rounded-2xl border border-border/50 bg-card/30 hover:bg-card/50 transition-all duration-300 shadow-sm hover:shadow-md">
-    <div className="space-y-1 md:space-y-1.5 flex-1 md:pr-4">
-      <label className="text-[15px] font-semibold tracking-tight leading-none text-foreground">{label}</label>
-      {description && <p className="text-[13px] text-muted-foreground leading-relaxed">{description}</p>}
+  <div className="group flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6 p-4 md:p-5 hover:bg-card/40 transition-colors duration-200">
+    <div className="space-y-1 flex-1 md:pr-4">
+      <label className="text-[15px] font-medium tracking-tight text-foreground">{label}</label>
+      {description && <p className="text-[13px] text-muted-foreground leading-snug">{description}</p>}
     </div>
     <div className="flex-shrink-0 flex items-center justify-start md:justify-end w-full md:w-auto md:min-w-[200px]">
       {children}
@@ -506,7 +502,7 @@ const GeneralSettings = ({
         </SettingSection>
       )}
 
-      {isSectionVisible('Appearance', ['Accent Color', 'UI Font Family', 'UI Density', 'UI Scale', 'Cover Size', 'Enable Window Transparency', 'Settings Transparency']) && (
+      {isSectionVisible('Appearance', ['Accent Color', 'UI Density', 'UI Scale', 'Cover Size', 'Enable Window Transparency', 'Settings Transparency']) && (
         <SettingSection
           title="Appearance"
           description="Customize the interface"
@@ -542,21 +538,7 @@ const GeneralSettings = ({
             </SettingItem>
           )}
 
-          {isSettingVisible('UI Font Family', 'Application font', 'Appearance') && (
-            <SettingItem label="UI Font Family" description={preferences.uiFontFamily || 'System Default'}>
-              <select
-                value={preferences.uiFontFamily || 'system'}
-                onChange={(e) => updateGeneralSettings({ uiFontFamily: e.target.value })}
-                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
-                aria-label="UI font family"
-              >
-                <option value="system">System Default</option>
-                <option value="Inter">Inter</option>
-                <option value="Roboto">Roboto</option>
-                <option value="Open Sans">Open Sans</option>
-              </select>
-            </SettingItem>
-          )}
+
 
           {!isAndroid && isSettingVisible('UI Density', 'Adjust interface spacing', 'Appearance') && (
             <SettingItem label="UI Density" description="Adjust interface spacing">
@@ -1033,7 +1015,7 @@ const BookReadingSettings = ({
         </SettingSection>
       )}
 
-      {isSectionVisible('Reading Experience', ['Scroll Mode', 'Text Justification', 'Hyphenation', 'Animation Speed']) && (
+      {isSectionVisible('Reading Experience', ['Scroll Mode', 'Text Justification', 'Hyphenation']) && (
         <SettingSection title="Reading Experience">
           {isSettingVisible('Scroll Mode', 'Paged or continuous scrolling', 'Reading Experience') && (
             <SettingItem
@@ -1078,20 +1060,7 @@ const BookReadingSettings = ({
             </SettingItem>
           )}
 
-          {isSettingVisible('Animation Speed', 'Page transition speed', 'Reading Experience') && (
-            <SettingItem label="Animation Speed" description={`${preferences.book.animationSpeed}ms`}>
-              <input
-                type="range"
-                min="0"
-                max="500"
-                step="50"
-                value={preferences.book.animationSpeed}
-                onChange={(e) => updateBookDefaults({ animationSpeed: Number(e.target.value) })}
-                className="w-full md:w-48"
-                aria-label="Animation speed"
-              />
-            </SettingItem>
-          )}
+
         </SettingSection>
       )}
 
@@ -1380,7 +1349,7 @@ const MangaReadingSettings = ({
         </SettingSection>
       )}
 
-      {isSectionVisible('Display Options', ['Fit to Width', 'Image Smoothing', 'GPU Acceleration', 'Background Color', 'Progress Bar']) && (
+      {isSectionVisible('Display Options', ['Fit to Width', 'Background Color', 'Progress Bar']) && (
         <SettingSection
           title="Display Options"
           onReset={() => {
@@ -1402,23 +1371,7 @@ const MangaReadingSettings = ({
             </SettingItem>
           )}
 
-          {isSettingVisible('Image Smoothing', 'Anti-aliasing for images', 'Display Options') && (
-            <SettingItem
-              label="Image Smoothing"
-              description={preferences.manga.imageSmoothing ? 'Enabled' : 'Disabled'}
-            >
-              <Switch checked={preferences.manga.imageSmoothing} onChange={(checked) => updateMangaDefaults({ imageSmoothing: checked })} />
-            </SettingItem>
-          )}
 
-          {isSettingVisible('GPU Acceleration', 'Hardware accelerated rendering', 'Display Options') && (
-            <SettingItem
-              label="GPU Acceleration"
-              description={preferences.manga.gpuAcceleration ? 'Enabled' : 'Disabled'}
-            >
-              <Switch checked={preferences.manga.gpuAcceleration} onChange={(checked) => updateMangaDefaults({ gpuAcceleration: checked })} />
-            </SettingItem>
-          )}
 
           {isSettingVisible('Background Color', 'Reader background color', 'Display Options') && (
             <SettingItem label="Background Color" description="Reader background color">

@@ -71,7 +71,7 @@ export const useReaderUIStore = create<UIState>((set) => ({
 // ────────────────────────────────────────────────────────────
 // READING SETTINGS STATE (persisted to localStorage)
 // ────────────────────────────────────────────────────────────
-export type ReaderTheme = 'light' | 'black' | 'paper' | 'paper-dark';
+export type ReaderTheme = 'light' | 'black' | 'paper' | 'paper-dark' | 'sepia' | 'dark';
 
 interface ReadingSettings {
   // Theme
@@ -162,7 +162,7 @@ const defaultSettings = {
   uiScale: 1.0,
 };
 
-const READER_THEMES: ReaderTheme[] = ['light', 'black', 'paper', 'paper-dark'];
+const READER_THEMES: ReaderTheme[] = ['light', 'black', 'paper', 'paper-dark', 'sepia', 'dark'];
 const WIDTH_OPTIONS: Array<ReadingSettings['width']> = ['narrow', 'medium', 'wide', 'full'];
 const TEXT_ALIGN_OPTIONS: Array<ReadingSettings['textAlign']> = ['left', 'justify'];
 const ANIMATION_STYLE_OPTIONS: Array<ReadingSettings['animationStyle']> = ['slide', 'fade', 'none'];
@@ -265,7 +265,7 @@ export const useReadingSettings = create<ReadingSettings>()(
       },
 
       toggleTheme: () => {
-        const cycle: ReaderTheme[] = ['light', 'black', 'paper', 'paper-dark'];
+        const cycle: ReaderTheme[] = ['light', 'black', 'paper', 'paper-dark', 'sepia', 'dark'];
         const idx = cycle.indexOf(get().theme);
         const newTheme = cycle[(idx + 1) % cycle.length];
         get().setTheme(newTheme);
@@ -468,6 +468,42 @@ export const READER_THEME_COLORS: Record<ReaderTheme, Record<string, string>> = 
     '--overlay': 'rgba(0, 0, 0, 0.45)',
     '--progress-bar': '#D4A574',
   },
+  'sepia': {
+    '--bg-primary': '#F4ECD8',
+    '--bg-secondary': '#EBE0C5',
+    '--bg-elevated': '#FAF6EB',
+    '--text-primary': '#433422',
+    '--text-secondary': '#5C4A35',
+    '--text-tertiary': '#7D6B54',
+    '--text-link': '#9C5A24',
+    '--text-selection': '#9C5A2440',
+    '--ui-border': '#D8CDB3',
+    '--ui-divider': '#C9BEA2',
+    '--ui-hover': 'rgba(0, 0, 0, 0.1)',
+    '--ui-active': 'rgba(0, 0, 0, 0.00)',
+    '--ui-focus': '#8B5A2B',
+    '--shadow': 'rgba(139, 90, 43, 0.12)',
+    '--overlay': 'rgba(67, 52, 34, 0.25)',
+    '--progress-bar': '#8B5A2B',
+  },
+  'dark': {
+    '--bg-primary': '#202020',
+    '--bg-secondary': '#2A2A2A',
+    '--bg-elevated': '#333333',
+    '--text-primary': '#E0E0E0',
+    '--text-secondary': '#B0B0B0',
+    '--text-tertiary': '#888888',
+    '--text-link': '#78909C',
+    '--text-selection': '#78909C40',
+    '--ui-border': '#444444',
+    '--ui-divider': '#555555',
+    '--ui-hover': 'rgba(255, 255, 255, 0.2)',
+    '--ui-active': 'rgba(255, 255, 255, 0.00)',
+    '--ui-focus': '#78909C',
+    '--shadow': 'rgba(0, 0, 0, 0.4)',
+    '--overlay': 'rgba(0, 0, 0, 0.6)',
+    '--progress-bar': '#78909C',
+  }
 };
 
 /**

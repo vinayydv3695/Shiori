@@ -81,7 +81,11 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
         intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         activity.runOnUiThread {
-            startActivityForResult(invoke, intent, "safFilesResult")
+            try {
+                startActivityForResult(invoke, intent, "safFilesResult")
+            } catch (e: Exception) {
+                invoke.reject("Failed to open file picker: ${e.message}")
+            }
         }
     }
 
@@ -90,7 +94,11 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
         intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
         activity.runOnUiThread {
-            startActivityForResult(invoke, intent, "safFolderResult")
+            try {
+                startActivityForResult(invoke, intent, "safFolderResult")
+            } catch (e: Exception) {
+                invoke.reject("Failed to open folder picker: ${e.message}")
+            }
         }
     }
 

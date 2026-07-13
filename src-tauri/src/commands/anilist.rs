@@ -120,28 +120,30 @@ pub async fn start_anilist_login(app: AppHandle) -> Result<String, String> {
                         }
                     }
                     
-                    let tx_clone = std::sync::Arc::clone(&tx);
+                    let tx_sender = {
+                        if let Ok(mut lock) = tx.lock() {
+                            lock.take()
+                        } else {
+                            None
+                        }
+                    };
                     
                     if let Some(c) = code {
-                        tauri::async_runtime::spawn(async move {
-                            let res = exchange_authorization_code(
-                                DESKTOP_ANILIST_CLIENT_ID,
-                                DESKTOP_ANILIST_CLIENT_SECRET,
-                                DESKTOP_ANILIST_REDIRECT_URI,
-                                c,
-                            ).await;
-                            
-                            if let Ok(mut lock) = tx_clone.lock() {
-                                if let Some(sender) = lock.take() {
-                                    let _ = sender.send(res);
-                                }
-                            }
-                        });
+                        if let Some(sender) = tx_sender {
+                            tauri::async_runtime::spawn(async move {
+                                let res = exchange_authorization_code(
+                                    DESKTOP_ANILIST_CLIENT_ID,
+                                    DESKTOP_ANILIST_CLIENT_SECRET,
+                                    DESKTOP_ANILIST_REDIRECT_URI,
+                                    c,
+                                ).await;
+                                
+                                let _ = sender.send(res);
+                            });
+                        }
                     } else {
-                        if let Ok(mut lock) = tx.lock() {
-                            if let Some(sender) = lock.take() {
-                                let _ = sender.send(Err(format!("No code found in URL: {}", url_str)));
-                            }
+                        if let Some(sender) = tx_sender {
+                            let _ = sender.send(Err(format!("No code found in URL: {}", url_str)));
                         }
                     }
 

@@ -12,8 +12,8 @@ export const isTauri = (() => {
   return hasTauri
 })()
 
-import { type as osType } from '@tauri-apps/plugin-os'
-export const isAndroid = isTauri ? osType() === 'android' : false
+// Reliable Android detection independent of Tauri injection timing
+export const isAndroid = typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent);
 
 export interface Book {
   id?: number

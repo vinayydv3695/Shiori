@@ -135,6 +135,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 37 {
             self.run_in_savepoint("v37", |mgr| mgr.migrate_to_v37())?;
         }
+        if current_version < 38 {
+            self.run_in_savepoint("v38", |mgr| mgr.migrate_to_v38())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -2170,6 +2173,22 @@ impl<'a> MigrationManager<'a> {
 
         let hash = Self::calculate_checksum("v37_add_anilist_token");
         self.record_migration(37, "add_anilist_token", &hash)?;
+        Ok(())
+    }
+
+    /// Migration v38: Add compound indexes for query performance optimization
+    fn migrate_to_v38(&self) -> Result<()> {
+        log::info!("[Migration] Applying v38: Performance indexes for library queries");
+
+        self.conn.execute_batch(
+            r#"
+            CREATE INDEX IF NOT EXISTS idx_manga_series_status_date ON manga_series(status, added_date DESC);
+            CREATE INDEX IF NOT EXISTS idx_books_status_date ON books(reading_status, added_date DESC);
+            "#,
+        )?;
+
+        let hash = Self::calculate_checksum("v38_performance_indexes");
+        self.record_migration(38, "v38_performance_indexes", &hash)?;
         Ok(())
     }
 }

@@ -6184,7 +6184,7 @@ dependencies = [
 
 [[package]]
 name = "shiori"
-version = "1.59.18"
+version = "1.59.20"
 dependencies = [
  "ab_glyph",
  "ammonia",
@@ -6247,6 +6247,7 @@ dependencies = [
  "strsim",
  "tauri",
  "tauri-build",
+ "tauri-plugin-android-auth",
  "tauri-plugin-android-saf",
  "tauri-plugin-dialog",
  "tauri-plugin-os",
@@ -6869,6 +6870,17 @@ dependencies = [
  "serde_json",
  "tauri-utils",
  "walkdir",
+]
+
+[[package]]
+name = "tauri-plugin-android-auth"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

@@ -461,9 +461,8 @@ export function Layout({
           onTouchStart={isMobile ? handleTouchStart : undefined}
           onTouchMove={isMobile ? handleTouchMove : undefined}
           onTouchEnd={isMobile ? handleTouchEnd : undefined}
-          className={cn('flex-1 min-w-0 overflow-y-auto bg-transparent relative z-10 md:pb-0 transition-transform', 'max-md:pb-24')}
+          className="flex-1 min-w-0 overflow-y-auto bg-transparent relative z-10 transition-transform"
           style={isMobile ? {
-            paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
             paddingLeft: 'env(safe-area-inset-left, 0px)',
             paddingRight: 'env(safe-area-inset-right, 0px)',
             transform: `translateY(${pullDistance}px)`
@@ -482,7 +481,14 @@ export function Layout({
               </div>
             </div>
           )}
-          {children}
+          <div
+            className={cn('md:pb-0', 'max-md:pb-24')}
+            style={isMobile ? {
+              paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))'
+            } : undefined}
+          >
+            {children}
+          </div>
         </main>
       </DragLayer>
       

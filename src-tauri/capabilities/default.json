@@ -18,7 +18,6 @@
     "core:window:allow-toggle-maximize",
     "core:window:allow-close",
     "core:window:allow-is-fullscreen",
-    "core:window:allow-is-maximized",
-    "android-saf:default"
+    "core:window:allow-is-maximized"
   ]
 }

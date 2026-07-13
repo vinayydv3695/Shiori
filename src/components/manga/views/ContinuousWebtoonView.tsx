@@ -1,11 +1,14 @@
 import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { motion, useSpring } from 'framer-motion';
+import { usePinch } from '@use-gesture/react';
 import { useMangaContentStore, useMangaUIStore, useMangaSettingsStore } from '@/store/mangaReaderStore';
 import { MangaPageImage } from '../MangaPageImage';
 import { useMangaScroll } from '../hooks/useMangaScroll';
 import { EndOfChapterOverlay } from '../EndOfChapterOverlay';
 import { ChapterSeparatorCard } from '../ChapterSeparatorCard';
 import { pluginApi } from '@/lib/pluginSources';
+import { preloadImages } from '../utils/imagePreloader';
 
 type ContinuousItem = 
     | { type: 'page'; chapterId: string; sourceId: string; pageUrl: string; localPageIndex: number; globalIndex: number }
@@ -137,6 +140,9 @@ export function ContinuousWebtoonView() {
                 title,
                 pages: pageUrls
             }]);
+
+            // Fire off background image preload
+            preloadImages(pageUrls);
         } catch (err) {
             console.error('Failed to load next chapter', err);
         } finally {
@@ -229,16 +235,43 @@ export function ContinuousWebtoonView() {
 
     useMangaScroll(containerRef, handleProgressChange, handleScrollActivity, true);
 
+    // --- Pinch to Zoom ---
+    const scale = useSpring(1, { stiffness: 300, damping: 30 });
+    
+    useEffect(() => {
+        const handler = (e: TouchEvent) => {
+            // Prevent native browser zooming when pinching
+            if (e.touches.length > 1) {
+                e.preventDefault();
+            }
+        };
+        document.addEventListener('touchmove', handler, { passive: false });
+        return () => document.removeEventListener('touchmove', handler);
+    }, []);
+
+    usePinch(
+        ({ offset: [s] }) => {
+            scale.set(Math.max(1, Math.min(s, 3)));
+        },
+        {
+            target: containerRef,
+            scaleBounds: { min: 1, max: 3 },
+            eventOptions: { passive: false }
+        }
+    );
+
     if (!onlineSource) return null;
 
     return (
-        <div ref={containerRef} className={isStrip ? "manga-strip-container" : "manga-webtoon-container"}>
-            <div
+        <div ref={containerRef} className={isStrip ? "manga-strip-container" : "manga-webtoon-container"} style={{ touchAction: 'pan-y' }}>
+            <motion.div
                 className="manga-strip-inner"
                 style={{
                     height: `${virtualizer.getTotalSize()}px`,
                     maxWidth: isStrip ? '900px' : (isManhwa ? '1200px' : '100%'),
                     margin: '0 auto',
+                    scale,
+                    transformOrigin: 'top center'
                 }}
             >
                 {virtualizer.getVirtualItems().map((virtualItem) => {
@@ -274,7 +307,7 @@ export function ContinuousWebtoonView() {
                         </div>
                     );
                 })}
-            </div>
+            </motion.div>
             
             {/* If we reached the end of the entire manga (no more chapters to load), show the overlay */}
             {(() => {

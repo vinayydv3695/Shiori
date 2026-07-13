@@ -1,11 +1,15 @@
 {
-  "identifier": "android-capability",
-  "platforms": ["android"],
-  "windows": ["main"],
+  "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "android-specific",
+  "description": "Capabilities for Android plugins",
+  "platforms": [
+    "android"
+  ],
+  "windows": [
+    "main"
+  ],
   "permissions": [
     "android-saf:default",
-    "android-auth:default",
-    "android-auth:allow-get-pending-oauth-data",
-    "android-auth:allow-start-oauth-login"
+    "android-auth:default"
   ]
 }

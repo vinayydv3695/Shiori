@@ -1,5 +1,5 @@
 import { useEffect, useState, lazy, Suspense, useCallback } from "react"
-import { GlobalDialogs } from "./components/GlobalDialogs"
+import { GlobalDialogs as OriginalGlobalDialogs } from "./components/GlobalDialogs"
 import { ViewRouter } from "./components/ViewRouter"
 import { Layout } from "./components/layout/Layout"
 import { ToastContainer } from "./components/ui/ToastContainer"
@@ -28,6 +28,7 @@ const ReaderLayout = lazy(() => import("./components/reader/ReaderLayout").then(
 const OnboardingWizard = lazy(() => import("./components/onboarding/OnboardingWizard").then(m => ({ default: m.OnboardingWizard })))
 const MigrationDialog = lazy(() => import("./components/onboarding/MigrationDialog").then(m => ({ default: m.MigrationDialog })))
 const OnlineMangaReader = lazy(() => import("./components/online/OnlineMangaReader").then(m => ({ default: m.OnlineMangaReader })))
+const GlobalDialogs = lazy(() => import("./components/GlobalDialogs").then(m => ({ default: m.GlobalDialogs })))
 
 const LoadingSpinner = ({ className = "h-screen" }: { className?: string }) => (
   <div className={`flex items-center justify-center ${className}`}>
@@ -267,18 +268,20 @@ function App() {
       </Layout>
 
       {/* Global Dialogs */}
-      <GlobalDialogs
-        books={books}
-        dialogs={dialogs}
-        autoConvert={autoConvert}
-        resumeReading={resumeReading}
-        handleOpenBook={handleOpenBook}
-        handleViewDetails={handleViewDetails}
-        handleEditBook={handleEditBook}
-        handleDeleteBook={handleDeleteBook}
-        clearSelection={clearSelection}
-        loadInitialBooks={loadInitialBooks}
-      />
+      <Suspense fallback={null}>
+        <GlobalDialogs
+          books={books}
+          dialogs={dialogs}
+          autoConvert={autoConvert}
+          resumeReading={resumeReading}
+          handleOpenBook={handleOpenBook}
+          handleViewDetails={handleViewDetails}
+          handleEditBook={handleEditBook}
+          handleDeleteBook={handleDeleteBook}
+          clearSelection={clearSelection}
+          loadInitialBooks={loadInitialBooks}
+        />
+      </Suspense>
         <Suspense fallback={null}>
           <MigrationDialog 
             open={showMigrationDialog} 

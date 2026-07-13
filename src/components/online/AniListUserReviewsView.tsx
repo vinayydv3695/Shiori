@@ -105,7 +105,6 @@ export function AniListUserReviewsView({ userId }: { userId: number }) {
                   <span>{new Date(r.createdAt * 1000).toLocaleDateString()}</span>
                 </div>
               </div>
-              </div>
             </motion.div>
           ))}
         </div>

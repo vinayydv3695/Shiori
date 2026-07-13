@@ -8,6 +8,7 @@ import { createPortal } from 'react-dom';
 import { useAniListAccessToken } from '@/auth/useAniListAccessToken';
 import { getViewer, AnilistUser, AnilistMediaListCollection } from '@/lib/anilist';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // Components we will create for each tab
 import { AniListMangaStatistics } from './AniListMangaStatistics';
@@ -110,8 +111,32 @@ export function AniListUserProfileView({ onClose, user, collection }: AniListUse
         className="w-full h-full md:h-[90vh] md:max-w-4xl md:rounded-xl md:border md:border-border/50 bg-background overflow-hidden relative flex flex-col shadow-2xl"
       >
         {!user ? (
-          <div className="flex-1 flex items-center justify-center">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <div className="flex-1 flex flex-col animate-in fade-in duration-300">
+            <div className="relative h-48 md:h-64 shrink-0 bg-muted/30">
+              <Skeleton className="w-full h-full rounded-none" />
+              <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
+              
+              <div className="absolute top-4 left-4 p-2 rounded-full bg-background/50 backdrop-blur-md z-10">
+                <ChevronLeft className="w-5 h-5 text-muted-foreground/50" />
+              </div>
+
+              <div className="absolute -bottom-10 left-6 flex items-end gap-4 z-10">
+                <Skeleton className="w-24 h-24 rounded-full border-4 border-background shadow-lg" />
+                <div className="mb-2 space-y-2">
+                  <Skeleton className="h-6 w-48" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+              </div>
+            </div>
+            <div className="flex-1 mt-16 px-6 space-y-8">
+              <Skeleton className="h-10 w-full max-w-sm rounded-full mx-auto" />
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Skeleton className="h-32 w-full rounded-xl" />
+                <Skeleton className="h-32 w-full rounded-xl" />
+                <Skeleton className="h-32 w-full rounded-xl" />
+                <Skeleton className="h-32 w-full rounded-xl" />
+              </div>
+            </div>
           </div>
         ) : (
           <>

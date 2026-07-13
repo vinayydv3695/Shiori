@@ -1,7 +1,22 @@
 import React, { useEffect, useState } from 'react';
-import { Loader2, Star, Edit3 } from 'lucide-react';
+import { Star, Edit3, MessageCircle } from 'lucide-react';
 import { getUserReviews, AnilistReview } from '@/lib/anilist';
 import { useAniListAccessToken } from '@/auth/useAniListAccessToken';
+import { Skeleton } from '@/components/ui/skeleton';
+import { motion } from 'framer-motion';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1, delayChildren: 0.1 },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
+};
 
 export function AniListUserReviewsView({ userId }: { userId: number }) {
   const { token: anilistToken } = useAniListAccessToken();
@@ -30,12 +45,33 @@ export function AniListUserReviewsView({ userId }: { userId: number }) {
   };
 
   if (loading) {
-    return <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+    return (
+      <div className="flex flex-col gap-6 pb-12 animate-in fade-in duration-300">
+        <div className="flex justify-end">
+          <Skeleton className="h-9 w-32 rounded-full" />
+        </div>
+        <div className="grid gap-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="bg-secondary/5 p-4 rounded-xl border border-white/5 flex flex-col md:flex-row gap-4">
+              <Skeleton className="w-20 h-28 rounded-md shadow-sm shrink-0" />
+              <div className="flex-1 flex flex-col gap-2">
+                <Skeleton className="h-6 w-1/2 max-w-[200px]" />
+                <Skeleton className="h-4 w-16 mb-2" />
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-5/6" />
+                <Skeleton className="h-3 w-4/6" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="flex flex-col gap-6 pb-12">
-      <div className="flex justify-end">
+    <motion.div variants={containerVariants} initial="hidden" animate="show" className="flex flex-col gap-6 pb-12">
+      <motion.div variants={itemVariants} className="flex justify-end">
         <button 
           onClick={handleWriteReview}
           className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-full font-medium shadow-sm hover:opacity-90 transition-opacity"
@@ -43,17 +79,17 @@ export function AniListUserReviewsView({ userId }: { userId: number }) {
           <Edit3 className="w-4 h-4" />
           Write a Review
         </button>
-      </div>
+      </motion.div>
 
       {reviews.length === 0 ? (
-        <div className="text-center py-12 bg-secondary/10 rounded-xl border border-border/20">
+        <motion.div variants={itemVariants} className="text-center py-12 bg-secondary/10 rounded-xl border border-border/20">
           <MessageCircle className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
           <p className="text-muted-foreground">You haven't written any reviews yet.</p>
-        </div>
+        </motion.div>
       ) : (
         <div className="grid gap-4">
           {reviews.map(r => (
-            <div key={r.id} className="bg-secondary/10 hover:bg-secondary/20 transition-colors p-4 rounded-xl border border-border/20 flex flex-col md:flex-row gap-4">
+            <motion.div variants={itemVariants} key={r.id} className="bg-secondary/10 hover:bg-secondary/20 transition-colors p-4 rounded-xl border border-border/20 flex flex-col md:flex-row gap-4">
               <img src={r.media.coverImage.large} alt={r.media.title.romaji} className="w-20 h-28 object-cover rounded-md shadow-sm" />
               <div className="flex-1 flex flex-col">
                 <div className="flex items-start justify-between gap-4">
@@ -69,12 +105,11 @@ export function AniListUserReviewsView({ userId }: { userId: number }) {
                   <span>{new Date(r.createdAt * 1000).toLocaleDateString()}</span>
                 </div>
               </div>
-            </div>
+              </div>
+            </motion.div>
           ))}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
-
-import { MessageCircle } from 'lucide-react';

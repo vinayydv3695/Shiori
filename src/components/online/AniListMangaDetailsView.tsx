@@ -7,6 +7,7 @@ import { useAniListAccessToken } from '@/auth/useAniListAccessToken';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import * as Dialog from '@radix-ui/react-dialog';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // TrackerForm Component
 function TrackerForm({
@@ -299,8 +300,49 @@ export function AniListMangaDetailsView({
       isMobile ? "z-40" : "z-[300]"
     )}>
       {loading ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-md">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <div className="fixed inset-0 z-50 flex flex-col bg-background/90 backdrop-blur-md animate-in fade-in duration-300">
+          {/* Top Nav Skeleton */}
+          <div className="h-16 border-b border-white/5 flex items-center px-6">
+            <Skeleton className="w-8 h-8 rounded-full" />
+          </div>
+          <div className="flex-1 overflow-hidden flex flex-col">
+            {/* Banner Skeleton */}
+            <div className="h-48 md:h-64 relative">
+              <Skeleton className="w-full h-full rounded-none" />
+              <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent" />
+            </div>
+            {/* Content Skeleton */}
+            <div className="flex-1 px-4 md:px-8 max-w-[1400px] mx-auto w-full relative z-10 -mt-16 md:-mt-24 pb-8">
+              <div className="flex flex-col md:flex-row gap-6">
+                {/* Left Col (Cover) */}
+                <div className="w-32 md:w-56 shrink-0 space-y-4">
+                  <Skeleton className="w-full aspect-[2/3] rounded-xl shadow-lg" />
+                  <div className="hidden md:flex flex-col gap-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-5/6" />
+                  </div>
+                </div>
+                {/* Right Col (Details) */}
+                <div className="flex-1 mt-16 md:mt-24 space-y-4">
+                  <Skeleton className="h-8 md:h-10 w-3/4 max-w-[400px]" />
+                  <Skeleton className="h-4 w-1/4 mb-6" />
+                  
+                  <div className="flex gap-4 my-6">
+                    <Skeleton className="h-10 w-24 rounded-full" />
+                    <Skeleton className="h-10 w-24 rounded-full" />
+                    <Skeleton className="h-10 w-24 rounded-full" />
+                  </div>
+                  
+                  <div className="space-y-2 mt-8">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-5/6" />
+                    <Skeleton className="h-4 w-4/6" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       ) : !details ? (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/90 backdrop-blur-md">

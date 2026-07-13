@@ -278,9 +278,11 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
     handleClose();
   };
 
+  const isVisuallyOpen = open && (!autoTriggerMode || status !== 'idle');
+
   return (
     <>
-      <Dialog.Root open={open} onOpenChange={handleClose}>
+      <Dialog.Root open={isVisuallyOpen} onOpenChange={handleClose}>
         <Dialog.Portal>
           <Dialog.Overlay className="dialog-overlay fixed inset-0 z-50 bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
           <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-[50%] top-[50%] z-50 w-[92vw] sm:w-[96vw] md:w-full max-w-2xl translate-x-[-50%] translate-y-[-50%] flex flex-col rounded-2xl border border-border/50 bg-background/95 backdrop-blur-3xl shadow-2xl overflow-hidden max-h-[90vh] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]">

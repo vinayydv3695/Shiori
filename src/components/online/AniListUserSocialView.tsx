@@ -14,7 +14,7 @@ const containerVariants = {
 
 const itemVariants = {
   hidden: { opacity: 0, x: -10 },
-  show: { opacity: 1, x: 0, transition: { duration: 0.4, ease: 'easeOut' } },
+  show: { opacity: 1, x: 0, transition: { duration: 0.4, ease: 'easeOut' as const } },
 };
 
 export function AniListUserSocialView({ userId }: { userId: number }) {

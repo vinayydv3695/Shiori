@@ -44,6 +44,7 @@ export interface AnilistMedia {
   chapters: number;
   volumes: number;
   averageScore: number;
+  countryOfOrigin?: string;
 }
 
 export interface AnilistMediaList {

@@ -51,7 +51,7 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
   const selectedPathRef = useRef(selectedPath);
   const selectedFilePathsRef = useRef(selectedFilePaths);
   const hasAutoTriggeredRef = useRef(false);
-  const handleImportRef = useRef<() => Promise<void>>();
+  const handleImportRef = useRef<() => Promise<void>>(null as any);
 
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { selectedPathRef.current = selectedPath; }, [selectedPath]);

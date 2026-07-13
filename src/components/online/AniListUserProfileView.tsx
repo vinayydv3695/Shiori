@@ -16,6 +16,8 @@ import { AniListMangaStatistics } from './AniListMangaStatistics';
 import { AniListUserSocialView } from './AniListUserSocialView';
 import { AniListUserActivitiesView } from './AniListUserActivitiesView';
 import { AniListUserReviewsView } from './AniListUserReviewsView';
+import { AniListUserFavouritesView } from './AniListUserFavouritesView';
+import { AniListUserMangaView } from './AniListUserMangaView';
 
 interface AniListUserProfileViewProps {
   onClose: () => void;
@@ -157,15 +159,23 @@ export function AniListUserProfileView({ onClose }: AniListUserProfileViewProps)
                   </motion.div>
                 )}
 
-                {['manga', 'favourites'].includes(activeTab) && (
-                  <motion.div key="other" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+                {activeTab === 'manga' && (
+                  <motion.div key="manga" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                      <div className="flex items-center gap-2 mb-4">
                       <button onClick={() => setActiveTab('profile')} className="p-1 -ml-1 rounded-full hover:bg-secondary"><ChevronLeft className="w-5 h-5" /></button>
-                      <h2 className="text-xl font-bold capitalize">{activeTab}</h2>
+                      <h2 className="text-xl font-bold capitalize">Manga</h2>
                     </div>
-                    <div className="py-12 text-center text-muted-foreground">
-                      This view is not yet implemented.
+                    <AniListUserMangaView userId={user.id} />
+                  </motion.div>
+                )}
+
+                {activeTab === 'favourites' && (
+                  <motion.div key="favourites" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+                     <div className="flex items-center gap-2 mb-4">
+                      <button onClick={() => setActiveTab('profile')} className="p-1 -ml-1 rounded-full hover:bg-secondary"><ChevronLeft className="w-5 h-5" /></button>
+                      <h2 className="text-xl font-bold capitalize">Favourites</h2>
                     </div>
+                    <AniListUserFavouritesView userId={user.id} />
                   </motion.div>
                 )}
               </AnimatePresence>

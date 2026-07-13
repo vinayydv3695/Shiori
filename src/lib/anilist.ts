@@ -482,6 +482,12 @@ export interface AnilistActivity {
   };
 }
 
+export interface AnilistFavourite {
+  id: number;
+  title: { romaji: string; english?: string };
+  coverImage: { large: string };
+}
+
 export interface AnilistReview {
   id: number;
   summary: string;
@@ -579,4 +585,24 @@ export async function saveReview(mediaId: number, body: string, summary: string,
   `;
   const data = await fetchAnilistAPI(mutation, { mediaId, body, summary, score }, token);
   return data.SaveReview;
+}
+
+export async function getUserFavourites(userId: number, token: string): Promise<AnilistFavourite[]> {
+  const query = `
+    query ($userId: Int!) {
+      User(id: $userId) {
+        favourites {
+          manga(page: 1, perPage: 50) {
+            nodes {
+              id
+              title { romaji english }
+              coverImage { large }
+            }
+          }
+        }
+      }
+    }
+  `;
+  const data = await fetchAnilistAPI(query, { userId }, token);
+  return data.User.favourites.manga.nodes;
 }

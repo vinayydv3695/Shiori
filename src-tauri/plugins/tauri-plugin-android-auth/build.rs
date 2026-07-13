@@ -4,6 +4,7 @@ const COMMANDS: &[&str] = &[
     "set_secure_token",
     "get_secure_token",
     "clear_secure_token",
+    "get_pending_oauth_data",
 ];
 
 fn main() {

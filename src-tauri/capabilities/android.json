@@ -2,5 +2,9 @@
   "identifier": "android-capability",
   "platforms": ["android"],
   "windows": ["main"],
-  "permissions": ["android-saf:default"]
+  "permissions": [
+    "android-saf:default",
+    "android-auth:default",
+    "android-auth:allow-get-pending-oauth-data"
+  ]
 }

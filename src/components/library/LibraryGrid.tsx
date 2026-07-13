@@ -335,7 +335,7 @@ export function LibraryGrid({
 
   return (
     <div
-      className={cn("flex flex-col h-full w-full relative overflow-y-auto", isMobile ? "pb-24 pt-2" : "pb-4")}
+      className={cn("flex flex-col h-full w-full relative overflow-y-auto", isMobile ? "pb-24" : "pb-4")}
       ref={parentRef}
     >
       <MobileStickyHeader 

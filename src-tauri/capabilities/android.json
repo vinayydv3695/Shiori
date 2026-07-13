@@ -5,6 +5,7 @@
   "permissions": [
     "android-saf:default",
     "android-auth:default",
-    "android-auth:allow-get-pending-oauth-data"
+    "android-auth:allow-get-pending-oauth-data",
+    "android-auth:allow-start-oauth-login"
   ]
 }

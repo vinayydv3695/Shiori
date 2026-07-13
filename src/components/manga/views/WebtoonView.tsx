@@ -32,10 +32,24 @@ export function WebtoonView() {
     const isManhwa = readingMode === 'manhwa';
     const hasSource = sourceType === 'local' ? bookId !== null : onlineSource !== null;
 
+    const containerWidthRef = useRef<number>(800);
+
+    useEffect(() => {
+        if (!containerRef.current) return;
+        const observer = new ResizeObserver((entries) => {
+            if (entries[0]) {
+                containerWidthRef.current = entries[0].contentRect.width;
+            }
+        });
+        observer.observe(containerRef.current);
+        return () => observer.disconnect();
+    }, []);
+
     const estimateSize = useCallback((index: number): number => {
         if (pageDimensions[index]) {
             const [w, h] = pageDimensions[index];
-            let containerWidth = containerRef.current?.clientWidth || 800;
+            if (w === 0) return 1800; // avoid division by zero
+            let containerWidth = containerWidthRef.current;
             if (isManhwa && containerWidth > 1200) {
                 containerWidth = 1200;
             }
@@ -50,7 +64,7 @@ export function WebtoonView() {
         count: totalPages,
         getScrollElement: () => containerRef.current,
         estimateSize,
-        overscan: 8,
+        overscan: 25,
         gap: 0,
     });
 
@@ -163,6 +177,11 @@ export function WebtoonView() {
                     >
                         <MangaPageImage
                             pageIndex={virtualItem.index}
+                            expectedAspectRatio={
+                                pageDimensions[virtualItem.index] && pageDimensions[virtualItem.index][0] !== 0
+                                    ? `${pageDimensions[virtualItem.index][0]}/${pageDimensions[virtualItem.index][1]}`
+                                    : undefined
+                            }
                         />
                     </div>
                 ))}

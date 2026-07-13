@@ -14,6 +14,7 @@ interface MangaPageImageProps {
     overrideUrl?: string;
     overrideChapterId?: string;
     overrideSourceId?: string;
+    expectedAspectRatio?: string;
 }
 
 /**
@@ -32,6 +33,7 @@ export const MangaPageImage = memo(function MangaPageImage({
     overrideUrl,
     overrideChapterId,
     overrideSourceId,
+    expectedAspectRatio,
 }: MangaPageImageProps) {
     const fitMode = useMangaSettingsStore(s => s.fitMode);
     const zoomLevel = useMangaSettingsStore(s => s.zoomLevel);
@@ -98,8 +100,8 @@ export const MangaPageImage = memo(function MangaPageImage({
                     className="manga-page-skeleton"
                     style={{
                         width: '100%',
-                        maxWidth: '800px',
-                        aspectRatio: '2/3',
+                        maxWidth: fitMode === 'width' ? '100%' : '800px',
+                        aspectRatio: expectedAspectRatio || '2/3',
                         transform: `scale(${zoomLevel})`,
                         transformOrigin: 'top center',
                         transition: 'transform 0.2s ease-in-out',

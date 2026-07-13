@@ -32,12 +32,26 @@ export function LongStripView() {
 
     const hasSource = sourceType === 'local' ? bookId !== null : onlineSource !== null;
 
+    const containerWidthRef = useRef<number>(900);
+
+    useEffect(() => {
+        if (!containerRef.current) return;
+        const observer = new ResizeObserver((entries) => {
+            if (entries[0]) {
+                containerWidthRef.current = entries[0].contentRect.width;
+            }
+        });
+        observer.observe(containerRef.current);
+        return () => observer.disconnect();
+    }, []);
+
     // Estimate page height based on dimensions or fallback
     const estimateSize = useCallback((index: number): number => {
         if (pageDimensions[index]) {
             const [w, h] = pageDimensions[index];
+            if (w === 0) return 1400; // avoid division by zero
             // Scale to actual rendered width (max 900px, but won't upscale beyond w)
-            const containerWidth = containerRef.current?.clientWidth || 900;
+            const containerWidth = containerWidthRef.current;
             const actualWidth = Math.min(containerWidth, 900, w);
             const scale = actualWidth / w;
             return Math.round(h * scale);
@@ -51,7 +65,7 @@ export function LongStripView() {
         count: totalPages,
         getScrollElement: () => containerRef.current,
         estimateSize,
-        overscan: 5,
+        overscan: 25,
         gap: stripMargin,
     });
 
@@ -173,6 +187,11 @@ export function LongStripView() {
                     >
                         <MangaPageImage
                             pageIndex={virtualItem.index}
+                            expectedAspectRatio={
+                                pageDimensions[virtualItem.index] && pageDimensions[virtualItem.index][0] !== 0
+                                    ? `${pageDimensions[virtualItem.index][0]}/${pageDimensions[virtualItem.index][1]}`
+                                    : undefined
+                            }
                         />
                     </div>
                 ))}

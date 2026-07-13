@@ -101,7 +101,7 @@ export function ContinuousWebtoonView() {
     const estimateSize = useCallback((index: number): number => {
         const item = items[index];
         if (!item) return 1800;
-        if (item.type === 'separator') return 250; // Fixed height for separator
+        if (item.type === 'separator') return 120; // Fixed height for separator
         
         // We use a fixed aspect ratio estimate for pages unless we want to track dimensions per page
         // WebtoonView relied on pageDimensions, but here we'll just use a safe fallback.
@@ -113,7 +113,7 @@ export function ContinuousWebtoonView() {
         count: items.length,
         getScrollElement: () => containerRef.current,
         estimateSize,
-        overscan: 8,
+        overscan: 25,
         gap: isStrip ? stripMargin : 0,
     });
     

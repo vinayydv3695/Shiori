@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Download, ExternalLink, Bookmark, ArrowLeft, BookOpen, ChevronUp, X } from 'lucide-react';
+import { Download, ExternalLink, Bookmark, ArrowLeft, BookOpen, ChevronUp, X, Star, Calendar, RefreshCw, AlignLeft, Plus, Minus } from 'lucide-react';
 import { AnilistMediaList, AnilistMediaDetails, getMediaDetails, updateMediaListEntry } from '@/lib/anilist';
 import { toast } from 'sonner';
 import { useAniListAccessToken } from '@/auth/useAniListAccessToken';
@@ -17,97 +17,158 @@ function TrackerForm({
   completedAt, setCompletedAt,
   repeat, setRepeat,
   notes, setNotes,
-  handleSave, saving
+  handleSave, saving,
+  totalChapters
 }: any) {
+  // Safe limiters
+  const handleProgressChange = (val: number) => {
+    if (isNaN(val)) val = 0;
+    if (val < 0) val = 0;
+    if (totalChapters && val > totalChapters) val = totalChapters;
+    setProgress(val);
+  };
+
+  const handleScoreChange = (val: number) => {
+    if (isNaN(val)) val = 0;
+    if (val < 0) val = 0;
+    if (val > 100) val = 100;
+    setScore(val);
+  };
+
+  const handleRepeatChange = (val: number) => {
+    if (isNaN(val)) val = 0;
+    if (val < 0) val = 0;
+    setRepeat(val);
+  };
+
   return (
-    <form onSubmit={handleSave} className="space-y-5">
-      <div>
-        <label className="text-xs font-semibold tracking-wider text-on-surface-variant block mb-2 uppercase">Status</label>
-        <select 
-          value={status} 
-          onChange={e => setStatus(e.target.value)}
-          className="w-full bg-[#0E0E0E] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm appearance-none outline-none transition-colors"
-        >
-          <option value="CURRENT">Reading</option>
-          <option value="PLANNING">Plan to Read</option>
-          <option value="COMPLETED">Completed</option>
-          <option value="DROPPED">Dropped</option>
-          <option value="PAUSED">Paused</option>
-        </select>
+    <form onSubmit={handleSave} className="space-y-6">
+      {/* Status */}
+      <div className="space-y-2">
+        <label className="text-[11px] font-bold tracking-widest text-on-surface-variant uppercase flex items-center gap-1.5">
+          <Bookmark className="w-3.5 h-3.5" /> Status
+        </label>
+        <div className="relative">
+          <select 
+            value={status} 
+            onChange={e => setStatus(e.target.value)}
+            className="w-full bg-[#121212] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3.5 px-4 text-sm font-semibold appearance-none outline-none transition-all shadow-inner"
+          >
+            <option value="CURRENT">Reading</option>
+            <option value="PLANNING">Plan to Read</option>
+            <option value="COMPLETED">Completed</option>
+            <option value="DROPPED">Dropped</option>
+            <option value="PAUSED">Paused</option>
+          </select>
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+            <ChevronUp className="w-4 h-4 text-on-surface-variant rotate-180" />
+          </div>
+        </div>
       </div>
       
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="text-xs font-semibold tracking-wider text-on-surface-variant block mb-2 uppercase">Progress</label>
-          <input 
-            type="number" 
-            value={progress}
-            onChange={e => setProgress(parseInt(e.target.value) || 0)}
-            min="0"
-            className="w-full bg-[#0E0E0E] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm outline-none transition-colors" 
-          />
+      <div className="grid grid-cols-1 gap-6">
+        {/* Progress with stepper */}
+        <div className="space-y-2">
+          <div className="flex justify-between items-center">
+            <label className="text-[11px] font-bold tracking-widest text-on-surface-variant uppercase flex items-center gap-1.5">
+              <BookOpen className="w-3.5 h-3.5" /> Progress
+            </label>
+            {totalChapters && (
+              <span className="text-xs text-on-surface-variant">Max: {totalChapters}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => handleProgressChange(progress - 1)} className="p-3 bg-[#121212] border border-white/10 rounded-xl hover:bg-white/5 active:scale-95 transition-all text-on-surface-variant hover:text-white">
+              <Minus className="w-4 h-4" />
+            </button>
+            <input 
+              type="number" 
+              value={progress}
+              onChange={e => handleProgressChange(parseInt(e.target.value))}
+              className="flex-1 bg-[#121212] border border-white/10 text-primary text-center font-bold rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm outline-none transition-all shadow-inner" 
+            />
+            <button type="button" onClick={() => handleProgressChange(progress + 1)} className="p-3 bg-[#121212] border border-white/10 rounded-xl hover:bg-white/5 active:scale-95 transition-all text-on-surface-variant hover:text-white">
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
         </div>
-        <div>
-          <label className="text-xs font-semibold tracking-wider text-on-surface-variant block mb-2 uppercase">Score</label>
-          <input 
-            type="number" 
-            value={score}
-            onChange={e => setScore(parseInt(e.target.value) || 0)}
-            min="0" max="100"
-            placeholder="0-100"
-            className="w-full bg-[#0E0E0E] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm outline-none transition-colors" 
-          />
+
+        {/* Score with slider */}
+        <div className="space-y-2">
+          <div className="flex justify-between items-center">
+            <label className="text-[11px] font-bold tracking-widest text-on-surface-variant uppercase flex items-center gap-1.5">
+              <Star className="w-3.5 h-3.5" /> Score
+            </label>
+            <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">{score} / 100</span>
+          </div>
+          <div className="flex items-center gap-4 bg-[#121212] border border-white/10 rounded-xl p-3 shadow-inner">
+            <input 
+              type="range"
+              value={score}
+              onChange={e => handleScoreChange(parseInt(e.target.value))}
+              min="0" max="100" step="1"
+              className="w-full accent-primary h-2 bg-white/10 rounded-lg appearance-none cursor-pointer"
+            />
+          </div>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="text-xs font-semibold tracking-wider text-on-surface-variant block mb-2 uppercase">Start Date</label>
+        <div className="space-y-2">
+          <label className="text-[11px] font-bold tracking-widest text-on-surface-variant uppercase flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5" /> Start Date
+          </label>
           <input 
             type="date"
             value={startedAt}
             onChange={e => setStartedAt(e.target.value)}
-            className="w-full bg-[#0E0E0E] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-3 text-[13px] outline-none transition-colors" 
+            className="w-full bg-[#121212] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-3 text-[13px] outline-none transition-all shadow-inner" 
+            style={{ colorScheme: 'dark' }}
           />
         </div>
-        <div>
-          <label className="text-xs font-semibold tracking-wider text-on-surface-variant block mb-2 uppercase">Finish Date</label>
+        <div className="space-y-2">
+          <label className="text-[11px] font-bold tracking-widest text-on-surface-variant uppercase flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5" /> Finish Date
+          </label>
           <input 
             type="date" 
             value={completedAt}
             onChange={e => setCompletedAt(e.target.value)}
-            className="w-full bg-[#0E0E0E] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-3 text-[13px] outline-none transition-colors" 
+            className="w-full bg-[#121212] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-3 text-[13px] outline-none transition-all shadow-inner" 
+            style={{ colorScheme: 'dark' }}
           />
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="col-span-2">
-          <label className="text-xs font-semibold tracking-wider text-on-surface-variant block mb-2 uppercase">Rewatches</label>
-          <input 
-            type="number" 
-            value={repeat}
-            onChange={e => setRepeat(parseInt(e.target.value) || 0)}
-            min="0"
-            className="w-full bg-[#0E0E0E] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm outline-none transition-colors" 
-          />
-        </div>
+      <div className="space-y-2">
+        <label className="text-[11px] font-bold tracking-widest text-on-surface-variant uppercase flex items-center gap-1.5">
+          <RefreshCw className="w-3.5 h-3.5" /> Re-reads
+        </label>
+        <input 
+          type="number" 
+          value={repeat}
+          onChange={e => handleRepeatChange(parseInt(e.target.value))}
+          className="w-full bg-[#121212] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm outline-none transition-all shadow-inner" 
+        />
       </div>
 
-      <div>
-        <label className="text-xs font-semibold tracking-wider text-on-surface-variant block mb-2 uppercase">Notes</label>
+      <div className="space-y-2">
+        <label className="text-[11px] font-bold tracking-widest text-on-surface-variant uppercase flex items-center gap-1.5">
+          <AlignLeft className="w-3.5 h-3.5" /> Private Notes
+        </label>
         <textarea 
           value={notes}
           onChange={e => setNotes(e.target.value)}
-          className="w-full bg-[#0E0E0E] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm h-28 resize-none outline-none transition-colors" 
-          placeholder="Private notes..."
-        ></textarea>
+          rows={3}
+          placeholder="Jot down some thoughts..."
+          className="w-full bg-[#121212] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm outline-none transition-all resize-none shadow-inner" 
+        />
       </div>
-      
+
       <button 
-        type="submit"
+        type="submit" 
         disabled={saving}
-        className="w-full bg-white text-black font-semibold text-sm py-4 rounded-xl hover:bg-white/90 transition-colors active:scale-[0.98] mt-2 shadow-lg disabled:opacity-50"
+        className="w-full bg-white text-black font-bold rounded-xl py-4 flex items-center justify-center gap-2 mt-4 hover:bg-gray-200 active:scale-[0.98] transition-all disabled:opacity-50 shadow-lg"
       >
         {saving ? 'SAVING...' : 'SAVE TO ANILIST'}
       </button>
@@ -228,7 +289,8 @@ export function AniListMangaDetailsView({
   const formProps = {
     status, setStatus, progress, setProgress, score, setScore,
     startedAt, setStartedAt, completedAt, setCompletedAt,
-    repeat, setRepeat, notes, setNotes, handleSave, saving
+    repeat, setRepeat, notes, setNotes, handleSave, saving,
+    totalChapters: details?.chapters
   };
 
   const content = (

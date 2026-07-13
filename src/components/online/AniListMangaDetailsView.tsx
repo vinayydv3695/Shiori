@@ -454,23 +454,32 @@ export function AniListMangaDetailsView({
               {/* Tabbed Navigation & Content */}
               <div className="flex-grow min-w-0">
                 <div className={cn(
-                  "flex overflow-x-auto custom-scrollbar no-scrollbar scroll-smooth",
-                  isMobile ? "gap-2 mb-6 pb-2" : "border-b border-surface-variant mb-8"
+                  "flex overflow-x-auto custom-scrollbar no-scrollbar scroll-smooth relative z-10",
+                  isMobile ? "gap-2 mb-6 pb-4" : "gap-4 border-b border-surface-variant/50 mb-8 pb-4"
                 )}>
-                  {(['overview', 'characters', 'relations', 'recommendations'] as const).map(tab => (
-                    <button
-                      key={tab}
-                      onClick={() => setActiveTab(tab)}
-                      className={cn(
-                        "whitespace-nowrap transition-colors",
-                        isMobile 
-                          ? `px-4 py-2 rounded-full text-sm font-semibold border ${activeTab === tab ? 'bg-primary/15 text-primary border-primary/30' : 'bg-surface-variant/20 text-on-surface-variant border-transparent'}`
-                          : `px-6 py-4 text-sm font-semibold tracking-wider uppercase ${activeTab === tab ? 'border-b-2 border-primary text-primary' : 'text-on-surface-variant hover:text-primary'}`
-                      )}
-                    >
-                      {tab.replace('&', ' & ')}
-                    </button>
-                  ))}
+                  {(['overview', 'characters', 'relations', 'recommendations'] as const).map(tab => {
+                    const isActive = activeTab === tab;
+                    return (
+                      <button
+                        key={tab}
+                        onClick={() => setActiveTab(tab)}
+                        className={cn(
+                          "relative whitespace-nowrap transition-colors duration-300 rounded-full",
+                          isMobile ? "px-5 py-2.5 text-sm" : "px-6 py-3 text-sm font-semibold tracking-wider uppercase",
+                          isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {isActive && (
+                          <motion.div
+                            layoutId="activeTabPill"
+                            className="absolute inset-0 bg-primary/10 border border-primary/20 rounded-full -z-10"
+                            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                          />
+                        )}
+                        <span className="relative z-10 font-medium capitalize">{tab}</span>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 <div className="min-h-[400px]">

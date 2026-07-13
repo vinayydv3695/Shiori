@@ -6184,7 +6184,7 @@ dependencies = [
 
 [[package]]
 name = "shiori"
-version = "1.59.20"
+version = "1.59.23"
 dependencies = [
  "ab_glyph",
  "ammonia",

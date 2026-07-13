@@ -134,6 +134,7 @@ export function Layout({
   const [duplicateFinderOpen, setDuplicateFinderOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [importDialogFilePaths, setImportDialogFilePaths] = useState<string[]>([])
+  const [autoTriggerMode, setAutoTriggerMode] = useState<'files' | 'folder' | null>(null)
   const [isDragActive, setIsDragActive] = useState(false)
 
   // UX additions
@@ -258,14 +259,15 @@ export function Layout({
     return { authors, languages, series, formats, publishers, ratings, tags, identifiers }
   }, [books])
 
-  // ── Import handlers ────────────────────────────
-  const handleOpenImportFilesDialog = () => {
+  const handleOpenImportFilesDialog = (autoTrigger?: boolean) => {
     setImportDialogFilePaths([])
+    setAutoTriggerMode(autoTrigger === true ? 'files' : null)
     setImportDialogOpen(true)
   }
 
-  const handleOpenImportFolderDialog = () => {
+  const handleOpenImportFolderDialog = (autoTrigger?: boolean) => {
     setImportDialogFilePaths([])
+    setAutoTriggerMode(autoTrigger === true ? 'folder' : null)
     setImportDialogOpen(true)
   }
 
@@ -517,7 +519,7 @@ export function Layout({
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" sideOffset={12} className="w-56 rounded-xl border-border shadow-xl bg-background/95 backdrop-blur-xl p-2">
-              <DropdownMenuItem onClick={handleOpenImportFilesDialog} className="gap-3 p-3 cursor-pointer rounded-lg flex items-center">
+              <DropdownMenuItem onClick={() => handleOpenImportFilesDialog(true)} className="gap-3 p-3 cursor-pointer rounded-lg flex items-center">
                 <div className="p-2 bg-primary/10 rounded-md shrink-0">
                   <IconImportBook size={18} className="text-primary" />
                 </div>
@@ -526,10 +528,10 @@ export function Layout({
                   <span className="text-xs text-muted-foreground leading-snug">Individual files</span>
                 </div>
               </DropdownMenuItem>
-              
-              <DropdownMenuSeparator className="my-1 bg-border/50" />
-              
-              <DropdownMenuItem onClick={handleOpenImportFolderDialog} className="gap-3 p-3 cursor-pointer rounded-lg flex items-center">
+
+              <DropdownMenuSeparator className="bg-border/50" />
+
+              <DropdownMenuItem onClick={() => handleOpenImportFolderDialog(true)} className="gap-3 p-3 cursor-pointer rounded-lg flex items-center">
                 <div className="p-2 bg-primary/10 rounded-md shrink-0">
                   <IconImportManga size={18} className="text-primary" />
                 </div>
@@ -565,8 +567,14 @@ export function Layout({
       {/* ── Import Dialog ── */}
       <ImportDialog
         open={importDialogOpen}
-        onOpenChange={setImportDialogOpen}
+        onOpenChange={(open) => {
+          setImportDialogOpen(open);
+          if (!open) {
+            setTimeout(() => setAutoTriggerMode(null), 300);
+          }
+        }}
         initialFilePaths={importDialogFilePaths}
+        autoTriggerMode={autoTriggerMode}
       />
     </div>
   )

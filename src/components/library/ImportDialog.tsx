@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { motion } from 'framer-motion';
 import { X, FolderOpen, File, Upload, Loader2, CheckCircle, AlertCircle, Info } from 'lucide-react';
@@ -27,13 +27,14 @@ interface ImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialFilePaths?: string[];
+  autoTriggerMode?: 'files' | 'folder' | null;
 }
 
 type ImportMode = 'files' | 'folder';
 type ImportStatus = 'idle' | 'importing' | 'completed' | 'error';
 
-export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDialogProps) => {
-  const [mode, setMode] = useState<ImportMode>(initialFilePaths && initialFilePaths.length > 0 ? 'files' : 'folder');
+export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTriggerMode }: ImportDialogProps) => {
+  const [mode, setMode] = useState<ImportMode>(autoTriggerMode || (initialFilePaths && initialFilePaths.length > 0 ? 'files' : 'folder'));
   const [status, setStatus] = useState<ImportStatus>('idle');
   const [result, setResult] = useState<ImportResult | null>(null);
   const [selectedPath, setSelectedPath] = useState<string>(
@@ -44,6 +45,17 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
   const [showSuggestions, setShowSuggestions] = useState(false);
   const toast = useToast();
   const loadInitialBooks = useLibraryStore(state => state.loadInitialBooks);
+  
+  // Create refs to access the latest state inside useEffect
+  const modeRef = useRef(mode);
+  const selectedPathRef = useRef(selectedPath);
+  const selectedFilePathsRef = useRef(selectedFilePaths);
+  const hasAutoTriggeredRef = useRef(false);
+  const handleImportRef = useRef<() => Promise<void>>();
+
+  useEffect(() => { modeRef.current = mode; }, [mode]);
+  useEffect(() => { selectedPathRef.current = selectedPath; }, [selectedPath]);
+  useEffect(() => { selectedFilePathsRef.current = selectedFilePaths; }, [selectedFilePaths]);
 
   const handleSelectFolder = async () => {
     try {
@@ -60,6 +72,14 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
                 toast.error('Failed to scan folder', 'Could not read the contents of the selected folder');
             }
         }
+        
+        // Auto start import if triggered from FAB
+        if (autoTriggerMode) {
+            setTimeout(() => handleImportRef.current?.(), 100);
+        }
+      } else if (autoTriggerMode) {
+        // User cancelled, close dialog
+        onOpenChange(false);
       }
     } catch (error: unknown) {
       logger.error('Failed to select folder:', error);
@@ -77,6 +97,14 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
       if (paths && paths.length > 0) {
         setSelectedPath(`${paths.length} file(s) selected`);
         setSelectedFilePaths(paths);
+        
+        // Auto start import if triggered from FAB
+        if (autoTriggerMode) {
+            setTimeout(() => handleImportRef.current?.(), 100);
+        }
+      } else if (autoTriggerMode) {
+        // User cancelled, close dialog
+        onOpenChange(false);
       }
     } catch (error: unknown) {
       logger.error('Failed to select files:', error);
@@ -88,17 +116,37 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
     }
   };
 
+  useEffect(() => {
+    if (open && autoTriggerMode && !hasAutoTriggeredRef.current) {
+        hasAutoTriggeredRef.current = true;
+        if (autoTriggerMode === 'folder') {
+            handleSelectFolder();
+        } else {
+            handleSelectFiles();
+        }
+    }
+    
+    if (!open) {
+        hasAutoTriggeredRef.current = false;
+    }
+  }, [open, autoTriggerMode]);
+
   const MANGA_COMIC_EXTENSIONS = /\.(cbz|cbr|zip)$/i;
 
   const handleImport = async () => {
     setStatus('importing');
     setResult(null);
 
+    // Get latest state from refs since setTimeout might run with stale closures
+    const currentMode = modeRef.current;
+    const currentSelectedPath = selectedPathRef.current;
+    const currentSelectedFilePaths = selectedFilePathsRef.current;
+
     try {
       const importResult: ImportResult = { success: [], failed: [], duplicates: [] };
 
-      if (mode === 'folder') {
-        if (!selectedPath) {
+      if (currentMode === 'folder') {
+        if (!currentSelectedPath) {
           toast.error('No folder selected', 'Please select a folder to import from');
           setStatus('idle');
           return;
@@ -106,9 +154,9 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
         
         let result: ImportResult;
         
-        if (selectedPath.startsWith('content://')) {
+        if (currentSelectedPath.startsWith('content://')) {
           // Android SAF Workflow
-          const { files } = await api.enumerateTree(selectedPath);
+          const { files } = await api.enumerateTree(currentSelectedPath);
           if (files.length === 0) {
             throw new Error('No supported book files found in this folder.');
           }
@@ -146,21 +194,21 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
             result.duplicates.push(...bookResult.duplicates);
           }
         } else {
-          result = await api.scanFolderUnified(selectedPath);
+          result = await api.scanFolderUnified(currentSelectedPath);
         }
         
         importResult.success.push(...result.success);
         importResult.failed.push(...result.failed);
         importResult.duplicates.push(...result.duplicates);
       } else {
-        if (selectedFilePaths.length === 0) {
+        if (currentSelectedFilePaths.length === 0) {
           toast.error('No files selected', 'Please select files to import');
           setStatus('idle');
           return;
         }
         
-        const mangaFiles = selectedFilePaths.filter(p => MANGA_COMIC_EXTENSIONS.test(p));
-        const bookFiles = selectedFilePaths.filter(p => !MANGA_COMIC_EXTENSIONS.test(p));
+        const mangaFiles = currentSelectedFilePaths.filter(p => MANGA_COMIC_EXTENSIONS.test(p));
+        const bookFiles = currentSelectedFilePaths.filter(p => !MANGA_COMIC_EXTENSIONS.test(p));
         
         if (mangaFiles.length > 0) {
           const mangaResult = await api.importManga(mangaFiles);
@@ -211,6 +259,10 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths }: ImportDia
        toast.error('Import failed', 'An error occurred during import');
      }
   };
+
+  useEffect(() => {
+    handleImportRef.current = handleImport;
+  }, [mode, selectedPath, selectedFilePaths]);
 
   const handleClose = () => {
     setStatus('idle');

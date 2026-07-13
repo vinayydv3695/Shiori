@@ -1,14 +1,125 @@
-import React, { useState, useEffect } from 'react';
-import { Download, ExternalLink, Bookmark, ArrowLeft, BookOpen } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { Download, ExternalLink, Bookmark, ArrowLeft, BookOpen, ChevronUp, X } from 'lucide-react';
 import { AnilistMediaList, AnilistMediaDetails, getMediaDetails, updateMediaListEntry } from '@/lib/anilist';
 import { toast } from 'sonner';
 import { useAniListAccessToken } from '@/auth/useAniListAccessToken';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import * as Dialog from '@radix-ui/react-dialog';
+import { cn } from '@/lib/utils';
+
+// TrackerForm Component
+function TrackerForm({
+  status, setStatus,
+  progress, setProgress,
+  score, setScore,
+  startedAt, setStartedAt,
+  completedAt, setCompletedAt,
+  repeat, setRepeat,
+  notes, setNotes,
+  handleSave, saving
+}: any) {
+  return (
+    <form onSubmit={handleSave} className="space-y-5">
+      <div>
+        <label className="text-xs font-semibold tracking-wider text-on-surface-variant block mb-2 uppercase">Status</label>
+        <select 
+          value={status} 
+          onChange={e => setStatus(e.target.value)}
+          className="w-full bg-[#0E0E0E] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm appearance-none outline-none transition-colors"
+        >
+          <option value="CURRENT">Reading</option>
+          <option value="PLANNING">Plan to Read</option>
+          <option value="COMPLETED">Completed</option>
+          <option value="DROPPED">Dropped</option>
+          <option value="PAUSED">Paused</option>
+        </select>
+      </div>
+      
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="text-xs font-semibold tracking-wider text-on-surface-variant block mb-2 uppercase">Progress</label>
+          <input 
+            type="number" 
+            value={progress}
+            onChange={e => setProgress(parseInt(e.target.value) || 0)}
+            min="0"
+            className="w-full bg-[#0E0E0E] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm outline-none transition-colors" 
+          />
+        </div>
+        <div>
+          <label className="text-xs font-semibold tracking-wider text-on-surface-variant block mb-2 uppercase">Score</label>
+          <input 
+            type="number" 
+            value={score}
+            onChange={e => setScore(parseInt(e.target.value) || 0)}
+            min="0" max="100"
+            placeholder="0-100"
+            className="w-full bg-[#0E0E0E] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm outline-none transition-colors" 
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="text-xs font-semibold tracking-wider text-on-surface-variant block mb-2 uppercase">Start Date</label>
+          <input 
+            type="date"
+            value={startedAt}
+            onChange={e => setStartedAt(e.target.value)}
+            className="w-full bg-[#0E0E0E] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-3 text-[13px] outline-none transition-colors" 
+          />
+        </div>
+        <div>
+          <label className="text-xs font-semibold tracking-wider text-on-surface-variant block mb-2 uppercase">Finish Date</label>
+          <input 
+            type="date" 
+            value={completedAt}
+            onChange={e => setCompletedAt(e.target.value)}
+            className="w-full bg-[#0E0E0E] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-3 text-[13px] outline-none transition-colors" 
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="col-span-2">
+          <label className="text-xs font-semibold tracking-wider text-on-surface-variant block mb-2 uppercase">Rewatches</label>
+          <input 
+            type="number" 
+            value={repeat}
+            onChange={e => setRepeat(parseInt(e.target.value) || 0)}
+            min="0"
+            className="w-full bg-[#0E0E0E] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm outline-none transition-colors" 
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="text-xs font-semibold tracking-wider text-on-surface-variant block mb-2 uppercase">Notes</label>
+        <textarea 
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          className="w-full bg-[#0E0E0E] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm h-28 resize-none outline-none transition-colors" 
+          placeholder="Private notes..."
+        ></textarea>
+      </div>
+      
+      <button 
+        type="submit"
+        disabled={saving}
+        className="w-full bg-white text-black font-semibold text-sm py-4 rounded-xl hover:bg-white/90 transition-colors active:scale-[0.98] mt-2 shadow-lg disabled:opacity-50"
+      >
+        {saving ? 'SAVING...' : 'SAVE TO ANILIST'}
+      </button>
+    </form>
+  );
+}
 
 interface AniListMangaDetailsViewProps {
   mediaId: number;
   initialEntry?: AnilistMediaList;
   onClose: () => void;
-  onUpdate: () => void; // Trigger a refresh in the dashboard
+  onUpdate: () => void;
   onOpenMedia?: (mediaId: number) => void;
   onSearchOnlineManga?: (title: string) => void;
   onSearchTorbox?: (title: string) => void;
@@ -24,10 +135,12 @@ export function AniListMangaDetailsView({
   onSearchTorbox
 }: AniListMangaDetailsViewProps) {
   const { token: anilistToken } = useAniListAccessToken();
+  const isMobile = useIsMobile();
   
   const [details, setDetails] = useState<AnilistMediaDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'characters' | 'relations' | 'recommendations'>('overview');
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   // Form State
   const [status, setStatus] = useState(initialEntry?.status || 'PLANNING');
@@ -102,6 +215,7 @@ export function AniListMangaDetailsView({
       );
       
       toast.success('Saved to AniList');
+      setSheetOpen(false);
       onUpdate();
     } catch (error) {
       console.error('Save error:', error);
@@ -111,407 +225,397 @@ export function AniListMangaDetailsView({
     }
   };
 
-  if (loading) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-md">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  const formProps = {
+    status, setStatus, progress, setProgress, score, setScore,
+    startedAt, setStartedAt, completedAt, setCompletedAt,
+    repeat, setRepeat, notes, setNotes, handleSave, saving
+  };
 
-  if (!details) {
-    return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/90 backdrop-blur-md">
-        <p className="text-on-surface mb-4">Could not load details.</p>
-        <button onClick={onClose} className="px-4 py-2 bg-primary text-background rounded">Go Back</button>
-      </div>
-    );
-  }
+  const content = (
+    <div className={cn(
+      "fixed inset-0 bg-background text-on-surface overflow-y-auto overflow-x-hidden font-sans overscroll-none pb-[env(safe-area-inset-bottom,0px)]",
+      isMobile ? "z-40" : "z-[300]"
+    )}>
+      {loading ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-md">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      ) : !details ? (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/90 backdrop-blur-md">
+          <p className="text-on-surface mb-4">Could not load details.</p>
+          <button onClick={onClose} className="px-4 py-2 bg-primary text-background rounded">Go Back</button>
+        </div>
+      ) : (
+        <>
+          {/* Top Nav (Desktop) / Floating Back Button (Mobile) */}
+          <header data-tauri-drag-region className={cn(
+            "fixed top-0 w-full z-50 transition-colors",
+            isMobile ? "bg-transparent p-4" : "bg-background/70 backdrop-blur-xl border-b border-surface-variant sticky"
+          )}>
+            <nav className={cn("flex items-center", isMobile ? "justify-start" : "justify-between px-6 py-4 max-w-7xl mx-auto")}>
+              <button onClick={onClose} className={cn(
+                "flex items-center justify-center gap-2 transition-transform active:scale-90",
+                isMobile 
+                  ? "w-10 h-10 rounded-full bg-black/40 backdrop-blur-md text-white shadow-lg border border-white/10" 
+                  : "text-primary hover:text-white group"
+              )}>
+                <ArrowLeft className={cn("w-5 h-5", !isMobile && "group-hover:-translate-x-1 transition-transform")} />
+                {!isMobile && <span className="font-bold tracking-tight">Back to Dashboard</span>}
+              </button>
+            </nav>
+          </header>
 
-  const title = details.title.english || details.title.romaji;
-  const coverUrl = details.coverImage.extraLarge || details.coverImage.large;
-  const bannerUrl = details.coverImage.extraLarge || details.coverImage.large; // AniList sometimes has bannerImage, but we didn't query it. We can use blurred cover.
-
-  return (
-    <div className="fixed inset-0 z-[300] bg-background text-on-surface overflow-y-auto overflow-x-hidden font-sans">
-      {/* Top Nav */}
-      <header data-tauri-drag-region className="sticky top-0 w-full z-50 bg-background/70 backdrop-blur-xl border-b border-surface-variant">
-        <nav className="flex justify-between items-center px-6 py-4 max-w-7xl mx-auto">
-          <button onClick={onClose} className="flex items-center gap-2 text-primary hover:text-white transition-colors group">
-            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-            <span className="font-bold tracking-tight">Back to Dashboard</span>
-          </button>
-        </nav>
-      </header>
-
-      <main className="min-h-screen">
-        {/* Cinematic Hero Section */}
-        <section className="relative min-h-[600px] flex items-end px-6 md:px-16 pb-12 pt-20">
-          <div 
-            className="absolute inset-0 bg-cover bg-center -z-10 scale-110"
-            style={{ 
-              backgroundImage: `url('${bannerUrl}')`,
-              filter: 'blur(60px) brightness(0.3)'
-            }}
-          />
-          
-          <div className="max-w-7xl mx-auto w-full flex flex-col md:flex-row gap-8 items-end">
-            {/* Cover Image */}
-            <div className="w-full md:w-64 lg:w-72 flex-shrink-0 mx-auto md:mx-0">
-              <div className="aspect-[3/4] overflow-hidden rounded-lg shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10">
-                <img className="w-full h-full object-cover" src={coverUrl} alt={title} />
-              </div>
-            </div>
-            
-            {/* Info Details */}
-            <div className="flex-grow flex flex-col justify-end">
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 text-primary tracking-tight">
-                {title}
-              </h1>
+          <main className={cn("min-h-screen relative", isMobile ? "pb-32" : "")}>
+            {/* Cinematic Hero Section */}
+            <section className={cn(
+              "relative flex items-end",
+              isMobile ? "min-h-[450px] px-5 pb-8 pt-24" : "min-h-[600px] px-6 md:px-16 pb-12 pt-20"
+            )}>
+              <div 
+                className="absolute inset-0 bg-cover bg-center -z-10 scale-110"
+                style={{ 
+                  backgroundImage: `url('${details.coverImage.extraLarge || details.coverImage.large}')`,
+                  filter: isMobile ? 'blur(40px) brightness(0.4)' : 'blur(60px) brightness(0.3)'
+                }}
+              />
               
-              <div className="flex flex-wrap gap-3 mb-6">
-                <div className="bg-[#1A1A1A]/70 backdrop-blur-xl border border-white/5 px-4 py-2 rounded-lg flex items-center gap-2">
-                  <span className="text-[11px] font-semibold tracking-wider text-on-surface-variant">FORMAT</span>
-                  <span className="text-sm font-medium text-primary uppercase">{details.format}</span>
-                </div>
-                {details.averageScore && (
-                  <div className="bg-[#1A1A1A]/70 backdrop-blur-xl border border-white/5 px-4 py-2 rounded-lg flex items-center gap-2">
-                    <span className="text-[11px] font-semibold tracking-wider text-on-surface-variant">SCORE</span>
-                    <span className="text-sm font-medium text-primary">{details.averageScore}%</span>
+              <div className="max-w-7xl mx-auto w-full flex flex-col md:flex-row gap-6 md:gap-8 items-center md:items-end">
+                {/* Cover Image */}
+                <div className={cn("flex-shrink-0 w-44 md:w-64 lg:w-72", isMobile ? "mx-auto" : "mx-0")}>
+                  <div className="aspect-[3/4] overflow-hidden rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10">
+                    <img className="w-full h-full object-cover" src={details.coverImage.extraLarge || details.coverImage.large} alt={details.title.english || details.title.romaji} />
                   </div>
-                )}
-                {details.popularity && (
-                  <div className="bg-[#1A1A1A]/70 backdrop-blur-xl border border-white/5 px-4 py-2 rounded-lg flex items-center gap-2">
-                    <span className="text-[11px] font-semibold tracking-wider text-on-surface-variant">POPULARITY</span>
-                    <span className="text-sm font-medium text-primary">#{details.popularity}</span>
-                  </div>
-                )}
-                <div className="bg-[#1A1A1A]/70 backdrop-blur-xl border border-white/5 px-4 py-2 rounded-lg flex items-center gap-2">
-                  <span className="text-[11px] font-semibold tracking-wider text-on-surface-variant">STATUS</span>
-                  <span className="text-sm font-medium text-primary capitalize">{details.status.toLowerCase()}</span>
                 </div>
-              </div>
-              
-              <div className="flex flex-wrap gap-2">
-                {details.genres?.map(g => (
-                  <span key={g} className="bg-primary/10 text-primary border border-primary/20 text-xs px-3 py-1 rounded-full font-medium">
-                    {g}
-                  </span>
-                ))}
-              </div>
-
-              <div className="flex flex-wrap gap-3 mt-6">
-                {onSearchOnlineManga && (
-                  <button 
-                    onClick={() => onSearchOnlineManga(title)}
-                    className="flex items-center gap-2 bg-black/40 hover:bg-white/10 border border-white/10 backdrop-blur-xl text-white px-5 py-2.5 rounded-xl font-medium transition-all active:scale-95"
-                  >
-                    <BookOpen className="w-4 h-4 text-blue-400" />
-                    Read Online
-                  </button>
-                )}
-                {onSearchTorbox && (
-                  <button 
-                    onClick={() => onSearchTorbox(title)}
-                    className="flex items-center gap-2 bg-black/40 hover:bg-white/10 border border-white/10 backdrop-blur-xl text-white px-5 py-2.5 rounded-xl font-medium transition-all active:scale-95"
-                  >
-                    <Download className="w-4 h-4 text-purple-400" />
-                    Download via Torbox
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Content & Sidebar */}
-        <section className="max-w-7xl mx-auto px-6 md:px-16 py-12 flex flex-col lg:flex-row gap-12">
-          
-          {/* Tabbed Navigation & Content */}
-          <div className="flex-grow min-w-0">
-            <div className="flex border-b border-surface-variant mb-8 overflow-x-auto custom-scrollbar">
-              {(['overview', 'characters', 'relations', 'recommendations'] as const).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-6 py-4 text-sm font-semibold tracking-wider uppercase transition-colors ${
-                    activeTab === tab 
-                      ? 'border-b-2 border-primary text-primary' 
-                      : 'text-on-surface-variant hover:text-primary'
-                  }`}
-                >
-                  {tab.replace('&', ' & ')}
-                </button>
-              ))}
-            </div>
-
-            <div className="min-h-[400px]">
-              {/* Tab: Overview */}
-              {activeTab === 'overview' && (
-                <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div>
-                    <h3 className="text-xl font-bold text-primary mb-4">Synopsis</h3>
-                    <p 
-                      className="text-on-surface-variant leading-relaxed text-lg"
-                      dangerouslySetInnerHTML={{ __html: details.description || 'No synopsis available.' }}
-                    />
+                
+                {/* Info Details */}
+                <div className={cn("flex-grow flex flex-col justify-end w-full", isMobile ? "items-center text-center mt-2" : "")}>
+                  <h1 className={cn("font-bold mb-4 text-primary tracking-tight", isMobile ? "text-3xl" : "text-4xl md:text-5xl lg:text-6xl")}>
+                    {details.title.english || details.title.romaji}
+                  </h1>
+                  
+                  <div className={cn("flex flex-wrap gap-2 mb-4", isMobile ? "justify-center" : "")}>
+                    <div className="bg-[#1A1A1A]/70 backdrop-blur-xl border border-white/5 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                      <span className="text-[10px] font-semibold tracking-wider text-on-surface-variant">FORMAT</span>
+                      <span className="text-xs font-medium text-primary uppercase">{details.format}</span>
+                    </div>
+                    {details.averageScore && (
+                      <div className="bg-[#1A1A1A]/70 backdrop-blur-xl border border-white/5 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                        <span className="text-[10px] font-semibold tracking-wider text-on-surface-variant">SCORE</span>
+                        <span className="text-xs font-medium text-primary">{details.averageScore}%</span>
+                      </div>
+                    )}
+                    {details.popularity && (
+                      <div className="bg-[#1A1A1A]/70 backdrop-blur-xl border border-white/5 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                        <span className="text-[10px] font-semibold tracking-wider text-on-surface-variant">POPULARITY</span>
+                        <span className="text-xs font-medium text-primary">#{details.popularity}</span>
+                      </div>
+                    )}
                   </div>
                   
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-[#1A1A1A] p-5 rounded-xl border border-white/5">
-                      <p className="text-xs font-semibold tracking-wider text-on-surface-variant mb-1 uppercase">Romaji</p>
-                      <p className="text-sm text-primary font-medium">{details.title.romaji}</p>
-                    </div>
-                    <div className="bg-[#1A1A1A] p-5 rounded-xl border border-white/5">
-                      <p className="text-xs font-semibold tracking-wider text-on-surface-variant mb-1 uppercase">Native</p>
-                      <p className="text-sm text-primary font-medium">{details.title.native}</p>
-                    </div>
-                    <div className="bg-[#1A1A1A] p-5 rounded-xl border border-white/5">
-                      <p className="text-xs font-semibold tracking-wider text-on-surface-variant mb-1 uppercase">Chapters</p>
-                      <p className="text-sm text-primary font-medium">{details.chapters || '?'}</p>
-                    </div>
-                    <div className="bg-[#1A1A1A] p-5 rounded-xl border border-white/5">
-                      <p className="text-xs font-semibold tracking-wider text-on-surface-variant mb-1 uppercase">Volumes</p>
-                      <p className="text-sm text-primary font-medium">{details.volumes || '?'}</p>
-                    </div>
+                  <div className={cn("flex flex-wrap gap-2", isMobile ? "justify-center" : "")}>
+                    {details.genres?.slice(0, isMobile ? 4 : 10).map(g => (
+                      <span key={g} className="bg-primary/10 text-primary border border-primary/20 text-xs px-3 py-1 rounded-full font-medium">
+                        {g}
+                      </span>
+                    ))}
                   </div>
 
-                  {details.externalLinks?.length > 0 && (
-                    <div>
-                      <h3 className="text-xl font-bold text-primary mb-4">External Links</h3>
-                      <div className="flex flex-wrap gap-3">
-                        {details.externalLinks.map(link => (
-                          <a 
-                            key={link.id} 
-                            href={link.url} 
-                            target="_blank" 
-                            rel="noreferrer"
-                            className="bg-[#1A1A1A] hover:bg-[#262626] border border-white/5 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-                          >
-                            {link.site} <ExternalLink className="w-3 h-3 text-on-surface-variant" />
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {details.tags?.length > 0 && (
-                    <div>
-                      <h3 className="text-xl font-bold text-primary mb-4">Tags</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {details.tags.map(tag => (
-                          <span 
-                            key={tag.id} 
-                            className={`bg-surface-variant/50 border border-white/5 text-xs px-3 py-1 rounded-full ${tag.isMediaSpoiler ? 'text-error opacity-70 hover:opacity-100 cursor-help' : 'text-on-surface'}`}
-                            title={tag.description}
-                          >
-                            {tag.name} {tag.rank}%
-                          </span>
-                        ))}
-                      </div>
+                  {!isMobile && (
+                    <div className="flex flex-wrap gap-3 mt-6">
+                      {onSearchOnlineManga && (
+                        <button 
+                          onClick={() => onSearchOnlineManga(details.title.english || details.title.romaji)}
+                          className="flex items-center gap-2 bg-black/40 hover:bg-white/10 border border-white/10 backdrop-blur-xl text-white px-5 py-2.5 rounded-xl font-medium transition-all active:scale-95"
+                        >
+                          <BookOpen className="w-4 h-4 text-blue-400" /> Read Online
+                        </button>
+                      )}
+                      {onSearchTorbox && (
+                        <button 
+                          onClick={() => onSearchTorbox(details.title.english || details.title.romaji)}
+                          className="flex items-center gap-2 bg-black/40 hover:bg-white/10 border border-white/10 backdrop-blur-xl text-white px-5 py-2.5 rounded-xl font-medium transition-all active:scale-95"
+                        >
+                          <Download className="w-4 h-4 text-purple-400" /> Download via Torbox
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
+              </div>
+            </section>
 
-              {/* Tab: Characters */}
-              {activeTab === 'characters' && (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <h3 className="text-xl font-bold text-primary mb-6">Characters</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {details.characters?.edges?.map(edge => (
-                      <div key={edge.node.id} className="flex gap-4 bg-[#1A1A1A] p-3 rounded-xl border border-white/5 hover:border-white/20 transition-colors">
-                        <img className="w-16 h-24 object-cover rounded-lg bg-surface-variant" src={edge.node.image.large} alt={edge.node.name.full} />
-                        <div className="flex flex-col justify-center">
-                          <p className="text-sm text-primary font-bold line-clamp-2">{edge.node.name.full}</p>
-                          <p className="text-xs text-on-surface-variant uppercase mt-1">{edge.role}</p>
-                        </div>
-                      </div>
-                    ))}
-                    {!details.characters?.edges?.length && <p className="text-on-surface-variant">No characters found.</p>}
-                  </div>
-                  
-                  <h3 className="text-xl font-bold text-primary mb-6 mt-12">Staff</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {details.staff?.edges?.map(edge => (
-                      <div key={edge.node.id} className="flex gap-4 bg-[#1A1A1A] p-3 rounded-xl border border-white/5 hover:border-white/20 transition-colors">
-                        <img className="w-16 h-24 object-cover rounded-lg bg-surface-variant" src={edge.node.image.large} alt={edge.node.name.full} />
-                        <div className="flex flex-col justify-center">
-                          <p className="text-sm text-primary font-bold line-clamp-2">{edge.node.name.full}</p>
-                          <p className="text-xs text-on-surface-variant uppercase mt-1">{edge.role}</p>
-                        </div>
-                      </div>
-                    ))}
-                    {!details.staff?.edges?.length && <p className="text-on-surface-variant">No staff found.</p>}
-                  </div>
+            {/* Content & Sidebar */}
+            <section className={cn("max-w-7xl mx-auto flex flex-col lg:flex-row gap-12", isMobile ? "px-4 py-6" : "px-6 md:px-16 py-12")}>
+              
+              {/* Tabbed Navigation & Content */}
+              <div className="flex-grow min-w-0">
+                <div className={cn(
+                  "flex overflow-x-auto custom-scrollbar no-scrollbar scroll-smooth",
+                  isMobile ? "gap-2 mb-6 pb-2" : "border-b border-surface-variant mb-8"
+                )}>
+                  {(['overview', 'characters', 'relations', 'recommendations'] as const).map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={cn(
+                        "whitespace-nowrap transition-colors",
+                        isMobile 
+                          ? `px-4 py-2 rounded-full text-sm font-semibold border ${activeTab === tab ? 'bg-primary/15 text-primary border-primary/30' : 'bg-surface-variant/20 text-on-surface-variant border-transparent'}`
+                          : `px-6 py-4 text-sm font-semibold tracking-wider uppercase ${activeTab === tab ? 'border-b-2 border-primary text-primary' : 'text-on-surface-variant hover:text-primary'}`
+                      )}
+                    >
+                      {tab.replace('&', ' & ')}
+                    </button>
+                  ))}
                 </div>
-              )}
 
-              {/* Tab: Relations */}
-              {activeTab === 'relations' && (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-6">
-                    {details.relations?.edges?.map(edge => (
-                      <div 
-                        key={edge.node.id} 
-                        className="space-y-3 group cursor-pointer" 
-                        onClick={() => {
-                          if (edge.node.type === 'MANGA' && onOpenMedia) {
-                            onOpenMedia(edge.node.id);
-                          } else {
-                            window.open(`https://anilist.co/${edge.node.type.toLowerCase()}/${edge.node.id}`, '_blank');
-                          }
-                        }}
-                      >
-                        <div className="aspect-[3/4] overflow-hidden rounded-lg border border-white/5 group-hover:border-primary/50 transition-colors">
-                          <img className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src={edge.node.coverImage.large} alt={edge.node.title.romaji} />
+                <div className="min-h-[400px]">
+                  {/* Tab: Overview */}
+                  {activeTab === 'overview' && (
+                    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                      
+                      {/* Mobile Read/Download Buttons */}
+                      {isMobile && (
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          {onSearchOnlineManga && (
+                            <button 
+                              onClick={() => onSearchOnlineManga(details.title.english || details.title.romaji)}
+                              className="flex-1 flex items-center justify-center gap-2 bg-[#1A1A1A] active:bg-[#262626] border border-white/5 text-white px-5 py-3 rounded-xl font-medium transition-colors"
+                            >
+                              <BookOpen className="w-4 h-4 text-blue-400" /> Read Online
+                            </button>
+                          )}
+                          {onSearchTorbox && (
+                            <button 
+                              onClick={() => onSearchTorbox(details.title.english || details.title.romaji)}
+                              className="flex-1 flex items-center justify-center gap-2 bg-[#1A1A1A] active:bg-[#262626] border border-white/5 text-white px-5 py-3 rounded-xl font-medium transition-colors"
+                            >
+                              <Download className="w-4 h-4 text-purple-400" /> Download
+                            </button>
+                          )}
                         </div>
+                      )}
+
+                      <div>
+                        <h3 className={cn("font-bold text-primary mb-3", isMobile ? "text-lg" : "text-xl")}>Synopsis</h3>
+                        <p 
+                          className="text-on-surface-variant leading-relaxed text-base md:text-lg opacity-90"
+                          dangerouslySetInnerHTML={{ __html: details.description || 'No synopsis available.' }}
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                        <div className="bg-[#1A1A1A] p-4 rounded-xl border border-white/5">
+                          <p className="text-[10px] font-semibold tracking-wider text-on-surface-variant mb-1 uppercase">Romaji</p>
+                          <p className="text-sm text-primary font-medium line-clamp-1">{details.title.romaji}</p>
+                        </div>
+                        <div className="bg-[#1A1A1A] p-4 rounded-xl border border-white/5">
+                          <p className="text-[10px] font-semibold tracking-wider text-on-surface-variant mb-1 uppercase">Native</p>
+                          <p className="text-sm text-primary font-medium line-clamp-1">{details.title.native}</p>
+                        </div>
+                        <div className="bg-[#1A1A1A] p-4 rounded-xl border border-white/5">
+                          <p className="text-[10px] font-semibold tracking-wider text-on-surface-variant mb-1 uppercase">Chapters</p>
+                          <p className="text-sm text-primary font-medium">{details.chapters || '?'}</p>
+                        </div>
+                        <div className="bg-[#1A1A1A] p-4 rounded-xl border border-white/5">
+                          <p className="text-[10px] font-semibold tracking-wider text-on-surface-variant mb-1 uppercase">Volumes</p>
+                          <p className="text-sm text-primary font-medium">{details.volumes || '?'}</p>
+                        </div>
+                      </div>
+
+                      {details.externalLinks?.length > 0 && (
                         <div>
-                          <p className="text-sm text-primary font-medium line-clamp-2">{edge.node.title.romaji}</p>
-                          <p className="text-[10px] text-on-surface-variant uppercase mt-1 tracking-wider">
-                            {edge.relationType.replace('_', ' ')} · {edge.node.type}
-                          </p>
+                          <h3 className={cn("font-bold text-primary mb-3", isMobile ? "text-lg" : "text-xl")}>External Links</h3>
+                          <div className="flex flex-wrap gap-2">
+                            {details.externalLinks.map(link => (
+                              <a 
+                                key={link.id} 
+                                href={link.url} 
+                                target="_blank" 
+                                rel="noreferrer"
+                                className="bg-[#1A1A1A] hover:bg-[#262626] border border-white/5 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-colors flex items-center gap-2"
+                              >
+                                {link.site} <ExternalLink className="w-3 h-3 text-on-surface-variant" />
+                              </a>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                    {!details.relations?.edges?.length && <p className="text-on-surface-variant col-span-full">No relations found.</p>}
-                  </div>
-                </div>
-              )}
-
-              {/* Tab: Recommendations */}
-              {activeTab === 'recommendations' && (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-6">
-                    {details.recommendations?.nodes?.map(node => node.mediaRecommendation && (
-                      <div 
-                        key={node.mediaRecommendation.id} 
-                        className="space-y-3 group cursor-pointer" 
-                        onClick={() => {
-                          if (onOpenMedia) {
-                            onOpenMedia(node.mediaRecommendation.id);
-                          } else {
-                            window.open(`https://anilist.co/manga/${node.mediaRecommendation.id}`, '_blank');
-                          }
-                        }}
-                      >
-                        <div className="aspect-[3/4] overflow-hidden rounded-lg border border-white/5 group-hover:border-primary/50 transition-colors">
-                          <img className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src={node.mediaRecommendation.coverImage.large} alt={node.mediaRecommendation.title.romaji} />
+                      )}
+                      
+                      {details.tags?.length > 0 && (
+                        <div>
+                          <h3 className={cn("font-bold text-primary mb-3", isMobile ? "text-lg" : "text-xl")}>Tags</h3>
+                          <div className="flex flex-wrap gap-2">
+                            {details.tags.map(tag => (
+                              <span 
+                                key={tag.id} 
+                                className={`bg-surface-variant/30 border border-white/5 text-xs px-3 py-1.5 rounded-full ${tag.isMediaSpoiler ? 'text-error opacity-70 hover:opacity-100 cursor-help' : 'text-on-surface-variant'}`}
+                                title={tag.description}
+                              >
+                                {tag.name} <span className="opacity-50 ml-1">{tag.rank}%</span>
+                              </span>
+                            ))}
+                          </div>
                         </div>
-                        <p className="text-sm text-primary font-medium line-clamp-2">{node.mediaRecommendation.title.romaji}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Tab: Characters */}
+                  {activeTab === 'characters' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                      <h3 className="text-lg md:text-xl font-bold text-primary mb-4">Characters</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
+                        {details.characters?.edges?.map(edge => (
+                          <div key={edge.node.id} className="flex gap-3 md:gap-4 bg-[#1A1A1A] p-2 md:p-3 rounded-xl border border-white/5">
+                            <img className="w-14 h-20 md:w-16 md:h-24 object-cover rounded-lg bg-surface-variant" src={edge.node.image.large} alt={edge.node.name.full} />
+                            <div className="flex flex-col justify-center">
+                              <p className="text-sm text-primary font-bold line-clamp-2">{edge.node.name.full}</p>
+                              <p className="text-[10px] md:text-xs text-on-surface-variant uppercase mt-1">{edge.role}</p>
+                            </div>
+                          </div>
+                        ))}
+                        {!details.characters?.edges?.length && <p className="text-on-surface-variant">No characters found.</p>}
                       </div>
-                    ))}
-                    {!details.recommendations?.nodes?.length && <p className="text-on-surface-variant col-span-full">No recommendations found.</p>}
-                  </div>
+                      
+                      <h3 className="text-lg md:text-xl font-bold text-primary mb-4 mt-10">Staff</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
+                        {details.staff?.edges?.map(edge => (
+                          <div key={edge.node.id} className="flex gap-3 md:gap-4 bg-[#1A1A1A] p-2 md:p-3 rounded-xl border border-white/5">
+                            <img className="w-14 h-20 md:w-16 md:h-24 object-cover rounded-lg bg-surface-variant" src={edge.node.image.large} alt={edge.node.name.full} />
+                            <div className="flex flex-col justify-center">
+                              <p className="text-sm text-primary font-bold line-clamp-2">{edge.node.name.full}</p>
+                              <p className="text-[10px] md:text-xs text-on-surface-variant uppercase mt-1">{edge.role}</p>
+                            </div>
+                          </div>
+                        ))}
+                        {!details.staff?.edges?.length && <p className="text-on-surface-variant">No staff found.</p>}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tab: Relations */}
+                  {activeTab === 'relations' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
+                        {details.relations?.edges?.map(edge => (
+                          <div 
+                            key={edge.node.id} 
+                            className="space-y-2 md:space-y-3 group cursor-pointer" 
+                            onClick={() => {
+                              if (edge.node.type === 'MANGA' && onOpenMedia) {
+                                onOpenMedia(edge.node.id);
+                              } else {
+                                window.open(`https://anilist.co/${edge.node.type.toLowerCase()}/${edge.node.id}`, '_blank');
+                              }
+                            }}
+                          >
+                            <div className="aspect-[3/4] overflow-hidden rounded-lg border border-white/5">
+                              <img className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src={edge.node.coverImage.large} alt={edge.node.title.romaji} />
+                            </div>
+                            <div>
+                              <p className="text-[13px] md:text-sm text-primary font-medium line-clamp-2 leading-snug">{edge.node.title.romaji}</p>
+                              <p className="text-[9px] md:text-[10px] text-on-surface-variant uppercase mt-1 tracking-wider">
+                                {edge.relationType.replace('_', ' ')}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                        {!details.relations?.edges?.length && <p className="text-on-surface-variant col-span-full">No relations found.</p>}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tab: Recommendations */}
+                  {activeTab === 'recommendations' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
+                        {details.recommendations?.nodes?.map(node => node.mediaRecommendation && (
+                          <div 
+                            key={node.mediaRecommendation.id} 
+                            className="space-y-2 md:space-y-3 group cursor-pointer" 
+                            onClick={() => {
+                              if (onOpenMedia) {
+                                onOpenMedia(node.mediaRecommendation.id);
+                              } else {
+                                window.open(`https://anilist.co/manga/${node.mediaRecommendation.id}`, '_blank');
+                              }
+                            }}
+                          >
+                            <div className="aspect-[3/4] overflow-hidden rounded-lg border border-white/5">
+                              <img className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src={node.mediaRecommendation.coverImage.large} alt={node.mediaRecommendation.title.romaji} />
+                            </div>
+                            <p className="text-[13px] md:text-sm text-primary font-medium line-clamp-2 leading-snug">{node.mediaRecommendation.title.romaji}</p>
+                          </div>
+                        ))}
+                        {!details.recommendations?.nodes?.length && <p className="text-on-surface-variant col-span-full">No recommendations found.</p>}
+                      </div>
+                    </div>
+                  )}
                 </div>
+              </div>
+
+              {/* Sidebar: Desktop Only */}
+              {!isMobile && (
+                <aside className="w-full lg:w-80 flex-shrink-0 animate-in fade-in slide-in-from-right-8 duration-700">
+                  <div className="bg-[#1A1A1A]/80 backdrop-blur-2xl p-6 rounded-2xl border border-white/10 sticky top-24 shadow-2xl">
+                    <h2 className="text-lg font-bold text-primary mb-6 flex items-center gap-2">
+                      <Bookmark className="w-5 h-5" /> My List
+                    </h2>
+                    <TrackerForm {...formProps} />
+                  </div>
+                </aside>
               )}
+            </section>
+          </main>
+
+          {/* Sticky Bottom Action Bar (Mobile Only) */}
+          {isMobile && (
+            <div className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+72px)] left-0 right-0 p-4 pointer-events-none z-50">
+              <div className="pointer-events-auto bg-[#1A1A1A]/95 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-[0_10px_40px_rgba(0,0,0,0.5)] flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-on-surface-variant uppercase tracking-wider font-semibold">List Status</span>
+                  <span className="text-sm font-bold text-primary capitalize">{status === 'CURRENT' ? 'Reading' : status.replace('_', ' ').toLowerCase()}</span>
+                </div>
+                <Dialog.Root open={sheetOpen} onOpenChange={setSheetOpen}>
+                  <Dialog.Trigger asChild>
+                    <button className="bg-white text-black px-5 py-2.5 rounded-xl text-sm font-bold active:scale-95 transition-transform">
+                      Edit Tracker
+                    </button>
+                  </Dialog.Trigger>
+                  
+                  {/* Radix Dialog as Bottom Sheet */}
+                  <Dialog.Portal>
+                    <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[400] animate-in fade-in" />
+                    <Dialog.Content 
+                      className="fixed bottom-0 left-0 right-0 z-[401] bg-[#121212] rounded-t-3xl border-t border-white/10 shadow-2xl focus:outline-none flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-[100%]"
+                    >
+                      <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto my-4" />
+                      
+                      <div className="px-6 pb-4 flex items-center justify-between border-b border-white/5">
+                        <Dialog.Title className="text-lg font-bold text-primary flex items-center gap-2">
+                          <Bookmark className="w-5 h-5" /> Edit Tracker
+                        </Dialog.Title>
+                        <Dialog.Close asChild>
+                          <button className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
+                            <X className="w-5 h-5 text-on-surface-variant" />
+                          </button>
+                        </Dialog.Close>
+                      </div>
+                      
+                      <div className="p-6 overflow-y-auto overscroll-contain">
+                        <TrackerForm {...formProps} />
+                      </div>
+                    </Dialog.Content>
+                  </Dialog.Portal>
+                </Dialog.Root>
+              </div>
             </div>
-          </div>
-
-          {/* Sidebar: My List Management Card */}
-          <aside className="w-full lg:w-80 flex-shrink-0 animate-in fade-in slide-in-from-right-8 duration-700">
-            <div className="bg-[#1A1A1A]/80 backdrop-blur-2xl p-6 rounded-2xl border border-white/10 sticky top-24 shadow-2xl">
-              <h2 className="text-lg font-bold text-primary mb-6 flex items-center gap-2">
-                <Bookmark className="w-5 h-5" /> My List
-              </h2>
-              
-              <form onSubmit={handleSave} className="space-y-5">
-                <div>
-                  <label className="text-xs font-semibold tracking-wider text-on-surface-variant block mb-2 uppercase">Status</label>
-                  <select 
-                    value={status} 
-                    onChange={e => setStatus(e.target.value)}
-                    className="w-full bg-[#0E0E0E] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm appearance-none outline-none transition-colors"
-                  >
-                    <option value="CURRENT">Reading</option>
-                    <option value="PLANNING">Plan to Read</option>
-                    <option value="COMPLETED">Completed</option>
-                    <option value="DROPPED">Dropped</option>
-                    <option value="PAUSED">Paused</option>
-                  </select>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold tracking-wider text-on-surface-variant block mb-2 uppercase">Progress</label>
-                    <input 
-                      type="number" 
-                      value={progress}
-                      onChange={e => setProgress(parseInt(e.target.value) || 0)}
-                      min="0"
-                      className="w-full bg-[#0E0E0E] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm outline-none transition-colors" 
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold tracking-wider text-on-surface-variant block mb-2 uppercase">Score</label>
-                    <input 
-                      type="number" 
-                      value={score}
-                      onChange={e => setScore(parseInt(e.target.value) || 0)}
-                      min="0" max="100"
-                      placeholder="0-100"
-                      className="w-full bg-[#0E0E0E] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm outline-none transition-colors" 
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold tracking-wider text-on-surface-variant block mb-2 uppercase">Start Date</label>
-                    <input 
-                      type="date"
-                      value={startedAt}
-                      onChange={e => setStartedAt(e.target.value)}
-                      className="w-full bg-[#0E0E0E] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-3 text-[13px] outline-none transition-colors" 
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold tracking-wider text-on-surface-variant block mb-2 uppercase">Finish Date</label>
-                    <input 
-                      type="date" 
-                      value={completedAt}
-                      onChange={e => setCompletedAt(e.target.value)}
-                      className="w-full bg-[#0E0E0E] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-3 text-[13px] outline-none transition-colors" 
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <label className="text-xs font-semibold tracking-wider text-on-surface-variant block mb-2 uppercase">Rewatches</label>
-                    <input 
-                      type="number" 
-                      value={repeat}
-                      onChange={e => setRepeat(parseInt(e.target.value) || 0)}
-                      min="0"
-                      className="w-full bg-[#0E0E0E] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm outline-none transition-colors" 
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold tracking-wider text-on-surface-variant block mb-2 uppercase">Notes</label>
-                  <textarea 
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                    className="w-full bg-[#0E0E0E] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm h-28 resize-none outline-none transition-colors" 
-                    placeholder="Private notes..."
-                  ></textarea>
-                </div>
-                
-                <button 
-                  type="submit"
-                  disabled={saving}
-                  className="w-full bg-white text-black font-semibold text-sm py-4 rounded-xl hover:bg-white/90 transition-colors active:scale-[0.98] mt-2 shadow-lg disabled:opacity-50"
-                >
-                  {saving ? 'SAVING...' : 'SAVE TO ANILIST'}
-                </button>
-              </form>
-            </div>
-          </aside>
-          
-        </section>
-      </main>
+          )}
+        </>
+      )}
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(content, document.body) : content;
 }

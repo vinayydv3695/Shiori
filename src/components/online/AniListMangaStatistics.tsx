@@ -18,7 +18,7 @@ interface AniListMangaStatisticsProps {
   stats: StatisticsManga;
 }
 
-const COLORS = ['#8884d8', '#8dd1e1', '#82ca9d', '#a4de6c', '#d0ed57', '#ffc658'];
+const PIE_COLORS = ['#8b5cf6', '#a855f7', '#d946ef', '#ec4899', '#f43f5e', '#f97316', '#3b82f6', '#06b6d4', '#10b981'];
 
 export function AniListMangaStatistics({ stats }: AniListMangaStatisticsProps) {
   // Calculate max values for bar charts
@@ -141,27 +141,21 @@ function PieChartCard({ title, data, nameKey, valueKey }: { title: string, data:
             <div className="h-full w-full flex-1 relative drop-shadow-xl flex items-center justify-center">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <defs>
-                    <radialGradient id={`pieGradient-${title.replace(/\s+/g, '')}`} cx="50%" cy="50%" r="50%" fx="30%" fy="30%">
-                      <stop offset="0%" stopColor="#ffffff" stopOpacity={0.8} />
-                      <stop offset="100%" stopColor="var(--primary)" stopOpacity={1} />
-                    </radialGradient>
-                  </defs>
                   <Pie
                     data={sortedData}
                     dataKey={valueKey}
                     nameKey={nameKey}
                     cx="50%"
                     cy="50%"
-                    innerRadius={0}
-                    outerRadius={70}
-                    stroke="rgba(0,0,0,0.2)"
-                    strokeWidth={1}
-                    fill={`url(#pieGradient-${title.replace(/\s+/g, '')})`}
+                    innerRadius={55}
+                    outerRadius={75}
+                    stroke="none"
+                    paddingAngle={4}
                     isAnimationActive={true}
+                    cornerRadius={4}
                   >
                     {sortedData.map((entry, index) => (
-                       <Cell key={`cell-${index}`} opacity={1 - (index * 0.15)} />
+                       <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip 
@@ -174,7 +168,7 @@ function PieChartCard({ title, data, nameKey, valueKey }: { title: string, data:
             <div className="w-full flex flex-wrap justify-center gap-x-4 gap-y-1">
               {sortedData.slice(0, 4).map((item, i) => (
                 <div key={i} className="flex items-center gap-1.5 text-xs">
-                  <div className="w-2 h-2 rounded-full bg-primary" style={{ opacity: 1 - (i * 0.15) }} />
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
                   <span className="font-medium text-muted-foreground capitalize">
                     {item[nameKey].toLowerCase().replace(/_/g, ' ')}
                   </span>

@@ -257,9 +257,11 @@ export function LibraryGrid({
   const handleEditBook = useCallback((id: number) => onEditBook?.(id), [onEditBook]);
   const handleDeleteBook = useCallback((id: number) => onDeleteBook?.(id), [onDeleteBook]);
 
-  const parentRef = useRef<HTMLDivElement>(null);
+  const [parentEl, setParentEl] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    if (!parentEl) return;
+    
     const observer = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width;
       if (width) {
@@ -270,12 +272,9 @@ export function LibraryGrid({
       }
     });
 
-    if (parentRef.current) {
-      observer.observe(parentRef.current);
-    }
-
+    observer.observe(parentEl);
     return () => observer.disconnect();
-  }, [densityColumnSize, isMobile, libraryDensity]);
+  }, [parentEl, densityColumnSize, isMobile, libraryDensity]);
 
   const rowsCount = Math.ceil(groupedItems.length / columns);
 
@@ -283,7 +282,7 @@ export function LibraryGrid({
   // eslint-disable-next-line react-hooks/incompatible-library
   const rowVirtualizer = useVirtualizer({
     count: rowsCount,
-    getScrollElement: () => parentRef.current,
+    getScrollElement: () => parentEl,
     estimateSize: () => estimatedRowHeight,
     overscan: 3,
   });
@@ -336,7 +335,7 @@ export function LibraryGrid({
   return (
     <div
       className={cn("flex flex-col h-full w-full relative overflow-y-auto", isMobile ? "pb-24" : "pb-4")}
-      ref={parentRef}
+      ref={setParentEl}
     >
       <MobileStickyHeader 
         searchQuery={searchQuery} 
@@ -407,7 +406,7 @@ export function LibraryGrid({
 
                           onFavorite={handleFavorite}
                           animationDelay={Math.min(absoluteIndex * 10, 150)}
-                          scrollRoot={parentRef.current}
+                          scrollRoot={parentEl}
                           forceVisible={true}
                         />
                       ) : (
@@ -420,7 +419,7 @@ export function LibraryGrid({
                             onViewSeries?.(series);
                           }}
                           animationDelay={Math.min(absoluteIndex * 10, 150)}
-                          scrollRoot={parentRef.current}
+                          scrollRoot={parentEl}
                           forceVisible={true}
                         />
                       )}

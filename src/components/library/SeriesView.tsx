@@ -395,7 +395,7 @@ export const SeriesView = memo(function SeriesView({
   
   const toast = useToast();
   const bookRefs = useRef<Map<number, HTMLDivElement>>(new Map());
-  const parentRef = useRef<HTMLDivElement>(null);
+  const [parentEl, setParentEl] = useState<HTMLDivElement | null>(null);
 
   const isMobile = useIsMobile();
   const libraryDensity = usePreferencesStore(state => state.preferences?.libraryDensity);
@@ -405,9 +405,11 @@ export const SeriesView = memo(function SeriesView({
   const densityColumnSize = isMobile ? Math.min(baseDensityColumnSize, 140) : baseDensityColumnSize;
 
   const [containerWidth, setContainerWidth] = useState(0);
-  const [columns, setColumns] = useState(viewMode === 'grid' ? 6 : 1);
+  const [columns, setColumns] = useState(viewMode === 'grid' ? (isMobile ? 2 : 6) : 1);
 
   useEffect(() => {
+    if (!parentEl || !isOpen) return;
+    
     const observer = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width;
       if (width) {
@@ -420,9 +422,10 @@ export const SeriesView = memo(function SeriesView({
         }
       }
     });
-    if (parentRef.current) observer.observe(parentRef.current);
+    
+    observer.observe(parentEl);
     return () => observer.disconnect();
-  }, [densityColumnSize, isMobile, libraryDensity, viewMode]);
+  }, [parentEl, densityColumnSize, isMobile, libraryDensity, viewMode, isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -526,7 +529,7 @@ export const SeriesView = memo(function SeriesView({
   const rowsCount = Math.ceil(processedBooks.length / columns);
   const rowVirtualizer = useVirtualizer({
     count: rowsCount,
-    getScrollElement: () => parentRef.current,
+    getScrollElement: () => parentEl,
     estimateSize: () => estimatedRowHeight,
     overscan: 3,
   });
@@ -616,7 +619,7 @@ export const SeriesView = memo(function SeriesView({
           </Dialog.Close>
           
           <ScrollArea className="flex-1 bg-background/50">
-            <div ref={parentRef} className="flex flex-col min-h-full">
+            <div ref={setParentEl} className="flex flex-col min-h-full">
             <DesktopSeriesHeader 
               series={series} 
               onFindMetadata={handleFindSeriesMetadata}
@@ -748,7 +751,7 @@ export const SeriesView = memo(function SeriesView({
                                     onFavorite={onFavoriteBook}
                                     animationDelay={absoluteIndex * 20}
                                     coverSize={coverSize}
-                                    scrollRoot={parentRef.current}
+                                    scrollRoot={parentEl}
                                     forceVisible={true}
                                   />
                                   {getBookReadStatus(book) === 'completed' && (

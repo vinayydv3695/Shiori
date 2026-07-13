@@ -15,6 +15,7 @@ import { api } from '@/lib/tauri';
 import { Loader2, BookOpen, AlertTriangle, RefreshCw, Search, CheckCircle2, LayoutGrid, Star } from 'lucide-react';
 import { AniListBookCard } from './AniListBookCard';
 import { AniListMangaDetailsView } from './AniListMangaDetailsView';
+import { AniListUserProfileView } from './AniListUserProfileView';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -53,6 +54,7 @@ export function AniListDashboard({ onOpenSettings }: AniListDashboardProps = {})
   const [selectedEntry, setSelectedEntry] = useState<AnilistMediaList | null>(null);
   const [selectedRawMedia, setSelectedRawMedia] = useState<AnilistMedia | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [showProfileView, setShowProfileView] = useState(false);
   const [syncingLibrary, setSyncingLibrary] = useState(false);
   const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
   
@@ -360,13 +362,16 @@ export function AniListDashboard({ onOpenSettings }: AniListDashboardProps = {})
               className="flex flex-col md:flex-row items-center md:items-end gap-5 w-full"
             >
               {user && (
-                <div className="relative shrink-0">
+                <button 
+                  className="relative shrink-0 transition-transform active:scale-95 hover:scale-105 cursor-pointer"
+                  onClick={() => setShowProfileView(true)}
+                >
                   <img 
                     src={user.avatar.large || user.avatar.medium} 
                     alt={user.name} 
-                    className="w-24 h-24 md:w-28 md:h-28 rounded-full border-4 border-background shadow-xl object-cover" 
+                    className="w-24 h-24 md:w-28 md:h-28 rounded-full border-4 border-background shadow-xl object-cover ring-2 ring-primary/20 ring-offset-2 ring-offset-background" 
                   />
-                </div>
+                </button>
               )}
               <div className="flex flex-col text-center md:text-left mb-1">
                 <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
@@ -540,6 +545,12 @@ export function AniListDashboard({ onOpenSettings }: AniListDashboardProps = {})
             onSearchOnlineManga={handleSearchOnlineManga}
             onSearchTorbox={handleSearchTorbox}
           />
+        )}
+      </AnimatePresence>
+      {/* Profile Details Dialog/Overlay */}
+      <AnimatePresence>
+        {showProfileView && (
+          <AniListUserProfileView onClose={() => setShowProfileView(false)} />
         )}
       </AnimatePresence>
     </div>

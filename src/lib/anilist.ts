@@ -3,11 +3,25 @@ export const ANILIST_API_URL = 'https://graphql.anilist.co';
 export interface AnilistUser {
   id: number;
   name: string;
+  createdAt: number;
   avatar: {
     large: string;
     medium: string;
   };
   bannerImage?: string | null;
+  statistics?: {
+    manga: {
+      count: number;
+      chaptersRead: number;
+      meanScore: number;
+      standardDeviation: number;
+      scores: { score: number; count: number }[];
+      lengths: { length: string; count: number }[];
+      formats: { format: string; count: number }[];
+      statuses: { status: string; count: number }[];
+      countries: { country: string; count: number }[];
+    }
+  };
 }
 
 export interface AnilistMedia {
@@ -163,9 +177,24 @@ export async function getViewer(token: string): Promise<AnilistUser> {
       Viewer {
         id
         name
+        createdAt
+        bannerImage
         avatar {
           large
           medium
+        }
+        statistics {
+          manga {
+            count
+            chaptersRead
+            meanScore
+            standardDeviation
+            scores { score count }
+            lengths { length count }
+            formats { format count }
+            statuses { status count }
+            countries { country count }
+          }
         }
       }
     }
@@ -431,4 +460,123 @@ export async function safeUpdateMediaListEntry(
       notes
     });
   }
+}
+
+export interface AnilistUserSocial {
+  id: number;
+  name: string;
+  avatar: { large: string };
+}
+
+export interface AnilistActivity {
+  id: number;
+  type: string;
+  createdAt: number;
+  status?: string;
+  progress?: string;
+  text?: string;
+  media?: {
+    id: number;
+    title: { romaji: string; english?: string };
+    coverImage: { large: string };
+  };
+}
+
+export interface AnilistReview {
+  id: number;
+  summary: string;
+  score: number;
+  rating: number;
+  createdAt: number;
+  media: {
+    id: number;
+    title: { romaji: string; english?: string };
+    coverImage: { large: string };
+  };
+}
+
+export async function getUserSocial(userId: number, token: string): Promise<{ following: AnilistUserSocial[], followers: AnilistUserSocial[] }> {
+  const query = `
+    query ($userId: Int!) {
+      followingPage: Page(perPage: 50) {
+        following(userId: $userId) {
+          id
+          name
+          avatar { large }
+        }
+      }
+      followersPage: Page(perPage: 50) {
+        followers(userId: $userId) {
+          id
+          name
+          avatar { large }
+        }
+      }
+    }
+  `;
+  const data = await fetchAnilistAPI(query, { userId }, token);
+  return {
+    following: data.followingPage.following,
+    followers: data.followersPage.followers,
+  };
+}
+
+export async function getUserActivities(userId: number, token: string): Promise<AnilistActivity[]> {
+  const query = `
+    query ($userId: Int!) {
+      Page(perPage: 25) {
+        activities(userId: $userId, type: MANGA_LIST) {
+          ... on ListActivity {
+            id
+            type
+            status
+            progress
+            createdAt
+            media {
+              id
+              title { romaji english }
+              coverImage { large }
+            }
+          }
+        }
+      }
+    }
+  `;
+  const data = await fetchAnilistAPI(query, { userId }, token);
+  return data.Page.activities;
+}
+
+export async function getUserReviews(userId: number, token: string): Promise<AnilistReview[]> {
+  const query = `
+    query ($userId: Int!) {
+      Page(perPage: 25) {
+        reviews(userId: $userId, mediaType: MANGA) {
+          id
+          summary
+          score
+          rating
+          createdAt
+          media {
+            id
+            title { romaji english }
+            coverImage { large }
+          }
+        }
+      }
+    }
+  `;
+  const data = await fetchAnilistAPI(query, { userId }, token);
+  return data.Page.reviews;
+}
+
+export async function saveReview(mediaId: number, body: string, summary: string, score: number, token: string) {
+  const mutation = `
+    mutation ($mediaId: Int, $body: String, $summary: String, $score: Int) {
+      SaveReview(mediaId: $mediaId, body: $body, summary: $summary, score: $score, private: false) {
+        id
+      }
+    }
+  `;
+  const data = await fetchAnilistAPI(mutation, { mediaId, body, summary, score }, token);
+  return data.SaveReview;
 }

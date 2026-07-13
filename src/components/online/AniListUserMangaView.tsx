@@ -98,6 +98,6 @@ export function AniListUserMangaView({ userId }: { userId: number }) {
           )}
         </div>
       ))}
-    </div>
+    </motion.div>
   );
 }

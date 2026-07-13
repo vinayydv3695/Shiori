@@ -8,6 +8,7 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import * as Dialog from '@radix-ui/react-dialog';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { motion } from 'framer-motion';
 
 // TrackerForm Component
 function TrackerForm({

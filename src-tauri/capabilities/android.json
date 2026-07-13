@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "identifier": "android-specific",
-  "description": "Capabilities for Android plugins",
+  "identifier": "android-capability",
+  "description": "Capabilities for Android-only plugins (SAF and OAuth auth)",
   "platforms": [
     "android"
   ],
@@ -10,6 +10,23 @@
   ],
   "permissions": [
     "android-saf:default",
-    "android-auth:default"
+    "android-auth:default",
+    "android-auth:allow-start-oauth-login",
+    "android-auth:allow-get-pending-oauth-data",
+    "android-auth:allow-set-secure-token",
+    "android-auth:allow-get-secure-token",
+    "android-auth:allow-clear-secure-token",
+    "android-auth:allow-ping",
+    "android-saf:allow-select-folder",
+    "android-saf:allow-select-files",
+    "android-saf:allow-enumerate-tree",
+    "android-saf:allow-copy-document",
+    "android-saf:allow-create-document",
+    "android-saf:allow-write-document",
+    "android-saf:allow-check-storage-permission",
+    "android-saf:allow-request-storage-permission",
+    "android-saf:allow-open-app-settings",
+    "android-saf:allow-solve-cloudflare",
+    "android-saf:allow-ping"
   ]
 }

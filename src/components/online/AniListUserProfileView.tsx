@@ -6,7 +6,6 @@ import {
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useAniListAccessToken } from '@/auth/useAniListAccessToken';
-import { 
 import { getViewer, AnilistUser, AnilistMediaListCollection } from '@/lib/anilist';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -30,10 +29,13 @@ export function AniListUserProfileView({ onClose, user, collection }: AniListUse
   // If AniList returns 0 manga stats (which happens for some users due to API bugs or caching),
   // we calculate accurate statistics directly from their local AniList collection.
   const calculatedStats = React.useMemo(() => {
+    console.log("CalculatedStats useMemo running. User:", user);
     if (user.statistics?.manga?.count && user.statistics.manga.count > 0) {
+      console.log("Using API stats");
       return user.statistics.manga;
     }
     
+    console.log("Falling back to local calculation. Collection:", collection);
     if (!collection) return null;
 
     let count = 0;
@@ -66,6 +68,8 @@ export function AniListUserProfileView({ onClose, user, collection }: AniListUse
         countriesMap[country] = (countriesMap[country] || 0) + 1;
       });
     });
+
+    console.log("Calculated count:", count);
 
     const meanScore = scoreEntries > 0 ? meanScoreTotal / scoreEntries : 0;
     

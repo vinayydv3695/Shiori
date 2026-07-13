@@ -77,8 +77,7 @@ def main():
         
         for j in range(0, len(file_list), chunk_size):
             chunk = file_list[j:j+chunk_size]
-            query = " OR ".join([f'"{f}"' for f in chunk])
-            query = f"file:({query})"
+            query = " OR ".join([f'file:"{f}.md"' for f in chunk])
             
             color_groups.append({
                 "query": query,
@@ -101,6 +100,14 @@ def main():
                 pass
                 
     obsidian_config["colorGroups"] = color_groups
+    
+    # Fix the arrangement by ignoring the god-node (index.md) and tweaking forces
+    obsidian_config["search"] = "-file:index.md"
+    obsidian_config["repelStrength"] = 15
+    obsidian_config["linkDistance"] = 180
+    obsidian_config["centerStrength"] = 0.2
+    obsidian_config["scale"] = 0.8
+    obsidian_config["showArrow"] = False
     
     with open(obsidian_graph_json, 'w') as f:
         json.dump(obsidian_config, f, indent=2)

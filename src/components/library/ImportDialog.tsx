@@ -57,6 +57,13 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
   useEffect(() => { selectedPathRef.current = selectedPath; }, [selectedPath]);
   useEffect(() => { selectedFilePathsRef.current = selectedFilePaths; }, [selectedFilePaths]);
 
+  useEffect(() => {
+    if (autoTriggerMode) {
+      setMode(autoTriggerMode);
+      modeRef.current = autoTriggerMode;
+    }
+  }, [autoTriggerMode]);
+
   const handleSelectFolder = async () => {
     try {
       const path = await api.openFolderDialog();

@@ -31,8 +31,6 @@ tauri-plugin-store = "2"
 tauri-plugin-tts = { version = "0.1", optional = true }
 tauri-plugin-android-saf = { path = "plugins/tauri-plugin-android-saf" }
 
-[target.'cfg(target_os = "android")'.dependencies]
-tauri-plugin-android-auth = { path = "plugins/tauri-plugin-android-auth" }
 
 # Database & storage
 rusqlite = { version = "0.32", features = ["bundled", "blob", "serde_json"] }
@@ -134,6 +132,10 @@ mdns-sd = "0.20.1"
 local-ip-address = "0.6.13"
 hostname = "0.4.2"
 tauri-plugin-os = "2.0.0"
+
+
+[target.'cfg(target_os = "android")'.dependencies]
+tauri-plugin-android-auth = { path = "plugins/tauri-plugin-android-auth" }
 
 [features]
 default = ["custom-protocol"]

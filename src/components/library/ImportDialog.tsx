@@ -62,6 +62,7 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
       const path = await api.openFolderDialog();
       if (path) {
         setSelectedPath(path);
+        selectedPathRef.current = path; // Immediate update for auto-trigger
         // On Android, we need to enumerate the folder contents now to get the total count
         if (isAndroid) {
             try {
@@ -97,6 +98,7 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
       if (paths && paths.length > 0) {
         setSelectedPath(`${paths.length} file(s) selected`);
         setSelectedFilePaths(paths);
+        selectedFilePathsRef.current = paths; // Immediate update for auto-trigger
         
         // Auto start import if triggered from FAB
         if (autoTriggerMode) {

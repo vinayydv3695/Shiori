@@ -5,7 +5,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
-import { useAuthStore } from '@/store/authStore';
+import { useAniListAccessToken } from '@/auth/useAniListAccessToken';
 import { 
   getViewer, AnilistUser 
 } from '@/lib/anilist';
@@ -22,7 +22,7 @@ interface AniListUserProfileViewProps {
 }
 
 export function AniListUserProfileView({ onClose }: AniListUserProfileViewProps) {
-  const { anilistToken } = useAuthStore();
+  const { token: anilistToken } = useAniListAccessToken();
   const [user, setUser] = useState<AnilistUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'profile' | 'manga' | 'activities' | 'social' | 'favourites' | 'statistics' | 'reviews'>('profile');

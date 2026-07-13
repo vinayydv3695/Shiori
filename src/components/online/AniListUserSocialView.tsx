@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { getUserSocial, AnilistUserSocial } from '@/lib/anilist';
-import { useAuthStore } from '@/store/authStore';
+import { useAniListAccessToken } from '@/auth/useAniListAccessToken';
 
 export function AniListUserSocialView({ userId }: { userId: number }) {
-  const { anilistToken } = useAuthStore();
+  const { token: anilistToken } = useAniListAccessToken();
   const [following, setFollowing] = useState<AnilistUserSocial[]>([]);
   const [followers, setFollowers] = useState<AnilistUserSocial[]>([]);
   const [loading, setLoading] = useState(true);

@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Loader2, Clock } from 'lucide-react';
 import { getUserActivities, AnilistActivity } from '@/lib/anilist';
-import { useAuthStore } from '@/store/authStore';
+import { useAniListAccessToken } from '@/auth/useAniListAccessToken';
 
 export function AniListUserActivitiesView({ userId }: { userId: number }) {
-  const { anilistToken } = useAuthStore();
+  const { token: anilistToken } = useAniListAccessToken();
   const [activities, setActivities] = useState<AnilistActivity[]>([]);
   const [loading, setLoading] = useState(true);
 

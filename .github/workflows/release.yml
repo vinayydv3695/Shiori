@@ -592,9 +592,14 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          accept-android-sdk-licenses: false
+
+      - name: Accept Android licenses
+        run: yes | sdkmanager --licenses || true
 
       - name: Install Android NDK
-        run: sdkmanager --install "ndk;27.0.12077973"
+        run: yes | sdkmanager --install "ndk;27.0.12077973"
 
       - name: Install frontend dependencies
         run: npm ci

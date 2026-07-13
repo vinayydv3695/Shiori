@@ -189,10 +189,13 @@ export function LibraryGrid({
   const [columns, setColumns] = useState(6);
 
   const estimatedRowHeight = useMemo(() => {
+    // We must account for the title block below the cover image (~48-56px depending on line breaks)
+    const infoStripHeight = 56;
+    
     if (!containerWidth || columns === 0) {
       const coverHeight = densityColumnSize * 1.5; // 2:3 aspect ratio
       const rowPadding = 8; // 4px top + 4px bottom
-      return Math.ceil(coverHeight + rowPadding);
+      return Math.ceil(coverHeight + infoStripHeight + rowPadding);
     }
 
     // Row has padding "4px 8px" (16px total horiz) and gap "8px"
@@ -205,7 +208,7 @@ export function LibraryGrid({
     const actualCoverHeight = actualColumnWidth * 1.5;
     
     const rowPadding = 8; // 4px top + 4px bottom
-    return Math.ceil(actualCoverHeight + rowPadding);
+    return Math.ceil(actualCoverHeight + infoStripHeight + rowPadding);
   }, [containerWidth, columns, densityColumnSize]);
 
   const [isFirstSeries, setIsFirstSeries] = useState(true);

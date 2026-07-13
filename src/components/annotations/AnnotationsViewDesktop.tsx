@@ -187,14 +187,12 @@ export function AnnotationsViewDesktop({ onClose, onOpenBook, data }: Annotation
         open={exportDialogOpen}
         onOpenChange={setExportDialogOpen}
         bookId={selectedBookId === 'all' ? undefined : selectedBookId}
-        typeFilter={typeFilter === 'all' ? undefined : typeFilter}
-        categoryFilter={categoryFilter === 'all' ? undefined : categoryFilter}
-        searchQuery={searchQuery.trim()}
       />
 
       <QuoteCardDialog 
-        data={quoteCardData}
-        onClose={() => setQuoteCardData(null)}
+        open={!!quoteCardData}
+        onOpenChange={(open) => { if (!open) setQuoteCardData(null); }}
+        annotationData={quoteCardData}
       />
     </div>
   );

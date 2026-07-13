@@ -252,6 +252,7 @@ export async function getMediaListCollection(userId: number, token: string): Pro
               chapters
               volumes
               averageScore
+              countryOfOrigin
             }
           }
         }

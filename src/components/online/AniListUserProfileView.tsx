@@ -7,8 +7,7 @@ import {
 import { createPortal } from 'react-dom';
 import { useAniListAccessToken } from '@/auth/useAniListAccessToken';
 import { 
-  getViewer, AnilistUser 
-} from '@/lib/anilist';
+import { getViewer, AnilistUser, AnilistMediaListCollection } from '@/lib/anilist';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 // Components we will create for each tab
@@ -21,29 +20,80 @@ import { AniListUserMangaView } from './AniListUserMangaView';
 
 interface AniListUserProfileViewProps {
   onClose: () => void;
+  user: AnilistUser;
+  collection: AnilistMediaListCollection | null;
 }
 
-export function AniListUserProfileView({ onClose }: AniListUserProfileViewProps) {
-  const { token: anilistToken } = useAniListAccessToken();
-  const [user, setUser] = useState<AnilistUser | null>(null);
-  const [loading, setLoading] = useState(true);
+export function AniListUserProfileView({ onClose, user, collection }: AniListUserProfileViewProps) {
   const [activeTab, setActiveTab] = useState<'profile' | 'manga' | 'activities' | 'social' | 'favourites' | 'statistics' | 'reviews'>('profile');
 
-  useEffect(() => {
-    async function loadData() {
-      if (!anilistToken) return;
-      try {
-        setLoading(true);
-        const data = await getViewer(anilistToken);
-        setUser(data);
-      } catch (err) {
-        console.error("Failed to load user profile:", err);
-      } finally {
-        setLoading(false);
-      }
+  // If AniList returns 0 manga stats (which happens for some users due to API bugs or caching),
+  // we calculate accurate statistics directly from their local AniList collection.
+  const calculatedStats = React.useMemo(() => {
+    if (user.statistics?.manga?.count && user.statistics.manga.count > 0) {
+      return user.statistics.manga;
     }
-    loadData();
-  }, [anilistToken]);
+    
+    if (!collection) return null;
+
+    let count = 0;
+    let chaptersRead = 0;
+    let meanScoreTotal = 0;
+    let scoreEntries = 0;
+    const scoresMap: Record<number, number> = {};
+    const formatsMap: Record<string, number> = {};
+    const statusesMap: Record<string, number> = {};
+    const countriesMap: Record<string, number> = {};
+
+    collection.lists.forEach(list => {
+      list.entries.forEach(entry => {
+        count++;
+        chaptersRead += entry.progress || 0;
+        
+        if (entry.score > 0) {
+          meanScoreTotal += entry.score;
+          scoreEntries++;
+          scoresMap[entry.score] = (scoresMap[entry.score] || 0) + 1;
+        }
+
+        const format = entry.media.format || 'UNKNOWN';
+        formatsMap[format] = (formatsMap[format] || 0) + 1;
+
+        const status = entry.status || 'UNKNOWN';
+        statusesMap[status] = (statusesMap[status] || 0) + 1;
+
+        const country = entry.media.countryOfOrigin || 'UNKNOWN';
+        countriesMap[country] = (countriesMap[country] || 0) + 1;
+      });
+    });
+
+    const meanScore = scoreEntries > 0 ? meanScoreTotal / scoreEntries : 0;
+    
+    // Variance calculation
+    let varianceSum = 0;
+    if (scoreEntries > 0) {
+      collection.lists.forEach(list => {
+        list.entries.forEach(entry => {
+          if (entry.score > 0) {
+            varianceSum += Math.pow(entry.score - meanScore, 2);
+          }
+        });
+      });
+    }
+    const standardDeviation = scoreEntries > 0 ? Math.sqrt(varianceSum / scoreEntries) : 0;
+
+    return {
+      count,
+      chaptersRead,
+      meanScore,
+      standardDeviation,
+      scores: Object.entries(scoresMap).map(([score, c]) => ({ score: Number(score), count: c })),
+      lengths: [], // We'd need to bin the media chapters, but it's okay to leave empty or roughly calculate
+      formats: Object.entries(formatsMap).map(([format, c]) => ({ format, count: c })),
+      statuses: Object.entries(statusesMap).map(([status, c]) => ({ status, count: c })),
+      countries: Object.entries(countriesMap).map(([country, c]) => ({ country, count: c })),
+    };
+  }, [user, collection]);
 
   // Render content in a portal for Android full-screen overlay, escaping z-index stacking context
   const content = (
@@ -55,14 +105,9 @@ export function AniListUserProfileView({ onClose }: AniListUserProfileViewProps)
         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
         className="w-full h-full md:h-[90vh] md:max-w-4xl md:rounded-xl md:border md:border-border/50 bg-background overflow-hidden relative flex flex-col shadow-2xl"
       >
-        {loading ? (
+        {!user ? (
           <div className="flex-1 flex items-center justify-center">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          </div>
-        ) : !user ? (
-          <div className="flex-1 flex items-center justify-center flex-col gap-4">
-            <p className="text-muted-foreground">Failed to load profile.</p>
-            <button onClick={onClose} className="px-4 py-2 bg-secondary rounded-md text-sm">Close</button>
           </div>
         ) : (
           <>
@@ -123,8 +168,10 @@ export function AniListUserProfileView({ onClose }: AniListUserProfileViewProps)
                       <button onClick={() => setActiveTab('profile')} className="p-1 -ml-1 rounded-full hover:bg-secondary"><ChevronLeft className="w-5 h-5" /></button>
                       <h2 className="text-xl font-bold">Manga Statistics</h2>
                     </div>
-                    {user.statistics?.manga && (
-                      <AniListMangaStatistics stats={user.statistics.manga} />
+                    {calculatedStats ? (
+                      <AniListMangaStatistics stats={calculatedStats} />
+                    ) : (
+                      <p className="text-muted-foreground text-center py-12">No manga statistics available.</p>
                     )}
                   </motion.div>
                 )}

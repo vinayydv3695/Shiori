@@ -549,8 +549,8 @@ export function AniListDashboard({ onOpenSettings }: AniListDashboardProps = {})
       </AnimatePresence>
       {/* Profile Details Dialog/Overlay */}
       <AnimatePresence>
-        {showProfileView && (
-          <AniListUserProfileView onClose={() => setShowProfileView(false)} />
+        {showProfileView && user && (
+          <AniListUserProfileView onClose={() => setShowProfileView(false)} user={user} collection={collection} />
         )}
       </AnimatePresence>
     </div>

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Play, Bookmark, BookmarkCheck, ArrowLeft, Search, Star, FileText, Globe, Download } from 'lucide-react';
+import { Play, Bookmark, BookmarkCheck, ArrowLeft, Search, Star, FileText, Globe, Download, X } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -234,14 +234,26 @@ export function OnlineMangaDetailView({
       <div className="absolute top-0 left-0 right-0 h-[65vh] bg-gradient-to-b from-background/20 via-background/60 to-background pointer-events-none" />
 
       {/* Main Content Area */}
-      <div className="relative z-10 p-6 md:p-10 max-w-[1400px] mx-auto w-full">
-        {/* Back Button */}
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6 font-medium text-sm"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back to browse
-        </button>
+      <div className="relative z-10 p-6 md:p-10 max-w-[1400px] mx-auto w-full pt-[calc(env(safe-area-inset-top,0px)+1.5rem)] md:pt-10">
+        {/* Top Action Bar */}
+        <div className="flex items-center justify-between mb-6">
+          {/* Back Button */}
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors font-medium text-sm"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back to browse
+          </button>
+
+          {/* Close (RAB) Button */}
+          <button
+            onClick={onBack}
+            className="flex md:hidden items-center justify-center w-8 h-8 rounded-full bg-background/50 hover:bg-background/80 text-muted-foreground hover:text-foreground border border-border/50 backdrop-blur-sm transition-all shadow-sm"
+            aria-label="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
 
         {/* Hero Section */}
         <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-10 mb-12">

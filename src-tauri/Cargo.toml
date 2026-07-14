@@ -1,7 +1,7 @@
 [package]
 name = "shiori"
-version = "1.59.27"
-description = "A sleek, modern reader for ebooks and manga."
+version = "1.59.28"
+description = "A modern eBook and Manga reader"
 authors = ["vinayydv3695"]
 license = "GPL-3.0"
 repository = ""

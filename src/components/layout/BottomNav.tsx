@@ -1,4 +1,5 @@
 import { Home, Library, Compass, Cloud, Settings, Highlighter, Tv } from 'lucide-react'
+import { AniListIcon } from '@/components/icons'
 import { cn } from '@/lib/utils'
 import type { CurrentView } from '@/store/uiStore'
 import { usePreferencesStore } from '@/store/preferencesStore'
@@ -65,7 +66,7 @@ export function BottomNav({
         />
       ) : (
         <NavItem
-          icon={<Tv className="w-[22px] h-[22px]" />}
+          icon={<AniListIcon className="w-[22px] h-[22px]" />}
           label="AniList"
           isActive={currentView === 'anilist'}
           onClick={() => onNavigateToView('anilist')}

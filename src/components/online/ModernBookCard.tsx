@@ -55,11 +55,13 @@ export const ModernBookCard = memo(function ModernBookCard({
     let active = true;
     const objectUrl: string | null = null;
     
-    if (coverUrl.includes('libgen')) {
+    if (coverUrl.includes('libgen') || coverUrl.includes('libgen.li')) {
       const proxyUri = isAndroid 
         ? `http://shiori-proxy.localhost?source=libgen&url=${encodeURIComponent(coverUrl)}`
         : `shiori-proxy://localhost?source=libgen&url=${encodeURIComponent(coverUrl)}`;
       setProxyUrl(proxyUri);
+    } else if (isAndroid && (coverUrl.startsWith('http://') || coverUrl.startsWith('https://'))) {
+      setProxyUrl(`http://shiori-proxy.localhost?source=generic&url=${encodeURIComponent(coverUrl)}`);
     } else {
       setProxyUrl(coverUrl);
     }

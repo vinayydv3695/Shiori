@@ -374,6 +374,23 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     };
   }, [theme, isLoading, error]);
 
+  // Intercept anchor clicks natively before WebView navigates
+  useEffect(() => {
+    const el = readerContainerRef.current;
+    if (!el) return;
+    const handleNativeClick = (e: MouseEvent) => {
+      const target = e.target as Element;
+      const anchor = target?.closest('a');
+      if (anchor) {
+        e.preventDefault(); // Stop native WebView navigation
+      }
+    };
+    // Use capture phase to ensure we catch it before any default behavior
+    el.addEventListener('click', handleNativeClick, { capture: true });
+    return () => el.removeEventListener('click', handleNativeClick, { capture: true });
+  }, []);
+
+
   // ────────────────────────────────────────────────────────────
   // AUTO-HIDE TOP BAR LOGIC
   // ────────────────────────────────────────────────────────────

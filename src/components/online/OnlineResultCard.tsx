@@ -63,6 +63,8 @@ export const OnlineResultCard = memo(function OnlineResultCard({
         ? `http://shiori-proxy.localhost?source=libgen&url=${encodeURIComponent(coverUrl)}`
         : `shiori-proxy://localhost?source=libgen&url=${encodeURIComponent(coverUrl)}`;
       setProxyUrl(proxyUri);
+    } else if (isAndroid && (coverUrl.startsWith('http://') || coverUrl.startsWith('https://'))) {
+      setProxyUrl(`http://shiori-proxy.localhost?source=generic&url=${encodeURIComponent(coverUrl)}`);
     } else {
       setProxyUrl(coverUrl);
     }

@@ -62,3 +62,5 @@ export {
   Minimize2,
   ArrowLeft,
 } from "lucide-react"
+
+export { AniListIcon } from './AniListIcon'

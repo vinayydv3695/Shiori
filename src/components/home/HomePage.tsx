@@ -16,8 +16,9 @@ import { motion } from 'framer-motion'
 import {
   BookOpen, Clock, Sparkles, Rss, ArrowRight,
   ListOrdered, Activity, HardDrive, Heart, History, CheckCircle2, PauseCircle, Globe, BarChart2,
-  Trash2, Settings, Highlighter, List, ChevronRight, Cloud
+  Trash2, Settings, Highlighter, ChevronRight, Cloud
 } from 'lucide-react'
+import { AniListIcon } from '@/components/icons'
 import { MobileStickyHeader } from '../layout/MobileStickyHeader'
 import { useThumbnail } from '@/hooks/useThumbnail'
 import { FeaturedContinueCard } from './FeaturedContinueCard'
@@ -227,7 +228,7 @@ function MobileQuickLinks({ onOpenSettings }: { onOpenSettings: () => void }) {
           </button>
         )}
         <button onClick={() => setCurrentView('anilist')} className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
-          <List className="w-4 h-4 text-primary" />
+          <AniListIcon className="w-4 h-4 text-primary" />
           <span className="text-[11px] font-medium tracking-tight">AniList</span>
         </button>
         <button onClick={() => setCurrentView('annotations')} className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">

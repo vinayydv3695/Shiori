@@ -248,10 +248,10 @@ export function OnlineMangaDetailView({
           {/* Close (RAB) Button */}
           <button
             onClick={onBack}
-            className="flex md:hidden items-center justify-center w-8 h-8 rounded-full bg-background/50 hover:bg-background/80 text-muted-foreground hover:text-foreground border border-border/50 backdrop-blur-sm transition-all shadow-sm"
+            className="flex md:hidden items-center justify-center w-11 h-11 rounded-full bg-secondary hover:bg-secondary/80 text-secondary-foreground transition-all shadow-md active:scale-95"
             aria-label="Close"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 

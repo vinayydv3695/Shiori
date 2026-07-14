@@ -328,7 +328,7 @@ const defaultMangaSettings = {
     imageQuality: 1.0,
     preloadIntensity: 'aggressive' as const,
     zoomLevel: 1.0,
-    continuousChapter: true,
+    continuousChapter: false,
 };
 
 const READING_MODE_OPTIONS: ReadingMode[] = ['single', 'strip', 'webtoon', 'manhwa', 'comic'];

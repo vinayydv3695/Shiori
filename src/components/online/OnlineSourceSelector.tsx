@@ -66,15 +66,15 @@ export function OnlineSourceSelector({ kind, className, variant = "outline" }: O
   const HealthBadge = ({ sourceId }: { sourceId: string }) => {
     const health = getSourceHealthLevel(sourceId);
     if (health === 'unknown') {
-      return <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">Unknown</span>;
+      return <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" title="Health unknown" />;
     }
     if (health === 'good') {
-      return <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">Healthy</span>;
+      return <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" title="Healthy" />;
     }
     if (health === 'degraded') {
-      return <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">Degraded</span>;
+      return <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" title="Degraded" />;
     }
-    return <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-destructive/10 text-destructive border border-destructive/20">Unavailable</span>;
+    return <span className="w-1.5 h-1.5 rounded-full bg-destructive shadow-[0_0_8px_rgba(239,68,68,0.5)]" title="Unavailable" />;
   };
 
   const recommendedSourceId = getRecommendedSourceId(kind);
@@ -106,10 +106,10 @@ export function OnlineSourceSelector({ kind, className, variant = "outline" }: O
                   setPrimarySource(kind, source.id);
                 }
               }}
-              className={`items-start gap-2.5 py-2 md:py-2.5 transition-colors cursor-pointer rounded-lg md:rounded-sm ${isSelected ? 'bg-primary/10 dark:bg-primary/15' : 'hover:bg-white/5'}`}
+              className={`flex items-center gap-3 py-2 px-3 transition-colors cursor-pointer rounded-md ${isSelected ? 'bg-primary/10 dark:bg-primary/15' : 'hover:bg-white/5'}`}
               disabled={!isAvailable}
             >
-              <div className="pt-0.5">
+              <div className="flex-shrink-0 flex items-center justify-center w-5 h-5">
                 {isSelected ? (
                   <CheckCircle2 className="w-4 h-4 text-primary" />
                 ) : source.status === 'planned' ? (
@@ -121,26 +121,25 @@ export function OnlineSourceSelector({ kind, className, variant = "outline" }: O
                 )}
               </div>
 
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+              <div className="flex-1 min-w-0 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 truncate">
                   <p className={`text-sm font-medium truncate ${isSelected ? 'text-primary' : ''}`}>
                     {source.name.replace(' (Planned)', '')}
                   </p>
-                  {isRecommended && (
-                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">Best for Torbox</span>
-                  )}
                   <HealthBadge sourceId={source.id} />
+                </div>
+                
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {isRecommended && (
+                    <span className="text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-sm bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">Best</span>
+                  )}
                   {source.capabilities?.map((cap) => (
                     <CapabilityBadge key={cap} capability={cap} />
                   ))}
                   {!source.enabled && (
-                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">Disabled</span>
-                  )}
-                  {source.status === 'planned' && (
-                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">Planned</span>
+                    <span className="text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-sm bg-muted text-muted-foreground border border-border">Off</span>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed opacity-80">{source.description}</p>
               </div>
             </DropdownMenuItem>
           );

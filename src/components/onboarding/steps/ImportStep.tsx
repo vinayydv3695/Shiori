@@ -247,7 +247,7 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
 
         <div className="mt-3 flex flex-col-reverse md:flex-row shrink-0 items-stretch md:items-center justify-between border-t border-border/40 pt-3 gap-3 md:gap-0">
           <div className="flex items-center justify-between md:justify-start gap-2">
-            <GlowButton theme="dark" variant="secondary" onClick={onBack} className="flex-1 md:flex-none justify-center px-5">
+            <GlowButton variant="secondary" onClick={onBack} className="flex-1 md:flex-none justify-center px-5">
               ← Back
             </GlowButton>
             <button

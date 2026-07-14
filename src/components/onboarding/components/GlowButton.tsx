@@ -6,11 +6,10 @@ type GlowButtonTheme = 'light' | 'dark';
 export interface GlowButtonProps {
   children: ReactNode;
   onClick: () => void;
-  variant?: GlowButtonVariant;
+  variant?: 'primary' | 'secondary';
   disabled?: boolean;
   className?: string;
   icon?: ReactNode;
-  theme?: GlowButtonTheme;
 }
 
 const cx = (...classes: Array<string | undefined | false>) => classes.filter(Boolean).join(' ');
@@ -22,19 +21,14 @@ export const GlowButton: React.FC<GlowButtonProps> = ({
   disabled = false,
   className,
   icon,
-  theme = 'light',
 }) => {
   const baseClasses =
-    'relative inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold tracking-wide transition-all duration-300 ease-out focus:outline-none focus:ring-2 focus:ring-white/40 focus:ring-offset-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50';
+    'group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-xl px-6 py-3 text-sm font-bold tracking-[0.14em] uppercase transition-all duration-300 ease-out focus:outline-none active:scale-95 disabled:cursor-not-allowed disabled:opacity-50';
 
   const variantClasses =
-    theme === 'dark'
-      ? variant === 'primary'
-        ? 'bg-gradient-to-b from-white to-zinc-200 text-zinc-950 shadow-[inset_0_1px_0_rgba(255,255,255,1),inset_0_-1px_0_rgba(0,0,0,0.1),0_4px_12px_rgba(0,0,0,0.4),0_0_20px_rgba(255,255,255,0.15)] hover:from-white hover:to-zinc-100 hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),inset_0_-1px_0_rgba(0,0,0,0.05),0_6px_16px_rgba(0,0,0,0.5),0_0_30px_rgba(255,255,255,0.3)] hover:-translate-y-0.5'
-        : 'bg-gradient-to-b from-white/10 to-white/5 backdrop-blur-md text-zinc-200 border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),inset_0_-1px_0_rgba(255,255,255,0.05),0_4px_12px_rgba(0,0,0,0.3)] hover:from-white/15 hover:to-white/10 hover:text-white hover:border-white/20 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),inset_0_-1px_0_rgba(255,255,255,0.1),0_6px_16px_rgba(0,0,0,0.4),0_0_15px_rgba(255,255,255,0.05)] hover:-translate-y-0.5'
-      : variant === 'primary'
-        ? 'text-white bg-gradient-to-r from-zinc-700 via-zinc-600 to-zinc-500 shadow-[0_0_18px_rgba(161,161,170,0.25)] hover:shadow-[0_0_24px_rgba(161,161,170,0.35)] hover:scale-[1.02]'
-        : 'text-white/90 bg-white/5 backdrop-blur-md border border-white/20 shadow-[0_0_14px_rgba(161,161,170,0.22)] hover:bg-white/10 hover:border-white/35 hover:shadow-[0_0_18px_rgba(161,161,170,0.3)] hover:scale-[1.02]';
+    variant === 'primary'
+      ? 'border border-primary/20 bg-primary text-primary-foreground hover:scale-105 hover:bg-primary/90 hover:shadow-lg focus-visible:ring-4 focus-visible:ring-primary/20'
+      : 'border border-border/40 bg-card/40 text-muted-foreground backdrop-blur-md hover:bg-primary/10 hover:text-primary hover:border-primary/30';
 
   return (
     <button
@@ -43,8 +37,13 @@ export const GlowButton: React.FC<GlowButtonProps> = ({
       disabled={disabled}
       className={cx(baseClasses, variantClasses, className)}
     >
-      {icon ? <span className="inline-flex shrink-0 items-center">{icon}</span> : null}
-      <span>{children}</span>
+      <span className="relative z-10 flex items-center gap-2">
+        {icon ? <span className="inline-flex shrink-0 items-center">{icon}</span> : null}
+        <span>{children}</span>
+      </span>
+      {variant === 'primary' && !disabled && (
+        <div className="absolute inset-0 z-0 bg-gradient-to-r from-transparent via-primary-foreground/20 to-transparent translate-x-[-100%] transition-transform duration-700 ease-in-out group-hover:translate-x-[100%]" />
+      )}
     </button>
   );
 };

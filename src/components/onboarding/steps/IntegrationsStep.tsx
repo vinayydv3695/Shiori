@@ -339,10 +339,10 @@ export function IntegrationsStep({ onBack, onNext }: IntegrationsStepProps) {
         </div>
 
         <div className="onb-fade-up onb-delay-300 mt-3 flex shrink-0 items-center justify-between border-t border-border/40 pt-3">
-          <GlowButton theme="dark" variant="secondary" onClick={onBack} className="px-6">
+          <GlowButton variant="secondary" onClick={onBack} className="px-6">
             ← Back
           </GlowButton>
-          <GlowButton theme="dark" variant="primary" onClick={onNext} className="onb-cta-glow px-8">
+          <GlowButton variant="primary" onClick={onNext} className="onb-cta-glow px-8">
             Continue →
           </GlowButton>
         </div>

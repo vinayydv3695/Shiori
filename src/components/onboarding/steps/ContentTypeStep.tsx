@@ -83,12 +83,9 @@ export function ContentTypeStep({ onBack, onNext }: ContentTypeStepProps) {
         </div>
 
         <div className="onb-fade-up onb-delay-200 mt-8 flex shrink-0 items-center justify-between pt-4 border-t border-border/40">
-          <button
-            onClick={onBack}
-            className="rounded-xl px-5 py-2.5 text-sm font-medium text-foreground/80 hover:bg-muted hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
+          <GlowButton onClick={onBack} variant="secondary">
             ← Back
-          </button>
+          </GlowButton>
 
           <GlowButton onClick={onNext} className="min-w-[120px] shadow-lg">
             Continue →

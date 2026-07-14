@@ -46,15 +46,15 @@ export function WelcomeStep({ onStart }: WelcomeStepProps) {
           </div>
           <div className="flex items-center gap-2 rounded-full border border-border/40 bg-card/40 px-4 py-2 text-xs font-medium text-muted-foreground backdrop-blur-md">
             <Image className="h-3.5 w-3.5" />
-            <span>Manga Reader Options</span>
+            <span>Manga Reader/span>
           </div>
           <div className="flex items-center gap-2 rounded-full border border-border/40 bg-card/40 px-4 py-2 text-xs font-medium text-muted-foreground backdrop-blur-md">
             <Radio className="h-3.5 w-3.5" />
-            <span>Direct Torrent Streaming</span>
+            <span> Torbox Support</span>
           </div>
           <div className="flex items-center gap-2 rounded-full border border-border/40 bg-card/40 px-4 py-2 text-xs font-medium text-muted-foreground backdrop-blur-md">
             <Zap className="h-3.5 w-3.5" />
-            <span>Premium Fullscreen Reader</span>
+            <span>Premium Epub Reader</span>
           </div>
         </div>
 

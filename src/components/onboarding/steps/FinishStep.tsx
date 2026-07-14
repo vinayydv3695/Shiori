@@ -2,7 +2,7 @@ import { useMemo, useState, type CSSProperties } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { useOnboardingState } from '../hooks/useOnboardingState';
 import { useOnboardingStore } from '@/store/onboardingStore';
-import { OnboardingMotionStyles } from '../components';
+import { OnboardingMotionStyles, GlowButton } from '../components';
 
 type FinishStepProps = {
   onBack?: () => void;
@@ -125,19 +125,15 @@ export function FinishStep({
               </div>
             ) : null}
 
-            <button
-              type="button"
+            <GlowButton
               onClick={() => {
                 void handleOpen();
               }}
               disabled={Boolean(isFinishing)}
-              className="group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-full bg-white px-10 py-3.5 text-base font-bold text-black transition-all duration-300 ease-out hover:scale-[1.02] hover:bg-zinc-200 hover:shadow-[0_0_30px_rgba(255,255,255,0.4)] focus:outline-none focus:ring-2 focus:ring-white/40 focus:ring-offset-0 focus:ring-offset-black disabled:cursor-not-allowed disabled:opacity-50"
+              className="px-10 py-3.5 text-base"
             >
-              <div className="absolute inset-0 flex h-full w-full justify-center [transform:skew(-12deg)_translateX(-100%)] group-hover:duration-1000 group-hover:[transform:skew(-12deg)_translateX(100%)]">
-                <div className="relative h-full w-8 bg-white/40" />
-              </div>
-              <span className="relative z-10">{isFinishing ? 'Launching Shiori...' : 'Launch Shiori'}</span>
-            </button>
+              {isFinishing ? 'Launching Shiori...' : 'Launch Shiori'}
+            </GlowButton>
           </div>
 
           <button

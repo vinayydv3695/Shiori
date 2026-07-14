@@ -17,29 +17,6 @@ export function WelcomeStep({ onStart }: WelcomeStepProps) {
 
   return (
     <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden px-6 py-6 text-foreground md:px-10 md:py-8">
-      <style>{`
-        @keyframes shiori-logo-in {
-          0% { opacity: 0; transform: translateY(14px) scale(0.9); }
-          100% { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @keyframes shiori-logo-pulse {
-          0%, 100% { transform: scale(1); opacity: 0.35; box-shadow: 0 0 20px rgba(255,255,255,0.05); }
-          50% { transform: scale(1.07); opacity: 0.6; box-shadow: 0 0 40px rgba(255,255,255,0.1); }
-        }
-        @keyframes ambient-glow {
-          0%, 100% { opacity: 0.3; transform: translate(-50%, -50%) scale(1); }
-          50% { opacity: 0.5; transform: translate(-50%, -50%) scale(1.1); }
-        }
-        @keyframes fade-up {
-          0% { opacity: 0; transform: translateY(15px); }
-          100% { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-up { animation: fade-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        .delay-100 { animation-delay: 100ms; }
-        .delay-200 { animation-delay: 200ms; }
-        .delay-300 { animation-delay: 300ms; }
-      `}</style>
-
       {/* Ambient Background Glow */}
       <div className="absolute left-1/2 top-1/2 z-0 h-[120vh] w-[120vw] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/20 via-background/80 to-background [animation:ambient-glow_8s_ease-in-out_infinite] pointer-events-none" />
 

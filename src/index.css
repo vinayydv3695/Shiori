@@ -500,3 +500,23 @@ input:-webkit-autofill:active{
 .delay-100 { animation-delay: 100ms; }
 .delay-200 { animation-delay: 200ms; }
 .delay-300 { animation-delay: 300ms; }
+
+/* ==================== ANDROID PERFORMANCE OVERRIDES ==================== */
+/* 
+  Android WebViews struggle significantly with CSS backdrop-filter (blur) and 
+  complex box-shadows, often causing severe layout thrashing and scrolling lag.
+  We use the .is-android class (injected in App.tsx) to globally strip these 
+  expensive properties for a buttery smooth experience on mobile.
+*/
+.is-android [class*="backdrop-blur"] {
+  --tw-backdrop-blur: blur(0px) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.is-android [class*="shadow-2xl"],
+.is-android [class*="shadow-xl"] {
+  --tw-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1) !important;
+  --tw-shadow-colored: 0 4px 6px -1px var(--tw-shadow-color), 0 2px 4px -2px var(--tw-shadow-color) !important;
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow) !important;
+}

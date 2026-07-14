@@ -19,8 +19,8 @@ export function WelcomeStep({ onStart }: WelcomeStepProps) {
     <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden px-6 py-6 text-foreground md:px-10 md:py-8">
       <style>{`
         @keyframes shiori-logo-in {
-          0% { opacity: 0; transform: translateY(14px) scale(0.9); filter: blur(10px); }
-          100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+          0% { opacity: 0; transform: translateY(14px) scale(0.9); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
         }
         @keyframes shiori-logo-pulse {
           0%, 100% { transform: scale(1); opacity: 0.35; box-shadow: 0 0 20px rgba(255,255,255,0.05); }
@@ -42,9 +42,6 @@ export function WelcomeStep({ onStart }: WelcomeStepProps) {
 
       {/* Ambient Background Glow */}
       <div className="absolute left-1/2 top-1/2 z-0 h-[120vh] w-[120vw] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/20 via-background/80 to-background [animation:ambient-glow_8s_ease-in-out_infinite] pointer-events-none" />
-      
-      {/* Subtle Noise Texture */}
-      <div className="absolute inset-0 z-0 opacity-[0.04] mix-blend-overlay pointer-events-none" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E")' }} />
 
 
 
@@ -55,8 +52,8 @@ export function WelcomeStep({ onStart }: WelcomeStepProps) {
 
         <div className="animate-fade-up delay-100 relative mb-10 opacity-0 md:mb-12">
           <span className="absolute inset-0 rounded-full border border-primary/20 [animation:shiori-logo-pulse_4s_ease-in-out_infinite]" />
-          <span className="absolute -inset-6 rounded-full border border-primary/10 blur-[2px] [animation:shiori-logo-pulse_4s_ease-in-out_infinite_reverse]" />
-          <div className="relative flex h-48 w-48 items-center justify-center overflow-hidden rounded-full border border-border/40 bg-card/80 shadow-2xl backdrop-blur-md [animation:shiori-logo-in_1s_cubic-bezier(0.16,1,0.3,1)_forwards] md:h-64 md:w-64">
+          <span className="absolute -inset-6 rounded-full border border-primary/10 [animation:shiori-logo-pulse_4s_ease-in-out_infinite_reverse]" />
+          <div className="relative flex h-48 w-48 items-center justify-center overflow-hidden rounded-full border border-border/40 bg-card/90 shadow-2xl [animation:shiori-logo-in_1s_cubic-bezier(0.16,1,0.3,1)_forwards] md:h-64 md:w-64">
             <img src={logoSrc} alt="Shiori Logo" className="h-full w-full object-contain p-4 md:p-6" />
           </div>
         </div>

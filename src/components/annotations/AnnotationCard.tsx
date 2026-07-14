@@ -44,15 +44,12 @@ export function AnnotationCard({ result, categories, onOpenBook, setQuoteCardDat
 
   return (
     <div 
-      className="break-inside-avoid mb-8 relative z-0 isolation-isolate group transition-all duration-500 hover:-translate-y-1"
+      className="break-inside-avoid mb-4 md:mb-6 relative z-0 isolation-isolate group transition-all duration-300 hover:-translate-y-0.5"
     >
-      {/* Premium Minimalist Card Background */}
-      <div className="absolute inset-0 bg-muted/20 hover:bg-muted/40 border border-transparent group-hover:border-border/50 rounded-[1.25rem] transition-all duration-500 z-0 backdrop-blur-sm" />
+      {/* Simpler Minimalist Card Background */}
+      <div className="absolute inset-0 bg-card border border-border/50 hover:border-border rounded-[1rem] transition-all duration-300 z-0" />
       
-      {/* Subtle Accent Glow */}
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-[0.04] transition-opacity duration-700 pointer-events-none rounded-[1.5rem] z-0" style={{ backgroundImage: `radial-gradient(circle at top right, ${tintColor}, transparent 70%)` }} />
-
-      <div className="p-4 md:p-6 flex flex-col h-full relative z-10">
+      <div className="p-4 flex flex-col h-full relative z-10">
         {/* Header */}
         <div className="flex items-start justify-between mb-4 md:mb-5">
           <div className="flex items-center gap-3.5">
@@ -113,19 +110,13 @@ export function AnnotationCard({ result, categories, onOpenBook, setQuoteCardDat
         )}
 
         {/* Content */}
-        <div className="flex-1 space-y-6">
+        <div className="flex-1 space-y-4">
           {result.annotation.selectedText && (
-            <div className="relative pl-7 py-1 group/quote">
-              {/* Decorative background quote mark */}
-              <Quote className="absolute left-0 top-0 w-5 h-5 text-muted-foreground/30 -rotate-12 transition-transform duration-700 group-hover:-rotate-0" />
+            <div className="relative pl-4 py-1 group/quote">
+              {/* Simple vertical accent line */}
+              <div className="absolute left-0 top-0 bottom-0 w-[2.5px] rounded-full transition-all duration-300" style={{ backgroundColor: tintColor }} />
               
-              {/* Glowing vertical accent line */}
-              <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-full transition-all duration-500 group-hover/quote:w-[4px]" style={{ 
-                background: `linear-gradient(to bottom, ${tintColor}, ${tintColor}10)`,
-                boxShadow: `0 0 12px ${tintColor}30`
-              }} />
-              
-              <span className="text-foreground/95 text-[16px] md:text-[18px] leading-[1.6] font-serif font-medium tracking-tight relative z-10 block">
+              <span className="text-foreground/90 text-[14px] md:text-[15px] leading-relaxed font-serif font-medium tracking-tight relative z-10 block">
                 {result.annotation.selectedText}
               </span>
             </div>

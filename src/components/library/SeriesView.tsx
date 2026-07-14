@@ -613,7 +613,7 @@ export const SeriesView = memo(function SeriesView({
           )}
         >
           <Dialog.Close asChild>
-            <button className="absolute top-4 right-4 text-white md:text-foreground/70 md:hover:text-foreground transition-colors flex-shrink-0 z-[60] bg-black/40 md:bg-background/40 hover:bg-black/60 md:hover:bg-background/60 backdrop-blur-md p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-primary border border-white/20 md:border-border/20 shadow-md" title="Close series view">
+            <button className="absolute top-[calc(env(safe-area-inset-top,0px)+1rem)] md:top-4 right-4 text-white md:text-foreground/70 md:hover:text-foreground transition-colors flex-shrink-0 z-[60] bg-black/40 md:bg-background/40 hover:bg-black/60 md:hover:bg-background/60 backdrop-blur-md p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-primary border border-white/20 md:border-border/20 shadow-md" title="Close series view">
               <X className="h-5 w-5" />
             </button>
           </Dialog.Close>

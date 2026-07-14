@@ -43,3 +43,9 @@ Thumbs.db
 
 # Development tooling
 .opencode/
+
+# Graphify & Scripts
+.agents/
+graphify-out/
+check_user.js
+scripts/color_obsidian_graph.py

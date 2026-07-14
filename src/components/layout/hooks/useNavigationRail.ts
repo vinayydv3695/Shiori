@@ -2,14 +2,13 @@ import { useUIStore, type CurrentView } from "@/store/uiStore"
 import { usePreferencesStore } from "@/store/preferencesStore"
 import {
   BookOpen,
-  Cloud,
   Globe,
   Highlighter,
   Home,
   Library,
-  ListVideo,
   Trash2,
 } from "lucide-react"
+import { AniListIcon, TorboxIcon } from "@/components/icons"
 
 export type NavItem = {
   label: string
@@ -47,7 +46,7 @@ const NAV_ITEMS: NavItem[] = [
     label: "Torbox",
     targetView: "torbox-discover",
     isActive: (view) => view === "torbox-discover" || view === "torbox-books" || view === "torbox-manga",
-    icon: Cloud,
+    icon: TorboxIcon,
   },
   {
     label: "Annotations",
@@ -59,7 +58,7 @@ const NAV_ITEMS: NavItem[] = [
     label: "AniList",
     targetView: "anilist",
     isActive: (view) => view === "anilist",
-    icon: ListVideo,
+    icon: AniListIcon,
   },
 ]
 

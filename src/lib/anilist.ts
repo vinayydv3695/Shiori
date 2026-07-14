@@ -133,7 +133,7 @@ export interface AnilistMediaDetails extends AnilistMedia {
   rankings: { id: number; rank: number; type: string; format: string; year: number; season: string; allTime: boolean; context: string }[];
 }
 
-async function fetchAnilistAPI(query: string, variables: any, token: string) {
+async function fetchAnilistAPI(query: string, variables: any, token: string, retries = 3, backoff = 2000): Promise<any> {
   let response;
   try {
     response = await fetch(ANILIST_API_URL, {
@@ -150,12 +150,27 @@ async function fetchAnilistAPI(query: string, variables: any, token: string) {
     });
   } catch (err: any) {
     if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
+      if (retries > 0) {
+        console.warn(`[AniList] Network/Rate limit error. Retrying in ${backoff}ms...`);
+        await new Promise(r => setTimeout(r, backoff));
+        return fetchAnilistAPI(query, variables, token, retries - 1, backoff * 2);
+      }
       throw new Error("Network error or Rate Limit (429) exceeded from AniList.");
     }
     throw err;
   }
 
   if (response.status === 429) {
+    if (retries > 0) {
+      const retryAfterStr = response.headers.get('Retry-After');
+      let waitTime = backoff;
+      if (retryAfterStr && !isNaN(parseInt(retryAfterStr, 10))) {
+        waitTime = parseInt(retryAfterStr, 10) * 1000 + 500;
+      }
+      console.warn(`[AniList] Rate limit (429). Retrying in ${waitTime}ms...`);
+      await new Promise(r => setTimeout(r, waitTime));
+      return fetchAnilistAPI(query, variables, token, retries - 1, backoff * 2);
+    }
     const retryAfter = response.headers.get('Retry-After');
     throw new Error(`Rate limit exceeded. Please wait ${retryAfter ? retryAfter + ' seconds' : 'a minute'} before trying again.`);
   }

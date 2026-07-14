@@ -115,6 +115,8 @@ export const ModernBookCard = memo(function ModernBookCard({
             <img
               src={proxyUrl}
               alt={title}
+              loading="lazy"
+              decoding="async"
               className={cn(
                 'w-full h-full object-cover group-hover/card:scale-105 transition-all duration-700 relative z-10',
                 imgLoaded ? 'opacity-100' : 'opacity-0 scale-110'

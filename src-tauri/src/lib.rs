@@ -134,8 +134,12 @@ pub fn run() {
                     "libgen" => Some("https://libgen.li/"),
                     _ => None,
                 };
-                
-                let mut req = reqwest::Client::new()
+                let client = reqwest::Client::builder()
+                    .timeout(std::time::Duration::from_secs(3))
+                    .build()
+                    .unwrap_or_default();
+                    
+                let mut req = client
                     .get(&image_url)
                     .header("User-Agent", user_agent);
                 if let Some(ref_url) = referer {

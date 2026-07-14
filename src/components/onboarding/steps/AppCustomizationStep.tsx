@@ -306,7 +306,7 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
           <GlowButton variant="secondary" onClick={onBack} className="flex-1 sm:flex-none px-2 sm:px-5 justify-center">
             ← Back
           </GlowButton>
-          <GlowButton variant="primary" onClick={onNext} className="flex-[2] sm:flex-none onb-cta-glow px-4 sm:px-8 justify-center">
+          <GlowButton variant="primary" onClick={onNext} className="flex-[2] sm:flex-none px-4 sm:px-8 justify-center">
             Continue →
           </GlowButton>
         </div>

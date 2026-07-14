@@ -34,29 +34,6 @@ export function OnboardingMotionStyles() {
         transform: scale(1.08);
       }
 
-      .onb-cta-glow {
-        background: linear-gradient(90deg, #27272a 0%, #3f3f46 100%);
-        color: #ffffff;
-        border: 1px solid rgba(255, 255, 255, 0.16);
-        box-shadow:
-          0 0 0 1px rgba(255, 255, 255, 0.05),
-          0 4px 12px -2px rgba(0, 0, 0, 0.5),
-          0 12px 32px -4px rgba(0, 0, 0, 0.4);
-        transition: transform 0.24s ease, box-shadow 0.24s ease, filter 0.24s ease;
-      }
-
-      .onb-cta-glow:hover {
-        transform: translateY(-1px);
-        filter: brightness(1.1);
-        box-shadow:
-          0 0 0 1px rgba(255, 255, 255, 0.1),
-          0 6px 16px -2px rgba(0, 0, 0, 0.6),
-          0 16px 40px -4px rgba(0, 0, 0, 0.5);
-      }
-
-      .onb-cta-glow:active {
-        transform: translateY(1px);
-      }
     `}</style>
   );
 }

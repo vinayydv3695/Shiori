@@ -264,7 +264,7 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
             variant="primary"
             onClick={onNext}
             disabled={!canContinue}
-            className="w-full md:w-auto justify-center onb-cta-glow px-8"
+            className="w-full md:w-auto justify-center px-8"
           >
             Continue →
           </GlowButton>

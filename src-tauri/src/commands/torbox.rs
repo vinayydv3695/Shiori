@@ -156,7 +156,7 @@ async fn finalize_import_from_target(
         }
     }
 
-    let downloads_dir = if let Some(path) = user_download_dir {
+    let downloads_dir = if let Some(path) = user_download_dir.filter(|p| !p.starts_with("content://")) {
         std::path::PathBuf::from(path).join("Torbox Downloads")
     } else {
         app_handle

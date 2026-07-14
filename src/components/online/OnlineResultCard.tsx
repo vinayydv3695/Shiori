@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, memo } from 'react';
 import { BookOpen, User, Calendar, Download, Loader2, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { isAndroid } from '@/lib/tauri';
 
 interface OnlineResultCardProps {
   id: string;
@@ -57,8 +58,11 @@ export const OnlineResultCard = memo(function OnlineResultCard({
     if (!visible || !coverUrl || imgError) return;
     
     let active = true;
-    if (coverUrl.includes('libgen.li')) {
-      setProxyUrl(`shiori-proxy://localhost?source=libgen&url=${encodeURIComponent(coverUrl)}`);
+    if (coverUrl.includes('libgen') || coverUrl.includes('libgen.li')) {
+      const proxyUri = isAndroid 
+        ? `http://shiori-proxy.localhost?source=libgen&url=${encodeURIComponent(coverUrl)}`
+        : `shiori-proxy://localhost?source=libgen&url=${encodeURIComponent(coverUrl)}`;
+      setProxyUrl(proxyUri);
     } else {
       setProxyUrl(coverUrl);
     }

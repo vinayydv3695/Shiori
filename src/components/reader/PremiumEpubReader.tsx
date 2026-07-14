@@ -916,7 +916,71 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     if (isDoodleMode) return;
     const target = e.target as Element;
     if (e.defaultPrevented || !target || typeof target.closest !== 'function') return;
-    if (target.closest('a') || target.closest('button') || target.closest('.premium-top-bar') || target.closest('.premium-sidebar') || target.closest('.text-selection-toolbar')) {
+
+    // Handle Anchor Tags (Hyperlinks)
+    const anchor = target.closest('a');
+    if (anchor) {
+      e.preventDefault();
+      const href = anchor.getAttribute('href');
+      if (href) {
+        if (href.startsWith('http://') || href.startsWith('https://')) {
+          // Open external links in default browser
+          import('@tauri-apps/plugin-shell').then(({ open }) => open(href));
+        } else if (href.startsWith('#')) {
+          // In-page anchor link (e.g. footnote)
+          const id = href.substring(1);
+          const el = document.getElementById(id) || document.getElementsByName(id)[0];
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        } else {
+          // Internal link across chapters (e.g., chapter2.xhtml)
+          api.getBookToc(bookId).then(toc => {
+            const cleanHref = href.split('#')[0].split('/').pop();
+            const findMatch = (entries: any[]): any => {
+              for (const entry of entries) {
+                if (entry.location.includes(cleanHref || '')) return entry;
+                if (entry.children) {
+                  const match = findMatch(entry.children);
+                  if (match) return match;
+                }
+              }
+              return null;
+            };
+
+            const match = cleanHref ? findMatch(toc) : null;
+            if (match) {
+              const chapterMatch = match.location.match(/(?:^|[^\w])(?:chapter|chapter_|chapter-|html-chapter-|md-chapter-|fb2-chapter-|docx-chapter-|generic-chapter-|mobi-chapter-|[a-z0-9]+-chapter-)(\d+)/i) 
+                                || match.location.match(/epubcfi\(\/(?:\d+\/)?(\d+)\b/i)
+                                || match.location.match(/^chapter:(\d+)/i);
+              if (chapterMatch) {
+                const index = parseInt(chapterMatch[1], 10);
+                if (!Number.isNaN(index)) {
+                  // check if there's a hash we need to scroll to
+                  const hash = href.split('#')[1];
+                  loadChapterRef.current(index, null, 0).then(() => {
+                    if (hash) {
+                      setTimeout(() => {
+                        const el = document.getElementById(hash) || document.getElementsByName(hash)[0];
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }, 150);
+                    }
+                  });
+                  return;
+                }
+              }
+            }
+            // Fallback: just go to next chapter if we can't figure it out
+            nextChapter();
+          }).catch(() => {
+            nextChapter();
+          });
+        }
+      }
+      return;
+    }
+
+    if (target.closest('button') || target.closest('.premium-top-bar') || target.closest('.premium-sidebar') || target.closest('.text-selection-toolbar')) {
       return;
     }
 
@@ -945,7 +1009,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         setTopBarVisible(!uiStore.isTopBarVisible);
       }
     }
-  }, [isDoodleMode, prevPage, nextPage, setTopBarVisible]);
+  }, [isDoodleMode, prevPage, nextPage, setTopBarVisible, bookId, nextChapter]);
 
   // ────────────────────────────────────────────────────────────
   // RENDER

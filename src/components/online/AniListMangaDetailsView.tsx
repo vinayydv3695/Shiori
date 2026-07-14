@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Download, ExternalLink, Bookmark, ArrowLeft, BookOpen, ChevronUp, X, Star, Calendar, RefreshCw, AlignLeft, Plus, Minus } from 'lucide-react';
+import { Download, ExternalLink, Bookmark, ArrowLeft, BookOpen, ChevronUp, ChevronDown, X, Star, Calendar, RefreshCw, AlignLeft, Plus, Minus, Loader2, Check } from 'lucide-react';
 import { AnilistMediaList, AnilistMediaDetails, getMediaDetails, updateMediaListEntry } from '@/lib/anilist';
 import { toast } from 'sonner';
 import { useAniListAccessToken } from '@/auth/useAniListAccessToken';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import * as Dialog from '@radix-ui/react-dialog';
+import * as Select from '@radix-ui/react-select';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { motion } from 'framer-motion';
@@ -43,34 +44,76 @@ function TrackerForm({
     setRepeat(val);
   };
 
+  const formVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.05, ease: 'easeOut' as const }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 15 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' as const } }
+  };
+
+  // Gradient for score slider (e.g. red for low, green for high, but we'll use primary color for the filled part)
+  const scorePercent = score;
+
   return (
-    <form onSubmit={handleSave} className="space-y-6">
+    <motion.form 
+      onSubmit={handleSave} 
+      className="space-y-6"
+      variants={formVariants}
+      initial="hidden"
+      animate="show"
+    >
       {/* Status */}
-      <div className="space-y-2">
+      <motion.div variants={itemVariants} className="space-y-2">
         <label className="text-[11px] font-bold tracking-widest text-on-surface-variant uppercase flex items-center gap-1.5">
           <Bookmark className="w-3.5 h-3.5" /> Status
         </label>
-        <div className="relative">
-          <select 
-            value={status} 
-            onChange={e => setStatus(e.target.value)}
-            className="w-full bg-[#121212] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3.5 px-4 text-sm font-semibold appearance-none outline-none transition-all shadow-inner"
-          >
-            <option value="CURRENT">Reading</option>
-            <option value="PLANNING">Plan to Read</option>
-            <option value="COMPLETED">Completed</option>
-            <option value="DROPPED">Dropped</option>
-            <option value="PAUSED">Paused</option>
-          </select>
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-            <ChevronUp className="w-4 h-4 text-on-surface-variant rotate-180" />
-          </div>
-        </div>
-      </div>
+        <Select.Root value={status} onValueChange={setStatus}>
+          <Select.Trigger className="w-full bg-[#121212] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3.5 px-4 text-sm font-semibold outline-none transition-all shadow-inner flex items-center justify-between hover:bg-white/5">
+            <Select.Value />
+            <Select.Icon>
+              <ChevronDown className="w-4 h-4 text-on-surface-variant" />
+            </Select.Icon>
+          </Select.Trigger>
+          <Select.Portal>
+            <Select.Content 
+              className="overflow-hidden bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl z-[9999]"
+              position="popper"
+              sideOffset={4}
+            >
+              <Select.Viewport className="p-1">
+                {[
+                  { value: 'CURRENT', label: 'Reading' },
+                  { value: 'PLANNING', label: 'Plan to Read' },
+                  { value: 'COMPLETED', label: 'Completed' },
+                  { value: 'DROPPED', label: 'Dropped' },
+                  { value: 'PAUSED', label: 'Paused' },
+                ].map((item) => (
+                  <Select.Item 
+                    key={item.value} 
+                    value={item.value}
+                    className="relative flex items-center px-8 py-2.5 text-sm font-medium text-white/90 rounded-lg select-none outline-none data-[highlighted]:bg-primary/20 data-[highlighted]:text-primary cursor-pointer transition-colors"
+                  >
+                    <Select.ItemText>{item.label}</Select.ItemText>
+                    <Select.ItemIndicator className="absolute left-2.5 flex items-center justify-center">
+                      <Check className="w-4 h-4 text-primary" />
+                    </Select.ItemIndicator>
+                  </Select.Item>
+                ))}
+              </Select.Viewport>
+            </Select.Content>
+          </Select.Portal>
+        </Select.Root>
+      </motion.div>
       
       <div className="grid grid-cols-1 gap-6">
         {/* Progress with stepper */}
-        <div className="space-y-2">
+        <motion.div variants={itemVariants} className="space-y-2">
           <div className="flex justify-between items-center">
             <label className="text-[11px] font-bold tracking-widest text-on-surface-variant uppercase flex items-center gap-1.5">
               <BookOpen className="w-3.5 h-3.5" /> Progress
@@ -87,35 +130,38 @@ function TrackerForm({
               type="number" 
               value={progress}
               onChange={e => handleProgressChange(parseInt(e.target.value))}
-              className="flex-1 bg-[#121212] border border-white/10 text-primary text-center font-bold rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm outline-none transition-all shadow-inner" 
+              className="flex-1 min-w-0 bg-[#121212] border border-white/10 text-primary text-center font-bold rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm outline-none transition-all shadow-inner [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
             />
             <button type="button" onClick={() => handleProgressChange(progress + 1)} className="p-3 bg-[#121212] border border-white/10 rounded-xl hover:bg-white/5 active:scale-95 transition-all text-on-surface-variant hover:text-white">
               <Plus className="w-4 h-4" />
             </button>
           </div>
-        </div>
+        </motion.div>
 
         {/* Score with slider */}
-        <div className="space-y-2">
+        <motion.div variants={itemVariants} className="space-y-2">
           <div className="flex justify-between items-center">
             <label className="text-[11px] font-bold tracking-widest text-on-surface-variant uppercase flex items-center gap-1.5">
               <Star className="w-3.5 h-3.5" /> Score
             </label>
             <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">{score} / 100</span>
           </div>
-          <div className="flex items-center gap-4 bg-[#121212] border border-white/10 rounded-xl p-3 shadow-inner">
+          <div className="flex items-center gap-4 bg-[#121212] border border-white/10 rounded-xl p-4 shadow-inner">
             <input 
               type="range"
               value={score}
               onChange={e => handleScoreChange(parseInt(e.target.value))}
               min="0" max="100" step="1"
-              className="w-full accent-primary h-2 bg-white/10 rounded-lg appearance-none cursor-pointer"
+              style={{
+                background: `linear-gradient(to right, hsl(var(--primary)) ${scorePercent}%, rgba(255,255,255,0.1) ${scorePercent}%)`
+              }}
+              className="w-full h-2 rounded-lg appearance-none cursor-pointer outline-none shadow-inner [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-[0_0_10px_rgba(0,0,0,0.5)] [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-gray-200 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-110 active:[&::-webkit-slider-thumb]:scale-95"
             />
           </div>
-        </div>
+        </motion.div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <motion.div variants={itemVariants} className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-[11px] font-bold tracking-widest text-on-surface-variant uppercase flex items-center gap-1.5">
             <Calendar className="w-3.5 h-3.5" /> Start Date
@@ -124,7 +170,7 @@ function TrackerForm({
             type="date"
             value={startedAt}
             onChange={e => setStartedAt(e.target.value)}
-            className="w-full bg-[#121212] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-3 text-[13px] outline-none transition-all shadow-inner" 
+            className="w-full bg-[#121212] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary hover:bg-white/5 py-3 px-3 text-[13px] outline-none transition-all shadow-inner" 
             style={{ colorScheme: 'dark' }}
           />
         </div>
@@ -136,25 +182,33 @@ function TrackerForm({
             type="date" 
             value={completedAt}
             onChange={e => setCompletedAt(e.target.value)}
-            className="w-full bg-[#121212] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-3 text-[13px] outline-none transition-all shadow-inner" 
+            className="w-full bg-[#121212] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary hover:bg-white/5 py-3 px-3 text-[13px] outline-none transition-all shadow-inner" 
             style={{ colorScheme: 'dark' }}
           />
         </div>
-      </div>
+      </motion.div>
 
-      <div className="space-y-2">
+      <motion.div variants={itemVariants} className="space-y-2">
         <label className="text-[11px] font-bold tracking-widest text-on-surface-variant uppercase flex items-center gap-1.5">
           <RefreshCw className="w-3.5 h-3.5" /> Re-reads
         </label>
-        <input 
-          type="number" 
-          value={repeat}
-          onChange={e => handleRepeatChange(parseInt(e.target.value))}
-          className="w-full bg-[#121212] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm outline-none transition-all shadow-inner" 
-        />
-      </div>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => handleRepeatChange(repeat - 1)} className="p-3 bg-[#121212] border border-white/10 rounded-xl hover:bg-white/5 active:scale-95 transition-all text-on-surface-variant hover:text-white">
+            <Minus className="w-4 h-4" />
+          </button>
+          <input 
+            type="number" 
+            value={repeat}
+            onChange={e => handleRepeatChange(parseInt(e.target.value))}
+            className="flex-1 min-w-0 bg-[#121212] border border-white/10 text-primary text-center font-bold rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm outline-none transition-all shadow-inner [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+          />
+          <button type="button" onClick={() => handleRepeatChange(repeat + 1)} className="p-3 bg-[#121212] border border-white/10 rounded-xl hover:bg-white/5 active:scale-95 transition-all text-on-surface-variant hover:text-white">
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
+      </motion.div>
 
-      <div className="space-y-2">
+      <motion.div variants={itemVariants} className="space-y-2">
         <label className="text-[11px] font-bold tracking-widest text-on-surface-variant uppercase flex items-center gap-1.5">
           <AlignLeft className="w-3.5 h-3.5" /> Private Notes
         </label>
@@ -163,18 +217,26 @@ function TrackerForm({
           onChange={e => setNotes(e.target.value)}
           rows={3}
           placeholder="Jot down some thoughts..."
-          className="w-full bg-[#121212] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm outline-none transition-all resize-none shadow-inner" 
+          className="w-full bg-[#121212] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary hover:bg-white/5 py-3 px-4 text-sm outline-none transition-all resize-none shadow-inner" 
         />
-      </div>
+      </motion.div>
 
-      <button 
+      <motion.button 
+        variants={itemVariants}
         type="submit" 
         disabled={saving}
-        className="w-full bg-white text-black font-bold rounded-xl py-4 flex items-center justify-center gap-2 mt-4 hover:bg-gray-200 active:scale-[0.98] transition-all disabled:opacity-50 shadow-lg"
+        className="w-full bg-white text-black font-bold rounded-xl py-4 flex items-center justify-center gap-2 mt-6 hover:bg-gray-200 hover:shadow-[0_0_20px_rgba(255,255,255,0.2)] active:scale-[0.98] transition-all disabled:opacity-50 shadow-lg relative overflow-hidden"
       >
-        {saving ? 'SAVING...' : 'SAVE TO ANILIST'}
-      </button>
-    </form>
+        {saving ? (
+          <>
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span>SAVING...</span>
+          </>
+        ) : (
+          'SAVE TO ANILIST'
+        )}
+      </motion.button>
+    </motion.form>
   );
 }
 

@@ -440,6 +440,38 @@ export async function searchMedia(search: string, token: string): Promise<Anilis
   return data.Page.media;
 }
 
+export async function getTopManga(token: string, page = 1, perPage = 25): Promise<AnilistMedia[]> {
+  const query = `
+    query ($page: Int, $perPage: Int) {
+      Page(page: $page, perPage: $perPage) {
+        media(type: MANGA, format_in: [MANGA, ONE_SHOT], sort: SCORE_DESC) {
+          id
+          title {
+            romaji
+            english
+            native
+            userPreferred
+          }
+          coverImage {
+            extraLarge
+            large
+            medium
+          }
+          description
+          format
+          status
+          chapters
+          volumes
+          averageScore
+        }
+      }
+    }
+  `;
+
+  const data = await fetchAnilistAPI(query, { page, perPage }, token);
+  return data.Page.media;
+}
+
 export async function safeUpdateMediaListEntry(
   mediaId: number, 
   progress: number, 

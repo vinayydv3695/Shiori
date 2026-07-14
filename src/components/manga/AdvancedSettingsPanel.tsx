@@ -7,6 +7,7 @@ import {
     type ProgressBarPosition,
 } from '@/store/mangaReaderStore';
 import { X } from 'lucide-react';
+import { isAndroid } from '@/lib/tauri';
 
 type SettingsTab = 'layout' | 'image' | 'shortcuts';
 
@@ -46,7 +47,7 @@ export function AdvancedSettingsPanel() {
     const tabs: { value: SettingsTab; label: string }[] = [
         { value: 'layout', label: 'Page Layout' },
         { value: 'image', label: 'Image' },
-        { value: 'shortcuts', label: 'Shortcuts' },
+        ...(isAndroid ? [] : [{ value: 'shortcuts' as SettingsTab, label: 'Shortcuts' }]),
     ];
 
     const shortcuts = [

@@ -9,7 +9,8 @@ import {
   AnilistMediaList,
   AnilistMedia,
   searchMedia,
-  safeUpdateMediaListEntry
+  safeUpdateMediaListEntry,
+  getTopManga
 } from '@/lib/anilist';
 import { api } from '@/lib/tauri';
 import { Loader2, BookOpen, AlertTriangle, RefreshCw, Search, CheckCircle2, LayoutGrid, Star } from 'lucide-react';
@@ -61,6 +62,8 @@ export function AniListDashboard({ onOpenSettings }: AniListDashboardProps = {})
   const [dashboardSearch, setDashboardSearch] = useState('');
   const [searchResults, setSearchResults] = useState<AnilistMedia[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  
+  const [topManga, setTopManga] = useState<AnilistMedia[]>([]);
 
   useEffect(() => {
     async function loadAnilist() {
@@ -76,6 +79,13 @@ export function AniListDashboard({ onOpenSettings }: AniListDashboardProps = {})
 
         const lists = await getMediaListCollection(viewer.id, anilistToken);
         setCollection(lists);
+        
+        try {
+          const top = await getTopManga(anilistToken);
+          setTopManga(top);
+        } catch (e) {
+          console.warn("Failed to fetch top manga", e);
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         setError(msg);
@@ -227,11 +237,14 @@ export function AniListDashboard({ onOpenSettings }: AniListDashboardProps = {})
     const defaultTabs = ['Reading', 'Completed', 'Planning', 'Dropped'];
     const availableLists = collection.lists.filter(list => !list.isCustomList).map(l => l.name);
     const allTabs = defaultTabs.filter(t => availableLists.includes(t)).concat(availableLists.filter(t => !defaultTabs.includes(t)));
+    if (topManga.length > 0) {
+      allTabs.unshift('Top Manga');
+    }
     if (searchResults.length > 0) {
       allTabs.unshift('Search Results');
     }
     return allTabs;
-  }, [collection, searchResults]);
+  }, [collection, searchResults, topManga]);
   
   useEffect(() => {
       if (tabs.length > 0 && !tabs.includes(activeTab)) {
@@ -436,7 +449,10 @@ export function AniListDashboard({ onOpenSettings }: AniListDashboardProps = {})
             <div className="flex gap-6 overflow-x-auto hide-scrollbar mb-4 border-b border-border/50">
               {tabs.map((tab) => {
                 const isActive = activeTab === tab;
-                const count = collection?.lists.find(l => l.name === tab)?.entries.length || 0;
+                let count = 0;
+                if (tab === 'Search Results') count = searchResults.length;
+                else if (tab === 'Top Manga') count = topManga.length;
+                else count = collection?.lists.find(l => l.name === tab)?.entries.length || 0;
                 
                 return (
                   <button
@@ -478,6 +494,24 @@ export function AniListDashboard({ onOpenSettings }: AniListDashboardProps = {})
             {activeTab === 'Search Results' ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
                 {searchResults.map((media) => {
+                  const title = media.title.userPreferred || media.title.english || media.title.romaji;
+                  return (
+                    <motion.div variants={itemVariants} key={media.id}>
+                      <AniListBookCard
+                        id={media.id.toString()}
+                        title={title}
+                        format={media.format}
+                        coverUrl={media.coverImage.extraLarge || media.coverImage.large}
+                        score={media.averageScore}
+                        onClick={() => handleRawEntryClick(media)}
+                      />
+                    </motion.div>
+                  );
+                })}
+              </div>
+            ) : activeTab === 'Top Manga' ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
+                {topManga.map((media) => {
                   const title = media.title.userPreferred || media.title.english || media.title.romaji;
                   return (
                     <motion.div variants={itemVariants} key={media.id}>

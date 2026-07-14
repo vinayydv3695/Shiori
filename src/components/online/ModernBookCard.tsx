@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, memo } from 'react';
 import { Download, CheckCircle2, AlertCircle, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useOnlineDownloadStore } from '@/store/onlineDownloadStore';
+import { isAndroid } from '@/lib/tauri';
 
 interface ModernBookCardProps {
   id: string; // The URL or unique ID for the book
@@ -55,7 +56,9 @@ export const ModernBookCard = memo(function ModernBookCard({
     const objectUrl: string | null = null;
     
     if (coverUrl.includes('libgen')) {
-      const proxyUri = `shiori-proxy://localhost?source=libgen&url=${encodeURIComponent(coverUrl)}`;
+      const proxyUri = isAndroid 
+        ? `http://shiori-proxy.localhost?source=libgen&url=${encodeURIComponent(coverUrl)}`
+        : `shiori-proxy://localhost?source=libgen&url=${encodeURIComponent(coverUrl)}`;
       setProxyUrl(proxyUri);
     } else {
       setProxyUrl(coverUrl);
@@ -192,15 +195,14 @@ export const ModernBookCard = memo(function ModernBookCard({
         <div className={cn(
           'absolute bottom-0 left-0 right-0 z-10',
           'flex flex-col gap-0.5',
-          'md:bg-gradient-to-t md:from-black md:via-black/80 md:to-transparent',
-          'max-md:bg-surface-container-low/70 max-md:backdrop-blur-xl max-md:border-t max-md:border-white/5 max-md:pt-2.5 max-md:pb-2.5 max-md:px-2.5',
-          'px-3 pt-12 pb-3 text-white max-md:text-foreground backdrop-blur-[2px]'
+          'bg-gradient-to-t from-black via-black/80 to-transparent',
+          'px-3 pt-12 pb-3 text-white'
         )}>
-          <h3 className="font-bold leading-tight line-clamp-2 drop-shadow-lg text-white max-md:text-foreground text-[14px]">
+          <h3 className="font-bold leading-tight line-clamp-2 drop-shadow-lg text-white text-[14px]">
             {title}
           </h3>
           {author && author !== 'Unknown Author' && (
-            <p className="truncate drop-shadow-lg text-white/80 max-md:text-muted-foreground font-medium text-[11px] mt-0.5">
+            <p className="truncate drop-shadow-lg text-white/80 font-medium text-[11px] mt-0.5">
               {author}
             </p>
           )}

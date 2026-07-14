@@ -1,0 +1,3237 @@
+{
+  "colorGroups": [
+    {
+      "query": "file:\"eslint.config.js.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15110288
+      }
+    },
+    {
+      "query": "file:\"package.json.md\" OR file:\"build.md\" OR file:\"version.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15303297
+      }
+    },
+    {
+      "query": "file:\"framer-motion.md\" OR file:\"react-intersection-observer.md\" OR file:\"clsx.md\" OR file:\"cmdk.md\" OR file:\"lucide-react.md\" OR file:\"dependencies.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15044236
+      }
+    },
+    {
+      "query": "file:\"playwright.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15304836
+      }
+    },
+    {
+      "query": "file:\"integration_mangadex.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15244439
+      }
+    },
+    {
+      "query": "file:\"class-variance-authority.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15113881
+      }
+    },
+    {
+      "query": "file:\"index.ts.md\" OR file:\"dompurify.md\" OR file:\"TrendingExplore.tsx.md\" OR file:\"TorboxControlCenter.tsx.md\" OR file:\"ShareBookDialog.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15703446
+      }
+    },
+    {
+      "query": "file:\"epubjs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15574429
+      }
+    },
+    {
+      "query": "file:\"html-to-image.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15044485
+      }
+    },
+    {
+      "query": "file:\"ReaderLayout.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15376277
+      }
+    },
+    {
+      "query": "file:\"react-dom.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15569026
+      }
+    },
+    {
+      "query": "file:\"react-pdf.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15437181
+      }
+    },
+    {
+      "query": "file:\"tailwind-merge.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15636873
+      }
+    },
+    {
+      "query": "file:\"cmdk.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15310222
+      }
+    },
+    {
+      "query": "file:\"autoprefixer.md\" OR file:\"playwright.md\" OR file:\"devDependencies.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15840165
+      }
+    },
+    {
+      "query": "file:\"react-intersection-observer.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15577764
+      }
+    },
+    {
+      "query": "file:\"postcss.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15772568
+      }
+    },
+    {
+      "query": "file:\"playwright.config.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15180945
+      }
+    },
+    {
+      "query": "file:\"postcss.config.js.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15709346
+      }
+    },
+    {
+      "query": "file:\"build.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15504761
+      }
+    },
+    {
+      "query": "file:\"windows.md\" OR file:\"default.json.md\" OR file:\"permissions.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15640720
+      }
+    },
+    {
+      "query": "file:\"build.gradle.kts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15449515
+      }
+    },
+    {
+      "query": "file:\"version.md\" OR file:\"tauri.conf.json.md\" OR file:\"updater.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15315869
+      }
+    },
+    {
+      "query": "file:\"windows.md\" OR file:\"security.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15707794
+      }
+    },
+    {
+      "query": "file:\"scope.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15903370
+      }
+    },
+    {
+      "query": "file:\"build.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15049345
+      }
+    },
+    {
+      "query": "file:\"icon.md\" OR file:\"bundle.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15515044
+      }
+    },
+    {
+      "query": "file:\"dompurify.md\" OR file:\"targets.md\" OR file:\"nsis.md\" OR file:\"rpm.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15381140
+      }
+    },
+    {
+      "query": "file:\"windows.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15647400
+      }
+    },
+    {
+      "query": "file:\"nsis.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15843233
+      }
+    },
+    {
+      "query": "file:\"depends.md\" OR file:\"linux.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15578256
+      }
+    },
+    {
+      "query": "file:\"depends.md\" OR file:\"rpm.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15318431
+      }
+    },
+    {
+      "query": "file:\"macOS.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15642498
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"JSObject.md\" OR file:\"Plugin.md\" OR file:\"Invoke.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15778978
+      }
+    },
+    {
+      "query": "file:\"MainActivity.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15184778
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Ipc.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15583402
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Logger.kt.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15910301
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"PermissionHelper.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15712663
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Rust.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15778196
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"WryActivity.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15779483
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Plugin.md\" OR file:\"RustPlugin.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15452322
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"RustWebChromeClient.md\" OR file:\"RustWebChromeClient.kt.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15582614
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"RustWebView.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15188372
+      }
+    },
+    {
+      "query": "file:\"RustWebViewClient.md\" OR file:\"String.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15779215
+      }
+    },
+    {
+      "query": "file:\"PluginManager.md\" OR file:\"TauriActivity.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15712384
+      }
+    },
+    {
+      "query": "file:\"RustWebChromeClient.kt.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15388843
+      }
+    },
+    {
+      "query": "file:\"TrendingExplore.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15387548
+      }
+    },
+    {
+      "query": "file:\"tauri.build.gradle.kts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15123599
+      }
+    },
+    {
+      "query": "file:\"build.gradle.kts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14860166
+      }
+    },
+    {
+      "query": "file:\"build.gradle.kts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15255954
+      }
+    },
+    {
+      "query": "file:\"BuildTask.md\" OR file:\"String.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15717020
+      }
+    },
+    {
+      "query": "file:\"gradlew.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15584652
+      }
+    },
+    {
+      "query": "file:\"settings.gradle.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15650961
+      }
+    },
+    {
+      "query": "file:\"tauri.settings.gradle.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15323030
+      }
+    },
+    {
+      "query": "file:\"android-schema.json.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15783318
+      }
+    },
+    {
+      "query": "file:\"Target.md\" OR file:\"definitions.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15256967
+      }
+    },
+    {
+      "query": "file:\"Capability.md\" OR file:\"permissions.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15716737
+      }
+    },
+    {
+      "query": "file:\"properties.md\" OR file:\"null.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15651199
+      }
+    },
+    {
+      "query": "file:\"Identifier.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15783296
+      }
+    },
+    {
+      "query": "file:\"local.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15521942
+      }
+    },
+    {
+      "query": "file:\"windows.md\" OR file:\"webviews.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15060867
+      }
+    },
+    {
+      "query": "file:\"$ref.md\" OR file:\"permissions.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15982745
+      }
+    },
+    {
+      "query": "file:\"properties.md\" OR file:\"CapabilityRemote.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15522709
+      }
+    },
+    {
+      "query": "file:\"Target.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15588760
+      }
+    },
+    {
+      "query": "file:\"desktop-schema.json.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15720333
+      }
+    },
+    {
+      "query": "file:\"Target.md\" OR file:\"definitions.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15918754
+      }
+    },
+    {
+      "query": "file:\"Capability.md\" OR file:\"permissions.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14997643
+      }
+    },
+    {
+      "query": "file:\"properties.md\" OR file:\"null.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15590038
+      }
+    },
+    {
+      "query": "file:\"Identifier.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15458446
+      }
+    },
+    {
+      "query": "file:\"local.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15656341
+      }
+    },
+    {
+      "query": "file:\"windows.md\" OR file:\"webviews.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15722120
+      }
+    },
+    {
+      "query": "file:\"$ref.md\" OR file:\"permissions.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15853699
+      }
+    },
+    {
+      "query": "file:\"properties.md\" OR file:\"CapabilityRemote.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15854480
+      }
+    },
+    {
+      "query": "file:\"Target.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15065497
+      }
+    },
+    {
+      "query": "file:\"linux-schema.json.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15197057
+      }
+    },
+    {
+      "query": "file:\"definitions.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15329155
+      }
+    },
+    {
+      "query": "file:\"Capability.md\" OR file:\"permissions.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15724175
+      }
+    },
+    {
+      "query": "file:\"properties.md\" OR file:\"null.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15263892
+      }
+    },
+    {
+      "query": "file:\"Identifier.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15461537
+      }
+    },
+    {
+      "query": "file:\"local.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15067026
+      }
+    },
+    {
+      "query": "file:\"windows.md\" OR file:\"webviews.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15396264
+      }
+    },
+    {
+      "query": "file:\"$ref.md\" OR file:\"permissions.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14935968
+      }
+    },
+    {
+      "query": "file:\"properties.md\" OR file:\"CapabilityRemote.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15463055
+      }
+    },
+    {
+      "query": "file:\"Target.md\" OR file:\"autoprefixer.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15266182
+      }
+    },
+    {
+      "query": "file:\"mobile-schema.json.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14279048
+      }
+    },
+    {
+      "query": "file:\"definitions.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14477183
+      }
+    },
+    {
+      "query": "file:\"Capability.md\" OR file:\"permissions.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14411401
+      }
+    },
+    {
+      "query": "file:\"properties.md\" OR file:\"null.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14477949
+      }
+    },
+    {
+      "query": "file:\"Identifier.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14214792
+      }
+    },
+    {
+      "query": "file:\"local.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14411928
+      }
+    },
+    {
+      "query": "file:\"windows.md\" OR file:\"webviews.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14675355
+      }
+    },
+    {
+      "query": "file:\"$ref.md\" OR file:\"permissions.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14806441
+      }
+    },
+    {
+      "query": "file:\"properties.md\" OR file:\"CapabilityRemote.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14610579
+      }
+    },
+    {
+      "query": "file:\"Target.md\" OR file:\"clsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14348424
+      }
+    },
+    {
+      "query": "file:\"build.gradle.kts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14414222
+      }
+    },
+    {
+      "query": "file:\"ExampleInstrumentedTest.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14283146
+      }
+    },
+    {
+      "query": "file:\"Invoke.md\" OR file:\"PermissionState.md\" OR file:\"JSObject.md\" OR file:\"OnlineSearchHeader.tsx.md\" OR file:\"Plugin.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13296258
+      }
+    },
+    {
+      "query": "file:\"FsUtils.kt.md\" OR file:\"String.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13625481
+      }
+    },
+    {
+      "query": "file:\"JniMethod.kt.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14151323
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Logger.kt.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13231999
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"PermissionHelper.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13823380
+      }
+    },
+    {
+      "query": "file:\"PermissionState.md\" OR file:\"String.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13495177
+      }
+    },
+    {
+      "query": "file:\"ActivityCallback.kt.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13627786
+      }
+    },
+    {
+      "query": "file:\"InvokeArg.kt.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13692566
+      }
+    },
+    {
+      "query": "file:\"Permission.md\" OR file:\"Permission.kt.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13562253
+      }
+    },
+    {
+      "query": "file:\"PermissionCallback.kt.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13231511
+      }
+    },
+    {
+      "query": "file:\"PluginMethod.kt.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13561245
+      }
+    },
+    {
+      "query": "file:\"TauriPlugin.kt.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13168016
+      }
+    },
+    {
+      "query": "file:\"JSObject.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 12840070
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Invoke.md\" OR file:\"CommandData.md\" OR file:\"PluginHandle.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13561252
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Invoke.md\" OR file:\"JSObject.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 12906126
+      }
+    },
+    {
+      "query": "file:\"JSArray.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 12706964
+      }
+    },
+    {
+      "query": "file:\"OnlineMangaDetailView.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 12117123
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Invoke.md\" OR file:\"Plugin.md\" OR file:\"PluginHandle.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 12708498
+      }
+    },
+    {
+      "query": "file:\"icon.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 12314763
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Invoke.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13103771
+      }
+    },
+    {
+      "query": "file:\"PluginManager.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 12971932
+      }
+    },
+    {
+      "query": "file:\"Plugin.md\" OR file:\"PluginHandle.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 12971934
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"CommandData.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 12513171
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"JSObject.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 12512918
+      }
+    },
+    {
+      "query": "file:\"ExampleUnitTest.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 12579735
+      }
+    },
+    {
+      "query": "file:\"build.gradle.kts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11330181
+      }
+    },
+    {
+      "query": "file:\"settings.gradle.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11136122
+      }
+    },
+    {
+      "query": "file:\"ExampleInstrumentedTest.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 12447644
+      }
+    },
+    {
+      "query": "file:\"ExampleUnitTest.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 12316314
+      }
+    },
+    {
+      "query": "file:\"build.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11200135
+      }
+    },
+    {
+      "query": "file:\"compilerOptions.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10873981
+      }
+    },
+    {
+      "query": "file:\"build.md\" OR file:\"version.md\" OR file:\"package.json.md\" OR file:\"tauri-plugin-android-auth-api.md\" OR file:\"dependencies.md\" OR file:\"devDependencies.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11267719
+      }
+    },
+    {
+      "query": "file:\"build.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11855771
+      }
+    },
+    {
+      "query": "file:\"windows.md\" OR file:\"default.json.md\" OR file:\"permissions.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 12186526
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"lib.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10940805
+      }
+    },
+    {
+      "query": "file:\"main.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 12315304
+      }
+    },
+    {
+      "query": "file:\"tauri-plugin-android-auth-api.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10545028
+      }
+    },
+    {
+      "query": "file:\"vite-env.d.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10479748
+      }
+    },
+    {
+      "query": "file:\"vite.config.js.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10675595
+      }
+    },
+    {
+      "query": "file:\"index.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11659934
+      }
+    },
+    {
+      "query": "file:\"build.md\" OR file:\"version.md\" OR file:\"package.json.md\" OR file:\"dependencies.md\" OR file:\"devDependencies.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11332761
+      }
+    },
+    {
+      "query": "file:\"properties.md\" OR file:\"schema.json.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10610830
+      }
+    },
+    {
+      "query": "file:\"$ref.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11659682
+      }
+    },
+    {
+      "query": "file:\"Permission.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10087302
+      }
+    },
+    {
+      "query": "file:\"Target.md\" OR file:\"definitions.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9956996
+      }
+    },
+    {
+      "query": "file:\"DefaultPermission.md\" OR file:\"permissions.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11856553
+      }
+    },
+    {
+      "query": "file:\"properties.md\" OR file:\"permissions.md\" OR file:\"scope.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11203485
+      }
+    },
+    {
+      "query": "file:\"version.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9891464
+      }
+    },
+    {
+      "query": "file:\"null.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9564291
+      }
+    },
+    {
+      "query": "file:\"allow.md\" OR file:\"properties.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11070368
+      }
+    },
+    {
+      "query": "file:\"rollup.config.js.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11332773
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"models.rs.md\" OR file:\"commands.rs.md\" OR file:\"init.md\" OR file:\"PluginHandle.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11072673
+      }
+    },
+    {
+      "query": "file:\"Error.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10613659
+      }
+    },
+    {
+      "query": "file:\"lib.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10875041
+      }
+    },
+    {
+      "query": "file:\"compilerOptions.md\" OR file:\"tsconfig.json.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9235079
+      }
+    },
+    {
+      "query": "file:\"build.gradle.kts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8448636
+      }
+    },
+    {
+      "query": "file:\"ExampleInstrumentedTest.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8253306
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Invoke.md\" OR file:\"PermissionState.md\" OR file:\"JSObject.md\" OR file:\"Plugin.md\" OR file:\"PluginHandle.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10283675
+      }
+    },
+    {
+      "query": "file:\"FsUtils.kt.md\" OR file:\"String.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8973960
+      }
+    },
+    {
+      "query": "file:\"JniMethod.kt.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8908681
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Logger.kt.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9694870
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Invoke.md\" OR file:\"JSObject.md\" OR file:\"JSArray.md\" OR file:\"Plugin.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11005098
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"PermissionHelper.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9103248
+      }
+    },
+    {
+      "query": "file:\"PermissionState.md\" OR file:\"String.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10349475
+      }
+    },
+    {
+      "query": "file:\"ActivityCallback.kt.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8252294
+      }
+    },
+    {
+      "query": "file:\"InvokeArg.kt.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9562777
+      }
+    },
+    {
+      "query": "file:\"Permission.md\" OR file:\"Permission.kt.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8971922
+      }
+    },
+    {
+      "query": "file:\"PermissionCallback.kt.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9561755
+      }
+    },
+    {
+      "query": "file:\"PluginMethod.kt.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8970900
+      }
+    },
+    {
+      "query": "file:\"TauriPlugin.kt.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9891235
+      }
+    },
+    {
+      "query": "file:\"JSObject.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8644499
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Invoke.md\" OR file:\"CommandData.md\" OR file:\"PluginHandle.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9957030
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Invoke.md\" OR file:\"JSObject.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8318355
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Invoke.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9431200
+      }
+    },
+    {
+      "query": "file:\"PluginManager.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10545583
+      }
+    },
+    {
+      "query": "file:\"Plugin.md\" OR file:\"PluginHandle.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9760937
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"CommandData.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8056214
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"JSObject.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9432743
+      }
+    },
+    {
+      "query": "file:\"ExampleUnitTest.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10611637
+      }
+    },
+    {
+      "query": "file:\"build.gradle.kts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8056474
+      }
+    },
+    {
+      "query": "file:\"settings.gradle.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8645794
+      }
+    },
+    {
+      "query": "file:\"ExampleInstrumentedTest.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8383392
+      }
+    },
+    {
+      "query": "file:\"ExampleUnitTest.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8972454
+      }
+    },
+    {
+      "query": "file:\"build.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10350520
+      }
+    },
+    {
+      "query": "file:\"index.d.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9627311
+      }
+    },
+    {
+      "query": "file:\"index.js.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9498546
+      }
+    },
+    {
+      "query": "file:\"compilerOptions.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9366705
+      }
+    },
+    {
+      "query": "file:\"tauri-plugin-android-saf-api.md\" OR file:\"build.md\" OR file:\"version.md\" OR file:\"package.json.md\" OR file:\"dependencies.md\" OR file:\"devDependencies.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9234351
+      }
+    },
+    {
+      "query": "file:\"build.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8186279
+      }
+    },
+    {
+      "query": "file:\"windows.md\" OR file:\"default.json.md\" OR file:\"permissions.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10022330
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"lib.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10874308
+      }
+    },
+    {
+      "query": "file:\"main.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10482115
+      }
+    },
+    {
+      "query": "file:\"tauri-plugin-android-saf-api.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9497016
+      }
+    },
+    {
+      "query": "file:\"vite-env.d.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10351300
+      }
+    },
+    {
+      "query": "file:\"vite.config.js.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8514996
+      }
+    },
+    {
+      "query": "file:\"index.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8251825
+      }
+    },
+    {
+      "query": "file:\"build.md\" OR file:\"version.md\" OR file:\"package.json.md\" OR file:\"dependencies.md\" OR file:\"devDependencies.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10676677
+      }
+    },
+    {
+      "query": "file:\"properties.md\" OR file:\"schema.json.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10546119
+      }
+    },
+    {
+      "query": "file:\"$ref.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9103034
+      }
+    },
+    {
+      "query": "file:\"Permission.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8447671
+      }
+    },
+    {
+      "query": "file:\"Target.md\" OR file:\"definitions.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10480585
+      }
+    },
+    {
+      "query": "file:\"DefaultPermission.md\" OR file:\"permissions.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9825478
+      }
+    },
+    {
+      "query": "file:\"properties.md\" OR file:\"permissions.md\" OR file:\"scope.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10416847
+      }
+    },
+    {
+      "query": "file:\"version.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9826763
+      }
+    },
+    {
+      "query": "file:\"null.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10153934
+      }
+    },
+    {
+      "query": "file:\"allow.md\" OR file:\"properties.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10677712
+      }
+    },
+    {
+      "query": "file:\"rollup.config.js.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10086346
+      }
+    },
+    {
+      "query": "file:\"PluginHandle.md\" OR file:\"String.md\" OR file:\"models.rs.md\" OR file:\"commands.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10676944
+      }
+    },
+    {
+      "query": "file:\"Error.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9760976
+      }
+    },
+    {
+      "query": "file:\"lib.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8971205
+      }
+    },
+    {
+      "query": "file:\"compilerOptions.md\" OR file:\"tsconfig.json.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10613721
+      }
+    },
+    {
+      "query": "file:\"cf_solver.mjs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8318668
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Self.md\" OR file:\"CfSession.md\" OR file:\"commands.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8709320
+      }
+    },
+    {
+      "query": "file:\"Duration.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8317131
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Self.md\" OR file:\"CfClient.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10612955
+      }
+    },
+    {
+      "query": "file:\"detector.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8579792
+      }
+    },
+    {
+      "query": "file:\"mod.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10283478
+      }
+    },
+    {
+      "query": "file:\"anilist.rs.md\" OR file:\"String.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11070941
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"create_backup.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10152408
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"useFullscreen.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9694169
+      }
+    },
+    {
+      "query": "file:\"conversion.rs.md\" OR file:\"String.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8775894
+      }
+    },
+    {
+      "query": "file:\"CoverGenerator.md\" OR file:\"String.md\" OR file:\"Self.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8712670
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Self.md\" OR file:\"TorboxService.md\" OR file:\"ShioriError.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10939617
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"discord.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10415329
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"discovery.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10875366
+      }
+    },
+    {
+      "query": "file:\"validate.rs.md\" OR file:\"String.md\" OR file:\"tags.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9827047
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"export_service.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10940391
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Self.md\" OR file:\"FolderWatchState.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10810091
+      }
+    },
+    {
+      "query": "file:\"library.rs.md\" OR file:\"String.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9233886
+      }
+    },
+    {
+      "query": "file:\"manga.rs.md\" OR file:\"String.md\" OR file:\"Self.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9367528
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"metadata.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8843754
+      }
+    },
+    {
+      "query": "file:\"migrate_library.md\" OR file:\"String.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9168353
+      }
+    },
+    {
+      "query": "file:\"mod.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9302510
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"preferences.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9626850
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"prowlarr.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10085861
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Self.md\" OR file:\"reader.rs.md\" OR file:\"format_detector.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9692132
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Self.md\" OR file:\"rendering.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8578535
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Self.md\" OR file:\"RssService.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8251113
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"search_service.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8711152
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Self.md\" OR file:\"ShareService.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8446696
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"integration_mangadex.rs.md\" OR file:\"sources.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10084839
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Error.md\" OR file:\"translation_service.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9758445
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"get_fullscreen_state.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9299696
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"docx.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10674922
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Self.md\" OR file:\"OebBook.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8970219
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"cbz.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10805996
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"mobi.rs.md\" OR file:\"Error.md\" OR file:\"ConversionError.md\" OR file:\"txt.rs.md\" OR file:\"docx.rs.md\" OR file:\"fb2.rs.md\" OR file:\"pdf.rs.md\" OR file:\"Self.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10216946
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"fb2.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10083818
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Self.md\" OR file:\"Fb2FormatAdapter.md\" OR file:\"fb2.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10149356
+      }
+    },
+    {
+      "query": "file:\"mod.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9559535
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Self.md\" OR file:\"mobi.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9100271
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"convert_to_epub.md\" OR file:\"mod.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9229286
+      }
+    },
+    {
+      "query": "file:\"pdf.rs.md\" OR file:\"String.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10213609
+      }
+    },
+    {
+      "query": "file:\"mod.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9165041
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"txt.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9687783
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"utils.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10739444
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Self.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9228779
+      }
+    },
+    {
+      "query": "file:\"Self.md\" OR file:\"mod.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10343659
+      }
+    },
+    {
+      "query": "file:\"Database.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8373989
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Self.md\" OR file:\"Error.md\" OR file:\"ShioriError.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10211304
+      }
+    },
+    {
+      "query": "file:\"DiscordService.md\" OR file:\"String.md\" OR file:\"Self.md\" OR file:\"lib.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10672112
+      }
+    },
+    {
+      "query": "file:\"main.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10407913
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"models.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8833261
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"docx.rs.md\" OR file:\"Self.md\" OR file:\"DocxFormatAdapter.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8438763
+      }
+    },
+    {
+      "query": "file:\"HtmlFormatAdapter.md\" OR file:\"Self.md\" OR file:\"String.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8962533
+      }
+    },
+    {
+      "query": "file:\"MobiFormatAdapter.md\" OR file:\"Self.md\" OR file:\"mobi.rs.md\" OR file:\"String.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10539247
+      }
+    },
+    {
+      "query": "file:\"mod.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10866411
+      }
+    },
+    {
+      "query": "file:\"pdf.rs.md\" OR file:\"PdfFormatAdapter.md\" OR file:\"Self.md\" OR file:\"String.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8568296
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"TxtFormatAdapter.md\" OR file:\"txt.rs.md\" OR file:\"Self.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9028849
+      }
+    },
+    {
+      "query": "file:\"Self.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9880810
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"backup_service.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8239854
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"book_metadata_service.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8435172
+      }
+    },
+    {
+      "query": "file:\"Self.md\" OR file:\"BookMetadataService.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9486573
+      }
+    },
+    {
+      "query": "file:\"BookCache.md\" OR file:\"Self.md\" OR file:\"String.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 7844847
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Error.md\" OR file:\"calibre_service.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9157356
+      }
+    },
+    {
+      "query": "file:\"CollectionService.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8500718
+      }
+    },
+    {
+      "query": "file:\"ConversionEngine.md\" OR file:\"String.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9354223
+      }
+    },
+    {
+      "query": "file:\"ConversionStatus.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9484522
+      }
+    },
+    {
+      "query": "file:\"Self.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10667508
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"renderer.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10534889
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Self.md\" OR file:\"DocxAdapter.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9943530
+      }
+    },
+    {
+      "query": "file:\"EpubAdapter.md\" OR file:\"String.md\" OR file:\"Self.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8235759
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Self.md\" OR file:\"EpubBuilder.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8957157
+      }
+    },
+    {
+      "query": "file:\"Fb2ReaderAdapter.md\" OR file:\"String.md\" OR file:\"Self.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10731760
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Self.md\" OR file:\"FolderWatchService.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10599143
+      }
+    },
+    {
+      "query": "file:\"format_adapter.rs.md\" OR file:\"String.md\" OR file:\"Error.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10796783
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"format_detection.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9153775
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Self.md\" OR file:\"HtmlReaderAdapter.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10204134
+      }
+    },
+    {
+      "query": "file:\"tags.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10861810
+      }
+    },
+    {
+      "query": "file:\"file.rs.md\" OR file:\"String.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9218025
+      }
+    },
+    {
+      "query": "file:\"file.rs.md\" OR file:\"String.md\" OR file:\"ContentCarousel.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10663919
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"manga_metadata_service.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9020653
+      }
+    },
+    {
+      "query": "file:\"MangaMetadataService.md\" OR file:\"Self.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8100078
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Self.md\" OR file:\"MarkdownReaderAdapter.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10334704
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"metadata_service.rs.md\" OR file:\"Self.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8296169
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Self.md\" OR file:\"MobiAdapter.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9282028
+      }
+    },
+    {
+      "query": "file:\"mod.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8690155
+      }
+    },
+    {
+      "query": "file:\"anilist.rs.md\" OR file:\"String.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9807600
+      }
+    },
+    {
+      "query": "file:\"AniListProvider.md\" OR file:\"Self.md\" OR file:\"Error.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10595815
+      }
+    },
+    {
+      "query": "file:\"mod.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8952043
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"OpenLibraryProvider.md\" OR file:\"Self.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8097001
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"FetchedMetadata.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9412081
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Self.md\" OR file:\"MetadataWorker.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8490735
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"PdfAdapter.md\" OR file:\"Self.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9542640
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"ReaderService.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11120619
+      }
+    },
+    {
+      "query": "file:\"RenderingService.md\" OR file:\"Self.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10528490
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"tag_service.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10660082
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Self.md\" OR file:\"TxtReaderAdapter.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9409768
+      }
+    },
+    {
+      "query": "file:\"AnnasArchiveSource.md\" OR file:\"Self.md\" OR file:\"String.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8422889
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Self.md\" OR file:\"LibgenSource.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 7962094
+      }
+    },
+    {
+      "query": "file:\"mangadex.rs.md\" OR file:\"MangaDexSource.md\" OR file:\"Self.md\" OR file:\"String.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10395625
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Self.md\" OR file:\"mangafire.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9145582
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Self.md\" OR file:\"ManhwahubEngine.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9013480
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"mod.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11250411
+      }
+    },
+    {
+      "query": "file:\"Source.md\" OR file:\"Self.md\" OR file:\"String.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9736680
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"NyaaSource.md\" OR file:\"Self.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10789104
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Self.md\" OR file:\"ToonGodSource.md\" OR file:\"ShioriError.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10196712
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"Self.md\" OR file:\"TorrentCsvSource.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8814311
+      }
+    },
+    {
+      "query": "file:\"WeebrookEngine.md\" OR file:\"Self.md\" OR file:\"String.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9274353
+      }
+    },
+    {
+      "query": "file:\"mod.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 8879339
+      }
+    },
+    {
+      "query": "file:\"build.md\" OR file:\"version.md\" OR file:\"tauri.conf.json.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9405422
+      }
+    },
+    {
+      "query": "file:\"bundle.md\" OR file:\"macOS.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10392551
+      }
+    },
+    {
+      "query": "file:\"rpm.md\" OR file:\"targets.md\" OR file:\"nsis.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10194920
+      }
+    },
+    {
+      "query": "file:\"icon.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10457834
+      }
+    },
+    {
+      "query": "file:\"windows.md\" OR file:\"nsis.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11576555
+      }
+    },
+    {
+      "query": "file:\"depends.md\" OR file:\"linux.md\" OR file:\"rpm.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10720487
+      }
+    },
+    {
+      "query": "file:\"depends.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11378412
+      }
+    },
+    {
+      "query": "file:\"windows.md\" OR file:\"security.md\" OR file:\"scope.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 9599727
+      }
+    },
+    {
+      "query": "file:\"updater.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11377642
+      }
+    },
+    {
+      "query": "file:\"create_temp_db_and_covers.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10916838
+      }
+    },
+    {
+      "query": "file:\"test_live.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11837683
+      }
+    },
+    {
+      "query": "file:\"String.md\" OR file:\"MangaDexChapterRelationship.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10652644
+      }
+    },
+    {
+      "query": "file:\"App.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10916067
+      }
+    },
+    {
+      "query": "file:\"index.ts.md\" OR file:\"AniListAndroidProvider.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11309808
+      }
+    },
+    {
+      "query": "file:\"useAniListAccessToken.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11441136
+      }
+    },
+    {
+      "query": "file:\"index.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10254319
+      }
+    },
+    {
+      "query": "file:\"CommandPalette.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 12363754
+      }
+    },
+    {
+      "query": "file:\"ViewRouter.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11440360
+      }
+    },
+    {
+      "query": "file:\"GlobalDialogs.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10648553
+      }
+    },
+    {
+      "query": "file:\"index.ts.md\" OR file:\"libraryStore.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 10845930
+      }
+    },
+    {
+      "query": "file:\"AnnotationsViewAndroid.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11570667
+      }
+    },
+    {
+      "query": "file:\"Sidebar.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11240426
+      }
+    },
+    {
+      "query": "file:\"SeriesView.tsx.md\" OR file:\"types.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11569899
+      }
+    },
+    {
+      "query": "file:\"SettingsDialog.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11833575
+      }
+    },
+    {
+      "query": "file:\"index.ts.md\" OR file:\"ConversionJobTracker.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 12229094
+      }
+    },
+    {
+      "query": "file:\"ShortcutsDialog.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 12425454
+      }
+    },
+    {
+      "query": "file:\"BooksHome.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11766501
+      }
+    },
+    {
+      "query": "file:\"HomePage.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 12228068
+      }
+    },
+    {
+      "query": "file:\"LazyRow.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 12424171
+      }
+    },
+    {
+      "query": "file:\"ShioriIcons.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 11632104
+      }
+    },
+    {
+      "query": "file:\"Layout.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13345524
+      }
+    },
+    {
+      "query": "file:\"ModernToolbar.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13281769
+      }
+    },
+    {
+      "query": "file:\"NavigationRail.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13344754
+      }
+    },
+    {
+      "query": "file:\"ReaderLayout.tsx.md\" OR file:\"GenericHtmlReader.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13410799
+      }
+    },
+    {
+      "query": "file:\"AdvancedFilterDialog.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13015020
+      }
+    },
+    {
+      "query": "file:\"BookDetailsDialog.tsx.md\" OR file:\"useToast.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 12748783
+      }
+    },
+    {
+      "query": "file:\"DuplicateFinderDialog.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13608174
+      }
+    },
+    {
+      "query": "file:\"FormatBadge.tsx.md\" OR file:\"index.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 12750565
+      }
+    },
+    {
+      "query": "file:\"ModernBookCard.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 12354529
+      }
+    },
+    {
+      "query": "file:\"Target.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13013479
+      }
+    },
+    {
+      "query": "file:\"ModernListView.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13273327
+      }
+    },
+    {
+      "query": "file:\"ModernTableView.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13474537
+      }
+    },
+    {
+      "query": "file:\"ProwlarrSearch.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13077223
+      }
+    },
+    {
+      "query": "file:\"SortDropdown.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13469679
+      }
+    },
+    {
+      "query": "file:\"MangaReader.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13999599
+      }
+    },
+    {
+      "query": "file:\"MangaTopBar.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13799407
+      }
+    },
+    {
+      "query": "file:\"AppCustomizationStep.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13340388
+      }
+    },
+    {
+      "query": "file:\"MigrationDialog.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13669095
+      }
+    },
+    {
+      "query": "file:\"OnboardingProgress.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14394095
+      }
+    },
+    {
+      "query": "file:\"OnboardingWizard.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14062317
+      }
+    },
+    {
+      "query": "file:\"index.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13731305
+      }
+    },
+    {
+      "query": "file:\"ImportStep.tsx.md\" OR file:\"FormatBadge.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 13927148
+      }
+    },
+    {
+      "query": "file:\"utils.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14190062
+      }
+    },
+    {
+      "query": "file:\"ImportProgress.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14452465
+      }
+    },
+    {
+      "query": "file:\"SettingGroup.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14063333
+      }
+    },
+    {
+      "query": "file:\"AppCustomizationStep.tsx.md\" OR file:\"onboardingStore.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14454252
+      }
+    },
+    {
+      "query": "file:\"OnlineMangaView.tsx.md\" OR file:\"ContentCarousel.tsx.md\" OR file:\"OnlineBooksView.tsx.md\" OR file:\"OnlineSearchHeader.tsx.md\" OR file:\"ModernBookCard.tsx.md\" OR file:\"OnlineMangaDetailView.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15049201
+      }
+    },
+    {
+      "query": "file:\"AniListDashboard.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14515949
+      }
+    },
+    {
+      "query": "file:\"AniListMangaDetailsDialog.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14718187
+      }
+    },
+    {
+      "query": "file:\"GutenbergBookDetails.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14452200
+      }
+    },
+    {
+      "query": "file:\"HeroMangaBanner.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14654951
+      }
+    },
+    {
+      "query": "file:\"LibgenBookDetails.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14714601
+      }
+    },
+    {
+      "query": "file:\"OnlineMangaReader.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15171824
+      }
+    },
+    {
+      "query": "file:\"TorboxHubView.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14649830
+      }
+    },
+    {
+      "query": "file:\"PremiumEpubReader.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15307246
+      }
+    },
+    {
+      "query": "file:\"PdfReader.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15178474
+      }
+    },
+    {
+      "query": "file:\"MobiReader.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14914277
+      }
+    },
+    {
+      "query": "file:\"GestureZones.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15243241
+      }
+    },
+    {
+      "query": "file:\"PremiumSidebar.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15701231
+      }
+    },
+    {
+      "query": "file:\"ResumeReadingDialog.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15179750
+      }
+    },
+    {
+      "query": "file:\"TTSControlBar.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15438825
+      }
+    },
+    {
+      "query": "file:\"index.ts.md\" OR file:\"RSSFeedManager.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15898862
+      }
+    },
+    {
+      "query": "file:\"ActivityHeatmap.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15378407
+      }
+    },
+    {
+      "query": "file:\"WeeklyChart.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15172832
+      }
+    },
+    {
+      "query": "file:\"badge.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15378149
+      }
+    },
+    {
+      "query": "file:\"context-menu.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15111134
+      }
+    },
+    {
+      "query": "file:\"dialog.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15896552
+      }
+    },
+    {
+      "query": "file:\"dropdown-menu.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15307743
+      }
+    },
+    {
+      "query": "file:\"label.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15175131
+      }
+    },
+    {
+      "query": "file:\"scroll-area.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15503070
+      }
+    },
+    {
+      "query": "file:\"separator.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14975957
+      }
+    },
+    {
+      "query": "file:\"skeleton.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15640802
+      }
+    },
+    {
+      "query": "file:\"switch.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15575521
+      }
+    },
+    {
+      "query": "file:\"env.d.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15628759
+      }
+    },
+    {
+      "query": "file:\"useBookOpen.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15179480
+      }
+    },
+    {
+      "query": "file:\"useBookReadingTime.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15503576
+      }
+    },
+    {
+      "query": "file:\"premiumReaderStore.ts.md\" OR file:\"useFullscreen.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15769821
+      }
+    },
+    {
+      "query": "file:\"useGlobalSearch.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15107022
+      }
+    },
+    {
+      "query": "file:\"useGroupedLibrary.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15835612
+      }
+    },
+    {
+      "query": "file:\"useIsMobile.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15044814
+      }
+    },
+    {
+      "query": "file:\"useMangaDex.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15764691
+      }
+    },
+    {
+      "query": "file:\"useOpenLibrary.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15899095
+      }
+    },
+    {
+      "query": "file:\"usePluginSource.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15236551
+      }
+    },
+    {
+      "query": "file:\"usePremiumReaderKeyboard.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15832788
+      }
+    },
+    {
+      "query": "file:\"useReaderAutoHide.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15305674
+      }
+    },
+    {
+      "query": "file:\"useReaderTheme.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15564230
+      }
+    },
+    {
+      "query": "file:\"useReadingProgress.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15575252
+      }
+    },
+    {
+      "query": "file:\"useReadingSession.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14910912
+      }
+    },
+    {
+      "query": "file:\"useThumbnail.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15701452
+      }
+    },
+    {
+      "query": "file:\"anilist.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15245515
+      }
+    },
+    {
+      "query": "file:\"coverCache.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15373254
+      }
+    },
+    {
+      "query": "file:\"errors.ts.md\" OR file:\"ShioriError.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15639758
+      }
+    },
+    {
+      "query": "file:\"highlightAnnotations.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15706064
+      }
+    },
+    {
+      "query": "file:\"pluginSources.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15307202
+      }
+    },
+    {
+      "query": "file:\"sentenceSplitter.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15439299
+      }
+    },
+    {
+      "query": "file:\"shortcutsCatalog.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15634625
+      }
+    },
+    {
+      "query": "file:\"tauri.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15503551
+      }
+    },
+    {
+      "query": "file:\"api.ts.md\" OR file:\"types.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15443913
+      }
+    },
+    {
+      "query": "file:\"importer.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14975665
+      }
+    },
+    {
+      "query": "file:\"api.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15177148
+      }
+    },
+    {
+      "query": "file:\"importer.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15434161
+      }
+    },
+    {
+      "query": "file:\"types.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15900099
+      }
+    },
+    {
+      "query": "file:\"api.ts.md\" OR file:\"types.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15112378
+      }
+    },
+    {
+      "query": "file:\"doodleStore.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15110580
+      }
+    },
+    {
+      "query": "file:\"featureDiscoveryStore.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15040680
+      }
+    },
+    {
+      "query": "file:\"mangaReaderStore.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15307444
+      }
+    },
+    {
+      "query": "file:\"offlineSyncStore.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15307699
+      }
+    },
+    {
+      "query": "file:\"onlineDownloadStore.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15304875
+      }
+    },
+    {
+      "query": "file:\"onlineMangaBrowseStore.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15631016
+      }
+    },
+    {
+      "query": "file:\"onlineMangaReaderStore.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15569842
+      }
+    },
+    {
+      "query": "file:\"sourceStore.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14714275
+      }
+    },
+    {
+      "query": "file:\"pluginSourceStore.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15895724
+      }
+    },
+    {
+      "query": "file:\"sourceHealthStore.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15770041
+      }
+    },
+    {
+      "query": "file:\"useTorboxStore.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15367581
+      }
+    },
+    {
+      "query": "file:\"setup.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15242411
+      }
+    },
+    {
+      "query": "file:\"tailwind.config.js.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15832750
+      }
+    },
+    {
+      "query": "file:\"test-build.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15828384
+      }
+    },
+    {
+      "query": "file:\"Layout.ssr.test.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15564697
+      }
+    },
+    {
+      "query": "file:\"Layout.test.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15769778
+      }
+    },
+    {
+      "query": "file:\"OnlineMangaDetailView.test.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15373478
+      }
+    },
+    {
+      "query": "file:\"library.spec.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15240093
+      }
+    },
+    {
+      "query": "file:\"useMangaDex.test.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15900333
+      }
+    },
+    {
+      "query": "file:\"utils.test.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15704751
+      }
+    },
+    {
+      "query": "file:\"compilerOptions.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15696788
+      }
+    },
+    {
+      "query": "file:\"tsconfig.json.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15640497
+      }
+    },
+    {
+      "query": "file:\"compilerOptions.md\" OR file:\"vite.config.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15042194
+      }
+    },
+    {
+      "query": "file:\"vite.config.ts.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15965864
+      }
+    },
+    {
+      "query": "file:\"format_detector.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14779790
+      }
+    },
+    {
+      "query": "file:\"ShareBookDialog.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 14911889
+      }
+    },
+    {
+      "query": "file:\"OnlineBooksView.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15242652
+      }
+    },
+    {
+      "query": "file:\"mangadex.rs.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15309215
+      }
+    },
+    {
+      "query": "file:\"BookDetailsDialog.tsx.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15834273
+      }
+    },
+    {
+      "query": "file:\"framer-motion.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15636122
+      }
+    },
+    {
+      "query": "file:\"lucide-react.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15442596
+      }
+    },
+    {
+      "query": "file:\"Target.md\"",
+      "color": {
+        "a": 1,
+        "rgb": 15108233
+      }
+    }
+  ],
+  "search": "-file:index.md",
+  "repelStrength": 15,
+  "linkDistance": 180,
+  "centerStrength": 0.2,
+  "scale": 0.8,
+  "showArrow": false
+}

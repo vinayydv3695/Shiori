@@ -29,6 +29,7 @@ import { useLibraryStore } from '@/store/libraryStore'
 import { useToast } from '@/store/toastStore'
 import { type CurrentView } from '@/store/uiStore'
 import { useOfflineSyncStore } from '@/store/offlineSyncStore'
+import { useTorboxStore } from '@/store/useTorboxStore'
 import { anilistAuth } from '@/auth'
 
 import { logger } from '@/lib/logger'
@@ -160,6 +161,12 @@ export function Layout({
     window.addEventListener('anilist-auth-changed', handleAuthChange)
     return () => window.removeEventListener('anilist-auth-changed', handleAuthChange)
   }, [preferencesToken])
+
+  const checkTorboxKey = useTorboxStore(s => s.checkApiKey)
+  
+  useEffect(() => {
+    checkTorboxKey()
+  }, [checkTorboxKey])
 
   useEffect(() => {
     if (anilistToken) {

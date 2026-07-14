@@ -1,0 +1,3412 @@
+{
+  "eslint.config.js": {
+    "mtime": 1783310798.6870806,
+    "ast_hash": "8757b4989943ac8237d85a5e059248e9",
+    "semantic_hash": "8757b4989943ac8237d85a5e059248e9"
+  },
+  "package.json": {
+    "mtime": 1783925921.3634768,
+    "ast_hash": "5858d0300e9f4bbe3cc806575b4eac27",
+    "semantic_hash": "5858d0300e9f4bbe3cc806575b4eac27"
+  },
+  "playwright.config.ts": {
+    "mtime": 1783308688.737867,
+    "ast_hash": "caae177482a00d3c879da0c66c4ed68b",
+    "semantic_hash": "caae177482a00d3c879da0c66c4ed68b"
+  },
+  "postcss.config.js": {
+    "mtime": 1782021727.8690765,
+    "ast_hash": "ef3ba2a81ba19f8ea5ddf625521e96f0",
+    "semantic_hash": "ef3ba2a81ba19f8ea5ddf625521e96f0"
+  },
+  "src-tauri/build.rs": {
+    "mtime": 1783754112.4371078,
+    "ast_hash": "1cdcb1e34a83079fd7695429b42524fc",
+    "semantic_hash": "1cdcb1e34a83079fd7695429b42524fc"
+  },
+  "src-tauri/capabilities/android.json": {
+    "mtime": 1783942230.5712852,
+    "ast_hash": "d80c7e69ae5dc77558d5ff4656299ecd",
+    "semantic_hash": ""
+  },
+  "src-tauri/capabilities/default.json": {
+    "mtime": 1783920490.9717667,
+    "ast_hash": "08ce79a540fcc10cfb95a5d2315ee5f5",
+    "semantic_hash": "08ce79a540fcc10cfb95a5d2315ee5f5"
+  },
+  "src-tauri/capabilities/desktop.json": {
+    "mtime": 1782812542.887011,
+    "ast_hash": "368ec61b67a04b0e013c71f9413987bd",
+    "semantic_hash": "368ec61b67a04b0e013c71f9413987bd"
+  },
+  "src-tauri/gen/android/app/build.gradle.kts": {
+    "mtime": 1782811901.6153052,
+    "ast_hash": "2112ccff63229d20b2ad8bbc72850267",
+    "semantic_hash": "2112ccff63229d20b2ad8bbc72850267"
+  },
+  "src-tauri/gen/android/app/src/main/assets/tauri.conf.json": {
+    "mtime": 1783792597.6934845,
+    "ast_hash": "7d4499c87895376930196df83fb05e00",
+    "semantic_hash": "7d4499c87895376930196df83fb05e00"
+  },
+  "src-tauri/gen/android/app/src/main/java/com/tauri/shiori/MainActivity.kt": {
+    "mtime": 1783859255.4201646,
+    "ast_hash": "f9c37c9584f8195f89ecc2618ffc01ca",
+    "semantic_hash": "f9c37c9584f8195f89ecc2618ffc01ca"
+  },
+  "src-tauri/gen/android/app/src/main/java/com/tauri/shiori/generated/Ipc.kt": {
+    "mtime": 1782812312.6449997,
+    "ast_hash": "9ad27c18feb258faccff80ad0f6c798a",
+    "semantic_hash": "9ad27c18feb258faccff80ad0f6c798a"
+  },
+  "src-tauri/gen/android/app/src/main/java/com/tauri/shiori/generated/Logger.kt": {
+    "mtime": 1782812312.646,
+    "ast_hash": "9eed66396dc466f9006e5530ad3f99da",
+    "semantic_hash": "9eed66396dc466f9006e5530ad3f99da"
+  },
+  "src-tauri/gen/android/app/src/main/java/com/tauri/shiori/generated/PermissionHelper.kt": {
+    "mtime": 1782812312.646,
+    "ast_hash": "bfbd4dddfb57aca263830b4d9d498623",
+    "semantic_hash": "bfbd4dddfb57aca263830b4d9d498623"
+  },
+  "src-tauri/gen/android/app/src/main/java/com/tauri/shiori/generated/Rust.kt": {
+    "mtime": 1782812312.646,
+    "ast_hash": "56d8df51d6715da045578f76d0dd58e5",
+    "semantic_hash": "56d8df51d6715da045578f76d0dd58e5"
+  },
+  "src-tauri/gen/android/app/src/main/java/com/tauri/shiori/generated/RustWebChromeClient.kt": {
+    "mtime": 1782812312.6480007,
+    "ast_hash": "5ab65495429341cefc8250866a3c8c17",
+    "semantic_hash": "5ab65495429341cefc8250866a3c8c17"
+  },
+  "src-tauri/gen/android/app/src/main/java/com/tauri/shiori/generated/RustWebView.kt": {
+    "mtime": 1782812312.6500013,
+    "ast_hash": "a917320309b646e944c92621e8852162",
+    "semantic_hash": "a917320309b646e944c92621e8852162"
+  },
+  "src-tauri/gen/android/app/src/main/java/com/tauri/shiori/generated/RustWebViewClient.kt": {
+    "mtime": 1782812312.6500013,
+    "ast_hash": "3b63d33e41c2cfe102f5d49b75f16790",
+    "semantic_hash": "3b63d33e41c2cfe102f5d49b75f16790"
+  },
+  "src-tauri/gen/android/app/src/main/java/com/tauri/shiori/generated/TauriActivity.kt": {
+    "mtime": 1782812318.1227787,
+    "ast_hash": "50c5d45620df6693e8383d2a63e8416e",
+    "semantic_hash": "50c5d45620df6693e8383d2a63e8416e"
+  },
+  "src-tauri/gen/android/app/src/main/java/com/tauri/shiori/generated/WryActivity.kt": {
+    "mtime": 1782812312.6530023,
+    "ast_hash": "a7edefdbdaef91f8b50528e2b69d8078",
+    "semantic_hash": "a7edefdbdaef91f8b50528e2b69d8078"
+  },
+  "src-tauri/gen/android/app/tauri.build.gradle.kts": {
+    "mtime": 1783511918.3492143,
+    "ast_hash": "39c94ac06030653cb48ee12aa8193c50",
+    "semantic_hash": "39c94ac06030653cb48ee12aa8193c50"
+  },
+  "src-tauri/gen/android/build.gradle.kts": {
+    "mtime": 1782811901.6143053,
+    "ast_hash": "34b5dd707d61fa7f4a197eee123722b2",
+    "semantic_hash": "34b5dd707d61fa7f4a197eee123722b2"
+  },
+  "src-tauri/gen/android/buildSrc/build.gradle.kts": {
+    "mtime": 1782811901.6193047,
+    "ast_hash": "0814415b6e7b2c6e126521dfe9960081",
+    "semantic_hash": "0814415b6e7b2c6e126521dfe9960081"
+  },
+  "src-tauri/gen/android/buildSrc/src/main/java/com/tauri/shiori/kotlin/BuildTask.kt": {
+    "mtime": 1782811901.6193047,
+    "ast_hash": "15bad6983ebaf1ade25e168fa9c899a0",
+    "semantic_hash": "15bad6983ebaf1ade25e168fa9c899a0"
+  },
+  "src-tauri/gen/android/buildSrc/src/main/java/com/tauri/shiori/kotlin/RustPlugin.kt": {
+    "mtime": 1782811901.6193047,
+    "ast_hash": "27e9945f16c83be3c3e69f6b860bc9b5",
+    "semantic_hash": "27e9945f16c83be3c3e69f6b860bc9b5"
+  },
+  "src-tauri/gen/android/gradlew": {
+    "mtime": 1783793491.9845493,
+    "ast_hash": "02c16663c6f0aa37f98d94d698c22b8c",
+    "semantic_hash": "02c16663c6f0aa37f98d94d698c22b8c"
+  },
+  "src-tauri/gen/android/settings.gradle": {
+    "mtime": 1782811901.6153052,
+    "ast_hash": "abd11d894caa36e33edcd381ba11f330",
+    "semantic_hash": "abd11d894caa36e33edcd381ba11f330"
+  },
+  "src-tauri/gen/android/tauri.settings.gradle": {
+    "mtime": 1783511918.3492143,
+    "ast_hash": "7c266a1a3979ec59a04f592b6403a224",
+    "semantic_hash": "7c266a1a3979ec59a04f592b6403a224"
+  },
+  "src-tauri/gen/schemas/acl-manifests.json": {
+    "mtime": 1783938891.8575513,
+    "ast_hash": "d0b02dd32a122ce7c73d76f17102857a",
+    "semantic_hash": "d0b02dd32a122ce7c73d76f17102857a"
+  },
+  "src-tauri/gen/schemas/android-schema.json": {
+    "mtime": 1783791717.2351842,
+    "ast_hash": "f4fb85be9f8c08f4f4b53fa270296963",
+    "semantic_hash": "f4fb85be9f8c08f4f4b53fa270296963"
+  },
+  "src-tauri/gen/schemas/capabilities.json": {
+    "mtime": 1783942983.3568988,
+    "ast_hash": "d843513c58b019a3f229d25da07be2aa",
+    "semantic_hash": ""
+  },
+  "src-tauri/gen/schemas/desktop-schema.json": {
+    "mtime": 1783938891.865581,
+    "ast_hash": "7403a05cbf7f06230466c9472cf0a675",
+    "semantic_hash": "7403a05cbf7f06230466c9472cf0a675"
+  },
+  "src-tauri/gen/schemas/linux-schema.json": {
+    "mtime": 1783938891.8645523,
+    "ast_hash": "7403a05cbf7f06230466c9472cf0a675",
+    "semantic_hash": "7403a05cbf7f06230466c9472cf0a675"
+  },
+  "src-tauri/gen/schemas/mobile-schema.json": {
+    "mtime": 1783791717.2360675,
+    "ast_hash": "f4fb85be9f8c08f4f4b53fa270296963",
+    "semantic_hash": "f4fb85be9f8c08f4f4b53fa270296963"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/.tauri/tauri-api/build.gradle.kts": {
+    "mtime": 1783793033.8475676,
+    "ast_hash": "68900af07f5c317d787436216820fa47",
+    "semantic_hash": "68900af07f5c317d787436216820fa47"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/.tauri/tauri-api/src/androidTest/java/app/tauri/ExampleInstrumentedTest.kt": {
+    "mtime": 1783793033.847909,
+    "ast_hash": "2f853621cd24b6d1f15372d91b1012ff",
+    "semantic_hash": "2f853621cd24b6d1f15372d91b1012ff"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/.tauri/tauri-api/src/main/java/app/tauri/AppPlugin.kt": {
+    "mtime": 1783793033.8481574,
+    "ast_hash": "9aa5fc61c23958ffa6d1d5eff4f3869d",
+    "semantic_hash": "9aa5fc61c23958ffa6d1d5eff4f3869d"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/.tauri/tauri-api/src/main/java/app/tauri/FsUtils.kt": {
+    "mtime": 1783793033.8482053,
+    "ast_hash": "5ed4630add62705b18d833454e22ca8e",
+    "semantic_hash": "5ed4630add62705b18d833454e22ca8e"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/.tauri/tauri-api/src/main/java/app/tauri/JniMethod.kt": {
+    "mtime": 1783793033.8482566,
+    "ast_hash": "27681725923c55d0e1ff640332664723",
+    "semantic_hash": "27681725923c55d0e1ff640332664723"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/.tauri/tauri-api/src/main/java/app/tauri/Logger.kt": {
+    "mtime": 1783793033.8483064,
+    "ast_hash": "4a93f67857c6c1b174291bcc47942e1a",
+    "semantic_hash": "4a93f67857c6c1b174291bcc47942e1a"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/.tauri/tauri-api/src/main/java/app/tauri/PathPlugin.kt": {
+    "mtime": 1783793033.8483574,
+    "ast_hash": "def1c7eac1a447b581c7fc40cbf47d5f",
+    "semantic_hash": "def1c7eac1a447b581c7fc40cbf47d5f"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/.tauri/tauri-api/src/main/java/app/tauri/PermissionHelper.kt": {
+    "mtime": 1783793033.8484325,
+    "ast_hash": "3a55f8c76fba88220bb4727261674031",
+    "semantic_hash": "3a55f8c76fba88220bb4727261674031"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/.tauri/tauri-api/src/main/java/app/tauri/PermissionState.kt": {
+    "mtime": 1783793033.8484955,
+    "ast_hash": "c1bae658a48e0531f08dc166df8b6c72",
+    "semantic_hash": "c1bae658a48e0531f08dc166df8b6c72"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/.tauri/tauri-api/src/main/java/app/tauri/annotation/ActivityCallback.kt": {
+    "mtime": 1783793033.84869,
+    "ast_hash": "71dcfee2c3780c5dd3edc0cfe6772875",
+    "semantic_hash": "71dcfee2c3780c5dd3edc0cfe6772875"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/.tauri/tauri-api/src/main/java/app/tauri/annotation/InvokeArg.kt": {
+    "mtime": 1783793033.8487778,
+    "ast_hash": "e613af328d6bb00cc2830d62418efa00",
+    "semantic_hash": "e613af328d6bb00cc2830d62418efa00"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/.tauri/tauri-api/src/main/java/app/tauri/annotation/Permission.kt": {
+    "mtime": 1783793033.8488312,
+    "ast_hash": "90b59311f98c4619093abda32cd671ee",
+    "semantic_hash": "90b59311f98c4619093abda32cd671ee"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/.tauri/tauri-api/src/main/java/app/tauri/annotation/PermissionCallback.kt": {
+    "mtime": 1783793033.8489106,
+    "ast_hash": "9ca0364ca399a70583be92fd45de9985",
+    "semantic_hash": "9ca0364ca399a70583be92fd45de9985"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/.tauri/tauri-api/src/main/java/app/tauri/annotation/PluginMethod.kt": {
+    "mtime": 1783793033.8489642,
+    "ast_hash": "106ee9a3ffd0f0e2b19a7100652e17e5",
+    "semantic_hash": "106ee9a3ffd0f0e2b19a7100652e17e5"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/.tauri/tauri-api/src/main/java/app/tauri/annotation/TauriPlugin.kt": {
+    "mtime": 1783793033.8490186,
+    "ast_hash": "9bc051596b319ae0d6ae201e59b9f788",
+    "semantic_hash": "9bc051596b319ae0d6ae201e59b9f788"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/.tauri/tauri-api/src/main/java/app/tauri/plugin/Channel.kt": {
+    "mtime": 1783793033.849137,
+    "ast_hash": "29dbe9854e49e9ddd9be9f40bf409444",
+    "semantic_hash": "29dbe9854e49e9ddd9be9f40bf409444"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/.tauri/tauri-api/src/main/java/app/tauri/plugin/InvalidPluginMethodException.kt": {
+    "mtime": 1783793033.8492002,
+    "ast_hash": "2e7d1da4bcfdc9c287b6789b5c5daac1",
+    "semantic_hash": "2e7d1da4bcfdc9c287b6789b5c5daac1"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/.tauri/tauri-api/src/main/java/app/tauri/plugin/Invoke.kt": {
+    "mtime": 1783793033.849261,
+    "ast_hash": "b5faed15b22709f66bf1109a37e278cc",
+    "semantic_hash": "b5faed15b22709f66bf1109a37e278cc"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/.tauri/tauri-api/src/main/java/app/tauri/plugin/JSArray.kt": {
+    "mtime": 1783793033.8493195,
+    "ast_hash": "3a6cfcabfa0d257681abc0a324d3de8c",
+    "semantic_hash": "3a6cfcabfa0d257681abc0a324d3de8c"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/.tauri/tauri-api/src/main/java/app/tauri/plugin/JSObject.kt": {
+    "mtime": 1783793033.8493776,
+    "ast_hash": "0cae3aa8e75e2c76d8a4d2400a42815f",
+    "semantic_hash": "0cae3aa8e75e2c76d8a4d2400a42815f"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/.tauri/tauri-api/src/main/java/app/tauri/plugin/Plugin.kt": {
+    "mtime": 1783793033.8494713,
+    "ast_hash": "bfd8fdfa0271d3c24ac6605f6e3422a1",
+    "semantic_hash": "bfd8fdfa0271d3c24ac6605f6e3422a1"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/.tauri/tauri-api/src/main/java/app/tauri/plugin/PluginHandle.kt": {
+    "mtime": 1783793033.8495336,
+    "ast_hash": "fa361ef6ddba4f345f7c11d405ea942d",
+    "semantic_hash": "fa361ef6ddba4f345f7c11d405ea942d"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/.tauri/tauri-api/src/main/java/app/tauri/plugin/PluginManager.kt": {
+    "mtime": 1783793033.8495896,
+    "ast_hash": "eb9f4cf4607bd857e520c17dbbbbbafa",
+    "semantic_hash": "eb9f4cf4607bd857e520c17dbbbbbafa"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/.tauri/tauri-api/src/main/java/app/tauri/plugin/PluginMethodData.kt": {
+    "mtime": 1783793033.849641,
+    "ast_hash": "15d350202bd06580f260f35cd3d7d09b",
+    "semantic_hash": "15d350202bd06580f260f35cd3d7d09b"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/.tauri/tauri-api/src/main/java/app/tauri/plugin/PluginResult.kt": {
+    "mtime": 1783793033.8496993,
+    "ast_hash": "6a1e6b3f54a8ef6d2b3d47bc40c433a9",
+    "semantic_hash": "6a1e6b3f54a8ef6d2b3d47bc40c433a9"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/.tauri/tauri-api/src/test/java/app/tauri/ExampleUnitTest.kt": {
+    "mtime": 1783793033.849912,
+    "ast_hash": "d238e28954fa65612410096e84572971",
+    "semantic_hash": "d238e28954fa65612410096e84572971"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/build.gradle.kts": {
+    "mtime": 1783516846.6893082,
+    "ast_hash": "94f71b6ed82f0c6048de4f813d414507",
+    "semantic_hash": "94f71b6ed82f0c6048de4f813d414507"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/settings.gradle": {
+    "mtime": 1783510730.9973814,
+    "ast_hash": "7429afbb737de49ae9f0cfb212fe336d",
+    "semantic_hash": "7429afbb737de49ae9f0cfb212fe336d"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/src/androidTest/java/ExampleInstrumentedTest.kt": {
+    "mtime": 1783516818.46192,
+    "ast_hash": "b1497898b4afcd2f7e29c295047c594b",
+    "semantic_hash": "b1497898b4afcd2f7e29c295047c594b"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/src/main/java/AuthPlugin.kt": {
+    "mtime": 1783859239.598013,
+    "ast_hash": "f72f1b34271edfbfb35eb49658349f04",
+    "semantic_hash": "f72f1b34271edfbfb35eb49658349f04"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/android/src/test/java/ExampleUnitTest.kt": {
+    "mtime": 1783516818.845967,
+    "ast_hash": "c06507efc87b3fc919e16d131df4ef40",
+    "semantic_hash": "c06507efc87b3fc919e16d131df4ef40"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/build.rs": {
+    "mtime": 1783920843.858852,
+    "ast_hash": "643e8ed30a1f39ee1270a1f6676778cc",
+    "semantic_hash": "643e8ed30a1f39ee1270a1f6676778cc"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/examples/tauri-app/.vscode/extensions.json": {
+    "mtime": 1783510730.971381,
+    "ast_hash": "66bc4d2caa831e7f64813c7fb1715f8a",
+    "semantic_hash": "66bc4d2caa831e7f64813c7fb1715f8a"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/examples/tauri-app/jsconfig.json": {
+    "mtime": 1783510730.9703808,
+    "ast_hash": "fa68e8d9ee2978b9b9e74a478d6cb758",
+    "semantic_hash": "fa68e8d9ee2978b9b9e74a478d6cb758"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/examples/tauri-app/package.json": {
+    "mtime": 1783510730.9703808,
+    "ast_hash": "79778fdc4617709cc73642d4e295af19",
+    "semantic_hash": "79778fdc4617709cc73642d4e295af19"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/examples/tauri-app/src-tauri/build.rs": {
+    "mtime": 1783510730.974381,
+    "ast_hash": "9e949d967099bcc42cfa6f8765a6c938",
+    "semantic_hash": "9e949d967099bcc42cfa6f8765a6c938"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/examples/tauri-app/src-tauri/capabilities/default.json": {
+    "mtime": 1783510730.9963815,
+    "ast_hash": "0d77d97a17ec425d69e0d27149349af3",
+    "semantic_hash": "0d77d97a17ec425d69e0d27149349af3"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/examples/tauri-app/src-tauri/src/lib.rs": {
+    "mtime": 1783510730.9973814,
+    "ast_hash": "7b27739d2ab03315bea6d7abc0ed3863",
+    "semantic_hash": "7b27739d2ab03315bea6d7abc0ed3863"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/examples/tauri-app/src-tauri/src/main.rs": {
+    "mtime": 1783510730.9973814,
+    "ast_hash": "b78be3a1b9a34929bae3412603583be4",
+    "semantic_hash": "b78be3a1b9a34929bae3412603583be4"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/examples/tauri-app/src-tauri/tauri.conf.json": {
+    "mtime": 1783510730.974381,
+    "ast_hash": "12241c585d13b3e5967ddb64780a5709",
+    "semantic_hash": "12241c585d13b3e5967ddb64780a5709"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/examples/tauri-app/src/App.svelte": {
+    "mtime": 1783510730.971381,
+    "ast_hash": "3054e2ba4ac65081dee16a063534f93f",
+    "semantic_hash": "3054e2ba4ac65081dee16a063534f93f"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/examples/tauri-app/src/lib/Greet.svelte": {
+    "mtime": 1783510730.974381,
+    "ast_hash": "eef49fd67398ffa7a8407b0032543085",
+    "semantic_hash": "eef49fd67398ffa7a8407b0032543085"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/examples/tauri-app/src/main.js": {
+    "mtime": 1783510730.974381,
+    "ast_hash": "2b9773ae9b2f3801022bc9e7d1c2bfd8",
+    "semantic_hash": "2b9773ae9b2f3801022bc9e7d1c2bfd8"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/examples/tauri-app/src/vite-env.d.ts": {
+    "mtime": 1783510730.974381,
+    "ast_hash": "b3ea8efbd34fc47efac356333b135a8e",
+    "semantic_hash": "b3ea8efbd34fc47efac356333b135a8e"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/examples/tauri-app/vite.config.js": {
+    "mtime": 1783510730.9703808,
+    "ast_hash": "afab92701375a858076c2bd365584721",
+    "semantic_hash": "afab92701375a858076c2bd365584721"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/guest-js/index.ts": {
+    "mtime": 1783510731.0123818,
+    "ast_hash": "939be3f3fd7b777b180d0ae53a30e9d4",
+    "semantic_hash": "939be3f3fd7b777b180d0ae53a30e9d4"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/package.json": {
+    "mtime": 1783510730.968381,
+    "ast_hash": "6c0e4afd823f8ac6fe44d976a31abdbf",
+    "semantic_hash": "6c0e4afd823f8ac6fe44d976a31abdbf"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/permissions/schemas/schema.json": {
+    "mtime": 1783671259.2118196,
+    "ast_hash": "858e264089445abba8a9b9855cc83d6c",
+    "semantic_hash": "858e264089445abba8a9b9855cc83d6c"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/rollup.config.js": {
+    "mtime": 1783510730.9693809,
+    "ast_hash": "d03d9a02d3739a88744d1591fecb15f6",
+    "semantic_hash": "d03d9a02d3739a88744d1591fecb15f6"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/src/commands.rs": {
+    "mtime": 1783853866.909576,
+    "ast_hash": "daa355322dc367ddd1b1a33b40ec7ff7",
+    "semantic_hash": "daa355322dc367ddd1b1a33b40ec7ff7"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/src/desktop.rs": {
+    "mtime": 1783853859.2546444,
+    "ast_hash": "cbfece445e662323ed6b8cb82cf1b74d",
+    "semantic_hash": "cbfece445e662323ed6b8cb82cf1b74d"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/src/error.rs": {
+    "mtime": 1783671652.3392015,
+    "ast_hash": "9e54b9409a0ed7e86647abe7b1441f14",
+    "semantic_hash": "9e54b9409a0ed7e86647abe7b1441f14"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/src/lib.rs": {
+    "mtime": 1783853880.6574407,
+    "ast_hash": "e8d17612096fa8bf66d49cf143faa09d",
+    "semantic_hash": "e8d17612096fa8bf66d49cf143faa09d"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/src/mobile.rs": {
+    "mtime": 1783853845.98275,
+    "ast_hash": "5364ccb0adeaec124d7a60976f6cdc1e",
+    "semantic_hash": "5364ccb0adeaec124d7a60976f6cdc1e"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/src/models.rs": {
+    "mtime": 1783859207.5427024,
+    "ast_hash": "eecdaf91661027c49a3e7c0090a1c08e",
+    "semantic_hash": "eecdaf91661027c49a3e7c0090a1c08e"
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/tsconfig.json": {
+    "mtime": 1783510730.9693809,
+    "ast_hash": "abe7e40dadcc4cb4d7ee38e629198a44",
+    "semantic_hash": "abe7e40dadcc4cb4d7ee38e629198a44"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/.tauri/tauri-api/build.gradle.kts": {
+    "mtime": 1783793033.8737838,
+    "ast_hash": "68900af07f5c317d787436216820fa47",
+    "semantic_hash": "68900af07f5c317d787436216820fa47"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/.tauri/tauri-api/src/androidTest/java/app/tauri/ExampleInstrumentedTest.kt": {
+    "mtime": 1783793033.8740118,
+    "ast_hash": "2f853621cd24b6d1f15372d91b1012ff",
+    "semantic_hash": "2f853621cd24b6d1f15372d91b1012ff"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/.tauri/tauri-api/src/main/java/app/tauri/AppPlugin.kt": {
+    "mtime": 1783793033.8742948,
+    "ast_hash": "9aa5fc61c23958ffa6d1d5eff4f3869d",
+    "semantic_hash": "9aa5fc61c23958ffa6d1d5eff4f3869d"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/.tauri/tauri-api/src/main/java/app/tauri/FsUtils.kt": {
+    "mtime": 1783793033.8743505,
+    "ast_hash": "5ed4630add62705b18d833454e22ca8e",
+    "semantic_hash": "5ed4630add62705b18d833454e22ca8e"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/.tauri/tauri-api/src/main/java/app/tauri/JniMethod.kt": {
+    "mtime": 1783793033.8744023,
+    "ast_hash": "27681725923c55d0e1ff640332664723",
+    "semantic_hash": "27681725923c55d0e1ff640332664723"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/.tauri/tauri-api/src/main/java/app/tauri/Logger.kt": {
+    "mtime": 1783793033.874461,
+    "ast_hash": "4a93f67857c6c1b174291bcc47942e1a",
+    "semantic_hash": "4a93f67857c6c1b174291bcc47942e1a"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/.tauri/tauri-api/src/main/java/app/tauri/PathPlugin.kt": {
+    "mtime": 1783793033.8745208,
+    "ast_hash": "def1c7eac1a447b581c7fc40cbf47d5f",
+    "semantic_hash": "def1c7eac1a447b581c7fc40cbf47d5f"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/.tauri/tauri-api/src/main/java/app/tauri/PermissionHelper.kt": {
+    "mtime": 1783793033.8745725,
+    "ast_hash": "3a55f8c76fba88220bb4727261674031",
+    "semantic_hash": "3a55f8c76fba88220bb4727261674031"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/.tauri/tauri-api/src/main/java/app/tauri/PermissionState.kt": {
+    "mtime": 1783793033.8746376,
+    "ast_hash": "c1bae658a48e0531f08dc166df8b6c72",
+    "semantic_hash": "c1bae658a48e0531f08dc166df8b6c72"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/.tauri/tauri-api/src/main/java/app/tauri/annotation/ActivityCallback.kt": {
+    "mtime": 1783793033.874819,
+    "ast_hash": "71dcfee2c3780c5dd3edc0cfe6772875",
+    "semantic_hash": "71dcfee2c3780c5dd3edc0cfe6772875"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/.tauri/tauri-api/src/main/java/app/tauri/annotation/InvokeArg.kt": {
+    "mtime": 1783793033.874888,
+    "ast_hash": "e613af328d6bb00cc2830d62418efa00",
+    "semantic_hash": "e613af328d6bb00cc2830d62418efa00"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/.tauri/tauri-api/src/main/java/app/tauri/annotation/Permission.kt": {
+    "mtime": 1783793033.8749669,
+    "ast_hash": "90b59311f98c4619093abda32cd671ee",
+    "semantic_hash": "90b59311f98c4619093abda32cd671ee"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/.tauri/tauri-api/src/main/java/app/tauri/annotation/PermissionCallback.kt": {
+    "mtime": 1783793033.8750193,
+    "ast_hash": "9ca0364ca399a70583be92fd45de9985",
+    "semantic_hash": "9ca0364ca399a70583be92fd45de9985"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/.tauri/tauri-api/src/main/java/app/tauri/annotation/PluginMethod.kt": {
+    "mtime": 1783793033.875072,
+    "ast_hash": "106ee9a3ffd0f0e2b19a7100652e17e5",
+    "semantic_hash": "106ee9a3ffd0f0e2b19a7100652e17e5"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/.tauri/tauri-api/src/main/java/app/tauri/annotation/TauriPlugin.kt": {
+    "mtime": 1783793033.875124,
+    "ast_hash": "9bc051596b319ae0d6ae201e59b9f788",
+    "semantic_hash": "9bc051596b319ae0d6ae201e59b9f788"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/.tauri/tauri-api/src/main/java/app/tauri/plugin/Channel.kt": {
+    "mtime": 1783793033.8752317,
+    "ast_hash": "29dbe9854e49e9ddd9be9f40bf409444",
+    "semantic_hash": "29dbe9854e49e9ddd9be9f40bf409444"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/.tauri/tauri-api/src/main/java/app/tauri/plugin/InvalidPluginMethodException.kt": {
+    "mtime": 1783793033.875288,
+    "ast_hash": "2e7d1da4bcfdc9c287b6789b5c5daac1",
+    "semantic_hash": "2e7d1da4bcfdc9c287b6789b5c5daac1"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/.tauri/tauri-api/src/main/java/app/tauri/plugin/Invoke.kt": {
+    "mtime": 1783793033.8753436,
+    "ast_hash": "b5faed15b22709f66bf1109a37e278cc",
+    "semantic_hash": "b5faed15b22709f66bf1109a37e278cc"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/.tauri/tauri-api/src/main/java/app/tauri/plugin/JSArray.kt": {
+    "mtime": 1783793033.8754032,
+    "ast_hash": "3a6cfcabfa0d257681abc0a324d3de8c",
+    "semantic_hash": "3a6cfcabfa0d257681abc0a324d3de8c"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/.tauri/tauri-api/src/main/java/app/tauri/plugin/JSObject.kt": {
+    "mtime": 1783793033.8754745,
+    "ast_hash": "0cae3aa8e75e2c76d8a4d2400a42815f",
+    "semantic_hash": "0cae3aa8e75e2c76d8a4d2400a42815f"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/.tauri/tauri-api/src/main/java/app/tauri/plugin/Plugin.kt": {
+    "mtime": 1783793033.8755407,
+    "ast_hash": "bfd8fdfa0271d3c24ac6605f6e3422a1",
+    "semantic_hash": "bfd8fdfa0271d3c24ac6605f6e3422a1"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/.tauri/tauri-api/src/main/java/app/tauri/plugin/PluginHandle.kt": {
+    "mtime": 1783793033.8755956,
+    "ast_hash": "fa361ef6ddba4f345f7c11d405ea942d",
+    "semantic_hash": "fa361ef6ddba4f345f7c11d405ea942d"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/.tauri/tauri-api/src/main/java/app/tauri/plugin/PluginManager.kt": {
+    "mtime": 1783793033.8756473,
+    "ast_hash": "eb9f4cf4607bd857e520c17dbbbbbafa",
+    "semantic_hash": "eb9f4cf4607bd857e520c17dbbbbbafa"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/.tauri/tauri-api/src/main/java/app/tauri/plugin/PluginMethodData.kt": {
+    "mtime": 1783793033.8757064,
+    "ast_hash": "15d350202bd06580f260f35cd3d7d09b",
+    "semantic_hash": "15d350202bd06580f260f35cd3d7d09b"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/.tauri/tauri-api/src/main/java/app/tauri/plugin/PluginResult.kt": {
+    "mtime": 1783793033.8757634,
+    "ast_hash": "6a1e6b3f54a8ef6d2b3d47bc40c433a9",
+    "semantic_hash": "6a1e6b3f54a8ef6d2b3d47bc40c433a9"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/.tauri/tauri-api/src/test/java/app/tauri/ExampleUnitTest.kt": {
+    "mtime": 1783793033.875983,
+    "ast_hash": "d238e28954fa65612410096e84572971",
+    "semantic_hash": "d238e28954fa65612410096e84572971"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/build.gradle.kts": {
+    "mtime": 1783593709.7213356,
+    "ast_hash": "fbde38cb17b9454650e571efcf45cc99",
+    "semantic_hash": "fbde38cb17b9454650e571efcf45cc99"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/settings.gradle": {
+    "mtime": 1782830796.3130944,
+    "ast_hash": "7429afbb737de49ae9f0cfb212fe336d",
+    "semantic_hash": "7429afbb737de49ae9f0cfb212fe336d"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/src/androidTest/java/ExampleInstrumentedTest.kt": {
+    "mtime": 1782830796.3126583,
+    "ast_hash": "3121acc3943796faf809f009076904af",
+    "semantic_hash": "3121acc3943796faf809f009076904af"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/src/main/java/SafPlugin.kt": {
+    "mtime": 1783828901.1456237,
+    "ast_hash": "78950fb31126093c135739d7f384d384",
+    "semantic_hash": "78950fb31126093c135739d7f384d384"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/android/src/test/java/ExampleUnitTest.kt": {
+    "mtime": 1782830796.312872,
+    "ast_hash": "6103a8e4968d9688f7154d52b6eeaa7d",
+    "semantic_hash": "6103a8e4968d9688f7154d52b6eeaa7d"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/build.rs": {
+    "mtime": 1783866891.7222025,
+    "ast_hash": "0b8e4fdbcf6b7cb06d33593a37d3f04f",
+    "semantic_hash": "0b8e4fdbcf6b7cb06d33593a37d3f04f"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/dist-js/guest-js/index.d.ts": {
+    "mtime": 1782830899.2977731,
+    "ast_hash": "55ee7b5cdec2d09fb284d73b5a8aa691",
+    "semantic_hash": "55ee7b5cdec2d09fb284d73b5a8aa691"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/dist-js/index.js": {
+    "mtime": 1782830899.2957733,
+    "ast_hash": "9e851363920ee7f7388208e5684e044d",
+    "semantic_hash": "9e851363920ee7f7388208e5684e044d"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/examples/tauri-app/.vscode/extensions.json": {
+    "mtime": 1782830796.3072608,
+    "ast_hash": "66bc4d2caa831e7f64813c7fb1715f8a",
+    "semantic_hash": "66bc4d2caa831e7f64813c7fb1715f8a"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/examples/tauri-app/jsconfig.json": {
+    "mtime": 1782830796.3122299,
+    "ast_hash": "fa68e8d9ee2978b9b9e74a478d6cb758",
+    "semantic_hash": "fa68e8d9ee2978b9b9e74a478d6cb758"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/examples/tauri-app/package.json": {
+    "mtime": 1782830796.3123794,
+    "ast_hash": "e9972d65d591bc54269e4253a81162af",
+    "semantic_hash": "e9972d65d591bc54269e4253a81162af"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/examples/tauri-app/src-tauri/build.rs": {
+    "mtime": 1782830796.311627,
+    "ast_hash": "9e949d967099bcc42cfa6f8765a6c938",
+    "semantic_hash": "9e949d967099bcc42cfa6f8765a6c938"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/examples/tauri-app/src-tauri/capabilities/default.json": {
+    "mtime": 1782830796.3083975,
+    "ast_hash": "ca9cc29aedee12f097e6ce7aa896ad73",
+    "semantic_hash": "ca9cc29aedee12f097e6ce7aa896ad73"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/examples/tauri-app/src-tauri/src/lib.rs": {
+    "mtime": 1782830796.3110511,
+    "ast_hash": "0b6b172e8ce4b52d65646eb7927d23b6",
+    "semantic_hash": "0b6b172e8ce4b52d65646eb7927d23b6"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/examples/tauri-app/src-tauri/src/main.rs": {
+    "mtime": 1782830796.3111658,
+    "ast_hash": "b78be3a1b9a34929bae3412603583be4",
+    "semantic_hash": "b78be3a1b9a34929bae3412603583be4"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/examples/tauri-app/src-tauri/tauri.conf.json": {
+    "mtime": 1782830796.3117514,
+    "ast_hash": "12241c585d13b3e5967ddb64780a5709",
+    "semantic_hash": "12241c585d13b3e5967ddb64780a5709"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/examples/tauri-app/src/App.svelte": {
+    "mtime": 1782830796.3079643,
+    "ast_hash": "e11013b1d4e3708b7f6c52b30068f8b7",
+    "semantic_hash": "e11013b1d4e3708b7f6c52b30068f8b7"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/examples/tauri-app/src/lib/Greet.svelte": {
+    "mtime": 1782830796.3078513,
+    "ast_hash": "eef49fd67398ffa7a8407b0032543085",
+    "semantic_hash": "eef49fd67398ffa7a8407b0032543085"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/examples/tauri-app/src/main.js": {
+    "mtime": 1782830796.3080637,
+    "ast_hash": "2b9773ae9b2f3801022bc9e7d1c2bfd8",
+    "semantic_hash": "2b9773ae9b2f3801022bc9e7d1c2bfd8"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/examples/tauri-app/src/vite-env.d.ts": {
+    "mtime": 1782830796.3082852,
+    "ast_hash": "b3ea8efbd34fc47efac356333b135a8e",
+    "semantic_hash": "b3ea8efbd34fc47efac356333b135a8e"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/examples/tauri-app/vite.config.js": {
+    "mtime": 1782830796.3125691,
+    "ast_hash": "afab92701375a858076c2bd365584721",
+    "semantic_hash": "afab92701375a858076c2bd365584721"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/guest-js/index.ts": {
+    "mtime": 1782830888.011535,
+    "ast_hash": "a4ab56adf665056561ef3da48b90b4c9",
+    "semantic_hash": "a4ab56adf665056561ef3da48b90b4c9"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/package.json": {
+    "mtime": 1782830796.313904,
+    "ast_hash": "1194917743a64dc91d43df29ee58c72c",
+    "semantic_hash": "1194917743a64dc91d43df29ee58c72c"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/permissions/schemas/schema.json": {
+    "mtime": 1783828963.6773322,
+    "ast_hash": "96e9ded72010217f3cecd1124728302e",
+    "semantic_hash": "96e9ded72010217f3cecd1124728302e"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/rollup.config.js": {
+    "mtime": 1782830796.3139584,
+    "ast_hash": "d03d9a02d3739a88744d1591fecb15f6",
+    "semantic_hash": "d03d9a02d3739a88744d1591fecb15f6"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/src/commands.rs": {
+    "mtime": 1783828924.715891,
+    "ast_hash": "90bd95fdd940199fa16ebdae9007daa8",
+    "semantic_hash": "90bd95fdd940199fa16ebdae9007daa8"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/src/desktop.rs": {
+    "mtime": 1783828917.2658064,
+    "ast_hash": "6b5ca7b8bd838bc3ecc0dfe1578c9892",
+    "semantic_hash": "6b5ca7b8bd838bc3ecc0dfe1578c9892"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/src/error.rs": {
+    "mtime": 1782830796.3134215,
+    "ast_hash": "8c5489cd00b071f6d1c41a0fc6575742",
+    "semantic_hash": "8c5489cd00b071f6d1c41a0fc6575742"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/src/lib.rs": {
+    "mtime": 1783828938.2370439,
+    "ast_hash": "0c0281c94ea030bf21867789a775f288",
+    "semantic_hash": "0c0281c94ea030bf21867789a775f288"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/src/mobile.rs": {
+    "mtime": 1783828909.2307153,
+    "ast_hash": "fbfde4e5d8a89c251c7722010d18dc5f",
+    "semantic_hash": "fbfde4e5d8a89c251c7722010d18dc5f"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/src/models.rs": {
+    "mtime": 1783791345.27531,
+    "ast_hash": "3d88ca3180ac35642abf7bb4487a3afc",
+    "semantic_hash": "3d88ca3180ac35642abf7bb4487a3afc"
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/tsconfig.json": {
+    "mtime": 1782830796.3140085,
+    "ast_hash": "abe7e40dadcc4cb4d7ee38e629198a44",
+    "semantic_hash": "abe7e40dadcc4cb4d7ee38e629198a44"
+  },
+  "src-tauri/scripts/cf_solver.mjs": {
+    "mtime": 1783491111.8591316,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "src-tauri/src/cloudflare/browser.rs": {
+    "mtime": 1783493459.6444974,
+    "ast_hash": "1a6e38cc53ef238d34d05b982f5f4f93",
+    "semantic_hash": "1a6e38cc53ef238d34d05b982f5f4f93"
+  },
+  "src-tauri/src/cloudflare/client.rs": {
+    "mtime": 1783399637.241888,
+    "ast_hash": "3e484603fd0f2132e6b529d1b389c964",
+    "semantic_hash": "3e484603fd0f2132e6b529d1b389c964"
+  },
+  "src-tauri/src/cloudflare/commands.rs": {
+    "mtime": 1783491211.5680056,
+    "ast_hash": "cdf173473b91df5a3e526ffb7107d20d",
+    "semantic_hash": "cdf173473b91df5a3e526ffb7107d20d"
+  },
+  "src-tauri/src/cloudflare/detector.rs": {
+    "mtime": 1782021727.9071486,
+    "ast_hash": "940b35431e2dd00fe67aaf0de5939ef5",
+    "semantic_hash": "940b35431e2dd00fe67aaf0de5939ef5"
+  },
+  "src-tauri/src/cloudflare/mod.rs": {
+    "mtime": 1782021727.9071486,
+    "ast_hash": "a1352c95fef0b458647c8d01e9606d07",
+    "semantic_hash": "a1352c95fef0b458647c8d01e9606d07"
+  },
+  "src-tauri/src/cloudflare/session.rs": {
+    "mtime": 1782021727.9071486,
+    "ast_hash": "4680034a0dbf581efd041d4d312b0c7b",
+    "semantic_hash": "4680034a0dbf581efd041d4d312b0c7b"
+  },
+  "src-tauri/src/commands/anilist.rs": {
+    "mtime": 1783864253.7448833,
+    "ast_hash": "255a6351042072ca80ca062283bf97ac",
+    "semantic_hash": "255a6351042072ca80ca062283bf97ac"
+  },
+  "src-tauri/src/commands/backup.rs": {
+    "mtime": 1782021727.9071486,
+    "ast_hash": "5bf950b099c20836e770d1f8a1f8fea8",
+    "semantic_hash": "5bf950b099c20836e770d1f8a1f8fea8"
+  },
+  "src-tauri/src/commands/collections.rs": {
+    "mtime": 1782021727.9074264,
+    "ast_hash": "66bfaab23bd2bb5f7bb51535575120be",
+    "semantic_hash": "66bfaab23bd2bb5f7bb51535575120be"
+  },
+  "src-tauri/src/commands/conversion.rs": {
+    "mtime": 1782560362.3262215,
+    "ast_hash": "b78457504a496851acdad69e4e61d189",
+    "semantic_hash": "b78457504a496851acdad69e4e61d189"
+  },
+  "src-tauri/src/commands/cover.rs": {
+    "mtime": 1782905250.4667082,
+    "ast_hash": "5d2718037422f62be599859738bfe656",
+    "semantic_hash": "5d2718037422f62be599859738bfe656"
+  },
+  "src-tauri/src/commands/debrid.rs": {
+    "mtime": 1782021727.9074264,
+    "ast_hash": "964325cfb42e39727525e24120af56e1",
+    "semantic_hash": "964325cfb42e39727525e24120af56e1"
+  },
+  "src-tauri/src/commands/discord.rs": {
+    "mtime": 1782819948.1163876,
+    "ast_hash": "d4d99f4cb050315b08a29a19ea446079",
+    "semantic_hash": "d4d99f4cb050315b08a29a19ea446079"
+  },
+  "src-tauri/src/commands/discovery.rs": {
+    "mtime": 1782815325.4840848,
+    "ast_hash": "5f5473fc9d6831acd9db15ef2f159170",
+    "semantic_hash": "5f5473fc9d6831acd9db15ef2f159170"
+  },
+  "src-tauri/src/commands/doodle.rs": {
+    "mtime": 1782913609.783712,
+    "ast_hash": "e2358919c0874bc3d69eccfef2dca79a",
+    "semantic_hash": "e2358919c0874bc3d69eccfef2dca79a"
+  },
+  "src-tauri/src/commands/export.rs": {
+    "mtime": 1782021727.9074264,
+    "ast_hash": "97adae10cddcae39e2fe611007183cf5",
+    "semantic_hash": "97adae10cddcae39e2fe611007183cf5"
+  },
+  "src-tauri/src/commands/folder_watch.rs": {
+    "mtime": 1782021727.9074264,
+    "ast_hash": "a5f412957658c6ff48117c4e47ed4876",
+    "semantic_hash": "a5f412957658c6ff48117c4e47ed4876"
+  },
+  "src-tauri/src/commands/library.rs": {
+    "mtime": 1783671931.052017,
+    "ast_hash": "ded163c68f97421c5924401e7b6e69cb",
+    "semantic_hash": "ded163c68f97421c5924401e7b6e69cb"
+  },
+  "src-tauri/src/commands/manga.rs": {
+    "mtime": 1782374604.744717,
+    "ast_hash": "d0edd27efbe9236d6b2b09ca1d1e420d",
+    "semantic_hash": "d0edd27efbe9236d6b2b09ca1d1e420d"
+  },
+  "src-tauri/src/commands/metadata.rs": {
+    "mtime": 1782705227.02432,
+    "ast_hash": "8c838fc64956f2ce26892bce193ed39e",
+    "semantic_hash": "8c838fc64956f2ce26892bce193ed39e"
+  },
+  "src-tauri/src/commands/migration.rs": {
+    "mtime": 1782813795.9938505,
+    "ast_hash": "619b5880eea459adba6a9396b7fbd6b7",
+    "semantic_hash": "619b5880eea459adba6a9396b7fbd6b7"
+  },
+  "src-tauri/src/commands/mod.rs": {
+    "mtime": 1783752323.9951737,
+    "ast_hash": "6a047bf989a6e5f8f30deedd69cc3abb",
+    "semantic_hash": "6a047bf989a6e5f8f30deedd69cc3abb"
+  },
+  "src-tauri/src/commands/preferences.rs": {
+    "mtime": 1783311549.711797,
+    "ast_hash": "e67ec4cf822630cebb204d1f289d4e1a",
+    "semantic_hash": "e67ec4cf822630cebb204d1f289d4e1a"
+  },
+  "src-tauri/src/commands/prowlarr.rs": {
+    "mtime": 1782021727.9074264,
+    "ast_hash": "151116b9a0ba410c8cf695df9e78b535",
+    "semantic_hash": "151116b9a0ba410c8cf695df9e78b535"
+  },
+  "src-tauri/src/commands/reader.rs": {
+    "mtime": 1782021727.9074264,
+    "ast_hash": "6d8f0e1873fa9893a2b797cbeac4ce77",
+    "semantic_hash": "6d8f0e1873fa9893a2b797cbeac4ce77"
+  },
+  "src-tauri/src/commands/rendering.rs": {
+    "mtime": 1782021727.9074264,
+    "ast_hash": "fbc8abe3731353e4888144cc6158ecf7",
+    "semantic_hash": "fbc8abe3731353e4888144cc6158ecf7"
+  },
+  "src-tauri/src/commands/rss.rs": {
+    "mtime": 1782021727.9074264,
+    "ast_hash": "88700b59dd40aa2412da30e162637143",
+    "semantic_hash": "88700b59dd40aa2412da30e162637143"
+  },
+  "src-tauri/src/commands/search.rs": {
+    "mtime": 1782021727.9074264,
+    "ast_hash": "1876ab7642ae300339e9cbee335bd112",
+    "semantic_hash": "1876ab7642ae300339e9cbee335bd112"
+  },
+  "src-tauri/src/commands/share.rs": {
+    "mtime": 1782021727.9074264,
+    "ast_hash": "b088a9a172ef51204e81b0eac8d03dc8",
+    "semantic_hash": "b088a9a172ef51204e81b0eac8d03dc8"
+  },
+  "src-tauri/src/commands/sources.rs": {
+    "mtime": 1783508519.1940324,
+    "ast_hash": "1fe6ca9315333f15f9e86130863ff59e",
+    "semantic_hash": "1fe6ca9315333f15f9e86130863ff59e"
+  },
+  "src-tauri/src/commands/tags.rs": {
+    "mtime": 1782021727.907438,
+    "ast_hash": "887a93983b4ddbcdb8307b978f96e913",
+    "semantic_hash": "887a93983b4ddbcdb8307b978f96e913"
+  },
+  "src-tauri/src/commands/torbox.rs": {
+    "mtime": 1782021727.907438,
+    "ast_hash": "5e6a466d5d306f1210c2a780f8b14c37",
+    "semantic_hash": "5e6a466d5d306f1210c2a780f8b14c37"
+  },
+  "src-tauri/src/commands/translation.rs": {
+    "mtime": 1782021727.907438,
+    "ast_hash": "68f6b1fddb5d0e075646a370819800d6",
+    "semantic_hash": "68f6b1fddb5d0e075646a370819800d6"
+  },
+  "src-tauri/src/commands/window.rs": {
+    "mtime": 1782819959.9605412,
+    "ast_hash": "d74cc1612d84664b09f852b0ba71c6e4",
+    "semantic_hash": "d74cc1612d84664b09f852b0ba71c6e4"
+  },
+  "src-tauri/src/conversion/docx.rs": {
+    "mtime": 1782021727.907438,
+    "ast_hash": "1895d15102f71f3a6735193d37f3cdf4",
+    "semantic_hash": "1895d15102f71f3a6735193d37f3cdf4"
+  },
+  "src-tauri/src/conversion/epub_builder.rs": {
+    "mtime": 1782534583.5444627,
+    "ast_hash": "077af3713ae16acf185de945e1aa957c",
+    "semantic_hash": "077af3713ae16acf185de945e1aa957c"
+  },
+  "src-tauri/src/conversion/error.rs": {
+    "mtime": 1782021727.9086962,
+    "ast_hash": "921303be5bf94ff19c5b7f2fc69ba3a2",
+    "semantic_hash": "921303be5bf94ff19c5b7f2fc69ba3a2"
+  },
+  "src-tauri/src/conversion/fb2.rs": {
+    "mtime": 1782021727.9086962,
+    "ast_hash": "c374d0476bfedecd24034840b11d8547",
+    "semantic_hash": "c374d0476bfedecd24034840b11d8547"
+  },
+  "src-tauri/src/conversion/formats/cbr.rs": {
+    "mtime": 1782021727.9086962,
+    "ast_hash": "49cfa13026668a4948bbfb6aa9d32d0b",
+    "semantic_hash": "49cfa13026668a4948bbfb6aa9d32d0b"
+  },
+  "src-tauri/src/conversion/formats/cbz.rs": {
+    "mtime": 1782021727.9089272,
+    "ast_hash": "9326f8caa48aa45903e2f59c3f0b991b",
+    "semantic_hash": "9326f8caa48aa45903e2f59c3f0b991b"
+  },
+  "src-tauri/src/conversion/formats/docx.rs": {
+    "mtime": 1782021727.9089272,
+    "ast_hash": "4223a76675927c2039306e4fa6c903f0",
+    "semantic_hash": "4223a76675927c2039306e4fa6c903f0"
+  },
+  "src-tauri/src/conversion/formats/fb2.rs": {
+    "mtime": 1782021727.9089272,
+    "ast_hash": "ceb8e975d7877207957667fac6b61472",
+    "semantic_hash": "ceb8e975d7877207957667fac6b61472"
+  },
+  "src-tauri/src/conversion/formats/mobi.rs": {
+    "mtime": 1782021727.9089272,
+    "ast_hash": "9eaff401ec13fb955935a2143adbc818",
+    "semantic_hash": "9eaff401ec13fb955935a2143adbc818"
+  },
+  "src-tauri/src/conversion/formats/mod.rs": {
+    "mtime": 1783267860.4589183,
+    "ast_hash": "5c1277cc65bcec7788d0aba5470ee876",
+    "semantic_hash": "5c1277cc65bcec7788d0aba5470ee876"
+  },
+  "src-tauri/src/conversion/formats/pdf.rs": {
+    "mtime": 1782560780.8676622,
+    "ast_hash": "377a336535d5d5ced99b6bdebd96d993",
+    "semantic_hash": "377a336535d5d5ced99b6bdebd96d993"
+  },
+  "src-tauri/src/conversion/formats/txt.rs": {
+    "mtime": 1782021727.9089272,
+    "ast_hash": "0bd45c558ef5291072295683b1e3d86d",
+    "semantic_hash": "0bd45c558ef5291072295683b1e3d86d"
+  },
+  "src-tauri/src/conversion/mobi.rs": {
+    "mtime": 1782021727.9089272,
+    "ast_hash": "9cb6914f8b40196f2e077e2936e635b0",
+    "semantic_hash": "9cb6914f8b40196f2e077e2936e635b0"
+  },
+  "src-tauri/src/conversion/mod.rs": {
+    "mtime": 1783267846.2178063,
+    "ast_hash": "ea60afa92edb5f8fd7ac8ab038ad47fd",
+    "semantic_hash": "ea60afa92edb5f8fd7ac8ab038ad47fd"
+  },
+  "src-tauri/src/conversion/oeb.rs": {
+    "mtime": 1782021727.9089272,
+    "ast_hash": "aa5a7c9f5d19131192c47d8f71e4853a",
+    "semantic_hash": "aa5a7c9f5d19131192c47d8f71e4853a"
+  },
+  "src-tauri/src/conversion/pdf.rs": {
+    "mtime": 1782739318.6859345,
+    "ast_hash": "f2a678a9e7c33814a1ce33df6b0baad3",
+    "semantic_hash": "f2a678a9e7c33814a1ce33df6b0baad3"
+  },
+  "src-tauri/src/conversion/tests/mod.rs": {
+    "mtime": 1782539272.5253146,
+    "ast_hash": "5401d62f103b2bb6dba4c259d0bed936",
+    "semantic_hash": "5401d62f103b2bb6dba4c259d0bed936"
+  },
+  "src-tauri/src/conversion/txt.rs": {
+    "mtime": 1782021727.9089272,
+    "ast_hash": "e8339cd8f4acd67343119826ca959059",
+    "semantic_hash": "e8339cd8f4acd67343119826ca959059"
+  },
+  "src-tauri/src/conversion/utils.rs": {
+    "mtime": 1782563783.6457453,
+    "ast_hash": "2b3441f005c4e19329f3560a49efab2f",
+    "semantic_hash": "2b3441f005c4e19329f3560a49efab2f"
+  },
+  "src-tauri/src/db/migrations.rs": {
+    "mtime": 1783311110.0912306,
+    "ast_hash": "92f69646228f04c80af52a11ea0222b7",
+    "semantic_hash": "92f69646228f04c80af52a11ea0222b7"
+  },
+  "src-tauri/src/db/mod.rs": {
+    "mtime": 1783267796.4833395,
+    "ast_hash": "079abada9df711808fe6c2e31f8b2537",
+    "semantic_hash": "079abada9df711808fe6c2e31f8b2537"
+  },
+  "src-tauri/src/error.rs": {
+    "mtime": 1782021727.910011,
+    "ast_hash": "ca334c5e2114276cc8b361fc71f23659",
+    "semantic_hash": "ca334c5e2114276cc8b361fc71f23659"
+  },
+  "src-tauri/src/lib.rs": {
+    "mtime": 1783924242.1359324,
+    "ast_hash": "96df3d98a9fcaa5b39565cffe3169286",
+    "semantic_hash": "96df3d98a9fcaa5b39565cffe3169286"
+  },
+  "src-tauri/src/main.rs": {
+    "mtime": 1782812187.4977555,
+    "ast_hash": "0c872866973dee3d2b2787c16761a516",
+    "semantic_hash": "0c872866973dee3d2b2787c16761a516"
+  },
+  "src-tauri/src/models.rs": {
+    "mtime": 1783508420.324139,
+    "ast_hash": "db244627733c5d62c8dfe19c6dc5680a",
+    "semantic_hash": "db244627733c5d62c8dfe19c6dc5680a"
+  },
+  "src-tauri/src/services/adapters/docx.rs": {
+    "mtime": 1783311566.2831922,
+    "ast_hash": "a02a840bef1cf4f3b570fdf66b0822f3",
+    "semantic_hash": "a02a840bef1cf4f3b570fdf66b0822f3"
+  },
+  "src-tauri/src/services/adapters/fb2.rs": {
+    "mtime": 1783310743.4210517,
+    "ast_hash": "6b392592ab8b9dbab6bfb7ef5a36d504",
+    "semantic_hash": "6b392592ab8b9dbab6bfb7ef5a36d504"
+  },
+  "src-tauri/src/services/adapters/html.rs": {
+    "mtime": 1782021727.9105792,
+    "ast_hash": "5e3a732b20977405af5a5ae6e15cf43b",
+    "semantic_hash": "5e3a732b20977405af5a5ae6e15cf43b"
+  },
+  "src-tauri/src/services/adapters/mobi.rs": {
+    "mtime": 1782021727.9105792,
+    "ast_hash": "592d8c55307fd118ca128b8b52e3e258",
+    "semantic_hash": "592d8c55307fd118ca128b8b52e3e258"
+  },
+  "src-tauri/src/services/adapters/mod.rs": {
+    "mtime": 1782021727.9105792,
+    "ast_hash": "2dc9621467ddafc125db8ddc6dd47763",
+    "semantic_hash": "2dc9621467ddafc125db8ddc6dd47763"
+  },
+  "src-tauri/src/services/adapters/pdf.rs": {
+    "mtime": 1783920490.9717667,
+    "ast_hash": "36336164d62955b18a5e03b2e8975eb7",
+    "semantic_hash": "36336164d62955b18a5e03b2e8975eb7"
+  },
+  "src-tauri/src/services/adapters/txt.rs": {
+    "mtime": 1782021727.9105792,
+    "ast_hash": "a1424e9f44ec8d9ad102003bfa46b3cf",
+    "semantic_hash": "a1424e9f44ec8d9ad102003bfa46b3cf"
+  },
+  "src-tauri/src/services/backup_service.rs": {
+    "mtime": 1782021727.9105792,
+    "ast_hash": "0edcb4d3cef60fb5ba0c02ea7fad10a1",
+    "semantic_hash": "0edcb4d3cef60fb5ba0c02ea7fad10a1"
+  },
+  "src-tauri/src/services/book_metadata_service.rs": {
+    "mtime": 1782021727.9105792,
+    "ast_hash": "d97fc41d4cff3b3a03a9c758b7c58e60",
+    "semantic_hash": "d97fc41d4cff3b3a03a9c758b7c58e60"
+  },
+  "src-tauri/src/services/cache.rs": {
+    "mtime": 1782021727.9105792,
+    "ast_hash": "2216db079e8c76179a66b72d0e845d69",
+    "semantic_hash": "2216db079e8c76179a66b72d0e845d69"
+  },
+  "src-tauri/src/services/calibre_service.rs": {
+    "mtime": 1782021727.9105792,
+    "ast_hash": "1c37a0013a3128917d8364c6388d3410",
+    "semantic_hash": "1c37a0013a3128917d8364c6388d3410"
+  },
+  "src-tauri/src/services/collection_service.rs": {
+    "mtime": 1782710460.1478288,
+    "ast_hash": "4e1e316762f69da3d83ca7bf8728157d",
+    "semantic_hash": "4e1e316762f69da3d83ca7bf8728157d"
+  },
+  "src-tauri/src/services/conversion_engine.rs": {
+    "mtime": 1783267716.739292,
+    "ast_hash": "dc4eb42a143bb8779a71c77699eea7d9",
+    "semantic_hash": "dc4eb42a143bb8779a71c77699eea7d9"
+  },
+  "src-tauri/src/services/cover_service.rs": {
+    "mtime": 1783268225.5519197,
+    "ast_hash": "676b8fe10413023b1e687fa9d65cc530",
+    "semantic_hash": "676b8fe10413023b1e687fa9d65cc530"
+  },
+  "src-tauri/src/services/debrid.rs": {
+    "mtime": 1782021727.9105792,
+    "ast_hash": "f3fafe040f7f9e40b848ea29fe951520",
+    "semantic_hash": "f3fafe040f7f9e40b848ea29fe951520"
+  },
+  "src-tauri/src/services/discord_service.rs": {
+    "mtime": 1782140715.80945,
+    "ast_hash": "a341519aac7d33323589d7f2899fcf76",
+    "semantic_hash": "a341519aac7d33323589d7f2899fcf76"
+  },
+  "src-tauri/src/services/discovery_service.rs": {
+    "mtime": 1782815331.7582695,
+    "ast_hash": "7b732891145eac10090acd77be58446b",
+    "semantic_hash": "7b732891145eac10090acd77be58446b"
+  },
+  "src-tauri/src/services/docx_adapter.rs": {
+    "mtime": 1782021727.9105792,
+    "ast_hash": "77623baae8487bc3b3864af49bf29d2b",
+    "semantic_hash": "77623baae8487bc3b3864af49bf29d2b"
+  },
+  "src-tauri/src/services/epub_adapter.rs": {
+    "mtime": 1782021727.9105792,
+    "ast_hash": "4769d300e68419ebbcdd7d04f1d242e0",
+    "semantic_hash": "4769d300e68419ebbcdd7d04f1d242e0"
+  },
+  "src-tauri/src/services/epub_builder.rs": {
+    "mtime": 1782539205.9334757,
+    "ast_hash": "a30e4faaba061c0940769da7b43382c5",
+    "semantic_hash": "a30e4faaba061c0940769da7b43382c5"
+  },
+  "src-tauri/src/services/export_service.rs": {
+    "mtime": 1782021727.9105792,
+    "ast_hash": "da382be6ffb371c13c393f88879435a5",
+    "semantic_hash": "da382be6ffb371c13c393f88879435a5"
+  },
+  "src-tauri/src/services/fb2_reader_adapter.rs": {
+    "mtime": 1782021727.9105792,
+    "ast_hash": "3e5373957aade9451e6c406200147ace",
+    "semantic_hash": "3e5373957aade9451e6c406200147ace"
+  },
+  "src-tauri/src/services/folder_watch.rs": {
+    "mtime": 1782021727.9105792,
+    "ast_hash": "ca11638e7c170227406adbfba3a9c79f",
+    "semantic_hash": "ca11638e7c170227406adbfba3a9c79f"
+  },
+  "src-tauri/src/services/format_adapter.rs": {
+    "mtime": 1782021727.9105792,
+    "ast_hash": "feab848848c62034a6eac05911c55267",
+    "semantic_hash": "feab848848c62034a6eac05911c55267"
+  },
+  "src-tauri/src/services/format_detection.rs": {
+    "mtime": 1782021727.9105792,
+    "ast_hash": "fb6d6f8eb3224a3a3dacd57f5360baae",
+    "semantic_hash": "fb6d6f8eb3224a3a3dacd57f5360baae"
+  },
+  "src-tauri/src/services/format_detector.rs": {
+    "mtime": 1782021727.9105792,
+    "ast_hash": "fa1aa36c9309ea99006aef357e73126f",
+    "semantic_hash": "fa1aa36c9309ea99006aef357e73126f"
+  },
+  "src-tauri/src/services/html_reader_adapter.rs": {
+    "mtime": 1782021727.9105792,
+    "ast_hash": "c390986486745a38a841c1b4198d3a3c",
+    "semantic_hash": "c390986486745a38a841c1b4198d3a3c"
+  },
+  "src-tauri/src/services/library_service.rs": {
+    "mtime": 1783853773.038952,
+    "ast_hash": "d5e23f2117567ee62f53cbb0e26682bd",
+    "semantic_hash": "d5e23f2117567ee62f53cbb0e26682bd"
+  },
+  "src-tauri/src/services/manga_metadata_service.rs": {
+    "mtime": 1782705217.0545104,
+    "ast_hash": "3d41ac49413f6f7d2081c4e5e12392ab",
+    "semantic_hash": "3d41ac49413f6f7d2081c4e5e12392ab"
+  },
+  "src-tauri/src/services/manga_service.rs": {
+    "mtime": 1782021727.9114382,
+    "ast_hash": "80fd94b1b408931a2070873469aa33be",
+    "semantic_hash": "80fd94b1b408931a2070873469aa33be"
+  },
+  "src-tauri/src/services/markdown_reader_adapter.rs": {
+    "mtime": 1782021727.9114382,
+    "ast_hash": "08a28e1e5365a283797cc585b1b6378d",
+    "semantic_hash": "08a28e1e5365a283797cc585b1b6378d"
+  },
+  "src-tauri/src/services/metadata_service.rs": {
+    "mtime": 1783855471.0006194,
+    "ast_hash": "9a4f8aa8ceecd40e9b5a3de266e2d386",
+    "semantic_hash": "9a4f8aa8ceecd40e9b5a3de266e2d386"
+  },
+  "src-tauri/src/services/mobi_adapter.rs": {
+    "mtime": 1782021727.9114382,
+    "ast_hash": "6e6e7b63f9c2aeb7370389c53fd71687",
+    "semantic_hash": "6e6e7b63f9c2aeb7370389c53fd71687"
+  },
+  "src-tauri/src/services/mod.rs": {
+    "mtime": 1782814878.6049333,
+    "ast_hash": "a552076203f69e7787571a5f956df87f",
+    "semantic_hash": "a552076203f69e7787571a5f956df87f"
+  },
+  "src-tauri/src/services/online/anilist.rs": {
+    "mtime": 1782021727.9114382,
+    "ast_hash": "c870f8907660e6210860fa7748804d9d",
+    "semantic_hash": "c870f8907660e6210860fa7748804d9d"
+  },
+  "src-tauri/src/services/online/mod.rs": {
+    "mtime": 1782021727.9130356,
+    "ast_hash": "10b3c15888b4563f198b5051af224c55",
+    "semantic_hash": "10b3c15888b4563f198b5051af224c55"
+  },
+  "src-tauri/src/services/online/openlibrary.rs": {
+    "mtime": 1782021727.9130356,
+    "ast_hash": "0db9e7922ad05356559458ea2cb97c57",
+    "semantic_hash": "0db9e7922ad05356559458ea2cb97c57"
+  },
+  "src-tauri/src/services/online/provider.rs": {
+    "mtime": 1782021727.9130356,
+    "ast_hash": "436b74d0f0a9427730e5bf497de7887b",
+    "semantic_hash": "436b74d0f0a9427730e5bf497de7887b"
+  },
+  "src-tauri/src/services/online/worker.rs": {
+    "mtime": 1782021727.9130356,
+    "ast_hash": "2bb28f55926846364fe96a673803cbc0",
+    "semantic_hash": "2bb28f55926846364fe96a673803cbc0"
+  },
+  "src-tauri/src/services/pdf_adapter.rs": {
+    "mtime": 1782021727.9130356,
+    "ast_hash": "6c8f821eac032c684e0ec7e8caed4a2d",
+    "semantic_hash": "6c8f821eac032c684e0ec7e8caed4a2d"
+  },
+  "src-tauri/src/services/reader_service.rs": {
+    "mtime": 1782021727.9130356,
+    "ast_hash": "2ddb962fcc271789255729577996e49e",
+    "semantic_hash": "2ddb962fcc271789255729577996e49e"
+  },
+  "src-tauri/src/services/renderer.rs": {
+    "mtime": 1782021727.9130356,
+    "ast_hash": "4607c9b401517fe47c4fcdf709c0fb55",
+    "semantic_hash": "4607c9b401517fe47c4fcdf709c0fb55"
+  },
+  "src-tauri/src/services/rendering_service.rs": {
+    "mtime": 1782021727.9130356,
+    "ast_hash": "55712e613caaa1f7bab62389e09610b5",
+    "semantic_hash": "55712e613caaa1f7bab62389e09610b5"
+  },
+  "src-tauri/src/services/rss_scheduler.rs": {
+    "mtime": 1782021727.9130356,
+    "ast_hash": "198e245e42172c891fc09dd45b3e1132",
+    "semantic_hash": "198e245e42172c891fc09dd45b3e1132"
+  },
+  "src-tauri/src/services/rss_service.rs": {
+    "mtime": 1782883120.795273,
+    "ast_hash": "57b2191a65535618cb28767f352b1099",
+    "semantic_hash": "57b2191a65535618cb28767f352b1099"
+  },
+  "src-tauri/src/services/search_service.rs": {
+    "mtime": 1783267562.518734,
+    "ast_hash": "38e8d745126e2e7afd9d4dc15643dff5",
+    "semantic_hash": "38e8d745126e2e7afd9d4dc15643dff5"
+  },
+  "src-tauri/src/services/share_service.rs": {
+    "mtime": 1783268219.1257539,
+    "ast_hash": "7cd3d520d4f1a4a9263f146d263375e6",
+    "semantic_hash": "7cd3d520d4f1a4a9263f146d263375e6"
+  },
+  "src-tauri/src/services/tag_service.rs": {
+    "mtime": 1782021727.9130356,
+    "ast_hash": "dea0a8c966d2a4e510f69d70caccf7c1",
+    "semantic_hash": "dea0a8c966d2a4e510f69d70caccf7c1"
+  },
+  "src-tauri/src/services/torbox.rs": {
+    "mtime": 1782021727.9130356,
+    "ast_hash": "c63b7a12ccd184d0a482a3d0125df747",
+    "semantic_hash": "c63b7a12ccd184d0a482a3d0125df747"
+  },
+  "src-tauri/src/services/translation_service.rs": {
+    "mtime": 1782021727.9130356,
+    "ast_hash": "d6d83e32c982b0ff15b14911c9fe6c08",
+    "semantic_hash": "d6d83e32c982b0ff15b14911c9fe6c08"
+  },
+  "src-tauri/src/services/txt_reader_adapter.rs": {
+    "mtime": 1782021727.9130356,
+    "ast_hash": "488cb6ec34a1314050b923f71b736946",
+    "semantic_hash": "488cb6ec34a1314050b923f71b736946"
+  },
+  "src-tauri/src/sources/annas_archive.rs": {
+    "mtime": 1782021727.9130356,
+    "ast_hash": "ed0f485f5f13cab819c9818d69268429",
+    "semantic_hash": "ed0f485f5f13cab819c9818d69268429"
+  },
+  "src-tauri/src/sources/libgen.rs": {
+    "mtime": 1782021727.9143248,
+    "ast_hash": "80083853702efa100a76008e97ef0ff8",
+    "semantic_hash": "80083853702efa100a76008e97ef0ff8"
+  },
+  "src-tauri/src/sources/mangadex.rs": {
+    "mtime": 1783308336.3424966,
+    "ast_hash": "f54cda99305851f94caf5de171b58ee0",
+    "semantic_hash": "f54cda99305851f94caf5de171b58ee0"
+  },
+  "src-tauri/src/sources/mangafire.rs": {
+    "mtime": 1783336790.7788239,
+    "ast_hash": "e12ff1111e9a20ed460c3fc0c3e04c79",
+    "semantic_hash": "e12ff1111e9a20ed460c3fc0c3e04c79"
+  },
+  "src-tauri/src/sources/manhwahub.rs": {
+    "mtime": 1783252235.3679485,
+    "ast_hash": "5d1edeecdf686406e8f8fd6c25416c29",
+    "semantic_hash": "5d1edeecdf686406e8f8fd6c25416c29"
+  },
+  "src-tauri/src/sources/mod.rs": {
+    "mtime": 1783334423.6823142,
+    "ast_hash": "6375331e2769f0f5b0e3ee7cc95bec29",
+    "semantic_hash": "6375331e2769f0f5b0e3ee7cc95bec29"
+  },
+  "src-tauri/src/sources/nyaa.rs": {
+    "mtime": 1782733839.6741424,
+    "ast_hash": "47ec49ba75076e6d9ec1184ffeeb5008",
+    "semantic_hash": "47ec49ba75076e6d9ec1184ffeeb5008"
+  },
+  "src-tauri/src/sources/registry.rs": {
+    "mtime": 1782021727.9143248,
+    "ast_hash": "09633ff3cfc9bb455fe068110ef851e8",
+    "semantic_hash": "09633ff3cfc9bb455fe068110ef851e8"
+  },
+  "src-tauri/src/sources/toongod.rs": {
+    "mtime": 1783491111.860132,
+    "ast_hash": "38db26c243246b0d6594a0f7c93477c3",
+    "semantic_hash": "38db26c243246b0d6594a0f7c93477c3"
+  },
+  "src-tauri/src/sources/torrent_csv.rs": {
+    "mtime": 1782021727.9143248,
+    "ast_hash": "1a46ce6e43b701ae110edb9b4911b8b8",
+    "semantic_hash": "1a46ce6e43b701ae110edb9b4911b8b8"
+  },
+  "src-tauri/src/sources/weebrook.rs": {
+    "mtime": 1783252250.5899923,
+    "ast_hash": "dfc4ca3474850015ce66918e4d281fe4",
+    "semantic_hash": "dfc4ca3474850015ce66918e4d281fe4"
+  },
+  "src-tauri/src/test_epub.rs": {
+    "mtime": 1783855417.5265672,
+    "ast_hash": "de07a459e4f09c3fbd36697ef9ab2d91",
+    "semantic_hash": "de07a459e4f09c3fbd36697ef9ab2d91"
+  },
+  "src-tauri/src/utils/file.rs": {
+    "mtime": 1783267500.1954556,
+    "ast_hash": "06764495f0951be01915fbf0b236b2fd",
+    "semantic_hash": "06764495f0951be01915fbf0b236b2fd"
+  },
+  "src-tauri/src/utils/mod.rs": {
+    "mtime": 1782021727.9149518,
+    "ast_hash": "f4119f10f826a009af29e4d4ec38b714",
+    "semantic_hash": "f4119f10f826a009af29e4d4ec38b714"
+  },
+  "src-tauri/src/utils/validate.rs": {
+    "mtime": 1783267483.876752,
+    "ast_hash": "7d1981cbfa5c46f11d18a16474d3cc1d",
+    "semantic_hash": "7d1981cbfa5c46f11d18a16474d3cc1d"
+  },
+  "src-tauri/tauri.conf.json": {
+    "mtime": 1783925937.2591465,
+    "ast_hash": "4429c4e3084c438060144bec70b7e6fb",
+    "semantic_hash": "4429c4e3084c438060144bec70b7e6fb"
+  },
+  "src-tauri/tests/integration_library.rs": {
+    "mtime": 1783308637.150904,
+    "ast_hash": "2587aeaa219a12e163cdadef5e56ac64",
+    "semantic_hash": "2587aeaa219a12e163cdadef5e56ac64"
+  },
+  "src-tauri/tests/integration_mangadex.rs": {
+    "mtime": 1783308189.773859,
+    "ast_hash": "c627ab72dc580ba097f6e10d3fa8cb33",
+    "semantic_hash": "c627ab72dc580ba097f6e10d3fa8cb33"
+  },
+  "src-tauri/tests/test_live.rs": {
+    "mtime": 1783307689.1159492,
+    "ast_hash": "fc088c54f68e15ae3a9e734983b4a686",
+    "semantic_hash": "fc088c54f68e15ae3a9e734983b4a686"
+  },
+  "src-tauri/tests/test_parse_rel.rs": {
+    "mtime": 1783308133.6942291,
+    "ast_hash": "da810366c7dfe2176e4564bfa91d40ad",
+    "semantic_hash": "da810366c7dfe2176e4564bfa91d40ad"
+  },
+  "src/App.tsx": {
+    "mtime": 1783854841.2930062,
+    "ast_hash": "538170a178961bf30fff89a3e59bea8d",
+    "semantic_hash": "538170a178961bf30fff89a3e59bea8d"
+  },
+  "src/auth/AniListProvider.ts": {
+    "mtime": 1783511047.7361114,
+    "ast_hash": "18cf07d49b60b75febd262ecfc8985eb",
+    "semantic_hash": "18cf07d49b60b75febd262ecfc8985eb"
+  },
+  "src/auth/android/AniListAndroidProvider.ts": {
+    "mtime": 1783914241.7574863,
+    "ast_hash": "012974d78652767540e03d51e059327f",
+    "semantic_hash": "012974d78652767540e03d51e059327f"
+  },
+  "src/auth/desktop/AniListDesktopProvider.ts": {
+    "mtime": 1783864005.6187122,
+    "ast_hash": "c0160e7bcf6156dd86f1db88e260f38e",
+    "semantic_hash": "c0160e7bcf6156dd86f1db88e260f38e"
+  },
+  "src/auth/index.ts": {
+    "mtime": 1783914901.1139426,
+    "ast_hash": "04fec51bd16554d51bdb5a34af6a0b63",
+    "semantic_hash": "04fec51bd16554d51bdb5a34af6a0b63"
+  },
+  "src/auth/useAniListAccessToken.ts": {
+    "mtime": 1783751731.4690409,
+    "ast_hash": "841adae4be59ed39d2a98038957fa19d",
+    "semantic_hash": "841adae4be59ed39d2a98038957fa19d"
+  },
+  "src/cloudflare/index.ts": {
+    "mtime": 1783491111.860132,
+    "ast_hash": "1fb2b4e59f22e7cbda1fe64df2821e07",
+    "semantic_hash": "1fb2b4e59f22e7cbda1fe64df2821e07"
+  },
+  "src/components/CommandPalette.tsx": {
+    "mtime": 1782537880.3373606,
+    "ast_hash": "60869c440152cd4ef52718a54f2f3861",
+    "semantic_hash": "60869c440152cd4ef52718a54f2f3861"
+  },
+  "src/components/DevBanner.tsx": {
+    "mtime": 1782021727.9153175,
+    "ast_hash": "756eddf57344d1034d2fbb27db710689",
+    "semantic_hash": "756eddf57344d1034d2fbb27db710689"
+  },
+  "src/components/ErrorBoundary.tsx": {
+    "mtime": 1782021727.9153175,
+    "ast_hash": "50d39ba332379c59218a2f1c2dc5dbc4",
+    "semantic_hash": "50d39ba332379c59218a2f1c2dc5dbc4"
+  },
+  "src/components/GlobalDialogs.tsx": {
+    "mtime": 1783920490.9727669,
+    "ast_hash": "da7a62cb9c8130c5019eb01b40a767e2",
+    "semantic_hash": "da7a62cb9c8130c5019eb01b40a767e2"
+  },
+  "src/components/RecycleBinView.tsx": {
+    "mtime": 1782883279.2637506,
+    "ast_hash": "449dca6bee4bbbe51eb8c7d7ff4407b9",
+    "semantic_hash": "449dca6bee4bbbe51eb8c7d7ff4407b9"
+  },
+  "src/components/TorboxControlCenter.tsx": {
+    "mtime": 1783782571.6114876,
+    "ast_hash": "1b64da15a645511e91438f5969a78032",
+    "semantic_hash": "1b64da15a645511e91438f5969a78032"
+  },
+  "src/components/ViewRouter.tsx": {
+    "mtime": 1783867277.8097124,
+    "ast_hash": "0ad6aab3af636dbc1963c812c1960c1a",
+    "semantic_hash": "0ad6aab3af636dbc1963c812c1960c1a"
+  },
+  "src/components/annotations/AnnotationCard.tsx": {
+    "mtime": 1783919828.8026376,
+    "ast_hash": "3750ad0b6a5d73464a4d68865a695e90",
+    "semantic_hash": "3750ad0b6a5d73464a4d68865a695e90"
+  },
+  "src/components/annotations/AnnotationsView.tsx": {
+    "mtime": 1783919920.155066,
+    "ast_hash": "f1e564a4fe5f6ccf42bb082c74401779",
+    "semantic_hash": "f1e564a4fe5f6ccf42bb082c74401779"
+  },
+  "src/components/annotations/AnnotationsViewAndroid.tsx": {
+    "mtime": 1783922510.4652565,
+    "ast_hash": "3731d24b13e87d634667150ec7d33f71",
+    "semantic_hash": "3731d24b13e87d634667150ec7d33f71"
+  },
+  "src/components/annotations/AnnotationsViewDesktop.tsx": {
+    "mtime": 1783922510.5912583,
+    "ast_hash": "881f7826149228a8eb4a2de00114c6f6",
+    "semantic_hash": "881f7826149228a8eb4a2de00114c6f6"
+  },
+  "src/components/annotations/QuoteCardDialog.tsx": {
+    "mtime": 1782021727.9157765,
+    "ast_hash": "07986d9e461a5ae3be315f7bc96ed9b5",
+    "semantic_hash": "07986d9e461a5ae3be315f7bc96ed9b5"
+  },
+  "src/components/annotations/useAnnotationsData.ts": {
+    "mtime": 1783919859.0241098,
+    "ast_hash": "b1b1d7da7e8cdd4e6b0916a5b6802289",
+    "semantic_hash": "b1b1d7da7e8cdd4e6b0916a5b6802289"
+  },
+  "src/components/collections/CollectionSidebar.tsx": {
+    "mtime": 1782021727.9157765,
+    "ast_hash": "2bfe3b36187175583f9ac03f7e34bd39",
+    "semantic_hash": "2bfe3b36187175583f9ac03f7e34bd39"
+  },
+  "src/components/collections/CreateCollectionDialog.tsx": {
+    "mtime": 1782021727.9159129,
+    "ast_hash": "c2275593399719dbe4e1f386de1e1285",
+    "semantic_hash": "c2275593399719dbe4e1f386de1e1285"
+  },
+  "src/components/collections/SmartCollectionEditor.tsx": {
+    "mtime": 1782021727.9159129,
+    "ast_hash": "d4c6adabbd3d9fdf3e1a09c2f07f0d19",
+    "semantic_hash": "d4c6adabbd3d9fdf3e1a09c2f07f0d19"
+  },
+  "src/components/common/hooks/useCoverImage.ts": {
+    "mtime": 1782905288.7001297,
+    "ast_hash": "112205078fd22143a8f454ded6c38c68",
+    "semantic_hash": "112205078fd22143a8f454ded6c38c68"
+  },
+  "src/components/companion/CompanionDiscovery.tsx": {
+    "mtime": 1783310830.6390939,
+    "ast_hash": "18d13839b0fba1811d10d0c5f8484e22",
+    "semantic_hash": "18d13839b0fba1811d10d0c5f8484e22"
+  },
+  "src/components/conversion/AutoConvertDialog.tsx": {
+    "mtime": 1783920490.9727669,
+    "ast_hash": "60bd771ab1393b3e674af236ceca807a",
+    "semantic_hash": "60bd771ab1393b3e674af236ceca807a"
+  },
+  "src/components/conversion/ConversionJobTracker.tsx": {
+    "mtime": 1782562533.3175201,
+    "ast_hash": "bc37afa8f8c1bc9a74610e839a59df37",
+    "semantic_hash": "bc37afa8f8c1bc9a74610e839a59df37"
+  },
+  "src/components/conversion/index.ts": {
+    "mtime": 1782737703.668894,
+    "ast_hash": "220dda11be670e370e03af805a8b741d",
+    "semantic_hash": "220dda11be670e370e03af805a8b741d"
+  },
+  "src/components/dialogs/ShortcutsDialog.tsx": {
+    "mtime": 1782709643.1403224,
+    "ast_hash": "b0ea53fc6ca1b768eb515ddbd49e93c7",
+    "semantic_hash": "b0ea53fc6ca1b768eb515ddbd49e93c7"
+  },
+  "src/components/home/BooksHome.tsx": {
+    "mtime": 1783250347.5085163,
+    "ast_hash": "c18d9286c5a34d2ffa026a5648aec782",
+    "semantic_hash": "c18d9286c5a34d2ffa026a5648aec782"
+  },
+  "src/components/home/ContinueReadingCard.tsx": {
+    "mtime": 1782970150.1143818,
+    "ast_hash": "34b4c090ac6526c73188cc98721324cf",
+    "semantic_hash": "34b4c090ac6526c73188cc98721324cf"
+  },
+  "src/components/home/FeaturedContinueCard.tsx": {
+    "mtime": 1783310830.6390939,
+    "ast_hash": "1be2f5169a21cd959b3104ba7e5ae35b",
+    "semantic_hash": "1be2f5169a21cd959b3104ba7e5ae35b"
+  },
+  "src/components/home/HomePage.tsx": {
+    "mtime": 1783864671.2063775,
+    "ast_hash": "2922f46d6287d2541402cc744859a29b",
+    "semantic_hash": "2922f46d6287d2541402cc744859a29b"
+  },
+  "src/components/home/HomeSection.tsx": {
+    "mtime": 1782021727.916401,
+    "ast_hash": "61dce3d072c55fec7343b9a949060f49",
+    "semantic_hash": "61dce3d072c55fec7343b9a949060f49"
+  },
+  "src/components/home/LazyRow.tsx": {
+    "mtime": 1782021727.916401,
+    "ast_hash": "e1b3ba49176d4783c4875de608604125",
+    "semantic_hash": "e1b3ba49176d4783c4875de608604125"
+  },
+  "src/components/home/MangaHome.tsx": {
+    "mtime": 1783310830.6390939,
+    "ast_hash": "4a7a159ffb10f10a366e17859a8cffde",
+    "semantic_hash": "4a7a159ffb10f10a366e17859a8cffde"
+  },
+  "src/components/home/StatsBar.tsx": {
+    "mtime": 1782021727.916401,
+    "ast_hash": "fe35f0e33a5e214e513878c8dfb8b6dd",
+    "semantic_hash": "fe35f0e33a5e214e513878c8dfb8b6dd"
+  },
+  "src/components/icons/ShioriIcons.tsx": {
+    "mtime": 1782880380.6065588,
+    "ast_hash": "17fedd4b5d035284a6a9485ed454d409",
+    "semantic_hash": "17fedd4b5d035284a6a9485ed454d409"
+  },
+  "src/components/icons/index.ts": {
+    "mtime": 1782021727.9168324,
+    "ast_hash": "eb2af1109b86e753fef0b84646727ed9",
+    "semantic_hash": "eb2af1109b86e753fef0b84646727ed9"
+  },
+  "src/components/layout/BottomNav.tsx": {
+    "mtime": 1783943941.5998845,
+    "ast_hash": "962084cfbf0e9e007dc4c7bd52cefcca",
+    "semantic_hash": ""
+  },
+  "src/components/layout/ImprovedToolbar.tsx": {
+    "mtime": 1783780965.721868,
+    "ast_hash": "0951838cbcd08d8c4a7f57cffb3c41e1",
+    "semantic_hash": "0951838cbcd08d8c4a7f57cffb3c41e1"
+  },
+  "src/components/layout/Layout.tsx": {
+    "mtime": 1783943555.2251666,
+    "ast_hash": "3cbbf4fb2296d1583b5e25a29b9266f9",
+    "semantic_hash": ""
+  },
+  "src/components/layout/MobileStickyHeader.tsx": {
+    "mtime": 1783921059.6230423,
+    "ast_hash": "eee7f1313102708cf3243cd31bd6c253",
+    "semantic_hash": "eee7f1313102708cf3243cd31bd6c253"
+  },
+  "src/components/layout/ModernToolbar.tsx": {
+    "mtime": 1783310830.6390939,
+    "ast_hash": "035b1dbd101a59ed4ada1a94ade07d37",
+    "semantic_hash": "035b1dbd101a59ed4ada1a94ade07d37"
+  },
+  "src/components/layout/NavigationRail.tsx": {
+    "mtime": 1783310830.6390939,
+    "ast_hash": "ea5c96c7276d1163e7164493b902626a",
+    "semantic_hash": "ea5c96c7276d1163e7164493b902626a"
+  },
+  "src/components/layout/NavigationRailDesktop.tsx": {
+    "mtime": 1783780979.1860158,
+    "ast_hash": "2abd914491a19581afa423af163ddc80",
+    "semantic_hash": "2abd914491a19581afa423af163ddc80"
+  },
+  "src/components/layout/Sidebar.tsx": {
+    "mtime": 1783311293.0721233,
+    "ast_hash": "430cb0e1dbe36a0da59a587f1c715529",
+    "semantic_hash": "430cb0e1dbe36a0da59a587f1c715529"
+  },
+  "src/components/layout/SwipeGestureHandler.tsx": {
+    "mtime": 1783233355.393975,
+    "ast_hash": "30a8d978d923c2e74dd3a6a6d91512d3",
+    "semantic_hash": "30a8d978d923c2e74dd3a6a6d91512d3"
+  },
+  "src/components/layout/Topbar.tsx": {
+    "mtime": 1782021727.9169643,
+    "ast_hash": "5a2d79691ce172ed100c52ae0643eebd",
+    "semantic_hash": "5a2d79691ce172ed100c52ae0643eebd"
+  },
+  "src/components/layout/WindowControls.tsx": {
+    "mtime": 1782391104.530522,
+    "ast_hash": "a10918783d3525f07476782dddf95dde",
+    "semantic_hash": "a10918783d3525f07476782dddf95dde"
+  },
+  "src/components/layout/hooks/useNavigationRail.ts": {
+    "mtime": 1783313505.7946157,
+    "ast_hash": "e02945db9b6bbbb7d240b6bb479c6a37",
+    "semantic_hash": "e02945db9b6bbbb7d240b6bb479c6a37"
+  },
+  "src/components/library/AdvancedFilterDialog.tsx": {
+    "mtime": 1783250306.2273026,
+    "ast_hash": "fec73e6a37b2161c9e568d22e9333d99",
+    "semantic_hash": "fec73e6a37b2161c9e568d22e9333d99"
+  },
+  "src/components/library/BookDetailsDialog.tsx": {
+    "mtime": 1783310830.6390939,
+    "ast_hash": "a860416f1f312e209ad0d02229cc762a",
+    "semantic_hash": "a860416f1f312e209ad0d02229cc762a"
+  },
+  "src/components/library/DeleteBookDialog.tsx": {
+    "mtime": 1783226546.3662927,
+    "ast_hash": "501980358e564e4d59b864a5c79bc97e",
+    "semantic_hash": "501980358e564e4d59b864a5c79bc97e"
+  },
+  "src/components/library/DuplicateFinderDialog.tsx": {
+    "mtime": 1783310830.6390939,
+    "ast_hash": "e6b69982ae8ae70806874a77f44e97a4",
+    "semantic_hash": "e6b69982ae8ae70806874a77f44e97a4"
+  },
+  "src/components/library/EditMetadataDialog.tsx": {
+    "mtime": 1782740622.0885878,
+    "ast_hash": "73476c4d4f84cc256f3f58958ca994a6",
+    "semantic_hash": "73476c4d4f84cc256f3f58958ca994a6"
+  },
+  "src/components/library/ExportDialog.tsx": {
+    "mtime": 1782021727.917353,
+    "ast_hash": "2fd4e25c601a887ce024b2dbd93a9760",
+    "semantic_hash": "2fd4e25c601a887ce024b2dbd93a9760"
+  },
+  "src/components/library/FormatBadge.tsx": {
+    "mtime": 1782021727.917353,
+    "ast_hash": "4bf2d255ed5f45e6a026fa4629ffa2b4",
+    "semantic_hash": "4bf2d255ed5f45e6a026fa4629ffa2b4"
+  },
+  "src/components/library/ImportDialog.tsx": {
+    "mtime": 1783865042.8242936,
+    "ast_hash": "84d1e90400d36b8145da94b8571fe4b1",
+    "semantic_hash": "84d1e90400d36b8145da94b8571fe4b1"
+  },
+  "src/components/library/LibraryGrid.tsx": {
+    "mtime": 1783920689.1225967,
+    "ast_hash": "1b3f7383f1bcdcc5f67bd69372d077c0",
+    "semantic_hash": "1b3f7383f1bcdcc5f67bd69372d077c0"
+  },
+  "src/components/library/MetadataSearchDialog.tsx": {
+    "mtime": 1783787250.4284089,
+    "ast_hash": "ced330a6e82e431f60d217cfb44c3fe2",
+    "semantic_hash": "ced330a6e82e431f60d217cfb44c3fe2"
+  },
+  "src/components/library/ModernBookCard.tsx": {
+    "mtime": 1783835563.1833334,
+    "ast_hash": "bf3b1e2ba0032f05df091f178e0b0865",
+    "semantic_hash": "bf3b1e2ba0032f05df091f178e0b0865"
+  },
+  "src/components/library/ModernListView.tsx": {
+    "mtime": 1783310830.6390939,
+    "ast_hash": "417b4f9742e7c385799dd37decb75c7b",
+    "semantic_hash": "417b4f9742e7c385799dd37decb75c7b"
+  },
+  "src/components/library/ModernTableView.tsx": {
+    "mtime": 1783310830.6390939,
+    "ast_hash": "05cf08f667eb8cddf7d6d0952c70dcfc",
+    "semantic_hash": "05cf08f667eb8cddf7d6d0952c70dcfc"
+  },
+  "src/components/library/ProwlarrSearch.tsx": {
+    "mtime": 1783226564.301231,
+    "ast_hash": "ec3ac0b2aa267d1fd68e49716f568c22",
+    "semantic_hash": "ec3ac0b2aa267d1fd68e49716f568c22"
+  },
+  "src/components/library/SeriesAssignmentDialog.tsx": {
+    "mtime": 1782021727.917353,
+    "ast_hash": "58a36185f2923d22a44f84c1d1484483",
+    "semantic_hash": "58a36185f2923d22a44f84c1d1484483"
+  },
+  "src/components/library/SeriesCard.tsx": {
+    "mtime": 1783835614.9745393,
+    "ast_hash": "2005d2be540dc70b5db5507708528c05",
+    "semantic_hash": "2005d2be540dc70b5db5507708528c05"
+  },
+  "src/components/library/SeriesManagementDialog.tsx": {
+    "mtime": 1782740662.6070852,
+    "ast_hash": "8ea0b480b11a4042773a5c2432a76ddd",
+    "semantic_hash": "8ea0b480b11a4042773a5c2432a76ddd"
+  },
+  "src/components/library/SeriesView.tsx": {
+    "mtime": 1783943604.8323324,
+    "ast_hash": "f32f629113cc2fa9a319341aa40b7183",
+    "semantic_hash": ""
+  },
+  "src/components/library/SmartCollectionSuggestionDialog.tsx": {
+    "mtime": 1783858791.1210687,
+    "ast_hash": "7c5c3563e8ca9821955edf5dab66bf0e",
+    "semantic_hash": "7c5c3563e8ca9821955edf5dab66bf0e"
+  },
+  "src/components/library/SortDropdown.tsx": {
+    "mtime": 1782021727.9174385,
+    "ast_hash": "aff4e953778bc67feeff859434606c10",
+    "semantic_hash": "aff4e953778bc67feeff859434606c10"
+  },
+  "src/components/library/index.ts": {
+    "mtime": 1782021727.9174385,
+    "ast_hash": "b3b060dc9b2f9305a0ce73f9feff0159",
+    "semantic_hash": "b3b060dc9b2f9305a0ce73f9feff0159"
+  },
+  "src/components/library/types.ts": {
+    "mtime": 1783835641.9511805,
+    "ast_hash": "8e99e7336b873131953d7f6642219c3f",
+    "semantic_hash": "8e99e7336b873131953d7f6642219c3f"
+  },
+  "src/components/manga/AdvancedSettingsPanel.tsx": {
+    "mtime": 1783856546.5891464,
+    "ast_hash": "5d9f3c2b1e09fb9bc936166db161e5ed",
+    "semantic_hash": "5d9f3c2b1e09fb9bc936166db161e5ed"
+  },
+  "src/components/manga/ChapterSeparatorCard.tsx": {
+    "mtime": 1783915356.3757417,
+    "ast_hash": "f3c089805482a3b836a4394e021d85bf",
+    "semantic_hash": "f3c089805482a3b836a4394e021d85bf"
+  },
+  "src/components/manga/CompletionPromptDialog.tsx": {
+    "mtime": 1783337737.4443388,
+    "ast_hash": "8f071e823e3b61050406ce590b8f31af",
+    "semantic_hash": "8f071e823e3b61050406ce590b8f31af"
+  },
+  "src/components/manga/EndOfChapterOverlay.tsx": {
+    "mtime": 1782021727.9189036,
+    "ast_hash": "6a2e74ec0c0f5c0726d666087b7c4ee1",
+    "semantic_hash": "6a2e74ec0c0f5c0726d666087b7c4ee1"
+  },
+  "src/components/manga/MangaCanvas.tsx": {
+    "mtime": 1783856718.6361933,
+    "ast_hash": "a6f3821f738a49e0cf7ff70d617b7b23",
+    "semantic_hash": "a6f3821f738a49e0cf7ff70d617b7b23"
+  },
+  "src/components/manga/MangaPageImage.tsx": {
+    "mtime": 1783916085.7448719,
+    "ast_hash": "132ceef6a22acffeb6c37afcc5218525",
+    "semantic_hash": "132ceef6a22acffeb6c37afcc5218525"
+  },
+  "src/components/manga/MangaProgressBar.tsx": {
+    "mtime": 1782021727.9189036,
+    "ast_hash": "b0ca01859a7eee43c84ef0ab34a21746",
+    "semantic_hash": "b0ca01859a7eee43c84ef0ab34a21746"
+  },
+  "src/components/manga/MangaReader.tsx": {
+    "mtime": 1783751907.144176,
+    "ast_hash": "b3f9266f3d0abc73bc5ca1c8253b9d12",
+    "semantic_hash": "b3f9266f3d0abc73bc5ca1c8253b9d12"
+  },
+  "src/components/manga/MangaReaderHeader.tsx": {
+    "mtime": 1783336266.3495748,
+    "ast_hash": "bd5d69f1c3d2f8e00db755c86d162888",
+    "semantic_hash": "bd5d69f1c3d2f8e00db755c86d162888"
+  },
+  "src/components/manga/MangaSidebar.tsx": {
+    "mtime": 1782797511.8330243,
+    "ast_hash": "35320743923b200c75fd38318eb8cc16",
+    "semantic_hash": "35320743923b200c75fd38318eb8cc16"
+  },
+  "src/components/manga/MangaTopBar.tsx": {
+    "mtime": 1782884536.5010436,
+    "ast_hash": "b130c44f6f91c4cd7d9be3d6fa5f8b1c",
+    "semantic_hash": "b130c44f6f91c4cd7d9be3d6fa5f8b1c"
+  },
+  "src/components/manga/NavigationOverlay.tsx": {
+    "mtime": 1782885527.958748,
+    "ast_hash": "fdf1954844ea07ba3a781f98d8dfe993",
+    "semantic_hash": "fdf1954844ea07ba3a781f98d8dfe993"
+  },
+  "src/components/manga/hooks/useImageDecode.ts": {
+    "mtime": 1782021727.9189036,
+    "ast_hash": "f0639b63d5e8876a39d8b25b181f1226",
+    "semantic_hash": "f0639b63d5e8876a39d8b25b181f1226"
+  },
+  "src/components/manga/hooks/useMangaKeyboard.ts": {
+    "mtime": 1782021727.9194062,
+    "ast_hash": "7e55eae607b697a59c523491d733f530",
+    "semantic_hash": "7e55eae607b697a59c523491d733f530"
+  },
+  "src/components/manga/hooks/useMangaPreloader.ts": {
+    "mtime": 1782021727.9194062,
+    "ast_hash": "d828fbb40140512ae1a6cde5f5663b91",
+    "semantic_hash": "d828fbb40140512ae1a6cde5f5663b91"
+  },
+  "src/components/manga/hooks/useMangaScroll.ts": {
+    "mtime": 1783228652.023955,
+    "ast_hash": "47836a302480cc2fd05968dfa7360854",
+    "semantic_hash": "47836a302480cc2fd05968dfa7360854"
+  },
+  "src/components/manga/hooks/useUnifiedImageDecode.ts": {
+    "mtime": 1783856624.422258,
+    "ast_hash": "edf05440de7d43668e8afb15f8d2f4de",
+    "semantic_hash": "edf05440de7d43668e8afb15f8d2f4de"
+  },
+  "src/components/manga/views/ContinuousWebtoonView.tsx": {
+    "mtime": 1783915368.605006,
+    "ast_hash": "ad6bbdf31323af99b30b217e8dc8feff",
+    "semantic_hash": "ad6bbdf31323af99b30b217e8dc8feff"
+  },
+  "src/components/manga/views/DoublePageView.tsx": {
+    "mtime": 1783399955.373812,
+    "ast_hash": "abccfd9f44aa77933d7b33863d03f857",
+    "semantic_hash": "abccfd9f44aa77933d7b33863d03f857"
+  },
+  "src/components/manga/views/LongStripView.tsx": {
+    "mtime": 1783916108.619739,
+    "ast_hash": "a2c9ecb60387ea5f1f99ac877e915957",
+    "semantic_hash": "a2c9ecb60387ea5f1f99ac877e915957"
+  },
+  "src/components/manga/views/SinglePageView.tsx": {
+    "mtime": 1782021727.9196532,
+    "ast_hash": "dbd9364cad07dcff30a2560b752e6402",
+    "semantic_hash": "dbd9364cad07dcff30a2560b752e6402"
+  },
+  "src/components/manga/views/WebtoonView.tsx": {
+    "mtime": 1783916093.5718236,
+    "ast_hash": "dac1110da70fa43becdcc25cf6d27195",
+    "semantic_hash": "dac1110da70fa43becdcc25cf6d27195"
+  },
+  "src/components/onboarding/MigrationDialog.tsx": {
+    "mtime": 1782813853.2041643,
+    "ast_hash": "9cbb65618bcf9e7bbffbcdb78adf19d6",
+    "semantic_hash": "9cbb65618bcf9e7bbffbcdb78adf19d6"
+  },
+  "src/components/onboarding/OnboardingProgress.tsx": {
+    "mtime": 1783780204.4035184,
+    "ast_hash": "d2ffd61dcc95e91579200a1ce47bd275",
+    "semantic_hash": "d2ffd61dcc95e91579200a1ce47bd275"
+  },
+  "src/components/onboarding/OnboardingWizard.tsx": {
+    "mtime": 1783780148.5039058,
+    "ast_hash": "3f65380da8f3752d09f05ada36925428",
+    "semantic_hash": "3f65380da8f3752d09f05ada36925428"
+  },
+  "src/components/onboarding/components/AnimatedCheckmark.tsx": {
+    "mtime": 1782021727.9198117,
+    "ast_hash": "054390fe178653628f16856b62670e69",
+    "semantic_hash": "054390fe178653628f16856b62670e69"
+  },
+  "src/components/onboarding/components/FormatBadge.tsx": {
+    "mtime": 1782021727.9199252,
+    "ast_hash": "6a837bab51db4c1b0aa599f3d89795d1",
+    "semantic_hash": "6a837bab51db4c1b0aa599f3d89795d1"
+  },
+  "src/components/onboarding/components/GlassCard.tsx": {
+    "mtime": 1782021727.9199252,
+    "ast_hash": "c1d22c267144ff92ae4aac4ac28f1464",
+    "semantic_hash": "c1d22c267144ff92ae4aac4ac28f1464"
+  },
+  "src/components/onboarding/components/GlowButton.tsx": {
+    "mtime": 1783780414.3728201,
+    "ast_hash": "87bbf6ac82575d2302e92f30418afa7f",
+    "semantic_hash": "87bbf6ac82575d2302e92f30418afa7f"
+  },
+  "src/components/onboarding/components/ImportProgress.tsx": {
+    "mtime": 1782021727.9199252,
+    "ast_hash": "6eadfe605542bb9fb67e7a4448fda720",
+    "semantic_hash": "6eadfe605542bb9fb67e7a4448fda720"
+  },
+  "src/components/onboarding/components/OnboardingMotionStyles.tsx": {
+    "mtime": 1782021727.9199252,
+    "ast_hash": "be453a0381ebc3c2f702696e241b7e82",
+    "semantic_hash": "be453a0381ebc3c2f702696e241b7e82"
+  },
+  "src/components/onboarding/components/ParticleCanvas.tsx": {
+    "mtime": 1782021727.9199252,
+    "ast_hash": "d51487a8f7b509e46d2b4aedb092e15f",
+    "semantic_hash": "d51487a8f7b509e46d2b4aedb092e15f"
+  },
+  "src/components/onboarding/components/SettingControl.tsx": {
+    "mtime": 1782021727.9199252,
+    "ast_hash": "172409525420d68f6f2b2275440ab85f",
+    "semantic_hash": "172409525420d68f6f2b2275440ab85f"
+  },
+  "src/components/onboarding/components/SettingGroup.tsx": {
+    "mtime": 1782021727.9199252,
+    "ast_hash": "5d3f16acaabc475429d57d71336d99aa",
+    "semantic_hash": "5d3f16acaabc475429d57d71336d99aa"
+  },
+  "src/components/onboarding/components/ThemeSwatch.tsx": {
+    "mtime": 1782021727.9199252,
+    "ast_hash": "21b5a575e841f52fae6ab67234053390",
+    "semantic_hash": "21b5a575e841f52fae6ab67234053390"
+  },
+  "src/components/onboarding/components/index.ts": {
+    "mtime": 1782021727.9199252,
+    "ast_hash": "c9f31769d54aae06eb9ba7072a2d3414",
+    "semantic_hash": "c9f31769d54aae06eb9ba7072a2d3414"
+  },
+  "src/components/onboarding/hooks/useImport.ts": {
+    "mtime": 1783865635.833171,
+    "ast_hash": "34c40fa323ec4b80580b454b1ba8b584",
+    "semantic_hash": "34c40fa323ec4b80580b454b1ba8b584"
+  },
+  "src/components/onboarding/hooks/useOnboardingState.ts": {
+    "mtime": 1783780067.61302,
+    "ast_hash": "a663d376c5d9aee8987e7b9116b55ca0",
+    "semantic_hash": "a663d376c5d9aee8987e7b9116b55ca0"
+  },
+  "src/components/onboarding/steps/AppCustomizationStep.tsx": {
+    "mtime": 1783787275.0028694,
+    "ast_hash": "f5d3d4ae991fccfbc226c78a125df499",
+    "semantic_hash": "f5d3d4ae991fccfbc226c78a125df499"
+  },
+  "src/components/onboarding/steps/CloudIntegrationStep.tsx": {
+    "mtime": 1783780134.7867556,
+    "ast_hash": "14e3a33e2827594e6f0d426981106703",
+    "semantic_hash": "14e3a33e2827594e6f0d426981106703"
+  },
+  "src/components/onboarding/steps/ContentTypeStep.tsx": {
+    "mtime": 1783310830.6390939,
+    "ast_hash": "1e81e16d7d0a1f0db1c79c509657e867",
+    "semantic_hash": "1e81e16d7d0a1f0db1c79c509657e867"
+  },
+  "src/components/onboarding/steps/FinishStep.tsx": {
+    "mtime": 1782880373.4923038,
+    "ast_hash": "8de2b3ab1c3a650fc479fe043b7006cd",
+    "semantic_hash": "8de2b3ab1c3a650fc479fe043b7006cd"
+  },
+  "src/components/onboarding/steps/ImportStep.tsx": {
+    "mtime": 1783751863.6504135,
+    "ast_hash": "ee390acd7fa11a91f49feffdc367b659",
+    "semantic_hash": "ee390acd7fa11a91f49feffdc367b659"
+  },
+  "src/components/onboarding/steps/IntegrationsStep.tsx": {
+    "mtime": 1783859289.9334912,
+    "ast_hash": "4b83e1cbeef221f4d4f7fa189598638f",
+    "semantic_hash": "4b83e1cbeef221f4d4f7fa189598638f"
+  },
+  "src/components/onboarding/steps/WelcomeStep.tsx": {
+    "mtime": 1782880365.1870074,
+    "ast_hash": "8b6f1ad214d8e94d38a425a2c1869d86",
+    "semantic_hash": "8b6f1ad214d8e94d38a425a2c1869d86"
+  },
+  "src/components/online/AdvancedOnlineSearchDialog.tsx": {
+    "mtime": 1783859362.0791583,
+    "ast_hash": "6759974dac32c637462b50916e5fbb8e",
+    "semantic_hash": "6759974dac32c637462b50916e5fbb8e"
+  },
+  "src/components/online/AniListBookCard.tsx": {
+    "mtime": 1783691462.344172,
+    "ast_hash": "a7bacb857f937c6a44e2a8137d9e2482",
+    "semantic_hash": "a7bacb857f937c6a44e2a8137d9e2482"
+  },
+  "src/components/online/AniListDashboard.tsx": {
+    "mtime": 1783826684.8189573,
+    "ast_hash": "475078a4f21ba1b8b3c8b7b79674eca8",
+    "semantic_hash": "475078a4f21ba1b8b3c8b7b79674eca8"
+  },
+  "src/components/online/AniListMangaDetailsDialog.tsx": {
+    "mtime": 1783314613.8034832,
+    "ast_hash": "1f9db39a670b67e01ef894f660893b95",
+    "semantic_hash": "1f9db39a670b67e01ef894f660893b95"
+  },
+  "src/components/online/AniListMangaDetailsView.tsx": {
+    "mtime": 1783751863.6524134,
+    "ast_hash": "67ce9720c6f5fafd530d7b4cdb3021c6",
+    "semantic_hash": "67ce9720c6f5fafd530d7b4cdb3021c6"
+  },
+  "src/components/online/ContentCarousel.tsx": {
+    "mtime": 1782021727.9209998,
+    "ast_hash": "805209f27a270d00ee89b150389a737d",
+    "semantic_hash": "805209f27a270d00ee89b150389a737d"
+  },
+  "src/components/online/GutenbergBookDetails.tsx": {
+    "mtime": 1783858800.9061947,
+    "ast_hash": "0b76921df008204c39d56eb171aa264f",
+    "semantic_hash": "0b76921df008204c39d56eb171aa264f"
+  },
+  "src/components/online/HeroMangaBanner.tsx": {
+    "mtime": 1782021727.9209998,
+    "ast_hash": "eeee688ecc8c83e4488f620604449a1c",
+    "semantic_hash": "eeee688ecc8c83e4488f620604449a1c"
+  },
+  "src/components/online/LibgenBookDetails.tsx": {
+    "mtime": 1783858810.010311,
+    "ast_hash": "f9e453cce7076b344cbe80e0c33eb810",
+    "semantic_hash": "f9e453cce7076b344cbe80e0c33eb810"
+  },
+  "src/components/online/MagnetSourcesModal.tsx": {
+    "mtime": 1782021727.9209998,
+    "ast_hash": "ea56b14de33b79ffa15663122f555fff",
+    "semantic_hash": "ea56b14de33b79ffa15663122f555fff"
+  },
+  "src/components/online/MangaBrowseNavBar.tsx": {
+    "mtime": 1783827454.2562356,
+    "ast_hash": "2bfc344e08e059f6a7c0034c71feb849",
+    "semantic_hash": "2bfc344e08e059f6a7c0034c71feb849"
+  },
+  "src/components/online/MangaDownloadDialog.tsx": {
+    "mtime": 1783859328.358849,
+    "ast_hash": "4d75d2852546ce6dd7bc3db0a7f1be0a",
+    "semantic_hash": "4d75d2852546ce6dd7bc3db0a7f1be0a"
+  },
+  "src/components/online/MangaRankList.tsx": {
+    "mtime": 1783827484.3405762,
+    "ast_hash": "3a69a57859c7cf033bc1a0ec46f8eb59",
+    "semantic_hash": "3a69a57859c7cf033bc1a0ec46f8eb59"
+  },
+  "src/components/online/ModernBookCard.tsx": {
+    "mtime": 1783827468.6653986,
+    "ast_hash": "4f14ec93fa9e7145d16a729b91a30782",
+    "semantic_hash": "4f14ec93fa9e7145d16a729b91a30782"
+  },
+  "src/components/online/OnlineBookSidePanel.tsx": {
+    "mtime": 1783310830.6390939,
+    "ast_hash": "56ee0efec201e8363025021829682fee",
+    "semantic_hash": "56ee0efec201e8363025021829682fee"
+  },
+  "src/components/online/OnlineBooksDashboard.tsx": {
+    "mtime": 1783310830.6390939,
+    "ast_hash": "7a11d97e0dd3d4841dd401a16e26fb59",
+    "semantic_hash": "7a11d97e0dd3d4841dd401a16e26fb59"
+  },
+  "src/components/online/OnlineBooksView.tsx": {
+    "mtime": 1783229490.128031,
+    "ast_hash": "2b83af3e9188279e9d27e2a14b27229e",
+    "semantic_hash": "2b83af3e9188279e9d27e2a14b27229e"
+  },
+  "src/components/online/OnlineMangaDetailView.tsx": {
+    "mtime": 1783784443.3950248,
+    "ast_hash": "1f0015937e309cc56cfc7a200cefaeb4",
+    "semantic_hash": "1f0015937e309cc56cfc7a200cefaeb4"
+  },
+  "src/components/online/OnlineMangaReader.tsx": {
+    "mtime": 1782021727.9209998,
+    "ast_hash": "f75111640a27fa0943fab11d43854975",
+    "semantic_hash": "f75111640a27fa0943fab11d43854975"
+  },
+  "src/components/online/OnlineMangaView.tsx": {
+    "mtime": 1783827516.5749412,
+    "ast_hash": "4c05778b9d4aeed5d6730247b269cf4b",
+    "semantic_hash": "4c05778b9d4aeed5d6730247b269cf4b"
+  },
+  "src/components/online/OnlineResultCard.tsx": {
+    "mtime": 1783310830.6390939,
+    "ast_hash": "ba44db1df3276161f8a7c0ce090008d1",
+    "semantic_hash": "ba44db1df3276161f8a7c0ce090008d1"
+  },
+  "src/components/online/OnlineSearchHeader.tsx": {
+    "mtime": 1783827680.5197976,
+    "ast_hash": "8efeb38c13cca71d63247d4393d7fecb",
+    "semantic_hash": "8efeb38c13cca71d63247d4393d7fecb"
+  },
+  "src/components/online/OnlineSourceSelector.tsx": {
+    "mtime": 1783491111.860132,
+    "ast_hash": "e69599ca458b2aad0b31c10195c461df",
+    "semantic_hash": "e69599ca458b2aad0b31c10195c461df"
+  },
+  "src/components/online/SkeletonLoaders.tsx": {
+    "mtime": 1782021727.9209998,
+    "ast_hash": "d4a52bb650a1eb3f5da674ba4942ee7a",
+    "semantic_hash": "d4a52bb650a1eb3f5da674ba4942ee7a"
+  },
+  "src/components/online/TorboxHubView.tsx": {
+    "mtime": 1783493745.3388379,
+    "ast_hash": "7c6b1a32d6f6c53c30f5f78b4245fc45",
+    "semantic_hash": "7c6b1a32d6f6c53c30f5f78b4245fc45"
+  },
+  "src/components/reader/AnnotationExportDialog.tsx": {
+    "mtime": 1782021727.9209998,
+    "ast_hash": "b270950c994644747b855536d8df9b5d",
+    "semantic_hash": "b270950c994644747b855536d8df9b5d"
+  },
+  "src/components/reader/AnnotationSidebar.tsx": {
+    "mtime": 1783310830.6390939,
+    "ast_hash": "25254deec9f4e4386317be2d63bff790",
+    "semantic_hash": "25254deec9f4e4386317be2d63bff790"
+  },
+  "src/components/reader/ContinuousEpubView.tsx": {
+    "mtime": 1783867230.7195728,
+    "ast_hash": "56bdd23217f50ae81b40fb1093fd23bd",
+    "semantic_hash": "56bdd23217f50ae81b40fb1093fd23bd"
+  },
+  "src/components/reader/ConversionProgress.tsx": {
+    "mtime": 1782021727.922284,
+    "ast_hash": "93b6f6e4914eac6e3e0b0ea7ce47c4ba",
+    "semantic_hash": "93b6f6e4914eac6e3e0b0ea7ce47c4ba"
+  },
+  "src/components/reader/DoodleCanvas.tsx": {
+    "mtime": 1783003931.9194777,
+    "ast_hash": "b0056e9ea10ac3977af1062a664c8061",
+    "semantic_hash": "b0056e9ea10ac3977af1062a664c8061"
+  },
+  "src/components/reader/DoodleToolbar.tsx": {
+    "mtime": 1782021727.922284,
+    "ast_hash": "3293e43e5ee64474d6eab6a569bfd219",
+    "semantic_hash": "3293e43e5ee64474d6eab6a569bfd219"
+  },
+  "src/components/reader/GenericHtmlReader.tsx": {
+    "mtime": 1783919413.3892126,
+    "ast_hash": "f3b4fe97bddee1a1a56b0c4251bed8f1",
+    "semantic_hash": "f3b4fe97bddee1a1a56b0c4251bed8f1"
+  },
+  "src/components/reader/GestureZones.tsx": {
+    "mtime": 1782021727.922284,
+    "ast_hash": "8e76bdd217420b0951a9721aa7569d50",
+    "semantic_hash": "8e76bdd217420b0951a9721aa7569d50"
+  },
+  "src/components/reader/MobiReader.tsx": {
+    "mtime": 1783919413.5182147,
+    "ast_hash": "ef1bb6a44f7cbca8b01e54f6bdce6e69",
+    "semantic_hash": "ef1bb6a44f7cbca8b01e54f6bdce6e69"
+  },
+  "src/components/reader/PageFlipEngine.tsx": {
+    "mtime": 1782141955.031637,
+    "ast_hash": "39944bc7755e439af4f14f6189c62a60",
+    "semantic_hash": "39944bc7755e439af4f14f6189c62a60"
+  },
+  "src/components/reader/PdfReader.tsx": {
+    "mtime": 1783919364.143462,
+    "ast_hash": "8a1c52ae4ebb802adb7a0b9b88d36bf8",
+    "semantic_hash": "8a1c52ae4ebb802adb7a0b9b88d36bf8"
+  },
+  "src/components/reader/PremiumEpubReader.tsx": {
+    "mtime": 1783919398.4319844,
+    "ast_hash": "8dc003c5d2b364160eba7f29ffa83e88",
+    "semantic_hash": "8dc003c5d2b364160eba7f29ffa83e88"
+  },
+  "src/components/reader/PremiumSidebar.tsx": {
+    "mtime": 1783310830.6390939,
+    "ast_hash": "7f537add5f4e3210152aca0cd89a1cb8",
+    "semantic_hash": "7f537add5f4e3210152aca0cd89a1cb8"
+  },
+  "src/components/reader/ReaderErrorBoundary.tsx": {
+    "mtime": 1782021727.922284,
+    "ast_hash": "97981fb4aeba8c396ff627b70aa3a828",
+    "semantic_hash": "97981fb4aeba8c396ff627b70aa3a828"
+  },
+  "src/components/reader/ReaderLayout.tsx": {
+    "mtime": 1783920490.9727669,
+    "ast_hash": "42698877940bc26cb62de56ed5709328",
+    "semantic_hash": "42698877940bc26cb62de56ed5709328"
+  },
+  "src/components/reader/ReaderSettings.tsx": {
+    "mtime": 1783856114.8243032,
+    "ast_hash": "518f204c6d7f8090fd6d8190156491ad",
+    "semantic_hash": "518f204c6d7f8090fd6d8190156491ad"
+  },
+  "src/components/reader/ReaderTopBar.tsx": {
+    "mtime": 1783310830.6390939,
+    "ast_hash": "19424c988a81c7e71d3a6d8b16aa35de",
+    "semantic_hash": "19424c988a81c7e71d3a6d8b16aa35de"
+  },
+  "src/components/reader/ReadingProgressIndicator.tsx": {
+    "mtime": 1782568950.031753,
+    "ast_hash": "56c2169241426736ed958656f7da7836",
+    "semantic_hash": "56c2169241426736ed958656f7da7836"
+  },
+  "src/components/reader/ResumeReadingDialog.tsx": {
+    "mtime": 1782021727.9224386,
+    "ast_hash": "58d3e0a4503bf5adcee1780933101efd",
+    "semantic_hash": "58d3e0a4503bf5adcee1780933101efd"
+  },
+  "src/components/reader/TTSControlBar.tsx": {
+    "mtime": 1782021727.9224386,
+    "ast_hash": "17ec1f1af573de159862613463995ccf",
+    "semantic_hash": "17ec1f1af573de159862613463995ccf"
+  },
+  "src/components/reader/TextSelectionToolbar.tsx": {
+    "mtime": 1783310830.6390939,
+    "ast_hash": "9824f095c8ada2d7d49702381fdbc56b",
+    "semantic_hash": "9824f095c8ada2d7d49702381fdbc56b"
+  },
+  "src/components/reader/TranslationPopup.tsx": {
+    "mtime": 1782021727.9224386,
+    "ast_hash": "ae72d38201cde65a27aef15b389c8f43",
+    "semantic_hash": "ae72d38201cde65a27aef15b389c8f43"
+  },
+  "src/components/reader/readerContent.ts": {
+    "mtime": 1782139787.9998257,
+    "ast_hash": "c55011a9c587bd45dbab99ab79893744",
+    "semantic_hash": "c55011a9c587bd45dbab99ab79893744"
+  },
+  "src/components/rss/RSSArticleList.tsx": {
+    "mtime": 1782882869.8438025,
+    "ast_hash": "9423b75857a01311aee1b247b7226795",
+    "semantic_hash": "9423b75857a01311aee1b247b7226795"
+  },
+  "src/components/rss/RSSFeedManager.tsx": {
+    "mtime": 1783004939.3615923,
+    "ast_hash": "4c4d2ee0bedc33df76f4b83e8c88d760",
+    "semantic_hash": "4c4d2ee0bedc33df76f4b83e8c88d760"
+  },
+  "src/components/rss/index.ts": {
+    "mtime": 1782021727.9237652,
+    "ast_hash": "6147e32ee115f1c9f90543db9e227dac",
+    "semantic_hash": "6147e32ee115f1c9f90543db9e227dac"
+  },
+  "src/components/settings/AniListSettings.tsx": {
+    "mtime": 1783751731.4850411,
+    "ast_hash": "c8758ada1c72228f2f8481d1d0e6c349",
+    "semantic_hash": "c8758ada1c72228f2f8481d1d0e6c349"
+  },
+  "src/components/settings/DesktopCompanionSettings.tsx": {
+    "mtime": 1782816042.519218,
+    "ast_hash": "7a604fa76a508e51c71fef8ec1ba3c87",
+    "semantic_hash": "7a604fa76a508e51c71fef8ec1ba3c87"
+  },
+  "src/components/settings/SettingsDialog.tsx": {
+    "mtime": 1783864032.0424445,
+    "ast_hash": "52d97c2c678011d65271ef2ae8e6a482",
+    "semantic_hash": "52d97c2c678011d65271ef2ae8e6a482"
+  },
+  "src/components/settings/SourceManager.tsx": {
+    "mtime": 1783310830.6390939,
+    "ast_hash": "098c8d44659fb8620934ac94bbbdf8a0",
+    "semantic_hash": "098c8d44659fb8620934ac94bbbdf8a0"
+  },
+  "src/components/settings/TorboxSettings.tsx": {
+    "mtime": 1783310830.6390939,
+    "ast_hash": "b96bac1b1ecbb890dd4b8448a8218814",
+    "semantic_hash": "b96bac1b1ecbb890dd4b8448a8218814"
+  },
+  "src/components/share/ShareBookDialog.tsx": {
+    "mtime": 1782142040.2058587,
+    "ast_hash": "301362a6a22b02fb24ea5294efad0098",
+    "semantic_hash": "301362a6a22b02fb24ea5294efad0098"
+  },
+  "src/components/share/index.ts": {
+    "mtime": 1782021727.9242911,
+    "ast_hash": "5abaaa401bd3c80513bcbb3495cb810a",
+    "semantic_hash": "5abaaa401bd3c80513bcbb3495cb810a"
+  },
+  "src/components/statistics/ActivityHeatmap.tsx": {
+    "mtime": 1782538048.7948546,
+    "ast_hash": "47349a543aff37f2817a43306c8171e2",
+    "semantic_hash": "47349a543aff37f2817a43306c8171e2"
+  },
+  "src/components/statistics/ReadingCalendar.tsx": {
+    "mtime": 1782538097.80787,
+    "ast_hash": "aa658b2a06a517d00b946884dd5ba56b",
+    "semantic_hash": "aa658b2a06a517d00b946884dd5ba56b"
+  },
+  "src/components/statistics/StatisticsView.tsx": {
+    "mtime": 1782538132.9039187,
+    "ast_hash": "0f5da85c4223f574bc48d985b9843446",
+    "semantic_hash": "0f5da85c4223f574bc48d985b9843446"
+  },
+  "src/components/statistics/WeeklyChart.tsx": {
+    "mtime": 1782021727.924452,
+    "ast_hash": "b1e25dfa57045ab8fe0e51b717e95874",
+    "semantic_hash": "b1e25dfa57045ab8fe0e51b717e95874"
+  },
+  "src/components/torbox/TrendingExplore.tsx": {
+    "mtime": 1783781016.4894252,
+    "ast_hash": "27b79cb97a734fb4b9534b4ffca27bdb",
+    "semantic_hash": "27b79cb97a734fb4b9534b4ffca27bdb"
+  },
+  "src/components/ui/AndroidSplashScreen.tsx": {
+    "mtime": 1783233713.237629,
+    "ast_hash": "49f0c1944943fc9e4f1c17f92618f3ca",
+    "semantic_hash": "49f0c1944943fc9e4f1c17f92618f3ca"
+  },
+  "src/components/ui/Card.tsx": {
+    "mtime": 1783494376.6359572,
+    "ast_hash": "f02a4ac6f24f814d8a030e0510736a3a",
+    "semantic_hash": "f02a4ac6f24f814d8a030e0510736a3a"
+  },
+  "src/components/ui/FeatureHint.tsx": {
+    "mtime": 1783310830.6390939,
+    "ast_hash": "52ef2f402094fe5e439b98a0b8efa0d2",
+    "semantic_hash": "52ef2f402094fe5e439b98a0b8efa0d2"
+  },
+  "src/components/ui/Toast.tsx": {
+    "mtime": 1783494385.578119,
+    "ast_hash": "03017d97232d30f9fe61d52518d56096",
+    "semantic_hash": "03017d97232d30f9fe61d52518d56096"
+  },
+  "src/components/ui/ToastContainer.tsx": {
+    "mtime": 1783494337.035248,
+    "ast_hash": "51394167ef7fbe6cb942b17fb5b04c4c",
+    "semantic_hash": "51394167ef7fbe6cb942b17fb5b04c4c"
+  },
+  "src/components/ui/badge.tsx": {
+    "mtime": 1783493583.486742,
+    "ast_hash": "df2231af2a4918ecdedaee18dda26b89",
+    "semantic_hash": "df2231af2a4918ecdedaee18dda26b89"
+  },
+  "src/components/ui/button.tsx": {
+    "mtime": 1783493551.3336225,
+    "ast_hash": "4fdc50115acd4cd3b0135769373bc711",
+    "semantic_hash": "4fdc50115acd4cd3b0135769373bc711"
+  },
+  "src/components/ui/context-menu.tsx": {
+    "mtime": 1782021727.9246964,
+    "ast_hash": "d4964b3b39ddf550f9b30c104e0080d8",
+    "semantic_hash": "d4964b3b39ddf550f9b30c104e0080d8"
+  },
+  "src/components/ui/dialog.tsx": {
+    "mtime": 1783493563.0796618,
+    "ast_hash": "0ea0547cf26c19933c7d16a5a4885b95",
+    "semantic_hash": "0ea0547cf26c19933c7d16a5a4885b95"
+  },
+  "src/components/ui/dropdown-menu.tsx": {
+    "mtime": 1783494353.0555334,
+    "ast_hash": "c4a0ff14e67eac5be5f0b2682f27c009",
+    "semantic_hash": "c4a0ff14e67eac5be5f0b2682f27c009"
+  },
+  "src/components/ui/input.tsx": {
+    "mtime": 1783494366.2117693,
+    "ast_hash": "3dc25725473755371a1fcda4457ae1a7",
+    "semantic_hash": "3dc25725473755371a1fcda4457ae1a7"
+  },
+  "src/components/ui/label.tsx": {
+    "mtime": 1782021727.9246964,
+    "ast_hash": "7ea839d3fa873fb063a9709a79e47561",
+    "semantic_hash": "7ea839d3fa873fb063a9709a79e47561"
+  },
+  "src/components/ui/scroll-area.tsx": {
+    "mtime": 1782021727.9246964,
+    "ast_hash": "c4d63c56a99feb600ed0e9bbcfd70829",
+    "semantic_hash": "c4d63c56a99feb600ed0e9bbcfd70829"
+  },
+  "src/components/ui/separator.tsx": {
+    "mtime": 1782021727.9246964,
+    "ast_hash": "e970901b62fe8b73d2b9254fad77f583",
+    "semantic_hash": "e970901b62fe8b73d2b9254fad77f583"
+  },
+  "src/components/ui/skeleton.tsx": {
+    "mtime": 1783782505.9847677,
+    "ast_hash": "e8dd2bd98e4867cbf8abee4c8ef3bb2e",
+    "semantic_hash": "e8dd2bd98e4867cbf8abee4c8ef3bb2e"
+  },
+  "src/components/ui/switch.tsx": {
+    "mtime": 1782021727.9246964,
+    "ast_hash": "d0d67b0436f9e890078af9a50e80dcaf",
+    "semantic_hash": "d0d67b0436f9e890078af9a50e80dcaf"
+  },
+  "src/components/ui/tooltip.tsx": {
+    "mtime": 1782021727.9246964,
+    "ast_hash": "c1b954ec16aa7b715df7f34fa9522978",
+    "semantic_hash": "c1b954ec16aa7b715df7f34fa9522978"
+  },
+  "src/env.d.ts": {
+    "mtime": 1783754047.0121007,
+    "ast_hash": "2676e97f6f5960201fa56c8a8e8c207c",
+    "semantic_hash": "2676e97f6f5960201fa56c8a8e8c207c"
+  },
+  "src/hooks/useBackButton.ts": {
+    "mtime": 1783854773.9312675,
+    "ast_hash": "4dd7276e81c38f66679fcaa43e54e670",
+    "semantic_hash": "4dd7276e81c38f66679fcaa43e54e670"
+  },
+  "src/hooks/useBookActions.ts": {
+    "mtime": 1782535049.2435508,
+    "ast_hash": "dcf7f21bbfdbcd79c59c4cc026dfe06a",
+    "semantic_hash": "dcf7f21bbfdbcd79c59c4cc026dfe06a"
+  },
+  "src/hooks/useBookOpen.ts": {
+    "mtime": 1783920490.9727669,
+    "ast_hash": "8520cfdafc8db0c55a959cc9c85305b3",
+    "semantic_hash": "8520cfdafc8db0c55a959cc9c85305b3"
+  },
+  "src/hooks/useBookReadingTime.ts": {
+    "mtime": 1782021727.925184,
+    "ast_hash": "abf95d9e6ac1c53f5b4ec481d05104cc",
+    "semantic_hash": "abf95d9e6ac1c53f5b4ec481d05104cc"
+  },
+  "src/hooks/useDialogManager.ts": {
+    "mtime": 1783854681.4334543,
+    "ast_hash": "42946f7461c736c92219e5ba2b265737",
+    "semantic_hash": "42946f7461c736c92219e5ba2b265737"
+  },
+  "src/hooks/useDiscordPresence.ts": {
+    "mtime": 1782140726.1896093,
+    "ast_hash": "ea07a8c1bfec1bf9409e5cd4e20d744f",
+    "semantic_hash": "ea07a8c1bfec1bf9409e5cd4e20d744f"
+  },
+  "src/hooks/useDiscordRPCUpdater.ts": {
+    "mtime": 1782141135.026747,
+    "ast_hash": "4051fb2155553e50c0fe2fd622c8cc00",
+    "semantic_hash": "4051fb2155553e50c0fe2fd622c8cc00"
+  },
+  "src/hooks/useFullscreen.ts": {
+    "mtime": 1782835223.2989278,
+    "ast_hash": "2e6164d97f920bbfeb579563853f7d83",
+    "semantic_hash": "2e6164d97f920bbfeb579563853f7d83"
+  },
+  "src/hooks/useGlobalSearch.ts": {
+    "mtime": 1783310830.6390939,
+    "ast_hash": "2cadb65ca5023b07309bc648a387494d",
+    "semantic_hash": "2cadb65ca5023b07309bc648a387494d"
+  },
+  "src/hooks/useGroupedLibrary.ts": {
+    "mtime": 1782021727.925184,
+    "ast_hash": "3ab731642490019225b2187c53c42373",
+    "semantic_hash": "3ab731642490019225b2187c53c42373"
+  },
+  "src/hooks/useIsMobile.ts": {
+    "mtime": 1782739862.5597637,
+    "ast_hash": "ff79b90c83a9ee7b46c713041759bd8e",
+    "semantic_hash": "ff79b90c83a9ee7b46c713041759bd8e"
+  },
+  "src/hooks/useKeyboardShortcuts.ts": {
+    "mtime": 1782021727.925184,
+    "ast_hash": "426cf662e6126e2fd2974bec6a0092af",
+    "semantic_hash": "426cf662e6126e2fd2974bec6a0092af"
+  },
+  "src/hooks/useLibraryFilter.ts": {
+    "mtime": 1782134012.99918,
+    "ast_hash": "ad7e057c124c32017b65eed7e2827362",
+    "semantic_hash": "ad7e057c124c32017b65eed7e2827362"
+  },
+  "src/hooks/useMangaDex.ts": {
+    "mtime": 1783291116.2501037,
+    "ast_hash": "e6cafe71dcfbc75c9c6b7629b8d17f90",
+    "semantic_hash": "e6cafe71dcfbc75c9c6b7629b8d17f90"
+  },
+  "src/hooks/useMediaQuery.ts": {
+    "mtime": 1783291420.6316283,
+    "ast_hash": "b56f8aaf5e2a5f5827ff0100f8df5d3b",
+    "semantic_hash": "b56f8aaf5e2a5f5827ff0100f8df5d3b"
+  },
+  "src/hooks/useOpenLibrary.ts": {
+    "mtime": 1782021727.925184,
+    "ast_hash": "b12fe89ef6b1ad6974e828bd6edded9a",
+    "semantic_hash": "b12fe89ef6b1ad6974e828bd6edded9a"
+  },
+  "src/hooks/usePluginSource.ts": {
+    "mtime": 1782021727.925184,
+    "ast_hash": "76c21e6000629d1af9e321b4f146da1d",
+    "semantic_hash": "76c21e6000629d1af9e321b4f146da1d"
+  },
+  "src/hooks/usePremiumReaderKeyboard.ts": {
+    "mtime": 1782021727.925184,
+    "ast_hash": "fc2d6f8f47780bae7e7b9133b13e9f2d",
+    "semantic_hash": "fc2d6f8f47780bae7e7b9133b13e9f2d"
+  },
+  "src/hooks/useReaderAutoHide.ts": {
+    "mtime": 1782021727.925184,
+    "ast_hash": "006e5a9f5ba3845f7f5152fc4f2550bf",
+    "semantic_hash": "006e5a9f5ba3845f7f5152fc4f2550bf"
+  },
+  "src/hooks/useReaderTheme.ts": {
+    "mtime": 1782021727.925184,
+    "ast_hash": "36e72b882fd941a6764a16b644ff9e54",
+    "semantic_hash": "36e72b882fd941a6764a16b644ff9e54"
+  },
+  "src/hooks/useReadingProgress.ts": {
+    "mtime": 1782021727.925184,
+    "ast_hash": "cfaaac20bcc95321d13fee3c83aff9e1",
+    "semantic_hash": "cfaaac20bcc95321d13fee3c83aff9e1"
+  },
+  "src/hooks/useReadingSession.ts": {
+    "mtime": 1782021727.925184,
+    "ast_hash": "b804fdec4251c26fbdc2aca7ac8fc17c",
+    "semantic_hash": "b804fdec4251c26fbdc2aca7ac8fc17c"
+  },
+  "src/hooks/useTTS.ts": {
+    "mtime": 1782021727.925184,
+    "ast_hash": "63bf2d6e00db75993307e6a83f63facc",
+    "semantic_hash": "63bf2d6e00db75993307e6a83f63facc"
+  },
+  "src/hooks/useTheme.ts": {
+    "mtime": 1782021727.925184,
+    "ast_hash": "4864a9e141df843c41704ff59b3e90d6",
+    "semantic_hash": "4864a9e141df843c41704ff59b3e90d6"
+  },
+  "src/hooks/useThumbnail.ts": {
+    "mtime": 1782021727.925184,
+    "ast_hash": "68f6c74e901f574bfe22f81aa1f3ef46",
+    "semantic_hash": "68f6c74e901f574bfe22f81aa1f3ef46"
+  },
+  "src/lib/anilist.ts": {
+    "mtime": 1783340244.4068651,
+    "ast_hash": "93e536efff9deb96bcc139c364989793",
+    "semantic_hash": "93e536efff9deb96bcc139c364989793"
+  },
+  "src/lib/collectionSuggestions.ts": {
+    "mtime": 1782021727.925184,
+    "ast_hash": "d7c6aaaf88094f45083becf6308a4731",
+    "semantic_hash": "d7c6aaaf88094f45083becf6308a4731"
+  },
+  "src/lib/coverCache.ts": {
+    "mtime": 1782905298.9432425,
+    "ast_hash": "87036d9ede5e082868855230b5ac3416",
+    "semantic_hash": "87036d9ede5e082868855230b5ac3416"
+  },
+  "src/lib/errors.ts": {
+    "mtime": 1783672170.6052964,
+    "ast_hash": "65a474c89b4e8a175a60cae3751e2618",
+    "semantic_hash": "65a474c89b4e8a175a60cae3751e2618"
+  },
+  "src/lib/highlightAnnotations.ts": {
+    "mtime": 1782133217.9336388,
+    "ast_hash": "152d9aee2cbe90faa3a07598eb1fb0b0",
+    "semantic_hash": "152d9aee2cbe90faa3a07598eb1fb0b0"
+  },
+  "src/lib/logger.ts": {
+    "mtime": 1782021727.926116,
+    "ast_hash": "def40aba47750d571784eb14b0b3eccd",
+    "semantic_hash": "def40aba47750d571784eb14b0b3eccd"
+  },
+  "src/lib/pluginSources.ts": {
+    "mtime": 1783340244.7728682,
+    "ast_hash": "8dc1f318689d7e8490313c13c3264295",
+    "semantic_hash": "8dc1f318689d7e8490313c13c3264295"
+  },
+  "src/lib/readingFonts.ts": {
+    "mtime": 1782021727.926116,
+    "ast_hash": "d335de530a7837d87ea3cb6eb022dd81",
+    "semantic_hash": "d335de530a7837d87ea3cb6eb022dd81"
+  },
+  "src/lib/sanitize.ts": {
+    "mtime": 1782021727.926116,
+    "ast_hash": "65c80d880106956d625a12b0a495d34d",
+    "semantic_hash": "65c80d880106956d625a12b0a495d34d"
+  },
+  "src/lib/sentenceHighlighter.ts": {
+    "mtime": 1782021727.926116,
+    "ast_hash": "319df51140d6d34085178b78105e9d66",
+    "semantic_hash": "319df51140d6d34085178b78105e9d66"
+  },
+  "src/lib/sentenceSplitter.ts": {
+    "mtime": 1782021727.926116,
+    "ast_hash": "10b4be00f94fdb4af91b376ca37246be",
+    "semantic_hash": "10b4be00f94fdb4af91b376ca37246be"
+  },
+  "src/lib/shortcutsCatalog.ts": {
+    "mtime": 1782021727.926116,
+    "ast_hash": "e4f7f9d56618b18bde8df70fc95a6841",
+    "semantic_hash": "e4f7f9d56618b18bde8df70fc95a6841"
+  },
+  "src/lib/tauri.ts": {
+    "mtime": 1783828946.1661336,
+    "ast_hash": "eb5ceb5f2585a753c6f841f6d09007dc",
+    "semantic_hash": "eb5ceb5f2585a753c6f841f6d09007dc"
+  },
+  "src/lib/textExtractor.ts": {
+    "mtime": 1782021727.926116,
+    "ast_hash": "5e2a1bcd3d9be769c4e16b57cd5b21f0",
+    "semantic_hash": "5e2a1bcd3d9be769c4e16b57cd5b21f0"
+  },
+  "src/lib/ttsEngine.ts": {
+    "mtime": 1782566141.1760752,
+    "ast_hash": "3093833715440729ff9f4fd7aca5c920",
+    "semantic_hash": "3093833715440729ff9f4fd7aca5c920"
+  },
+  "src/lib/utils.ts": {
+    "mtime": 1783291160.9997847,
+    "ast_hash": "25bc25f23edf320f88a082f76c6c7215",
+    "semantic_hash": "25bc25f23edf320f88a082f76c6c7215"
+  },
+  "src/main.tsx": {
+    "mtime": 1783002209.2644036,
+    "ast_hash": "7d6df387d562829d2cc765c5909d73c0",
+    "semantic_hash": "7d6df387d562829d2cc765c5909d73c0"
+  },
+  "src/online-books/gutenberg/api.ts": {
+    "mtime": 1782021727.9267812,
+    "ast_hash": "3c034ec5d98641a8771efc509c0ec38a",
+    "semantic_hash": "3c034ec5d98641a8771efc509c0ec38a"
+  },
+  "src/online-books/gutenberg/downloads.ts": {
+    "mtime": 1782021727.9268317,
+    "ast_hash": "df1113a559fbddb8f86d1a4bb5650e91",
+    "semantic_hash": "df1113a559fbddb8f86d1a4bb5650e91"
+  },
+  "src/online-books/gutenberg/importer.ts": {
+    "mtime": 1782021727.9268317,
+    "ast_hash": "33617ab919f9fbc85cff1d738e0a645d",
+    "semantic_hash": "33617ab919f9fbc85cff1d738e0a645d"
+  },
+  "src/online-books/gutenberg/types.ts": {
+    "mtime": 1782021727.9268317,
+    "ast_hash": "aea2e1987b297d39415828e987c6b563",
+    "semantic_hash": "aea2e1987b297d39415828e987c6b563"
+  },
+  "src/online-books/libgen/api.ts": {
+    "mtime": 1782021727.9268317,
+    "ast_hash": "b28669e00193011a9df987c15b839570",
+    "semantic_hash": "b28669e00193011a9df987c15b839570"
+  },
+  "src/online-books/libgen/downloads.ts": {
+    "mtime": 1782129216.6339211,
+    "ast_hash": "8d2921cffd8237464649a01142f3714c",
+    "semantic_hash": "8d2921cffd8237464649a01142f3714c"
+  },
+  "src/online-books/libgen/importer.ts": {
+    "mtime": 1782129216.8269284,
+    "ast_hash": "8b1514cd4682ad19aed238da2d635f13",
+    "semantic_hash": "8b1514cd4682ad19aed238da2d635f13"
+  },
+  "src/online-books/libgen/types.ts": {
+    "mtime": 1782021727.926938,
+    "ast_hash": "186e6e50346c027260978fcd9c820e0e",
+    "semantic_hash": "186e6e50346c027260978fcd9c820e0e"
+  },
+  "src/online-books/openlibrary/api.ts": {
+    "mtime": 1782021727.926938,
+    "ast_hash": "d4b5d49d0317dfe1c81309f1dd105d58",
+    "semantic_hash": "d4b5d49d0317dfe1c81309f1dd105d58"
+  },
+  "src/online-books/openlibrary/types.ts": {
+    "mtime": 1782021727.9270415,
+    "ast_hash": "3036a4cf087b70610360b09445df1c96",
+    "semantic_hash": "3036a4cf087b70610360b09445df1c96"
+  },
+  "src/providers/ThemeProvider.tsx": {
+    "mtime": 1782021727.9270415,
+    "ast_hash": "05d107b55d728bafde573532d82129d3",
+    "semantic_hash": "05d107b55d728bafde573532d82129d3"
+  },
+  "src/store/collectionStore.ts": {
+    "mtime": 1782021727.9270415,
+    "ast_hash": "b004816a97708d539ddc60bc7feda5d0",
+    "semantic_hash": "b004816a97708d539ddc60bc7feda5d0"
+  },
+  "src/store/conversionStore.ts": {
+    "mtime": 1782559858.1659338,
+    "ast_hash": "b8a041c42c8becbfebf7ab19c3424f2c",
+    "semantic_hash": "b8a041c42c8becbfebf7ab19c3424f2c"
+  },
+  "src/store/doodleStore.ts": {
+    "mtime": 1782021727.927156,
+    "ast_hash": "e41ddc4a7a9c0aa05cffae3a96fb9c9e",
+    "semantic_hash": "e41ddc4a7a9c0aa05cffae3a96fb9c9e"
+  },
+  "src/store/featureDiscoveryStore.ts": {
+    "mtime": 1782021727.927156,
+    "ast_hash": "3b03b04674ab6c8c947ce49dff85f216",
+    "semantic_hash": "3b03b04674ab6c8c947ce49dff85f216"
+  },
+  "src/store/libraryStore.ts": {
+    "mtime": 1782903594.2181287,
+    "ast_hash": "3ed9fd1ca10097ff870c35aa3dc23f52",
+    "semantic_hash": "3ed9fd1ca10097ff870c35aa3dc23f52"
+  },
+  "src/store/mangaReaderStore.ts": {
+    "mtime": 1783856517.3354828,
+    "ast_hash": "c8a39c449c02b87f8d498481495c3b15",
+    "semantic_hash": "c8a39c449c02b87f8d498481495c3b15"
+  },
+  "src/store/offlineSyncStore.ts": {
+    "mtime": 1783337556.0755699,
+    "ast_hash": "b2b606d404792ef443821f487c5561d4",
+    "semantic_hash": "b2b606d404792ef443821f487c5561d4"
+  },
+  "src/store/onboardingStore.ts": {
+    "mtime": 1783783655.310378,
+    "ast_hash": "ead045f38b34f7047f32dbe252ff9d94",
+    "semantic_hash": "ead045f38b34f7047f32dbe252ff9d94"
+  },
+  "src/store/onlineDownloadStore.ts": {
+    "mtime": 1782021727.927156,
+    "ast_hash": "1146b457716d226a193bc224ce21cf98",
+    "semantic_hash": "1146b457716d226a193bc224ce21cf98"
+  },
+  "src/store/onlineMangaBrowseStore.ts": {
+    "mtime": 1782884490.7202861,
+    "ast_hash": "75a8e76ac0e8f5a6693a7ad70a85557b",
+    "semantic_hash": "75a8e76ac0e8f5a6693a7ad70a85557b"
+  },
+  "src/store/onlineMangaReaderStore.ts": {
+    "mtime": 1782970197.4571009,
+    "ast_hash": "6e12351d4a32952cafa207ad6325da95",
+    "semantic_hash": "6e12351d4a32952cafa207ad6325da95"
+  },
+  "src/store/onlineSearchStore.ts": {
+    "mtime": 1782021727.927156,
+    "ast_hash": "f8f54dc53602bba174bae00ba1ce8195",
+    "semantic_hash": "f8f54dc53602bba174bae00ba1ce8195"
+  },
+  "src/store/pluginSourceStore.ts": {
+    "mtime": 1782021727.927156,
+    "ast_hash": "de05ff71f17d26eb46581da8d4496861",
+    "semantic_hash": "de05ff71f17d26eb46581da8d4496861"
+  },
+  "src/store/preferencesStore.ts": {
+    "mtime": 1783782190.0483012,
+    "ast_hash": "b2b7aae92bfb4c8a37dbc90425166a56",
+    "semantic_hash": "b2b7aae92bfb4c8a37dbc90425166a56"
+  },
+  "src/store/premiumReaderStore.ts": {
+    "mtime": 1783855888.1042626,
+    "ast_hash": "c1a286b5d309fec31d601994da9181eb",
+    "semantic_hash": "c1a286b5d309fec31d601994da9181eb"
+  },
+  "src/store/readerStore.ts": {
+    "mtime": 1783144389.5550308,
+    "ast_hash": "34fdea886a14cce2b47d8ba54191afc0",
+    "semantic_hash": "34fdea886a14cce2b47d8ba54191afc0"
+  },
+  "src/store/rssStore.ts": {
+    "mtime": 1782021727.927156,
+    "ast_hash": "64f6b73f4a000872bd009e19da13a891",
+    "semantic_hash": "64f6b73f4a000872bd009e19da13a891"
+  },
+  "src/store/shareStore.ts": {
+    "mtime": 1782021727.927156,
+    "ast_hash": "14bf0459ce20a3f5ab98ab525eb76674",
+    "semantic_hash": "14bf0459ce20a3f5ab98ab525eb76674"
+  },
+  "src/store/sourceHealthStore.ts": {
+    "mtime": 1782021727.927156,
+    "ast_hash": "3cb645f07a930686be05bc5982a03213",
+    "semantic_hash": "3cb645f07a930686be05bc5982a03213"
+  },
+  "src/store/sourceStore.ts": {
+    "mtime": 1783491111.8611326,
+    "ast_hash": "90e615557407fd85e4f90575cd996ae6",
+    "semantic_hash": "90e615557407fd85e4f90575cd996ae6"
+  },
+  "src/store/toastStore.ts": {
+    "mtime": 1782021727.927156,
+    "ast_hash": "4e8461abec7b9bc47e6791c9beac9321",
+    "semantic_hash": "4e8461abec7b9bc47e6791c9beac9321"
+  },
+  "src/store/uiStore.ts": {
+    "mtime": 1783311283.9657865,
+    "ast_hash": "ac83776f371fee7dcc6d17702a472679",
+    "semantic_hash": "ac83776f371fee7dcc6d17702a472679"
+  },
+  "src/store/useTorboxStore.ts": {
+    "mtime": 1782021727.927156,
+    "ast_hash": "4982ecdc89cc30506af5a432ead4acdb",
+    "semantic_hash": "4982ecdc89cc30506af5a432ead4acdb"
+  },
+  "src/test/setup.ts": {
+    "mtime": 1783291084.6976194,
+    "ast_hash": "32b733d80b7a9f1ac53c04371cf39f26",
+    "semantic_hash": "32b733d80b7a9f1ac53c04371cf39f26"
+  },
+  "src/types/preferences.ts": {
+    "mtime": 1783782124.6085832,
+    "ast_hash": "92b69b505412a85c7f2beabc32b5ca10",
+    "semantic_hash": "92b69b505412a85c7f2beabc32b5ca10"
+  },
+  "tailwind.config.js": {
+    "mtime": 1783829634.2169275,
+    "ast_hash": "a1ba645a5897b187425ca4b80a0a64cc",
+    "semantic_hash": "a1ba645a5897b187425ca4b80a0a64cc"
+  },
+  "test-build.rs": {
+    "mtime": 1783938847.8533409,
+    "ast_hash": "823e94c61eac400d777353cc81c2dc02",
+    "semantic_hash": "823e94c61eac400d777353cc81c2dc02"
+  },
+  "tests/components/layout/Layout.ssr.test.tsx": {
+    "mtime": 1783495093.380129,
+    "ast_hash": "40677903bdb0a2c213b7a94b9d35c968",
+    "semantic_hash": "40677903bdb0a2c213b7a94b9d35c968"
+  },
+  "tests/components/layout/Layout.test.tsx": {
+    "mtime": 1783495087.757012,
+    "ast_hash": "f6b467acc7e5d5a42d6320157d39def6",
+    "semantic_hash": "f6b467acc7e5d5a42d6320157d39def6"
+  },
+  "tests/components/online/OnlineMangaDetailView.test.tsx": {
+    "mtime": 1783495099.359254,
+    "ast_hash": "817b7d4285c63bf6cf0791e7e02d08eb",
+    "semantic_hash": "817b7d4285c63bf6cf0791e7e02d08eb"
+  },
+  "tests/e2e/library.spec.ts": {
+    "mtime": 1783309792.4799006,
+    "ast_hash": "4428afc4b7cfe7f6774dd93c03adb473",
+    "semantic_hash": "4428afc4b7cfe7f6774dd93c03adb473"
+  },
+  "tests/hooks/useMangaDex.test.ts": {
+    "mtime": 1783495106.2763982,
+    "ast_hash": "471388420954e7acfb14e70f516c0984",
+    "semantic_hash": "471388420954e7acfb14e70f516c0984"
+  },
+  "tests/lib/utils.test.ts": {
+    "mtime": 1783495112.2685232,
+    "ast_hash": "c8da54da47b30726d39ce6dc7ff4f4b4",
+    "semantic_hash": "c8da54da47b30726d39ce6dc7ff4f4b4"
+  },
+  "tsconfig.app.json": {
+    "mtime": 1782738260.1513083,
+    "ast_hash": "b706d7f01b7d7a1a63bea878b4c5f455",
+    "semantic_hash": "b706d7f01b7d7a1a63bea878b4c5f455"
+  },
+  "tsconfig.json": {
+    "mtime": 1782021727.9286914,
+    "ast_hash": "a3d39fa780ebff65444de257f291ce6c",
+    "semantic_hash": "a3d39fa780ebff65444de257f291ce6c"
+  },
+  "tsconfig.node.json": {
+    "mtime": 1782021727.9286914,
+    "ast_hash": "eec85c9d7c6b599801557f1afd86672c",
+    "semantic_hash": "eec85c9d7c6b599801557f1afd86672c"
+  },
+  "vite.config.ts": {
+    "mtime": 1783314746.9054613,
+    "ast_hash": "89ffbbf8d455ccdbc1f0bd66f9205b32",
+    "semantic_hash": "89ffbbf8d455ccdbc1f0bd66f9205b32"
+  },
+  ".agents/rules/graphify.md": {
+    "mtime": 1783939564.3759198,
+    "ast_hash": "f1e53ecc9194573d3c28fc116c743a2e",
+    "semantic_hash": ""
+  },
+  ".agents/workflows/graphify.md": {
+    "mtime": 1783939564.3759842,
+    "ast_hash": "0bc020d491fca99550c1ea3de0a5f862",
+    "semantic_hash": ""
+  },
+  ".github/ISSUE_TEMPLATE/bug_report.md": {
+    "mtime": 1783674153.1694188,
+    "ast_hash": "ea01db5931186b4e3c61adaa4aa520fc",
+    "semantic_hash": ""
+  },
+  ".github/ISSUE_TEMPLATE/feature_request.md": {
+    "mtime": 1783674153.1695359,
+    "ast_hash": "2d084c859ae45a61d7698440e0d248fd",
+    "semantic_hash": ""
+  },
+  ".github/ISSUE_TEMPLATE/question.md": {
+    "mtime": 1783674153.1695359,
+    "ast_hash": "35ed24fbf85cb487405c1fc7be306989",
+    "semantic_hash": ""
+  },
+  ".github/PULL_REQUEST_TEMPLATE.md": {
+    "mtime": 1783674153.1695359,
+    "ast_hash": "f27a5c57cd2f457589470fe4cc3d717a",
+    "semantic_hash": ""
+  },
+  ".github/codeql/codeql-config.yml": {
+    "mtime": 1783674153.1695359,
+    "ast_hash": "b7468bffdd547cc8aefc2b40e4958a74",
+    "semantic_hash": ""
+  },
+  ".github/workflows/aur.yml": {
+    "mtime": 1783674153.1695359,
+    "ast_hash": "aca0b51c0e2358ef7441ee2efa3a841a",
+    "semantic_hash": ""
+  },
+  ".github/workflows/release.yml": {
+    "mtime": 1783791290.7992551,
+    "ast_hash": "0d69c0828955b96b6ca3f4dec335938f",
+    "semantic_hash": ""
+  },
+  ".github/workflows/version-bump.yml": {
+    "mtime": 1783674153.1697588,
+    "ast_hash": "0230310f76da8987ffc5f279c2372f6b",
+    "semantic_hash": ""
+  },
+  "CODE_OF_CONDUCT.md": {
+    "mtime": 1782021727.6674712,
+    "ast_hash": "0271da329ca091d4f616ca6b6d8813f0",
+    "semantic_hash": ""
+  },
+  "CONTRIBUTING.md": {
+    "mtime": 1782021727.6674712,
+    "ast_hash": "d5b129abc7af52d3f4fc36ef565db74a",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1782021727.6674712,
+    "ast_hash": "1d05cbe87a2fb18cf14dd40015b15c1e",
+    "semantic_hash": ""
+  },
+  "docs/CONTRIBUTING.md": {
+    "mtime": 1782021727.8679223,
+    "ast_hash": "1f4c79324c59443cfeae3bb8dde4f548",
+    "semantic_hash": ""
+  },
+  "docs/DEPLOYMENT_STATUS.md": {
+    "mtime": 1782021727.8690765,
+    "ast_hash": "e0fe2cc4b14aa303069159d10415fae9",
+    "semantic_hash": ""
+  },
+  "docs/architecture.md": {
+    "mtime": 1782021727.8690765,
+    "ast_hash": "40540ffd06e8927f55513f0c15be4190",
+    "semantic_hash": ""
+  },
+  "docs/desgin.md": {
+    "mtime": 1782021727.8690765,
+    "ast_hash": "b18d2f9b15d8c7b6b09292bff055f841",
+    "semantic_hash": ""
+  },
+  "docs/shiori.md": {
+    "mtime": 1782021727.8690765,
+    "ast_hash": "cd25412785e6775f0350aa2deb08660e",
+    "semantic_hash": ""
+  },
+  "index.html": {
+    "mtime": 1782964002.1893785,
+    "ast_hash": "eca6b0ad513fbd5cfe1ff10e08249132",
+    "semantic_hash": ""
+  },
+  "src-tauri/parsed_rust_dead.txt": {
+    "mtime": 1783310121.8438413,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": ""
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/README.md": {
+    "mtime": 1783510730.968381,
+    "ast_hash": "f3ba8fb0222be8ce637f9566ee3220e2",
+    "semantic_hash": ""
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/examples/tauri-app/README.md": {
+    "mtime": 1783510730.9693809,
+    "ast_hash": "91d67934560b6a10a9310317d6a2f5a3",
+    "semantic_hash": ""
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/examples/tauri-app/index.html": {
+    "mtime": 1783510730.9693809,
+    "ast_hash": "b11e084205d1640498a2e71a8cc3cbf5",
+    "semantic_hash": ""
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/permissions/autogenerated/reference.md": {
+    "mtime": 1783671259.2128196,
+    "ast_hash": "c06c92b8bcb8847925fbf52ae6d295dd",
+    "semantic_hash": ""
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/README.md": {
+    "mtime": 1782830796.3138025,
+    "ast_hash": "d9005d798c3d37e0e796638d05647933",
+    "semantic_hash": ""
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/examples/tauri-app/README.md": {
+    "mtime": 1782830796.311992,
+    "ast_hash": "91d67934560b6a10a9310317d6a2f5a3",
+    "semantic_hash": ""
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/examples/tauri-app/index.html": {
+    "mtime": 1782830796.312112,
+    "ast_hash": "b11e084205d1640498a2e71a8cc3cbf5",
+    "semantic_hash": ""
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/permissions/autogenerated/reference.md": {
+    "mtime": 1783828963.6773322,
+    "ast_hash": "c00bfdbae508a375b8016049de4108e0",
+    "semantic_hash": ""
+  },
+  "assets/Cloud_Downloads_Torbox.gif": {
+    "mtime": 1782021727.715428,
+    "ast_hash": "c8988d5fa55450803c1a86ebcc64457f",
+    "semantic_hash": ""
+  },
+  "assets/bookreader.gif": {
+    "mtime": 1782021727.7674308,
+    "ast_hash": "495d0f7caa1f0395e8fd62e442056b59",
+    "semantic_hash": ""
+  },
+  "assets/mangareader.gif": {
+    "mtime": 1782021727.7854316,
+    "ast_hash": "bcb1bd021a22ed1c6bf677a43875e1e5",
+    "semantic_hash": ""
+  },
+  "assets/onboarding.gif": {
+    "mtime": 1782021727.812433,
+    "ast_hash": "84e79a4dc0a5aad457b3b6f83a8a62f1",
+    "semantic_hash": ""
+  },
+  "assets/onlinebooks.gif": {
+    "mtime": 1782021727.8354342,
+    "ast_hash": "5a9c844a80b07c0a9c35650642d0f998",
+    "semantic_hash": ""
+  },
+  "assets/onlinemanga.gif": {
+    "mtime": 1782021727.8664358,
+    "ast_hash": "97311acf16f093ffd74304202024e624",
+    "semantic_hash": ""
+  },
+  "public/Screenshots/RSSfeeds.png": {
+    "mtime": 1782021727.871436,
+    "ast_hash": "205ab0be45383e9f6a346b75a1f873d1",
+    "semantic_hash": ""
+  },
+  "public/Screenshots/bookconverter.png": {
+    "mtime": 1782021727.871436,
+    "ast_hash": "ab102e9ddebacaa5c14316ce0bdb3534",
+    "semantic_hash": ""
+  },
+  "public/Screenshots/darkmodehome.png": {
+    "mtime": 1782021727.8774364,
+    "ast_hash": "8393f241194446b944b3bf277f41b8d8",
+    "semantic_hash": ""
+  },
+  "public/Screenshots/darkreadingmode.png": {
+    "mtime": 1782021727.8784366,
+    "ast_hash": "2f959ed636e09632eb9aa31a8a386dc0",
+    "semantic_hash": ""
+  },
+  "public/Screenshots/editmetadata.png": {
+    "mtime": 1782021727.8784366,
+    "ast_hash": "50898a853ba77a9bc63b2c7409010d4e",
+    "semantic_hash": ""
+  },
+  "public/Screenshots/lightmodehome.png": {
+    "mtime": 1782021727.8844368,
+    "ast_hash": "474fd17f876692407fec80eba0282188",
+    "semantic_hash": ""
+  },
+  "public/Screenshots/searchbook.png": {
+    "mtime": 1782021727.886437,
+    "ast_hash": "432d0d58830c52aaadb1d342922c41f1",
+    "semantic_hash": ""
+  },
+  "public/Screenshots/searchkeyword.png": {
+    "mtime": 1782021727.888437,
+    "ast_hash": "4721252c3500555ac9ce92b7bd21bab7",
+    "semantic_hash": ""
+  },
+  "public/Screenshots/tableofcontent.png": {
+    "mtime": 1782021727.889437,
+    "ast_hash": "141178823365c65585d92df03da8caa7",
+    "semantic_hash": ""
+  },
+  "public/Screenshots/twopageview.png": {
+    "mtime": 1782021727.891437,
+    "ast_hash": "327d3225ec8b490c4e04675847d817a2",
+    "semantic_hash": ""
+  },
+  "public/Screenshots/viewpage.png": {
+    "mtime": 1782021727.8934371,
+    "ast_hash": "5c2507f65fd64e709b6800abaff7e24d",
+    "semantic_hash": ""
+  },
+  "public/banner.svg": {
+    "mtime": 1782021727.8934371,
+    "ast_hash": "ac33bd4fef55260ef7fb5bd52c4654d2",
+    "semantic_hash": ""
+  },
+  "public/favicon.png": {
+    "mtime": 1782021727.8934371,
+    "ast_hash": "258c0ad7f005565b0b85fe1851ea6b99",
+    "semantic_hash": ""
+  },
+  "public/icon.svg": {
+    "mtime": 1782021727.8954372,
+    "ast_hash": "27d6346fd4770800011015b314865fae",
+    "semantic_hash": ""
+  },
+  "public/logo.png": {
+    "mtime": 1782021727.8964374,
+    "ast_hash": "2cbdc1bc2ec59852e577c523de2900df",
+    "semantic_hash": ""
+  },
+  "public/logo.svg": {
+    "mtime": 1782021727.8964374,
+    "ast_hash": "8370b37e1db40d4256a65f6f15dc4afd",
+    "semantic_hash": ""
+  },
+  "public/vite.svg": {
+    "mtime": 1782021727.8964374,
+    "ast_hash": "8e3a10e157f75ada21ab742c022d5430",
+    "semantic_hash": ""
+  },
+  "src-tauri/gen/android/app/src/main/res/mipmap-hdpi/ic_launcher.png": {
+    "mtime": 1783914727.931321,
+    "ast_hash": "c1feea29f78b2898d55bea47d9ce0187",
+    "semantic_hash": ""
+  },
+  "src-tauri/gen/android/app/src/main/res/mipmap-hdpi/ic_launcher_foreground.png": {
+    "mtime": 1783914727.931321,
+    "ast_hash": "d77d66466309e85b1de5309002d68bf8",
+    "semantic_hash": ""
+  },
+  "src-tauri/gen/android/app/src/main/res/mipmap-hdpi/ic_launcher_round.png": {
+    "mtime": 1783914727.931321,
+    "ast_hash": "7fcfcab089983875eba0e090e733768a",
+    "semantic_hash": ""
+  },
+  "src-tauri/gen/android/app/src/main/res/mipmap-mdpi/ic_launcher.png": {
+    "mtime": 1783914727.931321,
+    "ast_hash": "6917ae026e8c681f25eb1a8e44b11f7f",
+    "semantic_hash": ""
+  },
+  "src-tauri/gen/android/app/src/main/res/mipmap-mdpi/ic_launcher_foreground.png": {
+    "mtime": 1783914727.931321,
+    "ast_hash": "48f69f490a6453dcb90bc969abbbeb50",
+    "semantic_hash": ""
+  },
+  "src-tauri/gen/android/app/src/main/res/mipmap-mdpi/ic_launcher_round.png": {
+    "mtime": 1783914727.931321,
+    "ast_hash": "06607538feffc600e04a1a73a65d7dc9",
+    "semantic_hash": ""
+  },
+  "src-tauri/gen/android/app/src/main/res/mipmap-xhdpi/ic_launcher.png": {
+    "mtime": 1783914727.932321,
+    "ast_hash": "61aa2319d79f50bb64f89bfdc06d07dd",
+    "semantic_hash": ""
+  },
+  "src-tauri/gen/android/app/src/main/res/mipmap-xhdpi/ic_launcher_foreground.png": {
+    "mtime": 1783914727.932321,
+    "ast_hash": "0188e03175ece79e79dd8bc8b6fe3e89",
+    "semantic_hash": ""
+  },
+  "src-tauri/gen/android/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png": {
+    "mtime": 1783914727.932321,
+    "ast_hash": "19833b06e7b63c663371ee30813075b2",
+    "semantic_hash": ""
+  },
+  "src-tauri/gen/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png": {
+    "mtime": 1783914727.932321,
+    "ast_hash": "2aa88f7202ae708af5c2e396587fd69f",
+    "semantic_hash": ""
+  },
+  "src-tauri/gen/android/app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png": {
+    "mtime": 1783914727.932321,
+    "ast_hash": "f4aaff81bccf9821d18ac3950532479c",
+    "semantic_hash": ""
+  },
+  "src-tauri/gen/android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png": {
+    "mtime": 1783914727.932321,
+    "ast_hash": "2df1b30f56f7e2327df40859a06fe34b",
+    "semantic_hash": ""
+  },
+  "src-tauri/gen/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png": {
+    "mtime": 1783914727.932321,
+    "ast_hash": "aa12aeacc67ff941a5b3612cd4d50ca2",
+    "semantic_hash": ""
+  },
+  "src-tauri/gen/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png": {
+    "mtime": 1783914727.932321,
+    "ast_hash": "c30e254cf2e7ec2898f6d0b1cfaf94e1",
+    "semantic_hash": ""
+  },
+  "src-tauri/gen/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png": {
+    "mtime": 1783914727.932321,
+    "ast_hash": "38fbcf69c1a9e17d5310c86727c71941",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/128x128.png": {
+    "mtime": 1783914727.932321,
+    "ast_hash": "c7bac947b241d1808792fd2ca2c72b4e",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/128x128@2x.png": {
+    "mtime": 1783914727.932321,
+    "ast_hash": "e1e05a33fce2a453e921a2d96d9bba89",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/32x32.png": {
+    "mtime": 1783914727.933321,
+    "ast_hash": "65aece59854fc4db93e9ad856e28957b",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/64x64.png": {
+    "mtime": 1783914727.933321,
+    "ast_hash": "00dc3a927c80e8188e3ea4bb84ec413f",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/Square107x107Logo.png": {
+    "mtime": 1783914727.933321,
+    "ast_hash": "4632bc3325189671a94b83b4bb00a888",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/Square142x142Logo.png": {
+    "mtime": 1783914727.933321,
+    "ast_hash": "fa6e8fea16038ed6cd355b689b58d75c",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/Square150x150Logo.png": {
+    "mtime": 1783914727.933321,
+    "ast_hash": "2c1dd91c5ef60542d2eea29129cd4b13",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/Square284x284Logo.png": {
+    "mtime": 1783914727.933321,
+    "ast_hash": "6012692b5c4c431880ea1459f4d774d1",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/Square30x30Logo.png": {
+    "mtime": 1783914727.933321,
+    "ast_hash": "5d31e83b501ef659fa12f3764309122f",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/Square310x310Logo.png": {
+    "mtime": 1783914727.933321,
+    "ast_hash": "85976bed04dd5ee8085195dafff1b2f1",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/Square44x44Logo.png": {
+    "mtime": 1783914727.933321,
+    "ast_hash": "32ed14ab2dd843c9c886a84d3b4a2054",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/Square71x71Logo.png": {
+    "mtime": 1783914727.933321,
+    "ast_hash": "46ee75b21612fadbb2d840f62afae999",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/Square89x89Logo.png": {
+    "mtime": 1783914727.933321,
+    "ast_hash": "05aa0d8a8bc6815d3e8f55de8ce32b94",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/StoreLogo.png": {
+    "mtime": 1783914727.933321,
+    "ast_hash": "da0bc6237638f17d8782c8e975dd1056",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/icon.png": {
+    "mtime": 1783914727.935321,
+    "ast_hash": "40306a50bbb70b10d13de0da92d3daf7",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/ios/AppIcon-20x20@1x.png": {
+    "mtime": 1783914727.935321,
+    "ast_hash": "c0113c9b402625dc8202414b6346e09a",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/ios/AppIcon-20x20@2x-1.png": {
+    "mtime": 1783914727.935321,
+    "ast_hash": "75f33f2c3e3c46a9fa4caf4feb7dfc73",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/ios/AppIcon-20x20@2x.png": {
+    "mtime": 1783914727.936321,
+    "ast_hash": "75f33f2c3e3c46a9fa4caf4feb7dfc73",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/ios/AppIcon-20x20@3x.png": {
+    "mtime": 1783914727.936321,
+    "ast_hash": "3683c34a666abe8a8c533b64026d7326",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/ios/AppIcon-29x29@1x.png": {
+    "mtime": 1783914727.936321,
+    "ast_hash": "d996669052504333d40ba49f4a152ef1",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/ios/AppIcon-29x29@2x-1.png": {
+    "mtime": 1783914727.936321,
+    "ast_hash": "2111cae0400f129ea2cecbe296b72434",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/ios/AppIcon-29x29@2x.png": {
+    "mtime": 1783914727.936321,
+    "ast_hash": "2111cae0400f129ea2cecbe296b72434",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/ios/AppIcon-29x29@3x.png": {
+    "mtime": 1783914727.936321,
+    "ast_hash": "8e0c1b551eb423e93b2fe6cfa022bd28",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/ios/AppIcon-40x40@1x.png": {
+    "mtime": 1783914727.936321,
+    "ast_hash": "75f33f2c3e3c46a9fa4caf4feb7dfc73",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/ios/AppIcon-40x40@2x-1.png": {
+    "mtime": 1783914727.936321,
+    "ast_hash": "f64046fa4c9b33012840472acb3747ee",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/ios/AppIcon-40x40@2x.png": {
+    "mtime": 1783914727.936321,
+    "ast_hash": "f64046fa4c9b33012840472acb3747ee",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/ios/AppIcon-40x40@3x.png": {
+    "mtime": 1783914727.936321,
+    "ast_hash": "e674d017169b65280174b91da95583fe",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/ios/AppIcon-512@2x.png": {
+    "mtime": 1783914727.9373212,
+    "ast_hash": "ab0e4a8075269ef527da404aa60ab5e6",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/ios/AppIcon-60x60@2x.png": {
+    "mtime": 1783914727.9373212,
+    "ast_hash": "e674d017169b65280174b91da95583fe",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/ios/AppIcon-60x60@3x.png": {
+    "mtime": 1783914727.9373212,
+    "ast_hash": "d233c8ce2f9f5aac434e6e6be335facc",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/ios/AppIcon-76x76@1x.png": {
+    "mtime": 1783914727.9373212,
+    "ast_hash": "76cd82ed1b23a123e147aca701cffc47",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/ios/AppIcon-76x76@2x.png": {
+    "mtime": 1783914727.9373212,
+    "ast_hash": "8aea6a0d3e189f79926d9f54bbcdf543",
+    "semantic_hash": ""
+  },
+  "src-tauri/icons/ios/AppIcon-83.5x83.5@2x.png": {
+    "mtime": 1783914727.9373212,
+    "ast_hash": "e3a505659218f67ddf836384f5559208",
+    "semantic_hash": ""
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/examples/tauri-app/public/svelte.svg": {
+    "mtime": 1783510730.971381,
+    "ast_hash": "bf6f61806de2953fe8dfce3cf8040ec3",
+    "semantic_hash": ""
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/examples/tauri-app/public/tauri.svg": {
+    "mtime": 1783510730.971381,
+    "ast_hash": "f49b888a6830a38f02ffeb65891186b1",
+    "semantic_hash": ""
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/examples/tauri-app/public/vite.svg": {
+    "mtime": 1783510730.971381,
+    "ast_hash": "8e3a10e157f75ada21ab742c022d5430",
+    "semantic_hash": ""
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/examples/tauri-app/src-tauri/icons/128x128.png": {
+    "mtime": 1783510730.9963815,
+    "ast_hash": "3a0071e4ad670fad0329d3a5e83d0bf9",
+    "semantic_hash": ""
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/examples/tauri-app/src-tauri/icons/128x128@2x.png": {
+    "mtime": 1783510730.9963815,
+    "ast_hash": "eab2be12c5f8aeaf104a4695dd9171df",
+    "semantic_hash": ""
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/examples/tauri-app/src-tauri/icons/32x32.png": {
+    "mtime": 1783510730.9963815,
+    "ast_hash": "faf8ee6541b945b98db35239b8a75715",
+    "semantic_hash": ""
+  },
+  "src-tauri/plugins/tauri-plugin-android-auth/examples/tauri-app/src-tauri/icons/icon.png": {
+    "mtime": 1783510730.9963815,
+    "ast_hash": "9fdc4367276aafdd2c05ac214e9553c7",
+    "semantic_hash": ""
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/examples/tauri-app/public/svelte.svg": {
+    "mtime": 1782830796.3074372,
+    "ast_hash": "bf6f61806de2953fe8dfce3cf8040ec3",
+    "semantic_hash": ""
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/examples/tauri-app/public/tauri.svg": {
+    "mtime": 1782830796.3075578,
+    "ast_hash": "f49b888a6830a38f02ffeb65891186b1",
+    "semantic_hash": ""
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/examples/tauri-app/public/vite.svg": {
+    "mtime": 1782830796.307732,
+    "ast_hash": "8e3a10e157f75ada21ab742c022d5430",
+    "semantic_hash": ""
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/examples/tauri-app/src-tauri/icons/128x128.png": {
+    "mtime": 1782830796.3085122,
+    "ast_hash": "3a0071e4ad670fad0329d3a5e83d0bf9",
+    "semantic_hash": ""
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/examples/tauri-app/src-tauri/icons/128x128@2x.png": {
+    "mtime": 1782830796.308706,
+    "ast_hash": "eab2be12c5f8aeaf104a4695dd9171df",
+    "semantic_hash": ""
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/examples/tauri-app/src-tauri/icons/32x32.png": {
+    "mtime": 1782830796.308939,
+    "ast_hash": "faf8ee6541b945b98db35239b8a75715",
+    "semantic_hash": ""
+  },
+  "src-tauri/plugins/tauri-plugin-android-saf/examples/tauri-app/src-tauri/icons/icon.png": {
+    "mtime": 1782830796.3107085,
+    "ast_hash": "9fdc4367276aafdd2c05ac214e9553c7",
+    "semantic_hash": ""
+  },
+  "src/assets/react.svg": {
+    "mtime": 1782021727.9150825,
+    "ast_hash": "f0402b67b6ce880f65666bb49e841696",
+    "semantic_hash": ""
+  }
+}

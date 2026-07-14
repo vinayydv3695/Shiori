@@ -1,7 +1,8 @@
-import { Home, Library, Compass, Cloud, Settings } from 'lucide-react'
+import { Home, Library, Compass, Cloud, Settings, Highlighter, Tv } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { CurrentView } from '@/store/uiStore'
 import { usePreferencesStore } from '@/store/preferencesStore'
+import { useTorboxStore } from '@/store/useTorboxStore'
 
 interface BottomNavProps {
   currentView: CurrentView
@@ -16,6 +17,9 @@ export function BottomNav({
   onOpenSettings,
   onToggleDrawer
 }: BottomNavProps) {
+  const preferredContentType = usePreferencesStore(s => s.preferences?.preferredContentType);
+  const hasTorboxKey = useTorboxStore(s => s.hasApiKey);
+  
   return (
     <nav 
       className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around h-[72px] bg-background/85 backdrop-blur-xl md:hidden border-0 border-transparent shadow-none outline-none ring-0"
@@ -42,16 +46,31 @@ export function BottomNav({
         label="Browse"
         isActive={currentView === 'online-books' || currentView === 'online-manga'}
         onClick={() => {
-          const preferredContentType = usePreferencesStore.getState().preferences?.preferredContentType;
           onNavigateToView(preferredContentType === 'manga' ? 'online-manga' : 'online-books');
         }}
       />
-      <NavItem
-        icon={<Cloud className="w-[22px] h-[22px]" />}
-        label="Torbox"
-        isActive={currentView.startsWith('torbox')}
-        onClick={() => onNavigateToView('torbox-discover')}
-      />
+      {preferredContentType === 'books' ? (
+        <NavItem
+          icon={<Highlighter className="w-[22px] h-[22px]" />}
+          label="Highlights"
+          isActive={currentView === 'annotations'}
+          onClick={() => onNavigateToView('annotations')}
+        />
+      ) : hasTorboxKey ? (
+        <NavItem
+          icon={<Cloud className="w-[22px] h-[22px]" />}
+          label="Torbox"
+          isActive={currentView.startsWith('torbox')}
+          onClick={() => onNavigateToView('torbox-discover')}
+        />
+      ) : (
+        <NavItem
+          icon={<Tv className="w-[22px] h-[22px]" />}
+          label="AniList"
+          isActive={currentView === 'anilist'}
+          onClick={() => onNavigateToView('anilist')}
+        />
+      )}
 
       <NavItem
         icon={<Settings className="w-[22px] h-[22px]" />}

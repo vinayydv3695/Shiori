@@ -140,6 +140,8 @@ function normalizeTorboxLink(rawLink: string): { kind: string; url: string } {
 interface TorboxStoreState {
   jobs: TorboxQueueItem[];
   activeJobId: string | null;
+  hasApiKey: boolean;
+  checkApiKey: () => Promise<void>;
   enqueueFromAnna: (input: { title: string; sourceLink: string }) => Promise<void>;
   enqueueFromMangadex: (input: { title: string; sourceLink: string }) => Promise<void>;
   enqueueJob: (input: { title: string; sourceLink: string; kind?: 'books' | 'manga' }) => Promise<void>;
@@ -266,10 +268,20 @@ async function waitForCompletionWithProgress(
 }
 
 export const useTorboxStore = create<TorboxStoreState>((set, get) => ({
-  jobs: [],
-  activeJobId: null,
+      jobs: [],
+      activeJobId: null,
+      hasApiKey: false,
 
-  enqueueJob: async ({ title, sourceLink, kind }) => {
+      checkApiKey: async () => {
+        try {
+          const key = await api.getTorboxKey();
+          set({ hasApiKey: !!key });
+        } catch (e) {
+          set({ hasApiKey: false });
+        }
+      },
+
+      enqueueJob: async ({ title, sourceLink, kind }) => {
     await ensureLocalDownloadListener(set);
     const parsedSource = normalizeTorboxLink(sourceLink);
     const resolvedSourceLink = parsedSource.url;

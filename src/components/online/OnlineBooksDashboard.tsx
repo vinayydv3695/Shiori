@@ -29,14 +29,13 @@ function BookRow({ title, subtitle, books, onBookClick, isLoading }: BookRowProp
 
   if (isLoading) {
     return (
-      <div className="mb-20">
-        <div className="flex justify-between items-end mb-8 px-8">
-          <h2 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h2>
-          <span className="text-xs text-muted-foreground uppercase tracking-widest">{subtitle}</span>
+      <div className="mb-12">
+        <div className="flex justify-between items-end mb-4 px-4 md:px-8">
+          <h2 className="text-lg md:text-xl font-bold tracking-tight text-foreground/90">{title}</h2>
         </div>
-        <div className="flex gap-6 px-8 overflow-hidden">
+        <div className="flex gap-4 md:gap-6 px-4 md:px-8 overflow-hidden">
           {[1, 2, 3, 4, 5, 6].map(i => (
-            <div key={i} className="min-w-[120px] md:min-w-[160px] lg:min-w-[192px] aspect-[2/3] rounded-xl bg-secondary/40 border border-border/40 animate-pulse" />
+            <div key={i} className="min-w-[120px] md:min-w-[160px] lg:min-w-[192px] aspect-[2/3] rounded-xl bg-muted/40 border border-border/40 animate-pulse" />
           ))}
         </div>
       </div>
@@ -46,11 +45,10 @@ function BookRow({ title, subtitle, books, onBookClick, isLoading }: BookRowProp
   if (books.length === 0) return null;
 
   return (
-    <div className="mb-20 relative group/row">
-        <div className="flex justify-between items-end mb-8 px-8">
-          <h2 className="text-xl md:text-2xl font-semibold tracking-tight text-foreground">{title}</h2>
-          <span className="text-xs text-muted-foreground uppercase tracking-widest">{subtitle}</span>
-        </div>
+    <div className="mb-12 relative group/row">
+      <div className="flex justify-between items-end mb-4 px-4 md:px-8">
+        <h2 className="text-lg md:text-xl font-bold tracking-tight text-foreground/90">{title}</h2>
+      </div>
       
       {/* Scroll Controls */}
       <button 
@@ -69,7 +67,7 @@ function BookRow({ title, subtitle, books, onBookClick, isLoading }: BookRowProp
 
       <div 
         ref={scrollContainerRef}
-        className="flex w-full space-x-6 px-8 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-4"
+        className="flex w-full space-x-4 md:space-x-6 px-4 md:px-8 overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-4"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {books.map((book) => {
@@ -99,14 +97,13 @@ function BookRow({ title, subtitle, books, onBookClick, isLoading }: BookRowProp
 function BookGrid({ title, subtitle, books, onBookClick, isLoading }: BookRowProps) {
   if (isLoading) {
     return (
-      <div className="mb-20">
-        <div className="flex justify-between items-end mb-8 px-8">
-          <h2 className="text-xl md:text-2xl font-semibold tracking-tight text-foreground">{title}</h2>
-          <span className="text-xs text-muted-foreground uppercase tracking-widest">{subtitle}</span>
+      <div className="mb-12">
+        <div className="flex justify-between items-end mb-4 px-4 md:px-8">
+          <h2 className="text-lg md:text-xl font-bold tracking-tight text-foreground/90">{title}</h2>
         </div>
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(105px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 md:gap-6 md:gap-y-12 px-2 md:px-8">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(105px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6 px-4 md:px-8">
           {[1, 2, 3, 4].map(i => (
-            <div key={i} className="w-full aspect-[2/3] rounded-xl bg-secondary/40 border border-border/40 animate-pulse" />
+            <div key={i} className="w-full aspect-[2/3] rounded-xl bg-muted/40 border border-border/40 animate-pulse" />
           ))}
         </div>
       </div>
@@ -116,12 +113,11 @@ function BookGrid({ title, subtitle, books, onBookClick, isLoading }: BookRowPro
   if (books.length === 0) return null;
 
   return (
-    <div className="mb-20">
-      <div className="flex justify-between items-end mb-8 px-8">
-        <h2 className="text-xl md:text-2xl font-semibold tracking-tight text-foreground">{title}</h2>
-        <span className="text-xs text-muted-foreground uppercase tracking-widest">{subtitle}</span>
+    <div className="mb-12">
+      <div className="flex justify-between items-end mb-4 px-4 md:px-8">
+        <h2 className="text-lg md:text-xl font-bold tracking-tight text-foreground/90">{title}</h2>
       </div>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(105px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 md:gap-6 md:gap-y-12 px-2 md:px-8">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(105px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6 px-4 md:px-8">
         {books.map((book) => {
           const coverId = book.cover_i || book.cover_id;
           const authorName = Array.isArray(book.author_name) 
@@ -183,12 +179,12 @@ export function OnlineBooksDashboard() {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto pt-12 md:pt-16">
-      <div className="pb-32 max-w-[1440px] mx-auto mt-6 flex flex-col gap-8 md:gap-16">
-        <BookGrid subtitle="01 — Gallery" title="Featured Books" books={trending.slice(0, 4)} isLoading={loading} onBookClick={handleBookClick} />
-        <BookRow subtitle="02 — Global" title="Trending Now" books={scifi} isLoading={loading} onBookClick={handleBookClick} />
-        <BookRow subtitle="03 — For You" title="Recommended" books={classics} isLoading={loading} onBookClick={handleBookClick} />
-        <BookRow subtitle="04 — Explore" title="Epic Fantasy" books={fantasy} isLoading={loading} onBookClick={handleBookClick} />
+    <div className="flex-1 overflow-y-auto pt-6 md:pt-10">
+      <div className="pb-32 max-w-[1440px] mx-auto flex flex-col gap-8 md:gap-12">
+        <BookGrid subtitle="" title="Featured Books" books={trending.slice(0, 4)} isLoading={loading} onBookClick={handleBookClick} />
+        <BookRow subtitle="" title="Trending Now" books={scifi} isLoading={loading} onBookClick={handleBookClick} />
+        <BookRow subtitle="" title="Recommended" books={classics} isLoading={loading} onBookClick={handleBookClick} />
+        <BookRow subtitle="" title="Epic Fantasy" books={fantasy} isLoading={loading} onBookClick={handleBookClick} />
       </div>
     </div>
   );

@@ -260,17 +260,17 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
                     return@Thread
                 }
 
-                // Shiori app cache directory for imported books
-                val cacheDir = File(activity.cacheDir, "imported_books")
-                if (!cacheDir.exists()) {
-                    cacheDir.mkdirs()
+                // Shiori app files directory for imported books (persistent)
+                val importDir = File(activity.filesDir, "imported_books")
+                if (!importDir.exists()) {
+                    importDir.mkdirs()
                 }
 
                 val sourceFile = File(name)
                 val baseName = sourceFile.nameWithoutExtension
                 val extension = sourceFile.extension
 
-                var destFile = File(cacheDir, name)
+                var destFile = File(importDir, name)
                 var duplicateIndex = 1
                 while (destFile.exists()) {
                     val candidateName = if (extension.isNotEmpty()) {
@@ -278,7 +278,7 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
                     } else {
                         "$baseName ($duplicateIndex)"
                     }
-                    destFile = File(cacheDir, candidateName)
+                    destFile = File(importDir, candidateName)
                     duplicateIndex += 1
                 }
 

@@ -68,7 +68,8 @@ export function MagnetSourcesModal({ isOpen, onClose, query, type, onAddMagnetTo
       } catch (err) {
         if (mounted) {
           console.error('Failed to fetch magnet sources:', err)
-          setError(String(err))
+          const msg = err instanceof Error ? err.message : typeof err === 'object' ? JSON.stringify(err) : String(err)
+          setError(msg)
         }
       } finally {
         if (mounted) setLoading(false)
@@ -96,19 +97,19 @@ export function MagnetSourcesModal({ isOpen, onClose, query, type, onAddMagnetTo
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             className="relative w-full max-w-3xl overflow-hidden rounded-xl border border-border bg-card shadow-2xl flex flex-col max-h-[85vh]"
           >
-            <div className="flex items-center justify-between border-b border-border bg-muted/40 p-5">
-              <div className="space-y-1">
-                <h2 className="text-lg font-semibold tracking-tight">Available Sources</h2>
-                <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                  <Search className="w-3.5 h-3.5" />
-                  Showing results for <span className="font-medium text-foreground">"{query}"</span>
-                </p>
+            <div className="flex items-start md:items-center justify-between border-b border-border/50 bg-muted/20 p-4 md:p-5">
+              <div className="flex flex-col gap-0.5 min-w-0 pr-4">
+                <h2 className="text-base md:text-lg font-semibold tracking-tight text-foreground">Available Sources</h2>
+                <div className="text-[11px] md:text-xs text-muted-foreground flex items-center gap-1.5 truncate">
+                  <Search className="w-3 h-3 shrink-0" />
+                  <span className="truncate">Showing results for <span className="font-medium text-foreground">"{query}"</span></span>
+                </div>
               </div>
               <button
                 onClick={onClose}
-                className="rounded-full p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                className="rounded-full p-1.5 md:p-2 bg-background/50 border border-border/50 text-muted-foreground hover:bg-muted hover:text-foreground shadow-sm transition-all shrink-0 hover:scale-105 active:scale-95"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4 md:h-5 md:w-5" />
               </button>
             </div>
 
@@ -136,9 +137,12 @@ export function MagnetSourcesModal({ isOpen, onClose, query, type, onAddMagnetTo
               )}
 
               {!loading && error && (
-                <div className="flex flex-col items-center justify-center py-20 text-center px-6">
-                  <p className="text-destructive font-medium mb-2">Search failed</p>
-                  <p className="text-sm text-muted-foreground">{error}</p>
+                <div className="flex flex-col items-center justify-center py-16 text-center px-6">
+                  <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+                    <X className="w-6 h-6 text-destructive" />
+                  </div>
+                  <p className="text-destructive font-semibold mb-1 text-base">Search Failed</p>
+                  <p className="text-xs md:text-sm text-muted-foreground break-all max-w-sm">{error}</p>
                 </div>
               )}
 

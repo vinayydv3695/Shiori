@@ -16,7 +16,7 @@ import { motion } from 'framer-motion'
 import {
   BookOpen, Clock, Sparkles, Rss, ArrowRight,
   ListOrdered, Activity, HardDrive, Heart, History, CheckCircle2, PauseCircle, Globe, BarChart2,
-  Trash2, Settings, Highlighter, List, ChevronRight
+  Trash2, Settings, Highlighter, List, ChevronRight, Cloud
 } from 'lucide-react'
 import { MobileStickyHeader } from '../layout/MobileStickyHeader'
 import { useThumbnail } from '@/hooks/useThumbnail'
@@ -27,6 +27,7 @@ import { usePreferencesStore } from '@/store/preferencesStore'
 import type { Book, ReadingProgress } from '@/lib/tauri'
 import { api } from '@/lib/tauri'
 import { formatFileSize, isMangaDomain } from '@/lib/utils'
+import { useTorboxStore } from '@/store/useTorboxStore'
 
 // ── Shared constant ──────────────────────────────
 function getCoverUrl(path: string | null | undefined): string {
@@ -214,10 +215,17 @@ interface HomePageProps {
 function MobileQuickLinks({ onOpenSettings }: { onOpenSettings: () => void }) {
   const setCurrentView = useUIStore(s => s.setCurrentView)
   const enableRecycleBin = usePreferencesStore(s => s.preferences?.enableRecycleBin ?? false)
+  const hasTorboxKey = useTorboxStore(s => s.hasApiKey)
 
   return (
     <div className="md:hidden mb-6 px-4">
       <div className="flex flex-wrap gap-2 pb-2">
+        {hasTorboxKey && (
+          <button onClick={() => setCurrentView('torbox-discover')} className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
+            <Cloud className="w-4 h-4 text-primary" />
+            <span className="text-[11px] font-medium tracking-tight">Torbox</span>
+          </button>
+        )}
         <button onClick={() => setCurrentView('anilist')} className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
           <List className="w-4 h-4 text-primary" />
           <span className="text-[11px] font-medium tracking-tight">AniList</span>
@@ -264,7 +272,8 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
   const [favoriteBooks, setFavoriteBooks] = useState<Book[]>([])
   const [lastReadBooks, setLastReadBooks] = useState<Book[]>([])
   const [allInProgress, setAllInProgress] = useState<number>(0)
-
+  const torboxJobs = useTorboxStore(s => s.jobs)
+  const hasTorboxKey = useTorboxStore(s => s.hasApiKey)
 
   const domain = currentDomain
 

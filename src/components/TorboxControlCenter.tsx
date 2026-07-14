@@ -17,6 +17,12 @@ import {
   ShieldCheck,
   X,
   Image as ImageIcon,
+  Compass,
+  BookOpen,
+  Activity,
+  ChevronDown,
+  ChevronRight,
+  Plus,
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
@@ -235,6 +241,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
   const [activeModalResult, setActiveModalResult] = useState<SearchResult | null>(null)
   const [isFetchingTorrents, setIsFetchingTorrents] = useState<string | null>(null)
   const [sourceBusy, setSourceBusy] = useState<Record<string, boolean>>({})
+  const [showMagnetAdd, setShowMagnetAdd] = useState(false)
 
   const [isSearching, setIsSearching] = useState(false)
   const [activeTab, setActiveTab] = useState<TabValue>(() => {
@@ -490,66 +497,72 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
-                className="group relative flex flex-col justify-between overflow-hidden rounded-xl border border-border/50 bg-card/60 backdrop-blur-xl p-4 shadow-sm transition-all hover:shadow-md hover:border-border"
+                className="group relative flex flex-col justify-between overflow-hidden rounded-xl border border-border/50 bg-card/60 backdrop-blur-xl p-3.5 md:p-4 shadow-sm transition-all hover:shadow-md hover:border-border"
               >
                 {!isDone && !isErr && <div className="absolute -top-10 -right-10 h-32 w-32 rounded-full bg-blue-500/10 blur-3xl" />}
                 {isDone && <div className="absolute -top-10 -right-10 h-32 w-32 rounded-full bg-emerald-500/10 blur-3xl" />}
                 
                 <div className="relative z-10 flex flex-row items-start gap-3 md:gap-4">
                   {(job as any).coverPath || (job as any).metadata?.coverUrl ? (
-                    <img src={(job as any).coverPath ? convertFileSrc((job as any).coverPath) : (job as any).metadata!.coverUrl} alt="Cover" className="h-24 w-16 md:h-28 md:w-20 rounded-md object-cover shadow-sm bg-muted shrink-0" />
+                    <img src={(job as any).coverPath ? convertFileSrc((job as any).coverPath) : (job as any).metadata!.coverUrl} alt="Cover" className="h-20 w-14 md:h-28 md:w-20 rounded-md object-cover shadow-sm bg-muted shrink-0" />
                   ) : (
-                    <div className="flex h-24 w-16 md:h-28 md:w-20 items-center justify-center rounded-md bg-muted/50 text-muted-foreground/50 shrink-0">
-                      <ImageIcon className="h-6 w-6 md:h-8 md:w-8" />
+                    <div className="flex h-20 w-14 md:h-28 md:w-20 items-center justify-center rounded-md bg-muted/50 text-muted-foreground/50 shrink-0">
+                      <ImageIcon className="h-5 w-5 md:h-8 md:w-8" />
                     </div>
                   )}
                   
                   <div className="flex-1 min-w-0 flex flex-col text-left">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 pr-4">
-                        <h3 className="font-semibold text-sm md:text-base text-foreground truncate" title={job.title || 'Unknown Title'}>{job.title || 'Unknown Title'}</h3>
-                        <p className="mt-0.5 md:mt-1 truncate text-xs text-muted-foreground" title={job.sourceLink}>{job.sourceLink}</p>
+                      <div className="min-w-0 pr-2">
+                        <h3 className="font-semibold text-[13px] md:text-base text-foreground leading-tight line-clamp-2 md:truncate" title={job.title || 'Unknown Title'}>{job.title || 'Unknown Title'}</h3>
+                        <p className="mt-1 truncate text-[10px] md:text-xs text-muted-foreground" title={job.sourceLink}>{job.sourceLink}</p>
                       </div>
-                      <button onClick={() => void removeJob(job.id)} className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors" title="Cancel/Remove">
-                        <X className="h-4 w-4" />
+                      <button onClick={() => void removeJob(job.id)} className="shrink-0 rounded-full bg-background/50 border border-border/50 p-1.5 text-muted-foreground hover:bg-destructive hover:text-destructive-foreground hover:border-destructive transition-all hover:scale-105 active:scale-95" title="Cancel/Remove">
+                        <X className="h-3.5 w-3.5" />
                       </button>
                     </div>
 
-                    <div className="mt-4 flex items-end justify-between">
-                      <Badge className={`border text-[10px] uppercase tracking-wider font-semibold ${queueStatusBadgeClass(job)}`} variant="outline">
+                    <div className="mt-3 md:mt-4 flex items-end justify-between">
+                      <Badge className={`border text-[9px] md:text-[10px] uppercase tracking-wider font-bold px-1.5 py-0 md:px-2 md:py-0.5 rounded-sm ${queueStatusBadgeClass(job)}`} variant="outline">
                         {job.status || 'queued'}
                       </Badge>
                       <div className="text-right">
-                        <p className="text-xs font-medium text-foreground/80">{Math.round(progress)}%</p>
+                        <p className="text-[10px] md:text-xs font-bold text-foreground/90">{Math.round(progress)}%</p>
                       </div>
                     </div>
 
-                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted/50">
-                      <motion.div className={`h-full rounded-full ${progressFillClass(job)}`} initial={{ width: 0 }} animate={{ width: `${progress}%` }} />
+                    <div className="mt-1.5 h-1.5 md:h-2 w-full overflow-hidden rounded-full bg-muted/50 shadow-inner">
+                      <motion.div className={`h-full rounded-full ${progressFillClass(job)} shadow-sm`} initial={{ width: 0 }} animate={{ width: `${progress}%` }} />
                     </div>
 
-                    <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground font-medium">
+                    <div className="mt-2 flex items-center justify-between text-[10px] md:text-[11px] text-muted-foreground font-medium">
                       <span className="truncate pr-2">{statusPhaseText(job.status)}</span>
-                      <div className="flex shrink-0 items-center gap-2 text-right">
+                      <div className="flex shrink-0 items-center gap-1.5 md:gap-2 text-right">
                         {eta && <span className="text-blue-400/80">{eta}</span>}
-                        {(job.downloadSpeed || 0) > 0 && <span>{formatSpeed(job.downloadSpeed!)}</span>}
+                        {(job.downloadSpeed || 0) > 0 && <span className="text-foreground/70 bg-foreground/5 px-1 rounded">{formatSpeed(job.downloadSpeed!)}</span>}
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="relative z-10 mt-4 space-y-2">
+                <div className="relative z-10 mt-3 md:mt-4 space-y-1.5">
                   {(isDone || isErr || job.resolvedLink || job.importedPath || job.error) && (
-                    <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border/40">
-                      <Button size="sm" variant="secondary" className="h-7 rounded-md px-2.5 text-[11px] font-medium" onClick={() => void resolveJob(job.id)} disabled={job.resolving}>
-                        {job.resolving && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />} Resolve Link
-                      </Button>
-                      <Button size="sm" variant="secondary" className="h-7 rounded-md px-2.5 text-[11px] font-medium" onClick={() => void importJob(job.id)} disabled={job.localPhase === 'importing'}>
-                        {job.localPhase === 'importing' && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />} Import
-                      </Button>
-                      {job.resolvedLink && <span className="truncate w-full block text-[10px] text-muted-foreground mt-1">Resolved: {job.resolvedLink}</span>}
-                      {job.importedPath && <span className="truncate w-full block text-[10px] text-emerald-400/90 mt-1">Imported: {job.importedPath}</span>}
-                      {job.error && <span className="text-[10px] text-red-400/90 w-full block mt-1">{job.error}</span>}
+                    <div className="flex flex-col gap-2 pt-2 md:pt-3 border-t border-border/40">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Button size="sm" variant="secondary" className="h-6 md:h-7 rounded-md px-2 md:px-2.5 text-[10px] md:text-[11px] font-medium shadow-sm active:scale-95 transition-transform" onClick={() => void resolveJob(job.id)} disabled={job.resolving}>
+                          {job.resolving ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Link className="mr-1 h-3 w-3" />}
+                          Resolve
+                        </Button>
+                        <Button size="sm" variant="secondary" className="h-6 md:h-7 rounded-md px-2 md:px-2.5 text-[10px] md:text-[11px] font-medium shadow-sm active:scale-95 transition-transform" onClick={() => void importJob(job.id)} disabled={job.localPhase === 'importing'}>
+                          {job.localPhase === 'importing' ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Download className="mr-1 h-3 w-3" />}
+                          Import
+                        </Button>
+                      </div>
+                      <div className="space-y-0.5">
+                        {job.resolvedLink && <span className="truncate w-full block text-[9px] md:text-[10px] text-muted-foreground">Resolved: {job.resolvedLink}</span>}
+                        {job.importedPath && <span className="truncate w-full block text-[9px] md:text-[10px] text-emerald-400/90">Imported: {job.importedPath}</span>}
+                        {job.error && <span className="text-[9px] md:text-[10px] text-red-400/90 w-full block font-medium bg-red-400/10 px-1.5 py-0.5 rounded">{job.error}</span>}
+                      </div>
                     </div>
                   )}
 
@@ -570,45 +583,48 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
 
   return (
     <div 
-      className={`flex h-full flex-col bg-transparent text-foreground relative overflow-hidden ${isMobile ? 'pb-4 px-4' : 'p-6'}`}
+      className={`flex h-full flex-col bg-background text-foreground relative overflow-hidden ${isMobile ? 'pb-4' : 'p-4 md:p-6'}`}
       style={{
-        paddingTop: isMobile ? 'calc(env(safe-area-inset-top, 0px) + 16px)' : '24px',
-        paddingLeft: isMobile ? 'calc(env(safe-area-inset-left, 0px) + 16px)' : '24px',
-        paddingRight: isMobile ? 'calc(env(safe-area-inset-right, 0px) + 16px)' : '24px'
+        paddingTop: isMobile ? 'calc(env(safe-area-inset-top, 0px) + 8px)' : '16px',
+        paddingLeft: isMobile ? 'env(safe-area-inset-left, 0px)' : '16px',
+        paddingRight: isMobile ? 'env(safe-area-inset-right, 0px)' : '16px'
       }}
     >
-      <header className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-4 pb-2 md:pb-6">
-        <div className="flex items-center gap-4">
-          <div className="hidden md:flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <Cloud className="h-6 w-6" />
+      <header className="relative z-10 flex items-center justify-between gap-4 pb-4 px-4 md:px-0">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0 shadow-inner">
+            <Cloud className="h-5 w-5" />
           </div>
-          <div>
-            <h1 className="text-lg md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-zinc-100 to-zinc-400 bg-clip-text text-transparent flex items-center gap-2">
-              Torbox Control Center
-              <Badge variant="outline" className={`h-5 px-2 rounded-md font-bold tracking-wider uppercase text-[10px] ${apiKey ? 'border-emerald-500/30 text-emerald-500 bg-emerald-500/10' : 'border-amber-500/30 text-amber-500 bg-amber-500/10'}`}>
-                {apiKey ? 'API Active' : 'No Key'}
-              </Badge>
-            </h1>
-            <p className="hidden md:block text-sm font-medium text-muted-foreground mt-0.5">Manage your cloud downloads and resolve premium sources.</p>
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground">
+                Torbox
+              </h1>
+              {apiKey ? (
+                <div className="flex items-center justify-center h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse" title="API Active" />
+              ) : (
+                <div className="flex items-center justify-center h-2 w-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]" title="No Key" />
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="hidden md:flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-3">
           <AnimatePresence mode="wait">
             {keyStatus === 'set' && !editingKey ? (
               <motion.div key="connected" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="h-9 rounded-lg font-medium" onClick={() => { setEditingKey(true); setKeyStatus('unset'); setKeyFeedback(null) }}>
-                  Change Key
+                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-muted-foreground hover:bg-muted/50" onClick={() => { setEditingKey(true); setKeyStatus('unset'); setKeyFeedback(null) }} title="Change Key">
+                  <ShieldCheck className="h-5 w-5" />
                 </Button>
-                <Button variant="ghost" size="sm" className="h-9 rounded-lg font-medium text-muted-foreground hover:text-red-400" onClick={() => void clearSavedKey()}>
-                  Disconnect
+                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-muted-foreground hover:text-red-400 hover:bg-red-400/10" onClick={() => void clearSavedKey()} title="Disconnect">
+                  <X className="h-5 w-5" />
                 </Button>
               </motion.div>
             ) : (
               <motion.div key="disconnected" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-2 relative">
-                <Input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Paste Torbox API Key" className="h-9 w-40 sm:w-56 text-sm bg-background transition-all" />
-                <Button size="sm" variant="secondary" className="h-9 px-4 font-semibold" onClick={() => void verifyAndSaveKey()} disabled={keyStatus === 'verifying'}>
-                  {keyStatus === 'verifying' ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null} Verify
+                <Input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="API Key" className="h-9 w-28 sm:w-48 text-sm bg-muted/50 border-transparent focus:bg-background transition-all rounded-full px-4" />
+                <Button size="icon" className="h-9 w-9 rounded-full shrink-0 shadow-md" onClick={() => void verifyAndSaveKey()} disabled={keyStatus === 'verifying'}>
+                  {keyStatus === 'verifying' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
                 </Button>
                 {keyFeedback && keyStatus === 'error' && (
                   <span className="absolute top-11 right-0 text-[11px] font-medium text-destructive whitespace-nowrap bg-background border border-destructive/20 px-3 py-1.5 rounded-md shadow-md z-50">
@@ -621,59 +637,71 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
         </div>
       </header>
 
-      <Tabs.Root value={activeTab} onValueChange={(next) => setActiveTab(next as TabValue)} className="flex min-h-0 flex-1 flex-col z-10">
-        <Tabs.List className="flex items-center gap-4 md:gap-6 border-b border-border/50 pb-0 md:pb-2 mb-2 md:mb-4">
+      <Tabs.Root value={activeTab} onValueChange={(next) => setActiveTab(next as TabValue)} className="flex min-h-0 flex-1 flex-col z-10 px-4 md:px-0">
+        <Tabs.List className="flex items-center gap-2 md:gap-4 border-b border-border/30 pb-3 mb-2 md:mb-4 w-full overflow-x-auto hide-scrollbar">
           {(['search', 'books', 'manga'] as const).map((tab) => {
             if (tab === 'books' && preferredContentType === 'manga') return null;
             if (tab === 'manga' && preferredContentType === 'books') return null;
             const isActive = activeTab === tab;
-            const label = tab === 'search' ? 'Discover' : tab === 'books' ? 'Books Queue' : 'Manga Queue';
+            const label = tab === 'search' ? 'Discover' : tab === 'books' ? 'Books' : 'Manga';
             const count = tab === 'books' ? booksJobs.length : tab === 'manga' ? mangaJobs.length : null;
+            const Icon = tab === 'search' ? Compass : tab === 'books' ? BookOpen : Activity;
 
             return (
-              <Tabs.Trigger key={tab} value={tab} className={`relative flex items-center gap-2 pb-2 text-sm outline-none transition-colors hover:text-foreground ${isActive ? 'text-foreground font-semibold' : 'text-muted-foreground font-medium'}`}>
-                <span>{label}</span>
-                {count !== null && count > 0 && <Badge variant="secondary" className="h-5 px-1.5 py-0 text-[10px] font-bold">{count}</Badge>}
-                {isActive && <motion.div layoutId="torbox-tab-indicator" className="absolute -bottom-[9px] left-0 right-0 h-0.5 bg-primary" initial={false} transition={{ type: "spring", stiffness: 500, damping: 30 }} />}
+              <Tabs.Trigger key={tab} value={tab} className={`relative flex items-center gap-2 px-4 py-2 rounded-full text-sm outline-none transition-colors ${isActive ? 'text-primary-foreground font-semibold' : 'text-muted-foreground hover:bg-muted/50 font-medium'}`}>
+                {isActive && (
+                  <motion.div layoutId="torbox-tab-indicator" className="absolute inset-0 rounded-full bg-primary shadow-sm" initial={false} transition={{ type: "spring", stiffness: 400, damping: 30 }} />
+                )}
+                <span className="relative z-10 flex items-center gap-2">
+                  <Icon className="h-4 w-4" />
+                  {label}
+                  {count !== null && count > 0 && <Badge variant="secondary" className="h-4 px-1 py-0 text-[9px] font-bold ml-1 bg-background/20 text-current border-0">{count}</Badge>}
+                </span>
               </Tabs.Trigger>
             );
           })}
         </Tabs.List>
 
         <AnimatePresence mode="wait">
-          <motion.div key={activeTab} initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }} transition={{ duration: 0.2 }} className="mt-4 flex-1 min-h-0 overflow-y-auto">
+          <motion.div key={activeTab} initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }} transition={{ duration: 0.2 }} className="mt-2 flex-1 min-h-0 overflow-y-auto">
             {activeTab === 'search' && (
               <Tabs.Content value="search" className="h-full outline-none overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
-                <div className="max-w-2xl mx-auto mb-4 md:mb-8 pt-2 md:pt-4">
-                  <div className="relative flex items-center shadow-sm bg-card border border-border rounded-full hover:border-border/80 ring-1 ring-transparent focus-within:border-primary focus-within:ring-primary transition-shadow duration-200">
-                    <Search className="hidden md:block absolute left-5 h-5 w-5 text-muted-foreground" />
-                    <Input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void runSearch() }} placeholder="Search AniList or OpenLibrary..." className="flex-1 h-12 md:h-14 border-0 bg-transparent pl-4 md:pl-14 pr-1 md:pr-2 text-sm md:text-base font-medium shadow-none focus-visible:ring-0 focus-visible:ring-offset-0" />
-                    <div className="pr-1 md:pr-2 flex items-center gap-1 md:gap-2">
-                      <select value={searchType} onChange={(event) => setSearchType(event.target.value as SearchType)} className="h-8 md:h-10 rounded-full bg-transparent hover:bg-foreground focus:bg-foreground border-0 px-2 md:px-4 text-xs md:text-sm font-medium text-muted-foreground hover:text-background focus:text-background cursor-pointer focus:outline-none transition-colors [&>option]:bg-background [&>option]:text-foreground max-w-[85px] md:max-w-none truncate">
-                        {(preferredContentType === 'manga' || preferredContentType === 'both') && <option value="manga">Manga</option>}
-                        {(preferredContentType === 'books' || preferredContentType === 'both') && <option value="books">Books</option>}
-                        {preferredContentType === 'both' && <option value="all">Everywhere</option>}
-                      </select>
-                      <Button size="icon" className="h-9 w-9 md:h-10 md:w-10 rounded-full shrink-0" onClick={() => void runSearch()} disabled={isSearching}>
-                        {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                <div className="max-w-3xl mx-auto mb-6 md:mb-8 pt-2">
+                  <div className="relative flex items-center bg-card/60 backdrop-blur-xl border border-border/50 rounded-full hover:border-primary/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] focus-within:shadow-[0_8px_30px_rgba(139,92,246,0.1)] focus-within:border-primary/60 transition-all duration-300">
+                    <Search className="hidden md:block absolute left-5 h-5 w-5 text-muted-foreground/60" />
+                    <Input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void runSearch() }} placeholder="Search Torbox..." className="flex-1 h-12 md:h-14 border-0 bg-transparent pl-4 md:pl-14 pr-1 text-sm md:text-base font-medium shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/50" />
+                    
+                    <div className="pr-1.5 flex items-center gap-1.5 shrink-0">
+                      <div className="relative hidden sm:flex items-center">
+                        <select value={searchType} onChange={(event) => setSearchType(event.target.value as SearchType)} className="h-9 md:h-10 rounded-full bg-muted/40 hover:bg-muted focus:bg-muted border border-transparent hover:border-border/50 px-3 md:px-4 pl-3 pr-8 text-xs md:text-sm font-semibold text-muted-foreground hover:text-foreground cursor-pointer focus:outline-none transition-all appearance-none outline-none [&>option]:bg-background [&>option]:text-foreground truncate shadow-sm">
+                          {(preferredContentType === 'manga' || preferredContentType === 'both') && <option value="manga">Manga</option>}
+                          {(preferredContentType === 'books' || preferredContentType === 'both') && <option value="books">Books</option>}
+                          {preferredContentType === 'both' && <option value="all">Everywhere</option>}
+                        </select>
+                        <ChevronDown className="absolute right-3 h-3 w-3 text-muted-foreground pointer-events-none" />
+                      </div>
+                      
+                      <Button size="icon" className="h-10 w-10 md:h-11 md:w-11 rounded-full shrink-0 shadow-md transition-transform hover:scale-105 active:scale-95 bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => void runSearch()} disabled={isSearching}>
+                        {isSearching ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
                       </Button>
                     </div>
                   </div>
+                  
                   {searchType !== 'books' && (
-                    <div className="flex items-center justify-end mt-1 md:mt-3 pr-2 md:pr-4 gap-2 text-xs md:text-sm text-muted-foreground">
+                    <div className="flex items-center justify-end mt-3 pr-4 gap-2 text-xs text-muted-foreground/70">
                       <input 
                         type="checkbox" 
                         id="nsfw-toggle"
                         checked={preferences?.includeNsfw ?? false}
                         onChange={(e) => updateGeneralSettings({ includeNsfw: e.target.checked })}
-                        className="rounded border-border text-primary focus:ring-primary/20 bg-background/50 cursor-pointer"
+                        className="rounded border-border/50 text-primary focus:ring-primary/20 bg-muted cursor-pointer"
                       />
-                      <label htmlFor="nsfw-toggle" className="cursor-pointer select-none hover:text-foreground transition-colors">Include NSFW Content</label>
+                      <label htmlFor="nsfw-toggle" className="cursor-pointer select-none hover:text-foreground transition-colors font-medium">Include NSFW Content</label>
                     </div>
                   )}
                 </div>
 
-                {searchError && <p className="mb-6 text-sm font-medium text-destructive bg-destructive/10 border border-destructive/20 p-4 rounded-xl inline-flex items-center gap-2"><AlertCircle className="h-4 w-4"/> {searchError}</p>}
+                {searchError && <motion.p initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="mb-6 text-sm font-medium text-destructive bg-destructive/10 border border-destructive/20 p-4 rounded-xl inline-flex items-center gap-2 max-w-2xl mx-auto"><AlertCircle className="h-4 w-4"/> {searchError}</motion.p>}
 
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(105px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 md:gap-4 items-start pb-8">
                   <AnimatePresence>
@@ -741,23 +769,42 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                     </div>
                   )}
                   
-                <div className="mt-auto pt-6 border-t border-border/50 pb-2">
-                  <div className="max-w-3xl mx-auto flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 lg:gap-4">
-                    <div className="flex items-center gap-3 w-full lg:w-auto">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
-                        <Link className="h-4 w-4 text-muted-foreground" />
+                <div className="mt-auto pt-6 border-t border-border/30 pb-4 max-w-3xl mx-auto w-full">
+                  <div className="flex flex-col gap-3">
+                    <button 
+                      onClick={() => setShowMagnetAdd(!showMagnetAdd)} 
+                      className="flex items-center justify-between w-full p-4 rounded-2xl bg-muted/30 hover:bg-muted/50 border border-border/40 transition-colors group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-background border border-border/50 shadow-sm group-hover:scale-105 transition-transform">
+                          <Link className="h-4 w-4 text-primary" />
+                        </div>
+                        <div className="text-left">
+                          <h4 className="text-sm font-semibold tracking-tight text-foreground/90">Manual Magnet Add</h4>
+                          <p className="text-[11px] text-muted-foreground">Inject a magnet link if search is unavailable</p>
+                        </div>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <h4 className="text-sm font-semibold tracking-tight text-foreground/80 truncate">Manual Magnet Add</h4>
-                        <p className="text-[11px] text-muted-foreground truncate">Inject a magnet link if search is unavailable</p>
-                      </div>
-                    </div>
+                      <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform duration-300 ${showMagnetAdd ? 'rotate-180' : ''}`} />
+                    </button>
 
-                    <div className="flex w-full lg:w-auto items-center gap-2 lg:gap-3">
-                      <Input value={manualTitle} onChange={(event) => setManualTitle(event.target.value)} placeholder="Title" className="h-9 flex-[0.7] lg:w-32 text-xs font-medium bg-background border-border/40 focus:border-primary/40 rounded-full min-w-0" />
-                      <Input value={manualMagnet} onChange={(event) => setManualMagnet(event.target.value)} placeholder="magnet:?xt..." className="h-9 flex-1 lg:w-48 text-xs font-medium bg-background border-border/40 focus:border-primary/40 font-mono rounded-full min-w-0" />
-                      <Button size="sm" variant="secondary" className="h-9 rounded-full px-3 lg:px-4 font-semibold shadow-sm shrink-0" onClick={() => void addManualLink()}>Inject</Button>
-                    </div>
+                    <AnimatePresence>
+                      {showMagnetAdd && (
+                        <motion.div 
+                          initial={{ opacity: 0, height: 0 }} 
+                          animate={{ opacity: 1, height: 'auto' }} 
+                          exit={{ opacity: 0, height: 0 }} 
+                          className="overflow-hidden"
+                        >
+                          <div className="p-4 rounded-2xl bg-card border border-border/50 shadow-sm flex flex-col sm:flex-row items-center gap-3">
+                            <Input value={manualTitle} onChange={(event) => setManualTitle(event.target.value)} placeholder="Enter Title" className="h-11 flex-[0.7] text-sm font-medium bg-background border-border/40 focus:border-primary/40 rounded-xl" />
+                            <Input value={manualMagnet} onChange={(event) => setManualMagnet(event.target.value)} placeholder="magnet:?xt=urn:btih:..." className="h-11 flex-1 text-sm font-medium bg-background border-border/40 focus:border-primary/40 font-mono rounded-xl" />
+                            <Button size="sm" className="h-11 w-full sm:w-auto rounded-xl px-6 font-semibold shadow-sm shrink-0" onClick={() => void addManualLink()}>
+                              <Plus className="h-4 w-4 mr-2" /> Inject
+                            </Button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
               </Tabs.Content>

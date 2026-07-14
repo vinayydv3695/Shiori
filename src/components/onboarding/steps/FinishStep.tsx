@@ -2,8 +2,8 @@ import { useMemo, useState, type CSSProperties } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { useOnboardingState } from '../hooks/useOnboardingState';
 import { useOnboardingStore } from '@/store/onboardingStore';
-import { OnboardingMotionStyles, GlowButton } from '../components';
-
+import { OnboardingMotionStyles } from '../components';
+import GlowButton from '../components/GlowButton';
 type FinishStepProps = {
   onBack?: () => void;
   onOpenLibrary?: () => Promise<void>;

@@ -168,7 +168,6 @@ export function IntegrationsStep({ onBack, onNext }: IntegrationsStepProps) {
                             <span className="text-sm font-medium">{aniListViewer?.name ? `Linked as ${aniListViewer.name}` : 'Account Linked'}</span>
                           </div>
                           <GlowButton
-                            theme="dark"
                             variant="secondary"
                             className="border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-200 hover:bg-emerald-500/20"
                             onClick={() => {
@@ -186,7 +185,6 @@ export function IntegrationsStep({ onBack, onNext }: IntegrationsStepProps) {
                                 Link AniList with the Android login flow to sync reading progress without copying tokens manually.
                               </p>
                               <GlowButton
-                                theme="dark"
                                 variant="secondary"
                                 className="w-full border-border/40 bg-card px-4 py-3 text-sm text-foreground hover:bg-primary/5"
                                 onClick={async () => {
@@ -204,7 +202,6 @@ export function IntegrationsStep({ onBack, onNext }: IntegrationsStepProps) {
                             </div>
                           ) : (
                             <GlowButton
-                              theme="dark"
                               variant="secondary"
                               className="w-full border-border/40 bg-card px-4 py-3 text-sm text-foreground hover:bg-primary/5"
                               onClick={() => {
@@ -290,7 +287,6 @@ export function IntegrationsStep({ onBack, onNext }: IntegrationsStepProps) {
 
                   <div className="mt-4 flex flex-wrap gap-3">
                     <GlowButton
-                      theme="dark"
                       variant="secondary"
                       onClick={() => void handleSave()}
                       disabled={!hasKey || isLoading || isSaving}
@@ -300,7 +296,6 @@ export function IntegrationsStep({ onBack, onNext }: IntegrationsStepProps) {
                     </GlowButton>
 
                     <GlowButton
-                      theme="dark"
                       variant="secondary"
                       onClick={() => void handleTest()}
                       disabled={!hasKey || isLoading || isTesting}

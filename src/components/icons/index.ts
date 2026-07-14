@@ -64,3 +64,4 @@ export {
 } from "lucide-react"
 
 export { AniListIcon } from './AniListIcon'
+export { TorboxIcon } from './TorboxIcon'

@@ -18,7 +18,7 @@ import {
   ListOrdered, Activity, HardDrive, Heart, History, CheckCircle2, PauseCircle, Globe, BarChart2,
   Trash2, Settings, Highlighter, ChevronRight, Cloud
 } from 'lucide-react'
-import { AniListIcon } from '@/components/icons'
+import { AniListIcon, TorboxIcon } from '@/components/icons'
 import { MobileStickyHeader } from '../layout/MobileStickyHeader'
 import { useThumbnail } from '@/hooks/useThumbnail'
 import { FeaturedContinueCard } from './FeaturedContinueCard'
@@ -223,7 +223,7 @@ function MobileQuickLinks({ onOpenSettings }: { onOpenSettings: () => void }) {
       <div className="flex flex-wrap gap-2 pb-2">
         {hasTorboxKey && (
           <button onClick={() => setCurrentView('torbox-discover')} className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
-            <Cloud className="w-4 h-4 text-primary" />
+            <TorboxIcon className="w-4 h-4 text-primary" />
             <span className="text-[11px] font-medium tracking-tight">Torbox</span>
           </button>
         )}

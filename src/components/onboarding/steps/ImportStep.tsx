@@ -260,7 +260,6 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
           </div>
 
           <GlowButton
-            theme="dark"
             variant="primary"
             onClick={onNext}
             disabled={!canContinue}

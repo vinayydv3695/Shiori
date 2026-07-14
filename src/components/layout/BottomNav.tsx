@@ -1,5 +1,5 @@
 import { Home, Library, Compass, Cloud, Settings, Highlighter, Tv } from 'lucide-react'
-import { AniListIcon } from '@/components/icons'
+import { AniListIcon, TorboxIcon } from '@/components/icons'
 import { cn } from '@/lib/utils'
 import type { CurrentView } from '@/store/uiStore'
 import { usePreferencesStore } from '@/store/preferencesStore'
@@ -59,7 +59,7 @@ export function BottomNav({
         />
       ) : hasTorboxKey ? (
         <NavItem
-          icon={<Cloud className="w-[22px] h-[22px]" />}
+          icon={<TorboxIcon className="w-[22px] h-[22px]" />}
           label="Torbox"
           isActive={currentView.startsWith('torbox')}
           onClick={() => onNavigateToView('torbox-discover')}

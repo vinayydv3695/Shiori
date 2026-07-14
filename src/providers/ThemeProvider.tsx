@@ -54,24 +54,8 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     initializeTheme();
   }, [loadPreferences]);
 
-  // Show minimal loading screen while theme loads
-  // Apply default theme early to avoid flash
-  if (!isReady && isTauri) {
-    // For Tauri mode: ensure default theme is set before showing loading screen
-    if (!document.documentElement.hasAttribute("data-theme")) {
-      document.documentElement.setAttribute("data-theme", "white");
-    }
-  }
-
   if (!isReady) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-background text-foreground">
-        <div className="text-center">
-          <div className="w-10 h-10 border-3 border-muted border-t-foreground rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-sm opacity-80">Loading Shiori...</p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return <>{children}</>;

@@ -8,8 +8,33 @@
     
     <!-- Local fonts (bundled for production Tauri build, no CDN dependency) -->
     <link rel="stylesheet" href="./fonts/fonts.css">
+    <style>
+      body {
+        margin: 0;
+        background-color: #0e0e0e;
+      }
+      #native-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(circle at center, rgba(32,31,31,1) 0%, rgba(14,14,14,1) 100%);
+        transition: opacity 0.5s ease-in-out;
+      }
+      #native-splash img {
+        width: 8rem;
+        height: 8rem;
+        object-fit: contain;
+      }
+    </style>
   </head>
   <body>
+    <div id="native-splash">
+      <img src="./logo.png" alt="Shiori Logo" />
+    </div>
     <div id="root"></div>
     <script type="module" src="./src/main.tsx"></script>
   </body>

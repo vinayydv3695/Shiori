@@ -557,7 +557,7 @@ export function Layout({
           onClick={scrollToTop}
           className={cn(
             "fixed z-50 flex items-center justify-center w-12 h-12 bg-primary/90 text-primary-foreground backdrop-blur-md rounded-full shadow-lg hover:bg-primary transition-all duration-300 hover:-translate-y-1",
-            isMobile ? "bottom-24 right-4" : "bottom-8 right-8"
+            isMobile ? "bottom-24 left-4" : "bottom-8 left-8"
           )}
         >
           <ArrowUp size={24} />

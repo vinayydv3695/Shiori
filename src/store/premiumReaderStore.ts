@@ -160,7 +160,7 @@ const defaultSettings = {
   brightness: 1.0,
   pageFlipEnabled: true,
   pageFlipSpeed: 300,
-  animationStyle: 'fade' as const,
+  animationStyle: 'slide' as const,
   paperTextureIntensity: isAndroid ? 0.11 : 0.08,
   uiScale: 1.0,
 };

@@ -12,8 +12,18 @@ export const isTauri = (() => {
   return hasTauri
 })()
 
-// Reliable Android detection independent of Tauri injection timing
-export const isAndroid = typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent);
+// Reliable Android detection independent of user-agent spoofing in DevTools
+export const isAndroid = (() => {
+  if (typeof window === 'undefined') return false;
+  // @ts-ignore - Check for Tauri v2 OS plugin
+  if (window.__TAURI_OS_PLUGIN_INTERNALS__?.os_type === 'android') return true;
+  // @ts-ignore - Fallback for generic Tauri internals
+  if (window.__TAURI_INTERNALS__?.platform === 'android') return true;
+  
+  // Fallback for browsers or old Tauri (only check UA if we are reasonably sure it's Tauri)
+  const isTauriEnv = '__TAURI__' in window || '__TAURI_INTERNALS__' in window;
+  return isTauriEnv && /android/i.test(navigator.userAgent);
+})();
 
 export interface Book {
   id?: number
@@ -1034,8 +1044,9 @@ export const api = {
         return localPaths
       } catch (error) {
         logger.error('[API] SAF file selection error:', error)
-        if (typeof error === 'string' && error.toLowerCase().includes('permission denied')) {
-            throw error;
+        if (typeof error === 'string') {
+            if (error.toLowerCase().includes('permission denied')) throw error;
+            if (error.toLowerCase().includes('user cancelled')) return null;
         }
         // Instead of returning null, throw the error so the caller knows it failed
         throw error;
@@ -1076,8 +1087,9 @@ export const api = {
         return result.uri
       } catch (error) {
         logger.error('[API] SAF folder selection error:', error)
-        if (typeof error === 'string' && error.toLowerCase().includes('permission denied')) {
-            throw error;
+        if (typeof error === 'string') {
+            if (error.toLowerCase().includes('permission denied')) throw error;
+            if (error.toLowerCase().includes('user cancelled')) return null;
         }
         throw error;
       }
@@ -1120,8 +1132,9 @@ export const api = {
         return result.uri
       } catch (error) {
         logger.error('[API] SAF save file dialog error:', error)
-        if (typeof error === 'string' && error.toLowerCase().includes('permission denied')) {
-            throw error;
+        if (typeof error === 'string') {
+            if (error.toLowerCase().includes('permission denied')) throw error;
+            if (error.toLowerCase().includes('user cancelled')) return null;
         }
         throw error;
       }

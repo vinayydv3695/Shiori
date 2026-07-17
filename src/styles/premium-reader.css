@@ -2422,8 +2422,7 @@ select {
 
 .translation-popup {
   padding: 14px;
-  min-width: 300px;
-  max-width: 360px;
+  width: 100%;
 }
 
 .translation-popup-header {

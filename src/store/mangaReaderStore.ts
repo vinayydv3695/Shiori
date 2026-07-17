@@ -252,6 +252,7 @@ export const useMangaUIStore = create<MangaUIState>((set) => ({
     isSettingsOpen: false,
     scrollProgress: 0,
     lastScrollActivityAt: 0,
+    isAutoScrolling: false,
 
     setTopBarVisible: (visible) => set({ isTopBarVisible: visible }),
     toggleTopBar: () => set((s) => ({ isTopBarVisible: !s.isTopBarVisible })),

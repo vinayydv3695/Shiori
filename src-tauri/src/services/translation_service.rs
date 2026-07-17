@@ -6,9 +6,16 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
+use std::sync::{Mutex, OnceLock};
+use std::collections::HashMap;
+
 use crate::error::{Result, ShioriError};
 
-// ═══════════════════════════════════════════════════════════════
+static TRANSLATION_CACHE: OnceLock<Mutex<HashMap<String, TranslationResult>>> = OnceLock::new();
+
+fn get_translation_cache() -> &'static Mutex<HashMap<String, TranslationResult>> {
+    TRANSLATION_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
 // PUBLIC TYPES
 // ═══════════════════════════════════════════════════════════════
 
@@ -210,9 +217,74 @@ pub async fn translate_text(
     source_lang: &str,
     target_lang: &str,
 ) -> Result<TranslationResult> {
-    // Limit text length for free APIs
-    let text = if text.len() > 500 { &text[..500] } else { text };
+    if text.trim().is_empty() {
+        return Ok(TranslationResult {
+            translated_text: text.to_string(),
+            source_language: source_lang.to_string(),
+            target_language: target_lang.to_string(),
+            provider: "none".to_string(),
+        });
+    }
 
+    let key = format!("{}:{}:{}", source_lang, target_lang, text);
+    if let Some(cached) = get_translation_cache().lock().unwrap().get(&key) {
+        return Ok(cached.clone());
+    }
+
+    let result = if text.len() > 400 {
+        translate_long_text(text, source_lang, target_lang).await?
+    } else {
+        translate_text_single(text, source_lang, target_lang).await?
+    };
+
+    get_translation_cache().lock().unwrap().insert(key, result.clone());
+    Ok(result)
+}
+
+async fn translate_long_text(
+    text: &str,
+    source_lang: &str,
+    target_lang: &str,
+) -> Result<TranslationResult> {
+    let mut translated_pieces = Vec::new();
+    let mut provider = String::new();
+
+    // Naive split by ". " to chunk long paragraphs
+    let chunks: Vec<&str> = text.split(". ").collect();
+    
+    for (i, chunk) in chunks.iter().enumerate() {
+        if chunk.trim().is_empty() {
+            continue;
+        }
+        // Avoid nested loops calling themselves infinitely; chunks should be < 400 chars now.
+        // If still > 400, truncate to 400 to prevent failure.
+        let safe_chunk = if chunk.len() > 400 { &chunk[..400] } else { chunk };
+        
+        let res = translate_text_single(safe_chunk, source_lang, target_lang).await?;
+        translated_pieces.push(res.translated_text);
+        if provider.is_empty() {
+            provider = res.provider;
+        }
+        
+        // Respect API rate limits somewhat by delaying slightly between chunks
+        if i < chunks.len() - 1 {
+            tokio::time::sleep(Duration::from_millis(300)).await;
+        }
+    }
+
+    Ok(TranslationResult {
+        translated_text: translated_pieces.join(". "),
+        source_language: source_lang.to_string(),
+        target_language: target_lang.to_string(),
+        provider,
+    })
+}
+
+async fn translate_text_single(
+    text: &str,
+    source_lang: &str,
+    target_lang: &str,
+) -> Result<TranslationResult> {
     // Skip MyMemory for "auto" source — it requires specific ISO language codes
     if source_lang != "auto" {
         match translate_mymemory(text, source_lang, target_lang).await {

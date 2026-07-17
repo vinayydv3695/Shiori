@@ -2,45 +2,28 @@ import type { DictionaryResponse, TranslationResponse } from '@/lib/tauri';
 import { BookmarkPlus } from '@/components/icons';
 
 interface TranslationPopupProps {
-  mode: 'translate' | 'define';
   loading: boolean;
   dictionaryResult: DictionaryResponse | null;
-  translationResult: TranslationResponse | null;
   error: string | null;
   onClose: () => void;
-  onSwitchMode: (mode: 'translate' | 'define') => void;
   onAddVocabulary?: () => void;
 }
 
 export function TranslationPopup({
-  mode,
   loading,
   dictionaryResult,
-  translationResult,
   error,
   onClose,
-  onSwitchMode,
   onAddVocabulary
 }: TranslationPopupProps) {
   return (
     <div className="translation-popup" onMouseDown={(e) => e.stopPropagation()}>
       <div className="translation-popup-header">
-        <div className="translation-popup-tabs">
-          <button
-            className={`translation-popup-tab ${mode === 'translate' ? 'translation-popup-tab--active' : ''}`}
-            onClick={() => onSwitchMode('translate')}
-          >
-            Translate
-          </button>
-          <button
-            className={`translation-popup-tab ${mode === 'define' ? 'translation-popup-tab--active' : ''}`}
-            onClick={() => onSwitchMode('define')}
-          >
-            Define
-          </button>
+        <div className="translation-popup-title" style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', padding: '6px 4px' }}>
+          Dictionary
         </div>
         <div style={{ display: 'flex', gap: '4px' }}>
-          {onAddVocabulary && !loading && !error && ((mode === 'translate' && translationResult) || (mode === 'define' && dictionaryResult)) && (
+          {onAddVocabulary && !loading && !error && dictionaryResult && (
             <button
               className="text-selection-toolbar-btn"
               onClick={onAddVocabulary}
@@ -86,14 +69,7 @@ export function TranslationPopup({
           </div>
         )}
         
-        {!loading && !error && mode === 'translate' && translationResult && (
-          <div className="translation-popup-result">
-            <div className="translation-popup-translated-text">{translationResult.translated_text}</div>
-            <div className="translation-popup-provider">via {translationResult.provider}</div>
-          </div>
-        )}
-        
-        {!loading && !error && mode === 'define' && dictionaryResult && (
+        {!loading && !error && dictionaryResult && (
           <div className="translation-popup-result">
             <div className="translation-popup-word-header">
               <span className="translation-popup-word">{dictionaryResult.word}</span>

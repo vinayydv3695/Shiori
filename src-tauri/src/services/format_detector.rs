@@ -21,6 +21,7 @@ pub enum BookFormat {
     Cbz,
     Cbr,
     Txt,
+    Audio,
 }
 
 impl BookFormat {
@@ -33,6 +34,7 @@ impl BookFormat {
             BookFormat::Cbz => "cbz",
             BookFormat::Cbr => "cbr",
             BookFormat::Txt => "txt",
+            BookFormat::Audio => "audio",
         }
     }
 
@@ -45,6 +47,7 @@ impl BookFormat {
             "cbz" | "zip" => Some(BookFormat::Cbz),
             "cbr" => Some(BookFormat::Cbr),
             "txt" => Some(BookFormat::Txt),
+            "mp3" | "m4a" | "m4b" | "ogg" | "flac" | "wav" => Some(BookFormat::Audio),
             _ => None,
         }
     }
@@ -133,6 +136,16 @@ fn verify_format_with_magic(path: &Path, format: &BookFormat) -> Result<bool> {
             // CBR files are RAR archives
             Ok(buffer.starts_with(&[0x52, 0x61, 0x72, 0x21]))
         }
+        BookFormat::Audio => {
+            // Minimal magic byte checking for audio (mp3, flac, ogg, m4a).
+            // Usually symphonia handles this, but we'll do a quick check to return true
+            // if we are pretty sure, otherwise we can just trust the extension for now 
+            // since symphonia probe will fail safely later.
+            Ok(buffer.starts_with(b"ID3") 
+                || buffer.starts_with(b"fLaC") 
+                || buffer.starts_with(b"OggS") 
+                || (buffer.len() > 8 && &buffer[4..8] == b"ftyp"))
+        }
     }
 }
 
@@ -173,6 +186,14 @@ fn detect_format_from_magic(path: &Path) -> Result<String> {
         return Ok("cbr".to_string());
     }
 
+    // Check Audio
+    if buffer.starts_with(b"ID3") 
+        || buffer.starts_with(b"fLaC") 
+        || buffer.starts_with(b"OggS") 
+        || (buffer.len() > 8 && &buffer[4..8] == b"ftyp") {
+        return Ok("audio".to_string());
+    }
+
     // Check if it's text
     let sample = String::from_utf8_lossy(&buffer[..bytes_read.min(512)]);
     let control_chars = sample
@@ -203,6 +224,7 @@ pub async fn validate_file_integrity(path: &Path, format: &str) -> Result<bool> 
         BookFormat::Cbz => validate_cbz(path),
         BookFormat::Cbr => validate_cbr(path),
         BookFormat::Txt => validate_txt(path),
+        BookFormat::Audio => Ok(true), // We trust symphonia for playback, basic structural validation is enough.
     }
 }
 

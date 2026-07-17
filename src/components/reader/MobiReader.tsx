@@ -119,24 +119,32 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
             setCurrentIndex(index);
             setIsLoading(false);
 
-            // Restore scroll position after render
+            // Robust scroll restoration for Android and slower WebViews
+            let attempts = 0;
+            const targetRatio = (initialScrollRatio !== undefined && initialScrollRatio > 0)
+                ? initialScrollRatio
+                : (scrollPositionsRef.current.get(index) || 0);
+
+            const attemptScroll = () => {
+                if (!containerRef.current) return;
+                const { scrollHeight, clientHeight } = containerRef.current;
+                
+                // If content is scrollable and we have a target ratio
+                if (scrollHeight > clientHeight && targetRatio > 0) {
+                    containerRef.current.scrollTop = targetRatio * (scrollHeight - clientHeight);
+                } else if (targetRatio === 0) {
+                    containerRef.current.scrollTop = 0;
+                }
+
+                attempts++;
+                // On Android WebViews, layout (especially images) can take time. We retry for up to 1000ms.
+                if (attempts < 10) {
+                    setTimeout(attemptScroll, 100);
+                }
+            };
+
             requestAnimationFrame(() => {
-                setTimeout(() => {
-                    if (containerRef.current) {
-                        if (initialScrollRatio !== undefined && initialScrollRatio > 0) {
-                            const { scrollHeight, clientHeight } = containerRef.current;
-                            containerRef.current.scrollTop = initialScrollRatio * (scrollHeight - clientHeight);
-                        } else {
-                            const savedPos = scrollPositionsRef.current.get(index);
-                            if (savedPos && savedPos > 0) {
-                                const { scrollHeight, clientHeight } = containerRef.current;
-                                containerRef.current.scrollTop = savedPos * (scrollHeight - clientHeight);
-                            } else {
-                                containerRef.current.scrollTop = 0;
-                            }
-                        }
-                    }
-                }, 50);
+                setTimeout(attemptScroll, 50);
             });
 
             // Save progress

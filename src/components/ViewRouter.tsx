@@ -116,7 +116,6 @@ export function ViewRouter({
               searchQuery={searchQuery}
               onSearchChange={onSearchChange}
               onOpenAdvancedFilter={onOpenAdvancedFilter}
-
               onViewSeries={dialogs.openSeriesView}
             />
           </SectionErrorBoundary>

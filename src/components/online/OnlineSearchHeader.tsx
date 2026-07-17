@@ -45,8 +45,8 @@ export function OnlineSearchHeader({
 
   return (
     <div className={cn(
-      "flex-shrink-0 relative overflow-hidden z-10 transition-colors duration-500",
-      isMobile ? "pt-12 pb-2 px-3 bg-background" : "bg-background/60 backdrop-blur-3xl pt-8 pb-6 px-8"
+      "flex-shrink-0 relative overflow-hidden z-20 transition-colors duration-500",
+      isMobile ? "sticky top-0 pt-[calc(env(safe-area-inset-top,0px)+12px)] pb-2 px-3 bg-background/95 backdrop-blur-xl border-b border-border/40" : "bg-background/60 backdrop-blur-3xl pt-8 pb-6 px-8"
     )}>
       {/* Subtle ambient glass glow */}
       {!isMobile && <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] -z-10 pointer-events-none" />}

@@ -54,3 +54,4 @@ pub mod debrid;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub mod discord_service;
 pub mod discovery_service;
+pub mod piper_service;

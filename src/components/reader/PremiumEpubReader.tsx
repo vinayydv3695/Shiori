@@ -326,23 +326,32 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         // Silently ignore database errors
       }
 
+      // Robust scroll restoration for Android and slower WebViews
+      let attempts = 0;
+      const targetRatio = (initialScrollRatio !== undefined && initialScrollRatio > 0)
+        ? initialScrollRatio
+        : (scrollPositionsRef.current.get(index) || 0);
+
+      const attemptScroll = () => {
+        if (!canvasRef.current || termToHighlight) return;
+        const { scrollHeight, clientHeight } = canvasRef.current;
+        
+        // If content is scrollable and we have a target ratio
+        if (scrollHeight > clientHeight && targetRatio > 0) {
+          canvasRef.current.scrollTop = targetRatio * (scrollHeight - clientHeight);
+        } else if (targetRatio === 0) {
+          canvasRef.current.scrollTop = 0;
+        }
+
+        attempts++;
+        // On Android WebViews, layout (especially images) can take time. We retry for up to 1000ms.
+        if (attempts < 10) {
+          setTimeout(attemptScroll, 100);
+        }
+      };
+
       requestAnimationFrame(() => {
-        setTimeout(() => {
-          if (canvasRef.current) {
-            if (initialScrollRatio !== undefined && initialScrollRatio > 0 && !termToHighlight) {
-              const { scrollHeight, clientHeight } = canvasRef.current;
-              canvasRef.current.scrollTop = initialScrollRatio * (scrollHeight - clientHeight);
-            } else {
-              const savedPos = scrollPositionsRef.current.get(index);
-              if (savedPos && savedPos > 0 && !termToHighlight) {
-                const { scrollHeight, clientHeight } = canvasRef.current;
-                canvasRef.current.scrollTop = savedPos * (scrollHeight - clientHeight);
-              } else {
-                canvasRef.current.scrollTop = 0;
-              }
-            }
-          }
-        }, 50);
+        setTimeout(attemptScroll, 50);
       });
 
       // If we have a highlight term, scroll to first highlight after content renders

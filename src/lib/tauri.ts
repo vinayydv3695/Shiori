@@ -103,6 +103,16 @@ export interface Tag {
   color?: string
 }
 
+export interface VoiceInfo {
+  id: string
+  name: string
+  lang: string
+  quality: string
+  download_url_onnx: string
+  download_url_json: string
+  is_downloaded: boolean
+}
+
 export interface MangaSeries {
   id?: number
   title: string
@@ -1059,7 +1069,7 @@ export const api = {
         multiple: true,
         filters: [
           {
-            name: "eBooks",
+            name: "Books",
             extensions: ["epub", "pdf", "mobi", "azw", "azw3", "txt", "cbz", "cbr", "fb2", "docx", "html", "htm", "md"],
           },
         ],
@@ -1659,5 +1669,19 @@ export const api = {
   /** Grab a Prowlarr release by guid + indexerId. Returns magnet/download URL. */
   async prowlarrGrabRelease(url: string, apiKey: string, guid: string, indexerId: number): Promise<string> {
     return invoke("grab_prowlarr_release", { url, apiKey, guid, indexerId })
+  },
+
+  // ── Piper TTS ─────────────────────────────────────────────────
+
+  async getAvailableVoices(): Promise<VoiceInfo[]> {
+    return invoke("get_available_voices")
+  },
+
+  async downloadVoice(voice: VoiceInfo): Promise<void> {
+    return invoke("download_voice", { voice })
+  },
+
+  async synthesizeSpeech(text: string, voiceId: string): Promise<string> {
+    return invoke("synthesize_speech", { text, voiceId })
   },
 }

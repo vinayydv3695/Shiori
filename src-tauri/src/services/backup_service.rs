@@ -263,17 +263,18 @@ pub fn restore_backup(
         let mut file = archive.by_index(i)?;
         let file_path = file.name().to_string();
 
-        if file_path.starts_with("covers/") && !file_path.ends_with('/') {
-            let relative_path = file_path.strip_prefix("covers/").unwrap();
-            let target_path = covers_dir.join(relative_path);
+        if !file_path.ends_with('/') {
+            if let Some(relative_path) = file_path.strip_prefix("covers/") {
+                let target_path = covers_dir.join(relative_path);
 
-            if let Some(parent) = target_path.parent() {
-                fs::create_dir_all(parent)?;
+                if let Some(parent) = target_path.parent() {
+                    fs::create_dir_all(parent)?;
+                }
+
+                let mut target_file = File::create(&target_path)?;
+                std::io::copy(&mut file, &mut target_file)?;
+                covers_restored += 1;
             }
-
-            let mut target_file = File::create(&target_path)?;
-            std::io::copy(&mut file, &mut target_file)?;
-            covers_restored += 1;
         }
     }
 
@@ -282,16 +283,16 @@ pub fn restore_backup(
         let mut file = archive.by_index(i)?;
         let file_path = file.name().to_string();
 
-        if file_path.starts_with("books/") && !file_path.ends_with('/') {
-            let filename = file_path.strip_prefix("books/").unwrap();
+        if !file_path.ends_with('/') {
+            if let Some(filename) = file_path.strip_prefix("books/") {
+                // Save to storage/books directory
+                let storage_books_dir = app_data_dir.join("storage").join("books");
+                fs::create_dir_all(&storage_books_dir)?;
 
-            // Save to storage/books directory
-            let storage_books_dir = app_data_dir.join("storage").join("books");
-            fs::create_dir_all(&storage_books_dir)?;
-
-            let target_path = storage_books_dir.join(filename);
-            let mut target_file = File::create(&target_path)?;
-            std::io::copy(&mut file, &mut target_file)?;
+                let target_path = storage_books_dir.join(filename);
+                let mut target_file = File::create(&target_path)?;
+                std::io::copy(&mut file, &mut target_file)?;
+            }
         }
     }
 

@@ -10,8 +10,9 @@ use tauri::State;
 #[tauri::command]
 pub fn extract_metadata(file_path: String) -> Result<Metadata> {
     validate::require_safe_path(&file_path, "file_path")?;
-    metadata_service::extract_from_file(&file_path)
+metadata_service::extract_from_file(&file_path)
 }
+
 
 // ═══════════════════════════════════════════════════════════
 // MANGA METADATA COMMANDS (AniList API)

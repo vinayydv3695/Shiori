@@ -363,8 +363,8 @@ export function PremiumTopbar({
             <div 
               className="absolute top-1 bottom-1 rounded-full bg-background shadow-sm border border-border/50 transition-all duration-300 ease-out z-0"
               style={{ 
-                left: currentDomain === 'books' ? '4px' : 'calc(50% + 2px)', 
-                width: 'calc(50% - 6px)' 
+                left: currentDomain === 'books' ? '4px' : currentDomain === 'manga_comics' ? 'calc(33.33% + 2px)' : 'calc(66.66% + 0px)', 
+                width: 'calc(33.33% - 4px)' 
               }} 
             />
             
@@ -372,24 +372,24 @@ export function PremiumTopbar({
               type="button"
               onClick={() => onDomainChange('books')}
               className={cn(
-                'relative z-10 flex items-center justify-center gap-1.5 flex-1 px-3 sm:px-4 text-xs font-bold rounded-full transition-colors duration-200',
+                'relative z-10 flex items-center justify-center gap-1.5 flex-1 px-3 text-xs font-bold rounded-full transition-colors duration-200',
                 currentDomain === 'books' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
               )}
             >
               <IconBooks size={14} />
-              Books
+              <span className="hidden sm:inline">Books</span>
             </button>
             
             <button
               type="button"
               onClick={() => onDomainChange('manga_comics')}
               className={cn(
-                'relative z-10 flex items-center justify-center gap-1.5 flex-1 px-3 sm:px-4 text-xs font-bold rounded-full transition-colors duration-200',
+                'relative z-10 flex items-center justify-center gap-1.5 flex-1 px-3 text-xs font-bold rounded-full transition-colors duration-200',
                 currentDomain === 'manga_comics' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
               )}
             >
               <IconManga size={14} />
-              Manga
+              <span className="hidden sm:inline">Manga</span>
             </button>
           </div>
         )}

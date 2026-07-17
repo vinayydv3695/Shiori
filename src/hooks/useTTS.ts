@@ -2,8 +2,8 @@
  * React hook for Text-to-Speech orchestration with sentence-level reading
  * Manages TTS state machine, voice selection, and DOM highlighting
  * 
- * On Linux: Uses native TTS via tauri-plugin-tts (speech-dispatcher)
- * On other platforms: Falls back to Web Speech API
+ * On desktop and Android: Uses native OS TTS by default (tauri-plugin-tts)
+ * Fallback: Uses Web Speech API purely as a last resort (e.g., plain web builds)
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
@@ -12,11 +12,12 @@ import { logger } from '@/lib/logger';
 import type { TTSState, TTSOptions } from '@/lib/ttsEngine';
 import { splitSentences } from '@/lib/sentenceSplitter';
 import { highlightSentence, clearAllHighlights } from '@/lib/sentenceHighlighter';
-import { extractTextFromDOM } from '@/lib/textExtractor';
+import { isAndroid, isTauri, api } from '@/lib/tauri';
 import { usePreferencesStore } from '@/store/preferencesStore';
+import { convertFileSrc } from '@tauri-apps/api/core';
 
 // Native TTS support (Tauri plugin)
-import { speak as nativeSpeak, stop as nativeStop } from 'tauri-plugin-tts-api';
+import { speak as nativeSpeak, stop as nativeStop, getVoices as nativeGetVoices } from 'tauri-plugin-tts-api';
 
 export interface UseTTSOptions {
   contentRef: React.RefObject<HTMLElement | null>;
@@ -55,24 +56,22 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
 
   const sentencesRef = useRef<string[]>([]);
   const currentIndexRef = useRef<number>(0);
+  const piperAudioRef = useRef<HTMLAudioElement | null>(null);
   const cleanupHighlightRef = useRef<(() => void) | null>(null);
   const speakSentenceAtIndexRef = useRef<(index: number, sentenceArray?: string[]) => void>(() => {});
   const nativeTTSTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isAvailable = TTSEngine.isAvailable() || useNativeTTS;
 
+  // Always try to detect native TTS first if running in Tauri.
+  // We can't use isAvailable to gate checkNativeTTS because Web Speech API might be entirely absent (e.g., on Android WebView)
   useEffect(() => {
-    if (!isAvailable) {
-      return;
-    }
-
      const checkNativeTTS = async () => {
        try {
          logger.debug('[TTS] Checking native TTS plugin availability...');
          await nativeStop();
          logger.debug('[TTS] Native TTS plugin detected and available');
          setUseNativeTTS(true);
-         return;
        } catch (error) {
          logger.debug('[TTS] Native TTS plugin not available, falling back to Web Speech API:', error);
          setUseNativeTTS(false);
@@ -80,11 +79,35 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
      };
 
     checkNativeTTS();
+  }, []);
 
-    const loadVoices = () => {
-      const availableVoices = ttsEngine.getVoices();
+  useEffect(() => {
+    if (!isAvailable) {
+      return;
+    }
+
+    const loadVoices = async () => {
+      let availableVoices: SpeechSynthesisVoice[] = [];
+      
+      if (useNativeTTS) {
+        try {
+          const nativeVoices = await nativeGetVoices();
+          availableVoices = nativeVoices.map(v => ({
+            default: false,
+            lang: v.language || 'en-US',
+            localService: true,
+            name: v.name || v.id,
+            voiceURI: v.id,
+          }) as SpeechSynthesisVoice);
+        } catch (error) {
+          logger.error('Failed to get native voices', error);
+          availableVoices = ttsEngine.getVoices();
+        }
+      } else {
+        availableVoices = ttsEngine.getVoices();
+      }
+
       setVoices(availableVoices);
-
       setNoVoices(availableVoices.length === 0);
 
       const preferences = usePreferencesStore.getState().preferences;
@@ -105,14 +128,14 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
 
     loadVoices();
 
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
+    if (!useNativeTTS && typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
 
       return () => {
         window.speechSynthesis.removeEventListener('voiceschanged', loadVoices);
       };
     }
-  }, [isAvailable]);
+  }, [isAvailable, useNativeTTS]);
 
   useEffect(() => {
     const contentEl = contentRef.current;
@@ -147,18 +170,73 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
       cleanupHighlightRef.current = null;
     }
 
+    // Stop previous Piper audio if running
+    if (piperAudioRef.current) {
+      piperAudioRef.current.pause();
+      piperAudioRef.current.src = '';
+      piperAudioRef.current = null;
+    }
+
     const sentence = currentSentences[index];
 
     const cleanup = highlightSentence(contentRef.current, sentence);
     cleanupHighlightRef.current = cleanup;
 
-    if (useNativeTTS) {
+    const preferences = usePreferencesStore.getState().preferences;
+    const preferredVoice = preferences?.tts?.voice;
+    const isPiper = preferredVoice && preferredVoice.startsWith('piper:');
+
+    if (isPiper) {
+      const voiceId = preferredVoice.replace('piper:', '');
+      setState('speaking');
+      setCurrentSentenceIndex(index);
+      currentIndexRef.current = index;
+
+      api.synthesizeSpeech(sentence, voiceId)
+        .then((audioUrl) => {
+          const url = convertFileSrc(audioUrl);
+          const audio = new Audio(url);
+          audio.playbackRate = rate;
+          piperAudioRef.current = audio;
+          
+          audio.onended = () => {
+            const nextIndex = currentIndexRef.current + 1;
+            if (nextIndex < sentencesRef.current.length) {
+              speakSentenceAtIndexRef.current(nextIndex);
+            } else {
+              setState('idle');
+              setCurrentSentenceIndex(0);
+              currentIndexRef.current = 0;
+              if (cleanupHighlightRef.current) {
+                cleanupHighlightRef.current();
+                cleanupHighlightRef.current = null;
+              }
+              onChapterEnd?.();
+            }
+          };
+          
+          audio.onerror = (e) => {
+            logger.error('Piper audio error:', e);
+            setState('idle');
+          };
+          
+          audio.play().catch(e => {
+            logger.error('Piper playback failed:', e);
+            setState('idle');
+          });
+        })
+        .catch(error => {
+          logger.error('Piper synthesis failed:', error);
+          setState('idle');
+        });
+
+    } else if (useNativeTTS) {
       const estimatedDuration = (sentence.length / 15) * (1.0 / rate) * 1000;
       
        nativeSpeak({
          text: sentence,
          language: null,
-         voiceId: null,
+         voiceId: preferredVoice && preferredVoice !== 'default' ? preferredVoice : null,
          rate,
          pitch: null,
          volume: null,
@@ -264,8 +342,10 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
   }, [isAvailable, contentRef, speakSentenceAtIndex]);
 
   const pause = useCallback(() => {
-    if (!isAvailable) {
-      return;
+    setState('paused');
+    
+    if (piperAudioRef.current) {
+      piperAudioRef.current.pause();
     }
 
     if (useNativeTTS) {
@@ -273,15 +353,20 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
         clearTimeout(nativeTTSTimeoutRef.current);
         nativeTTSTimeoutRef.current = null;
       }
-      nativeStop().catch(() => {});
     } else {
       ttsEngine.pause();
     }
-    setState('paused');
-  }, [isAvailable, useNativeTTS]);
+  }, [useNativeTTS]);
 
+  /**
+   * Resume paused TTS
+   */
   const resume = useCallback(() => {
-    if (!isAvailable) {
+    if (state !== 'paused') return;
+
+    if (piperAudioRef.current) {
+      setState('speaking');
+      piperAudioRef.current.play().catch(e => logger.error('Failed to resume piper', e));
       return;
     }
 
@@ -289,13 +374,17 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
       speakSentenceAtIndex(currentIndexRef.current);
     } else {
       ttsEngine.resume();
+      setState('speaking');
     }
-    setState('speaking');
-  }, [isAvailable, useNativeTTS, speakSentenceAtIndex]);
+  }, [state, useNativeTTS, speakSentenceAtIndex]);
 
-  const stop = useCallback(() => {
-    if (!isAvailable) {
-      return;
+  const stop = useCallback(async () => {
+    setState('idle');
+    
+    if (piperAudioRef.current) {
+      piperAudioRef.current.pause();
+      piperAudioRef.current.src = '';
+      piperAudioRef.current = null;
     }
 
     if (useNativeTTS) {
@@ -303,7 +392,11 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
         clearTimeout(nativeTTSTimeoutRef.current);
         nativeTTSTimeoutRef.current = null;
       }
-      nativeStop().catch(() => {});
+      try {
+        await nativeStop();
+      } catch (e) {
+        logger.error('Failed to stop native TTS', e);
+      }
     } else {
       ttsEngine.stop();
     }

@@ -7,6 +7,8 @@ import { logger } from '@/lib/logger';
 import { useToastStore } from '@/store/toastStore';
 import { usePreferencesStore } from '@/store/preferencesStore';
 import { ttsEngine, TTSEngine } from '@/lib/ttsEngine';
+import { useTTS } from '@/hooks/useTTS';
+import { Volume2 } from 'lucide-react';
 import { TranslationPopup } from './TranslationPopup';
 
 interface TextSelectionToolbarProps {
@@ -51,7 +53,12 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
   const [translationResult, setTranslationResult] = useState<TranslationResponse | null>(null);
   const [translationError, setTranslationError] = useState<string | null>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const translationResultRef = useRef<HTMLDivElement>(null);
   const noteInputRef = useRef<HTMLTextAreaElement>(null);
+
+  // useTTS hook with dummy ref just for speakText
+  const dummyRef = useRef<HTMLDivElement>(null);
+  const { speakText, stop: stopSpeaking, state: ttsState } = useTTS({ contentRef: dummyRef });
 
   const hideToolbar = useCallback(() => {
     setIsVisible(false);
@@ -61,7 +68,6 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     setSelectedCategoryId(undefined);
     setShowTranslation(false);
     setDictionaryResult(null);
-    setTranslationResult(null);
     setTranslationError(null);
   }, []);
 
@@ -262,34 +268,53 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
   }, [selectedText, hideToolbar]);
 
   const handleTranslate = useCallback(async () => {
-    setShowTranslation(true);
-    setTranslationMode('translate');
-    setTranslationLoading(true);
-    setTranslationError(null);
-    setDictionaryResult(null);
-    setTranslationResult(null);
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    
+    // Clone the range so we can replace it later
+    const range = selection.getRangeAt(0).cloneRange();
+    const originalText = selectedText;
+    
+    // Optional: Hide the toolbar immediately so it's not in the way
+    hideToolbar();
+    window.getSelection()?.removeAllRanges();
+
+    useToastStore.getState().addToast({
+      title: 'Translating...',
+      duration: 2000,
+    });
+
     try {
       const targetLang = usePreferencesStore.getState().preferences?.translationTargetLanguage ?? 'en';
-      const result = await api.translateText(selectedText, targetLang);
-      setTranslationResult(result);
+      const result = await api.translateText(originalText, targetLang);
+      
+      // Replace text in the DOM
+      range.deleteContents();
+      range.insertNode(document.createTextNode(result.translated_text));
+      
+      useToastStore.getState().addToast({
+        title: 'Translated successfully',
+        variant: 'success',
+        duration: 2000,
+      });
+      // Trigger annotation-changed so any external listeners know DOM changed, if applicable
+      window.dispatchEvent(new CustomEvent('annotation-changed'));
     } catch (err: any) {
-      setTranslationError(
-        typeof err === 'object' && err !== null && 'userMessage' in err
+      useToastStore.getState().addToast({
+        title: 'Translation failed',
+        description: typeof err === 'object' && err !== null && 'userMessage' in err
           ? String(err.userMessage)
-          : String(err)
-      );
-    } finally {
-      setTranslationLoading(false);
+          : String(err),
+        variant: 'error',
+      });
     }
-  }, [selectedText]);
+  }, [selectedText, hideToolbar]);
 
   const handleDefine = useCallback(async () => {
     setShowTranslation(true);
-    setTranslationMode('define');
     setTranslationLoading(true);
     setTranslationError(null);
     setDictionaryResult(null);
-    setTranslationResult(null);
     try {
       const cleanText = selectedText.replace(/[[\](){}0-9]/g, '').trim();
       const word = cleanText.split(/\s+/).find(w => /^[a-zA-Z\u00C0-\u024F]+$/.test(w)) || cleanText.split(/\s+/)[0] || '';
@@ -339,9 +364,9 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
         }
       }
 
-      const vocabData = translationMode === 'define' && dictionaryResult
+      const vocabData = dictionaryResult
         ? JSON.stringify({ type: 'define', data: dictionaryResult })
-        : JSON.stringify({ type: 'translate', data: translationResult });
+        : JSON.stringify({ type: 'note', data: null });
 
       await api.createAnnotation(
         bookId,
@@ -367,7 +392,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
         variant: 'error',
       });
     }
-  }, [bookId, currentLocation, selectedText, translationMode, dictionaryResult, translationResult]);
+  }, [bookId, currentLocation, selectedText, dictionaryResult]);
 
   return (
     <AnimatePresence>
@@ -383,8 +408,71 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
           onMouseDown={(e) => e.stopPropagation()}
         >
           {/* Main action buttons */}
-          {!showNoteInput && !showTranslation && (
             <div className="text-selection-toolbar-actions">
+              {/* Aloud */}
+              <button
+                className="text-selection-toolbar-btn"
+                onClick={() => {
+                  if (ttsState === 'speaking') {
+                    stopSpeaking();
+                  } else {
+                    speakText(selectedText);
+                  }
+                }}
+                title="Read aloud"
+              >
+                <Volume2 size={14} className={ttsState === 'speaking' ? "text-primary" : ""} />
+                <span>{ttsState === 'speaking' ? "Stop" : "Aloud"}</span>
+              </button>
+
+              <div className="w-[1px] h-4 bg-border/50 mx-1" />
+
+              {/* Define */}
+              <button
+                className="text-selection-toolbar-btn"
+                onClick={() => {
+                  if (showTranslation) {
+                    setShowTranslation(false);
+                  } else {
+                    handleDefine();
+                  }
+                }}
+                title="Look up definition"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+                </svg>
+                <span>Define</span>
+              </button>
+
+              <div className="w-[1px] h-4 bg-border/50 mx-1" />
+
+              {/* Translate */}
+              <button
+                className="text-selection-toolbar-btn"
+                onClick={handleTranslate}
+                title="Translate selected text"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" /><path d="m22 22-5-10-5 10" /><path d="M14 18h6" />
+                </svg>
+                <span>Translate</span>
+              </button>
+
+              <div className="w-[1px] h-4 bg-border/50 mx-1" />
+
+              {/* Note */}
+              <button
+                className="text-selection-toolbar-btn"
+                onClick={() => setShowNoteInput(true)}
+                title="Add a note"
+              >
+                <StickyNote size={14} />
+                <span>Note</span>
+              </button>
+
+              <div className="w-[1px] h-4 bg-border/50 mx-1" />
+
               {/* Copy */}
               <button
                 className="text-selection-toolbar-btn"
@@ -398,6 +486,8 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
                 <span>Copy</span>
               </button>
 
+              <div className="w-[1px] h-4 bg-border/50 mx-1" />
+
               {/* Highlight */}
               <button
                 className="text-selection-toolbar-btn"
@@ -407,43 +497,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
                 <Highlighter size={14} />
                 <span>Highlight</span>
               </button>
-
-              {/* Note */}
-              <button
-                className="text-selection-toolbar-btn"
-                onClick={() => setShowNoteInput(true)}
-                title="Add a note"
-              >
-                <StickyNote size={14} />
-                <span>Note</span>
-              </button>
-
-
-
-
-              <button
-                className="text-selection-toolbar-btn"
-                onClick={handleTranslate}
-                title="Translate selected text"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" /><path d="m22 22-5-10-5 10" /><path d="M14 18h6" />
-                </svg>
-                <span>Translate</span>
-              </button>
-
-              <button
-                className="text-selection-toolbar-btn"
-                onClick={handleDefine}
-                title="Look up definition"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
-                </svg>
-                <span>Define</span>
-              </button>
             </div>
-          )}
 
           {/* Color picker for highlight */}
           {showColorPicker && !showNoteInput && !showTranslation && (
@@ -522,19 +576,32 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
           )}
 
           {showTranslation && (
-            <TranslationPopup
-              mode={translationMode}
-              loading={translationLoading}
-              dictionaryResult={dictionaryResult}
-              translationResult={translationResult}
-              error={translationError}
-              onClose={() => setShowTranslation(false)}
-              onAddVocabulary={handleAddVocabulary}
-              onSwitchMode={(mode) => {
-                if (mode === 'define') handleDefine();
-                else handleTranslate();
+            <motion.div 
+              ref={translationResultRef}
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="translation-popup-wrapper"
+              style={{
+                borderTop: '1px solid var(--ui-divider, rgba(0, 0, 0, 0.08))',
+                backgroundColor: 'var(--bg-elevated, rgba(255, 255, 255, 0.95))',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                borderBottomLeftRadius: '16px',
+                borderBottomRightRadius: '16px',
+                overflow: 'hidden',
+                maxHeight: 'min(70vh, 500px)',
+                overflowY: 'auto'
               }}
-            />
+            >
+              <TranslationPopup
+                loading={translationLoading}
+                dictionaryResult={dictionaryResult}
+                error={translationError}
+                onClose={() => setShowTranslation(false)}
+                onAddVocabulary={handleAddVocabulary}
+              />
+            </motion.div>
           )}
         </motion.div>
       )}

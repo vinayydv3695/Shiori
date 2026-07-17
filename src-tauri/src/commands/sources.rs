@@ -154,6 +154,8 @@ pub async fn plugin_download_chapter(
     chapter_id: String,
     dest_dir: String,
 ) -> Result<Vec<String>> {
+    crate::utils::validate::require_safe_path(&dest_dir, "dest_dir")?;
+
     let source = {
         let registry = state.plugin_registry.read().await;
         registry
@@ -180,6 +182,11 @@ pub async fn plugin_download_chapter(
 
     let mut written = Vec::new();
     for (idx, page) in pages.iter().enumerate() {
+        if idx > 0 && source_id != "mangafire" {
+            // Rate limiting: sleep 250ms between page downloads to prevent hammering the source
+            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+        }
+
         let mut req = client.get(&page.url);
         if let Some(ref_url) = referer {
             req = req.header("Referer", ref_url);
@@ -246,8 +253,14 @@ pub async fn proxy_manga_image(source_id: String, image_url: String) -> Result<V
         _ => None,
     };
 
-    let mut req = reqwest::Client::new()
-        .get(&image_url)
+    static HTTP_CLIENT: once_cell::sync::Lazy<reqwest::Client> = once_cell::sync::Lazy::new(|| {
+        reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .unwrap_or_default()
+    });
+
+    let mut req = HTTP_CLIENT.get(&image_url)
         .header("User-Agent", user_agent);
 
     if let Some(ref_url) = referer {

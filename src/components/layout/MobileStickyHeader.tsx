@@ -60,12 +60,12 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
       <div className="flex items-center justify-between gap-3">
         {/* Domain Tabs */}
         {preferences?.preferredContentType === 'both' && (
-          <div className="relative flex items-center p-1 bg-muted/50 border border-border/50 rounded-ui-full h-12 flex-1 max-w-[200px] shadow-inner">
+          <div className="relative flex items-center p-1 bg-muted/50 border border-border/50 rounded-ui-full h-12 flex-1 max-w-[280px] shadow-inner">
             <div 
               className="absolute top-1 bottom-1 rounded-ui-full bg-background shadow-sm border border-border/50 transition-all duration-300 ease-out z-0"
               style={{ 
-                left: currentDomain === 'books' ? '4px' : 'calc(50% + 2px)', 
-                width: 'calc(50% - 6px)' 
+                left: currentDomain === 'books' ? '4px' : currentDomain === 'manga_comics' ? 'calc(33.33% + 2px)' : 'calc(66.66% + 0px)', 
+                width: 'calc(33.33% - 4px)' 
               }} 
             />
             
@@ -78,7 +78,7 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
               )}
             >
               <IconBooks size={14} />
-              Books
+              <span className="hidden sm:inline">Books</span>
             </button>
             
             <button
@@ -90,8 +90,10 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
               )}
             >
               <IconManga size={14} />
-              Manga
+              <span className="hidden sm:inline">Manga</span>
             </button>
+
+
           </div>
         )}
 

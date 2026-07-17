@@ -12,12 +12,15 @@
     "dialog:default",
     "store:default",
     "shell:default",
+    "fs:default",
+    "fs:read-all",
     "core:window:default",
     "core:window:allow-start-dragging",
     "core:window:allow-minimize",
     "core:window:allow-toggle-maximize",
     "core:window:allow-close",
     "core:window:allow-is-fullscreen",
-    "core:window:allow-is-maximized"
+    "core:window:allow-is-maximized",
+    "tts:default"
   ]
 }

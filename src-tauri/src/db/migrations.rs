@@ -139,6 +139,7 @@ impl<'a> MigrationManager<'a> {
             self.run_in_savepoint("v38", |mgr| mgr.migrate_to_v38())?;
         }
 
+
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
         // the FTS table with only 3 columns on every startup, breaking the
@@ -2191,6 +2192,8 @@ impl<'a> MigrationManager<'a> {
         self.record_migration(38, "v38_performance_indexes", &hash)?;
         Ok(())
     }
+
+
 }
 
 #[cfg(test)]

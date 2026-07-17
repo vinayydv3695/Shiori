@@ -37,7 +37,7 @@ import { DesktopCompanionSettings } from './DesktopCompanionSettings'
 import { CompanionDiscovery } from '../companion/CompanionDiscovery'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { AniListSettings } from './AniListSettings'
-
+import { VoiceManager } from './VoiceManager'
 
 
 import { READING_FONTS, normalizeLegacyFontPreference, resolveReadingFontCss } from '@/lib/readingFonts'
@@ -125,6 +125,7 @@ const EPUB_RESUME_CHOICE_STORAGE_KEY = 'shiori-epub-resume-choice:v1'
 export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   const isMobile = useIsMobile()
   const [activeTab, setActiveTab] = useState<SettingsTab>('general')
+  const [mobileView, setMobileView] = useState<'root' | 'detail'>('root')
   const [searchQuery, setSearchQuery] = useState('')
   const preferences = usePreferencesStore((state) => state.preferences)
   const updateTheme = usePreferencesStore((state) => state.updateTheme)
@@ -197,44 +198,66 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
           preferences?.transparentSettings ?? false ? "bg-background/80 backdrop-blur-2xl" : "bg-background"
         )}>
           <div className="flex items-center justify-between p-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)] md:p-6 border-b border-border gap-3">
-            <Dialog.Title className="text-xl md:text-2xl font-semibold">Settings</Dialog.Title>
-            <div className="flex items-center gap-2">
-              <div className="relative hidden sm:block">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                <Input
-                  type="search"
-                  placeholder="Search settings..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 w-48 md:w-64"
-                  aria-label="Search settings"
-                />
-                {searchQuery && (
-                  <button
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    onClick={() => setSearchQuery('')}
-                    aria-label="Clear search"
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
-              <Dialog.Close asChild>
-                <Button variant="ghost" size="icon" aria-label="Close settings">
-                  <X className="w-5 h-5" />
+            {isMobile && mobileView === 'detail' ? (
+              <div className="flex items-center gap-3">
+                <Button variant="ghost" size="icon" onClick={() => setMobileView('root')} className="-ml-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                 </Button>
-              </Dialog.Close>
+                <Dialog.Title className="text-xl font-semibold">
+                  {tabs.find(t => t.id === selectedTab)?.name || 'Settings'}
+                </Dialog.Title>
+              </div>
+            ) : (
+              <Dialog.Title className="text-xl md:text-2xl font-semibold">Settings</Dialog.Title>
+            )}
+
+            <div className="flex items-center gap-2">
+              {!(isMobile && mobileView === 'detail') && (
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                  <Input
+                    type="search"
+                    placeholder="Search settings..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 w-40 sm:w-48 md:w-64"
+                    aria-label="Search settings"
+                  />
+                  {searchQuery && (
+                    <button
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => setSearchQuery('')}
+                      aria-label="Clear search"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              )}
+              {(!isMobile || mobileView === 'root') && (
+                 <Dialog.Close asChild>
+                   <Button variant="ghost" size="icon" aria-label="Close settings">
+                     <X className="w-5 h-5" />
+                   </Button>
+                 </Dialog.Close>
+              )}
             </div>
           </div>
 
           <Tabs.Root
             value={selectedTab}
-            onValueChange={(val) => setActiveTab(val as SettingsTab)}
+            onValueChange={(val) => {
+              setActiveTab(val as SettingsTab);
+              if (isMobile) setMobileView('detail');
+            }}
             className="flex flex-1 overflow-hidden max-md:flex-col"
             orientation="vertical"
           >
             <Tabs.List
-              className="w-56 max-md:w-full max-md:flex max-md:flex-row max-md:flex-nowrap max-md:overflow-x-auto max-md:scrollbar-none max-md:border-b max-md:border-r-0 max-md:p-2 max-md:gap-1 border-r border-border/40 bg-background/50 p-4 space-y-1 flex-shrink-0 overflow-y-auto scrollbar-none"
+              className={cn(
+                "w-56 border-r border-border/40 bg-background/50 p-4 space-y-1 flex-shrink-0 overflow-y-auto scrollbar-none",
+                isMobile && mobileView === 'root' ? "w-full flex-1 border-r-0 max-md:pb-12" : isMobile ? "hidden" : "block"
+              )}
               aria-label="Settings categories"
             >
               {filteredTabs.map((tab) => (
@@ -242,19 +265,23 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                   key={tab.id}
                   value={tab.id}
                   className={cn(
-                    'w-full max-md:w-auto max-md:flex-shrink-0 max-md:justify-center flex items-center gap-3 px-3 py-2.5 max-md:px-3 max-md:py-2 rounded-lg transition-all duration-200 text-left font-medium text-[13px]',
+                    'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-left font-medium text-[13px]',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50',
                     'data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm',
-                    'data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-muted/50 data-[state=inactive]:hover:text-foreground'
+                    'data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-muted/50 data-[state=inactive]:hover:text-foreground',
+                    isMobile && mobileView === 'root' && "py-4 text-[15px]"
                   )}
                 >
                   <tab.icon className="w-5 h-5 flex-shrink-0" />
-                  <span className="font-sans font-semibold tracking-wide max-md:hidden sm:max-md:inline">{tab.name}</span>
+                  <span className="font-sans font-semibold tracking-wide block">{tab.name}</span>
                 </Tabs.Trigger>
               ))}
             </Tabs.List>
 
-            <div className="flex-1 relative bg-background/50">
+            <div className={cn(
+              "flex-1 relative bg-background/50",
+              isMobile && mobileView === 'root' ? "hidden" : "block"
+            )}>
               <AnimatePresence mode="wait">
                 <motion.div
                   key={selectedTab}
@@ -1103,47 +1130,10 @@ const BookReadingSettings = ({
 
       {isSectionVisible('Audio / TTS', ['Text-to-Speech Voice', 'Speech Rate', 'Auto-advance Chapter', 'Highlight Color']) && (
         <SettingSection title="Audio / TTS" description="Configure voice and speech settings for read-aloud">
-          {!isAvailable && (
-            <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
-              <p className="text-sm font-medium text-yellow-600 dark:text-yellow-400">
-                Text-to-Speech is not available on this platform.
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Your browser or operating system does not support the Web Speech API.
-              </p>
-            </div>
-          )}
-
-          {'speechSynthesis' in window && voices.length === 0 && (
-            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-              <p className="text-sm text-amber-600 dark:text-amber-400">
-                No TTS voices were found. On Linux, the WebKitGTK webview may expose
-                the Speech API but provide no voices. Try installing speech-dispatcher
-                or espeak-ng and restarting the app.
-              </p>
-            </div>
-          )}
-
           {isSettingVisible('Text-to-Speech Voice', 'TTS voice selection', 'Audio / TTS') && (
-            <SettingItem
-              label="Voice"
-              description={(preferences.tts?.voice ?? 'default') === 'default' ? 'System default' : (preferences.tts?.voice ?? 'default')}
-            >
-              <select
-                value={preferences.tts?.voice ?? 'default'}
-                onChange={(e) => updateTtsDefaults({ voice: e.target.value })}
-                disabled={!isAvailable}
-                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none  max-w-[250px] disabled:opacity-50"
-                aria-label="TTS voice"
-              >
-                <option value="default">System Default</option>
-                {voices.map((v) => (
-                  <option key={v.voiceURI} value={v.voiceURI}>
-                    {v.name} ({v.lang})
-                  </option>
-                ))}
-              </select>
-            </SettingItem>
+            <div className="py-4 border-b border-border/50">
+              <VoiceManager />
+            </div>
           )}
 
           {isSettingVisible('Speech Rate', 'TTS playback speed', 'Audio / TTS') && (
@@ -1999,6 +1989,10 @@ const AboutSettings = () => {
     }
     
     try {
+      if (import.meta.env.DEV) {
+        toast.info("Update checking is disabled in development mode.")
+        return
+      }
       setIsChecking(true)
       const update = await check()
       if (update) {
@@ -2011,7 +2005,7 @@ const AboutSettings = () => {
       }
     } catch (error) {
       console.error(error)
-      toast.error("Failed to check for updates (ensure your GitHub keys are set in tauri.conf.json if you are the developer)")
+      toast.error("Failed to check for updates. Make sure you are connected to the internet.")
     } finally {
       setIsChecking(false)
     }

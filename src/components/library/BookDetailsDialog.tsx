@@ -15,6 +15,7 @@ import { Button } from '../ui/button';
 import { MetadataSearchDialog } from './MetadataSearchDialog';
 import { FeatureHint } from '../ui/FeatureHint';
 
+
 interface BookDetailsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -103,6 +104,7 @@ export const BookDetailsDialog = ({
   const coverSrc = book?.cover_path ? resolveCoverSrc(book.cover_path) : null;
 
   const isManga = book?.file_format.toLowerCase() === 'cbz' || book?.file_format.toLowerCase() === 'cbr';
+
 
   const handleMetadataFetched = async () => {
     // Reload book data after metadata update

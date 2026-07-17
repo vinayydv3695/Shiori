@@ -71,23 +71,30 @@ export const ModernBookCard = memo(function ModernBookCard({
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [visible, coverUrl, imgError, title, author]);
+  const [fallbackAttempted, setFallbackAttempted] = useState(false);
+
   useEffect(() => {
-    if (!visible || !coverUrl || !imgError) return;
+    if (!visible || !coverUrl || !imgError || fallbackAttempted) return;
     let active = true;
     
+    setFallbackAttempted(true); // Only attempt fallback once
+
     // If the primary image errors out (e.g., shiori-proxy fails), try the fallback
     import('@/online-books/openlibrary/api').then(({ fetchCoverForBook }) => {
       fetchCoverForBook(title, author).then(fallbackUrl => {
         if (!active) return;
         if (fallbackUrl) {
-          setProxyUrl(fallbackUrl);
+          const proxyUri = isAndroid 
+            ? `http://shiori-proxy.localhost?source=generic&url=${encodeURIComponent(fallbackUrl)}`
+            : fallbackUrl;
+          setProxyUrl(proxyUri);
           setImgError(false); // allow the img tag to try rendering again
         }
       });
     });
 
     return () => { active = false; };
-  }, [visible, coverUrl, imgError, title, author]);
+  }, [visible, coverUrl, imgError, title, author, fallbackAttempted]);
   // Calculate download progress if available
   const progressPercent = downloadState?.total_bytes && downloadState.total_bytes > 0 
     ? Math.min(100, Math.round((downloadState.downloaded_bytes / downloadState.total_bytes) * 100))

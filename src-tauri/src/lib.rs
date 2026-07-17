@@ -88,9 +88,11 @@ pub fn run() {
             .plugin(tauri_plugin_updater::Builder::new().build());
     }
 
+
     builder = builder
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_store::Builder::new().build());
+        .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_fs::init());
 
     #[cfg(target_os = "android")]
     {
@@ -121,27 +123,30 @@ pub fn run() {
             
             if let (Some(source_id), Some(image_url)) = (source_id, image_url) {
                 // Security Fix: SSRF Prevention
-                let is_valid = is_safe_url(&image_url);
+                let is_valid = is_safe_url(&image_url).await;
 
                 if is_valid {
                     let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-                let referer = match source_id.as_str() {
-                    "toongod" => Some("https://www.toongod.org/"),
-                    "mangadex" => Some("https://mangadex.org/"),
-                    "weebrook" => Some("https://weebrook.com/"),
-                    "manhwahub" => Some("https://manhwahub.net/"),
-                    "mangafire" => Some("https://mangafire.to/"),
-                    "libgen" => Some("https://libgen.li/"),
-                    _ => None,
-                };
-                let client = reqwest::Client::builder()
-                    .timeout(std::time::Duration::from_secs(3))
-                    .build()
-                    .unwrap_or_default();
+                    let referer = match source_id.as_str() {
+                        "toongod" => Some("https://www.toongod.org/"),
+                        "mangadex" => Some("https://mangadex.org/"),
+                        "weebrook" => Some("https://weebrook.com/"),
+                        "manhwahub" => Some("https://manhwahub.net/"),
+                        "mangafire" => Some("https://mangafire.to/"),
+                        "libgen" => Some("https://libgen.li/"),
+                        _ => None,
+                    };
                     
-                let mut req = client
-                    .get(&image_url)
-                    .header("User-Agent", user_agent);
+                    lazy_static::lazy_static! {
+                        static ref CLIENT: reqwest::Client = reqwest::Client::builder()
+                            .timeout(std::time::Duration::from_secs(15))
+                            .build()
+                            .unwrap_or_default();
+                    }
+                        
+                    let mut req = CLIENT
+                        .get(&image_url)
+                        .header("User-Agent", user_agent);
                 if let Some(ref_url) = referer {
                     req = req.header("Referer", ref_url);
                 }
@@ -186,11 +191,6 @@ pub fn run() {
     {
         log::info!("Native TTS plugin enabled - initializing tauri-plugin-tts");
         builder = builder.plugin(tauri_plugin_tts::init());
-    }
-
-    #[cfg(not(feature = "native-tts"))]
-    {
-        log::warn!("Native TTS plugin NOT enabled - rebuild with --features native-tts for native TTS support");
     }
 
     builder
@@ -484,6 +484,9 @@ pub fn run() {
                 folder_watch_service,
             ));
 
+            let piper_service = Arc::new(tokio::sync::Mutex::new(services::piper_service::PiperService::new(app.handle().clone())));
+            app.manage(piper_service);
+
             log::info!("Shiori v2.0 initialized with database at {:?}", db_path);
             log::info!("Storage path: {:?}", storage_path);
             log::info!("Conversion engine: 4 workers");
@@ -500,62 +503,66 @@ pub fn run() {
 
 /// Security Fix: SSRF Prevention
 /// Validates scheme (https) and ensures IP is not private/loopback/link-local
-pub fn is_safe_url(image_url: &str) -> bool {
-    (|| -> Option<bool> {
-        let parsed = url::Url::parse(image_url).ok()?;
-        if parsed.scheme() != "https" {
-            return Some(false);
-        }
-        // Validate IP / Host
-        use std::net::ToSocketAddrs;
-        let host = parsed.host_str()?;
-        let port = parsed.port_or_known_default().unwrap_or(443);
-        
-        if let Ok(addrs) = (host, port).to_socket_addrs() {
-            for addr in addrs {
-                let ip = addr.ip();
-                match ip {
-                    std::net::IpAddr::V4(ipv4) => {
-                        if ipv4.is_private() || ipv4.is_loopback() || ipv4.is_link_local() {
-                            return Some(false);
-                        }
+pub async fn is_safe_url(image_url: &str) -> bool {
+    let parsed = match url::Url::parse(image_url) {
+        Ok(p) => p,
+        Err(_) => return false,
+    };
+    if parsed.scheme() != "https" {
+        return false;
+    }
+    
+    // Validate IP / Host asynchronously
+    let host = match parsed.host_str() {
+        Some(h) => h,
+        None => return false,
+    };
+    let port = parsed.port_or_known_default().unwrap_or(443);
+    
+    if let Ok(addrs) = tokio::net::lookup_host((host, port)).await {
+        for addr in addrs {
+            let ip = addr.ip();
+            match ip {
+                std::net::IpAddr::V4(ipv4) => {
+                    if ipv4.is_private() || ipv4.is_loopback() || ipv4.is_link_local() {
+                        return false;
                     }
-                    std::net::IpAddr::V6(ipv6) => {
-                        if ipv6.is_loopback() || (ipv6.segments()[0] & 0xfe00) == 0xfc00 {
-                            return Some(false);
-                        }
+                }
+                std::net::IpAddr::V6(ipv6) => {
+                    if ipv6.is_loopback() || (ipv6.segments()[0] & 0xfe00) == 0xfc00 {
+                        return false;
                     }
                 }
             }
-        } else {
-            // Could not resolve, fail safe
-            return Some(false);
         }
-        Some(true)
-    })().unwrap_or(false)
+    } else {
+        // Could not resolve, fail safe
+        return false;
+    }
+    true
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_is_safe_url() {
+    #[tokio::test]
+    async fn test_is_safe_url() {
         // Valid HTTPS URLs should pass (assuming github.com resolves to public IP)
-        assert!(is_safe_url("https://github.com"));
-        assert!(is_safe_url("https://mangadex.org/api/v2"));
+        assert!(is_safe_url("https://github.com").await);
+        assert!(is_safe_url("https://mangadex.org/api/v2").await);
 
         // HTTP should fail
-        assert!(!is_safe_url("http://github.com"));
+        assert!(!is_safe_url("http://github.com").await);
         
         // File schemes should fail
-        assert!(!is_safe_url("file:///etc/passwd"));
+        assert!(!is_safe_url("file:///etc/passwd").await);
         
         // Internal IP addresses should fail
-        assert!(!is_safe_url("https://127.0.0.1"));
-        assert!(!is_safe_url("https://localhost"));
-        assert!(!is_safe_url("https://10.0.0.1"));
-        assert!(!is_safe_url("https://192.168.1.1"));
-        assert!(!is_safe_url("https://[::1]"));
+        assert!(!is_safe_url("https://127.0.0.1").await);
+        assert!(!is_safe_url("https://localhost").await);
+        assert!(!is_safe_url("https://10.0.0.1").await);
+        assert!(!is_safe_url("https://192.168.1.1").await);
+        assert!(!is_safe_url("https://[::1]").await);
     }
 }

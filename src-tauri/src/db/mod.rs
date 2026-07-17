@@ -113,7 +113,8 @@ impl Database {
                 domain TEXT DEFAULT NULL,
                 is_wishlist INTEGER NOT NULL DEFAULT 0,
                 in_trash INTEGER NOT NULL DEFAULT 0,
-                deleted_at TEXT
+                deleted_at TEXT,
+                duration REAL DEFAULT 0
             )",
             [],
         )?;
@@ -123,6 +124,7 @@ impl Database {
             "CREATE INDEX IF NOT EXISTS idx_books_title ON books(title COLLATE NOCASE)",
             [],
         )?;
+
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_books_isbn ON books(isbn)",
             [],

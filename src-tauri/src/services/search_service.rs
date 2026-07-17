@@ -12,9 +12,10 @@ pub fn build_search_query(query: &SearchQuery) -> (String, Vec<Value>, String, V
     // Full-text search
     if let Some(ref q) = query.query {
         if !q.is_empty() {
+            let fts_query = format!("\"{}\"", q.replace('"', "\"\""));
             from_sql.push_str(" JOIN books_fts fts ON b.id = fts.rowid");
             where_clauses.push("books_fts MATCH ?".to_string());
-            base_params.push(Value::Text(q.clone()));
+            base_params.push(Value::Text(fts_query));
         }
     }
 
@@ -284,7 +285,7 @@ mod tests {
         assert!(count_sql.contains("JOIN books_fts fts"));
         assert!(count_sql.contains("books_fts MATCH ?"));
         assert_eq!(base_params.len(), 1);
-        assert_eq!(base_params[0], Value::Text("manga".to_string()));
+        assert_eq!(base_params[0], Value::Text("\"manga\"".to_string()));
     }
 
     #[test]

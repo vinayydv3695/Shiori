@@ -281,6 +281,7 @@ jobs:
         with:
           tagName: v${{ needs.check-version.outputs.version }}
           releaseName: 'Shiori v${{ needs.check-version.outputs.version }}'
+          includeUpdaterJson: true
           tauriScript: npm run tauri
           releaseBody: |
             ## Shiori v${{ needs.check-version.outputs.version }}

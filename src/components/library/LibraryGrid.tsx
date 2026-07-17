@@ -214,11 +214,14 @@ export function LibraryGrid({
   const [isFirstSeries, setIsFirstSeries] = useState(true);
   const prefetchedCoverIdsRef = useRef<Set<number>>(new Set());
 
-  // Hard domain filter — strict separation between books and manga & comics
+  // Hard domain filter — strict separation between books, manga & comics
   const visibleLibrary = useMemo(() => {
     return books.filter((book) => {
       const isMangaComics = isMangaDomain(book);
-      return currentDomain === "manga_comics" ? isMangaComics : !isMangaComics;
+      
+      if (currentDomain === "manga_comics") return isMangaComics;
+      // Default 'books' domain
+      return !isMangaComics;
     });
   }, [books, currentDomain]);
 

@@ -4,6 +4,7 @@ import { ViewRouter } from "./components/ViewRouter"
 import { Layout } from "./components/layout/Layout"
 import { ToastContainer } from "./components/ui/ToastContainer"
 import { DevBanner } from "./components/DevBanner"
+
 import { SectionErrorBoundary } from "./components/ErrorBoundary"
 import { logger } from "./lib/logger"
 import { useLibraryStore, countActiveFilterCriteria } from "./store/libraryStore"
@@ -303,6 +304,7 @@ function App() {
       <SwipeGestureHandler>
         {renderContent()}
       </SwipeGestureHandler>
+
     </>
   )
 }

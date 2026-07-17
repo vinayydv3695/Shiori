@@ -184,13 +184,36 @@ fn main() {
     );
 
     // Bindings
-    let bindings = bindgen::Builder::default()
+    let mut builder = bindgen::Builder::default()
         .header("wrapper.h")
         .clang_arg(format!("-I{}", espeak_dst.display()))
         .clang_arg(format!(
             "-I{}",
             espeak_dst.join("src").join("include").display()
-        ))
+        ));
+
+    if target.contains("android") {
+        let ndk_home = env::var("ANDROID_NDK_HOME").or_else(|_| env::var("NDK_HOME")).unwrap_or_default();
+        if !ndk_home.is_empty() {
+            let host_tag = if cfg!(target_os = "linux") {
+                "linux-x86_64"
+            } else if cfg!(target_os = "macos") {
+                "darwin-x86_64"
+            } else if cfg!(target_os = "windows") {
+                "windows-x86_64"
+            } else {
+                "linux-x86_64"
+            };
+
+            let sysroot = format!("{}/toolchains/llvm/prebuilt/{}/sysroot", ndk_home, host_tag);
+            builder = builder.clang_arg(format!("--sysroot={}", sysroot));
+            
+            // Map the Rust target to the clang target if necessary, though just passing --target usually works
+            builder = builder.clang_arg(format!("--target={}", target));
+        }
+    }
+
+    let bindings = builder
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .generate()
         .expect("Failed to generate bindings");
@@ -222,7 +245,7 @@ fn main() {
         config.define("USE_LIBPCAUDIO", "OFF");
     }
     
-    if cfg!(target_os = "linux") {
+    if cfg!(target_os = "linux") || cfg!(target_os = "android") {
         config.define("USE_LIBPCAUDIO", "OFF");
         config.define("USE_ASYNC", "OFF");
     }

@@ -35,13 +35,35 @@ pub fn extract_cover(
         .ok_or_else(|| ShioriError::InvalidFormat("No file extension".to_string()))?
         .to_lowercase();
 
-    match extension.as_str() {
+    let raw_cover = match extension.as_str() {
         "epub" => extract_epub_cover(file_path, book_uuid, covers_dir),
         "cbz" | "cbr" | "zip" => extract_cbz_cover(file_path, book_uuid, covers_dir),
         "pdf" => extract_pdf_cover(file_path, book_uuid, covers_dir),
         "mobi" | "azw3" => extract_mobi_cover(file_path, book_uuid, covers_dir),
-        _ => Ok(None),
+        _ => return Ok(None),
+    }?;
+
+    if let Some(raw_path_str) = raw_cover {
+        let raw_path = Path::new(&raw_path_str);
+        if let Ok(img) = image::open(&raw_path) {
+            let webp_filename = format!("{}.webp", book_uuid);
+            let webp_path = covers_dir.join(&webp_filename);
+            
+            // Resize to a sensible thumbnail size (e.g. max 600px height or width)
+            let thumb = img.thumbnail(600, 800);
+            
+            if thumb.save(&webp_path).is_ok() {
+                // Remove the original raw extracted file if it's different
+                if raw_path != webp_path {
+                    let _ = std::fs::remove_file(&raw_path);
+                }
+                return Ok(Some(webp_path.to_string_lossy().to_string()));
+            }
+        }
+        return Ok(Some(raw_path_str));
     }
+    
+    Ok(None)
 }
 
 fn read_be_u16(data: &[u8], offset: usize) -> Option<u16> {

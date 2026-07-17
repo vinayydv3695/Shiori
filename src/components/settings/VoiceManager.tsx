@@ -123,11 +123,44 @@ export function VoiceManager() {
       <div className="flex flex-col gap-2">
         <h3 className="text-lg font-medium flex items-center gap-2">
           <Volume2 className="w-5 h-5 text-primary" />
-          Text-to-Speech Voices
+          Text to Speech
         </h3>
         <p className="text-sm text-muted-foreground">
-          Select the default voice used for reading books aloud. Native OS voices are used automatically if available.
+          Configure voices and playback speed for reading aloud.
         </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 bg-muted/30 p-4 rounded-lg border">
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm font-medium">
+            <label>Speed</label>
+            <span>{(preferences?.tts?.rate || 1.0).toFixed(1)}x</span>
+          </div>
+          <input 
+            type="range" 
+            min="0.5" 
+            max="2.0" 
+            step="0.1" 
+            value={preferences?.tts?.rate || 1.0}
+            onChange={(e) => updateTtsDefaults({ rate: parseFloat(e.target.value) })}
+            className="w-full accent-primary"
+          />
+        </div>
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm font-medium">
+            <label>Pitch</label>
+            <span>{(preferences?.tts?.pitch || 1.0).toFixed(1)}</span>
+          </div>
+          <input 
+            type="range" 
+            min="0.5" 
+            max="2.0" 
+            step="0.1" 
+            value={preferences?.tts?.pitch || 1.0}
+            onChange={(e) => updateTtsDefaults({ pitch: parseFloat(e.target.value) })}
+            className="w-full accent-primary"
+          />
+        </div>
       </div>
 
       <div className="flex items-center justify-between gap-4">

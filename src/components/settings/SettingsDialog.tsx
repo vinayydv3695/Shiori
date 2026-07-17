@@ -450,6 +450,8 @@ const GeneralSettings = ({
   const themeOptions: { value: Theme; label: string; icon: typeof Moon }[] = [
     { value: 'light', label: 'Premium Light', icon: Sun },
     { value: 'dark', label: 'OLED Midnight', icon: Moon },
+    { value: 'sepia', label: 'Sepia Paper', icon: Sun },
+    { value: 'gray', label: 'E-Ink Gray', icon: Moon },
     { value: 'rose-pine-moon', label: 'Rosé Pine', icon: Palette },
     { value: 'catppuccin-mocha', label: 'Catppuccin', icon: Palette },
     { value: 'nord', label: 'Nord', icon: Palette },

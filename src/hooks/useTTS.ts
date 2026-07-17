@@ -33,6 +33,7 @@ export interface UseTTSReturn {
   voices: SpeechSynthesisVoice[];
   selectedVoice: SpeechSynthesisVoice | null;
   rate: number;
+  pitch: number;
   play: () => void;
   pause: () => void;
   resume: () => void;
@@ -41,6 +42,7 @@ export interface UseTTSReturn {
   prevSentence: () => void;
   setVoice: (voice: SpeechSynthesisVoice) => void;
   setRate: (rate: number) => void;
+  setPitch: (pitch: number) => void;
   speakText: (text: string) => void;
 }
 
@@ -52,6 +54,7 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
   const [noVoices, setNoVoices] = useState<boolean>(false);
   const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
   const [rate, setRateState] = useState<number>(1.0);
+  const [pitch, setPitchState] = useState<number>(1.0);
   const [useNativeTTS, setUseNativeTTS] = useState<boolean>(false);
 
   const sentencesRef = useRef<string[]>([]);
@@ -123,6 +126,10 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
       const preferredRate = preferences?.tts?.rate;
       if (preferredRate !== undefined) {
         setRateState(preferredRate);
+      }
+      const preferredPitch = preferences?.tts?.pitch;
+      if (preferredPitch !== undefined) {
+        setPitchState(preferredPitch);
       }
     };
 
@@ -269,10 +276,10 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
         }
       }, estimatedDuration);
     } else {
-      const options: TTSOptions = {
-        rate,
-        volume: 1.0,
+      ttsEngine.speak(sentence, {
         voice: selectedVoice || undefined,
+        rate,
+        pitch,
         onEnd: () => {
           const nextIndex = currentIndexRef.current + 1;
 
@@ -295,14 +302,12 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
            logger.error('TTS error:', event);
           setState('idle');
         },
-      };
-
-      ttsEngine.speak(sentence, options);
+      });
       setState('speaking');
       setCurrentSentenceIndex(index);
       currentIndexRef.current = index;
     }
-  }, [contentRef, rate, selectedVoice, onChapterEnd, useNativeTTS]);
+  }, [contentRef, rate, pitch, selectedVoice, onChapterEnd, useNativeTTS]);
 
   // Keep ref in sync
   useEffect(() => {
@@ -481,6 +486,18 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
     });
   }, []);
 
+  /**
+   * Change speech pitch and save to preferences
+   */
+  const setPitch = useCallback((newPitch: number) => {
+    setPitchState(newPitch);
+
+    // Save to preferences
+    usePreferencesStore.getState().updateTtsDefaults({
+      pitch: newPitch,
+    });
+  }, []);
+
   const speakText = useCallback((text: string) => {
     if (!isAvailable) {
       return;
@@ -490,24 +507,22 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
       nativeSpeak({
         text,
         language: null,
-        voiceId: null,
+        voiceId: selectedVoice?.voiceURI || null,
         rate,
-        pitch: null,
+        pitch,
         volume: null,
         queueMode: null,
        }).catch((error) => {
          logger.error('Native TTS error:', error);
        });
     } else {
-      const options: TTSOptions = {
-        rate,
-        volume: 1.0,
+      ttsEngine.speak(text, {
         voice: selectedVoice || undefined,
-      };
-
-      ttsEngine.speak(text, options);
+        rate,
+        pitch,
+      });
     }
-  }, [isAvailable, rate, selectedVoice, useNativeTTS]);
+  }, [isAvailable, rate, pitch, selectedVoice, useNativeTTS]);
 
   return {
     isAvailable,
@@ -518,6 +533,7 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
     voices,
     selectedVoice,
     rate,
+    pitch,
     play,
     pause,
     resume,
@@ -526,6 +542,7 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
     prevSentence,
     setVoice,
     setRate,
+    setPitch,
     speakText,
   };
 }

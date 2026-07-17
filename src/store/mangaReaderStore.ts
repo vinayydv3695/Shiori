@@ -240,6 +240,10 @@ interface MangaUIState {
     
     onNextChapter?: () => void;
     setOnNextChapter: (fn?: () => void) => void;
+
+    isAutoScrolling: boolean;
+    toggleAutoScroll: () => void;
+    setAutoScroll: (val: boolean) => void;
 }
 
 export const useMangaUIStore = create<MangaUIState>((set) => ({
@@ -270,8 +274,11 @@ export const useMangaUIStore = create<MangaUIState>((set) => ({
         scrollProgress: 0,
         lastScrollActivityAt: 0,
         onNextChapter: undefined,
+        isAutoScrolling: false,
     }),
     setOnNextChapter: (fn) => set({ onNextChapter: fn }),
+    toggleAutoScroll: () => set((state) => ({ isAutoScrolling: !state.isAutoScrolling })),
+    setAutoScroll: (val) => set({ isAutoScrolling: val }),
 }));
 
 
@@ -314,6 +321,9 @@ interface MangaSettingsState {
     zoomOut: () => void;
     toggleContinuousChapter: () => void;
     resetToDefaults: () => void;
+
+    autoScrollSpeed: number; // Pixels per frame or similar
+    setAutoScrollSpeed: (speed: number) => void;
 }
 
 const defaultMangaSettings = {
@@ -329,6 +339,7 @@ const defaultMangaSettings = {
     preloadIntensity: 'aggressive' as const,
     zoomLevel: 1.0,
     continuousChapter: false,
+    autoScrollSpeed: 1,
 };
 
 const READING_MODE_OPTIONS: ReadingMode[] = ['single', 'strip', 'webtoon', 'manhwa', 'comic'];
@@ -364,6 +375,7 @@ const normalizeMangaSettingsState = (raw: unknown) => {
         preloadIntensity: clampStringEnum(source.preloadIntensity, defaultMangaSettings.preloadIntensity, PRELOAD_INTENSITY_OPTIONS),
         zoomLevel: clampNumber(source.zoomLevel, defaultMangaSettings.zoomLevel, 0.5, 3.0),
         continuousChapter: typeof source.continuousChapter === 'boolean' ? source.continuousChapter : defaultMangaSettings.continuousChapter,
+        autoScrollSpeed: clampNumber(source.autoScrollSpeed, defaultMangaSettings.autoScrollSpeed, 0.1, 10),
     };
 };
 
@@ -406,10 +418,11 @@ export const useMangaSettingsStore = create<MangaSettingsState>()(
                 set({ imageQuality: clamped });
             },
             setPreloadIntensity: (intensity) => set({ preloadIntensity: intensity }),
-            setZoomLevel: (level) => set({ zoomLevel: Math.max(0.5, Math.min(3.0, level)) }),
-            zoomIn: () => set((s) => ({ zoomLevel: Math.min(3.0, s.zoomLevel + 0.25) })),
-            zoomOut: () => set((s) => ({ zoomLevel: Math.max(0.5, s.zoomLevel - 0.25) })),
+            setZoomLevel: (level) => set({ zoomLevel: clampNumber(level, 1.0, 0.5, 3.0) }),
+            zoomIn: () => set((s) => ({ zoomLevel: Math.min(s.zoomLevel + 0.1, 3.0) })),
+            zoomOut: () => set((s) => ({ zoomLevel: Math.max(s.zoomLevel - 0.1, 0.5) })),
             toggleContinuousChapter: () => set((s) => ({ continuousChapter: !s.continuousChapter })),
+            setAutoScrollSpeed: (speed) => set({ autoScrollSpeed: clampNumber(speed, 1, 0.1, 10) }),
             resetToDefaults: () => {
                 set(defaultMangaSettings);
                 applyMangaThemeToDOM(defaultMangaSettings.theme);

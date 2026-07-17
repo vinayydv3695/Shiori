@@ -74,7 +74,7 @@ scraper = "0.20"
 url = "2.5"                     # URL parsing (cloudflare module)
 
 # Image processing & cover generation
-image = "0.25"
+image = { version = "0.25", features = ["webp"] }
 imageproc = "0.24"              # Image manipulation
 mime_guess = "2"                # MIME type detection for CBZ/CBR image formats
 resvg = "0.42"                  # SVG rendering

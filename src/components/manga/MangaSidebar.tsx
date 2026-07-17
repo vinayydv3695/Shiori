@@ -6,7 +6,7 @@ import {
     useMangaSettingsStore,
     type ReadingMode,
 } from '@/store/mangaReaderStore';
-import { X, Settings } from 'lucide-react';
+import { X, Settings, Play, Square } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { cn } from '@/lib/utils';
 
@@ -24,6 +24,8 @@ export const MangaSidebar = memo(function MangaSidebar() {
     const isSidebarOpen = useMangaUIStore(s => s.isSidebarOpen);
     const closeSidebar = useMangaUIStore(s => s.closeSidebar);
     const toggleSettings = useMangaUIStore(s => s.toggleSettings);
+    const isAutoScrolling = useMangaUIStore(s => s.isAutoScrolling);
+    const toggleAutoScroll = useMangaUIStore(s => s.toggleAutoScroll);
 
     const readingMode = useMangaSettingsStore(s => s.readingMode);
     const setReadingMode = useMangaSettingsStore(s => s.setReadingMode);
@@ -39,6 +41,8 @@ export const MangaSidebar = memo(function MangaSidebar() {
     const setProgressBarPosition = useMangaSettingsStore(s => s.setProgressBarPosition);
     const theme = useMangaSettingsStore(s => s.theme);
     const toggleTheme = useMangaSettingsStore(s => s.toggleTheme);
+    const autoScrollSpeed = useMangaSettingsStore(s => s.autoScrollSpeed);
+    const setAutoScrollSpeed = useMangaSettingsStore(s => s.setAutoScrollSpeed);
 
     const modeOptions: { value: ReadingMode; label: string }[] = [
         { value: 'single', label: 'Single' },
@@ -165,6 +169,35 @@ export const MangaSidebar = memo(function MangaSidebar() {
                                 <div className="manga-toggle-knob" />
                             </div>
                         </div>
+
+                        {/* Auto-Scroll */}
+                        {(readingMode === 'webtoon' || readingMode === 'strip' || readingMode === 'manhwa') && (
+                            <>
+                                <div className="manga-sidebar-row">
+                                    <span className="manga-sidebar-label">Auto-Scroll</span>
+                                    <div
+                                        className={`manga-toggle ${isAutoScrolling ? 'manga-toggle--active' : ''}`}
+                                        onClick={toggleAutoScroll}
+                                    >
+                                        <div className="manga-toggle-knob" />
+                                    </div>
+                                </div>
+                                <div className="manga-sidebar-row">
+                                    <span className="manga-sidebar-label">Speed ({autoScrollSpeed.toFixed(1)}x)</span>
+                                    <input 
+                                        type="range" 
+                                        min="0.1" 
+                                        max="10" 
+                                        step="0.1" 
+                                        value={autoScrollSpeed}
+                                        onChange={(e) => setAutoScrollSpeed(parseFloat(e.target.value))}
+                                        className="manga-slider"
+                                        style={{ flex: 1, marginLeft: '1rem' }}
+                                    />
+                                </div>
+                            </>
+                        )}
+
 
                         <div className="manga-sidebar-row">
                             <span className="manga-sidebar-label">Fit Mode</span>

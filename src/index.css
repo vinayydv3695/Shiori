@@ -94,6 +94,62 @@
     --ring: 234 89% 74%;
   }
 
+  /* Sepia (Warm Paper) */
+  [data-theme="sepia"] {
+    --background: 40 40% 90%; /* #efe5d4 */
+    --foreground: 25 30% 20%; /* #42352b */
+    --surface-1: 40 40% 88%;
+    --surface-2: 40 40% 86%;
+    --surface-3: 40 40% 84%;
+    --surface-4: 40 40% 80%;
+    
+    --card: 40 40% 92%;
+    --card-foreground: 25 30% 20%;
+    --popover: 40 40% 92%;
+    --popover-foreground: 25 30% 20%;
+    --primary: 25 60% 40%;
+    --primary-foreground: 40 40% 95%;
+    --secondary: 40 30% 85%;
+    --secondary-foreground: 25 30% 20%;
+    --muted: 40 30% 85%;
+    --muted-foreground: 25 20% 45%;
+    --accent: 40 30% 85%;
+    --accent-foreground: 25 30% 20%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 40 30% 80%;
+    --input: 40 30% 80%;
+    --ring: 25 60% 40%;
+  }
+
+  /* Low-contrast Gray (E-ink style) */
+  [data-theme="gray"] {
+    --background: 0 0% 15%; /* #262626 */
+    --foreground: 0 0% 80%; /* #cccccc */
+    --surface-1: 0 0% 18%;
+    --surface-2: 0 0% 20%;
+    --surface-3: 0 0% 25%;
+    --surface-4: 0 0% 30%;
+    
+    --card: 0 0% 18%;
+    --card-foreground: 0 0% 80%;
+    --popover: 0 0% 18%;
+    --popover-foreground: 0 0% 80%;
+    --primary: 0 0% 60%;
+    --primary-foreground: 0 0% 15%;
+    --secondary: 0 0% 25%;
+    --secondary-foreground: 0 0% 85%;
+    --muted: 0 0% 25%;
+    --muted-foreground: 0 0% 55%;
+    --accent: 0 0% 25%;
+    --accent-foreground: 0 0% 85%;
+    --destructive: 0 60% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 25%;
+    --input: 0 0% 25%;
+    --ring: 0 0% 60%;
+  }
+
   html {
     font-size: calc(16px * var(--ui-scale, 1));
   }

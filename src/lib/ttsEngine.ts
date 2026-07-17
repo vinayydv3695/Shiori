@@ -9,6 +9,8 @@ export type TTSState = 'idle' | 'speaking' | 'paused';
 export interface TTSOptions {
   /** Speech rate: 0.5 to 4.0, default 1.0 */
   rate?: number;
+  /** Speech pitch: 0.0 to 2.0, default 1.0 */
+  pitch?: number;
   /** Volume: 0.0 to 1.0, default 1.0 */
   volume?: number;
   /** Voice to use for speech synthesis */

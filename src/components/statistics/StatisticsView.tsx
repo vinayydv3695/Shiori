@@ -7,13 +7,13 @@ import { ActivityHeatmap } from './ActivityHeatmap';
 import { ReadingCalendar } from './ReadingCalendar';
 import { Button } from '../ui/button';
 import { Skeleton } from '../ui/skeleton';
-import { motion } from 'framer-motion';
+import { motion, Variants } from 'framer-motion';
 
 interface StatisticsViewProps {
   onClose: () => void;
 }
 
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
@@ -21,7 +21,7 @@ const containerVariants = {
   }
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 15 },
   show: { 
     opacity: 1, 
@@ -249,7 +249,7 @@ export function StatisticsView({ onClose }: StatisticsViewProps) {
                       / {streak?.longest_streak || 0} best
                     </span>
                   </div>
-                </motion.div>
+                </div>
                 
               </motion.div>
 
@@ -274,8 +274,6 @@ export function StatisticsView({ onClose }: StatisticsViewProps) {
                     <ReadingCalendar data={yearlyStats} />
                   </div>
                 </div>
-              </div>
-
               </motion.div>
 
             </motion.div>

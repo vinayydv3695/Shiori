@@ -484,8 +484,11 @@ pub fn run() {
                 folder_watch_service,
             ));
 
-            let piper_service = Arc::new(tokio::sync::Mutex::new(services::piper_service::PiperService::new(app.handle().clone())));
-            app.manage(piper_service);
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
+            {
+                let piper_service = Arc::new(tokio::sync::Mutex::new(services::piper_service::PiperService::new(app.handle().clone())));
+                app.manage(piper_service);
+            }
 
             log::info!("Shiori v2.0 initialized with database at {:?}", db_path);
             log::info!("Storage path: {:?}", storage_path);

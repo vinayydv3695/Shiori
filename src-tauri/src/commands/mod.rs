@@ -282,9 +282,12 @@ macro_rules! generate_shiori_handlers {
             cloudflare::commands::cf_clear_all_sessions,
             cloudflare::commands::cf_list_sessions,
             cloudflare::commands::cf_proxy_image,
-            // Piper TTS commands
+            // Piper TTS commands (desktop only - espeak-ng not available on mobile)
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
             crate::services::piper_service::get_available_voices,
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
             crate::services::piper_service::download_voice,
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
             crate::services::piper_service::synthesize_speech,
             // Discovery commands
             commands::discovery::start_companion_broadcast,

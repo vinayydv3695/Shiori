@@ -196,7 +196,7 @@ jobs:
             args: '--target aarch64-apple-darwin'
 
           # macOS — Intel
-          - platform: macos-latest
+          - platform: macos-13
             rust_targets: x86_64-apple-darwin
             args: '--target x86_64-apple-darwin'
 
@@ -262,7 +262,9 @@ jobs:
             librsvg2-dev \
             patchelf \
             libssl-dev \
-            libarchive-tools
+            libarchive-tools \
+            clang \
+            libclang-dev
 
       # ── Install frontend dependencies ──
       - name: Install frontend dependencies

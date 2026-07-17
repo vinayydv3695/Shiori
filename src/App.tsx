@@ -268,6 +268,7 @@ function App() {
         />
       </Layout>
 
+      <ToastContainer />
       {/* Global Dialogs */}
       <Suspense fallback={null}>
         <GlobalDialogs

@@ -1,5 +1,4 @@
 import { lazy, Suspense } from "react"
-import { ToastContainer } from "./ui/ToastContainer"
 import { useLibraryStore } from "@/store/libraryStore"
 import { api } from "@/lib/tauri"
 import { Book } from "@/lib/tauri"
@@ -61,7 +60,6 @@ export function GlobalDialogs({
   return (
     <>
       <Suspense fallback={null}><ConversionJobTracker /></Suspense>
-      <ToastContainer />
 
       {dialogs.dialogBookId !== null && (
         <Suspense fallback={null}>

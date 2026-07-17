@@ -68,3 +68,29 @@ pub fn discord_clear_activity(_state: State<'_, AppState>) -> Result<()> {
     }
     Ok(())
 }
+
+#[tauri::command]
+pub async fn discord_resolve_image(url: String) -> Result<String> {
+    // Perform a HEAD request to follow redirects and get the final URL
+    // Discord's image proxy drops 301/302 redirects, so we must resolve it here.
+    // We use a custom reqwest client to bypass frontend CORS restrictions.
+    static HTTP_CLIENT: once_cell::sync::Lazy<reqwest::Client> = once_cell::sync::Lazy::new(|| {
+        reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .redirect(reqwest::redirect::Policy::limited(5))
+            .build()
+            .unwrap_or_default()
+    });
+
+    match HTTP_CLIENT.head(&url).send().await {
+        Ok(response) => {
+            // Return the final resolved URL after redirects
+            Ok(response.url().to_string())
+        }
+        Err(e) => {
+            log::warn!("Failed to resolve Discord image URL {}: {}", url, e);
+            // Fallback to original if it fails
+            Ok(url)
+        }
+    }
+}

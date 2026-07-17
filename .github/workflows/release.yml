@@ -215,9 +215,18 @@ jobs:
           if command -v python3 &> /dev/null; then
             python3 -c "
           import json
+          import os
           with open('src-tauri/tauri.conf.json', 'r') as f:
               config = json.load(f)
           config['version'] = '$VERSION'
+          
+          if os.environ.get('RUNNER_OS') == 'Windows':
+              if 'bundle' not in config: config['bundle'] = {}
+              res = config['bundle'].get('resources', [])
+              if isinstance(res, list):
+                  res.extend(['vcruntime140.dll', 'vcruntime140_1.dll', 'msvcp140.dll', 'msvcp140_1.dll', 'msvcp140_2.dll', 'msvcp140_atomic_wait.dll', 'msvcp140_codecvt_ids.dll'])
+                  config['bundle']['resources'] = res
+          
           with open('src-tauri/tauri.conf.json', 'w') as f:
               json.dump(config, f, indent=2)
               f.write('\n')
@@ -251,6 +260,21 @@ jobs:
           workspaces: 'src-tauri -> target'
           cache-bin: false
 
+      # ── Copy Visual C++ Redist DLLs ──
+      - name: Copy Visual C++ Redist DLLs
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          $dlls = @("vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll", "msvcp140_1.dll", "msvcp140_2.dll", "msvcp140_atomic_wait.dll", "msvcp140_codecvt_ids.dll")
+          foreach ($dll in $dlls) {
+            $src = "C:\Windows\System32\$dll"
+            if (Test-Path $src) {
+              Copy-Item -Path $src -Destination "src-tauri\$dll"
+            } else {
+              New-Item -Path "src-tauri\$dll" -ItemType File -Force | Out-Null
+            }
+          }
+
       # ── Linux system dependencies ──
       - name: Install system dependencies (Linux)
         if: matrix.platform == 'ubuntu-22.04'
@@ -263,6 +287,7 @@ jobs:
             patchelf \
             libssl-dev \
             libarchive-tools \
+            libspeechd-dev \
             clang \
             libclang-dev
 
@@ -575,7 +600,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libspeechd-dev
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

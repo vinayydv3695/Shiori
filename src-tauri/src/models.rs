@@ -327,6 +327,8 @@ pub struct DailyReadingStats {
     pub total_seconds: i64,
     pub books_count: i64,
     pub sessions_count: i64,
+    pub book_pages_read: i64,
+    pub manga_pages_read: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -615,6 +615,7 @@ pub async fn download_gutenberg_epub(
             .map_err(|e| crate::error::ShioriError::Other(format!("Failed to get app dir: {}", e)))?
             .join("downloads")
     };
+    let _download_guard = crate::ActiveDownloads::increment(app_handle.state::<crate::ActiveDownloads>());
     std::fs::create_dir_all(&downloads_dir)
         .map_err(|e| crate::error::ShioriError::Other(e.to_string()))?;
 
@@ -668,6 +669,7 @@ pub async fn download_libgen_epub(
     use futures::StreamExt;
     use std::io::Write;
     use std::time::Duration;
+    use tauri::Manager;
 
     let all_mirrors: Vec<String> = serde_json::from_str(&url).unwrap_or_else(|_| vec![url.clone()]);
 
@@ -820,6 +822,7 @@ pub async fn download_libgen_epub(
     };
 
     let total_bytes = resp.content_length();
+    let _download_guard = crate::ActiveDownloads::increment(app_handle.state::<crate::ActiveDownloads>());
 
     let safe_title = title_hint
         .chars()

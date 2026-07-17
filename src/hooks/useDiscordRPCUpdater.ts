@@ -3,6 +3,7 @@ import { useUIStore } from '@/store/uiStore';
 import { useReaderStore } from '@/store/readerStore';
 import { useMangaContentStore } from '@/store/mangaReaderStore';
 import { useDiscordPresence } from '@/hooks/useDiscordPresence';
+import { invoke } from '@tauri-apps/api/core';
 
 const getViewDescription = (view: string): string => {
   switch (view) {
@@ -68,19 +69,38 @@ const getCoverImageKey = (cover: string | undefined | null, isbn?: string | null
 /**
  * Resolves an OpenLibrary redirect to get the direct archive.org CDN URL,
  * which Discord can load without needing to follow redirects.
- * Results are cached in memory to avoid repeated network calls.
+ * Uses the Rust backend to bypass CORS restrictions.
  */
 const resolvedUrlCache: Record<string, string> = {};
 const resolveOpenLibraryUrl = async (url: string): Promise<string> => {
   if (resolvedUrlCache[url]) return resolvedUrlCache[url];
   try {
-    const resp = await fetch(url, { method: 'HEAD', redirect: 'follow' });
-    const final = resp.url;
-    resolvedUrlCache[url] = final;
-    return final;
+    const finalUrl = await invoke<string>('discord_resolve_image', { url });
+    resolvedUrlCache[url] = finalUrl;
+    return finalUrl;
   } catch {
     return url; // fallback: use original, Discord will try and possibly fail
   }
+};
+
+/**
+ * Discord's internal image parser strictly requires the URL to end in a known image extension.
+ * If a URL doesn't have an extension (e.g. Google Books API or dynamic endpoints), we append `#.jpg` 
+ * to trick the regex parser without breaking the actual HTTP request.
+ */
+const formatForDiscordRpc = (url: string): string => {
+  if (!url || url === 'shiori_logo') return url;
+  
+  // Extract path to avoid checking query params incorrectly, though Discord doesn't mind query params
+  // actually Discord parses the whole string.
+  const lowerUrl = url.toLowerCase();
+  if (lowerUrl.endsWith('.jpg') || lowerUrl.endsWith('.png') || lowerUrl.endsWith('.jpeg') || lowerUrl.endsWith('.webp') || lowerUrl.endsWith('.gif')) {
+    return url;
+  }
+  
+  // Append a fragment so the URL "ends" with .jpg 
+  // e.g. https://books.google.com/...?vid=123#.jpg
+  return `${url}#.jpg`;
 };
 
 export function useDiscordRPCUpdater() {
@@ -127,6 +147,7 @@ export function useDiscordRPCUpdater() {
         if (imageKey.startsWith('https://covers.openlibrary.org')) {
           imageKey = await resolveOpenLibraryUrl(imageKey);
         }
+        imageKey = formatForDiscordRpc(imageKey);
         if (cancelRef.current) return;
 
         setActivity({
@@ -154,6 +175,7 @@ export function useDiscordRPCUpdater() {
         if (imageKey.startsWith('https://covers.openlibrary.org')) {
           imageKey = await resolveOpenLibraryUrl(imageKey);
         }
+        imageKey = formatForDiscordRpc(imageKey);
         if (cancelRef.current) return;
 
         setActivity({

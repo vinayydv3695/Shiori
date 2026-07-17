@@ -1589,7 +1589,7 @@ const AdvancedSettings = ({
     setError(null)
     setBackupResult(null)
     try {
-      const defaultName = `shiori-backup-${new Date().toISOString().slice(0, 10)}.zip`
+      const defaultName = `shiori-backup-${new Date().toISOString().slice(0, 10)}.shiori`
       
       let finalUri: string | null = null;
       let rustSavePath: string | null = null;
@@ -1645,7 +1645,7 @@ const AdvancedSettings = ({
       } else {
         filePath = await openDialog({
           multiple: false,
-          filters: [{ name: 'Shiori Backup', extensions: ['zip'] }],
+          filters: [{ name: 'Shiori Backup', extensions: ['shiori', 'zip'] }],
         }) as string | null
       }
       if (!filePath) return

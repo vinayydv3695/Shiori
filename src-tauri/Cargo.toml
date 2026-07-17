@@ -1,6 +1,6 @@
 [package]
 name = "shiori"
-version = "1.60.2"
+version = "1.61.0"
 description = "A modern eBook and Manga reader"
 authors = ["vinayydv3695"]
 license = "GPL-3.0"
@@ -24,7 +24,7 @@ dotenvy = "0.15"
 # Core framework
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "2", features = ["protocol-asset"] }
+tauri = { version = "2", features = ["protocol-asset", "tray-icon"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-store = "2"
 
@@ -134,7 +134,7 @@ mdns-sd = "0.20.1"
 local-ip-address = "0.6.13"
 hostname = "0.4.2"
 tauri-plugin-os = "2.0.0"
-ort = "2.0.0-rc.9"
+
 tauri-plugin-fs = "2.5.1"
 
 
@@ -164,6 +164,7 @@ tauri-plugin-updater = "2"
 discord-rich-presence = "1.1.0"
 tauri-plugin-process = "2"
 piper-rs = { version = "0.2.0", default-features = false }
+ort = "2.0.0-rc.9"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

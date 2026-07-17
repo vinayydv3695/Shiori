@@ -351,10 +351,12 @@ export interface ReadingSession {
 }
 
 export interface DailyReadingStats {
-  date: string
-  total_seconds: number
-  books_count: number
-  sessions_count: number
+  date: string;
+  total_seconds: number;
+  books_count: number;
+  sessions_count: number;
+  book_pages_read: number;
+  manga_pages_read: number;
 }
 
 export interface ReadingGoal {

@@ -46,6 +46,31 @@ pub struct MetadataState {
     pub sender: tokio::sync::mpsc::Sender<MetadataJob>,
 }
 
+pub struct ActiveDownloads {
+    pub count: std::sync::atomic::AtomicUsize,
+}
+
+pub struct ActiveDownloadGuard {
+    count: tauri::State<'static, ActiveDownloads>,
+}
+
+impl Drop for ActiveDownloadGuard {
+    fn drop(&mut self) {
+        self.count.count.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+impl ActiveDownloads {
+    pub fn increment<'a>(state: tauri::State<'a, ActiveDownloads>) -> ActiveDownloadGuard {
+        state.count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        ActiveDownloadGuard {
+            // Unsafely extend the lifetime of the state for the guard.
+            // This is safe because the state is managed by Tauri and lives for the 'static app duration.
+            count: unsafe { std::mem::transmute(state) },
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(target_os = "linux")]
@@ -314,6 +339,43 @@ pub fn run() {
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             let discord_service =
                 services::discord_service::DiscordService::new("1512062340827316265");
+                
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
+            {
+                use tauri::menu::{Menu, MenuItem};
+                use tauri::tray::{TrayIconBuilder, MouseButton, MouseButtonState, TrayIconEvent};
+                
+                let show_i = MenuItem::with_id(app, "show", "Show Shiori", true, None::<&str>)?;
+                let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+                let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
+
+                let _tray = TrayIconBuilder::new()
+                    .icon(app.default_window_icon().unwrap().clone())
+                    .menu(&menu)
+                    .show_menu_on_left_click(false)
+                    .on_menu_event(|app, event| match event.id.as_ref() {
+                        "show" => {
+                            if let Some(window) = app.get_webview_window("main") {
+                                window.show().unwrap();
+                                window.set_focus().unwrap();
+                            }
+                        }
+                        "quit" => {
+                            app.exit(0);
+                        }
+                        _ => {}
+                    })
+                    .on_tray_icon_event(|tray, event| {
+                        if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
+                            let app = tray.app_handle();
+                            if let Some(window) = app.get_webview_window("main") {
+                                window.show().unwrap();
+                                window.set_focus().unwrap();
+                            }
+                        }
+                    })
+                    .build(app)?;
+            }
 
             // Cloudflare session state
             let cf_sessions_dir = app_dir.join("cloudflare_sessions");
@@ -371,6 +433,10 @@ pub fn run() {
 
             // Initialize discovery service
             let discovery_service = Arc::new(services::discovery_service::DiscoveryService::new().unwrap());
+            
+            app.manage(ActiveDownloads {
+                count: std::sync::atomic::AtomicUsize::new(0),
+            });
 
             app.manage(AppState {
                 db: database.clone(),
@@ -500,6 +566,19 @@ pub fn run() {
             log::info!("Metadata APIs: AniList (manga) + Open Library (books)");
 
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if let Some(state) = window.try_state::<ActiveDownloads>() {
+                    let active = state.count.load(std::sync::atomic::Ordering::SeqCst);
+                    if active > 0 {
+                        // Prevent the window from closing and hide it instead
+                        api.prevent_close();
+                        let _ = window.hide();
+                        log::info!("Window closed, but {} downloads are active. Hiding to tray.", active);
+                    }
+                }
+            }
         })
         .invoke_handler(crate::generate_shiori_handlers!())
         .run(tauri::generate_context!())

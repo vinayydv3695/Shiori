@@ -229,6 +229,7 @@ macro_rules! generate_shiori_handlers {
             commands::discord::discord_disconnect,
             commands::discord::discord_set_activity,
             commands::discord::discord_clear_activity,
+            commands::discord::discord_resolve_image,
             commands::translation::dictionary_lookup,
             commands::translation::translate_text,
             // Folder watch commands

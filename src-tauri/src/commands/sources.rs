@@ -149,6 +149,7 @@ pub async fn plugin_get_pages(
 
 #[tauri::command]
 pub async fn plugin_download_chapter(
+    app_handle: tauri::AppHandle,
     state: State<'_, crate::AppState>,
     source_id: String,
     chapter_id: String,
@@ -162,6 +163,8 @@ pub async fn plugin_download_chapter(
             .get(&source_id)
             .ok_or_else(|| ShioriError::Validation(format!("Unknown source: {}", source_id)))?
     };
+
+    let _download_guard = crate::ActiveDownloads::increment(app_handle.state::<crate::ActiveDownloads>());
 
     let pages = source.get_pages(&chapter_id).await?;
     let dest = PathBuf::from(dest_dir);
@@ -414,6 +417,8 @@ pub async fn download_manga_chapter_as_cbz(
     };
 
     let pages = source.get_pages(&chapter_id).await?;
+    
+    let _download_guard = crate::ActiveDownloads::increment(app_handle.state::<crate::ActiveDownloads>());
     
     let store = app_handle.store("preferences.json").map_err(|e| ShioriError::Other(e.to_string()))?;
     let downloads_dir = if let Some(path_val) = store.get("default_import_path") {

@@ -156,6 +156,8 @@ async fn finalize_import_from_target(
         }
     }
 
+    let _download_guard = crate::ActiveDownloads::increment(app_handle.state::<crate::ActiveDownloads>());
+
     let downloads_dir = if let Some(path) = user_download_dir.filter(|p| !p.starts_with("content://")) {
         std::path::PathBuf::from(path).join("Torbox Downloads")
     } else {

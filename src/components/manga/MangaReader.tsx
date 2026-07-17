@@ -21,6 +21,7 @@ import { MangaReaderHeader } from './MangaReaderHeader';
 import { useMangaKeyboard } from './hooks/useMangaKeyboard';
 import { imageCache } from './hooks/useMangaPreloader';
 import { clearOnlineImageCache } from './hooks/useUnifiedImageDecode';
+import { useReadingSession } from '@/hooks/useReadingSession';
 
 // Import manga reader styles
 import '@/styles/manga-reader.css';
@@ -95,6 +96,9 @@ export function MangaReader(props: MangaReaderProps) {
     useEffect(() => {
         resetUI();
     }, [resetUI]);
+
+    // Track reading session time (only for local books currently)
+    useReadingSession(localBookId);
 
     // Initialize manga state based on mode
     useEffect(() => {

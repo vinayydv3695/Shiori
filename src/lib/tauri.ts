@@ -657,6 +657,10 @@ export const api = {
     return invoke("get_tags")
   },
 
+  async getBookTagIds(bookId: number): Promise<number[]> {
+    return invoke("get_book_tag_ids", { bookId })
+  },
+
   async createTag(name: string, color?: string): Promise<number> {
     return invoke("create_tag", { name, color })
   },
@@ -851,6 +855,10 @@ export const api = {
   // Collections
   async getCollections(): Promise<Collection[]> {
     return invoke("get_collections")
+  },
+
+  async getBookCollectionIds(bookId: number): Promise<number[]> {
+    return invoke("get_book_collection_ids", { bookId })
   },
 
   async getCollection(id: number): Promise<Collection> {

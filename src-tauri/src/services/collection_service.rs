@@ -576,6 +576,17 @@ impl CollectionService {
         }
     }
 
+    pub fn get_book_collection_ids(conn: &Connection, book_id: i64) -> Result<Vec<i64>> {
+        let mut stmt = conn.prepare("SELECT collection_id FROM collections_books WHERE book_id = ?1")?;
+        let rows = stmt.query_map(params![book_id], |row| row.get(0))?;
+        
+        let mut ids = Vec::new();
+        for id_result in rows {
+            ids.push(id_result?);
+        }
+        Ok(ids)
+    }
+
     pub fn get_nested_collections(conn: &Connection) -> Result<Vec<Collection>> {
         // Get all collections
         let all_collections = Self::get_collections(conn)?;

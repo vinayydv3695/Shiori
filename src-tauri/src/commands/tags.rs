@@ -10,6 +10,12 @@ pub fn get_tags(state: State<AppState>) -> Result<Vec<Tag>> {
 }
 
 #[tauri::command]
+pub fn get_book_tag_ids(book_id: i64, state: State<AppState>) -> Result<Vec<i64>> {
+    let db = &state.db;
+    tag_service::get_book_tag_ids(db, book_id)
+}
+
+#[tauri::command]
 pub fn create_tag(state: State<AppState>, name: String, color: Option<String>) -> Result<i64> {
     validate::require_non_empty(&name, "name")?;
     validate::require_max_length(&name, 200, "name")?;

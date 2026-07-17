@@ -567,7 +567,13 @@ mod tests {
 
     #[test]
     fn test_share_token_entropy() {
-        let temp_dir = std::env::temp_dir().join("shiori-test-share-entropy");
+        let temp_dir = std::env::temp_dir().join(format!(
+            "shiori-test-share-entropy-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .subsec_nanos()
+        ));
         std::fs::create_dir_all(&temp_dir).unwrap();
 
         let db_path = temp_dir.join("test-entropy.db");

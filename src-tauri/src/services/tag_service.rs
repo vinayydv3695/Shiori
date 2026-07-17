@@ -21,6 +21,18 @@ pub fn get_all_tags(db: &Database) -> Result<Vec<Tag>> {
     Ok(tags)
 }
 
+pub fn get_book_tag_ids(db: &Database, book_id: i64) -> Result<Vec<i64>> {
+    let conn = db.get_connection()?;
+    let mut stmt = conn.prepare("SELECT tag_id FROM books_tags WHERE book_id = ?1")?;
+    let rows = stmt.query_map([book_id], |row| row.get(0))?;
+    
+    let mut ids = Vec::new();
+    for id_result in rows {
+        ids.push(id_result?);
+    }
+    Ok(ids)
+}
+
 pub fn create_tag(db: &Database, name: String, color: Option<String>) -> Result<i64> {
     let conn = db.get_connection()?;
 

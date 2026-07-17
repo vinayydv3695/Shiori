@@ -18,6 +18,8 @@ const AdvancedFilterDialog = lazy(() => import("./library/AdvancedFilterDialog")
 const ShortcutsDialog = lazy(() => import("./dialogs/ShortcutsDialog").then(m => ({ default: m.ShortcutsDialog })))
 const CommandPalette = lazy(() => import("./CommandPalette").then(m => ({ default: m.CommandPalette })))
 const ResumeReadingDialog = lazy(() => import("./reader/ResumeReadingDialog").then(m => ({ default: m.ResumeReadingDialog })))
+const CollectionSelectDialog = lazy(() => import("./library/CollectionSelectDialog").then(m => ({ default: m.CollectionSelectDialog })))
+const TagSelectDialog = lazy(() => import("./library/TagSelectDialog").then(m => ({ default: m.TagSelectDialog })))
 
 export interface GlobalDialogsProps {
   books: Book[]
@@ -51,6 +53,8 @@ export function GlobalDialogs({
   useBackButton(dialogs.advancedFilterOpen, () => dialogs.setAdvancedFilterOpen(false));
   useBackButton(dialogs.seriesViewOpen, () => dialogs.setSeriesViewOpen(false));
   useBackButton(dialogs.batchMetadataDialogOpen, () => dialogs.setBatchMetadataDialogOpen(false));
+  useBackButton(dialogs.collectionSelectDialogOpen, () => dialogs.setCollectionSelectDialogOpen(false));
+  useBackButton(dialogs.tagSelectDialogOpen, () => dialogs.setTagSelectDialogOpen(false));
   useBackButton(autoConvert.showDialog, () => autoConvert.onDialogOpenChange(false));
   useBackButton(resumeReading.showDialog, () => resumeReading.onDialogOpenChange(false));
 
@@ -62,6 +66,8 @@ export function GlobalDialogs({
       {dialogs.dialogBookId !== null && (
         <Suspense fallback={null}>
           <EditMetadataDialog open={dialogs.editDialogOpen} onOpenChange={dialogs.setEditDialogOpen} bookId={dialogs.dialogBookId} />
+          <CollectionSelectDialog open={dialogs.collectionSelectDialogOpen} onOpenChange={dialogs.setCollectionSelectDialogOpen} bookId={dialogs.dialogBookId} />
+          <TagSelectDialog open={dialogs.tagSelectDialogOpen} onOpenChange={dialogs.setTagSelectDialogOpen} bookId={dialogs.dialogBookId} />
         </Suspense>
       )}
 

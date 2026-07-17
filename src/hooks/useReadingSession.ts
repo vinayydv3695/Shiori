@@ -6,7 +6,7 @@ const HEARTBEAT_INTERVAL_MS = 30_000;
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 const ACTIVITY_EVENTS = ['mousedown', 'keydown', 'scroll', 'touchstart'] as const;
 
-export function useReadingSession(bookId: number) {
+export function useReadingSession(bookId: number | null) {
   const { startSession, endSession, currentSessionId } = useReaderStore();
   const sessionIdRef = useRef<string | null>(null);
   const heartbeatRef = useRef<number | null>(null);
@@ -43,6 +43,7 @@ export function useReadingSession(bookId: number) {
     let mounted = true;
 
     const init = async () => {
+      if (bookId === null) return;
       try {
         lastActivityRef.current = Date.now();
         const session = await api.startReadingSession(bookId);

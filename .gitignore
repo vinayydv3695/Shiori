@@ -49,3 +49,6 @@ Thumbs.db
 graphify-out/
 check_user.js
 scripts/
+
+# Vendored C libraries (too large for git - fetched by cargo at build time)
+src-tauri/plugins/espeak-rs-sys/espeak-ng/

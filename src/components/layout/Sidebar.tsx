@@ -1,5 +1,5 @@
 import { Library, Tag, Settings, ChevronLeft, ChevronRight, FolderOpen, Highlighter, AniListIcon } from "../icons"
-import { Globe, BookOpen, Trash2, Rss } from "lucide-react"
+import { Globe, BookOpen, Trash2, Rss, BarChart2 } from "lucide-react"
 import { useUIStore } from "../../store/uiStore"
 import { usePreferencesStore } from "../../store/preferencesStore"
 import { cn } from "../../lib/utils"
@@ -35,6 +35,7 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
     { icon: Rss, label: "RSS Feeds", action: () => setCurrentView("rss-feeds") },
     { icon: AniListIcon, label: "AniList", action: () => setCurrentView("anilist") },
     { icon: Tag, label: "Tags", action: () => setCurrentView("library") },
+    { icon: BarChart2, label: "Statistics", action: () => setCurrentView("statistics") },
     { icon: Settings, label: "Settings", action: () => onOpenSettings?.() },
   ].filter(item => {
     if (preferredContentType === 'books' && item.label === 'Online Manga') return false;
@@ -93,7 +94,8 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
               (item.label === "Recycle Bin" && currentView === "recycle-bin" as any) ||
               (item.label === "Annotations" && currentView === "annotations") ||
               (item.label === "RSS Feeds" && currentView === "rss-feeds") ||
-              (item.label === "AniList" && currentView === "anilist");
+              (item.label === "AniList" && currentView === "anilist") ||
+              (item.label === "Statistics" && currentView === "statistics");
 
             return (
               <button

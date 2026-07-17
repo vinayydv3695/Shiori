@@ -1,4 +1,5 @@
-import { BookOpen, Star, Download, Edit, Trash2, Calendar, FileType } from 'lucide-react'
+import { BookOpen, Star, Download, Edit, Trash2, Calendar, FileType, FolderPlus, Tag as TagIcon } from 'lucide-react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
 import { cn, formatFileSize, formatDate } from '@/lib/utils'
 import type { Book } from '@/lib/tauri'
 import { Badge } from '@/components/ui/badge'
@@ -17,6 +18,8 @@ interface ListViewProps {
   onEditBook: (id: number) => void
   onDeleteBook: (id: number) => void
   onDownloadBook: (id: number) => void
+  onAddToCollection?: (id: number) => void
+  onManageTags?: (id: number) => void
 }
 
 export const ModernListView = ({
@@ -27,6 +30,8 @@ export const ModernListView = ({
   onEditBook,
   onDeleteBook,
   onDownloadBook,
+  onAddToCollection,
+  onManageTags,
 }: ListViewProps) => {
   if (books.length === 0) {
     return (
@@ -46,16 +51,17 @@ export const ModernListView = ({
         const isSelected = selectedBooks.has(book.id!)
 
         return (
-          <div
-            key={book.id}
-            onClick={() => onOpenBook(book.id!)}
-            className={cn(
-              'group flex items-center gap-4 p-3 rounded-lg border',
-              'hover:bg-accent/50 hover:border-primary/50',
-              'transition-all duration-200 cursor-pointer',
-              isSelected && 'bg-accent border-primary ring-2 ring-primary/20'
-            )}
-          >
+          <ContextMenu.Root key={book.id}>
+            <ContextMenu.Trigger asChild>
+              <div
+                onClick={() => onOpenBook(book.id!)}
+                className={cn(
+                  'group flex items-center gap-4 p-3 rounded-lg border',
+                  'hover:bg-accent/50 hover:border-primary/50',
+                  'transition-all duration-200 cursor-pointer',
+                  isSelected && 'bg-accent border-primary ring-2 ring-primary/20'
+                )}
+              >
             {/* Selection Checkbox */}
             <div
               onClick={(e) => {
@@ -208,7 +214,57 @@ export const ModernListView = ({
                  <Trash2 className="w-4 h-4" />
                </button>
             </div>
-          </div>
+            </div>
+          </ContextMenu.Trigger>
+          <ContextMenu.Portal>
+            <ContextMenu.Content className="min-w-[160px] bg-background border border-border rounded-md shadow-md p-1 z-50 text-sm">
+              <ContextMenu.Item 
+                className="flex items-center px-2 py-1.5 rounded cursor-pointer hover:bg-muted outline-none"
+                onClick={() => onOpenBook(book.id!)}
+              >
+                <BookOpen className="w-4 h-4 mr-2" />
+                Open
+              </ContextMenu.Item>
+              
+              <ContextMenu.Item 
+                className="flex items-center px-2 py-1.5 rounded cursor-pointer hover:bg-muted outline-none"
+                onClick={() => onEditBook(book.id!)}
+              >
+                <Edit className="w-4 h-4 mr-2" />
+                Edit Metadata
+              </ContextMenu.Item>
+
+              {onAddToCollection && (
+                <ContextMenu.Item 
+                  className="flex items-center px-2 py-1.5 rounded cursor-pointer hover:bg-muted outline-none"
+                  onClick={() => onAddToCollection(book.id!)}
+                >
+                  <FolderPlus className="w-4 h-4 mr-2" />
+                  Add to Collection...
+                </ContextMenu.Item>
+              )}
+
+              {onManageTags && (
+                <ContextMenu.Item 
+                  className="flex items-center px-2 py-1.5 rounded cursor-pointer hover:bg-muted outline-none"
+                  onClick={() => onManageTags(book.id!)}
+                >
+                  <TagIcon className="w-4 h-4 mr-2" />
+                  Manage Tags...
+                </ContextMenu.Item>
+              )}
+
+              <ContextMenu.Separator className="h-px bg-border my-1" />
+              <ContextMenu.Item 
+                className="flex items-center px-2 py-1.5 rounded cursor-pointer hover:bg-destructive/10 text-destructive outline-none"
+                onClick={() => onDeleteBook(book.id!)}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </ContextMenu.Item>
+            </ContextMenu.Content>
+          </ContextMenu.Portal>
+        </ContextMenu.Root>
         )
       })}
     </div>

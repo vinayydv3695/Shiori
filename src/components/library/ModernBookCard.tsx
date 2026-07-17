@@ -27,7 +27,7 @@ import { useLibraryStore } from '@/store/libraryStore'
 import { useCoverImage } from '../common/hooks/useCoverImage'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Edit2, Trash2, Layers, Globe } from 'lucide-react'
+import { Edit2, Trash2, Layers, Globe, FolderPlus, Tag as TagIcon } from 'lucide-react'
 import { SeriesAssignmentDialog } from './SeriesAssignmentDialog'
 
 // ─── Format Badge ─────────────────────────────
@@ -197,6 +197,8 @@ interface BookCardProps {
   onViewDetails?: (id: number) => void
   onEdit: (id: number) => void
   onDelete: (id: number) => void
+  onAddToCollection?: (id: number) => void
+  onManageTags?: (id: number) => void
   isFavorited?: boolean
   onFavorite?: (id: number) => void
   animationDelay?: number
@@ -213,6 +215,8 @@ export const PremiumBookCard = memo(function PremiumBookCard({
   onViewDetails,
   onEdit,
   onDelete,
+  onAddToCollection,
+  onManageTags,
   isFavorited: propIsFavorited,
   onFavorite,
   animationDelay = 0,
@@ -433,6 +437,26 @@ export const PremiumBookCard = memo(function PremiumBookCard({
               <Edit2 className="w-4 h-4 mr-2" />
               Edit Metadata
             </ContextMenu.Item>
+
+            {onAddToCollection && (
+              <ContextMenu.Item 
+                className="flex items-center px-2 py-1.5 rounded cursor-pointer hover:bg-muted outline-none"
+                onClick={() => onAddToCollection(book.id!)}
+              >
+                <FolderPlus className="w-4 h-4 mr-2" />
+                Add to Collection...
+              </ContextMenu.Item>
+            )}
+
+            {onManageTags && (
+              <ContextMenu.Item 
+                className="flex items-center px-2 py-1.5 rounded cursor-pointer hover:bg-muted outline-none"
+                onClick={() => onManageTags(book.id!)}
+              >
+                <TagIcon className="w-4 h-4 mr-2" />
+                Manage Tags...
+              </ContextMenu.Item>
+            )}
 
             {isManga && (
               <>

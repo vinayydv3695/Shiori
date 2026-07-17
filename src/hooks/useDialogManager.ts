@@ -15,6 +15,8 @@ export function useDialogManager() {
   const [advancedFilterOpen, setAdvancedFilterOpen] = useState(false);
   const [batchMetadataDialogOpen, setBatchMetadataDialogOpen] = useState(false);
   const [seriesViewOpen, setSeriesViewOpen] = useState(false);
+  const [collectionSelectDialogOpen, setCollectionSelectDialogOpen] = useState(false);
+  const [tagSelectDialogOpen, setTagSelectDialogOpen] = useState(false);
 
   // Shared dialog context
   const [dialogBookId, setDialogBookId] = useState<number | null>(null);
@@ -52,6 +54,16 @@ export function useDialogManager() {
     setDetailsDialogOpen(true);
   }, []);
 
+  const openCollectionSelectDialog = useCallback((bookId: number) => {
+    setDialogBookId(bookId);
+    setCollectionSelectDialogOpen(true);
+  }, []);
+
+  const openTagSelectDialog = useCallback((bookId: number) => {
+    setDialogBookId(bookId);
+    setTagSelectDialogOpen(true);
+  }, []);
+
 
 
   const openBatchMetadataDialog = useCallback(() => {
@@ -77,6 +89,8 @@ export function useDialogManager() {
     advancedFilterOpen, setAdvancedFilterOpen,
     batchMetadataDialogOpen, setBatchMetadataDialogOpen,
     seriesViewOpen, setSeriesViewOpen,
+    collectionSelectDialogOpen, setCollectionSelectDialogOpen,
+    tagSelectDialogOpen, setTagSelectDialogOpen,
 
     // Context data
     dialogBookId,
@@ -90,6 +104,8 @@ export function useDialogManager() {
     openDeleteDialog,
     openDeleteMultipleDialog,
     openDetailsDialog,
+    openCollectionSelectDialog,
+    openTagSelectDialog,
     openBatchMetadataDialog,
     openSeriesView,
   };

@@ -113,6 +113,8 @@ export function ViewRouter({
               onViewDetails={handleViewDetails}
               onEditBook={handleEditBook}
               onDeleteBook={handleDeleteBook}
+              onAddToCollection={dialogs.openCollectionSelectDialog}
+              onManageTags={dialogs.openTagSelectDialog}
               searchQuery={searchQuery}
               onSearchChange={onSearchChange}
               onOpenAdvancedFilter={onOpenAdvancedFilter}

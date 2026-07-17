@@ -1,6 +1,6 @@
 [package]
 name = "shiori"
-version = "1.60.0"
+version = "1.60.1"
 description = "A modern eBook and Manga reader"
 authors = ["vinayydv3695"]
 license = "GPL-3.0"
@@ -168,5 +168,3 @@ tauri-plugin-process = "2"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 wiremock = "0.6.5"
 
-[patch.crates-io]
-espeak-rs-sys = { path = "plugins/espeak-rs-sys" }

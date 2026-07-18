@@ -78,7 +78,7 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
               )}
             >
               <IconBooks size={14} />
-              <span className="hidden sm:inline">Books</span>
+              <span>Books</span>
             </button>
             
             <button
@@ -90,7 +90,7 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
               )}
             >
               <IconManga size={14} />
-              <span className="hidden sm:inline">Manga</span>
+              <span>Manga</span>
             </button>
 
 

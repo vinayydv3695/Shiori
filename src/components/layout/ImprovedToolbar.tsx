@@ -377,7 +377,7 @@ export function PremiumTopbar({
               )}
             >
               <IconBooks size={14} />
-              <span className="hidden sm:inline">Books</span>
+              <span>Books</span>
             </button>
             
             <button
@@ -389,7 +389,7 @@ export function PremiumTopbar({
               )}
             >
               <IconManga size={14} />
-              <span className="hidden sm:inline">Manga</span>
+              <span>Manga</span>
             </button>
           </div>
         )}

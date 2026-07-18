@@ -1,4 +1,4 @@
-# Release Notes (v1.61.6)
+# Release Notes (v1.62.0)
 
 ##  New Features & Improvements
 - **Auto-Updates**: Added background automatic update checking on startup!

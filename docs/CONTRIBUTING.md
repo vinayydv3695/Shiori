@@ -1,73 +1,52 @@
 # Contributing to Shiori
 
-Thank you for considering contributing to Shiori! 🎉
+First off, thank you for considering contributing to Shiori! It's people like you that make this application a great local-first reading platform.
 
 ## Code of Conduct
-
-Be kind, respectful, and constructive. We're all here to build something great together.
+By participating in this project, you are expected to uphold our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## How Can I Contribute?
 
-### 🐛 Reporting Bugs
+### Reporting Bugs
+This section guides you through submitting a bug report for Shiori. Following these guidelines helps maintainers and the community understand your report, reproduce the behavior, and find related reports.
+* Use the [Bug Report](.github/ISSUE_TEMPLATE/bug_report.md) template.
+* Check if the issue has already been reported.
+* Include detailed steps to reproduce, what you expected to see, and what actually happened.
 
-Found a bug? Please [open an issue](../../issues/new) with:
-- Clear title and description
-- Steps to reproduce
-- Expected vs actual behavior
-- Screenshots if applicable
-- Your OS and Shiori version
+### Suggesting Enhancements
+This section guides you through submitting an enhancement suggestion for Shiori, including completely new features and minor improvements to existing functionality.
+* Use the [Feature Request](.github/ISSUE_TEMPLATE/feature_request.md) template.
+* Provide a clear and descriptive title.
+* Explain why this enhancement would be useful to most Shiori users.
 
-### 💡 Suggesting Features
+### Pull Requests
+The process described here has several goals:
+* Maintain Shiori's quality
+* Fix problems that are important to users
+* Engage the community in working toward the best possible Shiori
 
-Have an idea? We'd love to hear it! [Open a discussion](../../discussions) with:
-- Clear use case
-- Why it would be valuable
-- How you envision it working
+Please follow these steps:
+1. Fork the repository and create your branch from `main`.
+2. If you've added code that should be tested, add tests.
+3. Ensure the test suite passes (`npm run lint` and `npm run build`).
+4. Make sure your code follows the existing formatting guidelines.
+5. Create the PR using the [Pull Request Template](.github/PULL_REQUEST_TEMPLATE.md).
 
-### 🔧 Pull Requests
+## Development Setup
 
-Ready to code? Great! Here's the workflow:
+### Prerequisites
+* Node.js 18+
+* Rust stable toolchain
+* Platform build dependencies for Tauri
 
-1. **Fork the repository**
-2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
-3. **Make your changes**
-4. **Test thoroughly**
-5. **Commit with clear messages**: `git commit -m "Add amazing feature"`
-6. **Push to your fork**: `git push origin feature/amazing-feature`
-7. **Open a Pull Request**
+### Steps
+1. Clone your fork: `git clone https://github.com/vinayydv3695/Shiori.git`
+2. Install dependencies: `npm install`
+3. Run the development server: `npm run dev`
 
-### Development Setup
+### Project Structure
+* `/src` - React frontend code.
+* `/src-tauri` - Rust backend code.
+* `/assets` - Media and static assets used in documentation.
 
-See [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) for full setup instructions.
-
-Quick start:
-```bash
-git clone https://github.com/yourusername/Shiori.git
-cd Shiori
-npm install
-npm run dev
-```
-
-### Coding Standards
-
-- **Rust**: Follow `rustfmt` and `clippy` suggestions
-- **TypeScript**: Use ESLint configuration
-- **Commits**: Write clear, descriptive messages
-- **Tests**: Add tests for new features
-
-### Areas That Need Help
-
-- [ ] UI/UX improvements
-- [ ] List and table view implementations
-- [ ] Metadata editor dialog
-- [ ] Cover art extraction
-- [ ] Documentation and tutorials
-- [ ] Testing and bug fixes
-
-## Questions?
-
-Feel free to ask in [Discussions](../../discussions) or open an issue!
-
----
-
-**Thanks for contributing to Shiori!** 栞
+Thank you for contributing!

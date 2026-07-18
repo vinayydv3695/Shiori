@@ -8,7 +8,7 @@
   [![Build](https://img.shields.io/github/actions/workflow/status/vinayydv3695/Shiori/release.yml?branch=main&style=flat-square)](https://github.com/vinayydv3695/Shiori/actions/workflows/release.yml)
   [![Downloads](https://img.shields.io/github/downloads/vinayydv3695/Shiori/total?style=flat-square)](https://github.com/vinayydv3695/Shiori/releases)
   [![AUR](https://img.shields.io/aur/version/shiorii-bin?style=flat-square)](https://aur.archlinux.org/packages/shiorii-bin)
-  [![License](https://img.shields.io/github/license/vinayydv3695/Shiori?style=flat-square)](LICENSE)
+  [![License](https://img.shields.io/github/license/vinayydv3695/Shiori?style=flat-square)](docs/LICENSE)
   [![Stars](https://img.shields.io/github/stars/vinayydv3695/Shiori?style=social)](https://github.com/vinayydv3695/Shiori)
 
   <br />
@@ -161,7 +161,7 @@ Shiori follows a contributor-friendly workflow with clear quality gates.
 4. Run local checks (`npm run lint` and `npm run build`)
 5. Open a pull request with a clear problem statement and impact summary
 
-For full contributor guidance, review [`CONTRIBUTING.md`](CONTRIBUTING.md).
+For full contributor guidance, review [`CONTRIBUTING.md`](docs/CONTRIBUTING.md).
 
 ---
 
@@ -177,7 +177,7 @@ If Shiori doesn't quite fit your needs, or if you're looking for a hosted web se
 
 ## License
 
-Shiori is released under the [MIT License](LICENSE).
+Shiori is released under the [MIT License](docs/LICENSE).
 
 ---
 

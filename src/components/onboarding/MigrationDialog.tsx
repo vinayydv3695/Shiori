@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, FolderSync, AlertTriangle } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { usePreferencesStore } from '@/store/preferencesStore';
-import { toast } from 'sonner';
+import { toast } from '@/store/toastStore';
 
 interface MigrationResult {
   success: boolean;

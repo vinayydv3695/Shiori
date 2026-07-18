@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { Search, Image as ImageIcon, Loader2, ChevronRight, ChevronLeft, Star } from 'lucide-react'
 import { MagnetSourcesModal } from '../online/MagnetSourcesModal'
 import { useTorboxStore } from '@/store/useTorboxStore'
-import { toast } from 'sonner'
+import { toast } from '@/store/toastStore'
 import { fetchWithRetry } from '@/lib/utils'
 
 export interface TrendingItem {

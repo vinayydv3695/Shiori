@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { AniListAuthProvider, ViewerInfo } from '../AniListProvider';
 import { usePreferencesStore } from '@/store/preferencesStore';
-import { toast } from 'sonner';
+import { toast } from '@/store/toastStore';
 
 export class AniListDesktopProvider implements AniListAuthProvider {
     async login(): Promise<void> {

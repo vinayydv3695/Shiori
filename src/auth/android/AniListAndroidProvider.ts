@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { AniListAuthProvider, ViewerInfo } from '../AniListProvider';
-import { toast } from 'sonner';
+import { toast } from '@/store/toastStore';
 
 const ANILIST_CLIENT_ID = '45479';
 const REDIRECT_URI = 'shiori://auth'; // Must match the Intent Filter

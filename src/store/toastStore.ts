@@ -16,7 +16,8 @@ interface ToastStore {
   clearAll: () => void;
 }
 
-import { toast as sonnerToast } from 'sonner';
+import { toast as sonnerToast, Toaster } from 'sonner';
+export { Toaster, sonnerToast as toast };
 
 export const useToastStore = create<ToastStore>((set) => ({
   toasts: [],

@@ -1,4 +1,4 @@
-import { Toaster } from 'sonner';
+import { Toaster } from '@/store/toastStore';
 import { useIsMobile, useIsTablet } from '@/hooks/useIsMobile';
 import { isAndroid } from '@/lib/tauri';
 

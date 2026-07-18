@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { anilistAuth, ViewerInfo } from '@/auth';
 import { isAndroid } from '@/lib/tauri';
 import { usePreferencesStore } from '@/store/preferencesStore';
-import { toast } from 'sonner';
+import { toast } from '@/store/toastStore';
 
 export function AniListSettings() {
     const preferences = usePreferencesStore((state) => state.preferences);

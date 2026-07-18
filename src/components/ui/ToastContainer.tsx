@@ -1,4 +1,5 @@
 import { Toaster } from 'sonner';
+import 'sonner/dist/styles.css';
 import { useIsMobile, useIsTablet } from '@/hooks/useIsMobile';
 import { isAndroid } from '@/lib/tauri';
 
@@ -16,8 +17,9 @@ export const ToastContainer = () => {
       position={isMobileOrTablet ? 'top-center' : 'bottom-right'}
       offset={isMobileOrTablet ? (isAndroid ? 48 : 24) : 72}
       expand={!isMobileOrTablet}
+      className="!z-[99999]"
       toastOptions={{
-        className: 'rounded-2xl max-md:rounded-ui-xl px-4 py-3 text-sm shadow-xl font-medium tracking-tight border-0 ring-1 ring-black/5 dark:ring-white/10 backdrop-blur-xl bg-background/90 text-foreground',
+        className: 'rounded-2xl max-md:rounded-ui-xl px-4 py-3 text-sm shadow-xl font-medium tracking-tight border-0 ring-1 ring-black/5 dark:ring-white/10 backdrop-blur-xl bg-background/90 text-foreground !z-[99999]',
         style: {
           minHeight: 'auto',
           borderRadius: '16px',

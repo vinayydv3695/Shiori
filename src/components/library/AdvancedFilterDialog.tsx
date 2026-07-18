@@ -183,42 +183,42 @@ export function AdvancedFilterDialog({ open, onOpenChange }: AdvancedFilterDialo
 
           <div className="flex flex-col sm:flex-row flex-1 overflow-hidden">
             {/* Sidebar Tabs */}
-            <div className="flex sm:flex-col sm:w-40 border-b sm:border-b-0 sm:border-r border-border/50 bg-muted/10 p-2 sm:p-4 gap-1 overflow-x-auto sm:overflow-y-auto shrink-0 scrollbar-none">
+            <div className="grid grid-cols-2 sm:flex sm:flex-col sm:w-40 border-b sm:border-b-0 sm:border-r border-border/50 bg-muted/10 p-2 sm:p-4 gap-1.5 shrink-0">
               <button
                 onClick={() => setActiveTab('general')}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-full sm:rounded-xl transition-all whitespace-nowrap flex-shrink-0 sm:w-full sm:flex-shrink",
+                  "flex items-center justify-center sm:justify-start gap-2 px-2 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-xl transition-all whitespace-nowrap w-full",
                   activeTab === 'general' ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
-                <Settings size={18} /> General
+                <Settings size={16} className="shrink-0" /> <span className="truncate">General</span>
               </button>
               <button
                 onClick={() => setActiveTab('metadata')}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-full sm:rounded-xl transition-all whitespace-nowrap flex-shrink-0 sm:w-full sm:flex-shrink",
+                  "flex items-center justify-center sm:justify-start gap-2 px-2 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-xl transition-all whitespace-nowrap w-full",
                   activeTab === 'metadata' ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
-                <Tag size={18} /> Metadata
+                <Tag size={16} className="shrink-0" /> <span className="truncate">Metadata</span>
               </button>
               <button
                 onClick={() => setActiveTab('organization')}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-full sm:rounded-xl transition-all whitespace-nowrap flex-shrink-0 sm:w-full sm:flex-shrink",
+                  "flex items-center justify-center sm:justify-start gap-2 px-2 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-xl transition-all whitespace-nowrap w-full",
                   activeTab === 'organization' ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
-                <Layers size={18} /> Organization
+                <Layers size={16} className="shrink-0" /> <span className="truncate">Organization</span>
               </button>
               <button
                 onClick={() => setActiveTab('ratings')}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-full sm:rounded-xl transition-all whitespace-nowrap flex-shrink-0 sm:w-full sm:flex-shrink",
+                  "flex items-center justify-center sm:justify-start gap-2 px-2 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-xl transition-all whitespace-nowrap w-full",
                   activeTab === 'ratings' ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
-                <StarHalf size={18} /> Status
+                <StarHalf size={16} className="shrink-0" /> <span className="truncate">Status</span>
               </button>
             </div>
 

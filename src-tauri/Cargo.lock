@@ -6490,7 +6490,7 @@ dependencies = [
 
 [[package]]
 name = "shiori"
-version = "1.60.3"
+version = "1.61.6"
 dependencies = [
  "ab_glyph",
  "ammonia",

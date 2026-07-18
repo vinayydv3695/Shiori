@@ -19,6 +19,7 @@ import { IconImportBook, IconImportManga } from '@/components/icons/ShioriIcons'
 
 import { PremiumTopbar } from './ImprovedToolbar'
 import { NavigationRail } from './NavigationRail'
+import { FilterPanel } from '../library/FilterPanel'
 import { BottomNav } from './BottomNav'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { DuplicateFinderDialog } from '../library/DuplicateFinderDialog'
@@ -133,6 +134,7 @@ export function Layout({
 }: LayoutProps) {
   const isMobile = useIsMobile()
   const [duplicateFinderOpen, setDuplicateFinderOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [importDialogFilePaths, setImportDialogFilePaths] = useState<string[]>([])
   const [autoTriggerMode, setAutoTriggerMode] = useState<'files' | 'folder' | null>(null)
@@ -439,13 +441,13 @@ export function Layout({
           onOpenSettings={onOpenSettings}
           onOpenShortcuts={onOpenShortcuts}
           onOpenAdvancedFilter={onOpenAdvancedFilter}
-          onToggleSidebar={onOpenAdvancedFilter}
+          onToggleSidebar={() => setSidebarOpen((o) => !o)}
           onGoHome={onGoHome}
           onAutoGroupManga={onAutoGroupManga}
           currentView={currentView}
           onNavigateToView={onNavigateToView}
           activeFilterCount={activeFilterCount}
-          sidebarOpen={false}
+          sidebarOpen={sidebarOpen}
         />
       )}
 
@@ -467,6 +469,24 @@ export function Layout({
           currentView={currentView}
           onNavigateToView={onNavigateToView}
         />
+
+        {/* Sidebar — hidden on homepage */}
+        {currentView !== 'home' && currentView !== 'online-manga-reader' && sidebarOpen && (
+          <FilterPanel
+            authors={filterItems.authors}
+            languages={filterItems.languages}
+            series={filterItems.series}
+            formats={filterItems.formats}
+            publishers={filterItems.publishers}
+            ratings={filterItems.ratings}
+            tags={filterItems.tags}
+            identifiers={filterItems.identifiers}
+            selectedFilters={selectedFilters}
+            onFilterToggle={handleFilterToggle}
+            onClearAll={clearFilters}
+            domain={currentDomain}
+          />
+        )}
 
         {/* ── Mobile Bottom Nav ── */}
         <main 

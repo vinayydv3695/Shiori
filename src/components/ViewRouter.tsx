@@ -23,6 +23,8 @@ const LoadingSpinner = ({ className = "h-screen" }: { className?: string }) => (
   </div>
 )
 
+import { SkeletonGrid } from "./online/SkeletonLoaders"
+
 import { CurrentView } from "@/store/uiStore"
 
 export interface ViewRouterProps {
@@ -139,11 +141,11 @@ export function ViewRouter({
         )}
 
         {currentView === 'online-books' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}><OnlineBooksView /></Suspense>
+          <Suspense fallback={<div className="flex-1 w-full p-6 pt-24"><div className="max-w-7xl mx-auto"><SkeletonGrid count={12} /></div></div>}><OnlineBooksView /></Suspense>
         )}
 
         {currentView === 'online-manga' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}><OnlineMangaView /></Suspense>
+          <Suspense fallback={<div className="flex-1 w-full p-6 pt-24"><div className="max-w-7xl mx-auto"><SkeletonGrid count={12} /></div></div>}><OnlineMangaView /></Suspense>
         )}
 
 

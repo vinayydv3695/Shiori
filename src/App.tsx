@@ -4,6 +4,7 @@ import { ViewRouter } from "./components/ViewRouter"
 import { Layout } from "./components/layout/Layout"
 import { ToastContainer } from "./components/ui/ToastContainer"
 import { DevBanner } from "./components/DevBanner"
+import { motion, AnimatePresence } from "framer-motion"
 
 import { SectionErrorBoundary } from "./components/ErrorBoundary"
 import { logger } from "./lib/logger"
@@ -24,6 +25,7 @@ import { useOnlineSearchStore } from "./store/onlineSearchStore"
 import { AndroidSplashScreen } from "./components/ui/AndroidSplashScreen"
 import { SwipeGestureHandler } from "./components/layout/SwipeGestureHandler"
 import { useBackButton } from "./hooks/useBackButton"
+import { useAutoUpdate } from "./hooks/useAutoUpdate"
 
 const ReaderLayout = lazy(() => import("./components/reader/ReaderLayout").then(m => ({ default: m.ReaderLayout })))
 const OnboardingWizard = lazy(() => import("./components/onboarding/OnboardingWizard").then(m => ({ default: m.OnboardingWizard })))
@@ -56,6 +58,9 @@ function App() {
 
   // ── Discord RPC ──
   useDiscordRPCUpdater()
+
+  // ── Auto Updates ──
+  useAutoUpdate()
 
   // ── Navigation ──
   const currentView = useUIStore(s => s.currentView)
@@ -252,20 +257,31 @@ function App() {
         currentDomain={currentDomain}
         onDomainChange={handleDomainChange}
       >
-        <ViewRouter
-          currentView={currentView}
-          currentDomain={currentDomain}
-          displayBooks={displayBooks}
-          handleNavigate={handleNavigate}
-          handleOpenBook={handleOpenBook}
-          handleViewDetails={handleViewDetails}
-          handleEditBook={handleEditBook}
-          handleDeleteBook={handleDeleteBook}
-          searchQuery={activeTopbarSearchQuery}
-          onSearchChange={handleSearchChange}
-          onOpenAdvancedFilter={() => dialogs.setAdvancedFilterOpen(true)}
-          dialogs={dialogs}
-        />
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentView}
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="w-full h-full"
+          >
+            <ViewRouter
+              currentView={currentView}
+              currentDomain={currentDomain}
+              displayBooks={displayBooks}
+              handleNavigate={handleNavigate}
+              handleOpenBook={handleOpenBook}
+              handleViewDetails={handleViewDetails}
+              handleEditBook={handleEditBook}
+              handleDeleteBook={handleDeleteBook}
+              searchQuery={activeTopbarSearchQuery}
+              onSearchChange={handleSearchChange}
+              onOpenAdvancedFilter={() => dialogs.setAdvancedFilterOpen(true)}
+              dialogs={dialogs}
+            />
+          </motion.div>
+        </AnimatePresence>
       </Layout>
 
       <ToastContainer />

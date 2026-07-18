@@ -13,22 +13,7 @@ interface StatisticsViewProps {
   onClose: () => void;
 }
 
-const containerVariants: Variants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1 }
-  }
-};
 
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 15 },
-  show: { 
-    opacity: 1, 
-    y: 0,
-    transition: { type: "spring", stiffness: 300, damping: 24 }
-  }
-};
 
 export function StatisticsView({ onClose }: StatisticsViewProps) {
   const [loading, setLoading] = useState(true);
@@ -185,12 +170,12 @@ export function StatisticsView({ onClose }: StatisticsViewProps) {
             </motion.div>
           ) : (
             <motion.div
-              variants={containerVariants}
-              initial="hidden"
-              animate="show"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.4 }}
             >
               {/* Minimalist Stat Row */}
-              <motion.div variants={itemVariants} className="flex flex-col md:flex-row items-start gap-12 md:gap-20 border-b border-border/40 pb-10 mb-10">
+              <div className="flex flex-col md:flex-row items-start gap-12 md:gap-20 border-b border-border/40 pb-10 mb-10">
                 
                 <div className="flex flex-col gap-2">
                   <p className="text-xs font-semibold text-muted-foreground tracking-widest uppercase">Today's Reading</p>
@@ -251,10 +236,10 @@ export function StatisticsView({ onClose }: StatisticsViewProps) {
                   </div>
                 </div>
                 
-              </motion.div>
+              </div>
 
               {/* Activity & Calendar Section - Cleaned up */}
-              <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                 <div className="lg:col-span-2 flex flex-col">
                   <div className="mb-6">
                     <h2 className="text-lg font-medium text-foreground tracking-tight">Reading Activity</h2>
@@ -274,7 +259,7 @@ export function StatisticsView({ onClose }: StatisticsViewProps) {
                     <ReadingCalendar data={yearlyStats} />
                   </div>
                 </div>
-              </motion.div>
+              </div>
 
             </motion.div>
           )}

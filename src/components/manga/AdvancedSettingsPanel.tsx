@@ -31,6 +31,8 @@ export function AdvancedSettingsPanel() {
     const setProgressBarPosition = useMangaSettingsStore(s => s.setProgressBarPosition);
     const showNavigationTips = useMangaSettingsStore(s => s.showNavigationTips);
     const toggleNavigationTips = useMangaSettingsStore(s => s.toggleNavigationTips);
+    const showFloatingPageNumber = useMangaSettingsStore(s => s.showFloatingPageNumber);
+    const toggleFloatingPageNumber = useMangaSettingsStore(s => s.toggleFloatingPageNumber);
     const imageQuality = useMangaSettingsStore(s => s.imageQuality);
     const setImageQuality = useMangaSettingsStore(s => s.setImageQuality);
     const preloadIntensity = useMangaSettingsStore(s => s.preloadIntensity);
@@ -185,6 +187,19 @@ export function AdvancedSettingsPanel() {
                                     <div
                                         className={`manga-toggle ${showNavigationTips ? 'manga-toggle--active' : ''}`}
                                         onClick={toggleNavigationTips}
+                                    >
+                                        <div className="manga-toggle-knob" />
+                                    </div>
+                                </div>
+                                
+                                <div className="manga-settings-option">
+                                    <div>
+                                        <div className="manga-settings-option-label">Floating Page Number</div>
+                                        <div className="manga-settings-option-hint">Show styled page number overlay</div>
+                                    </div>
+                                    <div
+                                        className={`manga-toggle ${showFloatingPageNumber ? 'manga-toggle--active' : ''}`}
+                                        onClick={toggleFloatingPageNumber}
                                     >
                                         <div className="manga-toggle-knob" />
                                     </div>

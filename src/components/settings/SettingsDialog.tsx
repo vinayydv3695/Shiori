@@ -264,6 +264,9 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                 <Tabs.Trigger
                   key={tab.id}
                   value={tab.id}
+                  onClick={() => {
+                    if (isMobile) setMobileView('detail');
+                  }}
                   className={cn(
                     'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-left font-medium text-[13px]',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50',

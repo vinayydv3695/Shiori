@@ -94,32 +94,39 @@
     --ring: 234 89% 74%;
   }
 
-  /* Sepia (Warm Paper) */
+  /* Sepia (Premium Warm Paper) */
   [data-theme="sepia"] {
-    --background: 40 40% 90%; /* #efe5d4 */
-    --foreground: 25 30% 20%; /* #42352b */
-    --surface-1: 40 40% 88%;
-    --surface-2: 40 40% 86%;
-    --surface-3: 40 40% 84%;
-    --surface-4: 40 40% 80%;
+    --background: 38 45% 86%; /* Rich, deep warm parchment */
+    --foreground: 20 55% 15%; /* Ultra-rich deep espresso */
     
-    --card: 40 40% 92%;
-    --card-foreground: 25 30% 20%;
-    --popover: 40 40% 92%;
-    --popover-foreground: 25 30% 20%;
-    --primary: 25 60% 40%;
-    --primary-foreground: 40 40% 95%;
-    --secondary: 40 30% 85%;
-    --secondary-foreground: 25 30% 20%;
-    --muted: 40 30% 85%;
-    --muted-foreground: 25 20% 45%;
-    --accent: 40 30% 85%;
-    --accent-foreground: 25 30% 20%;
-    --destructive: 0 70% 50%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 40 30% 80%;
-    --input: 40 30% 80%;
-    --ring: 25 60% 40%;
+    --surface-1: 38 45% 84%;
+    --surface-2: 38 45% 82%;
+    --surface-3: 38 45% 80%;
+    --surface-4: 38 45% 76%;
+    
+    --card: 38 45% 89%; /* Slightly lighter paper */
+    --card-foreground: 20 55% 15%;
+    --popover: 38 45% 89%;
+    --popover-foreground: 20 55% 15%;
+    
+    --primary: 18 65% 38%; /* Rich roasted amber */
+    --primary-foreground: 38 45% 92%;
+    
+    --secondary: 38 35% 78%;
+    --secondary-foreground: 20 55% 15%;
+    
+    --muted: 38 35% 78%;
+    --muted-foreground: 20 30% 38%;
+    
+    --accent: 38 35% 78%;
+    --accent-foreground: 20 55% 15%;
+    
+    --destructive: 0 70% 45%;
+    --destructive-foreground: 38 45% 92%;
+    
+    --border: 38 30% 74%;
+    --input: 38 30% 74%;
+    --ring: 18 65% 38%;
   }
 
   /* Low-contrast Gray (E-ink style) */

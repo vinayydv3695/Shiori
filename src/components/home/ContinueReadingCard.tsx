@@ -74,6 +74,7 @@ export function ContinueReadingCard({ book, progress, domain, onClick }: Continu
             className="continue-card"
             data-density={libraryDensity}
             data-cover-size={coverSize}
+            onPointerDown={(e) => { e.preventDefault(); onClick(book); }}
             onClick={() => onClick(book)}
         >
             <div className="continue-card-cover-frame">

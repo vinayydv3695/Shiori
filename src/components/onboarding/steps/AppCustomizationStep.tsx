@@ -40,9 +40,11 @@ const previews: Record<ThemeName, { background: string; text: string; accent: st
   Dracula: { background: '#282a36', surface: '#44475a', text: '#f8f8f2', accent: '#d4d1df', border: '#6272a4' },
   'Tokyo Night': { background: '#1a1b26', surface: '#24283b', text: '#c0caf5', accent: '#c2c8de', border: '#414868' },
   'Premium Dark': { background: '#0a0f1c', surface: '#111827', text: '#f1f5f9', accent: '#818cf8', border: '#1e293b' },
+  'Sepia Paper': { background: '#eedbbf', surface: '#e6d3b6', text: '#3b1e11', accent: '#9f3f22', border: '#dcc6a8' },
+  'E-Ink Gray': { background: '#262626', surface: '#2e2e2e', text: '#cccccc', accent: '#999999', border: '#404040' },
 };
 
-const isLightTheme = (themeName: ThemeName) => themeName === 'Premium Light';
+const isLightTheme = (themeName: ThemeName) => themeName === 'Premium Light' || themeName === 'Sepia Paper';
 
 type Tab = 'appearance' | 'reader' | 'general';
 

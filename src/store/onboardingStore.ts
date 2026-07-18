@@ -14,7 +14,9 @@ export type ThemeName =
   | 'Nord'
   | 'Dracula'
   | 'Tokyo Night'
-  | 'Premium Dark';
+  | 'Premium Dark'
+  | 'Sepia Paper'
+  | 'E-Ink Gray';
 
 export interface MangaPrefs {
   readingDirection: 'rtl' | 'ltr';
@@ -128,6 +130,8 @@ export const THEME_OPTIONS: ThemeOption[] = [
   { name: 'Dracula', value: 'dracula' },
   { name: 'Tokyo Night', value: 'tokyo-night' },
   { name: 'Premium Dark', value: 'premium-dark' },
+  { name: 'Sepia Paper', value: 'sepia' },
+  { name: 'E-Ink Gray', value: 'gray' },
 ];
 
 const THEME_NAME_TO_VALUE: Record<ThemeName, Theme> = Object.fromEntries(

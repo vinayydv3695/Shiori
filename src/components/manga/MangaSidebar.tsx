@@ -29,16 +29,6 @@ export const MangaSidebar = memo(function MangaSidebar() {
 
     const readingMode = useMangaSettingsStore(s => s.readingMode);
     const setReadingMode = useMangaSettingsStore(s => s.setReadingMode);
-    const readingDirection = useMangaSettingsStore(s => s.readingDirection);
-    const setReadingDirection = useMangaSettingsStore(s => s.setReadingDirection);
-    const fitMode = useMangaSettingsStore(s => s.fitMode);
-    const setFitMode = useMangaSettingsStore(s => s.setFitMode);
-    const stickyHeader = useMangaSettingsStore(s => s.stickyHeader);
-    const toggleStickyHeader = useMangaSettingsStore(s => s.toggleStickyHeader);
-    const showNavigationTips = useMangaSettingsStore(s => s.showNavigationTips);
-    const toggleNavigationTips = useMangaSettingsStore(s => s.toggleNavigationTips);
-    const progressBarPosition = useMangaSettingsStore(s => s.progressBarPosition);
-    const setProgressBarPosition = useMangaSettingsStore(s => s.setProgressBarPosition);
     const theme = useMangaSettingsStore(s => s.theme);
     const toggleTheme = useMangaSettingsStore(s => s.toggleTheme);
     const autoScrollSpeed = useMangaSettingsStore(s => s.autoScrollSpeed);
@@ -140,36 +130,6 @@ export const MangaSidebar = memo(function MangaSidebar() {
                             </div>
                         </div>
 
-                        <div className="manga-sidebar-row">
-                            <span className="manga-sidebar-label">Sticky Header</span>
-                            <div
-                                className={`manga-toggle ${stickyHeader ? 'manga-toggle--active' : ''}`}
-                                onClick={toggleStickyHeader}
-                            >
-                                <div className="manga-toggle-knob" />
-                            </div>
-                        </div>
-
-                        <div className="manga-sidebar-row">
-                            <span className="manga-sidebar-label">RTL Direction</span>
-                            <div
-                                className={`manga-toggle ${readingDirection === 'rtl' ? 'manga-toggle--active' : ''}`}
-                                onClick={() => setReadingDirection(readingDirection === 'rtl' ? 'ltr' : 'rtl')}
-                            >
-                                <div className="manga-toggle-knob" />
-                            </div>
-                        </div>
-
-                        <div className="manga-sidebar-row">
-                            <span className="manga-sidebar-label">Nav Hints</span>
-                            <div
-                                className={`manga-toggle ${showNavigationTips ? 'manga-toggle--active' : ''}`}
-                                onClick={toggleNavigationTips}
-                            >
-                                <div className="manga-toggle-knob" />
-                            </div>
-                        </div>
-
                         {/* Auto-Scroll */}
                         {(readingMode === 'webtoon' || readingMode === 'strip' || readingMode === 'manhwa') && (
                             <>
@@ -197,37 +157,6 @@ export const MangaSidebar = memo(function MangaSidebar() {
                                 </div>
                             </>
                         )}
-
-
-                        <div className="manga-sidebar-row">
-                            <span className="manga-sidebar-label">Fit Mode</span>
-                            <div className="manga-mode-selector">
-                                {(['width', 'height', 'contain', 'original'] as const).map(mode => (
-                                    <button
-                                        key={mode}
-                                        className={`manga-mode-btn ${fitMode === mode ? 'manga-mode-btn--active' : ''}`}
-                                        onClick={() => setFitMode(mode)}
-                                    >
-                                        {mode.charAt(0).toUpperCase() + mode.slice(1)}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="manga-sidebar-row">
-                            <span className="manga-sidebar-label">Progress Bar</span>
-                            <div className="manga-position-pills">
-                                {(['bottom', 'top', 'none'] as const).map(pos => (
-                                    <button
-                                        key={pos}
-                                        className={`manga-position-pill ${progressBarPosition === pos ? 'manga-position-pill--active' : ''}`}
-                                        onClick={() => setProgressBarPosition(pos)}
-                                    >
-                                        {pos.charAt(0).toUpperCase() + pos.slice(1)}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
                     </div>
 
                     <div className="manga-sidebar-divider" />

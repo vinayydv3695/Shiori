@@ -19,6 +19,7 @@ const CommandPalette = lazy(() => import("./CommandPalette").then(m => ({ defaul
 const ResumeReadingDialog = lazy(() => import("./reader/ResumeReadingDialog").then(m => ({ default: m.ResumeReadingDialog })))
 const CollectionSelectDialog = lazy(() => import("./library/CollectionSelectDialog").then(m => ({ default: m.CollectionSelectDialog })))
 const TagSelectDialog = lazy(() => import("./library/TagSelectDialog").then(m => ({ default: m.TagSelectDialog })))
+const UpdateDialog = lazy(() => import("./UpdateDialog").then(m => ({ default: m.UpdateDialog })))
 
 export interface GlobalDialogsProps {
   books: Book[]
@@ -60,6 +61,7 @@ export function GlobalDialogs({
   return (
     <>
       <Suspense fallback={null}><ConversionJobTracker /></Suspense>
+      <Suspense fallback={null}><UpdateDialog /></Suspense>
 
       {dialogs.dialogBookId !== null && (
         <Suspense fallback={null}>

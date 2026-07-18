@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useReadingSettings, type ReaderTheme, applyReaderThemeToElement } from '@/store/premiumReaderStore';
 import { Settings, Columns, ChevronDown, ChevronUp } from '@/components/icons';
+import { isAndroid } from '@/lib/tauri';
 import { READING_FONTS, normalizeLegacyFontPreference } from '@/lib/readingFonts';
 
 export type ReaderFormat = 'epub' | 'pdf' | 'mobi' | 'azw' | 'azw3' | 'manga' | 'fb2' | 'docx' | 'html' | 'htm' | 'txt' | 'md' | 'markdown';
@@ -474,13 +475,15 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
                 <span>Continuous Flow</span>
               </button>
 
-              <button
-                onClick={toggleTwoPageView}
-                className={`premium-settings-toggle ${twoPageView ? 'premium-settings-toggle--active' : ''}`}
-              >
-                <Columns className="premium-settings-icon" />
-                <span>Two-Page View</span>
-              </button>
+              {!(isAndroid || isMobile) && (
+                <button
+                  onClick={toggleTwoPageView}
+                  className={`premium-settings-toggle ${twoPageView ? 'premium-settings-toggle--active' : ''}`}
+                >
+                  <Columns className="premium-settings-icon" />
+                  <span>Two-Page View</span>
+                </button>
+              )}
             </div>
           )}
 

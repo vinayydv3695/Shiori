@@ -166,16 +166,22 @@ export function AdvancedFilterDialog({ open, onOpenChange }: AdvancedFilterDialo
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-        <Dialog.Content aria-describedby={undefined} className="dialog-content fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-2xl w-[90vw] md:w-[640px] max-w-[640px] max-h-[85vh] md:max-h-[90vh] flex flex-col z-50 overflow-hidden">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
-            <Dialog.Title className="flex items-center gap-2 text-lg font-semibold text-foreground">
-              <Filter size={18} />
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/60 backdrop-blur-md z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-300" />
+        <Dialog.Content aria-describedby={undefined} className="dialog-content fixed bottom-0 left-0 sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 bg-background border border-border/50 rounded-t-[32px] sm:rounded-xl shadow-2xl w-full sm:w-[640px] max-w-full max-h-[92vh] sm:max-h-[90vh] flex flex-col z-50 overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom-full data-[state=open]:slide-in-from-bottom-full sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95 sm:data-[state=closed]:slide-out-to-bottom-0 sm:data-[state=open]:slide-in-from-bottom-0 duration-300">
+          
+          {/* Mobile Drag Indicator */}
+          <div className="w-full flex justify-center pt-3 pb-1 sm:hidden shrink-0">
+            <div className="w-12 h-1.5 rounded-full bg-border/50" />
+          </div>
+
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border/50 shrink-0">
+            <Dialog.Title className="flex items-center gap-2 text-xl font-bold text-foreground">
+              <Filter size={20} />
               Advanced Filters
             </Dialog.Title>
             <Dialog.Close asChild>
-              <button className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" title="Close">
-                <X size={18} />
+              <button className="p-2 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-all" title="Close">
+                <X size={20} />
               </button>
             </Dialog.Close>
           </div>
@@ -186,38 +192,38 @@ export function AdvancedFilterDialog({ open, onOpenChange }: AdvancedFilterDialo
               <button
                 onClick={() => setActiveTab('general')}
                 className={cn(
-                  "flex items-center gap-2 w-auto sm:w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap flex-shrink-0 sm:w-full sm:flex-shrink",
-                  activeTab === 'general' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                  "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-full sm:rounded-xl transition-all whitespace-nowrap flex-shrink-0 sm:w-full sm:flex-shrink",
+                  activeTab === 'general' ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
-                <Settings size={16} /> General
+                <Settings size={18} /> General
               </button>
               <button
                 onClick={() => setActiveTab('metadata')}
                 className={cn(
-                  "flex items-center gap-2 w-auto sm:w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap flex-shrink-0 sm:w-full sm:flex-shrink",
-                  activeTab === 'metadata' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                  "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-full sm:rounded-xl transition-all whitespace-nowrap flex-shrink-0 sm:w-full sm:flex-shrink",
+                  activeTab === 'metadata' ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
-                <Tag size={16} /> Metadata
+                <Tag size={18} /> Metadata
               </button>
               <button
                 onClick={() => setActiveTab('organization')}
                 className={cn(
-                  "flex items-center gap-2 w-auto sm:w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap flex-shrink-0 sm:w-full sm:flex-shrink",
-                  activeTab === 'organization' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                  "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-full sm:rounded-xl transition-all whitespace-nowrap flex-shrink-0 sm:w-full sm:flex-shrink",
+                  activeTab === 'organization' ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
-                <Layers size={16} /> Organization
+                <Layers size={18} /> Organization
               </button>
               <button
                 onClick={() => setActiveTab('ratings')}
                 className={cn(
-                  "flex items-center gap-2 w-auto sm:w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap flex-shrink-0 sm:w-full sm:flex-shrink",
-                  activeTab === 'ratings' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                  "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-full sm:rounded-xl transition-all whitespace-nowrap flex-shrink-0 sm:w-full sm:flex-shrink",
+                  activeTab === 'ratings' ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
-                <StarHalf size={16} /> Status
+                <StarHalf size={18} /> Status
               </button>
             </div>
 
@@ -231,31 +237,31 @@ export function AdvancedFilterDialog({ open, onOpenChange }: AdvancedFilterDialo
                       value={filters.textSearch ?? ''}
                       onChange={e => updateFilter('textSearch', e.target.value)}
                       placeholder="Search in title, author..."
-                      className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background shadow-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                      className="w-full h-12 px-4 text-base rounded-xl border border-border/50 bg-muted/20 shadow-inner text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
                     />
                   </FilterSection>
 
                   <FilterSection title="Formats">
                     <div className="flex flex-wrap gap-2">
-                      {uniqueFormats.map(fmt => (
-                        <label key={fmt} className="flex items-center gap-2 cursor-pointer select-none group">
-                          <Checkbox.Root
-                            checked={(filters.formats ?? []).includes(fmt)}
-                            onCheckedChange={() => updateFilter('formats', toggleArrayItem(filters.formats, fmt))}
+                      {uniqueFormats.map(fmt => {
+                        const isSelected = (filters.formats ?? []).includes(fmt);
+                        return (
+                          <button
+                            key={fmt}
+                            type="button"
+                            onClick={() => updateFilter('formats', toggleArrayItem(filters.formats, fmt))}
                             className={cn(
-                              'w-4 h-4 rounded border flex items-center justify-center transition-all',
-                              (filters.formats ?? []).includes(fmt)
-                                ? 'bg-primary border-primary shadow-sm'
-                                : 'border-border bg-background group-hover:border-primary/50'
+                              "px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-300 border flex items-center gap-2 select-none",
+                              isSelected 
+                                ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20" 
+                                : "bg-background border-border text-muted-foreground hover:border-primary/50 hover:bg-muted/50"
                             )}
                           >
-                            <Checkbox.Indicator>
-                              <Check size={12} className="text-primary-foreground" />
-                            </Checkbox.Indicator>
-                          </Checkbox.Root>
-                          <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">{fmt}</span>
-                        </label>
-                      ))}
+                            {isSelected && <Check size={16} className="shrink-0" />}
+                            {fmt}
+                          </button>
+                        );
+                      })}
                       {uniqueFormats.length === 0 && (
                         <span className="text-sm text-muted-foreground">No formats available</span>
                       )}
@@ -389,106 +395,104 @@ export function AdvancedFilterDialog({ open, onOpenChange }: AdvancedFilterDialo
               )}
             </div>
           </div>
-          <div className="px-6 py-4 border-t border-border space-y-3 shrink-0">
+          <div className="p-4 sm:p-6 border-t border-border/50 bg-background/95 backdrop-blur-xl shrink-0 flex flex-col gap-4">
+            {/* Top row: Match count & Secondary Actions */}
             <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                <span className="font-semibold text-foreground">{matchingCount}</span>
-                {' '}of{' '}
-                <span className="font-semibold text-foreground">{books.length}</span>
-                {' '}books match
+              <p className="text-sm font-medium text-muted-foreground">
+                <span className="font-bold text-foreground">{matchingCount}</span> of <span className="font-bold text-foreground">{books.length}</span> match
               </p>
+              
+              <div className="flex items-center gap-2">
+                {presets.length > 0 && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowPresetsDropdown(p => !p)}
+                      className="text-sm font-semibold text-primary hover:text-primary/80 transition-colors px-2 py-1 flex items-center"
+                    >
+                      Presets <ChevronDown size={14} className="ml-1" />
+                    </button>
+                    {showPresetsDropdown && (
+                      <div className="absolute bottom-full right-0 mb-2 w-56 bg-popover border border-border rounded-xl shadow-xl py-2 z-10 animate-in slide-in-from-bottom-2 fade-in">
+                        {presets.map(preset => (
+                          <div key={preset.name} className="flex items-center justify-between px-3 py-2 hover:bg-accent group cursor-pointer transition-colors" onClick={() => handleLoadPreset(preset)}>
+                            <span className="flex-1 text-sm font-medium text-foreground truncate">
+                              {preset.name}
+                            </span>
+                            <button
+                              onClick={e => { e.stopPropagation(); handleDeletePreset(preset.name) }}
+                              className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
+                              title="Delete preset"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                <button
+                  onClick={handleClearAll}
+                  className="text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors px-2 py-1"
+                >
+                  Clear All
+                </button>
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 mt-3">
-              <div className="relative">
-                {showPresetInput ? (
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="text"
-                      value={presetName}
-                      onChange={e => setPresetName(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') handleSavePreset(); if (e.key === 'Escape') setShowPresetInput(false) }}
-                      placeholder="Preset name..."
-                      autoFocus
-                      className="h-8 w-36 px-2 text-xs rounded-md border border-border bg-muted/40 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                    />
-                    <button
-                      onClick={handleSavePreset}
-                      disabled={!presetName.trim()}
-                      className="h-8 px-2.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/85 disabled:opacity-40 transition-colors"
-                    >
-                      Save
-                    </button>
-                    <button
-                      onClick={() => setShowPresetInput(false)}
-                      className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
+            {/* Bottom row: Primary Actions */}
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
+              {showPresetInput ? (
+                <div className="flex items-center gap-2 w-full animate-in fade-in slide-in-from-left-2 duration-200">
+                  <input
+                    type="text"
+                    value={presetName}
+                    onChange={e => setPresetName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleSavePreset(); if (e.key === 'Escape') setShowPresetInput(false) }}
+                    placeholder="Preset name..."
+                    autoFocus
+                    className="flex-1 h-12 px-4 text-base sm:text-sm rounded-xl border border-border/50 bg-muted/20 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                  <button
+                    onClick={handleSavePreset}
+                    disabled={!presetName.trim()}
+                    className="h-12 px-5 text-sm font-bold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-all shadow-md shadow-primary/20"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => setShowPresetInput(false)}
+                    className="h-12 px-4 text-sm font-semibold rounded-xl border border-border/50 text-muted-foreground hover:bg-muted/50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 w-full animate-in fade-in duration-200">
                   <button
                     onClick={() => setShowPresetInput(true)}
-                    className="flex items-center gap-1.5 h-8 px-3 text-xs font-medium rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                    className="h-12 px-4 sm:px-6 text-sm font-semibold rounded-xl border border-border/50 bg-background text-foreground hover:bg-muted/50 transition-all flex items-center gap-2 shrink-0"
                   >
-                    <Save size={13} />
-                    Save Filter
+                    <Save size={18} />
+                    <span className="hidden sm:inline">Save</span>
                   </button>
-                )}
-              </div>
-
-              {presets.length > 0 && (
-                <div className="relative">
-                  <button
-                    onClick={() => setShowPresetsDropdown(p => !p)}
-                    className="flex items-center gap-1.5 h-8 px-3 text-xs font-medium rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                  >
-                    Load Filter
-                    <ChevronDown size={12} />
-                  </button>
-                  {showPresetsDropdown && (
-                    <div className="absolute bottom-full left-0 mb-1 w-56 bg-popover border border-border rounded-md shadow-lg py-1 z-10">
-                      {presets.map(preset => (
-                        <div key={preset.name} className="flex items-center justify-between px-3 py-1.5 hover:bg-accent group">
-                          <button
-                            onClick={() => handleLoadPreset(preset)}
-                            className="flex-1 text-left text-xs text-foreground truncate"
-                          >
-                            {preset.name}
-                          </button>
-                          <button
-                            onClick={e => { e.stopPropagation(); handleDeletePreset(preset.name) }}
-                            className="opacity-0 group-hover:opacity-100 p-0.5 text-muted-foreground hover:text-destructive transition-all"
-                            title="Delete preset"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  
+                  <div className="flex-1 flex items-center gap-3">
+                    <Dialog.Close asChild>
+                      <button className="flex-1 h-12 text-sm font-semibold rounded-xl border border-border/50 bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-all">
+                        Cancel
+                      </button>
+                    </Dialog.Close>
+                    <button
+                      onClick={handleApply}
+                      className="flex-1 h-12 text-sm font-bold rounded-xl bg-primary text-primary-foreground hover:brightness-110 shadow-lg shadow-primary/25 transition-all"
+                    >
+                      Apply Filters
+                    </button>
+                  </div>
                 </div>
               )}
-
-              <div className="flex-1" />
-
-              <button
-                onClick={handleClearAll}
-                className="h-8 px-3 text-xs font-medium rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-              >
-                Clear All
-              </button>
-              <Dialog.Close asChild>
-                <button className="h-8 px-3 text-xs font-medium rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
-                  Cancel
-                </button>
-              </Dialog.Close>
-              <button
-                onClick={handleApply}
-                className="h-8 px-4 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/85 shadow-sm transition-colors"
-              >
-                Apply
-              </button>
             </div>
           </div>
         </Dialog.Content>

@@ -13,6 +13,7 @@ import { anilistAuth } from '@/auth';
 import { safeUpdateMediaListEntry, searchMedia } from '@/lib/anilist';
 import { CompletionPromptDialog } from './CompletionPromptDialog';
 import { MangaCanvas } from './MangaCanvas';
+import { FloatingPageNumber } from './FloatingPageNumber';
 import { MangaSidebar } from './MangaSidebar';
 import { AdvancedSettingsPanel } from './AdvancedSettingsPanel';
 import { MangaProgressBar } from './MangaProgressBar';
@@ -514,6 +515,7 @@ export function MangaReader(props: MangaReaderProps) {
             <MangaSidebar />
             <AdvancedSettingsPanel />
             <MangaProgressBar />
+            <FloatingPageNumber />
             {completionData && (
                 <CompletionPromptDialog
                     isOpen={showCompletionPrompt}

@@ -247,7 +247,7 @@ export function PremiumTopbar({
 
   const toggleTheme = async () => {
     if (preferences) {
-      await updateTheme(isDark ? 'light' : 'dark')
+      await updateTheme(isDark ? 'sepia' : 'dark')
     }
   }
 
@@ -363,8 +363,8 @@ export function PremiumTopbar({
             <div 
               className="absolute top-1 bottom-1 rounded-full bg-background shadow-sm border border-border/50 transition-all duration-300 ease-out z-0"
               style={{ 
-                left: currentDomain === 'books' ? '4px' : currentDomain === 'manga_comics' ? 'calc(33.33% + 2px)' : 'calc(66.66% + 0px)', 
-                width: 'calc(33.33% - 4px)' 
+                left: currentDomain === 'books' ? '4px' : 'calc(50% + 2px)', 
+                width: 'calc(50% - 6px)' 
               }} 
             />
             
@@ -466,7 +466,7 @@ export function PremiumTopbar({
           <button
             type="button"
             onClick={toggleTheme}
-            title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+            title={isDark ? 'Switch to Sepia Paper' : 'Switch to OLED Midnight'}
             className="flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-background shadow-sm transition-all duration-200"
           >
             {isDark ? <IconSun size={15} /> : <IconMoon size={15} />}

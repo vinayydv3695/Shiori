@@ -299,6 +299,7 @@ interface MangaSettingsState {
     progressBarPosition: ProgressBarPosition;
     stickyHeader: boolean;
     showNavigationTips: boolean;
+    showFloatingPageNumber: boolean;
     theme: 'light' | 'dark';
     imageQuality: number; // 0.5–1.0
     preloadIntensity: 'light' | 'normal' | 'aggressive';
@@ -313,6 +314,7 @@ interface MangaSettingsState {
     setProgressBarPosition: (pos: ProgressBarPosition) => void;
     toggleStickyHeader: () => void;
     toggleNavigationTips: () => void;
+    toggleFloatingPageNumber: () => void;
     setTheme: (theme: 'light' | 'dark') => void;
     toggleTheme: () => void;
     setImageQuality: (quality: number) => void;
@@ -335,6 +337,7 @@ const defaultMangaSettings = {
     progressBarPosition: 'bottom' as ProgressBarPosition,
     stickyHeader: true,
     showNavigationTips: true,
+    showFloatingPageNumber: true,
     theme: 'dark' as const,
     imageQuality: 1.0,
     preloadIntensity: 'aggressive' as const,
@@ -403,9 +406,14 @@ export const useMangaSettingsStore = create<MangaSettingsState>()(
                 const clamped = Math.max(0, Math.min(32, margin));
                 set({ stripMargin: clamped });
             },
-            setProgressBarPosition: (pos) => set({ progressBarPosition: pos }),
-            toggleStickyHeader: () => set((s) => ({ stickyHeader: !s.stickyHeader })),
-            toggleNavigationTips: () => set((s) => ({ showNavigationTips: !s.showNavigationTips })),
+            setProgressBarPosition: (pos) => {
+                if (PROGRESS_BAR_POSITION_OPTIONS.includes(pos)) {
+                    set({ progressBarPosition: pos });
+                }
+            },
+            toggleStickyHeader: () => set((state) => ({ stickyHeader: !state.stickyHeader })),
+            toggleNavigationTips: () => set((state) => ({ showNavigationTips: !state.showNavigationTips })),
+            toggleFloatingPageNumber: () => set((state) => ({ showFloatingPageNumber: !state.showFloatingPageNumber })),
             setTheme: (theme) => {
                 set({ theme });
                 applyMangaThemeToDOM(theme);

@@ -64,8 +64,8 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
             <div 
               className="absolute top-1 bottom-1 rounded-ui-full bg-background shadow-sm border border-border/50 transition-all duration-300 ease-out z-0"
               style={{ 
-                left: currentDomain === 'books' ? '4px' : currentDomain === 'manga_comics' ? 'calc(33.33% + 2px)' : 'calc(66.66% + 0px)', 
-                width: 'calc(33.33% - 4px)' 
+                left: currentDomain === 'books' ? '4px' : 'calc(50% + 2px)', 
+                width: 'calc(50% - 6px)' 
               }} 
             />
             

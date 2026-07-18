@@ -7,7 +7,6 @@ import {
   Home,
   Library,
   Trash2,
-  BarChart2,
 } from "lucide-react"
 import { AniListIcon, TorboxIcon } from "@/components/icons"
 
@@ -60,12 +59,6 @@ const NAV_ITEMS: NavItem[] = [
     targetView: "anilist",
     isActive: (view) => view === "anilist",
     icon: AniListIcon,
-  },
-  {
-    label: "Statistics",
-    targetView: "statistics",
-    isActive: (view) => view === "statistics",
-    icon: BarChart2,
   },
 ]
 

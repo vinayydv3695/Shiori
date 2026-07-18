@@ -270,7 +270,7 @@ export function AniListMangaDetailsView({
   // Form State
   const [status, setStatus] = useState(initialEntry?.status || 'PLANNING');
   const [progress, setProgress] = useState(initialEntry?.progress || 0);
-  const [score, setScore] = useState(initialEntry?.score || 0);
+  const [score, setScore] = useState(initialEntry?.score100 ?? initialEntry?.score ?? 0);
   const [notes, setNotes] = useState(initialEntry?.notes || '');
   const [repeat, setRepeat] = useState(initialEntry?.repeat || 0);
   
@@ -285,7 +285,7 @@ export function AniListMangaDetailsView({
   useEffect(() => {
     setStatus(initialEntry?.status || 'PLANNING');
     setProgress(initialEntry?.progress || 0);
-    setScore(initialEntry?.score || 0);
+    setScore(initialEntry?.score100 ?? initialEntry?.score ?? 0);
     setNotes(initialEntry?.notes || '');
     setRepeat(initialEntry?.repeat || 0);
     setStartedAt(parseDate(initialEntry?.startedAt));
@@ -417,7 +417,7 @@ export function AniListMangaDetailsView({
           {/* Top Nav (Desktop) / Floating Back Button (Mobile) */}
           <header data-tauri-drag-region className={cn(
             "fixed top-0 w-full z-50 transition-colors",
-            isMobile ? "bg-transparent p-4" : "bg-background/70 backdrop-blur-xl border-b border-surface-variant sticky"
+            isMobile ? "bg-transparent p-4 pt-12" : "bg-background/70 backdrop-blur-xl border-b border-surface-variant sticky"
           )}>
             <nav className={cn("flex items-center", isMobile ? "justify-start" : "justify-between px-6 py-4 max-w-7xl mx-auto")}>
               <button onClick={onClose} className={cn(

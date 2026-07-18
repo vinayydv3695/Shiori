@@ -50,8 +50,9 @@ export interface AnilistMedia {
 export interface AnilistMediaList {
   id: number;
   status: string;
-  score: number;
   progress: number;
+  score: number;
+  score100?: number;
   progressVolumes: number;
   startedAt?: {
     year: number | null;
@@ -298,6 +299,7 @@ export async function updateMediaListEntry(
         status
         progress
         score
+        score100: score(format: POINT_100)
         notes
         repeat
         startedAt { year month day }

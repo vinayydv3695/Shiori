@@ -1,6 +1,6 @@
 # Release Notes (v1.61.6)
 
-## ✨ New Features & Improvements
+##  New Features & Improvements
 - **Auto-Updates**: Added background automatic update checking on startup!
   - **Desktop**: Automatically checks for updates and prompts you to install via the Tauri updater.
   - **Android**: Automatically checks the latest GitHub release and prompts you to download the newest `.apk`.
@@ -9,6 +9,6 @@
 - **Manga Reader - Mobile UX**: Streamlined the Manga sidebar on Android, moving complex settings to the Advanced Settings panel to keep the interface smooth and lightweight.
 - **Epub Reader - Mobile**: Disabled double page view for Android devices.
 
-## 🐛 Bug Fixes
+##  Bug Fixes
 - Re-added the missing TTS controls/doodle icon on both Desktop and Android interfaces.
 - Fixed the visual glitch and lingering loading spinner when switching from online books to online manga by implementing smooth skeleton loading screens.

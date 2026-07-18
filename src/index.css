@@ -583,3 +583,27 @@ input:-webkit-autofill:active{
   --tw-shadow-colored: 0 4px 6px -1px var(--tw-shadow-color), 0 2px 4px -2px var(--tw-shadow-color) !important;
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow) !important;
 }
+
+/* ==================== SONNER TOAST PORTAL FIX ==================== */
+/*
+  Sonner renders the <Toaster> into a shadow portal at the bottom of <body>,
+  outside the React root div. In a production Vite build, CSS custom properties
+  defined on :root ARE available globally, but classes like bg-background/80 or
+  backdrop-blur-xl that reference --background etc. depend on the property being
+  inherited from a parent. Since the portal is a direct child of <body> this
+  works at dev time but may fail in production with aggressive CSS optimisation.
+  We explicitly re-declare the key tokens on the Sonner section root.
+*/
+[data-sonner-toaster] {
+  --background: var(--background);
+  --foreground: var(--foreground);
+  --card: var(--card);
+  --card-foreground: var(--card-foreground);
+  --primary: var(--primary);
+  --primary-foreground: var(--primary-foreground);
+  --border: var(--border);
+  --ring: var(--ring);
+  --radius: var(--radius);
+  font-family: inherit;
+}
+

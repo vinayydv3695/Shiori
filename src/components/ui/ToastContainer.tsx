@@ -17,7 +17,11 @@ export const ToastContainer = () => {
       offset={isMobileOrTablet ? (isAndroid ? 48 : 24) : 72}
       expand={!isMobileOrTablet}
       toastOptions={{
-        className: 'rounded-2xl max-md:rounded-ui-xl px-4 py-3 text-sm shadow-xl font-medium tracking-tight border-0 ring-1 ring-black/5 dark:ring-white/10 backdrop-blur-xl bg-background/80',
+        // NOTE: avoid bg-background/80, backdrop-blur-xl and other CSS-variable-
+        // dependent Tailwind classes here — Sonner renders toasts in a portal
+        // outside the React root, so CSS custom properties (--background etc.)
+        // are not inherited in production builds.
+        className: 'rounded-2xl px-4 py-3 text-sm shadow-xl font-medium tracking-tight border-0',
         style: {
           minHeight: 'auto',
           borderRadius: '16px',
@@ -26,3 +30,4 @@ export const ToastContainer = () => {
     />
   );
 };
+

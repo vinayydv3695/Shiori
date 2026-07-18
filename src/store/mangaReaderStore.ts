@@ -330,7 +330,7 @@ interface MangaSettingsState {
 }
 
 const defaultMangaSettings = {
-    readingMode: 'webtoon' as ReadingMode,
+    readingMode: 'strip' as ReadingMode,
     readingDirection: 'ltr' as ReadingDirection,
     fitMode: 'contain' as FitMode,
     stripMargin: 4,

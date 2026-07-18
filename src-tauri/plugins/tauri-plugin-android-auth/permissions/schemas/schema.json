@@ -307,6 +307,18 @@
           "markdownDescription": "Denies the clear_secure_token command without any pre-configured scope."
         },
         {
+          "description": "Enables the get_pending_oauth_data command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-pending-oauth-data",
+          "markdownDescription": "Enables the get_pending_oauth_data command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_pending_oauth_data command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-pending-oauth-data",
+          "markdownDescription": "Denies the get_pending_oauth_data command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_secure_token command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-secure-token",
@@ -355,10 +367,10 @@
           "markdownDescription": "Denies the start_oauth_login command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`\n- `allow-start-oauth-login`\n- `allow-set-secure-token`\n- `allow-get-secure-token`\n- `allow-clear-secure-token`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`\n- `allow-start-oauth-login`\n- `allow-set-secure-token`\n- `allow-get-secure-token`\n- `allow-clear-secure-token`\n- `allow-get-pending-oauth-data`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`\n- `allow-start-oauth-login`\n- `allow-set-secure-token`\n- `allow-get-secure-token`\n- `allow-clear-secure-token`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`\n- `allow-start-oauth-login`\n- `allow-set-secure-token`\n- `allow-get-secure-token`\n- `allow-clear-secure-token`\n- `allow-get-pending-oauth-data`"
         }
       ]
     }

@@ -540,35 +540,39 @@ export function Layout({
 
       {/* ── Mobile FAB for Import ── */}
       {isMobile && currentView === 'library' && (
-        <div className="fixed bottom-20 right-4 z-50">
+        <div className="fixed bottom-20 right-4 z-[60]">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="flex items-center justify-center w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-transform hover:scale-105 active:scale-95"
+                className="flex items-center justify-center w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-[0_8px_30px_rgba(0,0,0,0.4)] transition-all duration-300 hover:scale-105 active:scale-95 data-[state=open]:rotate-45 data-[state=open]:bg-secondary data-[state=open]:text-secondary-foreground"
               >
-                <Plus size={24} />
+                <Plus size={28} />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" sideOffset={12} className="w-56 rounded-xl border-border shadow-xl bg-background/95 backdrop-blur-xl p-2">
-              <DropdownMenuItem onClick={() => handleOpenImportFilesDialog(true)} className="gap-3 p-3 cursor-pointer rounded-lg flex items-center">
-                <div className="p-2 bg-primary/10 rounded-md shrink-0">
-                  <IconImportBook size={18} className="text-primary" />
+            <DropdownMenuContent 
+              align="end" 
+              sideOffset={12} 
+              className="w-56 rounded-2xl border-border/50 shadow-2xl bg-background/80 backdrop-blur-2xl p-2 origin-bottom-right data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-75 data-[state=open]:zoom-in-75 data-[side=top]:slide-in-from-bottom-10 duration-300 ease-out"
+            >
+              <DropdownMenuItem onClick={() => handleOpenImportFilesDialog(true)} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200 active:scale-95">
+                <div className="p-2.5 bg-primary/10 rounded-lg shrink-0">
+                  <IconImportBook size={20} className="text-primary" />
                 </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm font-medium leading-none">Import Files</span>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-base font-semibold leading-none">Import Files</span>
                   <span className="text-xs text-muted-foreground leading-snug">Individual files</span>
                 </div>
               </DropdownMenuItem>
 
-              <DropdownMenuSeparator className="bg-border/50" />
+              <DropdownMenuSeparator className="bg-border/30 my-1 mx-2" />
 
-              <DropdownMenuItem onClick={() => handleOpenImportFolderDialog(true)} className="gap-3 p-3 cursor-pointer rounded-lg flex items-center">
-                <div className="p-2 bg-primary/10 rounded-md shrink-0">
-                  <IconImportManga size={18} className="text-primary" />
+              <DropdownMenuItem onClick={() => handleOpenImportFolderDialog(true)} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200 active:scale-95">
+                <div className="p-2.5 bg-primary/10 rounded-lg shrink-0">
+                  <IconImportManga size={20} className="text-primary" />
                 </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm font-medium leading-none">Import Folder</span>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-base font-semibold leading-none">Import Folder</span>
                   <span className="text-xs text-muted-foreground leading-snug">Scan directory</span>
                 </div>
               </DropdownMenuItem>

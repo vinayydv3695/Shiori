@@ -36,11 +36,16 @@ impl PiperService {
         let espeak_data_dir = resource_dir.join("resources");
         std::env::set_var("PIPER_ESPEAKNG_DATA_DIRECTORY", &espeak_data_dir);
 
+        let http_client = Client::builder()
+            .user_agent("Shiori-TTS/1.0")
+            .build()
+            .unwrap_or_else(|_| Client::new());
+
         Self {
             _app_handle: app_handle,
             voices_dir,
             engine_cache: tokio::sync::Mutex::new(std::collections::HashMap::new()),
-            http_client: Client::new(),
+            http_client,
         }
     }
 
@@ -1227,14 +1232,18 @@ impl PiperService {
 
         // Download JSON config
         let response = self.http_client.get(&voice.download_url_json).send().await
-            .map_err(|e| format!("Failed to download config: {}", e))?;
+            .map_err(|e| format!("Failed to download config: {}", e))?
+            .error_for_status()
+            .map_err(|e| format!("Config HTTP Error: {}", e))?;
         let bytes = response.bytes().await.map_err(|e| e.to_string())?;
         let mut file = tokio::fs::File::create(&json_path).await.map_err(|e| e.to_string())?;
         file.write_all(&bytes).await.map_err(|e| e.to_string())?;
 
         // Download ONNX model
         let response = self.http_client.get(&voice.download_url_onnx).send().await
-            .map_err(|e| format!("Failed to download model: {}", e))?;
+            .map_err(|e| format!("Failed to download model: {}", e))?
+            .error_for_status()
+            .map_err(|e| format!("Model HTTP Error: {}", e))?;
         let bytes = response.bytes().await.map_err(|e| e.to_string())?;
         let mut file = tokio::fs::File::create(&onnx_path).await.map_err(|e| e.to_string())?;
         file.write_all(&bytes).await.map_err(|e| e.to_string())?;

@@ -1,5 +1,6 @@
-import { Home, Library, Compass, Cloud, Settings, Highlighter, Tv } from 'lucide-react'
+import { Home, Library, Compass, Cloud, Settings, Highlighter, Tv, Menu, BarChart2, Rss, Trash2 } from 'lucide-react'
 import { AniListIcon, TorboxIcon } from '@/components/icons'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import type { CurrentView } from '@/store/uiStore'
 import { usePreferencesStore } from '@/store/preferencesStore'
@@ -73,12 +74,72 @@ export function BottomNav({
         />
       )}
 
-      <NavItem
-        icon={<Settings className="w-[22px] h-[22px]" />}
-        label="Settings"
-        isActive={false}
-        onClick={onOpenSettings}
-      />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="flex flex-col items-center justify-center w-full h-full gap-1 text-muted-foreground hover:text-foreground transition-colors">
+            <Menu className="w-[22px] h-[22px]" />
+            <span className="text-[10px] font-medium">More</span>
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent 
+          align="end" 
+          side="top"
+          sideOffset={20}
+          className="w-56 rounded-2xl border-border/50 shadow-2xl bg-background/90 backdrop-blur-2xl p-2 mb-2"
+        >
+          <DropdownMenuItem onClick={onOpenSettings} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
+            <div className="p-2 bg-primary/10 rounded-lg shrink-0 text-primary">
+              <Settings size={18} />
+            </div>
+            <span className="text-base font-medium">Settings</span>
+          </DropdownMenuItem>
+          
+          <DropdownMenuSeparator className="my-1 bg-border/50" />
+          
+          <DropdownMenuItem onClick={() => onNavigateToView('statistics')} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
+            <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
+              <BarChart2 size={18} />
+            </div>
+            <span className="text-base font-medium">Statistics</span>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem onClick={() => onNavigateToView('rss-feeds')} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
+            <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
+              <Rss size={18} />
+            </div>
+            <span className="text-base font-medium">RSS Feeds</span>
+          </DropdownMenuItem>
+
+          {preferredContentType !== 'books' && (
+            <>
+              {hasTorboxKey ? (
+                <DropdownMenuItem onClick={() => onNavigateToView('anilist')} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
+                  <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
+                    <AniListIcon className="w-[18px] h-[18px]" />
+                  </div>
+                  <span className="text-base font-medium">AniList</span>
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={() => onNavigateToView('torbox-discover')} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
+                  <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
+                    <TorboxIcon className="w-[18px] h-[18px]" />
+                  </div>
+                  <span className="text-base font-medium">Torbox</span>
+                </DropdownMenuItem>
+              )}
+            </>
+          )}
+
+          <DropdownMenuSeparator className="my-1 bg-border/50" />
+
+          <DropdownMenuItem onClick={() => onNavigateToView('recycle-bin')} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200 text-destructive focus:bg-destructive/10 focus:text-destructive">
+            <div className="p-2 bg-destructive/10 rounded-lg shrink-0">
+              <Trash2 size={18} />
+            </div>
+            <span className="text-base font-medium">Trash</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </nav>
   )
 }

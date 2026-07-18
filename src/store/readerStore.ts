@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { ReaderContent } from '@/components/reader/readerContent';
+import { isAndroid } from '@/lib/tauri';
 
 export interface ReadingProgress {
   id?: number;
@@ -122,7 +123,7 @@ export const useReaderStore = create<ReaderState>((set) => ({
   settings: {
     userId: 'default',
     fontFamily: 'EB Garamond',
-    fontSize: 14,
+    fontSize: isAndroid ? 14 : 24,
     lineHeight: 1.6,
     theme: 'black',
     pageMode: 'paginated',

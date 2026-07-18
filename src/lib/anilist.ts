@@ -606,8 +606,8 @@ export async function getUserActivities(userId: number, token: string): Promise<
 export async function getUserReviews(userId: number, token: string): Promise<AnilistReview[]> {
   const query = `
     query ($userId: Int!) {
-      Page(perPage: 25) {
-        reviews(userId: $userId, mediaType: MANGA) {
+      Page(perPage: 50) {
+        reviews(userId: $userId, mediaType: MANGA, sort: [UPDATED_AT_DESC, CREATED_AT_DESC]) {
           id
           summary
           score

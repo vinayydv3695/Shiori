@@ -43,6 +43,7 @@ export function VoiceManager() {
 
   const [piperVoices, setPiperVoices] = useState<VoiceInfo[]>([]);
   const [downloadingVoice, setDownloadingVoice] = useState<string | null>(null);
+  const [testingVoice, setTestingVoice] = useState<string | null>(null);
 
   useEffect(() => {
     if (isTauri) {
@@ -280,22 +281,25 @@ export function VoiceManager() {
                           <Button 
                             variant="ghost" 
                             size="sm" 
+                            disabled={testingVoice !== null}
                             onClick={async () => {
                               try {
-                                const audioUrl = await api.synthesizeSpeech('This is a test of the Piper voice engine.', voice.id);
+                                setTestingVoice(voice.id);
+                                const audioUrl = await api.synthesizeSpeech('Testing 1 2 3.', voice.id);
                                 // The audioUrl is a local file path, but tauri cannot play it directly via HTMLAudioElement without asset protocol.
                                 // It can be played using window.__TAURI__.convertFileSrc(audioUrl) if imported
-                                import('@tauri-apps/api/core').then(({ convertFileSrc }) => {
-                                  const url = convertFileSrc(audioUrl);
-                                  const audio = new Audio(url);
-                                  audio.play();
-                                });
+                                const { convertFileSrc } = await import('@tauri-apps/api/core');
+                                const url = convertFileSrc(audioUrl);
+                                const audio = new Audio(url);
+                                audio.play().catch(e => console.error("Audio playback blocked:", e));
                               } catch (e) {
                                 console.error('Synthesize failed:', e);
+                              } finally {
+                                setTestingVoice(null);
                               }
                             }}
                           >
-                            Test
+                            {testingVoice === voice.id ? <Loader2 className="w-4 h-4 animate-spin" /> : "Test"}
                           </Button>
                           <Button 
                             variant={isSelected ? "default" : "outline"} 

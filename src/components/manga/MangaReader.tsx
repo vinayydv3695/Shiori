@@ -292,163 +292,207 @@ export function MangaReader(props: MangaReaderProps) {
 
         return () => { cancelled = true; };
     }, [sourceType, bookId, currentPage, mangaTotalPages, pageDimensions, mergePageDimensions]);
-
-    // Save reading progress when page changes
+    // Track latest state for saving progress without dependency churn
+    const progressStateRef = useRef({ currentPage, mangaTotalPages, onlineSource, sourceType, bookId });
     useEffect(() => {
-        // Skip saving until initialization + resume is complete
-        if (!initCompleteRef.current) return;
+        progressStateRef.current = { currentPage, mangaTotalPages, onlineSource, sourceType, bookId };
+    }, [currentPage, mangaTotalPages, onlineSource, sourceType, bookId]);
 
+    const saveProgressTimerRef = useRef<number | null>(null);
+
+    const flushProgressNow = useCallback(async () => {
+        if (saveProgressTimerRef.current) {
+            window.clearTimeout(saveProgressTimerRef.current);
+            saveProgressTimerRef.current = null;
+        }
+
+        if (!initCompleteRef.current) return;
+        
+        const { currentPage, mangaTotalPages, onlineSource, sourceType, bookId } = progressStateRef.current;
+        
         if (currentPage === 0 && mangaTotalPages === 0) {
             return;
         }
 
-        const saveProgress = async () => {
-            try {
-                const progressPercent = mangaTotalPages > 0 
-                    ? ((currentPage + 1) / mangaTotalPages) * 100 
-                    : 0;
+        try {
+            const progressPercent = mangaTotalPages > 0 
+                ? ((currentPage + 1) / mangaTotalPages) * 100 
+                : 0;
+            
+            if (sourceType === 'local' && bookId) {
+                await api.saveReadingProgress(
+                    bookId,
+                    `page_${currentPage}`,
+                    progressPercent,
+                    currentPage,
+                    mangaTotalPages
+                );
+                logger.debug('[MangaReader] Saved local progress:', { currentPage, total: mangaTotalPages, percent: progressPercent });
+
+                const libBook = useLibraryStore.getState().books.find(b => b.id === bookId);
+                if (libBook && currentPage === mangaTotalPages - 1) {
+                    const anilistToken = await anilistAuth.getAccessToken();
+                    if (anilistToken) {
+                        const match = libBook.title.match(/chapter\s+(\d+)/i) || libBook.title.match(/(?:ch|c)\.?\s*(\d+)/i);
+                        const chapterNum = match ? parseInt(match[1]) : 0;
+                        
+                        try {
+                            let mediaId = libBook.anilist_id ? Number(libBook.anilist_id) : null;
+                            
+                            // Auto-match
+                            if (!mediaId) {
+                                const results = await searchMedia(libBook.title, anilistToken);
+                                if (results && results.length > 0) {
+                                    mediaId = results[0].id;
+                                    const updatedBook = { ...libBook, anilist_id: mediaId.toString() };
+                                    await api.updateBook(updatedBook);
+                                    useLibraryStore.getState().updateBook(updatedBook);
+                                }
+                            }
+                            
+                            if (mediaId) {
+                                // Local manga usually means one file is the whole book or volume. Let's just prompt.
+                                setCompletionData({
+                                    mediaId,
+                                    title: libBook.title,
+                                    totalChapters: chapterNum,
+                                    token: anilistToken
+                                });
+                                setShowCompletionPrompt(true);
+                            }
+                        } catch (err) {
+                            logger.warn('[MangaReader] Failed to sync local manga to AniList:', err);
+                        }
+                    }
+                }
+            } else if (sourceType === 'online' && onlineSource) {
+                // Save online progress to localStorage
+                const progressKey = `online:${onlineSource.sourceId}:${onlineSource.contentId}`;
+                localStorage.setItem(`shiori-manga-progress:${progressKey}`, JSON.stringify({
+                    chapterId: onlineSource.chapterId,
+                    page: currentPage,
+                    timestamp: Date.now(),
+                }));
                 
-                if (sourceType === 'local' && bookId) {
+                // Also save to library database if the user added it
+                const expectedPath = `online-manga://${onlineSource.sourceId}/${onlineSource.contentId}`;
+                const libBook = useLibraryStore.getState().books.find(b => b.file_path === expectedPath);
+                if (libBook) {
                     await api.saveReadingProgress(
-                        bookId,
-                        `page_${currentPage}`,
+                        libBook.id!,
+                        `${onlineSource.chapterId}|${onlineSource.chapterTitle}|${currentPage}`,
                         progressPercent,
                         currentPage,
                         mangaTotalPages
                     );
-                    logger.debug('[MangaReader] Saved local progress:', { currentPage, total: mangaTotalPages, percent: progressPercent });
+                }
 
-                    const libBook = useLibraryStore.getState().books.find(b => b.id === bookId);
-                    if (libBook && currentPage === mangaTotalPages - 1) {
-                        const anilistToken = await anilistAuth.getAccessToken();
-                        if (anilistToken) {
-                            const match = libBook.title.match(/chapter\s+(\d+)/i) || libBook.title.match(/(?:ch|c)\.?\s*(\d+)/i);
-                            const chapterNum = match ? parseInt(match[1]) : 0;
+                if (currentPage === mangaTotalPages - 1) {
+                    const anilistToken = await anilistAuth.getAccessToken();
+                    if (anilistToken) {
+                        const chapterInfo = onlineSource.chapters.find(c => c.id === onlineSource.chapterId);
+                        const chapterNum = typeof chapterInfo?.number === 'number' ? Math.floor(chapterInfo.number) : 0;
+                        
+                        try {
+                            let mediaId = libBook?.anilist_id ? Number(libBook.anilist_id) : null;
                             
-                            try {
-                                let mediaId = libBook.anilist_id ? Number(libBook.anilist_id) : null;
-                                
-                                // Auto-match
-                                if (!mediaId) {
-                                    const results = await searchMedia(libBook.title, anilistToken);
+                            // Auto-match
+                            if (!mediaId) {
+                                const titleToSearch = onlineSource.contentTitle || libBook?.title;
+                                if (titleToSearch) {
+                                    const results = await searchMedia(titleToSearch, anilistToken);
                                     if (results && results.length > 0) {
                                         mediaId = results[0].id;
-                                        const updatedBook = { ...libBook, anilist_id: mediaId.toString() };
-                                        await api.updateBook(updatedBook);
-                                        useLibraryStore.getState().updateBook(updatedBook);
+                                        
+                                        // If it's a library book, save the matched ID
+                                        if (libBook) {
+                                            const updatedBook = { ...libBook, anilist_id: mediaId.toString() };
+                                            await api.updateBook(updatedBook);
+                                            useLibraryStore.getState().updateBook(updatedBook);
+                                        }
                                     }
                                 }
+                            }
+                            
+                            if (mediaId) {
+                                const maxChapterNum = Math.max(...onlineSource.chapters.map(c => typeof c.number === 'number' ? Math.floor(c.number) : 0));
+                                const isLastChapter = chapterNum >= maxChapterNum && chapterNum > 0;
                                 
-                                if (mediaId) {
-                                    // Local manga usually means one file is the whole book or volume. Let's just prompt.
+                                if (isLastChapter) {
                                     setCompletionData({
                                         mediaId,
-                                        title: libBook.title,
+                                        title: onlineSource.contentTitle || libBook?.title || '',
                                         totalChapters: chapterNum,
                                         token: anilistToken
                                     });
                                     setShowCompletionPrompt(true);
+                                } else {
+                                    await safeUpdateMediaListEntry(mediaId, chapterNum, 'CURRENT', anilistToken);
+                                    logger.debug(`[MangaReader] Synced online progress to AniList for ${mediaId}`);
                                 }
-                            } catch (err) {
-                                logger.warn('[MangaReader] Failed to sync local manga to AniList:', err);
                             }
+                        } catch (err) {
+                            logger.warn('[MangaReader] Failed to sync online manga to AniList:', err);
                         }
                     }
-                } else if (sourceType === 'online' && onlineSource) {
-                    // Save online progress to localStorage
-                    const progressKey = `online:${onlineSource.sourceId}:${onlineSource.contentId}`;
-                    localStorage.setItem(`shiori-manga-progress:${progressKey}`, JSON.stringify({
-                        chapterId: onlineSource.chapterId,
-                        page: currentPage,
-                        timestamp: Date.now(),
-                    }));
-                    
-                    // Also save to library database if the user added it
-                    const expectedPath = `online-manga://${onlineSource.sourceId}/${onlineSource.contentId}`;
-                    const libBook = useLibraryStore.getState().books.find(b => b.file_path === expectedPath);
-                    if (libBook) {
-                        await api.saveReadingProgress(
-                            libBook.id!,
-                            `${onlineSource.chapterId}|${onlineSource.chapterTitle}|${currentPage}`,
-                            progressPercent,
-                            currentPage,
-                            mangaTotalPages
-                        );
-                    }
-
-                    if (currentPage === mangaTotalPages - 1) {
-                        const anilistToken = await anilistAuth.getAccessToken();
-                        if (anilistToken) {
-                            const chapterInfo = onlineSource.chapters.find(c => c.id === onlineSource.chapterId);
-                            const chapterNum = typeof chapterInfo?.number === 'number' ? Math.floor(chapterInfo.number) : 0;
-                            
-                            try {
-                                let mediaId = libBook?.anilist_id ? Number(libBook.anilist_id) : null;
-                                
-                                // Auto-match
-                                if (!mediaId) {
-                                    const titleToSearch = onlineSource.contentTitle || libBook?.title;
-                                    if (titleToSearch) {
-                                        const results = await searchMedia(titleToSearch, anilistToken);
-                                        if (results && results.length > 0) {
-                                            mediaId = results[0].id;
-                                            
-                                            // If it's a library book, save the matched ID
-                                            if (libBook) {
-                                                const updatedBook = { ...libBook, anilist_id: mediaId.toString() };
-                                                await api.updateBook(updatedBook);
-                                                useLibraryStore.getState().updateBook(updatedBook);
-                                            }
-                                        }
-                                    }
-                                }
-                                
-                                if (mediaId) {
-                                    const maxChapterNum = Math.max(...onlineSource.chapters.map(c => typeof c.number === 'number' ? Math.floor(c.number) : 0));
-                                    const isLastChapter = chapterNum >= maxChapterNum && chapterNum > 0;
-                                    
-                                    if (isLastChapter) {
-                                        setCompletionData({
-                                            mediaId,
-                                            title: onlineSource.contentTitle || libBook?.title || '',
-                                            totalChapters: chapterNum,
-                                            token: anilistToken
-                                        });
-                                        setShowCompletionPrompt(true);
-                                    } else {
-                                        await safeUpdateMediaListEntry(mediaId, chapterNum, 'CURRENT', anilistToken);
-                                        logger.debug(`[MangaReader] Synced online progress to AniList for ${mediaId}`);
-                                    }
-                                }
-                            } catch (err) {
-                                logger.warn('[MangaReader] Failed to sync online manga to AniList:', err);
-                            }
-                        }
-                    }
-
-                    logger.debug('[MangaReader] Saved online progress:', { 
-                        sourceId: onlineSource.sourceId,
-                        contentId: onlineSource.contentId,
-                        chapterId: onlineSource.chapterId,
-                        currentPage, 
-                        total: mangaTotalPages,
-                        inLibrary: !!libBook
-                    });
                 }
-            } catch (err) {
-                logger.warn('[MangaReader] Failed to save reading progress:', err);
+
+                logger.debug('[MangaReader] Saved online progress:', { 
+                    sourceId: onlineSource.sourceId,
+                    contentId: onlineSource.contentId,
+                    chapterId: onlineSource.chapterId,
+                    currentPage, 
+                    total: mangaTotalPages,
+                    inLibrary: !!libBook
+                });
+            }
+        } catch (err) {
+            logger.warn('[MangaReader] Failed to save reading progress:', err);
+        }
+    }, []);
+
+    // Save reading progress when page changes (debounced)
+    useEffect(() => {
+        if (!initCompleteRef.current) return;
+        if (currentPage === 0 && mangaTotalPages === 0) return;
+
+        if (saveProgressTimerRef.current) {
+            window.clearTimeout(saveProgressTimerRef.current);
+        }
+        
+        saveProgressTimerRef.current = window.setTimeout(() => {
+            void flushProgressNow();
+        }, 1000);
+        
+        return () => {
+            if (saveProgressTimerRef.current) {
+                window.clearTimeout(saveProgressTimerRef.current);
+                saveProgressTimerRef.current = null;
             }
         };
+    }, [currentPage, mangaTotalPages, flushProgressNow]);
 
-        // Debounce saves to avoid excessive calls
-        const timeoutId = setTimeout(saveProgress, 1000);
-        return () => clearTimeout(timeoutId);
-    }, [sourceType, bookId, onlineSource, currentPage, mangaTotalPages]);
+    // Ensure progress is flushed on visibility change (app backgrounded on Android)
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') {
+                void flushProgressNow();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            void flushProgressNow(); // Flush on unmount too
+        };
+    }, [flushProgressNow]);
 
     // Close handler
     const handleClose = useCallback(() => {
+        void flushProgressNow(); // Flush immediately before closing
+
         if (sourceType === 'local' && bookId) {
             // Release the backend ZIP archive to free memory
+
             api.closeManga(bookId).catch(err =>
                 logger.warn('[MangaReader] Failed to close manga backend:', err)
             );

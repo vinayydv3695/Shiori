@@ -4,7 +4,7 @@ import { useUIStore } from "@/store/uiStore"
 import { usePreferencesStore } from "@/store/preferencesStore"
 import { useLibraryStore, countActiveFilterCriteria } from "@/store/libraryStore"
 import { useState, useRef, useEffect } from "react"
-import { IconX } from "@/components/icons/ShioriIcons"
+import { IconX, IconSun, IconMoon } from "@/components/icons/ShioriIcons"
 import { isAndroid } from "@/lib/tauri"
 
 interface MobileStickyHeaderProps {
@@ -17,6 +17,15 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
   const currentDomain = useUIStore((s) => s.currentDomain)
   const setCurrentDomain = useUIStore((s) => s.setCurrentDomain)
   const preferences = usePreferencesStore((s) => s.preferences)
+  const updateTheme = usePreferencesStore((s) => s.updateTheme)
+
+  const isSepia = preferences?.theme === 'sepia'
+  
+  const toggleTheme = async () => {
+    if (preferences) {
+      await updateTheme(isSepia ? 'black' : 'sepia')
+    }
+  }
   
   const activeFilters = useLibraryStore((s) => s.activeFilters)
   const activeFilterCount = countActiveFilterCriteria(activeFilters)
@@ -97,25 +106,35 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
           </div>
         )}
 
-        {/* Filter Button */}
-        <button
-          type="button"
-          onClick={onOpenAdvancedFilter}
-          className={cn(
-            'relative flex items-center justify-center min-h-[48px] px-4 rounded-ui-full border shadow-sm transition-all duration-200 touch-target',
-            activeFilterCount > 0
-              ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
-              : 'bg-background text-foreground border-border hover:bg-accent'
-          )}
-        >
-          <IconFilter size={14} className="mr-1.5" />
-          <span className="text-xs font-semibold">Filter</span>
-          {activeFilterCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-ui-full bg-background text-foreground text-[10px] font-black shadow-sm ring-2 ring-background">
-              {activeFilterCount}
-            </span>
-          )}
-        </button>
+        {/* Right Actions */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="relative flex items-center justify-center h-12 w-12 rounded-ui-full border shadow-sm transition-all duration-200 touch-target bg-background text-foreground border-border hover:bg-accent flex-shrink-0"
+          >
+            {isSepia ? <IconMoon size={16} /> : <IconSun size={16} />}
+          </button>
+
+          <button
+            type="button"
+            onClick={onOpenAdvancedFilter}
+            className={cn(
+              'relative flex items-center justify-center h-12 px-3.5 rounded-ui-full border shadow-sm transition-all duration-200 touch-target flex-shrink-0',
+              activeFilterCount > 0
+                ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
+                : 'bg-background text-foreground border-border hover:bg-accent'
+            )}
+          >
+            <IconFilter size={14} className="mr-1.5" />
+            <span className="text-xs font-semibold">Filter</span>
+            {activeFilterCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-ui-full bg-background text-foreground text-[10px] font-black shadow-sm ring-2 ring-background">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Search Input */}

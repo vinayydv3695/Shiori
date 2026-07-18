@@ -127,15 +127,17 @@ export function GlobalDialogs({
       )}
 
       {resumeReading.pendingResume && (
-        <ResumeReadingDialog
-          isOpen={resumeReading.showDialog}
-          onOpenChange={resumeReading.onDialogOpenChange}
-          bookTitle={resumeReading.pendingResume.bookTitle}
-          progressPercent={resumeReading.pendingResume.progress.progressPercent}
-          locationLabel={resumeReading.buildLocationLabel(resumeReading.pendingResume.progress)}
-          onResume={resumeReading.onResume}
-          onStartOver={resumeReading.onStartOver}
-        />
+        <Suspense fallback={null}>
+          <ResumeReadingDialog
+            isOpen={resumeReading.showDialog}
+            onOpenChange={resumeReading.onDialogOpenChange}
+            bookTitle={resumeReading.pendingResume.bookTitle}
+            progressPercent={resumeReading.pendingResume.progress.progressPercent}
+            locationLabel={resumeReading.buildLocationLabel(resumeReading.pendingResume.progress)}
+            onResume={resumeReading.onResume}
+            onStartOver={resumeReading.onStartOver}
+          />
+        </Suspense>
       )}
 
       {dialogs.selectedSeries && (
@@ -164,16 +166,20 @@ export function GlobalDialogs({
         <AdvancedFilterDialog open={dialogs.advancedFilterOpen} onOpenChange={dialogs.setAdvancedFilterOpen} />
       </Suspense>
 
-      <ShortcutsDialog open={dialogs.shortcutsDialogOpen} onOpenChange={dialogs.setShortcutsDialogOpen} />
+      <Suspense fallback={null}>
+        <ShortcutsDialog open={dialogs.shortcutsDialogOpen} onOpenChange={dialogs.setShortcutsDialogOpen} />
+      </Suspense>
       
-      <CommandPalette 
-        books={books}
-        onOpenBook={handleOpenBook}
-        onImportFiles={() => {}}
-        onSettings={() => dialogs.setSettingsDialogOpen(true)}
-        onFetchMetadata={() => {}}
-        onFindDuplicates={() => {}}
-      />
+      <Suspense fallback={null}>
+        <CommandPalette 
+          books={books}
+          onOpenBook={handleOpenBook}
+          onImportFiles={() => {}}
+          onSettings={() => dialogs.setSettingsDialogOpen(true)}
+          onFetchMetadata={() => {}}
+          onFindDuplicates={() => {}}
+        />
+      </Suspense>
     </>
   )
 }

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { logger } from '@/lib/logger';
-import { api } from '@/lib/tauri';
+import { api, isAndroid } from '@/lib/tauri';
 import { normalizeLegacyFontPreference } from '@/lib/readingFonts';
 import type { Theme, UserPreferences } from '@/types/preferences';
 import { usePreferencesStore } from './preferencesStore';
@@ -180,7 +180,7 @@ const createDefaultState = (): OnboardingWizardState => ({
   },
   bookPrefs: {
     fontFamily: 'EB Garamond',
-    fontSize: 24,
+    fontSize: isAndroid ? 14 : 24,
     lineHeight: 1.6,
     pageWidth: 1200,
     scrollMode: 'paged',

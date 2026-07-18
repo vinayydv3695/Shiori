@@ -167,12 +167,7 @@ export function AdvancedFilterDialog({ open, onOpenChange }: AdvancedFilterDialo
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/60 backdrop-blur-md z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-300" />
-        <Dialog.Content aria-describedby={undefined} className="dialog-content fixed bottom-0 left-0 sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 bg-background border border-border/50 rounded-t-[32px] sm:rounded-xl shadow-2xl w-full sm:w-[640px] max-w-full max-h-[92vh] sm:max-h-[90vh] flex flex-col z-50 overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom-full data-[state=open]:slide-in-from-bottom-full sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95 sm:data-[state=closed]:slide-out-to-bottom-0 sm:data-[state=open]:slide-in-from-bottom-0 duration-300">
-          
-          {/* Mobile Drag Indicator */}
-          <div className="w-full flex justify-center pt-3 pb-1 sm:hidden shrink-0">
-            <div className="w-12 h-1.5 rounded-full bg-border/50" />
-          </div>
+        <Dialog.Content aria-describedby={undefined} className="dialog-content fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border/50 rounded-[24px] shadow-2xl w-[96vw] sm:w-[640px] max-w-full max-h-[85vh] flex flex-col z-50 overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-300">
 
           <div className="flex items-center justify-between px-6 py-4 border-b border-border/50 shrink-0">
             <Dialog.Title className="flex items-center gap-2 text-xl font-bold text-foreground">

@@ -145,7 +145,7 @@ import { isAndroid } from '@/lib/tauri';
 const defaultSettings = {
   theme: 'paper' as ReaderTheme,
   fontFamily: 'eb-garamond',
-  fontSize: isAndroid ? 16 : 14,
+  fontSize: isAndroid ? 14 : 24,
   lineHeight: isAndroid ? 1.8 : 1.6,
   paragraphSpacing: isAndroid ? '2em' : '1em',
   letterSpacing: isAndroid ? 'wide' : 'normal',

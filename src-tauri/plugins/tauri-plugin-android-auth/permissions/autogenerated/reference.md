@@ -9,6 +9,7 @@ Default permissions for the plugin
 - `allow-set-secure-token`
 - `allow-get-secure-token`
 - `allow-clear-secure-token`
+- `allow-get-pending-oauth-data`
 
 ## Permission Table
 
@@ -41,6 +42,32 @@ Enables the clear_secure_token command without any pre-configured scope.
 <td>
 
 Denies the clear_secure_token command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-auth:allow-get-pending-oauth-data`
+
+</td>
+<td>
+
+Enables the get_pending_oauth_data command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-auth:deny-get-pending-oauth-data`
+
+</td>
+<td>
+
+Denies the get_pending_oauth_data command without any pre-configured scope.
 
 </td>
 </tr>

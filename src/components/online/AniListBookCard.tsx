@@ -54,7 +54,7 @@ export function AniListBookCard({
         {score && score > 0 ? (
           <div className="flex items-center gap-1 bg-black/60 backdrop-blur-md text-white text-[11px] font-bold px-1.5 py-0.5 rounded shadow-sm border border-white/10">
             <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" />
-            {score % 10 === 0 ? score / 10 : score}
+            {score}
           </div>
         ) : <div />}
         

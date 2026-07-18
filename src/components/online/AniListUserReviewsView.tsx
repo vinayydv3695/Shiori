@@ -4,6 +4,7 @@ import { getUserReviews, AnilistReview } from '@/lib/anilist';
 import { useAniListAccessToken } from '@/auth/useAniListAccessToken';
 import { Skeleton } from '@/components/ui/skeleton';
 import { motion } from 'framer-motion';
+import { AniListWriteReviewDialog } from './AniListWriteReviewDialog';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -39,9 +40,20 @@ export function AniListUserReviewsView({ userId }: { userId: number }) {
     load();
   }, [userId, anilistToken]);
 
+  const [isWriteReviewOpen, setIsWriteReviewOpen] = useState(false);
+
   const handleWriteReview = () => {
-    // A simple alert for now. Writing a review requires selecting a media item first.
-    alert("To write a review, please navigate to the specific Manga's detail page and write it from there.");
+    setIsWriteReviewOpen(true);
+  };
+
+  const handleReviewSuccess = () => {
+    // Reload reviews
+    if (!anilistToken) return;
+    setLoading(true);
+    getUserReviews(userId, anilistToken)
+      .then(setReviews)
+      .catch(console.error)
+      .finally(() => setLoading(false));
   };
 
   if (loading) {
@@ -109,6 +121,12 @@ export function AniListUserReviewsView({ userId }: { userId: number }) {
           ))}
         </div>
       )}
+      {/* Dialog */}
+      <AniListWriteReviewDialog
+        open={isWriteReviewOpen}
+        onOpenChange={setIsWriteReviewOpen}
+        onSuccess={handleReviewSuccess}
+      />
     </motion.div>
   );
 }

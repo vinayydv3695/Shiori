@@ -186,7 +186,7 @@ export function AniListWriteReviewDialog({ open, onOpenChange, onSuccess }: AniL
                     max="100"
                     placeholder="e.g. 85" 
                     value={score}
-                    onChange={(e) => setScore(e.target.value)}
+                    onChange={(e) => setScore(e.target.value === '' ? '' : Number(e.target.value))}
                     className="w-24"
                   />
                   <span className="text-muted-foreground text-sm">/ 100</span>

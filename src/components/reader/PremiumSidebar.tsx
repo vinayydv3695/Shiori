@@ -402,6 +402,14 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
             transition={{ type: "spring", bounce: 0, duration: 0.4 }}
           >
             {/* Header with tabs */}
+            {isMobile && (
+              <div 
+                className="w-full flex justify-center pt-3 pb-1 cursor-pointer"
+                onClick={closeSidebar}
+              >
+                <div className="w-12 h-1.5 bg-[var(--text-tertiary)] opacity-30 rounded-full" />
+              </div>
+            )}
             <div className="premium-sidebar-header">
           <div className="premium-sidebar-tabs">
             {[

@@ -148,6 +148,14 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
         <PortalWrapper usePortal={isMobile}>
           <div className="md:hidden fixed inset-0 bg-black/40 z-[105]" onClick={() => setIsOpen(false)} />
           <div ref={panelRef} className="premium-settings-panel z-[110]">
+            {isMobile && (
+              <div 
+                className="w-full flex justify-center pb-4 cursor-pointer"
+                onClick={() => setIsOpen(false)}
+              >
+                <div className="w-12 h-1.5 bg-[var(--text-tertiary)] opacity-30 rounded-full" />
+              </div>
+            )}
             <div className="premium-settings-section">
             <label className="premium-settings-label">View Mode</label>
             <div className="premium-settings-width-grid">

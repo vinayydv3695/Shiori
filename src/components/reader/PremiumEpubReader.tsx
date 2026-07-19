@@ -375,9 +375,12 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         }
 
         attempts++;
-        // On Android WebViews, layout (especially images) can take time. We retry for up to 1000ms.
-        if (attempts < 10) {
+        // On Android WebViews, layout (especially images) can take time. We retry up to ~4 seconds.
+        const maxAttempts = isAndroid ? 40 : 10;
+        if (attempts < maxAttempts) {
           setTimeout(attemptScroll, 100);
+        } else if (attempts === maxAttempts) {
+          logger.warn(`attemptScroll gave up after ${maxAttempts} attempts`);
         }
       };
 
@@ -667,6 +670,8 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
           }
         }
 
+        // Seed the map before loading the chapter so it saves correctly
+        scrollPositionsRef.current.set(startIndex, savedScrollRatio);
         await loadChapterRef.current(startIndex, null, savedScrollRatio);
         setIsLoading(false);
 
@@ -1209,13 +1214,27 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
           initialScrollRatio={scrollPositionsRef.current.get(currentIndex)}
           onChapterChange={(idx) => {
             setCurrentIndex(idx);
-            // Save progress directly instead of calling loadChapter which causes duplicate fetching
-            const progressPercent = metadata
-              ? ((idx + 1) / metadata.total_chapters) * 100
-              : 0;
-            const location = `chapter_${idx}`;
-            const cfi = `epubcfi(/0/${idx}!/scroll/0.000000)`;
-            api.saveReadingProgress(bookId, location, progressPercent, undefined, undefined, cfi).catch(() => {});
+            
+            const canvas = canvasRef.current;
+            let scrollRatio = scrollPositionsRef.current.get(idx) ?? 0;
+            if (canvas) {
+              const { scrollTop, scrollHeight, clientHeight } = canvas;
+              scrollRatio = scrollHeight > clientHeight
+                ? scrollTop / (scrollHeight - clientHeight)
+                : 0;
+              scrollPositionsRef.current.set(idx, scrollRatio);
+            }
+
+            const totalChapters = metadata?.total_chapters ?? 1;
+            const chapterFraction = scrollRatio / totalChapters;
+            const progressPercent = ((idx + chapterFraction) / totalChapters) * 100;
+
+            const location = scrollRatio > 0
+              ? `chapter_${idx}:scroll_${scrollRatio.toFixed(6)}`
+              : `chapter_${idx}`;
+            const cfi = `epubcfi(/0/${idx}!/scroll/${scrollRatio.toFixed(6)})`;
+            
+            api.saveReadingProgress(bookId, location, Math.min(100, progressPercent), undefined, undefined, cfi).catch(() => {});
           }}
           widthClass={width}
           isFocusMode={isFocusMode}

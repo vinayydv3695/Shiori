@@ -97,12 +97,21 @@ export function ContinuousEpubView({
     const el = chapterRefs.current.get(initialChapterIndex);
     if (el) {
       if (initialScrollRatio > 0) {
-        // Wait for images/styles to potentially render
-        setTimeout(() => {
-          const container = containerRef.current!;
+        let attempts = 0;
+        const maxAttempts = /* isAndroid is from tauri but we can just use a large budget */ 40;
+        const attemptScroll = () => {
+          const container = containerRef.current;
+          if (!container) return;
           const scrollTarget = el.offsetTop + (el.scrollHeight * initialScrollRatio);
           container.scrollTo({ top: scrollTarget, behavior: 'instant' });
-        }, 100);
+          attempts++;
+          if (attempts < maxAttempts) {
+            setTimeout(attemptScroll, 100);
+          } else if (attempts === maxAttempts) {
+            console.warn(`ContinuousEpubView attemptScroll gave up after ${maxAttempts} attempts`);
+          }
+        };
+        setTimeout(attemptScroll, 100);
       } else {
         // Just scroll the element into view
         el.scrollIntoView({ behavior: 'instant', block: 'start' });

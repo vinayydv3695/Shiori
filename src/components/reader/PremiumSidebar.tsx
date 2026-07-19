@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { AnimatePresence, motion, useDragControls } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useReaderUIStore } from '@/store/premiumReaderStore';
 import { api } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
@@ -49,7 +49,6 @@ function escapeHtml(str: string): string {
 }
 
 export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSidebarProps) {
-  const dragControls = useDragControls();
   const isSidebarOpen = useReaderUIStore(state => state.isSidebarOpen);
   const sidebarTab = useReaderUIStore(state => state.sidebarTab);
   const closeSidebar = useReaderUIStore(state => state.closeSidebar);
@@ -401,26 +400,7 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
             animate={isMobile ? { y: 0 } : { x: 0 }}
             exit={isMobile ? { y: "100%" } : { x: "100%" }}
             transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-            drag={isMobile ? "y" : false}
-            dragControls={dragControls}
-            dragListener={false}
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={0.2}
-            onDragEnd={(e, info) => {
-              if (info.offset.y > 100 || info.velocity.y > 500) {
-                closeSidebar();
-              }
-            }}
           >
-            {isMobile && (
-              <div 
-                onPointerDown={(e) => dragControls.start(e)}
-                className="w-full flex justify-center pt-2 pb-1"
-                style={{ touchAction: 'none', cursor: 'grab' }}
-              >
-                <div className="w-12 h-1.5 rounded-full bg-[var(--ui-border)] pointer-events-none" />
-              </div>
-            )}
             {/* Header with tabs */}
             <div className="premium-sidebar-header">
           <div className="premium-sidebar-tabs">

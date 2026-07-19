@@ -73,7 +73,7 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
             const savedProgress = await api.getReadingProgress(bookId);
             if (!savedProgress) return;
 
-            let targetRatio: number | null = null;
+            let targetTop: number | null = null;
 
             // Try CFI-based restore first (precise scroll position)
             const cfi = savedProgress.cfiLocation;
@@ -82,55 +82,37 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
                 if (cfiMatch) {
                     const scrollRatio = parseFloat(cfiMatch[2]);
                     if (!Number.isNaN(scrollRatio) && scrollRatio > 0) {
-                        targetRatio = scrollRatio;
+                        const { scrollHeight, clientHeight } = containerRef.current;
+                        const maxScroll = scrollHeight - clientHeight;
+                        targetTop = Math.round(scrollRatio * maxScroll);
                     }
                 }
             }
 
             // Fallback to legacy percentage-based location
-            if (targetRatio === null && savedProgress.currentLocation) {
+            if (targetTop === null && savedProgress.currentLocation) {
                 const loc = savedProgress.currentLocation;
                 if (supportedProgressPrefixes.some(prefix => loc.startsWith(prefix))) {
                     const pctMatch = loc.match(/(?:[a-z0-9]+)-progress-([\d.]+)-ch/i);
                     if (pctMatch) {
                         const pct = parseFloat(pctMatch[1]);
                         if (!Number.isNaN(pct) && pct > 0) {
-                            targetRatio = pct / 100;
+                            const { scrollHeight, clientHeight } = containerRef.current;
+                            const maxScroll = scrollHeight - clientHeight;
+                            targetTop = Math.round((pct / 100) * maxScroll);
                         }
                     }
                 }
             }
 
-            if (targetRatio !== null && targetRatio > 0) {
-                let attempts = 0;
-                let scrollSuccess = false;
-
-                const attemptScroll = () => {
-                    if (!containerRef.current) return;
-                    const { scrollHeight, clientHeight } = containerRef.current;
-                    const maxScroll = scrollHeight - clientHeight;
-                    
-                    if (maxScroll > 0) {
-                        const targetTop = Math.round(targetRatio! * maxScroll);
-                        containerRef.current.scrollTo({ top: targetTop, behavior: 'auto' });
-                        scrollSuccess = true;
-                    }
-
-                    attempts++;
-                    // Retry up to 10 times for Android WebViews where layout is delayed
-                    if (attempts < 10 && maxScroll <= 0) {
-                        setTimeout(attemptScroll, 100);
-                    } else if (attempts === 1 && scrollSuccess) {
-                         useToastStore.getState().addToast({
-                            title: 'Resuming reading',
-                            description: `Restored to previous position`,
-                            variant: 'info',
-                            duration: 3000,
-                        });
-                    }
-                };
-                
-                attemptScroll();
+            if (targetTop !== null && targetTop > 0) {
+                containerRef.current.scrollTo({ top: targetTop, behavior: 'auto' });
+                useToastStore.getState().addToast({
+                    title: 'Resuming reading',
+                    description: `Restored to previous position`,
+                    variant: 'info',
+                    duration: 3000,
+                });
             }
         } catch {
             // Silently ignore - start from top

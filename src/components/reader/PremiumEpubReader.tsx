@@ -1,7 +1,6 @@
 import { logger } from '@/lib/logger';
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { api, isAndroid } from '@/lib/tauri';
-import { useIsMobile } from '@/hooks/useIsMobile';
+import { api } from '@/lib/tauri';
 import type { BookMetadata, Chapter } from '@/lib/tauri';
 import { useReaderUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement, applyAllSettingsToDOM } from '@/store/premiumReaderStore';
 import { useReaderStore } from '@/store/readerStore';
@@ -13,8 +12,7 @@ import { DoodleCanvas } from './DoodleCanvas';
 import { DoodleToolbar } from './DoodleToolbar';
 import { PageFlipEngine, type PageFlipHandle } from './PageFlipEngine';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
-import { useTTS } from '@/hooks/useTTS';
-import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Search, BookOpen, Volume2, Square } from '@/components/icons';
+import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Search, BookOpen } from '@/components/icons';
 import { sanitizeBookContent } from '@/lib/sanitize';
 import { applyHighlightsToDOM } from '@/lib/highlightAnnotations';
 import { useToastStore } from '@/store/toastStore';
@@ -45,6 +43,19 @@ export function ChapterHtml({ content }: { content: string }) {
   return <div ref={htmlRef} className="premium-chapter-content" />;
 }
 
+// Helper function to convert resource URLs to data URIs and inline CSS
+/** Convert a byte array to base64 without hitting call-stack limits on large files. */
+function bytesToBase64(data: number[] | Uint8Array | ArrayBuffer): string {
+  const bytes = data instanceof Uint8Array ? data
+    : data instanceof ArrayBuffer ? new Uint8Array(data)
+    : new Uint8Array(data);
+  let binary = '';
+  const CHUNK = 8192;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + CHUNK, bytes.length)));
+  }
+  return btoa(binary);
+}
 
 export async function processEpubHtml(bookId: number, html: string, searchTerm?: string | null): Promise<string> {
   let processedHtml = html;
@@ -125,15 +136,9 @@ export async function processEpubHtml(bookId: number, html: string, searchTerm?:
       else if (ext.endsWith('.ttf')) mimeType = 'font/ttf';
       else if (ext.endsWith('.otf')) mimeType = 'font/otf';
 
-      // Use Blob URLs instead of Base64 to prevent OOM crashes on Android
-      const blob = new Blob([new Uint8Array(resourceData as any)], { type: mimeType });
-      const dataUri = URL.createObjectURL(blob);
-      
-      // Track the object URL for cleanup when the reader closes
-      if (!(window as any).__shiori_epub_blob_urls) {
-        (window as any).__shiori_epub_blob_urls = [];
-      }
-      (window as any).__shiori_epub_blob_urls.push(dataUri);
+      // Convert to base64 (chunked to avoid call-stack overflow on large files)
+      const base64 = bytesToBase64(resourceData);
+      const dataUri = `data:${mimeType};base64,${base64}`;
 
       processedHtml = processedHtml.replace(`${attr}="${originalPath}"`, `${attr}="${dataUri}"`);
     } catch {
@@ -218,8 +223,6 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
 
   const readingSettings = useReadingSettings();
   const { theme, width, twoPageView, isPaginated, continuousFlow, toggleTwoPageView, pageFlipEnabled, pageFlipSpeed, animationStyle } = readingSettings;
-  const isMobile = useIsMobile();
-  const effectiveTwoPageView = (isAndroid || isMobile) ? false : twoPageView;
 
   // Apply all reading settings (typography, margins, etc.) on mount and when they change
   useEffect(() => {
@@ -240,48 +243,29 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const [error, setError] = useState<string | null>(null);
   const [searchHighlight, setSearchHighlight] = useState<string | null>(null); // NEW: Store search term for highlighting
 
-  // Preloaded chapters for instant navigation
-  const [nextPreloadedChapter, setNextPreloadedChapter] = useState<Chapter | null>(null);
-
   // Refs
   const canvasRef = useRef<HTMLDivElement>(null);
   const contentContainerRef = useRef<HTMLDivElement>(null);
-
-  // TTS State powered by custom hook
-  const { play: startTts, stop: stopTts, state: ttsState, isAvailable: isTtsAvailable } = useTTS({ contentRef: contentContainerRef });
-  const isTtsPlaying = ttsState === 'speaking' || ttsState === 'paused'; // 'paused' is technically playing but paused
-
-  const toggleTts = useCallback(() => {
-    if (isTtsPlaying) {
-      stopTts();
-    } else {
-      startTts();
-    }
-  }, [isTtsPlaying, startTts, stopTts]);
-
-  // Stop TTS when navigating away or changing chapters
-  useEffect(() => {
-    return () => {
-      stopTts();
-    };
-  }, [currentIndex, stopTts]);
-  const [prevPreloadedChapter, setPrevPreloadedChapter] = useState<Chapter | null>(null);
-
-  // Other Refs
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const pageFlipRef = useRef<PageFlipHandle>(null);
   const scrollPositionsRef = useRef<Map<number, number>>(new Map());
   const currentIndexRef = useRef(0);
   const metadataRef = useRef<BookMetadata | null>(null);
   const loadChapterRef = useRef<(index: number, highlightTerm?: string | null, initialScrollRatio?: number) => Promise<void>>(async () => { });
-  const previousTwoPageViewRef = useRef(effectiveTwoPageView);
+  const previousTwoPageViewRef = useRef(twoPageView);
   const previousDoodleChapterRef = useRef<number | null>(null);
+
+  // Preloaded chapter content for page flip
+  const [nextChapterContent, setNextChapterContent] = useState<string | null>(null);
+  const [prevChapterContent, setPrevChapterContent] = useState<string | null>(null);
 
   // ────────────────────────────────────────────────────────────
   // READER THEME — scoped to this container, not global <html>
   // ────────────────────────────────────────────────────────────
   const loadChapter = useCallback(async (index: number, highlightTerm?: string | null, initialScrollRatio?: number) => {
     try {
+      setIsLoading(true);
+
       // Save current scroll position before navigating away
       if (canvasRef.current && currentChapter) {
         const { scrollTop, scrollHeight, clientHeight } = canvasRef.current;
@@ -295,38 +279,23 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       if (highlightTerm !== undefined) {
         setSearchHighlight(highlightTerm);
       }
-      
-      const termToHighlight = highlightTerm !== undefined ? highlightTerm : searchHighlight;
 
-      // Fast path: use preloaded chapter if available and no new search term
-      if (index === currentIndex + 1 && nextPreloadedChapter && highlightTerm === undefined) {
-        setCurrentChapter(nextPreloadedChapter);
-        setCurrentIndex(index);
-        setAdjacentChapter(null); // Will be updated if twoPageView is true
-        // Continue to update progress...
-      } else if (index === currentIndex - 1 && prevPreloadedChapter && highlightTerm === undefined) {
-        setCurrentChapter(prevPreloadedChapter);
-        setCurrentIndex(index);
-        setAdjacentChapter(null);
-      } else {
-        setIsLoading(true);
+      const chapter = await api.getBookChapter(bookId, index);
 
-        const chapter = await api.getBookChapter(bookId, index);
-
-        if (!chapter.content || chapter.content.trim().length === 0) {
-          throw new Error(`Chapter ${index + 1} has no content`);
-        }
-
-        const processedContent = await processEpubHtml(bookId, chapter.content, termToHighlight);
-
-        const processedChapter = { ...chapter, content: processedContent };
-
-        setCurrentChapter(processedChapter);
-        setCurrentIndex(index);
+      if (!chapter.content || chapter.content.trim().length === 0) {
+        throw new Error(`Chapter ${index + 1} has no content`);
       }
 
+      const termToHighlight = highlightTerm !== undefined ? highlightTerm : searchHighlight;
+      const processedContent = await processEpubHtml(bookId, chapter.content, termToHighlight);
+
+      const processedChapter = { ...chapter, content: processedContent };
+
+      setCurrentChapter(processedChapter);
+      setCurrentIndex(index);
+
       // Load next chapter for two-page view if enabled
-      const shouldRenderTwoPage = isAndroid ? false : useReadingSettings.getState().twoPageView;
+      const shouldRenderTwoPage = useReadingSettings.getState().twoPageView;
       if (shouldRenderTwoPage && metadata && index < metadata.total_chapters - 1) {
         try {
           const nextCh = await api.getBookChapter(bookId, index + 1);
@@ -357,35 +326,23 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         // Silently ignore database errors
       }
 
-      // Robust scroll restoration for Android and slower WebViews
-      let attempts = 0;
-      const targetRatio = (initialScrollRatio !== undefined && initialScrollRatio > 0)
-        ? initialScrollRatio
-        : (scrollPositionsRef.current.get(index) || 0);
-
-      const attemptScroll = () => {
-        if (!canvasRef.current || termToHighlight) return;
-        const { scrollHeight, clientHeight } = canvasRef.current;
-        
-        // If content is scrollable and we have a target ratio
-        if (scrollHeight > clientHeight && targetRatio > 0) {
-          canvasRef.current.scrollTop = targetRatio * (scrollHeight - clientHeight);
-        } else if (targetRatio === 0) {
-          canvasRef.current.scrollTop = 0;
-        }
-
-        attempts++;
-        // On Android WebViews, layout (especially images) can take time. We retry up to ~4 seconds.
-        const maxAttempts = isAndroid ? 40 : 10;
-        if (attempts < maxAttempts) {
-          setTimeout(attemptScroll, 100);
-        } else if (attempts === maxAttempts) {
-          logger.warn(`attemptScroll gave up after ${maxAttempts} attempts`);
-        }
-      };
-
       requestAnimationFrame(() => {
-        setTimeout(attemptScroll, 50);
+        setTimeout(() => {
+          if (canvasRef.current) {
+            if (initialScrollRatio !== undefined && initialScrollRatio > 0 && !termToHighlight) {
+              const { scrollHeight, clientHeight } = canvasRef.current;
+              canvasRef.current.scrollTop = initialScrollRatio * (scrollHeight - clientHeight);
+            } else {
+              const savedPos = scrollPositionsRef.current.get(index);
+              if (savedPos && savedPos > 0 && !termToHighlight) {
+                const { scrollHeight, clientHeight } = canvasRef.current;
+                canvasRef.current.scrollTop = savedPos * (scrollHeight - clientHeight);
+              } else {
+                canvasRef.current.scrollTop = 0;
+              }
+            }
+          }
+        }, 50);
       });
 
       // If we have a highlight term, scroll to first highlight after content renders
@@ -401,7 +358,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       setError(err instanceof Error ? err.message : 'Failed to load chapter');
       setIsLoading(false);
     }
-  }, [bookId, currentChapter, currentIndex, metadata, searchHighlight, nextPreloadedChapter, prevPreloadedChapter]);
+  }, [bookId, currentChapter, currentIndex, metadata, searchHighlight]);
 
   useEffect(() => {
     loadChapterRef.current = loadChapter;
@@ -416,23 +373,6 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       if (el) removeReaderThemeFromElement(el);
     };
   }, [theme, isLoading, error]);
-
-  // Intercept anchor clicks natively before WebView navigates
-  useEffect(() => {
-    const el = readerContainerRef.current;
-    if (!el) return;
-    const handleNativeClick = (e: MouseEvent) => {
-      const target = e.target as Element;
-      const anchor = target?.closest('a');
-      if (anchor) {
-        e.preventDefault(); // Stop native WebView navigation
-      }
-    };
-    // Use capture phase to ensure we catch it before any default behavior
-    el.addEventListener('click', handleNativeClick, { capture: true });
-    return () => el.removeEventListener('click', handleNativeClick, { capture: true });
-  }, []);
-
 
   // ────────────────────────────────────────────────────────────
   // AUTO-HIDE TOP BAR LOGIC
@@ -670,8 +610,6 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
           }
         }
 
-        // Seed the map before loading the chapter so it saves correctly
-        scrollPositionsRef.current.set(startIndex, savedScrollRatio);
         await loadChapterRef.current(startIndex, null, savedScrollRatio);
         setIsLoading(false);
 
@@ -699,14 +637,6 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         saveScrollProgressRef.current = null;
       }
       flushProgressNow();
-      
-      // Cleanup Blob URLs
-      const blobUrls = (window as any).__shiori_epub_blob_urls;
-      if (blobUrls && Array.isArray(blobUrls)) {
-        blobUrls.forEach(url => URL.revokeObjectURL(url));
-        (window as any).__shiori_epub_blob_urls = [];
-      }
-      
       api.closeBookRenderer(bookId).catch(logger.error);
     };
   }, [bookPath, bookId, flushProgressNow]);
@@ -717,70 +647,8 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       saveScrollProgressRef.current = null;
     }
     flushProgressNow();
-    
-    // Cleanup Blob URLs
-    const blobUrls = (window as any).__shiori_epub_blob_urls;
-    if (blobUrls && Array.isArray(blobUrls)) {
-      blobUrls.forEach(url => URL.revokeObjectURL(url));
-      (window as any).__shiori_epub_blob_urls = [];
-    }
-    
     onClose();
   }, [flushProgressNow, onClose]);
-
-  // ────────────────────────────────────────────────────────────
-  //  // Preload adjacent chapters for smooth continuous flow & page flip
-  // deferred to idle time
-  useEffect(() => {
-    if (!metadata) {
-      setNextPreloadedChapter(null);
-      setPrevPreloadedChapter(null);
-      return;
-    }
-
-    let cancelled = false;
-
-    const preload = async () => {
-      // Preload next chapter
-      if (currentIndex < metadata.total_chapters - 1) {
-        try {
-          const nextCh = await api.getBookChapter(bookId, currentIndex + 1);
-          const processed = await processEpubHtml(bookId, nextCh.content);
-          if (!cancelled) setNextPreloadedChapter({ ...nextCh, content: processed });
-        } catch {
-          if (!cancelled) setNextPreloadedChapter(null);
-        }
-      } else {
-        if (!cancelled) setNextPreloadedChapter(null);
-      }
-
-      // Preload prev chapter
-      if (currentIndex > 0) {
-        try {
-          const prevCh = await api.getBookChapter(bookId, currentIndex - 1);
-          const processed = await processEpubHtml(bookId, prevCh.content);
-          if (!cancelled) setPrevPreloadedChapter({ ...prevCh, content: processed });
-        } catch {
-          if (!cancelled) setPrevPreloadedChapter(null);
-        }
-      } else {
-        if (!cancelled) setPrevPreloadedChapter(null);
-      }
-    };
-
-    const idleId = 'requestIdleCallback' in window
-      ? (window as Window & { requestIdleCallback: (callback: () => void) => number }).requestIdleCallback(() => preload())
-      : setTimeout(() => preload(), 500);
-
-    return () => {
-      cancelled = true;
-      if ('cancelIdleCallback' in window) {
-        (window as Window & { cancelIdleCallback: (id: number) => void }).cancelIdleCallback(idleId);
-      } else {
-        clearTimeout(idleId);
-      }
-    };
-  }, [currentIndex, metadata, bookId]);
 
   // ────────────────────────────────────────────────────────────
   // NAVIGATION
@@ -800,13 +668,13 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
 
   useEffect(() => {
     if (!hasLoadedChapterRef.current) {
-      previousTwoPageViewRef.current = effectiveTwoPageView;
+      previousTwoPageViewRef.current = twoPageView;
       return;
     }
-    if (previousTwoPageViewRef.current === effectiveTwoPageView) return;
-    previousTwoPageViewRef.current = effectiveTwoPageView;
+    if (previousTwoPageViewRef.current === twoPageView) return;
+    previousTwoPageViewRef.current = twoPageView;
     void loadChapterRef.current(currentIndexRef.current);
-  }, [effectiveTwoPageView]);
+  }, [twoPageView]);
 
   useEffect(() => {
     if (previousDoodleChapterRef.current === currentIndex) return;
@@ -814,6 +682,58 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     resetDoodlePage();
   }, [currentIndex, resetDoodlePage]);
 
+  // Preload adjacent chapters for page flip — deferred to idle time
+  useEffect(() => {
+    if (!pageFlipEnabled || !metadata) {
+      setNextChapterContent(null);
+      setPrevChapterContent(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const preload = async () => {
+      // Preload next chapter
+      if (currentIndex < metadata.total_chapters - 1) {
+        try {
+          const nextCh = await api.getBookChapter(bookId, currentIndex + 1);
+          const processed = await processEpubHtml(bookId, nextCh.content);
+          if (!cancelled) setNextChapterContent(processed);
+        } catch {
+          if (!cancelled) setNextChapterContent(null);
+        }
+      } else {
+        if (!cancelled) setNextChapterContent(null);
+      }
+
+      // Preload prev chapter
+      if (currentIndex > 0) {
+        try {
+          const prevCh = await api.getBookChapter(bookId, currentIndex - 1);
+          const processed = await processEpubHtml(bookId, prevCh.content);
+          if (!cancelled) setPrevChapterContent(processed);
+        } catch {
+          if (!cancelled) setPrevChapterContent(null);
+        }
+      } else {
+        if (!cancelled) setPrevChapterContent(null);
+      }
+    };
+
+    // Use requestIdleCallback to avoid blocking the main thread
+    const idleId = 'requestIdleCallback' in window
+      ? (window as Window & { requestIdleCallback: (callback: () => void) => number }).requestIdleCallback(() => preload())
+      : setTimeout(() => preload(), 500);
+
+    return () => {
+      cancelled = true;
+      if ('cancelIdleCallback' in window) {
+        (window as Window & { cancelIdleCallback: (id: number) => void }).cancelIdleCallback(idleId);
+      } else {
+        clearTimeout(idleId);
+      }
+    };
+  }, [currentIndex, pageFlipEnabled, metadata, bookId]);
 
   // ────────────────────────────────────────────────────────────
   // ANNOTATION HIGHLIGHTS — render saved highlights into DOM
@@ -996,71 +916,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     if (isDoodleMode) return;
     const target = e.target as Element;
     if (e.defaultPrevented || !target || typeof target.closest !== 'function') return;
-
-    // Handle Anchor Tags (Hyperlinks)
-    const anchor = target.closest('a');
-    if (anchor) {
-      e.preventDefault();
-      const href = anchor.getAttribute('href');
-      if (href) {
-        if (href.startsWith('http://') || href.startsWith('https://')) {
-          // Open external links in default browser
-          import('@tauri-apps/plugin-shell').then(({ open }) => open(href));
-        } else if (href.startsWith('#')) {
-          // In-page anchor link (e.g. footnote)
-          const id = href.substring(1);
-          const el = document.getElementById(id) || document.getElementsByName(id)[0];
-          if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-        } else {
-          // Internal link across chapters (e.g., chapter2.xhtml)
-          api.getBookToc(bookId).then(toc => {
-            const cleanHref = href.split('#')[0].split('/').pop();
-            const findMatch = (entries: any[]): any => {
-              for (const entry of entries) {
-                if (entry.location.includes(cleanHref || '')) return entry;
-                if (entry.children) {
-                  const match = findMatch(entry.children);
-                  if (match) return match;
-                }
-              }
-              return null;
-            };
-
-            const match = cleanHref ? findMatch(toc) : null;
-            if (match) {
-              const chapterMatch = match.location.match(/(?:^|[^\w])(?:chapter|chapter_|chapter-|html-chapter-|md-chapter-|fb2-chapter-|docx-chapter-|generic-chapter-|mobi-chapter-|[a-z0-9]+-chapter-)(\d+)/i) 
-                                || match.location.match(/epubcfi\(\/(?:\d+\/)?(\d+)\b/i)
-                                || match.location.match(/^chapter:(\d+)/i);
-              if (chapterMatch) {
-                const index = parseInt(chapterMatch[1], 10);
-                if (!Number.isNaN(index)) {
-                  // check if there's a hash we need to scroll to
-                  const hash = href.split('#')[1];
-                  loadChapterRef.current(index, null, 0).then(() => {
-                    if (hash) {
-                      setTimeout(() => {
-                        const el = document.getElementById(hash) || document.getElementsByName(hash)[0];
-                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                      }, 150);
-                    }
-                  });
-                  return;
-                }
-              }
-            }
-            // Fallback: just go to next chapter if we can't figure it out
-            nextChapter();
-          }).catch(() => {
-            nextChapter();
-          });
-        }
-      }
-      return;
-    }
-
-    if (target.closest('button') || target.closest('.premium-top-bar') || target.closest('.premium-sidebar') || target.closest('.text-selection-toolbar')) {
+    if (target.closest('a') || target.closest('button') || target.closest('.premium-top-bar') || target.closest('.premium-sidebar') || target.closest('.text-selection-toolbar')) {
       return;
     }
 
@@ -1089,7 +945,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         setTopBarVisible(!uiStore.isTopBarVisible);
       }
     }
-  }, [isDoodleMode, prevPage, nextPage, setTopBarVisible, bookId, nextChapter]);
+  }, [isDoodleMode, prevPage, nextPage, setTopBarVisible]);
 
   // ────────────────────────────────────────────────────────────
   // RENDER
@@ -1164,31 +1020,18 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
             >
               <BookOpen className="premium-control-icon" />
             </button>
-            {!(isAndroid || isMobile) && (
-              <button
-                type="button"
-                onClick={toggleTwoPageView}
-                className={`premium-control-button ${twoPageView ? 'premium-control-button--active' : ''}`}
-                aria-label="Two-page view"
-                title="Two-page view"
-              >
-                <svg aria-hidden="true" className="premium-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="4" width="8" height="16" />
-                  <rect x="13" y="4" width="8" height="16" />
-                </svg>
-              </button>
-            )}
-            {isTtsAvailable && (
-              <button
-                type="button"
-                onClick={toggleTts}
-                className={`premium-control-button ${isTtsPlaying ? 'premium-control-button--active' : ''}`}
-                aria-label={isTtsPlaying ? "Stop reading" : "Read chapter aloud"}
-                title={isTtsPlaying ? "Stop reading" : "Read chapter aloud"}
-              >
-                {isTtsPlaying ? <Square fill="currentColor" className="premium-control-icon" /> : <Volume2 className="premium-control-icon" />}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={toggleTwoPageView}
+              className={`premium-control-button ${twoPageView ? 'premium-control-button--active' : ''}`}
+              aria-label="Two-page view"
+              title="Two-page view"
+            >
+              <svg aria-hidden="true" className="premium-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="4" width="8" height="16" />
+                <rect x="13" y="4" width="8" height="16" />
+              </svg>
+            </button>
             <button
               type="button"
               onClick={toggleDoodleMode}
@@ -1214,27 +1057,13 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
           initialScrollRatio={scrollPositionsRef.current.get(currentIndex)}
           onChapterChange={(idx) => {
             setCurrentIndex(idx);
-            
-            const canvas = canvasRef.current;
-            let scrollRatio = scrollPositionsRef.current.get(idx) ?? 0;
-            if (canvas) {
-              const { scrollTop, scrollHeight, clientHeight } = canvas;
-              scrollRatio = scrollHeight > clientHeight
-                ? scrollTop / (scrollHeight - clientHeight)
-                : 0;
-              scrollPositionsRef.current.set(idx, scrollRatio);
-            }
-
-            const totalChapters = metadata?.total_chapters ?? 1;
-            const chapterFraction = scrollRatio / totalChapters;
-            const progressPercent = ((idx + chapterFraction) / totalChapters) * 100;
-
-            const location = scrollRatio > 0
-              ? `chapter_${idx}:scroll_${scrollRatio.toFixed(6)}`
-              : `chapter_${idx}`;
-            const cfi = `epubcfi(/0/${idx}!/scroll/${scrollRatio.toFixed(6)})`;
-            
-            api.saveReadingProgress(bookId, location, Math.min(100, progressPercent), undefined, undefined, cfi).catch(() => {});
+            // Save progress directly instead of calling loadChapter which causes duplicate fetching
+            const progressPercent = metadata
+              ? ((idx + 1) / metadata.total_chapters) * 100
+              : 0;
+            const location = `chapter_${idx}`;
+            const cfi = `epubcfi(/0/${idx}!/scroll/0.000000)`;
+            api.saveReadingProgress(bookId, location, progressPercent, undefined, undefined, cfi).catch(() => {});
           }}
           widthClass={width}
           isFocusMode={isFocusMode}
@@ -1250,9 +1079,9 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         >
           <div
             ref={contentContainerRef}
-            className={`premium-content-container premium-content-container--${width} ${effectiveTwoPageView ? 'premium-content-container--two-page' : ''} ${isPaginated ? 'premium-content-container--paginated' : ''}`}
+            className={`premium-content-container premium-content-container--${width} ${twoPageView ? 'premium-content-container--two-page' : ''} ${isPaginated ? 'premium-content-container--paginated' : ''}`}
           >
-            {effectiveTwoPageView && adjacentChapter ? (
+            {twoPageView && adjacentChapter ? (
             /* Two-page layout */
             <>
               <div className="premium-chapter-page">
@@ -1268,8 +1097,8 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
             <PageFlipEngine
               ref={pageFlipRef}
               currentContent={currentChapter.content}
-              nextContent={nextPreloadedChapter?.content ?? null}
-              prevContent={prevPreloadedChapter?.content ?? null}
+              nextContent={nextChapterContent}
+              prevContent={prevChapterContent}
               flipSpeed={pageFlipSpeed}
               enabled={pageFlipEnabled}
               animationStyle={animationStyle}

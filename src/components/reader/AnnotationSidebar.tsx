@@ -4,7 +4,7 @@ import { Trash2, Edit2, Highlighter, StickyNote, X } from '@/components/icons';
 import { useState, useMemo } from 'react';
 import { formatDate } from '@/lib/utils';
 import { AnnotationExportDialog } from './AnnotationExportDialog';
-import { motion, AnimatePresence, useDragControls } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { cn } from '@/lib/utils';
 
@@ -20,7 +20,6 @@ export function AnnotationSidebar() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editNote, setEditNote] = useState('');
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
-  const dragControls = useDragControls();
   
   const isMobile = useIsMobile();
 
@@ -97,16 +96,6 @@ export function AnnotationSidebar() {
             animate={isMobile ? { y: 0 } : { x: 0, width: "320px", opacity: 1 }}
             exit={isMobile ? { y: "100%" } : { x: "100%", width: "0px", opacity: 0 }}
             transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-            drag={isMobile ? "y" : false}
-            dragControls={dragControls}
-            dragListener={false}
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={0.2}
-            onDragEnd={(e, info) => {
-              if (info.offset.y > 100 || info.velocity.y > 500) {
-                toggleAnnotationSidebar();
-              }
-            }}
             className={cn(
               "bg-white flex flex-col overflow-hidden",
               isMobile
@@ -114,15 +103,6 @@ export function AnnotationSidebar() {
                 : "relative h-full z-10 border-l border-gray-200 shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.05)] w-80 shrink-0"
             )}
           >
-            {isMobile && (
-              <div 
-                className="w-full flex justify-center pb-2 pt-3"
-                onPointerDown={(e) => dragControls.start(e)}
-                style={{ touchAction: 'none', cursor: 'grab' }}
-              >
-                <div className="w-12 h-1.5 rounded-full bg-gray-200 pointer-events-none" />
-              </div>
-            )}
             {/* Header */}
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
         <h2 className="font-semibold text-lg text-gray-900">Annotations</h2>
@@ -197,26 +177,22 @@ export function AnnotationSidebar() {
 
       </div>
 
-      {/* Content */}
+      {/* Annotations list */}
       <div className="flex-1 overflow-y-auto">
         {filteredAnnotations.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center p-8 text-center text-gray-500">
-            <svg className="w-12 h-12 mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-            </svg>
-            <p>No annotations found</p>
+          <div className="p-8 text-center text-gray-500">
+            <p>No {filter === 'all' ? '' : filter} annotations yet.</p>
+            <p className="text-sm mt-2">
+              {filter === 'highlight' && 'Select text to create a highlight.'}
+              {filter === 'note' && 'Add notes to your highlights.'}
+            </p>
           </div>
         ) : (
-          <motion.div 
-            className="divide-y divide-gray-100"
-            variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.05 } } }}
-            initial="hidden" animate="show"
-          >
+          <div className="divide-y divide-gray-200">
             {filteredAnnotations.map((annotation) => (
-              <motion.div 
-                key={annotation.id} 
-                variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
-                className="group p-4 hover:bg-gray-50 transition-colors"
+              <div
+                key={annotation.id}
+                className="p-4 hover:bg-gray-50 transition-colors"
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">
@@ -319,9 +295,9 @@ export function AnnotationSidebar() {
                 <div className="text-xs text-gray-400 mt-2">
                   Location: {annotation.location}
                 </div>
-              </motion.div>
+              </div>
             ))}
-          </motion.div>
+          </div>
         )}
       </div>
 

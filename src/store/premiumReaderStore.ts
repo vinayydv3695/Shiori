@@ -145,7 +145,7 @@ import { isAndroid } from '@/lib/tauri';
 const defaultSettings = {
   theme: 'paper' as ReaderTheme,
   fontFamily: 'eb-garamond',
-  fontSize: isAndroid ? 14 : 24,
+  fontSize: isAndroid ? 16 : 14,
   lineHeight: isAndroid ? 1.8 : 1.6,
   paragraphSpacing: isAndroid ? '2em' : '1em',
   letterSpacing: isAndroid ? 'wide' : 'normal',
@@ -160,7 +160,7 @@ const defaultSettings = {
   brightness: 1.0,
   pageFlipEnabled: true,
   pageFlipSpeed: 300,
-  animationStyle: 'slide' as const,
+  animationStyle: 'fade' as const,
   paperTextureIntensity: isAndroid ? 0.11 : 0.08,
   uiScale: 1.0,
 };

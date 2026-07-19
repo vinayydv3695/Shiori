@@ -441,5 +441,3 @@ pub fn get_error_details(error_message: String) -> ErrorDetails {
         technical_details: error_message,
     }
 }
-
-

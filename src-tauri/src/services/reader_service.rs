@@ -742,29 +742,14 @@ impl ReaderService {
     pub fn get_daily_reading_stats(conn: &Connection, days: i32) -> Result<Vec<DailyReadingStats>> {
         let sql = r#"
             SELECT
-                date(s.started_at) as read_date,
-                SUM(s.duration_seconds) as total_seconds,
-                COUNT(DISTINCT s.book_id) as books_count,
-                COUNT(s.id) as sessions_count,
-                COALESCE(SUM(
-                    CASE 
-                        WHEN b.file_format NOT IN ('cbz', 'cbr', 'zip', 'rar') 
-                        THEN MAX(0, IFNULL(s.pages_end, s.pages_start) - IFNULL(s.pages_start, 0)) 
-                        ELSE 0 
-                    END
-                ), 0) as book_pages_read,
-                COALESCE(SUM(
-                    CASE 
-                        WHEN b.file_format IN ('cbz', 'cbr', 'zip', 'rar') 
-                        THEN MAX(0, IFNULL(s.pages_end, s.pages_start) - IFNULL(s.pages_start, 0)) 
-                        ELSE 0 
-                    END
-                ), 0) as manga_pages_read
-            FROM reading_sessions s
-            JOIN books b ON s.book_id = b.id
-            WHERE s.started_at >= date('now', ?1 || ' days')
-              AND s.duration_seconds > 0
-            GROUP BY date(s.started_at)
+                date(started_at) as read_date,
+                SUM(duration_seconds) as total_seconds,
+                COUNT(DISTINCT book_id) as books_count,
+                COUNT(*) as sessions_count
+            FROM reading_sessions
+            WHERE started_at >= date('now', ?1 || ' days')
+              AND duration_seconds > 0
+            GROUP BY date(started_at)
             ORDER BY read_date ASC
         "#;
 
@@ -777,8 +762,6 @@ impl ReaderService {
                     total_seconds: row.get(1)?,
                     books_count: row.get(2)?,
                     sessions_count: row.get(3)?,
-                    book_pages_read: row.get(4)?,
-                    manga_pages_read: row.get(5)?,
                 })
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;

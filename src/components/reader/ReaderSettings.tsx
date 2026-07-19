@@ -1,10 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import { useReadingSettings, type ReaderTheme, applyReaderThemeToElement } from '@/store/premiumReaderStore';
 import { Settings, Columns, ChevronDown, ChevronUp } from '@/components/icons';
-import { isAndroid } from '@/lib/tauri';
 import { READING_FONTS, normalizeLegacyFontPreference } from '@/lib/readingFonts';
 
 export type ReaderFormat = 'epub' | 'pdf' | 'mobi' | 'azw' | 'azw3' | 'manga' | 'fb2' | 'docx' | 'html' | 'htm' | 'txt' | 'md' | 'markdown';
@@ -24,7 +22,6 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const isMobile = useIsMobile();
-  const dragControls = useDragControls();
 
   const {
     theme,
@@ -146,50 +143,11 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
         <Settings className="premium-control-icon" />
       </button>
 
-      <PortalWrapper usePortal={isMobile}>
-        <AnimatePresence>
-          {isOpen && (
-            <>
-              <motion.div 
-                className="md:hidden fixed inset-0 bg-black/40 z-[105]" 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setIsOpen(false)} 
-              />
-              <motion.div 
-                ref={panelRef} 
-              className="premium-settings-panel z-[110]"
-              initial={isMobile ? { y: "100%" } : { opacity: 0, y: -10 }}
-              animate={isMobile ? { y: 0 } : { opacity: 1, y: 0 }}
-              exit={isMobile ? { y: "100%" } : { opacity: 0, y: -10 }}
-              transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-              drag={isMobile ? "y" : false}
-              dragControls={dragControls}
-              dragListener={false}
-              dragConstraints={{ top: 0, bottom: 0 }}
-              dragElastic={0.2}
-              onDragEnd={(e, info) => {
-                if (info.offset.y > 100 || info.velocity.y > 500) {
-                  setIsOpen(false);
-                }
-              }}
-            >
-              {isMobile && (
-                <div 
-                  className="w-full flex justify-center pb-4 pt-1 mb-2"
-                  onPointerDown={(e) => dragControls.start(e)}
-                  style={{ touchAction: 'none', cursor: 'grab' }}
-                >
-                  <div className="w-12 h-1.5 rounded-full bg-[var(--ui-border)] pointer-events-none" />
-                </div>
-              )}
-              <motion.div 
-                className="premium-settings-content-wrapper w-full h-full"
-                variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.05, delayChildren: 0.05 } } }}
-                initial="hidden" animate="show"
-              >
-              <motion.div className="premium-settings-section" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
+      {isOpen && (
+        <PortalWrapper usePortal={isMobile}>
+          <div className="md:hidden fixed inset-0 bg-black/40 z-[105]" onClick={() => setIsOpen(false)} />
+          <div ref={panelRef} className="premium-settings-panel z-[110]">
+            <div className="premium-settings-section">
             <label className="premium-settings-label">View Mode</label>
             <div className="premium-settings-width-grid">
               {[
@@ -271,11 +229,11 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
                 </button>
               ))}
             </div>
-          </motion.div>
+          </div>
 
 
           {showTypography && (
-            <motion.div className="premium-settings-section" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
+            <div className="premium-settings-section">
               <label className="premium-settings-label">
                 Font Size
                 <span className="premium-settings-value">{fontSize}px</span>
@@ -304,11 +262,11 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
                   <ChevronUp className="premium-settings-slider-icon" />
                 </button>
               </div>
-            </motion.div>
+            </div>
           )}
 
           {showSpacingControls && (
-            <motion.div className="premium-settings-section" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
+            <div className="premium-settings-section">
               <label className="premium-settings-label">
                 Margin
                 <span className="premium-settings-value">{margin}px</span>
@@ -324,11 +282,11 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
                   className="premium-settings-slider"
                 />
               </div>
-            </motion.div>
+            </div>
           )}
 
           {isTextFormat && (
-            <motion.div className="premium-settings-section" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
+            <div className="premium-settings-section">
               <label className="premium-settings-label">Letter Spacing</label>
               <div className="premium-settings-segment-group">
                 {letterSpacingOptions.map((opt) => (
@@ -341,11 +299,11 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
                   </button>
                 ))}
               </div>
-            </motion.div>
+            </div>
           )}
 
           {isTextFormat && (
-            <motion.div className="premium-settings-section" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
+            <div className="premium-settings-section">
               <label className="premium-settings-label">Paragraph Spacing</label>
               <div className="premium-settings-segment-group">
                 {paragraphSpacingOptions.map((opt) => (
@@ -358,11 +316,11 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
                   </button>
                 ))}
               </div>
-            </motion.div>
+            </div>
           )}
 
           {showTypography && (
-            <motion.div className="premium-settings-section" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
+            <div className="premium-settings-section">
               <label className="premium-settings-label">
                 Line Height
                 <span className="premium-settings-value">{lineHeight.toFixed(1)}</span>
@@ -392,11 +350,11 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
                   <ChevronUp className="premium-settings-slider-icon" />
                 </button>
               </div>
-            </motion.div>
+            </div>
           )}
 
           {showWidthControls && (
-            <motion.div className="premium-settings-section" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
+            <div className="premium-settings-section">
               <label className="premium-settings-label">Reading Width</label>
               <div className="premium-settings-segment-group">
                 {widthOptions.map((option) => (
@@ -410,11 +368,11 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
                   </button>
                 ))}
               </div>
-            </motion.div>
+            </div>
           )}
 
           {(isTextFormat || isPdf) && (
-            <motion.div className="premium-settings-section" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
+            <div className="premium-settings-section">
               <label className="premium-settings-label">
                 Brightness
                 <span className="premium-settings-value">{Math.round(brightness * 100)}%</span>
@@ -438,11 +396,11 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
                   <path d="M12 1v2"/><path d="M12 21v2"/><path d="M4.22 4.22l1.42 1.42"/><path d="M18.36 18.36l1.42 1.42"/><path d="M1 12h2"/><path d="M21 12h2"/><path d="M4.22 19.78l1.42-1.42"/><path d="M18.36 5.64l1.42-1.42"/>
                 </svg>
               </div>
-            </motion.div>
+            </div>
           )}
 
           {isTextFormat && (
-            <motion.div className="premium-settings-section" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
+            <div className="premium-settings-section">
               <label className="premium-settings-label">Font Family</label>
               <div className="premium-settings-font-grid">
                 {READING_FONTS.map((font) => (
@@ -456,11 +414,11 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
                   </button>
                 ))}
               </div>
-            </motion.div>
+            </div>
           )}
 
           {showTypography && (
-            <motion.div className="premium-settings-section" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
+            <div className="premium-settings-section">
               <label className="premium-settings-label">Text Alignment</label>
               <div className="premium-settings-segment-group">
                 {([
@@ -499,11 +457,11 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
                   </button>
                 ))}
               </div>
-            </motion.div>
+            </div>
           )}
 
           {showLayout && (
-            <motion.div className="premium-settings-section" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
+            <div className="premium-settings-section">
               <label className="premium-settings-label">Layout Mode</label>
               
               <button
@@ -516,20 +474,18 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
                 <span>Continuous Flow</span>
               </button>
 
-              {!(isAndroid || isMobile) && (
-                <button
-                  onClick={toggleTwoPageView}
-                  className={`premium-settings-toggle ${twoPageView ? 'premium-settings-toggle--active' : ''}`}
-                >
-                  <Columns className="premium-settings-icon" />
-                  <span>Two-Page View</span>
-                </button>
-              )}
-            </motion.div>
+              <button
+                onClick={toggleTwoPageView}
+                className={`premium-settings-toggle ${twoPageView ? 'premium-settings-toggle--active' : ''}`}
+              >
+                <Columns className="premium-settings-icon" />
+                <span>Two-Page View</span>
+              </button>
+            </div>
           )}
 
           {showPageTransition && (
-            <motion.div className="premium-settings-section" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
+            <div className="premium-settings-section">
               <label className="premium-settings-label">Page Transition</label>
               <button
                 onClick={() => setPageFlipEnabled(!pageFlipEnabled)}
@@ -575,11 +531,11 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
                   )}
                 </>
               )}
-            </motion.div>
+            </div>
           )}
 
           {(theme === 'paper' || theme === 'paper-dark') && (
-            <motion.div className="premium-settings-section" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
+            <div className="premium-settings-section">
               <label className="premium-settings-label">
                 Texture Intensity
                 <span className="premium-settings-value">{(paperTextureIntensity * 100).toFixed(0)}%</span>
@@ -595,10 +551,10 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
                   className="premium-settings-slider"
                 />
               </div>
-            </motion.div>
+            </div>
           )}
 
-          <motion.div className="premium-settings-section" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
+          <div className="premium-settings-section">
             <label className="premium-settings-label">
               UI Scale
               <span className="premium-settings-value">{uiScale.toFixed(1)}x</span>
@@ -614,13 +570,10 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
                 className="premium-settings-slider"
               />
             </div>
-          </motion.div>
-                </motion.div>
-            </motion.div>
-            </>
-          )}
-        </AnimatePresence>
-      </PortalWrapper>
+          </div>
+        </div>
+        </PortalWrapper>
+      )}
     </div>
   );
 }

@@ -29,7 +29,6 @@ type LoadingStage =
 // Formats handled as-is by their native readers (no conversion needed)
 const NATIVE_FORMATS = ['epub', 'pdf', 'cbz', 'cbr'];
 
-
 export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
   const {
     currentBookPath,
@@ -271,7 +270,7 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
           bookPath={currentBookPath}
           bookId={bookId}
           format={currentBookFormat as ReaderFormat}
-          readerContent={currentContent as ReaderContent}
+          readerContent={currentContent}
           onClose={handleClose}
         />
       )}

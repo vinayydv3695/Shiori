@@ -762,6 +762,8 @@ impl ReaderService {
                     total_seconds: row.get(1)?,
                     books_count: row.get(2)?,
                     sessions_count: row.get(3)?,
+                    book_pages_read: 0,
+                    manga_pages_read: 0,
                 })
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;

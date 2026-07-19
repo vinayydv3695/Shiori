@@ -294,8 +294,8 @@ export async function updateMediaListEntry(
   repeat?: number
 ) {
   const mutation = `
-    mutation ($mediaId: Int, $progress: Int, $status: MediaListStatus, $scoreRaw: Int, $notes: String, $startedAt: FuzzyDateInput, $completedAt: FuzzyDateInput, $repeat: Int) {
-      SaveMediaListEntry(mediaId: $mediaId, progress: $progress, status: $status, scoreRaw: $scoreRaw, notes: $notes, startedAt: $startedAt, completedAt: $completedAt, repeat: $repeat) {
+    mutation ($mediaId: Int, $progress: Int, $status: MediaListStatus, $scoreRaw: Float, $notes: String, $startedAt: FuzzyDateInput, $completedAt: FuzzyDateInput, $repeat: Int) {
+      SaveMediaListEntry(mediaId: $mediaId, progress: $progress, status: $status, score: $scoreRaw, notes: $notes, startedAt: $startedAt, completedAt: $completedAt, repeat: $repeat) {
         id
         status
         progress

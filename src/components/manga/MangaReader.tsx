@@ -5,7 +5,7 @@ import {
     useMangaSettingsStore,
     type OnlineSourceConfig,
 } from '@/store/mangaReaderStore';
-import { api } from '@/lib/tauri';
+import { api, isAndroid } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
 import { useToastStore } from '@/store/toastStore';
 import { useLibraryStore } from '@/store/libraryStore';
@@ -507,8 +507,11 @@ export function MangaReader(props: MangaReaderProps) {
     const handleDoubleClick = useCallback((_e: React.MouseEvent) => {
         const uiStore = useMangaUIStore.getState();
         uiStore.setTopBarVisible(true);
-        // Only toggle sidebar if they are actively trying to show UI, or just toggle both
-        uiStore.toggleSidebar();
+        if (!isAndroid) {
+            uiStore.toggleSidebar();
+        } else {
+            uiStore.closeSidebar();
+        }
     }, []);
 
     // Register keyboard shortcuts

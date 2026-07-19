@@ -53,6 +53,7 @@ macro_rules! generate_shiori_handlers {
             commands::library::import_books,
             commands::library::scan_folder_unified,
             commands::library::import_manga,
+            commands::library::import_online_manga_chapters,
             commands::library::download_gutenberg_epub,
             commands::library::download_libgen_epub,
             commands::library::scan_folder_for_manga,

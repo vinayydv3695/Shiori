@@ -253,32 +253,38 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
             className="flex flex-1 overflow-hidden max-md:flex-col"
             orientation="vertical"
           >
-            <Tabs.List
-              className={cn(
-                "w-56 border-r border-border/40 bg-background/50 p-4 space-y-1 flex-shrink-0 overflow-y-auto scrollbar-none",
-                isMobile && mobileView === 'root' ? "w-full flex-1 border-r-0 max-md:pb-12" : isMobile ? "hidden" : "block"
-              )}
-              aria-label="Settings categories"
-            >
-              {filteredTabs.map((tab) => (
-                <Tabs.Trigger
-                  key={tab.id}
-                  value={tab.id}
-                  onClick={() => {
-                    if (isMobile) setMobileView('detail');
-                  }}
-                  className={cn(
-                    'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-left font-medium text-[13px]',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50',
-                    'data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm',
-                    'data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-muted/50 data-[state=inactive]:hover:text-foreground',
-                    isMobile && mobileView === 'root' && "py-4 text-[15px]"
-                  )}
-                >
-                  <tab.icon className="w-5 h-5 flex-shrink-0" />
-                  <span className="font-sans font-semibold tracking-wide block">{tab.name}</span>
-                </Tabs.Trigger>
-              ))}
+            <Tabs.List asChild>
+              <motion.div
+                className={cn(
+                  "w-56 border-r border-border/40 bg-background/50 p-4 space-y-1 flex-shrink-0 overflow-y-auto scrollbar-none",
+                  isMobile && mobileView === 'root' ? "w-full flex-1 border-r-0 max-md:pb-12" : isMobile ? "hidden" : "block"
+                )}
+                aria-label="Settings categories"
+                initial="hidden"
+                animate="show"
+                variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.2 } } }}
+              >
+                {filteredTabs.map((tab) => (
+                  <motion.div key={tab.id} variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } } }}>
+                    <Tabs.Trigger
+                      value={tab.id}
+                      onClick={() => {
+                        if (isMobile) setMobileView('detail');
+                      }}
+                      className={cn(
+                        'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-left font-medium text-[13px]',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50',
+                        'data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm',
+                        'data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-muted/50 data-[state=inactive]:hover:text-foreground',
+                        isMobile && mobileView === 'root' && "py-4 text-[15px]"
+                      )}
+                    >
+                      <tab.icon className="w-5 h-5 flex-shrink-0" />
+                      <span className="font-sans font-semibold tracking-wide block">{tab.name}</span>
+                    </Tabs.Trigger>
+                  </motion.div>
+                ))}
+              </motion.div>
             </Tabs.List>
 
             <div className={cn(
@@ -1999,14 +2005,42 @@ const AboutSettings = () => {
         return
       }
       setIsChecking(true)
-      const update = await check()
-      if (update) {
-        toast.info(`Update ${update.version} is available! Downloading...`)
-        await update.downloadAndInstall()
-        toast.success("Update installed successfully. Restarting...")
-        await relaunch()
+      
+      if (isAndroid) {
+        const res = await fetch("https://api.github.com/repos/vinayydv3695/Shiori/releases/latest");
+        if (!res.ok) throw new Error("Failed to fetch releases");
+        const data = await res.json();
+        const latestVersion = data.tag_name.replace(/^v/, '');
+        
+        // Simple version comparison assuming semver format x.y.z
+        const isNewer = (v1: string, v2: string) => {
+          const parts1 = v1.split('.').map(Number);
+          const parts2 = v2.split('.').map(Number);
+          for (let i = 0; i < 3; i++) {
+            if ((parts1[i] || 0) > (parts2[i] || 0)) return true;
+            if ((parts1[i] || 0) < (parts2[i] || 0)) return false;
+          }
+          return false;
+        };
+        
+        if (isNewer(latestVersion, appVersion)) {
+          toast.info(`Update v${latestVersion} is available! Opening releases page...`);
+          setTimeout(() => {
+            open(data.html_url);
+          }, 1500);
+        } else {
+          toast.success("You are on the latest version.");
+        }
       } else {
-        toast.success("You are on the latest version.")
+        const update = await check()
+        if (update) {
+          toast.info(`Update ${update.version} is available! Downloading...`)
+          await update.downloadAndInstall()
+          toast.success("Update installed successfully. Restarting...")
+          await relaunch()
+        } else {
+          toast.success("You are on the latest version.")
+        }
       }
     } catch (error) {
       console.error(error)

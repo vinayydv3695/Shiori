@@ -45,7 +45,7 @@ interface OnlineMangaDetailViewProps {
   lastReadChapterId?: string;
 
   onMangaClick?: (mangaId: string) => void;
-  onDownloadChapters?: (chapters: UnifiedChapter[]) => void;
+  onDownloadChapters?: (chapters: UnifiedChapter[], seriesMetadata?: any) => void;
 }
 
 export function OnlineMangaDetailView({
@@ -593,7 +593,7 @@ export function OnlineMangaDetailView({
           open={downloadDialogOpen}
           onOpenChange={setDownloadDialogOpen}
           chapters={filteredAndSortedChapters}
-          onDownload={onDownloadChapters || (() => {})}
+          onDownload={(chapters) => onDownloadChapters?.(chapters, anilistData)}
         />
 
       </div>

@@ -138,9 +138,15 @@ export async function processEpubHtml(bookId: number, html: string, searchTerm?:
       else if (ext.endsWith('.ttf')) mimeType = 'font/ttf';
       else if (ext.endsWith('.otf')) mimeType = 'font/otf';
 
-      // Convert to base64 (chunked to avoid call-stack overflow on large files)
-      const base64 = bytesToBase64(resourceData);
-      const dataUri = `data:${mimeType};base64,${base64}`;
+      // Use Blob URLs instead of Base64 to prevent OOM crashes on Android
+      const blob = new Blob([resourceData as any], { type: mimeType });
+      const dataUri = URL.createObjectURL(blob);
+      
+      // Track the object URL for cleanup when the reader closes
+      if (!(window as any).__shiori_epub_blob_urls) {
+        (window as any).__shiori_epub_blob_urls = [];
+      }
+      (window as any).__shiori_epub_blob_urls.push(dataUri);
 
       processedHtml = processedHtml.replace(`${attr}="${originalPath}"`, `${attr}="${dataUri}"`);
     } catch {
@@ -701,6 +707,14 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         saveScrollProgressRef.current = null;
       }
       flushProgressNow();
+      
+      // Cleanup Blob URLs
+      const blobUrls = (window as any).__shiori_epub_blob_urls;
+      if (blobUrls && Array.isArray(blobUrls)) {
+        blobUrls.forEach(url => URL.revokeObjectURL(url));
+        (window as any).__shiori_epub_blob_urls = [];
+      }
+      
       api.closeBookRenderer(bookId).catch(logger.error);
     };
   }, [bookPath, bookId, flushProgressNow]);
@@ -711,6 +725,14 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       saveScrollProgressRef.current = null;
     }
     flushProgressNow();
+    
+    // Cleanup Blob URLs
+    const blobUrls = (window as any).__shiori_epub_blob_urls;
+    if (blobUrls && Array.isArray(blobUrls)) {
+      blobUrls.forEach(url => URL.revokeObjectURL(url));
+      (window as any).__shiori_epub_blob_urls = [];
+    }
+    
     onClose();
   }, [flushProgressNow, onClose]);
 

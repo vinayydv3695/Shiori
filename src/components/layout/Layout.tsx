@@ -19,6 +19,7 @@ import { IconImportBook, IconImportManga } from '@/components/icons/ShioriIcons'
 
 import { PremiumTopbar } from './ImprovedToolbar'
 import { NavigationRail } from './NavigationRail'
+import { motion, AnimatePresence } from 'framer-motion'
 import { FilterPanel } from '../library/FilterPanel'
 import { BottomNav } from './BottomNav'
 import { useIsMobile } from '@/hooks/useIsMobile'
@@ -555,27 +556,37 @@ export function Layout({
               sideOffset={12} 
               className="w-56 rounded-2xl border-border/50 shadow-2xl bg-background/80 backdrop-blur-2xl p-2 origin-bottom-right data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-75 data-[state=open]:zoom-in-75 data-[side=top]:slide-in-from-bottom-10 duration-300 ease-out"
             >
-              <DropdownMenuItem onClick={() => handleOpenImportFilesDialog(true)} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200 active:scale-95">
-                <div className="p-2.5 bg-primary/10 rounded-lg shrink-0">
-                  <IconImportBook size={20} className="text-primary" />
-                </div>
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-base font-semibold leading-none">Import Files</span>
-                  <span className="text-xs text-muted-foreground leading-snug">Individual files</span>
-                </div>
-              </DropdownMenuItem>
+              <motion.div 
+                initial="hidden" 
+                animate="show" 
+                variants={{ show: { transition: { staggerChildren: 0.2 } } }}
+              >
+                <motion.div variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } } }}>
+                  <DropdownMenuItem onClick={() => handleOpenImportFilesDialog(true)} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200 active:scale-95">
+                    <div className="p-2.5 bg-primary/10 rounded-lg shrink-0">
+                      <IconImportBook size={20} className="text-primary" />
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-base font-semibold leading-none">Import Files</span>
+                      <span className="text-xs text-muted-foreground leading-snug">Individual files</span>
+                    </div>
+                  </DropdownMenuItem>
+                </motion.div>
 
-              <DropdownMenuSeparator className="bg-border/30 my-1 mx-2" />
+                <DropdownMenuSeparator className="bg-border/30 my-1 mx-2" />
 
-              <DropdownMenuItem onClick={() => handleOpenImportFolderDialog(true)} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200 active:scale-95">
-                <div className="p-2.5 bg-primary/10 rounded-lg shrink-0">
-                  <IconImportManga size={20} className="text-primary" />
-                </div>
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-base font-semibold leading-none">Import Folder</span>
-                  <span className="text-xs text-muted-foreground leading-snug">Scan directory</span>
-                </div>
-              </DropdownMenuItem>
+                <motion.div variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } } }}>
+                  <DropdownMenuItem onClick={() => handleOpenImportFolderDialog(true)} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200 active:scale-95">
+                    <div className="p-2.5 bg-primary/10 rounded-lg shrink-0">
+                      <IconImportManga size={20} className="text-primary" />
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-base font-semibold leading-none">Import Folder</span>
+                      <span className="text-xs text-muted-foreground leading-snug">Scan directory</span>
+                    </div>
+                  </DropdownMenuItem>
+                </motion.div>
+              </motion.div>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

@@ -1,6 +1,8 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import { X, Download } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { cn } from '@/lib/utils';
 export interface PreviewBook {
   title: string;
   author?: string;
@@ -25,6 +27,9 @@ export function OnlineBookSidePanel({
   onClose,
   onDownload,
 }: OnlineBookSidePanelProps) {
+  const isMobile = useIsMobile();
+  const dragControls = useDragControls();
+
   return createPortal(
       <AnimatePresence>
         <motion.div 
@@ -42,12 +47,36 @@ export function OnlineBookSidePanel({
 
           {/* Side Panel */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            initial={isMobile ? { opacity: 0, y: "100%" } : { opacity: 0, scale: 0.95, y: 20 }}
+            animate={isMobile ? { opacity: 1, y: 0 } : { opacity: 1, scale: 1, y: 0 }}
+            exit={isMobile ? { opacity: 0, y: "100%" } : { opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="relative w-full max-w-2xl max-h-[90vh] bg-background/95 backdrop-blur-xl border border-border/50 shadow-2xl rounded-2xl flex flex-col overflow-hidden"
+            drag={isMobile ? "y" : false}
+            dragControls={dragControls}
+            dragListener={false}
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={0.2}
+            onDragEnd={(e, info) => {
+              if (info.offset.y > 100 || info.velocity.y > 500) {
+                onClose();
+              }
+            }}
+            className={cn(
+              "relative bg-background/95 backdrop-blur-xl border-border/50 shadow-2xl flex flex-col overflow-hidden",
+              isMobile
+                ? "fixed inset-x-0 bottom-0 h-[85vh] w-full rounded-t-2xl border-t border-l-0 border-r-0"
+                : "w-full max-w-2xl max-h-[90vh] rounded-2xl border"
+            )}
           >
+            {isMobile && (
+              <div 
+                className="w-full flex justify-center pb-2 pt-3 z-30"
+                onPointerDown={(e) => dragControls.start(e)}
+                style={{ touchAction: 'none', cursor: 'grab' }}
+              >
+                <div className="w-12 h-1.5 rounded-full bg-[var(--ui-border)] pointer-events-none" />
+              </div>
+            )}
             {/* Close button */}
             <button 
               onClick={onClose}
@@ -56,7 +85,11 @@ export function OnlineBookSidePanel({
               <X className="w-5 h-5" />
             </button>
 
-              <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+              <motion.div 
+                className="flex-1 overflow-y-auto custom-scrollbar relative"
+                variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.05, delayChildren: 0.1 } } }}
+                initial="hidden" animate="show"
+              >
               {/* Sticky Compact Header for Mobile/Scrolling */}
               <div className="sticky top-0 z-20 w-full bg-background/95 backdrop-blur-md border-b border-border/50 px-4 py-3 flex items-center justify-between shadow-sm transform transition-all duration-300">
                 <div className="flex flex-col flex-1 min-w-0 pr-4">
@@ -79,7 +112,7 @@ export function OnlineBookSidePanel({
               </div>
 
               {/* Header / Cover */}
-              <div className="relative pt-6 pb-8 px-8 flex flex-col items-center border-b border-white/5">
+              <motion.div className="relative pt-6 pb-8 px-8 flex flex-col items-center border-b border-white/5" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
                 <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent opacity-30 pointer-events-none" />
                 
                 <div className="relative w-48 aspect-[2/3] rounded-xl overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.6)] border border-white/10 mb-6 shrink-0">
@@ -119,10 +152,10 @@ export function OnlineBookSidePanel({
                     </span>
                   )}
                 </div>
-              </div>
+              </motion.div>
 
               {/* Actions (Main Download Button) */}
-              <div className="p-8 flex flex-col gap-4 hidden sm:flex">
+              <motion.div className="p-8 flex flex-col gap-4 hidden sm:flex" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
                 <button 
                   onClick={onDownload}
                   className="w-full py-4 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold flex items-center justify-center gap-2 shadow-lg transition-all duration-300"
@@ -130,18 +163,18 @@ export function OnlineBookSidePanel({
                   <Download className="w-5 h-5" />
                   Download to Library
                 </button>
-              </div>
+              </motion.div>
 
               {/* Additional Info / Synopsis could go here if fetched */}
-              <div className="px-8 pb-8">
+              <motion.div className="px-8 pb-8" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">About this edition</h3>
                 <p className="text-foreground/70 leading-relaxed text-sm">
                   Source: <span className="capitalize text-foreground">{book.source}</span>
                   <br/>
                   This book was found via global search and can be instantly added to your local Shiori library.
                 </p>
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
           </motion.div>
         </motion.div>
       </AnimatePresence>,

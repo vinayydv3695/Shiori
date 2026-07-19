@@ -935,3 +935,100 @@ pub fn get_next_book_in_series(
 
     Ok(None)
 }
+
+#[derive(serde::Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct MangaChapterPath {
+    pub path: String,
+    pub chapter: Option<String>,
+}
+
+#[derive(serde::Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct MangaSeriesMetadata {
+    pub title: String,
+    pub anilist_id: Option<String>,
+    pub cover_url: Option<String>,
+    pub description: Option<String>,
+}
+
+#[tauri::command]
+pub async fn import_online_manga_chapters(
+    paths_with_chapters: Vec<MangaChapterPath>,
+    series_metadata: MangaSeriesMetadata,
+    state: State<'_, AppState>,
+) -> Result<crate::models::ImportResult> {
+    let db = state.db.clone();
+    let covers_dir = state.covers_dir.clone();
+    
+    tokio::task::spawn_blocking(move || {
+        let paths: Vec<String> = paths_with_chapters.iter().map(|p| p.path.clone()).collect();
+        let batch_result = crate::services::library_service::import_manga(&db, paths, &covers_dir)?;
+        
+        let conn = db.get_connection()?;
+        
+        let series_id: Option<i64> = conn.query_row(
+            "SELECT id FROM manga_series WHERE title = ?",
+            [&series_metadata.title],
+            |row| row.get(0),
+        ).ok();
+        
+        let series_id = if let Some(sid) = series_id {
+            if let Some(cover_url) = &series_metadata.cover_url {
+                let _ = conn.execute(
+                    "UPDATE manga_series SET cover_path = ? WHERE id = ? AND (cover_path IS NULL OR cover_path = '')",
+                    rusqlite::params![cover_url, sid],
+                );
+            }
+            sid
+        } else {
+            conn.execute(
+                "INSERT INTO manga_series (title, sort_title, status, cover_path, added_date) 
+                 VALUES (?, ?, 'ongoing', ?, CURRENT_TIMESTAMP)",
+                rusqlite::params![
+                    series_metadata.title, 
+                    series_metadata.title, 
+                    series_metadata.cover_url
+                ],
+            )?;
+            conn.last_insert_rowid()
+        };
+        
+        for path_obj in paths_with_chapters {
+            if batch_result.success.contains(&path_obj.path) || batch_result.duplicates.contains(&path_obj.path) {
+                let book_id: Option<i64> = conn.query_row(
+                    "SELECT id FROM books WHERE file_path = ?",
+                    [&path_obj.path],
+                    |row| row.get(0)
+                ).ok();
+                
+                if let Some(bid) = book_id {
+                    let chapter_f64 = path_obj.chapter.as_ref().and_then(|ch| ch.parse::<f64>().ok());
+                    let chapter_i32 = chapter_f64.map(|v| v as i32);
+                    
+                    let _ = conn.execute(
+                        "UPDATE books SET manga_series_id = ?, series = ?, series_index = ?, anilist_id = ? WHERE id = ?",
+                        rusqlite::params![
+                            series_id, 
+                            series_metadata.title, 
+                            chapter_i32,
+                            series_metadata.anilist_id, 
+                            bid
+                        ],
+                    );
+                    
+                    if let Some(desc) = &series_metadata.description {
+                        let _ = conn.execute(
+                            "UPDATE books SET notes = ? WHERE id = ? AND (notes IS NULL OR notes = '')",
+                            rusqlite::params![desc, bid],
+                        );
+                    }
+                }
+            }
+        }
+        
+        Ok(batch_result)
+    })
+    .await
+    .map_err(|e| crate::error::ShioriError::Other(e.to_string()))?
+}

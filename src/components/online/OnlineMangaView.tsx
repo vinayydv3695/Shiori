@@ -975,7 +975,7 @@ export function OnlineMangaView() {
     }
   };
 
-  const handleDownloadChapters = async (selectedChapters: UnifiedChapter[]) => {
+  const handleDownloadChapters = async (selectedChapters: UnifiedChapter[], seriesMetadata?: any) => {
     if (selectedChapters.length === 0) return;
     const manga = selectedManga || selectedPluginManga;
     if (!manga) return;
@@ -987,7 +987,7 @@ export function OnlineMangaView() {
       : "mangadex";
     const mangaTitle = manga.title;
 
-    const pathsToImport: string[] = [];
+    const pathsToImport: { path: string; chapter: string | null }[] = [];
     const downloadFailures: { chapter: string; reason: string }[] = [];
     showInfoToast(`Started downloading ${selectedChapters.length} chapters...`);
 
@@ -1012,7 +1012,7 @@ export function OnlineMangaView() {
           chapterId: ch.id,
           chapterTitle: uniqueChapterTitle,
         });
-        pathsToImport.push(cbzPath);
+        pathsToImport.push({ path: cbzPath, chapter: ch.chapter !== '?' ? ch.chapter : null });
       } catch (err) {
         const reason = getErrorMessage(err);
         downloadFailures.push({ chapter: String(ch.chapter), reason });
@@ -1033,8 +1033,22 @@ export function OnlineMangaView() {
     }
 
     try {
-      const result = await invoke<ImportResult>("import_manga", {
-        paths: pathsToImport,
+      const isPlugin = !!selectedPluginManga;
+      const coverUrl = isPlugin
+        ? selectedPluginManga!.coverUrl || selectedPluginManga!.cover_url
+        : selectedManga!.coverUrl;
+      const description = isPlugin
+        ? selectedPluginManga!.summary || selectedPluginManga!.description
+        : selectedManga!.description;
+
+      const result = await invoke<ImportResult>("import_online_manga_chapters", {
+        pathsWithChapters: pathsToImport,
+        seriesMetadata: {
+          title: seriesMetadata?.title?.english || seriesMetadata?.title?.romaji || mangaTitle,
+          anilistId: seriesMetadata?.id ? String(seriesMetadata.id) : null,
+          coverUrl: coverUrl || null,
+          description: description || seriesMetadata?.description || null,
+        }
       });
       const importedCount = result.success.length;
       const importFailedCount = result.failed.length;

@@ -48,7 +48,7 @@ export function MangaDownloadDialog({ open, onOpenChange, chapters, onDownload }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent aria-describedby="manga-download-dialog-description" className="w-[calc(100vw-2rem)] max-w-[460px] bg-[#09090b]/80 backdrop-blur-2xl text-foreground border-white/10 shadow-[0_0_60px_-15px_rgba(0,0,0,0.7)] rounded-3xl overflow-hidden p-0">
+      <DialogContent aria-describedby="manga-download-dialog-description" className="w-[calc(100vw-2rem)] max-w-[460px] bg-background/90 backdrop-blur-2xl text-foreground border-border/50 shadow-2xl rounded-3xl overflow-hidden p-0">
         <DialogDescription id="manga-download-dialog-description" className="sr-only">
           Manga download options.
         </DialogDescription>
@@ -57,11 +57,11 @@ export function MangaDownloadDialog({ open, onOpenChange, chapters, onDownload }
         <div className="relative px-8 pt-8 pb-4">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-50" />
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold tracking-tight bg-gradient-to-br from-white to-white/60 bg-clip-text text-transparent">
+            <DialogTitle className="text-2xl font-bold tracking-tight text-foreground">
               Download Chapters
             </DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-foreground/60 leading-relaxed mt-2">
+          <p className="text-sm text-foreground/70 leading-relaxed mt-2">
             Select the chapters you want to download for offline reading. They will be added to your library automatically.
           </p>
         </div>
@@ -71,11 +71,11 @@ export function MangaDownloadDialog({ open, onOpenChange, chapters, onDownload }
           
           <Button 
             variant="outline" 
-            className="group relative justify-between h-14 bg-white/[0.02] border-white/5 hover:border-white/10 hover:bg-white/[0.04] font-medium transition-all rounded-xl" 
+            className="group relative justify-between h-14 bg-foreground/[0.02] border-foreground/5 hover:border-foreground/10 hover:bg-foreground/[0.04] font-medium transition-all rounded-xl" 
             onClick={() => handleDownload(10)}
           >
             <span className="flex items-center gap-3 text-foreground/90 group-hover:text-foreground">
-              <span className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center border border-white/5">
+              <span className="w-8 h-8 rounded-lg bg-foreground/5 flex items-center justify-center border border-foreground/5">
                 <span className="text-xs font-bold text-muted-foreground group-hover:text-primary transition-colors">10</span>
               </span>
               Next 10 Chapters
@@ -85,11 +85,11 @@ export function MangaDownloadDialog({ open, onOpenChange, chapters, onDownload }
 
           <Button 
             variant="outline" 
-            className="group relative justify-between h-14 bg-white/[0.02] border-white/5 hover:border-white/10 hover:bg-white/[0.04] font-medium transition-all rounded-xl" 
+            className="group relative justify-between h-14 bg-foreground/[0.02] border-foreground/5 hover:border-foreground/10 hover:bg-foreground/[0.04] font-medium transition-all rounded-xl" 
             onClick={() => handleDownload(20)}
           >
             <span className="flex items-center gap-3 text-foreground/90 group-hover:text-foreground">
-              <span className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center border border-white/5">
+              <span className="w-8 h-8 rounded-lg bg-foreground/5 flex items-center justify-center border border-foreground/5">
                 <span className="text-xs font-bold text-muted-foreground group-hover:text-primary transition-colors">20</span>
               </span>
               Next 20 Chapters
@@ -99,11 +99,11 @@ export function MangaDownloadDialog({ open, onOpenChange, chapters, onDownload }
 
           <Button 
             variant="outline" 
-            className="group relative justify-between h-14 bg-white/[0.02] border-white/5 hover:border-white/10 hover:bg-white/[0.04] font-medium transition-all rounded-xl" 
+            className="group relative justify-between h-14 bg-foreground/[0.02] border-foreground/5 hover:border-foreground/10 hover:bg-foreground/[0.04] font-medium transition-all rounded-xl" 
             onClick={() => handleDownload(50)}
           >
             <span className="flex items-center gap-3 text-foreground/90 group-hover:text-foreground">
-              <span className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center border border-white/5">
+              <span className="w-8 h-8 rounded-lg bg-foreground/5 flex items-center justify-center border border-foreground/5">
                 <span className="text-xs font-bold text-muted-foreground group-hover:text-primary transition-colors">50</span>
               </span>
               Next 50 Chapters
@@ -125,18 +125,18 @@ export function MangaDownloadDialog({ open, onOpenChange, chapters, onDownload }
             <span className="text-primary opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all">↓</span>
           </Button>
           
-          <div className="flex items-center gap-3 mt-5 pt-5 border-t border-white/5">
+          <div className="flex items-center gap-3 mt-5 pt-5 border-t border-foreground/10">
             <Input 
               placeholder="e.g. 42-50" 
               value={customRange}
               onChange={(e) => setCustomRange(e.target.value)}
-              className="flex-1 bg-black/40 border-white/10 focus-visible:ring-primary focus-visible:border-primary/50 h-12 rounded-xl px-4 transition-all"
+              className="flex-1 bg-muted/30 border-foreground/10 focus-visible:ring-primary focus-visible:border-primary/50 h-12 rounded-xl px-4 transition-all"
             />
             <Button 
               variant="secondary" 
               onClick={() => handleDownload(customRange)}
               disabled={!customRange.includes('-')}
-              className="h-12 bg-white/10 hover:bg-white/20 text-foreground font-semibold px-6 rounded-xl transition-all shadow-sm"
+              className="h-12 bg-foreground/10 hover:bg-foreground/20 text-foreground font-semibold px-6 rounded-xl transition-all shadow-sm"
             >
               Download
             </Button>
@@ -144,8 +144,8 @@ export function MangaDownloadDialog({ open, onOpenChange, chapters, onDownload }
         </div>
 
         {/* Footer */}
-        <DialogFooter className="px-8 py-4 bg-black/40 border-t border-white/5">
-          <Button variant="ghost" className="hover:bg-white/5 rounded-xl font-medium" onClick={() => onOpenChange(false)}>Cancel</Button>
+        <DialogFooter className="px-8 py-4 bg-muted/30 border-t border-foreground/10">
+          <Button variant="ghost" className="hover:bg-foreground/5 rounded-xl font-medium" onClick={() => onOpenChange(false)}>Cancel</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

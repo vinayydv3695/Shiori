@@ -78,9 +78,13 @@ export const MangaSidebar = memo(function MangaSidebar() {
                 </div>
 
                 {/* Content */}
-                <div className="manga-sidebar-content">
+                <motion.div 
+                    className="manga-sidebar-content"
+                    variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.05, delayChildren: 0.05 } } }}
+                    initial="hidden" animate="show"
+                >
                     {/* Reading Mode */}
-                    <div className="manga-sidebar-section">
+                    <motion.div className="manga-sidebar-section" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
                         <div className="manga-sidebar-section-title">Reading Mode</div>
                         <div className="manga-mode-selector">
                             {modeOptions.map(opt => (
@@ -93,10 +97,10 @@ export const MangaSidebar = memo(function MangaSidebar() {
                                 </button>
                             ))}
                         </div>
-                    </div>
+                    </motion.div>
 
                     {/* Navigation */}
-                    <div className="manga-sidebar-section">
+                    <motion.div className="manga-sidebar-section" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
                         <div className="manga-sidebar-section-title">Navigation</div>
                         <div className="manga-sidebar-row">
                             <span className="manga-sidebar-label">Page</span>
@@ -112,12 +116,12 @@ export const MangaSidebar = memo(function MangaSidebar() {
                                 ))}
                             </select>
                         </div>
-                    </div>
+                    </motion.div>
 
                     <div className="manga-sidebar-divider" />
 
                     {/* Display Toggles */}
-                    <div className="manga-sidebar-section">
+                    <motion.div className="manga-sidebar-section" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
                         <div className="manga-sidebar-section-title">Display</div>
 
                         <div className="manga-sidebar-row">
@@ -157,12 +161,12 @@ export const MangaSidebar = memo(function MangaSidebar() {
                                 </div>
                             </>
                         )}
-                    </div>
+                    </motion.div>
 
                     <div className="manga-sidebar-divider" />
 
                     {/* Actions */}
-                    <div className="manga-sidebar-section">
+                    <motion.div className="manga-sidebar-section" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
                         <button
                             className="manga-sidebar-btn manga-sidebar-btn--accent"
                             onClick={toggleSettings}
@@ -170,8 +174,8 @@ export const MangaSidebar = memo(function MangaSidebar() {
                             <Settings />
                             <span>Advanced Settings</span>
                         </button>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
                 </motion.div>
             </>
             )}

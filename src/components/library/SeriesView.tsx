@@ -204,97 +204,110 @@ const MobileSeriesHeader = memo(function MobileSeriesHeader({
   const status = 'Ongoing';
 
   return (
-    <div className="md:hidden flex flex-col relative w-full shrink-0 border-b border-border bg-background pb-4">
-      {/* Banner / Cover Section */}
-      <div className="relative w-full h-[45vh] min-h-[300px] shadow-sm bg-black">
-        {coverUrl ? (
-          <img src={coverUrl} alt={series.title} className="w-full h-full object-cover opacity-80" />
-        ) : (
-          <div className="w-full h-full bg-muted flex items-center justify-center">
-            <BookOpen className="w-16 h-16 text-muted-foreground/30" />
-          </div>
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
-        <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/50 to-transparent pointer-events-none" />
-      </div>
+    <div className="md:hidden flex flex-col relative w-full shrink-0 border-b border-border bg-card overflow-hidden">
+      {/* Blurred Hero Background */}
+      {coverUrl && (
+        <>
+          <div 
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-15"
+            style={{ backgroundImage: `url(${coverUrl})` }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-background/90 via-background/50 to-transparent" />
+        </>
+      )}
 
-      <div className="relative -mt-24 px-5 flex flex-col items-center text-center z-10 gap-5">
-        {/* Title and Badges */}
-        <div className="flex flex-col items-center gap-3">
-          <div className="flex gap-2">
-            <span className="px-2.5 py-0.5 rounded text-[11px] font-black tracking-wider bg-primary text-primary-foreground uppercase shadow-md">
-              {status}
-            </span>
-            <span className="px-2.5 py-0.5 rounded text-[11px] font-bold bg-background/90 backdrop-blur-md border border-border flex items-center gap-1.5 shadow-sm text-foreground/90">
-              <Layers className="w-3.5 h-3.5" />
-              {series.bookCount} {series.bookCount === 1 ? 'Vol' : 'Vols'}
-            </span>
+      <div className="relative z-10 px-4 pt-16 pb-4 flex flex-col gap-4">
+        
+        {/* Top Section: Cover & Info (Horizontal) */}
+        <div className="flex flex-row gap-4 items-end w-full">
+          {/* Cover */}
+          <div className="w-24 h-36 rounded-lg overflow-hidden shadow-2xl border border-white/10 flex-shrink-0 bg-muted/50 relative z-20">
+            {coverUrl ? (
+              <img src={coverUrl} alt={series.title} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-muted-foreground/30 bg-muted">
+                <BookOpen className="w-8 h-8" />
+              </div>
+            )}
           </div>
-          <Dialog.Title className="text-3xl font-black text-foreground leading-tight drop-shadow-lg px-2">
-            {series.title}
-          </Dialog.Title>
-          <p className="text-base text-foreground/90 font-medium">
-            {Array.from(series.authors).join(', ') || 'Unknown Author'}
-          </p>
+
+          {/* Info */}
+          <div className="flex-1 min-w-0 flex flex-col justify-end w-full text-left pb-1">
+            <div className="flex flex-wrap items-center gap-1.5 mb-2">
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider bg-primary text-primary-foreground shadow-sm uppercase">
+                {status}
+              </span>
+              <span className="text-[10px] text-foreground/90 font-medium flex items-center gap-1 backdrop-blur-md bg-background/30 px-1.5 py-0.5 rounded border border-border/20">
+                <Layers className="w-3 h-3" />
+                {series.bookCount} {series.bookCount === 1 ? 'Vol' : 'Vols'}
+              </span>
+            </div>
+            
+            <Dialog.Title className="text-xl font-black text-foreground line-clamp-3 tracking-tight mb-1 drop-shadow-md leading-tight break-words whitespace-normal">
+              {series.title}
+            </Dialog.Title>
+            <p className="text-xs text-foreground/80 truncate font-medium drop-shadow-sm">
+              {Array.from(series.authors).join(', ') || 'Unknown Author'}
+            </p>
+          </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="w-full flex flex-col gap-4 mt-2">
+        {/* Actions Section */}
+        <div className="flex flex-row items-center gap-2 w-full mt-1">
           <Button 
             size="lg" 
             onClick={() => {
               if (nextUnreadBook?.id) onOpenBook(nextUnreadBook.id);
               else if (sortedBooks[0]?.id) onOpenBook(sortedBooks[0].id);
             }} 
-            className="w-full h-14 font-black text-lg shadow-xl shadow-primary/25 rounded-2xl transition-transform active:scale-95"
+            className="flex-1 gap-2 font-bold text-sm shadow-lg shadow-primary/20 transition-all active:scale-95 h-11"
           >
-            <Play className="w-5 h-5 mr-2 fill-current" /> 
+            <Play className="w-4 h-4 fill-current" /> 
             {nextUnreadBook ? `Continue Vol. ${nextUnreadBook.series_index || ''}` : 'Read Again'}
           </Button>
 
-          <div className="flex justify-center gap-4">
-            <Button variant="secondary" size="icon" onClick={onMarkAllRead} className="w-12 h-12 rounded-full bg-secondary/80 backdrop-blur-md border border-border/50 shadow-sm" title="Mark All Read">
-              <CheckCircle2 className="w-5 h-5" />
-            </Button>
-            
-            <DropdownMenu.Root>
-              <DropdownMenu.Trigger asChild>
-                <Button variant="secondary" size="icon" className="w-12 h-12 rounded-full bg-secondary/80 backdrop-blur-md border border-border/50 shadow-sm">
-                  <MoreVertical className="w-5 h-5" />
-                </Button>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Portal>
-                <DropdownMenu.Content align="center" className="w-48 bg-card border border-border/50 rounded-lg shadow-xl p-1 z-[100]">
-                  <DropdownMenu.Item onSelect={onFindMetadata} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer outline-none hover:bg-accent rounded-md">
-                    <Edit2 className="w-4 h-4" /> Edit Metadata
+          <Button variant="secondary" size="lg" onClick={onMarkAllRead} className="w-11 h-11 shrink-0 px-0 bg-background/40 hover:bg-background/60 text-foreground border-border/20 backdrop-blur-md shadow-sm transition-colors" title="Mark All Read">
+            <CheckCircle2 className="w-5 h-5" />
+          </Button>
+          
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger asChild>
+              <Button variant="secondary" size="lg" className="w-11 h-11 shrink-0 px-0 bg-background/40 hover:bg-background/60 text-foreground border-border/20 backdrop-blur-md shadow-sm transition-colors">
+                <MoreVertical className="w-5 h-5" />
+              </Button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content align="end" className="w-48 bg-card border border-border/50 rounded-lg shadow-xl p-1 z-[100] animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-2">
+                <DropdownMenu.Item onSelect={onFindMetadata} className="flex items-center gap-2 px-3 py-2 text-sm text-foreground cursor-pointer outline-none hover:bg-accent hover:text-accent-foreground rounded-md transition-colors">
+                  <Edit2 className="w-4 h-4" /> Edit Metadata
+                </DropdownMenu.Item>
+                <DropdownMenu.Separator className="h-px bg-border/50 my-1" />
+                {!showDeleteConfirm ? (
+                  <DropdownMenu.Item onSelect={(e) => { e.preventDefault(); setShowDeleteConfirm(true); }} className="flex items-center gap-2 px-3 py-2 text-sm text-destructive cursor-pointer outline-none hover:bg-destructive/10 rounded-md transition-colors font-medium">
+                    <Trash2 className="w-4 h-4" /> Ungroup Series
                   </DropdownMenu.Item>
-                  <DropdownMenu.Separator className="h-px bg-border/50 my-1" />
-                  {!showDeleteConfirm ? (
-                    <DropdownMenu.Item onSelect={(e) => { e.preventDefault(); setShowDeleteConfirm(true); }} className="flex items-center gap-2 px-3 py-2 text-sm text-destructive cursor-pointer outline-none hover:bg-destructive/10 rounded-md">
-                      <Trash2 className="w-4 h-4" /> Ungroup Series
-                    </DropdownMenu.Item>
-                  ) : (
-                    <div className="flex items-center justify-between p-2 bg-destructive/10 rounded-md">
-                      <span className="text-xs text-destructive font-bold px-1">Sure?</span>
-                      <div className="flex gap-1">
-                        <Button variant="destructive" size="sm" onClick={onDelete} className="h-6 text-[10px] px-2 py-0">Yes</Button>
-                        <Button variant="ghost" size="sm" onClick={() => setShowDeleteConfirm(false)} className="h-6 text-[10px] px-2 py-0 hover:bg-destructive/20 text-destructive">No</Button>
-                      </div>
+                ) : (
+                  <div className="flex items-center justify-between p-2 bg-destructive/10 rounded-md">
+                    <span className="text-xs text-destructive font-bold px-1">Sure?</span>
+                    <div className="flex gap-1">
+                      <Button variant="destructive" size="sm" onClick={onDelete} className="h-6 text-[10px] px-2 py-0">Yes</Button>
+                      <Button variant="ghost" size="sm" onClick={() => setShowDeleteConfirm(false)} className="h-6 text-[10px] px-2 py-0 hover:bg-destructive/20 text-destructive">No</Button>
                     </div>
-                  )}
-                </DropdownMenu.Content>
-              </DropdownMenu.Portal>
-            </DropdownMenu.Root>
-          </div>
+                  </div>
+                )}
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
         </div>
 
         {/* Reading Progress */}
-        <div className="w-full flex flex-col mt-4 px-1">
+        <div className="w-full flex flex-col mt-1">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] font-bold text-foreground/70 uppercase tracking-wider">Reading Progress</span>
-            <span className="text-[11px] font-black text-primary">{progressPercent}%</span>
+            <span className="text-[10px] font-bold text-foreground/80 uppercase tracking-wider drop-shadow-sm">Reading Progress</span>
+            <span className="text-[10px] font-black text-primary drop-shadow-sm">{progressPercent}%</span>
           </div>
-          <div className="h-2 w-full bg-secondary rounded-full overflow-hidden shadow-inner">
+          <div className="h-1.5 w-full bg-background/60 backdrop-blur-sm rounded-full overflow-hidden border border-border/30 shadow-inner">
             <div className="h-full bg-primary transition-all duration-1000 ease-out" style={{ width: `${progressPercent}%` }} />
           </div>
         </div>

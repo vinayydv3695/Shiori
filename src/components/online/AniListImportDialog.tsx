@@ -109,15 +109,17 @@ export function AniListImportDialog({ isOpen, onClose, collection, anilistToken 
   return (
     <Dialog.Root open={isOpen} onOpenChange={(open) => !open && !isImporting && onClose()}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <Dialog.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-xl">
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-background/80 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <Dialog.Content className="fixed left-[50%] top-[50%] z-50 grid w-[92vw] sm:w-full sm:max-w-md translate-x-[-50%] translate-y-[-50%] gap-4 border border-border/50 bg-background/95 backdrop-blur-2xl p-5 sm:p-6 shadow-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 rounded-3xl">
           
-          <div className="flex items-center justify-between">
-            <Dialog.Title className="text-xl font-semibold tracking-tight text-foreground flex items-center gap-2">
-              <DownloadCloud className="w-5 h-5 text-primary" />
-              Import AniList Manga
+          <div className="flex items-center justify-between pb-1">
+            <Dialog.Title className="text-xl font-bold tracking-tight text-foreground flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-xl text-primary">
+                <DownloadCloud className="w-5 h-5" />
+              </div>
+              Import AniList
             </Dialog.Title>
-            <Dialog.Close disabled={isImporting} className="rounded-full p-1.5 opacity-70 transition-opacity hover:opacity-100 disabled:opacity-30">
+            <Dialog.Close disabled={isImporting} className="rounded-full p-2 bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground transition-all disabled:opacity-30">
               <X className="h-4 w-4" />
             </Dialog.Close>
           </div>
@@ -125,32 +127,33 @@ export function AniListImportDialog({ isOpen, onClose, collection, anilistToken 
           <div className="space-y-4 py-4">
             {!isImporting ? (
               <>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground px-1">
                   Found <strong className="text-foreground">{eligibleEntries.length}</strong> manga in your "Planning" and "Reading" lists.
                 </p>
-                <div className="bg-muted/50 rounded-lg p-3 border border-border/50 max-h-[250px] overflow-y-auto space-y-2">
+                <div className="bg-secondary/30 backdrop-blur-sm rounded-2xl p-4 border border-border/40 max-h-[40vh] sm:max-h-[300px] overflow-y-auto space-y-3 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                   {eligibleEntries.length > 0 ? (
                     eligibleEntries.map((item) => (
-                      <div key={item.entry.media.id} className="flex items-center justify-between text-sm">
-                        <span className="truncate pr-4 flex-1">
+                      <div key={item.entry.media.id} className="flex items-center justify-between text-sm group">
+                        <span className="truncate pr-4 flex-1 font-medium text-foreground/90 group-hover:text-foreground transition-colors">
                           {item.entry.media.title.userPreferred || item.entry.media.title.english}
                         </span>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-background border border-border capitalize whitespace-nowrap text-muted-foreground">
+                        <span className="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-background/80 border border-border/50 capitalize whitespace-nowrap text-muted-foreground shadow-sm">
                           {item.status}
                         </span>
                       </div>
                     ))
                   ) : (
-                    <div className="text-center text-sm text-muted-foreground py-4">
-                      No eligible manga found in those lists.
+                    <div className="text-center text-sm text-muted-foreground py-8 flex flex-col items-center gap-2">
+                      <AlertCircle className="w-8 h-8 text-muted-foreground/50" />
+                      No eligible manga found.
                     </div>
                   )}
                 </div>
                 
-                <div className="flex items-start gap-3 mt-4 text-sm text-muted-foreground bg-primary/5 p-3 rounded-lg border border-primary/20">
+                <div className="flex items-start gap-3 mt-4 text-sm text-muted-foreground bg-primary/10 p-4 rounded-2xl border border-primary/20">
                   <AlertCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <p>
-                    This will automatically search Mangafire for these titles and add them to your local Manga Library as online reading sources.
+                  <p className="leading-relaxed text-primary/90">
+                    This will automatically search Mangafire for these titles and add them to your local library as online sources.
                   </p>
                 </div>
               </>
@@ -192,12 +195,12 @@ export function AniListImportDialog({ isOpen, onClose, collection, anilistToken 
             )}
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-4 border-t border-border/50">
-            <Button variant="ghost" onClick={onClose} disabled={isImporting}>
+          <div className="flex items-center justify-end gap-3 pt-5 border-t border-border/30">
+            <Button variant="ghost" onClick={onClose} disabled={isImporting} className="rounded-xl px-5 hover:bg-secondary/60">
               Cancel
             </Button>
             {!isImporting && (
-              <Button onClick={handleStartImport} disabled={eligibleEntries.length === 0} className="gap-2">
+              <Button onClick={handleStartImport} disabled={eligibleEntries.length === 0} className="gap-2 rounded-xl px-6 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all">
                 <DownloadCloud className="w-4 h-4" />
                 Import to Library
               </Button>

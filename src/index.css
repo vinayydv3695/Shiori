@@ -596,6 +596,20 @@ input:-webkit-autofill:active{
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow) !important;
 }
 
+/* Hide scrollbars completely on Android for a cleaner native look */
+.is-android * {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+.is-android::-webkit-scrollbar,
+.is-android *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  opacity: 0 !important;
+}
+
 
 
 

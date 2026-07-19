@@ -238,6 +238,7 @@ export async function getMediaListCollection(userId: number, token: string): Pro
             id
             status
             score
+            score100: score(format: POINT_100)
             progress
             progressVolumes
             startedAt {

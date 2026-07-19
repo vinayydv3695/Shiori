@@ -75,9 +75,10 @@ export const ResumeReadingDialog: React.FC<ResumeReadingDialogProps> = ({
           <div className="flex flex-col gap-2 px-6 pb-6">
             {/* Primary: Resume */}
             <button
+              type="button"
               id="resume-reading-continue-btn"
               onClick={onResume}
-              className="w-full px-4 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-sm"
+              className="w-full px-4 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-sm"
             >
               <BookOpen className="w-4 h-4" />
               Continue from {locationLabel}
@@ -85,9 +86,10 @@ export const ResumeReadingDialog: React.FC<ResumeReadingDialogProps> = ({
 
             {/* Secondary: Start over */}
             <button
+              type="button"
               id="resume-reading-start-over-btn"
               onClick={onStartOver}
-              className="w-full px-4 py-2.5 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+              className="w-full px-4 py-2.5 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-all flex items-center justify-center gap-2"
             >
               <RotateCcw className="w-4 h-4" />
               Start from the beginning

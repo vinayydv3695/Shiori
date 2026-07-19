@@ -1,6 +1,6 @@
 import { logger } from '@/lib/logger';
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { api } from '@/lib/tauri';
+import { api, isAndroid } from '@/lib/tauri';
 import type { BookMetadata, Chapter } from '@/lib/tauri';
 import { useReaderUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement, applyAllSettingsToDOM } from '@/store/premiumReaderStore';
 import { useReaderStore } from '@/store/readerStore';
@@ -1020,18 +1020,20 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
             >
               <BookOpen className="premium-control-icon" />
             </button>
-            <button
-              type="button"
-              onClick={toggleTwoPageView}
-              className={`premium-control-button ${twoPageView ? 'premium-control-button--active' : ''}`}
-              aria-label="Two-page view"
-              title="Two-page view"
-            >
-              <svg aria-hidden="true" className="premium-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="4" width="8" height="16" />
-                <rect x="13" y="4" width="8" height="16" />
-              </svg>
-            </button>
+            {!isAndroid && (
+              <button
+                type="button"
+                onClick={toggleTwoPageView}
+                className={`premium-control-button ${twoPageView ? 'premium-control-button--active' : ''}`}
+                aria-label="Two-page view"
+                title="Two-page view"
+              >
+                <svg aria-hidden="true" className="premium-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="4" width="8" height="16" />
+                  <rect x="13" y="4" width="8" height="16" />
+                </svg>
+              </button>
+            )}
             <button
               type="button"
               onClick={toggleDoodleMode}

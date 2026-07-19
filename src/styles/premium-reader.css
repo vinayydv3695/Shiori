@@ -205,7 +205,6 @@ select {
   width: 92vw;
   max-width: 800px;
   background: var(--bg-elevated);
-  /* color-mix removed to fix Android WebView transparent background bug */
   border: 1px solid var(--ui-border);
   border-radius: 20px;
   z-index: 100;
@@ -221,6 +220,7 @@ select {
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.12);
 }
 
+/* Desktop hidden: slide up with -50% X offset intact */
 .premium-top-bar--hidden {
   transform: translate(-50%, -150%);
   opacity: 0;
@@ -238,8 +238,11 @@ select {
 }
 
 @media (max-width: 768px) {
+  /* Reset desktop centering transform - mobile bar is full-width from left:0 */
   .premium-top-bar {
     top: 0;
+    left: 0;
+    transform: none;
     width: 100%;
     max-width: 100%;
     border-radius: 0;
@@ -247,10 +250,14 @@ select {
     border-bottom: 1px solid var(--ui-border);
     height: calc(48px + env(safe-area-inset-top, 0px));
     padding-top: env(safe-area-inset-top, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+    box-shadow: 0 1px 0 var(--ui-border);
   }
-  
+
+  /* Mobile hidden: pure Y slide - no X offset needed */
   .premium-top-bar--hidden {
-    transform: translate(-50%, -100%);
+    transform: translateY(-100%);
   }
 
   .premium-reading-time, .premium-top-bar-separator {
@@ -399,19 +406,30 @@ select {
   overflow-x: hidden;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
-  /* SHIORI-FIX: padding-top tracks toolbar height (48px) */
-  padding-top: calc(48px + env(safe-area-inset-top, 0px));
+  /* Desktop: 48px pill topbar + spacing */
+  padding-top: calc(48px + env(safe-area-inset-top, 0px) + var(--spacing-sm, 8px));
   padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
-  /* Extra space at bottom */
+}
+
+@media (max-width: 768px) {
+  /* Mobile: topbar is full-bleed (48px content + safe-area), flush to top */
+  .premium-reading-canvas {
+    padding-top: calc(48px + env(safe-area-inset-top, 0px));
+  }
 }
 
 /* Focus mode adjustments */
-/* SHIORI-FIX: focus-mode padding-top adjusted from 80px → 68px (was 60+20, now 48+20) */
 .premium-reading-canvas--focus-mode {
-  padding-top: 68px;
+  padding-top: calc(68px + env(safe-area-inset-top, 0px));
   padding-left: 10vw;
   padding-right: 10vw;
   transition: padding var(--transition-slower);
+}
+
+@media (max-width: 768px) {
+  .premium-reading-canvas--focus-mode {
+    padding-top: calc(48px + env(safe-area-inset-top, 0px));
+  }
 }
 
 /* Hide scrollbar but keep functionality */
@@ -1943,16 +1961,19 @@ select {
     display: none;
   }
 
+  /* Mobile full-width bar - do not override with pill styles */
   .premium-top-bar {
-    top: env(safe-area-inset-top, 8px);
-    width: calc(100% - var(--spacing-md) * 2);
-    border-radius: var(--radius-lg);
+    top: 0;
+    left: 0;
+    transform: none;
+    width: 100%;
+    border-radius: 0;
   }
 
   .premium-top-bar-content {
     min-width: 0;
     width: 100%;
-    padding: 0 calc(var(--spacing-md) + env(safe-area-inset-right, 0px)) 0 calc(var(--spacing-md) + env(safe-area-inset-left, 0px));
+    padding: 0 var(--spacing-md);
   }
 
   .premium-top-bar-center {
@@ -1961,7 +1982,7 @@ select {
 
   .premium-book-title,
   .premium-chapter-indicator {
-    max-width: 140px; /* Prevent title from pushing buttons out */
+    max-width: 55vw; /* Prevent title from pushing buttons out */
   }
 
   .premium-top-bar__content {
@@ -2159,7 +2180,8 @@ select {
 /* Compact (phone): < 640px */
 @container reader (max-width: 640px) {
   .premium-top-bar {
-    height: calc(48px * var(--ui-scale));
+    /* On compact phones the topbar is still full-bleed: 48px + status bar */
+    height: calc(48px + env(safe-area-inset-top, 0px));
   }
 
   .premium-sidebar {

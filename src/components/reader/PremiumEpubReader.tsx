@@ -45,19 +45,6 @@ export function ChapterHtml({ content }: { content: string }) {
   return <div ref={htmlRef} className="premium-chapter-content" />;
 }
 
-// Helper function to convert resource URLs to data URIs and inline CSS
-/** Convert a byte array to base64 without hitting call-stack limits on large files. */
-function bytesToBase64(data: number[] | Uint8Array | ArrayBuffer): string {
-  const bytes = data instanceof Uint8Array ? data
-    : data instanceof ArrayBuffer ? new Uint8Array(data)
-    : new Uint8Array(data);
-  let binary = '';
-  const CHUNK = 8192;
-  for (let i = 0; i < bytes.length; i += CHUNK) {
-    binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + CHUNK, bytes.length)));
-  }
-  return btoa(binary);
-}
 
 export async function processEpubHtml(bookId: number, html: string, searchTerm?: string | null): Promise<string> {
   let processedHtml = html;
@@ -139,7 +126,7 @@ export async function processEpubHtml(bookId: number, html: string, searchTerm?:
       else if (ext.endsWith('.otf')) mimeType = 'font/otf';
 
       // Use Blob URLs instead of Base64 to prevent OOM crashes on Android
-      const blob = new Blob([resourceData as any], { type: mimeType });
+      const blob = new Blob([new Uint8Array(resourceData as any)], { type: mimeType });
       const dataUri = URL.createObjectURL(blob);
       
       // Track the object URL for cleanup when the reader closes

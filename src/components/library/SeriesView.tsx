@@ -616,7 +616,9 @@ export const SeriesView = memo(function SeriesView({
     <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <Dialog.Content aria-describedby={undefined}
+        <Dialog.Content 
+          aria-describedby={undefined}
+          onOpenAutoFocus={(e) => e.preventDefault()}
           className={cn(
             'fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2',
             'bg-background shadow-2xl',
@@ -729,6 +731,8 @@ export const SeriesView = memo(function SeriesView({
                     return (
                       <div
                         key={virtualRow.index}
+                        data-index={virtualRow.index}
+                        ref={rowVirtualizer.measureElement}
                         style={{
                           position: 'absolute',
                           top: 0,

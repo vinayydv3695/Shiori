@@ -142,11 +142,11 @@ export const ModernBookCard = memo(function ModernBookCard({
         )}
 
         {/* Hover Glassmorphism Overlay */}
-        <div className="absolute inset-0 bg-background/60 opacity-0 group-hover/card:opacity-100 transition-all duration-500 flex flex-col items-center justify-center backdrop-blur-md z-20">
-          <div className="w-14 h-14 rounded-full bg-foreground/10 flex items-center justify-center border border-foreground/20 transform translate-y-4 group-hover/card:translate-y-0 transition-all duration-500 shadow-xl">
-            <BookOpen className="w-6 h-6 text-foreground drop-shadow-sm" />
+        <div className="absolute inset-0 bg-card-overlay/60 opacity-0 group-hover/card:opacity-100 transition-all duration-500 flex flex-col items-center justify-center backdrop-blur-md z-20">
+          <div className="w-14 h-14 rounded-full bg-card-overlay-text/10 flex items-center justify-center border border-card-overlay-text/20 transform translate-y-4 group-hover/card:translate-y-0 transition-all duration-500 shadow-xl">
+            <BookOpen className="w-6 h-6 text-card-overlay-text drop-shadow-sm" />
           </div>
-          <span className="text-foreground font-medium mt-3 opacity-0 group-hover/card:opacity-100 transition-opacity duration-500 delay-100 tracking-wide drop-shadow-sm">
+          <span className="text-card-overlay-text font-medium mt-3 opacity-0 group-hover/card:opacity-100 transition-opacity duration-500 delay-100 tracking-wide drop-shadow-sm">
             View
           </span>
         </div>

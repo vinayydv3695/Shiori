@@ -213,50 +213,7 @@ interface HomePageProps {
   onOpenSettings?: () => void
 }
 
-function MobileQuickLinks({ onOpenSettings }: { onOpenSettings: () => void }) {
-  const setCurrentView = useUIStore(s => s.setCurrentView)
-  const enableRecycleBin = usePreferencesStore(s => s.preferences?.enableRecycleBin ?? false)
-  const hasTorboxKey = useTorboxStore(s => s.hasApiKey)
 
-  return (
-    <div className="md:hidden mb-6 px-4">
-      <div className="flex flex-wrap gap-2 pb-2">
-        {hasTorboxKey && (
-          <button onClick={() => setCurrentView('torbox-discover')} className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
-            <TorboxIcon className="w-4 h-4 text-primary" />
-            <span className="text-[11px] font-medium tracking-tight">Torbox</span>
-          </button>
-        )}
-        <button onClick={() => setCurrentView('anilist')} className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
-          <AniListIcon className="w-4 h-4 text-primary" />
-          <span className="text-[11px] font-medium tracking-tight">AniList</span>
-        </button>
-        <button onClick={() => setCurrentView('annotations')} className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
-          <Highlighter className="w-4 h-4 text-primary" />
-          <span className="text-[11px] font-medium tracking-tight">Annotations</span>
-        </button>
-        <button onClick={() => setCurrentView('statistics')} className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
-          <BarChart2 className="w-4 h-4 text-primary" />
-          <span className="text-[11px] font-medium tracking-tight">Statistics</span>
-        </button>
-        <button onClick={() => setCurrentView('rss-feeds')} className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
-          <Rss className="w-4 h-4 text-primary" />
-          <span className="text-[11px] font-medium tracking-tight">RSS</span>
-        </button>
-        {enableRecycleBin && (
-          <button onClick={() => setCurrentView('recycle-bin' as any)} className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
-            <Trash2 className="w-4 h-4 text-destructive" />
-            <span className="text-[11px] font-medium tracking-tight text-destructive">Trash</span>
-          </button>
-        )}
-        <button onClick={onOpenSettings} className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border/40 hover:bg-secondary/40 active:scale-95 transition-all">
-          <Settings className="w-4 h-4 text-muted-foreground" />
-          <span className="text-[11px] font-medium tracking-tight text-muted-foreground">Settings</span>
-        </button>
-      </div>
-    </div>
-  )
-}
 
 export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChange = () => {}, onOpenAdvancedFilter = () => {}, onOpenSettings = () => {} }: HomePageProps) {
   const [libraryStats, setLibraryStats] = useState<{total_books: number, total_manga: number, total_size_bytes: number} | null>(null);
@@ -409,8 +366,8 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
         searchQuery={searchQuery} 
         onSearchChange={onSearchChange} 
         onOpenAdvancedFilter={onOpenAdvancedFilter}
+        hideThemeToggle={true}
       />
-      <MobileQuickLinks onOpenSettings={onOpenSettings} />
       {/* ── ROW 1: THE "NOW" ROW ── */}
       <div className="bento-row now-row">
         {continueReading.length > 0 ? (

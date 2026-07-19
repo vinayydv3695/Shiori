@@ -995,8 +995,12 @@ export function OnlineMangaView() {
     for (const ch of selectedChapters) {
       i++;
       try {
+        const uniqueChapterTitle = ch.title 
+          ? (ch.title.toLowerCase().includes('chapter') ? ch.title : `Chapter ${ch.chapter} - ${ch.title}`)
+          : `Chapter ${ch.chapter}`;
+          
         setDownloadProgress({
-          chapterTitle: ch.title || `Chapter ${ch.chapter}`,
+          chapterTitle: uniqueChapterTitle,
           progress: 0,
           total: 1,
           chapterIndex: i,
@@ -1006,7 +1010,7 @@ export function OnlineMangaView() {
           sourceId: effectiveSourceId,
           mangaTitle: mangaTitle,
           chapterId: ch.id,
-          chapterTitle: ch.title || `Chapter ${ch.chapter}`,
+          chapterTitle: uniqueChapterTitle,
         });
         pathsToImport.push(cbzPath);
       } catch (err) {

@@ -425,7 +425,7 @@ export function Layout({
     <div className={cn("flex flex-col h-screen overflow-hidden bg-background")}>
       {/* ── Global Android Status Bar Protector ── */}
       {isMobile && currentView !== 'online-manga-reader' && (currentView as string) !== 'premium-manga-reader' && (
-        <div className="fixed top-0 left-0 right-0 h-[env(safe-area-inset-top,0px)] bg-background/95 backdrop-blur-md z-[100] pointer-events-none border-b border-border/5 shadow-sm" />
+        <div className="fixed top-0 left-0 right-0 h-[env(safe-area-inset-top,0px)] bg-background/95 backdrop-blur-md z-[100] pointer-events-none shadow-sm" />
       )}
 
       {/* ── Topbar ── */}

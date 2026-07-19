@@ -83,7 +83,7 @@ export function FeaturedContinueCard({
             {Math.round(percent)}%
           </span>
           <button 
-            onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); onOpenBook(book); }}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpenBook(book); }}
             className="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-primary-foreground shadow-lg group-hover:bg-primary/90 group-hover:scale-105 transition-all">
             <PlayCircle size={20} className="ml-0.5" />
           </button>

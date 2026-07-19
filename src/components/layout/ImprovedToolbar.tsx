@@ -198,7 +198,7 @@ const SearchBar = ({ onSearch, currentDomain, value: controlledValue, placeholde
         onBlur={() => setFocused(false)}
         placeholder={placeholder ?? `Search ${currentDomain === 'books' ? 'Books' : 'Manga'}…`}
         className={cn(
-          'w-full h-full pl-9 pr-8 rounded-full',
+          'w-full h-full pl-9 pr-12 rounded-full',
           'bg-transparent text-sm text-foreground placeholder:text-muted-foreground',
           'focus:outline-none',
           'caret-primary',
@@ -265,15 +265,15 @@ export function PremiumTopbar({
     <header
       data-tauri-drag-region
       className={cn(
-        'flex items-center h-[var(--topbar-height,60px)] px-4 gap-3',
-        'border-b border-border/20 bg-background/50 backdrop-blur-2xl',
+        'flex items-center justify-between h-[var(--topbar-height,60px)] px-4 gap-3',
+        'bg-background/60 backdrop-blur-3xl border-b border-border/40 shadow-sm',
         'shrink-0 z-[var(--z-topbar,200)]',
         'select-none max-md:hidden',
       )}
     >
-      <div className="flex items-center gap-2 w-1/3">
+      <div className="flex flex-1 items-center gap-2 min-w-0">
       {/* ── Left side ── */}
-      <div className="flex items-center gap-1.5 min-w-0" data-tauri-drag-region>
+      <div className="flex items-center gap-2 min-w-0" data-tauri-drag-region>
         <div className="max-md:hidden">
           <TBtn
             icon={<IconSidebarToggle size={16} />}
@@ -290,7 +290,45 @@ export function PremiumTopbar({
 
         <div className="w-px h-6 bg-border/50 mx-1 max-md:hidden" />
 
-        {/* ── Import zone (Moved to Left) ── */}
+        {/* ── Domain Tabs (Segmented Control) ── */}
+        {preferences?.preferredContentType === 'both' && (
+          <div className="relative flex items-center p-1 bg-muted/50 border border-border/50 rounded-full h-9 shadow-inner mr-1 max-md:hidden">
+            {/* Animated Background Pill */}
+            <div 
+              className="absolute top-1 bottom-1 rounded-full bg-gradient-to-b from-primary to-primary/90 shadow-[0_2px_10px_rgba(var(--primary),0.3)] border-t border-white/20 ring-1 ring-primary/20 transition-all duration-300 ease-out z-0"
+              style={{ 
+                left: currentDomain === 'books' ? '4px' : 'calc(50% + 2px)', 
+                width: 'calc(50% - 6px)' 
+              }} 
+            />
+            
+            <button
+              type="button"
+              onClick={() => onDomainChange('books')}
+              className={cn(
+                'relative z-10 flex items-center justify-center gap-1.5 flex-1 px-4 text-xs font-bold rounded-full transition-colors duration-200',
+                currentDomain === 'books' ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <IconBooks size={16} />
+              <span className="text-sm">Books</span>
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => onDomainChange('manga_comics')}
+              className={cn(
+                'relative z-10 flex items-center justify-center gap-1.5 flex-1 px-4 text-xs font-bold rounded-full transition-colors duration-200',
+                currentDomain === 'manga_comics' ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <IconManga size={16} />
+              <span className="text-sm">Manga</span>
+            </button>
+          </div>
+        )}
+
+        {/* ── Import zone ── */}
         <div className="max-md:hidden">
           <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -299,7 +337,7 @@ export function PremiumTopbar({
               className={cn(
                 'flex items-center gap-2 h-9 rounded-md px-3 shrink-0',
                 'text-sm font-medium',
-                'transition-all duration-200',
+                'transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]',
                 'bg-background hover:bg-accent hover:text-accent-foreground text-foreground border border-border shadow-sm'
               )}
             >
@@ -355,59 +393,23 @@ export function PremiumTopbar({
           </DropdownMenuContent>
         </DropdownMenu>
         </div>
-
-        {/* ── Domain Tabs (Segmented Control) ── */}
-        {preferences?.preferredContentType === 'both' && (
-          <div className="relative flex items-center p-1 bg-muted/50 border border-border/50 rounded-full h-9 ml-2 shadow-inner">
-            {/* Animated Background Pill */}
-            <div 
-              className="absolute top-1 bottom-1 rounded-full bg-background shadow-sm border border-border/50 transition-all duration-300 ease-out z-0"
-              style={{ 
-                left: currentDomain === 'books' ? '4px' : 'calc(50% + 2px)', 
-                width: 'calc(50% - 6px)' 
-              }} 
-            />
-            
-            <button
-              type="button"
-              onClick={() => onDomainChange('books')}
-              className={cn(
-                'relative z-10 flex items-center justify-center gap-1.5 flex-1 px-3 text-xs font-bold rounded-full transition-colors duration-200',
-                currentDomain === 'books' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <IconBooks size={14} />
-              <span>Books</span>
-            </button>
-            
-            <button
-              type="button"
-              onClick={() => onDomainChange('manga_comics')}
-              className={cn(
-                'relative z-10 flex items-center justify-center gap-1.5 flex-1 px-3 text-xs font-bold rounded-full transition-colors duration-200',
-                currentDomain === 'manga_comics' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <IconManga size={14} />
-              <span>Manga</span>
-            </button>
-          </div>
-        )}
       </div>
       </div>
 
-      {/* ── Search (center) ── */}
-      <div className="flex-1 flex justify-center items-center">
-        <SearchBar
-          onSearch={onSearch}
-          currentDomain={currentDomain}
-          value={searchValue}
-          placeholder={searchPlaceholder}
-        />
+      {/* ── Center (Search) ── */}
+      <div className="flex flex-1 justify-center items-center">
+        <div className="w-full max-w-md">
+          <SearchBar
+            onSearch={onSearch}
+            currentDomain={currentDomain}
+            value={searchValue}
+            placeholder={searchPlaceholder}
+          />
+        </div>
       </div>
 
       {/* ── Right side ── */}
-      <div className="flex items-center justify-end gap-1.5 min-w-0 max-md:hidden" data-tauri-drag-region>
+      <div className="flex flex-1 items-center justify-end gap-1.5 min-w-0 max-md:hidden" data-tauri-drag-region>
         {/* ── Statistics ── */}
         <button
           type="button"
@@ -416,7 +418,7 @@ export function PremiumTopbar({
           }}
           title="View Reading Statistics"
           className={cn(
-            'flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200',
+            'flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200 hover:scale-105 active:scale-95',
             currentView === 'statistics'
               ? 'text-primary bg-primary/10'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted',
@@ -430,7 +432,7 @@ export function PremiumTopbar({
           onClick={onOpenAdvancedFilter}
           title="Advanced Filters (Ctrl+Shift+F)"
           className={cn(
-            'relative flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200',
+            'relative flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200 hover:scale-105 active:scale-95',
             activeFilterCount > 0
               ? 'text-primary bg-primary/10 hover:bg-primary/20'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted',
@@ -450,9 +452,9 @@ export function PremiumTopbar({
           onClick={handleOnlineToggle}
           title={currentView?.startsWith('online') ? 'Back to Library' : 'Online Mode (Torbox/Nyaa)'}
           className={cn(
-            'flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200',
+            'flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200 hover:scale-105 active:scale-95',
             currentView?.startsWith('online')
-              ? 'text-white bg-gradient-to-r from-blue-500 to-indigo-600 shadow-md shadow-blue-500/20'
+              ? 'text-primary-foreground bg-gradient-to-b from-primary to-primary/90 shadow-md shadow-primary/20 ring-1 ring-primary/20'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted',
           )}
         >
@@ -467,7 +469,7 @@ export function PremiumTopbar({
             type="button"
             onClick={toggleTheme}
             title={isDark ? 'Switch to Sepia Paper' : 'Switch to OLED Midnight'}
-            className="flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-background shadow-sm transition-all duration-200"
+            className="flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-background hover:scale-105 active:scale-95 shadow-sm transition-all duration-200"
           >
             {isDark ? <IconSun size={15} /> : <IconMoon size={15} />}
           </button>
@@ -475,7 +477,7 @@ export function PremiumTopbar({
             type="button"
             onClick={onOpenShortcuts}
             title="Keyboard shortcuts"
-            className="flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-background shadow-sm transition-all duration-200"
+            className="flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-background hover:scale-105 active:scale-95 shadow-sm transition-all duration-200"
           >
             <HelpCircle size={15} />
           </button>
@@ -483,7 +485,7 @@ export function PremiumTopbar({
             type="button"
             onClick={onOpenSettings}
             title="Settings"
-            className="flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-background shadow-sm transition-all duration-200"
+            className="flex items-center justify-center w-8 h-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-background hover:scale-105 active:scale-95 shadow-sm transition-all duration-200"
           >
             <IconSettings size={15} />
           </button>

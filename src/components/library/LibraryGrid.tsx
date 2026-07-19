@@ -193,25 +193,25 @@ export function LibraryGrid({
   const [columns, setColumns] = useState(6);
 
   const estimatedRowHeight = useMemo(() => {
-    // We must account for the title block below the cover image (~48-56px depending on line breaks)
-    const infoStripHeight = 56;
+    // Info strip is now inside the cover image, so it takes 0 extra vertical space
+    const infoStripHeight = 0;
     
     if (!containerWidth || columns === 0) {
       const coverHeight = densityColumnSize * 1.5; // 2:3 aspect ratio
-      const rowPadding = 8; // 4px top + 4px bottom
+      const rowPadding = 16; // 8px top + 8px bottom
       return Math.ceil(coverHeight + infoStripHeight + rowPadding);
     }
 
-    // Row has padding "4px 8px" (16px total horiz) and gap "8px"
-    const horizontalPadding = 16;
-    const totalGapWidth = (columns - 1) * 8;
+    // Row has padding "16px" (32px total horiz) and gap "16px"
+    const horizontalPadding = 32;
+    const totalGapWidth = (columns - 1) * 16;
     const availableWidth = containerWidth - horizontalPadding - totalGapWidth;
     
     // Calculate exact rendered width of each column to perfectly match the CSS flex grid
     const actualColumnWidth = availableWidth / columns;
     const actualCoverHeight = actualColumnWidth * 1.5;
     
-    const rowPadding = 8; // 4px top + 4px bottom
+    const rowPadding = 16; // 8px top + 8px bottom
     return Math.ceil(actualCoverHeight + infoStripHeight + rowPadding);
   }, [containerWidth, columns, densityColumnSize]);
 
@@ -387,8 +387,8 @@ export function LibraryGrid({
                   height: `${virtualRow.size}px`,
                   transform: `translateY(${virtualRow.start}px)`,
                   display: "flex",
-                  gap: "8px",
-                  padding: "4px calc(8px + env(safe-area-inset-right, 0px)) 4px calc(8px + env(safe-area-inset-left, 0px))",
+                  gap: "16px",
+                  padding: "8px calc(16px + env(safe-area-inset-right, 0px)) 8px calc(16px + env(safe-area-inset-left, 0px))",
                 }}
                 role="row"
               >

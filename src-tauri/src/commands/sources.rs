@@ -421,7 +421,7 @@ pub async fn download_manga_chapter_as_cbz(
     let _download_guard = crate::ActiveDownloads::increment(app_handle.state::<crate::ActiveDownloads>());
     
     let store = app_handle.store("preferences.json").map_err(|e| ShioriError::Other(e.to_string()))?;
-    let downloads_dir = if let Some(path_val) = store.get("default_import_path") {
+    let downloads_dir = if let Some(path_val) = store.get("defaultImportPath") {
         if let Some(path_str) = path_val.as_str() {
             if !path_str.is_empty() {
                 std::path::PathBuf::from(path_str).join("Online Manga")

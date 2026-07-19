@@ -100,7 +100,7 @@ export function OnlineBooksView() {
       if (book.source === 'gutenberg') {
         result = await downloadAndImportGutenberg(book.downloadUrl, book.title);
       } else {
-        result = await downloadAndImportLibgen(book.downloadUrl, book.title, book.mirrors);
+        result = await downloadAndImportLibgen(book.downloadUrl, book.title, book.mirrors, book.format);
       }
       if (result.success.length > 0) {
         await useLibraryStore.getState().loadInitialBooks();
@@ -126,7 +126,7 @@ export function OnlineBooksView() {
           throw new Error(errMsg);
         }
       } else {
-        const result = await downloadAndImportLibgen(book.downloadUrl, book.title, book.mirrors);
+        const result = await downloadAndImportLibgen(book.downloadUrl, book.title, book.mirrors, book.format);
         if (result.success.length === 0) {
           const errMsg = result.failed && result.failed.length > 0 ? result.failed[0][1] : 'Failed to import book';
           throw new Error(errMsg);

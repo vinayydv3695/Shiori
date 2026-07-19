@@ -167,8 +167,8 @@ export function OnlineSearchHeader({
                 className={cn(
                   "flex-1 flex items-center justify-center gap-2 py-3 text-[14px] font-semibold rounded-full transition-all relative overflow-hidden",
                   kind === 'books'
-                    ? "text-foreground bg-secondary/40 shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/10"
+                    ? "text-primary-foreground bg-primary shadow-md shadow-primary/20"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 )}
               >
                 <Globe className="w-4 h-4" /> Books
@@ -178,8 +178,8 @@ export function OnlineSearchHeader({
                 className={cn(
                   "flex-1 flex items-center justify-center gap-2 py-3 text-[14px] font-semibold rounded-full transition-all relative overflow-hidden",
                   kind === 'manga'
-                    ? "text-foreground bg-secondary/40 shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/10"
+                    ? "text-primary-foreground bg-primary shadow-md shadow-primary/20"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 )}
               >
                 <BookOpen className="w-4 h-4" /> Manga

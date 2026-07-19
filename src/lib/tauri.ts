@@ -488,6 +488,7 @@ export interface SAFDocumentInfo {
   uri: string
   name: string
   size: number
+  realPath?: string
 }
 
 export interface SAFEnumerateTreeResponse {
@@ -1057,6 +1058,9 @@ export const api = {
         const result = await invoke<SAFSelectedFilesResponse>("plugin:android-saf|select_files")
         const localPaths = await Promise.all(
           result.files.map(async (file) => {
+            if (file.realPath) {
+              return file.realPath
+            }
             const copied = await api.copyDocument(file.uri, file.name)
             return copied.path
           })
@@ -1103,7 +1107,10 @@ export const api = {
         logger.debug('[API] Requesting storage permission')
         await invoke("plugin:android-saf|request_storage_permission")
         logger.debug('[API] Opening Android SAF folder dialog')
-        const result = await invoke<{uri: string}>("plugin:android-saf|select_folder")
+        const result = await invoke<{uri: string, realPath?: string}>("plugin:android-saf|select_folder")
+        if (result.realPath) {
+          return result.realPath
+        }
         return result.uri
       } catch (error) {
         logger.error('[API] SAF folder selection error:', error)

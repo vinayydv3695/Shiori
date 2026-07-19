@@ -5,6 +5,27 @@ import { cn } from '@/lib/utils'
 import type { CurrentView } from '@/store/uiStore'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import { useTorboxStore } from '@/store/useTorboxStore'
+import { motion } from 'framer-motion'
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.4
+    }
+  }
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 15, scale: 0.95 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { duration: 0.3, type: "spring", stiffness: 300, damping: 24 }
+  },
+}
 
 interface BottomNavProps {
   currentView: CurrentView
@@ -85,59 +106,89 @@ export function BottomNav({
           align="end" 
           side="top"
           sideOffset={20}
-          className="w-56 rounded-2xl border-border/50 shadow-2xl bg-background/90 backdrop-blur-2xl p-2 mb-2"
+          asChild
         >
-          <DropdownMenuItem onClick={onOpenSettings} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
-            <div className="p-2 bg-primary/10 rounded-lg shrink-0 text-primary">
-              <Settings size={18} />
-            </div>
-            <span className="text-base font-medium">Settings</span>
-          </DropdownMenuItem>
-          
-          <DropdownMenuSeparator className="my-1 bg-border/50" />
-          
-          <DropdownMenuItem onClick={() => onNavigateToView('statistics')} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
-            <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
-              <BarChart2 size={18} />
-            </div>
-            <span className="text-base font-medium">Statistics</span>
-          </DropdownMenuItem>
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="w-56 rounded-2xl border-border/50 shadow-2xl bg-background/90 backdrop-blur-2xl p-2 mb-2"
+          >
+            <DropdownMenuItem asChild onClick={() => onNavigateToView('statistics')}>
+              <motion.div variants={itemVariants} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
+                <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
+                  <BarChart2 size={18} />
+                </div>
+                <span className="text-base font-medium">Statistics</span>
+              </motion.div>
+            </DropdownMenuItem>
 
-          <DropdownMenuItem onClick={() => onNavigateToView('rss-feeds')} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
-            <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
-              <Rss size={18} />
-            </div>
-            <span className="text-base font-medium">RSS Feeds</span>
+          <DropdownMenuItem asChild onClick={() => onNavigateToView('rss-feeds')}>
+            <motion.div variants={itemVariants} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
+              <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
+                <Rss size={18} />
+              </div>
+              <span className="text-base font-medium">RSS Feeds</span>
+            </motion.div>
           </DropdownMenuItem>
 
           {preferredContentType !== 'books' && (
             <>
               {hasTorboxKey ? (
-                <DropdownMenuItem onClick={() => onNavigateToView('anilist')} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
-                  <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
-                    <AniListIcon className="w-[18px] h-[18px]" />
-                  </div>
-                  <span className="text-base font-medium">AniList</span>
+                <DropdownMenuItem asChild onClick={() => onNavigateToView('anilist')}>
+                  <motion.div variants={itemVariants} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
+                    <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
+                      <AniListIcon className="w-[18px] h-[18px]" />
+                    </div>
+                    <span className="text-base font-medium">AniList</span>
+                  </motion.div>
                 </DropdownMenuItem>
               ) : (
-                <DropdownMenuItem onClick={() => onNavigateToView('torbox-discover')} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
-                  <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
-                    <TorboxIcon className="w-[18px] h-[18px]" />
-                  </div>
-                  <span className="text-base font-medium">Torbox</span>
+                <DropdownMenuItem asChild onClick={() => onNavigateToView('torbox-discover')}>
+                  <motion.div variants={itemVariants} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
+                    <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
+                      <TorboxIcon className="w-[18px] h-[18px]" />
+                    </div>
+                    <span className="text-base font-medium">Torbox</span>
+                  </motion.div>
                 </DropdownMenuItem>
               )}
             </>
           )}
 
-          <DropdownMenuSeparator className="my-1 bg-border/50" />
+          {preferredContentType === 'both' && (
+            <DropdownMenuItem asChild onClick={() => onNavigateToView('annotations')}>
+              <motion.div variants={itemVariants} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
+                <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
+                  <Highlighter size={18} />
+                </div>
+                <span className="text-base font-medium">Highlights</span>
+              </motion.div>
+            </DropdownMenuItem>
+          )}
 
-          <DropdownMenuItem onClick={() => onNavigateToView('recycle-bin')} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200 text-destructive focus:bg-destructive/10 focus:text-destructive">
-            <div className="p-2 bg-destructive/10 rounded-lg shrink-0">
-              <Trash2 size={18} />
-            </div>
-            <span className="text-base font-medium">Trash</span>
+          <DropdownMenuItem asChild onClick={() => onNavigateToView('recycle-bin')}>
+            <motion.div variants={itemVariants} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200 text-destructive focus:bg-destructive/10 focus:text-destructive">
+              <div className="p-2 bg-destructive/10 rounded-lg shrink-0">
+                <Trash2 size={18} />
+              </div>
+              <span className="text-base font-medium">Trash</span>
+            </motion.div>
           </DropdownMenuItem>
+
+          <DropdownMenuSeparator asChild>
+            <motion.div variants={itemVariants} className="my-1 bg-border/50" />
+          </DropdownMenuSeparator>
+
+          <DropdownMenuItem asChild onClick={onOpenSettings}>
+            <motion.div variants={itemVariants} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
+              <div className="p-2 bg-primary/10 rounded-lg shrink-0 text-primary">
+                <Settings size={18} />
+              </div>
+              <span className="text-base font-medium">Settings</span>
+            </motion.div>
+          </DropdownMenuItem>
+          </motion.div>
         </DropdownMenuContent>
       </DropdownMenu>
     </nav>

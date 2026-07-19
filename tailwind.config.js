@@ -37,6 +37,8 @@ export default {
           DEFAULT: "hsl(var(--muted) / <alpha-value>)",
           foreground: "hsl(var(--muted-foreground) / <alpha-value>)",
         },
+        'card-overlay': "hsl(var(--card-overlay) / <alpha-value>)",
+        'card-overlay-text': "hsl(var(--card-overlay-text) / <alpha-value>)",
       },
       borderRadius: {
         lg: "var(--radius)",

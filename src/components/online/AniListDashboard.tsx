@@ -13,10 +13,11 @@ import {
   getTopManga
 } from '@/lib/anilist';
 import { api } from '@/lib/tauri';
-import { Loader2, BookOpen, AlertTriangle, RefreshCw, Search, CheckCircle2, LayoutGrid, Star } from 'lucide-react';
+import { Loader2, BookOpen, AlertTriangle, RefreshCw, Search, CheckCircle2, LayoutGrid, Star, DownloadCloud } from 'lucide-react';
 import { AniListBookCard } from './AniListBookCard';
 import { AniListMangaDetailsView } from './AniListMangaDetailsView';
 import { AniListUserProfileView } from './AniListUserProfileView';
+import { AniListImportDialog } from './AniListImportDialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -58,6 +59,7 @@ export function AniListDashboard({ onOpenSettings }: AniListDashboardProps = {})
   const [showProfileView, setShowProfileView] = useState(false);
   const [syncingLibrary, setSyncingLibrary] = useState(false);
   const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
+  const [showImportDialog, setShowImportDialog] = useState(false);
   
   const [dashboardSearch, setDashboardSearch] = useState('');
   const [searchResults, setSearchResults] = useState<AnilistMedia[]>([]);
@@ -429,18 +431,30 @@ export function AniListDashboard({ onOpenSettings }: AniListDashboardProps = {})
                   <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary animate-spin" />
                 )}
               </form>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={handleSyncLibrary} 
-                disabled={syncingLibrary}
-                className="w-full md:w-auto gap-2 border-border hover:bg-secondary/80 text-foreground transition-all rounded-full font-medium"
-              >
-                <RefreshCw className={cn("w-3.5 h-3.5", syncingLibrary && "animate-spin")} />
-                {syncingLibrary 
-                  ? `${syncProgress.current}/${syncProgress.total}`
-                  : "Sync"}
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowImportDialog(true)}
+                  className="gap-2"
+                >
+                  <DownloadCloud className="w-4 h-4" />
+                  Import
+                </Button>
+                
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleSyncLibrary}
+                  disabled={syncingLibrary}
+                  className="gap-2"
+                >
+                  <RefreshCw className={cn("w-3.5 h-3.5", syncingLibrary && "animate-spin")} />
+                  {syncingLibrary 
+                    ? `${syncProgress.current}/${syncProgress.total}`
+                    : "Sync"}
+                </Button>
+              </div>
             </motion.div>
           </div>
           
@@ -587,6 +601,13 @@ export function AniListDashboard({ onOpenSettings }: AniListDashboardProps = {})
           <AniListUserProfileView onClose={() => setShowProfileView(false)} user={user} collection={collection} />
         )}
       </AnimatePresence>
+
+      <AniListImportDialog
+        isOpen={showImportDialog}
+        onClose={() => setShowImportDialog(false)}
+        collection={collection}
+        anilistToken={anilistToken}
+      />
     </div>
   );
 }

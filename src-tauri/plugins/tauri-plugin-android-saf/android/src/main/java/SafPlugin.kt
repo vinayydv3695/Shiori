@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
 import android.provider.Settings
 import androidx.core.content.ContextCompat
 import app.tauri.annotation.Command
@@ -53,6 +54,30 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
             return
         }
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                intent.data = Uri.parse("package:" + activity.packageName)
+                activity.startActivity(intent)
+                
+                val ret = JSObject()
+                ret.put("granted", false)
+                ret.put("requested", true)
+                invoke.resolve(ret)
+                return
+            } catch (e: Exception) {
+                // Fallback to normal settings if manage app files intent fails
+                val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                activity.startActivity(intent)
+                
+                val ret = JSObject()
+                ret.put("granted", false)
+                ret.put("requested", true)
+                invoke.resolve(ret)
+                return
+            }
+        }
+
         val permissions = if (Build.VERSION.SDK_INT >= 33) {
             arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO, Manifest.permission.READ_MEDIA_AUDIO)
         } else {
@@ -85,16 +110,10 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
     }
 
     private fun hasStoragePermission(): Boolean {
-        return if (Build.VERSION.SDK_INT >= 33) {
-            // Android 13+ (API 33+): "Files and media" maps to the READ_MEDIA_* permissions.
-            // These only cover MediaStore-indexed photos/videos/audio, not document formats
-            // like .epub/.pdf/.cbz/.cbr/.mobi/.azw3 — hence this is a nudge, not a gate.
-            ContextCompat.checkSelfPermission(activity, Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED ||
-                ContextCompat.checkSelfPermission(activity, Manifest.permission.READ_MEDIA_VIDEO) == PackageManager.PERMISSION_GRANTED ||
-                ContextCompat.checkSelfPermission(activity, Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED
-        } else {
-            ContextCompat.checkSelfPermission(activity, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            return Environment.isExternalStorageManager()
         }
+        return ContextCompat.checkSelfPermission(activity, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun launchFilePicker(invoke: Invoke) {
@@ -139,6 +158,12 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
 
                 val ret = JSObject()
                 ret.put("uri", uri.toString())
+                
+                val realPath = UriUtils.getPath(activity, uri)
+                if (realPath != null) {
+                    ret.put("realPath", realPath)
+                }
+                
                 invoke.resolve(ret)
             } else {
                 invoke.reject("No folder selected or URI is null")
@@ -167,6 +192,12 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
                 obj.put("uri", uri.toString())
                 obj.put("name", name)
                 obj.put("size", docFile?.length() ?: 0)
+                
+                val realPath = UriUtils.getPath(activity, uri)
+                if (realPath != null) {
+                    obj.put("realPath", realPath)
+                }
+                
                 files.put(obj)
             }
 
@@ -220,6 +251,12 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
                         obj.put("uri", file.uri.toString())
                         obj.put("name", name)
                         obj.put("size", file.length())
+                        
+                        val realPath = UriUtils.getPath(activity, file.uri)
+                        if (realPath != null) {
+                            obj.put("realPath", realPath)
+                        }
+                        
                         results.put(obj)
                     }
                 }

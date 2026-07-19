@@ -748,18 +748,24 @@ pub async fn download_libgen_epub(
                 || mirror_url.contains("libgen.li")
                 || mirror_url.contains("libgen.is")
             {
-                // We use a free CORS proxy just in case the user's ISP blocks library.lol
-                let proxy_url = format!(
-                    "https://api.allorigins.win/raw?url={}",
-                    urlencoding::encode(mirror_url)
-                );
+                let proxy1 = format!("https://api.allorigins.win/raw?url={}", urlencoding::encode(mirror_url));
+                let proxy2 = format!("https://api.codetabs.com/v1/proxy?quest={}", urlencoding::encode(mirror_url));
+                let proxy3 = format!("https://corsproxy.io/?{}", urlencoding::encode(mirror_url));
 
-                // Try direct first, then proxy
-                for fetch_url in &[mirror_url.clone(), proxy_url] {
+                // Try direct first, then proxies
+                for fetch_url in &[mirror_url.clone(), proxy1, proxy2, proxy3] {
                     if let Ok(resp) = client.get(fetch_url).send().await {
                         if resp.status().is_success() {
                             if let Ok(text) = resp.text().await {
-                                // Try exact GET
+                                // 1. Try to get the very first link inside the <div id="download"> (usually the direct GET link)
+                                if let Ok(re) = regex::Regex::new(r#"(?is)id=["']download["'][^>]*>.*?href=["']([^"']+)["']"#) {
+                                    if let Some(caps) = re.captures(&text) {
+                                        download_url = caps.get(1).unwrap().as_str().to_string();
+                                        break;
+                                    }
+                                }
+
+                                // 2. Try exact GET
                                 if let Ok(re) = regex::Regex::new(
                                     r#"(?i)href=["']([^"']+)["'][^>]*>\s*GET\s*<"#,
                                 ) {
@@ -769,9 +775,9 @@ pub async fn download_libgen_epub(
                                     }
                                 }
 
-                                // Try IPFS links (cloudflare-ipfs, ipfs.io, etc)
+                                // 3. Try IPFS / Cloudflare / Pinata links
                                 if let Ok(re) = regex::Regex::new(
-                                    r#"(?i)href=["'](https?://[^"']*(?:ipfs|cloudflare)[^"']*)["']"#,
+                                    r#"(?i)href=["'](https?://[^"']*(?:ipfs|cloudflare|pinata)[^"']*)["']"#,
                                 ) {
                                     if let Some(caps) = re.captures(&text) {
                                         download_url = caps.get(1).unwrap().as_str().to_string();
@@ -779,7 +785,7 @@ pub async fn download_libgen_epub(
                                     }
                                 }
 
-                                // Try loose GET
+                                // 4. Try loose GET
                                 if let Ok(re) = regex::Regex::new(
                                     r#"(?i)<a[^>]+href=["']([^"']+)["'][^>]*>.*?GET.*?</a>"#,
                                 ) {

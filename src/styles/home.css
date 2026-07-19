@@ -1422,6 +1422,13 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+    /* Hide scrollbar for Firefox */
+    scrollbar-width: none;
+}
+
+/* Hide scrollbar for WebKit browsers */
+.bento-widget-content::-webkit-scrollbar {
+    display: none;
 }
 
 .bento-list-item {

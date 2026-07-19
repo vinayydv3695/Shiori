@@ -32,7 +32,7 @@ import { SeriesAssignmentDialog } from './SeriesAssignmentDialog'
 
 // ─── Format Badge ─────────────────────────────
 const fmtColors: Record<string, string> = {
-  EPUB: 'bg-neutral-800 text-neutral-100 dark:bg-neutral-100 dark:text-neutral-900',
+  EPUB: 'bg-foreground text-background',
   PDF: 'bg-red-900/80 text-red-100',
   MOBI: 'bg-neutral-700 text-neutral-200',
   AZW3: 'bg-neutral-600 text-neutral-100',
@@ -133,10 +133,10 @@ const HoverOverlay = ({ onOpen, onViewDetails, onEdit, onDelete, isManga }: Over
       <div
         className={cn(
           'absolute inset-0 flex flex-col items-center justify-center gap-3',
-          'bg-black/60 backdrop-blur-[2px]',
+          'bg-card-overlay/60 backdrop-blur-[2px]',
           'opacity-0 group-hover:opacity-100',
           'transition-all duration-300 ease-out',
-          'rounded-t-[inherit]',
+          'rounded-[inherit]',
         )}
       >
         <ActionTooltip content={isManga ? 'Read manga' : 'Open book'}>
@@ -278,34 +278,39 @@ export const PremiumBookCard = memo(function PremiumBookCard({
         'group relative flex flex-col rounded-xl max-md:rounded-ui-xl overflow-hidden',
         'bg-card/90 backdrop-blur-lg border border-border/40',
         'cursor-pointer select-none',
-        'transition-all duration-[250ms] cubic-bezier(0.25, 0.8, 0.25, 1)',
+        'transition-all duration-[400ms] cubic-bezier(0.25, 1, 0.5, 1)',
         !visible && 'opacity-0 scale-95',
         visible && 'animate-card-in',
         isSelected
-          ? 'ring-2 ring-primary border-primary shadow-[0_8px_20px_rgba(0,0,0,0.15)]'
-          : 'hover:border-primary/50 hover:shadow-[0_12px_24px_rgba(0,0,0,0.15)] hover:-translate-y-1',
-        isManga && 'border-[var(--manga-accent)]/30 hover:border-[var(--manga-accent)]/60',
+          ? 'ring-2 ring-primary border-primary shadow-[0_8px_30px_rgba(var(--primary),0.4)]'
+          : 'shadow-lg dark:shadow-[0_8px_20px_rgba(0,0,0,0.8)] ring-1 ring-black/10 dark:ring-white/10 hover:shadow-2xl hover:shadow-primary/20 dark:hover:shadow-primary/10 hover:-translate-y-1.5 hover:ring-black/20 dark:hover:ring-white/20',
+        isManga && !isSelected && 'ring-[var(--manga-accent)]/40 hover:ring-[var(--manga-accent)]/80',
       )}
     >
-      <div className="relative aspect-[2/3] bg-muted overflow-hidden">
+      <div className="relative aspect-[2/3] bg-muted overflow-hidden rounded-[inherit]">
         {/* Skeleton */}
         {(coverLoading || !imgLoaded) && !imgError && <CoverSkeleton />}
 
         {/* Cover image */}
         {coverUrl && !imgError && (
-          <img
-            src={coverUrl}
-            alt={book.title}
-            loading="lazy"
-            decoding="async"
-            onLoad={() => setImgLoaded(true)}
-            onError={() => setImgError(true)}
-            className={cn(
-              'absolute inset-0 w-full h-full object-cover bg-muted',
-              'transition-opacity duration-300',
-              imgLoaded ? 'opacity-100' : 'opacity-0',
-            )}
-          />
+          <>
+            <img
+              src={coverUrl}
+              alt={book.title}
+              loading="lazy"
+              decoding="async"
+              onLoad={() => setImgLoaded(true)}
+              onError={() => setImgError(true)}
+              className={cn(
+                'absolute inset-0 w-full h-full object-cover bg-muted',
+                'transition-all duration-500 ease-out group-hover:scale-105',
+                imgLoaded ? 'opacity-100' : 'opacity-0',
+              )}
+            />
+            {/* Premium Inner Sheen / Glare */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/0 to-white/30 pointer-events-none mix-blend-overlay opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <div className="absolute inset-0 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)] pointer-events-none z-20" />
+          </>
         )}
 
         {/* Fallback (no cover) */}
@@ -338,7 +343,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
           aria-label={isSelected ? 'Deselect' : 'Select'}
           title={isSelected ? 'Deselect' : 'Select'}
           className={cn(
-            'absolute top-1.5 left-1.5 z-10',
+            'absolute top-2.5 left-2.5 z-10',
             'w-5 h-5 rounded flex items-center justify-center',
             'border transition-all duration-[100ms]',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
@@ -355,7 +360,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
           onClick={(e) => { e.stopPropagation(); onFavorite?.(book.id!) }}
           aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
           className={cn(
-            'absolute top-1.5 right-1.5 z-10',
+            'absolute top-2.5 right-2.5 z-10',
             'w-5 h-5 rounded flex items-center justify-center',
             'transition-all duration-[100ms]',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
@@ -368,7 +373,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
         </button>
 
         {/* Format badge */}
-        <div className="absolute top-1.5 left-1.5 z-10">
+        <div className="absolute top-2.5 left-2.5 z-10">
           <FormatPill format={book.file_format} filePath={book.file_path} />
         </div>
 
@@ -376,14 +381,15 @@ export const PremiumBookCard = memo(function PremiumBookCard({
         <div className={cn(
           'absolute bottom-0 left-0 right-0 z-10',
           'flex flex-col justify-end',
-          'bg-gradient-to-t from-black/90 via-black/40 to-transparent text-white',
+          'bg-gradient-to-t from-card-overlay/95 via-card-overlay/80 to-transparent',
+          'rounded-b-[inherit]',
           coverSize === 'small' && 'px-1.5 pt-6 pb-1.5',
           coverSize === 'medium' && 'px-2 pt-8 pb-2',
           coverSize === 'large' && 'px-2.5 pt-10 pb-2.5',
         )}>
           <h3
             className={cn(
-              'font-bold leading-tight drop-shadow-md text-white/95',
+              'font-bold leading-tight drop-shadow-sm text-card-overlay-text/95',
               book.file_format === 'online-manga' ? 'line-clamp-1 text-[13px]' : 'line-clamp-2',
               book.file_format !== 'online-manga' && coverSize === 'small' && 'text-xs',
               book.file_format !== 'online-manga' && coverSize === 'medium' && 'text-sm',
@@ -396,7 +402,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
           {authorStr && authorStr !== 'Unknown Author' && (
             <p
               className={cn(
-                'truncate drop-shadow-md text-white/70 font-medium mt-0.5',
+                'truncate drop-shadow-sm text-card-overlay-text/75 font-medium mt-0.5',
                 coverSize === 'small' && 'text-[11px]',
                 coverSize === 'medium' && 'text-xs',
                 coverSize === 'large' && 'text-sm',

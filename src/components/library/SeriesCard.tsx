@@ -242,36 +242,45 @@ export const SeriesCard = memo(function SeriesCard({
                     </div>
                   </div>
 
-                  {/* Volume count badge */}
-                  <div
-                    className={cn(
-                      "absolute bottom-1.5 right-1.5 z-10",
-                      "flex items-center gap-1 px-1.5 py-0.5 rounded",
-                      "bg-[var(--manga-accent)] text-white",
-                      "text-[9px] font-bold tracking-wide",
-                    )}
-                  >
-                    <Layers className="w-2.5 h-2.5" />
-                    {series.bookCount}
+                  {series.bookCount > 1 && (
+                    <div
+                      className={cn(
+                        "absolute top-2 right-2 flex items-center gap-1 px-1.5 py-0.5 rounded shadow-sm z-30",
+                        "bg-[var(--manga-accent)] text-white",
+                        "text-[9px] font-bold tracking-wide",
+                      )}
+                    >
+                      <Layers className="w-2.5 h-2.5" />
+                      {series.bookCount}
+                    </div>
+                  )}
+
+                  {/* ── Info Strip (Tachiyomi Style) ── */}
+                  <div className={cn(
+                    'absolute bottom-0 left-0 right-0 z-20',
+                    'flex flex-col justify-end',
+                    'bg-gradient-to-t from-black/95 via-black/80 to-transparent',
+                    'px-2 pt-8 pb-2 rounded-b-[inherit]',
+                  )}>
+                    <h3
+                      className={cn(
+                        'font-bold leading-tight drop-shadow-sm text-white/95 line-clamp-2 text-sm',
+                      )}
+                      title={series.title}
+                    >
+                      {series.title}
+                    </h3>
+                    <p
+                      className={cn(
+                        'truncate drop-shadow-sm text-white/75 font-medium mt-0.5 text-xs',
+                      )}
+                      title={Array.from(series.authors).join(", ")}
+                    >
+                      {Array.from(series.authors).join(", ") || "Unknown Author"}
+                    </p>
                   </div>
                 </div>
               </div>
-            </div>
-
-            {/* ── Info Strip ── */}
-            <div className="flex flex-col px-2 pt-2 pb-2.5 gap-0.5">
-              <h3
-                className="text-[11px] font-semibold leading-tight line-clamp-2 text-foreground"
-                title={series.title}
-              >
-                {series.title}
-              </h3>
-              <p
-                className="text-[10px] text-muted-foreground truncate"
-                title={Array.from(series.authors).join(", ")}
-              >
-                {Array.from(series.authors).join(", ") || "Unknown Author"}
-              </p>
             </div>
           </div>
         </ContextMenu.Trigger>

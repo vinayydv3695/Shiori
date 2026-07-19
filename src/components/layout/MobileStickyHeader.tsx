@@ -11,9 +11,10 @@ interface MobileStickyHeaderProps {
   searchQuery: string
   onSearchChange: (val: string) => void
   onOpenAdvancedFilter: () => void
+  hideThemeToggle?: boolean
 }
 
-export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvancedFilter }: MobileStickyHeaderProps) {
+export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvancedFilter, hideThemeToggle }: MobileStickyHeaderProps) {
   const currentDomain = useUIStore((s) => s.currentDomain)
   const setCurrentDomain = useUIStore((s) => s.setCurrentDomain)
   const preferences = usePreferencesStore((s) => s.preferences)
@@ -70,37 +71,37 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
         {/* Domain Tabs */}
         {preferences?.preferredContentType === 'both' && (
           <div className="relative flex items-center p-1 bg-muted/50 border border-border/50 rounded-ui-full h-12 flex-1 max-w-[280px] shadow-inner">
-            <div 
-              className="absolute top-1 bottom-1 rounded-ui-full bg-background shadow-sm border border-border/50 transition-all duration-300 ease-out z-0"
-              style={{ 
-                left: currentDomain === 'books' ? '4px' : 'calc(50% + 2px)', 
-                width: 'calc(50% - 6px)' 
-              }} 
-            />
-            
-            <button
-              type="button"
-              onClick={() => setCurrentDomain('books')}
-              className={cn(
-                'relative z-10 flex items-center justify-center gap-1.5 flex-1 text-xs font-bold rounded-ui-full transition-colors duration-200',
-                currentDomain === 'books' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <IconBooks size={14} />
-              <span>Books</span>
-            </button>
-            
-            <button
-              type="button"
-              onClick={() => setCurrentDomain('manga_comics')}
-              className={cn(
-                'relative z-10 flex items-center justify-center gap-1.5 flex-1 text-xs font-bold rounded-ui-full transition-colors duration-200',
-                currentDomain === 'manga_comics' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <IconManga size={14} />
-              <span>Manga</span>
-            </button>
+              <div 
+                className="absolute top-1 bottom-1 rounded-ui-full bg-gradient-to-b from-primary to-primary/90 shadow-[0_2px_10px_rgba(var(--primary),0.3)] border-t border-white/20 ring-1 ring-primary/20 transition-all duration-300 ease-out z-0"
+                style={{ 
+                  left: currentDomain === 'books' ? '4px' : 'calc(50% + 2px)', 
+                  width: 'calc(50% - 6px)' 
+                }} 
+              />
+              
+              <button
+                type="button"
+                onClick={() => setCurrentDomain('books')}
+                className={cn(
+                  'relative z-10 flex items-center justify-center gap-1.5 flex-1 text-xs font-bold rounded-ui-full transition-colors duration-200',
+                  currentDomain === 'books' ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <IconBooks size={14} />
+                <span>Books</span>
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => setCurrentDomain('manga_comics')}
+                className={cn(
+                  'relative z-10 flex items-center justify-center gap-1.5 flex-1 text-xs font-bold rounded-ui-full transition-colors duration-200',
+                  currentDomain === 'manga_comics' ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <IconManga size={14} />
+                <span>Manga</span>
+              </button>
 
 
           </div>
@@ -108,31 +109,33 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
 
         {/* Right Actions */}
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="relative flex items-center justify-center h-12 w-12 rounded-ui-full border shadow-sm transition-all duration-200 touch-target bg-background text-foreground border-border hover:bg-accent flex-shrink-0"
-          >
-            {isSepia ? <IconMoon size={16} /> : <IconSun size={16} />}
-          </button>
+          {!hideThemeToggle && (
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="relative flex items-center justify-center h-12 w-12 rounded-ui-full border shadow-sm transition-all duration-200 touch-target bg-background text-foreground border-border hover:bg-accent flex-shrink-0"
+            >
+              {isSepia ? <IconMoon size={16} /> : <IconSun size={16} />}
+            </button>
+          )}
 
           <button
             type="button"
             onClick={onOpenAdvancedFilter}
-            className={cn(
-              'relative flex items-center justify-center h-12 px-3.5 rounded-ui-full border shadow-sm transition-all duration-200 touch-target flex-shrink-0',
-              activeFilterCount > 0
-                ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
-                : 'bg-background text-foreground border-border hover:bg-accent'
-            )}
-          >
-            <IconFilter size={14} className="mr-1.5" />
-            <span className="text-xs font-semibold">Filter</span>
-            {activeFilterCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-ui-full bg-background text-foreground text-[10px] font-black shadow-sm ring-2 ring-background">
-                {activeFilterCount}
-              </span>
-            )}
+              className={cn(
+                'relative flex items-center justify-center h-12 px-3.5 rounded-ui-full border shadow-sm transition-all duration-200 touch-target flex-shrink-0',
+                activeFilterCount > 0
+                  ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
+                  : 'bg-background text-foreground border-border hover:bg-accent'
+              )}
+            >
+              <IconFilter size={14} className="mr-1.5" />
+              <span className="text-xs font-semibold">Filter</span>
+              {activeFilterCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-ui-full bg-background text-foreground text-[10px] font-black shadow-sm ring-2 ring-background">
+                  {activeFilterCount}
+                </span>
+              )}
           </button>
         </div>
       </div>

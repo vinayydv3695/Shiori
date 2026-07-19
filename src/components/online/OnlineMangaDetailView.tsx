@@ -260,7 +260,7 @@ export function OnlineMangaDetailView({
           
           {/* Left Column (Cover) */}
           <div className="w-full shrink-0 flex flex-col items-center md:items-start relative z-20">
-            <div className="w-[220px] md:w-full aspect-[2/3] rounded-xl overflow-hidden shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)] border border-white/10 bg-card/50 backdrop-blur-sm relative group">
+            <div className="w-[220px] md:w-full aspect-[2/3] rounded-xl overflow-hidden shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)] border border-border/50 bg-card/50 backdrop-blur-sm relative group">
             {coverUrl ? (
               <>
                 <img src={coverUrl} alt={title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" />
@@ -278,7 +278,7 @@ export function OnlineMangaDetailView({
               <span className="px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded-full text-xs font-bold tracking-widest uppercase">
                 {status || 'RELEASING'}
               </span>
-              <span className="px-3 py-1 bg-white/5 border border-white/10 text-foreground/80 rounded-full text-xs font-medium">
+              <span className="px-3 py-1 bg-secondary border border-border/50 text-foreground/80 rounded-full text-xs font-medium">
                 {formatText}
               </span>
             </div>
@@ -313,7 +313,7 @@ export function OnlineMangaDetailView({
                     onClick={onSaveToLibrary}
                     variant="outline"
                     disabled={isInLibrary}
-                    className="flex-1 sm:flex-none gap-2 px-4 sm:px-6 h-10 sm:h-12 rounded-full text-xs sm:text-sm font-medium border-white/10 bg-white/5 hover:bg-white/10 backdrop-blur-sm transition-all"
+                    className="flex-1 sm:flex-none gap-2 px-4 sm:px-6 h-10 sm:h-12 rounded-full text-xs sm:text-sm font-medium border-border/50 bg-secondary hover:bg-secondary/50 backdrop-blur-sm transition-all"
                   >
                     {isInLibrary
                       ? <><BookmarkCheck className="w-4 h-4 text-green-400" /> SAVED</>
@@ -324,7 +324,7 @@ export function OnlineMangaDetailView({
                   <Button
                     onClick={() => setDownloadDialogOpen(true)}
                     variant="outline"
-                    className="flex-1 sm:flex-none gap-2 px-4 sm:px-6 h-10 sm:h-12 rounded-full text-xs sm:text-sm font-medium border-white/10 bg-white/5 hover:bg-white/10 backdrop-blur-sm transition-all"
+                    className="flex-1 sm:flex-none gap-2 px-4 sm:px-6 h-10 sm:h-12 rounded-full text-xs sm:text-sm font-medium border-border/50 bg-secondary hover:bg-secondary/50 backdrop-blur-sm transition-all"
                   >
                     <Download className="w-4 h-4" /> DL
                   </Button>
@@ -333,7 +333,7 @@ export function OnlineMangaDetailView({
             </div>
 
             {/* Stats Row */}
-            <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-y-3 gap-x-4 sm:gap-6 mb-6 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-white/5 border border-white/5 backdrop-blur-md">
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-y-3 gap-x-4 sm:gap-6 mb-6 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-secondary border border-border/30 backdrop-blur-md">
               <div className="flex flex-col">
                 <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider mb-0.5 font-semibold">Rating</span>
                 <div className="flex items-center gap-1.5 sm:gap-2">
@@ -342,7 +342,7 @@ export function OnlineMangaDetailView({
                   <span className="text-[10px] sm:text-xs text-muted-foreground hidden sm:inline-block ml-1">({totalReviews} revs)</span>
                 </div>
               </div>
-              <div className="w-px h-8 bg-white/10 hidden sm:block"></div>
+              <div className="w-px h-8 bg-secondary/50 hidden sm:block"></div>
               <div className="flex flex-col">
                 <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider mb-0.5 font-semibold">Chapters</span>
                 <div className="flex items-center gap-1.5 sm:gap-2">
@@ -350,12 +350,12 @@ export function OnlineMangaDetailView({
                   <span className="font-bold text-foreground text-sm sm:text-lg leading-none">{filteredAndSortedChapters.length}</span>
                 </div>
               </div>
-              <div className="w-px h-8 bg-white/10 hidden sm:block"></div>
+              <div className="w-px h-8 bg-secondary/50 hidden sm:block"></div>
               <div className="flex flex-col">
                 <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider mb-0.5 font-semibold">Author</span>
                 <span className="font-medium text-foreground text-xs sm:text-sm max-w-[120px] sm:max-w-[150px] truncate" title={finalAuthor}>{finalAuthor}</span>
               </div>
-              <div className="w-px h-8 bg-white/10 hidden sm:block"></div>
+              <div className="w-px h-8 bg-secondary/50 hidden sm:block"></div>
               <div className="flex flex-col">
                 <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider mb-0.5 font-semibold">Published</span>
                 <span className="font-medium text-foreground text-xs sm:text-sm">{finalYear}</span>
@@ -363,7 +363,7 @@ export function OnlineMangaDetailView({
             </div>
 
             {(displayDescription || (genres && genres.length > 0)) && (
-              <div className="text-sm md:text-base text-foreground/80 leading-relaxed max-w-4xl bg-white/[0.02] border border-white/5 rounded-xl p-5 backdrop-blur-sm">
+              <div className="text-sm md:text-base text-foreground/80 leading-relaxed max-w-4xl bg-white/[0.02] border border-border/30 rounded-xl p-5 backdrop-blur-sm">
                 {displayDescription && (
                   <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(displayDescription.replace(/\n/g, '<br/>')) }} />
                 )}
@@ -378,9 +378,9 @@ export function OnlineMangaDetailView({
                 
                 {/* Genres Inline */}
                 {genres && genres.length > 0 && (
-                  <div className={cn("flex flex-wrap gap-2", displayDescription && "mt-6 pt-4 border-t border-white/5")}>
+                  <div className={cn("flex flex-wrap gap-2", displayDescription && "mt-6 pt-4 border-t border-border/30")}>
                     {genres.map(g => (
-                      <span key={g} className="px-3 py-1 bg-white/5 border border-white/10 rounded-md text-xs font-medium text-foreground/70">
+                      <span key={g} className="px-3 py-1 bg-secondary border border-border/50 rounded-md text-xs font-medium text-foreground/70">
                         {g}
                       </span>
                     ))}
@@ -397,7 +397,7 @@ export function OnlineMangaDetailView({
           {/* Main Left Area: Chapters */}
           <div className="flex-1 min-w-0">
             {/* Tabs & Search Row */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-white/10">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-border/50">
               <div className="flex gap-6">
                 <button
                   className={`pb-2 text-sm font-bold tracking-widest uppercase transition-all relative ${activeTab === 'CHAPTER' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
@@ -416,7 +416,7 @@ export function OnlineMangaDetailView({
               </div>
 
               <div className="flex items-center gap-3">
-                <div className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-foreground/80 flex items-center gap-2 backdrop-blur-sm">
+                <div className="px-3 py-1.5 rounded-full bg-secondary border border-border/50 text-xs font-medium text-foreground/80 flex items-center gap-2 backdrop-blur-sm">
                   <Globe className="w-3.5 h-3.5" /> EN
                 </div>
                 
@@ -426,14 +426,14 @@ export function OnlineMangaDetailView({
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search chap..."
-                    className="h-9 pl-9 bg-white/5 hover:bg-white/10 border-white/10 text-foreground text-sm focus-visible:ring-1 focus-visible:ring-primary rounded-full transition-all"
+                    className="h-9 pl-9 bg-secondary hover:bg-secondary/50 border-border/50 text-foreground text-sm focus-visible:ring-1 focus-visible:ring-primary rounded-full transition-all"
                   />
                 </div>
               </div>
             </div>
 
             {/* Chapter Container */}
-            <div className="bento-widget rounded-2xl overflow-hidden border border-white/10 bg-card/40 backdrop-blur-md shadow-xl">
+            <div className="bento-widget rounded-2xl overflow-hidden border border-border/50 bg-card/40 backdrop-blur-md shadow-xl">
               <div 
                 ref={parentRef}
                 className="flex flex-col max-h-[600px] overflow-y-auto custom-scrollbar relative"
@@ -466,7 +466,7 @@ export function OnlineMangaDetailView({
                             height: `${virtualRow.size}px`,
                             transform: `translateY(${virtualRow.start}px)`,
                           }}
-                          className={`flex items-center justify-between p-4 cursor-pointer transition-colors border-b border-white/5 hover:bg-white/5 ${isHighlighted ? 'bg-primary/10 border-l-2 border-l-primary' : 'border-l-2 border-l-transparent'}`}
+                          className={`flex items-center justify-between p-4 cursor-pointer transition-colors border-b border-border/30 hover:bg-secondary ${isHighlighted ? 'bg-primary/10 border-l-2 border-l-primary' : 'border-l-2 border-l-transparent'}`}
                         >
                           <div className="flex items-center gap-3 min-w-0">
                             {isHighlighted && <Play className="w-3.5 h-3.5 text-primary fill-primary shrink-0 drop-shadow-sm" />}
@@ -495,16 +495,16 @@ export function OnlineMangaDetailView({
                     const volChapters = filteredAndSortedChapters.filter(c => c.volume === vol);
                     const isExpanded = expandedVolume === vol;
                     return (
-                      <div key={vol} className="border-b border-white/5">
+                      <div key={vol} className="border-b border-border/30">
                         <div 
-                          className="flex items-center justify-between p-4 cursor-pointer hover:bg-white/5 transition-colors font-medium text-sm text-foreground"
+                          className="flex items-center justify-between p-4 cursor-pointer hover:bg-secondary transition-colors font-medium text-sm text-foreground"
                           onClick={() => setExpandedVolume(isExpanded ? null : vol)}
                         >
                           <span className="font-semibold text-base">Volume {vol !== 'None' ? vol : '?'}</span>
-                          <span className="text-xs px-2 py-1 bg-white/5 rounded-md text-muted-foreground">{volChapters.length} chapters</span>
+                          <span className="text-xs px-2 py-1 bg-secondary rounded-md text-muted-foreground">{volChapters.length} chapters</span>
                         </div>
                         {isExpanded && (
-                          <div className="bg-black/20">
+                          <div className="bg-secondary/20">
                             {volChapters.map((ch) => {
                               const chapterNumStr = ch.chapter && ch.chapter !== '?' ? `Chapter ${ch.chapter}` : '';
                               const fullTitle = ch.title ? (chapterNumStr ? `${chapterNumStr}: ${ch.title}` : ch.title) : chapterNumStr || 'Oneshot';
@@ -513,7 +513,7 @@ export function OnlineMangaDetailView({
                                 <div 
                                   key={ch.id} 
                                   onClick={() => onReadChapter(ch)}
-                                  className={`flex items-center justify-between p-3 pl-8 cursor-pointer transition-colors border-t border-white/5 hover:bg-white/5 ${isHighlighted ? 'bg-primary/10 border-l-2 border-l-primary' : 'border-l-2 border-l-transparent'}`}
+                                  className={`flex items-center justify-between p-3 pl-8 cursor-pointer transition-colors border-t border-border/30 hover:bg-secondary ${isHighlighted ? 'bg-primary/10 border-l-2 border-l-primary' : 'border-l-2 border-l-transparent'}`}
                                 >
                                   <div className="flex items-center gap-3 min-w-0">
                                     {isHighlighted && <Play className="w-3 h-3 text-primary fill-primary shrink-0" />}
@@ -549,14 +549,14 @@ export function OnlineMangaDetailView({
             
             {/* Related Manga */}
             {relatedManga && relatedManga.length > 0 && (
-              <div className="bento-widget rounded-2xl overflow-hidden border border-white/10 bg-card/40 backdrop-blur-md shadow-xl">
-                <div className="px-5 py-4 flex items-center justify-between border-b border-white/10 bg-black/20">
+              <div className="bento-widget rounded-2xl overflow-hidden border border-border/50 bg-card/40 backdrop-blur-md shadow-xl">
+                <div className="px-5 py-4 flex items-center justify-between border-b border-border/50 bg-secondary/20">
                   <h3 className="font-bold text-sm text-foreground tracking-wide uppercase">Related Manga</h3>
                   <button className="text-xs text-primary font-medium hover:text-primary/80 transition-colors">More</button>
                 </div>
                 <div className="p-3 flex flex-col">
                   {relatedManga.slice(0, 5).map((m, i) => (
-                    <div key={i} className="px-3 py-2.5 text-sm font-medium text-foreground/80 hover:text-foreground hover:bg-white/5 cursor-pointer rounded-lg transition-colors truncate"
+                    <div key={i} className="px-3 py-2.5 text-sm font-medium text-foreground/80 hover:text-foreground hover:bg-secondary cursor-pointer rounded-lg transition-colors truncate"
                          onClick={() => onMangaClick && onMangaClick(m.id)}>
                       {m.title}
                     </div>
@@ -567,19 +567,19 @@ export function OnlineMangaDetailView({
 
             {/* You may also like */}
             {recommendedManga && recommendedManga.length > 0 && (
-              <div className="bento-widget rounded-2xl overflow-hidden border border-white/10 bg-card/40 backdrop-blur-md shadow-xl">
-                <div className="px-5 py-4 border-b border-white/10 bg-black/20">
+              <div className="bento-widget rounded-2xl overflow-hidden border border-border/50 bg-card/40 backdrop-blur-md shadow-xl">
+                <div className="px-5 py-4 border-b border-border/50 bg-secondary/20">
                   <h3 className="font-bold text-sm text-foreground tracking-wide uppercase">You may also like</h3>
                 </div>
                 <div className="p-4 flex flex-col gap-4">
                   {recommendedManga.slice(0, 4).map((m, i) => (
                     <div key={i} className="flex gap-4 cursor-pointer group" onClick={() => onMangaClick && onMangaClick(m.id)}>
-                      <div className="w-14 h-20 bg-black/40 rounded-md shrink-0 overflow-hidden shadow-md">
+                      <div className="w-14 h-20 bg-secondary/40 rounded-md shrink-0 overflow-hidden shadow-md">
                         {m.coverUrl && <img src={m.coverUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />}
                       </div>
                       <div className="flex flex-col justify-center min-w-0 py-1">
                         <div className="text-sm font-bold text-foreground/90 truncate group-hover:text-primary transition-colors mb-1">{m.title}</div>
-                        <div className="text-xs font-medium text-muted-foreground bg-white/5 w-fit px-2 py-0.5 rounded-md">Chap {m.latestChapter || '?'}</div>
+                        <div className="text-xs font-medium text-muted-foreground bg-secondary w-fit px-2 py-0.5 rounded-md">Chap {m.latestChapter || '?'}</div>
                       </div>
                     </div>
                   ))}

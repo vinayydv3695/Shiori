@@ -60,7 +60,7 @@ export function AniListMangaDetailsDialog({
     <Dialog.Root open={isOpen} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm transition-all duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <Dialog.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-3xl translate-x-[-50%] translate-y-[-50%] border border-white/10 bg-background/95 p-0 shadow-2xl backdrop-blur-xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-2xl overflow-hidden ring-1 ring-white/5 flex flex-col max-h-[90vh]">
+        <Dialog.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-3xl translate-x-[-50%] translate-y-[-50%] border border-border bg-background/95 p-0 shadow-2xl backdrop-blur-xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-2xl overflow-hidden ring-1 ring-white/5 flex flex-col max-h-[90vh]">
           
           {/* Blurred Background Header */}
           <div className="absolute top-0 left-0 right-0 h-72 w-full overflow-hidden pointer-events-none">
@@ -71,7 +71,7 @@ export function AniListMangaDetailsDialog({
             <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/60 to-background" />
           </div>
 
-          <Dialog.Close className="absolute right-5 top-5 rounded-full bg-black/40 p-2.5 text-white/70 opacity-70 ring-offset-background transition-all duration-200 hover:opacity-100 hover:text-white hover:bg-black/80 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none z-10">
+          <Dialog.Close className="absolute right-5 top-5 rounded-full bg-black/40 p-2.5 text-muted-foreground opacity-70 ring-offset-background transition-all duration-200 hover:opacity-100 hover:text-foreground hover:bg-black/80 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none z-10">
             <X className="h-4 w-4" />
             <span className="sr-only">Close</span>
           </Dialog.Close>
@@ -90,7 +90,7 @@ export function AniListMangaDetailsDialog({
                 
                 {/* Score Badge floating on cover */}
                 {entry?.score && entry.score > 0 ? (
-                  <div className="absolute -top-3 -right-3 bg-black/80 backdrop-blur-md border border-white/20 text-white font-bold px-3 py-1.5 rounded-full text-sm flex items-center gap-1.5 shadow-xl">
+                  <div className="absolute -top-3 -right-3 bg-black/80 backdrop-blur-md border border-border text-white font-bold px-3 py-1.5 rounded-full text-sm flex items-center gap-1.5 shadow-xl">
                     <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" /> {entry.score}
                   </div>
                 ) : null}
@@ -108,7 +108,7 @@ export function AniListMangaDetailsDialog({
                 </Button>
                 <Button 
                   variant="secondary" 
-                  className="w-full gap-2.5 bg-white/5 hover:bg-white/10 border border-white/5 text-foreground transition-all duration-300 hover:-translate-y-0.5 shadow-sm"
+                  className="w-full gap-2.5 bg-secondary/30 hover:bg-secondary/50 border border-border/50 text-foreground transition-all duration-300 hover:-translate-y-0.5 shadow-sm"
                   onClick={() => {
                     onOpenChange(false);
                     onSearchTorbox(title);
@@ -125,11 +125,11 @@ export function AniListMangaDetailsDialog({
                 <span className="bg-primary/20 text-primary-foreground border border-primary/30 px-2.5 py-1 rounded-md shadow-sm">
                   {(entry?.status || 'UNKNOWN').replace(/_/g, ' ')}
                 </span>
-                <span className="bg-white/5 border border-white/10 px-2.5 py-1 rounded-md text-muted-foreground shadow-sm">
+                <span className="bg-secondary/30 border border-border px-2.5 py-1 rounded-md text-muted-foreground shadow-sm">
                   {manga.format}
                 </span>
                 {manga.status && (
-                  <span className="bg-white/5 border border-white/10 px-2.5 py-1 rounded-md text-muted-foreground shadow-sm">
+                  <span className="bg-secondary/30 border border-border px-2.5 py-1 rounded-md text-muted-foreground shadow-sm">
                     {manga.status}
                   </span>
                 )}
@@ -140,20 +140,20 @@ export function AniListMangaDetailsDialog({
               </Dialog.Title>
 
               {/* Edit Controls / Stats Grid */}
-              <div className="grid grid-cols-2 gap-px bg-white/10 rounded-xl overflow-hidden shadow-inner mb-8 border border-white/5">
+              <div className="grid grid-cols-2 gap-px bg-secondary/50 rounded-xl overflow-hidden shadow-inner mb-8 border border-border/50">
                 <div className="bg-background/40 backdrop-blur-sm p-4 transition-colors">
                   <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
                     <BookHeart className="w-3.5 h-3.5 text-rose-400" /> Progress
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => setEditProgress(Math.max(0, editProgress - 1))} className="p-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-muted-foreground"><Minus className="w-3.5 h-3.5"/></button>
+                    <button onClick={() => setEditProgress(Math.max(0, editProgress - 1))} className="p-1 rounded bg-secondary/30 hover:bg-secondary/50 border border-border text-muted-foreground"><Minus className="w-3.5 h-3.5"/></button>
                     <input 
                       type="number" 
                       value={editProgress} 
                       onChange={e => setEditProgress(Math.max(0, Number(e.target.value)))} 
-                      className="w-12 bg-transparent text-center font-semibold text-lg outline-none focus:bg-white/5 rounded" 
+                      className="w-12 bg-transparent text-center font-semibold text-lg outline-none focus:bg-secondary/30 rounded" 
                     />
-                    <button onClick={() => setEditProgress(editProgress + 1)} className="p-1 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-muted-foreground"><Plus className="w-3.5 h-3.5"/></button>
+                    <button onClick={() => setEditProgress(editProgress + 1)} className="p-1 rounded bg-secondary/30 hover:bg-secondary/50 border border-border text-muted-foreground"><Plus className="w-3.5 h-3.5"/></button>
                     {manga.chapters ? <span className="text-sm font-medium text-muted-foreground ml-1">/ {manga.chapters}</span> : ''}
                   </div>
                 </div>

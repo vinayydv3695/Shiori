@@ -110,34 +110,34 @@ export function AniListImportDialog({ isOpen, onClose, collection, anilistToken 
     <Dialog.Root open={isOpen} onOpenChange={(open) => !open && !isImporting && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-background/80 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <Dialog.Content className="fixed left-[50%] top-[50%] z-50 grid w-[92vw] sm:w-full sm:max-w-md translate-x-[-50%] translate-y-[-50%] gap-4 border border-border/50 bg-background/95 backdrop-blur-2xl p-5 sm:p-6 shadow-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 rounded-3xl">
+        <Dialog.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-[calc(100vw-2rem)] sm:max-w-md translate-x-[-50%] translate-y-[-50%] gap-4 border border-border/50 bg-background/95 backdrop-blur-2xl p-5 sm:p-6 shadow-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 rounded-3xl min-w-0">
           
-          <div className="flex items-center justify-between pb-1">
-            <Dialog.Title className="text-xl font-bold tracking-tight text-foreground flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-xl text-primary">
+          <div className="flex items-center justify-between pb-1 min-w-0">
+            <Dialog.Title className="text-xl font-bold tracking-tight text-foreground flex items-center gap-3 min-w-0">
+              <div className="p-2 bg-primary/10 rounded-xl text-primary shrink-0">
                 <DownloadCloud className="w-5 h-5" />
               </div>
-              Import AniList
+              <span className="truncate">Import AniList</span>
             </Dialog.Title>
-            <Dialog.Close disabled={isImporting} className="rounded-full p-2 bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground transition-all disabled:opacity-30">
+            <Dialog.Close disabled={isImporting} className="rounded-full p-2 bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground transition-all disabled:opacity-30 shrink-0 ml-2">
               <X className="h-4 w-4" />
             </Dialog.Close>
           </div>
 
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 min-w-0">
             {!isImporting ? (
               <>
                 <p className="text-sm text-muted-foreground px-1">
                   Found <strong className="text-foreground">{eligibleEntries.length}</strong> manga in your "Planning" and "Reading" lists.
                 </p>
-                <div className="bg-secondary/30 backdrop-blur-sm rounded-2xl p-4 border border-border/40 max-h-[40vh] sm:max-h-[300px] overflow-y-auto space-y-3 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                <div className="bg-secondary/30 backdrop-blur-sm rounded-2xl p-4 border border-border/40 max-h-[40vh] sm:max-h-[300px] overflow-y-auto space-y-3 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] min-w-0">
                   {eligibleEntries.length > 0 ? (
                     eligibleEntries.map((item) => (
-                      <div key={item.entry.media.id} className="flex items-center justify-between text-sm group">
-                        <span className="truncate pr-4 flex-1 font-medium text-foreground/90 group-hover:text-foreground transition-colors">
+                      <div key={item.entry.media.id} className="flex items-center justify-between text-sm group min-w-0 gap-2">
+                        <span className="truncate flex-1 font-medium text-foreground/90 group-hover:text-foreground transition-colors min-w-0">
                           {item.entry.media.title.userPreferred || item.entry.media.title.english}
                         </span>
-                        <span className="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-background/80 border border-border/50 capitalize whitespace-nowrap text-muted-foreground shadow-sm">
+                        <span className="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-background/80 border border-border/50 capitalize whitespace-nowrap text-muted-foreground shadow-sm shrink-0">
                           {item.status}
                         </span>
                       </div>

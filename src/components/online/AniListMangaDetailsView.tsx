@@ -70,19 +70,19 @@ function TrackerForm({
     >
       {/* Status */}
       <motion.div variants={itemVariants} className="space-y-2">
-        <label className="text-[11px] font-bold tracking-widest text-on-surface-variant uppercase flex items-center gap-1.5">
+        <label className="text-[11px] font-bold tracking-widest text-muted-foreground uppercase flex items-center gap-1.5">
           <Bookmark className="w-3.5 h-3.5" /> Status
         </label>
         <Select.Root value={status} onValueChange={setStatus}>
-          <Select.Trigger className="w-full bg-[#121212] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3.5 px-4 text-sm font-semibold outline-none transition-all shadow-inner flex items-center justify-between hover:bg-white/5">
+          <Select.Trigger className="w-full bg-background border border-border text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3.5 px-4 text-sm font-semibold outline-none transition-all shadow-inner flex items-center justify-between hover:bg-secondary">
             <Select.Value />
             <Select.Icon>
-              <ChevronDown className="w-4 h-4 text-on-surface-variant" />
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
             </Select.Icon>
           </Select.Trigger>
           <Select.Portal>
             <Select.Content 
-              className="overflow-hidden bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl z-[9999]"
+              className="overflow-hidden bg-card border border-border rounded-xl shadow-2xl z-[9999]"
               position="popper"
               sideOffset={4}
             >
@@ -97,7 +97,7 @@ function TrackerForm({
                   <Select.Item 
                     key={item.value} 
                     value={item.value}
-                    className="relative flex items-center px-8 py-2.5 text-sm font-medium text-white/90 rounded-lg select-none outline-none data-[highlighted]:bg-primary/20 data-[highlighted]:text-primary cursor-pointer transition-colors"
+                    className="relative flex items-center px-8 py-2.5 text-sm font-medium text-foreground/90 rounded-lg select-none outline-none data-[highlighted]:bg-primary/20 data-[highlighted]:text-primary cursor-pointer transition-colors"
                   >
                     <Select.ItemText>{item.label}</Select.ItemText>
                     <Select.ItemIndicator className="absolute left-2.5 flex items-center justify-center">
@@ -115,24 +115,24 @@ function TrackerForm({
         {/* Progress with stepper */}
         <motion.div variants={itemVariants} className="space-y-2">
           <div className="flex justify-between items-center">
-            <label className="text-[11px] font-bold tracking-widest text-on-surface-variant uppercase flex items-center gap-1.5">
+            <label className="text-[11px] font-bold tracking-widest text-muted-foreground uppercase flex items-center gap-1.5">
               <BookOpen className="w-3.5 h-3.5" /> Progress
             </label>
             {totalChapters && (
-              <span className="text-xs text-on-surface-variant">Max: {totalChapters}</span>
+              <span className="text-xs text-muted-foreground">Max: {totalChapters}</span>
             )}
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => handleProgressChange(progress - 1)} className="p-3 bg-[#121212] border border-white/10 rounded-xl hover:bg-white/5 active:scale-95 transition-all text-on-surface-variant hover:text-white">
+            <button type="button" onClick={() => handleProgressChange(progress - 1)} className="p-3 bg-background border border-border rounded-xl hover:bg-secondary active:scale-95 transition-all text-muted-foreground hover:text-foreground">
               <Minus className="w-4 h-4" />
             </button>
             <input 
               type="number" 
               value={progress}
               onChange={e => handleProgressChange(parseInt(e.target.value))}
-              className="flex-1 min-w-0 bg-[#121212] border border-white/10 text-primary text-center font-bold rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm outline-none transition-all shadow-inner [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+              className="flex-1 min-w-0 bg-background border border-border text-primary text-center font-bold rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm outline-none transition-all shadow-inner [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
             />
-            <button type="button" onClick={() => handleProgressChange(progress + 1)} className="p-3 bg-[#121212] border border-white/10 rounded-xl hover:bg-white/5 active:scale-95 transition-all text-on-surface-variant hover:text-white">
+            <button type="button" onClick={() => handleProgressChange(progress + 1)} className="p-3 bg-background border border-border rounded-xl hover:bg-secondary active:scale-95 transition-all text-muted-foreground hover:text-foreground">
               <Plus className="w-4 h-4" />
             </button>
           </div>
@@ -141,12 +141,12 @@ function TrackerForm({
         {/* Score with slider */}
         <motion.div variants={itemVariants} className="space-y-2">
           <div className="flex justify-between items-center">
-            <label className="text-[11px] font-bold tracking-widest text-on-surface-variant uppercase flex items-center gap-1.5">
+            <label className="text-[11px] font-bold tracking-widest text-muted-foreground uppercase flex items-center gap-1.5">
               <Star className="w-3.5 h-3.5" /> Score
             </label>
             <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">{score} / 100</span>
           </div>
-          <div className="flex items-center gap-4 bg-[#121212] border border-white/10 rounded-xl p-4 shadow-inner">
+          <div className="flex items-center gap-4 bg-background border border-border rounded-xl p-4 shadow-inner">
             <input 
               type="range"
               value={score}
@@ -163,53 +163,53 @@ function TrackerForm({
 
       <motion.div variants={itemVariants} className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <label className="text-[11px] font-bold tracking-widest text-on-surface-variant uppercase flex items-center gap-1.5">
+          <label className="text-[11px] font-bold tracking-widest text-muted-foreground uppercase flex items-center gap-1.5">
             <Calendar className="w-3.5 h-3.5" /> Start Date
           </label>
           <input 
             type="date"
             value={startedAt}
             onChange={e => setStartedAt(e.target.value)}
-            className="w-full bg-[#121212] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary hover:bg-white/5 py-3 px-3 text-[13px] outline-none transition-all shadow-inner" 
+            className="w-full bg-background border border-border text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary hover:bg-secondary py-3 px-3 text-[13px] outline-none transition-all shadow-inner" 
             style={{ colorScheme: 'dark' }}
           />
         </div>
         <div className="space-y-2">
-          <label className="text-[11px] font-bold tracking-widest text-on-surface-variant uppercase flex items-center gap-1.5">
+          <label className="text-[11px] font-bold tracking-widest text-muted-foreground uppercase flex items-center gap-1.5">
             <Calendar className="w-3.5 h-3.5" /> Finish Date
           </label>
           <input 
             type="date" 
             value={completedAt}
             onChange={e => setCompletedAt(e.target.value)}
-            className="w-full bg-[#121212] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary hover:bg-white/5 py-3 px-3 text-[13px] outline-none transition-all shadow-inner" 
+            className="w-full bg-background border border-border text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary hover:bg-secondary py-3 px-3 text-[13px] outline-none transition-all shadow-inner" 
             style={{ colorScheme: 'dark' }}
           />
         </div>
       </motion.div>
 
       <motion.div variants={itemVariants} className="space-y-2">
-        <label className="text-[11px] font-bold tracking-widest text-on-surface-variant uppercase flex items-center gap-1.5">
+        <label className="text-[11px] font-bold tracking-widest text-muted-foreground uppercase flex items-center gap-1.5">
           <RefreshCw className="w-3.5 h-3.5" /> Re-reads
         </label>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => handleRepeatChange(repeat - 1)} className="p-3 bg-[#121212] border border-white/10 rounded-xl hover:bg-white/5 active:scale-95 transition-all text-on-surface-variant hover:text-white">
+          <button type="button" onClick={() => handleRepeatChange(repeat - 1)} className="p-3 bg-background border border-border rounded-xl hover:bg-secondary active:scale-95 transition-all text-muted-foreground hover:text-foreground">
             <Minus className="w-4 h-4" />
           </button>
           <input 
             type="number" 
             value={repeat}
             onChange={e => handleRepeatChange(parseInt(e.target.value))}
-            className="flex-1 min-w-0 bg-[#121212] border border-white/10 text-primary text-center font-bold rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm outline-none transition-all shadow-inner [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+            className="flex-1 min-w-0 bg-background border border-border text-primary text-center font-bold rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm outline-none transition-all shadow-inner [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
           />
-          <button type="button" onClick={() => handleRepeatChange(repeat + 1)} className="p-3 bg-[#121212] border border-white/10 rounded-xl hover:bg-white/5 active:scale-95 transition-all text-on-surface-variant hover:text-white">
+          <button type="button" onClick={() => handleRepeatChange(repeat + 1)} className="p-3 bg-background border border-border rounded-xl hover:bg-secondary active:scale-95 transition-all text-muted-foreground hover:text-foreground">
             <Plus className="w-4 h-4" />
           </button>
         </div>
       </motion.div>
 
       <motion.div variants={itemVariants} className="space-y-2">
-        <label className="text-[11px] font-bold tracking-widest text-on-surface-variant uppercase flex items-center gap-1.5">
+        <label className="text-[11px] font-bold tracking-widest text-muted-foreground uppercase flex items-center gap-1.5">
           <AlignLeft className="w-3.5 h-3.5" /> Private Notes
         </label>
         <textarea 
@@ -217,7 +217,7 @@ function TrackerForm({
           onChange={e => setNotes(e.target.value)}
           rows={3}
           placeholder="Jot down some thoughts..."
-          className="w-full bg-[#121212] border border-white/10 text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary hover:bg-white/5 py-3 px-4 text-sm outline-none transition-all resize-none shadow-inner" 
+          className="w-full bg-background border border-border text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary hover:bg-secondary py-3 px-4 text-sm outline-none transition-all resize-none shadow-inner" 
         />
       </motion.div>
 
@@ -365,7 +365,7 @@ export function AniListMangaDetailsView({
       {loading ? (
         <div className="fixed inset-0 z-50 flex flex-col bg-background/90 backdrop-blur-md animate-in fade-in duration-300">
           {/* Top Nav Skeleton */}
-          <div className="h-16 border-b border-white/5 flex items-center px-6">
+          <div className="h-16 border-b border-border/50 flex items-center px-6">
             <Skeleton className="w-8 h-8 rounded-full" />
           </div>
           <div className="flex-1 overflow-hidden flex flex-col">
@@ -423,8 +423,8 @@ export function AniListMangaDetailsView({
               <button onClick={onClose} className={cn(
                 "flex items-center justify-center gap-2 transition-transform active:scale-90",
                 isMobile 
-                  ? "w-10 h-10 rounded-full bg-black/40 backdrop-blur-md text-white shadow-lg border border-white/10" 
-                  : "text-primary hover:text-white group"
+                  ? "w-10 h-10 rounded-full bg-black/40 backdrop-blur-md text-foreground shadow-lg border border-border" 
+                  : "text-primary hover:text-foreground group"
               )}>
                 <ArrowLeft className={cn("w-5 h-5", !isMobile && "group-hover:-translate-x-1 transition-transform")} />
                 {!isMobile && <span className="font-bold tracking-tight">Back to Dashboard</span>}
@@ -449,7 +449,7 @@ export function AniListMangaDetailsView({
               <div className="max-w-7xl mx-auto w-full flex flex-col md:flex-row gap-6 md:gap-8 items-center md:items-end">
                 {/* Cover Image */}
                 <div className={cn("flex-shrink-0 w-44 md:w-64 lg:w-72", isMobile ? "mx-auto" : "mx-0")}>
-                  <div className="aspect-[3/4] overflow-hidden rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10">
+                  <div className="aspect-[3/4] overflow-hidden rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-border">
                     <img className="w-full h-full object-cover" src={details.coverImage.extraLarge || details.coverImage.large} alt={details.title.english || details.title.romaji} />
                   </div>
                 </div>
@@ -461,19 +461,19 @@ export function AniListMangaDetailsView({
                   </h1>
                   
                   <div className={cn("flex flex-wrap gap-2 mb-4", isMobile ? "justify-center" : "")}>
-                    <div className="bg-[#1A1A1A]/70 backdrop-blur-xl border border-white/5 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-                      <span className="text-[10px] font-semibold tracking-wider text-on-surface-variant">FORMAT</span>
+                    <div className="bg-card/70 backdrop-blur-xl border border-border/50 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                      <span className="text-[10px] font-semibold tracking-wider text-muted-foreground">FORMAT</span>
                       <span className="text-xs font-medium text-primary uppercase">{details.format}</span>
                     </div>
                     {details.averageScore && (
-                      <div className="bg-[#1A1A1A]/70 backdrop-blur-xl border border-white/5 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-                        <span className="text-[10px] font-semibold tracking-wider text-on-surface-variant">SCORE</span>
+                      <div className="bg-card/70 backdrop-blur-xl border border-border/50 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                        <span className="text-[10px] font-semibold tracking-wider text-muted-foreground">SCORE</span>
                         <span className="text-xs font-medium text-primary">{details.averageScore}%</span>
                       </div>
                     )}
                     {details.popularity && (
-                      <div className="bg-[#1A1A1A]/70 backdrop-blur-xl border border-white/5 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-                        <span className="text-[10px] font-semibold tracking-wider text-on-surface-variant">POPULARITY</span>
+                      <div className="bg-card/70 backdrop-blur-xl border border-border/50 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                        <span className="text-[10px] font-semibold tracking-wider text-muted-foreground">POPULARITY</span>
                         <span className="text-xs font-medium text-primary">#{details.popularity}</span>
                       </div>
                     )}
@@ -492,7 +492,7 @@ export function AniListMangaDetailsView({
                       {onSearchOnlineManga && (
                         <button 
                           onClick={() => onSearchOnlineManga(details.title.english || details.title.romaji)}
-                          className="flex items-center gap-2 bg-black/40 hover:bg-white/10 border border-white/10 backdrop-blur-xl text-white px-5 py-2.5 rounded-xl font-medium transition-all active:scale-95"
+                          className="flex items-center gap-2 bg-black/40 hover:bg-secondary/80 border border-border backdrop-blur-xl text-foreground px-5 py-2.5 rounded-xl font-medium transition-all active:scale-95"
                         >
                           <BookOpen className="w-4 h-4 text-blue-400" /> Read Online
                         </button>
@@ -500,7 +500,7 @@ export function AniListMangaDetailsView({
                       {onSearchTorbox && (
                         <button 
                           onClick={() => onSearchTorbox(details.title.english || details.title.romaji)}
-                          className="flex items-center gap-2 bg-black/40 hover:bg-white/10 border border-white/10 backdrop-blur-xl text-white px-5 py-2.5 rounded-xl font-medium transition-all active:scale-95"
+                          className="flex items-center gap-2 bg-black/40 hover:bg-secondary/80 border border-border backdrop-blur-xl text-foreground px-5 py-2.5 rounded-xl font-medium transition-all active:scale-95"
                         >
                           <Download className="w-4 h-4 text-purple-400" /> Download via Torbox
                         </button>
@@ -556,7 +556,7 @@ export function AniListMangaDetailsView({
                           {onSearchOnlineManga && (
                             <button 
                               onClick={() => onSearchOnlineManga(details.title.english || details.title.romaji)}
-                              className="flex-1 flex items-center justify-center gap-2 bg-[#1A1A1A] active:bg-[#262626] border border-white/5 text-white px-5 py-3 rounded-xl font-medium transition-colors"
+                              className="flex-1 flex items-center justify-center gap-2 bg-card active:bg-secondary border border-border/50 text-foreground px-5 py-3 rounded-xl font-medium transition-colors"
                             >
                               <BookOpen className="w-4 h-4 text-blue-400" /> Read Online
                             </button>
@@ -564,7 +564,7 @@ export function AniListMangaDetailsView({
                           {onSearchTorbox && (
                             <button 
                               onClick={() => onSearchTorbox(details.title.english || details.title.romaji)}
-                              className="flex-1 flex items-center justify-center gap-2 bg-[#1A1A1A] active:bg-[#262626] border border-white/5 text-white px-5 py-3 rounded-xl font-medium transition-colors"
+                              className="flex-1 flex items-center justify-center gap-2 bg-card active:bg-secondary border border-border/50 text-foreground px-5 py-3 rounded-xl font-medium transition-colors"
                             >
                               <Download className="w-4 h-4 text-purple-400" /> Download
                             </button>
@@ -575,26 +575,26 @@ export function AniListMangaDetailsView({
                       <div>
                         <h3 className={cn("font-bold text-primary mb-3", isMobile ? "text-lg" : "text-xl")}>Synopsis</h3>
                         <p 
-                          className="text-on-surface-variant leading-relaxed text-base md:text-lg opacity-90"
+                          className="text-muted-foreground leading-relaxed text-base md:text-lg opacity-90"
                           dangerouslySetInnerHTML={{ __html: details.description || 'No synopsis available.' }}
                         />
                       </div>
                       
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                        <div className="bg-[#1A1A1A] p-4 rounded-xl border border-white/5">
-                          <p className="text-[10px] font-semibold tracking-wider text-on-surface-variant mb-1 uppercase">Romaji</p>
+                        <div className="bg-card p-4 rounded-xl border border-border/50">
+                          <p className="text-[10px] font-semibold tracking-wider text-muted-foreground mb-1 uppercase">Romaji</p>
                           <p className="text-sm text-primary font-medium line-clamp-1">{details.title.romaji}</p>
                         </div>
-                        <div className="bg-[#1A1A1A] p-4 rounded-xl border border-white/5">
-                          <p className="text-[10px] font-semibold tracking-wider text-on-surface-variant mb-1 uppercase">Native</p>
+                        <div className="bg-card p-4 rounded-xl border border-border/50">
+                          <p className="text-[10px] font-semibold tracking-wider text-muted-foreground mb-1 uppercase">Native</p>
                           <p className="text-sm text-primary font-medium line-clamp-1">{details.title.native}</p>
                         </div>
-                        <div className="bg-[#1A1A1A] p-4 rounded-xl border border-white/5">
-                          <p className="text-[10px] font-semibold tracking-wider text-on-surface-variant mb-1 uppercase">Chapters</p>
+                        <div className="bg-card p-4 rounded-xl border border-border/50">
+                          <p className="text-[10px] font-semibold tracking-wider text-muted-foreground mb-1 uppercase">Chapters</p>
                           <p className="text-sm text-primary font-medium">{details.chapters || '?'}</p>
                         </div>
-                        <div className="bg-[#1A1A1A] p-4 rounded-xl border border-white/5">
-                          <p className="text-[10px] font-semibold tracking-wider text-on-surface-variant mb-1 uppercase">Volumes</p>
+                        <div className="bg-card p-4 rounded-xl border border-border/50">
+                          <p className="text-[10px] font-semibold tracking-wider text-muted-foreground mb-1 uppercase">Volumes</p>
                           <p className="text-sm text-primary font-medium">{details.volumes || '?'}</p>
                         </div>
                       </div>
@@ -609,9 +609,9 @@ export function AniListMangaDetailsView({
                                 href={link.url} 
                                 target="_blank" 
                                 rel="noreferrer"
-                                className="bg-[#1A1A1A] hover:bg-[#262626] border border-white/5 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-colors flex items-center gap-2"
+                                className="bg-card hover:bg-secondary border border-border/50 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-colors flex items-center gap-2"
                               >
-                                {link.site} <ExternalLink className="w-3 h-3 text-on-surface-variant" />
+                                {link.site} <ExternalLink className="w-3 h-3 text-muted-foreground" />
                               </a>
                             ))}
                           </div>
@@ -625,7 +625,7 @@ export function AniListMangaDetailsView({
                             {details.tags.map(tag => (
                               <span 
                                 key={tag.id} 
-                                className={`bg-surface-variant/30 border border-white/5 text-xs px-3 py-1.5 rounded-full ${tag.isMediaSpoiler ? 'text-error opacity-70 hover:opacity-100 cursor-help' : 'text-on-surface-variant'}`}
+                                className={`bg-surface-variant/30 border border-border/50 text-xs px-3 py-1.5 rounded-full ${tag.isMediaSpoiler ? 'text-error opacity-70 hover:opacity-100 cursor-help' : 'text-muted-foreground'}`}
                                 title={tag.description}
                               >
                                 {tag.name} <span className="opacity-50 ml-1">{tag.rank}%</span>
@@ -643,29 +643,29 @@ export function AniListMangaDetailsView({
                       <h3 className="text-lg md:text-xl font-bold text-primary mb-4">Characters</h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
                         {details.characters?.edges?.map(edge => (
-                          <div key={edge.node.id} className="flex gap-3 md:gap-4 bg-[#1A1A1A] p-2 md:p-3 rounded-xl border border-white/5">
+                          <div key={edge.node.id} className="flex gap-3 md:gap-4 bg-card p-2 md:p-3 rounded-xl border border-border/50">
                             <img className="w-14 h-20 md:w-16 md:h-24 object-cover rounded-lg bg-surface-variant" src={edge.node.image.large} alt={edge.node.name.full} />
                             <div className="flex flex-col justify-center">
                               <p className="text-sm text-primary font-bold line-clamp-2">{edge.node.name.full}</p>
-                              <p className="text-[10px] md:text-xs text-on-surface-variant uppercase mt-1">{edge.role}</p>
+                              <p className="text-[10px] md:text-xs text-muted-foreground uppercase mt-1">{edge.role}</p>
                             </div>
                           </div>
                         ))}
-                        {!details.characters?.edges?.length && <p className="text-on-surface-variant">No characters found.</p>}
+                        {!details.characters?.edges?.length && <p className="text-muted-foreground">No characters found.</p>}
                       </div>
                       
                       <h3 className="text-lg md:text-xl font-bold text-primary mb-4 mt-10">Staff</h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
                         {details.staff?.edges?.map(edge => (
-                          <div key={edge.node.id} className="flex gap-3 md:gap-4 bg-[#1A1A1A] p-2 md:p-3 rounded-xl border border-white/5">
+                          <div key={edge.node.id} className="flex gap-3 md:gap-4 bg-card p-2 md:p-3 rounded-xl border border-border/50">
                             <img className="w-14 h-20 md:w-16 md:h-24 object-cover rounded-lg bg-surface-variant" src={edge.node.image.large} alt={edge.node.name.full} />
                             <div className="flex flex-col justify-center">
                               <p className="text-sm text-primary font-bold line-clamp-2">{edge.node.name.full}</p>
-                              <p className="text-[10px] md:text-xs text-on-surface-variant uppercase mt-1">{edge.role}</p>
+                              <p className="text-[10px] md:text-xs text-muted-foreground uppercase mt-1">{edge.role}</p>
                             </div>
                           </div>
                         ))}
-                        {!details.staff?.edges?.length && <p className="text-on-surface-variant">No staff found.</p>}
+                        {!details.staff?.edges?.length && <p className="text-muted-foreground">No staff found.</p>}
                       </div>
                     </div>
                   )}
@@ -686,18 +686,18 @@ export function AniListMangaDetailsView({
                               }
                             }}
                           >
-                            <div className="aspect-[3/4] overflow-hidden rounded-lg border border-white/5">
+                            <div className="aspect-[3/4] overflow-hidden rounded-lg border border-border/50">
                               <img className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src={edge.node.coverImage.large} alt={edge.node.title.romaji} />
                             </div>
                             <div>
                               <p className="text-[13px] md:text-sm text-primary font-medium line-clamp-2 leading-snug">{edge.node.title.romaji}</p>
-                              <p className="text-[9px] md:text-[10px] text-on-surface-variant uppercase mt-1 tracking-wider">
+                              <p className="text-[9px] md:text-[10px] text-muted-foreground uppercase mt-1 tracking-wider">
                                 {edge.relationType.replace('_', ' ')}
                               </p>
                             </div>
                           </div>
                         ))}
-                        {!details.relations?.edges?.length && <p className="text-on-surface-variant col-span-full">No relations found.</p>}
+                        {!details.relations?.edges?.length && <p className="text-muted-foreground col-span-full">No relations found.</p>}
                       </div>
                     </div>
                   )}
@@ -718,13 +718,13 @@ export function AniListMangaDetailsView({
                               }
                             }}
                           >
-                            <div className="aspect-[3/4] overflow-hidden rounded-lg border border-white/5">
+                            <div className="aspect-[3/4] overflow-hidden rounded-lg border border-border/50">
                               <img className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src={node.mediaRecommendation.coverImage.large} alt={node.mediaRecommendation.title.romaji} />
                             </div>
                             <p className="text-[13px] md:text-sm text-primary font-medium line-clamp-2 leading-snug">{node.mediaRecommendation.title.romaji}</p>
                           </div>
                         ))}
-                        {!details.recommendations?.nodes?.length && <p className="text-on-surface-variant col-span-full">No recommendations found.</p>}
+                        {!details.recommendations?.nodes?.length && <p className="text-muted-foreground col-span-full">No recommendations found.</p>}
                       </div>
                     </div>
                   )}
@@ -734,7 +734,7 @@ export function AniListMangaDetailsView({
               {/* Sidebar: Desktop Only */}
               {!isMobile && (
                 <aside className="w-full lg:w-80 flex-shrink-0 animate-in fade-in slide-in-from-right-8 duration-700">
-                  <div className="bg-[#1A1A1A]/80 backdrop-blur-2xl p-6 rounded-2xl border border-white/10 sticky top-24 shadow-2xl">
+                  <div className="bg-card/80 backdrop-blur-2xl p-6 rounded-2xl border border-border sticky top-24 shadow-2xl">
                     <h2 className="text-lg font-bold text-primary mb-6 flex items-center gap-2">
                       <Bookmark className="w-5 h-5" /> My List
                     </h2>
@@ -762,17 +762,17 @@ export function AniListMangaDetailsView({
                   <Dialog.Portal>
                     <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[400] animate-in fade-in" />
                     <Dialog.Content 
-                      className="fixed bottom-0 left-0 right-0 z-[401] bg-[#121212] rounded-t-3xl border-t border-white/10 shadow-2xl focus:outline-none flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-[100%]"
+                      className="fixed bottom-0 left-0 right-0 z-[401] bg-background rounded-t-3xl border-t border-border shadow-2xl focus:outline-none flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-[100%]"
                     >
                       <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto my-4" />
                       
-                      <div className="px-6 pb-4 flex items-center justify-between border-b border-white/5">
+                      <div className="px-6 pb-4 flex items-center justify-between border-b border-border/50">
                         <Dialog.Title className="text-lg font-bold text-primary flex items-center gap-2">
                           <Bookmark className="w-5 h-5" /> Edit Tracker
                         </Dialog.Title>
                         <Dialog.Close asChild>
-                          <button className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
-                            <X className="w-5 h-5 text-on-surface-variant" />
+                          <button className="p-2 bg-white/5 rounded-full hover:bg-secondary/80 transition-colors">
+                            <X className="w-5 h-5 text-muted-foreground" />
                           </button>
                         </Dialog.Close>
                       </div>

@@ -10,6 +10,7 @@ import * as Select from '@radix-ui/react-select';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { motion } from 'framer-motion';
+import { usePreferencesStore } from '@/store/preferencesStore';
 
 // TrackerForm Component
 function TrackerForm({
@@ -261,6 +262,8 @@ export function AniListMangaDetailsView({
 }: AniListMangaDetailsViewProps) {
   const { token: anilistToken } = useAniListAccessToken();
   const isMobile = useIsMobile();
+  const preferences = usePreferencesStore(state => state.preferences);
+  const theme = preferences?.theme || 'light';
   
   const [details, setDetails] = useState<AnilistMediaDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -422,9 +425,10 @@ export function AniListMangaDetailsView({
             <nav className={cn("flex items-center", isMobile ? "justify-start" : "justify-between px-6 py-4 max-w-7xl mx-auto")}>
               <button onClick={onClose} className={cn(
                 "flex items-center justify-center gap-2 transition-transform active:scale-90",
-                isMobile 
-                  ? "w-10 h-10 rounded-full bg-card/60 backdrop-blur-md text-foreground shadow-lg border border-border" 
-                  : "text-primary hover:text-foreground group"
+                  isMobile 
+                    ? cn("w-10 h-10 rounded-full backdrop-blur-md shadow-lg border border-border", 
+                         theme === 'sepia' ? "bg-white/50 text-primary" : "bg-black/40 text-foreground")
+                    : "text-primary hover:text-foreground group"
               )}>
                 <ArrowLeft className={cn("w-5 h-5", !isMobile && "group-hover:-translate-x-1 transition-transform")} />
                 {!isMobile && <span className="font-bold tracking-tight">Back to Dashboard</span>}
@@ -439,13 +443,18 @@ export function AniListMangaDetailsView({
               isMobile ? "min-h-[450px] px-5 pb-8 pt-24" : "min-h-[600px] px-6 md:px-16 pb-12 pt-20"
             )}>
               <div 
-                className="absolute inset-0 bg-cover bg-center -z-20 scale-110"
+                className="absolute inset-0 bg-cover bg-center -z-10 scale-110"
                 style={{ 
                   backgroundImage: `url('${details.coverImage.extraLarge || details.coverImage.large}')`,
-                  filter: isMobile ? 'blur(40px)' : 'blur(60px)'
+                  filter: theme === 'sepia' 
+                    ? (isMobile ? 'blur(40px) brightness(0.7)' : 'blur(60px) brightness(0.7)') 
+                    : (isMobile ? 'blur(40px) brightness(0.4)' : 'blur(60px) brightness(0.3)'),
+                  ...(theme === 'sepia' ? { 
+                    WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 50%, transparent 100%)', 
+                    maskImage: 'linear-gradient(to bottom, black 0%, black 50%, transparent 100%)' 
+                  } : {})
                 }}
               />
-              <div className="absolute inset-0 -z-10 bg-background/85" />
               
               <div className="max-w-7xl mx-auto w-full flex flex-col md:flex-row gap-6 md:gap-8 items-center md:items-end">
                 {/* Cover Image */}
@@ -493,7 +502,12 @@ export function AniListMangaDetailsView({
                       {onSearchOnlineManga && (
                         <button 
                           onClick={() => onSearchOnlineManga(details.title.english || details.title.romaji)}
-                          className="flex items-center gap-2 bg-card/60 hover:bg-secondary/80 border border-border backdrop-blur-xl text-foreground px-5 py-2.5 rounded-xl font-medium transition-all active:scale-95"
+                          className={cn(
+                            "flex items-center gap-2 border border-border backdrop-blur-xl px-5 py-2.5 rounded-xl font-medium transition-all active:scale-95",
+                            theme === 'sepia' 
+                              ? "bg-white/50 hover:bg-white/80 text-primary" 
+                              : "bg-black/40 hover:bg-secondary/80 text-foreground"
+                          )}
                         >
                           <BookOpen className="w-4 h-4 text-blue-400" /> Read Online
                         </button>
@@ -501,7 +515,12 @@ export function AniListMangaDetailsView({
                       {onSearchTorbox && (
                         <button 
                           onClick={() => onSearchTorbox(details.title.english || details.title.romaji)}
-                          className="flex items-center gap-2 bg-card/60 hover:bg-secondary/80 border border-border backdrop-blur-xl text-foreground px-5 py-2.5 rounded-xl font-medium transition-all active:scale-95"
+                          className={cn(
+                            "flex items-center gap-2 border border-border backdrop-blur-xl px-5 py-2.5 rounded-xl font-medium transition-all active:scale-95",
+                            theme === 'sepia' 
+                              ? "bg-white/50 hover:bg-white/80 text-primary" 
+                              : "bg-black/40 hover:bg-secondary/80 text-foreground"
+                          )}
                         >
                           <Download className="w-4 h-4 text-purple-400" /> Download via Torbox
                         </button>
@@ -553,11 +572,11 @@ export function AniListMangaDetailsView({
                       
                       {/* Mobile Read/Download Buttons */}
                       {isMobile && (
-                        <div className="flex flex-col sm:flex-row gap-3">
+                        <div className="flex flex-col gap-3 pb-2">
                           {onSearchOnlineManga && (
                             <button 
                               onClick={() => onSearchOnlineManga(details.title.english || details.title.romaji)}
-                              className="flex-1 flex items-center justify-center gap-2 bg-card active:bg-secondary border border-border/50 text-foreground px-5 py-3 rounded-xl font-medium transition-colors"
+                              className="w-full flex items-center justify-center gap-2 bg-card active:bg-secondary border border-border/50 text-foreground px-5 py-3.5 rounded-xl font-medium transition-colors"
                             >
                               <BookOpen className="w-4 h-4 text-blue-400" /> Read Online
                             </button>
@@ -565,7 +584,7 @@ export function AniListMangaDetailsView({
                           {onSearchTorbox && (
                             <button 
                               onClick={() => onSearchTorbox(details.title.english || details.title.romaji)}
-                              className="flex-1 flex items-center justify-center gap-2 bg-card active:bg-secondary border border-border/50 text-foreground px-5 py-3 rounded-xl font-medium transition-colors"
+                              className="w-full flex items-center justify-center gap-2 bg-card active:bg-secondary border border-border/50 text-foreground px-5 py-3.5 rounded-xl font-medium transition-colors"
                             >
                               <Download className="w-4 h-4 text-purple-400" /> Download
                             </button>

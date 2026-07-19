@@ -205,9 +205,8 @@ select {
   width: 92vw;
   max-width: 800px;
   background: var(--bg-elevated);
-  background: color-mix(in srgb, var(--bg-elevated) 70%, transparent);
+  /* color-mix removed to fix Android WebView transparent background bug */
   border: 1px solid var(--ui-border);
-  border: 1px solid color-mix(in srgb, var(--ui-border) 50%, transparent);
   border-radius: 20px;
   z-index: 100;
   opacity: 1;
@@ -246,7 +245,6 @@ select {
     border-radius: 0;
     border: none;
     border-bottom: 1px solid var(--ui-border);
-    border-bottom: 1px solid color-mix(in srgb, var(--ui-border) 50%, transparent);
     height: calc(48px + env(safe-area-inset-top, 0px));
     padding-top: env(safe-area-inset-top, 0px);
   }

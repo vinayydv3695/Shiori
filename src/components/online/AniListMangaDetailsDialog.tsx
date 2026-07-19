@@ -71,7 +71,7 @@ export function AniListMangaDetailsDialog({
             <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/60 to-background" />
           </div>
 
-          <Dialog.Close className="absolute right-5 top-5 rounded-full bg-card/60 p-2.5 text-muted-foreground opacity-70 ring-offset-background transition-all duration-200 hover:opacity-100 hover:text-foreground hover:bg-card/90 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none z-10">
+          <Dialog.Close className="absolute right-5 top-5 rounded-full bg-black/40 p-2.5 text-muted-foreground opacity-70 ring-offset-background transition-all duration-200 hover:opacity-100 hover:text-foreground hover:bg-black/80 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none z-10">
             <X className="h-4 w-4" />
             <span className="sr-only">Close</span>
           </Dialog.Close>
@@ -90,7 +90,7 @@ export function AniListMangaDetailsDialog({
                 
                 {/* Score Badge floating on cover */}
                 {entry?.score && entry.score > 0 ? (
-                  <div className="absolute -top-3 -right-3 bg-background/90 backdrop-blur-md border border-border text-foreground font-bold px-3 py-1.5 rounded-full text-sm flex items-center gap-1.5 shadow-xl">
+                  <div className="absolute -top-3 -right-3 bg-black/80 backdrop-blur-md border border-border text-white font-bold px-3 py-1.5 rounded-full text-sm flex items-center gap-1.5 shadow-xl">
                     <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" /> {entry.score}
                   </div>
                 ) : null}

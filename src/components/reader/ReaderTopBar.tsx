@@ -50,9 +50,9 @@ export function ReaderTopBar({
           >
             <ArrowLeft className="premium-control-icon" />
           </button>
-          <div className="flex flex-col min-w-0 overflow-hidden text-left py-1">
-            <span className="premium-book-title truncate block w-full leading-tight mb-0.5">{title}</span>
-            <span className="premium-chapter-indicator truncate block w-full leading-tight">{subtitle}</span>
+          <div className="flex flex-col min-w-0 overflow-hidden text-left justify-center h-full">
+            <span className="premium-book-title truncate block w-full">{title}</span>
+            <span className="premium-chapter-indicator truncate block w-full">{subtitle}</span>
           </div>
         </div>
 

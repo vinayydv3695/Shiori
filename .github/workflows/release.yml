@@ -294,6 +294,7 @@ jobs:
 
       # ── Prepare Tauri Key ──
       - name: Prepare Tauri Key
+        shell: bash
         run: |
           RAW_KEY="${{ secrets.TAURI_SIGNING_PRIVATE_KEY || secrets.TAURI_PRIVATE_KEY }}"
           CLEAN_KEY=$(echo "$RAW_KEY" | grep -v "untrusted comment" | tr -d '\n\r ')

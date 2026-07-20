@@ -270,8 +270,9 @@ export function IntegrationsStep({ onBack, onNext }: IntegrationsStepProps) {
                         setTestValid(null);
                       }}
                       placeholder="tbx_..."
-                      className="h-11 w-full rounded-xl border border-border/40 bg-card px-3 text-sm text-foreground outline-none transition focus-visible:ring-2 focus-visible:ring-zinc-400/60"
-                      autoComplete="off"
+                      className="h-11 w-full rounded-xl border border-border/40 bg-background px-3 text-sm text-foreground outline-none transition focus-visible:ring-2 focus-visible:ring-zinc-400/60"
+                      autoComplete="new-password"
+                      spellCheck="false"
                       disabled={isLoading}
                     />
                     <button

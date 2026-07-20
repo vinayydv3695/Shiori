@@ -17,7 +17,7 @@ const containerVariants = {
     opacity: 1,
     scale: 1,
     transition: {
-      type: "spring",
+      type: "spring" as const,
       stiffness: 300,
       damping: 25,
       staggerChildren: 0.15,
@@ -36,7 +36,7 @@ const itemVariants = {
   visible: { 
     opacity: 1, 
     y: 0,
-    transition: { type: 'spring', stiffness: 300, damping: 24 }
+    transition: { type: 'spring' as const, stiffness: 300, damping: 24 }
   },
 };
 
@@ -222,17 +222,19 @@ export function UpdateDialog() {
                               ),
                               a: ({node, ...props}) => <a className="text-primary hover:text-primary/80 font-medium underline underline-offset-2" {...props} />,
                               strong: ({node, ...props}) => <strong className="font-semibold text-foreground" {...props} />,
-                              code: ({node, inline, ...props}) => 
-                                inline ? (
+                              code: ({node, ...props}) => {
+                                const isInline = !props.className?.includes('language-');
+                                return isInline ? (
                                   <code className="bg-secondary/60 text-secondary-foreground px-1.5 py-0.5 rounded-md text-xs font-mono border border-border/40" {...props} />
                                 ) : (
                                   <div className="relative group rounded-xl overflow-hidden my-4 border border-border/40">
                                     <div className="absolute top-0 left-0 right-0 h-8 bg-secondary/80 flex items-center px-3 border-b border-border/40">
                                       <Terminal className="w-3.5 h-3.5 text-muted-foreground" />
                                     </div>
-                                    <pre className="bg-background/80 p-4 pt-12 overflow-x-auto text-xs font-mono" {...props} />
+                                    <pre className="bg-background/80 p-4 pt-12 overflow-x-auto text-xs font-mono"><code {...props} /></pre>
                                   </div>
-                                ),
+                                );
+                              },
                               table: ({node, ...props}) => (
                                 <div className="w-full overflow-x-auto my-6 rounded-xl border border-border/40 bg-secondary/10 shadow-sm">
                                   <table className="w-full text-left border-collapse text-sm" {...props} />

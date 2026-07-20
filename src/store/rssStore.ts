@@ -43,12 +43,12 @@ interface RssState {
   addFeed: (url: string, checkIntervalHours?: number) => Promise<number>;
   updateFeed: (feedId: number, title?: string, checkIntervalHours?: number) => Promise<void>;
   deleteFeed: (feedId: number) => Promise<void>;
-  toggleFeed: (feedId: number, isActive: boolean) => Promise<void>;
+  toggleFeed: (feedId: number) => Promise<void>;
   updateFeedArticles: (feedId: number) => Promise<number>;
   updateAllFeeds: () => Promise<void>;
   markArticleRead: (articleId: number) => Promise<void>;
   markAllArticlesRead: (feedId?: number) => Promise<void>;
-  generateDailyEpub: (options?: { include_images?: boolean; image_quality?: number }) => Promise<string>;
+  generateDailyEpub: (options?: { include_images?: boolean; image_quality?: number; title?: string; author?: string; maxArticles?: number; feeds?: number[] }) => Promise<string>;
   setSelectedFeed: (feedId: number | null) => void;
   triggerSync: () => Promise<void>;
 }
@@ -248,6 +248,14 @@ export const useRssStore = create<RssState>((set, get) => ({
     set({ selectedFeedId: feedId });
     if (feedId !== null) {
       get().loadArticles(feedId, undefined);
+    }
+  },
+
+  triggerSync: async () => {
+    try {
+      await invoke('trigger_sync');
+    } catch (error) {
+      logger.error('Failed to trigger sync:', error);
     }
   },
 }));

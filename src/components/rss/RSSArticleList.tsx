@@ -15,10 +15,10 @@ import { Settings } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-shell';
 
 interface RSSArticleListProps {
-  activeFeedId: number | null;
+  activeFeedId?: number | null;
 }
 
-export const RSSArticleList: React.FC<RSSArticleListProps> = ({ activeFeedId }) => {
+export const RSSArticleList: React.FC<RSSArticleListProps> = ({ activeFeedId = null }) => {
   const {
     articles,
     feeds,
@@ -259,7 +259,7 @@ export const RSSArticleList: React.FC<RSSArticleListProps> = ({ activeFeedId }) 
               markArticleRead(selectedArticle.id).catch(console.error);
             }
           }}
-          feedName={feeds.find(f => f.id === selectedArticle.feed_id)?.title}
+          feedName={feeds.find(f => f.id === selectedArticle.feed_id)?.title ?? undefined}
         />
       )}
     </div>

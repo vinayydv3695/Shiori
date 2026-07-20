@@ -103,7 +103,7 @@ export function ViewRouter({
 
         {currentView === 'rss-articles' && (
           <Suspense fallback={<LoadingSpinner className="py-24" />}>
-            <RSSArticleList onClose={() => handleNavigate('library')} />
+            <RSSArticleList />
           </Suspense>
         )}
 

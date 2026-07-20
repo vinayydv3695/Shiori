@@ -18,6 +18,7 @@ import { DoodleToolbar } from './DoodleToolbar';
 import { sanitizeBookContent } from '@/lib/sanitize';
 import { applyHighlightsToDOM } from '@/lib/highlightAnnotations';
 import { resolveReadingFontCss } from '@/lib/readingFonts';
+import { BookOpen, Highlighter, Search } from '@/components/icons';
 import '@/styles/premium-reader.css';
 
 interface MobiReaderProps {
@@ -30,6 +31,7 @@ type SidebarNavigateHandler = (chapterIndex: number, searchTerm?: string | null)
 
 export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
     const { isFocusMode } = useReaderAutoHide();
+    const toggleSidebar = useReaderUIStore(state => state.toggleSidebar);
     const setScrollProgress = useReaderUIStore(state => state.setScrollProgress);
     const { theme, fontSize, fontFamily, lineHeight, width } = useReadingSettings();
 
@@ -481,6 +483,37 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
                             <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
                         </svg>
                     </button>
+                }
+                rightExtra={
+                    <>
+                        <button
+                            type="button"
+                            onClick={() => toggleSidebar('search')}
+                            className="premium-control-button"
+                            aria-label="Search"
+                            title="Search in book"
+                        >
+                            <Search className="premium-control-icon" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => toggleSidebar('toc')}
+                            className="premium-control-button"
+                            aria-label="Table of Contents"
+                            title="Table of Contents"
+                        >
+                            <BookOpen className="premium-control-icon" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => toggleSidebar('highlights')}
+                            className="premium-control-button"
+                            aria-label="Highlights & Notes"
+                            title="Highlights & Notes"
+                        >
+                            <Highlighter className="premium-control-icon" />
+                        </button>
+                    </>
                 }
             />
 

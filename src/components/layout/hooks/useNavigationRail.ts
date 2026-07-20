@@ -7,6 +7,7 @@ import {
   Home,
   Library,
   Trash2,
+  History,
 } from "lucide-react"
 import { AniListIcon, TorboxIcon } from "@/components/icons"
 
@@ -53,6 +54,12 @@ const NAV_ITEMS: NavItem[] = [
     targetView: "annotations",
     isActive: (view) => view === "annotations",
     icon: Highlighter,
+  },
+  {
+    label: "History",
+    targetView: "history",
+    isActive: (view) => view === "history",
+    icon: History,
   },
   {
     label: "AniList",

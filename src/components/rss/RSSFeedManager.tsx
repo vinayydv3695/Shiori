@@ -3,6 +3,8 @@ import { useRssStore, RssFeed } from '../../store/rssStore';
 import { Plus, Trash2, Edit2, RefreshCw, Power, Clock, AlertCircle, BookOpen, Rss, X } from 'lucide-react';
 import { useToast } from '@/store/toastStore';
 
+import { DISCOVER_FEEDS } from './DiscoverFeeds';
+
 interface AddFeedDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -10,6 +12,7 @@ interface AddFeedDialogProps {
 }
 
 const AddFeedDialog: React.FC<AddFeedDialogProps> = ({ isOpen, onClose, onAdd }) => {
+  const [activeTab, setActiveTab] = useState<'custom' | 'discover'>('discover');
   const [url, setUrl] = useState('');
   const [checkInterval, setCheckInterval] = useState(6);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -47,77 +50,144 @@ const AddFeedDialog: React.FC<AddFeedDialogProps> = ({ isOpen, onClose, onAdd })
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-      <div className="bg-surface-1 border border-border rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
-        <div className="px-6 py-4 border-b border-border/50 bg-secondary/10">
-          <h2 className="text-xl font-semibold text-foreground">
+      <div className="bg-surface-1 border border-border rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden flex flex-col max-h-[85vh]">
+        <div className="px-6 py-4 border-b border-border/50 bg-secondary/10 flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
+            <Rss className="w-5 h-5 text-orange-500" />
             Add RSS Feed
           </h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-muted">
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Feed URL
-            </label>
-            <input
-              type="text"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com/feed.xml"
-              className="w-full px-4 py-2 border border-border/60 rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all"
-              required
-              autoFocus
-            />
-          </div>
+        <div className="flex border-b border-border">
+          <button
+            type="button"
+            className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'discover' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'}`}
+            onClick={() => setActiveTab('discover')}
+          >
+            Discover
+          </button>
+          <button
+            type="button"
+            className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'custom' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'}`}
+            onClick={() => setActiveTab('custom')}
+          >
+            Custom URL
+          </button>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Check Interval (hours)
-            </label>
-            <input
-              type="number"
-              value={checkInterval}
-              onChange={(e) => setCheckInterval(parseInt(e.target.value))}
-              min="1"
-              max="168"
-              className="w-full px-4 py-2 border border-border/60 rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all"
-            />
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              How often to check for new articles (1-168 hours)
-            </p>
-          </div>
+        <div className="flex-1 overflow-y-auto">
+          {activeTab === 'custom' ? (
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Feed URL
+                </label>
+                <input
+                  type="text"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://example.com/feed.xml"
+                  className="w-full px-4 py-2 border border-border/60 rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all"
+                  required
+                  autoFocus
+                />
+              </div>
 
-          {error && (
-            <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">
-              {error}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Check Interval (hours)
+                </label>
+                <input
+                  type="number"
+                  value={checkInterval}
+                  onChange={(e) => setCheckInterval(parseInt(e.target.value))}
+                  min="1"
+                  max="168"
+                  className="w-full px-4 py-2 border border-border/60 rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all"
+                />
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  How often to check for new articles (1-168 hours)
+                </p>
+              </div>
+
+              {error && (
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">
+                  {error}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2.5 text-sm font-medium text-foreground bg-secondary/50 border border-border/50 rounded-lg hover:bg-secondary transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !url}
+                  className="flex-1 px-4 py-2.5 text-sm font-medium text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 flex items-center justify-center gap-2 shadow-sm"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    'Add Feed'
+                  )}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="p-6 space-y-6">
+              {error && (
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive mb-4">
+                  {error}
+                </div>
+              )}
+              {DISCOVER_FEEDS.map((category) => (
+                <div key={category.category} className="space-y-3">
+                  <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">{category.category}</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {category.feeds.map((feed) => (
+                      <div key={feed.url} className="p-4 border border-border/60 rounded-lg bg-background hover:border-primary/50 transition-colors flex flex-col justify-between h-full gap-3">
+                        <div>
+                          <h4 className="font-semibold text-foreground mb-1 line-clamp-1">{feed.title}</h4>
+                          <p className="text-xs text-muted-foreground line-clamp-2">{feed.description}</p>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            try {
+                              setIsSubmitting(true);
+                              setError(null);
+                              await onAdd(feed.url, 6);
+                              onClose();
+                            } catch (err) {
+                              setError(err instanceof Error ? err.message : String(err));
+                            } finally {
+                              setIsSubmitting(false);
+                            }
+                          }}
+                          disabled={isSubmitting}
+                          className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          Add Feed
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
-
-          <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="flex-1 px-4 py-2.5 text-sm font-medium text-foreground bg-secondary/50 border border-border/50 rounded-lg hover:bg-secondary transition-colors disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting || !url}
-              className="flex-1 px-4 py-2.5 text-sm font-medium text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 flex items-center justify-center gap-2 shadow-sm"
-            >
-              {isSubmitting ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  Adding...
-                </>
-              ) : (
-                'Add Feed'
-              )}
-            </button>
-          </div>
-        </form>
+        </div>
       </div>
     </div>
   );

@@ -149,8 +149,20 @@ pub async fn mark_article_read(
     service: State<'_, Arc<RssService>>,
     article_id: i64,
 ) -> crate::error::Result<()> {
+    validate::require_positive_id(article_id, "article_id")?;
     service
         .mark_article_read(article_id)
+        .map_err(|e| ShioriError::Other(e.to_string()))
+}
+
+/// Mark all articles as read
+#[tauri::command]
+pub async fn mark_all_rss_articles_read(
+    service: State<'_, Arc<RssService>>,
+    feed_id: Option<i64>,
+) -> crate::error::Result<()> {
+    service
+        .mark_all_articles_read(feed_id)
         .map_err(|e| ShioriError::Other(e.to_string()))
 }
 

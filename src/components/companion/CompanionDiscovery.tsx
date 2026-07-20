@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { RefreshCw, MonitorSmartphone, Wifi } from 'lucide-react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { useToast } from '@/store/toastStore';
+import { SyncClient } from '@/lib/sync';
 
 interface CompanionInstance {
   name: string;
@@ -18,8 +19,10 @@ export function CompanionDiscovery() {
   const [isScanning, setIsScanning] = useState(false);
   
   const [manualIp, setManualIp] = useState('');
-  const [manualPort, setManualPort] = useState('8080');
+  const [manualPort, setManualPort] = useState('8081');
+  const [manualToken, setManualToken] = useState('');
   
+  const [isPairing, setIsPairing] = useState(false);
   const toast = useToast();
 
   const scanForCompanions = async () => {
@@ -35,11 +38,29 @@ export function CompanionDiscovery() {
     }
   };
 
-  const connectToInstance = (ip: string, port: number) => {
-    // In a real app, you would save this to settings, initialize a websocket, or test the API
-    console.log(`Connecting to ${ip}:${port}`);
-    toast.success(`Connected to ${ip}:${port}`);
-    // Save to preferences/store
+  const connectToInstance = async (ip: string, port: number, token: string) => {
+    if (!token) {
+      toast.error("Pairing token is required");
+      return;
+    }
+    
+    setIsPairing(true);
+    try {
+      // 1. Try to pair via Tauri sync backend
+      await SyncClient.syncWithDesktop(ip, port, token);
+      
+      // 2. If successful, save to localStorage for future auto-sync
+      localStorage.setItem('sync_host_ip', ip);
+      localStorage.setItem('sync_host_port', port.toString());
+      localStorage.setItem('sync_host_token', token);
+      
+      toast.success(`Connected & Synced with ${ip}:${port}`);
+    } catch (e: any) {
+      console.error("Pairing failed", e);
+      toast.error(typeof e === 'string' ? e : "Failed to pair with desktop.");
+    } finally {
+      setIsPairing(false);
+    }
   };
 
   useEffect(() => {
@@ -62,9 +83,10 @@ export function CompanionDiscovery() {
           if (decodedText.startsWith('shiori://companion')) {
             const url = new URL(decodedText);
             const ip = url.searchParams.get('ip');
-            const port = parseInt(url.searchParams.get('port') || '8080', 10);
-            if (ip) {
-              connectToInstance(ip, port);
+            const port = parseInt(url.searchParams.get('port') || '8081', 10);
+            const token = url.searchParams.get('token');
+            if (ip && token) {
+              connectToInstance(ip, port, token);
               if (scanner) scanner.clear();
               setActiveTab('auto'); // switch back
             }
@@ -140,10 +162,16 @@ export function CompanionDiscovery() {
                     <div>
                       <div className="font-medium text-sm">{instance.name.replace('._shiori._tcp.local.', '')}</div>
                       <div className="text-xs text-muted-foreground font-mono">{instance.ip}:{instance.port}</div>
+                      <Input 
+                        placeholder="Pairing Token" 
+                        className="h-8 text-xs mt-2" 
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            connectToInstance(instance.ip, instance.port, (e.target as HTMLInputElement).value);
+                          }
+                        }}
+                      />
                     </div>
-                    <Button size="sm" onClick={() => connectToInstance(instance.ip, instance.port)}>
-                      Connect
-                    </Button>
                   </div>
                 ))}
               </div>
@@ -173,17 +201,25 @@ export function CompanionDiscovery() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Port</label>
               <Input 
-                placeholder="8080" 
+                placeholder="8081" 
                 value={manualPort}
                 onChange={e => setManualPort(e.target.value)}
               />
             </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Pairing Token</label>
+              <Input 
+                placeholder="Token..." 
+                value={manualToken}
+                onChange={e => setManualToken(e.target.value)}
+              />
+            </div>
             <Button 
               className="w-full mt-4" 
-              onClick={() => connectToInstance(manualIp, parseInt(manualPort, 10))}
-              disabled={!manualIp || !manualPort}
+              onClick={() => connectToInstance(manualIp, parseInt(manualPort, 10), manualToken)}
+              disabled={!manualIp || !manualPort || !manualToken || isPairing}
             >
-              Connect
+              {isPairing ? 'Pairing...' : 'Connect'}
             </Button>
           </div>
         )}

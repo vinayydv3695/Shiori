@@ -32,7 +32,6 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
     { icon: Globe, label: "Online Books", action: () => setCurrentView("online-books") },
     { icon: BookOpen, label: "Online Manga", action: () => setCurrentView("online-manga") },
     { icon: Highlighter, label: "Annotations", action: () => setCurrentView("annotations") },
-    { icon: Rss, label: "RSS Feeds", action: () => setCurrentView("rss-feeds") },
     { icon: AniListIcon, label: "AniList", action: () => setCurrentView("anilist") },
     { icon: Tag, label: "Tags", action: () => setCurrentView("library") },
     { icon: BarChart2, label: "Statistics", action: () => setCurrentView("statistics") },

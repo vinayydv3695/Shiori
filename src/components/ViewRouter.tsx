@@ -7,7 +7,8 @@ import { DomainView } from "@/store/uiStore"
 
 const HomePage = lazy(() => import("./home/HomePage").then(m => ({ default: m.HomePage })))
 const RSSFeedManager = lazy(() => import("./rss/RSSFeedManager"))
-const RSSArticleList = lazy(() => import("./rss/RSSArticleList"))
+const RSSArticleList = lazy(() => import("./rss/RSSArticleList").then(m => ({ default: m.RSSArticleList })))
+const HistoryView = lazy(() => import("./history/HistoryView").then(m => ({ default: m.HistoryView })))
 const AnnotationsView = lazy(() => import("./annotations/AnnotationsView").then(m => ({ default: m.AnnotationsView })))
 const StatisticsView = lazy(() => import("./statistics/StatisticsView").then(m => ({ default: m.StatisticsView })))
 const OnlineBooksView = lazy(() => import("./online/OnlineBooksView").then(m => ({ default: m.OnlineBooksView })))
@@ -130,6 +131,19 @@ export function ViewRouter({
             <AnnotationsView 
               onClose={() => handleNavigate('library')} 
               onOpenBook={handleOpenBook}
+            />
+          </Suspense>
+        )}
+
+        {currentView === 'history' && (
+          <Suspense fallback={<LoadingSpinner className="py-24" />}>
+            <HistoryView 
+              onClose={() => handleNavigate('library')}
+              onOpenBook={handleOpenBook}
+              onViewDetails={handleViewDetails}
+              onEditBook={handleEditBook}
+              onDeleteBook={handleDeleteBook}
+              dialogs={dialogs}
             />
           </Suspense>
         )}

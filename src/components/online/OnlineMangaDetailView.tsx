@@ -295,17 +295,16 @@ export function OnlineMangaDetailView({
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-3 mb-6">
               <div className="flex gap-2 w-full sm:w-auto">
-                <Button onClick={() => unifiedChapters.length > 0 && onReadChapter(filteredAndSortedChapters[filteredAndSortedChapters.length - 1])}
+                <Button onClick={() => {
+                  if (resumeChapter) {
+                    onReadChapter(resumeChapter);
+                  } else if (unifiedChapters.length > 0) {
+                    onReadChapter(filteredAndSortedChapters[filteredAndSortedChapters.length - 1]);
+                  }
+                }}
                         className="flex-1 sm:flex-none gap-2 px-6 sm:px-8 h-10 sm:h-12 rounded-full text-xs sm:text-sm font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5">
-                  READ <Play className="w-3 h-3 sm:w-4 sm:h-4 ml-1 fill-current" />
+                  {resumeChapter ? 'RESUME' : 'READ'} <Play className="w-3 h-3 sm:w-4 sm:h-4 ml-1 fill-current" />
                 </Button>
-                {resumeChapter && (
-                  <Button onClick={() => onReadChapter(resumeChapter)}
-                          variant="secondary"
-                          className="flex-1 sm:flex-none gap-2 px-6 sm:px-8 h-10 sm:h-12 rounded-full text-xs sm:text-sm font-semibold shadow-md transition-all hover:-translate-y-0.5">
-                    RESUME <Play className="w-3 h-3 sm:w-4 sm:h-4 ml-1 fill-current" />
-                  </Button>
-                )}
               </div>
               <div className="flex gap-2 w-full sm:w-auto">
                 {onSaveToLibrary && (

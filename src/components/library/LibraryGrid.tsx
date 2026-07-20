@@ -52,6 +52,10 @@ interface LibraryGridProps {
 
   onImport?: () => void;
   onViewSeries?: (series: SeriesGroup) => void;
+
+  hasMoreOverride?: boolean;
+  isLoadingOverride?: boolean;
+  onLoadMoreOverride?: () => void;
 }
 
 // ─── Domain Empty State ──────────────────────
@@ -157,14 +161,22 @@ export function LibraryGrid({
 
   onImport,
   onViewSeries,
+  hasMoreOverride,
+  isLoadingOverride,
+  onLoadMoreOverride,
 }: LibraryGridProps) {
   const setSelectedBook = useLibraryStore((state) => state.setSelectedBook);
   const toggleBookSelection = useLibraryStore(
     (state) => state.toggleBookSelection,
   );
-  const hasMore = useLibraryStore((state) => state.hasMore);
-  const isLoading = useLibraryStore((state) => state.isLoading);
-  const loadMoreBooks = useLibraryStore((state) => state.loadMoreBooks);
+  const storeHasMore = useLibraryStore((state) => state.hasMore);
+  const storeIsLoading = useLibraryStore((state) => state.isLoading);
+  const storeLoadMoreBooks = useLibraryStore((state) => state.loadMoreBooks);
+
+  const hasMore = hasMoreOverride !== undefined ? hasMoreOverride : storeHasMore;
+  const isLoading = isLoadingOverride !== undefined ? isLoadingOverride : storeIsLoading;
+  const loadMoreBooks = onLoadMoreOverride !== undefined ? onLoadMoreOverride : storeLoadMoreBooks;
+
   const toggleFavorite = useLibraryStore((state) => state.toggleFavorite);
   // Read preferences once at grid level — avoids N subscriptions inside each card
   const libraryDensity = usePreferencesStore(

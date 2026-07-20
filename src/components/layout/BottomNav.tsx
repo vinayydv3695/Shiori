@@ -1,4 +1,4 @@
-import { Home, Library, Compass, Cloud, Settings, Highlighter, Tv, Menu, BarChart2, Rss, Trash2 } from 'lucide-react'
+import { Home, Library, Compass, Cloud, Settings, Highlighter, Tv, Menu, BarChart2, Rss, Trash2, History } from 'lucide-react'
 import { AniListIcon, TorboxIcon } from '@/components/icons'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
@@ -120,6 +120,15 @@ export function BottomNav({
                   <BarChart2 size={18} />
                 </div>
                 <span className="text-base font-medium">Statistics</span>
+              </motion.div>
+            </DropdownMenuItem>
+
+            <DropdownMenuItem asChild onClick={() => onNavigateToView('history')}>
+              <motion.div variants={itemVariants} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
+                <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
+                  <History size={18} />
+                </div>
+                <span className="text-base font-medium">History</span>
               </motion.div>
             </DropdownMenuItem>
 

@@ -12,7 +12,7 @@ import { DoodleCanvas } from './DoodleCanvas';
 import { DoodleToolbar } from './DoodleToolbar';
 import { PageFlipEngine, type PageFlipHandle } from './PageFlipEngine';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
-import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Search, BookOpen, Square, Volume2 } from '@/components/icons';
+import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Search, BookOpen, Square, Volume2, Highlighter } from '@/components/icons';
 import { sanitizeBookContent } from '@/lib/sanitize';
 import { applyHighlightsToDOM } from '@/lib/highlightAnnotations';
 import { useToastStore } from '@/store/toastStore';
@@ -1070,6 +1070,15 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
               title="Table of Contents"
             >
               <BookOpen className="premium-control-icon" />
+            </button>
+            <button
+              type="button"
+              onClick={() => toggleSidebar('highlights')}
+              className="premium-control-button"
+              aria-label="Highlights & Notes"
+              title="Highlights & Notes"
+            >
+              <Highlighter className="premium-control-icon" />
             </button>
             {!isAndroid && (
               <button

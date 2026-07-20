@@ -1,262 +1,267 @@
 import React, { useEffect, useState } from 'react';
-import { sanitizeArticleHTML } from '@/lib/sanitize';
-import { useRssStore } from '../../store/rssStore';
+import { RefreshCw, ExternalLink, Filter, BookOpen, Check, Image as ImageIcon, ChevronDown } from 'lucide-react';
+import { useRssStore, type RssArticle } from '@/store/rssStore';
 import { logger } from '@/lib/logger';
-import { BookOpen, ExternalLink, Check, RefreshCw, Eye, EyeOff, X } from 'lucide-react';
+import { RSSArticleReader } from './RSSArticleReader';
+import { extractFirstImage } from '@/lib/rssUtils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { useUIStore } from '@/store/uiStore';
+import { Settings } from 'lucide-react';
+import { open } from '@tauri-apps/plugin-shell';
 
 interface RSSArticleListProps {
-  feedId?: number | null;
-  onClose?: () => void;
+  activeFeedId: number | null;
 }
 
-const RSSArticleList: React.FC<RSSArticleListProps> = ({ feedId = null, onClose }) => {
-  const articles = useRssStore(state => state.articles);
-  const feeds = useRssStore(state => state.feeds);
-  const selectedFeedId = useRssStore(state => state.selectedFeedId);
-  const isLoading = useRssStore(state => state.isLoading);
-  const loadArticles = useRssStore(state => state.loadArticles);
-  const markArticleRead = useRssStore(state => state.markArticleRead);
-  const setSelectedFeed = useRssStore(state => state.setSelectedFeed);
-  const [limit, setLimit] = useState(25);
-  const [expandedArticleId, setExpandedArticleId] = useState<number | null>(null);
-  const [showRead, setShowRead] = useState(false);
+export const RSSArticleList: React.FC<RSSArticleListProps> = ({ activeFeedId }) => {
+  const {
+    articles,
+    feeds,
+    isLoading,
+    error,
+    loadArticles,
+    markArticleRead,
+    markAllArticlesRead
+  } = useRssStore();
 
-  // Use passed feedId or selectedFeedId from store
-  const activeFeedId = feedId !== undefined ? feedId : selectedFeedId;
+  const [limit, setLimit] = useState(50);
+  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  const [selectedArticle, setSelectedArticle] = useState<RssArticle | null>(null);
+  const setView = useUIStore((s) => s.setCurrentView);
 
   useEffect(() => {
     loadArticles(activeFeedId || undefined, limit);
   }, [activeFeedId, limit, loadArticles]);
 
-  const handleMarkRead = async (articleId: number) => {
+  const activeFeedName = activeFeedId 
+    ? feeds.find(f => f.id === activeFeedId)?.title || 'Feed'
+    : 'All Feeds';
+
+  const handleMarkRead = async (e: React.MouseEvent, articleId: number) => {
+    e.stopPropagation();
     try {
       await markArticleRead(articleId);
-      // Reload articles to reflect changes
-      await loadArticles(activeFeedId || undefined, limit);
     } catch (error) {
       logger.error('Failed to mark article as read:', error);
     }
   };
 
-  const handleToggleExpand = (articleId: number) => {
-    setExpandedArticleId(expandedArticleId === articleId ? null : articleId);
-  };
-
-  const handleFeedSelect = (newFeedId: number | null) => {
-    setSelectedFeed(newFeedId);
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllArticlesRead(activeFeedId || undefined);
+    } catch (error) {
+      logger.error('Failed to mark all articles as read:', error);
+    }
   };
 
   const handleRefresh = () => {
     loadArticles(activeFeedId || undefined, limit);
   };
 
-  // Filter articles based on showRead toggle
-  const filteredArticles = showRead
-    ? articles
-    : articles.filter(article => !article.is_read);
-
-  // Get feed name for display
-  const getFeedName = (feedId: number) => {
-    const feed = feeds.find(f => f.id === feedId);
-    return feed?.title || feed?.url || 'Unknown Feed';
-  };
+  const filteredArticles = showUnreadOnly
+    ? articles.filter(a => !a.is_read)
+    : articles;
 
   const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Unknown date';
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffHours < 1) return 'Just now';
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
+    if (!dateString) return '';
+    return new Date(dateString).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
   };
 
-  const sanitizeHTML = sanitizeArticleHTML;
-
   return (
-    <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <div className="bg-surface-1 border-b border-border px-6 py-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <BookOpen className="w-6 h-6 text-primary" />
-            <h1 className="text-2xl font-bold text-foreground">
-              RSS Articles
-            </h1>
-            <span className="px-2 py-1 text-xs font-medium bg-muted text-muted-foreground rounded-full">
-              {filteredArticles.length} articles
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowRead(!showRead)}
-              className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${showRead
-                  ? 'bg-primary/10 text-primary'
-                  : 'bg-muted text-muted-foreground hover:text-foreground'
-                }`}
-            >
-              {showRead ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-              {showRead ? 'All' : 'Unread Only'}
-            </button>
-            <button
-              onClick={handleRefresh}
-              disabled={isLoading}
-              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-foreground bg-muted rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
-            {onClose && (
-              <button
-                onClick={onClose}
-                className="flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                title="Back to library"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            )}
-          </div>
+    <div className="flex-1 flex flex-col h-full bg-background relative">
+      {/* Header Controls */}
+      <div className="flex-none p-4 border-b border-border/40 bg-surface-1 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
+          <button
+            onClick={handleRefresh}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground bg-secondary/50 hover:bg-secondary rounded-lg transition-colors whitespace-nowrap"
+          >
+            <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
+            Refresh
+          </button>
+          
+          <button
+            onClick={() => setShowUnreadOnly(!showUnreadOnly)}
+            className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+              showUnreadOnly 
+                ? 'bg-primary/10 text-primary border border-primary/20' 
+                : 'bg-secondary/50 text-muted-foreground hover:text-foreground border border-transparent'
+            }`}
+          >
+            <Filter size={16} />
+            Unread Only
+          </button>
         </div>
 
-        {/* Feed Filter & Limit */}
-        <div className="flex items-center gap-4">
-          <div className="flex-1">
-            <select
-              value={activeFeedId || 'all'}
-              onChange={(e) => handleFeedSelect(e.target.value === 'all' ? null : parseInt(e.target.value))}
-              className="w-full px-4 py-2 text-sm border border-border/60 rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all"
-            >
-              <option value="all">All Feeds</option>
-              {feeds.map(feed => (
-                <option key={feed.id} value={feed.id}>
-                  {feed.title || feed.url}
-                </option>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setView('rss-feeds')}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground bg-secondary/50 hover:bg-secondary rounded-lg transition-colors whitespace-nowrap"
+          >
+            <Settings size={16} />
+            Manage Feeds
+          </button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-2 text-sm bg-secondary/50 hover:bg-secondary border border-border/50 text-foreground rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors">
+                {limit} Items <ChevronDown size={14} className="opacity-70" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-32 bg-background border-border shadow-xl backdrop-blur-xl">
+              {[50, 100, 200].map(val => (
+                <DropdownMenuItem 
+                  key={val}
+                  onClick={() => setLimit(val)}
+                  className="cursor-pointer"
+                >
+                  {val} Items
+                </DropdownMenuItem>
               ))}
-            </select>
-          </div>
-          <div>
-            <select
-              value={limit}
-              onChange={(e) => setLimit(parseInt(e.target.value))}
-              className="px-4 py-2 text-sm border border-border/60 rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all"
-            >
-              <option value={10}>10 articles</option>
-              <option value={25}>25 articles</option>
-              <option value={50}>50 articles</option>
-              <option value={100}>100 articles</option>
-            </select>
-          </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
+          <button
+            onClick={handleMarkAllRead}
+            disabled={isLoading || filteredArticles.filter(a => !a.is_read).length === 0}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-foreground bg-secondary/50 hover:bg-secondary rounded-lg transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Check size={16} />
+            Mark All Read
+          </button>
         </div>
       </div>
 
-      {/* Article List */}
-      <div className="flex-1 overflow-y-auto p-6">
-        {isLoading ? (
-          <div className="flex items-center justify-center h-64">
-            <RefreshCw className="w-8 h-8 animate-spin text-gray-400" />
+      {error && (
+        <div className="p-4 mx-4 mt-4 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg flex items-center gap-2">
+          {error}
+        </div>
+      )}
+
+      {/* Article Grid */}
+      <div className="flex-1 overflow-y-auto p-4 md:p-6">
+        {articles.length === 0 && !isLoading ? (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground space-y-4">
+            <BookOpen size={48} className="opacity-20" />
+            <p className="text-lg">No articles found</p>
           </div>
-        ) : filteredArticles.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-            <BookOpen className="w-16 h-16 mb-4 opacity-20" />
-            <p className="text-lg font-medium mb-2">No articles found</p>
-            <p className="text-sm">
-              {showRead ? 'No articles available' : 'No unread articles'}
-            </p>
+        ) : filteredArticles.length === 0 && !isLoading ? (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground space-y-4">
+            <Check size={48} className="opacity-20 text-green-500" />
+            <p className="text-lg">You're all caught up!</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
             {filteredArticles.map((article) => {
-              const isExpanded = expandedArticleId === article.id;
+              const feed = feeds.find(f => f.id === article.feed_id);
+              const thumbnail = extractFirstImage(article.content) || extractFirstImage(article.summary || '');
+
               return (
                 <div
                   key={article.id}
-                  className={`bg-surface-1 border rounded-lg transition-all ${article.is_read
-                      ? 'border-border/40 opacity-60'
-                      : 'border-primary/30 shadow-sm'
-                    }`}
+                  onClick={() => setSelectedArticle(article)}
+                  className={`group relative flex flex-col bg-surface-1 border rounded-xl overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-primary/30 ${
+                    article.is_read 
+                      ? 'opacity-70 border-border/40 hover:opacity-100' 
+                      : 'border-border/80 shadow-sm'
+                  }`}
                 >
-                  {/* Article Header */}
-                  <div
-                    className="p-4 cursor-pointer hover:bg-secondary/20 transition-colors"
-                    onClick={() => handleToggleExpand(article.id)}
-                  >
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <h3 className={`text-lg font-semibold flex-1 ${article.is_read
-                          ? 'text-muted-foreground'
-                          : 'text-foreground'
-                        }`}>
-                        {article.title}
-                      </h3>
-                      {!article.is_read && (
-                        <span className="px-2 py-1 text-xs font-medium bg-primary/10 text-primary rounded-full whitespace-nowrap">
-                          NEW
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
-                      {article.author && (
-                        <span className="font-medium">{article.author}</span>
-                      )}
-                      <span>{formatDate(article.published)}</span>
-                      <span className="text-xs text-muted-foreground/80">
-                        {getFeedName(article.feed_id)}
-                      </span>
-                    </div>
-
-                    {/* Summary Preview */}
-                    {article.summary && !isExpanded && (
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {article.summary}
-                      </p>
+                  {/* Thumbnail */}
+                  <div className="h-48 w-full bg-secondary/30 relative flex-shrink-0 overflow-hidden border-b border-border/40">
+                    {thumbnail ? (
+                      <img 
+                        src={thumbnail} 
+                        alt="" 
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-muted-foreground/30">
+                        <ImageIcon size={48} />
+                      </div>
+                    )}
+                    
+                    {/* Unread Badge */}
+                    {!article.is_read && (
+                      <div className="absolute top-3 right-3 w-3 h-3 bg-primary rounded-full shadow-sm ring-2 ring-background z-10" />
                     )}
                   </div>
 
-                  {/* Expanded Content */}
-                  {isExpanded && (
-                    <div className="border-t border-border">
-                      <div
-                        className="p-4 prose prose-sm dark:prose-invert max-w-none text-foreground"
-                        dangerouslySetInnerHTML={{ __html: sanitizeHTML(article.content) }}
-                      />
-
-                      {/* Actions */}
-                      <div className="px-4 pb-4 flex items-center gap-3">
-                        {!article.is_read && (
-                          <button
-                            onClick={() => handleMarkRead(article.id)}
-                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 transition-colors"
-                          >
-                            <Check className="w-4 h-4" />
-                            Mark as Read
-                          </button>
-                        )}
-                        {article.url && (
-                          <a
-                            href={article.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground bg-secondary/50 rounded-lg hover:bg-secondary transition-colors"
-                          >
-                            <ExternalLink className="w-4 h-4" />
-                            Open Original
-                          </a>
-                        )}
-                      </div>
+                  {/* Content */}
+                  <div className="p-4 flex flex-col flex-1">
+                    <div className="flex items-center gap-2 mb-2 text-xs font-medium text-muted-foreground">
+                      <span className="truncate max-w-[120px] bg-secondary px-2 py-0.5 rounded-full">
+                        {feed?.title || 'Unknown Feed'}
+                      </span>
+                      <span>•</span>
+                      <span>{formatDate(article.published)}</span>
                     </div>
-                  )}
+                    
+                    <h3 className={`font-semibold text-foreground line-clamp-3 mb-2 leading-snug group-hover:text-primary transition-colors ${
+                      article.is_read ? 'font-medium' : 'font-bold'
+                    }`}>
+                      {article.title}
+                    </h3>
+                    
+                    {/* Footer Actions */}
+                    <div className="mt-auto pt-4 flex items-center justify-between text-muted-foreground border-t border-border/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {!article.is_read ? (
+                        <button
+                          onClick={(e) => handleMarkRead(e, article.id)}
+                          className="flex items-center gap-1.5 text-xs hover:text-primary transition-colors"
+                        >
+                          <Check size={14} />
+                          Mark read
+                        </button>
+                      ) : (
+                        <span className="text-xs flex items-center gap-1.5 opacity-50">
+                          <Check size={14} />
+                          Read
+                        </span>
+                      )}
+                      
+                      {article.url && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            open(article.url!);
+                          }}
+                          className="flex items-center gap-1.5 text-xs hover:text-primary transition-colors"
+                        >
+                          Open <ExternalLink size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {/* Full Article Reader overlay */}
+      {selectedArticle && (
+        <RSSArticleReader
+          article={selectedArticle}
+          onClose={() => {
+            setSelectedArticle(null);
+            if (!selectedArticle.is_read) {
+              markArticleRead(selectedArticle.id).catch(console.error);
+            }
+          }}
+          feedName={feeds.find(f => f.id === selectedArticle.feed_id)?.title}
+        />
+      )}
     </div>
   );
 };
-
-export default RSSArticleList;

@@ -1,7 +1,7 @@
 {
   "name": "shiori",
   "private": true,
-  "version": "2.0.11",
+  "version": "2.0.12",
   "type": "module",
   "license": "GPL-3.0",
   "scripts": {
@@ -54,6 +54,7 @@
     "react-pdf": "^10.4.0",
     "react-virtuoso": "^4.18.10",
     "recharts": "^3.7.0",
+    "remark-gfm": "^4.0.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.1",
     "tauri-plugin-tts-api": "^0.1.2",

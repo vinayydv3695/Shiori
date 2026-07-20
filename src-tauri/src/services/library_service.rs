@@ -1332,6 +1332,28 @@ pub fn get_books_by_reading_status(
     attach_authors_and_tags(&conn, &mut books)?;
     Ok(books)
 }
+
+pub fn get_reading_history(
+    db: &Database,
+    limit: u32,
+    offset: u32,
+) -> Result<Vec<Book>> {
+    let conn = db.get_connection()?;
+    let sql = format!(
+        "SELECT {} FROM books b 
+         JOIN reading_progress rp ON b.id = rp.book_id 
+         ORDER BY rp.last_read DESC 
+         LIMIT ?1 OFFSET ?2",
+        BOOK_COLUMNS
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let mut books: Vec<Book> = stmt
+        .query_map(params![limit, offset], book_from_row)?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    attach_authors_and_tags(&conn, &mut books)?;
+    Ok(books)
+}
+
 const BOOK_SUMMARY_COLUMNS: &str =
     "b.id, b.uuid, b.title, b.sort_title, b.file_path, b.file_format, b.file_size,
      b.cover_path, b.added_date, b.is_favorite, b.reading_status, b.domain,

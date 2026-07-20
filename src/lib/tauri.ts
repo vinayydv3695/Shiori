@@ -1036,6 +1036,10 @@ export const api = {
     return invoke("get_books_by_reading_status", { status, limit, offset })
   },
 
+  async getReadingHistory(limit: number = 50, offset: number = 0): Promise<Book[]> {
+    return invoke("get_reading_history", { limit, offset })
+  },
+
   async resetDatabase(): Promise<void> {
     return invoke("reset_database")
   },

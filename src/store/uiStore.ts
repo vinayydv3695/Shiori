@@ -7,6 +7,7 @@ export type CurrentView =
   | "rss-feeds"
   | "rss-articles"
   | "annotations"
+  | "history"
   | "statistics"
   | "online-books"
   | "online-manga"

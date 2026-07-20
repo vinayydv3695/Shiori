@@ -26,7 +26,7 @@ import {
   IconX,
   IconSidebarToggle,
 } from '@/components/icons/ShioriIcons'
-import { Layers, Filter, HelpCircle, BarChart2, Globe } from 'lucide-react'
+import { Layers, Filter, HelpCircle, BarChart2, Globe, Rss } from 'lucide-react'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import type { CurrentView } from '@/store/uiStore'
 import {
@@ -410,6 +410,22 @@ export function PremiumTopbar({
 
       {/* ── Right side ── */}
       <div className="flex flex-1 items-center justify-end gap-1.5 min-w-0 max-md:hidden" data-tauri-drag-region>
+        {/* ── RSS ── */}
+        <button
+          type="button"
+          onClick={() => {
+            if (onNavigateToView) onNavigateToView('rss-articles')
+          }}
+          title="RSS Reader"
+          className={cn(
+            'flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200 hover:scale-105 active:scale-95',
+            currentView === 'rss-articles' || currentView === 'rss-feeds'
+              ? 'text-primary bg-primary/10'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted',
+          )}
+        >
+          <Rss size={16} />
+        </button>
         {/* ── Statistics ── */}
         <button
           type="button"

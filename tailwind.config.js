@@ -69,6 +69,15 @@ export default {
           },
         },
       },
+      keyframes: {
+        shine: {
+          '0%': { left: '-100%' },
+          '100%': { left: '100%' },
+        },
+      },
+      animation: {
+        shine: 'shine 3s infinite ease-in-out',
+      },
     },
   },
   plugins: [

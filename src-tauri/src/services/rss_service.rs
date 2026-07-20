@@ -368,13 +368,29 @@ impl RssService {
             let url = entry.links.first().map(|l| l.href.clone());
 
             // Get content (prefer content over summary)
-            let content = if let Some(content) = entry.content {
+            let mut content = if let Some(content) = entry.content {
                 clean(&content.body.unwrap_or_default())
             } else if let Some(summary) = &entry.summary {
                 clean(&summary.content)
             } else {
                 String::new()
             };
+
+            // Inject media thumbnail if content doesn't have an image
+            if !content.contains("<img") {
+                if let Some(media) = entry.media.first() {
+                    if let Some(thumb) = media.thumbnails.first() {
+                        content = format!("<img src=\"{}\" alt=\"Thumbnail\"/>\n{}", thumb.image.uri, content);
+                    } else if let Some(content_obj) = media.content.first() {
+                        if let Some(url) = &content_obj.url {
+                            let url_str = url.as_str();
+                            if url_str.ends_with(".jpg") || url_str.ends_with(".png") || url_str.ends_with(".webp") || url_str.ends_with(".gif") {
+                                content = format!("<img src=\"{}\" alt=\"Thumbnail\"/>\n{}", url_str, content);
+                            }
+                        }
+                    }
+                }
+            }
 
             let summary = entry.summary.map(|s| clean(&s.content));
             let published = entry.published.or(entry.updated);
@@ -470,6 +486,23 @@ impl RssService {
         Ok(())
     }
 
+    /// Mark all articles as read (optionally filtered by feed_id)
+    pub fn mark_all_articles_read(&self, feed_id: Option<i64>) -> Result<()> {
+        let conn = self.get_connection()?;
+        if let Some(fid) = feed_id {
+            conn.execute(
+                "UPDATE rss_articles SET is_read = 1 WHERE feed_id = ?1",
+                params![fid],
+            )?;
+        } else {
+            conn.execute(
+                "UPDATE rss_articles SET is_read = 1",
+                [],
+            )?;
+        }
+        Ok(())
+    }
+
     /// Generate daily EPUB from unread articles
     pub async fn generate_daily_epub(&self, options: DailyEpubOptions) -> Result<PathBuf> {
         // Get unread articles
@@ -546,8 +579,59 @@ impl RssService {
         // Build EPUB
         builder.generate(&output_path).await?;
 
-        // TODO: Optionally add to library
-        // This would require importing the EPUB using the library service
+        // Import the EPUB into the library
+        let now_str = Utc::now().to_rfc3339();
+        
+        // Add to database
+        let new_book = crate::models::Book {
+            id: None,
+            uuid: uuid::Uuid::new_v4().to_string(),
+            title: options.title.clone(),
+            sort_title: None,
+            isbn: None,
+            isbn13: None,
+            publisher: None,
+            pubdate: None,
+            series: None,
+            series_index: None,
+            rating: None,
+            file_path: output_path.to_string_lossy().to_string(),
+            file_format: "epub".to_string(),
+            file_size: std::fs::metadata(&output_path).ok().map(|m| m.len() as i64),
+            file_hash: None,
+            cover_path: None,
+            page_count: None,
+            word_count: None,
+            language: "eng".to_string(),
+            added_date: now_str.clone(),
+            modified_date: now_str,
+            last_opened: None,
+            notes: None,
+            online_metadata_fetched: false,
+            metadata_source: None,
+            metadata_last_sync: None,
+            anilist_id: None,
+            is_favorite: false,
+            is_wishlist: false,
+            in_trash: false,
+            deleted_at: None,
+            reading_status: "Unread".to_string(),
+            domain: Some("books".to_string()),
+            authors: vec![],
+            tags: vec![],
+            metadata_locked: None,
+        };
+
+        if let Ok(book_id) = crate::services::library_service::add_book(&self.db, new_book) {
+            // Try to assign the RSS tag
+            if let Ok(conn) = self.db.get_connection() {
+                // Ensure tag exists
+                let _ = conn.execute("INSERT OR IGNORE INTO tags (name) VALUES ('RSS')", []);
+                if let Ok(tag_id) = conn.query_row("SELECT id FROM tags WHERE name = 'RSS'", [], |row| row.get::<_, i64>(0)) {
+                    let _ = conn.execute("INSERT OR IGNORE INTO books_tags (book_id, tag_id) VALUES (?1, ?2)", rusqlite::params![book_id, tag_id]);
+                }
+            }
+        }
 
         Ok(output_path)
     }

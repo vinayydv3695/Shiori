@@ -17,6 +17,7 @@ import { TextSelectionToolbar } from './TextSelectionToolbar';
 import { sanitizeBookContent } from '@/lib/sanitize';
 import { applyHighlightsToDOM } from '@/lib/highlightAnnotations';
 import { resolveReadingFontCss } from '@/lib/readingFonts';
+import { BookOpen, Highlighter, Search } from '@/components/icons';
 import '@/styles/premium-reader.css';
 
 interface GenericHtmlReaderProps {
@@ -31,6 +32,7 @@ type SidebarNavigateHandler = (chapterIndex: number, searchTerm?: string | null)
 
 export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onClose }: GenericHtmlReaderProps) {
     const { isFocusMode } = useReaderAutoHide();
+    const toggleSidebar = useReaderUIStore(state => state.toggleSidebar);
     const { theme, fontSize, fontFamily, lineHeight, width } = useReadingSettings();
 
     useReadingSession(bookId);
@@ -411,6 +413,37 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
                 progress={progressPercentage}
                 format={format}
                 onClose={handleClose}
+                rightExtra={
+                    <>
+                        <button
+                            type="button"
+                            onClick={() => toggleSidebar('search')}
+                            className="premium-control-button"
+                            aria-label="Search"
+                            title="Search in book"
+                        >
+                            <Search className="premium-control-icon" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => toggleSidebar('toc')}
+                            className="premium-control-button"
+                            aria-label="Table of Contents"
+                            title="Table of Contents"
+                        >
+                            <BookOpen className="premium-control-icon" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => toggleSidebar('highlights')}
+                            className="premium-control-button"
+                            aria-label="Highlights & Notes"
+                            title="Highlights & Notes"
+                        >
+                            <Highlighter className="premium-control-icon" />
+                        </button>
+                    </>
+                }
             />
 
             {/* Reading Canvas */}

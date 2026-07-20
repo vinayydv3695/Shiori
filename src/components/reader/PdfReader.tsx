@@ -22,6 +22,7 @@ import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
 import { useReaderAutoHide } from '@/hooks/useReaderAutoHide';
 import { useReaderTheme } from '@/hooks/useReaderTheme';
 import type { ReaderContent } from './readerContent';
+import { BookOpen, Highlighter, Search } from '@/components/icons';
 import '@/styles/premium-reader.css';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -176,6 +177,7 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
   const pendingAnnotationId = useReaderUIStore(state => state.pendingAnnotationId);
   const setPendingAnnotationId = useReaderUIStore(state => state.setPendingAnnotationId);
   const setTopBarVisible = useReaderUIStore(state => state.setTopBarVisible);
+  const toggleSidebar = useReaderUIStore(state => state.toggleSidebar);
   const { theme, width, margin, brightness, backgroundColor, textColor } = useReadingSettings();
 
   const isDoodleMode = useDoodleStore(state => state.isDoodleMode);
@@ -768,6 +770,37 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
               </svg>
             </button>
           </div>
+        }
+        rightExtra={
+          <>
+            <button
+              type="button"
+              onClick={() => toggleSidebar('search')}
+              className="premium-control-button"
+              aria-label="Search"
+              title="Search in book"
+            >
+              <Search className="premium-control-icon" />
+            </button>
+            <button
+              type="button"
+              onClick={() => toggleSidebar('toc')}
+              className="premium-control-button"
+              aria-label="Table of Contents"
+              title="Table of Contents"
+            >
+              <BookOpen className="premium-control-icon" />
+            </button>
+            <button
+              type="button"
+              onClick={() => toggleSidebar('highlights')}
+              className="premium-control-button"
+              aria-label="Highlights & Notes"
+              title="Highlights & Notes"
+            >
+              <Highlighter className="premium-control-icon" />
+            </button>
+          </>
         }
       />
 

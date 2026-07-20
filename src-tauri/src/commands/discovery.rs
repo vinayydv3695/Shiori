@@ -74,8 +74,11 @@ pub fn get_local_ips() -> Result<Vec<LocalIpResponse>, String> {
 }
 
 #[tauri::command]
-pub fn generate_pairing_qr(ip: String, port: u16) -> Result<String, String> {
-    let payload = format!("shiori://companion?ip={}&port={}", ip, port);
+pub fn generate_pairing_qr(ip: String, port: u16, token: Option<String>) -> Result<String, String> {
+    let mut payload = format!("shiori://companion?ip={}&port={}", ip, port);
+    if let Some(t) = token {
+        payload.push_str(&format!("&token={}", t));
+    }
     
     use qrcode::QrCode;
     use qrcode::render::svg;

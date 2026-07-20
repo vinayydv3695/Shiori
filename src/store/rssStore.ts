@@ -43,17 +43,14 @@ interface RssState {
   addFeed: (url: string, checkIntervalHours?: number) => Promise<number>;
   updateFeed: (feedId: number, title?: string, checkIntervalHours?: number) => Promise<void>;
   deleteFeed: (feedId: number) => Promise<void>;
-  toggleFeed: (feedId: number) => Promise<void>;
+  toggleFeed: (feedId: number, isActive: boolean) => Promise<void>;
   updateFeedArticles: (feedId: number) => Promise<number>;
   updateAllFeeds: () => Promise<void>;
   markArticleRead: (articleId: number) => Promise<void>;
-  generateDailyEpub: (options?: {
-    title?: string;
-    author?: string;
-    maxArticles?: number;
-    feeds?: number[];
-  }) => Promise<string>;
+  markAllArticlesRead: (feedId?: number) => Promise<void>;
+  generateDailyEpub: (options?: { include_images?: boolean; image_quality?: number }) => Promise<string>;
   setSelectedFeed: (feedId: number | null) => void;
+  triggerSync: () => Promise<void>;
 }
 
 export const useRssStore = create<RssState>((set, get) => ({
@@ -208,6 +205,22 @@ export const useRssStore = create<RssState>((set, get) => ({
       }));
     } catch (error) {
       logger.error('Failed to mark article as read:', error);
+      set({ error: String(error) });
+    }
+  },
+
+  markAllArticlesRead: async (feedId?: number) => {
+    try {
+      await invoke('mark_all_rss_articles_read', { feedId });
+      
+      // Update local state
+      set(state => ({
+        articles: state.articles.map(a => 
+          (feedId === undefined || a.feed_id === feedId) ? { ...a, is_read: true } : a
+        )
+      }));
+    } catch (error) {
+      logger.error('Failed to mark all articles as read:', error);
       set({ error: String(error) });
     }
   },

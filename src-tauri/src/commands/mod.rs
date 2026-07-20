@@ -27,6 +27,7 @@ pub mod sources;
 pub mod torbox;
 pub mod translation;
 pub mod window;
+pub mod sync;
 
 #[macro_export]
 macro_rules! generate_shiori_handlers {
@@ -65,6 +66,7 @@ macro_rules! generate_shiori_handlers {
             commands::library::reset_database,
             commands::library::update_reading_status,
             commands::library::get_books_by_reading_status,
+            commands::library::get_reading_history,
             commands::search::search_books,
             commands::metadata::extract_metadata,
             commands::metadata::search_manga_metadata,
@@ -168,6 +170,7 @@ macro_rules! generate_shiori_handlers {
             commands::rss::update_all_rss_feeds,
             commands::rss::get_unread_articles,
             commands::rss::mark_article_read,
+            commands::rss::mark_all_rss_articles_read,
             commands::rss::generate_daily_epub,
             commands::rss::trigger_feed_update,
             commands::rss::trigger_daily_epub_generation,
@@ -303,6 +306,12 @@ macro_rules! generate_shiori_handlers {
             // AniList
             commands::anilist::start_anilist_login,
             commands::anilist::exchange_android_anilist_code,
+            // Sync
+            commands::sync::start_sync_server,
+            commands::sync::stop_sync_server,
+            commands::sync::get_sync_pairing_token,
+            commands::sync::rotate_sync_pairing_token,
+            commands::sync::sync_with_desktop,
         ]
     };
 }

@@ -4,10 +4,12 @@ import { useReaderUIStore } from '@/store/premiumReaderStore';
 import { api } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
 import type { TocEntry, Annotation, BookSearchResult, AnnotationCategory } from '@/lib/tauri';
-import { X, BookOpen, Highlighter, FileText, Search, Loader2, Trash2, Edit2 } from '@/components/icons';
+import { X, BookOpen, Highlighter, FileText, Search, Loader2, Trash2, Edit2, Download } from '@/components/icons';
 import DOMPurify from 'dompurify';
 import { useToastStore } from '@/store/toastStore';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { save } from '@tauri-apps/plugin-dialog';
+import { writeTextFile } from '@tauri-apps/plugin-fs';
 
 const HIGHLIGHT_COLORS = [
   { name: 'Yellow', value: '#fbbf24' },
@@ -117,14 +119,68 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
      }
    };
    
-   const loadAnnotations = async () => {
-     try {
-       const annotationsData = await api.getAnnotations(bookId);
-       setAnnotations(annotationsData);
-     } catch (err) {
-       logger.error('[PremiumSidebar] Failed to load annotations:', err);
-     }
-   };
+    const loadAnnotations = async () => {
+      try {
+        const annotationsData = await api.getAnnotations(bookId);
+        setAnnotations(annotationsData);
+      } catch (err) {
+        logger.error('[PremiumSidebar] Failed to load annotations:', err);
+      }
+    };
+   
+  const handleExportAnnotations = useCallback(async () => {
+    if (annotations.length === 0) {
+      useToastStore.getState().addToast({ title: 'No annotations to export', variant: 'info' });
+      return;
+    }
+    try {
+      const filePath = await save({
+        filters: [{
+          name: 'Markdown',
+          extensions: ['md']
+        }],
+        defaultPath: 'shiori-annotations.md'
+      });
+      
+      if (!filePath) return;
+      
+      let markdown = `# Book Annotations\n\n`;
+      
+      const exportsHighlights = annotations.filter(a => a.annotationType === 'highlight');
+      if (exportsHighlights.length > 0) {
+        markdown += `## Highlights\n\n`;
+        exportsHighlights.forEach(h => {
+          markdown += `> ${h.selectedText}\n\n`;
+          markdown += `*Location: ${formatLocation(h.location)}*\n\n---\n\n`;
+        });
+      }
+      
+      const exportsNotes = annotations.filter(a => a.annotationType === 'note');
+      if (exportsNotes.length > 0) {
+        markdown += `## Notes\n\n`;
+        exportsNotes.forEach(n => {
+          if (n.selectedText) markdown += `> ${n.selectedText}\n\n`;
+          markdown += `**Note:** ${n.noteContent}\n\n`;
+          markdown += `*Location: ${formatLocation(n.location)}*\n\n---\n\n`;
+        });
+      }
+      
+      await writeTextFile(filePath, markdown);
+      
+      useToastStore.getState().addToast({
+        title: 'Exported successfully to ' + filePath,
+        variant: 'success',
+        duration: 3000
+      });
+    } catch (err) {
+      logger.error('Failed to export annotations', err);
+      useToastStore.getState().addToast({
+        title: 'Export failed',
+        description: String(err),
+        variant: 'error'
+      });
+    }
+  }, [annotations]);
   
   const handleSearch = useCallback(async (query: string) => {
     if (!query.trim() || query.trim().length < 2) {
@@ -487,7 +543,19 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
           {/* Highlights Tab */}
           {sidebarTab === 'highlights' && (
             <div className="premium-sidebar-panel">
-              <h3 className="premium-sidebar-title">Highlights</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="premium-sidebar-title" style={{ marginBottom: 0 }}>Highlights</h3>
+                {highlights.length > 0 && (
+                  <button 
+                    onClick={handleExportAnnotations}
+                    className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md bg-zinc-800 text-white dark:bg-white dark:text-zinc-900 hover:opacity-80 transition-opacity shadow-sm"
+                    title="Export to Markdown"
+                  >
+                    <Download size={14} />
+                    Export
+                  </button>
+                )}
+              </div>
               {highlights.length === 0 ? (
                 <p className="premium-sidebar-empty">No highlights yet</p>
               ) : (
@@ -560,7 +628,19 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
           {/* Notes Tab */}
           {sidebarTab === 'notes' && (
             <div className="premium-sidebar-panel">
-              <h3 className="premium-sidebar-title">Notes</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="premium-sidebar-title" style={{ marginBottom: 0 }}>Notes</h3>
+                {notes.length > 0 && (
+                  <button 
+                    onClick={handleExportAnnotations}
+                    className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md bg-zinc-800 text-white dark:bg-white dark:text-zinc-900 hover:opacity-80 transition-opacity shadow-sm"
+                    title="Export to Markdown"
+                  >
+                    <Download size={14} />
+                    Export
+                  </button>
+                )}
+              </div>
               {notes.length === 0 ? (
                 <p className="premium-sidebar-empty">No notes yet</p>
               ) : (

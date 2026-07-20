@@ -146,6 +146,26 @@ function App() {
     return () => { unlisten?.() }
   }, [])
 
+  // ── Auto-Sync (Android to Desktop) ──
+  useEffect(() => {
+    if (isAndroid) {
+      const ip = localStorage.getItem('sync_host_ip');
+      const port = localStorage.getItem('sync_host_port');
+      const token = localStorage.getItem('sync_host_token');
+      
+      if (ip && port && token) {
+        import('@/lib/sync').then(({ SyncClient }) => {
+          SyncClient.syncWithDesktop(ip, parseInt(port, 10), token)
+            .then(() => {
+              logger.info('Auto-sync with desktop completed');
+              loadInitialBooks(); // Refresh UI after sync
+            })
+            .catch(e => logger.error('Auto-sync failed: ' + e));
+        });
+      }
+    }
+  }, [loadInitialBooks]);
+
   // ── Search routing ──
   const handleSearchChange = (query: string) => {
     if (currentView === 'online-books') { setOnlineQuery('online-books', query); return }

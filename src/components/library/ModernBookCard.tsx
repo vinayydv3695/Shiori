@@ -12,7 +12,7 @@
  */
 
 import { useState, useEffect, useRef, memo } from 'react'
-import { Heart, Info } from 'lucide-react'
+import { Heart, Info, Rss } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { api, type Book, type ReadingProgress } from '@/lib/tauri'
@@ -240,6 +240,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
   const { coverUrl, loading: coverLoading } = useCoverImage(visible ? book.id : undefined, book.cover_path)
 
   const isManga = book.file_format === 'cbz' || book.file_format === 'cbr'
+  const isRss = book.tags?.some((t: any) => t.name === 'RSS') ?? false;
 
   useEffect(() => {
     if (forceVisible) return;
@@ -373,8 +374,14 @@ export const PremiumBookCard = memo(function PremiumBookCard({
         </button>
 
         {/* Format badge */}
-        <div className="absolute top-2.5 left-2.5 z-10">
+        <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1.5">
           <FormatPill format={book.file_format} filePath={book.file_path} />
+          {isRss && (
+            <span className="flex items-center gap-1 px-2 py-[3px] text-[10px] font-bold rounded-full tracking-wide shadow-md backdrop-blur-md bg-orange-500/90 text-white border border-white/20">
+              <Rss size={10} />
+              RSS
+            </span>
+          )}
         </div>
 
         {/* ── Info Strip (Tachiyomi Style) ── */}

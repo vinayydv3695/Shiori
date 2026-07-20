@@ -486,6 +486,15 @@ pub fn get_books_by_reading_status(
 }
 
 #[tauri::command]
+pub fn get_reading_history(
+    app_state: State<'_, AppState>,
+    limit: u32,
+    offset: u32,
+) -> Result<Vec<Book>> {
+    library_service::get_reading_history(&app_state.db, limit, offset)
+}
+
+#[tauri::command]
 pub async fn find_duplicate_books(
     criteria: String,
     threshold: Option<f32>,

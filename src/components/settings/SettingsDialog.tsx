@@ -1926,7 +1926,7 @@ const AboutSettings = () => {
             { label: 'GitHub Repository', url: 'https://github.com/vinayydv3695/Shiori', icon: ExternalLink },
             { label: 'Report an Issue', url: 'https://github.com/vinayydv3695/Shiori/issues', icon: AlertTriangle },
             { label: 'License (MIT)', url: 'https://github.com/vinayydv3695/Shiori?tab=MIT-1-ov-file', icon: FileText },
-            { label: 'Official Website', url: 'https://github.com/vinayydv3695/Shiori', icon: ExternalLink },
+            { label: 'Official Website', url: 'https://www.vinayydv.me/projects/shiori', icon: ExternalLink },
           ]).map((link) => (
             <a
               key={link.url}

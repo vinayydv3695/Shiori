@@ -31,6 +31,7 @@ use services::{
     rss_scheduler::RssScheduler,
     rss_service::RssService,
     share_service::ShareService,
+    sync_service::SyncService,
 };
 
 pub struct AppState {
@@ -529,6 +530,13 @@ pub fn run() {
 
             let book_metadata_service = Arc::new(BookMetadataService::new()?);
             app.manage(book_metadata_service);
+
+            // Sync service
+            let sync_service = Arc::new(tokio::sync::Mutex::new(SyncService::new(
+                database.clone(),
+                Some(8081),
+            )));
+            app.manage(sync_service);
 
             // Online Metadata Enrichment Worker
             let (mut metadata_worker, metadata_rx) = MetadataWorker::new(database.clone());

@@ -1,6 +1,6 @@
 [package]
 name = "shiori"
-version = "2.0.7"
+version = "2.0.8"
 description = "A Modern Library and Reader"
 authors = ["vinayydv3695"]
 license = "GPL-3.0"
@@ -136,11 +136,10 @@ hostname = "0.4.2"
 tauri-plugin-os = "2.0.0"
 
 tauri-plugin-fs = "2.5.1"
-
-
-
+tauri-plugin-http = "2"
 [target.'cfg(target_os = "android")'.dependencies]
 tauri-plugin-android-auth = { path = "plugins/tauri-plugin-android-auth" }
+tauri-plugin-android-package-install = "2.0.2"
 
 [features]
 default = ["custom-protocol", "native-tts"]

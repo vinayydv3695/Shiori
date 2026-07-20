@@ -23,9 +23,45 @@ export function UpdateDialog() {
       setError(null);
 
       if (isAndroid) {
-        // For Android, we open the URL in the browser
+        // For Android, we download and install the APK
         if (updateInfo.apkUrl) {
-          await open(updateInfo.apkUrl);
+          const { checkPermissions, requestPermissions, install } = await import('@kingsword/tauri-plugin-android-package-install');
+          const { fetch } = await import('@tauri-apps/plugin-http');
+          const { BaseDirectory, writeFile, remove } = await import('@tauri-apps/plugin-fs');
+          const { appLocalDataDir } = await import('@tauri-apps/api/path');
+
+          const perm = await checkPermissions();
+          // Assuming it returns an object with state or a string
+          if (perm !== 'granted') {
+            await requestPermissions();
+          }
+
+          const response = await fetch(updateInfo.apkUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/vnd.android.package-archive'
+            }
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to download APK: ${response.statusText}`);
+          }
+
+          const arrayBuffer = await response.arrayBuffer();
+          const apkName = 'update.apk';
+          
+          try {
+            await remove(apkName, { baseDir: BaseDirectory.AppLocalData });
+          } catch (e) {
+            // Ignore if file doesn't exist
+          }
+
+          await writeFile(apkName, new Uint8Array(arrayBuffer), { baseDir: BaseDirectory.AppLocalData });
+          
+          const localDataDir = await appLocalDataDir();
+          const fullApkPath = `${localDataDir}/${apkName}`;
+          
+          await install(fullApkPath);
           setIsUpdateDialogOpen(false);
         } else {
           setError('No APK download URL available.');
@@ -94,12 +130,12 @@ export function UpdateDialog() {
             {isUpdating ? (
               <>
                 <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                {isAndroid ? 'Opening Browser...' : 'Downloading...'}
+                Downloading...
               </>
             ) : (
               <>
                 <Download className="w-4 h-4 mr-2" />
-                {isAndroid ? 'Download APK' : 'Install & Restart'}
+                {isAndroid ? 'Install Update' : 'Install & Restart'}
               </>
             )}
           </Button>

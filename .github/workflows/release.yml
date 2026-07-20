@@ -316,10 +316,10 @@ jobs:
             |----------|------|
             | **Windows** | `.exe` (NSIS installer) |
             | **macOS (Apple Silicon)** | `.dmg` (aarch64) |
-            | **macOS (Intel)** | `.dmg` (x64) |
             | **Linux (Debian/Ubuntu)** | `.deb` |
             | **Linux (Fedora/RHEL)** | `.rpm` |
             | **Linux (Universal)** | `.AppImage` |
+            | **Android** | `.apk` |
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}

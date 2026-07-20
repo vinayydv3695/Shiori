@@ -282,20 +282,64 @@ export async function getMediaListCollection(userId: number, token: string): Pro
   return data.MediaListCollection;
 }
 
+let cachedScoreFormat: string | null = null;
+
 export async function updateMediaListEntry(
   mediaId: number, 
   progress: number, 
   status: string, 
   token: string,
-  scoreRaw?: number,
+  score?: number,
   notes?: string,
   startedAt?: { year: number | null; month: number | null; day: number | null },
   completedAt?: { year: number | null; month: number | null; day: number | null },
   repeat?: number
 ) {
+  if (score !== undefined && !cachedScoreFormat) {
+    try {
+      const viewerData = await fetchAnilistAPI(`
+        query {
+          Viewer {
+            mediaListOptions {
+              scoreFormat
+            }
+          }
+        }
+      `, {}, token);
+      cachedScoreFormat = viewerData.Viewer.mediaListOptions.scoreFormat;
+    } catch (e) {
+      console.warn("[AniList] Could not fetch score format, defaulting to POINT_100", e);
+      cachedScoreFormat = "POINT_100";
+    }
+  }
+
+  let finalScore = score;
+  if (score !== undefined && score > 0) {
+    switch (cachedScoreFormat) {
+      case 'POINT_10_DECIMAL':
+        finalScore = score / 10;
+        break;
+      case 'POINT_10':
+        finalScore = Math.round(score / 10);
+        break;
+      case 'POINT_5':
+        finalScore = Math.round(score / 20);
+        break;
+      case 'POINT_3':
+        if (score > 66) finalScore = 3;
+        else if (score > 33) finalScore = 2;
+        else finalScore = 1;
+        break;
+      case 'POINT_100':
+      default:
+        finalScore = score;
+        break;
+    }
+  }
+
   const mutation = `
-    mutation ($mediaId: Int, $progress: Int, $status: MediaListStatus, $scoreRaw: Float, $notes: String, $startedAt: FuzzyDateInput, $completedAt: FuzzyDateInput, $repeat: Int) {
-      SaveMediaListEntry(mediaId: $mediaId, progress: $progress, status: $status, score: $scoreRaw, notes: $notes, startedAt: $startedAt, completedAt: $completedAt, repeat: $repeat) {
+    mutation ($mediaId: Int, $progress: Int, $status: MediaListStatus, $score: Float, $notes: String, $startedAt: FuzzyDateInput, $completedAt: FuzzyDateInput, $repeat: Int) {
+      SaveMediaListEntry(mediaId: $mediaId, progress: $progress, status: $status, score: $score, notes: $notes, startedAt: $startedAt, completedAt: $completedAt, repeat: $repeat) {
         id
         status
         progress
@@ -310,7 +354,7 @@ export async function updateMediaListEntry(
   `;
 
   const data = await fetchAnilistAPI(mutation, { 
-    mediaId, progress, status, scoreRaw, notes, startedAt, completedAt, repeat 
+    mediaId, progress, status, score: finalScore, notes, startedAt, completedAt, repeat 
   }, token);
   return data.SaveMediaListEntry;
 }
@@ -495,11 +539,11 @@ export async function safeUpdateMediaListEntry(
   progress: number, 
   status: string, 
   token: string,
-  scoreRaw?: number,
+  score?: number,
   notes?: string
 ) {
   try {
-    await updateMediaListEntry(mediaId, progress, status, token, scoreRaw, notes);
+    await updateMediaListEntry(mediaId, progress, status, token, score, notes);
   } catch (err) {
     console.warn(`[AniList] Network failure syncing ${mediaId}. Queueing offline.`, err);
     // Dynamic import to avoid circular dependency issues if any
@@ -508,7 +552,7 @@ export async function safeUpdateMediaListEntry(
       mediaId,
       chapterNum: progress,
       status,
-      scoreRaw,
+      score,
       notes
     });
   }

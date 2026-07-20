@@ -1,6 +1,6 @@
 [package]
 name = "shiori"
-version = "2.0.6"
+version = "2.0.7"
 description = "A Modern Library and Reader"
 authors = ["vinayydv3695"]
 license = "GPL-3.0"

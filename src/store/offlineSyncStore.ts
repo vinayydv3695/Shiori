@@ -7,7 +7,7 @@ export interface OfflineSyncAction {
   mediaId: number;
   chapterNum: number;
   status: string;
-  scoreRaw?: number;
+  score?: number;
   notes?: string;
   timestamp: number;
 }
@@ -65,7 +65,7 @@ export const useOfflineSyncStore = create<OfflineSyncState>()(
                 action.chapterNum, 
                 action.status, 
                 token, 
-                action.scoreRaw, 
+                action.score, 
                 action.notes
               );
               // Success! Remove from queue

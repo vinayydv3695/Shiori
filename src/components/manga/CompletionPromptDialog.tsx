@@ -36,10 +36,8 @@ export function CompletionPromptDialog({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { success, error } = useToast();
     
-    // Convert 5-star score to AniList 100-point scale (or whatever the user uses, but 100 is safest API-side for RawScore)
-    // Actually, AniList recommends sending scoreRaw (0-100) or score based on user prefs.
-    // Let's send scoreRaw which is out of 100. (1 star = 20, 5 star = 100).
-    const scoreRaw = score * 20;
+    // Convert 5-star score to AniList 100-point scale (or whatever the user uses, but 100 is safely scaled API-side now)
+    const score100 = score * 20;
 
     const handleSubmit = async () => {
         setIsSubmitting(true);
@@ -49,7 +47,7 @@ export function CompletionPromptDialog({
                 totalChapters, // Mark as having read all available chapters
                 'COMPLETED',
                 anilistToken,
-                scoreRaw > 0 ? scoreRaw : undefined
+                score100 > 0 ? score100 : undefined
             );
             success('Manga Completed', `Marked ${mangaTitle} as completed on AniList!`);
             onComplete();

@@ -640,15 +640,30 @@ jobs:
         run: npm run tauri android build -- --apk
 
       - name: Sign Android APKs
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
-          keytool -genkey -v -keystore release.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" -storepass android -keypass android
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "Using production keystore from GitHub Secrets"
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > release.keystore
+            KEY_PASS="${ANDROID_KEYSTORE_PASSWORD}"
+            ALIAS="${ANDROID_KEY_ALIAS}"
+          else
+            echo "No production keystore found in secrets. Generating a debug keystore..."
+            keytool -genkey -v -keystore release.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" -storepass android -keypass android
+            KEY_PASS="android"
+            ALIAS="androiddebugkey"
+          fi
+          
           APK_DIR="src-tauri/gen/android/app/build/outputs/apk"
           # Find the highest version of build-tools
           APKSIGNER=$(ls -1d $ANDROID_HOME/build-tools/* | sort -V | tail -n 1)/apksigner
           for apk in $(find "$APK_DIR" -name '*-unsigned.apk' -type f 2>/dev/null); do
             SIGNED_APK="${apk/-unsigned/}"
             cp "$apk" "$SIGNED_APK"
-            "$APKSIGNER" sign --ks release.keystore --ks-pass pass:android --key-pass pass:android "$SIGNED_APK"
+            "$APKSIGNER" sign --ks release.keystore --ks-pass "pass:$KEY_PASS" --key-pass "pass:$KEY_PASS" --ks-key-alias "$ALIAS" "$SIGNED_APK"
           done
 
       - name: Upload Android APK to Release

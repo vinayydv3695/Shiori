@@ -292,13 +292,21 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      # ── Prepare Tauri Key ──
+      - name: Prepare Tauri Key
+        run: |
+          RAW_KEY="${{ secrets.TAURI_SIGNING_PRIVATE_KEY || secrets.TAURI_PRIVATE_KEY }}"
+          CLEAN_KEY=$(echo "$RAW_KEY" | grep -v "untrusted comment" | tr -d '\n\r ')
+          echo "::add-mask::$CLEAN_KEY"
+          echo "CLEAN_TAURI_KEY=$CLEAN_KEY" >> $GITHUB_ENV
+
       # ── Build with Tauri Action ──
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY || secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ env.CLEAN_TAURI_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || secrets.TAURI_KEY_PASSWORD }}
           VITE_ANILIST_ANDROID_CLIENT_ID: ${{ secrets.VITE_ANILIST_ANDROID_CLIENT_ID }}
           VITE_ANILIST_DESKTOP_CLIENT_ID: ${{ secrets.VITE_ANILIST_DESKTOP_CLIENT_ID }}

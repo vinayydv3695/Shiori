@@ -1,6 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Highlighter, StickyNote, X } from '@/components/icons';
+import { Highlighter, StickyNote, X, Volume2 } from '@/components/icons';
 import { api, isAndroid } from '@/lib/tauri';
 import type { AnnotationCategory, DictionaryResponse, TranslationResponse } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
@@ -8,6 +8,7 @@ import { useToastStore } from '@/store/toastStore';
 import { usePreferencesStore } from '@/store/preferencesStore';
 import { ttsEngine, TTSEngine } from '@/lib/ttsEngine';
 import { TranslationPopup } from './TranslationPopup';
+import { useTTS } from '@/hooks/useTTS';
 
 interface TextSelectionToolbarProps {
   bookId: number;
@@ -52,6 +53,10 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
   const [translationError, setTranslationError] = useState<string | null>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const noteInputRef = useRef<HTMLTextAreaElement>(null);
+  
+  // useTTS hook with dummy ref just for speakText
+  const dummyRef = useRef<HTMLDivElement>(null);
+  const { speakText, stop: stopSpeaking, state: ttsState } = useTTS({ contentRef: dummyRef });
 
   const hideToolbar = useCallback(() => {
     setIsVisible(false);
@@ -385,6 +390,64 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
           {/* Main action buttons */}
           {!showNoteInput && !showTranslation && (
             <div className="text-selection-toolbar-actions">
+              {/* Aloud */}
+              <button
+                className="text-selection-toolbar-btn"
+                onClick={() => {
+                  if (ttsState === 'speaking') {
+                    stopSpeaking();
+                  } else {
+                    speakText(selectedText);
+                  }
+                }}
+                title="Read aloud"
+              >
+                <Volume2 size={14} className={ttsState === 'speaking' ? "text-primary" : ""} />
+                <span>{ttsState === 'speaking' ? "Stop" : "Aloud"}</span>
+              </button>
+
+              <div className="w-[1px] h-4 bg-border/50 mx-1" />
+
+              {/* Define */}
+              <button
+                className="text-selection-toolbar-btn"
+                onClick={handleDefine}
+                title="Look up definition"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+                </svg>
+                <span>Define</span>
+              </button>
+
+              <div className="w-[1px] h-4 bg-border/50 mx-1" />
+
+              {/* Translate */}
+              <button
+                className="text-selection-toolbar-btn"
+                onClick={handleTranslate}
+                title="Translate selected text"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" /><path d="m22 22-5-10-5 10" /><path d="M14 18h6" />
+                </svg>
+                <span>Translate</span>
+              </button>
+
+              <div className="w-[1px] h-4 bg-border/50 mx-1" />
+
+              {/* Note */}
+              <button
+                className="text-selection-toolbar-btn"
+                onClick={() => setShowNoteInput(true)}
+                title="Add a note"
+              >
+                <StickyNote size={14} />
+                <span>Note</span>
+              </button>
+
+              <div className="w-[1px] h-4 bg-border/50 mx-1" />
+
               {/* Copy */}
               <button
                 className="text-selection-toolbar-btn"
@@ -398,6 +461,8 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
                 <span>Copy</span>
               </button>
 
+              <div className="w-[1px] h-4 bg-border/50 mx-1" />
+
               {/* Highlight */}
               <button
                 className="text-selection-toolbar-btn"
@@ -406,41 +471,6 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
               >
                 <Highlighter size={14} />
                 <span>Highlight</span>
-              </button>
-
-              {/* Note */}
-              <button
-                className="text-selection-toolbar-btn"
-                onClick={() => setShowNoteInput(true)}
-                title="Add a note"
-              >
-                <StickyNote size={14} />
-                <span>Note</span>
-              </button>
-
-
-
-
-              <button
-                className="text-selection-toolbar-btn"
-                onClick={handleTranslate}
-                title="Translate selected text"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" /><path d="m22 22-5-10-5 10" /><path d="M14 18h6" />
-                </svg>
-                <span>Translate</span>
-              </button>
-
-              <button
-                className="text-selection-toolbar-btn"
-                onClick={handleDefine}
-                title="Look up definition"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
-                </svg>
-                <span>Define</span>
               </button>
             </div>
           )}

@@ -78,7 +78,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       <div className="relative z-10 flex h-full min-h-0 w-full flex-col overflow-hidden">
         {/* Unified Top Progress Indicator */}
         {state.currentStep > 1 && (
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-border/20 z-50">
+          <div className="absolute top-0 left-0 right-0 h-[4px] bg-border/20 z-50">
             <motion.div
               className="h-full bg-primary"
               initial={{ width: 0 }}

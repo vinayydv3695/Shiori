@@ -12,7 +12,7 @@ import { DoodleCanvas } from './DoodleCanvas';
 import { DoodleToolbar } from './DoodleToolbar';
 import { PageFlipEngine, type PageFlipHandle } from './PageFlipEngine';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
-import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Search, BookOpen } from '@/components/icons';
+import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Search, BookOpen, Square, Volume2 } from '@/components/icons';
 import { sanitizeBookContent } from '@/lib/sanitize';
 import { applyHighlightsToDOM } from '@/lib/highlightAnnotations';
 import { useToastStore } from '@/store/toastStore';
@@ -23,6 +23,7 @@ import type { ReaderContent } from './readerContent';
 import '@/styles/premium-reader.css';
 import '@/styles/themes/paper-theme.css';
 import '@/styles/page-flip.css';
+import { useTTS } from '@/hooks/useTTS';
 
 interface PremiumEpubReaderProps {
   bookPath: string;
@@ -248,6 +249,18 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const contentContainerRef = useRef<HTMLDivElement>(null);
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const pageFlipRef = useRef<PageFlipHandle>(null);
+
+  // TTS State powered by custom hook
+  const { play: startTts, stop: stopTts, state: ttsState, isAvailable: isTtsAvailable } = useTTS({ contentRef: contentContainerRef });
+  const isTtsPlaying = ttsState === 'speaking' || ttsState === 'paused';
+
+  const toggleTts = useCallback(() => {
+    if (isTtsPlaying) {
+      stopTts();
+    } else {
+      startTts();
+    }
+  }, [isTtsPlaying, startTts, stopTts]);
   const scrollPositionsRef = useRef<Map<number, number>>(new Map());
   const currentIndexRef = useRef(0);
   const metadataRef = useRef<BookMetadata | null>(null);
@@ -1032,6 +1045,17 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
                   <rect x="3" y="4" width="8" height="16" />
                   <rect x="13" y="4" width="8" height="16" />
                 </svg>
+              </button>
+            )}
+            {isTtsAvailable && (
+              <button
+                type="button"
+                onClick={toggleTts}
+                className={`premium-control-button ${isTtsPlaying ? 'premium-control-button--active' : ''}`}
+                aria-label={isTtsPlaying ? "Stop reading" : "Read chapter aloud"}
+                title={isTtsPlaying ? "Stop reading" : "Read chapter aloud"}
+              >
+                {isTtsPlaying ? <Square fill="currentColor" className="premium-control-icon" /> : <Volume2 className="premium-control-icon" />}
               </button>
             )}
             <button

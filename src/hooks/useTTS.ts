@@ -22,6 +22,7 @@ import { speak as nativeSpeak, stop as nativeStop, getVoices as nativeGetVoices 
 export interface UseTTSOptions {
   contentRef: React.RefObject<HTMLElement | null>;
   onChapterEnd?: () => void;
+  contentKey?: string | number;
 }
 
 export interface UseTTSReturn {
@@ -46,7 +47,7 @@ export interface UseTTSReturn {
   speakText: (text: string) => void;
 }
 
-export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSReturn {
+export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions): UseTTSReturn {
   const [state, setState] = useState<TTSState>('idle');
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState<number>(0);
   const [sentences, setSentences] = useState<string[]>([]);
@@ -144,6 +145,39 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
     }
   }, [isAvailable, useNativeTTS]);
 
+  // Reset TTS state when the content changes (e.g., chapter navigation)
+  useEffect(() => {
+    setState('idle');
+    setCurrentSentenceIndex(0);
+    currentIndexRef.current = 0;
+    setSentences([]);
+    sentencesRef.current = [];
+    
+    if (piperAudioRef.current) {
+      piperAudioRef.current.pause();
+      piperAudioRef.current.src = '';
+      piperAudioRef.current = null;
+    }
+
+    if (useNativeTTS) {
+      nativeStop().catch(() => {});
+      if (nativeTTSTimeoutRef.current) {
+        clearTimeout(nativeTTSTimeoutRef.current);
+      }
+    } else {
+      ttsEngine.stop();
+    }
+
+    if (cleanupHighlightRef.current) {
+      cleanupHighlightRef.current();
+      cleanupHighlightRef.current = null;
+    }
+
+    if (contentRef.current) {
+      clearAllHighlights(contentRef.current);
+    }
+  }, [contentKey]);
+
   useEffect(() => {
     const contentEl = contentRef.current;
     return () => {
@@ -201,8 +235,7 @@ export function useTTS({ contentRef, onChapterEnd }: UseTTSOptions): UseTTSRetur
 
       api.synthesizeSpeech(sentence, voiceId)
         .then((audioUrl) => {
-          const url = convertFileSrc(audioUrl);
-          const audio = new Audio(url);
+          const audio = new Audio(audioUrl);
           audio.playbackRate = rate;
           piperAudioRef.current = audio;
           

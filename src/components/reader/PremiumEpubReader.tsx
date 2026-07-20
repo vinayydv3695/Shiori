@@ -23,7 +23,7 @@ import type { ReaderContent } from './readerContent';
 import '@/styles/premium-reader.css';
 import '@/styles/themes/paper-theme.css';
 import '@/styles/page-flip.css';
-import { useTTS } from '@/hooks/useTTS';
+import { TTSControlBar } from './TTSControlBar';
 
 interface PremiumEpubReaderProps {
   bookPath: string;
@@ -249,18 +249,6 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const contentContainerRef = useRef<HTMLDivElement>(null);
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const pageFlipRef = useRef<PageFlipHandle>(null);
-
-  // TTS State powered by custom hook
-  const { play: startTts, stop: stopTts, state: ttsState, isAvailable: isTtsAvailable } = useTTS({ contentRef: contentContainerRef });
-  const isTtsPlaying = ttsState === 'speaking' || ttsState === 'paused';
-
-  const toggleTts = useCallback(() => {
-    if (isTtsPlaying) {
-      stopTts();
-    } else {
-      startTts();
-    }
-  }, [isTtsPlaying, startTts, stopTts]);
   const scrollPositionsRef = useRef<Map<number, number>>(new Map());
   const currentIndexRef = useRef(0);
   const metadataRef = useRef<BookMetadata | null>(null);
@@ -1097,17 +1085,6 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
                 </svg>
               </button>
             )}
-            {isTtsAvailable && (
-              <button
-                type="button"
-                onClick={toggleTts}
-                className={`premium-control-button ${isTtsPlaying ? 'premium-control-button--active' : ''}`}
-                aria-label={isTtsPlaying ? "Stop reading" : "Read chapter aloud"}
-                title={isTtsPlaying ? "Stop reading" : "Read chapter aloud"}
-              >
-                {isTtsPlaying ? <Square fill="currentColor" className="premium-control-icon" /> : <Volume2 className="premium-control-icon" />}
-              </button>
-            )}
             <button
               type="button"
               onClick={toggleDoodleMode}
@@ -1248,6 +1225,13 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         bookId={bookId}
         currentIndex={currentIndex}
         onNavigate={loadChapter}
+      />
+
+      {/* TTS Audiobook UI */}
+      <TTSControlBar
+        contentRef={contentContainerRef}
+        onChapterEnd={() => loadChapter(currentIndex + 1)}
+        contentKey={currentIndex}
       />
     </div>
   );

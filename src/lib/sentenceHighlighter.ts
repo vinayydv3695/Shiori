@@ -160,6 +160,24 @@ export function highlightSentence(
     createdSpans.push(span);
   }
   
+  // Auto-scroll the first highlighted span into view
+  if (createdSpans.length > 0) {
+    const firstSpan = createdSpans[0];
+    // Check if it's currently in the viewport
+    const rect = firstSpan.getBoundingClientRect();
+    const inView = (
+      rect.top >= 0 &&
+      rect.left >= 0 &&
+      rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+      rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+    );
+    
+    // Only scroll if not fully visible to avoid jittering
+    if (!inView) {
+      firstSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+  
   // Return cleanup function
   return () => {
     for (const span of createdSpans) {

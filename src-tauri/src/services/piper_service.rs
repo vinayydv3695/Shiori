@@ -1288,13 +1288,8 @@ impl PiperService {
         let i16_samples: Vec<i16> = samples.into_iter()
             .map(|s| (s.clamp(-1.0, 1.0) * 32767.0) as i16)
             .collect();
-
-        // Write WAV to a temp file
-        let temp_dir = std::env::temp_dir();
-        let filename = format!("piper_{}_{}.wav", voice_id, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis());
-        let filepath = temp_dir.join(filename);
-        
-        // Build WAV header
+            
+        // Build WAV in memory
         let num_channels = 1u16;
         let bits_per_sample = 16u16;
         let byte_rate = sample_rate * num_channels as u32 * (bits_per_sample / 8) as u32;
@@ -1302,36 +1297,34 @@ impl PiperService {
         let data_size = (i16_samples.len() * 2) as u32;
         let file_size = 36 + data_size;
 
-        let mut file = std::fs::File::create(&filepath).map_err(|e| e.to_string())?;
-        use std::io::Write;
+        let mut wav_bytes = Vec::with_capacity((44 + data_size) as usize);
         
-        file.write_all(b"RIFF").unwrap();
-        file.write_all(&file_size.to_le_bytes()).unwrap();
-        file.write_all(b"WAVE").unwrap();
+        wav_bytes.extend_from_slice(b"RIFF");
+        wav_bytes.extend_from_slice(&file_size.to_le_bytes());
+        wav_bytes.extend_from_slice(b"WAVE");
         
-        file.write_all(b"fmt ").unwrap();
-        file.write_all(&16u32.to_le_bytes()).unwrap(); // Subchunk1Size
-        file.write_all(&1u16.to_le_bytes()).unwrap(); // PCM format
-        file.write_all(&num_channels.to_le_bytes()).unwrap();
-        file.write_all(&sample_rate.to_le_bytes()).unwrap();
-        file.write_all(&byte_rate.to_le_bytes()).unwrap();
-        file.write_all(&block_align.to_le_bytes()).unwrap();
-        file.write_all(&bits_per_sample.to_le_bytes()).unwrap();
+        wav_bytes.extend_from_slice(b"fmt ");
+        wav_bytes.extend_from_slice(&16u32.to_le_bytes()); // Subchunk1Size
+        wav_bytes.extend_from_slice(&1u16.to_le_bytes()); // PCM format
+        wav_bytes.extend_from_slice(&num_channels.to_le_bytes());
+        wav_bytes.extend_from_slice(&sample_rate.to_le_bytes());
+        wav_bytes.extend_from_slice(&byte_rate.to_le_bytes());
+        wav_bytes.extend_from_slice(&block_align.to_le_bytes());
+        wav_bytes.extend_from_slice(&bits_per_sample.to_le_bytes());
         
-        file.write_all(b"data").unwrap();
-        file.write_all(&data_size.to_le_bytes()).unwrap();
+        wav_bytes.extend_from_slice(b"data");
+        wav_bytes.extend_from_slice(&data_size.to_le_bytes());
         
         // Write audio data
-        let mut data_bytes = Vec::with_capacity(i16_samples.len() * 2);
         for sample in i16_samples {
-            data_bytes.extend_from_slice(&sample.to_le_bytes());
+            wav_bytes.extend_from_slice(&sample.to_le_bytes());
         }
-        file.write_all(&data_bytes).unwrap();
         
-        // Return URL format for proxy or direct absolute path for Tauri to read
-        // The simplest is to return a custom protocol URI or absolute path.
-        // Let's return the absolute path, and we can read it directly from JS using convertFileSrc
-        Ok(filepath.to_string_lossy().to_string())
+        use base64::Engine;
+        let b64 = base64::engine::general_purpose::STANDARD.encode(&wav_bytes);
+        let data_uri = format!("data:audio/wav;base64,{}", b64);
+        
+        Ok(data_uri)
     }
 }
 

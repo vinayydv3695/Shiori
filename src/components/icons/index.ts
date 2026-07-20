@@ -5,6 +5,7 @@ export {
   Search,
   Tag,
   Settings,
+  Settings2,
   Plus,
   Trash2,
   Edit,

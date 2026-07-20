@@ -45,7 +45,7 @@ export function BottomNav({
   
   return (
     <nav 
-      className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around h-[72px] bg-background/85 backdrop-blur-xl md:hidden border-0 border-transparent shadow-none outline-none ring-0"
+      className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around h-16 bg-background/85 backdrop-blur-xl md:hidden border-t border-border/50 shadow-none outline-none ring-0"
       style={{
         paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 4px)',
         paddingLeft: 'env(safe-area-inset-left, 0px)',
@@ -97,9 +97,9 @@ export function BottomNav({
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="flex flex-col items-center justify-center w-full h-full gap-1 text-muted-foreground hover:text-foreground transition-colors">
+          <button className="flex flex-col items-center justify-center w-full h-full gap-1 text-muted-foreground hover:text-foreground transition-all duration-300 active:scale-95">
             <Menu className="w-[22px] h-[22px]" />
-            <span className="text-[10px] font-medium">More</span>
+            <span className="text-[10px] font-medium hidden sm:block">More</span>
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent 
@@ -210,12 +210,12 @@ function NavItem({
     <button
       onClick={onClick}
       className={cn(
-        "relative flex flex-col items-center justify-center w-full h-full transition-all duration-300 ease-out group gap-1.5",
+        "relative flex flex-col items-center justify-center w-full h-full transition-all duration-300 ease-out group gap-1 active:scale-95",
         isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
       )}
     >
       <div className={cn(
-        "flex items-center justify-center w-14 h-8 rounded-full transition-all duration-300",
+        "flex items-center justify-center w-12 h-7 rounded-full transition-all duration-300",
         isActive ? "bg-primary/15" : "bg-transparent group-hover:bg-primary/5"
       )}>
         <div className={cn(
@@ -226,7 +226,7 @@ function NavItem({
         </div>
       </div>
       <span className={cn(
-        "text-[10px] font-semibold tracking-wide leading-none transition-all duration-300",
+        "text-[10px] font-semibold tracking-wide leading-none transition-all duration-300 hidden sm:block",
         isActive ? "opacity-100" : "opacity-70"
       )}>
         {label}

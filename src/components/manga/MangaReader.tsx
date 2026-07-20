@@ -504,6 +504,52 @@ export function MangaReader(props: MangaReaderProps) {
         onClose();
     }, [sourceType, bookId, closeManga, onClose]);
 
+    // ────────────────────────────────────────────────────────────
+    // TOUCH SWIPE NAVIGATION
+    // ────────────────────────────────────────────────────────────
+    const touchStartRef = useRef<{ x: number, y: number, time: number } | null>(null);
+
+    const handleTouchStart = useCallback((e: React.TouchEvent) => {
+        if (e.touches.length !== 1) return;
+        touchStartRef.current = {
+            x: e.touches[0].clientX,
+            y: e.touches[0].clientY,
+            time: Date.now()
+        };
+    }, []);
+
+    const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+        if (!touchStartRef.current) return;
+        const touchStart = touchStartRef.current;
+        touchStartRef.current = null;
+        
+        const readingMode = useMangaSettingsStore.getState().readingMode;
+        if (readingMode === 'strip' || readingMode === 'webtoon' || readingMode === 'manhwa') {
+            return; // Scroll modes handle themselves
+        }
+
+        if (e.changedTouches.length !== 1) return;
+        const touchEnd = e.changedTouches[0];
+
+        const dx = touchEnd.clientX - touchStart.x;
+        const dy = touchEnd.clientY - touchStart.y;
+        const dt = Date.now() - touchStart.time;
+
+        if (dt < 400 && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 2) {
+            const rtl = useMangaSettingsStore.getState().readingDirection === 'rtl';
+            const nextPage = useMangaContentStore.getState().nextPage;
+            const prevPage = useMangaContentStore.getState().prevPage;
+            
+            if (dx < 0) {
+                // Swipe Left -> Next Page (in LTR), Prev Page (in RTL)
+                rtl ? prevPage(1) : nextPage(1);
+            } else {
+                // Swipe Right -> Prev Page (in LTR), Next Page (in RTL)
+                rtl ? nextPage(1) : prevPage(1);
+            }
+        }
+    }, []);
+
     const handleDoubleClick = useCallback((_e: React.MouseEvent) => {
         const uiStore = useMangaUIStore.getState();
         uiStore.setTopBarVisible(true);
@@ -552,6 +598,8 @@ export function MangaReader(props: MangaReaderProps) {
             data-manga-theme={theme}
             tabIndex={-1}
             onDoubleClick={handleDoubleClick}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
         >
             <MangaReaderHeader 
                 onClose={handleClose} 

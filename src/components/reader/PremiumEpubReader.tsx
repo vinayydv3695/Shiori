@@ -902,6 +902,49 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const currentPageId = useMemo(() => `chapter_${currentIndex}`, [currentIndex]);
 
   // ────────────────────────────────────────────────────────────
+  // TOUCH GESTURES (SWIPE)
+  // ────────────────────────────────────────────────────────────
+  const touchStartRef = useRef<{ x: number, y: number, time: number } | null>(null);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    // Ignore multi-touch
+    if (e.touches.length !== 1) return;
+    touchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+      time: Date.now()
+    };
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const touchStart = touchStartRef.current;
+    touchStartRef.current = null;
+    
+    // If doodle mode is active or user is selecting text, don't swipe
+    if (isDoodleMode || window.getSelection()?.toString().trim()) return;
+
+    // Use changedTouches since touches is empty on touchend
+    if (e.changedTouches.length !== 1) return;
+    const touchEnd = e.changedTouches[0];
+
+    const dx = touchEnd.clientX - touchStart.x;
+    const dy = touchEnd.clientY - touchStart.y;
+    const dt = Date.now() - touchStart.time;
+
+    // Fast enough swipe (under 400ms) and mostly horizontal
+    if (dt < 400 && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 2) {
+      if (dx < 0) {
+        // Swipe Left -> Next
+        nextPage();
+      } else {
+        // Swipe Right -> Prev
+        prevPage();
+      }
+    }
+  }, [isDoodleMode, nextPage, prevPage]);
+
+  // ────────────────────────────────────────────────────────────
   // RENDER
   // ────────────────────────────────────────────────────────────
 
@@ -1004,7 +1047,14 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     : 0;
 
   return (
-    <div ref={readerContainerRef} className={`premium-reader ${isFocusMode ? 'premium-reader--focus-mode' : ''}`} onClick={handleContainerClick} onDoubleClick={handleContainerDoubleClick}>
+    <div 
+      ref={readerContainerRef} 
+      className={`premium-reader ${isFocusMode ? 'premium-reader--focus-mode' : ''}`} 
+      onClick={handleContainerClick} 
+      onDoubleClick={handleContainerDoubleClick}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Auto-hide Top Bar */}
       <ReaderTopBar
         bookId={bookId}

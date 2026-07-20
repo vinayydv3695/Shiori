@@ -335,6 +335,7 @@ pub struct DailyReadingStats {
 pub struct ReadingGoal {
     pub id: Option<i64>,
     pub daily_minutes_target: i32,
+    pub yearly_books_target: Option<i32>,
     pub is_active: bool,
     pub created_at: String,
     pub updated_at: String,

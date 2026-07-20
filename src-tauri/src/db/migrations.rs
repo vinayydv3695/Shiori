@@ -138,6 +138,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 38 {
             self.run_in_savepoint("v38", |mgr| mgr.migrate_to_v38())?;
         }
+        if current_version < 39 {
+            self.run_in_savepoint("v39", |mgr| mgr.migrate_to_v39())?;
+        }
 
 
         // Always ensure the FTS table has the correct schema.
@@ -2190,6 +2193,22 @@ impl<'a> MigrationManager<'a> {
 
         let hash = Self::calculate_checksum("v38_performance_indexes");
         self.record_migration(38, "v38_performance_indexes", &hash)?;
+        Ok(())
+    }
+
+    /// Migration v39: Add yearly_books_target to reading_goals
+    fn migrate_to_v39(&self) -> Result<()> {
+        log::info!("[Migration] Applying v39: Add yearly_books_target to reading_goals");
+
+        if !self.column_exists("reading_goals", "yearly_books_target")? {
+            self.conn.execute(
+                "ALTER TABLE reading_goals ADD COLUMN yearly_books_target INTEGER DEFAULT NULL",
+                [],
+            )?;
+        }
+
+        let hash = Self::calculate_checksum("v39_yearly_reading_goals");
+        self.record_migration(39, "yearly_reading_goals", &hash)?;
         Ok(())
     }
 

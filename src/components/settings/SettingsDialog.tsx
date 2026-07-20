@@ -256,31 +256,31 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
             <Tabs.List asChild>
               <motion.div
                 className={cn(
-                  "w-56 border-r border-border/40 bg-background/50 p-4 space-y-1 flex-shrink-0 overflow-y-auto scrollbar-none",
-                  isMobile && mobileView === 'root' ? "w-full flex-1 border-r-0 max-md:pb-12" : isMobile ? "hidden" : "block"
+                  "w-64 bg-background/30 p-6 space-y-1.5 flex-shrink-0 overflow-y-auto scrollbar-none",
+                  isMobile && mobileView === 'root' ? "w-full flex-1 max-md:pb-12" : isMobile ? "hidden" : "block"
                 )}
                 aria-label="Settings categories"
                 initial="hidden"
                 animate="show"
-                variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.2 } } }}
+                variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } }}
               >
                 {filteredTabs.map((tab) => (
-                  <motion.div key={tab.id} variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } } }}>
+                  <motion.div key={tab.id} variants={{ hidden: { opacity: 0, x: -10 }, show: { opacity: 1, x: 0, transition: { type: "spring", stiffness: 300, damping: 24 } } }}>
                     <Tabs.Trigger
                       value={tab.id}
                       onClick={() => {
                         if (isMobile) setMobileView('detail');
                       }}
                       className={cn(
-                        'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-left font-medium text-[13px]',
+                        'w-full flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all duration-300 text-left font-medium text-[14px] group relative overflow-hidden',
                         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50',
-                        'data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm',
-                        'data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-muted/50 data-[state=inactive]:hover:text-foreground',
+                        'data-[state=active]:bg-primary/10 data-[state=active]:text-primary',
+                        'data-[state=inactive]:text-muted-foreground/80 data-[state=inactive]:hover:bg-muted/40 data-[state=inactive]:hover:text-foreground',
                         isMobile && mobileView === 'root' && "py-4 text-[15px]"
                       )}
                     >
-                      <tab.icon className="w-5 h-5 flex-shrink-0" />
-                      <span className="font-sans font-semibold tracking-wide block">{tab.name}</span>
+                      <tab.icon className="w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110" />
+                      <span className="font-sans font-medium tracking-wide block">{tab.name}</span>
                     </Tabs.Trigger>
                   </motion.div>
                 ))}
@@ -294,10 +294,18 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
               <AnimatePresence mode="wait">
                 <motion.div
                   key={selectedTab}
-                  initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
-                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                  exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }}
-                  transition={{ duration: 0.2 }}
+                  initial="hidden"
+                  animate="show"
+                  exit="hidden"
+                  variants={{
+                    hidden: { opacity: 0, y: 10, filter: 'blur(4px)' },
+                    show: { 
+                      opacity: 1, 
+                      y: 0, 
+                      filter: 'blur(0px)',
+                      transition: { duration: 0.2, staggerChildren: 0.05, delayChildren: 0.05 } 
+                    }
+                  }}
                   className="absolute inset-0 p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto"
                 >
                   {selectedTab === 'general' && (
@@ -366,6 +374,11 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   )
 }
 
+const itemVariants = {
+  hidden: { opacity: 0, y: 15 },
+  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+}
+
 const SettingSection = ({
   title,
   description,
@@ -377,11 +390,11 @@ const SettingSection = ({
   children: React.ReactNode
   onReset?: () => void
 }) => (
-  <section className="space-y-4 pb-6">
-    <div className="flex items-center justify-between px-1">
+  <motion.section variants={itemVariants} className="space-y-4 pb-8 mb-8 border-b border-border/20 last:border-0 last:pb-0 last:mb-0">
+    <div className="flex items-center justify-between px-2">
       <div>
-        <h3 className="text-xl font-semibold tracking-tight">{title}</h3>
-        {description && <p className="text-sm text-muted-foreground mt-1.5">{description}</p>}
+        <h3 className="text-[1.15rem] font-medium tracking-tight text-foreground/90">{title}</h3>
+        {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
       </div>
       {onReset && (
         <Button variant="ghost" size="sm" onClick={onReset} className="gap-1.5 text-muted-foreground hover:text-foreground">
@@ -390,10 +403,10 @@ const SettingSection = ({
         </Button>
       )}
     </div>
-    <div className="bg-card/20 border border-border/40 rounded-2xl overflow-hidden shadow-sm divide-y divide-border/40">
+    <div className="flex flex-col space-y-1">
       {children}
     </div>
-  </section>
+  </motion.section>
 )
 
 const SettingItem = ({
@@ -405,15 +418,15 @@ const SettingItem = ({
   description?: string
   children: React.ReactNode
 }) => (
-  <div className="group flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6 p-4 md:p-5 hover:bg-card/40 transition-colors duration-200">
+  <motion.div variants={itemVariants} className="group flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6 p-3 md:px-4 md:py-3.5 rounded-xl hover:bg-muted/40 transition-colors duration-200">
     <div className="space-y-1 flex-1 md:pr-4">
-      <label className="text-[15px] font-medium tracking-tight text-foreground">{label}</label>
-      {description && <p className="text-[13px] text-muted-foreground leading-snug">{description}</p>}
+      <label className="text-[15px] font-medium tracking-tight text-foreground/90">{label}</label>
+      {description && <p className="text-[13px] text-muted-foreground/80 leading-snug">{description}</p>}
     </div>
     <div className="flex-shrink-0 flex items-center justify-start md:justify-end w-full md:w-auto md:min-w-[200px]">
       {children}
     </div>
-  </div>
+  </motion.div>
 )
 
 const GeneralSettings = ({
@@ -473,56 +486,49 @@ const GeneralSettings = ({
     <div className="space-y-8">
       {isSectionVisible('Theme', ['Theme', 'Dark Theme', 'Light Theme', 'System Theme']) && (
         <SettingSection title="Theme" description="Choose how Shiori looks">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+          <div className="flex flex-wrap gap-3 mt-2">
             {themeOptions.map((option) => (
               <button
                 key={option.value}
                 onClick={() => updateTheme(option.value)}
                 className={cn(
-                  'relative overflow-hidden p-4 rounded-xl border-2 transition-all duration-300 flex flex-col items-center gap-3',
+                  'relative group flex items-center gap-2.5 px-4 py-2.5 rounded-full border transition-all duration-300',
                   preferences.theme === option.value
-                    ? 'border-primary bg-primary/10 shadow-[0_0_15px_rgba(var(--primary),0.2)] scale-[1.02]'
-                    : 'border-border/50 bg-background/30 hover:border-primary/50 hover:bg-background/80 hover:-translate-y-1'
+                    ? 'border-primary bg-primary/10 shadow-sm'
+                    : 'border-border/60 bg-background hover:border-primary/40 hover:bg-muted/50'
                 )}
                 aria-label={`${option.label} theme`}
               >
-                <div className={cn(
-                  "absolute inset-0 bg-gradient-to-tr from-primary/10 to-transparent opacity-0 transition-opacity duration-300",
-                  preferences.theme === option.value && "opacity-100"
-                )} />
                 <option.icon className={cn(
-                  "w-7 h-7 transition-colors duration-300",
-                  preferences.theme === option.value ? "text-primary" : "text-muted-foreground"
+                  "w-4 h-4 transition-colors duration-300",
+                  preferences.theme === option.value ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
                 )} />
                 <span className={cn(
-                  "text-sm font-semibold tracking-wide transition-colors duration-300",
-                  preferences.theme === option.value ? "text-foreground" : "text-muted-foreground"
+                  "text-[14px] font-medium tracking-tight transition-colors duration-300",
+                  preferences.theme === option.value ? "text-primary" : "text-foreground/80 group-hover:text-foreground"
                 )}>{option.label}</span>
-                {preferences.theme === option.value && (
-                  <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--primary),1)]" />
-                )}
               </button>
             ))}
           </div>
 
           {isSettingVisible('Theme Preview', 'Preview of current theme colors', 'Theme') && (
-            <div className="rounded-xl border border-border/50 bg-background/50 backdrop-blur-md p-5 shadow-inner">
-              <p className="text-[13px] font-semibold text-muted-foreground tracking-wider uppercase mb-4">Theme Palette</p>
-              <div className="flex gap-3 items-center">
-                <div className="w-10 h-10 rounded-full bg-primary shadow-lg ring-2 ring-background transition-transform hover:scale-110 cursor-help" title="Primary" />
-                <div className="w-10 h-10 rounded-full bg-secondary shadow-lg ring-2 ring-background transition-transform hover:scale-110 cursor-help" title="Secondary" />
-                <div className="w-10 h-10 rounded-full bg-accent shadow-lg ring-2 ring-background transition-transform hover:scale-110 cursor-help" title="Accent" />
-                <div className="w-10 h-10 rounded-full bg-muted shadow-lg ring-2 ring-background transition-transform hover:scale-110 cursor-help" title="Muted" />
-                <div className="w-10 h-10 rounded-full bg-destructive shadow-lg ring-2 ring-background transition-transform hover:scale-110 cursor-help" title="Destructive" />
-                <div className="w-10 h-10 rounded-full border border-border/50 bg-background shadow-lg ring-2 ring-background transition-transform hover:scale-110 cursor-help" title="Background" />
-                <div className="w-10 h-10 rounded-full bg-foreground shadow-lg ring-2 ring-background transition-transform hover:scale-110 cursor-help" title="Foreground" />
+            <div className="mt-6 p-5 rounded-2xl bg-muted/30 border border-border/40">
+              <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-widest mb-4">Color Palette</p>
+              <div className="flex flex-wrap gap-4 items-center">
+                <div className="w-8 h-8 rounded-full bg-primary shadow-sm ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" title="Primary" />
+                <div className="w-8 h-8 rounded-full bg-secondary shadow-sm ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" title="Secondary" />
+                <div className="w-8 h-8 rounded-full bg-accent shadow-sm ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" title="Accent" />
+                <div className="w-8 h-8 rounded-full bg-muted shadow-sm ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" title="Muted" />
+                <div className="w-8 h-8 rounded-full bg-destructive shadow-sm ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" title="Destructive" />
+                <div className="w-8 h-8 rounded-full bg-background shadow-sm ring-1 ring-border transition-transform hover:scale-110 cursor-default" title="Background" />
+                <div className="w-8 h-8 rounded-full bg-foreground shadow-sm ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" title="Foreground" />
               </div>
             </div>
           )}
         </SettingSection>
       )}
 
-      {isSectionVisible('Appearance', ['Accent Color', 'UI Density', 'UI Scale', 'Cover Size', 'Enable Window Transparency', 'Settings Transparency']) && (
+      {isSectionVisible('Appearance', ['UI Scale', 'Cover Size', 'Enable Window Transparency', 'Settings Transparency']) && (
         <SettingSection
           title="Appearance"
           description="Customize the interface"
@@ -537,49 +543,6 @@ const GeneralSettings = ({
             toast.success('Appearance settings reset')
           }}
         >
-          {isSettingVisible('Accent Color', 'Used for buttons links and highlights', 'Appearance') && (
-            <SettingItem label="Accent Color" description="Used for buttons, links, and highlights">
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={preferences.accentColor || '#3b82f6'}
-                  onChange={(e) => updateGeneralSettings({ accentColor: e.target.value })}
-                  className="w-10 h-10 rounded cursor-pointer border border-border"
-                  aria-label="Accent color picker"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => updateGeneralSettings({ accentColor: '#3B82F6' })}
-                >
-                  Reset
-                </Button>
-              </div>
-            </SettingItem>
-          )}
-
-
-
-          {!isAndroid && isSettingVisible('UI Density', 'Adjust interface spacing', 'Appearance') && (
-            <SettingItem label="UI Density" description="Adjust interface spacing">
-              <div className="flex gap-2 w-full md:w-auto">
-                {(['compact', 'comfortable'] as const).map((density) => (
-                  <button
-                    key={density}
-                    onClick={() => updateGeneralSettings({ uiDensity: density })}
-                    className={cn(
-                      'flex-1 md:flex-none px-4 py-2 rounded-md border text-sm transition-all capitalize',
-                      preferences.uiDensity === density
-                        ? 'border-primary bg-primary/5 font-medium'
-                        : 'border-border hover:border-primary/50'
-                    )}
-                  >
-                    {density}
-                  </button>
-                ))}
-              </div>
-            </SettingItem>
-          )}
 
           {!isAndroid && isSettingVisible('UI Scale', 'Adjust overall application size', 'Appearance') && (
             <SettingItem label="UI Scale" description={`${scalePercent}%`}>
@@ -690,121 +653,21 @@ const GeneralSettings = ({
         </SettingSection>
       )}
 
-      {isSectionVisible('Library', ['Default Sort Order', 'Default View Mode', 'Library Display Density', 'Auto-Scan Library Folders', 'Auto-Scan Interval', 'Duplicate Handling', 'Metadata Fetch Policy', 'Auto-fetch Cover Images', 'Daily Reading Goal']) && (
+      {isSectionVisible('Library', ['Auto-Scan Library Folders', 'Daily Reading Goal']) && (
         <SettingSection
           title="Library"
           description="Configure library behavior"
           onReset={() => {
             updateGeneralSettings({
-              defaultSortOrder: DEFAULT_USER_PREFERENCES.defaultSortOrder,
-              defaultViewMode: DEFAULT_USER_PREFERENCES.defaultViewMode,
-              libraryDensity: DEFAULT_USER_PREFERENCES.libraryDensity,
               autoScanEnabled: DEFAULT_USER_PREFERENCES.autoScanEnabled,
-              autoScanIntervalMinutes: DEFAULT_USER_PREFERENCES.autoScanIntervalMinutes,
-              duplicateHandling: DEFAULT_USER_PREFERENCES.duplicateHandling,
-              metadataMode: DEFAULT_USER_PREFERENCES.metadataMode,
-              autoFetchCovers: DEFAULT_USER_PREFERENCES.autoFetchCovers,
               dailyReadingGoalMinutes: DEFAULT_USER_PREFERENCES.dailyReadingGoalMinutes,
             })
             toast.success('Library settings reset')
           }}
         >
-          {isSettingVisible('Default Sort Order', 'How books are sorted', 'Library') && (
-            <SettingItem label="Default Sort Order" description="How books are sorted in library">
-              <select
-                value={preferences.defaultSortOrder || 'title-asc'}
-                onChange={(e) => updateGeneralSettings({ defaultSortOrder: e.target.value as UserPreferences['defaultSortOrder'] })}
-                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
-                aria-label="Default sort order"
-              >
-                <option value="title-asc">Title (A-Z)</option>
-                <option value="title-desc">Title (Z-A)</option>
-                <option value="author-asc">Author (A-Z)</option>
-                <option value="date-added-desc">Recently Added</option>
-                <option value="date-added-asc">Oldest First</option>
-                <option value="last-read-desc">Recently Read</option>
-              </select>
-            </SettingItem>
-          )}
-
-          {isSettingVisible('Default View Mode', 'Grid list or table view', 'Library') && (
-            <SettingItem label="Default View Mode" description="Library display mode">
-              <div className="flex gap-2 w-full md:w-auto">
-                {(['grid', 'list', 'table'] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    onClick={() => updateGeneralSettings({ defaultViewMode: mode })}
-                    className={cn(
-                      'flex-1 md:flex-none px-3 py-1.5 rounded-md border text-sm transition-all capitalize',
-                      preferences.defaultViewMode === mode
-                        ? 'border-primary bg-primary/5 font-medium'
-                        : 'border-border hover:border-primary/50'
-                    )}
-                  >
-                    {mode}
-                  </button>
-                ))}
-              </div>
-            </SettingItem>
-          )}
-
-          {isSettingVisible('Library Display Density', 'Compact comfortable or spacious', 'Library') && (
-            <SettingItem label="Library Display Density" description="Items per row density">
-              <div className="flex gap-2 w-full md:w-auto">
-                {(['compact', 'comfortable', 'spacious'] as const).map((density) => (
-                  <button
-                    key={density}
-                    onClick={() => updateGeneralSettings({ libraryDensity: density })}
-                    className={cn(
-                      'flex-1 md:flex-none px-3 py-1.5 rounded-md border text-sm transition-all capitalize',
-                      preferences.libraryDensity === density
-                        ? 'border-primary bg-primary/5 font-medium'
-                        : 'border-border hover:border-primary/50'
-                    )}
-                  >
-                    {density}
-                  </button>
-                ))}
-              </div>
-            </SettingItem>
-          )}
-
           {!isAndroid && isSettingVisible('Auto-Scan Library Folders', 'Automatically import new books', 'Library') && (
             <SettingItem label="Auto-Scan Library Folders" description="Automatically import new books when detected">
               <Switch checked={preferences.autoScanEnabled ?? false} onChange={(checked) => updateGeneralSettings({ autoScanEnabled: checked })} />
-            </SettingItem>
-          )}
-
-          {!isAndroid && preferences.autoScanEnabled && isSettingVisible('Auto-Scan Interval', 'How often to check for new books', 'Library') && (
-            <SettingItem label="Auto-Scan Interval" description="How often to check for new books">
-              <select
-                value={String(preferences.autoScanIntervalMinutes || 60)}
-                onChange={(e) => updateGeneralSettings({ autoScanIntervalMinutes: Number(e.target.value) })}
-                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
-                aria-label="Auto-scan interval"
-              >
-                <option value="5">Every 5 minutes</option>
-                <option value="15">Every 15 minutes</option>
-                <option value="30">Every 30 minutes</option>
-                <option value="60">Every hour</option>
-                <option value="1440">Once per day</option>
-              </select>
-            </SettingItem>
-          )}
-
-          {isSettingVisible('Duplicate Handling', 'What to do with duplicate imports', 'Library') && (
-            <SettingItem label="Duplicate Handling" description="What to do with duplicate imports">
-              <select
-                value={preferences.duplicateHandling || 'skip'}
-                onChange={(e) => updateGeneralSettings({ duplicateHandling: e.target.value as UserPreferences['duplicateHandling'] })}
-                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
-                aria-label="Duplicate handling"
-              >
-                <option value="skip">Skip Duplicates</option>
-                <option value="overwrite">Overwrite Existing</option>
-                <option value="keep-both">Keep Both</option>
-                <option value="ask">Ask Each Time</option>
-              </select>
             </SettingItem>
           )}
 
@@ -814,28 +677,6 @@ const GeneralSettings = ({
                 checked={preferences?.enableRecycleBin ?? false} 
                 onChange={(checked) => updateGeneralSettings({ enableRecycleBin: checked })} 
               />
-            </SettingItem>
-          )}
-
-          {isSettingVisible('Metadata Fetch Policy', 'How to fetch book metadata', 'Library') && (
-            <SettingItem label="Metadata Fetch Policy" description="How to fetch book metadata">
-              <select
-                value={preferences.metadataMode || 'auto'}
-                onChange={(e) => updateGeneralSettings({ metadataMode: e.target.value })}
-                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
-                aria-label="Metadata fetch policy"
-              >
-                <option value="auto">Auto-fetch (Online)</option>
-                <option value="embedded-only">Embedded Only (Offline)</option>
-                <option value="manual">Manual Only</option>
-                <option value="online">Online</option>
-              </select>
-            </SettingItem>
-          )}
-
-          {isSettingVisible('Auto-fetch Cover Images', 'Download covers when missing', 'Library') && (
-            <SettingItem label="Auto-fetch Cover Images" description="Download covers from online providers when missing">
-              <Switch checked={preferences.autoFetchCovers ?? true} onChange={(checked) => updateGeneralSettings({ autoFetchCovers: checked })} />
             </SettingItem>
           )}
 
@@ -2051,43 +1892,41 @@ const AboutSettings = () => {
   }
 
   return (
-    <div className="space-y-8">
-      <SettingSection title="Shiori eBook Manager">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-xl overflow-hidden shadow-sm flex-shrink-0">
-            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Shiori Logo" className="w-full h-full object-contain p-[2px]" />
-          </div>
-          <div>
-            <h3 className="text-xl font-semibold">Shiori</h3>
-            <p className="text-sm text-muted-foreground">Version {appVersion}</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Organize, read, and manage your eBook collection
-            </p>
-          </div>
+    <div className="space-y-10 max-w-2xl mx-auto py-4">
+      {/* Hero Section */}
+      <motion.div variants={itemVariants} className="flex flex-col items-center justify-center text-center space-y-6">
+        <div className="w-24 h-24 rounded-3xl overflow-hidden shadow-2xl flex-shrink-0 border border-border/20 bg-background/50 backdrop-blur-xl">
+          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Shiori Logo" className="w-full h-full object-contain p-3" />
         </div>
-      </SettingSection>
-
-      <SettingSection title="Updates">
-        <div className="flex items-center justify-between rounded-lg border p-4">
-          <div>
-            <div className="font-medium text-sm">Check for Updates</div>
-            <div className="text-xs text-muted-foreground">
-              You&apos;re running version {appVersion}
-            </div>
-          </div>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={handleCheckUpdate} disabled={isChecking}>
-            <RefreshCw size={14} className={cn(isChecking && "animate-spin")} />
-            {isChecking ? "Checking..." : "Check Now"}
-          </Button>
-        </div>
-      </SettingSection>
-
-      <SettingSection title="Links">
         <div className="space-y-2">
+          <h2 className="text-3xl font-semibold tracking-tight text-foreground">Shiori</h2>
+          <p className="text-[15px] text-muted-foreground/90 max-w-md mx-auto">
+            A beautiful, fast, and modern eBook & manga manager built for reading enthusiasts.
+          </p>
+        </div>
+      </motion.div>
+
+      {/* Version & Updates */}
+      <motion.div variants={itemVariants} className="bg-card/30 border border-border/40 rounded-2xl p-5 flex items-center justify-between shadow-sm">
+        <div className="space-y-1">
+          <div className="text-[15px] font-medium tracking-tight">Version {appVersion}</div>
+          <div className="text-[13px] text-muted-foreground">You are running the latest version</div>
+        </div>
+        <Button variant="secondary" className="gap-2 rounded-xl" onClick={handleCheckUpdate} disabled={isChecking}>
+          <RefreshCw size={15} className={cn(isChecking && "animate-spin")} />
+          {isChecking ? "Checking..." : "Check for Updates"}
+        </Button>
+      </motion.div>
+
+      {/* Quick Links */}
+      <motion.div variants={itemVariants} className="space-y-3">
+        <h3 className="text-sm font-medium tracking-wider text-muted-foreground uppercase px-2 mb-2">Resources</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {([
-            { label: 'GitHub Repository', url: 'https://github.com/vinayydv3695/Shiori' },
-            { label: 'License', url: 'https://github.com/vinayydv3695/Shiori?tab=MIT-1-ov-file' },
-            { label: 'Report an Issue', url: 'https://github.com/vinayydv3695/Shiori/issues' },
+            { label: 'GitHub Repository', url: 'https://github.com/vinayydv3695/Shiori', icon: ExternalLink },
+            { label: 'Report an Issue', url: 'https://github.com/vinayydv3695/Shiori/issues', icon: AlertTriangle },
+            { label: 'License (MIT)', url: 'https://github.com/vinayydv3695/Shiori?tab=MIT-1-ov-file', icon: FileText },
+            { label: 'Official Website', url: 'https://github.com/vinayydv3695/Shiori', icon: ExternalLink },
           ]).map((link) => (
             <a
               key={link.url}
@@ -2096,23 +1935,24 @@ const AboutSettings = () => {
                 e.preventDefault()
                 open(link.url)
               }}
-              className="flex items-center justify-between rounded-lg border p-3 hover:bg-accent transition-colors"
+              className="flex items-center gap-3 p-4 rounded-xl border border-border/40 bg-card/10 hover:bg-muted/50 hover:border-border transition-all group"
             >
-              <span className="text-sm font-medium">{link.label}</span>
-              <ExternalLink size={16} className="text-muted-foreground" />
+              <div className="p-2 rounded-lg bg-background shadow-sm border border-border/30 text-muted-foreground group-hover:text-primary transition-colors">
+                <link.icon size={16} />
+              </div>
+              <span className="text-[14px] font-medium">{link.label}</span>
             </a>
           ))}
         </div>
-      </SettingSection>
+      </motion.div>
 
-      <SettingSection title="Credits">
-        <div className="text-sm text-muted-foreground space-y-1">
-          <p>Built with Tauri, React, TypeScript</p>
-          <p>Icons by Lucide</p>
-          <p>UI Components by Radix UI</p>
-          <p>Styling with Tailwind CSS</p>
-        </div>
-      </SettingSection>
+      {/* Credits */}
+      <motion.div variants={itemVariants} className="text-center pt-8 border-t border-border/20">
+        <p className="text-[13px] text-muted-foreground/70 mb-2">Built with modern tools</p>
+        <p className="text-[12px] text-muted-foreground/50 flex items-center justify-center gap-2 flex-wrap max-w-[200px] mx-auto">
+          <span>Tauri</span> &middot; <span>React</span> &middot; <span>Tailwind CSS</span> &middot; <span>Radix UI</span>
+        </p>
+      </motion.div>
     </div>
   )
 }

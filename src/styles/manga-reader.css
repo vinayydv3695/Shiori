@@ -101,7 +101,7 @@
    ──────────────────────────────────────────────────────────── */
 .manga-topbar {
   position: fixed;
-  top: 16px;
+  top: calc(16px + env(safe-area-inset-top));
   left: 50%;
   transform: translateX(-50%) translateY(0);
   width: auto;
@@ -122,7 +122,7 @@
 }
 
 .manga-topbar--hidden {
-  transform: translateX(-50%) translateY(-150%);
+  transform: translateX(-50%) translateY(calc(-150% - env(safe-area-inset-top)));
   opacity: 0;
   pointer-events: none;
 }

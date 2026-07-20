@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/
 
 interface ActivityHeatmapProps {
   data: DailyReadingStats[];
+  currentStreak?: number;
 }
 
 // Generate the last 365 days
@@ -21,7 +22,7 @@ function generateDateRange() {
   return dates;
 }
 
-export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
+export function ActivityHeatmap({ data, currentStreak = 0 }: ActivityHeatmapProps) {
   const dataMap = useMemo(() => {
     const map = new Map<string, number>();
     data.forEach(d => {
@@ -57,6 +58,29 @@ export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
     const pad = (n: number) => n.toString().padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   };
+
+  const streakDates = useMemo(() => {
+    const set = new Set<string>();
+    if (currentStreak <= 0) return set;
+    
+    // Find the end of the streak (today or yesterday if today is 0)
+    const todayStr = formatDate(new Date());
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = formatDate(yesterday);
+
+    let endDate = new Date();
+    if ((dataMap.get(todayStr) || 0) === 0 && (dataMap.get(yesterdayStr) || 0) > 0) {
+      endDate = yesterday;
+    }
+
+    for (let i = 0; i < currentStreak; i++) {
+      const d = new Date(endDate);
+      d.setDate(d.getDate() - i);
+      set.add(formatDate(d));
+    }
+    return set;
+  }, [currentStreak, dataMap]);
 
   const formatTooltip = (seconds: number, d: Date) => {
     const mins = Math.floor(seconds / 60);
@@ -106,14 +130,16 @@ export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
                 const dateStr = formatDate(day);
                 const seconds = dataMap.get(dateStr) || 0;
                 const level = getIntensityLevel(seconds);
+                const isStreak = streakDates.has(dateStr);
                 
                 return (
                   <Tooltip key={dIdx}>
                     <TooltipTrigger asChild>
                       <div
                         className={cn(
-                          "w-3.5 h-3.5 rounded-sm transition-colors hover:ring-2 ring-ring ring-offset-1 ring-offset-background cursor-pointer",
-                          getIntensityClass(level)
+                          "w-3.5 h-3.5 rounded-sm transition-all cursor-pointer relative",
+                          getIntensityClass(level),
+                          isStreak ? "ring-1 ring-orange-500/80 shadow-[0_0_8px_rgba(249,115,22,0.4)] z-10" : "hover:ring-2 ring-ring ring-offset-1 ring-offset-background"
                         )}
                       />
                     </TooltipTrigger>

@@ -405,10 +405,11 @@ pub fn get_reading_goal(state: State<AppState>) -> Result<ReadingGoal> {
 #[tauri::command]
 pub fn update_reading_goal(
     daily_minutes_target: i32,
+    yearly_books_target: Option<i32>,
     state: State<AppState>,
 ) -> Result<ReadingGoal> {
     let conn = state.db.get_connection()?;
-    ReaderService::update_reading_goal(&conn, daily_minutes_target)
+    ReaderService::update_reading_goal(&conn, daily_minutes_target, yearly_books_target)
 }
 
 #[tauri::command]

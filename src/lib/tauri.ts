@@ -360,11 +360,12 @@ export interface DailyReadingStats {
 }
 
 export interface ReadingGoal {
-  id?: number
-  daily_minutes_target: number
-  is_active: boolean
-  created_at: string
-  updated_at: string
+    id?: number
+    daily_minutes_target: number
+    yearly_books_target?: number
+    is_active: boolean
+    created_at: string
+    updated_at: string
 }
 
 export interface ReadingStreak {
@@ -1385,8 +1386,8 @@ export const api = {
     return invoke("get_reading_goal")
   },
 
-  async updateReadingGoal(dailyMinutesTarget: number): Promise<ReadingGoal> {
-    return invoke("update_reading_goal", { dailyMinutesTarget })
+  async updateReadingGoal(dailyMinutesTarget: number, yearlyBooksTarget?: number): Promise<ReadingGoal> {
+    return invoke("update_reading_goal", { dailyMinutesTarget, yearlyBooksTarget })
   },
 
   async getTodayReadingTime(): Promise<number> {

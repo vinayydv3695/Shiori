@@ -859,7 +859,7 @@ impl ReaderService {
 
     pub fn get_reading_goal(conn: &Connection) -> Result<ReadingGoal> {
         let result = conn.query_row(
-            "SELECT id, daily_minutes_target, is_active, created_at, updated_at
+            "SELECT id, daily_minutes_target, is_active, created_at, updated_at, yearly_books_target
              FROM reading_goals WHERE is_active = 1 ORDER BY id DESC LIMIT 1",
             [],
             |row| {
@@ -869,6 +869,7 @@ impl ReaderService {
                     is_active: row.get::<_, i32>(2)? != 0,
                     created_at: row.get(3)?,
                     updated_at: row.get(4)?,
+                    yearly_books_target: row.get(5).unwrap_or(None),
                 })
             },
         );
@@ -878,6 +879,7 @@ impl ReaderService {
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(ReadingGoal {
                 id: None,
                 daily_minutes_target: 30,
+                yearly_books_target: None,
                 is_active: true,
                 created_at: Utc::now().to_rfc3339(),
                 updated_at: Utc::now().to_rfc3339(),
@@ -889,19 +891,20 @@ impl ReaderService {
     pub fn update_reading_goal(
         conn: &Connection,
         daily_minutes_target: i32,
+        yearly_books_target: Option<i32>,
     ) -> Result<ReadingGoal> {
         let now = Utc::now().to_rfc3339();
-
+        
         let updated = conn.execute(
-            "UPDATE reading_goals SET daily_minutes_target = ?1, updated_at = ?2 WHERE is_active = 1",
-            params![daily_minutes_target, now],
+            "UPDATE reading_goals SET daily_minutes_target = ?1, yearly_books_target = ?2, updated_at = ?3 WHERE is_active = 1",
+            params![daily_minutes_target, yearly_books_target, now],
         )?;
 
         if updated == 0 {
             conn.execute(
-                "INSERT INTO reading_goals (daily_minutes_target, is_active, created_at, updated_at)
-                 VALUES (?1, 1, ?2, ?3)",
-                params![daily_minutes_target, now, now],
+                "INSERT INTO reading_goals (daily_minutes_target, yearly_books_target, is_active, created_at, updated_at)
+                 VALUES (?1, ?2, 1, ?3, ?3)",
+                params![daily_minutes_target, yearly_books_target, now],
             )?;
         }
 

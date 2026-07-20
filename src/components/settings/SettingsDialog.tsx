@@ -2,7 +2,7 @@ import { Switch } from '@/components/ui/switch'
 import { useState, useEffect, useMemo } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as Tabs from '@radix-ui/react-tabs'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, Variants } from 'framer-motion'
 import { open } from '@tauri-apps/plugin-shell'
 
 import {
@@ -374,7 +374,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   )
 }
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 15 },
   show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
 }

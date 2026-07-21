@@ -56,3 +56,25 @@ pub fn get_fullscreen_state<R: Runtime>(app: AppHandle<R>) -> Result<bool, Strin
         .ok_or_else(|| "Main window not found".to_string())?;
     window.is_fullscreen().map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub async fn download_apk(url: String, app_handle: tauri::AppHandle) -> Result<String, String> {
+    use std::io::Write;
+    let local_data_dir = app_handle.path().app_local_data_dir().map_err(|e| e.to_string())?;
+    let apk_path = local_data_dir.join("update.apk");
+    
+    // Fetch via reqwest
+    let response = reqwest::get(&url).await.map_err(|e| format!("Failed to download: {}", e))?;
+    let bytes = response.bytes().await.map_err(|e| format!("Failed to read bytes: {}", e))?;
+    
+    // Delete if exists
+    if apk_path.exists() {
+        let _ = std::fs::remove_file(&apk_path);
+    }
+    
+    // Write bytes to file
+    let mut file = std::fs::File::create(&apk_path).map_err(|e| format!("Failed to create file: {}", e))?;
+    file.write_all(&bytes).map_err(|e| format!("Failed to write file: {}", e))?;
+    
+    Ok(apk_path.to_string_lossy().to_string())
+}

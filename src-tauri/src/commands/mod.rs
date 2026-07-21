@@ -301,8 +301,9 @@ macro_rules! generate_shiori_handlers {
             commands::discovery::get_local_ips,
             commands::discovery::generate_pairing_qr,
             // Window management
-            commands::window::toggle_fullscreen,
-            commands::window::get_fullscreen_state,
+            crate::commands::window::toggle_fullscreen,
+            crate::commands::window::get_fullscreen_state,
+            crate::commands::window::download_apk,
             // AniList
             commands::anilist::start_anilist_login,
             commands::anilist::exchange_android_anilist_code,

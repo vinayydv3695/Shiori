@@ -95,41 +95,15 @@ export function UpdateDialog() {
 
       if (isAndroid) {
         if (updateInfo.apkUrl) {
+          const { invoke } = await import('@tauri-apps/api/core');
           const { checkPermissions, requestPermissions, install } = await import('@kingsword/tauri-plugin-android-package-install');
-          const { fetch } = await import('@tauri-apps/plugin-http');
-          const { BaseDirectory, writeFile, remove } = await import('@tauri-apps/plugin-fs');
-          const { appLocalDataDir } = await import('@tauri-apps/api/path');
-
+          
           const perm = await checkPermissions();
           if (perm !== 'granted') {
             await requestPermissions();
           }
 
-          const response = await fetch(updateInfo.apkUrl, {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/vnd.android.package-archive'
-            }
-          });
-
-          if (!response.ok) {
-            throw new Error(`Failed to download APK: ${response.statusText}`);
-          }
-
-          const arrayBuffer = await response.arrayBuffer();
-          const apkName = 'update.apk';
-          
-          try {
-            await remove(apkName, { baseDir: BaseDirectory.AppLocalData });
-          } catch (e) {
-            // Ignore if file doesn't exist
-          }
-
-          await writeFile(apkName, new Uint8Array(arrayBuffer), { baseDir: BaseDirectory.AppLocalData });
-          
-          const localDataDir = await appLocalDataDir();
-          const fullApkPath = `${localDataDir}/${apkName}`;
-          
+          const fullApkPath = await invoke<string>('download_apk', { url: updateInfo.apkUrl });
           await install(fullApkPath);
           setIsUpdateDialogOpen(false);
         } else {
@@ -150,6 +124,12 @@ export function UpdateDialog() {
       setIsUpdating(false);
     }
   };
+
+  const cleanNotes = React.useMemo(() => {
+    if (!updateInfo?.notes) return 'No release notes provided.';
+    const parts = updateInfo.notes.split(/Download the appropriate installer for your platform:/i);
+    return parts[0].trim();
+  }, [updateInfo?.notes]);
 
   return (
     <AnimatePresence>
@@ -199,7 +179,7 @@ export function UpdateDialog() {
                 {/* Release Notes Box */}
                 <motion.div variants={itemVariants} className="mt-8 flex-1 min-h-0 relative">
                   <div className="absolute -inset-1 bg-gradient-to-b from-primary/10 to-transparent rounded-2xl pointer-events-none blur-sm" />
-                  <div className="relative bg-background/60 border border-border/40 rounded-xl overflow-hidden backdrop-blur-md h-[320px] shadow-inner flex flex-col">
+                  <div className="relative bg-background/60 border border-border/40 rounded-xl overflow-hidden backdrop-blur-md max-h-[40vh] sm:h-[320px] shadow-inner flex flex-col">
                     <div className="px-5 py-3.5 border-b border-border/40 bg-secondary/20 flex items-center gap-2">
                       <Zap className="w-4 h-4 text-amber-500" />
                       <span className="text-sm font-bold tracking-wide text-foreground/90 uppercase">What's New</span>
@@ -244,7 +224,7 @@ export function UpdateDialog() {
                               td: ({node, ...props}) => <td className="p-3 border-b border-border/20 text-muted-foreground last:border-b-0" {...props} />,
                             }}
                           >
-                            {updateInfo.notes}
+                            {cleanNotes}
                           </ReactMarkdown>
                         </div>
                       </div>

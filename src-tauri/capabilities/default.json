@@ -23,6 +23,7 @@
     "core:window:allow-is-maximized",
     "tts:default",
     "fs:allow-write-text-file",
-    "fs:write-all"
+    "fs:write-all",
+    "http:default"
   ]
 }

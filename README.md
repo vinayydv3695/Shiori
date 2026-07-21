@@ -42,27 +42,27 @@
 
 | Home | Library |
 |---|---|
-| ![Home](https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/home.png) | ![Library](https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/library.png) |
+| ![Home](assets/home.png) | ![Library](assets/library.png) |
 
 | Book Reader | Manga Reader |
 |---|---|
-| ![Book Reader](https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/bookreader.png) | ![Manga Reader](https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/mangareader.png) |
+| ![Book Reader](assets/bookreader.png) | ![Manga Reader](assets/mangareader.png) |
 
 | Online Books | Online Manga |
 |---|---|
-| ![Online Books](https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/onlinebooks.png) | ![Online Manga](https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/onlinemangacard.png) |
+| ![Online Books](assets/onlinebooks.png) | ![Online Manga](assets/onlinemangacard.png) |
 
 | RSS Feed | Torbox |
 |---|---|
-| ![RSS Feed](https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/rssfeed.png) | ![Torbox](https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/torbox.png) |
+| ![RSS Feed](assets/rssfeed.png) | ![Torbox](assets/torbox.png) |
 
 | AniList | Series View |
 |---|---|
-| ![AniList](https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/anilist.png) | ![Series View](https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/seriesview.png) |
+| ![AniList](assets/anilist.png) | ![Series View](assets/seriesview.png) |
 
 | OLED Midnight Theme | Sepia Theme |
 |---|---|
-| ![OLED Midnight](https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/oledmidniht.png) | ![Sepia](https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/sepia.png) |
+| ![OLED Midnight](assets/oledmidniht.png) | ![Sepia](assets/sepia.png) |
 
 </details>
 
@@ -72,27 +72,27 @@
 <br>
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/android-screenshots/home.jpg" width="24%" />
-  <img src="https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/android-screenshots/library.jpg" width="24%" />
-  <img src="https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/android-screenshots/seriesview.jpg" width="24%" />
-  <img src="https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/android-screenshots/mangareading.jpg" width="24%" />
+  <img src="assets/home.jpg" width="24%" />
+  <img src="assets/library.jpg" width="24%" />
+  <img src="assets/seriesview.jpg" width="24%" />
+  <img src="assets/mangareading.jpg" width="24%" />
 </div>
 
 <br>
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/android-screenshots/bookreading.jpg" width="24%" />
-  <img src="https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/android-screenshots/onlinebook.jpg" width="24%" />
-  <img src="https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/android-screenshots/onlinemanga.jpg" width="24%" />
-  <img src="https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/android-screenshots/rssfeed.jpg" width="24%" />
+  <img src="assets/bookreading.jpg" width="24%" />
+  <img src="assets/onlinebook.jpg" width="24%" />
+  <img src="assets/onlinemanga.jpg" width="24%" />
+  <img src="assets/rssfeed.jpg" width="24%" />
 </div>
 
 <br>
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/android-screenshots/anilist.jpg" width="24%" />
-  <img src="https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/android-screenshots/anilsithomepage.jpg" width="24%" />
-  <img src="https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/android-screenshots/annonations.jpg" width="24%" />
+  <img src="assets/anilist.jpg" width="24%" />
+  <img src="assets/anilsithomepage.jpg" width="24%" />
+  <img src="assets/annonations.jpg" width="24%" />
 </div>
 
 </details>

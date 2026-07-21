@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useRssStore, RssFeed } from '../../store/rssStore';
-import { Plus, Trash2, Edit2, RefreshCw, Power, Clock, AlertCircle, BookOpen, Rss, X } from 'lucide-react';
+import { Plus, Trash2, Edit2, RefreshCw, Power, Clock, AlertCircle, BookOpen, Rss, X, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/store/toastStore';
 
 import { DISCOVER_FEEDS } from './DiscoverFeeds';
@@ -417,6 +417,15 @@ const RSSFeedManager: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
       <div className="bg-surface-1 border-b border-border px-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)] pb-4 md:px-6 md:pt-4 md:pb-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
           <div className="flex items-center justify-between min-w-0">
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="flex md:hidden items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0 mr-2"
+                title="Back to articles"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+            )}
             <div className="flex items-center gap-2 md:gap-3 min-w-0">
               <Rss className="w-5 h-5 md:w-6 md:h-6 shrink-0 text-orange-500" />
               <h1 className="text-lg md:text-2xl font-bold text-foreground truncate">
@@ -426,15 +435,6 @@ const RSSFeedManager: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
                 {feeds.length} feeds
               </span>
             </div>
-            {onClose && (
-              <button
-                onClick={onClose}
-                className="flex md:hidden items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0 ml-2"
-                title="Back to library"
-              >
-                <X className="w-4 h-4 md:w-5 md:h-5" />
-              </button>
-            )}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -448,7 +448,7 @@ const RSSFeedManager: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
               <button
                 onClick={onClose}
                 className="hidden md:flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
-                title="Back to library"
+                title="Back to articles"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -458,6 +458,15 @@ const RSSFeedManager: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
 
         {/* Actions Bar */}
         <div className="flex gap-2 md:gap-3 overflow-x-auto pb-1 scrollbar-none">
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="shrink-0 flex items-center justify-center gap-2 px-3 md:px-4 py-2 text-xs md:text-sm font-medium text-primary bg-primary/10 border border-primary/20 rounded-lg hover:bg-primary/20 transition-colors"
+            >
+              <BookOpen className="w-3.5 h-3.5 md:w-4 md:h-4" />
+              View Articles
+            </button>
+          )}
           <button
             onClick={handleUpdateAll}
             disabled={isUpdatingAll || feeds.length === 0}

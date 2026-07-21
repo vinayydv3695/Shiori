@@ -69,16 +69,52 @@ export function CompanionDiscovery() {
     }
   }, [activeTab]);
 
+  const [qrError, setQrError] = useState<string | null>(null);
+  const [cameraReady, setCameraReady] = useState(false);
+
   useEffect(() => {
     let scanner: Html5QrcodeScanner | null = null;
-    if (activeTab === 'qr') {
+    let cancelled = false;
+
+    if (activeTab !== 'qr') {
+      setQrError(null);
+      setCameraReady(false);
+      return;
+    }
+
+    const initScanner = async () => {
+      setQrError(null);
+      setCameraReady(false);
+
+      // Step 1: explicitly request camera permission via getUserMedia
+      // This triggers the Android WebView's onPermissionRequest → native permission dialog
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        // Got permission — stop the stream immediately so html5-qrcode can use the camera
+        stream.getTracks().forEach(t => t.stop());
+      } catch (err: any) {
+        if (!cancelled) {
+          if (err.name === 'NotAllowedError') {
+            setQrError('Camera permission was denied. Please grant camera access in your device Settings → Apps → Shiori → Permissions.');
+          } else if (err.name === 'NotFoundError') {
+            setQrError('No camera found on this device.');
+          } else {
+            setQrError(`Camera error: ${err.message || err}`);
+          }
+        }
+        return;
+      }
+
+      if (cancelled) return;
+      setCameraReady(true);
+
+      // Step 2: Initialize the QR scanner now that we have permission
       scanner = new Html5QrcodeScanner(
         "qr-reader",
         { fps: 10, qrbox: { width: 250, height: 250 } },
         false
       );
       scanner.render((decodedText) => {
-        // Expected format: shiori://companion?ip=192.168.1.100&port=8080
         try {
           if (decodedText.startsWith('shiori://companion')) {
             const url = new URL(decodedText);
@@ -88,18 +124,21 @@ export function CompanionDiscovery() {
             if (ip && token) {
               connectToInstance(ip, port, token);
               if (scanner) scanner.clear();
-              setActiveTab('auto'); // switch back
+              setActiveTab('auto');
             }
           }
         } catch (e) {
           console.error("Invalid QR code payload", e);
         }
-      }, (error) => {
-        // Ignore errors from missing frames
+      }, (_error) => {
+        // Ignore frame-level scan errors
       });
-    }
+    };
+
+    void initScanner();
 
     return () => {
+      cancelled = true;
       if (scanner) {
         scanner.clear().catch(console.error);
       }
@@ -184,7 +223,37 @@ export function CompanionDiscovery() {
             <p className="text-sm text-muted-foreground mb-4">
               Scan the QR code displayed in your Desktop App's Settings.
             </p>
-            <div className="overflow-hidden rounded-lg border bg-black/5" id="qr-reader" style={{ width: '100%', minHeight: '250px' }}></div>
+
+            {qrError && (
+              <div className="p-4 rounded-lg border border-destructive/30 bg-destructive/10 text-sm text-destructive space-y-3">
+                <p>{qrError}</p>
+                <div className="flex flex-col gap-2">
+                  <Button size="sm" variant="outline" onClick={() => { setActiveTab('auto'); setTimeout(() => setActiveTab('qr'), 50); }}>
+                    <RefreshCw className="w-4 h-4 mr-2" /> Retry Camera
+                  </Button>
+                  <button
+                    className="text-xs text-muted-foreground underline"
+                    onClick={() => {
+                      // Open app settings on Android
+                      try { invoke('plugin:android-saf|open_app_settings'); } catch { /* ignore */ }
+                    }}
+                  >
+                    Open App Settings
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!qrError && !cameraReady && (
+              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                <RefreshCw className="w-6 h-6 animate-spin mb-3 opacity-50" />
+                <p className="text-sm">Requesting camera permission…</p>
+              </div>
+            )}
+
+            {cameraReady && (
+              <div className="overflow-hidden rounded-lg border bg-black/5" id="qr-reader" style={{ width: '100%', minHeight: '250px' }}></div>
+            )}
           </div>
         )}
 

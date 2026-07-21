@@ -655,6 +655,7 @@ export const SeriesView = memo(function SeriesView({
               <div className="relative flex-1 md:w-64 group">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                 <Input 
+                  type="search"
                   placeholder="Search volumes..." 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -664,7 +665,9 @@ export const SeriesView = memo(function SeriesView({
               <form onSubmit={handleJumpSubmit} className="relative flex-shrink-0 w-24 md:w-28 group">
                 <Input 
                   id="chapter-jump-input"
-                  placeholder="Jump..." 
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="Vol #" 
                   value={jumpInput}
                   onChange={(e) => setJumpInput(e.target.value)}
                   className="h-10 bg-background/50 border-border/50 focus-visible:ring-primary/20 rounded-full text-center transition-all"
@@ -672,7 +675,7 @@ export const SeriesView = memo(function SeriesView({
               </form>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-center md:justify-end pb-1 md:pb-0">
+            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-center md:justify-end pb-1 md:pb-0">
               <div className="flex items-center bg-background/50 border border-border/50 rounded-full p-1 shadow-inner shrink-0">
                 <button onClick={() => setFilterStatus('all')} className={cn("px-3 md:px-4 py-1.5 text-xs font-bold rounded-full transition-all duration-200", filterStatus === 'all' ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:text-foreground hover:bg-muted/50")}>All</button>
                 <button onClick={() => setFilterStatus('unread')} className={cn("px-3 md:px-4 py-1.5 text-xs font-bold rounded-full transition-all duration-200", filterStatus === 'unread' ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:text-foreground hover:bg-muted/50")}>Unread</button>
@@ -680,15 +683,15 @@ export const SeriesView = memo(function SeriesView({
               </div>
 
               <div className="flex items-center gap-1 bg-background/50 border border-border/50 rounded-full p-1 shadow-inner shrink-0">
-                <Button variant="ghost" size="icon" className={cn("h-8 w-8 rounded-full hover:bg-muted", sortOrder === 'chapter_asc' && "bg-muted text-foreground")} onClick={() => setSortOrder('chapter_asc')} title="Sort Ascending">
+                <button onClick={() => setSortOrder('chapter_asc')} className={cn("p-2 rounded-full transition-all duration-200", sortOrder === 'chapter_asc' ? "bg-muted text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")} title="Sort Ascending">
                   <SortAsc className="w-4 h-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className={cn("h-8 w-8 rounded-full hover:bg-muted", sortOrder === 'chapter_desc' && "bg-muted text-foreground")} onClick={() => setSortOrder('chapter_desc')} title="Sort Descending">
+                </button>
+                <button onClick={() => setSortOrder('chapter_desc')} className={cn("p-2 rounded-full transition-all duration-200", sortOrder === 'chapter_desc' ? "bg-muted text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")} title="Sort Descending">
                   <SortDesc className="w-4 h-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className={cn("h-8 w-8 rounded-full hover:bg-muted", sortOrder === 'date_added' && "bg-muted text-foreground")} onClick={() => setSortOrder('date_added')} title="Sort by Date Added">
+                </button>
+                <button onClick={() => setSortOrder('date_added')} className={cn("p-2 rounded-full transition-all duration-200", sortOrder === 'date_added' ? "bg-muted text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")} title="Sort by Date Added">
                   <Clock className="w-4 h-4" />
-                </Button>
+                </button>
               </div>
 
               <div className="h-6 w-px bg-border/50 mx-1 hidden md:block shrink-0" />

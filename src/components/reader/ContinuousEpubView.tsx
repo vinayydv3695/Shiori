@@ -14,6 +14,7 @@ interface ContinuousEpubViewProps {
   isFocusMode: boolean;
   searchTerm?: string | null;
   scrollRef?: React.RefObject<HTMLDivElement | null>;
+  contentRef?: React.RefObject<HTMLDivElement | null>;
   onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
 }
 
@@ -32,6 +33,7 @@ export function ContinuousEpubView({
   isFocusMode,
   searchTerm,
   scrollRef,
+  contentRef,
   onScroll,
 }: ContinuousEpubViewProps) {
   const [chapters, setChapters] = useState<LoadedChapter[]>([]);
@@ -242,7 +244,10 @@ export function ContinuousEpubView({
       style={{ overflowY: 'auto', overflowAnchor: 'auto', height: '100%' }}
       onScroll={onScroll}
     >
-      <div className={`premium-content-container premium-content-container--${widthClass}`}>
+      <div 
+        ref={contentRef}
+        className={`premium-content-container premium-content-container--${widthClass}`}
+      >
         
         {chapters.map((ch, i) => (
           <React.Fragment key={ch.index}>

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { api, type Book, type ReadingProgress } from '@/lib/tauri';
+import { api, isAndroid, type Book, type ReadingProgress } from '@/lib/tauri';
 import { useUIStore } from '@/store/uiStore';
 import { useReaderStore, type ResumeTarget } from '@/store/readerStore';
 import { useToastStore } from '@/store/toastStore';
@@ -234,7 +234,15 @@ export function useBookOpen() {
           try {
             const progress = await api.getReadingProgress(bookId);
             if (progress && hasMeaningfulProgress(progress)) {
-              // Show resume dialog if there is meaningful progress
+              if (isAndroid) {
+                // On Android, skip the resume dialog (touch events don't work
+                // reliably with Radix portals in WebView) and auto-resume directly.
+                useReaderStore.getState().setStartFromBeginning(false);
+                setExplicitResumeTarget(deriveResumeTarget(bookId, progress));
+                openBook(bookId, filePath, format);
+                return bookId;
+              }
+              // Desktop/web: Show resume dialog for user to choose
               setPendingResume({ bookId, bookTitle: book.title, filePath, format, progress });
               setShowResumeDialog(true);
               return bookId;

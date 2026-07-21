@@ -1131,6 +1131,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
           isFocusMode={isFocusMode}
           searchTerm={searchHighlight}
           scrollRef={canvasRef}
+          contentRef={contentContainerRef}
           onScroll={handleScroll as any}
         />
       ) : (

@@ -42,26 +42,43 @@ pub async fn sync_with_desktop(
     token: String,
     _sync_service: State<'_, Arc<Mutex<SyncService>>>,
 ) -> Result<String, String> {
-    // 1. Get local last_sync_time from settings
-    // 2. Fetch delta from host
-    // 3. Apply delta to local DB
-    // 4. Fetch local delta since last_sync_time
-    // 5. Push to host
-    // For now we will just return a placeholder string.
-    
-    // In the real MVP, we just do a quick reqwest to the desktop.
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
     let url = format!("http://{}:{}/sync/pair", ip, port);
     
     let resp = client.post(&url)
         .json(&serde_json::json!({ "token": token }))
         .send()
         .await
-        .map_err(|e| format!("Failed to connect: {}", e))?;
+        .map_err(|e| {
+            if e.is_connect() {
+                format!(
+                    "Could not reach desktop at {}:{}. Make sure:\n\
+                     • The Shiori desktop app is running\n\
+                     • \"Companion Mode\" is enabled in desktop Settings\n\
+                     • Both devices are on the same Wi-Fi network\n\
+                     • Your desktop firewall allows port {}",
+                    ip, port, port
+                )
+            } else if e.is_timeout() {
+                format!(
+                    "Connection timed out trying to reach {}:{}. \
+                     Check that your IP address is correct and both devices are on the same network.",
+                    ip, port
+                )
+            } else {
+                format!("Connection failed: {}", e)
+            }
+        })?;
         
     if resp.status().is_success() {
         Ok("Synced successfully".to_string())
+    } else if resp.status() == reqwest::StatusCode::UNAUTHORIZED {
+        Err("Invalid pairing token. Please check the token shown in your desktop Settings.".to_string())
     } else {
-        Err("Failed to pair with desktop. Invalid token?".to_string())
+        Err(format!("Desktop rejected the request (HTTP {}). Try rotating the pairing token.", resp.status().as_u16()))
     }
 }

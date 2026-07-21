@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useRssStore, RssFeed } from '../../store/rssStore';
-import { Plus, Trash2, Edit2, RefreshCw, Power, Clock, AlertCircle, BookOpen, Rss, X, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, Edit2, RefreshCw, Power, Clock, AlertCircle, BookOpen, Rss, X, ArrowLeft, Search } from 'lucide-react';
 import { useToast } from '@/store/toastStore';
 
 import { DISCOVER_FEEDS } from './DiscoverFeeds';
@@ -17,6 +17,7 @@ const AddFeedDialog: React.FC<AddFeedDialogProps> = ({ isOpen, onClose, onAdd })
   const [checkInterval, setCheckInterval] = useState(6);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [discoverSearch, setDiscoverSearch] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,46 +146,69 @@ const AddFeedDialog: React.FC<AddFeedDialogProps> = ({ isOpen, onClose, onAdd })
               </div>
             </form>
           ) : (
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-6 flex flex-col">
+              <div className="relative group shrink-0">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                <input
+                  type="text"
+                  placeholder="Search discover feeds..."
+                  value={discoverSearch}
+                  onChange={(e) => setDiscoverSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 text-sm bg-secondary/50 border border-transparent focus:bg-background focus:border-primary/50 focus:ring-2 focus:ring-primary/20 rounded-lg outline-none transition-all"
+                />
+              </div>
+
               {error && (
-                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive mb-4">
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive shrink-0">
                   {error}
                 </div>
               )}
-              {DISCOVER_FEEDS.map((category) => (
-                <div key={category.category} className="space-y-3">
-                  <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">{category.category}</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {category.feeds.map((feed) => (
-                      <div key={feed.url} className="p-4 border border-border/60 rounded-lg bg-background hover:border-primary/50 transition-colors flex flex-col justify-between h-full gap-3">
-                        <div>
-                          <h4 className="font-semibold text-foreground mb-1 line-clamp-1">{feed.title}</h4>
-                          <p className="text-xs text-muted-foreground line-clamp-2">{feed.description}</p>
-                        </div>
-                        <button
-                          onClick={async () => {
-                            try {
-                              setIsSubmitting(true);
-                              setError(null);
-                              await onAdd(feed.url, 6);
-                              onClose();
-                            } catch (err) {
-                              setError(err instanceof Error ? err.message : String(err));
-                            } finally {
-                              setIsSubmitting(false);
-                            }
-                          }}
-                          disabled={isSubmitting}
-                          className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          Add Feed
-                        </button>
+
+              <div className="space-y-6">
+                {DISCOVER_FEEDS.map((category) => {
+                  const filteredFeeds = category.feeds.filter(feed => 
+                    feed.title.toLowerCase().includes(discoverSearch.toLowerCase()) || 
+                    feed.description.toLowerCase().includes(discoverSearch.toLowerCase())
+                  );
+                  
+                  if (filteredFeeds.length === 0) return null;
+
+                  return (
+                    <div key={category.category} className="space-y-3">
+                      <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">{category.category}</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {filteredFeeds.map((feed) => (
+                          <div key={feed.url} className="p-4 border border-border/60 rounded-lg bg-background hover:border-primary/50 transition-colors flex flex-col justify-between h-full gap-3">
+                            <div>
+                              <h4 className="font-semibold text-foreground mb-1 line-clamp-1">{feed.title}</h4>
+                              <p className="text-xs text-muted-foreground line-clamp-2">{feed.description}</p>
+                            </div>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  setIsSubmitting(true);
+                                  setError(null);
+                                  await onAdd(feed.url, 6);
+                                  onClose();
+                                } catch (err) {
+                                  setError(err instanceof Error ? err.message : String(err));
+                                } finally {
+                                  setIsSubmitting(false);
+                                }
+                              }}
+                              disabled={isSubmitting}
+                              className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              Add Feed
+                            </button>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>

@@ -152,7 +152,7 @@ export function OnlineMangaView() {
   const [results, setResults] = useState<MangaDexManga[]>([]);
   const [totalResults, setTotalResults] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [hasSearched, setHasSearched] = useState(Boolean(searchQuery.trim()));
+  const [hasSearched, setHasSearched] = useState(false);
   const selectedManga = useOnlineMangaBrowseStore(
     (state) => state.selectedManga,
   );
@@ -381,6 +381,15 @@ export function OnlineMangaView() {
     void loadBrowseData("recent");
     void loadBrowseData("top-rated");
   }, [activeSource?.id]); // Re-run when source ID changes
+
+  // Trigger search if we arrive with a pre-filled query (e.g. from AniList "Read Online")
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+    if (trimmed && !hasSearched && !isAnySearchLoading && (isMangaDexEnabled || activePluginSourceId)) {
+      void handleSearch(1, trimmed);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePluginSourceId, isMangaDexEnabled]);
 
   // Load advanced browse data when filters change
   useEffect(() => {

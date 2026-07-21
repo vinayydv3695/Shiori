@@ -1604,6 +1604,10 @@ select {
   transition: all var(--transition-fast);
 }
 
+.premium-settings-toggle + .premium-settings-toggle {
+  margin-top: var(--spacing-sm);
+}
+
 @media (hover: hover) {
   .premium-settings-toggle:hover  {
   background: color-mix(in srgb, var(--ui-focus) 10%, var(--bg-secondary));

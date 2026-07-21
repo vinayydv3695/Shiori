@@ -97,7 +97,7 @@ export function ViewRouter({
 
         {currentView === 'rss-feeds' && (
           <Suspense fallback={<LoadingSpinner className="py-24" />}>
-            <RSSFeedManager onClose={() => handleNavigate('library')} />
+            <RSSFeedManager onClose={() => handleNavigate('rss-articles')} />
           </Suspense>
         )}
 

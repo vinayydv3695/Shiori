@@ -13,6 +13,7 @@ import {
 import { useUIStore } from '@/store/uiStore';
 import { Settings } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-shell';
+import { isAndroid } from '@/lib/tauri';
 
 interface RSSArticleListProps {
   activeFeedId?: number | null;
@@ -98,7 +99,7 @@ export const RSSArticleList: React.FC<RSSArticleListProps> = ({ activeFeedId = n
   return (
     <div className="flex-1 flex flex-col h-full bg-background relative">
       {/* Header Controls */}
-      <div className="flex-none p-4 border-b border-border/40 bg-surface-1 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="flex-none p-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)] md:pt-4 border-b border-border/40 bg-surface-1 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <div className="relative flex-1 min-w-[150px] max-w-full md:max-w-[250px] group">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
@@ -314,18 +315,26 @@ export const RSSArticleList: React.FC<RSSArticleListProps> = ({ activeFeedId = n
       </div>
 
       {/* Full Article Reader overlay */}
-      {selectedArticle && (
-        <RSSArticleReader
-          article={selectedArticle}
-          onClose={() => {
-            setSelectedArticle(null);
-            if (!selectedArticle.is_read) {
-              markArticleRead(selectedArticle.id).catch(console.error);
-            }
-          }}
-          feedName={feeds.find(f => f.id === selectedArticle.feed_id)?.title ?? undefined}
-        />
-      )}
+      {selectedArticle && (() => {
+        const currentIndex = filteredArticles.findIndex(a => a.id === selectedArticle.id);
+        const handlePrev = currentIndex > 0 ? () => setSelectedArticle(filteredArticles[currentIndex - 1]) : undefined;
+        const handleNext = currentIndex < filteredArticles.length - 1 ? () => setSelectedArticle(filteredArticles[currentIndex + 1]) : undefined;
+
+        return (
+          <RSSArticleReader
+            article={selectedArticle}
+            onClose={() => {
+              setSelectedArticle(null);
+              if (!selectedArticle.is_read) {
+                markArticleRead(selectedArticle.id).catch(console.error);
+              }
+            }}
+            feedName={feeds.find(f => f.id === selectedArticle.feed_id)?.title ?? undefined}
+            onNext={handleNext}
+            onPrev={handlePrev}
+          />
+        );
+      })()}
     </div>
   );
 };

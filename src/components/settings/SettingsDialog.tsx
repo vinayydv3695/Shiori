@@ -135,6 +135,16 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   const updateGeneralSettings = usePreferencesStore((state) => state.updateGeneralSettings)
   const loadPreferences = usePreferencesStore((state) => state.loadPreferences)
 
+  useEffect(() => {
+    if (!open) {
+      setTimeout(() => {
+        setActiveTab('general')
+        setMobileView('root')
+        setSearchQuery('')
+      }, 300)
+    }
+  }, [open])
+
   const matchingTabs = useMemo(() => {
     if (!searchQuery.trim()) return null
     const query = searchQuery.toLowerCase()
@@ -192,9 +202,16 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-background/40 backdrop-blur-md z-50 transition-all duration-300" />
-        <Dialog.Content aria-describedby={undefined} className={cn(
-          "dialog-content settings-dialog fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.2)] w-[95vw] max-md:w-full max-w-5xl h-[90vh] max-md:h-[100dvh] max-md:rounded-none max-md:border-none z-50 flex flex-col overflow-hidden",
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-background/40 backdrop-blur-md z-[100] transition-all duration-300" />
+        <Dialog.Content 
+          aria-describedby={undefined} 
+          onOpenAutoFocus={(e) => {
+            if (isMobile) {
+              e.preventDefault();
+            }
+          }}
+          className={cn(
+          "dialog-content settings-dialog fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.2)] w-[95vw] max-md:w-full max-w-5xl h-[90vh] max-md:h-[100dvh] max-md:rounded-none max-md:border-none z-[100] flex flex-col overflow-hidden",
           preferences?.transparentSettings ?? false ? "bg-background/80 backdrop-blur-2xl" : "bg-background"
         )}>
           <div className="flex items-center justify-between p-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)] md:p-6 border-b border-border gap-3">

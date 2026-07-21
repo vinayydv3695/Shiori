@@ -53,53 +53,30 @@ export function BottomNav({
       }}
     >
       <NavItem
-        icon={<Home className="w-[22px] h-[22px]" />}
+        icon={<Home className="w-[26px] h-[26px]" />}
         label="Home"
         isActive={currentView === 'home'}
         onClick={() => onNavigateToView('home')}
       />
       <NavItem
-        icon={<Library className="w-[22px] h-[22px]" />}
+        icon={<Library className="w-[26px] h-[26px]" />}
         label="Library"
         isActive={currentView === 'library'}
         onClick={() => onNavigateToView('library')}
       />
       <NavItem
-        icon={<Compass className="w-[22px] h-[22px]" />}
+        icon={<Compass className="w-[26px] h-[26px]" />}
         label="Browse"
         isActive={currentView === 'online-books' || currentView === 'online-manga'}
         onClick={() => {
           onNavigateToView(preferredContentType === 'manga' ? 'online-manga' : 'online-books');
         }}
       />
-      {preferredContentType === 'books' ? (
-        <NavItem
-          icon={<Highlighter className="w-[22px] h-[22px]" />}
-          label="Highlights"
-          isActive={currentView === 'annotations'}
-          onClick={() => onNavigateToView('annotations')}
-        />
-      ) : hasTorboxKey ? (
-        <NavItem
-          icon={<TorboxIcon className="w-[22px] h-[22px]" />}
-          label="Torbox"
-          isActive={currentView.startsWith('torbox')}
-          onClick={() => onNavigateToView('torbox-discover')}
-        />
-      ) : (
-        <NavItem
-          icon={<AniListIcon className="w-[22px] h-[22px]" />}
-          label="AniList"
-          isActive={currentView === 'anilist'}
-          onClick={() => onNavigateToView('anilist')}
-        />
-      )}
-
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button className="flex flex-col items-center justify-center w-full h-full gap-1 text-muted-foreground hover:text-foreground transition-all duration-300 active:scale-95">
-            <Menu className="w-[22px] h-[22px]" />
-            <span className="text-[10px] font-medium hidden sm:block">More</span>
+            <Menu className="w-[26px] h-[26px]" />
+            <span className="text-[11px] font-medium hidden sm:block">More</span>
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent 
@@ -143,29 +120,27 @@ export function BottomNav({
 
           {preferredContentType !== 'books' && (
             <>
-              {hasTorboxKey ? (
-                <DropdownMenuItem asChild onClick={() => onNavigateToView('anilist')}>
-                  <motion.div variants={itemVariants} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
-                    <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
-                      <AniListIcon className="w-[18px] h-[18px]" />
-                    </div>
-                    <span className="text-base font-medium">AniList</span>
-                  </motion.div>
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem asChild onClick={() => onNavigateToView('torbox-discover')}>
-                  <motion.div variants={itemVariants} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
-                    <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
-                      <TorboxIcon className="w-[18px] h-[18px]" />
-                    </div>
-                    <span className="text-base font-medium">Torbox</span>
-                  </motion.div>
-                </DropdownMenuItem>
-              )}
+              <DropdownMenuItem asChild onClick={() => onNavigateToView('anilist')}>
+                <motion.div variants={itemVariants} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
+                  <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
+                    <AniListIcon className="w-[18px] h-[18px]" />
+                  </div>
+                  <span className="text-base font-medium">AniList</span>
+                </motion.div>
+              </DropdownMenuItem>
+              
+              <DropdownMenuItem asChild onClick={() => onNavigateToView('torbox-discover')}>
+                <motion.div variants={itemVariants} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
+                  <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
+                    <TorboxIcon className="w-[18px] h-[18px]" />
+                  </div>
+                  <span className="text-base font-medium">Torbox</span>
+                </motion.div>
+              </DropdownMenuItem>
             </>
           )}
 
-          {preferredContentType === 'both' && (
+          {(preferredContentType === 'books' || preferredContentType === 'both') && (
             <DropdownMenuItem asChild onClick={() => onNavigateToView('annotations')}>
               <motion.div variants={itemVariants} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
                 <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
@@ -224,7 +199,7 @@ function NavItem({
       )}
     >
       <div className={cn(
-        "flex items-center justify-center w-12 h-7 rounded-full transition-all duration-300",
+        "flex items-center justify-center w-14 h-8 rounded-full transition-all duration-300",
         isActive ? "bg-primary/15" : "bg-transparent group-hover:bg-primary/5"
       )}>
         <div className={cn(
@@ -235,7 +210,7 @@ function NavItem({
         </div>
       </div>
       <span className={cn(
-        "text-[10px] font-semibold tracking-wide leading-none transition-all duration-300 hidden sm:block",
+        "text-[11px] font-semibold tracking-wide leading-none transition-all duration-300 hidden sm:block",
         isActive ? "opacity-100" : "opacity-70"
       )}>
         {label}

@@ -5,6 +5,8 @@ import { useState, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { cn } from '@/lib/utils';
 import { isAndroid } from '@/lib/tauri';
+
+export interface PreviewBook {
   title: string;
   author?: string;
   coverUrl?: string;

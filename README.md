@@ -238,7 +238,7 @@ Shiori is released under the [GPL-3.0 License](LICENSE).
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=vinayydv3695/Shiori&type=Date)](https://star-history.com/#vinayydv3695/Shiori&Date)
+[![Star History](https://img.shields.io/badge/Star_History-View_Chart-blue?style=for-the-badge&logo=github)](https://star-history.com/#vinayydv3695/Shiori&Date)
 
 ---
 

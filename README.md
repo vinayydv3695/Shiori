@@ -10,7 +10,7 @@
   
   <br />
 
-  [![License](https://img.shields.io/badge/LICENSE-GPL--3.0-red?style=for-the-badge)](docs/LICENSE)
+  [![License](https://img.shields.io/badge/LICENSE-GPL--3.0-red?style=for-the-badge)](LICENSE)
   [![Platform](https://img.shields.io/badge/PLATFORM-WINDOWS%20%7C%20MACOS%20%7C%20LINUX%20%7C%20ANDROID-0078D4?style=for-the-badge)](#installation)
   [![Framework](https://img.shields.io/badge/FRAMEWORK-TAURI%20%7C%20REACT-8A2BE2?style=for-the-badge)](#tech-stack)
   [![Build](https://img.shields.io/github/actions/workflow/status/vinayydv3695/Shiori/release.yml?branch=main&label=BUILD&style=for-the-badge&color=brightgreen)](https://github.com/vinayydv3695/Shiori/actions/workflows/release.yml)
@@ -182,7 +182,7 @@ If Shiori doesn't quite fit your needs, or if you're looking for a hosted web se
 
 ## License
 
-Shiori is released under the [GPL-3.0 License](docs/LICENSE).
+Shiori is released under the [GPL-3.0 License](LICENSE).
 
 ---
 

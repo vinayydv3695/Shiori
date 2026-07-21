@@ -1,9 +1,10 @@
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import { X, Download } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import { useState, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { cn } from '@/lib/utils';
-export interface PreviewBook {
+import { isAndroid } from '@/lib/tauri';
   title: string;
   author?: string;
   coverUrl?: string;
@@ -29,6 +30,56 @@ export function OnlineBookSidePanel({
 }: OnlineBookSidePanelProps) {
   const isMobile = useIsMobile();
   const dragControls = useDragControls();
+
+  const [proxyUrl, setProxyUrl] = useState<string | null>(null);
+  const [imgError, setImgError] = useState(false);
+  const [fallbackAttempted, setFallbackAttempted] = useState(false);
+
+  useEffect(() => {
+    // Reset state when book changes
+    setImgError(false);
+    setFallbackAttempted(false);
+  }, [book.downloadUrl]); // Assuming downloadUrl or id changes per book
+
+  useEffect(() => {
+    if (!book.coverUrl || imgError) {
+      if (imgError) setProxyUrl(null);
+      return;
+    }
+    
+    if (book.coverUrl.includes('libgen') || book.coverUrl.includes('libgen.li')) {
+      const proxyUri = isAndroid 
+        ? `http://shiori-proxy.localhost?source=libgen&url=${encodeURIComponent(book.coverUrl)}`
+        : `shiori-proxy://localhost?source=libgen&url=${encodeURIComponent(book.coverUrl)}`;
+      setProxyUrl(proxyUri);
+    } else if (isAndroid && (book.coverUrl.startsWith('http://') || book.coverUrl.startsWith('https://'))) {
+      setProxyUrl(`http://shiori-proxy.localhost?source=generic&url=${encodeURIComponent(book.coverUrl)}`);
+    } else {
+      setProxyUrl(book.coverUrl);
+    }
+  }, [book.coverUrl, imgError]);
+
+  useEffect(() => {
+    if (!book.coverUrl || !imgError || fallbackAttempted) return;
+    let active = true;
+    
+    setFallbackAttempted(true);
+
+    import('@/online-books/openlibrary/api').then(({ fetchCoverForBook }) => {
+      fetchCoverForBook(book.title, book.author).then(fallbackUrl => {
+        if (!active) return;
+        if (fallbackUrl) {
+          const proxyUri = isAndroid 
+            ? `http://shiori-proxy.localhost?source=generic&url=${encodeURIComponent(fallbackUrl)}`
+            : fallbackUrl;
+          setProxyUrl(proxyUri);
+          setImgError(false);
+        }
+      });
+    });
+
+    return () => { active = false; };
+  }, [book.coverUrl, imgError, book.title, book.author, fallbackAttempted]);
 
   return createPortal(
       <AnimatePresence>
@@ -116,8 +167,13 @@ export function OnlineBookSidePanel({
                 <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent opacity-30 pointer-events-none" />
                 
                 <div className="relative w-48 aspect-[2/3] rounded-xl overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.6)] border border-white/10 mb-6 shrink-0">
-                  {book.coverUrl ? (
-                    <img src={book.coverUrl} alt={book.title} className="w-full h-full object-cover" />
+                  {proxyUrl && !imgError ? (
+                    <img 
+                      src={proxyUrl} 
+                      alt={book.title} 
+                      className="w-full h-full object-cover" 
+                      onError={() => setImgError(true)}
+                    />
                   ) : (
                     <div className="w-full h-full bg-muted flex items-center justify-center p-4 text-center">
                       <span className="font-serif text-white/80">{book.title}</span>

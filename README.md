@@ -2,15 +2,20 @@
   <img src="public/logo.png" alt="Shiori Logo" width="180" />
 
   <h1>Shiori</h1>
-  <p><strong>Offline-first desktop library and reading platform for serious personal collections.</strong></p>
+  
+  <p>A modern offline-first library and reading platform for serious personal collections. Zero tracking, total control.</p>
 
-  [![Release](https://img.shields.io/github/v/release/vinayydv3695/Shiori?display_name=tag&style=flat-square)](https://github.com/vinayydv3695/Shiori/releases)
-  [![Build](https://img.shields.io/github/actions/workflow/status/vinayydv3695/Shiori/release.yml?branch=main&style=flat-square)](https://github.com/vinayydv3695/Shiori/actions/workflows/release.yml)
-  [![Downloads](https://img.shields.io/github/downloads/vinayydv3695/Shiori/total?style=flat-square)](https://github.com/vinayydv3695/Shiori/releases)
-  [![AUR](https://img.shields.io/aur/version/shiorii-bin?style=flat-square)](https://aur.archlinux.org/packages/shiorii-bin)
-  [![License](https://img.shields.io/github/license/vinayydv3695/Shiori?style=flat-square)](docs/LICENSE)
-  [![Stars](https://img.shields.io/github/stars/vinayydv3695/Shiori?style=social)](https://github.com/vinayydv3695/Shiori)
+  [![Discord](https://img.shields.io/badge/DISCORD-JOIN%20SERVER-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/nS7g56mab)
+  [![Downloads](https://img.shields.io/github/downloads/vinayydv3695/Shiori/total?style=flat-square&color=yellogreen&label=DOWNLOADS)](https://github.com/vinayydv3695/Shiori/releases)
+  
+  <br />
 
+  [![License](https://img.shields.io/badge/LICENSE-GPL--3.0-red?style=flat-square)](docs/LICENSE)
+  [![Platform](https://img.shields.io/badge/PLATFORM-WINDOWS%20%7C%20MACOS%20%7C%20LINUX%20%7C%20ANDROID-0078D4?style=flat-square)](#installation)
+  [![Framework](https://img.shields.io/badge/FRAMEWORK-TAURI%20%7C%20REACT-8A2BE2?style=flat-square)](#tech-stack)
+  [![Build](https://img.shields.io/github/actions/workflow/status/vinayydv3695/Shiori/release.yml?branch=main&label=BUILD&style=flat-square&color=brightgreen)](https://github.com/vinayydv3695/Shiori/actions/workflows/release.yml)
+
+  <br />
   <br />
 
   <p>
@@ -50,7 +55,7 @@
 - **<img src="https://api.iconify.design/lucide:search.svg?color=%233b82f6" width="20" height="20" align="text-bottom" /> Instant Search** — SQLite FTS5 full-text indexing across your entire library and annotations.
 - **<img src="https://api.iconify.design/lucide:book-open.svg?color=%233b82f6" width="20" height="20" align="text-bottom" /> Dedicated Readers** — Custom reading surfaces for books, manga, and comics with typography and layout controls.
 - **<img src="https://api.iconify.design/lucide:pen-tool.svg?color=%233b82f6" width="20" height="20" align="text-bottom" /> Annotations & Tools** — Highlight, categorize, search, export, built-in translation, and dictionary lookup.
-- **<img src="https://api.iconify.design/lucide:globe.svg?color=%233b82f6" width="20" height="20" align="text-bottom" /> Online Discovery** — MangaDex, Open Library, Anna's Archive, ToonGod, LibGen integrations.
+- **<img src="https://api.iconify.design/lucide:globe.svg?color=%233b82f6" width="20" height="20" align="text-bottom" /> Online Discovery** — MangaDex, MangaFire, Open Library, Anna's Archive, Nyaa, ToonGod, LibGen integrations.
 - **<img src="https://api.iconify.design/lucide:cloud-download.svg?color=%233b82f6" width="20" height="20" align="text-bottom" /> Cloud Downloads** — TorBox integration for one-click debrid-assisted imports.
 - **<img src="https://api.iconify.design/lucide:rss.svg?color=%233b82f6" width="20" height="20" align="text-bottom" /> RSS Reader** — Feed management with daily auto-generated EPUBs.
 - **<img src="https://api.iconify.design/lucide:refresh-cw.svg?color=%233b82f6" width="20" height="20" align="text-bottom" /> Format Conversion** — Background conversion engine with queue management and persistence.

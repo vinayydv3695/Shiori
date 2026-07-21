@@ -35,17 +35,67 @@
 
 ## Showcase
 
-| Onboarding | Book Reader |
-|---|---|
-| ![Onboarding](assets/onboarding.gif) | ![Book Reader](assets/bookreader.gif) |
+<details>
+<summary><b>Desktop Screenshots</b> (Click to expand)</summary>
 
-| Manga Reader | Online Books |
-|---|---|
-| ![Manga Reader](assets/mangareader.gif) | ![Online Books](assets/onlinebooks.gif) |
+<br>
 
-| Online Manga | Cloud Downloads |
+| Home | Library |
 |---|---|
-| ![Online Manga](assets/onlinemanga.gif) | ![Cloud Downloads](assets/Cloud_Downloads_Torbox.gif) |
+| ![Home](https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/home.png) | ![Library](https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/library.png) |
+
+| Book Reader | Manga Reader |
+|---|---|
+| ![Book Reader](https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/bookreader.png) | ![Manga Reader](https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/mangareader.png) |
+
+| Online Books | Online Manga |
+|---|---|
+| ![Online Books](https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/onlinebooks.png) | ![Online Manga](https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/onlinemangacard.png) |
+
+| RSS Feed | Torbox |
+|---|---|
+| ![RSS Feed](https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/rssfeed.png) | ![Torbox](https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/torbox.png) |
+
+| AniList | Series View |
+|---|---|
+| ![AniList](https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/anilist.png) | ![Series View](https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/seriesview.png) |
+
+| OLED Midnight Theme | Sepia Theme |
+|---|---|
+| ![OLED Midnight](https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/oledmidniht.png) | ![Sepia](https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/sepia.png) |
+
+</details>
+
+<details>
+<summary><b>Android Screenshots</b> (Click to expand)</summary>
+
+<br>
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/android-screenshots/home.jpg" width="24%" />
+  <img src="https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/android-screenshots/library.jpg" width="24%" />
+  <img src="https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/android-screenshots/seriesview.jpg" width="24%" />
+  <img src="https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/android-screenshots/mangareading.jpg" width="24%" />
+</div>
+
+<br>
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/android-screenshots/bookreading.jpg" width="24%" />
+  <img src="https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/android-screenshots/onlinebook.jpg" width="24%" />
+  <img src="https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/android-screenshots/onlinemanga.jpg" width="24%" />
+  <img src="https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/android-screenshots/rssfeed.jpg" width="24%" />
+</div>
+
+<br>
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/android-screenshots/anilist.jpg" width="24%" />
+  <img src="https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/android-screenshots/anilsithomepage.jpg" width="24%" />
+  <img src="https://raw.githubusercontent.com/vinayydv3695/Shiori-site/main/public/android-screenshots/annonations.jpg" width="24%" />
+</div>
+
+</details>
 
 ---
 

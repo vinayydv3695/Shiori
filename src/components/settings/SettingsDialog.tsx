@@ -1867,7 +1867,10 @@ const AboutSettings = () => {
         if (isNewer(latestVersion, appVersion)) {
           toast.info(`Update v${latestVersion} is available! Opening releases page...`);
           setTimeout(() => {
-            open(data.html_url);
+            open(data.html_url).catch(err => {
+              console.error('Failed to open link:', err);
+              try { window.open(data.html_url, '_blank'); } catch (e) {}
+            });
           }, 1500);
         } else {
           toast.success("You are on the latest version.");
@@ -1933,9 +1936,17 @@ const AboutSettings = () => {
               href={link.url}
               onClick={(e) => {
                 e.preventDefault()
-                open(link.url)
+                open(link.url).catch(err => {
+                  console.error('Failed to open link:', err);
+                  // Try standard window.open as a fallback if the shell plugin fails
+                  try {
+                    window.open(link.url, '_blank');
+                  } catch (fallbackErr) {
+                    // Fallback also failed
+                  }
+                })
               }}
-              className="flex items-center gap-3 p-4 rounded-xl border border-border/40 bg-card/10 hover:bg-muted/50 hover:border-border transition-all group"
+              className="flex items-center gap-3 p-4 rounded-xl border border-border/40 bg-card/10 hover:bg-muted/50 hover:border-border transition-all group cursor-pointer"
             >
               <div className="p-2 rounded-lg bg-background shadow-sm border border-border/30 text-muted-foreground group-hover:text-primary transition-colors">
                 <link.icon size={16} />

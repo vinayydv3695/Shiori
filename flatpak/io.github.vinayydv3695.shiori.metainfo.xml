@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>com.github.vinayydv3695.shiori</id>
+  <id>io.github.vinayydv3695.shiori</id>
   <name>Shiori</name>
   <summary>A modern, fast, and elegant library for your manga and light novels</summary>
   
-  <developer id="com.github.vinayydv3695">
+  <developer id="io.github.vinayydv3695">
     <name>Vinay Yadav</name>
   </developer>
 
@@ -12,7 +12,7 @@
     <p>Shiori is a modern, fast, and elegant library for your manga and light novels, designed with a focus on simplicity and performance.</p>
   </description>
 
-  <launchable type="desktop-id">com.github.vinayydv3695.shiori.desktop</launchable>
+  <launchable type="desktop-id">io.github.vinayydv3695.shiori.desktop</launchable>
   
   <url type="homepage">https://github.com/vinayydv3695/Shiori</url>
   <url type="bugtracker">https://github.com/vinayydv3695/Shiori/issues</url>

@@ -52,3 +52,4 @@ scripts/
 
 # Vendored C libraries (too large for git - fetched by cargo from crates.io at build time)
 src-tauri/plugins/espeak-rs-sys/
+flatpak/shared-modules

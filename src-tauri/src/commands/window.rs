@@ -60,21 +60,33 @@ pub fn get_fullscreen_state<R: Runtime>(app: AppHandle<R>) -> Result<bool, Strin
 #[tauri::command]
 pub async fn download_apk(url: String, app_handle: tauri::AppHandle) -> Result<String, String> {
     use std::io::Write;
-    let local_data_dir = app_handle.path().app_local_data_dir().map_err(|e| e.to_string())?;
-    let apk_path = local_data_dir.join("update.apk");
+    use tauri::Manager;
     
-    // Fetch via reqwest
-    let response = reqwest::get(&url).await.map_err(|e| format!("Failed to download: {}", e))?;
-    let bytes = response.bytes().await.map_err(|e| format!("Failed to read bytes: {}", e))?;
+    // Use app_cache_dir so FileProvider can find it via <cache-path>
+    let cache_dir = app_handle.path().app_cache_dir().map_err(|e| e.to_string())?;
     
-    // Delete if exists
+    if !cache_dir.exists() {
+        std::fs::create_dir_all(&cache_dir).map_err(|e| format!("Failed to create cache dir: {}", e))?;
+    }
+    
+    let apk_path = cache_dir.join("update.apk");
+    
+    let mut response = reqwest::get(&url).await.map_err(|e| format!("Failed to download: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Err(format!("Download failed with status: {}", response.status()));
+    }
+    
     if apk_path.exists() {
         let _ = std::fs::remove_file(&apk_path);
     }
     
-    // Write bytes to file
     let mut file = std::fs::File::create(&apk_path).map_err(|e| format!("Failed to create file: {}", e))?;
-    file.write_all(&bytes).map_err(|e| format!("Failed to write file: {}", e))?;
+    
+    // Stream chunks instead of loading entire APK into memory
+    while let Some(chunk) = response.chunk().await.map_err(|e| format!("Failed to read chunk: {}", e))? {
+        file.write_all(&chunk).map_err(|e| format!("Failed to write chunk: {}", e))?;
+    }
     
     Ok(apk_path.to_string_lossy().to_string())
 }

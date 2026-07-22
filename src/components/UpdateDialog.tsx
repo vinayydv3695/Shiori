@@ -86,6 +86,12 @@ export function UpdateDialog() {
     }
   }, [isUpdateDialogOpen]);
 
+  const cleanNotes = React.useMemo(() => {
+    if (!updateInfo?.notes) return 'No release notes provided.';
+    const parts = updateInfo.notes.split(/Download the appropriate installer for your platform:/i);
+    return parts[0].trim();
+  }, [updateInfo?.notes]);
+
   if (!updateInfo) return null;
 
   const handleUpdate = async () => {
@@ -124,12 +130,6 @@ export function UpdateDialog() {
       setIsUpdating(false);
     }
   };
-
-  const cleanNotes = React.useMemo(() => {
-    if (!updateInfo?.notes) return 'No release notes provided.';
-    const parts = updateInfo.notes.split(/Download the appropriate installer for your platform:/i);
-    return parts[0].trim();
-  }, [updateInfo?.notes]);
 
   return (
     <AnimatePresence>

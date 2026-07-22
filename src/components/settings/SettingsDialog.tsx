@@ -2,6 +2,8 @@ import { Switch } from '@/components/ui/switch'
 import { useState, useEffect, useMemo } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as Tabs from '@radix-ui/react-tabs'
+import * as Accordion from '@radix-ui/react-accordion'
+import { Drawer } from 'vaul'
 import { motion, AnimatePresence, Variants } from 'framer-motion'
 import { open } from '@tauri-apps/plugin-shell'
 
@@ -124,6 +126,13 @@ const EPUB_RESUME_CHOICE_STORAGE_KEY = 'shiori-epub-resume-choice:v1'
 
 export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   const isMobile = useIsMobile()
+  
+  const triggerHaptic = (ms = 50) => {
+    if (isMobile && navigator.vibrate) {
+      navigator.vibrate(ms)
+    }
+  }
+
   const [activeTab, setActiveTab] = useState<SettingsTab>('general')
   const [mobileView, setMobileView] = useState<'root' | 'detail'>('root')
   const [searchQuery, setSearchQuery] = useState('')
@@ -199,25 +208,38 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
     ? tabs.filter(tab => matchingTabs.has(tab.id) || tab.id === 'about')
     : tabs
 
+  const Wrapper: any = isMobile ? Drawer.Root : Dialog.Root;
+  const Portal: any = isMobile ? Drawer.Portal : Dialog.Portal;
+  const Overlay: any = isMobile ? Drawer.Overlay : Dialog.Overlay;
+  const Content: any = isMobile ? Drawer.Content : Dialog.Content;
+
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-background/40 backdrop-blur-md z-[100] transition-all duration-300" />
-        <Dialog.Content 
+    <Wrapper open={open} onOpenChange={onOpenChange}>
+      <Portal>
+        <Overlay className={cn(
+          "fixed inset-0 z-[100] transition-all duration-300",
+          isMobile ? "bg-black/40" : "bg-background/40 backdrop-blur-md dialog-overlay"
+        )} />
+        <Content 
           aria-describedby={undefined} 
-          onOpenAutoFocus={(e) => {
+          onOpenAutoFocus={(e: Event) => {
             if (isMobile) {
               e.preventDefault();
             }
           }}
           className={cn(
-          "dialog-content settings-dialog fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.2)] w-[95vw] max-md:w-full max-w-5xl h-[90vh] max-md:h-[100dvh] max-md:rounded-none max-md:border-none z-[100] flex flex-col overflow-hidden",
+          "z-[101] flex flex-col overflow-hidden focus:outline-none",
+          isMobile 
+            ? "fixed bottom-0 left-0 right-0 max-h-[96dvh] h-[96dvh] mt-24 rounded-t-[2rem]" 
+            : "dialog-content settings-dialog fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.2)] w-[95vw] max-w-5xl h-[90vh]",
           preferences?.transparentSettings ?? false ? "bg-background/80 backdrop-blur-2xl" : "bg-background"
         )}>
+          {isMobile && <div className="mx-auto mt-4 mb-2 h-1.5 w-12 flex-shrink-0 rounded-full bg-muted/60" />}
+
           <div className="flex items-center justify-between p-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)] md:p-6 border-b border-border gap-3">
             {isMobile && mobileView === 'detail' ? (
               <div className="flex items-center gap-3">
-                <Button variant="ghost" size="icon" onClick={() => setMobileView('root')} className="-ml-2">
+                <Button variant="ghost" size="icon" onClick={() => { triggerHaptic(50); setMobileView('root'); }} className="-ml-2">
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                 </Button>
                 <Dialog.Title className="text-xl font-semibold">
@@ -311,13 +333,23 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
               <AnimatePresence mode="wait">
                 <motion.div
                   key={selectedTab}
+                  drag={isMobile && mobileView === 'detail' ? "x" : false}
+                  dragConstraints={{ left: 0, right: 0 }}
+                  dragElastic={0.4}
+                  onDragEnd={(e, info) => {
+                    if (isMobile && mobileView === 'detail' && info.offset.x > 100 && info.velocity.x > 200) {
+                      triggerHaptic(50);
+                      setMobileView('root');
+                    }
+                  }}
                   initial="hidden"
                   animate="show"
                   exit="hidden"
                   variants={{
-                    hidden: { opacity: 0, y: 10, filter: 'blur(4px)' },
+                    hidden: { opacity: 0, x: isMobile ? 50 : 0, y: isMobile ? 0 : 10, filter: 'blur(4px)' },
                     show: { 
                       opacity: 1, 
+                      x: 0,
                       y: 0, 
                       filter: 'blur(0px)',
                       transition: { duration: 0.2, staggerChildren: 0.05, delayChildren: 0.05 } 
@@ -385,9 +417,9 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
               </AnimatePresence>
             </div>
           </Tabs.Root>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+        </Content>
+      </Portal>
+    </Wrapper>
   )
 }
 
@@ -434,8 +466,13 @@ const SettingItem = ({
   label: string
   description?: string
   children: React.ReactNode
-}) => (
-  <motion.div variants={itemVariants} className="group flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6 p-3 md:px-4 md:py-3.5 rounded-xl hover:bg-muted/40 transition-colors duration-200">
+}) => {
+  const isMobile = useIsMobile();
+  return (
+  <motion.div variants={itemVariants} className={cn(
+    "group flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6 px-3 md:px-4 rounded-xl hover:bg-muted/40 transition-colors duration-200",
+    isMobile ? "py-4" : "py-3.5"
+  )}>
     <div className="space-y-1 flex-1 md:pr-4">
       <label className="text-[15px] font-medium tracking-tight text-foreground/90">{label}</label>
       {description && <p className="text-[13px] text-muted-foreground/80 leading-snug">{description}</p>}
@@ -444,7 +481,8 @@ const SettingItem = ({
       {children}
     </div>
   </motion.div>
-)
+  );
+}
 
 const GeneralSettings = ({
   preferences,

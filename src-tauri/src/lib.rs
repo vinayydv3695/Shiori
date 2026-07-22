@@ -231,6 +231,12 @@ pub fn run() {
 
             std::fs::create_dir_all(&app_dir)?;
 
+            // Workaround for Tauri updater on Linux (AppImage):
+            // Set TMPDIR to the app_dir (which is on the same partition as the AppImage)
+            // to prevent "Invalid cross-device link (os error 18)" during fs::rename.
+            #[cfg(target_os = "linux")]
+            std::env::set_var("TMPDIR", app_dir.clone());
+
             let db_path = app_dir.join("library.db");
             let database = db::Database::new(&db_path)?;
 

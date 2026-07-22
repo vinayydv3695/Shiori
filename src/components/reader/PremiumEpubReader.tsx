@@ -33,15 +33,8 @@ interface PremiumEpubReaderProps {
 }
 
 export function ChapterHtml({ content }: { content: string }) {
-  const htmlRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (htmlRef.current) {
-      htmlRef.current.innerHTML = sanitizeBookContent(content);
-    }
-  }, [content]);
-
-  return <div ref={htmlRef} className="premium-chapter-content" />;
+  const html = useMemo(() => sanitizeBookContent(content), [content]);
+  return <div className="premium-chapter-content" dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
 // Helper function to convert resource URLs to data URIs and inline CSS

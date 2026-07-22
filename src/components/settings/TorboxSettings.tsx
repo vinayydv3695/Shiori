@@ -114,108 +114,101 @@ export function TorboxSettings() {
   const hasChanges = apiKey !== (savedApiKey || '');
 
   return (
-    <div className="space-y-4">
-      <div>
-        <p className="text-sm text-muted-foreground mb-2">
-          Torbox is a cloud torrent service that allows you to download torrents and import them directly into Shiori.
-        </p>
-        <a
-          href="https://torbox.app"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs text-primary hover:underline inline-flex items-center gap-1"
-        >
-          Get your API key from Torbox.app →
-        </a>
-      </div>
-
-      <div className="space-y-3">
-        <div>
-          <label htmlFor="torbox-api-key" className="text-sm font-medium mb-2 block">API Key</label>
-          <div className="flex gap-2">
-            <div className="flex-1 relative">
-              <Input
-                id="torbox-api-key"
-                type={showApiKey ? 'text' : 'password'}
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder="Enter your Torbox API key"
-                className="font-mono text-sm pr-10"
-                disabled={isLoading || isTesting}
-              />
-              <button
-                type="button"
-                onClick={() => setShowApiKey(!showApiKey)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
-              >
-                {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
+    <div className="flex flex-col gap-3 w-full">
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <a
+            href="https://torbox.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+          >
+            Get your API key from Torbox.app →
+          </a>
+        </div>
+        <div className="flex gap-2">
+          <div className="flex-1 relative">
+            <Input
+              id="torbox-api-key"
+              type={showApiKey ? 'text' : 'password'}
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="Enter Torbox API key"
+              className="font-mono text-sm pr-10"
+              disabled={isLoading || isTesting}
+            />
+            <button
+              type="button"
+              onClick={() => setShowApiKey(!showApiKey)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
+            >
+              {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
           </div>
         </div>
+      </div>
 
-        <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="default"
+          onClick={handleSave}
+          disabled={isLoading || isTesting || !hasChanges}
+          className="gap-2"
+        >
+          {isLoading ? 'Saving...' : 'Save'}
+        </Button>
+        <Button
+          variant="outline"
+          onClick={handleTest}
+          disabled={isLoading || isTesting || !apiKey.trim()}
+          className="gap-2"
+        >
+          {isTesting ? 'Testing...' : 'Test'}
+        </Button>
+        {savedApiKey && (
           <Button
-            variant="default"
-            onClick={handleSave}
-            disabled={isLoading || isTesting || !hasChanges}
-            className="gap-2"
+            variant="destructive"
+            onClick={handleClear}
+            disabled={isLoading || isTesting}
           >
-            {isLoading ? 'Saving...' : 'Save'}
+            Clear
           </Button>
-          <Button
-            variant="outline"
-            onClick={handleTest}
-            disabled={isLoading || isTesting || !apiKey.trim()}
-            className="gap-2"
-          >
-            {isTesting ? 'Testing...' : 'Test Connection'}
-          </Button>
-          {savedApiKey && (
-            <Button
-              variant="destructive"
-              onClick={handleClear}
-              disabled={isLoading || isTesting}
-            >
-              Clear
-            </Button>
+        )}
+      </div>
+
+      {testResult && (
+        <div
+          className={`p-3 rounded-lg border flex items-start gap-2 ${
+            testResult.success
+              ? 'bg-green-500/10 border-green-500/30'
+              : 'bg-red-500/10 border-red-500/30'
+          }`}
+        >
+          {testResult.success ? (
+            <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
+          ) : (
+            <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
           )}
-        </div>
-
-        {testResult && (
-          <div
-            className={`p-3 rounded-lg border flex items-start gap-2 ${
+          <p
+            className={`text-sm ${
               testResult.success
-                ? 'bg-green-500/10 border-green-500/30'
-                : 'bg-red-500/10 border-red-500/30'
+                ? 'text-green-700 dark:text-green-300'
+                : 'text-red-700 dark:text-red-300'
             }`}
           >
-            {testResult.success ? (
-              <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
-            ) : (
-              <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
-            )}
-            <p
-              className={`text-sm ${
-                testResult.success
-                  ? 'text-green-700 dark:text-green-300'
-                  : 'text-red-700 dark:text-red-300'
-              }`}
-            >
-              {testResult.message}
-            </p>
-          </div>
-        )}
+            {testResult.message}
+          </p>
+        </div>
+      )}
 
-        {savedApiKey && !testResult && (
-          <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
-            <p className="text-xs text-blue-700 dark:text-blue-300">
-              API key is configured. You can now use Torbox for downloading torrents in the online manga/books section.
-            </p>
-          </div>
-        )}
-      </div>
+      {savedApiKey && !testResult && (
+        <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+          <p className="text-xs text-blue-700 dark:text-blue-300">
+            API key configured for online downloads.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

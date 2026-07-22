@@ -762,10 +762,12 @@ const GeneralSettings = ({
 
 
 
-          <div>
-            <h4 className="text-sm font-semibold mb-2">Torbox</h4>
+          <SettingItem
+            label="Torbox API Key"
+            description="Cloud torrent service to download and import media directly into Shiori."
+          >
             <TorboxSettings />
-          </div>
+          </SettingItem>
 
         </div>
       </SettingSection>
@@ -1561,7 +1563,7 @@ const AdvancedSettings = ({
     <div className="space-y-8">
       {isSectionVisible('Database', ['Export Database', 'Import Database', 'Clean Up Database', 'Reset Database', 'Reset Onboarding']) && (
         <SettingSection title="Database" description="Manage your library database">
-          <div className="space-y-3">
+          <div className="flex flex-wrap gap-3">
             <Button variant="outline" onClick={handleExport} disabled={isExporting}>
               {isExporting ? 'Exporting...' : 'Export Database'}
             </Button>
@@ -1574,7 +1576,7 @@ const AdvancedSettings = ({
             <Button variant="destructive" onClick={handleReset} disabled={isResetting}>
               {isResetting ? 'Resetting...' : 'Reset Database'}
             </Button>
-            <div className="pt-2">
+            <div className="pt-2 w-full">
               <Button variant="outline" onClick={handleResetOnboarding} className="w-full">
                 Reset Onboarding Experience
               </Button>

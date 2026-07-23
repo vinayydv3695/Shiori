@@ -28,7 +28,7 @@ impl<R: Runtime> AndroidSaf<R> {
         })
     }
 
-    pub fn evaluate_javascript(&self, _url: String, _js: String) -> crate::Result<String> {
+    pub fn evaluate_javascript(&self, _url: String, _js: String, _user_agent: Option<String>) -> crate::Result<String> {
         Ok(String::new())
     }
 

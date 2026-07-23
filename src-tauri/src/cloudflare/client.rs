@@ -105,6 +105,11 @@ impl CfClient {
             .map_err(|e| ShioriError::Other(format!("Response is not UTF-8: {e}")))
     }
 
+    /// Get the active User-Agent from the session (if any).
+    pub async fn user_agent(&self) -> Option<String> {
+        self.store.get(&self.host).map(|s| s.user_agent)
+    }
+
     /// Fetch a URL and return the raw response bytes (images, binary files).
     pub async fn get_image(&self, url: &str) -> Result<Vec<u8>> {
         self.get_bytes(url, Some("image/*")).await

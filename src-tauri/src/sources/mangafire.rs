@@ -11,15 +11,10 @@ use crate::cloudflare::client::CfClient;
 use crate::error::{Result, ShioriError};
 use crate::sources::{Chapter, ContentType, Page, SearchResult, Source, SourceMeta};
 
-#[cfg(not(target_os = "android"))]
-use crate::cloudflare::daemon::BrowserDaemon;
-
 const BASE_URL: &str = "https://mangafire.to";
 
 pub struct MangaFireSource {
     cf_client: RwLock<Option<Arc<CfClient>>>,
-    #[cfg(not(target_os = "android"))]
-    daemon: RwLock<Option<Arc<BrowserDaemon>>>,
     app_handle: RwLock<Option<tauri::AppHandle>>,
 }
 
@@ -27,8 +22,6 @@ impl MangaFireSource {
     pub fn new() -> Self {
         Self {
             cf_client: RwLock::new(None),
-            #[cfg(not(target_os = "android"))]
-            daemon: RwLock::new(None),
             app_handle: RwLock::new(None),
         }
     }
@@ -37,28 +30,151 @@ impl MangaFireSource {
         *self.cf_client.write().await = Some(cf);
         *self.app_handle.write().await = Some(app_handle);
     }
-    
-    #[cfg(not(target_os = "android"))]
-    pub async fn init_daemon(&self) {
-        use crate::cloudflare::browser::BrowserConfig;
-        match BrowserDaemon::start(&BrowserConfig::default()).await {
-            Ok(daemon) => {
-                *self.daemon.write().await = Some(daemon);
-                log::info!("MangaFire: BrowserDaemon started successfully");
+
+    async fn wait_for_init(&self) -> Result<()> {
+        for _ in 0..50 {
+            {
+                let cf_ready = self.cf_client.read().await.is_some();
+                let app_ready = self.app_handle.read().await.is_some();
+                if cf_ready && app_ready {
+                    return Ok(());
+                }
             }
-            Err(e) => {
-                log::error!("MangaFire: Failed to start BrowserDaemon: {}", e);
-            }
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
         }
+        Err(ShioriError::Other("MangaFire source client not initialized (timeout)".into()))
     }
 
     async fn fetch_rpc(&self, url: &str) -> Result<String> {
+        self.wait_for_init().await?;
+
         #[cfg(not(target_os = "android"))]
         {
-            let guard = self.daemon.read().await;
-            if let Some(daemon) = guard.as_ref() {
-                let res = daemon.fetch(url, None).await?;
-                return Ok(serde_json::to_string(&res).unwrap_or_default());
+            let guard = self.app_handle.read().await;
+            if let Some(app) = guard.as_ref() {
+                let app = app.clone();
+                let full_url = if url.starts_with("http") {
+                    url.to_string()
+                } else {
+                    format!("{}{}", BASE_URL, url)
+                };
+
+                let window_label = format!("mf-rpc-{}", uuid::Uuid::new_v4().simple());
+                let (tx, rx) = tokio::sync::oneshot::channel();
+                let tx = std::sync::Arc::new(std::sync::Mutex::new(Some(tx)));
+
+                let js = format!(
+                    r#"(async () => {{
+                        try {{
+                            let attempts = 0;
+                            while (typeof window.extendClient === 'undefined' && attempts < 25) {{
+                                await new Promise(r => setTimeout(r, 400));
+                                attempts++;
+                            }}
+                            if (typeof window.extendClient === 'undefined') throw new Error("extendClient not found");
+
+                            if (!window.myAxios) {{
+                                let requestInterceptor = null;
+                                window.myAxios = {{
+                                    defaults: {{ baseURL: '/', headers: {{}} }},
+                                    interceptors: {{
+                                        request: {{
+                                            use: (fn) => {{ requestInterceptor = fn; }}
+                                        }}
+                                    }},
+                                    get: async (url, config = {{}}) => {{
+                                        let reqConfig = {{
+                                            url,
+                                            method: 'get',
+                                            headers: {{
+                                                'Accept': 'application/json, text/javascript, */*; q=0.01',
+                                                'X-Requested-With': 'XMLHttpRequest',
+                                                ...(config.headers || {{}})
+                                            }},
+                                            params: config.params || {{}}
+                                        }};
+                                        if (requestInterceptor) {{
+                                            reqConfig = await requestInterceptor(reqConfig) || reqConfig;
+                                        }}
+                                        let fullUrl = reqConfig.url;
+                                        if (reqConfig.params && Object.keys(reqConfig.params).length > 0) {{
+                                            const query = new URLSearchParams(reqConfig.params).toString();
+                                            fullUrl += (fullUrl.includes('?') ? '&' : '?') + query;
+                                        }}
+                                        const resp = await fetch(fullUrl, {{
+                                            method: 'GET',
+                                            headers: reqConfig.headers,
+                                            credentials: 'include'
+                                        }});
+                                        const data = await resp.json();
+                                        return {{ data }};
+                                    }}
+                                }};
+                                window.extendClient(window.myAxios);
+                            }}
+
+                            const [path, queryString] = '{}'.split('?');
+                            const queryParams = {{}};
+                            if (queryString) {{
+                                const searchParams = new URLSearchParams(queryString);
+                                for (const [key, value] of searchParams.entries()) {{
+                                    queryParams[key] = value;
+                                }}
+                            }}
+
+                            let res = await window.myAxios.get(path, {{ params: queryParams }});
+                            window.location.href = 'https://mangafire.to/rpc-result#' + encodeURIComponent(JSON.stringify(res.data));
+                        }} catch (e) {{
+                            window.location.href = 'https://mangafire.to/rpc-result#' + encodeURIComponent(JSON.stringify({{ error: e.message }}));
+                        }}
+                    }})();"#,
+                    full_url
+                );
+
+                let tx_clone = std::sync::Arc::clone(&tx);
+                let app_clone = app.clone();
+                let window_label_clone = window_label.clone();
+
+                use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+
+                let window = WebviewWindowBuilder::new(&app, &window_label, WebviewUrl::External("https://mangafire.to/filter".parse().unwrap()))
+                    .visible(false)
+                    .initialization_script(&js)
+                    .on_navigation(move |nav_url| {
+                        let url_str = nav_url.as_str();
+                        if url_str.starts_with("https://mangafire.to/rpc-result") {
+                            if let Some(hash) = nav_url.fragment() {
+                                if let Ok(decoded) = urlencoding::decode(hash) {
+                                    if let Ok(mut lock) = tx_clone.lock() {
+                                        if let Some(sender) = lock.take() {
+                                            let _ = sender.send(decoded.into_owned());
+                                        }
+                                    }
+                                }
+                            }
+                            let w_label = window_label_clone.clone();
+                            let a = app_clone.clone();
+                            tauri::async_runtime::spawn(async move {
+                                if let Some(w) = a.get_webview_window(&w_label) {
+                                    let _ = w.close();
+                                }
+                            });
+                            return false;
+                        }
+                        true
+                    })
+                    .build()
+                    .map_err(|e| ShioriError::Other(format!("Failed to build rpc webview: {}", e)))?;
+
+                let result = match tokio::time::timeout(std::time::Duration::from_secs(30), rx).await {
+                    Ok(Ok(res)) => res,
+                    _ => {
+                        let _ = window.close();
+                        return Err(ShioriError::Other("MangaFire RPC timed out".to_string()));
+                    }
+                };
+
+                return Ok(result);
             }
         }
 
@@ -66,33 +182,54 @@ impl MangaFireSource {
         {
             let guard = self.app_handle.read().await;
             if let Some(app) = guard.as_ref() {
-                // Call evaluate_javascript through the android_saf plugin
+                // Call evaluate_javascript through the android_saf plugin with zero-dependency fetch adapter
                 let js = format!(
                     r#"(async () => {{
                         try {{
-                            // Ensure extendClient is loaded
                             let attempts = 0;
-                            while (typeof window.extendClient === 'undefined' && attempts < 20) {{
-                                await new Promise(r => setTimeout(r, 1000));
+                            while (typeof window.extendClient === 'undefined' && attempts < 25) {{
+                                await new Promise(r => setTimeout(r, 400));
                                 attempts++;
                             }}
                             if (typeof window.extendClient === 'undefined') throw new Error("extendClient not found");
 
                             if (!window.myAxios) {{
-                                // Inject axios
-                                const script = document.createElement('script');
-                                script.src = 'https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js';
-                                document.head.appendChild(script);
-                                await new Promise(r => script.onload = r);
-
-                                window.myAxios = axios.create({{ 
-                                    baseURL: '/', 
-                                    withCredentials: true, 
-                                    headers: {{ 
-                                        Accept: 'application/json', 
-                                        "X-Requested-With": 'XMLHttpRequest' 
-                                    }} 
-                                }});
+                                let requestInterceptor = null;
+                                window.myAxios = {{
+                                    defaults: {{ baseURL: '/', headers: {{}} }},
+                                    interceptors: {{
+                                        request: {{
+                                            use: (fn) => {{ requestInterceptor = fn; }}
+                                        }}
+                                    }},
+                                    get: async (url, config = {{}}) => {{
+                                        let reqConfig = {{
+                                            url,
+                                            method: 'get',
+                                            headers: {{
+                                                'Accept': 'application/json, text/javascript, */*; q=0.01',
+                                                'X-Requested-With': 'XMLHttpRequest',
+                                                ...(config.headers || {{}})
+                                            }},
+                                            params: config.params || {{}}
+                                        }};
+                                        if (requestInterceptor) {{
+                                            reqConfig = await requestInterceptor(reqConfig) || reqConfig;
+                                        }}
+                                        let fullUrl = reqConfig.url;
+                                        if (reqConfig.params && Object.keys(reqConfig.params).length > 0) {{
+                                            const query = new URLSearchParams(reqConfig.params).toString();
+                                            fullUrl += (fullUrl.includes('?') ? '&' : '?') + query;
+                                        }}
+                                        const resp = await fetch(fullUrl, {{
+                                            method: 'GET',
+                                            headers: reqConfig.headers,
+                                            credentials: 'include'
+                                        }});
+                                        const data = await resp.json();
+                                        return {{ data }};
+                                    }}
+                                }};
                                 window.extendClient(window.myAxios);
                             }}
 
@@ -113,7 +250,16 @@ impl MangaFireSource {
                     }})()"#,
                     url
                 );
-                let res = app.android_saf().evaluate_javascript(format!("{}/filter", BASE_URL), js)
+                let user_agent = {
+                    let guard = self.cf_client.read().await;
+                    if let Some(cf) = guard.as_ref() {
+                        cf.user_agent().await
+                    } else {
+                        None
+                    }
+                };
+
+                let res = app.android_saf().evaluate_javascript(format!("{}/filter", BASE_URL), js, user_agent)
                     .map_err(|e| ShioriError::Other(e.to_string()))?;
                 return Ok(res);
             }

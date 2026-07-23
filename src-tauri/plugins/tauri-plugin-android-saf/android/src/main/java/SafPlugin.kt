@@ -463,6 +463,15 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
             webView.settings.javaScriptEnabled = true
             webView.settings.domStorageEnabled = true
 
+            val cookieManager = android.webkit.CookieManager.getInstance()
+            cookieManager.setAcceptCookie(true)
+            cookieManager.setAcceptThirdPartyCookies(webView, true)
+
+            val userAgent = invoke.getArgs().getString("userAgent", null)
+            if (userAgent != null) {
+                webView.settings.userAgentString = userAgent
+            }
+
             var done = false
             webView.webViewClient = object : android.webkit.WebViewClient() {
                 override fun onPageFinished(view: android.webkit.WebView, loadedUrl: String) {

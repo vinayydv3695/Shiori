@@ -43,13 +43,13 @@ impl<R: Runtime> AndroidSaf<R> {
             .map_err(Into::into)
     }
 
-    pub fn evaluate_javascript(&self, url: String, js: String) -> crate::Result<String> {
+    pub fn evaluate_javascript(&self, url: String, js: String, user_agent: Option<String>) -> crate::Result<String> {
         #[derive(serde::Deserialize)]
         struct EvaluateJavascriptResponse {
             result: String,
         }
         let res: EvaluateJavascriptResponse = self.0
-            .run_mobile_plugin("evaluateJavascript", json!({ "url": url, "js": js }))?;
+            .run_mobile_plugin("evaluateJavascript", json!({ "url": url, "js": js, "userAgent": user_agent }))?;
         Ok(res.result)
     }
 

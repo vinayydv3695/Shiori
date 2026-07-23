@@ -432,12 +432,9 @@ pub fn run() {
                         mangafire_for_cf
                             .set_cf_client(std::sync::Arc::new(cf_client), app_handle_for_mangafire)
                             .await;
-                        
-                        #[cfg(not(target_os = "android"))]
-                        mangafire_for_cf.init_daemon().await;
 
                         log::info!(
-                            "MangaFire: CfClient attached (automatic Playwright solver active)"
+                            "MangaFire: CfClient attached successfully"
                         );
                     }
                     Err(e) => log::warn!("MangaFire: Failed to build CfClient: {}", e),

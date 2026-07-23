@@ -1,6 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Highlighter, StickyNote, X, Volume2 } from '@/components/icons';
+import { Highlighter, StickyNote, X, Volume2, ChevronDown } from '@/components/icons';
 import { api, isAndroid } from '@/lib/tauri';
 import type { AnnotationCategory, DictionaryResponse, TranslationResponse } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
@@ -58,6 +58,23 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
   const dummyRef = useRef<HTMLDivElement>(null);
   const { speakText, stop: stopSpeaking, state: ttsState } = useTTS({ contentRef: dummyRef });
 
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [toolbarBaseActions, setToolbarBaseActions] = useState<string[]>(['highlight', 'copy', 'translate']);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('shiori-toolbar-actions');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setToolbarBaseActions(parsed);
+        }
+      } catch (e) {
+        logger.error('Failed to parse toolbar actions from localStorage', e);
+      }
+    }
+  }, []);
+
   const hideToolbar = useCallback(() => {
     setIsVisible(false);
     setShowColorPicker(false);
@@ -68,6 +85,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     setDictionaryResult(null);
     setTranslationResult(null);
     setTranslationError(null);
+    setIsExpanded(false);
   }, []);
 
   // Prevent native context menu from overriding custom toolbar, especially on Android WebViews
@@ -389,89 +407,134 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
         >
           {/* Main action buttons */}
           {!showNoteInput && !showTranslation && (
-            <div className="text-selection-toolbar-actions">
-              {/* Aloud */}
-              <button
-                className="text-selection-toolbar-btn"
-                onClick={() => {
-                  if (ttsState === 'speaking') {
-                    stopSpeaking();
-                  } else {
-                    speakText(selectedText);
-                  }
-                }}
-                title="Read aloud"
-              >
-                <Volume2 size={14} className={ttsState === 'speaking' ? "text-primary" : ""} />
-                <span>{ttsState === 'speaking' ? "Stop" : "Aloud"}</span>
-              </button>
+            <div className="flex flex-col bg-background/95 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden border border-border/50 transition-all duration-300">
+              <div className="text-selection-toolbar-actions relative !p-1.5 !bg-transparent !border-none !shadow-none !rounded-none">
+                {/* Base Actions rendering based on order of available actions */}
+                {['aloud', 'define', 'translate', 'note', 'copy', 'highlight'].filter(a => toolbarBaseActions.includes(a)).map((action, index, array) => {
+                  return (
+                    <div key={action} className="flex items-center">
+                      {action === 'aloud' && (
+                        <button className="text-selection-toolbar-btn" onClick={() => { ttsState === 'speaking' ? stopSpeaking() : speakText(selectedText) }} title="Read aloud">
+                          <Volume2 size={14} className={ttsState === 'speaking' ? "text-primary" : ""} />
+                          <span>{ttsState === 'speaking' ? "Stop" : "Aloud"}</span>
+                        </button>
+                      )}
+                      {action === 'define' && (
+                        <button className="text-selection-toolbar-btn" onClick={handleDefine} title="Look up definition">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+                          </svg>
+                          <span>Define</span>
+                        </button>
+                      )}
+                      {action === 'translate' && (
+                        <button className="text-selection-toolbar-btn" onClick={handleTranslate} title="Translate selected text">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" /><path d="m22 22-5-10-5 10" /><path d="M14 18h6" />
+                          </svg>
+                          <span>Translate</span>
+                        </button>
+                      )}
+                      {action === 'note' && (
+                        <button className="text-selection-toolbar-btn" onClick={() => setShowNoteInput(true)} title="Add a note">
+                          <StickyNote size={14} />
+                          <span>Note</span>
+                        </button>
+                      )}
+                      {action === 'copy' && (
+                        <button className="text-selection-toolbar-btn" onClick={handleCopy} title="Copy text">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                          </svg>
+                          <span>Copy</span>
+                        </button>
+                      )}
+                      {action === 'highlight' && (
+                        <button className="text-selection-toolbar-btn" onClick={() => setShowColorPicker(!showColorPicker)} title="Highlight text">
+                          <Highlighter size={14} />
+                          <span>Highlight</span>
+                        </button>
+                      )}
+                      <div className="w-[1px] h-4 bg-border/50 mx-1" />
+                    </div>
+                  )
+                })}
 
-              <div className="w-[1px] h-4 bg-border/50 mx-1" />
+                {/* Expand Button */}
+                {toolbarBaseActions.length < 6 && (
+                  <button
+                    className="text-selection-toolbar-btn !px-2 flex-shrink-0"
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    title={isExpanded ? "Less options" : "More options"}
+                  >
+                    <ChevronDown size={14} className={isExpanded ? "rotate-180 transition-transform" : "transition-transform"} />
+                  </button>
+                )}
+              </div>
 
-              {/* Define */}
-              <button
-                className="text-selection-toolbar-btn"
-                onClick={handleDefine}
-                title="Look up definition"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
-                </svg>
-                <span>Define</span>
-              </button>
-
-              <div className="w-[1px] h-4 bg-border/50 mx-1" />
-
-              {/* Translate */}
-              <button
-                className="text-selection-toolbar-btn"
-                onClick={handleTranslate}
-                title="Translate selected text"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" /><path d="m22 22-5-10-5 10" /><path d="M14 18h6" />
-                </svg>
-                <span>Translate</span>
-              </button>
-
-              <div className="w-[1px] h-4 bg-border/50 mx-1" />
-
-              {/* Note */}
-              <button
-                className="text-selection-toolbar-btn"
-                onClick={() => setShowNoteInput(true)}
-                title="Add a note"
-              >
-                <StickyNote size={14} />
-                <span>Note</span>
-              </button>
-
-              <div className="w-[1px] h-4 bg-border/50 mx-1" />
-
-              {/* Copy */}
-              <button
-                className="text-selection-toolbar-btn"
-                onClick={handleCopy}
-                title="Copy text"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                </svg>
-                <span>Copy</span>
-              </button>
-
-              <div className="w-[1px] h-4 bg-border/50 mx-1" />
-
-              {/* Highlight */}
-              <button
-                className="text-selection-toolbar-btn"
-                onClick={() => setShowColorPicker(!showColorPicker)}
-                title="Highlight text"
-              >
-                <Highlighter size={14} />
-                <span>Highlight</span>
-              </button>
+              {/* Expanded Dropdown Row */}
+              <AnimatePresence>
+                {isExpanded && toolbarBaseActions.length < 6 && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="text-selection-toolbar-actions border-t border-border/20 !p-1.5 !bg-muted/30 !shadow-none !rounded-none"
+                  >
+                    {['aloud', 'define', 'translate', 'note', 'copy', 'highlight'].filter(a => !toolbarBaseActions.includes(a)).map((action, index, array) => {
+                      return (
+                        <div key={action} className="flex items-center">
+                          {action === 'aloud' && (
+                            <button className="text-selection-toolbar-btn" onClick={() => { ttsState === 'speaking' ? stopSpeaking() : speakText(selectedText) }} title="Read aloud">
+                              <Volume2 size={14} className={ttsState === 'speaking' ? "text-primary" : ""} />
+                              <span>{ttsState === 'speaking' ? "Stop" : "Aloud"}</span>
+                            </button>
+                          )}
+                          {action === 'define' && (
+                            <button className="text-selection-toolbar-btn" onClick={handleDefine} title="Look up definition">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+                              </svg>
+                              <span>Define</span>
+                            </button>
+                          )}
+                          {action === 'translate' && (
+                            <button className="text-selection-toolbar-btn" onClick={handleTranslate} title="Translate selected text">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" /><path d="m22 22-5-10-5 10" /><path d="M14 18h6" />
+                              </svg>
+                              <span>Translate</span>
+                            </button>
+                          )}
+                          {action === 'note' && (
+                            <button className="text-selection-toolbar-btn" onClick={() => setShowNoteInput(true)} title="Add a note">
+                              <StickyNote size={14} />
+                              <span>Note</span>
+                            </button>
+                          )}
+                          {action === 'copy' && (
+                            <button className="text-selection-toolbar-btn" onClick={handleCopy} title="Copy text">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                              </svg>
+                              <span>Copy</span>
+                            </button>
+                          )}
+                          {action === 'highlight' && (
+                            <button className="text-selection-toolbar-btn" onClick={() => setShowColorPicker(!showColorPicker)} title="Highlight text">
+                              <Highlighter size={14} />
+                              <span>Highlight</span>
+                            </button>
+                          )}
+                          {index < array.length - 1 && <div className="w-[1px] h-4 bg-border/50 mx-1" />}
+                        </div>
+                      )
+                    })}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           )}
 

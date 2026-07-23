@@ -92,6 +92,7 @@ const ALL_SETTINGS: SettingDefinition[] = [
   { label: 'Hyphenation', description: 'Automatic word hyphenation', tab: 'book-reading', section: 'Reading Experience' },
   { label: 'Page Width', description: 'Maximum content width', tab: 'book-reading', section: 'Layout' },
   { label: 'Paragraph Spacing', description: 'Space between paragraphs in em', tab: 'book-reading', section: 'Layout' },
+  { label: 'Toolbar Base Actions', description: 'Customize the default visible text selection actions', tab: 'book-reading', section: 'Advanced' },
   { label: 'Custom CSS', description: 'Inject custom CSS into book reader', tab: 'book-reading', section: 'Advanced' },
   { label: 'Text-to-Speech Voice', description: 'TTS voice selection', tab: 'book-reading', section: 'Audio / TTS' },
   { label: 'Speech Rate', description: 'TTS playback speed', tab: 'book-reading', section: 'Audio / TTS' },
@@ -1016,8 +1017,65 @@ const BookReadingSettings = ({
         </SettingSection>
       )}
 
-      {isSectionVisible('Advanced', ['Custom CSS']) && (
+      {isSectionVisible('Advanced', ['Custom CSS', 'Toolbar Base Actions']) && (
         <SettingSection title="Advanced">
+          {isSettingVisible('Toolbar Base Actions', 'Customize the default visible text selection actions', 'Advanced') && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Toolbar Base Actions</label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {(() => {
+                  const [actions, setActions] = useState<string[]>([]);
+                  
+                  useEffect(() => {
+                    const saved = localStorage.getItem('shiori-toolbar-actions');
+                    if (saved) {
+                      try {
+                        const parsed = JSON.parse(saved);
+                        if (Array.isArray(parsed) && parsed.length > 0) setActions(parsed);
+                      } catch(e) {}
+                    } else {
+                      setActions(['highlight', 'copy', 'translate']);
+                    }
+                  }, []);
+
+                  const toggleAction = (action: string) => {
+                    let newActions = [...actions];
+                    if (newActions.includes(action)) {
+                      newActions = newActions.filter(a => a !== action);
+                    } else {
+                      newActions.push(action);
+                    }
+                    if (newActions.length === 0) newActions = ['highlight']; // ensure at least one
+                    setActions(newActions);
+                    localStorage.setItem('shiori-toolbar-actions', JSON.stringify(newActions));
+                  };
+
+                  const ALL_ACTIONS = [
+                    { id: 'highlight', label: 'Highlight' },
+                    { id: 'copy', label: 'Copy' },
+                    { id: 'note', label: 'Note' },
+                    { id: 'translate', label: 'Translate' },
+                    { id: 'define', label: 'Define' },
+                    { id: 'aloud', label: 'Read Aloud' }
+                  ];
+
+                  return ALL_ACTIONS.map(a => (
+                    <button
+                      key={a.id}
+                      onClick={() => toggleAction(a.id)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${actions.includes(a.id) ? 'bg-primary/20 border-primary/50 text-primary' : 'bg-transparent border-border/50 text-muted-foreground hover:bg-muted/50'}`}
+                    >
+                      {a.label}
+                    </button>
+                  ));
+                })()}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Select which actions appear on the main toolbar when text is selected. Unselected actions will appear in the expanded dropdown.
+              </p>
+            </div>
+          )}
+
           {isSettingVisible('Custom CSS', 'Inject custom CSS into book reader', 'Advanced') && (
             <div className="space-y-2">
               <label className="text-sm font-medium">Custom CSS</label>

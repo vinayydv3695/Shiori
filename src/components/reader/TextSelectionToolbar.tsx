@@ -410,7 +410,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
             <div className="flex flex-col">
               <div className="text-selection-toolbar-actions relative !p-0 !bg-transparent !border-none !shadow-none !rounded-none">
                 {/* Base Actions rendering based on order of available actions */}
-                {['aloud', 'define', 'translate', 'note', 'copy', 'highlight'].filter(a => toolbarBaseActions.includes(a)).map((action, index, array) => {
+                {['aloud', 'define', 'translate', 'note', 'copy', 'highlight'].filter(a => !isAndroid || toolbarBaseActions.includes(a)).map((action, index, array) => {
                   return (
                     <div key={action} className="flex items-center">
                       {action === 'aloud' && (
@@ -462,7 +462,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
                 })}
 
                 {/* Expand Button */}
-                {toolbarBaseActions.length < 6 && (
+                {isAndroid && toolbarBaseActions.length < 6 && (
                   <button
                     className="text-selection-toolbar-btn !px-2 flex-shrink-0"
                     onClick={() => setIsExpanded(!isExpanded)}
@@ -475,7 +475,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
 
               {/* Expanded Dropdown Row */}
               <AnimatePresence>
-                {isExpanded && toolbarBaseActions.length < 6 && (
+                {isAndroid && isExpanded && toolbarBaseActions.length < 6 && (
                   <motion.div
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}

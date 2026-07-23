@@ -1034,7 +1034,7 @@ const BookReadingSettings = ({
                         if (Array.isArray(parsed) && parsed.length > 0) setActions(parsed);
                       } catch(e) {}
                     } else {
-                      setActions(['highlight', 'copy', 'translate']);
+                      setActions(['highlight', 'note', 'translate']);
                     }
                   }, []);
 

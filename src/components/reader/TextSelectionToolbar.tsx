@@ -59,7 +59,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
   const { speakText, stop: stopSpeaking, state: ttsState } = useTTS({ contentRef: dummyRef });
 
   const [isExpanded, setIsExpanded] = useState(false);
-  const [toolbarBaseActions, setToolbarBaseActions] = useState<string[]>(['highlight', 'copy', 'translate']);
+  const [toolbarBaseActions, setToolbarBaseActions] = useState<string[]>(['highlight', 'note', 'translate']);
 
   useEffect(() => {
     const saved = localStorage.getItem('shiori-toolbar-actions');
@@ -407,8 +407,8 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
         >
           {/* Main action buttons */}
           {!showNoteInput && !showTranslation && (
-            <div className="flex flex-col bg-background/95 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden border border-border/50 transition-all duration-300">
-              <div className="text-selection-toolbar-actions relative !p-1.5 !bg-transparent !border-none !shadow-none !rounded-none">
+            <div className="flex flex-col">
+              <div className="text-selection-toolbar-actions relative !p-0 !bg-transparent !border-none !shadow-none !rounded-none">
                 {/* Base Actions rendering based on order of available actions */}
                 {['aloud', 'define', 'translate', 'note', 'copy', 'highlight'].filter(a => toolbarBaseActions.includes(a)).map((action, index, array) => {
                   return (
@@ -480,7 +480,8 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
-                    className="text-selection-toolbar-actions border-t border-border/20 !p-1.5 !bg-muted/30 !shadow-none !rounded-none"
+                    className="text-selection-toolbar-actions !p-0 !bg-transparent !shadow-none !rounded-none mt-1"
+                    style={{ borderTop: '1px solid var(--ui-divider, rgba(0,0,0,0.08))', paddingTop: '4px' }}
                   >
                     {['aloud', 'define', 'translate', 'note', 'copy', 'highlight'].filter(a => !toolbarBaseActions.includes(a)).map((action, index, array) => {
                       return (

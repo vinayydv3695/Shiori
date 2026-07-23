@@ -4,25 +4,121 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+#[cfg(target_os = "android")]
+use tauri_plugin_android_saf::AndroidSafExt;
+
 use crate::cloudflare::client::CfClient;
 use crate::error::{Result, ShioriError};
 use crate::sources::{Chapter, ContentType, Page, SearchResult, Source, SourceMeta};
+
+#[cfg(not(target_os = "android"))]
+use crate::cloudflare::daemon::BrowserDaemon;
 
 const BASE_URL: &str = "https://mangafire.to";
 
 pub struct MangaFireSource {
     cf_client: RwLock<Option<Arc<CfClient>>>,
+    #[cfg(not(target_os = "android"))]
+    daemon: RwLock<Option<Arc<BrowserDaemon>>>,
+    app_handle: RwLock<Option<tauri::AppHandle>>,
 }
 
 impl MangaFireSource {
     pub fn new() -> Self {
         Self {
             cf_client: RwLock::new(None),
+            #[cfg(not(target_os = "android"))]
+            daemon: RwLock::new(None),
+            app_handle: RwLock::new(None),
         }
     }
 
-    pub async fn set_cf_client(&self, cf: Arc<CfClient>) {
+    pub async fn set_cf_client(&self, cf: Arc<CfClient>, app_handle: tauri::AppHandle) {
         *self.cf_client.write().await = Some(cf);
+        *self.app_handle.write().await = Some(app_handle);
+    }
+    
+    #[cfg(not(target_os = "android"))]
+    pub async fn init_daemon(&self) {
+        use crate::cloudflare::browser::BrowserConfig;
+        match BrowserDaemon::start(&BrowserConfig::default()).await {
+            Ok(daemon) => {
+                *self.daemon.write().await = Some(daemon);
+                log::info!("MangaFire: BrowserDaemon started successfully");
+            }
+            Err(e) => {
+                log::error!("MangaFire: Failed to start BrowserDaemon: {}", e);
+            }
+        }
+    }
+
+    async fn fetch_rpc(&self, url: &str) -> Result<String> {
+        #[cfg(not(target_os = "android"))]
+        {
+            let guard = self.daemon.read().await;
+            if let Some(daemon) = guard.as_ref() {
+                let res = daemon.fetch(url, None).await?;
+                return Ok(serde_json::to_string(&res).unwrap_or_default());
+            }
+        }
+
+        #[cfg(target_os = "android")]
+        {
+            let guard = self.app_handle.read().await;
+            if let Some(app) = guard.as_ref() {
+                // Call evaluate_javascript through the android_saf plugin
+                let js = format!(
+                    r#"(async () => {{
+                        try {{
+                            // Ensure extendClient is loaded
+                            let attempts = 0;
+                            while (typeof window.extendClient === 'undefined' && attempts < 20) {{
+                                await new Promise(r => setTimeout(r, 1000));
+                                attempts++;
+                            }}
+                            if (typeof window.extendClient === 'undefined') throw new Error("extendClient not found");
+
+                            if (!window.myAxios) {{
+                                // Inject axios
+                                const script = document.createElement('script');
+                                script.src = 'https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js';
+                                document.head.appendChild(script);
+                                await new Promise(r => script.onload = r);
+
+                                window.myAxios = axios.create({{ 
+                                    baseURL: '/', 
+                                    withCredentials: true, 
+                                    headers: {{ 
+                                        Accept: 'application/json', 
+                                        "X-Requested-With": 'XMLHttpRequest' 
+                                    }} 
+                                }});
+                                window.extendClient(window.myAxios);
+                            }}
+
+                            const [path, queryString] = '{}'.split('?');
+                            const queryParams = {};
+                            if (queryString) {{
+                                const searchParams = new URLSearchParams(queryString);
+                                for (const [key, value] of searchParams.entries()) {{
+                                    queryParams[key] = value;
+                                }}
+                            }}
+
+                            let res = await window.myAxios.get(path, {{ params: queryParams }});
+                            return JSON.stringify(res.data);
+                        }} catch (e) {{
+                            return JSON.stringify({{ error: e.message }});
+                        }}
+                    }})()"#,
+                    url
+                );
+                let res = app.android_saf().evaluate_javascript(format!("{}/filter", BASE_URL), js)?;
+                return Ok(res);
+            }
+        }
+
+        Err(ShioriError::Other("Browser RPC not initialized for MangaFire".into()))
     }
 }
 
@@ -100,18 +196,13 @@ impl Source for MangaFireSource {
     }
 
     async fn search(&self, query: &str, _page: u32) -> Result<Vec<SearchResult>> {
-        let guard = self.cf_client.read().await;
-        let cf = guard.as_ref().ok_or_else(|| {
-            ShioriError::Other("MangaFire requires CfClient to be initialized".to_string())
-        })?;
-
         // URL encode the query
         let encoded_query = urlencoding::encode(query);
-        let url = format!("{}/api/titles?keyword={}&page=1&limit=50", BASE_URL, encoded_query);
+        let url = format!("/api/titles?keyword={}&page=1&limit=50", encoded_query);
 
-        let json_str = cf.get_html(&url).await?;
+        let json_str = self.fetch_rpc(&url).await?;
         let res: MfSearchResponse = serde_json::from_str(&json_str)
-            .map_err(|e| ShioriError::Other(format!("Failed to parse MangaFire search JSON: {}", e)))?;
+            .map_err(|e| ShioriError::Other(format!("Failed to parse MangaFire search JSON: {} - raw: {}", e, json_str)))?;
 
         let mut results = Vec::new();
         for item in res.items {
@@ -140,20 +231,15 @@ impl Source for MangaFireSource {
         _genres: Option<Vec<String>>,
         _types: Option<Vec<String>>,
     ) -> Result<Vec<SearchResult>> {
-        let guard = self.cf_client.read().await;
-        let cf = guard.as_ref().ok_or_else(|| {
-            ShioriError::Other("MangaFire requires CfClient to be initialized".to_string())
-        })?;
-
         let url = match mode {
-            "popular" => format!("{}/api/titles?order[chapter_updated_at]=desc&hot=1&page={}&limit=30", BASE_URL, page),
-            "latest" | "recent" => format!("{}/api/titles?order[chapter_updated_at]=desc&page={}&limit=30", BASE_URL, page),
-            _ => format!("{}/api/titles?order[chapter_updated_at]=desc&page={}&limit=30", BASE_URL, page),
+            "popular" => format!("/api/titles?order[chapter_updated_at]=desc&hot=1&page={}&limit=30", page),
+            "latest" | "recent" => format!("/api/titles?order[chapter_updated_at]=desc&page={}&limit=30", page),
+            _ => format!("/api/titles?order[chapter_updated_at]=desc&page={}&limit=30", page),
         };
 
-        let json_str = cf.get_html(&url).await?;
+        let json_str = self.fetch_rpc(&url).await?;
         let res: MfSearchResponse = serde_json::from_str(&json_str)
-            .map_err(|e| ShioriError::Other(format!("Failed to parse MangaFire browse JSON: {}", e)))?;
+            .map_err(|e| ShioriError::Other(format!("Failed to parse MangaFire browse JSON: {} - raw: {}", e, json_str)))?;
 
         let mut results = Vec::new();
         for item in res.items {
@@ -174,11 +260,6 @@ impl Source for MangaFireSource {
     }
 
     async fn get_chapters(&self, content_id: &str) -> Result<Vec<Chapter>> {
-        let guard = self.cf_client.read().await;
-        let cf = guard.as_ref().ok_or_else(|| {
-            ShioriError::Other("MangaFire requires CfClient to be initialized".to_string())
-        })?;
-
         let parts: Vec<&str> = content_id.split('|').collect();
         if parts.len() != 2 {
             return Err(ShioriError::Other("Invalid MangaFire content ID".to_string()));
@@ -189,11 +270,11 @@ impl Source for MangaFireSource {
         let mut all_items = Vec::new();
 
         let first_url = format!(
-            "{}/api/titles/{}/chapters?language=en&sort=number&order=desc&page=1&limit=200",
-            BASE_URL, hid
+            "/api/titles/{}/chapters?language=en&sort=number&order=desc&page=1&limit=200",
+            hid
         );
 
-        let json_str = cf.get_html(&first_url).await?;
+        let json_str = self.fetch_rpc(&first_url).await?;
         let first_res: MfChaptersResponse = serde_json::from_str(&json_str)
             .map_err(|e| ShioriError::Other(format!("Failed to parse MangaFire chapters JSON: {}", e)))?;
 
@@ -202,10 +283,10 @@ impl Source for MangaFireSource {
 
         for page in 2..=last_page {
             let url = format!(
-                "{}/api/titles/{}/chapters?language=en&sort=number&order=desc&page={}&limit=200",
-                BASE_URL, hid, page
+                "/api/titles/{}/chapters?language=en&sort=number&order=desc&page={}&limit=200",
+                hid, page
             );
-            if let Ok(json_str) = cf.get_html(&url).await {
+            if let Ok(json_str) = self.fetch_rpc(&url).await {
                 if let Ok(res) = serde_json::from_str::<MfChaptersResponse>(&json_str) {
                     all_items.extend(res.items);
                 }
@@ -252,17 +333,12 @@ impl Source for MangaFireSource {
     }
 
     async fn get_pages(&self, chapter_id: &str) -> Result<Vec<Page>> {
-        let guard = self.cf_client.read().await;
-        let cf = guard.as_ref().ok_or_else(|| {
-            ShioriError::Other("MangaFire requires CfClient to be initialized".to_string())
-        })?;
-
         // chapter_id is just the id (e.g., 7285952)
-        let url = format!("{}/api/chapters/{}", BASE_URL, chapter_id);
+        let url = format!("/api/chapters/{}", chapter_id);
 
-        let json_str = cf.get_html(&url).await?;
+        let json_str = self.fetch_rpc(&url).await?;
         let res: MfPageResponse = serde_json::from_str(&json_str)
-            .map_err(|e| ShioriError::Other(format!("Failed to parse MangaFire pages JSON: {}", e)))?;
+            .map_err(|e| ShioriError::Other(format!("Failed to parse MangaFire pages JSON: {} - raw: {}", e, json_str)))?;
 
         let mut pages = Vec::new();
         for (i, p) in res.data.pages.into_iter().enumerate() {

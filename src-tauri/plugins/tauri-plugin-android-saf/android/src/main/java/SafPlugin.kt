@@ -447,4 +447,50 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
             }, 30000)
         }
     }
+
+    @Command
+    fun evaluateJavascript(invoke: Invoke) {
+        val url = invoke.getArgs().getString("url", null)
+        val js = invoke.getArgs().getString("js", null)
+
+        if (url == null || js == null) {
+            invoke.reject("Missing url or js")
+            return
+        }
+
+        activity.runOnUiThread {
+            val webView = android.webkit.WebView(activity)
+            webView.settings.javaScriptEnabled = true
+            webView.settings.domStorageEnabled = true
+
+            var done = false
+            webView.webViewClient = object : android.webkit.WebViewClient() {
+                override fun onPageFinished(view: android.webkit.WebView, loadedUrl: String) {
+                    if (done) return
+                    done = true
+                    view.evaluateJavascript(js) { result ->
+                        val ret = JSObject()
+                        // evaluateJavascript returns a JSON string encoded value (e.g., `"\"my result\""`).
+                        // We can just return it as a string and let the caller parse it.
+                        var cleanResult = result
+                        if (cleanResult != null && cleanResult.startsWith("\"") && cleanResult.endsWith("\"")) {
+                            cleanResult = cleanResult.substring(1, cleanResult.length - 1).replace("\\\"", "\"").replace("\\\\", "\\")
+                        }
+                        ret.put("result", cleanResult ?: "")
+                        invoke.resolve(ret)
+                        view.destroy()
+                    }
+                }
+            }
+            webView.loadUrl(url)
+
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                if (!done) {
+                    done = true
+                    invoke.reject("evaluateJavascript timed out on Android WebView")
+                    webView.destroy()
+                }
+            }, 30000)
+        }
+    }
 }

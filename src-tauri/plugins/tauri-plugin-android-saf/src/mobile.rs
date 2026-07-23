@@ -43,6 +43,16 @@ impl<R: Runtime> AndroidSaf<R> {
             .map_err(Into::into)
     }
 
+    pub fn evaluate_javascript(&self, url: String, js: String) -> crate::Result<String> {
+        #[derive(serde::Deserialize)]
+        struct EvaluateJavascriptResponse {
+            result: String,
+        }
+        let res: EvaluateJavascriptResponse = self.0
+            .run_mobile_plugin("evaluateJavascript", json!({ "url": url, "js": js }))?;
+        Ok(res.result)
+    }
+
     pub fn enumerate_tree(&self, uri: String) -> crate::Result<EnumerateTreeResponse> {
         self.0
             .run_mobile_plugin("enumerateTree", json!({ "uri": uri }))

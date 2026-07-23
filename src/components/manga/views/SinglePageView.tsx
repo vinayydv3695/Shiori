@@ -1,9 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { useMangaContentStore, useMangaUIStore } from '@/store/mangaReaderStore';
 import { MangaPageImage } from '../MangaPageImage';
 import { useMangaPreloader } from '../hooks/useMangaPreloader';
 import { ChevronRight } from 'lucide-react';
-import { usePinch } from '@use-gesture/react';
 
 /**
  * Single page reading mode.
@@ -54,33 +53,11 @@ export function SinglePageView() {
         }
     }, [currentPage, totalPages]);
 
-    // Pinch to zoom logic
-    const containerRef = useRef<HTMLDivElement>(null);
-    usePinch(({ offset: [s], active }) => {
-        if (containerRef.current) {
-            if (active) {
-                containerRef.current.style.transform = `scale(${s})`;
-                containerRef.current.style.transition = 'none';
-                containerRef.current.style.zIndex = '50';
-            } else {
-                containerRef.current.style.transform = 'scale(1)';
-                containerRef.current.style.transition = 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)';
-                // delay z-index reset slightly so it stays on top during animation
-                setTimeout(() => {
-                    if (containerRef.current) containerRef.current.style.zIndex = '1';
-                }, 300);
-            }
-        }
-    }, {
-        target: containerRef,
-        pinch: { scaleBounds: { min: 1, max: 4 }, modifierKey: null }
-    });
-
     if (!hasSource) return null;
 
     return (
         <div className="manga-single-view relative">
-            <div className="manga-page-container origin-center" ref={containerRef} style={{ touchAction: 'pan-x pan-y' }}>
+            <div className="manga-page-container origin-center">
                 <MangaPageImage
                     pageIndex={currentPage}
                 />

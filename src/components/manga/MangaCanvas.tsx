@@ -4,6 +4,7 @@ import { SinglePageView } from './views/SinglePageView';
 import { LongStripView } from './views/LongStripView';
 import { WebtoonView } from './views/WebtoonView';
 import { ContinuousWebtoonView } from './views/ContinuousWebtoonView';
+import { ZoomPanContainer } from './ZoomPanContainer';
 
 /**
  * Canvas controller — switches between reading mode views.
@@ -24,14 +25,16 @@ export function MangaCanvas() {
 
     return (
         <div className="manga-canvas">
-            {(readingMode === 'single' || readingMode === 'comic') && <SinglePageView />}
-            
-            {/* If continuous mode is on for online sources, use the ContinuousWebtoonView for ALL scroll modes */}
-            {useContinuousView && <ContinuousWebtoonView />}
-            
-            {/* Fallback to original views if continuous mode is disabled or local source */}
-            {!useContinuousView && readingMode === 'strip' && <LongStripView />}
-            {!useContinuousView && (readingMode === 'webtoon' || readingMode === 'manhwa') && <WebtoonView />}
+            <ZoomPanContainer>
+                {(readingMode === 'single' || readingMode === 'comic') && <SinglePageView />}
+                
+                {/* If continuous mode is on for online sources, use the ContinuousWebtoonView for ALL scroll modes */}
+                {useContinuousView && <ContinuousWebtoonView />}
+                
+                {/* Fallback to original views if continuous mode is disabled or local source */}
+                {!useContinuousView && readingMode === 'strip' && <LongStripView />}
+                {!useContinuousView && (readingMode === 'webtoon' || readingMode === 'manhwa') && <WebtoonView />}
+            </ZoomPanContainer>
         </div>
     );
 }

@@ -407,7 +407,7 @@ pub fn run() {
                     cf_store_for_toongod,
                 ) {
                     Ok(cf_client) => {
-                        let cf_client = cf_client.with_app_handle(app_handle_for_toongod);
+                        let cf_client = cf_client.with_app_handle(app_handle_for_toongod.clone());
                         toongod_for_cf
                             .set_cf_client(std::sync::Arc::new(cf_client))
                             .await;
@@ -428,10 +428,14 @@ pub fn run() {
                     cf_store_for_mangafire,
                 ) {
                     Ok(cf_client) => {
-                        let cf_client = cf_client.with_app_handle(app_handle_for_mangafire);
+                        let cf_client = cf_client.with_app_handle(app_handle_for_mangafire.clone());
                         mangafire_for_cf
-                            .set_cf_client(std::sync::Arc::new(cf_client))
+                            .set_cf_client(std::sync::Arc::new(cf_client), app_handle_for_mangafire)
                             .await;
+                        
+                        #[cfg(not(target_os = "android"))]
+                        mangafire_for_cf.init_daemon().await;
+
                         log::info!(
                             "MangaFire: CfClient attached (automatic Playwright solver active)"
                         );

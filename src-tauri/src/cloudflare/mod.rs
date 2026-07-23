@@ -9,5 +9,6 @@
 pub mod browser;
 pub mod client;
 pub mod commands;
+pub mod daemon;
 pub mod detector;
 pub mod session;

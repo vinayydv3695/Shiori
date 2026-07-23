@@ -148,8 +148,8 @@ pub async fn solve(url: &str, host: &str, cfg: &BrowserConfig, #[allow(unused_va
         }
     }
 
-    // Write the helper script to a temp file.
-    let script_path = write_helper_script().await?;
+    // Use the inline script via node --eval to avoid module resolution errors
+    let script = include_str!("../../scripts/cf_solver.mjs");
 
     // Try headless first, then visible fallback.
     let modes: &[bool] = if cfg.try_headless_first {
@@ -164,15 +164,13 @@ pub async fn solve(url: &str, host: &str, cfg: &BrowserConfig, #[allow(unused_va
         let mode_label = if headless { "headless" } else { "visible" };
         log::info!("[CF Browser] Trying {mode_label} mode for {url}");
 
-        match run_browser_script(&script_path, url, headless, cfg).await {
+        match run_browser_script(script, url, headless, cfg).await {
             Ok(output) => {
                 let session = build_session(host, output)?;
                 log::info!(
                     "[CF Browser] ✓ Solved in {mode_label} mode — captured {} cookies",
                     session.cookies.len()
                 );
-                // Clean up temp script.
-                let _ = tokio::fs::remove_file(&script_path).await;
                 return Ok(session);
             }
             Err(e) => {
@@ -184,7 +182,6 @@ pub async fn solve(url: &str, host: &str, cfg: &BrowserConfig, #[allow(unused_va
         }
     }
 
-    let _ = tokio::fs::remove_file(&script_path).await;
     Err(ShioriError::Other(format!(
         "Cloudflare solver failed for {url}: {last_error}"
     )))
@@ -193,7 +190,7 @@ pub async fn solve(url: &str, host: &str, cfg: &BrowserConfig, #[allow(unused_va
 // ─── Browser script runner ────────────────────────────────────────────────────
 
 async fn run_browser_script(
-    script_path: &PathBuf,
+    script: &str,
     url: &str,
     headless: bool,
     cfg: &BrowserConfig,
@@ -203,7 +200,10 @@ async fn run_browser_script(
     // Build the command with display environment forwarded.
     // Tauri apps may strip these from the child process environment on Linux.
     let mut cmd = tokio::process::Command::new("node");
-    cmd.arg(script_path)
+    cmd.arg("--input-type=module")
+        .arg("--eval")
+        .arg(script)
+        .arg("dummy_pad") // pad process.argv[1] so indices match
         .arg(url)
         .arg(if headless { "headless" } else { "visible" })
         .arg(timeout_secs.to_string())
@@ -294,19 +294,4 @@ fn build_session(host: &str, output: SolverOutput) -> Result<CfSession> {
     }
 
     Ok(CfSession::new(host, output.cookies, output.user_agent))
-}
-
-// ─── Playwright helper script ─────────────────────────────────────────────────
-
-/// Write the Node.js Playwright helper to a temporary file and return its path.
-async fn write_helper_script() -> Result<PathBuf> {
-    let tmp_dir = std::env::temp_dir();
-    let script_path = tmp_dir.join("shiori_cf_solver.mjs");
-
-    let script = include_str!("../../scripts/cf_solver.mjs");
-    tokio::fs::write(&script_path, script)
-        .await
-        .map_err(|e| ShioriError::Other(format!("Failed to write CF solver script: {e}")))?;
-
-    Ok(script_path)
 }

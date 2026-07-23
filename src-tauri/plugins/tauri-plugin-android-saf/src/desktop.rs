@@ -28,6 +28,10 @@ impl<R: Runtime> AndroidSaf<R> {
         })
     }
 
+    pub fn evaluate_javascript(&self, _url: String, _js: String) -> crate::Result<String> {
+        Ok(String::new())
+    }
+
     pub fn enumerate_tree(&self, _uri: String) -> crate::Result<EnumerateTreeResponse> {
         Ok(EnumerateTreeResponse { files: vec![] })
     }

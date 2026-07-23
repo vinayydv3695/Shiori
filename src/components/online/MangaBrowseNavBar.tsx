@@ -87,6 +87,9 @@ export function MangaBrowseNavBar({ activeGenres, activeTypes, activeMode, onFil
       </DropdownMenu>
 
       <div className={`flex flex-1 ${isMobileDialog ? 'flex-col gap-2 w-full mt-2' : 'items-center gap-1 min-w-max bg-background/30 p-1 rounded-xl shadow-inner border border-black/10'}`}>
+        <button onClick={() => setMode('popular')} className={`font-medium transition-all px-4 py-1.5 rounded-lg text-sm md:text-base ${isMobileDialog ? 'text-left p-3 bg-secondary/10 w-full' : 'hover:bg-white/5'} ${activeMode === 'popular' ? 'text-primary bg-background shadow-sm border border-white/5' : 'text-muted-foreground hover:text-foreground'}`}>
+          Popular
+        </button>
         <button onClick={() => setMode('Newest')} className={`font-medium transition-all px-4 py-1.5 rounded-lg text-sm md:text-base ${isMobileDialog ? 'text-left p-3 bg-secondary/10 w-full' : 'hover:bg-white/5'} ${activeMode === 'Newest' ? 'text-primary bg-background shadow-sm border border-white/5' : 'text-muted-foreground hover:text-foreground'}`}>
           Newest
         </button>

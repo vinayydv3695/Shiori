@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { listen } from '@tauri-apps/api/event';
 import { useUpdateStore } from '@/store/updateStore';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -74,6 +75,7 @@ export function UpdateDialog() {
   const { isUpdateDialogOpen, setIsUpdateDialogOpen, updateInfo } = useUpdateStore();
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState<{ downloaded: number; total: number | null } | null>(null);
   
   // Confetti trigger effect (simulated via Framer Motion)
   const [showConfetti, setShowConfetti] = useState(false);
@@ -109,7 +111,13 @@ export function UpdateDialog() {
             await requestPermissions();
           }
 
+          const unlisten = await listen<{ downloaded: number; total: number | null }>('download_progress', (event) => {
+            setDownloadProgress(event.payload);
+          });
+
           const fullApkPath = await invoke<string>('download_apk', { url: updateInfo.apkUrl });
+          unlisten();
+          
           await install(fullApkPath);
           setIsUpdateDialogOpen(false);
         } else {
@@ -269,7 +277,11 @@ export function UpdateDialog() {
                       {isUpdating ? (
                         <>
                           <RefreshCw className="w-4 h-4 animate-spin" />
-                          <span>Downloading Update...</span>
+                          <span>
+                            {downloadProgress 
+                              ? `Downloading: ${(downloadProgress.downloaded / 1024 / 1024).toFixed(1)} MB${downloadProgress.total ? ` / ${(downloadProgress.total / 1024 / 1024).toFixed(1)} MB` : ''}`
+                              : 'Downloading Update...'}
+                          </span>
                         </>
                       ) : (
                         <>

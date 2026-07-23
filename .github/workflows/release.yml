@@ -660,8 +660,8 @@ jobs:
             KEY_PASS="${ANDROID_KEYSTORE_PASSWORD}"
             ALIAS="${ANDROID_KEY_ALIAS}"
           else
-            echo "No production keystore found in secrets. Generating a debug keystore..."
-            keytool -genkey -v -keystore release.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" -storepass android -keypass android
+            echo "No production keystore found in secrets. Using checked-in debug.keystore..."
+            cp src-tauri/debug.keystore release.keystore
             KEY_PASS="android"
             ALIAS="androiddebugkey"
           fi

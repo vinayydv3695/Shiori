@@ -57,10 +57,17 @@ pub fn get_fullscreen_state<R: Runtime>(app: AppHandle<R>) -> Result<bool, Strin
     window.is_fullscreen().map_err(|e| e.to_string())
 }
 
+#[derive(serde::Serialize, Clone)]
+struct DownloadProgress {
+    downloaded: u64,
+    total: Option<u64>,
+}
+
 #[tauri::command]
 pub async fn download_apk(url: String, app_handle: tauri::AppHandle) -> Result<String, String> {
     use std::io::Write;
     use tauri::Manager;
+    use tauri::Emitter;
     
     // Use app_cache_dir so FileProvider can find it via <cache-path>
     let cache_dir = app_handle.path().app_cache_dir().map_err(|e| e.to_string())?;
@@ -83,9 +90,18 @@ pub async fn download_apk(url: String, app_handle: tauri::AppHandle) -> Result<S
     
     let mut file = std::fs::File::create(&apk_path).map_err(|e| format!("Failed to create file: {}", e))?;
     
+    let total = response.content_length();
+    let mut downloaded: u64 = 0;
+    
     // Stream chunks instead of loading entire APK into memory
     while let Some(chunk) = response.chunk().await.map_err(|e| format!("Failed to read chunk: {}", e))? {
         file.write_all(&chunk).map_err(|e| format!("Failed to write chunk: {}", e))?;
+        downloaded += chunk.len() as u64;
+        
+        let _ = app_handle.emit("download_progress", DownloadProgress {
+            downloaded,
+            total,
+        });
     }
     
     Ok(apk_path.to_string_lossy().to_string())

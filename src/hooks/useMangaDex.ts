@@ -96,14 +96,15 @@ export function useMangaDex() {
    */
   const browseManga = useCallback(
     async (
-      mode: BrowseMode = 'popular',
+      mode: BrowseMode,
+      page: number = 1,
       limit: number = 20
     ): Promise<MangaDexManga[]> => {
       setError(null);
 
       try {
-        logger.info('MangaDex browse via plugin:', { mode, limit });
-        const browseResults = await pluginApi.browse('mangadex', mode, 1, limit);
+        logger.info('MangaDex browse via plugin:', { mode, page, limit });
+        const browseResults = await pluginApi.browse('mangadex', mode, page, limit);
         return parsePluginSearchResults(browseResults);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to browse MangaDex';

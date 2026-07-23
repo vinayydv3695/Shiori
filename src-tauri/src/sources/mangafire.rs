@@ -378,11 +378,27 @@ impl Source for MangaFireSource {
         _genres: Option<Vec<String>>,
         _types: Option<Vec<String>>,
     ) -> Result<Vec<SearchResult>> {
-        let url = match mode {
+        let mut base_url = match mode {
             "popular" => format!("/api/titles?order[chapter_updated_at]=desc&hot=1&page={}&limit=30", page),
             "latest" | "recent" => format!("/api/titles?order[chapter_updated_at]=desc&page={}&limit=30", page),
             _ => format!("/api/titles?order[chapter_updated_at]=desc&page={}&limit=30", page),
         };
+
+        if let Some(genres) = _genres {
+            for genre in genres {
+                let slug = genre.to_lowercase().replace(" ", "-");
+                base_url.push_str(&format!("&genre[]={}", slug));
+            }
+        }
+
+        if let Some(types) = _types {
+            for t in types {
+                let slug = t.to_lowercase().replace(" ", "-");
+                base_url.push_str(&format!("&type[]={}", slug));
+            }
+        }
+
+        let url = base_url;
 
         let json_str = self.fetch_rpc(&url).await?;
         let res: MfSearchResponse = serde_json::from_str(&json_str)

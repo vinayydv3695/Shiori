@@ -14,6 +14,7 @@ const SHIORI_UA: &str = "Shiori/1.0 (github.com/vinayydv3695/Shiori)";
 pub struct MangaDexSource {
     client: reqwest::Client,
     api_base: String,
+    tags_cache: tokio::sync::RwLock<Option<HashMap<String, String>>>,
 }
 
 impl MangaDexSource {
@@ -34,7 +35,42 @@ impl MangaDexSource {
 
         let api_base = std::env::var("MANGADEX_API_BASE").unwrap_or_else(|_| DEFAULT_MANGADEX_API_BASE.to_string());
 
-        Ok(Self { client, api_base })
+        Ok(Self { 
+            client, 
+            api_base,
+            tags_cache: tokio::sync::RwLock::new(None),
+        })
+    }
+
+    async fn get_tags(&self) -> Result<HashMap<String, String>> {
+        {
+            let cache = self.tags_cache.read().await;
+            if let Some(tags) = &*cache {
+                return Ok(tags.clone());
+            }
+        }
+
+        let url = format!("{}/manga/tag", self.api_base);
+        let resp: serde_json::Value = self.client.get(&url).send().await
+            .map_err(|e| ShioriError::Other(format!("Failed to fetch MangaDex tags: {}", e)))?
+            .json().await
+            .map_err(|e| ShioriError::Other(format!("Failed to parse MangaDex tags: {}", e)))?;
+
+        let mut tags = HashMap::new();
+        if let Some(data) = resp.get("data").and_then(|d| d.as_array()) {
+            for tag in data {
+                if let (Some(id), Some(attributes)) = (tag.get("id").and_then(|i| i.as_str()), tag.get("attributes")) {
+                    if let Some(name) = attributes.get("name").and_then(|n| n.get("en")).and_then(|n| n.as_str()) {
+                        let normalized = name.to_lowercase().chars().filter(|c| c.is_ascii_alphanumeric()).collect::<String>();
+                        tags.insert(normalized, id.to_string());
+                    }
+                }
+            }
+        }
+
+        let mut cache = self.tags_cache.write().await;
+        *cache = Some(tags.clone());
+        Ok(tags)
     }
 }
 
@@ -154,9 +190,75 @@ impl Source for MangaDexSource {
             _ => return Err(ShioriError::Validation(format!("Unsupported browse mode: {}", mode))),
         };
 
+        let mut included_tags = Vec::new();
+        let mut original_languages = Vec::new();
+        let mut demographics = Vec::new();
+        let mut content_ratings = vec!["safe", "suggestive"];
+
+        let tags_map = self.get_tags().await?;
+
+        if let Some(genres) = _genres {
+            for genre in genres {
+                let lower = genre.to_lowercase();
+                match lower.as_str() {
+                    "shounen" | "shoujo" | "seinen" | "josei" => demographics.push(lower),
+                    "smut" => { content_ratings.push("erotica"); content_ratings.push("pornographic"); },
+                    "ecchi" => {}, // already included as suggestive
+                    "kids" => demographics.push("shounen".to_string()), // approximate
+                    _ => {
+                        let normalized = lower.chars().filter(|c| c.is_ascii_alphanumeric()).collect::<String>();
+                        if let Some(id) = tags_map.get(&normalized) {
+                            included_tags.push(id.to_string());
+                        } else {
+                            tracing::warn!("MangaDex: unresolvable genre filter '{}'", genre);
+                            return Err(ShioriError::Validation(format!("MangaDex: unresolvable genre filter '{}'", genre)));
+                        }
+                    }
+                }
+            }
+        }
+
+        if let Some(types) = _types {
+            for t in types {
+                let lower = t.to_lowercase();
+                match lower.as_str() {
+                    "manga" => original_languages.push("ja"),
+                    "manhwa" => original_languages.push("ko"),
+                    "manhua" => { original_languages.push("zh"); original_languages.push("zh-hk"); },
+                    "novel" => {
+                        tracing::warn!("MangaDex: dropped 'Novel' type filter since it is not hosted");
+                        return Ok(Vec::new());
+                    },
+                    _ => {
+                        let normalized = lower.chars().filter(|c| c.is_ascii_alphanumeric()).collect::<String>();
+                        if let Some(id) = tags_map.get(&normalized) {
+                            included_tags.push(id.to_string());
+                        } else {
+                            tracing::warn!("MangaDex: unresolvable type filter '{}'", t);
+                            return Err(ShioriError::Validation(format!("MangaDex: unresolvable type filter '{}'", t)));
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut filter_params = String::new();
+        for tag in included_tags {
+            filter_params.push_str(&format!("&includedTags%5B%5D={}", tag));
+        }
+        for lang in original_languages {
+            filter_params.push_str(&format!("&originalLanguage%5B%5D={}", lang));
+        }
+        for demo in demographics {
+            filter_params.push_str(&format!("&publicationDemographic%5B%5D={}", demo));
+        }
+        for cr in content_ratings {
+            filter_params.push_str(&format!("&contentRating%5B%5D={}", cr));
+        }
+
         let url = format!(
-            "{}/manga?limit={}&offset={}&hasAvailableChapters=true&availableTranslatedLanguage%5B%5D=en&includes%5B%5D=cover_art&includes%5B%5D=author&includes%5B%5D=artist&contentRating%5B%5D=safe&contentRating%5B%5D=suggestive&{}",
-            self.api_base, safe_limit, offset, order_param
+            "{}/manga?limit={}&offset={}&hasAvailableChapters=true&availableTranslatedLanguage%5B%5D=en&includes%5B%5D=cover_art&includes%5B%5D=author&includes%5B%5D=artist{}&{}",
+            self.api_base, safe_limit, offset, filter_params, order_param
         );
 
         let response: MangaDexMangaResponse = self

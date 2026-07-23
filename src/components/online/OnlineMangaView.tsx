@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { cn } from "@/lib/utils";
-import { BookOpen, Loader2, Download } from "lucide-react";
+import { BookOpen, Loader2, Download, ArrowRight } from "lucide-react";
+import { useInView } from "react-intersection-observer";
 import {
   useMangaDex,
   type MangaDexManga,
@@ -44,6 +45,7 @@ import { useToast } from "@/store/toastStore";
 import { getErrorMessage } from "@/lib/errors";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { MobileFilterSheet } from "./MobileFilterSheet";
 
 let onlineMangaSearchTimeout: number | undefined;
 const SUPPORTED_QUEUE_FORMATS = [
@@ -226,6 +228,14 @@ export function OnlineMangaView() {
   const [isAdvancedBrowseLoading, setIsAdvancedBrowseLoading] = useState(false);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
+  const [browsePage, setBrowsePage] = useState(1);
+  const [hasMoreBrowseResults, setHasMoreBrowseResults] = useState(true);
+
+  const { ref: loadMoreRef, inView: loadMoreInView } = useInView({
+    threshold: 0.1,
+    rootMargin: "400px",
+  });
+
   const isAdvancedFilterActive =
     activeGenres.length > 0 || activeTypes.length > 0 || activeMode !== "";
 
@@ -380,6 +390,11 @@ export function OnlineMangaView() {
     void loadBrowseData("latest");
     void loadBrowseData("recent");
     void loadBrowseData("top-rated");
+
+    // Reset browse page
+    setBrowsePage(1);
+    setHasMoreBrowseResults(true);
+    setAdvancedBrowseResults([]);
   }, [activeSource?.id]); // Re-run when source ID changes
 
   // Trigger search if we arrive with a pre-filled query (e.g. from AniList "Read Online")
@@ -391,35 +406,68 @@ export function OnlineMangaView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePluginSourceId, isMangaDexEnabled]);
 
-  // Load advanced browse data when filters change
+  // Load advanced browse data when filters change or page increments
   useEffect(() => {
     if (!activeSource || !isAdvancedFilterActive) return;
 
     const loadAdvancedBrowse = async () => {
-      setIsAdvancedBrowseLoading(true);
+      if (browsePage === 1) {
+        setIsAdvancedBrowseLoading(true);
+      }
       try {
         const mode = activeMode || "latest";
-        const raw = await pluginApi.browse(
-          activeSource.id,
-          mode,
-          1,
-          40, // load more for grid
-          activeGenres.length > 0 ? activeGenres : undefined,
-          activeTypes.length > 0 ? activeTypes : undefined,
-        );
-        const data: MangaDexManga[] = raw.map((item) => ({
-          id: item.id,
-          title: item.title,
-          description: item.summary || item.description || "",
-          coverUrl: item.coverUrl || item.cover_url,
-        }));
-        setAdvancedBrowseResults(data);
+        const limit = 40;
+        
+        let data: MangaDexManga[] = [];
+        if (activeSource.id === "mangadex") {
+          // For MangaDex we still use pluginApi behind the scenes, but useMangaDex manages it.
+          // Since MangaDex browse by genre via plugin might not support genres nicely if not mapped,
+          // but we will pass it anyway if supported by plugin
+          const raw = await pluginApi.browse(
+            "mangadex",
+            mode,
+            browsePage,
+            limit,
+            activeGenres.length > 0 ? activeGenres : undefined,
+            activeTypes.length > 0 ? activeTypes : undefined
+          );
+          data = raw.map((item) => ({
+            id: item.id,
+            title: item.title,
+            description: item.summary || item.description || "",
+            coverUrl: item.coverUrl || item.cover_url,
+          }));
+        } else {
+          const raw = await pluginApi.browse(
+            activeSource.id,
+            mode,
+            browsePage,
+            limit,
+            activeGenres.length > 0 ? activeGenres : undefined,
+            activeTypes.length > 0 ? activeTypes : undefined,
+          );
+          data = raw.map((item) => ({
+            id: item.id,
+            title: item.title,
+            description: item.summary || item.description || "",
+            coverUrl: item.coverUrl || item.cover_url,
+          }));
+        }
+        
+        if (data.length < limit) {
+          setHasMoreBrowseResults(false);
+        } else {
+          setHasMoreBrowseResults(true);
+        }
+
+        setAdvancedBrowseResults(prev => browsePage === 1 ? data : [...prev, ...data]);
       } catch (err) {
         logger.error(
           `Failed to load advanced browse results for ${activeSource.id}:`,
           err,
         );
-        setAdvancedBrowseResults([]);
+        if (browsePage === 1) setAdvancedBrowseResults([]);
+        setHasMoreBrowseResults(false);
       } finally {
         setIsAdvancedBrowseLoading(false);
       }
@@ -432,7 +480,21 @@ export function OnlineMangaView() {
     activeTypes,
     activeMode,
     isAdvancedFilterActive,
+    browsePage
   ]);
+
+  // Handle infinite scroll
+  useEffect(() => {
+    if (loadMoreInView && hasMoreBrowseResults && !isAdvancedBrowseLoading) {
+      setBrowsePage(prev => prev + 1);
+    }
+  }, [loadMoreInView, hasMoreBrowseResults, isAdvancedBrowseLoading]);
+
+  // Reset page when filter changes
+  useEffect(() => {
+    setBrowsePage(1);
+    setHasMoreBrowseResults(true);
+  }, [activeGenres, activeTypes, activeMode, activeSource?.id]);
 
   const handleRandomClick = () => {
     const listToChooseFrom = isAdvancedFilterActive
@@ -1341,30 +1403,18 @@ export function OnlineMangaView() {
                 />
               </div>
 
-              <Dialog
+              <MobileFilterSheet
                 open={mobileFilterOpen}
                 onOpenChange={setMobileFilterOpen}
-              >
-                <DialogContent className="max-w-[90vw] rounded-2xl p-6 bg-background/95 backdrop-blur-xl border-white/10">
-                  <DialogHeader>
-                    <DialogTitle>Browse Filters</DialogTitle>
-                  </DialogHeader>
-                  <div className="mt-4">
-                    <MangaBrowseNavBar
-                      activeGenres={activeGenres}
-                      activeTypes={activeTypes}
-                      activeMode={activeMode}
-                      onFilterChange={(g, t, m) => {
-                        setActiveGenres(g);
-                        setActiveTypes(t);
-                        setActiveMode(m);
-                      }}
-                      onRandomClick={handleRandomClick}
-                      isMobileDialog={true}
-                    />
-                  </div>
-                </DialogContent>
-              </Dialog>
+                activeGenres={activeGenres}
+                activeTypes={activeTypes}
+                activeMode={activeMode}
+                onApply={(g, t, m) => {
+                  setActiveGenres(g);
+                  setActiveTypes(t);
+                  setActiveMode(m);
+                }}
+              />
 
               <div className="flex flex-col xl:flex-row gap-8">
                 {isAdvancedFilterActive ? (
@@ -1374,8 +1424,9 @@ export function OnlineMangaView() {
                         <SkeletonGrid count={12} />
                       </div>
                     ) : (
-                      <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6 w-full max-w-[1920px] pb-12">
-                        {advancedBrowseResults.map((manga, i) => (
+                      <>
+                        <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6 w-full max-w-[1920px] pb-12">
+                          {advancedBrowseResults.map((manga, i) => (
                           <div
                             key={`${manga.id}-${i}`}
                             className="animate-in fade-in slide-in-from-bottom-4 fill-mode-both"
@@ -1410,8 +1461,15 @@ export function OnlineMangaView() {
                           </div>
                         )}
                       </div>
-                    )}
-                  </div>
+                      {/* Infinite Scroll Trigger */}
+                      {hasMoreBrowseResults && advancedBrowseResults.length > 0 && (
+                        <div ref={loadMoreRef} className="w-full py-8 flex justify-center">
+                          <Loader2 className="w-8 h-8 animate-spin text-primary opacity-50" />
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
                 ) : (
                   <div className="flex-1 flex flex-col gap-8 min-w-0">
                     {/* Popular Manga Carousel */}
@@ -1420,6 +1478,9 @@ export function OnlineMangaView() {
                         <h2 className="text-xl font-bold tracking-tight text-foreground">
                           {isMangaDexEnabled ? "Trending This Week" : "Popular"}
                         </h2>
+                        <Button variant="ghost" className="text-sm font-medium gap-1 text-muted-foreground hover:text-foreground" onClick={() => setActiveMode('popular')}>
+                          View All <ArrowRight className="w-4 h-4" />
+                        </Button>
                       </div>
                       <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6 mt-4">
                         {browseLoading.popular ? (
@@ -1445,6 +1506,9 @@ export function OnlineMangaView() {
                     <div className="mb-10">
                       <div className="flex items-center justify-between mb-4">
                         <h2 className="text-xl font-bold tracking-tight text-foreground">Latest Updates</h2>
+                        <Button variant="ghost" className="text-sm font-medium gap-1 text-muted-foreground hover:text-foreground" onClick={() => setActiveMode('latest')}>
+                          View All <ArrowRight className="w-4 h-4" />
+                        </Button>
                       </div>
                       <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6 mt-4">
                         {browseLoading.latest ? (

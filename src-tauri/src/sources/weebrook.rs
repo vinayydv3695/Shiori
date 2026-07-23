@@ -298,9 +298,31 @@ impl WeebrookEngine {
         };
 
         // Filter by category: manhwa or manhwa18
+        let mut genre_params = String::new();
+        let mut genre_idx = 0;
+
+        genre_params.push_str(&format!("&genre[{}]={}", genre_idx, self.category));
+        genre_idx += 1;
+
+        if let Some(genres) = _genres {
+            for genre in genres {
+                let slug = genre.to_lowercase().replace(" ", "-");
+                genre_params.push_str(&format!("&genre[{}]={}", genre_idx, slug));
+                genre_idx += 1;
+            }
+        }
+
+        if let Some(types) = _types {
+            for t in types {
+                let slug = t.to_lowercase().replace(" ", "-");
+                genre_params.push_str(&format!("&genre[{}]={}", genre_idx, slug));
+                genre_idx += 1;
+            }
+        }
+
         let url = format!(
-            "{}/{}/{}?{}&genre[0]={}",
-            BASE_URL, TOON_PATH, page_segment, order_param, self.category
+            "{}/{}/{}?{}{}",
+            BASE_URL, TOON_PATH, page_segment, order_param, genre_params
         );
 
         // Fall back to unfiltered if genre filtering fails

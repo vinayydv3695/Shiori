@@ -385,16 +385,16 @@ impl Source for MangaFireSource {
         };
 
         if let Some(genres) = _genres {
-            for genre in genres {
-                let slug = genre.to_lowercase().replace(" ", "-");
-                base_url.push_str(&format!("&genre[]={}", slug));
+            if !genres.is_empty() {
+                let slugs: Vec<String> = genres.into_iter().map(|g| g.to_lowercase().replace(" ", "-")).collect();
+                base_url.push_str(&format!("&genre={}", slugs.join(",")));
             }
         }
 
         if let Some(types) = _types {
-            for t in types {
-                let slug = t.to_lowercase().replace(" ", "-");
-                base_url.push_str(&format!("&type[]={}", slug));
+            if !types.is_empty() {
+                let slugs: Vec<String> = types.into_iter().map(|t| t.to_lowercase().replace(" ", "-")).collect();
+                base_url.push_str(&format!("&type={}", slugs.join(",")));
             }
         }
 

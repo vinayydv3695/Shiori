@@ -1,4 +1,4 @@
-package com.tauri.shiori
+package io.github.vinayydv3695.shiori
 
 import android.content.Intent
 import android.os.Bundle

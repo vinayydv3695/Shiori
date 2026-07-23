@@ -97,7 +97,7 @@ impl MangaFireSource {
                             }}
 
                             const [path, queryString] = '{}'.split('?');
-                            const queryParams = {};
+                            const queryParams = {{}};
                             if (queryString) {{
                                 const searchParams = new URLSearchParams(queryString);
                                 for (const [key, value] of searchParams.entries()) {{
@@ -113,7 +113,8 @@ impl MangaFireSource {
                     }})()"#,
                     url
                 );
-                let res = app.android_saf().evaluate_javascript(format!("{}/filter", BASE_URL), js)?;
+                let res = app.android_saf().evaluate_javascript(format!("{}/filter", BASE_URL), js)
+                    .map_err(|e| ShioriError::Other(e.to_string()))?;
                 return Ok(res);
             }
         }

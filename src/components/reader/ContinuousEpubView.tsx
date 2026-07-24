@@ -173,23 +173,24 @@ export function ContinuousEpubView({
     if (!container) return;
 
     const handleIntersect = (entries: IntersectionObserverEntry[]) => {
-      let maxRatio = 0;
+      let maxVisibleHeight = 0;
       let mostVisibleIdx = activeChapterIndexRef.current;
-      let loadNext = false;
-      let loadPrev = false;
 
       entries.forEach(entry => {
         const idxStr = entry.target.getAttribute('data-chapter-index');
         if (!idxStr) return;
         const idx = parseInt(idxStr, 10);
 
-        if (entry.isIntersecting && entry.intersectionRatio > maxRatio) {
-          maxRatio = entry.intersectionRatio;
-          mostVisibleIdx = idx;
+        if (entry.isIntersecting) {
+          const visibleHeight = entry.intersectionRect.height;
+          if (visibleHeight > maxVisibleHeight) {
+            maxVisibleHeight = visibleHeight;
+            mostVisibleIdx = idx;
+          }
         }
       });
 
-      if (maxRatio > 0 && mostVisibleIdx !== activeChapterIndexRef.current) {
+      if (maxVisibleHeight > 0 && mostVisibleIdx !== activeChapterIndexRef.current) {
         activeChapterIndexRef.current = mostVisibleIdx;
         setActiveChapterIndex(mostVisibleIdx);
         onChapterChangeRef.current(mostVisibleIdx);
@@ -198,8 +199,8 @@ export function ContinuousEpubView({
 
     observerRef.current = new IntersectionObserver(handleIntersect, {
       root: container,
-      rootMargin: '100% 0px', // Trigger when 1 viewport away (preloading)
-      threshold: [0, 0.1, 0.5, 0.9, 1.0],
+      rootMargin: '0px', // Exact viewport
+      threshold: Array.from({ length: 21 }, (_, i) => i * 0.05), // More granular thresholds for long chapters
     });
 
     chapterRefs.current.forEach(el => observerRef.current?.observe(el));

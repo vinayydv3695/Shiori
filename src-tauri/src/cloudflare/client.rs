@@ -115,8 +115,19 @@ impl CfClient {
         self.get_bytes(url, Some("image/*")).await
     }
 
-    /// Low-level request with CF handling, retries, and rate-limiting.
     pub async fn get_bytes(&self, url: &str, accept: Option<&str>) -> Result<Vec<u8>> {
+        self.request_bytes(reqwest::Method::GET, url, accept, None).await
+    }
+
+    /// Fetch a URL with POST and return the response body as a UTF-8 string.
+    pub async fn post_html(&self, url: &str, accept: Option<&str>, body: String) -> Result<String> {
+        let bytes = self.request_bytes(reqwest::Method::POST, url, accept, Some(body)).await?;
+        String::from_utf8(bytes)
+            .map_err(|e| ShioriError::Other(format!("Response is not UTF-8: {e}")))
+    }
+
+    /// Low-level request with CF handling, retries, and rate-limiting.
+    pub async fn request_bytes(&self, method: reqwest::Method, url: &str, accept: Option<&str>, body: Option<String>) -> Result<Vec<u8>> {
         let _permit = self.concurrency.acquire().await;
 
         let accept_val = accept.unwrap_or(
@@ -135,7 +146,7 @@ impl CfClient {
             }
 
             // Build request with current session cookies.
-            let req = self.build_request(url, accept_val).await?;
+            let req = self.build_request(method.clone(), url, accept_val, body.clone()).await?;
 
             let resp = match req.send().await {
                 Ok(r) => r,
@@ -232,10 +243,10 @@ impl CfClient {
 
     // ── Internal helpers ──────────────────────────────────────────────────────
 
-    async fn build_request(&self, url: &str, accept: &str) -> Result<reqwest::RequestBuilder> {
+    async fn build_request(&self, method: reqwest::Method, url: &str, accept: &str, body: Option<String>) -> Result<reqwest::RequestBuilder> {
         let mut req = self
             .http
-            .get(url)
+            .request(method.clone(), url)
             .header(header::ACCEPT, accept)
             .header(header::ACCEPT_LANGUAGE, "en-US,en;q=0.9")
             .header("sec-fetch-dest", "document")
@@ -257,6 +268,11 @@ impl CfClient {
                 "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 \
                  (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
             );
+        }
+
+        if let Some(b) = body {
+            req = req.body(b);
+            req = req.header(header::CONTENT_TYPE, "application/x-www-form-urlencoded; charset=UTF-8");
         }
 
         Ok(req)

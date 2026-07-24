@@ -9,7 +9,7 @@ use crate::sources::{Chapter, ContentType, Page, SearchResult, Source, SourceMet
 #[cfg(target_os = "android")]
 use tauri_plugin_android_saf::AndroidSafExt;
 
-const BASE_URL: &str = "https://www.toongod.org";
+const BASE_URL: &str = "https://www.manhwaread.com";
 const MANGA_PATH: &str = "webtoons";
 
 // Rotate through realistic Chrome user-agents to reduce fingerprinting
@@ -21,32 +21,31 @@ const USER_AGENTS: &[&str] = &[
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
 ];
 
-// Selectors for Madara theme
-const SEARCH_ITEM_SELECTOR: &str = "div.c-tabs-item__content, div.page-item-detail, div.post-title";
-const SEARCH_TITLE_LINK_SELECTOR: &str = "h3 a, .post-title a, h4 a";
-const SEARCH_IMAGE_SELECTOR: &str = "img";
-const CHAPTER_LIST_SELECTOR: &str = "li.wp-manga-chapter";
-const CHAPTER_LINK_SELECTOR: &str = "a";
-const PAGE_BREAK_SELECTOR: &str = "div.page-break img, .reading-content img, .text-left img";
+// Selectors for ManhwaRead theme
+const SEARCH_ITEM_SELECTOR: &str = "div.manga-item";
+const SEARCH_TITLE_LINK_SELECTOR: &str = "a.manga-item__link";
+const SEARCH_IMAGE_SELECTOR: &str = "img.manga-item__img-inner";
+const CHAPTER_LIST_SELECTOR: &str = "a.chapter-item";
+const PAGE_BREAK_SELECTOR: &str = "div.page-break img, .reading-content img, .text-left img, #chapter-images img, .chapter-image img, .wp-manga-chapter-img";
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct ToonGodConfig {
+pub struct ManhwaReadConfig {
     /// Optional cf_clearance cookie value obtained from a browser after solving Cloudflare
     pub cf_clearance: Option<String>,
     /// Optional FlareSolverr URL for automated Cloudflare bypass (e.g. http://localhost:8191)
     pub flaresolverr_url: Option<String>,
 }
 
-pub struct ToonGodSource {
-    config: RwLock<ToonGodConfig>,
+pub struct ManhwaReadSource {
+    config: RwLock<ManhwaReadConfig>,
     app_handle: RwLock<Option<tauri::AppHandle>>,
     eval_lock: tokio::sync::Mutex<()>,
 }
 
-impl ToonGodSource {
+impl ManhwaReadSource {
     pub fn new() -> Result<Self> {
         Ok(Self {
-            config: RwLock::new(ToonGodConfig::default()),
+            config: RwLock::new(ManhwaReadConfig::default()),
             app_handle: RwLock::new(None),
             eval_lock: tokio::sync::Mutex::new(()),
         })
@@ -57,13 +56,13 @@ impl ToonGodSource {
         *self.app_handle.write().await = Some(app_handle);
     }
 
-    pub async fn set_config(&self, config: ToonGodConfig) {
+    pub async fn set_config(&self, config: ManhwaReadConfig) {
         let mut guard = self.config.write().await;
         *guard = config;
     }
 
     #[allow(dead_code)]
-    pub async fn get_config(&self) -> ToonGodConfig {
+    pub async fn get_config(&self) -> ManhwaReadConfig {
         self.config.read().await.clone()
     }
 
@@ -89,11 +88,7 @@ impl ToonGodSource {
 
     fn cloudflare_error(context: &str) -> ShioriError {
         ShioriError::Other(format!(
-            "ToonGod {} is blocked by Cloudflare. \
-            Shiori will automatically open a browser to solve the challenge. \
-            If the browser opens and gets stuck, click the \"Verify you are human\" checkbox. \
-            You can also trigger the browser manually via Settings → Online Sources → ToonGod → Verify Session. \
-            The session is cached for 20+ hours once solved.",
+            "ManhwaRead {} failed to load. (Bot protection triggered)",
             context
         ))
     }
@@ -164,7 +159,7 @@ impl ToonGodSource {
         
         let guard = self.app_handle.read().await;
         let app = guard.as_ref().ok_or_else(|| {
-            ShioriError::Other("ToonGod source app_handle not initialized".into())
+            ShioriError::Other("ManhwaRead source app_handle not initialized".into())
         })?;
 
         #[cfg(not(target_os = "android"))]
@@ -270,9 +265,9 @@ impl ToonGodSource {
                     if res.starts_with("SHIORI_RESULT|") {
                         res.trim_start_matches("SHIORI_RESULT|").to_string()
                     } else if res.starts_with("SHIORI_ERROR|") {
-                        return Err(ShioriError::Other(format!("ToonGod JS Error: {}", res.trim_start_matches("SHIORI_ERROR|"))));
+                        return Err(ShioriError::Other(format!("ManhwaRead JS Error: {}", res.trim_start_matches("SHIORI_ERROR|"))));
                     } else {
-                        return Err(ShioriError::Other(format!("ToonGod unexpected eval result: {}", res)));
+                        return Err(ShioriError::Other(format!("ManhwaRead unexpected eval result: {}", res)));
                     }
                 }
                 _ => {
@@ -284,7 +279,7 @@ impl ToonGodSource {
                             let _ = w.close();
                         }
                     });
-                    return Err(ShioriError::Other("ToonGod evaluate_js timed out".into()));
+                    return Err(ShioriError::Other("ManhwaRead evaluate_js timed out".into()));
                 }
             };
             Ok(result)
@@ -308,7 +303,7 @@ impl ToonGodSource {
                 .map_err(|e| ShioriError::Other(format!("Android evaluateJavascript failed: {}", e)))?;
                 
             if result.starts_with("{\"error\":") {
-                return Err(ShioriError::Other(format!("ToonGod JS Error: {}", result)));
+                return Err(ShioriError::Other(format!("ManhwaRead JS Error: {}", result)));
             }
             Ok(result)
         }
@@ -324,65 +319,22 @@ impl ToonGodSource {
         Ok((reqwest::StatusCode::OK, html))
     }
 
-    async fn try_ajax_chapters(&self, manga_id: &str, manga_url: &str) -> Result<Option<String>> {
-        // Try the new AJAX endpoint first
-        let ajax_url = format!("{}/ajax/chapters/", manga_url.trim_end_matches('/'));
-        let js = format!(r#"
-            let res = await fetch('{}', {{
-                method: 'POST',
-                headers: {{
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json, text/javascript, */*; q=0.01',
-                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
-                }},
-                body: 'manga={}'
-            }});
-            return await res.text();
-        "#, ajax_url, manga_id);
-
-        if let Ok(html) = self.evaluate_js(manga_url, &js).await {
-            if !html.is_empty() && html.contains("wp-manga-chapter") {
-                return Ok(Some(html));
-            }
-        }
-
-        // Try old admin-ajax endpoint
-        let old_ajax_url = format!("{}/wp-admin/admin-ajax.php", BASE_URL);
-        let js_old = format!(r#"
-            let formData = new URLSearchParams();
-            formData.append('action', 'manga_get_chapters');
-            formData.append('manga', '{}');
-            let res = await fetch('{}', {{
-                method: 'POST',
-                headers: {{
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
-                }},
-                body: formData
-            }});
-            return await res.text();
-        "#, manga_id, old_ajax_url);
-        
-        if let Ok(html) = self.evaluate_js(manga_url, &js_old).await {
-            if !html.is_empty() && html.contains("wp-manga-chapter") {
-                return Ok(Some(html));
-            }
-        }
-
+    async fn try_ajax_chapters(&self, _manga_id: &str, _manga_url: &str) -> Result<Option<String>> {
+        // ManhwaRead includes chapters in the initial HTML, no AJAX needed
         Ok(None)
     }
 }
 
 #[async_trait::async_trait]
-impl Source for ToonGodSource {
+impl Source for ManhwaReadSource {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
 
     fn meta(&self) -> SourceMeta {
         SourceMeta {
-            id: "toongod".to_string(),
-            name: "ToonGod".to_string(),
+            id: "manhwaread".to_string(),
+            name: "ManhwaRead".to_string(),
             base_url: BASE_URL.to_string(),
             version: "2.1.0".to_string(),
             content_type: ContentType::Manga,
@@ -463,7 +415,7 @@ impl Source for ToonGodSource {
                 title,
                 cover_url,
                 description: Some(href.clone()),
-                source_id: "toongod".to_string(),
+                source_id: "manhwaread".to_string(),
                 extra: HashMap::from([("url".to_string(), href)]),
             });
         }
@@ -513,7 +465,7 @@ impl Source for ToonGodSource {
 
         let (status, html) = self.fetch_with_referer(&url, Some(BASE_URL)).await?;
         
-        let _ = std::fs::write("/tmp/toongod_debug.txt", format!("URL: {}\nSTATUS: {}\nHTML:\n{}", url, status, html));
+        let _ = std::fs::write("/tmp/manhwaread_debug.txt", format!("URL: {}\nSTATUS: {}\nHTML:\n{}", url, status, html));
 
         if Self::detect_cloudflare_block(status, &html) {
             return Err(Self::cloudflare_error("browse"));
@@ -570,7 +522,7 @@ impl Source for ToonGodSource {
                 title,
                 cover_url,
                 description: Some(href.clone()),
-                source_id: "toongod".to_string(),
+                source_id: "manhwaread".to_string(),
                 extra: HashMap::from([("url".to_string(), href)]),
             });
         }
@@ -609,24 +561,23 @@ impl Source for ToonGodSource {
 
         let chapter_doc = Html::parse_document(&chapter_html);
         let chapter_sel = Selector::parse(CHAPTER_LIST_SELECTOR)
-            .map_err(|e| ShioriError::Other(format!("Selector error: {:?}", e)))?;
-        let link_sel = Selector::parse(CHAPTER_LINK_SELECTOR)
-            .map_err(|e| ShioriError::Other(format!("Selector error: {:?}", e)))?;
+            .map_err(|e| ShioriError::Other(format!("Invalid chapter selector: {:?}", e)))?;
 
         let mut chapters = Vec::new();
 
         for li in chapter_doc.select(&chapter_sel) {
-            let link = match li.select(&link_sel).next() {
-                Some(a) => a,
-                None => continue,
-            };
-
-            let href = match link.value().attr("href") {
+            let href = match li.value().attr("href") {
                 Some(h) => Self::absolute_url(h),
                 None => continue,
             };
 
-            let title = link.text().collect::<String>().trim().to_string();
+            // Look for the title inside the chapter item
+            let name_sel = Selector::parse(".chapter-name, .chapter-item__name").unwrap();
+            let title = if let Some(span) = li.select(&name_sel).next() {
+                span.text().collect::<String>().trim().to_string()
+            } else {
+                li.text().collect::<String>().trim().to_string()
+            };
             let number = Self::extract_chapter_number(&title);
 
             chapters.push(Chapter {
@@ -639,7 +590,7 @@ impl Source for ToonGodSource {
                 number,
                 volume: None,
                 uploaded_at: None,
-                source_id: "toongod".to_string(),
+                source_id: "manhwaread".to_string(),
                 content_id: content_id.to_string(),
             });
         }
@@ -717,7 +668,7 @@ impl Source for ToonGodSource {
 
         if pages.is_empty() {
             return Err(ShioriError::Other(
-                "No pages found. ToonGod may require Cloudflare bypass. Set cf_clearance cookie or FlareSolverr URL in Settings → Online Sources → ToonGod.".to_string()
+                "No pages found. ManhwaRead may require Cloudflare bypass. Set cf_clearance cookie or FlareSolverr URL in Settings → Online Sources → ManhwaRead.".to_string()
             ));
         }
 

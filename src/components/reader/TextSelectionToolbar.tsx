@@ -209,12 +209,33 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     window.getSelection()?.removeAllRanges();
   }, [selectedText, hideToolbar]);
 
+  const getResolvedLocation = useCallback(() => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return currentLocation;
+    
+    const node = selection.anchorNode;
+    if (!node) return currentLocation;
+    
+    const element = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
+    if (!element) return currentLocation;
+    
+    const chapterEl = element.closest('[data-chapter-index]');
+    if (chapterEl) {
+      const idx = chapterEl.getAttribute('data-chapter-index');
+      if (idx !== null) {
+        return `chapter_${idx}`;
+      }
+    }
+    return currentLocation;
+  }, [currentLocation]);
+
   const handleHighlight = useCallback(async (color: string) => {
     try {
+      const location = getResolvedLocation();
       await api.createAnnotation(
         bookId,
         'highlight',
-        currentLocation,
+        location,
         undefined,
         selectedText,
         undefined,
@@ -232,18 +253,20 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
         title: 'Failed to save highlight',
         description: String(err),
         variant: 'error',
+        duration: 3000,
       });
     }
     hideToolbar();
     window.getSelection()?.removeAllRanges();
-  }, [bookId, currentLocation, selectedText, hideToolbar]);
+  }, [bookId, getResolvedLocation, selectedText, hideToolbar]);
 
   const handleAddNote = useCallback(async () => {
     try {
+      const location = getResolvedLocation();
       await api.createAnnotation(
         bookId,
         'note',
-        currentLocation,
+        location,
         undefined,
         selectedText,
         noteText.trim() || undefined,

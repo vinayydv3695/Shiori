@@ -248,6 +248,9 @@ pub async fn proxy_manga_image(source_id: String, image_url: String) -> Result<V
     // Determine referer based on source
     let referer = match source_id.as_str() {
         "toongod" => Some("https://www.toongod.org/"),
+        "toonily" => Some("https://toonily.com/"),
+        "toontop" => Some("https://toontop.io/"),
+        "manhwaread" => Some("https://manhwaread.com/"),
         "mangadex" => Some("https://mangadex.org/"),
         "weebrook" => Some("https://weebrook.com/"),
         "manhwahub" => Some("https://manhwahub.net/"),

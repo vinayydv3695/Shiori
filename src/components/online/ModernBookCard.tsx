@@ -55,10 +55,29 @@ export const ModernBookCard = memo(function ModernBookCard({
     let active = true;
     const objectUrl: string | null = null;
     
-    if (coverUrl.includes('libgen') || coverUrl.includes('libgen.li')) {
+    const needsProxy = coverUrl.includes('libgen') || 
+                       coverUrl.includes('toontop') || 
+                       coverUrl.includes('toonily') || 
+                       coverUrl.includes('manhwaread') || 
+                       coverUrl.includes('toongod') || 
+                       coverUrl.includes('weebrook') || 
+                       coverUrl.includes('manhwahub') || 
+                       coverUrl.includes('mangafire');
+
+    if (needsProxy) {
+      let sourceId = 'generic';
+      if (coverUrl.includes('libgen')) sourceId = 'libgen';
+      else if (coverUrl.includes('toontop')) sourceId = 'toontop';
+      else if (coverUrl.includes('toonily')) sourceId = 'toonily';
+      else if (coverUrl.includes('manhwaread')) sourceId = 'manhwaread';
+      else if (coverUrl.includes('toongod')) sourceId = 'toongod';
+      else if (coverUrl.includes('weebrook')) sourceId = 'weebrook';
+      else if (coverUrl.includes('manhwahub')) sourceId = 'manhwahub';
+      else if (coverUrl.includes('mangafire')) sourceId = 'mangafire';
+
       const proxyUri = isAndroid 
-        ? `http://shiori-proxy.localhost?source=libgen&url=${encodeURIComponent(coverUrl)}`
-        : `shiori-proxy://localhost?source=libgen&url=${encodeURIComponent(coverUrl)}`;
+        ? `http://shiori-proxy.localhost?source=${sourceId}&url=${encodeURIComponent(coverUrl)}`
+        : `shiori-proxy://localhost?source=${sourceId}&url=${encodeURIComponent(coverUrl)}`;
       setProxyUrl(proxyUri);
     } else if (isAndroid && (coverUrl.startsWith('http://') || coverUrl.startsWith('https://'))) {
       setProxyUrl(`http://shiori-proxy.localhost?source=generic&url=${encodeURIComponent(coverUrl)}`);

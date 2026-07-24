@@ -454,9 +454,12 @@ export function OnlineMangaView() {
           }));
         }
         
-        if (data.length < limit) {
+        if (data.length === 0) {
           setHasMoreBrowseResults(false);
         } else {
+          // If the API returns fewer than 10 results, it's highly likely to be the last page,
+          // but relying on data.length === 0 is the most bulletproof for all plugins.
+          // However, if we get nothing, we definitely stop.
           setHasMoreBrowseResults(true);
         }
 

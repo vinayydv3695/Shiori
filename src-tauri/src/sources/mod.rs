@@ -15,6 +15,8 @@ pub mod toongod;
 pub mod torrent_csv;
 pub mod weebrook;
 pub mod manhwahub;
+pub mod toonily;
+pub mod toontop;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -133,3 +135,4 @@ pub trait Source: Send + Sync {
     async fn get_chapters(&self, content_id: &str) -> Result<Vec<Chapter>>;
     async fn get_pages(&self, chapter_id: &str) -> Result<Vec<Page>>;
 }
+pub mod manhwaread;

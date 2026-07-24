@@ -4,9 +4,40 @@ import { requestCoverUrl } from '@/lib/coverCache'
 
 /** Normalize Windows backslash paths for the asset:// protocol */
 function toAssetUrl(filePath: string): string {
-  // HTTP(S) URLs (e.g. online manga cover CDN links) — use directly
+  // HTTP(S) URLs (e.g. online manga cover CDN links)
   if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
-    return filePath
+    const isAndroid = typeof window !== 'undefined' && /android/i.test(navigator.userAgent);
+    
+    const needsProxy = filePath.includes('libgen') || 
+                       filePath.includes('toontop') || 
+                       filePath.includes('toonily') || 
+                       filePath.includes('manhwaread') || 
+                       filePath.includes('toongod') || 
+                       filePath.includes('weebrook') || 
+                       filePath.includes('manhwahub') || 
+                       filePath.includes('mangafire');
+                       
+    if (needsProxy) {
+      let sourceId = 'generic';
+      if (filePath.includes('libgen')) sourceId = 'libgen';
+      else if (filePath.includes('toontop')) sourceId = 'toontop';
+      else if (filePath.includes('toonily')) sourceId = 'toonily';
+      else if (filePath.includes('manhwaread')) sourceId = 'manhwaread';
+      else if (filePath.includes('toongod')) sourceId = 'toongod';
+      else if (filePath.includes('weebrook')) sourceId = 'weebrook';
+      else if (filePath.includes('manhwahub')) sourceId = 'manhwahub';
+      else if (filePath.includes('mangafire')) sourceId = 'mangafire';
+
+      return isAndroid 
+        ? `http://shiori-proxy.localhost?source=${sourceId}&url=${encodeURIComponent(filePath)}`
+        : `shiori-proxy://localhost?source=${sourceId}&url=${encodeURIComponent(filePath)}`;
+    }
+    
+    if (isAndroid) {
+      return `http://shiori-proxy.localhost?source=generic&url=${encodeURIComponent(filePath)}`;
+    }
+    
+    return filePath;
   }
   return convertFileSrc(filePath.replace(/\\/g, '/'))
 }

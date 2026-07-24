@@ -159,6 +159,9 @@ pub fn run() {
                     let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
                     let referer = match source_id.as_str() {
                         "toongod" => Some("https://www.toongod.org/"),
+                        "toonily" => Some("https://toonily.com/"),
+                        "toontop" => Some("https://toontop.io/"),
+                        "manhwaread" => Some("https://manhwaread.com/"),
                         "mangadex" => Some("https://mangadex.org/"),
                         "weebrook" => Some("https://weebrook.com/"),
                         "manhwahub" => Some("https://manhwahub.net/"),
@@ -305,6 +308,12 @@ pub fn run() {
             registry.register(Arc::new(sources::weebrook::WeebrookManhwaSource::new()?));
             // ManhwaHub
             registry.register(Arc::new(sources::manhwahub::ManhwahubSource::new()?));
+            // Toonily
+            registry.register(Arc::new(sources::toonily::ToonilySource::new()?));
+            // ToonTop
+            registry.register(Arc::new(sources::toontop::ToonTopSource::new()?));
+        let manhwaread_source = Arc::new(sources::manhwaread::ManhwaReadSource::new()?);
+        registry.register(manhwaread_source.clone() as Arc<dyn sources::Source>);
             // Anna's Archive for book search and download
             registry.register(Arc::new(sources::annas_archive::AnnasArchiveSource::new()?));
             // LibGen for book search and download
@@ -397,26 +406,23 @@ pub fn run() {
             };
             app.manage(cf_state);
 
-            // Wire the CfClient to ToonGod source so it can auto-solve challenges.
+            // Wire the app_handle to ToonGod source so it can use Webview for HTML fetching.
             let toongod_for_cf = toongod_source.clone();
-            let cf_store_for_toongod = cf_store.clone();
             let app_handle_for_toongod = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                match cloudflare::client::CfClient::new(
-                    "https://www.toongod.org",
-                    cf_store_for_toongod,
-                ) {
-                    Ok(cf_client) => {
-                        let cf_client = cf_client.with_app_handle(app_handle_for_toongod.clone());
-                        toongod_for_cf
-                            .set_cf_client(std::sync::Arc::new(cf_client))
-                            .await;
-                        log::info!(
-                            "ToonGod: CfClient attached (automatic Playwright solver active)"
-                        );
-                    }
-                    Err(e) => log::warn!("ToonGod: Failed to build CfClient: {}", e),
-                }
+                toongod_for_cf
+                    .set_app_handle(app_handle_for_toongod)
+                    .await;
+                log::info!("ToonGod: app_handle attached for JS evaluation");
+            });
+
+            let manhwaread_for_cf = manhwaread_source.clone();
+            let app_handle_for_manhwaread = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                manhwaread_for_cf
+                    .set_app_handle(app_handle_for_manhwaread)
+                    .await;
+                log::info!("ManhwaRead: app_handle attached for JS evaluation");
             });
 
             let mangafire_for_cf = mangafire_source.clone();

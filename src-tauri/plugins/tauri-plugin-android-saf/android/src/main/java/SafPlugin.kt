@@ -476,18 +476,22 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
             webView.webViewClient = object : android.webkit.WebViewClient() {
                 override fun onPageFinished(view: android.webkit.WebView, loadedUrl: String) {
                     if (done) return
-                    done = true
-                    view.evaluateJavascript(js) { result ->
-                        val ret = JSObject()
-                        // evaluateJavascript returns a JSON string encoded value (e.g., `"\"my result\""`).
-                        // We can just return it as a string and let the caller parse it.
-                        var cleanResult = result
-                        if (cleanResult != null && cleanResult.startsWith("\"") && cleanResult.endsWith("\"")) {
-                            cleanResult = cleanResult.substring(1, cleanResult.length - 1).replace("\\\"", "\"").replace("\\\\", "\\")
+                    view.evaluateJavascript("document.title") { title ->
+                        if (title != null && !title.contains("Just a moment") && !title.contains("Attention Required")) {
+                            done = true
+                            view.evaluateJavascript(js) { result ->
+                                val ret = JSObject()
+                                // evaluateJavascript returns a JSON string encoded value (e.g., `"\"my result\""`).
+                                // We can just return it as a string and let the caller parse it.
+                                var cleanResult = result
+                                if (cleanResult != null && cleanResult.startsWith("\"") && cleanResult.endsWith("\"")) {
+                                    cleanResult = cleanResult.substring(1, cleanResult.length - 1).replace("\\\"", "\"").replace("\\\\", "\\")
+                                }
+                                ret.put("result", cleanResult ?: "")
+                                invoke.resolve(ret)
+                                view.destroy()
+                            }
                         }
-                        ret.put("result", cleanResult ?: "")
-                        invoke.resolve(ret)
-                        view.destroy()
                     }
                 }
             }

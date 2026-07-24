@@ -1,7 +1,16 @@
-import { invoke } from "@tauri-apps/api/core"
+import { invoke, convertFileSrc } from "@tauri-apps/api/core"
 import { open, save } from "@tauri-apps/plugin-dialog"
 import type { UserPreferences, PreferenceOverride, OnboardingState, WatchFolder } from "../types/preferences"
 import { logger } from '@/lib/logger'
+
+// Generate correct shiori-proxy URL based on platform
+export function getProxyUrl(sourceId: string, url: string): string {
+  let baseProxyUrl = convertFileSrc('', 'shiori-proxy');
+  if (baseProxyUrl.endsWith('/')) {
+    baseProxyUrl = baseProxyUrl.slice(0, -1);
+  }
+  return `${baseProxyUrl}?source=${sourceId}&url=${encodeURIComponent(url)}`;
+}
 
 // Check if we're running in Tauri environment
 export const isTauri = (() => {

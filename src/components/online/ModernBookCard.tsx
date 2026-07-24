@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, memo } from 'react';
 import { Download, CheckCircle2, AlertCircle, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useOnlineDownloadStore } from '@/store/onlineDownloadStore';
-import { isAndroid } from '@/lib/tauri';
+import { isAndroid, getProxyUrl } from '@/lib/tauri';
 
 interface ModernBookCardProps {
   id: string; // The URL or unique ID for the book
@@ -75,12 +75,10 @@ export const ModernBookCard = memo(function ModernBookCard({
       else if (coverUrl.includes('manhwahub')) sourceId = 'manhwahub';
       else if (coverUrl.includes('mangafire')) sourceId = 'mangafire';
 
-      const proxyUri = isAndroid 
-        ? `http://shiori-proxy.localhost?source=${sourceId}&url=${encodeURIComponent(coverUrl)}`
-        : `shiori-proxy://localhost?source=${sourceId}&url=${encodeURIComponent(coverUrl)}`;
+      const proxyUri = getProxyUrl(sourceId, coverUrl);
       setProxyUrl(proxyUri);
-    } else if (isAndroid && (coverUrl.startsWith('http://') || coverUrl.startsWith('https://'))) {
-      setProxyUrl(`http://shiori-proxy.localhost?source=generic&url=${encodeURIComponent(coverUrl)}`);
+    } else if (coverUrl.startsWith('http://') || coverUrl.startsWith('https://')) {
+      setProxyUrl(getProxyUrl('generic', coverUrl));
     } else {
       setProxyUrl(coverUrl);
     }

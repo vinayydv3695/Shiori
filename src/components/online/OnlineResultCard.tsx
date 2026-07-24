@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, memo } from 'react';
 import { BookOpen, User, Calendar, Download, Loader2, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { isAndroid } from '@/lib/tauri';
+import { isAndroid, getProxyUrl } from '@/lib/tauri';
 
 interface OnlineResultCardProps {
   id: string;
@@ -78,12 +78,10 @@ export const OnlineResultCard = memo(function OnlineResultCard({
       else if (coverUrl.includes('manhwahub')) sourceId = 'manhwahub';
       else if (coverUrl.includes('mangafire')) sourceId = 'mangafire';
 
-      const proxyUri = isAndroid 
-        ? `http://shiori-proxy.localhost?source=${sourceId}&url=${encodeURIComponent(coverUrl)}`
-        : `shiori-proxy://localhost?source=${sourceId}&url=${encodeURIComponent(coverUrl)}`;
+      const proxyUri = getProxyUrl(sourceId, coverUrl);
       setProxyUrl(proxyUri);
-    } else if (isAndroid && (coverUrl.startsWith('http://') || coverUrl.startsWith('https://'))) {
-      setProxyUrl(`http://shiori-proxy.localhost?source=generic&url=${encodeURIComponent(coverUrl)}`);
+    } else if (coverUrl.startsWith('http://') || coverUrl.startsWith('https://')) {
+      setProxyUrl(getProxyUrl('generic', coverUrl));
     } else {
       setProxyUrl(coverUrl);
     }

@@ -215,7 +215,6 @@ impl ManhwaReadSource {
             let _window = WebviewWindowBuilder::new(app, &window_label, WebviewUrl::External(url.parse().unwrap()))
                 .visible(false)
                 .decorations(false)
-                .transparent(true)
                 .skip_taskbar(true)
                 .always_on_bottom(true)
                 .focused(false)

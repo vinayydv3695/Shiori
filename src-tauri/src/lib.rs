@@ -243,6 +243,7 @@ pub fn run() {
             let db_path = app_dir.join("library.db");
             let database = db::Database::new(&db_path)?;
 
+            #[allow(unused_assignments, unused_variables)]
             let mut is_transparent = false;
             let mut is_first_time = true;
             if let Ok(conn) = database.get_connection() {

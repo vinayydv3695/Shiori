@@ -324,15 +324,32 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         setTimeout(() => {
           if (canvasRef.current) {
             if (initialScrollRatio !== undefined && initialScrollRatio > 0 && !termToHighlight) {
-              const { scrollHeight, clientHeight } = canvasRef.current;
-              canvasRef.current.scrollTop = initialScrollRatio * (scrollHeight - clientHeight);
+              const isPag = canvasRef.current.classList.contains('premium-reading-canvas--paginated');
+              if (isPag) {
+                const { scrollWidth, clientWidth } = canvasRef.current;
+                canvasRef.current.scrollLeft = initialScrollRatio * (scrollWidth - clientWidth);
+              } else if (!continuousFlow) {
+                const { scrollHeight, clientHeight } = canvasRef.current;
+                canvasRef.current.scrollTop = initialScrollRatio * (scrollHeight - clientHeight);
+              }
             } else {
               const savedPos = scrollPositionsRef.current.get(index);
               if (savedPos && savedPos > 0 && !termToHighlight) {
-                const { scrollHeight, clientHeight } = canvasRef.current;
-                canvasRef.current.scrollTop = savedPos * (scrollHeight - clientHeight);
+                const isPag = canvasRef.current.classList.contains('premium-reading-canvas--paginated');
+                if (isPag) {
+                  const { scrollWidth, clientWidth } = canvasRef.current;
+                  canvasRef.current.scrollLeft = savedPos * (scrollWidth - clientWidth);
+                } else if (!continuousFlow) {
+                  const { scrollHeight, clientHeight } = canvasRef.current;
+                  canvasRef.current.scrollTop = savedPos * (scrollHeight - clientHeight);
+                }
               } else {
-                canvasRef.current.scrollTop = 0;
+                const isPag = canvasRef.current.classList.contains('premium-reading-canvas--paginated');
+                if (isPag) {
+                  canvasRef.current.scrollLeft = 0;
+                } else if (!continuousFlow) {
+                  canvasRef.current.scrollTop = 0;
+                }
               }
             }
           }
@@ -352,7 +369,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       setError(err instanceof Error ? err.message : 'Failed to load chapter');
       setIsLoading(false);
     }
-  }, [bookId, currentChapter, currentIndex, metadata, searchHighlight]);
+  }, [bookId, currentChapter, currentIndex, metadata, searchHighlight, continuousFlow]);
 
   useEffect(() => {
     loadChapterRef.current = loadChapter;
@@ -407,10 +424,21 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     let scrollRatio = scrollPositionsRef.current.get(chapterIndex) ?? 0;
 
     if (canvas) {
-      const { scrollTop, scrollHeight, clientHeight } = canvas;
-      scrollRatio = scrollHeight > clientHeight
-        ? scrollTop / (scrollHeight - clientHeight)
-        : 0;
+      const isPag = canvas.classList.contains('premium-reading-canvas--paginated');
+      if (isPag) {
+        const { scrollLeft, scrollWidth, clientWidth } = canvas;
+        scrollRatio = scrollWidth > clientWidth ? scrollLeft / (scrollWidth - clientWidth) : 0;
+      } else {
+        const activeEl = canvas.querySelector(`[data-chapter-index="${chapterIndex}"]`) as HTMLElement;
+        if (activeEl) {
+           const distance = canvas.scrollTop - activeEl.offsetTop;
+           scrollRatio = distance > 0 && activeEl.scrollHeight > 0 ? distance / activeEl.scrollHeight : 0;
+           scrollRatio = Math.max(0, Math.min(1, scrollRatio));
+        } else {
+           const { scrollTop, scrollHeight, clientHeight } = canvas;
+           scrollRatio = scrollHeight > clientHeight ? scrollTop / (scrollHeight - clientHeight) : 0;
+        }
+      }
       scrollPositionsRef.current.set(chapterIndex, scrollRatio);
     }
 
@@ -448,11 +476,17 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
             }
             lastScrollTop = scrollTop;
 
+            const isPag = canvas.classList.contains('premium-reading-canvas--paginated');
             const scrollHeight = canvas.scrollHeight;
             const clientHeight = canvas.clientHeight;
-            const progress = scrollHeight > clientHeight
-              ? (scrollTop / (scrollHeight - clientHeight)) * 100
-              : 0;
+            
+            let progress = 0;
+            if (isPag) {
+              const { scrollLeft, scrollWidth, clientWidth } = canvas;
+              progress = scrollWidth > clientWidth ? (scrollLeft / (scrollWidth - clientWidth)) * 100 : 0;
+            } else {
+              progress = scrollHeight > clientHeight ? (scrollTop / (scrollHeight - clientHeight)) * 100 : 0;
+            }
             setScrollProgress(Math.min(100, Math.max(0, progress)));
             lastUpdateTime = Date.now();
 
@@ -460,9 +494,20 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
               clearTimeout(saveScrollProgressRef.current);
             }
             saveScrollProgressRef.current = window.setTimeout(() => {
-              const scrollRatio = scrollHeight > clientHeight
-                ? scrollTop / (scrollHeight - clientHeight)
-                : 0;
+              let scrollRatio = 0;
+              if (isPag) {
+                const { scrollLeft, scrollWidth, clientWidth } = canvas;
+                scrollRatio = scrollWidth > clientWidth ? scrollLeft / (scrollWidth - clientWidth) : 0;
+              } else {
+                const activeEl = canvas.querySelector(`[data-chapter-index="${currentIndex}"]`) as HTMLElement;
+                if (activeEl) {
+                   const distance = canvas.scrollTop - activeEl.offsetTop;
+                   scrollRatio = distance > 0 && activeEl.scrollHeight > 0 ? distance / activeEl.scrollHeight : 0;
+                   scrollRatio = Math.max(0, Math.min(1, scrollRatio));
+                } else {
+                   scrollRatio = scrollHeight > clientHeight ? scrollTop / (scrollHeight - clientHeight) : 0;
+                }
+              }
               const totalChapters = metadata?.total_chapters ?? 1;
               const chapterFraction = scrollRatio / totalChapters;
               const progressPercent = ((currentIndex + chapterFraction) / totalChapters) * 100;

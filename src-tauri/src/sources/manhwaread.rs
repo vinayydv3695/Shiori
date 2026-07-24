@@ -214,9 +214,6 @@ impl ManhwaReadSource {
 
             let _window = WebviewWindowBuilder::new(app, &window_label, WebviewUrl::External(url.parse().unwrap()))
                 .visible(false)
-                .skip_taskbar(true)
-                .always_on_bottom(true)
-                .focused(false)
                 .initialization_script(&js)
                 .on_document_title_changed(move |window, title| {
                     if title.starts_with("SHIORI_CHUNK|") {

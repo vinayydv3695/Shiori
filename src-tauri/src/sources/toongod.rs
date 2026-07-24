@@ -219,7 +219,6 @@ impl ToonGodSource {
 
             let _window = WebviewWindowBuilder::new(app, &window_label, WebviewUrl::External(url.parse().unwrap()))
                 .visible(false)
-                .decorations(false)
                 .skip_taskbar(true)
                 .always_on_bottom(true)
                 .focused(false)

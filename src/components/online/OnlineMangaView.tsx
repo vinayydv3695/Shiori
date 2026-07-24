@@ -1571,6 +1571,7 @@ export function OnlineMangaView() {
                       items={toCarouselItems(browseData["top-rated"])}
                       loading={browseLoading["top-rated"]}
                       onItemClick={handleCarouselItemClick}
+                      sourceId={activeSource?.id || ''}
                     />
                   </div>
                 )}

@@ -1,27 +1,27 @@
 /* nord theme */
 [data-theme="nord"] {
   /* Tailwind requires H S L format without the function wrapper */
-  --background: 220 16% 22%;
-  --foreground: 218 27% 94%;
+  --background: 220 16% 18%;
+  --foreground: 40 25% 90%;
 
-  --surface-1: 222 16% 28%;
-  --surface-2: 220 16% 36%;
+  --surface-1: 222 16% 20%;
+  --surface-2: 220 16% 26%;
   --surface-3: 210 34% 63%;
   --surface-4: 193 43% 67%;
 
   --card: 220 16% 22%;
-  --card-foreground: 218 27% 94%;
+  --card-foreground: 40 25% 90%;
 
   --popover: 220 16% 22%;
-  --popover-foreground: 218 27% 94%;
+  --popover-foreground: 40 25% 90%;
 
   --primary: 193 43% 67%;
-  --primary-foreground: 220 16% 22%;
+  --primary-foreground: 220 16% 18%;
 
   --secondary: 210 34% 63%;
-  --secondary-foreground: 220 16% 22%;
+  --secondary-foreground: 220 16% 18%;
 
-  --muted: 220 16% 36%;
+  --muted: 220 16% 28%;
   --muted-foreground: 218 27% 94%;
 
   --accent: 213 32% 52%;
@@ -30,8 +30,8 @@
   --destructive: 354 42% 56%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 222 16% 28%;
-  --input: 222 16% 28%;
+  --border: 220 16% 30%;
+  --input: 220 16% 30%;
   --ring: 193 43% 67%;
 
   /* Provide the --bg-primary etc. required by components/reader */
@@ -62,9 +62,9 @@
   --reader-selection: oklch(0.75 0.08 230 / 0.3);
 
 
-  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.3);
-  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.45), 0 1px 2px -1px rgb(0 0 0 / 0.35);
-  --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.35);
-  --shadow-lg: 0 12px 24px -4px rgb(0 0 0 / 0.55), 0 4px 8px -4px rgb(0 0 0 / 0.35);
-  --shadow-xl: 0 24px 48px -8px rgb(0 0 0 / 0.7);
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.5);
+  --shadow-sm: 0 2px 4px 0 rgb(0 0 0 / 0.6), 0 1px 2px -1px rgb(0 0 0 / 0.5);
+  --shadow-md: 0 8px 16px -2px rgb(0 0 0 / 0.7), 0 4px 8px -2px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 16px 32px -4px rgb(0 0 0 / 0.8), 0 8px 16px -4px rgb(0 0 0 / 0.6);
+  --shadow-xl: 0 32px 64px -8px rgb(0 0 0 / 0.9);
 }

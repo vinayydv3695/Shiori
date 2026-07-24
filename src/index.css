@@ -10,34 +10,34 @@
 /* ==================== BASE LAYER ==================== */
 @layer base {
 
-  /* Premium Light (Frosted Alabaster & Indigo) */
+  /* Premium Light (Soft Alabaster & Coral) */
   :root,
   [data-theme="white"] {
-    --background: 210 20% 98%; /* #f8f9fa */
-    --foreground: 222 47% 11%; /* #0f172a */
+    --background: 40 30% 96%;
+    --foreground: 222 47% 11%;
     
-    --surface-1: 210 20% 97%;
-    --surface-2: 210 20% 95%;
-    --surface-3: 210 20% 92%;
-    --surface-4: 210 20% 88%;
+    --surface-1: 40 30% 93%;
+    --surface-2: 40 30% 90%;
+    --surface-3: 40 30% 87%;
+    --surface-4: 40 30% 84%;
     
-    --card: 0 0% 100%; /* #ffffff */
+    --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 234 89% 64%; /* #5a67d8 */
+    --primary: 348 83% 53%; /* Vibrant coral/rose for a lively touch */
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96%; /* #f1f5f9 */
+    --secondary: 40 20% 90%;
     --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%; /* #64748b */
-    --accent: 210 40% 96%;
-    --accent-foreground: 222 47% 11%;
+    --muted: 40 20% 90%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 348 83% 53%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 214 32% 91%; /* #e2e8f0 */
-    --input: 214 32% 91%;
-    --ring: 234 89% 64%;
+    --border: 40 15% 85%;
+    --input: 40 15% 85%;
+    --ring: 348 83% 53%;
     --radius: 0.5rem;
     --ui-scale: 1.0;
     
@@ -74,30 +74,42 @@
     --ring: 262 83% 58%;
   }
 
-  /* Premium Dark (Midnight Blue / Navy) */
+  /* Premium Dark (Deep Obsidian & Cyan) */
   [data-theme="premium-dark"] {
-    --background: 223 47% 7%; /* #0a0f1c */
-    --foreground: 210 40% 96%; /* #f1f5f9 */
-    --card: 221 39% 11%; /* #111827 */
-    --card-foreground: 210 40% 96%;
-    --popover: 221 39% 11%;
-    --popover-foreground: 210 40% 96%;
-    --primary: 234 89% 74%; /* #818cf8 */
-    --primary-foreground: 223 47% 7%;
-    --secondary: 215 28% 17%; /* #1f2937 */
-    --secondary-foreground: 210 40% 96%;
-    --muted: 215 28% 17%;
-    --muted-foreground: 215 14% 65%; /* #9ca3af */
-    --accent: 215 28% 17%;
-    --accent-foreground: 210 40% 96%;
-    --destructive: 0 100% 75%;
-    --destructive-foreground: 0 100% 20%;
-    --border: 217 19% 27%; /* #374151 */
-    --input: 217 19% 27%;
-    --ring: 234 89% 74%;
+    --background: 225 10% 6%; /* Deep True Dark */
+    --foreground: 40 25% 90%; /* Cool Cream text */
+    
+    --surface-1: 225 10% 9%;
+    --surface-2: 225 10% 12%;
+    --surface-3: 225 10% 15%;
+    --surface-4: 225 10% 18%;
+    
+    --card: 225 10% 8%; 
+    --card-foreground: 40 25% 90%;
+    --popover: 225 10% 8%;
+    --popover-foreground: 40 25% 90%;
+    
+    --primary: 195 100% 50%; /* Vibrant Cyan for contrast */
+    --primary-foreground: 0 0% 10%;
+    
+    --secondary: 225 10% 14%;
+    --secondary-foreground: 40 25% 90%;
+    
+    --muted: 225 10% 14%;
+    --muted-foreground: 40 10% 65%;
+    
+    --accent: 195 100% 50%;
+    --accent-foreground: 0 0% 10%;
+    
+    --destructive: 0 80% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 225 10% 16%;
+    --input: 225 10% 16%;
+    --ring: 195 100% 50%;
     
     --card-overlay: 0 0% 0%;
-    --card-overlay-text: 0 0% 100%;
+    --card-overlay-text: 40 25% 90%;
   }
 
   /* Sepia (Premium Warm Paper) */

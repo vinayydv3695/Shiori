@@ -185,7 +185,8 @@ pub fn run() {
                 }
                 
                 if let Ok(response) = req.send().await {
-                    if response.status().is_success() {
+                    let status = response.status();
+                    if status.is_success() {
                         // Forward Content-Type if present
                         let content_type = response
                             .headers()
@@ -206,6 +207,15 @@ pub fn run() {
                             );
                             return;
                         }
+                    } else {
+                        // Forward the actual error status (e.g. 403)
+                        responder.respond(
+                            tauri::http::Response::builder()
+                                .status(status.as_u16())
+                                .body(Vec::new())
+                                .unwrap()
+                        );
+                        return;
                     }
                 }
                 }
@@ -281,8 +291,9 @@ pub fn run() {
                 builder = builder.fullscreen(false).decorations(false);
             }
 
-            // Silence unused_assignments on platforms where is_first_time isn't used
+            // Silence unused_assignments on platforms where variables aren't used
             let _ = is_first_time;
+            let _ = is_transparent;
 
             #[cfg(target_os = "windows")]
             {

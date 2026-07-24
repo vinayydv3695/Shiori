@@ -1,11 +1,11 @@
 /* dracula theme */
 [data-theme="dracula"] {
   /* Tailwind requires H S L format without the function wrapper */
-  --background: 231 15% 18%;
+  --background: 231 15% 14%;
   --foreground: 0 0% 97%;
 
-  --surface-1: 232 14% 31%;
-  --surface-2: 225 27% 51%;
+  --surface-1: 231 15% 16%;
+  --surface-2: 231 15% 20%;
   --surface-3: 326 100% 74%;
   --surface-4: 265 89% 78%;
 
@@ -15,14 +15,14 @@
   --popover: 231 15% 18%;
   --popover-foreground: 0 0% 97%;
 
-  --primary: 265 89% 78%;
+  --primary: 326 100% 74%;
   --primary-foreground: 231 15% 18%;
 
-  --secondary: 326 100% 74%;
+  --secondary: 265 89% 78%;
   --secondary-foreground: 231 15% 18%;
 
-  --muted: 225 27% 51%;
-  --muted-foreground: 0 0% 97%;
+  --muted: 231 15% 24%;
+  --muted-foreground: 231 15% 65%;
 
   --accent: 191 97% 77%;
   --accent-foreground: 231 15% 18%;
@@ -30,9 +30,9 @@
   --destructive: 0 100% 67%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 232 14% 31%;
-  --input: 232 14% 31%;
-  --ring: 265 89% 78%;
+  --border: 231 15% 26%;
+  --input: 231 15% 26%;
+  --ring: 326 100% 74%;
 
   /* Provide the --bg-primary etc. required by components/reader */
   --bg-primary: oklch(0.25 0.01 300);
@@ -62,9 +62,9 @@
   --reader-selection: oklch(0.70 0.15 320 / 0.3);
 
 
-  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.3);
-  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.45), 0 1px 2px -1px rgb(0 0 0 / 0.35);
-  --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.35);
-  --shadow-lg: 0 12px 24px -4px rgb(0 0 0 / 0.55), 0 4px 8px -4px rgb(0 0 0 / 0.35);
-  --shadow-xl: 0 24px 48px -8px rgb(0 0 0 / 0.7);
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.5);
+  --shadow-sm: 0 2px 4px 0 rgb(0 0 0 / 0.6), 0 1px 2px -1px rgb(0 0 0 / 0.5);
+  --shadow-md: 0 8px 16px -2px rgb(0 0 0 / 0.7), 0 4px 8px -2px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 16px 32px -4px rgb(0 0 0 / 0.8), 0 8px 16px -4px rgb(0 0 0 / 0.6);
+  --shadow-xl: 0 32px 64px -8px rgb(0 0 0 / 0.9);
 }

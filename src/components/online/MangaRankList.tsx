@@ -2,6 +2,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { BookOpen, Trophy } from 'lucide-react';
 import type { CarouselItem } from './ContentCarousel';
 import { cn } from '@/lib/utils';
+import { getProxyUrl } from '@/lib/tauri';
 
 interface MangaRankListProps {
   title: string;
@@ -10,9 +11,10 @@ interface MangaRankListProps {
   onItemClick?: (item: CarouselItem) => void;
   className?: string;
   icon?: React.ReactNode;
+  sourceId: string;
 }
 
-export function MangaRankList({ title, items, loading, onItemClick, className, icon = <Trophy className="w-5 h-5 text-yellow-500" /> }: MangaRankListProps) {
+export function MangaRankList({ title, items, loading, onItemClick, className, sourceId, icon = <Trophy className="w-5 h-5 text-yellow-500" /> }: MangaRankListProps) {
   if (loading) {
     return (
       <div className={cn("space-y-4", className)}>
@@ -64,10 +66,10 @@ export function MangaRankList({ title, items, loading, onItemClick, className, i
             </div>
 
             {/* Thumbnail */}
-            <div className="relative w-14 h-20 rounded-md overflow-hidden bg-muted flex-shrink-0 border border-white/5 shadow-sm group-hover:border-primary/40 group-hover:shadow-md transition-all">
+            <div className="w-14 h-20 bg-secondary/30 rounded-md overflow-hidden shrink-0">
               {item.coverUrl ? (
                 <img
-                  src={item.coverUrl}
+                  src={getProxyUrl(sourceId, item.coverUrl)}
                   alt={item.title}
                   className="w-full h-full object-cover"
                   loading="lazy"

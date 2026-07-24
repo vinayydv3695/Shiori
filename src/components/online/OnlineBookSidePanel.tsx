@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { useState, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { cn } from '@/lib/utils';
-import { isAndroid } from '@/lib/tauri';
+import { isAndroid, getProxyUrl } from '@/lib/tauri';
 
 export interface PreviewBook {
   title: string;
@@ -50,12 +50,10 @@ export function OnlineBookSidePanel({
     }
     
     if (book.coverUrl.includes('libgen') || book.coverUrl.includes('libgen.li')) {
-      const proxyUri = isAndroid 
-        ? `http://shiori-proxy.localhost?source=libgen&url=${encodeURIComponent(book.coverUrl)}`
-        : `shiori-proxy://localhost?source=libgen&url=${encodeURIComponent(book.coverUrl)}`;
+      const proxyUri = getProxyUrl('libgen', book.coverUrl);
       setProxyUrl(proxyUri);
-    } else if (isAndroid && (book.coverUrl.startsWith('http://') || book.coverUrl.startsWith('https://'))) {
-      setProxyUrl(`http://shiori-proxy.localhost?source=generic&url=${encodeURIComponent(book.coverUrl)}`);
+    } else if (book.coverUrl.startsWith('http://') || book.coverUrl.startsWith('https://')) {
+      setProxyUrl(getProxyUrl('generic', book.coverUrl));
     } else {
       setProxyUrl(book.coverUrl);
     }
@@ -71,10 +69,7 @@ export function OnlineBookSidePanel({
       fetchCoverForBook(book.title, book.author).then(fallbackUrl => {
         if (!active) return;
         if (fallbackUrl) {
-          const proxyUri = isAndroid 
-            ? `http://shiori-proxy.localhost?source=generic&url=${encodeURIComponent(fallbackUrl)}`
-            : fallbackUrl;
-          setProxyUrl(proxyUri);
+          setProxyUrl(getProxyUrl('generic', fallbackUrl));
           setImgError(false);
         }
       });

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { fetchWithRetry, cn } from '@/lib/utils';
+import { getProxyUrl } from '@/lib/tauri';
 import { MangaDownloadDialog } from './MangaDownloadDialog';
 
 export interface UnifiedChapter {
@@ -223,7 +224,7 @@ export function OnlineMangaDetailView({
       <div
         className="absolute top-0 left-0 right-0 h-[65vh] opacity-30 pointer-events-none transition-all duration-1000"
         style={{
-          backgroundImage: `url(${coverUrl})`,
+          backgroundImage: `url(${getProxyUrl(sourceId || '', coverUrl || '') || ''})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           filter: 'blur(60px) saturate(2)',
@@ -263,7 +264,7 @@ export function OnlineMangaDetailView({
             <div className="w-[220px] md:w-full aspect-[2/3] rounded-xl overflow-hidden shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)] border border-border/50 bg-card/50 backdrop-blur-sm relative group">
             {coverUrl ? (
               <>
-                <img src={coverUrl} alt={title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" />
+                <img src={getProxyUrl(sourceId || '', coverUrl)} alt={title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               </>
             ) : (
@@ -574,7 +575,7 @@ export function OnlineMangaDetailView({
                   {recommendedManga.slice(0, 4).map((m, i) => (
                     <div key={i} className="flex gap-4 cursor-pointer group" onClick={() => onMangaClick && onMangaClick(m.id)}>
                       <div className="w-14 h-20 bg-secondary/40 rounded-md shrink-0 overflow-hidden shadow-md">
-                        {m.coverUrl && <img src={m.coverUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />}
+                        {m.coverUrl && <img src={getProxyUrl(sourceId || '', m.coverUrl)} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />}
                       </div>
                       <div className="flex flex-col justify-center min-w-0 py-1">
                         <div className="text-sm font-bold text-foreground/90 truncate group-hover:text-primary transition-colors mb-1">{m.title}</div>

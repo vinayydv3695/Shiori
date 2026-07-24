@@ -473,24 +473,45 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
             }
 
             var done = false
+            
+            webView.addJavascriptInterface(object : Any() {
+                @android.webkit.JavascriptInterface
+                fun resolve(result: String?) {
+                    if (done) return
+                    done = true
+                    val ret = JSObject()
+                    ret.put("result", result ?: "")
+                    invoke.resolve(ret)
+                    activity.runOnUiThread { webView.destroy() }
+                }
+                @android.webkit.JavascriptInterface
+                fun reject(error: String?) {
+                    if (done) return
+                    done = true
+                    invoke.reject(error ?: "Unknown JS error")
+                    activity.runOnUiThread { webView.destroy() }
+                }
+            }, "ShioriAndroid")
+
             webView.webViewClient = object : android.webkit.WebViewClient() {
                 override fun onPageFinished(view: android.webkit.WebView, loadedUrl: String) {
                     if (done) return
                     view.evaluateJavascript("document.title") { title ->
                         if (title != null && !title.contains("Just a moment") && !title.contains("Attention Required")) {
-                            done = true
-                            view.evaluateJavascript(js) { result ->
-                                val ret = JSObject()
-                                // evaluateJavascript returns a JSON string encoded value (e.g., `"\"my result\""`).
-                                // We can just return it as a string and let the caller parse it.
-                                var cleanResult = result
-                                if (cleanResult != null && cleanResult.startsWith("\"") && cleanResult.endsWith("\"")) {
-                                    cleanResult = cleanResult.substring(1, cleanResult.length - 1).replace("\\\"", "\"").replace("\\\\", "\\")
-                                }
-                                ret.put("result", cleanResult ?: "")
-                                invoke.resolve(ret)
-                                view.destroy()
-                            }
+                            val wrappedJs = """
+                                (async () => {
+                                    try {
+                                        let res = await ($js);
+                                        if (typeof res !== 'string') {
+                                            try { res = JSON.stringify(res); } catch(e) {}
+                                        }
+                                        window.ShioriAndroid.resolve(res || "");
+                                    } catch(e) {
+                                        window.ShioriAndroid.reject(e.toString());
+                                    }
+                                })();
+                            """.trimIndent()
+                            view.evaluateJavascript(wrappedJs, null)
                         }
                     }
                 }

@@ -2230,34 +2230,97 @@ impl<'a> MigrationManager<'a> {
     fn migrate_to_v40(&self) -> Result<()> {
         log::info!("[Migration] Applying v40: Rename collections to shelves");
 
-        // If collections exists, initialize_schema might have already created an empty shelves table
-        // We must drop the empty shelves table so we can rename the real collections table
-        if self.table_exists("collections")? {
-            if self.table_exists("shelves")? {
-                self.conn.execute("DROP TABLE shelves", [])?;
-            }
+        // Rename table collections -> shelves (supported universally)
+        if self.table_exists("collections")? && !self.table_exists("shelves")? {
             self.conn.execute("ALTER TABLE collections RENAME TO shelves", [])?;
         }
 
-        // Rename table collections_books -> shelf_books
-        if self.table_exists("collections_books")? {
-            if self.table_exists("shelf_books")? {
-                self.conn.execute("DROP TABLE shelf_books", [])?;
-            }
-            self.conn.execute("ALTER TABLE collections_books RENAME TO shelf_books", [])?;
+        // To avoid RENAME COLUMN which is not supported on Android's older system SQLite,
+        // we recreate shelf_books from collections_books.
+        if self.table_exists("collections_books")? && !self.table_exists("shelf_books")? {
+            self.conn.execute(
+                "CREATE TABLE IF NOT EXISTS shelf_books (
+                    shelf_id INTEGER NOT NULL,
+                    book_id INTEGER NOT NULL,
+                    added_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    sort_order INTEGER DEFAULT 0,
+                    FOREIGN KEY (shelf_id) REFERENCES shelves(id) ON DELETE CASCADE,
+                    FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
+                    PRIMARY KEY (shelf_id, book_id)
+                )",
+                [],
+            )?;
+
+            self.conn.execute(
+                "INSERT INTO shelf_books (shelf_id, book_id, added_at, sort_order)
+                 SELECT collection_id, book_id, added_at, sort_order
+                 FROM collections_books",
+                [],
+            )?;
+
+            self.conn.execute("DROP TABLE collections_books", [])?;
+            
+            self.conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_shelf_books_shelf ON shelf_books(shelf_id)",
+                [],
+            )?;
+            self.conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_shelf_books_book ON shelf_books(book_id)",
+                [],
+            )?;
         }
 
-        // Rename column collections.collection_type -> shelves.shelf_type (or collections_type to shelf_type)
-        if self.table_exists("shelves")? && self.column_exists("shelves", "collection_type")? {
-            self.conn.execute("ALTER TABLE shelves RENAME COLUMN collection_type TO shelf_type", [])?;
-        }
-
-        // Rename column collections_books.collection_id -> shelf_books.shelf_id
+        // Handle case where an interrupted migration left shelf_books with the old column name
         if self.table_exists("shelf_books")? && self.column_exists("shelf_books", "collection_id")? {
-            self.conn.execute("ALTER TABLE shelf_books RENAME COLUMN collection_id TO shelf_id", [])?;
+             self.conn.execute(
+                "CREATE TABLE IF NOT EXISTS shelf_books_new (
+                    shelf_id INTEGER NOT NULL,
+                    book_id INTEGER NOT NULL,
+                    added_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    sort_order INTEGER DEFAULT 0,
+                    FOREIGN KEY (shelf_id) REFERENCES shelves(id) ON DELETE CASCADE,
+                    FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
+                    PRIMARY KEY (shelf_id, book_id)
+                )",
+                [],
+            )?;
+
+            self.conn.execute(
+                "INSERT INTO shelf_books_new (shelf_id, book_id, added_at, sort_order)
+                 SELECT collection_id, book_id, added_at, sort_order
+                 FROM shelf_books",
+                [],
+            )?;
+
+            self.conn.execute("DROP TABLE shelf_books", [])?;
+            self.conn.execute("ALTER TABLE shelf_books_new RENAME TO shelf_books", [])?;
+            
+            self.conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_shelf_books_shelf ON shelf_books(shelf_id)",
+                [],
+            )?;
+            self.conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_shelf_books_book ON shelf_books(book_id)",
+                [],
+            )?;
         }
 
-        let hash = Self::calculate_checksum("v40_rename_collections_to_shelves");
+        // Recreate indexes for shelves, as renaming table might leave old index names
+        let _ = self.conn.execute("DROP INDEX IF EXISTS idx_collections_parent", []);
+        let _ = self.conn.execute("DROP INDEX IF EXISTS idx_collections_smart", []);
+        
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_shelves_parent ON shelves(parent_id)",
+            [],
+        )?;
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_shelves_smart ON shelves(is_smart)",
+            [],
+        )?;
+
+        // Note: collection_type to shelf_type rename logic is omitted because collections never had collection_type
+
+        let hash = Self::calculate_checksum("v40_rename_collections_to_shelves_v2");
         self.record_migration(40, "rename_collections_to_shelves", &hash)?;
         Ok(())
     }

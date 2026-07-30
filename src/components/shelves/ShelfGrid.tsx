@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Shelf, api } from '../../lib/tauri';
+import { Shelf, api, Book } from '../../lib/tauri';
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import { 
   Folder, 
@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { convertFileSrc } from '@tauri-apps/api/core';
+import { cn } from '@/lib/utils';
 
 const PRESET_ICONS: Record<string, React.ElementType> = {
   library: Library,
@@ -51,7 +52,7 @@ function CoverStack({ covers, color }: { covers: string[]; color: string }) {
   if (covers.length === 0) return null;
 
   return (
-    <div className="relative w-full h-full flex items-center justify-center" style={{ perspective: '1000px' }}>
+    <div className="relative w-full h-full flex items-center justify-center" style={{ perspective: '1200px' }}>
       {covers.slice(0, 3).reverse().map((cover, i) => {
         const revIdx = Math.min(covers.length - 1, 2) - i;
         
@@ -59,7 +60,7 @@ function CoverStack({ covers, color }: { covers: string[]; color: string }) {
         let rotate = 0;
         let rotateY = 0;
         let scale = 1 - revIdx * 0.06;
-        let opacity = 1 - revIdx * 0.1;
+        let opacity = 1 - revIdx * 0.15;
         
         if (revIdx === 1) {
           offset = -20;
@@ -72,11 +73,9 @@ function CoverStack({ covers, color }: { covers: string[]; color: string }) {
         }
 
         return (
-          <img
+          <div
             key={i}
-            src={cover}
-            alt=""
-            className="absolute w-auto h-full max-w-full object-cover rounded-xl"
+            className="absolute rounded-xl overflow-hidden bg-muted group-hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] transition-all duration-500 ease-out"
             style={{
               transform: `translateX(${offset}px) scale(${scale}) rotate(${rotate}deg) rotateY(${rotateY}deg)`,
               opacity,
@@ -84,8 +83,19 @@ function CoverStack({ covers, color }: { covers: string[]; color: string }) {
               boxShadow: revIdx === 0 
                 ? `0 10px 30px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.15)`
                 : `0 4px 20px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)`,
+              aspectRatio: '2/3',
+              height: '100%'
             }}
-          />
+          >
+            <img
+              src={cover}
+              alt=""
+              className="w-full h-full object-cover"
+            />
+            {/* Premium Inner Sheen / Glare */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/0 to-white/30 pointer-events-none mix-blend-overlay opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <div className="absolute inset-0 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)] pointer-events-none z-20" />
+          </div>
         );
       })}
     </div>
@@ -121,28 +131,33 @@ function ShelfCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(delay * 0.07, 0.5), duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
       onClick={onClick}
-      className="group relative flex flex-col text-left rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl bg-card border border-border w-full"
+      className={cn(
+        "group relative flex flex-col text-left rounded-xl overflow-hidden w-full cursor-pointer select-none",
+        "transition-all duration-[400ms] cubic-bezier(0.25, 1, 0.5, 1)",
+        "bg-card/90 backdrop-blur-lg border border-border/40",
+        "shadow-lg dark:shadow-[0_8px_20px_rgba(0,0,0,0.8)] ring-1 ring-black/10 dark:ring-white/10 hover:shadow-2xl hover:shadow-primary/20 dark:hover:shadow-primary/10 hover:-translate-y-1.5 hover:ring-black/20 dark:hover:ring-white/20"
+      )}
     >
       {/* Hover glow */}
       <div
-        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-2xl"
+        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-xl"
         style={{ boxShadow: `0 0 40px ${color}15 inset, 0 0 0 1px ${color}30` }}
       />
 
       {/* Cover / Hero area */}
-      <div className="relative w-full aspect-[5/4] overflow-hidden rounded-t-2xl border-b border-border/50 bg-muted/20">
+      <div className="relative w-full aspect-[5/4] overflow-hidden rounded-t-xl border-b border-border/50 bg-muted/20">
         {hasCover ? (
           <>
             {/* Ambient colored glow */}
             <div
-              className="absolute inset-0 opacity-20"
+              className="absolute inset-0 opacity-20 transition-opacity duration-500 group-hover:opacity-40"
               style={{
                 background: `radial-gradient(circle at 50% 30%, ${color}80 0%, transparent 75%)`
               }}
             />
             {/* Blurred background from first cover */}
             <div
-              className="absolute inset-0 scale-[1.1] blur-[20px] opacity-[0.15] mix-blend-overlay dark:mix-blend-screen"
+              className="absolute inset-0 scale-[1.15] blur-[24px] opacity-[0.25] mix-blend-overlay dark:mix-blend-screen transition-transform duration-700 group-hover:scale-[1.2]"
               style={{
                 backgroundImage: `url(${covers[0]})`,
                 backgroundSize: 'cover',
@@ -150,7 +165,7 @@ function ShelfCard({
               }}
             />
             {/* Cover stack in center - Made much larger to reduce free space */}
-            <div className="absolute inset-0 flex items-center justify-center p-4 pt-6 pb-2">
+            <div className="absolute inset-0 flex items-center justify-center p-4 pt-6 pb-2 transition-transform duration-500 group-hover:-translate-y-1">
               <div className="relative w-[70%] h-[95%]">
                 <CoverStack covers={covers} color={color} />
               </div>
@@ -158,7 +173,7 @@ function ShelfCard({
           </>
         ) : (
           <div
-            className="absolute inset-0 flex items-center justify-center"
+            className="absolute inset-0 flex items-center justify-center transition-transform duration-500 group-hover:scale-105"
             style={{ background: `radial-gradient(circle at 50% 50%, ${color}15, transparent 70%)` }}
           >
             <div
@@ -171,7 +186,7 @@ function ShelfCard({
         )}
 
         {/* Gradient overlay bottom */}
-        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-background/80 to-transparent opacity-50" />
+        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-card/80 to-transparent opacity-80 pointer-events-none" />
 
         {/* Smart badge */}
         {shelf.isSmart && (
@@ -204,7 +219,7 @@ function ShelfCard({
 
       {/* Bottom color line */}
       <div
-        className="absolute bottom-0 inset-x-0 h-0.5 opacity-0 group-hover:opacity-60 transition-opacity duration-300"
+        className="absolute bottom-0 inset-x-0 h-1 opacity-0 group-hover:opacity-80 transition-opacity duration-300 rounded-b-xl"
         style={{ background: `linear-gradient(90deg, transparent, ${color}, transparent)` }}
       />
     </motion.button>
@@ -249,164 +264,102 @@ function ShelfCard({
 }
 
 export function ShelfGrid({ shelves, onSelectShelf, onCreateShelf, onEditShelf, onDeleteShelf }: ShelfGridProps) {
-  const [shelfCovers, setShelfCovers] = useState<ShelfCovers>({});
+  const [covers, setCovers] = useState<ShelfCovers>({});
 
-  const flattenShelves = (shelfs: Shelf[]): Shelf[] => {
-    let result: Shelf[] = [];
-    if (!shelfs) return result;
-    for (const shelf of shelfs) {
-      if (!shelf) continue;
-      result.push(shelf);
-      if (shelf.children && shelf.children.length > 0) {
-        result = result.concat(flattenShelves(shelf.children));
-      }
-    }
-    return result;
-  };
-
-  const allShelves = flattenShelves(shelves || []);
-
-  // Load book covers for each shelf
+  // Fetch covers for each shelf
   useEffect(() => {
-    let cancelled = false;
-
     async function loadCovers() {
-      const results: ShelfCovers = {};
-
-      await Promise.allSettled(
-        allShelves
-          .filter(s => s.id !== undefined)
-          .map(async (shelf) => {
-            try {
-              const books = await api.getShelfBooks(shelf.id!);
-              const coverPaths = books
-                .filter(b => b.cover_path)
-                .slice(0, 3)
-                .map(b => {
-                  const p = b.cover_path!;
-                  if (p.startsWith('http://') || p.startsWith('https://')) return p;
-                  return convertFileSrc(p.replace(/\\/g, '/'));
-                });
-              if (!cancelled) {
-                results[shelf.id!] = coverPaths;
-              }
-            } catch {
-              if (!cancelled) results[shelf.id!] = [];
-            }
-          })
-      );
-
-      if (!cancelled) setShelfCovers(results);
+      const newCovers: ShelfCovers = {};
+      
+      for (const shelf of shelves) {
+        if (!shelf.id) continue;
+        
+        try {
+          let shelfBooks = await api.getShelfBooks(shelf.id);
+          
+          if (shelfBooks && shelfBooks.length > 0) {
+            // Get up to 3 covers, fallback to empty string if no cover
+            const shelfCovers = shelfBooks
+              .filter((b: Book) => b.cover_path)
+              .slice(0, 3)
+              .map((b: Book) => {
+                const p = b.cover_path!;
+                if (p.startsWith('http://') || p.startsWith('https://')) return p;
+                return convertFileSrc(p.replace(/\\\\/g, '/'));
+              });
+              
+            newCovers[shelf.id] = shelfCovers;
+          }
+        } catch (error) {
+          console.error(`Failed to load covers for shelf ${shelf.id}:`, error);
+        }
+      }
+      
+      setCovers(newCovers);
     }
-
-    if (allShelves.length > 0) loadCovers();
-
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
+    loadCovers();
   }, [shelves]);
 
   return (
-    <div className="p-6 md:p-8 h-full overflow-y-auto w-full relative custom-scrollbar">
-      {/* Ambient glow */}
-      <div className="absolute top-0 left-1/3 w-[600px] h-[400px] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-20 right-1/4 w-[400px] h-[400px] bg-purple-500/4 rounded-full blur-[100px] pointer-events-none" />
-
-      <div className="max-w-[1440px] mx-auto relative z-10">
-        {/* Header */}
-        <div className="flex items-end justify-between mb-10">
+    <div className="p-4 sm:p-8 h-full overflow-y-auto">
+      <div className="max-w-[1400px] mx-auto">
+        <div className="mb-8 flex justify-between items-end">
           <div>
-            <p className="text-xs font-bold tracking-[0.2em] text-muted-foreground uppercase mb-2">
+            <div className="text-[11px] font-bold tracking-[0.2em] text-muted-foreground uppercase mb-3">
               Your Collection
-            </p>
-            <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground leading-none">
+            </div>
+            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground" style={{ fontFamily: 'var(--font-serif)', letterSpacing: '-0.02em' }}>
               Shelves
             </h1>
-            {allShelves.length > 0 && (
-              <p className="text-sm text-muted-foreground mt-2">
-                {allShelves.length} {allShelves.length === 1 ? 'shelf' : 'shelves'}
-              </p>
-            )}
+            <p className="text-muted-foreground mt-2 font-medium">
+              {shelves.length} {shelves.length === 1 ? 'shelf' : 'shelves'}
+            </p>
           </div>
-
+          
           {onCreateShelf && (
-            <motion.button
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
+            <motion.button 
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={onCreateShelf}
-              className="group flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-muted-foreground hover:text-foreground transition-all duration-300 border border-border bg-card hover:bg-muted"
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-semibold"
             >
-              <Plus className="w-4 h-4 transition-transform duration-300 group-hover:rotate-90" />
-              New Shelf
+              <Plus className="w-5 h-5" />
+              <span>New Shelf</span>
             </motion.button>
           )}
         </div>
 
-        {/* Shelves grid */}
-            {/* Shelves grid */}
-        <AnimatePresence>
-          {allShelves.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 md:gap-5">
-              {allShelves.map((shelf, idx) => (
-                <ShelfCard
-                  key={shelf.id || idx}
-                  shelf={shelf}
-                  covers={shelfCovers[shelf.id!] || []}
-                  onClick={() => onSelectShelf(shelf)}
-                  onEdit={onEditShelf && shelf.shelfType !== 'favorites' && !shelf.isSmart ? () => onEditShelf(shelf) : undefined}
-                  onDelete={onDeleteShelf && shelf.shelfType !== 'favorites' && !shelf.isSmart ? () => onDeleteShelf(shelf) : undefined}
-                  delay={idx}
-                />
-              ))}
-
-              {/* Add new shelf card */}
-              {onCreateShelf && (
-                <motion.button
-                  initial={{ opacity: 0, y: 24 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: Math.min(allShelves.length * 0.07, 0.5) + 0.05, duration: 0.5 }}
-                  onClick={onCreateShelf}
-                  className="group flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed transition-all duration-300 h-full min-h-[200px] border-border hover:border-primary/50 hover:bg-muted"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <div className="w-10 h-10 rounded-full bg-muted border border-border flex items-center justify-center group-hover:bg-primary/20 group-hover:border-primary/50 transition-all duration-300">
-                    <Plus className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                  </div>
-                  <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors">New Shelf</span>
-                </motion.button>
-              )}
-            </div>
-          ) : (
-            /* Empty state */
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 sm:gap-8 pb-12">
+          {shelves.map((shelf, i) => (
+            <ShelfCard 
+              key={shelf.id || `temp-${i}`}
+              shelf={shelf} 
+              covers={covers[shelf.id!] || []} 
+              onClick={() => onSelectShelf(shelf)}
+              onEdit={onEditShelf ? () => onEditShelf(shelf) : undefined}
+              onDelete={onDeleteShelf ? () => onDeleteShelf(shelf) : undefined}
+              delay={i}
+            />
+          ))}
+          
+          {onCreateShelf && (
+            <motion.button
+              initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
-              className="flex flex-col items-center justify-center py-32 text-center"
+              transition={{ delay: Math.min(shelves.length * 0.07, 0.5), duration: 0.5 }}
+              onClick={onCreateShelf}
+              className="group relative flex flex-col items-center justify-center h-full min-h-[300px] rounded-xl border-2 border-dashed border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-colors"
             >
-              <div className="relative mb-8">
-                <div className="absolute inset-0 bg-primary/10 blur-[40px] rounded-full scale-150" />
-                <div className="relative w-20 h-20 rounded-2xl bg-muted border border-border flex items-center justify-center">
-                  <BookOpen className="w-9 h-9 text-muted-foreground" strokeWidth={1.5} />
-                </div>
+              <div className="w-14 h-14 rounded-full bg-border/50 group-hover:bg-primary/20 flex items-center justify-center transition-colors mb-4 text-muted-foreground group-hover:text-primary">
+                <Plus className="w-6 h-6" />
               </div>
-              <h2 className="text-2xl font-bold text-foreground mb-3 tracking-tight">No shelves yet</h2>
-              <p className="text-muted-foreground text-sm max-w-xs leading-relaxed mb-10">
-                Organize your reading collection by creating shelves — group books by genre, series, or any theme you like.
-              </p>
-              {onCreateShelf && (
-                <button
-                  onClick={onCreateShelf}
-                  className="flex items-center gap-2 px-7 py-3.5 rounded-full bg-primary text-primary-foreground font-semibold text-sm hover:brightness-110 hover:scale-105 active:scale-95 transition-all duration-300 shadow-[0_0_30px_rgba(var(--primary),0.3)]"
-                >
-                  <Plus className="w-4 h-4" />
-                  Create your first shelf
-                </button>
-              )}
-            </motion.div>
+              <span className="font-medium text-muted-foreground group-hover:text-primary transition-colors">
+                New Shelf
+              </span>
+            </motion.button>
           )}
-        </AnimatePresence>
+        </div>
       </div>
     </div>
   );

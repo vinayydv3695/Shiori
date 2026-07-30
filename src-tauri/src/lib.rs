@@ -310,6 +310,7 @@ pub fn run() {
             #[cfg(not(target_os = "macos"))]
             let builder = builder.transparent(is_transparent);
 
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
             let _window = builder.build()?;
 
             let covers_dir = app_dir.join("covers");

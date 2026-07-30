@@ -15,6 +15,10 @@ pub struct DiscoveryService {
 
 impl DiscoveryService {
     pub fn new() -> Result<Self> {
+        #[cfg(any(target_os = "android", target_os = "ios"))]
+        let mdns = None;
+
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
         let mdns = match ServiceDaemon::new() {
             Ok(daemon) => Some(daemon),
             Err(e) => {

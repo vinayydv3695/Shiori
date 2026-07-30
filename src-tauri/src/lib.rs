@@ -308,6 +308,7 @@ pub fn run() {
             }
 
             #[cfg(not(target_os = "macos"))]
+            #[allow(unused_variables)]
             let builder = builder.transparent(is_transparent);
 
             #[cfg(not(any(target_os = "android", target_os = "ios")))]

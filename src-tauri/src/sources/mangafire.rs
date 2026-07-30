@@ -49,6 +49,7 @@ impl MangaFireSource {
         Err(ShioriError::Other("MangaFire source client not initialized (timeout)".into()))
     }
 
+    #[allow(dead_code)]
     async fn evaluate_js_on_site(&self, js_script: &str) -> Result<String> {
         self.wait_for_init().await?;
         let guard = self.app_handle.read().await;

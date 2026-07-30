@@ -407,3 +407,4 @@ mod tests {
         assert_eq!(journal_mode.to_lowercase(), "wal");
     }
 }
+pub mod test_migrations_query;

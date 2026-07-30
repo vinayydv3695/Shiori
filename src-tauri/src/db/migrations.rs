@@ -147,6 +147,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 41 {
             self.run_in_savepoint("v41", |mgr| mgr.migrate_to_v41())?;
         }
+        if current_version < 42 {
+            self.run_in_savepoint("v42", |mgr| mgr.migrate_to_v42())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -2228,11 +2231,35 @@ impl<'a> MigrationManager<'a> {
 
     /// Migration v40: Rename collections to shelves
     fn migrate_to_v40(&self) -> Result<()> {
-        log::info!("[Migration] Applying v40: Rename collections to shelves");
+        log::info!("[Migration] Applying v40: Rename collections to shelves safely");
 
-        // Rename table collections -> shelves (supported universally)
-        if self.table_exists("collections")? && !self.table_exists("shelves")? {
-            self.conn.execute("ALTER TABLE collections RENAME TO shelves", [])?;
+        let migrate_collections = self.table_exists("collections")? && !self.table_exists("shelves")?;
+        
+        if migrate_collections {
+            // Recreate shelves table to avoid ALTER TABLE RENAME TO constraints on old SQLite
+            self.conn.execute(
+                "CREATE TABLE IF NOT EXISTS shelves (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    parent_id INTEGER,
+                    is_smart INTEGER DEFAULT 0 CHECK(is_smart IN (0, 1)),
+                    smart_rules TEXT,
+                    icon TEXT,
+                    color TEXT,
+                    sort_order INTEGER DEFAULT 0,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (parent_id) REFERENCES shelves(id) ON DELETE CASCADE
+                )",
+                [],
+            )?;
+
+            self.conn.execute(
+                "INSERT INTO shelves (id, name, description, parent_id, is_smart, smart_rules, icon, color, sort_order, created_at)
+                 SELECT id, name, description, parent_id, is_smart, smart_rules, icon, color, sort_order, created_at
+                 FROM collections",
+                [],
+            )?;
         }
 
         // To avoid RENAME COLUMN which is not supported on Android's older system SQLite,
@@ -2268,6 +2295,11 @@ impl<'a> MigrationManager<'a> {
                 "CREATE INDEX IF NOT EXISTS idx_shelf_books_book ON shelf_books(book_id)",
                 [],
             )?;
+        }
+
+        // Now drop collections since collections_books no longer references it
+        if migrate_collections {
+            self.conn.execute("DROP TABLE collections", [])?;
         }
 
         // Handle case where an interrupted migration left shelf_books with the old column name
@@ -2318,9 +2350,7 @@ impl<'a> MigrationManager<'a> {
             [],
         )?;
 
-        // Note: collection_type to shelf_type rename logic is omitted because collections never had collection_type
-
-        let hash = Self::calculate_checksum("v40_rename_collections_to_shelves_v2");
+        let hash = Self::calculate_checksum("v40_rename_collections_to_shelves_v3");
         self.record_migration(40, "rename_collections_to_shelves", &hash)?;
         Ok(())
     }
@@ -2338,6 +2368,22 @@ impl<'a> MigrationManager<'a> {
 
         let hash = Self::calculate_checksum("v41_add_shelf_type_to_shelves");
         self.record_migration(41, "add_shelf_type_to_shelves", &hash)?;
+        Ok(())
+    }
+
+    /// Migration v42: Add updated_at to shelves
+    fn migrate_to_v42(&self) -> Result<()> {
+        log::info!("[Migration] Applying v42: Add updated_at to shelves");
+
+        if self.table_exists("shelves")? && !self.column_exists("shelves", "updated_at")? {
+            self.conn.execute(
+                "ALTER TABLE shelves ADD COLUMN updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
+                [],
+            )?;
+        }
+
+        let hash = Self::calculate_checksum("v42_add_updated_at_to_shelves");
+        self.record_migration(42, "add_updated_at_to_shelves", &hash)?;
         Ok(())
     }
 }

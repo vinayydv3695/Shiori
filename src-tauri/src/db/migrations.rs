@@ -1441,16 +1441,24 @@ impl<'a> MigrationManager<'a> {
         }
 
         // Create the built-in Favorites collection if it doesn't exist
+        let table_name = if self.table_exists("collections")? { "collections" } else { "shelves" };
+        let type_col = if table_name == "collections" { "collection_type" } else { "shelf_type" };
+        
+        let query = format!("SELECT COUNT(*) > 0 FROM {} WHERE {} = 'favorites'", table_name, type_col);
         let favorites_exists: bool = self.conn.query_row(
-            "SELECT COUNT(*) > 0 FROM collections WHERE collection_type = 'favorites'",
+            &query,
             [],
             |row| row.get(0),
         )?;
 
         if !favorites_exists {
             let now = chrono::Utc::now().to_rfc3339();
+            let insert_query = format!(
+                "INSERT INTO {} (name, description, is_smart, {}, icon, sort_order, created_at, updated_at) VALUES ('Favorites', 'Your favorite books', 0, 'favorites', '❤️', -1, ?1, ?2)",
+                table_name, type_col
+            );
             self.conn.execute(
-                "INSERT INTO collections (name, description, is_smart, collection_type, icon, sort_order, created_at, updated_at) VALUES ('Favorites', 'Your favorite books', 0, 'favorites', '❤️', -1, ?1, ?2)",
+                &insert_query,
                 rusqlite::params![now, now],
             )?;
         }
@@ -1858,9 +1866,10 @@ impl<'a> MigrationManager<'a> {
     fn migrate_to_v26(&self) -> Result<()> {
         log::info!("[Migration] Applying v26: Add smart_query to collections");
 
-        if self.table_exists("collections")? && !self.column_exists("collections", "smart_query")? {
+        let table_name = if self.table_exists("collections")? { "collections" } else { "shelves" };
+        if !self.column_exists(table_name, "smart_query")? {
             self.conn
-                .execute("ALTER TABLE collections ADD COLUMN smart_query TEXT", [])?;
+                .execute(&format!("ALTER TABLE {} ADD COLUMN smart_query TEXT", table_name), [])?;
         }
 
         self.set_schema_version(26)?;
@@ -2221,13 +2230,20 @@ impl<'a> MigrationManager<'a> {
     fn migrate_to_v40(&self) -> Result<()> {
         log::info!("[Migration] Applying v40: Rename collections to shelves");
 
-        // Rename table collections -> shelves
-        if self.table_exists("collections")? && !self.table_exists("shelves")? {
+        // If collections exists, initialize_schema might have already created an empty shelves table
+        // We must drop the empty shelves table so we can rename the real collections table
+        if self.table_exists("collections")? {
+            if self.table_exists("shelves")? {
+                self.conn.execute("DROP TABLE shelves", [])?;
+            }
             self.conn.execute("ALTER TABLE collections RENAME TO shelves", [])?;
         }
 
         // Rename table collections_books -> shelf_books
-        if self.table_exists("collections_books")? && !self.table_exists("shelf_books")? {
+        if self.table_exists("collections_books")? {
+            if self.table_exists("shelf_books")? {
+                self.conn.execute("DROP TABLE shelf_books", [])?;
+            }
             self.conn.execute("ALTER TABLE collections_books RENAME TO shelf_books", [])?;
         }
 

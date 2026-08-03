@@ -71,6 +71,9 @@ export function ContinuousEpubView({
   const prevSearchTermRef = useRef(searchTerm);
   const prevBookIdRef = useRef(bookId);
 
+  // Cap mounted chapters to prevent Android WebView OOM crashes from heavy base64 media; trimmed chapters re-fetch transparently on scroll.
+  const MAX_LOADED_CHAPTERS = 8;
+
   // Load a single chapter and process its HTML
   const fetchChapter = async (index: number): Promise<LoadedChapter | null> => {
     if (index < 0 || index >= metadata.total_chapters) return null;
@@ -227,9 +230,34 @@ export function ContinuousEpubView({
         
         const newCh = await fetchChapter(lastIdx + 1);
         if (newCh) {
+          // If appending pushes us past the window cap we trim earlier chapters
+          // off the top. Anchor the scroll on the active chapter first so the
+          // viewport doesn't jump when that content is removed.
+          const willTrimTop = chapters.length + 1 > MAX_LOADED_CHAPTERS;
+          if (willTrimTop && containerRef.current) {
+            const activeEl = chapterRefs.current.get(activeChapterIndexRef.current);
+            prevScrollStateRef.current = {
+              height: containerRef.current.scrollHeight,
+              top: containerRef.current.scrollTop,
+              activeIdx: activeChapterIndexRef.current,
+              activeOffsetTop: activeEl ? activeEl.offsetTop : undefined,
+            };
+            pendingScrollAnchorRef.current = 'slice-top';
+          }
           setChapters(prev => {
             if (prev.some(c => c.index === newCh.index)) return prev;
-            return [...prev, newCh];
+            let next = [...prev, newCh];
+            if (next.length > MAX_LOADED_CHAPTERS) {
+              const overflow = next.length - MAX_LOADED_CHAPTERS;
+              // Never trim the active chapter or its immediate predecessor.
+              const activeIdx = activeChapterIndexRef.current;
+              let removable = 0;
+              while (removable < overflow && next[removable] && next[removable].index < activeIdx - 1) {
+                removable++;
+              }
+              if (removable > 0) next = next.slice(removable);
+            }
+            return next;
           });
         }
       } else {
@@ -249,10 +277,27 @@ export function ContinuousEpubView({
             activeOffsetTop: activeEl ? activeEl.offsetTop : undefined
           };
           pendingScrollAnchorRef.current = 'prepend';
-          
+
           setChapters(prev => {
             if (prev.some(c => c.index === newCh.index)) return prev;
-            return [newCh, ...prev];
+            let next = [newCh, ...prev];
+            if (next.length > MAX_LOADED_CHAPTERS) {
+              const overflow = next.length - MAX_LOADED_CHAPTERS;
+              // Trim from the bottom (out of view when scrolling up); the prepend
+              // anchor already compensates for the newly added top content, and
+              // removing trailing chapters doesn't shift content above them.
+              const activeIdx = activeChapterIndexRef.current;
+              let removable = 0;
+              while (
+                removable < overflow &&
+                next[next.length - 1 - removable] &&
+                next[next.length - 1 - removable].index > activeIdx + 1
+              ) {
+                removable++;
+              }
+              if (removable > 0) next = next.slice(0, next.length - removable);
+            }
+            return next;
           });
         }
       }

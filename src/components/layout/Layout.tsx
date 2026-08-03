@@ -525,6 +525,7 @@ export function Layout({
           <div
             className={cn('md:pb-0', 'max-md:pb-24')}
             style={isMobile ? {
+              paddingTop: 'env(safe-area-inset-top, 0px)',
               paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))'
             } : undefined}
           >

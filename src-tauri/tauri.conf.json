@@ -32,6 +32,14 @@
     "resources": [
       "resources/espeak-ng-data/**/*"
     ],
+    "fileAssociations": [
+      { "ext": ["epub"], "mimeType": "application/epub+zip", "name": "EPUB Book", "role": "Viewer" },
+      { "ext": ["pdf"],  "mimeType": "application/pdf",       "name": "PDF",       "role": "Viewer" },
+      { "ext": ["cbz"],  "mimeType": "application/vnd.comicbook+zip", "name": "Comic (CBZ)", "role": "Viewer" },
+      { "ext": ["mobi"], "mimeType": "application/x-mobipocket-ebook", "name": "MOBI", "role": "Viewer" },
+      { "ext": ["azw3"], "mimeType": "application/vnd.amazon.ebook",   "name": "AZW3", "role": "Viewer" },
+      { "ext": ["fb2"],  "mimeType": "application/x-fictionbook+xml",  "name": "FB2",  "role": "Viewer" }
+    ],
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",

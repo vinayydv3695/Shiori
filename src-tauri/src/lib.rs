@@ -15,6 +15,8 @@ pub mod utils;
 
 use error::ShioriError;
 use std::sync::Arc;
+#[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
+use tauri::Emitter;
 use tauri::Manager;
 
 use services::{
@@ -39,6 +41,10 @@ pub struct AppState {
     covers_dir: std::path::PathBuf,
     pub plugin_registry: Arc<tokio::sync::RwLock<sources::registry::SourceRegistry>>,
     pub discovery_service: std::sync::Arc<services::discovery_service::DiscoveryService>,
+    /// URLs delivered via `RunEvent::Opened` (mobile "Open with" intents)
+    /// that arrived before the webview was ready to receive the `opened`
+    /// event. The frontend drains this once on mount via `take_opened_urls`.
+    pub opened_urls: std::sync::Mutex<Vec<String>>,
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     pub discord: Option<services::discord_service::DiscordService>,
 }
@@ -489,6 +495,7 @@ pub fn run() {
                 covers_dir: covers_dir.clone(),
                 plugin_registry: plugin_registry.clone(),
                 discovery_service: discovery_service.clone(),
+                opened_urls: std::sync::Mutex::new(Vec::new()),
                 #[cfg(not(any(target_os = "android", target_os = "ios")))]
                 discord: Some(discord_service),
             });
@@ -639,8 +646,41 @@ pub fn run() {
             }
         })
         .invoke_handler(crate::generate_shiori_handlers!())
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            // Mobile "Open with Shiori" file association: the OS delivers the
+            // file(s) as `RunEvent::Opened { urls }` (tao forwards VIEW/SEND
+            // intents — including cold-start intents via onActivityCreate —
+            // through to tauri's RunEvent). The variant only exists on
+            // mobile/macOS builds; on Linux desktop it never fires.
+            //
+            // Cold start: the webview isn't mounted yet, so the `opened`
+            // emit below would be lost — buffer the urls in AppState and let
+            // the frontend drain them via `take_opened_urls` once it mounts.
+            // Warm start: the webview is listening, emit immediately.
+            match event {
+                #[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
+                tauri::RunEvent::Opened { urls } => {
+                    let url_strings: Vec<String> = urls.iter().map(|u| u.to_string()).collect();
+                    log::info!(
+                        "[opened] received {} opened URL(s): {:?}",
+                        url_strings.len(),
+                        url_strings
+                    );
+                    if let Some(state) = app_handle.try_state::<AppState>() {
+                        state.opened_urls.lock().unwrap().extend(url_strings.clone());
+                    }
+                    let _ = app_handle.emit("opened", url_strings);
+                }
+                _ => {
+                    #[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
+                    {
+                        let _ = app_handle;
+                    }
+                }
+            }
+        });
 }
 
 /// Security Fix: SSRF Prevention

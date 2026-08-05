@@ -174,6 +174,23 @@ pub struct ImportResult {
     pub previously_deleted: Vec<String>,
 }
 
+/// Result of ingesting one "Open with Shiori" file (Slice 2).
+///
+/// `status` is one of: `imported` | `duplicate` | `previously_deleted` |
+/// `unsupported`. The frontend shows one toast per file, so this contract is
+/// exact: `path` is the original url/path that was opened, `book_id`/`title`
+/// are populated only when `status == "imported"`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IngestResult {
+    pub status: String,
+    pub path: String,
+    #[serde(default)]
+    pub book_id: Option<i64>,
+    #[serde(default)]
+    pub title: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Metadata {
     pub title: Option<String>,

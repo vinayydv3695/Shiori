@@ -1,11 +1,12 @@
-use crate::services::library_service;
+use crate::services::{ingest_service, library_service};
 use crate::utils::validate;
 use crate::{
     error::Result,
-    models::{Book, ImportResult},
+    models::{Book, ImportResult, IngestResult},
     AppState,
 };
 use serde::Serialize;
+use std::path::PathBuf;
 use tauri::{Emitter, Manager, State};
 use walkdir::WalkDir;
 
@@ -89,6 +90,108 @@ pub fn start_background_scan(
     });
 
     Ok(())
+}
+
+/// Drain the `RunEvent::Opened` URL buffer (Slice 2).
+///
+/// On a cold start the webview isn't listening when the OS delivers the
+/// "open with" intent, so `lib.rs` buffers the URLs in `AppState` and emits
+/// the `opened` event for warm starts. The frontend polls this once on mount
+/// to cover the cold-start race.
+#[tauri::command]
+pub fn take_opened_urls(state: State<AppState>) -> Result<Vec<String>> {
+    let mut opened = state.opened_urls.lock().unwrap();
+    Ok(std::mem::take(&mut *opened))
+}
+
+/// Ingest one "Open with Shiori" file into the managed library (Slice 2).
+///
+/// Platform resolution: on Android the `content://` URI is copied into an
+/// app-private staging path via the local android-saf plugin's
+/// `copy_document`; on desktop the url is treated as a filesystem path. The
+/// rest of the pipeline (`ingest_service::ingest_opened_file`) is
+/// platform-agnostic and free of `AppHandle`.
+#[tauri::command]
+pub async fn ingest_opened_file(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    url: String,
+) -> Result<IngestResult> {
+    validate::require_non_empty(&url, "url")?;
+    log::info!("[command::ingest_opened_file] opening: {}", url);
+
+    let db = state.db.clone();
+    let covers_dir = state.covers_dir.clone();
+    let app_data_dir = state
+        .covers_dir
+        .parent()
+        .unwrap_or(&state.covers_dir)
+        .to_path_buf();
+
+    // Resolve the incoming url to a local readable file. On Android this
+    // streams the content:// URI into app-private storage (can be slow for
+    // large books) — hence spawn_blocking.
+    let app_for_resolve = app.clone();
+    let url_for_resolve = url.clone();
+    let (source_path, source_name, cleanup_source) =
+        tokio::task::spawn_blocking(move || resolve_opened_url(&app_for_resolve, &url_for_resolve))
+            .await
+            .map_err(|e| crate::error::ShioriError::Other(e.to_string()))??;
+
+    let result = tokio::task::spawn_blocking(move || {
+        ingest_service::ingest_opened_file(
+            &db,
+            &covers_dir,
+            &app_data_dir,
+            &url,
+            &source_path,
+            &source_name,
+            cleanup_source,
+        )
+    })
+    .await
+    .map_err(|e| crate::error::ShioriError::Other(e.to_string()))??;
+
+    let _ = app.emit("library-updated", ());
+    Ok(result)
+}
+
+/// Android: stream the `content://` URI into an app-private staging file via
+/// the local android-saf plugin, and derive a candidate name for extension
+/// detection. The staging file is cleaned up by the ingest pipeline.
+#[cfg(target_os = "android")]
+fn resolve_opened_url(app: &tauri::AppHandle, url: &str) -> Result<(PathBuf, String, bool)> {
+    use tauri_plugin_android_saf::AndroidSafExt;
+
+    let name = ingest_service::candidate_name_from_url(url);
+    let resp = app
+        .android_saf()
+        .copy_document(url.to_string(), name.clone())
+        .map_err(|e| {
+            crate::error::ShioriError::Other(format!(
+                "Failed to copy opened document {}: {}",
+                url, e
+            ))
+        })?;
+    log::info!(
+        "[command::ingest_opened_file] android-saf staged {} → {}",
+        url,
+        resp.path
+    );
+    Ok((PathBuf::from(resp.path), name, true))
+}
+
+/// Desktop: the url is a plain filesystem path. (RunEvent::Opened never
+/// fires on Linux desktop — this arm exists so the pipeline is testable and
+/// harmless on other desktop platforms.)
+#[cfg(not(target_os = "android"))]
+fn resolve_opened_url(_app: &tauri::AppHandle, url: &str) -> Result<(PathBuf, String, bool)> {
+    let path = PathBuf::from(url);
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+    Ok((path, name, false))
 }
 
 #[tauri::command]

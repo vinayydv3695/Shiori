@@ -1113,7 +1113,7 @@ pub fn update_book_cover_path(db: &Database, book_id: i64, cover_path: Option<&s
 /// Kick off a background online-cover lookup for a book imported without an
 /// embedded cover. Builds a throwaway CoverService rooted at the storage dir
 /// next to the covers dir (mirrors the app layout: app_dir/covers + app_dir/storage).
-fn spawn_online_cover_lookup_for_book(
+pub(crate) fn spawn_online_cover_lookup_for_book(
     db: &Database,
     covers_dir: &std::path::Path,
     book_id: i64,
@@ -1486,6 +1486,11 @@ pub fn import_manga(
                     result.success.push(path);
                 }
             }
+            Err(ShioriError::TombstonedBook(_)) => {
+                // Previously-deleted file: surface it separately from failures
+                // so the UI can offer to "forget" the deletion.
+                result.previously_deleted.push(path);
+            }
             Err(e) => {
                 result.failed.push((path, e.to_string()));
             }
@@ -1559,6 +1564,11 @@ pub fn import_comics(
                     )?;
                     result.success.push(path);
                 }
+            }
+            Err(ShioriError::TombstonedBook(_)) => {
+                // Previously-deleted file: surface it separately from failures
+                // so the UI can offer to "forget" the deletion.
+                result.previously_deleted.push(path);
             }
             Err(e) => {
                 result.failed.push((path, e.to_string()));

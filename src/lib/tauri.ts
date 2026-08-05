@@ -1,5 +1,6 @@
 import { invoke, convertFileSrc } from "@tauri-apps/api/core"
 import { open, save } from "@tauri-apps/plugin-dialog"
+import { listen, type UnlistenFn } from "@tauri-apps/api/event"
 import type { UserPreferences, PreferenceOverride, OnboardingState, WatchFolder } from "../types/preferences"
 import { logger } from '@/lib/logger'
 
@@ -189,6 +190,16 @@ export interface ImportResult {
   failed: [string, string][]
   duplicates: string[]
   previouslyDeleted: string[]
+}
+
+// Result of ingesting one "Open with Shiori" file. status is one of
+// 'imported' | 'duplicate' | 'previously_deleted' | 'unsupported' — the
+// frontend shows one toast per file.
+export interface IngestResult {
+  status: 'imported' | 'duplicate' | 'previously_deleted' | 'unsupported'
+  path: string
+  bookId?: number
+  title?: string
 }
 
 export interface ReadingProgress {
@@ -653,6 +664,24 @@ export const api = {
 
   clearTombstone: async (filePath: string, fileHash?: string): Promise<void> => {
     return invoke('clear_tombstone', { filePath, fileHash })
+  },
+
+  // ── "Open with Shiori" managed ingestion (Slice 2) ──────────────────
+  // Android/mobile only: RunEvent::Opened never fires on Linux desktop.
+
+  /** Drain URLs buffered from a cold-start "Open with" intent (call once on mount). */
+  async takeOpenedUrls(): Promise<string[]> {
+    return invoke<string[]>('take_opened_urls')
+  },
+
+  /** Ingest one opened file into the managed library. */
+  async ingestOpenedFile(url: string): Promise<IngestResult> {
+    return invoke<IngestResult>('ingest_opened_file', { url })
+  },
+
+  /** Subscribe to the `opened` event (warm-start intents). */
+  async onOpened(callback: (urls: string[]) => void): Promise<UnlistenFn> {
+    return listen<string[]>('opened', (event) => callback(event.payload))
   },
 
   async cleanUpDatabase(): Promise<[number, number]> {

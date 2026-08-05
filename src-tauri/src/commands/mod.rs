@@ -34,6 +34,8 @@ macro_rules! generate_shiori_handlers {
     () => {
         tauri::generate_handler![
             commands::library::get_books,
+            commands::library::take_opened_urls,
+            commands::library::ingest_opened_file,
             commands::library::get_book_summaries,
             commands::library::get_book_summaries_by_domain,
             commands::library::find_duplicate_books,

@@ -32,6 +32,7 @@ export type ErrorKind =
   | "format"
   | "metadata"
   | "duplicate"
+  | "tombstoned"
   | "invalid_operation"
   | "permission"
   | "unsupported"

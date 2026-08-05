@@ -1013,7 +1013,8 @@ export const api = {
       return Promise.resolve({
         success: [],
         failed: [],
-        duplicates: []
+        duplicates: [],
+        previouslyDeleted: []
       })
     }
     try {

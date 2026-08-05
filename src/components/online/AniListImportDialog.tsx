@@ -3,7 +3,9 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { X, DownloadCloud, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AnilistMediaListShelf, AnilistMediaList } from '@/lib/anilist';
-import { api } from '@/lib/tauri';
+import { api, type Book } from '@/lib/tauri';
+import { isErrorKind } from '@/lib/errors';
+import { useTombstoneConfirm } from '@/hooks/useTombstoneConfirm';
 import { pluginApi } from '@/lib/pluginSources';
 import { toast } from '@/store/toastStore';
 
@@ -18,6 +20,7 @@ export function AniListImportDialog({ isOpen, onClose, shelf, anilistToken }: An
   const [isImporting, setIsImporting] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0, successes: 0, failures: 0 });
   const [statusText, setStatusText] = useState('');
+  const { confirmTombstones, tombstoneDialog } = useTombstoneConfirm();
   
   useEffect(() => {
     if (isOpen) {
@@ -47,6 +50,25 @@ export function AniListImportDialog({ isOpen, onClose, shelf, anilistToken }: An
     });
   }, [shelf]);
 
+  /** Add a book, offering to forget the tombstone and retry once if it was previously deleted. */
+  const addBookWithTombstoneRetry = async (book: Book): Promise<boolean> => {
+    try {
+      await api.addBook(book);
+      return true;
+    } catch (err) {
+      if (!isErrorKind(err, 'tombstoned') || !book.file_path) {
+        throw err;
+      }
+      const importAnyway = await confirmTombstones([book.file_path]);
+      if (!importAnyway) {
+        return false; // skipped
+      }
+      await api.clearTombstone(book.file_path);
+      await api.addBook(book); // retry once
+      return true;
+    }
+  };
+
   const handleStartImport = async () => {
     if (eligibleEntries.length === 0) return;
     
@@ -68,8 +90,8 @@ export function AniListImportDialog({ isOpen, onClose, shelf, anilistToken }: An
         if (searchResults && searchResults.length > 0) {
           const match = searchResults[0];
           setStatusText(`Adding "${title}"...`);
-          
-          await api.addBook({
+
+          const book: Book = {
             uuid: crypto.randomUUID(),
             title: entry.media.title.userPreferred || title,
             file_path: `online-manga://mangafire/${match.id}`, 
@@ -83,8 +105,19 @@ export function AniListImportDialog({ isOpen, onClose, shelf, anilistToken }: An
             modified_date: new Date().toISOString(),
             language: 'en',
             is_favorite: false
-          });
-          successCount++;
+          };
+
+          try {
+            const added = await addBookWithTombstoneRetry(book);
+            if (added) {
+              successCount++;
+            } else {
+              failCount++; // user declined to re-import a previously deleted file
+            }
+          } catch (err) {
+            toast.error(`Error importing ${title}`);
+            failCount++;
+          }
         } else {
           console.warn(`No mangafire match for ${title}`);
           failCount++;
@@ -105,6 +138,7 @@ export function AniListImportDialog({ isOpen, onClose, shelf, anilistToken }: An
   };
 
   return (
+    <>
     <Dialog.Root open={isOpen} onOpenChange={(open) => !open && !isImporting && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-background/80 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
@@ -208,5 +242,7 @@ export function AniListImportDialog({ isOpen, onClose, shelf, anilistToken }: An
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+    {tombstoneDialog}
+    </>
   );
 }

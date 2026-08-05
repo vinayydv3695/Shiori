@@ -122,7 +122,8 @@ export function useImport(): UseImportResult {
           success: [...acc.success, ...curr.success],
           failed: [...acc.failed, ...curr.failed],
           duplicates: [...acc.duplicates, ...curr.duplicates],
-        }), { success: [], failed: [], duplicates: [] });
+          previouslyDeleted: [...acc.previouslyDeleted, ...curr.previouslyDeleted],
+        }), { success: [], failed: [], duplicates: [], previouslyDeleted: [] });
 
       } else {
         // Standard Workflow

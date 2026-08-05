@@ -34,10 +34,11 @@ import { MangaRankList } from "./MangaRankList";
 import { ModernBookCard } from "./ModernBookCard";
 import { SkeletonGrid } from "./SkeletonLoaders";
 import { type CarouselItem } from "./ContentCarousel";
-import { api, type ImportResult } from "@/lib/tauri";
+import { api, type ImportResult, type Book } from "@/lib/tauri";
 import { parsePageUrl } from "@/lib/utils";
 import { useToast } from "@/store/toastStore";
-import { getErrorMessage } from "@/lib/errors";
+import { getErrorMessage, isErrorKind } from "@/lib/errors";
+import { useTombstoneConfirm } from "@/hooks/useTombstoneConfirm";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { MobileFilterSheet } from "./MobileFilterSheet";
@@ -182,6 +183,7 @@ export function OnlineMangaView() {
   );
   const [hasTorboxKey, setHasTorboxKey] = useState(false);
   const [isSavingToLibrary, setIsSavingToLibrary] = useState(false);
+  const { confirmTombstones, tombstoneDialog } = useTombstoneConfirm();
   const libraryBooks = useLibraryStore((s) => s.books);
   const [lastReadChapterId, setLastReadChapterId] = useState<
     string | undefined
@@ -1048,7 +1050,7 @@ export function OnlineMangaView() {
     setIsSavingToLibrary(true);
     try {
       const now = new Date().toISOString();
-      await api.addBook({
+      const book: Book = {
         title,
         file_path: `online-manga://${effectiveSourceId}/${contentId}`,
         file_format: "online-manga",
@@ -1060,7 +1062,22 @@ export function OnlineMangaView() {
         cover_path: coverUrl,
         uuid: crypto.randomUUID(),
         notes: description || "",
-      });
+      };
+
+      try {
+        await api.addBook(book);
+      } catch (err) {
+        if (!isErrorKind(err, "tombstoned") || !book.file_path) {
+          throw err;
+        }
+        // Previously deleted: offer to forget the deletion and retry once.
+        const importAnyway = await confirmTombstones([book.file_path]);
+        if (!importAnyway) {
+          return; // skipped — user declined
+        }
+        await api.clearTombstone(book.file_path);
+        await api.addBook(book);
+      }
 
       showSuccessToast(`"${title}" added to your library!`);
 
@@ -1346,6 +1363,7 @@ export function OnlineMangaView() {
     <div className="flex flex-col h-full bg-background relative">
       {/* Download Progress Toast Overlay */}
       {downloadProgressToast}
+      {tombstoneDialog}
       <OnlineSearchHeader
         kind="manga"
         title="Online Manga"

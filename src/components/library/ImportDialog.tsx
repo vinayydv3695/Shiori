@@ -3,6 +3,8 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { motion } from 'framer-motion';
 import { X, FolderOpen, File, Upload, Loader2, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { api, ImportResult, isAndroid } from '../../lib/tauri';
+import { emptyImportResult, mergeImportResults } from '../../lib/importResults';
+import { useTombstoneConfirm } from '../../hooks/useTombstoneConfirm';
 import { logger } from '@/lib/logger';
 import { useToast } from '../../store/toastStore';
 import { useLibraryStore } from '../../store/libraryStore';
@@ -45,6 +47,8 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
   const [showSuggestions, setShowSuggestions] = useState(false);
   const toast = useToast();
   const loadInitialBooks = useLibraryStore(state => state.loadInitialBooks);
+  const { confirmTombstones, dismissTombstoneConfirm, tombstoneDialog } = useTombstoneConfirm();
+  const closedRef = useRef(false);
   
   // Create refs to access the latest state inside useEffect
   const modeRef = useRef(mode);
@@ -142,9 +146,67 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
 
   const MANGA_COMIC_EXTENSIONS = /\.(cbz|cbr|zip)$/i;
 
+  /** Run the standard file import path (manga/comic vs book split) for a set of paths. */
+  const runImportForPaths = async (paths: string[]): Promise<ImportResult> => {
+    const importResult = emptyImportResult();
+    const mangaFiles = paths.filter(p => MANGA_COMIC_EXTENSIONS.test(p));
+    const bookFiles = paths.filter(p => !MANGA_COMIC_EXTENSIONS.test(p));
+
+    if (mangaFiles.length > 0) {
+      mergeImportResults(importResult, await api.importManga(mangaFiles));
+    }
+
+    if (bookFiles.length > 0) {
+      mergeImportResults(importResult, await api.importBooks(bookFiles));
+    }
+
+    return importResult;
+  };
+
+  const finalizeImport = async (importResult: ImportResult) => {
+    if (closedRef.current) return;
+
+    setResult(importResult);
+    setStatus('completed');
+
+    const totalImported = importResult.success.length;
+    const totalDuplicates = importResult.duplicates.length;
+    const totalFailed = importResult.failed.length;
+
+    if (totalImported > 0) {
+      toast.success(
+        `Imported ${totalImported} item${totalImported > 1 ? 's' : ''}`,
+        totalDuplicates > 0 || totalFailed > 0
+          ? `${totalDuplicates} duplicates, ${totalFailed} failed`
+          : undefined
+      );
+
+      await loadInitialBooks();
+      
+      // Fetch the full book metadata for newly imported paths
+      // This allows generating shelf suggestions based on series metadata
+      const importedBooks = await api.getBooksByPaths(importResult.success);
+
+      const shelfSuggestions = generateShelfSuggestions(importedBooks);
+      
+      if (shelfSuggestions.length > 0) {
+        setSuggestions(shelfSuggestions);
+        setShowSuggestions(true);
+      }
+    } else {
+      toast.warning(
+        'No items imported',
+        importResult.previouslyDeleted.length > 0
+          ? 'All items were duplicates, failed, or previously deleted'
+          : 'All items were either duplicates or failed to import'
+      );
+    }
+  };
+
   const handleImport = async () => {
     setStatus('importing');
     setResult(null);
+    closedRef.current = false;
 
     // Get latest state from refs since setTimeout might run with stale closures
     const currentMode = modeRef.current;
@@ -152,7 +214,7 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
     const currentSelectedFilePaths = selectedFilePathsRef.current;
 
     try {
-      const importResult: ImportResult = { success: [], failed: [], duplicates: [] };
+      const importResult = emptyImportResult();
 
       if (currentMode === 'folder') {
         if (!currentSelectedPath) {
@@ -160,8 +222,6 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
           setStatus('idle');
           return;
         }
-        
-        let result: ImportResult;
         
         if (currentSelectedPath.startsWith('content://')) {
           // Android SAF Workflow
@@ -184,86 +244,55 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
             throw new Error('Failed to copy any files from the selected folder.');
           }
 
-          const mangaFiles = localPaths.filter(p => MANGA_COMIC_EXTENSIONS.test(p));
-          const bookFiles = localPaths.filter(p => !MANGA_COMIC_EXTENSIONS.test(p));
-
-          result = { success: [], failed: [], duplicates: [] };
-          
-          if (mangaFiles.length > 0) {
-            const mangaResult = await api.importManga(mangaFiles);
-            result.success.push(...mangaResult.success);
-            result.failed.push(...mangaResult.failed);
-            result.duplicates.push(...mangaResult.duplicates);
-          }
-          
-          if (bookFiles.length > 0) {
-            const bookResult = await api.importBooks(bookFiles);
-            result.success.push(...bookResult.success);
-            result.failed.push(...bookResult.failed);
-            result.duplicates.push(...bookResult.duplicates);
-          }
+          mergeImportResults(importResult, await runImportForPaths(localPaths));
         } else {
-          result = await api.scanFolderUnified(currentSelectedPath);
+          mergeImportResults(importResult, await api.scanFolderUnified(currentSelectedPath));
         }
-        
-        importResult.success.push(...result.success);
-        importResult.failed.push(...result.failed);
-        importResult.duplicates.push(...result.duplicates);
       } else {
         if (currentSelectedFilePaths.length === 0) {
           toast.error('No files selected', 'Please select files to import');
           setStatus('idle');
           return;
         }
-        
-        const mangaFiles = currentSelectedFilePaths.filter(p => MANGA_COMIC_EXTENSIONS.test(p));
-        const bookFiles = currentSelectedFilePaths.filter(p => !MANGA_COMIC_EXTENSIONS.test(p));
-        
-        if (mangaFiles.length > 0) {
-          const mangaResult = await api.importManga(mangaFiles);
-          importResult.success.push(...mangaResult.success);
-          importResult.failed.push(...mangaResult.failed);
-          importResult.duplicates.push(...mangaResult.duplicates);
+
+        mergeImportResults(importResult, await runImportForPaths(currentSelectedFilePaths));
+      }
+
+      // Previously-deleted files: ask before re-importing them.
+      if (importResult.previouslyDeleted.length > 0) {
+        const importAnyway = await confirmTombstones(importResult.previouslyDeleted);
+        if (closedRef.current) return;
+
+        if (!importAnyway) {
+          // Skipped — they stay in previouslyDeleted and show as skipped in the result view.
+          await finalizeImport(importResult);
+          return;
         }
-        
-        if (bookFiles.length > 0) {
-          const bookResult = await api.importBooks(bookFiles);
-          importResult.success.push(...bookResult.success);
-          importResult.failed.push(...bookResult.failed);
-          importResult.duplicates.push(...bookResult.duplicates);
+
+        // Forget the deletions, then re-import exactly those paths.
+        setStatus('importing');
+        const cleared: string[] = [];
+        for (const path of importResult.previouslyDeleted) {
+          try {
+            await api.clearTombstone(path);
+            cleared.push(path);
+          } catch (error) {
+            logger.warn(`Failed to clear tombstone for ${path}`, error);
+          }
+        }
+
+        if (cleared.length > 0) {
+          const retryResult = await runImportForPaths(cleared);
+          mergeImportResults(importResult, retryResult);
+          // Paths we could not clear (or that came back tombstoned) stay skipped.
+          importResult.previouslyDeleted = [
+            ...importResult.previouslyDeleted.filter(path => !cleared.includes(path)),
+            ...retryResult.previouslyDeleted,
+          ];
         }
       }
 
-      setResult(importResult);
-      setStatus('completed');
-
-      const totalImported = importResult.success.length;
-      const totalDuplicates = importResult.duplicates.length;
-      const totalFailed = importResult.failed.length;
-
-      if (totalImported > 0) {
-        toast.success(
-          `Imported ${totalImported} item${totalImported > 1 ? 's' : ''}`,
-          totalDuplicates > 0 || totalFailed > 0
-            ? `${totalDuplicates} duplicates, ${totalFailed} failed`
-            : undefined
-        );
-
-        await loadInitialBooks();
-        
-        // Fetch the full book metadata for newly imported paths
-        // This allows generating shelf suggestions based on series metadata
-        const importedBooks = await api.getBooksByPaths(importResult.success);
-
-        const shelfSuggestions = generateShelfSuggestions(importedBooks);
-        
-        if (shelfSuggestions.length > 0) {
-          setSuggestions(shelfSuggestions);
-          setShowSuggestions(true);
-        }
-      } else {
-        toast.warning('No items imported', 'All items were either duplicates or failed to import');
-      }
+      await finalizeImport(importResult);
      } catch (error) {
        logger.error('Import failed:', error);
        setStatus('error');
@@ -276,6 +305,8 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
   }, [mode, selectedPath, selectedFilePaths]);
 
   const handleClose = () => {
+    closedRef.current = true;
+    dismissTombstoneConfirm();
     setStatus('idle');
     setResult(null);
     setSelectedPath('');
@@ -478,6 +509,24 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
                       </div>
                     </div>
                   )}
+
+                  {result.previouslyDeleted.length > 0 && (
+                    <div className="border border-amber-500/20 rounded-xl bg-card/40 backdrop-blur-md overflow-hidden">
+                      <div className="bg-amber-500/10 px-4 py-3 border-b border-amber-500/20">
+                        <div className="flex items-center gap-2 text-xs font-bold text-amber-500 tracking-wide uppercase">
+                          <Info className="w-4 h-4" />
+                          Skipped (Previously Deleted)
+                        </div>
+                      </div>
+                      <div className="p-3 space-y-1.5">
+                        {result.previouslyDeleted.map((path, index) => (
+                          <div key={index} className="text-xs font-mono text-muted-foreground truncate" title={path}>
+                            {path.split('/').pop()}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </motion.div>
               )}
 
@@ -546,6 +595,7 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
           onComplete={handleSuggestionsComplete}
         />
       )}
+      {tombstoneDialog}
     </>
   );
 };

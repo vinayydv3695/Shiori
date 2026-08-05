@@ -64,6 +64,25 @@ impl<R: Runtime> AndroidSaf<R> {
         Ok(WriteDocumentResponse {})
     }
 
+    pub fn create_file_in_tree(
+        &self,
+        _tree_uri: String,
+        _file_name: String,
+        _mime_type: String,
+    ) -> crate::Result<CreateDocumentResponse> {
+        Ok(CreateDocumentResponse {
+            uri: String::new(),
+        })
+    }
+
+    pub fn delete_file_in_tree(
+        &self,
+        _tree_uri: String,
+        _rel_path: String,
+    ) -> crate::Result<WriteDocumentResponse> {
+        Ok(WriteDocumentResponse {})
+    }
+
     /// No-op on desktop: the storage-permission nudge only applies to Android. Desktop always
     /// reports "granted" so any (hypothetical) desktop caller never sees the nudge dialog.
     pub fn check_storage_permission(&self) -> crate::Result<CheckStoragePermissionResponse> {

@@ -16,12 +16,12 @@
 //! The pipeline is free of `AppHandle` — it takes `db`, `covers_dir` and
 //! `app_data_dir` so it is unit-testable.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::db::Database;
 use crate::error::{Result, ShioriError};
 use crate::models::{Author, Book, IngestResult};
-use crate::services::{library_root, library_service, metadata_service};
+use crate::services::{library_root, library_service, metadata_service, saf};
 use crate::utils::file::{calculate_file_hash, get_file_size};
 use rusqlite::params;
 use uuid::Uuid;
@@ -138,6 +138,19 @@ fn first_zip_entry_is_mimetype(data: &[u8]) -> bool {
     &data[name_start..name_end] == b"mimetype"
 }
 
+/// Optional Mode B (SAF) push for one ingested file.
+///
+/// When the managed library root is a user-chosen SAF tree, the ingest
+/// pipeline additionally pushes the managed copy into the tree under the
+/// same `managed_relpath` (`<uuid>.<ext>`). The push is best-effort: a
+/// failure is logged and never fails the ingest, because the local mirror
+/// keeps the book readable. The SAF tree is the durable copy; device
+/// verification of the mirror is a documented follow-up.
+pub struct SafPush<'a> {
+    pub tree_uri: &'a str,
+    pub tree: &'a dyn saf::SafTree,
+}
+
 /// Ingest one "open with" file into the managed library.
 ///
 /// Returns an [`IngestResult`] — the pipeline *never* errors for
@@ -149,6 +162,9 @@ fn first_zip_entry_is_mimetype(data: &[u8]) -> bool {
 /// content:// staging file) after a successful import or a definitive
 /// status; the managed dest file is removed on any error path so a failed
 /// ingest never leaves an orphan in the library root.
+///
+/// `saf_push` (Mode B only) pushes the managed copy into a user-chosen SAF
+/// tree after the book row is committed — best-effort, see [`SafPush`].
 pub fn ingest_opened_file(
     db: &Database,
     covers_dir: &Path,
@@ -157,6 +173,7 @@ pub fn ingest_opened_file(
     source_path: &Path,
     source_name: &str,
     cleanup_source: bool,
+    saf_push: Option<SafPush<'_>>,
 ) -> Result<IngestResult> {
     // ── extension / format gate (in-app validation — never trust the MIME) ──
     let mut first_bytes = [0u8; 512];
@@ -182,14 +199,32 @@ pub fn ingest_opened_file(
     };
 
     // ── hash + dedup/tombstone check (same semantics as slice 1) ──
-    let file_hash = calculate_file_hash(source_path.to_string_lossy().as_ref())?;
+    // The whole phase runs inside a closure so a hard failure (`?`) still
+    // reaches best_effort_cleanup below — the earlier direct `?` exits used
+    // to leak the staging file (reviewer finding, slice 3).
+    let (file_hash, exists, tombstoned) = match (|| -> Result<(String, bool, bool)> {
+        let file_hash = calculate_file_hash(source_path.to_string_lossy().as_ref())?;
 
-    let conn = db.get_connection()?;
-    let exists: bool = conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM books WHERE (file_hash != '' AND file_hash = ?1) OR file_path = ?2)",
-        params![file_hash, url],
-        |row| row.get(0),
-    )?;
+        let conn = db.get_connection()?;
+        let exists: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM books WHERE (file_hash != '' AND file_hash = ?1) OR file_path = ?2)",
+            params![file_hash, url],
+            |row| row.get(0),
+        )?;
+        let tombstoned: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM deleted_books WHERE (file_hash != '' AND file_hash = ?1) OR file_path = ?2)",
+            params![file_hash, url],
+            |row| row.get(0),
+        )?;
+        Ok((file_hash, exists, tombstoned))
+    })() {
+        Ok(v) => v,
+        Err(e) => {
+            best_effort_cleanup(source_path, cleanup_source);
+            return Err(e);
+        }
+    };
+
     if exists {
         best_effort_cleanup(source_path, cleanup_source);
         return Ok(IngestResult {
@@ -203,11 +238,6 @@ pub fn ingest_opened_file(
     // A tombstone means this exact file was permanently deleted before —
     // surface it as `previously_deleted`; the frontend decides whether to
     // call clear_tombstone. Never auto-clear here.
-    let tombstoned: bool = conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM deleted_books WHERE (file_hash != '' AND file_hash = ?1) OR file_path = ?2)",
-        params![file_hash, url],
-        |row| row.get(0),
-    )?;
     if tombstoned {
         best_effort_cleanup(source_path, cleanup_source);
         return Ok(IngestResult {
@@ -219,21 +249,36 @@ pub fn ingest_opened_file(
     }
 
     // ── copy into the managed library root as <uuid>.<ext> ──
-    let root = library_root::resolve_library_root(db, app_data_dir)?;
-    let book_uuid = Uuid::new_v4().to_string();
-    let managed_relpath = format!("{}.{}", book_uuid, ext);
-    let dest = root.join(&managed_relpath);
+    // resolve_library_root + copy run inside a closure so a hard failure
+    // (`?`) still reaches best_effort_cleanup below — the earlier direct
+    // `?` exits used to leak the staging file (reviewer finding). A failed
+    // copy may leave a partial dest file, so the map_err removes it too.
+    let (book_uuid, managed_relpath, dest) = match (|| -> Result<(String, String, PathBuf)> {
+        let root = library_root::resolve_library_root(db, app_data_dir)?;
+        let book_uuid = Uuid::new_v4().to_string();
+        let managed_relpath = format!("{}.{}", book_uuid, ext);
+        let dest = root.join(&managed_relpath);
 
-    std::fs::copy(source_path, &dest).map_err(|e| {
-        ShioriError::Io(std::io::Error::new(
-            e.kind(),
-            format!(
-                "failed to copy opened file into library root ({}): {}",
-                dest.display(),
-                e
-            ),
-        ))
-    })?;
+        std::fs::copy(source_path, &dest).map_err(|e| {
+            let _ = std::fs::remove_file(&dest); // partial dest cleanup
+            ShioriError::Io(std::io::Error::new(
+                e.kind(),
+                format!(
+                    "failed to copy opened file into library root ({}): {}",
+                    dest.display(),
+                    e
+                ),
+            ))
+        })?;
+
+        Ok((book_uuid, managed_relpath, dest))
+    })() {
+        Ok(v) => v,
+        Err(e) => {
+            best_effort_cleanup(source_path, cleanup_source);
+            return Err(e);
+        }
+    };
 
     // From here on, any failure must not leave an orphan managed file behind.
     // The closure returns (book_id, resolved_title) on success.
@@ -362,6 +407,31 @@ pub fn ingest_opened_file(
             return Err(e);
         }
     };
+
+    // Mode B (SAF): push the managed copy into the user's durable tree,
+    // under the same managed_relpath. Best-effort and post-commit, so a
+    // failed push never fails the ingest and never orphans the tree (the
+    // book row is already in, the local mirror keeps it readable).
+    if let Some(push) = saf_push {
+        let mime = saf::mime_for_file_name(&managed_relpath);
+        match push.tree.create_file(push.tree_uri, &managed_relpath, mime) {
+            Ok(doc_uri) => {
+                if let Err(e) = push.tree.write_document(&doc_uri, &dest) {
+                    log::warn!(
+                        "[ingest] SAF push write failed for {} ({}): {} — kept in local mirror",
+                        managed_relpath,
+                        doc_uri,
+                        e
+                    );
+                }
+            }
+            Err(e) => log::warn!(
+                "[ingest] SAF push create failed for {}: {} — kept in local mirror",
+                managed_relpath,
+                e
+            ),
+        }
+    }
 
     best_effort_cleanup(source_path, cleanup_source);
 

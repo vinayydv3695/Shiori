@@ -764,7 +764,11 @@ fn tombstone_or_remove_file(
 ///
 /// Idempotent and never fatal: a missing file counts as success, and any
 /// failure (including a path that escapes the library root) is logged and
-/// skipped — the book row is already gone either way.
+/// skipped — the book row is already gone either way. In SAF mode (Mode B)
+/// the local mirror file is removed here and the durable copy in the user's
+/// tree is deleted best-effort through the SAF bridge; when the bridge is
+/// unavailable the tree copy lingers in the user folder (documented
+/// limitation).
 fn remove_managed_book_file(
     db: &Database,
     app_data_dir: &Path,
@@ -826,6 +830,35 @@ fn remove_managed_book_file(
             canonical,
             e
         ),
+    }
+
+    // Mode B (SAF): also remove the durable copy from the user's tree.
+    // Best-effort, mirrors the never-fatal contract above — the local
+    // mirror is gone either way. If the SAF bridge is unavailable or the
+    // tree delete fails, the file lingers in the user folder (documented
+    // limitation).
+    if let Ok(crate::services::library_root::ManagedRoot::Saf { uri, .. }) =
+        crate::services::library_root::resolve_managed_root(db, app_data_dir)
+    {
+        match crate::services::saf::saf_tree() {
+            Some(tree) => {
+                if let Err(e) = tree.delete_file(&uri, relpath) {
+                    log::warn!(
+                        "[remove_managed_book_file] SAF delete failed for {} ({}): {} — \
+                         file lingers in the user folder (documented limitation)",
+                        uri,
+                        relpath,
+                        e
+                    );
+                }
+            }
+            None => log::warn!(
+                "[remove_managed_book_file] SAF bridge unavailable — file lingers in the \
+                 user folder {} ({}); documented limitation",
+                uri,
+                relpath
+            ),
+        }
     }
 }
 

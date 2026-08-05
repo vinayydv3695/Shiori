@@ -111,4 +111,31 @@ impl<R: Runtime> AndroidSaf<R> {
             .run_mobile_plugin("writeDocument", json!({ "uri": uri, "path": path }))
             .map_err(Into::into)
     }
+
+    pub fn create_file_in_tree(
+        &self,
+        tree_uri: String,
+        file_name: String,
+        mime_type: String,
+    ) -> crate::Result<CreateDocumentResponse> {
+        self.0
+            .run_mobile_plugin(
+                "createFileInTree",
+                json!({ "treeUri": tree_uri, "fileName": file_name, "mimeType": mime_type }),
+            )
+            .map_err(Into::into)
+    }
+
+    pub fn delete_file_in_tree(
+        &self,
+        tree_uri: String,
+        rel_path: String,
+    ) -> crate::Result<WriteDocumentResponse> {
+        self.0
+            .run_mobile_plugin(
+                "deleteFileInTree",
+                json!({ "treeUri": tree_uri, "relPath": rel_path }),
+            )
+            .map_err(Into::into)
+    }
 }

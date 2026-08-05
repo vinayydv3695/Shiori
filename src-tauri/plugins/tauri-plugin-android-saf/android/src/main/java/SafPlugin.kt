@@ -410,6 +410,85 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
         }.start()
     }
 
+    /**
+     * Creates a NEW document inside a previously-picked tree URI (Mode B managed
+     * books). Unlike [createDocument] (interactive ACTION_CREATE_DOCUMENT save
+     * picker) this never shows UI — the caller already holds the tree grant.
+     * Returns the created document's uri, ready for writeDocument.
+     */
+    @Command
+    fun createFileInTree(invoke: Invoke) {
+        val treeUriStr = invoke.getArgs().getString("treeUri", null)
+        val fileName = invoke.getArgs().getString("fileName", null)
+        val mimeType = invoke.getArgs().getString("mimeType", "*/*")
+        if (treeUriStr == null || fileName == null) {
+            invoke.reject("Missing treeUri or fileName")
+            return
+        }
+
+        Thread {
+            try {
+                val tree = DocumentFile.fromTreeUri(activity, Uri.parse(treeUriStr))
+                    ?: run { invoke.reject("Invalid tree uri"); return@Thread }
+                if (!tree.canWrite()) {
+                    invoke.reject("Tree uri is not writable")
+                    return@Thread
+                }
+                val created = tree.createFile(mimeType, fileName)
+                    ?: run { invoke.reject("Failed to create file in tree"); return@Thread }
+                val ret = JSObject()
+                ret.put("uri", created.uri.toString())
+                invoke.resolve(ret)
+            } catch (e: Exception) {
+                invoke.reject(e.message ?: "Unknown error creating file in tree")
+            }
+        }.start()
+    }
+
+    /**
+     * Deletes a document inside a previously-picked tree URI by its path
+     * relative to the tree root. Idempotent: a missing document resolves as
+     * success (mirrors remove_managed_book_file's "already gone" semantics).
+     */
+    @Command
+    fun deleteFileInTree(invoke: Invoke) {
+        val treeUriStr = invoke.getArgs().getString("treeUri", null)
+        val relPath = invoke.getArgs().getString("relPath", null)
+        if (treeUriStr == null || relPath == null) {
+            invoke.reject("Missing treeUri or relPath")
+            return
+        }
+
+        Thread {
+            try {
+                var dir = DocumentFile.fromTreeUri(activity, Uri.parse(treeUriStr))
+                    ?: run { invoke.reject("Invalid tree uri"); return@Thread }
+                val segments = relPath.split("/").filter { it.isNotBlank() }
+                if (segments.isEmpty()) {
+                    invoke.reject("Empty relPath")
+                    return@Thread
+                }
+                for (seg in segments.dropLast(1)) {
+                    dir = dir.findFile(seg)
+                        ?: run { invoke.reject("Missing directory: $seg"); return@Thread }
+                }
+                val file = dir.findFile(segments.last())
+                if (file == null) {
+                    // Already gone — idempotent success.
+                    invoke.resolve()
+                    return@Thread
+                }
+                if (file.delete()) {
+                    invoke.resolve()
+                } else {
+                    invoke.reject("Failed to delete $relPath")
+                }
+            } catch (e: Exception) {
+                invoke.reject(e.message ?: "Unknown error deleting file in tree")
+            }
+        }.start()
+    }
+
     @Command
     fun solveCloudflare(invoke: Invoke) {
         val url = invoke.getArgs().getString("url", null) ?: "https://mangafire.to"

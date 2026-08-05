@@ -1,24 +1,56 @@
 //! Library root resolution.
 //!
 //! The library root is the directory Shiori treats as home for its managed
-//! books (Slice 0 ships Mode A — an app-data `Library` dir). SAF routing
-//! arrives in a later slice.
+//! books. Two modes, selected by the `library_mode` preference (id=1):
+//!
+//! - `app` (default, Mode A): `app_data_dir/Library`.
+//! - `saf` (Mode B, Android only): a user-chosen durable folder behind a
+//!   SAF tree URI (`ACTION_OPEN_DOCUMENT_TREE`). Managed files survive
+//!   uninstall. Cheap filesystem ops still run against a local mirror at
+//!   `app_data_dir/Library` (see [`ManagedRoot::Saf`]); the tree itself is
+//!   the durable copy.
+//!
+//! The `library_mode`/`library_root_uri` columns are added by migration v44
+//! and are always present at runtime.
 
 use std::path::{Path, PathBuf};
 
 use crate::db::Database;
 use crate::error::Result;
 
-/// Resolve the library root directory.
+/// Where managed books live, resolved from preferences.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ManagedRoot {
+    /// Mode A — app-private directory (`app_data_dir/Library`).
+    AppDir(PathBuf),
+    /// Mode B — user-chosen SAF tree. `local_cache` is the app-private
+    /// mirror used for cheap fs ops (reads, hashing, metadata); `uri` is
+    /// the persisted tree URI the durable copy lives under.
+    Saf { uri: String, local_cache: PathBuf },
+}
+
+impl ManagedRoot {
+    /// The local filesystem path usable for cheap fs operations in both
+    /// modes (Mode A is its own root; Mode B uses the local mirror).
+    pub fn local_path(&self) -> &Path {
+        match self {
+            ManagedRoot::AppDir(p) => p,
+            ManagedRoot::Saf { local_cache, .. } => local_cache,
+        }
+    }
+}
+
+/// Resolve the managed-library root.
 ///
-/// Reads `library_mode` and `library_root_uri` from `user_preferences`
-/// (id=1) with COALESCE defaults. The columns may not exist until a later
-/// slice, so a failed read falls back to the defaults (`app` mode) via
-/// `query_row`'s `.unwrap_or`.
+/// Reads `library_mode`/`library_root_uri` from `user_preferences` (id=1)
+/// with COALESCE defaults. The columns are guaranteed by migration v44, but
+/// a failed read still falls back to Mode A so an exotic DB can never brick
+/// library resolution.
 ///
-/// - `app` (default): `app_data_dir.join("Library")`, created if missing.
-/// - `saf` with a URI: for now logs a warning and falls back to Mode A.
-pub fn resolve_library_root(db: &Database, app_data_dir: &Path) -> Result<PathBuf> {
+/// - `app`: `app_data_dir/Library`, created if missing.
+/// - `saf` with a URI: the local mirror dir, created if missing.
+/// - `saf` with an empty URI (hand-edited DB): warn + Mode A fallback.
+pub fn resolve_managed_root(db: &Database, app_data_dir: &Path) -> Result<ManagedRoot> {
     let conn = db.get_connection()?;
 
     let (mode, root_uri) = conn
@@ -28,21 +60,33 @@ pub fn resolve_library_root(db: &Database, app_data_dir: &Path) -> Result<PathBu
             [],
             |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
         )
-        // Columns may not exist until a later slice — fall back to Mode A.
+        // Defensive: if the columns are somehow missing, behave as Mode A.
         .unwrap_or(("app".to_string(), String::new()));
 
     match mode.as_str() {
-        "saf" if !root_uri.is_empty() => {
-            // ponytail: real SAF routing is slice 3 — for now fall back to Mode A.
+        "saf" if !root_uri.is_empty() => Ok(ManagedRoot::Saf {
+            uri: root_uri,
+            local_cache: app_library_dir(app_data_dir)?,
+        }),
+        "saf" => {
             log::warn!(
-                "[LibraryRoot] SAF mode requested ({}) but not yet supported; \
-                 falling back to the app Library directory (slice 3 will route via SAF)",
-                root_uri
+                "[LibraryRoot] SAF mode requested with an empty root URI; \
+                 falling back to the app Library directory"
             );
-            app_library_dir(app_data_dir)
+            Ok(ManagedRoot::AppDir(app_library_dir(app_data_dir)?))
         }
-        _ => app_library_dir(app_data_dir),
+        _ => Ok(ManagedRoot::AppDir(app_library_dir(app_data_dir)?)),
     }
+}
+
+/// Resolve the local filesystem path of the library root.
+///
+/// Returns the Mode A directory, or the Mode B local mirror path (the SAF
+/// tree itself is not a plain filesystem path). Kept for callers that only
+/// need a `PathBuf` (existing delete/ingest code); SAF-aware callers should
+/// use [`resolve_managed_root`] to reach the tree URI.
+pub fn resolve_library_root(db: &Database, app_data_dir: &Path) -> Result<PathBuf> {
+    Ok(resolve_managed_root(db, app_data_dir)?.local_path().to_path_buf())
 }
 
 fn app_library_dir(app_data_dir: &Path) -> Result<PathBuf> {

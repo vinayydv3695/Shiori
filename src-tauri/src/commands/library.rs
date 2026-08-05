@@ -138,7 +138,27 @@ pub async fn ingest_opened_file(
             .await
             .map_err(|e| crate::error::ShioriError::Other(e.to_string()))??;
 
+    // Mode B (SAF): if the managed root is a user-chosen SAF tree and the
+    // Android bridge is installed, push the managed copy into the tree after
+    // a successful ingest (best-effort — see ingest_service::SafPush).
+    // Computed here so the owned uri outlives the spawn_blocking closure.
+    let saf_push_owned: Option<(String, &'static dyn crate::services::saf::SafTree)> = {
+        use crate::services::library_root::ManagedRoot;
+        match crate::services::library_root::resolve_managed_root(&db, &app_data_dir) {
+            Ok(ManagedRoot::Saf { uri, .. }) => {
+                crate::services::saf::saf_tree().map(|tree| (uri, tree))
+            }
+            _ => None,
+        }
+    };
+
     let result = tokio::task::spawn_blocking(move || {
+        let saf_push = saf_push_owned.as_ref().map(|(uri, tree)| {
+            ingest_service::SafPush {
+                tree_uri: uri.as_str(),
+                tree: *tree,
+            }
+        });
         ingest_service::ingest_opened_file(
             &db,
             &covers_dir,
@@ -147,6 +167,7 @@ pub async fn ingest_opened_file(
             &source_path,
             &source_name,
             cleanup_source,
+            saf_push,
         )
     })
     .await

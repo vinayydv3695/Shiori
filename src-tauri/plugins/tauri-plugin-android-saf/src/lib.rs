@@ -47,7 +47,9 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::set_keep_screen_on,
             commands::open_url,
             commands::create_document,
-            commands::write_document
+            commands::write_document,
+            commands::create_file_in_tree,
+            commands::delete_file_in_tree
         ])
         .setup(|app, api| {
             #[cfg(mobile)]

@@ -191,6 +191,17 @@ pub struct IngestResult {
     pub title: Option<String>,
 }
 
+/// Result of migrating the managed library into a user-chosen SAF tree
+/// (Slice 3, Mode B). `failed` holds `(managed_relpath, error)` pairs; the
+/// migration is never aborted by a single file failure.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MigrateReport {
+    pub migrated: u64,
+    #[serde(default)]
+    pub failed: Vec<(String, String)>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Metadata {
     pub title: Option<String>,

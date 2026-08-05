@@ -153,6 +153,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 43 {
             self.run_in_savepoint("v43", |mgr| mgr.migrate_to_v43())?;
         }
+        if current_version < 44 {
+            self.run_in_savepoint("v44", |mgr| mgr.migrate_to_v44())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -2378,6 +2381,37 @@ impl<'a> MigrationManager<'a> {
 
         let hash = Self::calculate_checksum("v43_deleted_books_and_managed_fields");
         self.record_migration(43, "deleted_books_and_managed_fields", &hash)?;
+        Ok(())
+    }
+
+    /// Migration v44: Managed-library root mode (Slice 3, Mode B).
+    ///
+    /// Adds the SAF library-root preference columns to `user_preferences`.
+    /// `library_mode` is 'app' (default — app_data_dir/Library) or 'saf'
+    /// (user-chosen durable folder via Android SAF); `library_root_uri` is
+    /// the ACTION_OPEN_DOCUMENT_TREE tree URI when mode is 'saf'. The ALTERs
+    /// are guarded with column_exists for the same reason as v43:
+    /// `user_version` is stuck at 30, so v31+ re-run on every startup and an
+    /// unguarded ALTER would fail with "duplicate column name" on the second
+    /// launch.
+    fn migrate_to_v44(&self) -> Result<()> {
+        log::info!("[Migration] Applying v44: library_mode + library_root_uri preferences");
+
+        if !self.column_exists("user_preferences", "library_mode")? {
+            self.conn.execute(
+                "ALTER TABLE user_preferences ADD COLUMN library_mode TEXT DEFAULT 'app'",
+                [],
+            )?; // 'app' | 'saf'
+        }
+        if !self.column_exists("user_preferences", "library_root_uri")? {
+            self.conn.execute(
+                "ALTER TABLE user_preferences ADD COLUMN library_root_uri TEXT",
+                [],
+            )?; // SAF tree URI (content://...) when library_mode = 'saf'
+        }
+
+        let hash = Self::calculate_checksum("v44_library_root_mode");
+        self.record_migration(44, "library_root_mode", &hash)?;
         Ok(())
     }
 }

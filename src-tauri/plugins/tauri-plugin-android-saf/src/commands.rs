@@ -88,3 +88,27 @@ pub(crate) async fn write_document<R: Runtime>(
 ) -> Result<WriteDocumentResponse> {
     app.android_saf().write_document(uri, path)
 }
+
+/// Create a new document inside a previously-picked tree URI (Mode B managed
+/// books). Unlike `create_document` (interactive ACTION_CREATE_DOCUMENT
+/// picker) this never shows UI — the caller already holds the tree.
+#[command]
+pub(crate) async fn create_file_in_tree<R: Runtime>(
+    app: AppHandle<R>,
+    tree_uri: String,
+    file_name: String,
+    mime_type: String,
+) -> Result<CreateDocumentResponse> {
+    app.android_saf().create_file_in_tree(tree_uri, file_name, mime_type)
+}
+
+/// Delete a document inside a previously-picked tree URI by relative path.
+/// Idempotent: a missing document resolves as success.
+#[command]
+pub(crate) async fn delete_file_in_tree<R: Runtime>(
+    app: AppHandle<R>,
+    tree_uri: String,
+    rel_path: String,
+) -> Result<WriteDocumentResponse> {
+    app.android_saf().delete_file_in_tree(tree_uri, rel_path)
+}

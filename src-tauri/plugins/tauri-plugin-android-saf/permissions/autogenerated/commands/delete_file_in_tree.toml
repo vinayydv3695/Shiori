@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-delete-file-in-tree"
+description = "Enables the delete_file_in_tree command without any pre-configured scope."
+commands.allow = ["delete_file_in_tree"]
+
+[[permission]]
+identifier = "deny-delete-file-in-tree"
+description = "Denies the delete_file_in_tree command without any pre-configured scope."
+commands.deny = ["delete_file_in_tree"]

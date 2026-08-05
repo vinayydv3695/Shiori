@@ -15,6 +15,8 @@ Default permissions for the plugin
 - `allow-open-app-settings`
 - `allow-create-document`
 - `allow-write-document`
+- `allow-create-file-in-tree`
+- `allow-delete-file-in-tree`
 
 ## Permission Table
 
@@ -86,6 +88,71 @@ Denies the copy_document command without any pre-configured scope.
 <td>
 
 Enables the create_document command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-saf:deny-create-document`
+
+</td>
+<td>
+
+Denies the create_document command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-saf:allow-create-file-in-tree`
+
+</td>
+<td>
+
+Enables the create_file_in_tree command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-saf:deny-create-file-in-tree`
+
+</td>
+<td>
+
+Denies the create_file_in_tree command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-saf:allow-delete-file-in-tree`
+
+</td>
+<td>
+
+Enables the delete_file_in_tree command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-saf:deny-delete-file-in-tree`
+
+</td>
+<td>
+
+Denies the delete_file_in_tree command without any pre-configured scope.
 
 </td>
 </tr>
@@ -281,6 +348,19 @@ Denies the solve_cloudflare command without any pre-configured scope.
 <td>
 
 Enables the write_document command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`android-saf:deny-write-document`
+
+</td>
+<td>
+
+Denies the write_document command without any pre-configured scope.
 
 </td>
 </tr>

@@ -2,7 +2,8 @@
 //!
 //! Covers: (a) fresh DB schema version and new columns/table, (b) book
 //! round-trip of the managed fields via add_book/get_book, (c) deleted_books
-//! insert + select.
+//! insert + select. (The schema-version assertion tracks the latest
+//! migration — bumped to 44 when the library-root columns landed.)
 
 use shiori::db::Database;
 use shiori::models::Book;
@@ -29,7 +30,7 @@ fn fresh_db_has_v43_schema() {
     let (db, _temp_dir) = create_temp_db("fresh_schema");
     let conn = db.get_connection().unwrap();
 
-    // (a) schema version == 43 (schema_migrations is the source of truth for
+    // (a) schema version == 44 (schema_migrations is the source of truth for
     // v31+; PRAGMA user_version is stuck at 30 by a pre-existing quirk).
     let version: i32 = conn
         .query_row(
@@ -38,7 +39,18 @@ fn fresh_db_has_v43_schema() {
             |row| row.get(0),
         )
         .unwrap();
-    assert_eq!(version, 43, "schema_migrations max version should be 43");
+    assert_eq!(version, 44, "schema_migrations max version should be 44");
+
+    // user_preferences has the v44 library-root columns
+    let mut stmt = conn.prepare("PRAGMA table_info(user_preferences)").unwrap();
+    let mut pref_cols: Vec<String> = Vec::new();
+    let mut rows = stmt.query([]).unwrap();
+    while let Some(row) = rows.next().unwrap() {
+        pref_cols.push(row.get::<_, String>(1).unwrap());
+    }
+    assert!(pref_cols.contains(&"library_mode".to_string()));
+    assert!(pref_cols.contains(&"library_root_uri".to_string()));
+
 
     // deleted_books table exists
     let tbl_count: i32 = conn

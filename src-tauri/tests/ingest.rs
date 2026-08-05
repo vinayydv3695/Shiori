@@ -121,6 +121,7 @@ fn ingest_unsupported_extension_returns_unsupported_status() {
         &source,
         "notes.txt",
         false,
+        None,
     )
     .unwrap();
 
@@ -156,6 +157,7 @@ fn ingest_imports_file_as_managed_book() {
         &source,
         "The Test Book.pdf",
         false,
+        None,
     )
     .unwrap();
 
@@ -215,6 +217,7 @@ fn ingest_same_file_again_is_duplicate() {
         &source,
         "Dup Book.pdf",
         false,
+        None,
     )
     .unwrap();
     assert_eq!(first.status, "imported");
@@ -229,6 +232,7 @@ fn ingest_same_file_again_is_duplicate() {
         &source,
         "Dup Book.pdf",
         false,
+        None,
     )
     .unwrap();
     assert_eq!(second.status, "duplicate");
@@ -260,6 +264,7 @@ fn delete_managed_book_removes_file_and_leaves_no_tombstone() {
         &source,
         "Doomed.pdf",
         false,
+        None,
     )
     .unwrap();
     let book_id = result.book_id.unwrap();
@@ -320,6 +325,7 @@ fn ingest_tombstoned_file_is_previously_deleted() {
         &source,
         "Ghost.pdf",
         false,
+        None,
     )
     .unwrap();
 
@@ -427,8 +433,45 @@ fn ingest_cleans_up_staging_file_when_requested() {
         &staged,
         "staged.pdf",
         true, // cleanup_source
+        None,
     )
     .unwrap();
     assert_eq!(result.status, "imported");
     assert!(!staged.exists(), "staging file removed after ingest");
+}
+
+// ── staging cleanup when the copy phase hard-fails (reviewer finding) ─────
+
+#[test]
+fn ingest_resolve_failure_still_cleans_up_staging_file() {
+    let (db, temp_dir) = create_temp_db("resolve_fail");
+    let covers_dir = temp_dir.join("covers");
+
+    let source = temp_dir.join("staged.pdf");
+    write_minimal_pdf(&source, "Staged");
+    let staged = temp_dir.join("staging").join("staged.pdf");
+    fs::create_dir_all(staged.parent().unwrap()).unwrap();
+    fs::copy(&source, &staged).unwrap();
+
+    // Force library_root::resolve_library_root to fail: the Library dir it
+    // must create is blocked by a same-named FILE, so create_dir_all errors.
+    // This is the unguarded `?` exit the reviewer flagged — the Android
+    // content:// staging file must still be cleaned up.
+    fs::write(temp_dir.join("Library"), b"not a directory").unwrap();
+
+    let result = ingest_service::ingest_opened_file(
+        &db,
+        &covers_dir,
+        &temp_dir,
+        "content://provider/document/staged.pdf",
+        &staged,
+        "staged.pdf",
+        true, // cleanup_source
+        None,
+    );
+    assert!(result.is_err(), "ingest must fail: {:?}", result);
+    assert!(
+        !staged.exists(),
+        "staging file cleaned up even when resolve_library_root fails"
+    );
 }

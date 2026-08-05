@@ -1,5 +1,6 @@
 pub mod export;
 pub mod library;
+pub mod library_root;
 pub mod metadata;
 pub mod reader;
 pub mod rendering;
@@ -36,6 +37,9 @@ macro_rules! generate_shiori_handlers {
             commands::library::get_books,
             commands::library::take_opened_urls,
             commands::library::ingest_opened_file,
+            commands::library_root::set_library_mode,
+            commands::library_root::pick_library_root,
+            commands::library_root::migrate_library_to_saf,
             commands::library::get_book_summaries,
             commands::library::get_book_summaries_by_domain,
             commands::library::find_duplicate_books,

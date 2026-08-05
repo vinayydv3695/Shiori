@@ -36,6 +36,8 @@
     "android-saf:allow-copy-document",
     "android-saf:allow-create-document",
     "android-saf:allow-write-document",
+    "android-saf:allow-create-file-in-tree",
+    "android-saf:allow-delete-file-in-tree",
     "android-saf:allow-check-storage-permission",
     "android-saf:allow-request-storage-permission",
     "android-saf:allow-open-app-settings",

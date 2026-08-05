@@ -325,6 +325,36 @@
           "markdownDescription": "Enables the create_document command without any pre-configured scope."
         },
         {
+          "description": "Denies the create_document command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-create-document",
+          "markdownDescription": "Denies the create_document command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the create_file_in_tree command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-create-file-in-tree",
+          "markdownDescription": "Enables the create_file_in_tree command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the create_file_in_tree command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-create-file-in-tree",
+          "markdownDescription": "Denies the create_file_in_tree command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the delete_file_in_tree command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-delete-file-in-tree",
+          "markdownDescription": "Enables the delete_file_in_tree command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the delete_file_in_tree command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-delete-file-in-tree",
+          "markdownDescription": "Denies the delete_file_in_tree command without any pre-configured scope."
+        },
+        {
           "description": "Enables the enumerate_tree command without any pre-configured scope.",
           "type": "string",
           "const": "allow-enumerate-tree",
@@ -415,10 +445,16 @@
           "markdownDescription": "Enables the write_document command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`\n- `allow-select-folder`\n- `allow-select-files`\n- `allow-solve-cloudflare`\n- `allow-enumerate-tree`\n- `allow-copy-document`\n- `allow-check-storage-permission`\n- `allow-request-storage-permission`\n- `allow-open-app-settings`\n- `allow-create-document`\n- `allow-write-document`",
+          "description": "Denies the write_document command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-write-document",
+          "markdownDescription": "Denies the write_document command without any pre-configured scope."
+        },
+        {
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`\n- `allow-select-folder`\n- `allow-select-files`\n- `allow-solve-cloudflare`\n- `allow-enumerate-tree`\n- `allow-copy-document`\n- `allow-check-storage-permission`\n- `allow-request-storage-permission`\n- `allow-open-app-settings`\n- `allow-create-document`\n- `allow-write-document`\n- `allow-create-file-in-tree`\n- `allow-delete-file-in-tree`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`\n- `allow-select-folder`\n- `allow-select-files`\n- `allow-solve-cloudflare`\n- `allow-enumerate-tree`\n- `allow-copy-document`\n- `allow-check-storage-permission`\n- `allow-request-storage-permission`\n- `allow-open-app-settings`\n- `allow-create-document`\n- `allow-write-document`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`\n- `allow-select-folder`\n- `allow-select-files`\n- `allow-solve-cloudflare`\n- `allow-enumerate-tree`\n- `allow-copy-document`\n- `allow-check-storage-permission`\n- `allow-request-storage-permission`\n- `allow-open-app-settings`\n- `allow-create-document`\n- `allow-write-document`\n- `allow-create-file-in-tree`\n- `allow-delete-file-in-tree`"
         }
       ]
     }

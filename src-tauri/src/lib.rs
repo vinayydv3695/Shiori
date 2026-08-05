@@ -2,7 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod cloudflare;
-mod commands;
+pub mod commands;
 pub mod conversion;
 pub mod db;
 pub mod error;
@@ -327,6 +327,19 @@ pub fn run() {
 
             let covers_dir = app_dir.join("covers");
             std::fs::create_dir_all(&covers_dir)?;
+
+            // Mode B (SAF managed storage): install the process-wide SAF
+            // tree bridge so AppHandle-free services (ingest, managed-file
+            // removal) can reach the user's chosen tree. Android only — the
+            // plugin is registered in this build; desktop/tests keep the
+            // global unset and degrade to local-mirror-only behaviour.
+            #[cfg(target_os = "android")]
+            {
+                crate::services::saf::set_saf_tree(Box::new(
+                    crate::commands::library_root::PluginSafTree(app.handle().clone()),
+                ))?;
+                log::info!("[saf] SAF tree bridge installed (Mode B managed storage)");
+            }
 
             let mut registry = sources::registry::SourceRegistry::new();
             registry.register(Arc::new(sources::mangadex::MangaDexSource::new()?));

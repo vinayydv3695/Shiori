@@ -202,6 +202,13 @@ export interface IngestResult {
   title?: string
 }
 
+// Result of migrating managed books into a user-chosen SAF tree (Mode B).
+// `failed` is [managedRelpath, error][] — per-file failures never abort the run.
+export interface MigrateReport {
+  migrated: number
+  failed: [string, string][]
+}
+
 export interface ReadingProgress {
   id?: number
   bookId: number
@@ -682,6 +689,26 @@ export const api = {
   /** Subscribe to the `opened` event (warm-start intents). */
   async onOpened(callback: (urls: string[]) => void): Promise<UnlistenFn> {
     return listen<string[]>('opened', (event) => callback(event.payload))
+  },
+
+  // ── Library root mode (Slice 3, Mode B — SAF managed storage) ─────────
+  // Android only: the user picks a durable folder (ACTION_OPEN_DOCUMENT_TREE)
+  // and managed books live there, surviving uninstall. Desktop stubs return
+  // null / error; the settings UI gates these behind isAndroid.
+
+  /** Persist the library-root mode: 'app' (default) or 'saf' (+ picked tree uri). */
+  async setLibraryMode(mode: 'app' | 'saf', uri?: string | null): Promise<void> {
+    return invoke('set_library_mode', { mode, uri: uri ?? null })
+  },
+
+  /** Android: launch the SAF folder picker, return the chosen tree uri (null = cancelled/desktop). */
+  async pickLibraryRoot(): Promise<string | null> {
+    return invoke<string | null>('pick_library_root')
+  },
+
+  /** One-time copy of all managed books into the SAF tree; flips mode on clean migration. */
+  async migrateLibraryToSaf(uri: string): Promise<MigrateReport> {
+    return invoke<MigrateReport>('migrate_library_to_saf', { uri })
   },
 
   async cleanUpDatabase(): Promise<[number, number]> {

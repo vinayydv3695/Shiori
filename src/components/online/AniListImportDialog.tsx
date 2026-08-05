@@ -114,7 +114,7 @@ export function AniListImportDialog({ isOpen, onClose, shelf, anilistToken }: An
             } else {
               failCount++; // user declined to re-import a previously deleted file
             }
-          } catch (err) {
+          } catch {
             toast.error(`Error importing ${title}`);
             failCount++;
           }

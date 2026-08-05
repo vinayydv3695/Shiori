@@ -20,6 +20,7 @@ import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts"
 import { useDialogManager } from "./hooks/useDialogManager"
 import { useBookActions } from "./hooks/useBookActions"
 import { useLibraryFilter } from "./hooks/useLibraryFilter"
+import { useOpenedFiles } from "./hooks/useOpenedFiles"
 import { api, isAndroid } from "./lib/tauri"
 import { useDiscordRPCUpdater } from "./hooks/useDiscordRPCUpdater"
 import { useOnlineSearchStore } from "./store/onlineSearchStore"
@@ -125,6 +126,9 @@ function App() {
   // Global Android hardware-back: retrace view history from any sub-section back
   // to Home, then exit. Defers to the reader/dialog back handlers above.
   useAndroidViewBackButton()
+
+  // "Open with Shiori" intents: cold-start drain + warm-start listener.
+  const { tombstoneDialog } = useOpenedFiles()
 
   // ── Initialization ──
   useEffect(() => { void initializeOnboarding() }, [initializeOnboarding])
@@ -354,7 +358,7 @@ function App() {
       <SwipeGestureHandler>
         {renderContent()}
       </SwipeGestureHandler>
-
+      {tombstoneDialog}
     </>
   )
 }

@@ -1,3 +1,8 @@
+# Release Notes (v2.3.3)
+
+##  Bug Fixes
+- **Android APK build fixed** — `createFileInTree` in the SAF plugin passed an unguarded nullable `mimeType` into `DocumentFile.createFile`, failing `:tauri-plugin-android-saf:compileReleaseKotlin` and blocking the release workflow's APK; coalesced to `*/*` default. The APK from v2.3.3 is the first to include the open-with ingestion and SAF Mode B features (v2.3.0/v2.3.2 desktop builds shipped without the Android artifact).
+
 # Release Notes (v2.3.0)
 
 ##  New Features & Improvements

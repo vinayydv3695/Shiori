@@ -419,15 +419,49 @@ export interface BackupInfo {
   shelf_count: number
   includes_books: boolean
   total_size_bytes: number
+  // v2 manifest fields
+  schema_version: number
+  categories: string[]
+  category_counts: Record<string, number>
+  skipped_files: string[]
+  book_files: Record<string, string>
+}
+
+export type BackupCategory =
+  | 'library'
+  | 'annotations'
+  | 'progress'
+  | 'preferences'
+  | 'sources'
+  | 'rss'
+  | 'covers'
+  | 'books'
+
+export interface BackupSelection {
+  categories: BackupCategory[]
+  includeCredentials: boolean
+  includeBooks: boolean
+  frontendSettings: boolean
+}
+
+export type ConflictPolicy = 'skip' | 'overwrite' | 'keepBoth'
+
+export interface RestoreSelection {
+  categories: BackupCategory[]
+  conflictPolicy: ConflictPolicy
+  includeCredentials: boolean
 }
 
 export interface RestoreInfo {
+  restored: Record<string, number>
+  skipped: number
+  errors: string[]
+  frontend_settings: string | null
   books_restored: number
   annotations_restored: number
   shelves_restored: number
   covers_restored: number
   settings_restored: boolean
-  frontend_settings: string | null
 }
 
 export interface DictionaryMeaning {
@@ -1538,12 +1572,32 @@ export const api = {
   },
 
   // Backup & Restore
-  async createBackup(backupPath: string, options: { include_books: boolean; frontend_settings?: string }): Promise<BackupInfo> {
-    return invoke("create_backup", { backupPath, options })
+  // Accepts either the new BackupSelection or the legacy options shape
+  // ({ include_books, frontend_settings }) so existing callers keep working.
+  async createBackup(
+    backupPath: string,
+    selection: BackupSelection | { include_books: boolean; frontend_settings?: string },
+    frontendSettingsJson?: string,
+  ): Promise<BackupInfo> {
+    let sel: BackupSelection
+    let settingsJson: string | undefined = frontendSettingsJson
+    if ('categories' in selection) {
+      sel = selection
+    } else {
+      sel = {
+        categories: [],
+        includeCredentials: false,
+        includeBooks: selection.include_books,
+        frontendSettings: !!selection.frontend_settings,
+      }
+      settingsJson = selection.frontend_settings ?? frontendSettingsJson
+    }
+    return invoke("create_backup", { backupPath, selection: sel, frontendSettings: settingsJson })
   },
 
-  async restoreBackup(backupPath: string): Promise<RestoreInfo> {
-    return invoke("restore_backup", { backupPath })
+  async restoreBackup(backupPath: string, selection?: RestoreSelection): Promise<RestoreInfo> {
+    const sel: RestoreSelection = selection ?? { categories: [], conflictPolicy: 'skip', includeCredentials: false }
+    return invoke("restore_backup", { backupPath, selection: sel })
   },
 
   async getBackupInfo(backupPath: string): Promise<BackupInfo> {

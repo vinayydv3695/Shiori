@@ -423,3 +423,151 @@ pub struct LibraryStats {
     pub total_manga: i64,
     pub total_size_bytes: i64,
 }
+
+// ─── Backup & restore (Slice 4: selective backup) ────────────────────────────
+
+/// A backup category. `Library` is books + metadata + shelves; `Annotations`,
+/// `Progress`, `Preferences` and `Rss` map to their tables; `Sources` is the
+/// online-source config (sources.json store + Cloudflare sessions); `Covers`
+/// and `Books` are file trees.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BackupCategory {
+    Library,
+    Annotations,
+    Progress,
+    Preferences,
+    Sources,
+    Rss,
+    Covers,
+    Books,
+}
+
+impl BackupCategory {
+    pub const ALL: [BackupCategory; 8] = [
+        BackupCategory::Library,
+        BackupCategory::Annotations,
+        BackupCategory::Progress,
+        BackupCategory::Preferences,
+        BackupCategory::Sources,
+        BackupCategory::Rss,
+        BackupCategory::Covers,
+        BackupCategory::Books,
+    ];
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            BackupCategory::Library => "library",
+            BackupCategory::Annotations => "annotations",
+            BackupCategory::Progress => "progress",
+            BackupCategory::Preferences => "preferences",
+            BackupCategory::Sources => "sources",
+            BackupCategory::Rss => "rss",
+            BackupCategory::Covers => "covers",
+            BackupCategory::Books => "books",
+        }
+    }
+
+    pub fn from_name(s: &str) -> Option<BackupCategory> {
+        BackupCategory::ALL.iter().copied().find(|c| c.as_str() == s)
+    }
+}
+
+/// What to include when creating a backup. `categories` empty (or containing
+/// all eight) means Everything — the legacy full snapshot. `include_books` is
+/// kept for backward compatibility and behaves as the `Books` category.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupSelection {
+    #[serde(default)]
+    pub categories: Vec<BackupCategory>, // empty = Everything
+    #[serde(default)]
+    pub include_credentials: bool, // sources secrets OFF by default
+    #[serde(default)]
+    pub include_books: bool, // existing flag, now = Books category
+    #[serde(default)]
+    pub frontend_settings: bool, // existing flag
+}
+
+impl Default for BackupSelection {
+    fn default() -> Self {
+        BackupSelection {
+            categories: Vec::new(),
+            include_credentials: false,
+            include_books: false,
+            frontend_settings: false,
+        }
+    }
+}
+
+/// What to do when a restored row would collide with an existing one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ConflictPolicy {
+    Skip,
+    Overwrite,
+    KeepBoth,
+}
+
+impl Default for ConflictPolicy {
+    fn default() -> Self {
+        ConflictPolicy::Skip
+    }
+}
+
+/// What to restore from an archive. `categories` empty = everything present in
+/// the archive. `conflict_policy` only applies to subset (per-category JSON)
+/// restores; full snapshots always behave like the legacy restore.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RestoreSelection {
+    #[serde(default)]
+    pub categories: Vec<BackupCategory>, // empty = everything in the archive
+    #[serde(default)]
+    pub conflict_policy: ConflictPolicy,
+    #[serde(default)]
+    pub include_credentials: bool,
+}
+
+impl Default for RestoreSelection {
+    fn default() -> Self {
+        RestoreSelection {
+            categories: Vec::new(),
+            conflict_policy: ConflictPolicy::Skip,
+            include_credentials: false,
+        }
+    }
+}
+
+/// Report returned by a restore. `restored` maps category name → row/file count
+/// applied; `skipped` counts rows/files skipped (conflict, missing parent book,
+/// redacted credentials); `errors` holds non-fatal warnings.
+/// `frontend_settings` carries the extracted UI-settings blob when the archive
+/// contains one (Preferences category). Kept snake_case for the existing
+/// frontend contract (`result.frontend_settings`).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct RestoreReport {
+    #[serde(default)]
+    pub restored: HashMap<String, u64>,
+    #[serde(default)]
+    pub skipped: u64,
+    #[serde(default)]
+    pub errors: Vec<String>,
+    #[serde(default)]
+    pub frontend_settings: Option<String>,
+}
+
+/// Extension of [`RestoreReport`] returned by the `restore_backup` command —
+/// carries the legacy counters the frontend's BackupDialog still reads.
+/// `books_restored`/`annotations_restored`/`shelves_restored` are post-restore
+/// row counts; `covers_restored` comes from the report's covers category.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct RestoreSummary {
+    #[serde(flatten)]
+    pub report: RestoreReport,
+    pub books_restored: usize,
+    pub annotations_restored: usize,
+    pub shelves_restored: usize,
+    pub covers_restored: usize,
+    pub settings_restored: bool,
+}

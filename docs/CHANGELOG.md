@@ -1,3 +1,20 @@
+# Release Notes (v2.3.0)
+
+##  New Features & Improvements
+- **"Open with Shiori" ingestion (Android)** — file associations for epub/pdf/cbz/mobi/azw3/fb2: opening a book copies it into the managed library, indexes it (cover + metadata), and delete removes it; outcomes surface as toasts on launch/foreground; magic-byte sniffing handles extension-less content:// URIs.
+- **SAF Mode B (Android)** — a user-chosen durable library folder via SAF that survives uninstall; one-time migration of managed books. App-private storage remains the default (wiped on uninstall — stated in the settings UI).
+- **Selective backup/restore** — per-category selection (library/annotations/progress/preferences/sources/rss/covers/books), credentials off by default, conflict policy (skip/overwrite/keep both), uuid/hash re-linking, and a restore report. Old backups still restore (manifest v2, v1 treated as Everything); full backup/restore behaves like before.
+- **Managed-book cleanup** — books owned by Shiori are removed from disk on delete instead of lingering.
+
+##  Bug Fixes
+- **Deleted books stay deleted** — a tombstone table (`deleted_books`) is written on permanent removal (recycle-bin-off delete, permanent delete, empty trash, 7-day auto-purge), so rescan/folder-watch no longer resurrects deleted books; managed (Shiori-owned) files are removed on delete. Explicit re-import of a tombstoned file prompts "Import anyway?" (clears the tombstone and re-imports); scans skip it silently.
+
+##  Known Limitations
+- No retroactive tombstones: books already resurrecting before this release can't be recovered automatically.
+- Mode A folder is wiped on uninstall — use Mode B or backups.
+- Android open-with and SAF Mode B need verification on a real device (emulator/desktop-tested code paths).
+- The current library storage mode isn't shown after restart until a read command lands (cosmetic, tracked).
+
 # Release Notes (v2.2.2)
 
 ##  New Features & Improvements

@@ -120,7 +120,7 @@ fn empty_trash_removes_only_unreferenced_converted_dirs() {
         .expect("add referenced book");
     let trashed_book_id = library_service::add_book(&db, make_book(&trashed_file, "uuid-trashed"))
         .expect("add trashed book");
-    library_service::delete_book(&db, trashed_book_id).expect("move book to trash");
+    library_service::delete_book(&db, trashed_book_id, &temp_dir).expect("move book to trash");
 
     // Sanity: the trashed book is in trash, the keep book is not.
     let trashed = library_service::get_book_by_id(&db, trashed_book_id).unwrap();

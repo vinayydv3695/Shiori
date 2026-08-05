@@ -188,6 +188,7 @@ export interface ImportResult {
   success: string[]
   failed: [string, string][]
   duplicates: string[]
+  previouslyDeleted: string[]
 }
 
 export interface ReadingProgress {
@@ -648,6 +649,10 @@ export const api = {
 
   emptyTrash: async (): Promise<void> => {
     return invoke('empty_trash')
+  },
+
+  clearTombstone: async (filePath: string, fileHash?: string): Promise<void> => {
+    return invoke('clear_tombstone', { filePath, fileHash })
   },
 
   async cleanUpDatabase(): Promise<[number, number]> {

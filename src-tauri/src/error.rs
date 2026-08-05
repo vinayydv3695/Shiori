@@ -36,6 +36,9 @@ pub enum ShioriError {
     #[error("Duplicate book: {0}")]
     DuplicateBook(String),
 
+    #[error("Book previously deleted: {0}")]
+    TombstonedBook(String),
+
     #[error("Invalid operation: {0}")]
     InvalidOperation(String),
 
@@ -216,6 +219,7 @@ impl ShioriError {
             | Self::FormatDetectionFailed { .. } => "format",
             Self::MetadataExtraction(_) => "metadata",
             Self::DuplicateBook(_) => "duplicate",
+            Self::TombstonedBook(_) => "tombstoned",
             Self::InvalidOperation(_) => "invalid_operation",
             Self::FileNotFound { .. } => "file_not_found",
             Self::FilePermissionDenied { .. } => "permission",

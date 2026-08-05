@@ -65,8 +65,10 @@ fn test_library_scan_and_search_flow() {
     assert_eq!(search_result.books[0].id, book.id);
 
     // 4. Verify cleanup/delete
-    library_service::delete_book(&db, book.id.unwrap()).expect("Failed to move book to trash");
-    library_service::permanent_delete_book(&db, book.id.unwrap()).expect("Failed to delete book");
+    library_service::delete_book(&db, book.id.unwrap(), &covers_dir.parent().unwrap())
+        .expect("Failed to move book to trash");
+    library_service::permanent_delete_book(&db, book.id.unwrap(), &covers_dir.parent().unwrap())
+        .expect("Failed to delete book");
 
     let final_books = library_service::get_all_books(&db, 10, 0).expect("Failed to get books");
     assert_eq!(final_books.len(), 0, "Book should be deleted");

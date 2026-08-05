@@ -168,6 +168,10 @@ pub struct ImportResult {
     pub success: Vec<String>,
     pub failed: Vec<(String, String)>, // (path, error_message)
     pub duplicates: Vec<String>,
+    /// Paths rejected because a tombstone says they were previously deleted.
+    /// `clear_tombstone` lifts the block so the file can be imported again.
+    #[serde(default)]
+    pub previously_deleted: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

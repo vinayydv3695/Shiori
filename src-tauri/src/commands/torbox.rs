@@ -579,6 +579,7 @@ pub async fn send_to_torbox(
             success: vec![imported_path],
             failed: vec![],
             duplicates: vec![],
+            previously_deleted: vec![],
         },
     })
 }

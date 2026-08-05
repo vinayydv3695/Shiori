@@ -151,7 +151,8 @@ pub fn delete_books(state: State<AppState>, ids: Vec<i64>) -> Result<()> {
     );
     let db = &state.db;
     let ids_clone = ids.clone();
-    let result = library_service::delete_books(db, ids);
+    let app_data_dir = state.covers_dir.parent().unwrap_or(&state.covers_dir);
+    let result = library_service::delete_books(db, ids, app_data_dir);
     match &result {
         Ok(_) => log::info!(
             "[command::delete_books] Successfully deleted {} books",
@@ -170,7 +171,8 @@ pub fn delete_book(state: State<AppState>, id: i64) -> Result<()> {
         id
     );
     let db = &state.db;
-    let result = library_service::delete_book(db, id);
+    let app_data_dir = state.covers_dir.parent().unwrap_or(&state.covers_dir);
+    let result = library_service::delete_book(db, id, app_data_dir);
     match &result {
         Ok(_) => log::info!(
             "[command::delete_book] Successfully deleted book id: {}",
@@ -216,7 +218,8 @@ pub fn permanent_delete_book(state: State<AppState>, id: i64) -> Result<()> {
         id
     );
     let db = &state.db;
-    let result = library_service::permanent_delete_book(db, id);
+    let app_data_dir = state.covers_dir.parent().unwrap_or(&state.covers_dir);
+    let result = library_service::permanent_delete_book(db, id, app_data_dir);
     match &result {
         Ok(_) => log::info!(
             "[command::permanent_delete_book] Successfully deleted book id: {}",
@@ -229,6 +232,21 @@ pub fn permanent_delete_book(state: State<AppState>, id: i64) -> Result<()> {
         ),
     }
     result
+}
+
+#[tauri::command]
+pub fn clear_tombstone(
+    state: State<AppState>,
+    file_path: String,
+    file_hash: Option<String>,
+) -> Result<()> {
+    validate::require_non_empty(&file_path, "file_path")?;
+    log::info!(
+        "[command::clear_tombstone] Forgetting deletion for path: {}",
+        file_path
+    );
+    let db = &state.db;
+    library_service::clear_tombstone(db, &file_path, file_hash.as_deref())
 }
 
 #[tauri::command]
@@ -257,7 +275,8 @@ pub fn clean_up_database(state: State<AppState>) -> Result<(usize, usize)> {
     let covers_dir = state.covers_dir.clone();
 
     // Clean up recycle bin automatically
-    if let Err(e) = library_service::clean_recycle_bin(db) {
+    let app_data_dir = state.covers_dir.parent().unwrap_or(&state.covers_dir);
+    if let Err(e) = library_service::clean_recycle_bin(db, app_data_dir) {
         log::error!(
             "[command::clean_up_database] Failed to clean recycle bin: {:?}",
             e

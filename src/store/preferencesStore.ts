@@ -14,6 +14,38 @@ import { DEFAULT_USER_PREFERENCES } from "../types/preferences";
 
 const themeMap: Record<string, string> = { light: 'white', dark: 'black', 'premium-dark': 'premium-dark' };
 
+const themeColors: Record<string, string> = {
+  sepia: '#e9dfcb',
+  white: '#fcfbf9',
+  light: '#fcfbf9',
+  black: '#000000',
+  oled: '#000000',
+  'premium-dark': '#080808',
+  dark: '#121212',
+  'catppuccin-mocha': '#1e1e2e',
+  dracula: '#282a36',
+  nord: '#2e3440',
+  'tokyo-night': '#1a1b26',
+  'rose-pine-moon': '#232136',
+  paper: '#f5f0e8',
+};
+
+export function syncThemeColor(theme: string) {
+  if (typeof document === 'undefined') return;
+  const activeTheme = themeMap[theme] ?? theme;
+  const hex = themeColors[activeTheme] || (activeTheme === 'white' || activeTheme === 'light' ? '#fcfbf9' : '#000000');
+
+  let meta = document.querySelector('meta[name="theme-color"]');
+  if (!meta) {
+    meta = document.createElement('meta');
+    meta.setAttribute('name', 'theme-color');
+    document.head.appendChild(meta);
+  }
+  meta.setAttribute('content', hex);
+  document.documentElement.style.backgroundColor = hex;
+  document.body.style.backgroundColor = hex;
+}
+
 interface PreferencesStore {
   // State
   preferences: UserPreferences | null;
@@ -117,6 +149,7 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
       } else {
         document.documentElement.classList.remove('dark');
       }
+      syncThemeColor(preferences.theme);
       const scale = preferences.uiScale ?? 1.0;
       document.documentElement.style.setProperty('--ui-scale', String(scale));
     } catch (error) {
@@ -143,6 +176,7 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
     } else {
       document.documentElement.classList.remove('dark');
     }
+    syncThemeColor(theme);
 
     try {
       await api.updateUserPreferences({ theme });

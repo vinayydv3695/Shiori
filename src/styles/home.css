@@ -1509,3 +1509,178 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* ==================== THEME-NATIVE IMPORT DROPDOWN ==================== */
+.shiori-import-dropdown {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.16) !important;
+}
+
+/* 1. Sepia Theme (Warm Parchment) */
+[data-theme="sepia"] .shiori-import-dropdown,
+html[data-theme="sepia"] .shiori-import-dropdown {
+  background-color: #f3ecdc !important;
+  color: #432818 !important;
+  border: 1px solid #d4c5b0 !important;
+  box-shadow: 0 16px 40px rgba(67, 40, 24, 0.15) !important;
+}
+[data-theme="sepia"] .shiori-import-dropdown-text,
+html[data-theme="sepia"] .shiori-import-dropdown-text {
+  color: #432818 !important;
+}
+[data-theme="sepia"] .shiori-import-dropdown-subtext,
+html[data-theme="sepia"] .shiori-import-dropdown-subtext {
+  color: #8c6d54 !important;
+}
+[data-theme="sepia"] .shiori-import-dropdown-item:hover,
+html[data-theme="sepia"] .shiori-import-dropdown-item:hover {
+  background-color: rgba(197, 140, 89, 0.15) !important;
+}
+
+/* 2. OLED Midnight Theme (True Black) */
+[data-theme="black"] .shiori-import-dropdown,
+html[data-theme="black"] .shiori-import-dropdown {
+  background-color: #0d0d0d !important;
+  color: #f5f5f5 !important;
+  border: 1px solid #262626 !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7) !important;
+}
+[data-theme="black"] .shiori-import-dropdown-text,
+html[data-theme="black"] .shiori-import-dropdown-text {
+  color: #f5f5f5 !important;
+}
+[data-theme="black"] .shiori-import-dropdown-subtext,
+html[data-theme="black"] .shiori-import-dropdown-subtext {
+  color: #9ca3af !important;
+}
+[data-theme="black"] .shiori-import-dropdown-item:hover,
+html[data-theme="black"] .shiori-import-dropdown-item:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* 3. Premium Dark Theme (Deep Obsidian) */
+[data-theme="premium-dark"] .shiori-import-dropdown,
+html[data-theme="premium-dark"] .shiori-import-dropdown {
+  background-color: #121212 !important;
+  color: #e8e3d5 !important;
+  border: 1px solid #2a2a2a !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6) !important;
+}
+[data-theme="premium-dark"] .shiori-import-dropdown-text,
+html[data-theme="premium-dark"] .shiori-import-dropdown-text {
+  color: #e8e3d5 !important;
+}
+[data-theme="premium-dark"] .shiori-import-dropdown-subtext,
+html[data-theme="premium-dark"] .shiori-import-dropdown-subtext {
+  color: #a09a8c !important;
+}
+[data-theme="premium-dark"] .shiori-import-dropdown-item:hover,
+html[data-theme="premium-dark"] .shiori-import-dropdown-item:hover {
+  background-color: rgba(232, 227, 213, 0.08) !important;
+}
+
+/* 4. White / Light Theme */
+[data-theme="white"] .shiori-import-dropdown,
+html[data-theme="white"] .shiori-import-dropdown {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.1) !important;
+}
+[data-theme="white"] .shiori-import-dropdown-text,
+html[data-theme="white"] .shiori-import-dropdown-text {
+  color: #0f172a !important;
+}
+[data-theme="white"] .shiori-import-dropdown-subtext,
+html[data-theme="white"] .shiori-import-dropdown-subtext {
+  color: #64748b !important;
+}
+[data-theme="white"] .shiori-import-dropdown-item:hover,
+html[data-theme="white"] .shiori-import-dropdown-item:hover {
+  background-color: #f1f5f9 !important;
+}
+
+/* 5. Gray / E-Ink Theme */
+[data-theme="gray"] .shiori-import-dropdown,
+html[data-theme="gray"] .shiori-import-dropdown {
+  background-color: #262626 !important;
+  color: #e5e5e5 !important;
+  border: 1px solid #404040 !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3) !important;
+}
+[data-theme="gray"] .shiori-import-dropdown-text,
+html[data-theme="gray"] .shiori-import-dropdown-text {
+  color: #e5e5e5 !important;
+}
+[data-theme="gray"] .shiori-import-dropdown-subtext,
+html[data-theme="gray"] .shiori-import-dropdown-subtext {
+  color: #a3a3a3 !important;
+}
+[data-theme="gray"] .shiori-import-dropdown-item:hover,
+html[data-theme="gray"] .shiori-import-dropdown-item:hover {
+  background-color: #333333 !important;
+}
+
+/* Sepia Theme Custom Book Card Enhancements */
+[data-theme="sepia"] [data-cover-size] {
+  border-color: rgba(67, 40, 24, 0.16) !important;
+  box-shadow: 0 4px 16px rgba(67, 40, 24, 0.08) !important;
+}
+
+[data-theme="sepia"] [data-cover-size]:hover {
+  border-color: rgba(67, 40, 24, 0.3) !important;
+  box-shadow: 0 12px 28px rgba(67, 40, 24, 0.16) !important;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Radix Select Popover Dropdowns — Solid Non-Transparent Per Theme
+   ───────────────────────────────────────────────────────────── */
+.shiori-select-content {
+  background-color: #121215 !important;
+  color: #ffffff !important;
+  border: 1px solid #27272a !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9) !important;
+  opacity: 1 !important;
+}
+
+[data-theme="sepia"] .shiori-select-content,
+html[data-theme="sepia"] .shiori-select-content {
+  background-color: #f3ecdc !important;
+  color: #432818 !important;
+  border: 1px solid #d4c5a9 !important;
+  box-shadow: 0 20px 40px rgba(67, 40, 24, 0.25) !important;
+}
+
+[data-theme="black"] .shiori-select-content,
+html[data-theme="black"] .shiori-select-content {
+  background-color: #0d0d0d !important;
+  color: #ffffff !important;
+  border: 1px solid #262626 !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.95) !important;
+}
+
+[data-theme="premium-dark"] .shiori-select-content,
+html[data-theme="premium-dark"] .shiori-select-content {
+  background-color: #18181b !important;
+  color: #f4f4f5 !important;
+  border: 1px solid #27272a !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9) !important;
+}
+
+[data-theme="white"] .shiori-select-content,
+html[data-theme="white"] .shiori-select-content {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15) !important;
+}
+
+[data-theme="gray"] .shiori-select-content,
+html[data-theme="gray"] .shiori-select-content {
+  background-color: #262626 !important;
+  color: #e5e5e5 !important;
+  border: 1px solid #404040 !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6) !important;
+}

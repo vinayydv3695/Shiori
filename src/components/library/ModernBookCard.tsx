@@ -32,18 +32,18 @@ import { ConvertToEpubMenuItem } from '@/components/conversion/ConvertToEpubMenu
 
 // ─── Format Badge ─────────────────────────────
 const fmtColors: Record<string, string> = {
-  EPUB: 'bg-foreground text-background',
-  PDF: 'bg-red-900/80 text-red-100',
-  MOBI: 'bg-neutral-700 text-neutral-200',
-  AZW3: 'bg-neutral-600 text-neutral-100',
-  FB2: 'bg-neutral-500 text-neutral-100',
-  TXT: 'bg-neutral-400 text-neutral-900',
-  DOCX: 'bg-neutral-300 text-neutral-900',
-  HTML: 'bg-neutral-200 text-neutral-900',
-  MD: 'bg-emerald-800/80 text-emerald-100',
-  MARKDOWN: 'bg-emerald-800/80 text-emerald-100',
-  CBZ: 'bg-[var(--manga-accent)] text-white',
-  CBR: 'bg-[var(--manga-accent)] text-white',
+  EPUB: 'bg-black/75 text-white border border-white/20',
+  PDF: 'bg-red-950/85 text-red-100 border border-red-500/30',
+  MOBI: 'bg-neutral-900/85 text-neutral-100 border border-white/20',
+  AZW3: 'bg-neutral-900/85 text-neutral-100 border border-white/20',
+  FB2: 'bg-amber-950/85 text-amber-100 border border-amber-500/30',
+  TXT: 'bg-neutral-800/85 text-neutral-100 border border-white/20',
+  DOCX: 'bg-blue-950/85 text-blue-100 border border-blue-500/30',
+  HTML: 'bg-purple-950/85 text-purple-100 border border-purple-500/30',
+  MD: 'bg-emerald-950/85 text-emerald-100 border border-emerald-500/30',
+  MARKDOWN: 'bg-emerald-950/85 text-emerald-100 border border-emerald-500/30',
+  CBZ: 'bg-[var(--manga-accent)] text-white border border-white/30',
+  CBR: 'bg-[var(--manga-accent)] text-white border border-white/30',
 }
 
 
@@ -416,19 +416,19 @@ export const PremiumBookCard = memo(function PremiumBookCard({
           <div className={cn(
             'absolute bottom-0 left-0 right-0 z-10',
             'flex flex-col justify-end',
-            'bg-gradient-to-t from-card-overlay/95 via-card-overlay/80 to-transparent',
+            'bg-gradient-to-t from-black/85 via-black/40 to-transparent',
             'rounded-b-[inherit]',
-            coverSize === 'small' && 'px-1.5 pt-6 pb-1.5',
-            coverSize === 'medium' && 'px-2 pt-8 pb-2',
-            coverSize === 'large' && 'px-2.5 pt-10 pb-2.5',
+            coverSize === 'small' && 'px-2 pt-4 pb-1.5',
+            coverSize === 'medium' && 'px-2.5 pt-5 pb-2',
+            coverSize === 'large' && 'px-3 pt-6 pb-2.5',
           )}>
             <h3
               className={cn(
-                'font-bold leading-tight drop-shadow-sm text-card-overlay-text/95',
-                book.file_format === 'online-manga' ? 'line-clamp-1 text-[13px]' : 'line-clamp-2',
-                book.file_format !== 'online-manga' && coverSize === 'small' && 'text-xs',
-                book.file_format !== 'online-manga' && coverSize === 'medium' && 'text-sm',
-                book.file_format !== 'online-manga' && coverSize === 'large' && 'text-base',
+                'font-bold leading-snug text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]',
+                book.file_format === 'online-manga' ? 'line-clamp-1 text-[12px]' : 'line-clamp-2',
+                book.file_format !== 'online-manga' && coverSize === 'small' && 'text-[11px]',
+                book.file_format !== 'online-manga' && coverSize === 'medium' && 'text-xs sm:text-sm',
+                book.file_format !== 'online-manga' && coverSize === 'large' && 'text-sm sm:text-base',
               )}
               title={book.title}
             >
@@ -437,10 +437,10 @@ export const PremiumBookCard = memo(function PremiumBookCard({
             {authorStr && authorStr !== 'Unknown Author' && (
               <p
                 className={cn(
-                  'truncate drop-shadow-sm text-card-overlay-text/75 font-medium mt-0.5',
-                  coverSize === 'small' && 'text-[11px]',
-                  coverSize === 'medium' && 'text-xs',
-                  coverSize === 'large' && 'text-sm',
+                  'truncate text-white/80 font-medium mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]',
+                  coverSize === 'small' && 'text-[10px]',
+                  coverSize === 'medium' && 'text-[11px]',
+                  coverSize === 'large' && 'text-xs',
                 )}
                 title={authorStr}
               >

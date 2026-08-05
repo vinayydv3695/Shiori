@@ -33,7 +33,6 @@ export function Sidebar({ onOpenSettings, onCreateShelf, onEditShelf }: SidebarP
     { icon: AniListIcon, label: "AniList", action: () => setCurrentView("anilist") },
     { icon: Tag, label: "Tags", action: () => setCurrentView("library") },
     { icon: BarChart2, label: "Statistics", action: () => setCurrentView("statistics") },
-    { icon: Settings, label: "Settings", action: () => onOpenSettings?.() },
   ].filter(item => {
     if (preferredContentType === 'books' && item.label === 'Online Manga') return false;
     if (preferredContentType === 'manga' && item.label === 'Online Books') return false;
@@ -42,9 +41,7 @@ export function Sidebar({ onOpenSettings, onCreateShelf, onEditShelf }: SidebarP
   })
 
   if (enableRecycleBin) {
-    // Insert Recycle Bin before Settings
-    const settingsIndex = navItems.findIndex(i => i.label === 'Settings');
-    navItems.splice(settingsIndex !== -1 ? settingsIndex : navItems.length, 0, {
+    navItems.push({
       icon: Trash2 as any,
       label: "Recycle Bin",
       action: () => setCurrentView("recycle-bin" as any)

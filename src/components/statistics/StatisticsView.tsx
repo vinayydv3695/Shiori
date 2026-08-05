@@ -23,19 +23,21 @@ interface StatisticsViewProps {
 }
 
 const StatSection = ({ title, children }: { title: string, children: React.ReactNode }) => (
-  <div className="flex flex-col gap-2">
-    <h3 className="text-sm font-semibold text-muted-foreground tracking-wide ml-1">{title}</h3>
-    <div className="bg-card/40 backdrop-blur-md border border-border/40 rounded-xl p-4 grid grid-cols-3 gap-2">
+  <div className="flex flex-col gap-2.5">
+    <h3 className="text-xs font-extrabold text-muted-foreground uppercase tracking-widest ml-1">{title}</h3>
+    <div className="bg-card/70 backdrop-blur-2xl border border-border/50 rounded-2xl p-4 grid grid-cols-3 gap-3 shadow-lg">
       {children}
     </div>
   </div>
 );
 
-const StatItem = ({ label, value, icon: Icon, iconColor }: { label: string, value: React.ReactNode, icon: any, iconColor: string }) => (
-  <div className="flex flex-col items-center justify-center text-center gap-1.5">
-    <div className="text-2xl font-semibold text-foreground tracking-tight">{value}</div>
-    <div className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">{label}</div>
-    <Icon size={16} className={iconColor} />
+const StatItem = ({ label, value, icon: Icon, iconColor }: { label: string, value: React.ReactNode, icon: any, iconColor?: string }) => (
+  <div className="bg-secondary/25 hover:bg-secondary/55 border border-border/40 rounded-xl p-3.5 flex flex-col items-center justify-center text-center gap-2 transition-all duration-200 hover:scale-[1.02] shadow-sm group">
+    <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center transition-all group-hover:scale-110 shadow-sm bg-primary/12 text-primary", iconColor)}>
+      <Icon size={16} />
+    </div>
+    <div className="text-xl md:text-2xl font-extrabold text-foreground tracking-tight leading-none">{value}</div>
+    <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider line-clamp-1">{label}</div>
   </div>
 );
 
@@ -107,38 +109,42 @@ export function WeeklyTrendChart({ data }: { data: DailyReadingStats[] }) {
 
   if (!hasAny) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-        <Activity className="w-8 h-8 mb-2 opacity-30" />
-        <p className="text-sm font-medium">No reading recorded this week</p>
-        <p className="text-xs opacity-70 mt-1">Your daily pages and reading time will appear here.</p>
+      <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+        <Activity className="w-10 h-10 mb-2.5 opacity-30 text-primary animate-pulse" />
+        <p className="text-sm font-bold text-foreground">No reading recorded this week</p>
+        <p className="text-xs text-muted-foreground mt-1">Your daily pages and reading time will appear here automatically.</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-end justify-between gap-2 h-32">
+    <div className="flex flex-col gap-4">
+      <div className="flex items-end justify-between gap-3 h-36 pt-4 px-2">
         {bars.map(b => (
-          <div key={b.date} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end min-w-0">
-            <div className="flex items-end justify-center gap-1 w-full flex-1">
+          <div key={b.date} className="flex-1 flex flex-col items-center gap-2 h-full justify-end min-w-0 group">
+            <div className="flex items-end justify-center gap-1.5 w-full flex-1 relative">
+              {/* Pages Read Bar */}
               <div
-                className="w-2.5 md:w-3 rounded-full bg-primary/70 transition-all duration-500"
-                style={{ height: `${b.pages > 0 ? Math.max(6, b.pagesPct) : 0}%` }}
-                title={`${b.date} · ${b.pages} pages`}
+                className="w-3 md:w-4 rounded-t-lg bg-gradient-to-t from-primary/50 to-primary transition-all duration-500 shadow-sm group-hover:scale-y-105"
+                style={{ height: `${b.pages > 0 ? Math.max(8, b.pagesPct) : 0}%` }}
+                title={`${b.date} · ${b.pages} pages read`}
               />
+              {/* Reading Time Bar */}
               <div
-                className="w-2.5 md:w-3 rounded-full bg-primary/25 transition-all duration-500"
-                style={{ height: `${b.seconds > 0 ? Math.max(6, b.secondsPct) : 0}%` }}
-                title={`${b.date} · ${formatMinutes(b.seconds)} reading`}
+                className="w-3 md:w-4 rounded-t-lg bg-gradient-to-t from-primary/20 to-primary/40 transition-all duration-500 shadow-sm group-hover:scale-y-105"
+                style={{ height: `${b.seconds > 0 ? Math.max(8, b.secondsPct) : 0}%` }}
+                title={`${b.date} · ${formatMinutes(b.seconds)} reading time`}
               />
             </div>
-            <span className="text-[10px] text-muted-foreground font-medium truncate">{b.label}</span>
+            <span className="text-[11px] text-muted-foreground font-bold tracking-tight group-hover:text-foreground transition-colors truncate">
+              {b.label}
+            </span>
           </div>
         ))}
       </div>
-      <div className="flex items-center justify-center gap-4 text-[11px] text-muted-foreground">
-        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-primary/70" />Pages read</span>
-        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-primary/25" />Reading time</span>
+      <div className="flex items-center justify-center gap-6 text-xs font-semibold text-muted-foreground pt-2 border-t border-border/30">
+        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-md bg-gradient-to-t from-primary/50 to-primary shadow-sm" />Pages read</span>
+        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-md bg-gradient-to-t from-primary/20 to-primary/40 shadow-sm" />Reading time</span>
       </div>
     </div>
   );

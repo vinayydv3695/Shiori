@@ -458,9 +458,9 @@ export function AniListDashboard({ onOpenSettings }: AniListDashboardProps = {})
             </motion.div>
           </div>
           
-          {/* Segmented Tabs (Underline Style) */}
+          {/* Segmented Tabs (Glass Pill Switcher Style) */}
           {tabs.length > 0 && (
-            <div className="flex gap-6 overflow-x-auto hide-scrollbar mb-4 border-b border-border/50">
+            <div className="flex gap-1.5 overflow-x-auto hide-scrollbar mb-6 p-1.5 bg-secondary/40 backdrop-blur-xl rounded-2xl border border-border/50 shrink-0">
               {tabs.map((tab) => {
                 const isActive = activeTab === tab;
                 let count = 0;
@@ -473,24 +473,24 @@ export function AniListDashboard({ onOpenSettings }: AniListDashboardProps = {})
                     key={tab}
                     onClick={() => setActiveTab(tab)}
                     className={cn(
-                      "relative pb-2.5 text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-1.5",
-                      isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                      "relative px-4 py-2 text-xs sm:text-sm font-extrabold transition-all whitespace-nowrap flex items-center gap-2 rounded-xl select-none z-10",
+                      isActive ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                     )}
                   >
+                    {isActive && (
+                      <motion.div 
+                        layoutId="active-anilist-tab-pill"
+                        className="absolute inset-0 bg-primary rounded-xl shadow-md shadow-primary/25 -z-10"
+                        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                      />
+                    )}
                     <span>{tab}</span>
                     <span className={cn(
-                      "text-[10px] px-1.5 py-0.5 rounded-sm font-bold",
-                      isActive ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
+                      "text-[10px] font-extrabold px-2 py-0.5 rounded-full transition-colors",
+                      isActive ? "bg-white/20 text-primary-foreground" : "bg-secondary/80 text-muted-foreground"
                     )}>
                       {count}
                     </span>
-                    {isActive && (
-                      <motion.div 
-                        layoutId="active-anilist-underline"
-                        className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary rounded-t-full"
-                        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                      />
-                    )}
                   </button>
                 );
               })}

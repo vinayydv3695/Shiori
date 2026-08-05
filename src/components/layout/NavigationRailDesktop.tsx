@@ -135,22 +135,38 @@ export function NavigationRailDesktop({
                     type="button"
                     onClick={() => toggleSection(sectionKey)}
                     className={cn(
-                      "flex items-center justify-between w-full px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 group border select-none",
+                      "flex items-center justify-between w-full px-2.5 py-2 rounded-2xl text-xs font-bold transition-all duration-200 group border select-none",
                       hasActiveChild
-                        ? "bg-secondary/80 border-border/50 text-foreground font-bold shadow-2xs"
-                        : "bg-transparent border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                        ? "bg-primary/10 border-primary/25 text-foreground shadow-sm"
+                        : "bg-secondary/30 border-transparent text-muted-foreground hover:bg-accent/70 hover:text-foreground"
                     )}
                   >
-                    <div className="flex items-center gap-2.5">
-                      <SectionIcon className={cn("w-4 h-4 transition-colors", hasActiveChild ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
-                      <span className="tracking-wide text-xs">{SECTION_TITLES[sectionKey]}</span>
-                      <span className="text-[10px] font-bold text-muted-foreground/80 bg-secondary/80 px-2 py-0.5 rounded-full border border-border/30">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {/* Icon Badge Container */}
+                      <div className={cn(
+                        "flex items-center justify-center w-7 h-7 rounded-xl transition-all duration-200 shrink-0",
+                        hasActiveChild
+                          ? "bg-primary text-primary-foreground shadow-md shadow-primary/25 scale-105"
+                          : "bg-secondary/80 text-muted-foreground group-hover:bg-primary/15 group-hover:text-primary group-hover:scale-105"
+                      )}>
+                        <SectionIcon className="w-3.5 h-3.5" />
+                      </div>
+
+                      <span className="tracking-wide text-xs sm:text-[13px] font-bold truncate">{SECTION_TITLES[sectionKey]}</span>
+
+                      <span className={cn(
+                        "text-[10px] font-extrabold px-2 py-0.5 rounded-full border transition-colors shrink-0",
+                        hasActiveChild
+                          ? "bg-primary/20 text-primary border-primary/30"
+                          : "bg-secondary/90 text-muted-foreground/80 border-border/40 group-hover:border-primary/20"
+                      )}>
                         {items.length}
                       </span>
                     </div>
+
                     <ChevronDown
                       className={cn(
-                        "w-3.5 h-3.5 text-muted-foreground/60 transition-transform duration-200 group-hover:text-foreground",
+                        "w-4 h-4 text-muted-foreground/60 transition-transform duration-200 group-hover:text-foreground shrink-0 ml-1",
                         !isOpen && "-rotate-90"
                       )}
                     />
@@ -245,34 +261,6 @@ export function NavigationRailDesktop({
           )}
         </div>
 
-        {/* Bottom Rail Footer: Settings */}
-        <div className={cn(
-          "p-3 border-t border-border/30 shrink-0",
-          sidebarCollapsed && "flex justify-center"
-        )}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={onOpenSettings}
-                className={cn(
-                  "flex items-center rounded-xl text-muted-foreground hover:bg-accent/70 hover:text-foreground transition-all text-xs font-semibold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                  sidebarCollapsed
-                    ? "justify-center w-12 h-12 rounded-2xl hover:scale-105"
-                    : "h-9.5 w-full px-3 gap-3 border border-transparent hover:border-border/30"
-                )}
-              >
-                <Settings className="h-4.5 w-4.5 shrink-0" />
-                {!sidebarCollapsed && <span>Settings</span>}
-              </button>
-            </TooltipTrigger>
-            {sidebarCollapsed && (
-              <TooltipContent side="right" sideOffset={12} className="font-medium text-xs">
-                Settings
-              </TooltipContent>
-            )}
-          </Tooltip>
-        </div>
       </nav>
     </TooltipProvider>
   )

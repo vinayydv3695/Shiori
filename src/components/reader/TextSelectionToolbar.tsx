@@ -44,6 +44,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(undefined);
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [categories, setCategories] = useState<AnnotationCategory[]>([]);
   const [showTranslation, setShowTranslation] = useState(false);
   const [translationMode, setTranslationMode] = useState<'translate' | 'define'>('translate');
@@ -608,17 +609,70 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
                 rows={3}
               />
               {categories.length > 0 && (
-                <select
-                  className="text-selection-category-select"
-                  value={selectedCategoryId ?? ''}
-                  onChange={(e) => setSelectedCategoryId(e.target.value ? Number(e.target.value) : undefined)}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <option value="">No category</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+                <div className="relative w-full">
+                  <button
+                    type="button"
+                    className="text-selection-category-trigger"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsCategoryDropdownOpen(!isCategoryDropdownOpen);
+                    }}
+                  >
+                    <span className="truncate">
+                      {selectedCategoryId
+                        ? categories.find(c => c.id === selectedCategoryId)?.name || 'Select category'
+                        : 'No category'}
+                    </span>
+                    <ChevronDown size={14} className={`opacity-70 shrink-0 transition-transform duration-200 ${isCategoryDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  <AnimatePresence>
+                    {isCategoryDropdownOpen && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-[190]"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsCategoryDropdownOpen(false);
+                          }}
+                        />
+                        <motion.div
+                          initial={{ opacity: 0, y: 4, scale: 0.97 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 4, scale: 0.97 }}
+                          transition={{ duration: 0.15, ease: 'easeOut' }}
+                          className="text-selection-category-menu"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            type="button"
+                            className={`text-selection-category-option ${!selectedCategoryId ? 'text-selection-category-option--active' : ''}`}
+                            onClick={() => {
+                              setSelectedCategoryId(undefined);
+                              setIsCategoryDropdownOpen(false);
+                            }}
+                          >
+                            No category
+                          </button>
+                          {categories.map((c) => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              className={`text-selection-category-option ${selectedCategoryId === c.id ? 'text-selection-category-option--active' : ''}`}
+                              onClick={() => {
+                                setSelectedCategoryId(c.id);
+                                setIsCategoryDropdownOpen(false);
+                              }}
+                            >
+                              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
+                              <span>{c.name}</span>
+                            </button>
+                          ))}
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+                </div>
               )}
               <div className="text-selection-note-actions">
                 <button

@@ -31,54 +31,60 @@ export function AniListBookCard({
 
   return (
     <div 
-      className={cn("group relative cursor-pointer w-full aspect-[2/3] overflow-hidden rounded-xl bg-secondary/20 shadow-md transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.4)] hover:-translate-y-1 border border-border/50", className)}
+      className={cn(
+        "group relative cursor-pointer w-full aspect-[2/3] overflow-hidden rounded-xl max-md:rounded-ui-xl bg-card/90 shadow-lg transition-all duration-400 ease-out hover:shadow-[0_12px_32px_rgba(0,0,0,0.5)] hover:-translate-y-1.5 border border-border/50 hover:border-primary/40 select-none",
+        className
+      )}
       onClick={onClick}
     >
       <img
         src={coverUrl}
         alt={title}
-        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+        className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
         loading="lazy"
       />
       
+      {/* 3D Book Spine Shadow */}
+      <div className="absolute top-0 bottom-0 left-0 w-2.5 bg-gradient-to-r from-black/40 via-black/10 to-transparent z-20 pointer-events-none rounded-l-[inherit]" />
+
+      {/* Premium Inner Sheen / Glare */}
+      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/0 to-white/25 pointer-events-none mix-blend-overlay opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10" />
+
       {/* Overlay Gradients */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-80 transition-opacity duration-300 group-hover:opacity-100" />
-      
-      {/* Play/Read Icon on Hover */}
-      <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-         <PlayCircle className="w-12 h-12 text-white/90 drop-shadow-lg" />
-      </div>
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent opacity-85 transition-opacity duration-300 group-hover:opacity-100 z-10" />
 
       {/* Top Badges (Score & Format) */}
-      <div className="absolute top-2 left-2 right-2 flex justify-between items-start pointer-events-none z-10">
+      <div className="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-start pointer-events-none z-20">
         {score && score > 0 ? (
-          <div className="flex items-center gap-1 bg-black/60 backdrop-blur-md text-white text-[11px] font-bold px-1.5 py-0.5 rounded shadow-sm border border-white/10">
-            <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" />
+          <div className="flex items-center gap-1 bg-black/75 backdrop-blur-md text-white text-[11px] font-extrabold px-2 py-0.5 rounded-full shadow-md border border-white/20">
+            <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
             {score}
           </div>
         ) : <div />}
         
         {format && (
-          <div className="bg-black/60 backdrop-blur-md text-white/90 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm uppercase tracking-wider border border-white/10">
+          <div className="bg-black/75 backdrop-blur-md text-white/90 text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-md uppercase tracking-wider border border-white/20">
             {format}
           </div>
         )}
       </div>
 
       {/* Title & Progress Area */}
-      <div className="absolute bottom-0 left-0 right-0 p-3 z-10 flex flex-col gap-1.5">
+      <div className="absolute bottom-0 left-0 right-0 p-3 z-20 flex flex-col gap-1">
         <h3 
-          className="font-bold text-sm leading-tight text-white line-clamp-2 drop-shadow-sm group-hover:text-primary transition-colors"
+          className="font-bold text-xs sm:text-sm leading-snug text-white line-clamp-2 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)] group-hover:text-primary transition-colors"
           title={title}
         >
           {title}
         </h3>
         
         {progress !== undefined && (
-          <div className="pointer-events-none flex items-center">
+          <div className="pointer-events-none flex items-center mt-0.5">
              <div className={cn(
-               "text-[10px] font-bold px-2 py-0.5 rounded shadow-sm border border-white/10 flex items-center gap-1",
-               isReading ? "bg-primary text-primary-foreground" : "bg-black/60 backdrop-blur-md text-white"
+               "text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-md border flex items-center gap-1",
+               isReading
+                 ? "bg-primary text-primary-foreground border-primary/40 shadow-primary/20"
+                 : "bg-black/75 backdrop-blur-md text-white/90 border-white/20"
              )}>
                <BookOpen className="w-3 h-3 opacity-90" />
                <span>{progress}{total ? ` / ${total}` : ''}</span>

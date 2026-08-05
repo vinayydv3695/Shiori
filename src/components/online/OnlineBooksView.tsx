@@ -190,15 +190,6 @@ export function OnlineBooksView() {
           onSearchValueChange={(val) => useOnlineSearchStore.getState().setQuery('online-books', val)}
           onSubmit={() => doSearch(1)}
         />
-        {/* Downloads launcher — desktop: floats in the header's top-right; mobile: FAB above the bottom nav. */}
-        <div className="hidden md:block absolute top-2 right-6 z-30">
-          <DownloadsButton />
-        </div>
-      </div>
-
-      {/* Mobile FAB (MangaDownloadDock pattern — root ends just above the bottom nav) */}
-      <div className="md:hidden absolute bottom-0 right-4 z-30">
-        <DownloadsButton />
       </div>
 
       {!hasSearched ? (

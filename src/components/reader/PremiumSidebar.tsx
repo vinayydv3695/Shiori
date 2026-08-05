@@ -566,11 +566,11 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                 {highlights.length > 0 && (
                   <button 
                     onClick={handleExportAnnotations}
-                    className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md bg-zinc-800 text-white dark:bg-white dark:text-zinc-900 hover:opacity-80 transition-opacity shadow-sm"
+                    className="premium-sidebar-export-btn"
                     title="Export to Markdown"
                   >
-                    <Download size={14} />
-                    Export
+                    <Download size={13} />
+                    <span>Export</span>
                   </button>
                 )}
               </div>
@@ -651,11 +651,11 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                 {notes.length > 0 && (
                   <button 
                     onClick={handleExportAnnotations}
-                    className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md bg-zinc-800 text-white dark:bg-white dark:text-zinc-900 hover:opacity-80 transition-opacity shadow-sm"
+                    className="premium-sidebar-export-btn"
                     title="Export to Markdown"
                   >
-                    <Download size={14} />
-                    Export
+                    <Download size={13} />
+                    <span>Export</span>
                   </button>
                 )}
               </div>
@@ -728,24 +728,24 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                                   const vocabData = JSON.parse(note.noteContent);
                                   if (vocabData && vocabData.type === 'define') {
                                     return (
-                                      <div className="flex flex-col gap-1">
-                                        <span className="font-semibold" style={{ color: 'var(--primary)' }}>Definition:</span>
-                                        <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(vocabData.data?.meanings?.[0]?.definitions?.[0]?.definition || 'No definition found.') }} />
+                                      <div className="flex flex-col gap-1 text-xs">
+                                        <span className="font-semibold tracking-wider text-[11px] uppercase opacity-75" style={{ color: 'var(--text-secondary)' }}>Definition</span>
+                                        <span className="text-sm font-serif leading-relaxed" style={{ color: 'var(--text-primary)' }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(vocabData.data?.meanings?.[0]?.definitions?.[0]?.definition || 'No definition found.') }} />
                                       </div>
                                     );
                                   }
                                   if (vocabData && vocabData.type === 'translate') {
                                     return (
-                                      <div className="flex flex-col gap-1">
-                                        <span className="font-semibold" style={{ color: 'var(--primary)' }}>Translation:</span>
-                                        <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(vocabData.data?.translated_text || 'No translation found.') }} />
+                                      <div className="flex flex-col gap-1 text-xs">
+                                        <span className="font-semibold tracking-wider text-[11px] uppercase opacity-75" style={{ color: 'var(--text-secondary)' }}>Translation</span>
+                                        <span className="text-sm font-serif leading-relaxed" style={{ color: 'var(--text-primary)' }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(vocabData.data?.translated_text || 'No translation found.') }} />
                                       </div>
                                     );
                                   }
                                 } catch {
                                   // Not JSON
                                 }
-                                return <p>{note.noteContent}</p>;
+                                return <p className="text-sm font-serif leading-relaxed" style={{ color: 'var(--text-primary)' }}>{note.noteContent}</p>;
                               })()}
                             </div>
                             {note.selectedText && (
@@ -756,10 +756,7 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                               {note.categoryId && (() => {
                                 const cat = categories.find(c => c.id === note.categoryId);
                                 return cat ? (
-                                  <span
-                                    className="premium-annotation-category-badge"
-                                    style={{ backgroundColor: cat.color + '20', color: cat.color, borderColor: cat.color + '40' }}
-                                  >
+                                  <span className="premium-annotation-category-badge">
                                     {cat.name}
                                   </span>
                                 ) : null;

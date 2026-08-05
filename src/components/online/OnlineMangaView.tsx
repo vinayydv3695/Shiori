@@ -1482,21 +1482,6 @@ export function OnlineMangaView() {
 
           {!displayLoading && !hasVisibleSearched && hasEnabledMangaSource && (
             <div className="space-y-4">
-              {/* Hero Banner Desktop */}
-              <div className="hidden md:block">
-                <MangaBrowseNavBar
-                  activeGenres={activeGenres}
-                  activeTypes={activeTypes}
-                  activeMode={activeMode}
-                  onFilterChange={(g, t, m) => {
-                    setActiveGenres(g);
-                    setActiveTypes(t);
-                    setActiveMode(m);
-                  }}
-                  onRandomClick={handleRandomClick}
-                />
-              </div>
-
               <MobileFilterSheet
                 open={mobileFilterOpen}
                 onOpenChange={setMobileFilterOpen}
@@ -1508,6 +1493,7 @@ export function OnlineMangaView() {
                   setActiveTypes(t);
                   setActiveMode(m);
                 }}
+                onRandomClick={handleRandomClick}
               />
 
               <div className="flex flex-col xl:flex-row gap-8">

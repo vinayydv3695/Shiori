@@ -73,10 +73,10 @@ function TrackerForm({
       {/* Status */}
       <motion.div variants={itemVariants} className="space-y-2">
         <label className="text-[11px] font-bold tracking-widest text-muted-foreground uppercase flex items-center gap-1.5">
-          <Bookmark className="w-3.5 h-3.5" /> Status
+          <Bookmark className="w-3.5 h-3.5 text-primary" /> Status
         </label>
         <Select.Root value={status} onValueChange={setStatus}>
-          <Select.Trigger className="w-full bg-background border border-border text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3.5 px-4 text-sm font-semibold outline-none transition-all shadow-inner flex items-center justify-between hover:bg-secondary">
+          <Select.Trigger className="w-full bg-secondary/40 border border-border/60 text-foreground rounded-2xl focus:border-primary focus:ring-2 focus:ring-primary/30 py-3 px-4 text-sm font-bold outline-none transition-all shadow-sm flex items-center justify-between hover:bg-secondary/70">
             <Select.Value />
             <Select.Icon>
               <ChevronDown className="w-4 h-4 text-muted-foreground" />
@@ -84,11 +84,11 @@ function TrackerForm({
           </Select.Trigger>
           <Select.Portal>
             <Select.Content 
-              className="overflow-hidden bg-card border border-border rounded-xl shadow-2xl z-[9999]"
+              className="shiori-select-content w-[var(--radix-select-trigger-width)] overflow-hidden rounded-2xl shadow-2xl z-[9999] p-1.5"
               position="popper"
-              sideOffset={4}
+              sideOffset={6}
             >
-              <Select.Viewport className="p-1">
+              <Select.Viewport className="p-1 space-y-0.5">
                 {[
                   { value: 'CURRENT', label: 'Reading' },
                   { value: 'PLANNING', label: 'Plan to Read' },
@@ -99,11 +99,11 @@ function TrackerForm({
                   <Select.Item 
                     key={item.value} 
                     value={item.value}
-                    className="relative flex items-center px-8 py-2.5 text-sm font-medium text-foreground/90 rounded-lg select-none outline-none data-[highlighted]:bg-primary/20 data-[highlighted]:text-primary cursor-pointer transition-colors"
+                    className="relative flex items-center px-9 py-2.5 text-sm font-bold text-popover-foreground rounded-xl select-none outline-none data-[highlighted]:bg-primary data-[highlighted]:text-primary-foreground cursor-pointer transition-colors"
                   >
                     <Select.ItemText>{item.label}</Select.ItemText>
-                    <Select.ItemIndicator className="absolute left-2.5 flex items-center justify-center">
-                      <Check className="w-4 h-4 text-primary" />
+                    <Select.ItemIndicator className="absolute left-3 flex items-center justify-center">
+                      <Check className="w-4 h-4" />
                     </Select.ItemIndicator>
                   </Select.Item>
                 ))}
@@ -118,23 +118,23 @@ function TrackerForm({
         <motion.div variants={itemVariants} className="space-y-2">
           <div className="flex justify-between items-center">
             <label className="text-[11px] font-bold tracking-widest text-muted-foreground uppercase flex items-center gap-1.5">
-              <BookOpen className="w-3.5 h-3.5" /> Progress
+              <BookOpen className="w-3.5 h-3.5 text-primary" /> Progress
             </label>
             {totalChapters && (
-              <span className="text-xs text-muted-foreground">Max: {totalChapters}</span>
+              <span className="text-xs font-bold text-muted-foreground">Max: {totalChapters}</span>
             )}
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => handleProgressChange(progress - 1)} className="p-3 bg-background border border-border rounded-xl hover:bg-secondary active:scale-95 transition-all text-muted-foreground hover:text-foreground">
+            <button type="button" onClick={() => handleProgressChange(progress - 1)} className="p-3 bg-secondary/40 border border-border/60 rounded-xl hover:bg-secondary active:scale-95 transition-all text-muted-foreground hover:text-foreground">
               <Minus className="w-4 h-4" />
             </button>
             <input 
               type="number" 
               value={progress}
               onChange={e => handleProgressChange(parseInt(e.target.value))}
-              className="flex-1 min-w-0 bg-background border border-border text-primary text-center font-bold rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm outline-none transition-all shadow-inner [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+              className="flex-1 min-w-0 bg-secondary/40 border border-border/60 text-foreground text-center font-bold rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/30 py-3 px-4 text-sm outline-none transition-all shadow-inner [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
             />
-            <button type="button" onClick={() => handleProgressChange(progress + 1)} className="p-3 bg-background border border-border rounded-xl hover:bg-secondary active:scale-95 transition-all text-muted-foreground hover:text-foreground">
+            <button type="button" onClick={() => handleProgressChange(progress + 1)} className="p-3 bg-secondary/40 border border-border/60 rounded-xl hover:bg-secondary active:scale-95 transition-all text-muted-foreground hover:text-foreground">
               <Plus className="w-4 h-4" />
             </button>
           </div>
@@ -144,11 +144,11 @@ function TrackerForm({
         <motion.div variants={itemVariants} className="space-y-2">
           <div className="flex justify-between items-center">
             <label className="text-[11px] font-bold tracking-widest text-muted-foreground uppercase flex items-center gap-1.5">
-              <Star className="w-3.5 h-3.5" /> Score
+              <Star className="w-3.5 h-3.5 text-primary" /> Score
             </label>
-            <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">{score} / 100</span>
+            <span className="text-xs font-extrabold text-primary bg-primary/10 border border-primary/20 px-2.5 py-0.5 rounded-full">{score} / 100</span>
           </div>
-          <div className="flex items-center gap-4 bg-background border border-border rounded-xl p-4 shadow-inner">
+          <div className="flex items-center gap-4 bg-secondary/40 border border-border/60 rounded-2xl p-4 shadow-inner">
             <input 
               type="range"
               value={score}
@@ -166,25 +166,25 @@ function TrackerForm({
       <motion.div variants={itemVariants} className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-[11px] font-bold tracking-widest text-muted-foreground uppercase flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5" /> Start Date
+            <Calendar className="w-3.5 h-3.5 text-primary" /> Start Date
           </label>
           <input 
             type="date"
             value={startedAt}
             onChange={e => setStartedAt(e.target.value)}
-            className="w-full bg-background border border-border text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary hover:bg-secondary py-3 px-3 text-[13px] outline-none transition-all shadow-inner" 
+            className="w-full bg-secondary/40 border border-border/60 text-foreground font-bold rounded-2xl focus:border-primary focus:ring-2 focus:ring-primary/30 hover:bg-secondary/60 py-2.5 px-3 text-[13px] outline-none transition-all shadow-sm" 
             style={{ colorScheme: 'dark' }}
           />
         </div>
         <div className="space-y-2">
           <label className="text-[11px] font-bold tracking-widest text-muted-foreground uppercase flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5" /> Finish Date
+            <Calendar className="w-3.5 h-3.5 text-primary" /> Finish Date
           </label>
           <input 
             type="date" 
             value={completedAt}
             onChange={e => setCompletedAt(e.target.value)}
-            className="w-full bg-background border border-border text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary hover:bg-secondary py-3 px-3 text-[13px] outline-none transition-all shadow-inner" 
+            className="w-full bg-secondary/40 border border-border/60 text-foreground font-bold rounded-2xl focus:border-primary focus:ring-2 focus:ring-primary/30 hover:bg-secondary/60 py-2.5 px-3 text-[13px] outline-none transition-all shadow-sm" 
             style={{ colorScheme: 'dark' }}
           />
         </div>
@@ -192,19 +192,19 @@ function TrackerForm({
 
       <motion.div variants={itemVariants} className="space-y-2">
         <label className="text-[11px] font-bold tracking-widest text-muted-foreground uppercase flex items-center gap-1.5">
-          <RefreshCw className="w-3.5 h-3.5" /> Re-reads
+          <RefreshCw className="w-3.5 h-3.5 text-primary" /> Re-reads
         </label>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => handleRepeatChange(repeat - 1)} className="p-3 bg-background border border-border rounded-xl hover:bg-secondary active:scale-95 transition-all text-muted-foreground hover:text-foreground">
+          <button type="button" onClick={() => handleRepeatChange(repeat - 1)} className="p-3 bg-secondary/40 border border-border/60 rounded-xl hover:bg-secondary active:scale-95 transition-all text-muted-foreground hover:text-foreground">
             <Minus className="w-4 h-4" />
           </button>
           <input 
             type="number" 
             value={repeat}
             onChange={e => handleRepeatChange(parseInt(e.target.value))}
-            className="flex-1 min-w-0 bg-background border border-border text-primary text-center font-bold rounded-xl focus:border-primary focus:ring-1 focus:ring-primary py-3 px-4 text-sm outline-none transition-all shadow-inner [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+            className="flex-1 min-w-0 bg-secondary/40 border border-border/60 text-foreground text-center font-bold rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/30 py-3 px-4 text-sm outline-none transition-all shadow-inner [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
           />
-          <button type="button" onClick={() => handleRepeatChange(repeat + 1)} className="p-3 bg-background border border-border rounded-xl hover:bg-secondary active:scale-95 transition-all text-muted-foreground hover:text-foreground">
+          <button type="button" onClick={() => handleRepeatChange(repeat + 1)} className="p-3 bg-secondary/40 border border-border/60 rounded-xl hover:bg-secondary active:scale-95 transition-all text-muted-foreground hover:text-foreground">
             <Plus className="w-4 h-4" />
           </button>
         </div>
@@ -212,14 +212,14 @@ function TrackerForm({
 
       <motion.div variants={itemVariants} className="space-y-2">
         <label className="text-[11px] font-bold tracking-widest text-muted-foreground uppercase flex items-center gap-1.5">
-          <AlignLeft className="w-3.5 h-3.5" /> Private Notes
+          <AlignLeft className="w-3.5 h-3.5 text-primary" /> Private Notes
         </label>
         <textarea 
           value={notes}
           onChange={e => setNotes(e.target.value)}
           rows={3}
           placeholder="Jot down some thoughts..."
-          className="w-full bg-background border border-border text-primary rounded-xl focus:border-primary focus:ring-1 focus:ring-primary hover:bg-secondary py-3 px-4 text-sm outline-none transition-all resize-none shadow-inner" 
+          className="w-full bg-secondary/40 border border-border/60 text-foreground rounded-2xl focus:border-primary focus:ring-2 focus:ring-primary/30 hover:bg-secondary/60 py-3 px-4 text-sm font-medium outline-none transition-all resize-none shadow-sm" 
         />
       </motion.div>
 
@@ -227,7 +227,7 @@ function TrackerForm({
         variants={itemVariants}
         type="submit" 
         disabled={saving}
-        className="w-full bg-white text-black font-bold rounded-xl py-4 flex items-center justify-center gap-2 mt-6 hover:bg-gray-200 hover:shadow-[0_0_20px_rgba(255,255,255,0.2)] active:scale-[0.98] transition-all disabled:opacity-50 shadow-lg relative overflow-hidden"
+        className="w-full bg-primary text-primary-foreground font-extrabold rounded-2xl py-3.5 flex items-center justify-center gap-2 mt-6 hover:bg-primary/90 shadow-lg shadow-primary/25 active:scale-[0.98] transition-all disabled:opacity-50 relative overflow-hidden"
       >
         {saving ? (
           <>
@@ -418,112 +418,97 @@ export function AniListMangaDetailsView({
         </div>
       ) : (
         <>
-          {/* Top Nav (Desktop) / Floating Back Button (Mobile) */}
-          <header data-tauri-drag-region className={cn(
-            "fixed top-0 w-full z-50 transition-colors",
-            isMobile ? "bg-transparent p-4 pt-12" : "bg-background/70 backdrop-blur-xl border-b border-surface-variant sticky"
-          )}>
-            <nav className={cn("flex items-center", isMobile ? "justify-start" : "justify-between px-6 py-4 max-w-7xl mx-auto")}>
-              <button onClick={onClose} className={cn(
-                "flex items-center justify-center gap-2 transition-transform active:scale-90",
-                  isMobile 
-                    ? cn("w-10 h-10 rounded-full backdrop-blur-md shadow-lg border border-border", 
-                         theme === 'sepia' ? "bg-white/50 text-primary" : "bg-black/40 text-foreground")
-                    : "text-primary hover:text-foreground group"
-              )}>
-                <ArrowLeft className={cn("w-5 h-5", !isMobile && "group-hover:-translate-x-1 transition-transform")} />
-                {!isMobile && <span className="font-bold tracking-tight">Back to Dashboard</span>}
-              </button>
-            </nav>
-          </header>
-
-          <main className={cn("min-h-screen relative", isMobile ? "pb-32" : "")}>
-            {/* Cinematic Hero Section */}
-            <section className={cn(
-              "relative flex items-end",
-              isMobile ? "min-h-[450px] px-5 pb-8 pt-24" : "min-h-[600px] px-6 md:px-16 pb-12 pt-20"
-            )}>
+          <main className={cn("min-h-screen relative bg-background text-foreground", isMobile ? "pb-32" : "")}>
+            {/* Seamless Top Ambient Banner Glow (Adapts to all 5 themes cleanly) */}
+            <div className="absolute top-0 left-0 right-0 h-[480px] overflow-hidden pointer-events-none -z-10 select-none">
               <div 
-                className="absolute inset-0 bg-cover bg-center -z-10 scale-110"
+                className="w-full h-full bg-cover bg-center opacity-35 dark:opacity-20 scale-110"
                 style={{ 
-                  backgroundImage: `url('${details.coverImage.extraLarge || details.coverImage.large}')`,
-                  filter: theme === 'sepia' 
-                    ? (isMobile ? 'blur(40px) brightness(0.7)' : 'blur(60px) brightness(0.7)') 
-                    : (isMobile ? 'blur(40px) brightness(0.4)' : 'blur(60px) brightness(0.3)'),
-                  ...(theme === 'sepia' ? { 
-                    WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 50%, transparent 100%)', 
-                    maskImage: 'linear-gradient(to bottom, black 0%, black 50%, transparent 100%)' 
-                  } : {})
+                  backgroundImage: `url('${details.bannerImage || details.coverImage.extraLarge || details.coverImage.large}')`,
+                  filter: 'blur(75px) saturate(1.3)',
+                  WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.4) 60%, rgba(0,0,0,0) 100%)',
+                  maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.4) 60%, rgba(0,0,0,0) 100%)'
                 }}
               />
-              
+            </div>
+
+            {/* Floating Glass Back Button */}
+            <button 
+              onClick={onClose} 
+              className={cn(
+                "absolute top-5 z-30 flex items-center gap-2 bg-secondary/80 hover:bg-secondary backdrop-blur-xl border border-border/60 text-foreground font-extrabold rounded-full shadow-xl hover:scale-105 active:scale-95 transition-all text-xs sm:text-sm group",
+                isMobile ? "left-4 px-3.5 py-2" : "left-6 md:left-16 px-4 py-2.5"
+              )}
+            >
+              <ArrowLeft className="w-4 h-4 text-primary group-hover:-translate-x-1 transition-transform" />
+              <span>Back to Dashboard</span>
+            </button>
+
+            {/* Hero Header Area */}
+            <section className={cn(
+              "relative flex items-end",
+              isMobile ? "min-h-[360px] px-5 pb-6 pt-16" : "min-h-[380px] md:min-h-[420px] px-6 md:px-16 pb-8 pt-16"
+            )}>
               <div className="max-w-7xl mx-auto w-full flex flex-col md:flex-row gap-6 md:gap-8 items-center md:items-end">
                 {/* Cover Image */}
-                <div className={cn("flex-shrink-0 w-44 md:w-64 lg:w-72", isMobile ? "mx-auto" : "mx-0")}>
-                  <div className="aspect-[3/4] overflow-hidden rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-border">
-                    <img className="w-full h-full object-cover" src={details.coverImage.extraLarge || details.coverImage.large} alt={details.title.english || details.title.romaji} />
+                <div className={cn("flex-shrink-0 w-40 md:w-56 lg:w-64 relative group", isMobile ? "mx-auto mt-6" : "mx-0")}>
+                  <div className="aspect-[3/4] overflow-hidden rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.4)] border border-border/50 relative">
+                    <img className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" src={details.coverImage.extraLarge || details.coverImage.large} alt={details.title.english || details.title.romaji} />
+                    {/* 3D Book Spine Shadow */}
+                    <div className="absolute top-0 bottom-0 left-0 w-3 bg-gradient-to-r from-black/45 via-black/15 to-transparent z-20 pointer-events-none rounded-l-[inherit]" />
+                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/0 to-white/20 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10" />
                   </div>
                 </div>
                 
                 {/* Info Details */}
                 <div className={cn("flex-grow flex flex-col justify-end w-full", isMobile ? "items-center text-center mt-2" : "")}>
-                  <h1 className={cn("font-bold mb-4 text-primary tracking-tight", isMobile ? "text-3xl" : "text-4xl md:text-5xl lg:text-6xl")}>
+                  <h1 className={cn("font-extrabold mb-4 text-foreground tracking-tight leading-tight drop-shadow-sm", isMobile ? "text-2xl sm:text-3xl" : "text-4xl md:text-5xl lg:text-6xl")}>
                     {details.title.english || details.title.romaji}
                   </h1>
                   
                   <div className={cn("flex flex-wrap gap-2 mb-4", isMobile ? "justify-center" : "")}>
-                    <div className="bg-card/70 backdrop-blur-xl border border-border/50 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-                      <span className="text-[10px] font-semibold tracking-wider text-muted-foreground">FORMAT</span>
-                      <span className="text-xs font-medium text-primary uppercase">{details.format}</span>
+                    <div className="bg-secondary/70 backdrop-blur-xl border border-border/50 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
+                      <span className="text-[10px] font-extrabold tracking-wider text-muted-foreground">FORMAT</span>
+                      <span className="text-xs font-extrabold text-foreground uppercase">{details.format}</span>
                     </div>
                     {details.averageScore && (
-                      <div className="bg-card/70 backdrop-blur-xl border border-border/50 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-                        <span className="text-[10px] font-semibold tracking-wider text-muted-foreground">SCORE</span>
-                        <span className="text-xs font-medium text-primary">{details.averageScore}%</span>
+                      <div className="bg-secondary/70 backdrop-blur-xl border border-border/50 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
+                        <span className="text-[10px] font-extrabold tracking-wider text-muted-foreground">SCORE</span>
+                        <span className="text-xs font-extrabold text-yellow-500 dark:text-yellow-400">{details.averageScore}%</span>
                       </div>
                     )}
                     {details.popularity && (
-                      <div className="bg-card/70 backdrop-blur-xl border border-border/50 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-                        <span className="text-[10px] font-semibold tracking-wider text-muted-foreground">POPULARITY</span>
-                        <span className="text-xs font-medium text-primary">#{details.popularity}</span>
+                      <div className="bg-secondary/70 backdrop-blur-xl border border-border/50 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
+                        <span className="text-[10px] font-extrabold tracking-wider text-muted-foreground">POPULARITY</span>
+                        <span className="text-xs font-extrabold text-primary">#{details.popularity}</span>
                       </div>
                     )}
                   </div>
                   
                   <div className={cn("flex flex-wrap gap-2", isMobile ? "justify-center" : "")}>
                     {details.genres?.slice(0, isMobile ? 4 : 10).map(g => (
-                      <span key={g} className="bg-primary/10 text-primary border border-primary/20 text-xs px-3 py-1 rounded-full font-medium">
+                      <span key={g} className="bg-primary/15 text-primary border border-primary/25 text-xs px-3.5 py-1 rounded-full font-bold shadow-sm">
                         {g}
                       </span>
                     ))}
                   </div>
 
                   {!isMobile && (
-                    <div className="flex flex-wrap gap-3 mt-6">
+                    <div className="flex flex-wrap gap-3.5 mt-6">
                       {onSearchOnlineManga && (
                         <button 
                           onClick={() => onSearchOnlineManga(details.title.english || details.title.romaji)}
-                          className={cn(
-                            "flex items-center gap-2 border border-border backdrop-blur-xl px-5 py-2.5 rounded-xl font-medium transition-all active:scale-95",
-                            theme === 'sepia' 
-                              ? "bg-white/50 hover:bg-white/80 text-primary" 
-                              : "bg-black/40 hover:bg-secondary/80 text-foreground"
-                          )}
+                          className="flex items-center gap-2.5 bg-primary text-primary-foreground font-extrabold px-6 py-3 rounded-2xl shadow-lg shadow-primary/25 hover:bg-primary/90 hover:scale-[1.02] active:scale-95 transition-all"
                         >
-                          <BookOpen className="w-4 h-4 text-blue-400" /> Read Online
+                          <BookOpen className="w-4 h-4" /> Read Online
                         </button>
                       )}
                       {onSearchTorbox && (
                         <button 
                           onClick={() => onSearchTorbox(details.title.english || details.title.romaji)}
-                          className={cn(
-                            "flex items-center gap-2 border border-border backdrop-blur-xl px-5 py-2.5 rounded-xl font-medium transition-all active:scale-95",
-                            theme === 'sepia' 
-                              ? "bg-white/50 hover:bg-white/80 text-primary" 
-                              : "bg-black/40 hover:bg-secondary/80 text-foreground"
-                          )}
+                          className="flex items-center gap-2.5 bg-secondary/80 border border-border/60 hover:bg-secondary text-foreground font-bold px-6 py-3 rounded-2xl hover:scale-[1.02] active:scale-95 transition-all shadow-sm"
                         >
-                          <Download className="w-4 h-4 text-purple-400" /> Download via Torbox
+                          <Download className="w-4 h-4 text-primary" /> Download via Torbox
                         </button>
                       )}
                     </div>
@@ -537,9 +522,10 @@ export function AniListMangaDetailsView({
               
               {/* Tabbed Navigation & Content */}
               <div className="flex-grow min-w-0">
+                {/* Segmented Glass Pill Switcher */}
                 <div className={cn(
-                  "flex overflow-x-auto custom-scrollbar no-scrollbar scroll-smooth relative z-10",
-                  isMobile ? "gap-2 mb-6 pb-4" : "gap-4 border-b border-surface-variant/50 mb-8 pb-4"
+                  "flex gap-1.5 overflow-x-auto hide-scrollbar relative z-10 p-1.5 bg-secondary/40 backdrop-blur-xl rounded-2xl border border-border/50 mb-8 shrink-0",
+                  isMobile ? "mb-6" : ""
                 )}>
                   {(['overview', 'characters', 'relations', 'recommendations'] as const).map(tab => {
                     const isActive = activeTab === tab;
@@ -548,19 +534,18 @@ export function AniListMangaDetailsView({
                         key={tab}
                         onClick={() => setActiveTab(tab)}
                         className={cn(
-                          "relative whitespace-nowrap transition-colors duration-300 rounded-full",
-                          isMobile ? "px-5 py-2.5 text-sm" : "px-6 py-3 text-sm font-semibold tracking-wider uppercase",
-                          isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                          "relative px-5 py-2.5 text-xs sm:text-sm font-extrabold transition-all whitespace-nowrap flex items-center gap-2 rounded-xl select-none z-10 capitalize",
+                          isActive ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                         )}
                       >
                         {isActive && (
                           <motion.div
-                            layoutId="activeTabPill"
-                            className="absolute inset-0 bg-primary/10 border border-primary/20 rounded-full -z-10"
-                            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                            layoutId="activeTabPillDetails"
+                            className="absolute inset-0 bg-primary rounded-xl shadow-md shadow-primary/25 -z-10"
+                            transition={{ type: "spring", stiffness: 400, damping: 30 }}
                           />
                         )}
-                        <span className="relative z-10 font-medium capitalize">{tab}</span>
+                        <span>{tab}</span>
                       </button>
                     );
                   })}

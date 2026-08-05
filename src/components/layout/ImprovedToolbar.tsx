@@ -21,7 +21,7 @@ import {
   IconX,
   IconSidebarToggle,
 } from '@/components/icons/ShioriIcons'
-import { Layers, Filter, HelpCircle, BarChart2, Rss, FolderPlus, FolderOpen, ChevronDown } from 'lucide-react'
+import { Layers, Filter, HelpCircle, BarChart2, Rss, FolderPlus, FolderOpen, ChevronDown, Settings } from 'lucide-react'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import { useShelfStore } from '@/store/shelfStore'
 import type { CurrentView } from '@/store/uiStore'
@@ -257,26 +257,26 @@ export function PremiumTopbar({
                 <ChevronDown size={15} className="opacity-80" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" sideOffset={10} className="w-72 rounded-2xl border border-border/50 shadow-2xl bg-card/95 backdrop-blur-3xl p-2.5 z-50">
-              <DropdownMenuItem onClick={onImportFiles} className="gap-3.5 p-3 cursor-pointer rounded-xl flex items-center group hover:bg-accent/80 focus:bg-accent/80 transition-colors">
+            <DropdownMenuContent align="end" sideOffset={10} className="w-72 rounded-2xl border p-2.5 z-[100] shiori-import-dropdown">
+              <DropdownMenuItem onClick={onImportFiles} className="gap-3.5 p-3 cursor-pointer rounded-xl flex items-center group transition-colors shiori-import-dropdown-item">
                 <div className="p-2.5 bg-primary/10 group-hover:bg-primary/20 rounded-xl shrink-0 transition-colors">
                   <IconImportBook size={20} className="text-primary" />
                 </div>
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-xs sm:text-sm font-bold text-foreground group-hover:text-primary transition-colors">Import Files</span>
-                  <span className="text-[11px] text-muted-foreground/80 font-medium leading-snug">Select individual books or manga</span>
+                  <span className="text-xs sm:text-sm font-bold transition-colors shiori-import-dropdown-text">Import Files</span>
+                  <span className="text-[11px] font-medium leading-snug shiori-import-dropdown-subtext">Select individual books or manga</span>
                 </div>
               </DropdownMenuItem>
 
               <DropdownMenuSeparator className="my-1.5 bg-border/40" />
 
-              <DropdownMenuItem onClick={onImportFolder} className="gap-3.5 p-3 cursor-pointer rounded-xl flex items-center group hover:bg-accent/80 focus:bg-accent/80 transition-colors">
+              <DropdownMenuItem onClick={onImportFolder} className="gap-3.5 p-3 cursor-pointer rounded-xl flex items-center group transition-colors shiori-import-dropdown-item">
                 <div className="p-2.5 bg-primary/10 group-hover:bg-primary/20 rounded-xl shrink-0 transition-colors">
                   <IconImportManga size={20} className="text-primary" />
                 </div>
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-xs sm:text-sm font-bold text-foreground group-hover:text-primary transition-colors">Import Folder</span>
-                  <span className="text-[11px] text-muted-foreground/80 font-medium leading-snug">Scan directory recursively</span>
+                  <span className="text-xs sm:text-sm font-bold transition-colors shiori-import-dropdown-text">Import Folder</span>
+                  <span className="text-[11px] font-medium leading-snug shiori-import-dropdown-subtext">Scan directory recursively</span>
                 </div>
               </DropdownMenuItem>
 
@@ -402,6 +402,20 @@ export function PremiumTopbar({
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs font-medium">Keyboard Shortcuts</TooltipContent>
+            </Tooltip>
+
+            {/* Settings */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={onOpenSettings}
+                  className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                >
+                  <Settings size={17} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs font-medium">Settings</TooltipContent>
             </Tooltip>
           </div>
 

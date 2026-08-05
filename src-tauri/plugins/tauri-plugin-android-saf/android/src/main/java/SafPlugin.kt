@@ -420,7 +420,7 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
     fun createFileInTree(invoke: Invoke) {
         val treeUriStr = invoke.getArgs().getString("treeUri", null)
         val fileName = invoke.getArgs().getString("fileName", null)
-        val mimeType = invoke.getArgs().getString("mimeType", "*/*")
+        val mimeType = invoke.getArgs().getString("mimeType", "*/*") ?: "*/*"
         if (treeUriStr == null || fileName == null) {
             invoke.reject("Missing treeUri or fileName")
             return

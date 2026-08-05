@@ -630,6 +630,10 @@ impl RssService {
             authors: vec![],
             tags: vec![],
             metadata_locked: None,
+            // ponytail: slice 2/3 will populate is_managed/origin/managed_relpath.
+            is_managed: false,
+            origin: None,
+            managed_relpath: None,
         };
 
         if let Ok(book_id) = crate::services::library_service::add_book(&self.db, new_book) {

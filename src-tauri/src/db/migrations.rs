@@ -150,6 +150,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 42 {
             self.run_in_savepoint("v42", |mgr| mgr.migrate_to_v42())?;
         }
+        if current_version < 43 {
+            self.run_in_savepoint("v43", |mgr| mgr.migrate_to_v43())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -2329,6 +2332,52 @@ impl<'a> MigrationManager<'a> {
 
         let hash = Self::calculate_checksum("v42_add_updated_at_to_shelves");
         self.record_migration(42, "add_updated_at_to_shelves", &hash)?;
+        Ok(())
+    }
+
+    /// Migration v43: Tombstoned deletion + managed books foundation.
+    ///
+    /// Creates the `deleted_books` tombstone table and adds three fields to
+    /// `books` for managed (Shiori-owned) books. The ALTERs are guarded with
+    /// column_exists because `user_version` is stuck at 30 (migrations v31+
+    /// never call set_schema_version), so v31+ re-run on every startup and an
+    /// unguarded ALTER would fail with "duplicate column name" on the second
+    /// launch.
+    fn migrate_to_v43(&self) -> Result<()> {
+        log::info!("[Migration] Applying v43: deleted_books table + managed book fields");
+
+        self.conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS deleted_books (
+                id          INTEGER PRIMARY KEY,
+                file_hash   TEXT,
+                file_path   TEXT,
+                reason      TEXT,   -- 'user_delete' | 'trash_purge' | 'auto_purge'
+                deleted_at  TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_deleted_books_hash ON deleted_books(file_hash);
+            CREATE INDEX IF NOT EXISTS idx_deleted_books_path ON deleted_books(file_path);",
+        )?;
+        if !self.column_exists("books", "is_managed")? {
+            self.conn.execute(
+                "ALTER TABLE books ADD COLUMN is_managed INTEGER NOT NULL DEFAULT 0",
+                [],
+            )?; // 1 = Shiori owns the file
+        }
+        if !self.column_exists("books", "origin")? {
+            self.conn.execute(
+                "ALTER TABLE books ADD COLUMN origin TEXT",
+                [],
+            )?; // 'scanned' | 'open_with' | 'download' | 'converted'
+        }
+        if !self.column_exists("books", "managed_relpath")? {
+            self.conn.execute(
+                "ALTER TABLE books ADD COLUMN managed_relpath TEXT",
+                [],
+            )?; // path relative to library root when managed
+        }
+
+        let hash = Self::calculate_checksum("v43_deleted_books_and_managed_fields");
+        self.record_migration(43, "deleted_books_and_managed_fields", &hash)?;
         Ok(())
     }
 }

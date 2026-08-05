@@ -19,7 +19,8 @@ const BOOK_COLUMNS: &str =
      b.file_hash, b.cover_path, b.page_count, b.word_count, b.language,
      b.added_date, b.modified_date, b.last_opened, b.notes,
      b.online_metadata_fetched, b.metadata_source, b.metadata_last_sync, b.anilist_id,
-     b.is_favorite, b.reading_status, b.domain, b.metadata_locked, b.is_wishlist, b.in_trash, b.deleted_at";
+     b.is_favorite, b.reading_status, b.domain, b.metadata_locked, b.is_wishlist, b.in_trash, b.deleted_at,
+     b.is_managed, b.origin, b.managed_relpath";
 
 /// Map a single row (using the BOOK_COLUMNS order) into a Book with empty authors/tags.
 fn book_from_row(row: &rusqlite::Row) -> rusqlite::Result<Book> {
@@ -61,6 +62,10 @@ fn book_from_row(row: &rusqlite::Row) -> rusqlite::Result<Book> {
         is_wishlist: row.get::<_, i64>(31).unwrap_or(0) != 0,
         in_trash: row.get::<_, i64>(32).unwrap_or(0) != 0,
         deleted_at: row.get(33).ok().flatten(),
+        // Read from DB — creation sites still write defaults (slice 2/3 will populate).
+        is_managed: row.get::<_, i64>(34).unwrap_or(0) != 0,
+        origin: row.get(35).ok().flatten(),
+        managed_relpath: row.get(36).ok().flatten(),
         authors: vec![],
         tags: vec![],
     })
@@ -303,8 +308,10 @@ pub fn add_book(db: &Database, mut book: Book) -> Result<i64> {
     tx.execute(
         "INSERT INTO books (uuid, title, sort_title, isbn, isbn13, publisher, pubdate,
                            series, series_index, rating, file_path, file_format, file_size,
-                           file_hash, cover_path, page_count, word_count, language, notes, reading_status)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
+                           file_hash, cover_path, page_count, word_count, language, notes, reading_status,
+                           is_managed, origin, managed_relpath)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20,
+                 ?21, ?22, ?23)",
         params![
             book.uuid,
             book.title,
@@ -326,6 +333,9 @@ pub fn add_book(db: &Database, mut book: Book) -> Result<i64> {
             book.language,
             book.notes,
             book.reading_status,
+            book.is_managed,
+            book.origin,
+            book.managed_relpath,
         ],
     )?;
 
@@ -824,6 +834,10 @@ pub fn import_single_book(db: &Database, path: &str, covers_dir: &std::path::Pat
         reading_status: "planning".to_string(),
         domain: None,
         metadata_locked: None,
+        // ponytail: slice 2/3 will populate is_managed/origin/managed_relpath.
+        is_managed: false,
+        origin: None,
+        managed_relpath: None,
     };
 
     let book_id = add_book(db, book)?;
@@ -1030,6 +1044,10 @@ pub fn scan_and_import_folder(
                 reading_status: "planning".to_string(),
                 domain: Some(domain.to_string()),
                 metadata_locked: None,
+                // ponytail: slice 2/3 will populate is_managed/origin/managed_relpath.
+                is_managed: false,
+                origin: None,
+                managed_relpath: None,
             };
 
             Ok(PreprocessedBook { path, book })
@@ -1797,6 +1815,10 @@ mod tests {
             reading_status: "Unread".to_string(),
             domain: Some("books".to_string()),
             metadata_locked: None,
+            // ponytail: slice 2/3 will populate is_managed/origin/managed_relpath.
+            is_managed: false,
+            origin: None,
+            managed_relpath: None,
             is_wishlist: false,
             in_trash: false,
             deleted_at: None,

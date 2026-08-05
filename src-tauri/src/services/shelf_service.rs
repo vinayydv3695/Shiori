@@ -258,6 +258,10 @@ impl ShelfService {
                     in_trash: row.get::<_, i64>(31).unwrap_or(0) != 0,
                     deleted_at: row.get(32).ok().flatten(),
                     metadata_locked: None,
+                    // ponytail: slice 2/3 will populate is_managed/origin/managed_relpath.
+                    is_managed: false,
+                    origin: None,
+                    managed_relpath: None,
                     authors: Vec::new(),
                     tags: Vec::new(),
                 })
@@ -488,6 +492,10 @@ impl ShelfService {
                     in_trash: row.get::<_, i64>(31).unwrap_or(0) != 0,
                     deleted_at: row.get(32).ok().flatten(),
                     metadata_locked: None,
+                    // ponytail: slice 2/3 will populate is_managed/origin/managed_relpath.
+                    is_managed: false,
+                    origin: None,
+                    managed_relpath: None,
                     authors: Vec::new(),
                     tags: Vec::new(),
                 })

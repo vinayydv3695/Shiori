@@ -7,6 +7,7 @@ pub mod fb2_reader_adapter;
 pub mod format_detector;
 pub mod html_reader_adapter;
 pub mod library_service;
+pub mod library_root;
 pub mod markdown_reader_adapter;
 pub mod metadata_service;
 pub mod mobi_adapter;

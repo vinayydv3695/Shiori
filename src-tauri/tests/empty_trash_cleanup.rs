@@ -76,6 +76,10 @@ fn make_book(file_path: &Path, uuid: &str) -> Book {
         reading_status: "planning".to_string(),
         domain: Some("books".to_string()),
         metadata_locked: None,
+        // ponytail: slice 2/3 will populate is_managed/origin/managed_relpath.
+        is_managed: false,
+        origin: None,
+        managed_relpath: None,
         is_wishlist: false,
         in_trash: false,
         deleted_at: None,

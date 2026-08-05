@@ -71,6 +71,13 @@ pub struct Book {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata_locked: Option<HashMap<String, bool>>,
 
+    #[serde(default)]
+    pub is_managed: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub origin: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub managed_relpath: Option<String>,
+
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub authors: Vec<Author>,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]

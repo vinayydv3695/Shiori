@@ -21,7 +21,18 @@ import type {
 } from '../../types/preferences'
 import { DEFAULT_USER_PREFERENCES, DEFAULT_BOOK_PREFERENCES, DEFAULT_MANGA_PREFERENCES } from '../../types/preferences'
 import { api, isTauri, isAndroid } from '../../lib/tauri'
-import type { BackupInfo, CacheStats } from '../../lib/tauri'
+import type { BackupInfo, BackupCategory, CacheStats, ConflictPolicy, MigrateReport, RestoreInfo } from '../../lib/tauri'
+import {
+  ALL_BACKUP_CATEGORIES,
+  BACKUP_CATEGORY_DESCRIPTIONS,
+  BACKUP_CATEGORY_LABELS,
+  CONFLICT_POLICY_LABELS,
+  DEFAULT_CONFLICT_POLICY,
+  buildBackupSelection,
+  buildRestoreSelection,
+  defaultBackupCategories,
+  isFullSelection,
+} from '@/lib/backupSelection'
 import { TTSEngine } from '@/lib/ttsEngine'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { useToast } from '../../store/toastStore'
@@ -169,6 +180,10 @@ const ALL_SETTINGS: SettingDefinition[] = [
   { label: 'Cache Clear Policy', description: 'When to auto-clear cache', tab: 'advanced', section: 'Cache' },
   { label: 'Backup', description: 'Create library backup', tab: 'advanced', section: 'Backup & Restore' },
   { label: 'Restore', description: 'Restore from backup', tab: 'advanced', section: 'Backup & Restore' },
+  { label: 'Library Storage', description: 'Choose where managed books live', tab: 'advanced', section: 'Library Storage' },
+  { label: 'Choose Folder', description: 'Pick a durable folder for managed books', tab: 'advanced', section: 'Library Storage' },
+  { label: 'Migrate Managed Books', description: 'Move managed books into the durable folder', tab: 'advanced', section: 'Library Storage' },
+  { label: 'Use App-Private Storage', description: 'Store managed books in the Shiori private folder', tab: 'advanced', section: 'Library Storage' },
   { label: 'Send Analytics', description: 'Anonymous usage statistics', tab: 'advanced', section: 'Privacy' },
   { label: 'Send Crash Reports', description: 'Automatic crash reporting', tab: 'advanced', section: 'Privacy' },
   { label: 'Reading History Retention', description: 'How long to keep reading history', tab: 'advanced', section: 'Privacy' },
@@ -1417,11 +1432,23 @@ const AdvancedSettings = ({
   const [isCleaningUp, setIsCleaningUp] = useState(false)
   const [isBackingUp, setIsBackingUp] = useState(false)
   const [isRestoring, setIsRestoring] = useState(false)
-  const [includeBooks, setIncludeBooks] = useState(false)
+  const [selectedCategories, setSelectedCategories] = useState<BackupCategory[]>(defaultBackupCategories)
+  const [includeCredentials, setIncludeCredentials] = useState(false)
+  const [includeFrontendSettings, setIncludeFrontendSettings] = useState(true)
+  const [conflictPolicy, setConflictPolicy] = useState<ConflictPolicy>(DEFAULT_CONFLICT_POLICY)
   const [backupResult, setBackupResult] = useState<BackupInfo | null>(null)
-  const [restoreSuccess, setRestoreSuccess] = useState(false)
+  const [restoreResult, setRestoreResult] = useState<RestoreInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [cacheStats, setCacheStats] = useState<CacheStats | null>(null)
+  // Library storage mode (Mode A app-private vs Mode B SAF durable folder).
+  // Frontend-tracked: the backend only exposes setLibraryMode, so the display
+  // starts at 'app' and follows every action taken in this section.
+  const [libraryMode, setLibraryMode] = useState<'app' | 'saf'>('app')
+  const [libraryRootUri, setLibraryRootUri] = useState<string | null>(null)
+  const [isPickingFolder, setIsPickingFolder] = useState(false)
+  const [isMigrating, setIsMigrating] = useState(false)
+  const [migrateReport, setMigrateReport] = useState<MigrateReport | null>(null)
+  const [libraryError, setLibraryError] = useState<string | null>(null)
   const toast = useToast()
 
   useEffect(() => {
@@ -1577,11 +1604,12 @@ const AdvancedSettings = ({
       }
 
       setIsBackingUp(true)
-      const frontendSettings = collectFrontendSettings()
-      const info = await api.createBackup(rustSavePath, {
-        include_books: includeBooks,
-        frontend_settings: frontendSettings,
-      })
+      const frontendSettings = includeFrontendSettings ? collectFrontendSettings() : undefined
+      const info = await api.createBackup(
+        rustSavePath,
+        buildBackupSelection(selectedCategories, includeCredentials, includeFrontendSettings),
+        frontendSettings,
+      )
 
       if (isAndroid && finalUri && rustSavePath) {
         await api.writeDocument(finalUri, rustSavePath);
@@ -1598,10 +1626,13 @@ const AdvancedSettings = ({
 
   const handleRestore = async () => {
     setError(null)
-    setRestoreSuccess(false)
+    setRestoreResult(null)
 
+    const restoreScope = isFullSelection(selectedCategories)
+      ? 'everything'
+      : `${selectedCategories.length} categor${selectedCategories.length === 1 ? 'y' : 'ies'}`
     const confirmed = confirm(
-      'Restoring a backup will REPLACE all current data (books, annotations, settings, shelves). This cannot be undone.\n\nContinue?'
+      `Restore ${restoreScope} from the backup? Existing data is handled per the conflict policy you chose (${CONFLICT_POLICY_LABELS[conflictPolicy]}).\n\nContinue?`
     )
     if (!confirmed) return
 
@@ -1622,13 +1653,16 @@ const AdvancedSettings = ({
       if (!filePath) return
 
       setIsRestoring(true)
-      const result = await api.restoreBackup(filePath)
+      const result = await api.restoreBackup(
+        filePath,
+        buildRestoreSelection(selectedCategories, conflictPolicy, includeCredentials),
+      )
 
       if (result.frontend_settings) {
         restoreFrontendSettings(result.frontend_settings)
       }
 
-      setRestoreSuccess(true)
+      setRestoreResult(result)
       toast.success(
         'Restore completed',
         `Restored ${result.books_restored} books, ${result.annotations_restored} annotations, ${result.shelves_restored} shelves, ${result.covers_restored} covers.`
@@ -1638,6 +1672,68 @@ const AdvancedSettings = ({
       setError(`Restore failed: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
       setIsRestoring(false)
+    }
+  }
+
+  const toggleCategory = (cat: BackupCategory) => {
+    setSelectedCategories((prev) =>
+      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
+    )
+  }
+
+  const handleChooseLibraryFolder = async () => {
+    setLibraryError(null)
+    try {
+      setIsPickingFolder(true)
+      const uri = await api.pickLibraryRoot()
+      if (!uri) return
+      if (!confirm('Use this folder as Shiori\'s durable library storage?\n\nBooks stored here survive app uninstall. Continue?')) return
+      await api.setLibraryMode('saf', uri)
+      setLibraryMode('saf')
+      setLibraryRootUri(uri)
+      setMigrateReport(null)
+      toast.success('Durable folder set', 'Managed books will be stored in the chosen folder')
+    } catch (err) {
+      logger.error('Failed to set library folder:', err)
+      setLibraryError(`Failed to set library folder: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setIsPickingFolder(false)
+    }
+  }
+
+  const handleMigrateToSaf = async () => {
+    if (!libraryRootUri) return
+    setLibraryError(null)
+    if (!confirm('Copy all managed books into the chosen durable folder?\n\nYour library keeps working from that folder afterwards. Continue?')) return
+    try {
+      setIsMigrating(true)
+      const report = await api.migrateLibraryToSaf(libraryRootUri)
+      setMigrateReport(report)
+      if (report.failed.length === 0) {
+        setLibraryMode('saf')
+        toast.success('Migration complete', `${report.migrated} books moved to the durable folder`)
+      } else {
+        toast.warning('Migration finished with errors', `${report.migrated} migrated, ${report.failed.length} failed`)
+      }
+    } catch (err) {
+      logger.error('Migration to SAF failed:', err)
+      setLibraryError(`Migration failed: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setIsMigrating(false)
+    }
+  }
+
+  const handleUseAppStorage = async () => {
+    setLibraryError(null)
+    try {
+      await api.setLibraryMode('app')
+      setLibraryMode('app')
+      setLibraryRootUri(null)
+      setMigrateReport(null)
+      toast.info('App-private storage active', 'Managed books live in the Shiori private folder')
+    } catch (err) {
+      logger.error('Failed to switch to app storage:', err)
+      setLibraryError(`Failed to switch storage: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 
@@ -1816,14 +1912,54 @@ const AdvancedSettings = ({
           description="Create or restore library backups"
         >
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 rounded-lg bg-muted border border-border">
-              <div className="space-y-0.5">
-                <label className="text-sm font-medium">Include book files</label>
+            <div className="p-4 rounded-lg bg-muted border border-border space-y-3">
+              <div>
+                <label className="text-sm font-medium">Categories</label>
                 <p className="text-xs text-muted-foreground">
-                  Include all imported book files in the backup (increases size)
+                  Choose what to include in the backup and restore
                 </p>
               </div>
-              <Switch checked={includeBooks} onChange={(checked) => setIncludeBooks(checked)} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                {ALL_BACKUP_CATEGORIES.map((cat) => (
+                  <label
+                    key={cat}
+                    className="flex items-start gap-2.5 cursor-pointer select-none rounded-md px-2 py-1.5 hover:bg-background/60 transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedCategories.includes(cat)}
+                      onChange={() => toggleCategory(cat)}
+                      className="rounded border-border text-primary focus:ring-primary/20 bg-background/50 cursor-pointer w-4 h-4 mt-0.5"
+                    />
+                    <span>
+                      <span className="block text-[13px] font-medium">{BACKUP_CATEGORY_LABELS[cat]}</span>
+                      <span className="block text-[11px] text-muted-foreground leading-snug">
+                        {BACKUP_CATEGORY_DESCRIPTIONS[cat]}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between p-4 rounded-lg bg-muted border border-border">
+              <div className="space-y-0.5">
+                <label className="text-sm font-medium">Include credentials</label>
+                <p className="text-xs text-muted-foreground">
+                  API keys, Cloudflare sessions (off by default)
+                </p>
+              </div>
+              <Switch checked={includeCredentials} onChange={setIncludeCredentials} />
+            </div>
+
+            <div className="flex items-center justify-between p-4 rounded-lg bg-muted border border-border">
+              <div className="space-y-0.5">
+                <label className="text-sm font-medium">Frontend settings</label>
+                <p className="text-xs text-muted-foreground">
+                  Local UI preferences (toolbar, onboarding, window state)
+                </p>
+              </div>
+              <Switch checked={includeFrontendSettings} onChange={setIncludeFrontendSettings} />
             </div>
 
             <Button variant="outline" onClick={handleBackup} disabled={isBackingUp} className="w-full gap-2">
@@ -1846,12 +1982,33 @@ const AdvancedSettings = ({
               </div>
             )}
 
-            <div className="border-t border-border pt-4">
-              <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 mb-4">
+            <div className="border-t border-border pt-4 space-y-4">
+              <div className="p-4 rounded-lg bg-muted border border-border">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="space-y-0.5">
+                    <label className="text-sm font-medium">Conflict policy</label>
+                    <p className="text-xs text-muted-foreground">
+                      What to do when restored data already exists
+                    </p>
+                  </div>
+                  <select
+                    value={conflictPolicy}
+                    onChange={(e) => setConflictPolicy(e.target.value as ConflictPolicy)}
+                    className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
+                    aria-label="Restore conflict policy"
+                  >
+                    {(Object.keys(CONFLICT_POLICY_LABELS) as ConflictPolicy[]).map((policy) => (
+                      <option key={policy} value={policy}>{CONFLICT_POLICY_LABELS[policy]}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400 mt-0.5 shrink-0" />
                   <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                    Restoring a backup will replace ALL current data including books, annotations, shelves, and settings.
+                    Restore applies to the categories selected above. Existing data is handled per the conflict policy — 'Skip' leaves it untouched.
                   </p>
                 </div>
               </div>
@@ -1864,12 +2021,36 @@ const AdvancedSettings = ({
                 )}
               </Button>
 
-              {restoreSuccess && (
-                <div className="mt-4 p-4 rounded-lg bg-green-500/10 border border-green-500/30">
+              {restoreResult && (
+                <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/30 space-y-2">
                   <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
                     <CheckCircle2 className="w-4 h-4" />
-                    <span className="text-sm font-medium">Restore completed successfully</span>
+                    <span className="text-sm font-medium">Restore completed</span>
                   </div>
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    {Object.entries(restoreResult.restored).map(([cat, count]) => (
+                      <div key={cat} className="flex items-center justify-between gap-4">
+                        <span>{BACKUP_CATEGORY_LABELS[cat as BackupCategory] ?? cat}</span>
+                        <span className="font-medium">{count} restored</span>
+                      </div>
+                    ))}
+                    {restoreResult.skipped > 0 && (
+                      <div className="flex items-center justify-between gap-4">
+                        <span>Skipped (conflict policy)</span>
+                        <span className="font-medium">{restoreResult.skipped}</span>
+                      </div>
+                    )}
+                  </div>
+                  {restoreResult.errors.length > 0 && (
+                    <div className="rounded-md bg-red-500/10 border border-red-500/30 p-2 space-y-1">
+                      <p className="text-xs font-medium text-red-600 dark:text-red-400">
+                        Errors ({restoreResult.errors.length})
+                      </p>
+                      {restoreResult.errors.map((msg, i) => (
+                        <p key={i} className="text-[11px] text-red-600/80 dark:text-red-400/80 break-words">{msg}</p>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1880,6 +2061,97 @@ const AdvancedSettings = ({
               </div>
             )}
           </div>
+        </SettingSection>
+      )}
+
+      {isSectionVisible('Library Storage', ['Library Storage', 'Choose Folder', 'Migrate Managed Books', 'Use App-Private Storage']) && (
+        <SettingSection
+          title="Library Storage"
+          description="Choose where managed books live"
+        >
+          <div className="p-4 rounded-lg bg-muted border border-border space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <label className="text-sm font-medium">Current mode</label>
+                <p className="text-xs text-muted-foreground">
+                  {libraryMode === 'saf'
+                    ? 'Durable folder — survives uninstall'
+                    : 'App-private storage — wiped on uninstall'}
+                </p>
+              </div>
+              <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/30 shrink-0">
+                {libraryMode === 'saf' ? 'Mode B' : 'Mode A'}
+              </span>
+            </div>
+            {libraryMode === 'saf' && libraryRootUri && (
+              <p className="text-xs font-mono text-muted-foreground break-all">{libraryRootUri}</p>
+            )}
+
+            {isAndroid ? (
+              <>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button variant="outline" onClick={handleChooseLibraryFolder} disabled={isPickingFolder} className="gap-2">
+                    <FolderOpen size={15} />
+                    {isPickingFolder ? 'Opening picker...' : 'Choose folder'}
+                  </Button>
+                  <Button variant="outline" onClick={handleMigrateToSaf} disabled={isMigrating || !libraryRootUri} className="gap-2">
+                    <RefreshCw size={15} className={cn(isMigrating && 'animate-spin')} />
+                    {isMigrating ? 'Migrating...' : 'Migrate existing managed books'}
+                  </Button>
+                  <Button variant="outline" onClick={handleUseAppStorage} className="gap-2">
+                    <HardDrive size={15} />
+                    Use app-private storage
+                  </Button>
+                </div>
+
+                <div className="pt-1 space-y-1.5">
+                  <p className="text-xs text-muted-foreground leading-snug">
+                    <span className="font-medium text-foreground/80">App-private storage</span> keeps managed books inside
+                    Shiori's own folder — it is <span className="font-medium text-foreground/80">wiped when the app is uninstalled</span>.
+                  </p>
+                  <p className="text-xs text-muted-foreground leading-snug">
+                    A <span className="font-medium text-foreground/80">durable folder</span> keeps books in a folder you
+                    choose, so they <span className="font-medium text-foreground/80">survive uninstall</span>. This mode is
+                    available on Android only.
+                  </p>
+                </div>
+
+                {migrateReport && (
+                  <div className="rounded-lg border border-border/50 p-3 space-y-1.5 bg-background/50">
+                    <div className="flex items-center gap-2 text-sm">
+                      <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
+                      <span className="font-medium">Migration report</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{migrateReport.migrated} books migrated</p>
+                    {migrateReport.failed.length > 0 && (
+                      <div className="rounded-md bg-red-500/10 border border-red-500/30 p-2 space-y-1">
+                        <p className="text-xs font-medium text-red-600 dark:text-red-400">
+                          Failed ({migrateReport.failed.length})
+                        </p>
+                        {migrateReport.failed.map(([path, err], i) => (
+                          <p key={i} className="text-[11px] text-red-600/80 dark:text-red-400/80 break-words">
+                            {path}: {err}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-xs text-yellow-700 dark:text-yellow-300 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                The durable storage folder is Android-only. On desktop, managed books always live in Shiori's
+                app-private folder, which is removed on uninstall.
+              </p>
+            )}
+          </div>
+
+          {libraryError && (
+            <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30">
+              <p className="text-sm text-red-600 dark:text-red-400">{libraryError}</p>
+            </div>
+          )}
         </SettingSection>
       )}
 

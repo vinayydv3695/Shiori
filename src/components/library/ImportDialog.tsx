@@ -12,6 +12,7 @@ import { generateShelfSuggestions } from '../../lib/shelfSuggestions';
 import { SmartShelfSuggestionDialog } from './SmartShelfSuggestionDialog';
 import type { ShelfSuggestion } from '../../lib/shelfSuggestions';
 import { Button } from '../ui/button';
+import { cn } from '@/lib/utils';
 
 function isPermissionDeniedError(error: unknown) {
   if (typeof error === 'string') {
@@ -320,120 +321,169 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
     handleClose();
   };
 
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const droppedFiles = Array.from(e.dataTransfer.files);
+      const filePaths = droppedFiles.map(f => (f as any).path || f.name).filter(Boolean);
+      if (filePaths.length > 0) {
+        setMode('files');
+        setSelectedPath(`${filePaths.length} file(s) dropped`);
+        setSelectedFilePaths(filePaths);
+        selectedFilePathsRef.current = filePaths;
+        toast.success(`Selected ${filePaths.length} file(s)`, 'Click Start Import to begin');
+      }
+    }
+  };
+
   const isVisuallyOpen = open && (!autoTriggerMode || status !== 'idle');
 
   return (
     <>
       <Dialog.Root open={isVisuallyOpen} onOpenChange={handleClose}>
         <Dialog.Portal>
-          <Dialog.Overlay className="dialog-overlay fixed inset-0 z-50 bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-          <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-[50%] top-[50%] z-50 w-[92vw] sm:w-[96vw] md:w-full max-w-2xl translate-x-[-50%] translate-y-[-50%] flex flex-col rounded-2xl border border-border/50 bg-background/95 backdrop-blur-3xl shadow-2xl overflow-hidden max-h-[90vh] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]">
-            
+          <Dialog.Overlay className="dialog-overlay fixed inset-0 z-[100] bg-black/75 backdrop-blur-xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+          <Dialog.Content 
+            aria-describedby={undefined} 
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className="dialog-content fixed left-[50%] top-[50%] z-[100] w-[92vw] sm:w-[96vw] md:w-full max-w-2xl translate-x-[-50%] translate-y-[-50%] flex flex-col rounded-3xl border border-border/80 bg-background shadow-2xl overflow-hidden max-h-[90vh] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+          >
             {/* Header */}
-            <div className="flex flex-col border-b border-border/50 shrink-0 bg-muted/20">
-              <div className="flex items-center justify-between p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Upload className="h-5 w-5 text-primary" />
-                  </div>
-                  <Dialog.Title className="text-lg font-bold text-foreground">Import Books, Manga & Comics</Dialog.Title>
+            <div className="flex items-center justify-between p-6 pb-4 border-b border-border/40 bg-secondary/15 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/12 border border-primary/25 flex items-center justify-center">
+                  <Upload className="w-5 h-5 text-primary" />
                 </div>
-                <Dialog.Close asChild>
-                  <button className="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" title="Close">
-                    <X className="h-4 w-4" />
-                  </button>
-                </Dialog.Close>
+                <div>
+                  <Dialog.Title className="text-base font-extrabold text-foreground tracking-tight leading-none">
+                    Import Library
+                  </Dialog.Title>
+                  <p className="text-xs text-muted-foreground font-medium mt-1">
+                    Add books, manga, or comics to your library
+                  </p>
+                </div>
               </div>
+              <Dialog.Close asChild>
+                <button className="w-8 h-8 flex items-center justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary border border-border/40 transition-colors" title="Close">
+                  <X className="h-4 w-4" />
+                </button>
+              </Dialog.Close>
             </div>
 
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6">
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-5 relative">
+              {/* Drag & Drop Visual Overlay */}
+              {isDraggingOver && (
+                <div className="absolute inset-4 z-50 bg-primary/95 backdrop-blur-md rounded-2xl border-2 border-dashed border-primary-foreground flex flex-col items-center justify-center text-primary-foreground p-6 text-center animate-in fade-in-0 duration-150 shadow-2xl">
+                  <Upload className="w-12 h-12 mb-2 animate-bounce" />
+                  <h3 className="text-lg font-extrabold tracking-tight">Drop files to import</h3>
+                </div>
+              )}
+
               {status === 'idle' && (
                 <motion.div 
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="space-y-6 sm:space-y-8"
+                  className="space-y-5"
                 >
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <button
-                      onClick={() => {
-                        setMode('folder');
-                        setSelectedPath('');
-                      }}
-                      className={`group flex-1 flex flex-col items-center text-center gap-3 sm:gap-4 px-4 sm:px-6 py-6 sm:py-8 rounded-2xl border transition-all duration-300 relative overflow-hidden ${
-                        mode === 'folder'
-                          ? 'border-primary bg-primary/10 shadow-[0_8px_30px_rgb(0,0,0,0.12)] shadow-primary/20 scale-[1.02]'
-                          : 'border-white/5 bg-secondary/20 hover:bg-secondary/40 hover:border-white/10'
-                      }`}
-                    >
-                      {mode === 'folder' && (
-                        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" />
+                  {/* Mode Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Folder Scan Card */}
+                    <div 
+                      onClick={() => { setMode('folder'); handleSelectFolder(); }}
+                      className={cn(
+                        "group cursor-pointer flex flex-col items-center justify-center p-6 text-center rounded-2xl border transition-all duration-200 gap-3",
+                        mode === 'folder' && selectedPath
+                          ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                          : "border-border/60 bg-card hover:bg-secondary/30 hover:border-primary/40"
                       )}
-                      <div className={`p-4 rounded-full transition-transform duration-300 ${mode === 'folder' ? 'bg-primary/20 text-primary scale-110 shadow-inner' : 'bg-secondary text-muted-foreground group-hover:text-foreground group-hover:scale-105'}`}>
-                        <FolderOpen className="w-8 h-8" />
-                      </div>
-                      <div className="space-y-1 relative z-10">
-                        <h3 className={`text-base font-semibold tracking-tight transition-colors ${mode === 'folder' ? 'text-primary' : 'text-foreground'}`}>Scan Folder</h3>
-                        <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                          Recursively scan a folder for eBooks, Manga & Comics
-                        </p>
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setMode('files');
-                        setSelectedPath('');
-                      }}
-                      className={`group flex-1 flex flex-col items-center text-center gap-3 sm:gap-4 px-4 sm:px-6 py-6 sm:py-8 rounded-2xl border transition-all duration-300 relative overflow-hidden ${
-                        mode === 'files'
-                          ? 'border-primary bg-primary/10 shadow-[0_8px_30px_rgb(0,0,0,0.12)] shadow-primary/20 scale-[1.02]'
-                          : 'border-white/5 bg-secondary/20 hover:bg-secondary/40 hover:border-white/10'
-                      }`}
                     >
-                      {mode === 'files' && (
-                        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" />
-                      )}
-                      <div className={`p-4 rounded-full transition-transform duration-300 ${mode === 'files' ? 'bg-primary/20 text-primary scale-110 shadow-inner' : 'bg-secondary text-muted-foreground group-hover:text-foreground group-hover:scale-105'}`}>
-                        <File className="w-8 h-8" />
+                      <div className="w-14 h-14 rounded-2xl bg-primary/12 text-primary border border-primary/20 flex items-center justify-center group-hover:scale-105 transition-transform duration-200">
+                        <FolderOpen className="w-7 h-7" />
                       </div>
-                      <div className="space-y-1 relative z-10">
-                        <h3 className={`text-base font-semibold tracking-tight transition-colors ${mode === 'files' ? 'text-primary' : 'text-foreground'}`}>Select Files</h3>
-                        <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                          Choose individual eBook, Manga, or Comic files
-                        </p>
-                      </div>
-                    </button>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="block text-sm font-semibold text-foreground px-1">
-                      {mode === 'folder' ? 'Selected Folder' : 'Selected Files'}
-                    </label>
-                    <div className="flex items-center p-1 bg-secondary/10 border border-border/50 rounded-xl focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all">
-                      <input
-                        type="text"
-                        value={selectedPath}
-                        readOnly
-                        placeholder={mode === 'folder' ? 'No folder selected' : 'No files selected'}
-                        className="flex-1 bg-transparent border-none focus:ring-0 text-sm px-3 placeholder:text-muted-foreground truncate w-full outline-none"
-                      />
+                      <h3 className="text-sm font-extrabold text-foreground tracking-tight">Scan Folder</h3>
                       <Button
-                        onClick={mode === 'folder' ? handleSelectFolder : handleSelectFiles}
                         variant="secondary"
                         size="sm"
-                        className="shrink-0 rounded-lg shadow-sm"
+                        className="w-full rounded-xl font-extrabold text-xs mt-1"
                       >
-                        Browse
+                        Browse Folder
+                      </Button>
+                    </div>
+
+                    {/* Files Card */}
+                    <div 
+                      onClick={() => { setMode('files'); handleSelectFiles(); }}
+                      className={cn(
+                        "group cursor-pointer flex flex-col items-center justify-center p-6 text-center rounded-2xl border transition-all duration-200 gap-3",
+                        mode === 'files' && selectedPath
+                          ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                          : "border-border/60 bg-card hover:bg-secondary/30 hover:border-primary/40"
+                      )}
+                    >
+                      <div className="w-14 h-14 rounded-2xl bg-primary/12 text-primary border border-primary/20 flex items-center justify-center group-hover:scale-105 transition-transform duration-200">
+                        <File className="w-7 h-7" />
+                      </div>
+                      <h3 className="text-sm font-extrabold text-foreground tracking-tight">Select Files</h3>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="w-full rounded-xl font-extrabold text-xs mt-1"
+                      >
+                        Browse Files
                       </Button>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-center gap-2 pt-2">
-                    <Info className="w-4 h-4 text-muted-foreground" />
-                    <p className="text-xs text-muted-foreground">
-                      Supported: EPUB, PDF, MOBI, AZW3, TXT, FB2, DJVU, CBZ, CBR
-                    </p>
+                  {/* Selected Path Display Box */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground/80 px-0.5">
+                      {mode === 'folder' ? 'Selected Directory' : 'Selected Files'}
+                    </label>
+                    <div className="flex items-center gap-2 p-2 bg-secondary/30 border border-border/60 rounded-xl focus-within:ring-1 focus-within:ring-primary/40 transition-all">
+                      <input
+                        type="text"
+                        value={selectedPath}
+                        readOnly
+                        placeholder={mode === 'folder' ? 'No folder selected yet...' : 'No files selected yet...'}
+                        className="flex-1 bg-transparent border-none focus:ring-0 text-xs font-bold text-foreground placeholder:text-muted-foreground/50 px-2 outline-none truncate"
+                      />
+                      {selectedPath && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => { setSelectedPath(''); setSelectedFilePaths([]); }}
+                          className="h-7 px-2.5 rounded-lg text-xs font-bold text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors shrink-0"
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Supported Formats Footnote */}
+                  <p className="text-[11px] font-medium text-center text-muted-foreground/80 pt-1">
+                    Supported: <span className="font-bold text-foreground/90">EPUB • PDF • MOBI • AZW3 • CBZ • CBR • TXT • FB2 • DJVU</span>
+                  </p>
                 </motion.div>
               )}
 
@@ -557,18 +607,18 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
 
             {/* Footer */}
             {status !== 'importing' && status !== 'error' && (
-              <div className="flex items-center justify-end gap-3 p-4 border-t border-border/50 bg-muted/10 shrink-0">
+              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border/50 bg-secondary/30 shrink-0">
                 {status === 'idle' && (
                   <>
                     <Dialog.Close asChild>
-                      <Button variant="outline">
+                      <Button variant="ghost" className="rounded-xl font-bold text-xs px-4">
                         Cancel
                       </Button>
                     </Dialog.Close>
                     <Button
                       onClick={handleImport}
                       disabled={!selectedPath}
-                      className="gap-2"
+                      className="gap-2 rounded-xl font-extrabold text-xs px-6 shadow-lg shadow-primary/25 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-all"
                     >
                       <Upload className="w-4 h-4" />
                       Start Import
@@ -576,7 +626,7 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
                   </>
                 )}
                 {status === 'completed' && result && !showSuggestions && (
-                  <Button onClick={handleClose}>
+                  <Button onClick={handleClose} className="rounded-xl font-extrabold text-xs px-6 shadow-lg shadow-primary/25">
                     Done
                   </Button>
                 )}

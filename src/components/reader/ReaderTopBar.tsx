@@ -60,9 +60,9 @@ export function ReaderTopBar({
           >
             <ArrowLeft className="premium-control-icon" />
           </button>
-          <div className="flex flex-col min-w-0 overflow-hidden text-left justify-center h-full">
-            <span className="premium-book-title truncate block w-full" title={title}>{title}</span>
-            <span className="premium-chapter-indicator truncate block w-full" title={subtitle}>{subtitle}</span>
+          <div className="flex flex-col min-w-0 overflow-hidden text-left justify-center h-full py-0.5">
+            <span className="premium-book-title truncate block w-full leading-tight font-extrabold text-xs sm:text-sm" title={title}>{title}</span>
+            {subtitle && <span className="premium-chapter-indicator truncate block w-full leading-tight text-[10px] sm:text-xs opacity-75 font-medium mt-0.5" title={subtitle}>{subtitle}</span>}
           </div>
         </div>
 

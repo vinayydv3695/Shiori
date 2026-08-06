@@ -1,3 +1,24 @@
+# Release Notes (v2.3.5)
+
+##  Performance
+- **Scan/import cheap-first dedup** — rescanning a library no longer re-parses files or re-renders covers for books already known; scanning uses a bounded 3-thread pool.
+- **Query layer** — new indexes for domain, reading status, trash, and progress; FTS is no longer reindexed on every reading-progress save; multi-word search fixed; formats lowercased for matching; bounded random sampling for recommendations; bucket-based duplicate finder.
+- **Memory** — no whole-file reads: file-backed zip probing, CBZ/CBR cover reads touch a single entry, EPUB output streams, a decode-bomb guard, and lazy PDF text.
+- **UI thread** — search, cleanup, thumbnail generation, and 10 more commands moved off the main thread.
+- **Frontend** — search debounce, import payload cap, reader chapter cache, grid/page stability, per-download store subscriptions.
+
+##  Bug Fixes
+- **Backup restore is transactional** — a failed restore can no longer leave a half-wiped library.
+- **Corrupt zip no longer panics** — malformed archives are handled gracefully.
+- **Cancelled conversions stay cancelled**, and conversion workers survive panics instead of dying.
+- **Temp files cleaned up** after conversions; stub conversions removed from the matrix.
+- **Migrations no longer re-run on every startup**; the Cloudflare daemon is cleaned up.
+- **Cover cache invalidation** fixed; MOBI/EPUB page-count display corrected.
+
+##  Notes
+- EPUB `page_count` is now chapter-based (spine length); MOBI `page_count` is `None` (word-scan removed).
+- Full test suite green: 290 backend + 135 frontend tests.
+
 # Release Notes (v2.3.3)
 
 ##  Bug Fixes

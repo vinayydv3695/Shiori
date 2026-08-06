@@ -156,6 +156,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 44 {
             self.run_in_savepoint("v44", |mgr| mgr.migrate_to_v44())?;
         }
+        if current_version < 45 {
+            self.run_in_savepoint("v45", |mgr| mgr.migrate_to_v45())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -277,7 +280,12 @@ impl<'a> MigrationManager<'a> {
                     DELETE FROM books_fts WHERE rowid = old.id;
                 END;
                 
-                CREATE TRIGGER books_au AFTER UPDATE ON books BEGIN
+                CREATE TRIGGER books_au AFTER UPDATE ON books
+                WHEN old.title IS NOT new.title
+                  OR old.publisher IS NOT new.publisher
+                  OR old.notes IS NOT new.notes
+                  OR old.isbn IS NOT new.isbn
+                BEGIN
                     DELETE FROM books_fts WHERE rowid = old.id;
                     INSERT INTO books_fts(rowid, title, authors, publisher, description, tags, isbn)
                     SELECT new.id, new.title, 
@@ -290,6 +298,73 @@ impl<'a> MigrationManager<'a> {
                             JOIN books_tags bt ON t.id = bt.tag_id 
                             WHERE bt.book_id = new.id),
                            new.isbn;
+                END;
+
+                -- Author/tag edits reindex the affected book (books_au cannot
+                -- see junction-table changes; without these triggers FTS
+                -- author/tag data went stale on edit).
+                CREATE TRIGGER books_authors_ai AFTER INSERT ON books_authors BEGIN
+                    DELETE FROM books_fts WHERE rowid = new.book_id;
+                    INSERT INTO books_fts(rowid, title, authors, publisher, description, tags, isbn)
+                    SELECT b.id, b.title,
+                           (SELECT GROUP_CONCAT(a.name, ' ') FROM authors a
+                            JOIN books_authors ba ON a.id = ba.author_id
+                            WHERE ba.book_id = b.id),
+                           b.publisher,
+                           b.notes,
+                           (SELECT GROUP_CONCAT(t.name, ' ') FROM tags t
+                            JOIN books_tags bt ON t.id = bt.tag_id
+                            WHERE bt.book_id = b.id),
+                           b.isbn
+                    FROM books b WHERE b.id = new.book_id;
+                END;
+
+                CREATE TRIGGER books_authors_ad AFTER DELETE ON books_authors BEGIN
+                    DELETE FROM books_fts WHERE rowid = old.book_id;
+                    INSERT INTO books_fts(rowid, title, authors, publisher, description, tags, isbn)
+                    SELECT b.id, b.title,
+                           (SELECT GROUP_CONCAT(a.name, ' ') FROM authors a
+                            JOIN books_authors ba ON a.id = ba.author_id
+                            WHERE ba.book_id = b.id),
+                           b.publisher,
+                           b.notes,
+                           (SELECT GROUP_CONCAT(t.name, ' ') FROM tags t
+                            JOIN books_tags bt ON t.id = bt.tag_id
+                            WHERE bt.book_id = b.id),
+                           b.isbn
+                    FROM books b WHERE b.id = old.book_id;
+                END;
+
+                CREATE TRIGGER books_tags_ai AFTER INSERT ON books_tags BEGIN
+                    DELETE FROM books_fts WHERE rowid = new.book_id;
+                    INSERT INTO books_fts(rowid, title, authors, publisher, description, tags, isbn)
+                    SELECT b.id, b.title,
+                           (SELECT GROUP_CONCAT(a.name, ' ') FROM authors a
+                            JOIN books_authors ba ON a.id = ba.author_id
+                            WHERE ba.book_id = b.id),
+                           b.publisher,
+                           b.notes,
+                           (SELECT GROUP_CONCAT(t.name, ' ') FROM tags t
+                            JOIN books_tags bt ON t.id = bt.tag_id
+                            WHERE bt.book_id = b.id),
+                           b.isbn
+                    FROM books b WHERE b.id = new.book_id;
+                END;
+
+                CREATE TRIGGER books_tags_ad AFTER DELETE ON books_tags BEGIN
+                    DELETE FROM books_fts WHERE rowid = old.book_id;
+                    INSERT INTO books_fts(rowid, title, authors, publisher, description, tags, isbn)
+                    SELECT b.id, b.title,
+                           (SELECT GROUP_CONCAT(a.name, ' ') FROM authors a
+                            JOIN books_authors ba ON a.id = ba.author_id
+                            WHERE ba.book_id = b.id),
+                           b.publisher,
+                           b.notes,
+                           (SELECT GROUP_CONCAT(t.name, ' ') FROM tags t
+                            JOIN books_tags bt ON t.id = bt.tag_id
+                            WHERE bt.book_id = b.id),
+                           b.isbn
+                    FROM books b WHERE b.id = old.book_id;
                 END;
             "#,
             )?;
@@ -2434,6 +2509,145 @@ impl<'a> MigrationManager<'a> {
 
         let hash = Self::calculate_checksum("v44_library_root_mode");
         self.record_migration(44, "library_root_mode", &hash)?;
+        Ok(())
+    }
+
+    /// Migration v45: Query-layer performance (Slice S-C).
+    ///
+    /// 1. Composite indexes for the hot listing/status/trash/history queries:
+    ///    `idx_books_domain_added` (domain listing ORDER BY added_date DESC),
+    ///    `idx_books_reading_status_modified` (HomePage status rows ORDER BY
+    ///    modified_date DESC), `idx_books_in_trash` (purge: in_trash=1 AND
+    ///    deleted_at <= …), `idx_reading_progress_last_read` (reading history
+    ///    ORDER BY rp.last_read DESC). All `IF NOT EXISTS` — idempotent.
+    /// 2. Normalize `file_format` to lowercase so the search format filter can
+    ///    match `idx_books_format`/`idx_books_format_date` directly (a
+    ///    `LOWER(column)` comparison would defeat the index). Idempotent.
+    /// 3. Restrict the `books_au` FTS trigger to fire only when an
+    ///    FTS-relevant column changed (title/publisher/notes/isbn). Previously
+    ///    ANY update — including save_reading_progress's `last_opened` +
+    ///    `reading_status` writes — did a DELETE+INSERT into books_fts with
+    ///    correlated GROUP_CONCATs, churning FTS on every progress save.
+    /// 4. Add AFTER INSERT/DELETE triggers on books_authors/books_tags so
+    ///    author/tag edits reindex the affected book (none existed before).
+    fn migrate_to_v45(&self) -> Result<()> {
+        log::info!("[Migration] Applying v45: query-layer indexes + FTS write-amplification fix");
+
+        self.conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_books_domain_added ON books(domain, added_date DESC);
+             CREATE INDEX IF NOT EXISTS idx_books_reading_status_modified ON books(reading_status, modified_date DESC);
+             CREATE INDEX IF NOT EXISTS idx_books_in_trash ON books(in_trash, deleted_at);
+             CREATE INDEX IF NOT EXISTS idx_reading_progress_last_read ON reading_progress(last_read DESC);
+             -- v30's idx_books_domain has the exact same columns as the new
+             -- idx_books_domain_added; keep only one index so every write
+             -- pays once. IF EXISTS keeps this idempotent on re-runs.
+             DROP INDEX IF EXISTS idx_books_domain;",
+        )?;
+
+        // Replace the FTS update trigger + add junction reindex triggers FIRST
+        // so the file_format backfill below does not churn books_fts.
+        self.conn.execute_batch(
+            r#"
+            DROP TRIGGER IF EXISTS books_au;
+            CREATE TRIGGER books_au AFTER UPDATE ON books
+            WHEN old.title IS NOT new.title
+              OR old.publisher IS NOT new.publisher
+              OR old.notes IS NOT new.notes
+              OR old.isbn IS NOT new.isbn
+            BEGIN
+                DELETE FROM books_fts WHERE rowid = old.id;
+                INSERT INTO books_fts(rowid, title, authors, publisher, description, tags, isbn)
+                SELECT new.id, new.title,
+                       (SELECT GROUP_CONCAT(a.name, ' ') FROM authors a
+                        JOIN books_authors ba ON a.id = ba.author_id
+                        WHERE ba.book_id = new.id),
+                       new.publisher,
+                       new.notes,
+                       (SELECT GROUP_CONCAT(t.name, ' ') FROM tags t
+                        JOIN books_tags bt ON t.id = bt.tag_id
+                        WHERE bt.book_id = new.id),
+                       new.isbn;
+            END;
+
+            DROP TRIGGER IF EXISTS books_authors_ai;
+            CREATE TRIGGER books_authors_ai AFTER INSERT ON books_authors BEGIN
+                DELETE FROM books_fts WHERE rowid = new.book_id;
+                INSERT INTO books_fts(rowid, title, authors, publisher, description, tags, isbn)
+                SELECT b.id, b.title,
+                       (SELECT GROUP_CONCAT(a.name, ' ') FROM authors a
+                        JOIN books_authors ba ON a.id = ba.author_id
+                        WHERE ba.book_id = b.id),
+                       b.publisher,
+                       b.notes,
+                       (SELECT GROUP_CONCAT(t.name, ' ') FROM tags t
+                        JOIN books_tags bt ON t.id = bt.tag_id
+                        WHERE bt.book_id = b.id),
+                       b.isbn
+                FROM books b WHERE b.id = new.book_id;
+            END;
+
+            DROP TRIGGER IF EXISTS books_authors_ad;
+            CREATE TRIGGER books_authors_ad AFTER DELETE ON books_authors BEGIN
+                DELETE FROM books_fts WHERE rowid = old.book_id;
+                INSERT INTO books_fts(rowid, title, authors, publisher, description, tags, isbn)
+                SELECT b.id, b.title,
+                       (SELECT GROUP_CONCAT(a.name, ' ') FROM authors a
+                        JOIN books_authors ba ON a.id = ba.author_id
+                        WHERE ba.book_id = b.id),
+                       b.publisher,
+                       b.notes,
+                       (SELECT GROUP_CONCAT(t.name, ' ') FROM tags t
+                        JOIN books_tags bt ON t.id = bt.tag_id
+                        WHERE bt.book_id = b.id),
+                       b.isbn
+                FROM books b WHERE b.id = old.book_id;
+            END;
+
+            DROP TRIGGER IF EXISTS books_tags_ai;
+            CREATE TRIGGER books_tags_ai AFTER INSERT ON books_tags BEGIN
+                DELETE FROM books_fts WHERE rowid = new.book_id;
+                INSERT INTO books_fts(rowid, title, authors, publisher, description, tags, isbn)
+                SELECT b.id, b.title,
+                       (SELECT GROUP_CONCAT(a.name, ' ') FROM authors a
+                        JOIN books_authors ba ON a.id = ba.author_id
+                        WHERE ba.book_id = b.id),
+                       b.publisher,
+                       b.notes,
+                       (SELECT GROUP_CONCAT(t.name, ' ') FROM tags t
+                        JOIN books_tags bt ON t.id = bt.tag_id
+                        WHERE bt.book_id = b.id),
+                       b.isbn
+                FROM books b WHERE b.id = new.book_id;
+            END;
+
+            DROP TRIGGER IF EXISTS books_tags_ad;
+            CREATE TRIGGER books_tags_ad AFTER DELETE ON books_tags BEGIN
+                DELETE FROM books_fts WHERE rowid = old.book_id;
+                INSERT INTO books_fts(rowid, title, authors, publisher, description, tags, isbn)
+                SELECT b.id, b.title,
+                       (SELECT GROUP_CONCAT(a.name, ' ') FROM authors a
+                        JOIN books_authors ba ON a.id = ba.author_id
+                        WHERE ba.book_id = b.id),
+                       b.publisher,
+                       b.notes,
+                       (SELECT GROUP_CONCAT(t.name, ' ') FROM tags t
+                        JOIN books_tags bt ON t.id = bt.tag_id
+                        WHERE bt.book_id = b.id),
+                       b.isbn
+                FROM books b WHERE b.id = old.book_id;
+            END;
+            "#,
+        )?;
+
+        // Lowercase stored formats (idempotent; runs after the trigger swap so
+        // it does not touch books_fts).
+        self.conn.execute(
+            "UPDATE books SET file_format = lower(file_format) WHERE file_format <> lower(file_format)",
+            [],
+        )?;
+
+        let hash = Self::calculate_checksum("v45_query_layer_indexes");
+        self.record_migration(45, "query_layer_indexes", &hash)?;
         Ok(())
     }
 }

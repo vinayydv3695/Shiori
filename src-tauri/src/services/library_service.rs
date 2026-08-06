@@ -314,6 +314,12 @@ pub fn add_book(db: &Database, mut book: Book) -> Result<i64> {
         return Err(ShioriError::TombstonedBook(book.file_path.clone()));
     }
 
+    // v45 normalized stored file_format to lowercase (search compares
+    // lowercase params without LOWER() so idx_books_format stays usable);
+    // keep new writes consistent even when the caller passes an uppercase
+    // extension-derived format.
+    book.file_format = book.file_format.to_lowercase();
+
     // Use a transaction so book + authors + tags are inserted atomically
     let tx = conn.transaction()?;
 
@@ -2103,48 +2109,218 @@ pub fn get_thumbnail_path(
     Ok(Some(cover_path_str))
 }
 
+/// Random sample of books for the HomePage "recommended" row.
+///
+/// Old implementation joined books_authors, excluded via a `NOT IN` subquery
+/// and then `ORDER BY RANDOM()` — SQLite materializes and sorts every
+/// matching row. New: bounded random-offset page. Count the eligible pool
+/// (cheap index/table scan), pick a random offset in [0, pool - limit], then
+/// a plain `ORDER BY added_date DESC LIMIT ? OFFSET ?` walk (no temp sort).
+/// Behavior kept: excludes trash/wishlist/completed, returns up to `limit`
+/// books (all of them when the pool is smaller than the limit).
 pub fn get_recommended_books(db: &Database, limit: u32) -> Result<Vec<crate::models::BookSummary>> {
     let conn = db.get_connection()?;
-    let sql = format!(
-        "
-        SELECT DISTINCT {} FROM books b
-        JOIN books_authors ba ON b.id = ba.book_id
-        WHERE b.id NOT IN (SELECT id FROM books WHERE reading_status IN ('completed', 'favorite'))
-        AND ba.author_id IN (
-            SELECT ba2.author_id FROM books b2
-            JOIN books_authors ba2 ON b2.id = ba2.book_id
-            WHERE b2.reading_status IN ('completed', 'favorite')
-        )
-        ORDER BY RANDOM() LIMIT ?1
-    ",
-        BOOK_SUMMARY_COLUMNS
-    );
 
-    let mut stmt = conn.prepare(&sql)?;
-    let books = stmt
-        .query_map([limit], book_summary_from_row)?
-        .filter_map(|r| r.ok())
-        .collect::<Vec<_>>();
+    let pool: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM books b
+         WHERE b.in_trash = 0 AND b.is_wishlist = 0 AND b.reading_status != 'completed'",
+        [],
+        |row| row.get(0),
+    )?;
 
-    // Fallback if no recommendations found via author
-    if books.is_empty() {
-        let fallback_sql = format!(
-            "
-            SELECT {} FROM books b
-            WHERE b.reading_status != 'completed'
-            ORDER BY RANDOM() LIMIT ?1
-        ",
-            BOOK_SUMMARY_COLUMNS
-        );
-        let mut fallback_stmt = conn.prepare(&fallback_sql)?;
-        let fallback_books = fallback_stmt
-            .query_map([limit], book_summary_from_row)?
-            .filter_map(|r| r.ok())
-            .collect::<Vec<_>>();
-        return Ok(fallback_books);
+    if pool == 0 {
+        return Ok(Vec::new());
     }
 
+    let limit_i = limit.max(1) as i64;
+    // Random offset within [0, pool - limit] so the page is always full when
+    // the pool is big enough. ABS(RANDOM() % n) is overflow-safe: |MIN % n| < n.
+    let max_offset = (pool - limit_i).max(0);
+    let offset: i64 = conn.query_row(
+        "SELECT ABS(RANDOM() % ?1)",
+        [max_offset + 1],
+        |row| row.get(0),
+    )?;
+
+    let sql = format!(
+        "SELECT {} FROM books b
+         WHERE b.in_trash = 0 AND b.is_wishlist = 0 AND b.reading_status != 'completed'
+         ORDER BY b.added_date DESC LIMIT ?1 OFFSET ?2",
+        BOOK_SUMMARY_COLUMNS
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let books = stmt
+        .query_map(rusqlite::params![limit_i, offset], book_summary_from_row)?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
     Ok(books)
+}
+
+/// Cap on fuzzy-match bucket size: pathological buckets (thousands of books
+/// sharing a normalized prefix) are re-bucketed with a longer prefix instead
+/// of degrading to O(n²) similarity comparisons.
+const MAX_FUZZY_BUCKET: usize = 300;
+
+/// Group duplicate books without the O(n²) all-pairs loop.
+///
+/// Per-criteria strategy (report shape unchanged: `Vec<Vec<Book>>`, groups
+/// with ≥ 2 members, first book of each group is the "keep" candidate):
+/// - `"hash"`: exact buckets keyed by (file_size, file_hash) for non-empty
+///   hashes. Books with an empty hash fall back to file_size buckets, then
+///   filename-similarity (jaro-winkler on the lowercased basename) within the
+///   size bucket — bounded, since equal-size buckets are small.
+/// - `"size"`: buckets by file_size (> 0).
+/// - `"title"` / `"author"`: fuzzy jaro-winkler with the caller's threshold,
+///   but only within coarse buckets (normalized prefix key — see
+///   `fuzzy_group_by`), so the comparison count stays near-linear in practice.
+pub fn find_duplicate_groups(books: &[Book], criteria: &str, threshold: f32) -> Vec<Vec<Book>> {
+    match criteria {
+        "hash" => {
+            let mut buckets: HashMap<(i64, String), Vec<usize>> = HashMap::new();
+            let mut no_hash: Vec<usize> = Vec::new();
+            for (i, b) in books.iter().enumerate() {
+                match (&b.file_hash, b.file_size) {
+                    (Some(h), Some(sz)) if !h.is_empty() && sz > 0 => {
+                        buckets.entry((sz, h.clone())).or_default().push(i);
+                    }
+                    _ => no_hash.push(i),
+                }
+            }
+
+            let mut groups: Vec<Vec<Book>> = Vec::new();
+            for idxs in buckets.values() {
+                if idxs.len() >= 2 {
+                    groups.push(idxs.iter().map(|&i| books[i].clone()).collect());
+                }
+            }
+
+            // Empty-hash fallback: same file_size + similar filename.
+            let mut size_buckets: HashMap<i64, Vec<usize>> = HashMap::new();
+            for &i in &no_hash {
+                if let Some(sz) = books[i].file_size {
+                    if sz > 0 {
+                        size_buckets.entry(sz).or_default().push(i);
+                    }
+                }
+            }
+            for idxs in size_buckets.values() {
+                let mut group = fuzzy_group_by(books, idxs, threshold, |b| {
+                    std::path::Path::new(&b.file_path)
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or(&b.file_path)
+                        .to_string()
+                });
+                groups.append(&mut group);
+            }
+            groups
+        }
+        "size" => {
+            let mut buckets: HashMap<i64, Vec<usize>> = HashMap::new();
+            for (i, b) in books.iter().enumerate() {
+                if let Some(sz) = b.file_size {
+                    if sz > 0 {
+                        buckets.entry(sz).or_default().push(i);
+                    }
+                }
+            }
+            buckets
+                .values()
+                .filter(|idxs| idxs.len() >= 2)
+                .map(|idxs| idxs.iter().map(|&i| books[i].clone()).collect())
+                .collect()
+        }
+        "title" => fuzzy_group_by(books, &(0..books.len()).collect::<Vec<_>>(), threshold, |b| {
+            b.title.clone()
+        }),
+        "author" => fuzzy_group_by(books, &(0..books.len()).collect::<Vec<_>>(), threshold, |b| {
+            b.authors
+                .iter()
+                .map(|a| a.name.clone())
+                .collect::<Vec<_>>()
+                .join(" ")
+        }),
+        _ => Vec::new(),
+    }
+}
+
+/// Fuzzy duplicate grouping over a set of indices: coarse buckets keyed by
+/// the first N normalized chars (NO length band — "harry potter" vs "harry
+/// potter and …" must stay comparable), jaro-winkler ≥ threshold within a
+/// bucket, transitive closure (A~B and B~C collapse into one group). If a
+/// bucket exceeds MAX_FUZZY_BUCKET the prefix grows (3 → 7 → 11 → …) and the
+/// bucket is re-split, so a pathological bucket degrades to near-exact
+/// matching instead of O(n²). Identical full keys (prefix ≥ title length)
+/// are exact duplicates — grouped directly, no similarity pass needed.
+fn fuzzy_group_by<F: Fn(&Book) -> String>(
+    books: &[Book],
+    indices: &[usize],
+    threshold: f32,
+    text_of: F,
+) -> Vec<Vec<Book>> {
+    let mut prefix_len = 3;
+    let remaining: Vec<usize> = indices.to_vec();
+
+    loop {
+        let mut buckets: HashMap<String, Vec<usize>> = HashMap::new();
+        for &i in &remaining {
+            let norm: String = text_of(&books[i]).trim().to_lowercase();
+            if norm.is_empty() {
+                continue;
+            }
+            let key: String = norm.chars().take(prefix_len).collect();
+            buckets.entry(key).or_default().push(i);
+        }
+
+        let max_bucket = buckets.values().map(|v| v.len()).max().unwrap_or(0);
+        if max_bucket > MAX_FUZZY_BUCKET && prefix_len < 128 {
+            // Pathological bucket: grow the prefix and re-bucket. Once the
+            // prefix covers whole keys the buckets hold exact duplicates.
+            prefix_len += 4;
+            continue;
+        }
+
+        let mut groups: Vec<Vec<Book>> = Vec::new();
+        for idxs in buckets.values() {
+            if idxs.len() < 2 {
+                continue;
+            }
+
+            // Transitive closure within the bucket: seed a group, absorb every
+            // other member within threshold, repeat until stable.
+            let mut remaining_in_bucket: HashSet<usize> = idxs.iter().copied().collect();
+            while let Some(&seed) = remaining_in_bucket.iter().next() {
+                remaining_in_bucket.remove(&seed);
+                let mut group: Vec<usize> = vec![seed];
+                let mut changed = true;
+                while changed {
+                    changed = false;
+                    let members: Vec<usize> = group.clone();
+                    let mut absorb: Vec<usize> = Vec::new();
+                    for &m in &members {
+                        for &o in remaining_in_bucket.iter() {
+                            let score = strsim::jaro_winkler(
+                                &text_of(&books[m]).to_lowercase(),
+                                &text_of(&books[o]).to_lowercase(),
+                            );
+                            if score as f32 >= threshold {
+                                absorb.push(o);
+                            }
+                        }
+                    }
+                    for o in absorb {
+                        if remaining_in_bucket.remove(&o) {
+                            group.push(o);
+                            changed = true;
+                        }
+                    }
+                }
+                if group.len() >= 2 {
+                    groups.push(group.iter().map(|&i| books[i].clone()).collect());
+                }
+            }
+        }
+        return groups;
+    }
 }
 
 #[cfg(test)]

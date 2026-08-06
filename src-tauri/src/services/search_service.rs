@@ -12,7 +12,34 @@ pub fn build_search_query(query: &SearchQuery) -> (String, Vec<Value>, String, V
     // Full-text search
     if let Some(ref q) = query.query {
         if !q.is_empty() {
-            let fts_query = format!("\"{}\"", q.replace('"', "\"\""));
+            // FTS5 MATCH syntax: barewords match tokens, "…" is a phrase,
+            // `term*` is a prefix query, AND/OR/NOT/NEAR combine, `+`/`-`
+            // require/exclude terms, `column: term` filters by column.
+            //
+            // The user query is split into whitespace-separated terms, each
+            // term is quoted (embedded quotes doubled, per FTS5 escaping) and
+            // joined with AND, so "harry pott" matches books containing BOTH
+            // terms instead of the exact phrase "harry pott" (which matched
+            // nothing). Quoting also neutralizes operator injection: a query
+            // like `foo OR bar` is treated as literal terms, never as an OR
+            // expression. The LAST term gets a prefix `*` so typeahead
+            // ("harry pot") still matches full words ("harry potter").
+            let terms: Vec<String> = q
+                .split_whitespace()
+                .map(|t| t.trim_matches('"').replace('"', "\"\""))
+                .filter(|t| !t.is_empty())
+                .collect();
+            let fts_query = if terms.is_empty() {
+                // Degenerate input (only quotes/whitespace): keep a harmless
+                // quoted empty-phrase match rather than a bare MATCH.
+                format!("\"{}\"", q.replace('"', "\"\""))
+            } else {
+                let mut parts: Vec<String> = terms.iter().map(|t| format!("\"{}\"", t)).collect();
+                if let Some(last) = parts.last_mut() {
+                    last.push('*');
+                }
+                parts.join(" AND ")
+            };
             from_sql.push_str(" JOIN books_fts fts ON b.id = fts.rowid");
             where_clauses.push("books_fts MATCH ?".to_string());
             base_params.push(Value::Text(fts_query));
@@ -49,7 +76,11 @@ pub fn build_search_query(query: &SearchQuery) -> (String, Vec<Value>, String, V
     if let Some(ref formats) = query.formats {
         if !formats.is_empty() {
             let placeholders = formats.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-            where_clauses.push(format!("LOWER(b.file_format) IN ({})", placeholders));
+            // v45 lowercased all stored file_format values, so compare the
+            // lowercased param directly against the column and let SQLite use
+            // idx_books_format / idx_books_format_date. LOWER(b.file_format)
+            // would defeat the index.
+            where_clauses.push(format!("b.file_format IN ({})", placeholders));
             for format in formats {
                 base_params.push(Value::Text(format.to_lowercase().clone()));
             }
@@ -197,7 +228,15 @@ pub fn build_search_query(query: &SearchQuery) -> (String, Vec<Value>, String, V
                 order_clause = format!("ORDER BY b.rating {} NULLS LAST", order_dir);
             }
             "author" => {
-                order_clause = format!("ORDER BY (SELECT MIN(a.name) FROM authors a JOIN books_authors ba ON a.id = ba.author_id WHERE ba.book_id = b.id) {} NULLS LAST", order_dir);
+                // Batched author name: one grouped pass over books_authors/
+                // authors (attached as a LEFT JOIN) instead of a correlated
+                // MIN(a.name) subquery evaluated once per candidate row.
+                from_sql.push_str(
+                    " LEFT JOIN (SELECT ba.book_id AS am_book_id, MIN(a.name) AS author_name \
+                     FROM books_authors ba JOIN authors a ON a.id = ba.author_id \
+                     GROUP BY ba.book_id) am ON am.am_book_id = b.id",
+                );
+                order_clause = format!("ORDER BY am.author_name {} NULLS LAST", order_dir);
             }
             "added_date" | _ => {
                 order_clause = format!("ORDER BY b.added_date {}", order_dir);
@@ -285,7 +324,66 @@ mod tests {
         assert!(count_sql.contains("JOIN books_fts fts"));
         assert!(count_sql.contains("books_fts MATCH ?"));
         assert_eq!(base_params.len(), 1);
-        assert_eq!(base_params[0], Value::Text("\"manga\"".to_string()));
+        // Single term: quoted + prefix so typeahead matches full words.
+        assert_eq!(base_params[0], Value::Text("\"manga\"*".to_string()));
+    }
+
+    #[test]
+    fn test_build_search_query_multi_term() {
+        let mut query = SearchQuery::default();
+        query.query = Some("harry pott".to_string());
+
+        let (count_sql, base_params, _ids_sql, _page_params) = build_search_query(&query);
+        assert!(count_sql.contains("books_fts MATCH ?"));
+        assert_eq!(base_params.len(), 1);
+        // Terms are quoted individually, AND-joined; last term is a prefix.
+        assert_eq!(
+            base_params[0],
+            Value::Text("\"harry\" AND \"pott\"*".to_string())
+        );
+    }
+
+    #[test]
+    fn test_build_search_query_fts_operator_injection_neutralized() {
+        let mut query = SearchQuery::default();
+        query.query = Some("foo OR bar".to_string());
+
+        let (_count_sql, base_params, _ids_sql, _page_params) = build_search_query(&query);
+        // OR must not survive as an FTS operator — every term (including the
+        // word "OR" itself) is quoted and AND-joined as a literal term.
+        assert_eq!(
+            base_params[0],
+            Value::Text("\"foo\" AND \"OR\" AND \"bar\"*".to_string())
+        );
+    }
+
+    #[test]
+    fn test_build_search_query_format_filter_uses_index() {
+        let mut query = SearchQuery::default();
+        query.formats = Some(vec!["EPUB".to_string(), "PDF".to_string()]);
+
+        let (count_sql, base_params, _ids_sql, _page_params) = build_search_query(&query);
+        // No LOWER() on the column — the stored (v45-lowercased) value is
+        // compared directly so idx_books_format can be used.
+        assert!(count_sql.contains("b.file_format IN (?,?)"), "{count_sql}");
+        assert!(!count_sql.contains("LOWER(b.file_format)"), "{count_sql}");
+        assert_eq!(base_params.len(), 2);
+        assert_eq!(base_params[0], Value::Text("epub".to_string()));
+        assert_eq!(base_params[1], Value::Text("pdf".to_string()));
+    }
+
+    #[test]
+    fn test_build_search_query_author_sort_is_batched() {
+        let mut query = SearchQuery::default();
+        query.sort_by = Some("author".to_string());
+        query.sort_order = Some("asc".to_string());
+
+        let (_count_sql, _base_params, ids_sql, _page_params) = build_search_query(&query);
+        // Correlated MIN(a.name) subquery must be gone; a grouped LEFT JOIN
+        // (batched over the whole candidate set) replaces it.
+        assert!(!ids_sql.contains("SELECT MIN(a.name)"), "{ids_sql}");
+        assert!(ids_sql.contains("LEFT JOIN (SELECT ba.book_id AS am_book_id, MIN(a.name)"), "{ids_sql}");
+        assert!(ids_sql.contains("ORDER BY am.author_name ASC NULLS LAST"), "{ids_sql}");
     }
 
     #[test]

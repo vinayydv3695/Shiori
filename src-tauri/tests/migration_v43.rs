@@ -3,7 +3,7 @@
 //! Covers: (a) fresh DB schema version and new columns/table, (b) book
 //! round-trip of the managed fields via add_book/get_book, (c) deleted_books
 //! insert + select. (The schema-version assertion tracks the latest
-//! migration — bumped to 44 when the library-root columns landed.)
+//! migration — bumped to 45 when the query-layer indexes landed.)
 
 use shiori::db::Database;
 use shiori::models::Book;
@@ -30,7 +30,7 @@ fn fresh_db_has_v43_schema() {
     let (db, _temp_dir) = create_temp_db("fresh_schema");
     let conn = db.get_connection().unwrap();
 
-    // (a) schema version == 44 (schema_migrations is the source of truth for
+    // (a) schema version == 45 (schema_migrations is the source of truth for
     // v31+; PRAGMA user_version is stuck at 30 by a pre-existing quirk).
     let version: i32 = conn
         .query_row(
@@ -39,7 +39,7 @@ fn fresh_db_has_v43_schema() {
             |row| row.get(0),
         )
         .unwrap();
-    assert_eq!(version, 44, "schema_migrations max version should be 44");
+    assert_eq!(version, 45, "schema_migrations max version should be 45");
 
     // user_preferences has the v44 library-root columns
     let mut stmt = conn.prepare("PRAGMA table_info(user_preferences)").unwrap();

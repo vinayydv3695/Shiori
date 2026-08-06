@@ -210,37 +210,37 @@ pub fn run() {
                             .to_string();
 
                         if let Ok(bytes) = response.bytes().await {
-                            responder.respond(
-                                tauri::http::Response::builder()
-                                    .status(200)
-                                    .header("Content-Type", content_type)
-                                    .header("Access-Control-Allow-Origin", "*")
-                                    .header("Cache-Control", "public, max-age=31536000")
-                                    .body(bytes.to_vec())
-                                    .unwrap()
-                            );
-                            return;
+                            if let Ok(resp) = tauri::http::Response::builder()
+                                .status(200)
+                                .header("Content-Type", content_type)
+                                .header("Access-Control-Allow-Origin", "*")
+                                .header("Cache-Control", "public, max-age=31536000")
+                                .body(bytes.to_vec())
+                            {
+                                responder.respond(resp);
+                                return;
+                            }
                         }
                     } else {
                         // Forward the actual error status (e.g. 403)
-                        responder.respond(
-                            tauri::http::Response::builder()
-                                .status(status.as_u16())
-                                .body(Vec::new())
-                                .unwrap()
-                        );
-                        return;
+                        if let Ok(resp) = tauri::http::Response::builder()
+                            .status(status.as_u16())
+                            .body(Vec::new())
+                        {
+                            responder.respond(resp);
+                            return;
+                        }
                     }
                 }
                 }
             }
 
-            responder.respond(
-                tauri::http::Response::builder()
-                    .status(404)
-                    .body(Vec::new())
-                    .unwrap()
-            );
+            if let Ok(resp) = tauri::http::Response::builder()
+                .status(404)
+                .body(Vec::new())
+            {
+                responder.respond(resp);
+            }
         });
     });
 
@@ -410,15 +410,18 @@ pub fn run() {
                 let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
                 let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
 
-                let _tray = TrayIconBuilder::new()
-                    .icon(app.default_window_icon().unwrap().clone())
+                let mut tray_builder = TrayIconBuilder::new();
+                if let Some(icon) = app.default_window_icon() {
+                    tray_builder = tray_builder.icon(icon.clone());
+                }
+                let _tray = tray_builder
                     .menu(&menu)
                     .show_menu_on_left_click(false)
                     .on_menu_event(|app, event| match event.id.as_ref() {
                         "show" => {
                             if let Some(window) = app.get_webview_window("main") {
-                                window.show().unwrap();
-                                window.set_focus().unwrap();
+                                let _ = window.show();
+                                let _ = window.set_focus();
                             }
                         }
                         "quit" => {
@@ -435,8 +438,8 @@ pub fn run() {
                         {
                             let app = tray.app_handle();
                             if let Some(window) = app.get_webview_window("main") {
-                                window.show().unwrap();
-                                window.set_focus().unwrap();
+                                let _ = window.show();
+                                let _ = window.set_focus();
                             }
                         }
                     })

@@ -135,6 +135,40 @@ pub const FULL_TABLES: &[&str] = &[
     "shelf_books",
 ];
 
+// ─── Partial-write guard ──────────────────────────────────────────────────────
+
+/// Backups are written to `<dest>.part` and renamed over the destination only
+/// on success. On ANY error path (including panics) this guard removes the
+/// partial file, so a failed backup never leaves a truncated zip at the
+/// destination path.
+struct PartFileGuard {
+    path: PathBuf,
+    committed: bool,
+}
+
+impl PartFileGuard {
+    fn new(path: PathBuf) -> Self {
+        Self {
+            path,
+            committed: false,
+        }
+    }
+
+    /// Mark the part as published (renamed over the destination); Drop no
+    /// longer removes it.
+    fn commit(&mut self) {
+        self.committed = true;
+    }
+}
+
+impl Drop for PartFileGuard {
+    fn drop(&mut self) {
+        if !self.committed {
+            let _ = fs::remove_file(&self.path);
+        }
+    }
+}
+
 // ─── Value conversion helpers ────────────────────────────────────────────────
 
 fn sql_value_to_json(v: rusqlite::types::Value) -> Option<Value> {
@@ -296,7 +330,10 @@ fn create_full_backup(
     let shelf_count: usize =
         conn.query_row("SELECT COUNT(*) FROM shelves", [], |row| row.get(0))?;
 
-    let zip_file = File::create(backup_path)?;
+    // Write to `<dest>.part`, rename on success (see PartFileGuard).
+    let part_path = backup_path.with_extension("part");
+    let mut part_guard = PartFileGuard::new(part_path.clone());
+    let zip_file = File::create(&part_path)?;
     let buf_writer = BufWriter::new(zip_file);
     let mut zip = ZipWriter::new(buf_writer);
     let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
@@ -385,6 +422,9 @@ fn create_full_backup(
     zip.write_all(manifest_json.as_bytes())?;
 
     zip.finish()?;
+    let _ = fs::remove_file(backup_path);
+    fs::rename(&part_path, backup_path)?;
+    part_guard.commit();
     Ok(backup_info)
 }
 
@@ -402,7 +442,10 @@ fn create_subset_backup(
 ) -> Result<BackupInfo> {
     let conn = db.get_connection()?;
 
-    let zip_file = File::create(backup_path)?;
+    // Write to `<dest>.part`, rename on success (see PartFileGuard).
+    let part_path = backup_path.with_extension("part");
+    let mut part_guard = PartFileGuard::new(part_path.clone());
+    let zip_file = File::create(&part_path)?;
     let buf_writer = BufWriter::new(zip_file);
     let mut zip = ZipWriter::new(buf_writer);
     let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
@@ -579,6 +622,9 @@ fn create_subset_backup(
     zip.write_all(manifest_json.as_bytes())?;
 
     zip.finish()?;
+    let _ = fs::remove_file(backup_path);
+    fs::rename(&part_path, backup_path)?;
+    part_guard.commit();
     Ok(backup_info)
 }
 
@@ -840,13 +886,11 @@ fn restore_full_snapshot(
             .collect()
     };
 
-    let temp_db_path = tempfile::Builder::new()
-        .prefix("shiori_restore_")
-        .suffix(".db")
-        .tempfile()?
-        .into_temp_path()
-        .keep()
-        .map_err(|e| ShioriError::Other(format!("Failed to keep temp db path: {e}")))?;
+    // Temp DB extracted from the archive lives in a TempDir — self-cleaning on
+    // every exit path (success, error, panic), unlike the old `.keep()`ed path.
+    let temp_dir = TempDir::new()
+        .map_err(|e| ShioriError::Other(format!("Failed to create temp directory: {}", e)))?;
+    let temp_db_path = temp_dir.path().join("library.db");
 
     {
         let mut db_file = archive
@@ -862,62 +906,74 @@ fn restore_full_snapshot(
         "ATTACH DATABASE '{}' AS backup_db",
         temp_db_path.display().to_string().replace('\'', "''")
     );
-    conn.execute_batch(&attach_sql)?;
 
     let cat_of_table: HashMap<&str, &str> = BackupCategory::ALL
         .iter()
         .flat_map(|c| category_tables(*c).iter().map(move |t| (*t, c.as_str())))
         .collect();
 
-    for table in FULL_TABLES {
-        if !selected_tables.contains(table) {
-            continue;
-        }
-        let table_exists: bool = conn
-            .query_row(
-                "SELECT COUNT(*) FROM backup_db.sqlite_master WHERE type='table' AND name=?",
-                rusqlite::params![table],
-                |row| {
-                    let count: i32 = row.get(0)?;
-                    Ok(count > 0)
-                },
-            )
-            .unwrap_or(false);
-        if !table_exists {
-            continue;
+    // ATTACH, then run ALL table DELETEs + INSERTs inside ONE transaction so a
+    // mid-restore failure (corrupt snapshot, constraint violation, crash) rolls
+    // back instead of leaving the library half-wiped. DETACH and the temp-dir
+    // cleanup run in a path that fires even on error.
+    let db_result: Result<()> = (|| {
+        conn.execute_batch(&attach_sql)?;
+        let tx = conn.unchecked_transaction()?;
+
+        for table in FULL_TABLES {
+            if !selected_tables.contains(table) {
+                continue;
+            }
+            let table_exists: bool = tx
+                .query_row(
+                    "SELECT COUNT(*) FROM backup_db.sqlite_master WHERE type='table' AND name=?",
+                    rusqlite::params![table],
+                    |row| {
+                        let count: i32 = row.get(0)?;
+                        Ok(count > 0)
+                    },
+                )
+                .unwrap_or(false);
+            if !table_exists {
+                continue;
+            }
+
+            let current_cols = table_columns(&tx, "main", table)?;
+            let backup_cols: HashSet<String> =
+                table_columns(&tx, "backup_db", table)?.into_iter().collect();
+            let shared: Vec<String> =
+                current_cols.into_iter().filter(|c| backup_cols.contains(c)).collect();
+            if shared.is_empty() {
+                continue;
+            }
+
+            let col_list = shared
+                .iter()
+                .map(|c| quote_col(c))
+                .collect::<Vec<_>>()
+                .join(", ");
+
+            tx.execute(&format!("DELETE FROM main.{table}"), [])?;
+            let inserted = tx.execute(
+                &format!(
+                    "INSERT INTO main.{table} ({cols}) SELECT {cols} FROM backup_db.{table}",
+                    table = table,
+                    cols = col_list
+                ),
+                [],
+            )?;
+            if let Some(cat) = cat_of_table.get(table) {
+                *report.restored.entry((*cat).to_string()).or_insert(0) += inserted as u64;
+            }
         }
 
-        let current_cols = table_columns(&conn, "main", table)?;
-        let backup_cols: HashSet<String> = table_columns(&conn, "backup_db", table)?
-            .into_iter()
-            .collect();
-        let shared: Vec<String> = current_cols.into_iter().filter(|c| backup_cols.contains(c)).collect();
-        if shared.is_empty() {
-            continue;
-        }
+        tx.commit()?;
+        Ok(())
+    })();
 
-        let col_list = shared
-            .iter()
-            .map(|c| quote_col(c))
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        conn.execute(&format!("DELETE FROM main.{table}"), [])?;
-        let inserted = conn.execute(
-            &format!(
-                "INSERT INTO main.{table} ({cols}) SELECT {cols} FROM backup_db.{table}",
-                table = table,
-                cols = col_list
-            ),
-            [],
-        )?;
-        if let Some(cat) = cat_of_table.get(table) {
-            *report.restored.entry((*cat).to_string()).or_insert(0) += inserted as u64;
-        }
-    }
-
-    conn.execute_batch("DETACH DATABASE backup_db")?;
-    let _ = fs::remove_file(&temp_db_path);
+    // Cleanup that must fire on success AND error.
+    let _ = conn.execute_batch("DETACH DATABASE backup_db");
+    db_result?;
 
     // File trees, gated by category.
     let mut covers_restored = 0u64;
@@ -984,6 +1040,48 @@ fn restore_subset_archive(
 ) -> Result<()> {
     let conn = db.get_connection()?;
 
+    // DB-backed categories: ALL table writes (across every category) run in
+    // ONE transaction so a mid-restore failure (corrupt JSON, constraint
+    // violation) rolls back every category instead of leaving a partially
+    // imported library.
+    let db_result: Result<()> = (|| {
+        let tx = conn.unchecked_transaction()?;
+        for cat in BackupCategory::ALL.iter() {
+            if !effective.contains(cat) {
+                continue;
+            }
+            if matches!(
+                cat,
+                BackupCategory::Covers | BackupCategory::Books | BackupCategory::Sources
+            ) {
+                continue; // file trees, handled after the DB work
+            }
+            let entry_name = format!("category_{}.json", cat.as_str());
+            match archive.by_name(&entry_name) {
+                Ok(mut file) => {
+                    let mut content = String::new();
+                    file.read_to_string(&mut content)?;
+                    let json: Value = serde_json::from_str(&content)?;
+                    restore_category_json(
+                        &tx,
+                        *cat,
+                        &json,
+                        selection.conflict_policy,
+                        selection.include_credentials,
+                        report,
+                    )?;
+                }
+                Err(_) => report
+                    .errors
+                    .push(format!("Category '{}' not present in archive", cat.as_str())),
+            }
+        }
+        tx.commit()?;
+        Ok(())
+    })();
+    db_result?;
+
+    // File-tree categories (covers / books / sources) — not transactional.
     for cat in BackupCategory::ALL.iter() {
         if !effective.contains(cat) {
             continue;
@@ -1014,27 +1112,7 @@ fn restore_subset_archive(
             BackupCategory::Sources => {
                 restore_sources(app_data_dir, archive, selection, report)?;
             }
-            _ => {
-                let entry_name = format!("category_{}.json", cat.as_str());
-                match archive.by_name(&entry_name) {
-                    Ok(mut file) => {
-                        let mut content = String::new();
-                        file.read_to_string(&mut content)?;
-                        let json: Value = serde_json::from_str(&content)?;
-                        restore_category_json(
-                            &conn,
-                            *cat,
-                            &json,
-                            selection.conflict_policy,
-                            selection.include_credentials,
-                            report,
-                        )?;
-                    }
-                    Err(_) => report
-                        .errors
-                        .push(format!("Category '{}' not present in archive", cat.as_str())),
-                }
-            }
+            _ => {}
         }
     }
 

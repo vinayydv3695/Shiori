@@ -29,6 +29,30 @@ struct Response {
 pub struct BrowserDaemon {
     next_id: AtomicUsize,
     sender: tokio::sync::mpsc::Sender<(Request, oneshot::Sender<Result<Value>>)>,
+    /// The spawned node process. Taken and killed on Drop (best-effort); the
+    /// writer task also reaps it when stdin closes.
+    child: Arc<tokio::sync::Mutex<Option<tokio::process::Child>>>,
+}
+
+impl Drop for BrowserDaemon {
+    fn drop(&mut self) {
+        // Best-effort kill on shutdown: the daemon is a node process with a
+        // Playwright browser behind it — leaving it running would orphan
+        // Chromium on every app exit.
+        if let Ok(mut guard) = self.child.try_lock() {
+            if let Some(mut child) = guard.take() {
+                if let Err(e) = child.start_kill() {
+                    log::warn!("[BrowserDaemon] Failed to kill daemon process: {}", e);
+                } else {
+                    log::info!("[BrowserDaemon] Daemon process killed on drop");
+                    // Reap so the process doesn't linger as a zombie.
+                    tauri::async_runtime::spawn(async move {
+                        let _ = child.wait().await;
+                    });
+                }
+            }
+        }
+    }
 }
 
 impl BrowserDaemon {
@@ -64,8 +88,26 @@ impl BrowserDaemon {
             .spawn()
             .map_err(|e| ShioriError::Other(format!("Failed to spawn daemon: {e}")))?;
 
-        let mut stdin = child.stdin.take().unwrap();
-        let stdout = child.stdout.take().unwrap();
+        let mut stdin = match child.stdin.take() {
+            Some(s) => s,
+            None => {
+                return Err(ShioriError::Other(
+                    "Failed to take daemon stdin (piped stdin was not created)".into(),
+                ))
+            }
+        };
+        let stdout = match child.stdout.take() {
+            Some(s) => s,
+            None => {
+                return Err(ShioriError::Other(
+                    "Failed to take daemon stdout (piped stdout was not created)".into(),
+                ))
+            }
+        };
+
+        // Shared handle so the writer task (stdin close) and Drop can both
+        // reap/kill the child.
+        let child_holder = Arc::new(tokio::sync::Mutex::new(Some(child)));
 
         let mut reader = BufReader::new(stdout).lines();
 
@@ -105,6 +147,7 @@ impl BrowserDaemon {
         });
 
         let pending_clone2 = pending_requests.clone();
+        let child_for_reaper = child_holder.clone();
         tokio::spawn(async move {
             while let Some((req, cb)) = rx.recv().await {
                 let id = req.id;
@@ -123,12 +166,20 @@ impl BrowserDaemon {
                 }
             }
             drop(stdin);
-            let _ = child.wait().await;
+            // stdin closed (daemon died or we're shutting down): reap the
+            // child process so it doesn't linger as a zombie.
+            let holder = child_for_reaper;
+            tokio::spawn(async move {
+                if let Some(mut child) = holder.lock().await.take() {
+                    let _ = child.wait().await;
+                }
+            });
         });
 
         Ok(Arc::new(Self {
             next_id: AtomicUsize::new(1),
             sender: tx,
+            child: child_holder,
         }))
     }
 

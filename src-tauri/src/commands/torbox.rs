@@ -280,7 +280,15 @@ async fn finalize_import_from_target(
                 .map_err(|e| ShioriError::Other(format!("Failed to open zip: {}", e)))?;
 
             for i in 0..archive.len() {
-                let mut file = archive.by_index(i).unwrap();
+                let mut file = match archive.by_index(i) {
+                    Ok(f) => f,
+                    Err(e) => {
+                        return Err(ShioriError::Other(format!(
+                            "Failed to read zip entry {}: {}",
+                            i, e
+                        )))
+                    }
+                };
                 let outpath = match file.enclosed_name() {
                     Some(path) => extract_dir.join(path),
                     None => continue,

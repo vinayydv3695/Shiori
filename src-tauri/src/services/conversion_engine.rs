@@ -8,6 +8,7 @@
 /// - Unified capability matrix
 use chrono::{DateTime, Utc};
 use dashmap::{DashMap, DashSet};
+use futures::FutureExt;
 use printpdf::*;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
@@ -32,13 +33,17 @@ use crate::services::format_detection::detect_format;
 // ──────────────────────────────────────────────────────────────────────────
 
 pub const CONVERSION_MATRIX: &[(&str, &[&str])] = &[
-    ("epub", &["pdf", "mobi", "azw3", "docx", "txt", "fb2"]),
-    ("pdf", &["epub", "mobi", "azw3", "docx", "txt", "fb2"]),
-    ("mobi", &["epub", "pdf", "azw3", "docx", "txt", "fb2"]),
-    ("azw3", &["epub", "pdf", "mobi", "docx", "txt", "fb2"]),
-    ("docx", &["epub", "pdf", "mobi", "azw3", "txt", "fb2"]),
-    ("txt", &["epub", "pdf", "mobi", "azw3", "docx", "fb2"]),
-    ("fb2", &["epub", "pdf", "mobi", "azw3", "docx", "txt"]),
+    // Only pairs backed by a real converter are advertised. The epub→
+    // docx/mobi/azw3/fb2 and pdf→docx/etc. directions were stubs that
+    // returned ConversionNotSupported at execution time — advertising them
+    // just queued jobs that were doomed to fail.
+    ("epub", &["pdf", "txt"]),
+    ("pdf", &["epub", "txt"]),
+    ("mobi", &["epub", "pdf", "txt"]),
+    ("azw3", &["epub", "pdf", "txt"]),
+    ("docx", &["epub", "pdf", "txt"]),
+    ("txt", &["epub", "pdf"]),
+    ("fb2", &["epub", "pdf", "txt"]),
     ("html", &["epub", "txt"]),
     ("markdown", &["epub", "txt"]),
 ];
@@ -105,6 +110,9 @@ pub struct ConversionEngine {
     shutdown: Arc<Mutex<bool>>,
     worker_count: usize,
     workers_started: std::sync::Mutex<bool>,
+    /// Live worker tasks. Decremented when a worker dies to a panic; a
+    /// replacement is spawned so the engine never silently loses workers.
+    active_workers: Arc<std::sync::atomic::AtomicUsize>,
     app_handle: tauri::AppHandle,
     db: Option<Database>,
 }
@@ -118,6 +126,7 @@ impl ConversionEngine {
             shutdown: Arc::new(Mutex::new(false)),
             worker_count,
             workers_started: std::sync::Mutex::new(false),
+            active_workers: Arc::new(std::sync::atomic::AtomicUsize::new(worker_count)),
             app_handle,
             db: None,
         }
@@ -130,6 +139,31 @@ impl ConversionEngine {
 
     // ── Worker management ─────────────────────────────────────────────────
 
+    /// Spawn one worker task. Broken out of `worker_loop` itself so the
+    /// panic-respawn path (worker_loop → spawn worker_loop) does not create a
+    /// recursive opaque-future type that defeats Send inference.
+    fn spawn_worker(
+        worker_id: usize,
+        queue: Arc<Mutex<Queue>>,
+        tracker: Arc<DashMap<String, ConversionJob>>,
+        cancelled: Arc<DashSet<String>>,
+        shutdown: Arc<Mutex<bool>>,
+        handle: tauri::AppHandle,
+        db: Option<Database>,
+        active_workers: Arc<std::sync::atomic::AtomicUsize>,
+    ) -> tokio::task::JoinHandle<()> {
+        tokio::spawn(Self::worker_loop(
+            worker_id,
+            queue,
+            tracker,
+            cancelled,
+            shutdown,
+            handle,
+            db,
+            active_workers,
+        ))
+    }
+
     fn ensure_workers(&self) {
         let mut started = self.workers_started.lock().unwrap();
         if !*started {
@@ -140,9 +174,8 @@ impl ConversionEngine {
                 let shutdown = self.shutdown.clone();
                 let handle = self.app_handle.clone();
                 let db = self.db.clone();
-                tokio::spawn(async move {
-                    Self::worker_loop(id, queue, tracker, cancelled, shutdown, handle, db).await;
-                });
+                let active_workers = self.active_workers.clone();
+                Self::spawn_worker(id, queue, tracker, cancelled, shutdown, handle, db, active_workers);
             }
             *started = true;
             log::info!("[ConversionEngine] {} workers started", self.worker_count);
@@ -242,6 +275,13 @@ impl ConversionEngine {
             {
                 job.status = ConversionStatus::Cancelled;
                 job.error = Some("Cancelled by user".to_string());
+                // Persist the Cancelled status — otherwise `restore_from_db`
+                // resurrects the job on the next startup.
+                if let Some(ref db) = self.db {
+                    if let Ok(conn) = db.get_connection() {
+                        Self::persist_job(job.value(), &conn);
+                    }
+                }
                 self.emit_progress(job.value());
                 return Ok(());
             }
@@ -259,35 +299,37 @@ impl ConversionEngine {
 
     // ── Restore jobs from DB on startup ──────────────────────────────────
 
-    pub fn restore_from_db(&self, conn: &rusqlite::Connection) {
-        fn load_jobs(conn: &rusqlite::Connection) -> rusqlite::Result<Vec<ConversionJob>> {
-            let mut stmt = conn.prepare(
-                "SELECT id, book_id, source_path, target_path, source_format, target_format,
-                        status, progress, error_message, created_at
-                 FROM conversion_jobs
-                 WHERE status IN ('Queued', 'Processing')
-                 ORDER BY created_at ASC",
-            )?;
-            let rows = stmt.query_map([], |row| {
-                Ok(ConversionJob {
-                    id: row.get(0)?,
-                    book_id: row.get(1)?,
-                    source_path: row.get(2)?,
-                    target_path: row.get(3)?,
-                    source_format: row.get(4)?,
-                    target_format: row.get(5)?,
-                    status: ConversionStatus::Queued, // always re-queue
-                    progress: 0.0,
-                    error: None,
-                    created_at: Utc::now(),
-                    started_at: None,
-                    completed_at: None,
-                })
-            })?;
-            rows.collect()
-        }
+    /// Jobs that should be re-queued after a restart: anything still Queued or
+    /// Processing (Cancelled/Failed/Completed stay dead).
+    fn load_pending_jobs(conn: &rusqlite::Connection) -> rusqlite::Result<Vec<ConversionJob>> {
+        let mut stmt = conn.prepare(
+            "SELECT id, book_id, source_path, target_path, source_format, target_format,
+                    status, progress, error_message, created_at
+             FROM conversion_jobs
+             WHERE status IN ('Queued', 'Processing')
+             ORDER BY created_at ASC",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(ConversionJob {
+                id: row.get(0)?,
+                book_id: row.get(1)?,
+                source_path: row.get(2)?,
+                target_path: row.get(3)?,
+                source_format: row.get(4)?,
+                target_format: row.get(5)?,
+                status: ConversionStatus::Queued, // always re-queue
+                progress: 0.0,
+                error: None,
+                created_at: Utc::now(),
+                started_at: None,
+                completed_at: None,
+            })
+        })?;
+        rows.collect()
+    }
 
-        match load_jobs(conn) {
+    pub fn restore_from_db(&self, conn: &rusqlite::Connection) {
+        match Self::load_pending_jobs(conn) {
             Ok(jobs) => {
                 log::info!("[ConversionEngine] Restoring {} jobs from DB", jobs.len());
                 let rt_handle = tauri::async_runtime::handle();
@@ -368,6 +410,7 @@ impl ConversionEngine {
         shutdown: Arc<Mutex<bool>>,
         handle: tauri::AppHandle,
         db: Option<Database>,
+        active_workers: Arc<std::sync::atomic::AtomicUsize>,
     ) {
         log::info!("[ConversionWorker-{}] Started", worker_id);
 
@@ -404,106 +447,159 @@ impl ConversionEngine {
                     None => continue,
                 };
 
-                // Mark processing
-                {
-                    let mut j = tracker.get_mut(&job_id).unwrap();
-                    j.status = ConversionStatus::Processing;
-                    j.started_at = Some(Utc::now());
-                    j.progress = 5.0;
-                    handle.emit("conversion:progress", j.value()).ok();
-                    persist(j.value());
-                }
+                // Per-job execution, panic-contained: a panic inside a
+                // converter (corrupt user file, library bug) must not kill the
+                // worker or leave the job stuck in 'Processing' forever.
+                let outcome = std::panic::AssertUnwindSafe(async {
+                    // Mark processing
+                    {
+                        let mut j = tracker.get_mut(&job_id).unwrap();
+                        j.status = ConversionStatus::Processing;
+                        j.started_at = Some(Utc::now());
+                        j.progress = 5.0;
+                        handle.emit("conversion:progress", j.value()).ok();
+                        persist(j.value());
+                    }
 
-                // Execute
-                let source = PathBuf::from(&job.source_path);
-                let target = PathBuf::from(&job.target_path);
-                let cb_handle = handle.clone();
-                let cb_tracker = tracker.clone();
-                let cb_job_id = job_id.clone();
-                let cb_db = db.clone();
+                    // Execute
+                    let source = PathBuf::from(&job.source_path);
+                    let target = PathBuf::from(&job.target_path);
+                    let cb_handle = handle.clone();
+                    let cb_tracker = tracker.clone();
+                    let cb_job_id = job_id.clone();
+                    let cb_db = db.clone();
 
-                let last_db_persist = std::sync::Arc::new(std::sync::atomic::AtomicI64::new(0));
+                    let last_db_persist = std::sync::Arc::new(std::sync::atomic::AtomicI64::new(0));
 
-                let progress_cb = std::sync::Arc::new(move |pct: u8, _msg: &str| {
-                    if let Some(mut j) = cb_tracker.get_mut(&cb_job_id) {
-                        j.progress = pct as f32;
+                    let progress_cb = std::sync::Arc::new(move |pct: u8, _msg: &str| {
+                        if let Some(mut j) = cb_tracker.get_mut(&cb_job_id) {
+                            j.progress = pct as f32;
 
-                        // Emit event frequently to frontend
-                        let _ = cb_handle.emit("conversion:progress", j.value());
+                            // Emit event frequently to frontend
+                            let _ = cb_handle.emit("conversion:progress", j.value());
 
-                        // Throttle database persistence to max once per second
-                        let now = chrono::Utc::now().timestamp_millis();
-                        let last = last_db_persist.load(std::sync::atomic::Ordering::Relaxed);
-                        if now - last > 1000 {
-                            last_db_persist.store(now, std::sync::atomic::Ordering::Relaxed);
-                            if let Some(ref db_ref) = cb_db {
-                                if let Ok(conn) = db_ref.get_connection() {
-                                    Self::persist_job(j.value(), &conn);
+                            // Throttle database persistence to max once per second
+                            let now = chrono::Utc::now().timestamp_millis();
+                            let last = last_db_persist.load(std::sync::atomic::Ordering::Relaxed);
+                            if now - last > 1000 {
+                                last_db_persist.store(now, std::sync::atomic::Ordering::Relaxed);
+                                if let Some(ref db_ref) = cb_db {
+                                    if let Ok(conn) = db_ref.get_connection() {
+                                        Self::persist_job(j.value(), &conn);
+                                    }
                                 }
                             }
                         }
-                    }
-                })
-                    as std::sync::Arc<dyn Fn(u8, &str) + Send + Sync>;
+                    })
+                        as std::sync::Arc<dyn Fn(u8, &str) + Send + Sync>;
 
-                let result = Self::execute_conversion(
-                    &job.source_format,
-                    &job.target_format,
-                    &source,
-                    &target,
-                    &cancelled,
-                    &job_id,
-                    db.as_ref(),
-                    Some(progress_cb),
-                )
-                .await;
+                    let result = Self::execute_conversion(
+                        &job.source_format,
+                        &job.target_format,
+                        &source,
+                        &target,
+                        &cancelled,
+                        &job_id,
+                        db.as_ref(),
+                        Some(progress_cb),
+                    )
+                    .await;
 
-                // Update final status
-                {
-                    let mut j = tracker.get_mut(&job_id).unwrap();
-                    match result {
-                        Ok(_) => {
-                            j.status = ConversionStatus::Completed;
-                            j.progress = 100.0;
-                            j.completed_at = Some(Utc::now());
-                            log::info!("[ConversionWorker-{}] Job {} completed", worker_id, job_id);
-                            handle
-                                .emit(
-                                    "conversion:complete",
-                                    serde_json::json!({
-                                        "job_id": job_id,
-                                        "output_path": job.target_path,
-                                    }),
-                                )
-                                .ok();
-                        }
-                        Err(e) => {
-                            if cancelled.contains(&job_id) {
-                                j.status = ConversionStatus::Cancelled;
-                                j.error = Some("Cancelled by user".to_string());
-                            } else {
-                                j.status = ConversionStatus::Failed;
-                                j.error = Some(e.to_string());
-                                log::error!(
-                                    "[ConversionWorker-{}] Job {} failed: {}",
+                    // Update final status
+                    {
+                        let mut j = tracker.get_mut(&job_id).unwrap();
+                        match result {
+                            Ok(_) => {
+                                j.status = ConversionStatus::Completed;
+                                j.progress = 100.0;
+                                j.completed_at = Some(Utc::now());
+                                log::info!(
+                                    "[ConversionWorker-{}] Job {} completed",
                                     worker_id,
-                                    job_id,
-                                    e
+                                    job_id
                                 );
                                 handle
                                     .emit(
-                                        "conversion:error",
+                                        "conversion:complete",
                                         serde_json::json!({
                                             "job_id": job_id,
-                                            "error": e.to_string(),
+                                            "output_path": job.target_path,
                                         }),
                                     )
                                     .ok();
                             }
+                            Err(e) => {
+                                if cancelled.contains(&job_id) {
+                                    j.status = ConversionStatus::Cancelled;
+                                    j.error = Some("Cancelled by user".to_string());
+                                } else {
+                                    j.status = ConversionStatus::Failed;
+                                    j.error = Some(e.to_string());
+                                    log::error!(
+                                        "[ConversionWorker-{}] Job {} failed: {}",
+                                        worker_id,
+                                        job_id,
+                                        e
+                                    );
+                                    handle
+                                        .emit(
+                                            "conversion:error",
+                                            serde_json::json!({
+                                                "job_id": job_id,
+                                                "error": e.to_string(),
+                                            }),
+                                        )
+                                        .ok();
+                                }
+                            }
+                        }
+                        handle.emit("conversion:progress", j.value()).ok();
+                        persist(j.value());
+                    }
+                })
+                .catch_unwind()
+                .await;
+
+                if let Err(panic) = outcome {
+                    // The panic was contained, but the job must not stay
+                    // 'Processing' — mark it failed in the DB and tracker, then
+                    // respawn a replacement worker so the engine never
+                    // silently loses workers.
+                    let msg = panic
+                        .downcast_ref::<&str>()
+                        .map(|s| s.to_string())
+                        .or_else(|| panic.downcast_ref::<String>().cloned())
+                        .unwrap_or_else(|| "unknown panic".to_string());
+                    log::error!(
+                        "[ConversionWorker-{}] Job {} panicked ({}); marking failed and respawning worker",
+                        worker_id,
+                        job_id,
+                        msg
+                    );
+                    if let Some(ref db_ref) = db {
+                        if let Ok(conn) = db_ref.get_connection() {
+                            let _ = conn.execute(
+                                "UPDATE conversion_jobs SET status = 'Failed', error_message = 'Worker panic', updated_at = CURRENT_TIMESTAMP WHERE id = ?1",
+                                rusqlite::params![job_id],
+                            );
                         }
                     }
-                    handle.emit("conversion:progress", j.value()).ok();
-                    persist(j.value());
+                    if let Some(mut j) = tracker.get_mut(&job_id) {
+                        j.status = ConversionStatus::Failed;
+                        j.error = Some(format!("Worker panic: {}", msg));
+                    }
+                    active_workers.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+                    Self::spawn_worker(
+                        worker_id,
+                        queue.clone(),
+                        tracker.clone(),
+                        cancelled.clone(),
+                        shutdown.clone(),
+                        handle.clone(),
+                        db.clone(),
+                        active_workers,
+                    );
+                    return;
                 }
             } else {
                 tokio::time::sleep(Duration::from_millis(500)).await;
@@ -676,51 +772,59 @@ impl ConversionEngine {
             }
         }
 
-        // ── Native N-to-N Pipeline ──
-        // Strategy: Source -> EPUB -> Target
-        let temp_dir = std::env::temp_dir();
-        let intermediate_epub = temp_dir.join(format!("{}.epub", uuid::Uuid::new_v4()));
-
-        // Step 1: Source to EPUB
-        if source_fmt != "epub" {
-            let src_format = crate::conversion::SourceFormat::from_extension(source_fmt)
-                .unwrap_or(crate::conversion::SourceFormat::Txt);
-
-            crate::conversion::convert_to_epub(
-                source,
-                &intermediate_epub,
-                src_format,
-                progress_cb.as_deref(),
-            )
-            .await
-            .map_err(|e| FormatError::ConversionError(e.to_string()))?;
-        } else {
-            tokio::fs::copy(source, &intermediate_epub).await?;
+    // ── Native N-to-N Pipeline ──
+    // Strategy: Source -> EPUB -> Target
+    /// RAII guard for the intermediate `<tempdir>/<uuid>.epub`: removed on
+    /// success, error AND panic (Drop runs during unwind).
+    struct TempFileGuard(PathBuf);
+    impl Drop for TempFileGuard {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_file(&self.0);
         }
+    }
 
-        check_cancel()?;
+    let temp_dir = std::env::temp_dir();
+    let intermediate_epub = temp_dir.join(format!("{}.epub", uuid::Uuid::new_v4()));
+    let _intermediate_guard = TempFileGuard(intermediate_epub.clone());
 
-        // Step 2: EPUB to Target
-        if target_fmt == "epub" {
-            tokio::fs::copy(&intermediate_epub, target).await?;
-            let _ = tokio::fs::remove_file(&intermediate_epub).await;
-            return Ok(());
-        }
+    // Step 1: Source to EPUB
+    if source_fmt != "epub" {
+        let src_format = crate::conversion::SourceFormat::from_extension(source_fmt)
+            .unwrap_or(crate::conversion::SourceFormat::Txt);
 
-        let res = match target_fmt {
-            "pdf" => Self::epub_to_pdf(&intermediate_epub, target).await,
-            "txt" => Self::epub_to_txt(&intermediate_epub, target).await,
-            "docx" => Self::epub_to_docx(&intermediate_epub, target).await,
-            "mobi" | "azw3" => Self::epub_to_mobi(&intermediate_epub, target).await,
-            "fb2" => Self::epub_to_fb2(&intermediate_epub, target).await,
-            _ => Err(FormatError::ConversionNotSupported {
-                from: source_fmt.to_string(),
-                to: target_fmt.to_string(),
-            }),
-        };
+        crate::conversion::convert_to_epub(
+            source,
+            &intermediate_epub,
+            src_format,
+            progress_cb.as_deref(),
+        )
+        .await
+        .map_err(|e| FormatError::ConversionError(e.to_string()))?;
+    } else {
+        tokio::fs::copy(source, &intermediate_epub).await?;
+    }
 
-        let _ = tokio::fs::remove_file(&intermediate_epub).await;
-        res
+    check_cancel()?;
+
+    // Step 2: EPUB to Target
+    if target_fmt == "epub" {
+        tokio::fs::copy(&intermediate_epub, target).await?;
+        return Ok(());
+    }
+
+    let res = match target_fmt {
+        "pdf" => Self::epub_to_pdf(&intermediate_epub, target).await,
+        "txt" => Self::epub_to_txt(&intermediate_epub, target).await,
+        "docx" => Self::epub_to_docx(&intermediate_epub, target).await,
+        "mobi" | "azw3" => Self::epub_to_mobi(&intermediate_epub, target).await,
+        "fb2" => Self::epub_to_fb2(&intermediate_epub, target).await,
+        _ => Err(FormatError::ConversionNotSupported {
+            from: source_fmt.to_string(),
+            to: target_fmt.to_string(),
+        }),
+    };
+
+    res
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -1253,6 +1357,33 @@ impl Default for ConversionEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashSet;
+
+    /// Stub targets (epub→docx/mobi/fb2, pdf→docx, ...) were removed from the
+    /// matrix — every advertised pair must be backed by a real converter.
+    /// Book formats only ever target epub/pdf/txt; html/markdown target
+    /// epub/txt.
+    #[test]
+    fn test_matrix_has_no_stub_targets() {
+        let real_targets: HashSet<&str> = ["epub", "pdf", "txt"].into_iter().collect();
+        for (from, targets) in CONVERSION_MATRIX {
+            for t in *targets {
+                assert!(
+                    real_targets.contains(t),
+                    "matrix advertises stub target '{from} → {t}' which has no real converter"
+                );
+            }
+        }
+        // Explicitly assert the pairs that used to be advertised but always
+        // failed at execution time.
+        assert!(!can_convert("epub", "docx"));
+        assert!(!can_convert("epub", "mobi"));
+        assert!(!can_convert("epub", "azw3"));
+        assert!(!can_convert("epub", "fb2"));
+        assert!(!can_convert("pdf", "docx"));
+        assert!(!can_convert("pdf", "mobi"));
+        assert!(!can_convert("txt", "docx"));
+    }
 
     #[test]
     fn test_capability_matrix() {
@@ -1260,8 +1391,94 @@ mod tests {
         assert!(can_convert("pdf", "epub"));
         assert!(can_convert("mobi", "epub"));
         assert!(can_convert("txt", "epub"));
-        // assert!(!can_convert("epub", "mobi")); // mobi conversion seems supported now
         assert!(!can_convert("cbz", "epub")); // manga, not books
+    }
+
+    /// A cancelled job must be persisted as 'Cancelled' so `restore_from_db`
+    /// (which only resurrects Queued/Processing rows) does not bring it back.
+    #[test]
+    fn test_cancel_persists_and_not_resurrected() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = crate::db::Database::new(dir.path().join("conv.db")).unwrap();
+        let conn = db.get_connection().unwrap();
+
+        let queued = ConversionJob {
+            id: "job-1".to_string(),
+            book_id: None,
+            source_path: "/tmp/source.epub".to_string(),
+            target_path: "/tmp/source.pdf".to_string(),
+            source_format: "epub".to_string(),
+            target_format: "pdf".to_string(),
+            status: ConversionStatus::Queued,
+            progress: 0.0,
+            error: None,
+            created_at: Utc::now(),
+            started_at: None,
+            completed_at: None,
+        };
+        // Queue: submit_conversion persists the Queued row.
+        ConversionEngine::persist_job(&queued, &conn);
+        assert_eq!(ConversionEngine::load_pending_jobs(&conn).unwrap().len(), 1);
+
+        // Cancel: cancel_job flips the in-memory job and persists it.
+        let mut cancelled = queued;
+        cancelled.status = ConversionStatus::Cancelled;
+        cancelled.error = Some("Cancelled by user".to_string());
+        ConversionEngine::persist_job(&cancelled, &conn);
+
+        // Re-run restore_from_db's load logic: must NOT be resurrected.
+        assert!(
+            ConversionEngine::load_pending_jobs(&conn).unwrap().is_empty(),
+            "cancelled job was resurrected by restore_from_db"
+        );
+    }
+
+    /// A failing conversion must not leak the intermediate `<tempdir>/<uuid>.epub`.
+    #[test]
+    fn test_failed_conversion_cleans_intermediate_epub() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("book.txt");
+        std::fs::write(&source, "Hello world").unwrap();
+        let target = dir.path().join("out.docx");
+
+        let epub_files = |d: &std::path::Path| -> HashSet<String> {
+            std::fs::read_dir(d)
+                .map(|rd| {
+                    rd.filter_map(|e| e.ok())
+                        .filter(|e| {
+                            e.path()
+                                .extension()
+                                .map(|x| x == "epub")
+                                .unwrap_or(false)
+                        })
+                        .map(|e| e.file_name().to_string_lossy().to_string())
+                        .collect()
+                })
+                .unwrap_or_default()
+        };
+        let before = epub_files(&std::env::temp_dir());
+
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let dummy = DashSet::new();
+        // txt → docx converts txt→epub successfully, then fails in step 2
+        // (epub_to_docx is a stub returning ConversionNotSupported).
+        let res = rt.block_on(ConversionEngine::execute_conversion(
+            "txt",
+            "docx",
+            &source,
+            &target,
+            &dummy,
+            "test-job",
+            None,
+            None,
+        ));
+        assert!(res.is_err(), "stub target must fail");
+
+        let after = epub_files(&std::env::temp_dir());
+        assert_eq!(
+            before, after,
+            "intermediate epub leaked in temp dir after failed conversion"
+        );
     }
 
     #[test]

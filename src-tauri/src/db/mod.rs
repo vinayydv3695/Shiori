@@ -2,17 +2,43 @@ use crate::error::Result;
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use std::path::Path;
+use std::sync::{Arc, RwLock};
 
 pub mod migrations;
 
 #[derive(Clone)]
 pub struct Database {
     pool: Pool<SqliteConnectionManager>,
+    /// Current performance mode ("standard" | "large_library" | "low_memory").
+    /// Read by the pool's connection-init closure (new connections) and by
+    /// `get_connection` (every checkout, so connections that were created
+    /// before a mode change still pick it up).
+    perf_mode: Arc<RwLock<String>>,
+}
+
+/// Apply the per-connection performance pragmas for a mode. Idempotent and
+/// cheap (SQLite no-ops when the value is unchanged), so it is safe to run on
+/// every checkout. `temp_store` is reset to MEMORY for non-low-memory modes so
+/// switching away from low_memory restores the base behaviour.
+fn apply_perf_pragmas(conn: &rusqlite::Connection, mode: &str) {
+    match mode {
+        "large_library" => {
+            let _ = conn.execute_batch("PRAGMA cache_size = -128000; PRAGMA temp_store = MEMORY;");
+        }
+        "low_memory" => {
+            let _ = conn.execute_batch("PRAGMA cache_size = -2000; PRAGMA temp_store = FILE;");
+        }
+        _ => {
+            let _ = conn.execute_batch("PRAGMA cache_size = -32000; PRAGMA temp_store = MEMORY;");
+        }
+    }
 }
 
 impl Database {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let manager = SqliteConnectionManager::file(path.as_ref()).with_init(|c| {
+        let perf_mode: Arc<RwLock<String>> = Arc::new(RwLock::new("standard".to_string()));
+        let perf_mode_init = perf_mode.clone();
+        let manager = SqliteConnectionManager::file(path.as_ref()).with_init(move |c| {
             // Enable foreign keys
             let _ = c.execute_batch("PRAGMA foreign_keys = ON;");
             // Enable WAL mode for better concurrency (fallback gracefully if unsupported on device)
@@ -33,6 +59,12 @@ impl Database {
             }
 
             let _ = c.busy_timeout(std::time::Duration::from_millis(5000));
+
+            // Perf-mode pragmas for every NEW connection (the mode may already
+            // be set when late connections are created).
+            if let Ok(mode) = perf_mode_init.read() {
+                apply_perf_pragmas(c, &mode);
+            }
             Ok(())
         });
 
@@ -41,7 +73,10 @@ impl Database {
             crate::error::ShioriError::Other(format!("Database pooling error: {}", e))
         })?;
 
-        let db = Database { pool };
+        let db = Database {
+            pool,
+            perf_mode,
+        };
         db.initialize_schema()?;
 
         // Run migrations for new features
@@ -59,7 +94,12 @@ impl Database {
         Ok(())
     }
 
-    fn apply_performance_pragmas(&self) -> Result<()> {
+    /// Read the current performance mode from user_preferences, record it on
+    /// the Database (so every NEW connection applies it in its init closure and
+    /// every checkout re-applies it), and apply it to the calling connection.
+    /// Called at startup and again whenever the user changes the mode
+    /// (preferences.rs update path).
+    pub fn apply_performance_pragmas(&self) -> Result<()> {
         let conn = self.get_connection()?;
         let perf_mode: String = conn
             .query_row(
@@ -73,17 +113,19 @@ impl Database {
             "large_library" => {
                 log::info!("Applying Large Library performance pragmas");
                 // 128 MB page cache — fast for libraries with 1000+ books
-                conn.execute_batch("PRAGMA cache_size = -128000;")?;
             }
             "low_memory" => {
                 log::info!("Applying Low Memory performance pragmas");
-                conn.execute_batch("PRAGMA cache_size = -2000; PRAGMA temp_store = FILE;")?;
             }
             _ => {
                 // standard: 32 MB — good balance for typical libraries
-                conn.execute_batch("PRAGMA cache_size = -32000;")?;
             }
         }
+
+        if let Ok(mut m) = self.perf_mode.write() {
+            *m = perf_mode.clone();
+        }
+        apply_perf_pragmas(&conn, &perf_mode);
 
         // Update query planner statistics — cheap operation, big win after bulk imports
         conn.execute_batch("PRAGMA optimize;")?;
@@ -373,9 +415,17 @@ impl Database {
     }
 
     pub fn get_connection(&self) -> Result<r2d2::PooledConnection<SqliteConnectionManager>> {
-        self.pool
+        let conn = self
+            .pool
             .get()
-            .map_err(|e| crate::error::ShioriError::Other(e.to_string()))
+            .map_err(|e| crate::error::ShioriError::Other(e.to_string()))?;
+        // Keep per-connection perf pragmas in sync with the current mode even
+        // for connections that were created before the mode was set/changed
+        // (cache_size/temp_store are per-connection). Idempotent + cheap.
+        if let Ok(mode) = self.perf_mode.read() {
+            apply_perf_pragmas(&conn, &mode);
+        }
+        Ok(conn)
     }
 }
 

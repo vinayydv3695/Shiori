@@ -723,3 +723,168 @@ fn test_subset_restore_of_full_archive_rejected() {
 fn _unused(_: &RestoreReport) {}
 #[allow(dead_code)]
 fn _path(_: &Path) {}
+
+// ─── Transactional-restore tests ────────────────────────────────────────────
+
+/// Build a full-snapshot archive (manifest.json + database/library.db) from
+/// `src`'s database via VACUUM INTO — the same shape create_backup produces
+/// for Everything backups.
+fn build_full_archive(src: &TestEnv, zip_path: &Path) {
+    let temp_dir = std::env::temp_dir().join(format!("shiori_backup_snap_{}_{}", std::process::id(), rand_suffix()));
+    fs::create_dir_all(&temp_dir).unwrap();
+    let snap = temp_dir.join("library.db");
+    {
+        let conn = src.conn();
+        conn.execute_batch(&format!(
+            "VACUUM INTO '{}'",
+            snap.display().to_string().replace('\'', "''")
+        ))
+        .unwrap();
+    }
+
+    let file = fs::File::create(zip_path).unwrap();
+    let mut zip = zip::ZipWriter::new(file);
+    let opts = zip::write::SimpleFileOptions::default();
+    zip.start_file("manifest.json", opts).unwrap();
+    zip.write_all(
+        br#"{"version":"2.0","created_at":"2025-01-01T00:00:00Z","app_version":"test","book_count":2,"annotation_count":1,"shelf_count":0,"includes_books":false,"total_size_bytes":0,"schema_version":2,"categories":["library","annotations","progress","preferences","sources","rss","covers","books"],"category_counts":{},"skipped_files":[],"book_files":{}}"#,
+    )
+    .unwrap();
+    zip.start_file("database/library.db", opts).unwrap();
+    zip.write_all(&fs::read(&snap).unwrap()).unwrap();
+    zip.finish().unwrap();
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+/// Rewrite `src_zip` to `out_zip` with `entry_name` replaced by garbage.
+fn corrupt_zip_entry(src_zip: &Path, out_zip: &Path, entry_name: &str) {
+    let file = fs::File::open(src_zip).unwrap();
+    let mut archive = zip::ZipArchive::new(file).unwrap();
+    let out = fs::File::create(out_zip).unwrap();
+    let mut w = zip::ZipWriter::new(out);
+    let opts = zip::write::SimpleFileOptions::default();
+    for i in 0..archive.len() {
+        let mut f = archive.by_index(i).unwrap();
+        let name = f.name().to_string();
+        w.start_file(&name, opts).unwrap();
+        if name == entry_name {
+            w.write_all(b"{ this is not valid json !!!").unwrap();
+        } else {
+            let mut buf = Vec::new();
+            f.read_to_end(&mut buf).unwrap();
+            w.write_all(&buf).unwrap();
+        }
+    }
+    w.finish().unwrap();
+}
+
+/// Full-snapshot restore must be atomic: a mid-restore failure (here: the
+/// backup's annotations row violates the live table's CHECK constraint, so the
+/// INSERT fails after books were already DELETEd) rolls back EVERY table — the
+/// library is not left half-wiped.
+#[test]
+fn test_full_restore_failure_rolls_back() {
+    let main = TestEnv::new();
+    insert_book(&main, "u-main", "Main Book", "/tmp/main.epub", Some("h-main"));
+    {
+        let conn = main.conn();
+        let book_id = book_id_by_uuid(&main, "u-main");
+        conn.execute(
+            "INSERT INTO annotations (book_id, type, location, created_at) VALUES (?1, 'highlight', 'loc-1', '2025-01-01')",
+            rusqlite::params![book_id],
+        )
+        .unwrap();
+    }
+
+    // Backup DB: two books + an annotations row with an illegal `type`.
+    // `ignore_check_constraints` lets the corrupt row INTO the backup so the
+    // RESTORE side (which has the constraint active) fails mid-way.
+    let bkp = TestEnv::new();
+    insert_book(&bkp, "u-b1", "Backup Book 1", "/tmp/b1.epub", Some("h-b1"));
+    insert_book(&bkp, "u-b2", "Backup Book 2", "/tmp/b2.epub", Some("h-b2"));
+    {
+        let conn = bkp.conn();
+        conn.execute_batch("PRAGMA ignore_check_constraints = ON;").unwrap();
+        let book_id = book_id_by_uuid(&bkp, "u-b1");
+        conn.execute(
+            "INSERT INTO annotations (book_id, type, location, created_at) VALUES (?1, 'bogus', 'loc-x', '2025-01-01')",
+            rusqlite::params![book_id],
+        )
+        .unwrap();
+        conn.execute_batch("PRAGMA ignore_check_constraints = OFF;").unwrap();
+    }
+
+    let zip_path = main.backup_path.with_extension("full.zip");
+    build_full_archive(&bkp, &zip_path);
+
+    let err = backup_service::restore_backup(
+        &main.db,
+        &main.app_data_dir,
+        &zip_path,
+        &RestoreSelection::default(),
+    )
+    .expect_err("restore must fail on the corrupt annotations row");
+    assert!(
+        err.to_string().contains("CHECK") || err.to_string().contains("annotations"),
+        "unexpected error: {err}"
+    );
+
+    // Rolled back: original book + annotation intact, backup rows not present.
+    assert_eq!(count_rows(&main, "books"), 1, "books table was half-restored");
+    assert_eq!(count_rows(&main, "annotations"), 1, "annotations were wiped");
+    let title: String = main
+        .conn()
+        .query_row(
+            "SELECT title FROM books WHERE uuid = 'u-main'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(title, "Main Book");
+    let ty: String = main
+        .conn()
+        .query_row("SELECT type FROM annotations", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(ty, "highlight");
+}
+
+/// Subset restore must be atomic too: a corrupt category JSON mid-restore
+/// rolls back the categories that already imported (no half-imported library).
+#[test]
+fn test_subset_restore_failure_rolls_back() {
+    let src = TestEnv::new();
+    insert_book(&src, "u-1", "Book One", "/tmp/one.epub", Some("h1"));
+    backup_service::create_backup(
+        &src.db,
+        &src.app_data_dir,
+        &src.backup_path,
+        &cat_selection(&[BackupCategory::Library, BackupCategory::Annotations]),
+        None,
+    )
+    .expect("subset backup");
+
+    // Corrupt the Annotations JSON so the restore fails AFTER Library imports.
+    let corrupt_path = src.backup_path.with_extension("corrupt.zip");
+    corrupt_zip_entry(&src.backup_path, &corrupt_path, "category_annotations.json");
+
+    let dst = TestEnv::new();
+    let err = backup_service::restore_backup(
+        &dst.db,
+        &dst.app_data_dir,
+        &corrupt_path,
+        &restore_selection(
+            &[BackupCategory::Library, BackupCategory::Annotations],
+            ConflictPolicy::Overwrite,
+        ),
+    )
+    .expect_err("restore must fail on the corrupt annotations JSON");
+    assert!(
+        err.to_string().contains("Serialization") || err.to_string().contains("category_annotations"),
+        "unexpected error: {err}"
+    );
+
+    // The Library category imported before the failure must be rolled back.
+    assert_eq!(count_rows(&dst, "books"), 0, "library rows leaked from failed restore");
+    assert_eq!(count_rows(&dst, "authors"), 0);
+    assert_eq!(count_rows(&dst, "annotations"), 0);
+}

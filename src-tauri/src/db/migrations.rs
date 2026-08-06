@@ -163,6 +163,28 @@ impl<'a> MigrationManager<'a> {
         // 6-column schema created by v3 migration.
         self.ensure_fts_schema()?;
 
+        // Sync PRAGMA user_version to the highest applied migration. v2..v30
+        // called set_schema_version inside their bodies but v31+ never did, so
+        // user_version was stuck at 30 and v31..v44 re-ran on every startup
+        // (idempotent today, but a landmine for future non-idempotent
+        // migrations). Tracked via schema_migrations so this never hardcodes
+        // the latest version — a future v45 records itself and is picked up
+        // automatically. Never downgrade: only bump when a higher version was
+        // recorded this run (or earlier).
+        let max_recorded: i32 = self
+            .conn
+            .query_row("SELECT COALESCE(MAX(version), 0) FROM schema_migrations", [], |row| {
+                row.get(0)
+            })?;
+        if max_recorded > current_version {
+            self.set_schema_version(max_recorded)?;
+            log::info!(
+                "[Migration] Synced PRAGMA user_version {} → {}",
+                current_version,
+                max_recorded
+            );
+        }
+
         log::info!("[Migration] All migrations applied successfully");
         Ok(())
     }

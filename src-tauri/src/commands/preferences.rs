@@ -526,6 +526,13 @@ pub async fn update_user_preferences(
 
     conn.execute(&sql, param_refs.as_slice())?;
 
+    // Performance mode changed: re-read it and re-apply the per-connection
+    // pragmas (new value is committed — autocommit — so other connections see
+    // it; every future checkout picks it up in get_connection).
+    if updates.get("performanceMode").and_then(|v| v.as_str()).is_some() {
+        state.db.apply_performance_pragmas()?;
+    }
+
     Ok(())
 }
 

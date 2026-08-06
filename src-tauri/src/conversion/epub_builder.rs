@@ -6,33 +6,54 @@
 ///   - All other entries: Deflated.
 ///   - Package document (content.opf) at OEBPS/content.opf.
 ///   - EPUB 2 compatibility: toc.ncx included alongside nav.xhtml.
-use std::io::{Cursor, Write};
+use std::io::{BufWriter, Seek, Write};
 use std::path::Path;
 use uuid::Uuid;
 use zip::write::FileOptions;
 use zip::CompressionMethod;
 
 use super::error::ConversionError;
-use super::oeb::{escape_xml, OebBook};
+use super::oeb::{escape_xml, ImageSource, OebBook};
 
 // ──────────────────────────────────────────────────────────────────────────
 // PUBLIC API
 // ──────────────────────────────────────────────────────────────────────────
 
 /// Build an EPUB 3 file from the given `OebBook` and write it to `output_path`.
+///
+/// The archive is written straight to disk through a `BufWriter` (no
+/// in-memory `Vec<u8>` assembly) and page images are streamed from their
+/// `ImageSource` one at a time, so a 1 GB CBZ conversion costs bounded RAM.
 pub fn build_epub(book: &OebBook, output_path: &Path) -> Result<(), ConversionError> {
-    let data = assemble_epub_zip(book)?;
-    std::fs::write(output_path, data)?;
-    Ok(())
+    let result = (|| {
+        let file = std::fs::File::create(output_path)?;
+        let mut zip = zip::ZipWriter::new(BufWriter::new(file));
+        assemble_epub_zip(book, &mut zip)?;
+        let mut inner = zip
+            .finish()
+            .map_err(|e| ConversionError::Other(e.to_string()))?;
+        // Explicit flush: a silent drop-flush failure would leave a
+        // truncated (unreadable) EPUB behind.
+        inner
+            .flush()
+            .map_err(|e| ConversionError::Other(e.to_string()))?;
+        Ok(())
+    })();
+    if result.is_err() {
+        // Never leave a partial EPUB behind on failure.
+        let _ = std::fs::remove_file(output_path);
+    }
+    result
 }
 
 // ──────────────────────────────────────────────────────────────────────────
 // ZIP ASSEMBLY
 // ──────────────────────────────────────────────────────────────────────────
 
-fn assemble_epub_zip(book: &OebBook) -> Result<Vec<u8>, ConversionError> {
-    let mut buffer = Cursor::new(Vec::new());
-    let mut zip = zip::ZipWriter::new(&mut buffer);
+fn assemble_epub_zip<W: Write + Seek>(
+    book: &OebBook,
+    zip: &mut zip::ZipWriter<W>,
+) -> Result<(), ConversionError> {
 
     // STORED options for mimetype (EPUB spec requirement)
     let stored: FileOptions<()> = FileOptions::default()
@@ -102,25 +123,52 @@ fn assemble_epub_zip(book: &OebBook) -> Result<Vec<u8>, ConversionError> {
 
     // 9. Cover image
     if let Some(ref cover) = book.cover_image {
-        let filename = format!("OEBPS/Images/{}", cover.filename);
-        zip.start_file(&filename, deflated)
-            .map_err(|e| ConversionError::Other(e.to_string()))?;
-        zip.write_all(&cover.data)
-            .map_err(|e| ConversionError::Other(e.to_string()))?;
+        write_image(zip, cover)?;
     }
 
     // 10. Inline images
     for img in &book.images {
-        let filename = format!("OEBPS/Images/{}", img.filename);
-        zip.start_file(&filename, deflated)
-            .map_err(|e| ConversionError::Other(e.to_string()))?;
-        zip.write_all(&img.data)
-            .map_err(|e| ConversionError::Other(e.to_string()))?;
+        write_image(zip, img)?;
     }
 
-    zip.finish()
+    Ok(())
+}
+
+/// Stream one image into the EPUB zip from its `ImageSource`, without ever
+/// holding more than one page in memory.
+fn write_image<W: Write + Seek>(
+    zip: &mut zip::ZipWriter<W>,
+    img: &super::oeb::OebImage,
+) -> Result<(), ConversionError> {
+    let deflated: FileOptions<()> =
+        FileOptions::default().compression_method(CompressionMethod::Deflated);
+    zip.start_file(&format!("OEBPS/Images/{}", img.filename), deflated)
         .map_err(|e| ConversionError::Other(e.to_string()))?;
-    Ok(buffer.into_inner())
+    match &img.source {
+        ImageSource::Bytes(data) => zip
+            .write_all(data)
+            .map_err(|e| ConversionError::Other(e.to_string())),
+        ImageSource::Path(p) => {
+            let mut f = std::fs::File::open(p)?;
+            std::io::copy(&mut f, zip)
+                .map_err(|e| ConversionError::Other(e.to_string()))?;
+            Ok(())
+        }
+        ImageSource::ZipEntry { archive, entry } => {
+            let f = std::fs::File::open(archive)?;
+            let mut src = zip::ZipArchive::new(f).map_err(|e| ConversionError::ParseError {
+                format: "CBZ".to_string(),
+                detail: format!("Cannot reopen '{}': {}", archive.display(), e),
+            })?;
+            let mut entry_f = src.by_name(entry).map_err(|e| ConversionError::ParseError {
+                format: "CBZ".to_string(),
+                detail: format!("Cannot read '{}': {}", entry, e),
+            })?;
+            std::io::copy(&mut entry_f, zip)
+                .map_err(|e| ConversionError::Other(e.to_string()))?;
+            Ok(())
+        }
+    }
 }
 
 // ──────────────────────────────────────────────────────────────────────────

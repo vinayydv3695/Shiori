@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use super::oeb::{OebBook, OebChapter, OebImage};
+use super::oeb::{OebBook, OebChapter, OebImage, ImageSource};
 use super::utils;
 use super::ConversionError;
 
@@ -44,9 +44,9 @@ pub async fn parse(
         Err(e) => return Err(e),
     };
 
-    // Attempt to extract a cover image using lopdf
-    if let Ok(data) = tokio::fs::read(source).await {
-        if let Ok(doc) = lopdf::Document::load_mem(&data) {
+    // Attempt to extract a cover image using lopdf (file-backed load — no
+    // second whole-file read held in memory)
+    if let Ok(doc) = lopdf::Document::load(source) {
             let pdf_pages = doc.get_pages();
             let mut found_cover = false;
 
@@ -99,7 +99,9 @@ pub async fn parse(
                                                         id: "cover_img".to_string(),
                                                         filename: "cover.jpg".to_string(),
                                                         mime_type: "image/jpeg".to_string(),
-                                                        data: stream.content.clone(),
+                                                        source: ImageSource::Bytes(
+                                                            stream.content.clone(),
+                                                        ),
                                                     });
                                                     // Insert it into the first chapter
                                                     found_cover = true;
@@ -125,7 +127,6 @@ pub async fn parse(
                 .to_string();
                 book.chapters[0].html = format!("{}{}", img_html, book.chapters[0].html);
             }
-        }
     }
 
     Ok(book)
@@ -253,7 +254,7 @@ async fn convert_with_pdftohtml(
             id,
             filename,
             mime_type: mime,
-            data: img_data,
+            source: ImageSource::Bytes(img_data),
         });
     }
 
@@ -277,9 +278,7 @@ async fn convert_with_lopdf(
     source: &Path,
     warnings: &mut Vec<String>,
 ) -> Result<OebBook, ConversionError> {
-    let data = tokio::fs::read(source).await?;
-
-    let doc = lopdf::Document::load_mem(&data)
+    let doc = lopdf::Document::load(source)
         .map_err(|e| ConversionError::InvalidFormat(format!("Failed to parse PDF: {}", e)))?;
 
     let mut text_content = String::new();

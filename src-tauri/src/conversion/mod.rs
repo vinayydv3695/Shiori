@@ -124,7 +124,10 @@ pub async fn convert_to_epub(
         path: output_path.to_path_buf(),
         title: book.title,
         author: book.authors.first().cloned(),
-        cover_data: book.cover_image.map(|img| img.data),
+        cover_data: book.cover_image.as_ref().and_then(|img| match &img.source {
+            crate::conversion::oeb::ImageSource::Bytes(b) => Some(b.clone()),
+            _ => None,
+        }),
         chapter_count: book.chapters.len(),
         warnings: vec![],
     })

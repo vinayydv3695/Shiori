@@ -3,7 +3,6 @@
 /// Thread-safe service for extracting and caching manga page images.
 /// Uses natural sort for page ordering and optional image downscaling.
 use crate::error::{Result, ShioriError};
-use image::GenericImageView;
 use std::collections::HashMap;
 use std::io::{Cursor, Read};
 use std::sync::Mutex;
@@ -397,26 +396,30 @@ impl MangaService {
     // ─── Private helpers ───────────────────────────────────
 
     /// Read image dimensions from archive entry using header-only decode.
-    /// Falls back to full decode if header-only fails.
+    /// Reads only the FIRST 64 KB of the decompressed entry — enough for the
+    /// header of every common comic format (JPEG SOF can sit behind large
+    /// EXIF blocks) — so resolving page dims never decompresses a full page
+    /// into RAM.
     fn read_image_dimensions(
         archive: &mut ZipArchive<std::fs::File>,
         filename: &str,
     ) -> Option<(u32, u32)> {
-        let mut file = archive.by_name(filename).ok()?;
-        let mut buf = Vec::new();
-        file.read_to_end(&mut buf).ok()?;
+        let file = archive.by_name(filename).ok()?;
+        let mut buf = [0u8; 65536];
+        let n = file.take(65536).read(&mut buf).ok()?;
+        let buf = buf[..n].to_vec();
 
-        // Try header-only decode first (fast — doesn't load full pixel data)
+        if buf.is_empty() {
+            return None;
+        }
+
+        // Header-only decode (fast — doesn't load full pixel data). The
+        // full-decode fallback is gone: a 64 KB buffer cannot hold a full
+        // page anyway, and header dims exist for every format we support.
         let reader = image::ImageReader::new(Cursor::new(&buf))
             .with_guessed_format()
             .ok()?;
-        if let Ok((w, h)) = reader.into_dimensions() {
-            return Some((w, h));
-        }
-
-        // Fallback: full decode
-        let img = image::load_from_memory(&buf).ok()?;
-        Some(img.dimensions())
+        reader.into_dimensions().ok()
     }
 
     /// Cache a page, evicting LRU entries if over limits
@@ -497,5 +500,44 @@ impl MangaService {
             }
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    /// A tiny real PNG (2×3) via the image crate.
+    fn tiny_png() -> Vec<u8> {
+        let img = image::RgbaImage::from_pixel(2, 3, image::Rgba([0u8, 0, 255, 255]));
+        let mut bytes = Vec::new();
+        img.write_to(&mut std::io::Cursor::new(&mut bytes), image::ImageFormat::Png)
+            .unwrap();
+        bytes
+    }
+
+    #[test]
+    fn reads_dimensions_from_real_cbz_entry() {
+        let dir = tempfile::Builder::new()
+            .prefix("shiori_manga_test_")
+            .tempdir()
+            .unwrap();
+        let cbz_path = dir.path().join("book.cbz");
+        let file = std::fs::File::create(&cbz_path).unwrap();
+        let mut zip = zip::ZipWriter::new(file);
+        let opts: zip::write::FileOptions<()> = zip::write::FileOptions::default();
+        let png = tiny_png();
+        zip.start_file("page_001.png", opts).unwrap();
+        zip.write_all(&png).unwrap();
+        // A big dummy entry after the page — the bounded read must not touch it.
+        zip.start_file("page_002.jpg", opts).unwrap();
+        zip.write_all(&vec![0u8; 4096]).unwrap();
+        zip.finish().unwrap();
+
+        let file = std::fs::File::open(&cbz_path).unwrap();
+        let mut archive = ZipArchive::new(file).unwrap();
+        let dims = MangaService::read_image_dimensions(&mut archive, "page_001.png");
+        assert_eq!(dims, Some((2, 3)), "header-only dims from a real CBZ entry");
     }
 }

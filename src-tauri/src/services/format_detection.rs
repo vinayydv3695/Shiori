@@ -151,13 +151,14 @@ async fn verify_magic_bytes(path: &Path, format: &str) -> FormatResult<bool> {
 }
 
 /// Classify ZIP-based formats (EPUB, DOCX, CBZ)
+///
+/// File-backed: the zip's central directory is read from disk and only the
+/// probed entries (`mimetype`, `[Content_Types].xml`, names) are touched —
+/// the archive is never slurped into RAM.
 async fn classify_zip_format(path: &Path) -> FormatResult<FormatInfo> {
-    use std::io::Cursor;
+    let file = std::fs::File::open(path)?;
 
-    let file_data = tokio::fs::read(path).await?;
-    let cursor = Cursor::new(file_data);
-
-    let mut archive = zip::ZipArchive::new(cursor)
+    let mut archive = zip::ZipArchive::new(file)
         .map_err(|e| FormatError::InvalidFormat(format!("Invalid ZIP: {}", e)))?;
 
     // EPUB: contains "mimetype" file with "application/epub+zip"
@@ -278,6 +279,7 @@ fn is_text_like(bytes: &[u8]) -> bool {
 mod tests {
     use super::*;
     use std::io::Write;
+    use std::path::PathBuf;
     use tempfile::NamedTempFile;
 
     #[tokio::test]
@@ -332,5 +334,105 @@ mod tests {
         assert!(is_text_like(b"Hello, world!"));
         assert!(is_text_like(b"Line 1\nLine 2\nLine 3"));
         assert!(!is_text_like(&[0xFF, 0xFE, 0x00, 0x01]));
+    }
+
+    // ── ZIP classification is file-backed (no whole-file read) ──────────
+
+    /// Write a zip with an epub `mimetype` entry and one image entry.
+    fn write_test_zip(path: &Path, with_mimetype: bool) {
+        use std::io::Write;
+        let file = std::fs::File::create(path).unwrap();
+        let mut zip = zip::ZipWriter::new(file);
+        let opts: zip::write::FileOptions<()> = zip::write::FileOptions::default();
+        if with_mimetype {
+            zip.start_file("mimetype", opts).unwrap();
+            zip.write_all(b"application/epub+zip").unwrap();
+        }
+        zip.start_file("page1.png", opts).unwrap();
+        zip.write_all(b"\x89PNG\r\n\x1a\nnot-really-a-png").unwrap();
+        zip.start_file("page2.jpg", opts).unwrap();
+        zip.write_all(b"\xFF\xD8\xFFnot-really-a-jpg").unwrap();
+        zip.finish().unwrap();
+    }
+
+    fn temp_path(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "shiori_fmt_detect_{}_{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir.join(name)
+    }
+
+    /// Remove the per-test dir (files are removed individually; the dir
+    /// itself is cleaned here so /tmp never accumulates empties).
+    fn cleanup_temp_dir(path: &Path) {
+        if let Some(dir) = path.parent() {
+            let _ = std::fs::remove_dir_all(dir);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_truncated_zip_with_known_extension_still_classifies() {
+        // The magic-sniff path reads only the first bytes — a zip whose tail
+        // (central directory + EOCD) is cut off must still classify via
+        // extension + magic. Proves classification never needs the full file.
+        for name in ["book.cbz", "book.epub"] {
+            let full = temp_path(name);
+            write_test_zip(&full, name.ends_with("epub"));
+
+            // Cut the tail: keep only the first local file header region.
+            let len = std::fs::metadata(&full).unwrap().len() as usize;
+            let truncated = temp_path(&format!("trunc_{}", name));
+            let data = std::fs::read(&full).unwrap();
+            std::fs::write(&truncated, &data[..len / 3]).unwrap();
+
+            let result = detect_format(&truncated).await.unwrap();
+            let expected = if name.ends_with("epub") { "epub" } else { "cbz" };
+            assert_eq!(result.format, expected, "{} truncated tail", name);
+
+            let _ = std::fs::remove_file(&full);
+            let _ = std::fs::remove_file(&truncated);
+            cleanup_temp_dir(&full);
+            cleanup_temp_dir(&truncated);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_truncated_zip_unknown_extension_errors_cleanly() {
+        let full = temp_path("book.bin");
+        write_test_zip(&full, true);
+        let len = std::fs::metadata(&full).unwrap().len() as usize;
+        let data = std::fs::read(&full).unwrap();
+        std::fs::write(&full, &data[..len / 3]).unwrap(); // truncate in place
+
+        // No central directory → clean InvalidFormat error, no panic/hang.
+        let result = detect_format(&full).await;
+        assert!(result.is_err(), "truncated zip must not classify");
+        let _ = std::fs::remove_file(&full);
+        cleanup_temp_dir(&full);
+    }
+
+    #[tokio::test]
+    async fn test_zip_deep_classification_is_file_backed() {
+        // Unknown extension forces deep inspection (classify_zip_format),
+        // which now probes a File-backed archive instead of slurping.
+        let epub_zip = temp_path("book.bin");
+        write_test_zip(&epub_zip, true);
+        let info = detect_format(&epub_zip).await.unwrap();
+        assert_eq!(info.format, "epub", "mimetype entry → epub");
+        let _ = std::fs::remove_file(&epub_zip);
+        cleanup_temp_dir(&epub_zip);
+
+        let cbz_zip = temp_path("comic.bin");
+        write_test_zip(&cbz_zip, false);
+        let info = detect_format(&cbz_zip).await.unwrap();
+        assert_eq!(info.format, "cbz", "image entries → cbz");
+        let _ = std::fs::remove_file(&cbz_zip);
+        cleanup_temp_dir(&cbz_zip);
     }
 }

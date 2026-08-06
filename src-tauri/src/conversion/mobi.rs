@@ -186,7 +186,7 @@ pub async fn parse(source: &Path) -> Result<OebBook, ConversionError> {
             id: img.id,
             filename: img.filename,
             mime_type: img.mime,
-            data: img.data,
+            source: crate::conversion::oeb::ImageSource::Bytes(img.data),
         };
         if is_cover {
             book.cover_image = Some(oeb_img);

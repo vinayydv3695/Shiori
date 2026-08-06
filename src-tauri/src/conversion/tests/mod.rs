@@ -8,9 +8,10 @@
 pub mod tests {
     use crate::conversion::{
         epub_builder, formats,
-        oeb::{OebBook, OebChapter},
+        oeb::{ImageSource, OebBook, OebChapter},
     };
     use std::io::Read;
+    use std::io::Write;
     use std::path::{Path, PathBuf};
 
     /// Absolute path to a fixture in `broken-files/samples/`.
@@ -637,7 +638,13 @@ pub mod tests {
             book.images.len(),
             book.cover_image
                 .as_ref()
-                .map(|c| (c.filename.clone(), c.data.len()))
+                .map(|c| {
+                    let len = match &c.source {
+                        crate::conversion::oeb::ImageSource::Bytes(b) => b.len(),
+                        _ => 0,
+                    };
+                    (c.filename.clone(), len)
+                })
         );
         let mut max_len = 0usize;
         for (i, ch) in book.chapters.iter().enumerate() {
@@ -697,5 +704,217 @@ pub mod tests {
         let mut book = formats::mobi::parse(&real).expect("real mobi parse failed");
         assert!(!book.chapters.is_empty(), "real mobi produced no chapters");
         assert_chapter_text(&mut book, &["Briar"]);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // CBZ / CBR — streaming image sources (bounded RAM)
+    // ──────────────────────────────────────────────────────────────────────
+
+    /// A tiny valid PNG (via the image crate).
+    fn tiny_png(seed: u8) -> Vec<u8> {
+        let img = image::RgbaImage::from_pixel(
+            3,
+            3,
+            image::Rgba([seed, seed.wrapping_mul(2), 255 - seed, 255]),
+        );
+        let mut bytes = Vec::new();
+        img.write_to(&mut std::io::Cursor::new(&mut bytes), image::ImageFormat::Png)
+            .unwrap();
+        bytes
+    }
+
+    /// Like `build_and_read`, but the output EPUB lives inside `dir` — the
+    /// shared system temp dir must never see a bare `.epub` child (the
+    /// conversion_engine leak test snapshots it, and tests run in parallel).
+    fn build_and_read_in(book: &mut OebBook, dir: &Path) -> (PathBuf, String) {
+        book.sanitize_html();
+        let tmp = dir.join(format!("out_{}.epub", uuid::Uuid::new_v4()));
+        epub_builder::build_epub(book, &tmp).expect("build_epub failed");
+        assert!(tmp.exists(), "EPUB file was not created");
+
+        let mut doc = ::epub::doc::EpubDoc::new(&tmp).expect("epub crate failed to open output");
+        let mut full_text = String::new();
+        for i in 0..doc.get_num_chapters() {
+            doc.set_current_chapter(i);
+            if let Some((content, _mime)) = doc.get_current_str() {
+                full_text.push_str(&content);
+                full_text.push('\n');
+            }
+        }
+        (tmp, full_text)
+    }
+
+    /// Write a synthetic CBZ with `pages` PNG pages (plus ComicInfo.xml).
+    fn write_synthetic_cbz(path: &Path, pages: usize) {
+        let file = std::fs::File::create(path).unwrap();
+        let mut zip = zip::ZipWriter::new(file);
+        let opts: zip::write::FileOptions<()> = zip::write::FileOptions::default();
+        zip.start_file("ComicInfo.xml", opts).unwrap();
+        zip.write_all(
+            b"<?xml version=\"1.0\"?><ComicInfo><Series>Test Comic</Series><Writer>Test Author</Writer></ComicInfo>",
+        )
+        .unwrap();
+        for i in 1..=pages {
+            zip.start_file(&format!("page_{:03}.png", i), opts).unwrap();
+            zip.write_all(&tiny_png(i as u8)).unwrap();
+        }
+        zip.finish().unwrap();
+    }
+
+    #[test]
+    fn test_cbz_roundtrip_streams_from_archive() {
+        let dir = tempfile::Builder::new()
+            .prefix("shiori_cbz_rt_")
+            .tempdir()
+            .unwrap();
+        let cbz = dir.path().join("comic.cbz");
+        write_synthetic_cbz(&cbz, 12);
+
+        let mut book = formats::cbz::parse(&cbz).expect("cbz parse failed");
+        assert_eq!(book.chapters.len(), 12, "one chapter per page");
+        assert_eq!(book.images.len(), 12);
+        assert!(book.cover_image.is_some());
+        // Pages must be streamed from the source archive — no page bytes in RAM.
+        for img in book.images.iter().chain(book.cover_image.iter()) {
+            assert!(
+                matches!(img.source, ImageSource::ZipEntry { .. }),
+                "cbz page must be ZipEntry-sourced, got {:?}",
+                img.source
+            );
+        }
+
+        let (tmp, full_text) = build_and_read_in(&mut book, dir.path());
+        for page in 1..=12 {
+            assert!(
+                full_text.contains(&format!("Page {}", page)),
+                "epub missing page {}",
+                page
+            );
+        }
+        // Title from ComicInfo.xml.
+        assert_eq!(book.title, "Test Comic", "title from ComicInfo");
+
+        // All images present in the output zip (12 pages + 1 cover).
+        let file = std::fs::File::open(&tmp).unwrap();
+        let mut z = zip::ZipArchive::new(file).unwrap();
+        let mut img_entries = 0usize;
+        for i in 0..z.len() {
+            let name = z.by_index(i).unwrap().name().to_string();
+            if name.starts_with("OEBPS/Images/") {
+                img_entries += 1;
+                // Each image entry must round-trip its PNG magic.
+                let mut f = z.by_name(&name).unwrap();
+                let mut head = [0u8; 8];
+                f.read_exact(&mut head).unwrap();
+                assert_eq!(&head, b"\x89PNG\r\n\x1a\n", "{} magic", name);
+            }
+        }
+        assert_eq!(img_entries, 13, "12 pages + cover in output epub");
+    }
+
+    #[test]
+    fn test_image_dir_roundtrip_streams_from_paths() {
+        // parse_image_dir is the CBR path (pages already extracted to disk).
+        let dir = tempfile::Builder::new()
+            .prefix("shiori_imgdir_")
+            .tempdir()
+            .unwrap();
+        for i in 1..=4 {
+            std::fs::write(dir.path().join(format!("p{:02}.png", i)), tiny_png(i as u8)).unwrap();
+        }
+
+        let mut book = formats::cbz::parse_image_dir(dir.path()).expect("dir parse failed");
+        assert_eq!(book.chapters.len(), 4);
+        for img in book.images.iter().chain(book.cover_image.iter()) {
+            assert!(
+                matches!(img.source, ImageSource::Path(_)),
+                "extracted page must be Path-sourced"
+            );
+        }
+
+        let (tmp, full_text) = build_and_read_in(&mut book, dir.path());
+        for page in 1..=4 {
+            assert!(full_text.contains(&format!("Page {}", page)));
+        }
+        let _ = tmp;
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // PDF — file-backed extraction (no whole-file read held in RAM)
+    // ──────────────────────────────────────────────────────────────────────
+
+    /// Write a two-page PDF (lopdf) whose pages carry plain Tj text.
+    fn write_synthetic_pdf(path: &Path) {
+        use lopdf::content::{Content, Operation};
+        use lopdf::{dictionary, Document, Object, Stream};
+
+        let mut doc = Document::with_version("1.5");
+        let font_id = doc.add_object(dictionary! {
+            "Type" => "Font",
+            "Subtype" => "Type1",
+            "BaseFont" => "Helvetica",
+        });
+        let pages_id = doc.new_object_id();
+        let mut page_ids = Vec::new();
+        for text in [
+            "Chapter One\n\nOnce upon a time there was a test book.",
+            "Chapter Two\n\nSed do eiusmod tempor incididunt.",
+        ] {
+            let content = Content {
+                operations: vec![
+                    Operation::new("BT", vec![]),
+                    Operation::new(
+                        "Tf",
+                        vec![Object::Name(b"F1".to_vec()), Object::Integer(24)],
+                    ),
+                    Operation::new("Td", vec![Object::Integer(72), Object::Integer(720)]),
+                    Operation::new("Tj", vec![Object::string_literal(text)]),
+                    Operation::new("ET", vec![]),
+                ],
+            };
+            let content_id = doc.add_object(Stream::new(dictionary! {}, content.encode().unwrap()));
+            let page_id = doc.add_object(dictionary! {
+                "Type" => "Page",
+                "Parent" => pages_id,
+                "MediaBox" => vec![0i64.into(), 0i64.into(), 612i64.into(), 792i64.into()],
+                "Resources" => dictionary! { "Font" => dictionary! { "F1" => font_id } },
+                "Contents" => content_id,
+            });
+            page_ids.push(page_id);
+        }
+        doc.objects.insert(
+            pages_id,
+            Object::Dictionary(dictionary! {
+                "Type" => "Pages",
+                "Kids" => page_ids.iter().map(|id| Object::Reference(*id)).collect::<Vec<_>>(),
+                "Count" => page_ids.len() as i64,
+            }),
+        );
+        let catalog_id = doc.add_object(dictionary! {
+            "Type" => "Catalog",
+            "Pages" => pages_id,
+        });
+        doc.trailer.set("Root", Object::Reference(catalog_id));
+        doc.save(path).expect("lopdf save");
+    }
+
+    #[test]
+    fn test_pdf_synthetic_roundtrip_file_backed() {
+        let dir = tempfile::Builder::new()
+            .prefix("shiori_pdf_test_")
+            .tempdir()
+            .unwrap();
+        let pdf = dir.path().join("synthetic.pdf");
+        write_synthetic_pdf(&pdf);
+
+        let mut book = formats::pdf::parse(&pdf).expect("pdf parse failed");
+        assert!(!book.chapters.is_empty(), "synthetic pdf produced no chapters");
+
+        let (_tmp, full_text) = build_and_read_in(&mut book, dir.path());
+        assert!(
+            full_text.contains("Chapter One") || full_text.contains("Once upon a time"),
+            "pdf text must survive into the epub, got: {:?}",
+            full_text.chars().take(200).collect::<String>()
+        );
     }
 }

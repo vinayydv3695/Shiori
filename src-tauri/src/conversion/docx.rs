@@ -396,7 +396,7 @@ pub async fn parse(source: &Path) -> Result<OebBook, ConversionError> {
             id,
             filename,
             mime_type: mime,
-            data: img_data,
+            source: crate::conversion::oeb::ImageSource::Bytes(img_data),
         });
     }
 

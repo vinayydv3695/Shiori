@@ -62,13 +62,16 @@ pub fn parse(path: &Path) -> Result<OebBook, ConversionError> {
 }
 
 /// Pure-Rust path: per-page text extraction → line-based chapter detection.
+///
+/// Both pdf-extract calls are file-backed (`Document::load` internally) and
+/// the cover pass parses the PDF separately via lopdf — the two parses are
+/// sequential, so peak memory is one document, never two plus a raw byte
+/// buffer held by us.
 async fn parse_with_pdf_extract(path: &Path) -> Result<OebBook, ConversionError> {
-    let bytes = tokio::fs::read(path).await?;
-
     // One String per page (best for heading detection); fall back to a
     // single "page" if the per-page API rejects the document.
-    let pages: Vec<String> = pdf_extract::extract_text_from_mem_by_pages(&bytes)
-        .or_else(|_| pdf_extract::extract_text_from_mem(&bytes).map(|t| vec![t]))
+    let pages: Vec<String> = pdf_extract::extract_text_by_pages(path)
+        .or_else(|_| pdf_extract::extract_text(path).map(|t| vec![t]))
         .map_err(|e| ConversionError::ParseError {
             format: "PDF".to_string(),
             detail: e.to_string(),
@@ -86,7 +89,7 @@ async fn parse_with_pdf_extract(path: &Path) -> Result<OebBook, ConversionError>
     book.authors = authors;
     book.language = language;
     book.description = description;
-    book.cover_image = extract_cover_image(&bytes);
+    book.cover_image = extract_cover_image(path);
 
     for (i, (ch_title, ch_body)) in chapters.into_iter().enumerate() {
         book.chapters.push(OebChapter {
@@ -379,8 +382,8 @@ fn chunk_pages_into_chapters(pages: &[String]) -> Vec<(String, String)> {
 /// Extract a JPEG cover from the first pages' XObjects (lopdf). Returns
 /// `None` when the PDF has no embedded raster cover or the scan fails —
 /// the EPUB builder simply omits the cover page then.
-fn extract_cover_image(bytes: &[u8]) -> Option<OebImage> {
-    let doc = lopdf::Document::load_mem(bytes).ok()?;
+fn extract_cover_image(path: &Path) -> Option<OebImage> {
+    let doc = lopdf::Document::load(path).ok()?;
     for (_, object_id) in doc.get_pages().into_iter().take(3) {
         // Tolerant per-page scan: a page without Resources/XObjects just
         // moves us on to the next page (mirrors the legacy cover logic).
@@ -446,7 +449,7 @@ fn extract_cover_image(bytes: &[u8]) -> Option<OebImage> {
                     id: "cover_img".to_string(),
                     filename: "cover.jpg".to_string(),
                     mime_type: "image/jpeg".to_string(),
-                    data: stream.content.clone(),
+                    source: crate::conversion::oeb::ImageSource::Bytes(stream.content.clone()),
                 });
             }
         }

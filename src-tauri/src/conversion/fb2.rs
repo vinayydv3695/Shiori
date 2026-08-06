@@ -88,7 +88,7 @@ pub async fn parse(source: &Path) -> Result<OebBook, ConversionError> {
             id: id.clone(),
             filename: filename.clone(),
             mime_type: media_type.to_string(),
-            data: data.clone(),
+            source: crate::conversion::oeb::ImageSource::Bytes(data.clone()),
         };
 
         if metadata.cover_image_id.as_deref() == Some(id.as_str()) {

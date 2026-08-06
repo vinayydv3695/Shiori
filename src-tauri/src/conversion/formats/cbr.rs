@@ -22,15 +22,18 @@ pub fn parse(path: &Path) -> Result<OebBook, ConversionError> {
     // Extract using the unrar crate (requires libunrar at link time)
     extract_rar(path, tmp_dir.path())?;
 
-    // Delegate to the CBZ image-directory parser
+    // Delegate to the CBZ image-directory parser. Pages are referenced as
+    // `ImageSource::Path` into the temp dir — `epub_builder` streams them
+    // from disk, so a 1 GB CBR never lives in RAM.
     let mut book = super::cbz::parse_image_dir(tmp_dir.path())?;
 
-    // Override the title with the CBR filename (parse_image_dir uses the temp dir name)
+    // Keep the extraction dir alive until the book (and its Path sources)
+    // is dropped — i.e. until after build_epub has streamed every page.
+    book.temp_dir = Some(tmp_dir);
     if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
         book.title = stem.replace('_', " ").replace('-', " ");
     }
 
-    // tmp_dir is dropped here, cleaning up extracted files
     Ok(book)
 }
 

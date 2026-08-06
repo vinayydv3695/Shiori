@@ -188,7 +188,7 @@ pub fn embed_local_image(
         id: format!("img_{:03}", counter),
         filename: filename.clone(),
         mime_type: mime,
-        data,
+        source: crate::conversion::oeb::ImageSource::Bytes(data),
     });
     Some(format!("../Images/{}", filename))
 }

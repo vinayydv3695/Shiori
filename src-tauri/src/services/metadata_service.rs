@@ -2,7 +2,7 @@ use crate::error::{Result, ShioriError};
 use crate::models::Metadata;
 use base64::Engine as _;
 use std::fs;
-use std::io::{Cursor, Read, Write};
+use std::io::{Read, Write};
 use std::path::Path;
 use zip::ZipArchive;
 
@@ -24,6 +24,11 @@ pub fn extract_from_file(file_path: &str) -> Result<Metadata> {
         _ => Ok(Metadata::default_from_filename(path)),
     }
 }
+
+/// Reject covers whose declared dimensions exceed this (either side) BEFORE
+/// decoding — a tiny "PNG" declaring 100k×100k px would otherwise OOM the
+/// process trying to allocate the pixel buffer.
+const MAX_COVER_DIM: u32 = 12000;
 
 pub fn extract_cover(
     file_path: &str,
@@ -52,6 +57,20 @@ pub fn extract_cover(
 
     if let Some(raw_path_str) = raw_cover {
         let raw_path = Path::new(&raw_path_str);
+        // Decode-bomb guard: read the header dims BEFORE allocating any
+        // pixel buffer; reject absurd dimensions without decoding.
+        if let Ok(reader) = image::ImageReader::open(&raw_path) {
+            if let Ok(dims) = reader.into_dimensions() {
+                if dims.0 > MAX_COVER_DIM || dims.1 > MAX_COVER_DIM {
+                    log::warn!(
+                        "[extract_cover] Rejecting cover with absurd dimensions {}x{} (decode bomb?)",
+                        dims.0, dims.1
+                    );
+                    let _ = std::fs::remove_file(&raw_path);
+                    return Ok(None);
+                }
+            }
+        }
         if let Ok(img) = image::open(&raw_path) {
             let webp_filename = format!("{}.webp", book_uuid);
             let webp_path = covers_dir.join(&webp_filename);
@@ -424,14 +443,12 @@ fn extract_cbz_cover(
 ) -> Result<Option<String>> {
     log::info!("[extract_cbz_cover] Extracting cover from: {}", file_path);
 
-    // Read the archive file
-    let file_data = fs::read(file_path).map_err(|e| {
-        ShioriError::MetadataExtraction(format!("Failed to read CBZ/CBR file: {}", e))
+    // File-backed archive: only the central directory + the first image
+    // entry are ever read — a 1 GB CBZ is never slurped into RAM.
+    let file = std::fs::File::open(file_path).map_err(|e| {
+        ShioriError::MetadataExtraction(format!("Failed to open CBZ/CBR file: {}", e))
     })?;
-
-    // Parse ZIP archive
-    let cursor = Cursor::new(&file_data);
-    let mut archive = ZipArchive::new(cursor).map_err(|e| {
+    let mut archive = ZipArchive::new(file).map_err(|e| {
         ShioriError::MetadataExtraction(format!("Failed to parse CBZ/CBR archive: {}", e))
     })?;
 
@@ -475,10 +492,7 @@ fn extract_cbz_cover(
         first_image_name
     );
 
-    // Extract the first image
-    let mut archive = ZipArchive::new(Cursor::new(&file_data)).map_err(|e| {
-        ShioriError::MetadataExtraction(format!("Failed to open ZIP archive: {}", e))
-    })?;
+    // Extract the first image (reuses the file-backed archive)
     let mut file = archive.by_index(first_image_idx).map_err(|e| {
         ShioriError::MetadataExtraction(format!("Failed to access first image: {}", e))
     })?;
@@ -662,29 +676,30 @@ fn extract_docx_cover(
 ) -> Result<Option<String>> {
     log::info!("[extract_docx_cover] Extracting cover from: {}", file_path);
 
-    let file_data = fs::read(file_path)
-        .map_err(|e| ShioriError::MetadataExtraction(format!("Failed to read DOCX: {}", e)))?;
-
-    if let Some((ext, image_bytes)) = first_docx_embedded_image(&file_data) {
+    // Primary path is file-backed: only the OOXML parts needed are read.
+    if let Some((ext, image_bytes)) = first_docx_embedded_image(file_path) {
         let cover_path = save_raw_cover(covers_dir, book_uuid, ext, &image_bytes)?;
         log::info!("[extract_docx_cover] ✅ Cover extracted to: {}", cover_path);
         return Ok(Some(cover_path));
     }
 
     // Fallback: docx-rs enumerates media (ordered by relationship id rather
-    // than document order, so it is not the primary path).
-    if let Ok(doc) = docx_rs::read_docx(&file_data) {
-        for (media_path, data) in &doc.media {
-            let ext = Path::new(media_path)
-                .extension()
-                .and_then(|e| e.to_str())
-                .map(|e| e.to_lowercase())
-                .filter(|e| matches!(e.as_str(), "jpg" | "jpeg" | "png" | "gif" | "webp" | "bmp"))
-                .or_else(|| detect_image_format(data).map(|(e, _)| e.to_string()));
-            if let Some(ext) = ext {
-                let cover_path = save_raw_cover(covers_dir, book_uuid, &ext, data)?;
-                log::info!("[extract_docx_cover] ✅ Cover extracted to: {}", cover_path);
-                return Ok(Some(cover_path));
+    // than document order, so it is not the primary path). docx-rs is
+    // bytes-only, so this rare path still reads the file.
+    if let Ok(file_data) = fs::read(file_path) {
+        if let Ok(doc) = docx_rs::read_docx(&file_data) {
+            for (media_path, data) in &doc.media {
+                let ext = Path::new(media_path)
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .map(|e| e.to_lowercase())
+                    .filter(|e| matches!(e.as_str(), "jpg" | "jpeg" | "png" | "gif" | "webp" | "bmp"))
+                    .or_else(|| detect_image_format(data).map(|(e, _)| e.to_string()));
+                if let Some(ext) = ext {
+                    let cover_path = save_raw_cover(covers_dir, book_uuid, &ext, data)?;
+                    log::info!("[extract_docx_cover] ✅ Cover extracted to: {}", cover_path);
+                    return Ok(Some(cover_path));
+                }
             }
         }
     }
@@ -695,11 +710,12 @@ fn extract_docx_cover(
 
 /// Find the first embedded image in a DOCX (zip) package, in document order.
 /// Returns (extension, image bytes).
-fn first_docx_embedded_image(file_data: &[u8]) -> Option<(&'static str, Vec<u8>)> {
+fn first_docx_embedded_image(file_path: &str) -> Option<(&'static str, Vec<u8>)> {
     use quick_xml::events::Event;
     use quick_xml::Reader;
 
-    let mut archive = ZipArchive::new(Cursor::new(file_data)).ok()?;
+    let file = std::fs::File::open(file_path).ok()?;
+    let mut archive = ZipArchive::new(file).ok()?;
 
     // 1. Locate the main document part via the package-level relationships.
     let mut doc_path = "word/document.xml".to_string();
@@ -1020,10 +1036,9 @@ fn extract_cbz_metadata(file_path: &str) -> Result<Metadata> {
     let path = Path::new(file_path);
     let mut metadata = Metadata::default_from_filename(path);
 
-    // Attempt to open the archive and count valid images
-    if let Ok(file_data) = fs::read(file_path) {
-        let cursor = Cursor::new(&file_data);
-        if let Ok(mut archive) = ZipArchive::new(cursor) {
+    // File-backed archive — only entry names are read, never the payloads.
+    if let Ok(file) = std::fs::File::open(file_path) {
+        if let Ok(mut archive) = ZipArchive::new(file) {
             let mut image_count = 0;
             for i in 0..archive.len() {
                 if let Ok(file) = archive.by_index(i) {
@@ -1056,7 +1071,7 @@ fn extract_cbz_metadata(file_path: &str) -> Result<Metadata> {
 }
 
 fn extract_epub_metadata(file_path: &str) -> Result<Metadata> {
-    let mut doc = epub::doc::EpubDoc::new(file_path)
+    let doc = epub::doc::EpubDoc::new(file_path)
         .map_err(|e| ShioriError::MetadataExtraction(format!("Failed to parse EPUB: {}", e)))?;
 
     let mut metadata = Metadata {
@@ -1077,32 +1092,12 @@ fn extract_epub_metadata(file_path: &str) -> Result<Metadata> {
         metadata.authors.push(creator.value.clone());
     }
 
-    // Estimate page count
-    let mut total_words = 0;
+    // Estimate page count from the SPINE (chapter count). The previous
+    // every-chapter word count decompressed the entire book to count words
+    // (unbounded RAM on huge EPUBs); a spine-length estimate is bounded,
+    // deterministic and is what most readers display as a proxy anyway.
     let spine_len = doc.get_num_chapters();
-    for i in 0..spine_len {
-        doc.set_current_chapter(i);
-        if let Some((_, html)) = doc.get_current_str() {
-            // Very naive HTML stripping to approximate words
-            let mut in_tag = false;
-            let mut text = String::with_capacity(html.len());
-            for c in html.chars() {
-                if c == '<' {
-                    in_tag = true;
-                } else if c == '>' {
-                    in_tag = false;
-                    text.push(' '); // space out tags
-                } else if !in_tag {
-                    text.push(c);
-                }
-            }
-            total_words += text.split_whitespace().count();
-        }
-    }
-    let estimated_pages = ((total_words + 249) / 250) as i32;
-    let fallback_pages = spine_len as i32;
-
-    metadata.page_count = Some(estimated_pages.max(fallback_pages));
+    metadata.page_count = Some(spine_len as i32);
 
     Ok(metadata)
 }
@@ -1175,10 +1170,10 @@ fn extract_pdf_metadata(file_path: &str) -> Result<Metadata> {
 fn extract_mobi_metadata(file_path: &str) -> Result<Metadata> {
     use mobi::Mobi;
 
-    let file_data = fs::read(file_path)
-        .map_err(|e| ShioriError::MetadataExtraction(format!("Failed to read MOBI: {}", e)))?;
-
-    let m = Mobi::from_read(&mut &file_data[..])
+    // File-backed parse (the crate reads the file itself). The mobi crate
+    // has no bounded API, but we no longer hold a second full copy AND we
+    // never decompress the full text (see page_count below).
+    let m = Mobi::from_path(file_path)
         .map_err(|e| ShioriError::MetadataExtraction(format!("Failed to parse MOBI: {}", e)))?;
 
     let mut metadata = Metadata {
@@ -1233,11 +1228,11 @@ fn extract_mobi_metadata(file_path: &str) -> Result<Metadata> {
         Some(lang)
     };
 
-    // Word count / page estimate
-    if let Ok(content) = m.content_as_string() {
-        let words = content.split_whitespace().count();
-        metadata.page_count = Some(((words + 249) / 250) as i32);
-    }
+    // Page count: no longer estimated from a full-text word count
+    // (`content_as_string` decompresses the ENTIRE book — unbounded RAM on
+    // huge MOBI files). The mobi crate exposes no bounded per-record API, so
+    // page_count stays None and the UI falls back to its own estimate.
+    // (BEHAVIOR CHANGE: MOBI books no longer show a word-derived page count.)
 
     // Fallback title from filename
     if metadata.title.is_none() {
@@ -1482,11 +1477,10 @@ fn extract_docx_metadata(file_path: &str) -> Result<Metadata> {
     use quick_xml::events::Event;
     use quick_xml::Reader;
 
-    let file_data = fs::read(file_path)
-        .map_err(|e| ShioriError::MetadataExtraction(format!("Failed to read DOCX: {}", e)))?;
-
-    let cursor = Cursor::new(&file_data);
-    let mut archive = ZipArchive::new(cursor).map_err(|e| {
+    // File-backed archive — only docProps/core.xml is ever read.
+    let file = std::fs::File::open(file_path)
+        .map_err(|e| ShioriError::MetadataExtraction(format!("Failed to open DOCX: {}", e)))?;
+    let mut archive = ZipArchive::new(file).map_err(|e| {
         ShioriError::MetadataExtraction(format!("Failed to open ZIP archive: {}", e))
     })?;
 
@@ -1605,5 +1599,138 @@ impl Metadata {
             series,
             series_index,
         }
+    }
+}
+
+#[cfg(test)]
+mod format_pipeline_tests {
+    use super::*;
+    use std::io::Write;
+
+    // ── helpers ────────────────────────────────────────────────────────
+
+    fn temp_dir() -> tempfile::TempDir {
+        tempfile::Builder::new()
+            .prefix("shiori_meta_test_")
+            .tempdir()
+            .unwrap()
+    }
+
+    /// Minimal valid PNG: signature + IHDR (with correct CRC). `idat` may be
+    /// empty for the decode-bomb case (the guard must reject before decode).
+    fn png_bytes(width: u32, height: u32, idat: &[u8]) -> Vec<u8> {
+        fn crc32(data: &[u8]) -> u32 {
+            let mut crc = 0xFFFF_FFFFu32;
+            for &b in data {
+                crc ^= b as u32;
+                for _ in 0..8 {
+                    let mask = (crc & 1).wrapping_neg();
+                    crc = (crc >> 1) ^ (0xEDB8_8320 & mask);
+                }
+            }
+            !crc
+        }
+        fn chunk(out: &mut Vec<u8>, ctype: &[u8; 4], data: &[u8]) {
+            out.extend_from_slice(&(data.len() as u32).to_be_bytes());
+            out.extend_from_slice(ctype);
+            out.extend_from_slice(data);
+            let mut crc_input = Vec::with_capacity(4 + data.len());
+            crc_input.extend_from_slice(ctype);
+            crc_input.extend_from_slice(data);
+            out.extend_from_slice(&crc32(&crc_input).to_be_bytes());
+        }
+        let mut png = Vec::new();
+        png.extend_from_slice(&[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A]);
+        let mut ihdr = Vec::new();
+        ihdr.extend_from_slice(&width.to_be_bytes());
+        ihdr.extend_from_slice(&height.to_be_bytes());
+        ihdr.extend_from_slice(&[8, 2, 0, 0, 0]); // 8-bit RGB, no interlace
+        chunk(&mut png, b"IHDR", &ihdr);
+        // read_info() requires an IDAT chunk to exist (even an empty one).
+        chunk(&mut png, b"IDAT", idat);
+        png
+    }
+
+    /// A 2×2 solid red PNG via the image crate (valid enough to decode).
+    fn sane_png() -> Vec<u8> {
+        let img = image::RgbaImage::from_pixel(2, 2, image::Rgba([255u8, 0, 0, 255]));
+        let mut bytes = Vec::new();
+        img.write_to(&mut std::io::Cursor::new(&mut bytes), image::ImageFormat::Png)
+            .unwrap();
+        bytes
+    }
+
+    fn write_cbz(path: &Path, entries: &[(&str, &[u8])]) {
+        let file = std::fs::File::create(path).unwrap();
+        let mut zip = zip::ZipWriter::new(file);
+        let opts: zip::write::FileOptions<()> = zip::write::FileOptions::default();
+        for (name, data) in entries {
+            zip.start_file(*name, opts).unwrap();
+            zip.write_all(data).unwrap();
+        }
+        zip.finish().unwrap();
+    }
+
+    // ── decode-bomb guard ──────────────────────────────────────────────
+
+    #[test]
+    fn cover_decode_bomb_is_rejected_without_decoding() {
+        let dir = temp_dir();
+        let cbz = dir.path().join("bomb.cbz");
+        let covers = dir.path().join("covers");
+        // 100k × 100k declared in a ~40-byte file. The old code would try to
+        // allocate 100k×100k×4 bytes and OOM/hang; the guard must reject it
+        // from the header alone, fast.
+        let bomb = png_bytes(100_000, 100_000, &[]);
+        assert!(bomb.len() < 200, "bomb png must stay tiny");
+        write_cbz(&cbz, &[("page1.png", &bomb)]);
+
+        let result = extract_cover(cbz.to_str().unwrap(), "uuid-bomb", &covers).unwrap();
+        assert!(result.is_none(), "decode bomb must yield no cover, got {:?}", result);
+        // No leftover raw cover file in the covers dir.
+        let leftovers = std::fs::read_dir(&covers)
+            .map(|rd| rd.flatten().count())
+            .unwrap_or(0);
+        assert_eq!(leftovers, 0, "bomb raw file must be cleaned up");
+    }
+
+    #[test]
+    fn sane_cover_still_thumbnails() {
+        let dir = temp_dir();
+        let cbz = dir.path().join("sane.cbz");
+        let covers = dir.path().join("covers");
+        write_cbz(&cbz, &[("page1.png", &sane_png())]);
+
+        let result = extract_cover(cbz.to_str().unwrap(), "uuid-sane", &covers).unwrap();
+        let path = result.expect("sane cover must thumbnail");
+        assert!(Path::new(&path).exists(), "webp thumbnail must exist");
+        assert!(path.ends_with(".webp"));
+        // Raw PNG must have been removed after thumbnailing.
+        assert!(!covers.join("uuid-sane.png").exists());
+    }
+
+    // ── epub metadata: spine-based page count ──────────────────────────
+
+    #[test]
+    fn epub_page_count_comes_from_spine_not_word_scan() {
+        let dir = temp_dir();
+        let epub_path = dir.path().join("spine-test.epub");
+
+        let mut book = crate::conversion::oeb::OebBook::new("Spine Test");
+        for i in 0..3 {
+            book.chapters.push(crate::conversion::oeb::OebChapter {
+                id: format!("chapter_{:03}", i + 1),
+                title: Some(format!("Chapter {}", i + 1)),
+                html: format!("<p>Chapter {} body text with words.</p>", i + 1),
+            });
+        }
+        crate::conversion::epub_builder::build_epub(&book, &epub_path)
+            .expect("build_epub failed");
+
+        let meta = extract_from_file(epub_path.to_str().unwrap()).expect("metadata extraction");
+        // Spine length (3 chapters) — NOT a word-derived estimate, and no
+        // per-chapter decompression happened.
+        assert_eq!(meta.page_count, Some(3));
+        assert_eq!(meta.title.as_deref(), Some("Spine Test"));
     }
 }

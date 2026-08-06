@@ -463,7 +463,7 @@ fn extract_cover(data: &[u8], records: &[PdbImage]) -> Option<OebImage> {
                 id: "cover".to_string(),
                 filename: format!("cover.{}", rec.ext),
                 mime_type: rec.mime.to_string(),
-                data: rec.data.clone(),
+                source: crate::conversion::oeb::ImageSource::Bytes(rec.data.clone()),
             });
         }
     }
@@ -472,7 +472,7 @@ fn extract_cover(data: &[u8], records: &[PdbImage]) -> Option<OebImage> {
         id: "cover".to_string(),
         filename: format!("cover.{}", rec.ext),
         mime_type: rec.mime.to_string(),
-        data: rec.data.clone(),
+        source: crate::conversion::oeb::ImageSource::Bytes(rec.data.clone()),
     })
 }
 
@@ -555,7 +555,10 @@ fn attach_images(book: &mut OebBook, records: &[PdbImage]) {
                     return format!("<img{} src=\"{}\">", attrs, existing);
                 }
                 if let Some(cover) = cover {
-                    if cover.data == rec.data {
+                    if matches!(
+                        &cover.source,
+                        crate::conversion::oeb::ImageSource::Bytes(b) if b == &rec.data
+                    ) {
                         let src = format!("../Images/{}", cover.filename);
                         by_bytes.insert(rec.data.clone(), src.clone());
                         return format!("<img{} src=\"{}\">", attrs, src);
@@ -571,7 +574,7 @@ fn attach_images(book: &mut OebBook, records: &[PdbImage]) {
                     id,
                     filename,
                     mime_type: rec.mime.to_string(),
-                    data: rec.data.clone(),
+                    source: crate::conversion::oeb::ImageSource::Bytes(rec.data.clone()),
                 });
 
                 format!("<img{} src=\"{}\">", attrs, src)

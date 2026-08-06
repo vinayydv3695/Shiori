@@ -8,7 +8,7 @@ use std::path::Path;
 
 use crate::conversion::epub_builder::comic_stylesheet;
 use crate::conversion::error::ConversionError;
-use crate::conversion::oeb::{OebBook, OebChapter, OebImage};
+use crate::conversion::oeb::{ImageSource, OebBook, OebChapter, OebImage};
 
 // Image file extensions we consider valid comic pages
 const IMAGE_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp", "gif", "bmp", "tiff", "tif"];
@@ -54,27 +54,31 @@ pub fn parse(path: &Path) -> Result<OebBook, ConversionError> {
     book.language = language;
     book.custom_stylesheet = Some(comic_stylesheet().to_string());
 
-    // Process images: stream through ZIP entries in natural order
+    // Process images: record archive entry names in natural order. The
+    // bytes are NOT read here — `epub_builder` streams each entry straight
+    // from the source ZIP at build time, so a 1 GB CBZ costs bounded RAM.
     let mut first = true;
     for (page_num, name) in image_names.iter().enumerate() {
-        let mut entry = archive
+        let entry = archive
             .by_name(name)
             .map_err(|e| ConversionError::ParseError {
                 format: "CBZ".to_string(),
                 detail: format!("Cannot read '{}': {}", name, e),
             })?;
 
-        let mut data = Vec::new();
-        entry.read_to_end(&mut data)?;
-
-        if data.is_empty() {
+        if entry.size() == 0 {
             continue;
         }
+        drop(entry);
 
         let ext = name.rsplit('.').next().unwrap_or("jpg").to_lowercase();
         let mime_type = mime_type_for_ext(&ext);
         let filename = format!("img_{:04}.{}", page_num + 1, ext);
         let id = format!("img_{:04}", page_num + 1);
+        let source = ImageSource::ZipEntry {
+            archive: path.to_path_buf(),
+            entry: name.clone(),
+        };
 
         if first {
             // First image becomes cover
@@ -82,7 +86,7 @@ pub fn parse(path: &Path) -> Result<OebBook, ConversionError> {
                 id: "cover-image".to_string(),
                 filename: format!("cover.{}", ext),
                 mime_type: mime_type.to_string(),
-                data: data.clone(),
+                source: source.clone(),
             });
             first = false;
         }
@@ -92,7 +96,7 @@ pub fn parse(path: &Path) -> Result<OebBook, ConversionError> {
             id: id.clone(),
             filename: filename.clone(),
             mime_type: mime_type.to_string(),
-            data,
+            source,
         });
 
         // One chapter per page
@@ -150,8 +154,8 @@ pub fn parse_image_dir(dir: &Path) -> Result<OebBook, ConversionError> {
 
     let mut first = true;
     for (page_num, path) in image_paths.iter().enumerate() {
-        let data = std::fs::read(path)?;
-        if data.is_empty() {
+        // Do not read the file here — epub_builder streams it from disk.
+        if std::fs::metadata(path).map(|m| m.len()).unwrap_or(0) == 0 {
             continue;
         }
         let ext = path
@@ -162,13 +166,14 @@ pub fn parse_image_dir(dir: &Path) -> Result<OebBook, ConversionError> {
         let mime_type = mime_type_for_ext(&ext);
         let filename = format!("img_{:04}.{}", page_num + 1, ext);
         let id = format!("img_{:04}", page_num + 1);
+        let source = ImageSource::Path(path.clone());
 
         if first {
             book.cover_image = Some(OebImage {
                 id: "cover-image".to_string(),
                 filename: format!("cover.{}", ext),
                 mime_type: mime_type.to_string(),
-                data: data.clone(),
+                source: source.clone(),
             });
             first = false;
         }
@@ -177,7 +182,7 @@ pub fn parse_image_dir(dir: &Path) -> Result<OebBook, ConversionError> {
             id: id.clone(),
             filename: filename.clone(),
             mime_type: mime_type.to_string(),
-            data,
+            source,
         });
 
         let html = format!(

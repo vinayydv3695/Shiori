@@ -38,6 +38,11 @@ pub struct OebBook {
     /// Optional custom CSS (comic mode, etc.). When Some, overrides the
     /// epub_builder's default stylesheet.
     pub custom_stylesheet: Option<String>,
+
+    /// Keeps the on-disk extraction dir (CBR) alive while `ImageSource::Path`
+    /// images are still referenced. Dropped — and the dir deleted — together
+    /// with the book, after `build_epub` has streamed every image.
+    pub(crate) temp_dir: Option<tempfile::TempDir>,
 }
 
 /// A single readable chapter.
@@ -63,6 +68,28 @@ pub struct TocEntry {
     pub children: Vec<TocEntry>,
 }
 
+/// Where an image's bytes live.
+///
+/// EPUB/MOBI/PDF parsers keep bytes in RAM (`Bytes`); comic sources stream
+/// from disk so a 1 GB CBZ/CBR costs bounded memory: CBZ pages are read
+/// straight from the source archive entry, CBR pages from the temp
+/// extraction dir.
+#[derive(Debug, Clone)]
+pub enum ImageSource {
+    /// Raw image bytes held in memory.
+    Bytes(Vec<u8>),
+    /// On-disk file, e.g. a page extracted into `OebBook::temp_dir` (CBR).
+    Path(std::path::PathBuf),
+    /// Named entry inside a ZIP archive on disk (CBZ) — streamed entry by
+    /// entry at build time. The archive path must outlive the book.
+    ZipEntry {
+        /// Path to the source ZIP (the CBZ file itself).
+        archive: std::path::PathBuf,
+        /// Entry name inside the archive.
+        entry: String,
+    },
+}
+
 /// An image resource (cover or inline).
 #[derive(Debug, Clone)]
 pub struct OebImage {
@@ -72,8 +99,8 @@ pub struct OebImage {
     pub filename: String,
     /// MIME type, e.g. `"image/jpeg"`.
     pub mime_type: String,
-    /// Raw image bytes.
-    pub data: Vec<u8>,
+    /// Where the image bytes come from.
+    pub source: ImageSource,
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -97,14 +124,14 @@ impl OebBook {
         self.chapters.push(OebChapter { id, title, html });
     }
 
-    /// Add a named image to the resource list.
+    /// Add a named in-memory image to the resource list.
     #[allow(dead_code)]
     pub fn add_image(&mut self, id: String, filename: String, mime_type: String, data: Vec<u8>) {
         self.images.push(OebImage {
             id,
             filename,
             mime_type,
-            data,
+            source: ImageSource::Bytes(data),
         });
     }
 

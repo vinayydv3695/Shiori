@@ -24,23 +24,23 @@ pub fn get_reading_progress(
 }
 
 #[tauri::command]
-pub fn get_reading_progress_batch(
+pub async fn get_reading_progress_batch(
     book_ids: Vec<i64>,
-    state: State<AppState>,
+    state: State<'_, AppState>,
 ) -> Result<std::collections::HashMap<i64, ReadingProgress>> {
     let conn = state.db.get_connection()?;
     ReaderService::get_reading_progress_batch(&conn, &book_ids)
 }
 
 #[tauri::command]
-pub fn save_reading_progress(
+pub async fn save_reading_progress(
     book_id: i64,
     current_location: String,
     progress_percent: f64,
     current_page: Option<i32>,
     total_pages: Option<i32>,
     cfi_location: Option<String>,
-    state: State<AppState>,
+    state: State<'_, AppState>,
 ) -> Result<ReadingProgress> {
     validate::require_positive_id(book_id, "book_id")?;
     validate::require_non_empty(&current_location, "current_location")?;

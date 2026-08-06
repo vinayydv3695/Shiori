@@ -216,7 +216,7 @@ fn resolve_opened_url(_app: &tauri::AppHandle, url: &str) -> Result<(PathBuf, St
 }
 
 #[tauri::command]
-pub fn get_books(state: State<AppState>, limit: u32, offset: u32) -> Result<Vec<Book>> {
+pub async fn get_books(state: State<'_, AppState>, limit: u32, offset: u32) -> Result<Vec<Book>> {
     let db = &state.db;
     library_service::get_all_books(db, limit, offset)
 }
@@ -228,7 +228,7 @@ pub fn get_books_by_paths(state: State<AppState>, paths: Vec<String>) -> Result<
 }
 
 #[tauri::command]
-pub fn get_total_books(state: State<AppState>) -> Result<i64> {
+pub async fn get_total_books(state: State<'_, AppState>) -> Result<i64> {
     let db = &state.db;
     library_service::get_total_books(db)
 }
@@ -252,7 +252,7 @@ pub fn add_book(state: State<AppState>, book: Book) -> Result<i64> {
 }
 
 #[tauri::command]
-pub fn update_book(state: State<AppState>, book: Book) -> Result<()> {
+pub async fn update_book(state: State<'_, AppState>, book: Book) -> Result<()> {
     if let Some(id) = book.id {
         validate::require_positive_id(id, "book id")?;
     }
@@ -263,7 +263,7 @@ pub fn update_book(state: State<AppState>, book: Book) -> Result<()> {
 }
 
 #[tauri::command]
-pub fn delete_books(state: State<AppState>, ids: Vec<i64>) -> Result<()> {
+pub async fn delete_books(state: State<'_, AppState>, ids: Vec<i64>) -> Result<()> {
     validate::require_non_empty_vec(&ids, "book ids")?;
     for &id in &ids {
         validate::require_positive_id(id, "book id")?;
@@ -393,21 +393,32 @@ pub fn empty_trash(state: State<AppState>) -> Result<()> {
 }
 
 #[tauri::command]
-pub fn clean_up_database(state: State<AppState>) -> Result<(usize, usize)> {
+pub async fn clean_up_database(state: State<'_, AppState>) -> Result<(usize, usize)> {
     log::info!("[command::clean_up_database] Received request to clean up database");
-    let db = &state.db;
+    let db = state.db.clone();
     let covers_dir = state.covers_dir.clone();
+    // Full covers-dir walk + per-orphan removes — offload so a big library
+    // doesn't freeze the UI.
+    let app_data_dir = state
+        .covers_dir
+        .parent()
+        .unwrap_or(&state.covers_dir)
+        .to_path_buf();
 
-    // Clean up recycle bin automatically
-    let app_data_dir = state.covers_dir.parent().unwrap_or(&state.covers_dir);
-    if let Err(e) = library_service::clean_recycle_bin(db, app_data_dir) {
-        log::error!(
-            "[command::clean_up_database] Failed to clean recycle bin: {:?}",
-            e
-        );
-    }
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        // Clean up recycle bin automatically
+        if let Err(e) = library_service::clean_recycle_bin(&db, &app_data_dir) {
+            log::error!(
+                "[command::clean_up_database] Failed to clean recycle bin: {:?}",
+                e
+            );
+        }
 
-    let result = library_service::cleanup_database(db, &covers_dir);
+        library_service::cleanup_database(&db, &covers_dir)
+    })
+    .await
+    .map_err(|e| crate::error::ShioriError::Other(e.to_string()))?;
+
     match &result {
         Ok((books, covers)) => log::info!(
             "[command::clean_up_database] Successfully cleaned up {} missing books and {} unused covers",
@@ -642,7 +653,7 @@ pub async fn scan_folder_for_comics(
 }
 
 #[tauri::command]
-pub fn get_book_summaries(
+pub async fn get_book_summaries(
     state: State<'_, AppState>,
     limit: u32,
     offset: u32,
@@ -663,7 +674,7 @@ pub fn get_book_summaries_by_domain(
 }
 
 #[tauri::command]
-pub fn get_books_by_domain(
+pub async fn get_books_by_domain(
     state: State<'_, AppState>,
     domain: String,
     limit: u32,
@@ -1219,16 +1230,25 @@ fn emit_download_completed(
 }
 
 #[tauri::command]
-pub fn get_library_stats(state: State<'_, AppState>) -> Result<crate::models::LibraryStats> {
+pub async fn get_library_stats(state: State<'_, AppState>) -> Result<crate::models::LibraryStats> {
     let db = &state.db;
     crate::services::library_service::get_library_stats(db)
 }
 
 #[tauri::command]
-pub fn get_thumbnail(state: State<'_, AppState>, book_id: i64) -> Result<Option<String>> {
-    let db = &state.db;
-    let covers_dir = &state.covers_dir;
-    crate::services::library_service::get_thumbnail_path(db, book_id, covers_dir)
+pub async fn get_thumbnail(
+    state: State<'_, AppState>,
+    book_id: i64,
+) -> Result<Option<String>> {
+    // SELECT + fs::exists + thumbnail generation (CPU-bound image work) —
+    // offload so cover grids never stall the runtime.
+    let db = state.db.clone();
+    let covers_dir = state.covers_dir.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::services::library_service::get_thumbnail_path(&db, book_id, &covers_dir)
+    })
+    .await
+    .map_err(|e| crate::error::ShioriError::Other(e.to_string()))?
 }
 
 #[tauri::command]

@@ -62,10 +62,10 @@ pub async fn preload_manga_pages(
 }
 
 #[tauri::command]
-pub fn get_manga_page_dimensions(
+pub async fn get_manga_page_dimensions(
     book_id: i64,
     page_indices: Vec<usize>,
-    state: State<MangaState>,
+    state: State<'_, MangaState>,
 ) -> Result<Vec<(u32, u32)>> {
     validate::require_positive_id(book_id, "book_id")?;
     validate::require_non_empty_vec(&page_indices, "page_indices")?;

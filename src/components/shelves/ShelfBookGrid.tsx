@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Book, Shelf } from '../../lib/tauri';
 import { Star, X, BookOpen, ArrowLeft, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn, pageCountLabel } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCoverImage } from '../common/hooks/useCoverImage';
 import { AddBooksToShelfDialog } from './AddBooksToShelfDialog';
@@ -271,7 +271,7 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks }: ShelfBoo
                         </div>
                         
                         <div className="text-muted-foreground font-medium">
-                          {selectedBook.page_count !== undefined && selectedBook.page_count !== null ? selectedBook.page_count : '0'} pages
+                          {pageCountLabel(selectedBook) ?? '—'}
                         </div>
 
                         {selectedBook.tags && selectedBook.tags.length > 0 && (

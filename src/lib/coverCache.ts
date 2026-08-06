@@ -16,6 +16,7 @@
 
 import { invoke, convertFileSrc } from '@tauri-apps/api/core'
 import { proxyExternalCover } from '@/lib/utils'
+import { lruGet, lruSet } from '@/lib/lruCache'
 
 function toAssetUrl(filePath: string): string | null {
   // Empty / whitespace-only paths mean "no cover" — never emit "".
@@ -30,6 +31,9 @@ function toAssetUrl(filePath: string): string | null {
 }
 
 // ─── Module-level cache (lives for the lifetime of the app) ──────────────────
+// Size-guarded LRU: on a 50k-book library the path cache could otherwise grow
+// without bound as the user scrolls. 10k entries ≈ a few MB of strings.
+const COVER_CACHE_MAX = 10_000
 const pathCache = new Map<number, string | null>()  // null = no cover exists
 
 // ─── Pending batch state ──────────────────────────────────────────────────────
@@ -49,7 +53,7 @@ function flushBatch() {
     .then((result) => {
       for (const id of ids) {
         const path = result[String(id)] ?? null
-        pathCache.set(id, path)
+        lruSet(pathCache, id, path, COVER_CACHE_MAX)
         const url = path ? toAssetUrl(path) : null
         const waiters = resolvers.get(id) ?? []
         for (const resolve of waiters) resolve(url)
@@ -58,7 +62,7 @@ function flushBatch() {
     .catch(() => {
       // On error, resolve everyone with null (card shows placeholder)
       for (const [id, waiters] of resolvers) {
-        pathCache.set(id, null)
+        lruSet(pathCache, id, null, COVER_CACHE_MAX)
         for (const resolve of waiters) resolve(null)
       }
     })
@@ -69,10 +73,10 @@ function flushBatch() {
  * Returns immediately if cached, otherwise queues in the current batch.
  */
 export function requestCoverUrl(id: number): Promise<string | null> {
-  // Cache hit
-  if (pathCache.has(id)) {
-    const path = pathCache.get(id)!
-    return Promise.resolve(path ? toAssetUrl(path) : null)
+  // Cache hit (lruGet refreshes recency)
+  const cached = lruGet(pathCache, id)
+  if (cached !== undefined) {
+    return Promise.resolve(cached ? toAssetUrl(cached) : null)
   }
 
   // Queue into the current batch
@@ -102,7 +106,7 @@ export async function prefetchCovers(ids: number[]): Promise<void> {
     try {
       const result = await invoke<Record<string, string>>('get_cover_paths_batch', { ids: chunk })
       for (const id of chunk) {
-        pathCache.set(id, result[String(id)] ?? null)
+        lruSet(pathCache, id, result[String(id)] ?? null, COVER_CACHE_MAX)
       }
     } catch {
       // Non-fatal: individual cards will retry via requestCoverUrl
@@ -113,4 +117,9 @@ export async function prefetchCovers(ids: number[]): Promise<void> {
 /** Invalidate a single book's cached cover (call after cover update) */
 export function invalidateCover(id: number) {
   pathCache.delete(id)
+}
+
+/** Invalidate every cached cover (call after empty-trash / bulk permanent delete) */
+export function invalidateAllCovers() {
+  pathCache.clear()
 }

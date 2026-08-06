@@ -28,8 +28,11 @@ export const ModernBookCard = memo(function ModernBookCard({
   const [imgError, setImgError] = useState(false);
   const [proxyUrl, setProxyUrl] = useState<string | null>(null);
   
-  const downloads = useOnlineDownloadStore((state) => state.downloads);
-  const downloadState = downloads[id]; // check if this book is downloading
+  // Per-download subscription: the store replaces the whole downloads object on
+  // every progress tick, so subscribing to it re-renders every mounted card at
+  // tick rate. Select just this card's entry — the result only changes when
+  // THIS download moves.
+  const downloadState = useOnlineDownloadStore((state) => state.downloads[id]);
 
   useEffect(() => {
     if (!coverUrl || imgError) return;

@@ -7,6 +7,7 @@ import { useToast } from "../store/toastStore"
 import { useLibraryStore } from "../store/libraryStore"
 import { logger } from "../lib/logger"
 import { convertFileSrc } from '@tauri-apps/api/core'
+import { invalidateCover, invalidateAllCovers } from "../lib/coverCache"
 const formatTimeAgo = (dateStr: string) => {
   const diff = Date.now() - new Date(dateStr).getTime()
   const days = Math.floor(diff / (1000 * 60 * 60 * 24))
@@ -82,6 +83,9 @@ export function RecycleBinView() {
     try {
       setIsActioning(true)
       await api.permanentDeleteBook(id)
+      // Cover file is gone with the book — drop the cached path so a future
+      // re-import (or zombie row) doesn't render a dead asset URL.
+      invalidateCover(id)
       toast({ title: "Book Deleted", description: "The book has been permanently deleted." })
       await fetchTrashedBooks()
     } catch (err) {
@@ -99,6 +103,7 @@ export function RecycleBinView() {
       setIsActioning(true)
       for (const id of selectedIds) {
         await api.permanentDeleteBook(id)
+        invalidateCover(id)
       }
       toast({ title: "Books Deleted", description: `${selectedIds.size} books have been permanently deleted.` })
       await fetchTrashedBooks()
@@ -116,6 +121,8 @@ export function RecycleBinView() {
     try {
       setIsActioning(true)
       await api.emptyTrash()
+      // All covers are gone with the books — drop every cached path.
+      invalidateAllCovers()
       toast({ title: "Recycle Bin Emptied", description: "All items have been permanently deleted." })
       await fetchTrashedBooks()
     } catch (err) {

@@ -3,6 +3,7 @@ import { useLibraryStore, matchesAdvancedFilters } from '@/store/libraryStore';
 import { useShelfStore } from '@/store/shelfStore';
 import { api, type Book, type SearchQuery } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
+import { useDebounce } from './useDebounce';
 
 /**
  * Extracts the library filtering + shelf logic from App.tsx.
@@ -163,15 +164,21 @@ export function useLibraryFilter(searchQuery: string) {
     return hasCriteria ? next : null;
   }, [canUseServerSearch, query, selectedFilters, activeFilters]);
 
+  // Debounce the server-side query so typing doesn't fire a searchBooks IPC
+  // round-trip per keystroke on a 50k-book library. Display logic keeps using
+  // the raw (deferred) serverSearchQuery, so the previous results stay on
+  // screen while the debounce window elapses — no loading flicker.
+  const debouncedServerSearchQuery = useDebounce(serverSearchQuery, 250);
+
   // Keep store in sync with server-side query mode.
   useEffect(() => {
     const currentKey = JSON.stringify(serverSearchQueryState);
-    const nextKey = JSON.stringify(serverSearchQuery);
+    const nextKey = JSON.stringify(debouncedServerSearchQuery);
     if (currentKey === nextKey) return;
 
-    setServerSearchQuery(serverSearchQuery);
+    setServerSearchQuery(debouncedServerSearchQuery);
     void loadInitialBooks();
-  }, [serverSearchQuery, serverSearchQueryState, setServerSearchQuery, loadInitialBooks]);
+  }, [debouncedServerSearchQuery, serverSearchQueryState, setServerSearchQuery, loadInitialBooks]);
 
   // Precompute lowercase searchable fields once per source array.
   const searchIndex = useMemo(() => {

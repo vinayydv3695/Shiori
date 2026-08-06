@@ -20,14 +20,18 @@ export function GutenbergBookDetails({ book, open, onOpenChange }: Props) {
   const [isReading, setIsReading] = useState(false);
   const { success: showSuccessToast, error: showErrorToast } = useToast();
   const { handleOpenBook } = useBookOpen();
-  // Backend emits progress keyed by target_id = the epub URL passed to the download command.
-  const downloads = useOnlineDownloadStore((state) => state.downloads);
+  // Per-download subscription: the store replaces the whole downloads object on
+  // every progress tick, so a whole-object subscription re-renders this dialog
+  // (and every other consumer) at tick rate. Select just this book's entry.
+  const downloadProgress = useOnlineDownloadStore((state) => {
+    const url = book?.formats['application/epub+zip'];
+    return url ? state.downloads[url] : undefined;
+  });
 
   if (!book) return null;
 
   const epubFormatUrl = book.formats['application/epub+zip'];
   const hasEpub = !!epubFormatUrl;
-  const downloadProgress = epubFormatUrl ? downloads[epubFormatUrl] : undefined;
 
   const handleDownload = async () => {
     if (!epubFormatUrl) return;

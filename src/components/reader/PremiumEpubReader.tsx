@@ -203,6 +203,54 @@ function highlightSearchTerm(html: string, searchTerm: string): string {
   return doc.documentElement.outerHTML;
 }
 
+// ─── Processed-chapter LRU cache ─────────────────────────────────────────────
+// Back-navigation used to re-fetch + re-process + re-base64 every chapter
+// resource on every visit. Cache the fully processed Chapter (HTML with data
+// URIs inlined) keyed by book+index+highlight-term so revisiting a chapter is
+// a Map hit instead of N IPC round-trips. Module-level: survives reader
+// unmount/remount within the session. Mirrors ContinuousEpubView's eviction
+// approach (drop oldest beyond a small bound).
+const MAX_PROCESSED_CHAPTERS = 5;
+const processedChapterCache = new Map<string, Chapter>();
+
+function getCachedChapter(bookId: number, index: number, term: string | null | undefined): Chapter | undefined {
+  const key = `${bookId}:${index}:${term ?? ''}`;
+  const hit = processedChapterCache.get(key);
+  if (hit !== undefined) {
+    // Refresh recency
+    processedChapterCache.delete(key);
+    processedChapterCache.set(key, hit);
+  }
+  return hit;
+}
+
+function setCachedChapter(bookId: number, index: number, term: string | null | undefined, chapter: Chapter): void {
+  const key = `${bookId}:${index}:${term ?? ''}`;
+  if (processedChapterCache.has(key)) processedChapterCache.delete(key);
+  processedChapterCache.set(key, chapter);
+  while (processedChapterCache.size > MAX_PROCESSED_CHAPTERS) {
+    const oldest = processedChapterCache.keys().next().value;
+    if (oldest === undefined) break;
+    processedChapterCache.delete(oldest);
+  }
+}
+
+/** Fetch a chapter and process its HTML, reusing the module-level cache. */
+async function loadProcessedChapter(bookId: number, index: number, term?: string | null): Promise<Chapter> {
+  const cached = getCachedChapter(bookId, index, term);
+  if (cached !== undefined) return cached;
+
+  const chapter = await api.getBookChapter(bookId, index);
+  const processed = await processEpubHtml(bookId, chapter.content, term);
+  const processedChapter: Chapter = { ...chapter, content: processed };
+  // Never cache empty chapters — the caller throws on them, so a cached empty
+  // string would only poison the LRU slot.
+  if (chapter.content && chapter.content.trim().length > 0) {
+    setCachedChapter(bookId, index, term, processedChapter);
+  }
+  return processedChapter;
+}
+
 export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: PremiumEpubReaderProps) {
   // State management
   const isFocusMode = useReaderUIStore(state => state.isFocusMode);
@@ -277,16 +325,14 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         setSearchHighlight(highlightTerm);
       }
 
-      const chapter = await api.getBookChapter(bookId, index);
+      const termToHighlight = highlightTerm !== undefined ? highlightTerm : searchHighlight;
+      const chapter = await loadProcessedChapter(bookId, index, termToHighlight);
 
       if (!chapter.content || chapter.content.trim().length === 0) {
         throw new Error(`Chapter ${index + 1} has no content`);
       }
 
-      const termToHighlight = highlightTerm !== undefined ? highlightTerm : searchHighlight;
-      const processedContent = await processEpubHtml(bookId, chapter.content, termToHighlight);
-
-      const processedChapter = { ...chapter, content: processedContent };
+      const processedChapter = chapter;
 
       setCurrentChapter(processedChapter);
       setCurrentIndex(index);
@@ -295,9 +341,8 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       const shouldRenderTwoPage = useReadingSettings.getState().twoPageView;
       if (shouldRenderTwoPage && metadata && index < metadata.total_chapters - 1) {
         try {
-          const nextCh = await api.getBookChapter(bookId, index + 1);
-          const processedNext = await processEpubHtml(bookId, nextCh.content, termToHighlight);
-          setAdjacentChapter({ ...nextCh, content: processedNext });
+          const processedNext = await loadProcessedChapter(bookId, index + 1, termToHighlight);
+          setAdjacentChapter(processedNext);
         } catch {
           setAdjacentChapter(null);
         }
@@ -726,9 +771,8 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       // Preload next chapter
       if (currentIndex < metadata.total_chapters - 1) {
         try {
-          const nextCh = await api.getBookChapter(bookId, currentIndex + 1);
-          const processed = await processEpubHtml(bookId, nextCh.content);
-          if (!cancelled) setNextChapterContent(processed);
+          const processed = await loadProcessedChapter(bookId, currentIndex + 1);
+          if (!cancelled) setNextChapterContent(processed.content);
         } catch {
           if (!cancelled) setNextChapterContent(null);
         }
@@ -739,9 +783,8 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       // Preload prev chapter
       if (currentIndex > 0) {
         try {
-          const prevCh = await api.getBookChapter(bookId, currentIndex - 1);
-          const processed = await processEpubHtml(bookId, prevCh.content);
-          if (!cancelled) setPrevChapterContent(processed);
+          const processed = await loadProcessedChapter(bookId, currentIndex - 1);
+          if (!cancelled) setPrevChapterContent(processed.content);
         } catch {
           if (!cancelled) setPrevChapterContent(null);
         }

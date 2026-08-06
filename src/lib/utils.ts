@@ -23,6 +23,22 @@ export function isMangaDomain(book: any): boolean {
 }
 
 /**
+ * Format a book's page_count for display.
+ *
+ * page_count is spine-length (chapter count) for EPUBs and typically absent
+ * (0/null) for other formats (e.g. MOBI reports None). Never render a
+ * meaningless "0 pages" — return null so callers can hide the label.
+ */
+export function pageCountLabel(book: {
+  page_count?: number | null
+  file_format?: string | null
+}): string | null {
+  const count = book.page_count
+  if (!count || count <= 0) return null
+  return `${count} pages`
+}
+
+/**
  * Format file size to human readable format
  * @param bytes - File size in bytes
  * @returns Formatted string (e.g., "2.3 MB")

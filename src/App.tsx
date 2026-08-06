@@ -1,4 +1,4 @@
-import { useEffect, useState, lazy, Suspense, useCallback } from "react"
+import { useEffect, useState, lazy, Suspense, useCallback, startTransition } from "react"
 import { ViewRouter } from "./components/ViewRouter"
 import { Layout } from "./components/layout/Layout"
 import { ToastContainer } from "./components/ui/ToastContainer"
@@ -154,9 +154,12 @@ function App() {
   useEffect(() => {
     let unlisten: (() => void) | undefined
     listen('library-updated', () => {
-      api.getBooks().then(books => {
-        useLibraryStore.getState().setBooks(books)
-      }).catch(logger.error)
+      // Silent window-preserving refresh — keeps the current loaded window so
+      // the grid doesn't collapse to 50 rows mid-scroll. Wrapped in a
+      // transition so the heavy setBooks isn't a blocking store sync.
+      startTransition(() => {
+        void useLibraryStore.getState().refreshLibrary()
+      })
     }).then(fn => { unlisten = fn })
     return () => { unlisten?.() }
   }, [])

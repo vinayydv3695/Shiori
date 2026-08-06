@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, startTransition } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { motion } from 'framer-motion';
 import { X, FolderOpen, File, Upload, Loader2, CheckCircle, AlertCircle, Info } from 'lucide-react';
@@ -167,8 +167,10 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
   const finalizeImport = async (importResult: ImportResult) => {
     if (closedRef.current) return;
 
-    setResult(importResult);
-    setStatus('completed');
+    startTransition(() => {
+      setResult(importResult);
+      setStatus('completed');
+    });
 
     const totalImported = importResult.success.length;
     const totalDuplicates = importResult.duplicates.length;
@@ -183,10 +185,21 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
       );
 
       await loadInitialBooks();
-      
-      // Fetch the full book metadata for newly imported paths
+
+      // Fetch the full book metadata for newly imported paths — but cap the
+      // sample: getBooksByPaths ships full Book JSON per path, and a 50k-book
+      // import would push a giant payload over IPC just to generate shelf
+      // suggestions. The first 200 paths are representative.
+      const SUGGESTION_SAMPLE_LIMIT = 200;
+      const samplePaths = importResult.success.length > SUGGESTION_SAMPLE_LIMIT
+        ? importResult.success.slice(0, SUGGESTION_SAMPLE_LIMIT)
+        : importResult.success;
+      if (samplePaths.length < importResult.success.length) {
+        logger.debug(`Shelf suggestions: sampling first ${samplePaths.length} of ${importResult.success.length} imported paths`);
+      }
+
       // This allows generating shelf suggestions based on series metadata
-      const importedBooks = await api.getBooksByPaths(importResult.success);
+      const importedBooks = await api.getBooksByPaths(samplePaths);
 
       const shelfSuggestions = generateShelfSuggestions(importedBooks);
       
@@ -314,6 +327,7 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
     setSelectedFilePaths([]);
     setSuggestions([]);
     setShowSuggestions(false);
+    setShowAllFailed(false);
     onOpenChange(false);
   };
 
@@ -322,6 +336,7 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
   };
 
   const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [showAllFailed, setShowAllFailed] = useState(false);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -548,7 +563,7 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
                         </div>
                       </div>
                       <div className="p-3 space-y-2">
-                        {result.failed.map(([path, error], index) => (
+                        {(showAllFailed ? result.failed : result.failed.slice(0, 100)).map(([path, error], index) => (
                           <div key={index} className="text-xs bg-background/50 p-3 rounded-lg border border-rose-500/10 transition-colors hover:border-rose-500/30">
                             <div className="font-mono text-foreground/80 truncate mb-1" title={path}>
                               {path.split('/').pop()}
@@ -556,6 +571,16 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
                             <div className="text-rose-500 font-medium">{error}</div>
                           </div>
                         ))}
+                        {!showAllFailed && result.failed.length > 100 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowAllFailed(true)}
+                            className="w-full rounded-lg text-xs font-bold text-rose-500 hover:text-rose-500 hover:bg-rose-500/10"
+                          >
+                            Show {result.failed.length - 100} more failed item{result.failed.length - 100 > 1 ? 's' : ''}
+                          </Button>
+                        )}
                       </div>
                     </div>
                   )}

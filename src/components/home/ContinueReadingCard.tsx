@@ -48,7 +48,9 @@ export function ContinueReadingCard({ book, progress, domain, onClick }: Continu
     const progressPercent = typeof progress === 'number' ? progress : progress.progressPercent
 
     let progressLabel = domain === 'manga_comics'
-        ? `Page ${Math.round((progressPercent / 100) * (book.page_count || 0))} of ${book.page_count || '?'}`
+        ? book.page_count
+            ? `Page ${Math.round((progressPercent / 100) * book.page_count)} of ${book.page_count}`
+            : `${Math.round(progressPercent)}%`
         : `${Math.round(progressPercent)}%`
 
     if (book.file_format === 'online-manga' && typeof progress === 'object') {

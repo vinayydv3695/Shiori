@@ -9,7 +9,7 @@ import { useToast } from '../../store/toastStore';
 import { Button } from '../ui/button';
 import { MetadataSearchDialog } from './MetadataSearchDialog';
 import { FeatureHint } from '../ui/FeatureHint';
-import { cn } from '@/lib/utils';
+import { cn, pageCountLabel } from '@/lib/utils';
 import { ConvertToEpubMenuItem } from '@/components/conversion/ConvertToEpubMenuItem';
 
 function resolveCoverSrc(path: string): string {
@@ -339,7 +339,7 @@ export const BookDetailsDialog = ({
                   {book.page_count && (
                     <div className="flex flex-col gap-1">
                       <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pages</div>
-                      <div className="text-sm font-medium">{book.page_count}</div>
+                      <div className="text-sm font-medium">{pageCountLabel(book)}</div>
                     </div>
                   )}
 

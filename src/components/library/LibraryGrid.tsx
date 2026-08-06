@@ -36,6 +36,11 @@ import { usePreferencesStore } from "@/store/preferencesStore";
 import { prefetchCovers } from "@/lib/coverCache";
 import { MobileStickyHeader } from "../layout/MobileStickyHeader";
 
+// Stable sentinel: when no batch dialog is open the grid subscribes to this
+// instead of the live selection Set, so per-card selection toggles don't
+// re-render the virtualized grid.
+const EMPTY_SELECTION: ReadonlySet<number> = new Set();
+
 import { cn, isMangaDomain } from "@/lib/utils";
 
 const COVER_PREFETCH_BATCH_LIMIT = 120;
@@ -172,10 +177,19 @@ export function LibraryGrid({
   const toggleBookSelection = useLibraryStore(
     (state) => state.toggleBookSelection,
   );
-  const selectedBookIds = useLibraryStore((state) => state.selectedBookIds);
   const storeBooks = useLibraryStore((state) => state.books);
   const [bulkConvertOpen, setBulkConvertOpen] = useState(false);
   const [bulkShelfOpen, setBulkShelfOpen] = useState(false);
+
+  // The grid only needs the selection *identity* for the batch dialogs below.
+  // BulkActionBar holds its own subscription for the bar UI. Subscribing to the
+  // whole Set here re-rendered the entire virtualized grid on every selection
+  // toggle (the Set is recreated per mutation). When no batch dialog is open,
+  // return a stable empty sentinel so toggles don't touch the grid at all.
+  const batchDialogsOpen = bulkConvertOpen || bulkShelfOpen;
+  const selectedBookIds = useLibraryStore((s) =>
+    batchDialogsOpen ? s.selectedBookIds : EMPTY_SELECTION,
+  );
   const storeHasMore = useLibraryStore((state) => state.hasMore);
   const storeIsLoading = useLibraryStore((state) => state.isLoading);
   const storeLoadMoreBooks = useLibraryStore((state) => state.loadMoreBooks);

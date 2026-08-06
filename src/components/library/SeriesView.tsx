@@ -8,7 +8,7 @@ import {
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { usePreferencesStore } from '@/store/preferencesStore'
-import { cn } from '@/lib/utils'
+import { cn, pageCountLabel } from '@/lib/utils'
 import { logger } from '@/lib/logger'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { PremiumBookCard } from './ModernBookCard'
@@ -338,6 +338,7 @@ const ListBookCard = memo(function ListBookCard({
   const { coverUrl } = useCoverImage(book.id, book.cover_path);
   const status = getBookReadStatus(book);
   const isRead = status === 'completed';
+  const pageCount = pageCountLabel(book);
 
   return (
     <div 
@@ -376,7 +377,7 @@ const ListBookCard = memo(function ListBookCard({
           {book.series_index !== undefined && (
             <span className="font-medium bg-muted px-1.5 py-0.5 rounded text-foreground/80">Vol. {book.series_index}</span>
           )}
-          {book.page_count !== undefined && <span>{book.page_count} pages</span>}
+          {pageCount && <span>{pageCount}</span>}
           {status === 'reading' && <span className="text-blue-500 font-medium">Reading</span>}
         </div>
       </div>

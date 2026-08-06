@@ -28,8 +28,12 @@ export function LibgenBookDetails({ book, open, onOpenChange }: Props) {
   const { handleOpenBook } = useBookOpen();
 
   // Backend emits progress keyed by target_id = first mirror URL (the epubUrl we pass in).
-  const downloads = useOnlineDownloadStore((state) => state.downloads);
-  const downloadProgress = activeDownloadUrl ? downloads[activeDownloadUrl] : undefined;
+  // Per-download subscription: the store replaces the whole downloads object on
+  // every progress tick, so a whole-object subscription re-renders this dialog
+  // at tick rate. Select just this download's entry.
+  const downloadProgress = useOnlineDownloadStore((state) =>
+    activeDownloadUrl ? state.downloads[activeDownloadUrl] : undefined,
+  );
 
   useEffect(() => {
     if (!book || !open) return;

@@ -174,8 +174,16 @@ export function AniListDashboard({ onOpenSettings }: AniListDashboardProps = {})
     if (!anilistToken) return;
     setSyncingLibrary(true);
     try {
-      const result = await api.searchBooks({ limit: 10000, offset: 0 });
-      const allBooks = result.books.filter(b => 
+      // Page through the library instead of pulling up to 10k books in one
+      // giant IPC payload. The sync loops over every book anyway.
+      const PAGE_SIZE = 200;
+      const allLibraryBooks: Awaited<ReturnType<typeof api.searchBooks>>['books'] = [];
+      for (let offset = 0; ; offset += PAGE_SIZE) {
+        const page = await api.searchBooks({ limit: PAGE_SIZE, offset });
+        allLibraryBooks.push(...page.books);
+        if (allLibraryBooks.length >= page.total || page.books.length === 0) break;
+      }
+      const allBooks = allLibraryBooks.filter(b => 
         b.file_format === 'cbz' || 
         b.file_format === 'cbr' || 
         b.file_format === 'zip' || 

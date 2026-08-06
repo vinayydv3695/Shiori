@@ -14,9 +14,9 @@ export function Topbar() {
     if (files && files.length > 0) {
       const result = await api.importBooks(files)
       logger.debug("Import result:", result)
-      // Refresh library
-      const books = await api.getBooks()
-      useLibraryStore.setState({ books })
+      // Refresh library via the store's window-preserving refresh (avoids
+      // replacing the books array with a 50-row page mid-scroll).
+      await useLibraryStore.getState().refreshLibrary()
     }
   }
 

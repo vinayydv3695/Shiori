@@ -1,9 +1,14 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { create } from 'zustand';
 import { Download, X, Inbox } from 'lucide-react';
-import { useOnlineDownloadStore } from '@/store/onlineDownloadStore';
+import { useOnlineDownloadStore, type DownloadProgress } from '@/store/onlineDownloadStore';
 import { DownloadProgressBar } from './DownloadProgressBar';
 import { cn } from '@/lib/utils';
+
+// Stable empty sentinel: DownloadQueuePanel is mounted globally (GlobalDialogs)
+// but only needs the live downloads object while open — progress ticks replace
+// the object every time and would re-render the hidden panel at tick rate.
+const EMPTY_DOWNLOADS: Record<string, DownloadProgress> = {};
 
 // ──────────────────────────────────────────────────────────────────────────
 // Shared open-state for the queue panel (button lives in OnlineBooksView,
@@ -28,13 +33,18 @@ export const useDownloadQueueUI = create<DownloadQueueUIState>((set) => ({
 // ──────────────────────────────────────────────────────────────────────────
 
 export function DownloadsButton() {
-  const downloads = useOnlineDownloadStore((s) => s.downloads);
+  // Subscribe to counts (numbers), not the downloads object — progress ticks
+  // replace the object on every update and would re-render the button at tick
+  // rate even though the badge only changes when a download starts/finishes.
+  const activeCount = useOnlineDownloadStore((s) => {
+    let n = 0;
+    for (const d of Object.values(s.downloads)) {
+      if (d.status === 'downloading') n++;
+    }
+    return n;
+  });
+  const totalCount = useOnlineDownloadStore((s) => Object.keys(s.downloads).length);
   const setOpen = useDownloadQueueUI((s) => s.setOpen);
-
-  const activeCount = Object.values(downloads).filter(
-    (d) => d.status === 'downloading'
-  ).length;
-  const totalCount = Object.keys(downloads).length;
 
   return (
     <button
@@ -66,7 +76,8 @@ export function DownloadsButton() {
 export function DownloadQueuePanel() {
   const open = useDownloadQueueUI((s) => s.open);
   const setOpen = useDownloadQueueUI((s) => s.setOpen);
-  const downloads = useOnlineDownloadStore((s) => s.downloads);
+  // Panel is mounted globally — only subscribe to the live object while open.
+  const downloads = useOnlineDownloadStore((s) => (open ? s.downloads : EMPTY_DOWNLOADS));
 
   const entries = Object.values(downloads);
   const activeCount = entries.filter((d) => d.status === 'downloading').length;

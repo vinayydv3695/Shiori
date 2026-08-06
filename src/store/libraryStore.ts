@@ -152,6 +152,8 @@ interface LibraryStore {
   setServerSearchQuery: (query: SearchQuery | null) => void
   loadInitialBooks: () => Promise<void>
   loadMoreBooks: () => Promise<void>
+  /** Silent refresh that keeps the currently-loaded window (no grid collapse). */
+  refreshLibrary: () => Promise<void>
 }
 
 export const useLibraryStore = create<LibraryStore>((set, get) => ({
@@ -295,5 +297,30 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
     } catch {
       set({ isLoading: false });
     }
-  }
+  },
+  refreshLibrary: async () => {
+    // Refetch the same window the user already has loaded instead of collapsing
+    // to the first 50 rows: loadInitialBooks() would reset pagination mid-scroll
+    // (grid shrinks, scroll position clamps). Newly imported books sort to the
+    // top, so the window stays the same size and the user keeps their place.
+    const state = get()
+    const limit = Math.max(state.books.length, 50)
+    const query = {
+      ...(state.serverSearchQuery || {}),
+      sort_by: state.sortBy,
+      sort_order: state.sortOrder,
+      limit,
+      offset: 0,
+    }
+    try {
+      const result = await api.searchBooks(query)
+      set({
+        books: result.books,
+        totalCount: result.total,
+        hasMore: result.books.length < result.total,
+      })
+    } catch {
+      // Silent: keep current books on failure
+    }
+  },
 }))

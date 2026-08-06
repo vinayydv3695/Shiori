@@ -7,9 +7,9 @@ use crate::utils::file::{calculate_file_hash, get_file_size};
 use crate::utils::validate;
 use rayon::prelude::*;
 use rusqlite::params;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use uuid::Uuid;
 use walkdir::WalkDir;
 
@@ -1005,14 +1005,41 @@ pub fn import_books(
 }
 
 pub fn import_single_book(db: &Database, path: &str, covers_dir: &std::path::Path) -> Result<bool> {
-    // Extract metadata
-    let metadata = metadata_service::extract_from_file(path)?;
+    // Cheap-first ordering: run the cheapest dedup checks BEFORE hashing and
+    // metadata/cover extraction, so re-importing a known file (folder rescan,
+    // watch event, import retry) costs two EXISTS queries. A genuinely new
+    // file pays exactly the same extraction cost as before — only the order
+    // moved.
 
-    // Calculate file hash
+    // (a) Quick path check — a live book row wins immediately, before any
+    // hashing or parsing. This is what makes folder re-scans and watch events
+    // cheap: a known path never touches the file on disk.
+    let conn = db.get_connection()?;
+    let known_path: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM books WHERE file_path = ?1)",
+        params![path],
+        |row| row.get(0),
+    )?;
+    if known_path {
+        return Ok(true); // Already imported — duplicate
+    }
+
+    // A deletion tombstone short-circuits before hashing too, so a corrupted
+    // file on disk can never mask a tombstone.
+    let tombstoned_path: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM deleted_books WHERE file_path = ?1)",
+        params![path],
+        |row| row.get(0),
+    )?;
+    if tombstoned_path {
+        return Err(ShioriError::TombstonedBook(path.to_string()));
+    }
+
+    // (b) Hash the file (cheap: size + first/last 8 KB sample).
     let file_hash = calculate_file_hash(path)?;
 
-    // Check for duplicates — a live book row wins, then a deletion tombstone.
-    let conn = db.get_connection()?;
+    // (c) Hash/path dedup — a moved file re-imports only if neither path nor
+    // hash matches (path was already checked above; hash is the second stage).
     let exists: bool = conn.query_row(
         "SELECT EXISTS(SELECT 1 FROM books WHERE (file_hash != '' AND file_hash = ?1) OR file_path = ?2)",
         params![file_hash, path],
@@ -1032,6 +1059,11 @@ pub fn import_single_book(db: &Database, path: &str, covers_dir: &std::path::Pat
     if tombstoned {
         return Err(ShioriError::TombstonedBook(path.to_string()));
     }
+
+    // (d) Only now — metadata + cover extraction (the expensive part),
+    // reserved for genuinely new files. Extraction errors for new files are
+    // unchanged: they surface exactly as before.
+    let metadata = metadata_service::extract_from_file(path)?;
 
     // Get file extension
     let file_format = std::path::Path::new(path)
@@ -1183,6 +1215,40 @@ struct PreprocessedBook {
     book: Book,
 }
 
+/// Dedicated worker pool for folder-scan preprocessing (hashing, metadata
+/// extraction, cover rendering). 3 threads keeps a 4-core machine responsive
+/// and bounds RAM — the global rayon pool would otherwise run one task per
+/// core and spike on 16-way lopdf + webp encodes.
+static SCAN_POOL: OnceLock<rayon::ThreadPool> = OnceLock::new();
+
+fn scan_pool() -> &'static rayon::ThreadPool {
+    SCAN_POOL.get_or_init(|| {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(3)
+            .thread_name(|i| format!("shiori-scan-{}", i))
+            .build()
+            .expect("failed to build scan thread pool")
+    })
+}
+
+/// Load every `file_path` currently referenced by the library — live books
+/// plus deletion tombstones — into a HashSet. This is the cheap first-stage
+/// dedup for folder scans: a path that is already known needs no hashing,
+/// parsing, or cover rendering. Tombstoned paths are included so permanently
+/// deleted files keep being skipped silently.
+pub fn load_known_paths(db: &Database) -> Result<HashSet<String>> {
+    let conn = db.get_connection()?;
+    let mut known = HashSet::new();
+    for table in ["books", "deleted_books"] {
+        let mut stmt = conn.prepare(&format!("SELECT file_path FROM {}", table))?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        for row in rows.flatten() {
+            known.insert(row);
+        }
+    }
+    Ok(known)
+}
+
 pub fn scan_and_import_folder(
     db: &Database,
     folder_path: &str,
@@ -1190,22 +1256,27 @@ pub fn scan_and_import_folder(
 ) -> Result<ImportResult> {
     let mut all_paths = Vec::new();
 
-    for entry in WalkDir::new(folder_path)
-        .follow_links(true)
-        .into_iter()
-        .filter_map(|e| e.ok())
-    {
-        if entry.file_type().is_file() {
-            if let Some(ext) = entry.path().extension() {
-                let ext_str = ext.to_string_lossy().to_lowercase();
-                if BOOK_FORMATS.contains(&ext_str.as_str())
-                    || MANGA_FORMATS.contains(&ext_str.as_str())
-                    || COMICS_FORMATS.contains(&ext_str.as_str())
-                {
-                    if let Some(path_str) = entry.path().to_str() {
-                        all_paths.push((path_str.to_string(), ext_str));
+    // Walk errors are logged, not silently swallowed (follow_links(false): a
+    // symlink loop must not wedge the walk or walk outside the folder).
+    for entry in WalkDir::new(folder_path).follow_links(false).into_iter() {
+        match entry {
+            Ok(entry) => {
+                if entry.file_type().is_file() {
+                    if let Some(ext) = entry.path().extension() {
+                        let ext_str = ext.to_string_lossy().to_lowercase();
+                        if BOOK_FORMATS.contains(&ext_str.as_str())
+                            || MANGA_FORMATS.contains(&ext_str.as_str())
+                            || COMICS_FORMATS.contains(&ext_str.as_str())
+                        {
+                            if let Some(path_str) = entry.path().to_str() {
+                                all_paths.push((path_str.to_string(), ext_str));
+                            }
+                        }
                     }
                 }
+            }
+            Err(e) => {
+                log::warn!("[scan] walk error under {}: {}", folder_path, e);
             }
         }
     }
@@ -1227,114 +1298,145 @@ pub fn scan_and_import_folder(
         return Ok(result);
     }
 
-    let preprocessed: Vec<std::result::Result<PreprocessedBook, (String, String)>> = all_paths
-        .into_par_iter()
-        .map(|(path, ext_str)| {
-            let domain = if BOOK_FORMATS.contains(&ext_str.as_str()) {
-                "books"
-            } else if MANGA_FORMATS.contains(&ext_str.as_str()) {
-                "manga"
-            } else {
-                "comics"
-            };
-
-            let file_hash = match calculate_file_hash(&path) {
-                Ok(h) => h,
-                Err(e) => return Err((path, format!("Hash error: {}", e))),
-            };
-
-            let metadata = match metadata_service::extract_from_file(&path) {
-                Ok(m) => m,
-                Err(_) => crate::models::Metadata {
-                    title: None,
-                    authors: vec![],
-                    publisher: None,
-                    pubdate: None,
-                    isbn: None,
-                    page_count: None,
-                    language: None,
-                    description: None,
-                    series: None,
-                    series_index: None,
-                },
-            };
-
-            let book_uuid = Uuid::new_v4().to_string();
-            let cover_path = metadata_service::extract_cover(&path, &book_uuid, covers_dir)
-                .ok()
-                .flatten();
-            let file_size = get_file_size(&path).unwrap_or(0);
-
-            let book = Book {
-                id: None,
-                uuid: book_uuid,
-                title: metadata.title.unwrap_or_else(|| {
-                    std::path::Path::new(&path)
-                        .file_stem()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .to_string()
-                }),
-                sort_title: None,
-                isbn: metadata.isbn,
-                isbn13: None,
-                publisher: metadata.publisher,
-                pubdate: metadata.pubdate,
-                series: None,
-                series_index: None,
-                rating: None,
-                file_path: path.clone(),
-                file_format: ext_str,
-                file_size: Some(file_size),
-                file_hash: Some(file_hash),
-                cover_path,
-                page_count: metadata.page_count,
-                word_count: None,
-                language: metadata.language.unwrap_or_else(|| "eng".to_string()),
-                added_date: chrono::Utc::now().to_rfc3339(),
-                modified_date: chrono::Utc::now().to_rfc3339(),
-                last_opened: None,
-                notes: None,
-                authors: metadata
-                    .authors
-                    .into_iter()
-                    .map(|name| Author {
-                        id: None,
-                        name,
-                        sort_name: None,
-                        link: None,
-                    })
-                    .collect(),
-                tags: vec![],
-                online_metadata_fetched: false,
-                metadata_source: None,
-                metadata_last_sync: None,
-                anilist_id: None,
-                is_favorite: false,
-                is_wishlist: false,
-                in_trash: false,
-                deleted_at: None,
-                reading_status: "planning".to_string(),
-                domain: Some(domain.to_string()),
-                metadata_locked: None,
-                // ponytail: slice 2/3 will populate is_managed/origin/managed_relpath.
-                is_managed: false,
-                origin: None,
-                managed_relpath: None,
-            };
-
-            Ok(PreprocessedBook { path, book })
-        })
+    // Stage 1 (cheapest): drop every path the library already knows (live
+    // books AND tombstones) BEFORE any hashing/extraction. A rescan of an
+    // imported folder therefore pays one query, not a re-parse of every file.
+    let known_paths = load_known_paths(db)?;
+    let total_candidates = all_paths.len();
+    let unknown_paths: Vec<(String, String)> = all_paths
+        .into_iter()
+        .filter(|(path, _)| !known_paths.contains(path))
         .collect();
+    if unknown_paths.len() < total_candidates {
+        log::info!(
+            "[scan] pre-filter skipped {} already-known paths in {}",
+            total_candidates - unknown_paths.len(),
+            folder_path
+        );
+    }
+
+    let preprocessed: Vec<std::result::Result<PreprocessedBook, (String, String)>> =
+        scan_pool().install(|| {
+            unknown_paths
+                .into_par_iter()
+                .map(|(path, ext_str)| {
+                    let domain = if BOOK_FORMATS.contains(&ext_str.as_str()) {
+                        "books"
+                    } else if MANGA_FORMATS.contains(&ext_str.as_str()) {
+                        "manga"
+                    } else {
+                        "comics"
+                    };
+
+                    let file_hash = match calculate_file_hash(&path) {
+                        Ok(h) => h,
+                        Err(e) => return Err((path, format!("Hash error: {}", e))),
+                    };
+
+                    let metadata = match metadata_service::extract_from_file(&path) {
+                        Ok(m) => m,
+                        Err(_) => crate::models::Metadata {
+                            title: None,
+                            authors: vec![],
+                            publisher: None,
+                            pubdate: None,
+                            isbn: None,
+                            page_count: None,
+                            language: None,
+                            description: None,
+                            series: None,
+                            series_index: None,
+                        },
+                    };
+
+                    let book_uuid = Uuid::new_v4().to_string();
+                    let cover_path =
+                        metadata_service::extract_cover(&path, &book_uuid, covers_dir)
+                            .ok()
+                            .flatten();
+                    let file_size = get_file_size(&path).unwrap_or(0);
+
+                    let book = Book {
+                        id: None,
+                        uuid: book_uuid,
+                        title: metadata.title.unwrap_or_else(|| {
+                            std::path::Path::new(&path)
+                                .file_stem()
+                                .unwrap_or_default()
+                                .to_string_lossy()
+                                .to_string()
+                        }),
+                        sort_title: None,
+                        isbn: metadata.isbn,
+                        isbn13: None,
+                        publisher: metadata.publisher,
+                        pubdate: metadata.pubdate,
+                        series: None,
+                        series_index: None,
+                        rating: None,
+                        file_path: path.clone(),
+                        file_format: ext_str,
+                        file_size: Some(file_size),
+                        file_hash: Some(file_hash),
+                        cover_path,
+                        page_count: metadata.page_count,
+                        word_count: None,
+                        language: metadata.language.unwrap_or_else(|| "eng".to_string()),
+                        added_date: chrono::Utc::now().to_rfc3339(),
+                        modified_date: chrono::Utc::now().to_rfc3339(),
+                        last_opened: None,
+                        notes: None,
+                        authors: metadata
+                            .authors
+                            .into_iter()
+                            .map(|name| Author {
+                                id: None,
+                                name,
+                                sort_name: None,
+                                link: None,
+                            })
+                            .collect(),
+                        tags: vec![],
+                        online_metadata_fetched: false,
+                        metadata_source: None,
+                        metadata_last_sync: None,
+                        anilist_id: None,
+                        is_favorite: false,
+                        is_wishlist: false,
+                        in_trash: false,
+                        deleted_at: None,
+                        reading_status: "planning".to_string(),
+                        domain: Some(domain.to_string()),
+                        metadata_locked: None,
+                        // ponytail: slice 2/3 will populate is_managed/origin/managed_relpath.
+                        is_managed: false,
+                        origin: None,
+                        managed_relpath: None,
+                    };
+
+                    Ok(PreprocessedBook { path, book })
+                })
+                .collect()
+        });
 
     let mut conn = db.get_connection()?;
     let tx = conn.transaction()?;
 
+    // Online-cover lookup args are collected during the transaction but the
+    // lookups are spawned only AFTER it commits: the pool connection is never
+    // held across the whole import and lookups can't contend for it
+    // mid-transaction.
+    let mut online_cover_lookups: Vec<(i64, String, String, Vec<String>, Option<String>)> =
+        Vec::new();
+
     for res in preprocessed {
         match res {
             Ok(pre) => {
-                // Tombstone hits count as duplicates here: folder scans skip
-                // previously-deleted files silently.
+                // Hash-based dedup as the second stage (path matches were
+                // already filtered above; a moved file re-imports only if
+                // neither path nor hash matches). Tombstone hits count as
+                // duplicates here: folder scans skip previously-deleted files
+                // silently.
                 let exists: bool = tx
                     .query_row(
                         "SELECT EXISTS(SELECT 1 FROM books WHERE (file_hash IS NOT NULL AND file_hash != '' AND file_hash = ?1) OR file_path = ?2)
@@ -1385,19 +1487,18 @@ pub fn scan_and_import_folder(
 
                             // Books without an embedded cover get a background
                             // online lookup (Google Books → Open Library); manga
-                            // and comics keep their existing cover flow.
+                            // and comics keep their existing cover flow. Args
+                            // are queued and spawned after commit.
                             if needs_online_cover && book.domain.as_deref() == Some("books") {
                                 let authors: Vec<String> =
                                     book.authors.iter().map(|a| a.name.clone()).collect();
-                                spawn_online_cover_lookup_for_book(
-                                    db,
-                                    covers_dir,
+                                online_cover_lookups.push((
                                     book_id,
-                                    &book.uuid,
-                                    &book.title,
-                                    &authors,
-                                    book.isbn.as_deref(),
-                                );
+                                    book.uuid.clone(),
+                                    book.title.clone(),
+                                    authors,
+                                    book.isbn.clone(),
+                                ));
                             }
 
                             result.success.push(book.file_path);
@@ -1415,6 +1516,20 @@ pub fn scan_and_import_folder(
     }
 
     tx.commit()?;
+
+    // One batch after the transaction commits — see the comment above.
+    for (book_id, book_uuid, title, authors, isbn) in online_cover_lookups {
+        spawn_online_cover_lookup_for_book(
+            db,
+            covers_dir,
+            book_id,
+            &book_uuid,
+            &title,
+            &authors,
+            isbn.as_deref(),
+        );
+    }
+
     Ok(result)
 }
 

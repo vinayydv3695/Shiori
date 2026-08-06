@@ -3,7 +3,10 @@ import { convertFileSrc } from '@tauri-apps/api/core'
 import { requestCoverUrl } from '@/lib/coverCache'
 import { proxyExternalCover } from '@/lib/utils'
 
-function toAssetUrl(filePath: string): string {
+function toAssetUrl(filePath: string): string | null {
+  // Empty / whitespace-only paths mean "no cover" — never emit "" (React
+  // warns on <img src=""> and unguarded consumers would render a broken img).
+  if (!filePath.trim()) return null
   // HTTP(S) URLs (e.g. online manga cover CDN links)
   if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
     return proxyExternalCover(filePath);
@@ -28,7 +31,9 @@ export function useCoverImage(bookId?: number, initialCoverSrc?: string | null) 
   const [error, setError] = useState(false)
 
   useEffect(() => {
-    // If an initial path was provided, use it directly — no IPC needed
+    // If an initial path was provided, use it directly — no IPC needed.
+    // toAssetUrl returns null for empty/whitespace paths, so coverUrl can
+    // never become "" even when a coverless book re-renders mid-import.
     if (initialCoverSrc) {
       setCoverUrl(toAssetUrl(initialCoverSrc))
       setLoading(false)

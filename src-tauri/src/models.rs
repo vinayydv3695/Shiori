@@ -164,6 +164,7 @@ pub struct SearchQuery {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ImportResult {
     pub success: Vec<String>,
     pub failed: Vec<(String, String)>, // (path, error_message)
@@ -570,4 +571,23 @@ pub struct RestoreSummary {
     pub shelves_restored: usize,
     pub covers_restored: usize,
     pub settings_restored: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn import_result_serializes_camel_case() {
+        let result = ImportResult {
+            success: vec!["a.epub".to_string()],
+            failed: vec![],
+            duplicates: vec![],
+            previously_deleted: vec!["b.epub".to_string()],
+        };
+        let json = serde_json::to_value(&result).unwrap();
+        assert_eq!(json["previouslyDeleted"], serde_json::json!(["b.epub"]));
+        assert!(json.get("previously_deleted").is_none());
+        assert_eq!(json["success"], serde_json::json!(["a.epub"]));
+    }
 }

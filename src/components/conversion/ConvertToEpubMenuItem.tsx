@@ -22,6 +22,7 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { FileOutput, Loader2 } from 'lucide-react';
 import { api } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
+import { getErrorMessage } from '@/lib/errors';
 import { ConversionProgress } from '@/components/reader/ConversionProgress';
 import { useToastStore } from '@/store/toastStore';
 import { useLibraryStore } from '@/store/libraryStore';
@@ -112,7 +113,6 @@ export function ConvertToEpubMenuItem({
     if (finishedRef.current) return;
     finishedRef.current = true;
     setIsConverting(false);
-    logger.error('[ConvertToEpub] Conversion failed:', message);
     useToastStore.getState().addToast({
       title: 'Conversion failed',
       description: message,
@@ -187,8 +187,11 @@ export function ConvertToEpubMenuItem({
       // its finishSuccess call is a no-op (finishedRef).
       if (!finishedRef.current) finishSuccess();
     } catch (err) {
+      // Keep ONE object log here; the toast below uses getErrorMessage so
+      // ShioriError-shaped plain objects render their message, not
+      // "[object Object]".
       logger.error('[ConvertToEpub] convert_book failed:', err);
-      finishError(err instanceof Error ? err.message : String(err));
+      finishError(getErrorMessage(err));
     }
   }, [bookId, isConverting, finishSuccess, finishError]);
 

@@ -11,9 +11,12 @@ export function emptyImportResult(): ImportResult {
  * into an already-displayed import result.
  */
 export function mergeImportResults(target: ImportResult, incoming: ImportResult): ImportResult {
-  target.success.push(...incoming.success);
-  target.failed.push(...incoming.failed);
-  target.duplicates.push(...incoming.duplicates);
-  target.previouslyDeleted.push(...incoming.previouslyDeleted);
+  // Coalesce every bucket: producers (wrappers, mocks, future backends) may
+  // return a partial result missing a bucket (e.g. `previouslyDeleted`), and
+  // spreading `undefined` throws. Missing buckets contribute nothing.
+  target.success.push(...(incoming.success ?? []));
+  target.failed.push(...(incoming.failed ?? []));
+  target.duplicates.push(...(incoming.duplicates ?? []));
+  target.previouslyDeleted.push(...(incoming.previouslyDeleted ?? []));
   return target;
 }

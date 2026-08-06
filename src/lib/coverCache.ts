@@ -17,7 +17,9 @@
 import { invoke, convertFileSrc } from '@tauri-apps/api/core'
 import { proxyExternalCover } from '@/lib/utils'
 
-function toAssetUrl(filePath: string): string {
+function toAssetUrl(filePath: string): string | null {
+  // Empty / whitespace-only paths mean "no cover" — never emit "".
+  if (!filePath.trim()) return null
   // HTTP(S) URLs (e.g. online manga cover CDN links) — route through proxy
   if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
     return proxyExternalCover(filePath);

@@ -872,6 +872,14 @@ fn parse_content_disposition_filename(value: &str) -> Option<String> {
     None
 }
 
+fn download_blocked_message(cookie_configured: bool) -> String {
+    if cookie_configured {
+        "Download blocked (received HTML instead of ebook). Your Anna's Archive session cookie was rejected or expired — refresh it in your browser (log out and back in at annas-archive.org) and re-save it in Settings → Online Sources → Anna's Archive. Or use 'View Details' to download manually, or set up Torbox for torrent downloads.".to_string()
+    } else {
+        "Download blocked (received HTML instead of ebook). Anna's Archive requires a logged-in session for downloads. Add your session cookie in Settings → Online Sources → Anna's Archive → Configure (paste it from your browser devtools after logging in at annas-archive.org). Or use 'View Details' to download manually, or set up Torbox for torrent downloads.".to_string()
+    }
+}
+
 fn sanitize_filename(name: &str) -> String {
     name.chars()
         .map(|c| {
@@ -906,6 +914,11 @@ pub async fn annas_archive_download(
 
     source.load_config_from_store(&app_handle).await?;
     let anna_config = source.get_config().await;
+    let cookie_configured = anna_config
+        .auth_cookie
+        .as_deref()
+        .map(str::trim)
+        .is_some_and(|c| !c.is_empty());
 
     // Get download options from the detail page
     let options = source.get_download_options(&content_id).await?;
@@ -987,10 +1000,7 @@ pub async fn annas_archive_download(
         .unwrap_or("");
 
     if content_type.contains("text/html") {
-        return Err(ShioriError::Other(
-            "Download blocked (received HTML instead of ebook). This source requires browser authentication. Use 'View Details' to download manually, or set up Torbox for torrent downloads."
-                .to_string(),
-        ));
+        return Err(ShioriError::Other(download_blocked_message(cookie_configured)));
     }
 
     // Filename: Content-Disposition (handling the filename*= UTF-8'' form) →
@@ -1038,10 +1048,7 @@ pub async fn annas_archive_download(
         || bytes.starts_with(b"<HTML");
 
     if starts_with_html {
-        return Err(ShioriError::Other(
-            "Download blocked (received HTML instead of ebook). This source requires browser authentication. Use 'View Details' to download manually, or set up Torbox for torrent downloads."
-                .to_string(),
-        ));
+        return Err(ShioriError::Other(download_blocked_message(cookie_configured)));
     }
 
     // Determine actual format from file magic bytes

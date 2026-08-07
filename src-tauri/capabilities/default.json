@@ -18,7 +18,9 @@
         { "url": "https://**" },
         { "url": "http://**" },
         { "url": "magnet:*" },
-        { "url": "mailto:*" }
+        { "url": "mailto:*" },
+        { "url": "ms-settings:*" },
+        { "url": "intent:**" }
       ]
     },
     "fs:default",

@@ -12,11 +12,36 @@ import { logger } from '@/lib/logger';
 import type { TTSState } from '@/lib/ttsEngine';
 import { splitSentences } from '@/lib/sentenceSplitter';
 import { highlightSentence, clearAllHighlights } from '@/lib/sentenceHighlighter';
-import { api } from '@/lib/tauri';
+import { api, isTauri, isAndroid } from '@/lib/tauri';
+import type { VoiceInfo } from '@/lib/tauri';
+import { buildVoicePickerItems } from '@/lib/voicePicker';
 import { usePreferencesStore } from '@/store/preferencesStore';
 import { extractTextFromDOM } from '@/lib/textExtractor';
 // Native TTS support (Tauri plugin)
 import { speak as nativeSpeak, stop as nativeStop, getVoices as nativeGetVoices } from 'tauri-plugin-tts-api';
+
+// Module-level cache for Piper voices in the reader picker. Tolerates
+// failure silently: a Piper outage must never break the native voice list.
+let piperVoicesCache: VoiceInfo[] | null = null;
+let piperVoicesPromise: Promise<VoiceInfo[]> | null = null;
+function loadPiperVoicesForPicker(): Promise<VoiceInfo[]> {
+  // Piper is compiled out of the Android/iOS backend — never invoke it there.
+  if (!isTauri || isAndroid) return Promise.resolve([]);
+  if (piperVoicesCache) return Promise.resolve(piperVoicesCache);
+  if (!piperVoicesPromise) {
+    piperVoicesPromise = api
+      .getAvailableVoices()
+      .then((voices) => {
+        piperVoicesCache = voices;
+        return voices;
+      })
+      .catch((error) => {
+        logger.debug('[TTS] Piper voices unavailable for reader picker:', error);
+        return [];
+      });
+  }
+  return piperVoicesPromise;
+}
 
 export interface UseTTSOptions {
   contentRef: React.RefObject<HTMLElement | null>;
@@ -108,6 +133,11 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
         }
       } else {
         availableVoices = ttsEngine.getVoices();
+      }
+
+      if (isTauri) {
+        const piper = await loadPiperVoicesForPicker();
+        availableVoices = buildVoicePickerItems(availableVoices, piper);
       }
 
       setVoices(availableVoices);

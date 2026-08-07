@@ -3,6 +3,8 @@ import { api, isTauri } from "../lib/tauri";
 import { invoke } from "@tauri-apps/api/core";
 
 import { logger } from "../lib/logger";
+import { getErrorMessage } from "../lib/errors";
+import { useToastStore } from "./toastStore";
 import type {
   UserPreferences,
   BookPreferences,
@@ -279,6 +281,11 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
       });
     } catch (error) {
       logger.error("Failed to update TTS preferences:", error);
+      useToastStore.getState().addToast({
+        title: "Failed to save TTS settings",
+        description: getErrorMessage(error),
+        variant: "error",
+      });
       if (previous) {
         set((state) => ({
           preferences: state.preferences

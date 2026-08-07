@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ttsEngine } from '@/lib/ttsEngine';
 import { usePreferencesStore } from '@/store/preferencesStore';
+import { useToastStore } from '@/store/toastStore';
 import { Settings2, Volume2, Globe, ExternalLink, Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { isAndroid, isTauri, api, VoiceInfo } from '@/lib/tauri';
+import { getErrorMessage } from '@/lib/errors';
 import { open as openUrl } from '@tauri-apps/plugin-shell';
 import { getVoices as nativeGetVoices } from 'tauri-plugin-tts-api';
 
@@ -42,14 +44,26 @@ export function VoiceManager() {
   }, []);
 
   const [piperVoices, setPiperVoices] = useState<VoiceInfo[]>([]);
+  const [piperLoadError, setPiperLoadError] = useState<string | null>(null);
   const [downloadingVoice, setDownloadingVoice] = useState<string | null>(null);
   const [testingVoice, setTestingVoice] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isTauri) {
-      api.getAvailableVoices().then(setPiperVoices).catch(console.error);
+  const loadPiperVoices = useCallback(async () => {
+    // Piper is compiled out of the Android backend — never fetch (or show the section) there.
+    if (!isTauri || isAndroid) return;
+    try {
+      const list = await api.getAvailableVoices();
+      setPiperVoices(list);
+      setPiperLoadError(null);
+    } catch (e) {
+      console.error('Failed to load Piper voices:', e);
+      setPiperLoadError(getErrorMessage(e));
     }
   }, []);
+
+  useEffect(() => {
+    void loadPiperVoices();
+  }, [loadPiperVoices]);
 
   const handleDownloadPiperVoice = async (voice: VoiceInfo) => {
     if (downloadingVoice) return;
@@ -59,8 +73,18 @@ export function VoiceManager() {
       // Refresh list to show as downloaded
       const updated = await api.getAvailableVoices();
       setPiperVoices(updated);
+      useToastStore.getState().addToast({
+        title: 'Voice downloaded',
+        description: `${voice.name} is ready to use.`,
+        variant: 'success',
+      });
     } catch (e) {
       console.error('Failed to download voice:', e);
+      useToastStore.getState().addToast({
+        title: 'Voice download failed',
+        description: getErrorMessage(e),
+        variant: 'error',
+      });
     } finally {
       setDownloadingVoice(null);
     }
@@ -252,7 +276,7 @@ export function VoiceManager() {
         </div>
       </div>
 
-      {isTauri && piperVoices.length > 0 && (
+      {isTauri && !isAndroid && (piperVoices.length > 0 || piperLoadError !== null) && (
         <div className="mt-8 space-y-4">
           <div className="flex flex-col gap-2">
             <h3 className="text-lg font-medium flex items-center gap-2">
@@ -266,6 +290,17 @@ export function VoiceManager() {
 
           <div className="rounded-md border bg-card/50 overflow-hidden">
             <div className="divide-y">
+              {piperLoadError !== null && (
+                <div className="flex items-center justify-between p-3 gap-4">
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-medium text-sm">Voices failed to load</span>
+                    <span className="text-xs text-muted-foreground truncate">{piperLoadError}</span>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => void loadPiperVoices()}>
+                    Retry
+                  </Button>
+                </div>
+              )}
               {piperVoices.map(voice => {
                 const isSelected = currentVoiceUri === `piper:${voice.id}`;
                 const isDownloading = downloadingVoice === voice.id;
@@ -286,14 +321,22 @@ export function VoiceManager() {
                               try {
                                 setTestingVoice(voice.id);
                                 const audioUrl = await api.synthesizeSpeech('Testing 1 2 3.', voice.id);
-                                // The audioUrl is a local file path, but tauri cannot play it directly via HTMLAudioElement without asset protocol.
-                                // It can be played using window.__TAURI__.convertFileSrc(audioUrl) if imported
-                                const { convertFileSrc } = await import('@tauri-apps/api/core');
-                                const url = convertFileSrc(audioUrl);
+                                // synthesizeSpeech returns a base64 data: URI (data:audio/wav;base64,...)
+                                // which the browser plays directly. convertFileSrc is only needed for
+                                // real file paths served via the asset protocol.
+                                const isDataUri = audioUrl.startsWith('data:');
+                                const url = isDataUri
+                                  ? audioUrl
+                                  : (await import('@tauri-apps/api/core')).convertFileSrc(audioUrl);
                                 const audio = new Audio(url);
-                                audio.play().catch(e => console.error("Audio playback blocked:", e));
+                                await audio.play();
                               } catch (e) {
                                 console.error('Synthesize failed:', e);
+                                useToastStore.getState().addToast({
+                                  title: 'Voice test failed',
+                                  description: getErrorMessage(e),
+                                  variant: 'error',
+                                });
                               } finally {
                                 setTestingVoice(null);
                               }
@@ -317,7 +360,7 @@ export function VoiceManager() {
                           onClick={() => handleDownloadPiperVoice(voice)}
                         >
                           {isDownloading ? (
-                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Downloading...</>
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Downloading… (large file)</>
                           ) : (
                             <><Download className="w-4 h-4 mr-2" /> Download (approx 15MB)</>
                           )}
@@ -329,6 +372,17 @@ export function VoiceManager() {
               })}
             </div>
           </div>
+        </div>
+      )}
+      {isAndroid && (
+        <div className="mt-8 rounded-md border bg-card/50 p-4 flex items-center justify-between gap-4">
+          <p className="text-sm text-muted-foreground">
+            Android uses your system text-to-speech engine — manage voices in system settings.
+          </p>
+          <Button variant="link" className="shrink-0 px-0" onClick={handleManageSystemVoices}>
+            <ExternalLink className="w-4 h-4 mr-2" />
+            Open settings
+          </Button>
         </div>
       )}
     </div>

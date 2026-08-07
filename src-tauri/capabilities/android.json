@@ -21,7 +21,9 @@
         { "url": "https://**" },
         { "url": "http://**" },
         { "url": "magnet:*" },
-        { "url": "mailto:*" }
+        { "url": "mailto:*" },
+        { "url": "ms-settings:*" },
+        { "url": "intent:**" }
       ]
     },
     "android-auth:allow-start-oauth-login",

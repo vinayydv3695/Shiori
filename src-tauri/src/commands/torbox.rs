@@ -401,11 +401,13 @@ pub async fn torbox_download_and_import_impl(
     app_state: &crate::AppState,
     source_link: String,
     filename_hint: Option<String>,
+    max_wait_secs: Option<u64>,
 ) -> Result<String> {
     let torrent_id = service.add_download_target(&source_link).await?;
 
-    // Wait for completion (max 15 minutes)
-    let info = service.wait_for_completion(torrent_id, 900).await?;
+    // Wait for completion (default max 15 minutes, clampable to 5s–30m)
+    let wait_seconds = max_wait_secs.unwrap_or(900).clamp(5, 1800);
+    let info = service.wait_for_completion(torrent_id, wait_seconds).await?;
 
     finalize_import_from_target(
         app_handle,
@@ -417,6 +419,185 @@ pub async fn torbox_download_and_import_impl(
         filename_hint,
     )
     .await
+}
+
+/// Fallback import flow for Anna's Archive results that only expose public
+/// dataset-shard torrents (e.g. `/dyn/small_file/torrents/external/libgen_rs_fic/f_21000.torrent`).
+/// Those shards contain ~1000 files named exactly `{md5}.{ext}`; we add the shard
+/// to Torbox, select ONLY the file matching the book's md5, and import it.
+pub async fn dataset_shard_extract_and_import(
+    app_handle: &tauri::AppHandle,
+    service: &TorboxService,
+    app_state: &crate::AppState,
+    dataset_urls: Vec<String>,
+    md5: &str,
+    filename_hint: Option<String>,
+) -> Result<String> {
+    use crate::services::bencode;
+    use std::time::Duration;
+
+    let md5 = md5.trim().to_ascii_lowercase();
+    let http_client = match reqwest::Client::builder()
+        .user_agent(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        )
+        .timeout(Duration::from_secs(30))
+        .build()
+    {
+        Ok(client) => client,
+        Err(e) => {
+            return Err(ShioriError::Other(format!(
+                "Failed to build HTTP client for dataset shard fetch: {}",
+                e
+            )))
+        }
+    };
+
+    'urls: for dataset_url in &dataset_urls {
+        log::info!(
+            "[Anna dataset shard] Fetching shard torrent metadata: {}",
+            dataset_url
+        );
+
+        // (a) GET the .torrent bytes — public endpoint, no auth.
+        let bytes = match http_client.get(dataset_url).send().await {
+            Ok(resp) if resp.status().is_success() => match resp.bytes().await {
+                Ok(bytes) => bytes,
+                Err(e) => {
+                    log::warn!(
+                        "[Anna dataset shard] Failed reading torrent bytes from {}: {}",
+                        dataset_url,
+                        e
+                    );
+                    continue;
+                }
+            },
+            Ok(resp) => {
+                log::warn!(
+                    "[Anna dataset shard] Non-success status {} fetching {}",
+                    resp.status(),
+                    dataset_url
+                );
+                continue;
+            }
+            Err(e) => {
+                log::warn!(
+                    "[Anna dataset shard] Failed fetching {}: {}",
+                    dataset_url,
+                    e
+                );
+                continue;
+            }
+        };
+
+        // (b) Parse file list; look for a file whose stem matches the md5.
+        let names = bencode::torrent_file_names(&bytes);
+        let matched_in_torrent = names.iter().any(|name| file_stem_matches_md5(name, &md5));
+        if !matched_in_torrent {
+            log::info!(
+                "[Anna dataset shard] md5 {} not present in shard {}",
+                md5,
+                dataset_url
+            );
+            continue;
+        }
+
+        // (c) Add the shard torrent to Torbox.
+        let torrent_id = match service.add_download_target(dataset_url).await {
+            Ok(id) => id,
+            Err(e) => {
+                return Err(ShioriError::Other(format!(
+                    "Failed to add Anna dataset shard to Torbox: {}",
+                    e
+                )))
+            }
+        };
+
+        // (d) Poll until Torbox exposes the file list (metadata is fetched before
+        // the full download starts). Timeout after 120s -> try the next shard URL.
+        let file_list_deadline = std::time::Instant::now() + Duration::from_secs(120);
+        let info = loop {
+            match service.get_torrent_status(torrent_id).await {
+                Ok(info)
+                    if info
+                        .files
+                        .as_ref()
+                        .map(|files| !files.is_empty())
+                        .unwrap_or(false) =>
+                {
+                    break info;
+                }
+                Ok(_) => {
+                    if std::time::Instant::now() >= file_list_deadline {
+                        log::warn!(
+                            "[Anna dataset shard] Timed out waiting for file list on shard {}",
+                            dataset_url
+                        );
+                        continue 'urls;
+                    }
+                    tokio::time::sleep(Duration::from_secs(3)).await;
+                }
+                Err(e) => {
+                    log::warn!(
+                        "[Anna dataset shard] Status check failed for shard {}: {}",
+                        dataset_url,
+                        e
+                    );
+                    if std::time::Instant::now() >= file_list_deadline {
+                        log::warn!(
+                            "[Anna dataset shard] Timed out waiting for file list on shard {}",
+                            dataset_url
+                        );
+                        continue 'urls;
+                    }
+                    tokio::time::sleep(Duration::from_secs(3)).await;
+                }
+            }
+        };
+
+        // (e) Find the Torbox file whose name stem matches the md5.
+        let files = info.files.as_ref().expect("files checked non-empty above");
+        let matched_file = files
+            .iter()
+            .find(|file| file_stem_matches_md5(&file.name, &md5));
+        let Some(matched_file) = matched_file else {
+            log::warn!(
+                "[Anna dataset shard] md5 {} not found in Torbox file list for shard {}",
+                md5,
+                dataset_url
+            );
+            continue;
+        };
+        let matched_file_id = matched_file.id;
+
+        // (f) Select only the matching file, then (g) wait for it to download.
+        service.select_files(torrent_id, &[matched_file_id]).await?;
+        let info = service.wait_for_completion(torrent_id, 900).await?;
+
+        // (h) Import the downloaded file.
+        return finalize_import_from_target(
+            app_handle,
+            service,
+            app_state,
+            torrent_id,
+            &info,
+            Some(matched_file_id),
+            filename_hint,
+        )
+        .await;
+    }
+
+    Err(ShioriError::Other(
+        "Book not found in any public dataset shard — it may be Z-Library/Sci-Hub only. Use 'View Details' to download manually.".to_string(),
+    ))
+}
+
+/// True when the file name's stem (last path segment, up to the first `.`)
+/// equals the md5, case-insensitively — matches `{md5}.{ext}` shard entries.
+fn file_stem_matches_md5(name: &str, md5: &str) -> bool {
+    let last_segment = name.rsplit('/').next().unwrap_or(name);
+    let stem = last_segment.split('.').next().unwrap_or(last_segment);
+    stem.eq_ignore_ascii_case(md5)
 }
 
 #[tauri::command]
@@ -472,6 +653,7 @@ pub async fn torbox_download_and_import(
         &app_state,
         magnet,
         filename_hint,
+        None,
     )
     .await
 }
@@ -572,6 +754,7 @@ pub async fn send_to_torbox(
         &app_state,
         trimmed_link.to_string(),
         filename_hint,
+        None,
     )
     .await?;
 

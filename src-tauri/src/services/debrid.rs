@@ -10,6 +10,8 @@ pub struct DebridResolveRequest {
     pub provider: String,
     pub candidate_links: Vec<String>,
     pub filename_hint: Option<String>,
+    #[serde(default)]
+    pub max_wait_secs: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,6 +53,7 @@ pub async fn resolve_and_import(
         app_state,
         selected.clone(),
         req.filename_hint,
+        req.max_wait_secs,
     )
     .await?;
 

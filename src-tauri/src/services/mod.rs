@@ -53,6 +53,9 @@ pub mod folder_watch;
 // Torbox service
 pub mod torbox;
 
+// Minimal bencode decoder for .torrent dataset shard metadata
+pub mod bencode;
+
 // Debrid provider service
 pub mod debrid;
 

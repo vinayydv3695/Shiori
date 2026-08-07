@@ -740,6 +740,31 @@ pub async fn annas_archive_send_to_torbox(
 
     if candidate_urls.is_empty() {
         if has_any_torrentish {
+            // No per-book magnet/torrent — fall back to the dataset-shard
+            // extraction flow: add the shard torrent, select the file matching
+            // the book's md5, download and import it.
+            let dataset_urls = options
+                .iter()
+                .filter(|option| {
+                    matches!(option.download_type, DownloadType::Torrent)
+                        && is_anna_dataset_torrent(&option.url)
+                })
+                .map(|option| option.url.clone())
+                .collect::<Vec<_>>();
+
+            if !dataset_urls.is_empty() {
+                let md5 = content_id.strip_prefix("anna-").unwrap_or(&content_id);
+                return crate::commands::torbox::dataset_shard_extract_and_import(
+                    &app_handle,
+                    &torbox_state.service,
+                    &state,
+                    dataset_urls,
+                    md5,
+                    filename_hint,
+                )
+                .await;
+            }
+
             return Err(ShioriError::Other(
                 "Only Anna collection/shard torrents were found for this result (no per-book magnet/torrent). Use View Details for manual download."
                     .to_string(),
@@ -761,6 +786,9 @@ pub async fn annas_archive_send_to_torbox(
                 provider: "torbox".to_string(),
                 candidate_links: vec![candidate_url.clone()],
                 filename_hint: filename_hint.clone(),
+                // Dead magnets shouldn't stall the candidate loop for 15min;
+                // 5min per attempt is enough to fail fast and move on.
+                max_wait_secs: Some(300),
             },
         )
         .await

@@ -899,6 +899,61 @@ impl TorboxService {
         self.add_download_target(magnet).await
     }
 
+    /// Select which files of an already-added torrent Torbox should download.
+    /// Used by the Anna's Archive dataset-shard flow: the shard torrent contains
+    /// ~1000 files, we pick only the one matching the book's md5.
+    pub async fn select_files(&self, torrent_id: i64, file_ids: &[i64]) -> Result<()> {
+        let api_key = self.get_api_key().await.ok_or_else(|| {
+            ShioriError::Other(
+                "Torbox API key not configured. Set it in Settings → Online Sources.".to_string(),
+            )
+        })?;
+
+        let body = serde_json::json!({
+            "torrent_id": torrent_id,
+            "operation": "select_files",
+            "files": file_ids,
+        });
+
+        let resp = self
+            .client
+            .post(format!("{}/torrents/control", TORBOX_API_BASE))
+            .header("Authorization", self.get_auth_header(&api_key))
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| ShioriError::Other(format!("Torbox file selection failed: {}", e)))?;
+
+        let status = resp.status();
+        let raw_body = resp
+            .text()
+            .await
+            .map_err(|e| ShioriError::Other(format!("Torbox file selection parse failed: {}", e)))?;
+
+        let payload: Value = serde_json::from_str(&raw_body).map_err(|e| {
+            ShioriError::Other(format!(
+                "Torbox file selection response JSON parse failed: {}",
+                e
+            ))
+        })?;
+
+        let success = payload
+            .get("success")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(status.is_success());
+
+        if !status.is_success() || !success {
+            let msg = extract_error_message(&payload)
+                .unwrap_or_else(|| summarize_response_body(&raw_body));
+            return Err(ShioriError::Other(format!(
+                "Torbox file selection failed: {}",
+                msg
+            )));
+        }
+
+        Ok(())
+    }
+
     /// Get status for a Torbox target (torrent or web download).
     pub async fn get_torrent_status(&self, torrent_id: i64) -> Result<TorrentInfo> {
         self.get_target_status_raw(torrent_id)

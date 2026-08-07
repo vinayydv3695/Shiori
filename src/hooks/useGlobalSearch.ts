@@ -1,11 +1,13 @@
 import { useState, useCallback } from 'react';
 import { fetchLibgenBooks } from '@/online-books/libgen/api';
 import { fetchGutenbergBooks } from '@/online-books/gutenberg/api';
+import { fetchAnnasArchiveBooks } from '@/online-books/annas-archive/api';
+import { getProxyUrl } from '@/lib/tauri';
 import type { OnlineAdvancedFilters } from '@/store/onlineSearchStore';
 
 export interface UnifiedSearchResult {
   id: string; // The URL to download
-  source: 'libgen' | 'gutenberg';
+  source: 'libgen' | 'gutenberg' | 'annas-archive';
   title: string;
   author: string;
   coverUrl?: string;
@@ -141,7 +143,43 @@ export function useGlobalSearch() {
         }
       };
 
-      await Promise.allSettled([fetchGutenberg(), fetchLibgen()]);
+      const fetchAnnasArchive = async () => {
+        try {
+          const annasRes = await fetchAnnasArchiveBooks(libgenQuery, page, 50);
+          if (annasRes.items) {
+            const unified: UnifiedSearchResult[] = [];
+            annasRes.items.forEach((book: any) => {
+              const rawCoverUrl = book.coverUrl || book.cover_url;
+              unified.push({
+                id: book.extra?.md5 || book.id,
+                source: 'annas-archive' as const,
+                title: book.title,
+                author: book.extra?.author || 'Unknown',
+                coverUrl: rawCoverUrl ? getProxyUrl('annas-archive', rawCoverUrl) : undefined,
+                format: (book.extra?.format || '').toLowerCase(),
+                year: book.extra?.year ? parseInt(String(book.extra.year), 10) : undefined,
+                language: book.extra?.language,
+                size: book.extra?.file_size,
+                downloadUrl: book.extra?.detail_url || '',
+                mirrors: [book.extra?.detail_url].filter(Boolean) as string[],
+                extra: book.extra,
+              });
+            });
+            const filtered = applyFiltersAndSort(unified);
+            if (filtered.length > 0) anyHasMore = true;
+            setResults(prev => {
+              const existingIds = new Set(prev.map(p => p.id));
+              const newItems = filtered.filter(f => !existingIds.has(f.id));
+              const combined = [...prev, ...newItems];
+              return applyFiltersAndSort(combined);
+            });
+          }
+        } catch (e) {
+          console.error("Annas Archive search error:", e);
+        }
+      };
+
+      await Promise.allSettled([fetchGutenberg(), fetchLibgen(), fetchAnnasArchive()]);
       setHasMore(anyHasMore);
     } catch (err: any) {
       setError(err.message || 'An error occurred during search');

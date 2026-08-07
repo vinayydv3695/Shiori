@@ -160,6 +160,18 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     capabilities: ['direct', 'metadata'],
     website: 'https://libgen.li',
   },
+  {
+    id: 'annas-archive',
+    name: "Anna's Archive",
+    kind: 'books',
+    enabled: true,
+    description: 'Massive open library with direct downloads and torrents. Recommended for Torbox users.',
+    status: 'active',
+    implemented: true,
+    torboxCompatible: true,
+    capabilities: ['direct', 'torbox'],
+    website: 'https://annas-archive.org',
+  },
 ];
 
 const DEFAULT_PRIMARY_SOURCE_BY_KIND: Record<SourceKind, string> = {

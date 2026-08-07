@@ -12,6 +12,7 @@ import { OnlineBookSidePanel, type PreviewBook } from './OnlineBookSidePanel';
 import { useInView } from 'react-intersection-observer';
 import { downloadAndImportGutenberg } from '@/online-books/gutenberg/importer';
 import { downloadAndImportLibgen } from '@/online-books/libgen/importer';
+import { downloadAndImportAnnas } from '@/online-books/annas-archive/importer';
 import { useLibraryStore } from '@/store/libraryStore';
 import { useToast } from '@/store/toastStore';
 import { useOnlineDownloadStore } from '@/store/onlineDownloadStore';
@@ -104,6 +105,8 @@ export function OnlineBooksView() {
       let result;
       if (book.source === 'gutenberg') {
         result = await downloadAndImportGutenberg(book.downloadUrl, book.title);
+      } else if (book.source === 'annas-archive') {
+        result = await downloadAndImportAnnas(book.downloadUrl, book.title);
       } else {
         result = await downloadAndImportLibgen(book.downloadUrl, book.title, book.mirrors, book.format);
       }
@@ -127,6 +130,12 @@ export function OnlineBooksView() {
       let bookId: number;
       if (book.source === 'gutenberg') {
         const result = await downloadAndImportGutenberg(book.downloadUrl, book.title);
+        if (result.success.length === 0) {
+          const errMsg = result.failed && result.failed.length > 0 ? result.failed[0][1] : 'Failed to import book';
+          throw new Error(errMsg);
+        }
+      } else if (book.source === 'annas-archive') {
+        const result = await downloadAndImportAnnas(book.downloadUrl, book.title);
         if (result.success.length === 0) {
           const errMsg = result.failed && result.failed.length > 0 ? result.failed[0][1] : 'Failed to import book';
           throw new Error(errMsg);
@@ -183,7 +192,7 @@ export function OnlineBooksView() {
         <OnlineSearchHeader 
           kind="books"
           title="Online Library"
-          subtitle="Search Libgen & Gutenberg"
+          subtitle="Search Libgen, Gutenberg & Anna's Archive"
           searchValue={searchQuery}
           loading={loading}
           disabled={false}

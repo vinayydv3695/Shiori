@@ -15,9 +15,15 @@ export interface PreviewBook {
   language?: string;
   size?: string;
   mirrors?: string[];
-  source: 'libgen' | 'gutenberg';
+  source: 'libgen' | 'gutenberg' | 'annas-archive';
   downloadUrl: string; // The URL to download
 }
+
+const SOURCE_DISPLAY_NAMES: Record<PreviewBook['source'], string> = {
+  libgen: 'LibGen',
+  gutenberg: 'Project Gutenberg',
+  'annas-archive': "Anna's Archive",
+};
 
 interface OnlineBookSidePanelProps {
   book: PreviewBook;
@@ -51,6 +57,9 @@ export function OnlineBookSidePanel({
     
     if (book.coverUrl.includes('libgen') || book.coverUrl.includes('libgen.li')) {
       const proxyUri = getProxyUrl('libgen', book.coverUrl);
+      setProxyUrl(proxyUri);
+    } else if (book.coverUrl.includes('annas-archive')) {
+      const proxyUri = getProxyUrl('annas-archive', book.coverUrl);
       setProxyUrl(proxyUri);
     } else if (book.coverUrl.startsWith('http://') || book.coverUrl.startsWith('https://')) {
       setProxyUrl(getProxyUrl('generic', book.coverUrl));
@@ -222,7 +231,7 @@ export function OnlineBookSidePanel({
               <motion.div className="px-8 pb-8" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">About this edition</h3>
                 <p className="text-foreground/70 leading-relaxed text-sm">
-                  Source: <span className="capitalize text-foreground">{book.source}</span>
+                  Source: <span className="capitalize text-foreground">{SOURCE_DISPLAY_NAMES[book.source]}</span>
                   <br/>
                   This book was found via global search and can be instantly added to your local Shiori library.
                 </p>

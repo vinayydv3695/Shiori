@@ -453,7 +453,16 @@ pub async fn dataset_shard_extract_and_import(
         }
     };
 
+    // Z-Library shard torrents (managed_by_aa URLs) are single-file .tar
+    // archives (or huge file lists without the book's md5) that Torbox
+    // cannot extract individual books from — track that we tried one so
+    // the not-found error can explain what to do instead.
+    let mut tried_any_zlib_archive = false;
+
     'urls: for dataset_url in &dataset_urls {
+        if dataset_url.contains("managed_by_aa") {
+            tried_any_zlib_archive = true;
+        }
         log::info!(
             "[Anna dataset shard] Fetching shard torrent metadata: {}",
             dataset_url
@@ -587,9 +596,15 @@ pub async fn dataset_shard_extract_and_import(
         .await;
     }
 
-    Err(ShioriError::Other(
-        "Book not found in any public dataset shard — it may be Z-Library/Sci-Hub only. Use 'View Details' to download manually.".to_string(),
-    ))
+    if tried_any_zlib_archive {
+        Err(ShioriError::Other(
+            "This book is hosted in Z-Library's archive — those shards are single-file .tar collections that Torbox cannot extract individual books from. Add your Anna's Archive session cookie in Settings → Online Sources → Anna's Archive → Configure to unlock direct downloads, or use 'View Details' to download manually.".to_string(),
+        ))
+    } else {
+        Err(ShioriError::Other(
+            "Book not found in any public dataset shard — it may be Z-Library/Sci-Hub only. Use 'View Details' to download manually.".to_string(),
+        ))
+    }
 }
 
 /// True when the file name's stem (last path segment, up to the first `.`)

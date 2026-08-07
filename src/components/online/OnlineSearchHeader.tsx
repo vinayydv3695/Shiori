@@ -54,13 +54,18 @@ export function OnlineSearchHeader({
       <div className="max-w-7xl mx-auto relative z-10">
         <div className="flex flex-col gap-3 md:gap-4">
           <div className="hidden md:flex items-center justify-between">
-            <div>
+            <div className="flex items-center gap-3">
               <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-foreground drop-shadow-sm">
                 {title}
               </h1>
+              <span className="px-2.5 py-0.5 text-[10px] font-extrabold bg-secondary border border-border/50 text-muted-foreground rounded-full">
+                {kind === 'books' ? 'Multi-Source Catalog' : 'Manga Catalog'}
+              </span>
             </div>
             <div className="flex items-center gap-3">
-              <OnlineSourceSelector kind={kind} variant="secondary" className="h-9 px-4 bg-secondary/70 hover:bg-secondary text-foreground border border-border/60 rounded-xl shadow-sm backdrop-blur-xl text-xs font-bold" />
+              {kind === 'manga' && (
+                <OnlineSourceSelector kind={kind} variant="secondary" className="h-9 px-4 bg-secondary/70 hover:bg-secondary text-foreground border border-border/60 rounded-xl shadow-sm backdrop-blur-xl text-xs font-bold" />
+              )}
               <DownloadsButton />
             </div>
           </div>

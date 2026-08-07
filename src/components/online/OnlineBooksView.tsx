@@ -22,6 +22,15 @@ import { useBookOpen } from '@/hooks/useBookOpen';
 import { invoke } from '@tauri-apps/api/core';
 import { api } from '@/lib/tauri';
 
+import { Globe, BookOpen, Library, Zap, type LucideIcon } from 'lucide-react';
+
+const SOURCE_ICONS: Record<string, LucideIcon> = {
+  all: Globe,
+  gutenberg: BookOpen,
+  libgen: Library,
+  'annas-archive': Zap,
+};
+
 const SOURCE_FILTER_LABELS: Record<string, string> = {
   libgen: 'LibGen',
   gutenberg: 'Gutenberg',
@@ -212,39 +221,47 @@ export function OnlineBooksView() {
         />
       </div>
 
-      {/* Source filter pills */}
-      <div className="flex gap-2 overflow-x-auto px-4 md:px-8 py-2">
+      {/* Executive Source Selector Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto px-4 md:px-8 py-3 border-b border-border/40 bg-background/60 backdrop-blur-xl no-scrollbar z-10">
         <button
-          className={cn(
-            "shrink-0 rounded-full px-3 py-1 text-sm font-medium transition-colors",
-            source === 'all'
-              ? "bg-primary text-primary-foreground"
-              : "bg-secondary/40 text-muted-foreground hover:bg-secondary"
-          )}
           onClick={() => {
             setSource('all');
             setPage(1);
           }}
+          className={cn(
+            "flex items-center gap-2 shrink-0 rounded-2xl px-4 py-2 text-xs font-extrabold transition-all duration-200 shadow-xs",
+            source === 'all'
+              ? "bg-primary text-primary-foreground shadow-md shadow-primary/25 ring-1 ring-primary/40 scale-[1.02]"
+              : "bg-secondary/40 text-muted-foreground hover:text-foreground hover:bg-secondary/80 border border-border/50"
+          )}
         >
-          All Sources
+          <Globe className="w-3.5 h-3.5" />
+          <span>All Sources</span>
         </button>
-        {enabledBookSources.map((s) => (
-          <button
-            key={s.id}
-            className={cn(
-              "shrink-0 rounded-full px-3 py-1 text-sm font-medium transition-colors",
-              source === s.id
-                ? "bg-primary text-primary-foreground"
-                : "bg-secondary/40 text-muted-foreground hover:bg-secondary"
-            )}
-            onClick={() => {
-              setSource(s.id as BookSourceFilter);
-              setPage(1);
-            }}
-          >
-            {SOURCE_FILTER_LABELS[s.id] ?? s.name}
-          </button>
-        ))}
+        {enabledBookSources.map((s) => {
+          const IconComp = SOURCE_ICONS[s.id] || Globe;
+          const label = SOURCE_FILTER_LABELS[s.id] ?? s.name;
+          const isActive = source === s.id;
+
+          return (
+            <button
+              key={s.id}
+              onClick={() => {
+                setSource(s.id as BookSourceFilter);
+                setPage(1);
+              }}
+              className={cn(
+                "flex items-center gap-2 shrink-0 rounded-2xl px-4 py-2 text-xs font-extrabold transition-all duration-200 shadow-xs",
+                isActive
+                  ? "bg-primary text-primary-foreground shadow-md shadow-primary/25 ring-1 ring-primary/40 scale-[1.02]"
+                  : "bg-secondary/40 text-muted-foreground hover:text-foreground hover:bg-secondary/80 border border-border/50"
+              )}
+            >
+              <IconComp className={cn("w-3.5 h-3.5", isActive ? "text-primary-foreground" : "text-primary/70")} />
+              <span>{label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {!hasSearched ? (

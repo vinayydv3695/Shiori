@@ -1,9 +1,136 @@
+import { useCallback, useState } from 'react';
 import { useSourceStore } from '@/store/sourceStore';
-import { ExternalLink, Database, Globe, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronUp, ExternalLink, Database, Globe, Loader2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { motion, Variants } from 'framer-motion';
 import { openExternal } from '@/lib/externalLinks';
+import { api, isTauri } from '@/lib/tauri';
+import { useToast } from '@/store/toastStore';
+import { getErrorMessage } from '@/lib/errors';
+
+function AnnaArchiveCredentials() {
+  const [open, setOpen] = useState(false);
+  const [authCookie, setAuthCookie] = useState('');
+  const [authKey, setAuthKey] = useState('');
+  const [membershipKey, setMembershipKey] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [saving, setSaving] = useState(false);
+  const toast = useToast();
+
+  const loadConfig = useCallback(async () => {
+    if (!isTauri) return;
+    try {
+      const config = await api.annaArchiveGetConfig();
+      setAuthCookie(config.authCookie ?? '');
+      setAuthKey(config.authKey ?? '');
+      setMembershipKey(config.membershipKey ?? '');
+      setApiKey(config.apiKey ?? '');
+    } catch {
+      // Silently ignore — form stays empty.
+    }
+  }, []);
+
+  const handleToggle = () => {
+    if (!open) void loadConfig();
+    setOpen((o) => !o);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await api.annaArchiveSetConfig({
+        authCookie: authCookie.trim() || undefined,
+        authKey: authKey.trim() || undefined,
+        membershipKey: membershipKey.trim() || undefined,
+        apiKey: apiKey.trim() || null
+      });
+      toast.success("Anna's Archive credentials saved");
+    } catch (err) {
+      toast.error("Failed to save Anna's Archive credentials", getErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mt-3">
+      <button
+        type="button"
+        onClick={handleToggle}
+        aria-expanded={open}
+        className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors duration-300"
+      >
+        {open ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+        Configure
+      </button>
+
+      {open && (
+        <div className="mt-3 p-3 rounded-xl border border-border/40 bg-surface-1/60 flex flex-col gap-2.5">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="aa-auth-cookie" className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Auth Cookie</label>
+            <Input
+              id="aa-auth-cookie"
+              type="password"
+              value={authCookie}
+              onChange={(e) => setAuthCookie(e.target.value)}
+              placeholder="session cookie from annas-archive.org after logging in"
+              className="font-mono text-sm"
+              disabled={saving}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="aa-auth-key" className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Auth Key</label>
+            <Input
+              id="aa-auth-key"
+              type="password"
+              value={authKey}
+              onChange={(e) => setAuthKey(e.target.value)}
+              placeholder="Auth key (optional)"
+              className="font-mono text-sm"
+              disabled={saving}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="aa-membership-key" className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Membership Key</label>
+            <Input
+              id="aa-membership-key"
+              type="password"
+              value={membershipKey}
+              onChange={(e) => setMembershipKey(e.target.value)}
+              placeholder="Membership key (optional)"
+              className="font-mono text-sm"
+              disabled={saving}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="aa-api-key" className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">API Key</label>
+            <Input
+              id="aa-api-key"
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="RapidAPI key (optional)"
+              className="font-mono text-sm"
+              disabled={saving}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="default" onClick={handleSave} disabled={saving} className="gap-2">
+              {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              {saving ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            Paste your session cookie to enable direct downloads and per-book torrents. Get it from your browser devtools after logging in at annas-archive.org.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -85,6 +212,8 @@ export function SourceManager() {
         <p className="text-[13px] text-muted-foreground leading-relaxed pr-8 line-clamp-2">
           {source.description}
         </p>
+
+        {source.id === 'annas-archive' && <AnnaArchiveCredentials />}
 
         {source.website && (
           <a

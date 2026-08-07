@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { useUIStore } from '@/store/uiStore';
 import {
   pluginApi,
+  type DownloadOptionDto,
   type SearchDiagnostics,
   type SearchResult as PluginSearchResult,
 } from '@/lib/pluginSources';
@@ -1331,7 +1332,21 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
 
       try {
         if (sourceId === 'anna-archive') {
-          const options = await pluginApi.annaArchiveGetTorrentLinks(item.id);
+          let options: DownloadOptionDto[] = [];
+          try {
+            options = await pluginApi.annaArchiveGetTorrentLinks(item.id);
+          } catch (err) {
+            const msg = getUiErrorMessage(err, '');
+            if (msg.includes('shard torrents') || msg.includes('collection/shard')) {
+              // No per-book magnet — the book lives in a public LibGen dataset shard.
+              // Backend extracts just this book's file via Torbox (cookie-free).
+              const importedPath = await pluginApi.annaArchiveSendToTorbox(item.id, item.title);
+              setSendState(item.id, 'success');
+              setSearchSummary(`Fetched via Anna's Archive dataset shard → imported: ${importedPath}`);
+              return;
+            }
+            throw err; // real failure — outer catch handles it
+          }
           if (!options.length) {
             throw new Error('No usable links found for this Anna result.');
           }

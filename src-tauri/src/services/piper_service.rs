@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use reqwest::Client;
 use std::fs;
 use tokio::io::AsyncWriteExt;
@@ -1250,33 +1250,132 @@ impl PiperService {
     }
 }
 
+/// Progress payload for Piper voice downloads, emitted on the
+/// `piper:download-progress` Tauri event. `total_bytes` is 0 when unknown
+/// (Content-Length absent) so the UI can show an indeterminate bar.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PiperDownloadProgress {
+    pub voice_id: String,        // the voice's id (e.g. "en_US-ryan-high")
+    pub file_name: String,       // "voice.onnx" or "voice.onnx.json"
+    pub downloaded_bytes: u64,
+    pub total_bytes: u64,        // 0 when unknown → UI shows indeterminate
+}
+
+/// Progress callback threaded through the download path. The service layer
+/// stays `AppHandle`-free; the command layer wraps an `AppHandle` clone in
+/// here and emits the Tauri event.
+pub type ProgressCallback = Arc<dyn Fn(PiperDownloadProgress) + Send + Sync>;
+
+/// Throttles progress callbacks for one file: emits at start (0 bytes), on
+/// every ≥256 KiB delta, on whole-percent changes, and at the end — so a slow
+/// stream yields at most a few events per second instead of one per chunk.
+struct ProgressEmitter<'a> {
+    voice_id: &'a str,
+    file_name: &'a str,
+    total_bytes: u64,
+    last_emitted: u64,
+    cb: &'a ProgressCallback,
+}
+
+impl<'a> ProgressEmitter<'a> {
+    fn new(voice_id: &'a str, file_name: &'a str, total_bytes: u64, cb: &'a ProgressCallback) -> Self {
+        let mut emitter = Self { voice_id, file_name, total_bytes, last_emitted: 0, cb };
+        emitter.fire(0); // per-file start event so the UI can reset
+        emitter
+    }
+
+    fn fire(&mut self, downloaded: u64) {
+        (self.cb)(PiperDownloadProgress {
+            voice_id: self.voice_id.to_string(),
+            file_name: self.file_name.to_string(),
+            downloaded_bytes: downloaded,
+            total_bytes: self.total_bytes,
+        });
+        self.last_emitted = downloaded;
+    }
+
+    /// Called after each chunk read; applies the throttle policy.
+    fn on_progress(&mut self, downloaded: u64) {
+        if self.total_bytes > 0 && downloaded >= self.total_bytes {
+            if self.last_emitted != downloaded {
+                self.fire(downloaded);
+            }
+            return;
+        }
+        let delta = downloaded.saturating_sub(self.last_emitted);
+        let percent_changed = self.total_bytes > 0
+            && downloaded * 100 / self.total_bytes != self.last_emitted * 100 / self.total_bytes;
+        if delta >= 256 * 1024 || percent_changed {
+            self.fire(downloaded);
+        }
+    }
+
+    /// Called once the stream is exhausted; guarantees a final event.
+    fn finish(&mut self, downloaded: u64) {
+        if self.last_emitted != downloaded {
+            self.fire(downloaded);
+        }
+    }
+}
+
 /// Fetch a URL into `dest` (a `.part` file), returning the number of bytes
-/// written. Factored behind a trait so downloads are testable without network.
+/// written. The body is STREAMED chunk-by-chunk (never fully buffered) and the
+/// caller's `progress` callback is invoked per chunk through `ProgressEmitter`'s
+/// throttle. Factored behind a trait so downloads are testable without network.
 #[async_trait::async_trait]
 pub trait VoiceFetcher: Send + Sync {
-    async fn fetch_to_file(&self, url: &str, dest: &Path) -> Result<u64, ShioriError>;
+    async fn fetch_to_file(
+        &self,
+        url: &str,
+        dest: &Path,
+        voice_id: &str,
+        file_name: &str,
+        progress: &ProgressCallback,
+    ) -> Result<u64, ShioriError>;
 }
 
 #[async_trait::async_trait]
 impl VoiceFetcher for Client {
-    async fn fetch_to_file(&self, url: &str, dest: &Path) -> Result<u64, ShioriError> {
-        let response = self
+    async fn fetch_to_file(
+        &self,
+        url: &str,
+        dest: &Path,
+        voice_id: &str,
+        file_name: &str,
+        progress: &ProgressCallback,
+    ) -> Result<u64, ShioriError> {
+        let mut response = self
             .get(url)
             .send()
             .await
             .map_err(|e| ShioriError::Other(format!("Failed to download {}: {}", url, e)))?
             .error_for_status()
             .map_err(|e| ShioriError::Other(format!("HTTP error downloading {}: {}", url, e)))?;
-        let bytes = response
-            .bytes()
-            .await
-            .map_err(|e| ShioriError::Other(format!("Failed to read response body of {}: {}", url, e)))?;
+        // Content-Length is the *compressed* size under content-encoding, while
+        // the chunk stream yields decompressed bytes — treat those as unknown.
+        let total_bytes = if response.headers().contains_key(reqwest::header::CONTENT_ENCODING) {
+            0
+        } else {
+            response.content_length().unwrap_or(0)
+        };
+        let mut emitter = ProgressEmitter::new(voice_id, file_name, total_bytes, progress);
         let mut file = tokio::fs::File::create(dest)
             .await
             .map_err(ShioriError::Io)?;
-        file.write_all(&bytes).await.map_err(ShioriError::Io)?;
+        let mut downloaded: u64 = 0;
+        while let Some(chunk) = response
+            .chunk()
+            .await
+            .map_err(|e| ShioriError::Other(format!("Failed to read response body of {}: {}", url, e)))?
+        {
+            file.write_all(&chunk).await.map_err(ShioriError::Io)?;
+            downloaded += chunk.len() as u64;
+            emitter.on_progress(downloaded);
+        }
         file.flush().await.map_err(ShioriError::Io)?;
-        Ok(bytes.len() as u64)
+        emitter.finish(downloaded);
+        Ok(downloaded)
     }
 }
 
@@ -1308,10 +1407,15 @@ impl PiperService {
     ///
     /// On failure or interruption no `.part` files remain and no final files are
     /// left half-written; a retry starts from a clean slate.
+    ///
+    /// `progress` is invoked (throttled) for each file as it streams in: a
+    /// 0-byte event at file start, intermediate events, and a final event at
+    /// completion. The UI keys on `voice_id` + `file_name`.
     pub async fn download_voice_files<F: VoiceFetcher>(
         fetcher: &F,
         voices_dir: &Path,
         voice: &VoiceInfo,
+        progress: &ProgressCallback,
     ) -> Result<(), ShioriError> {
         let json_final = voices_dir.join(format!("{}.onnx.json", voice.id));
         let onnx_final = voices_dir.join(format!("{}.onnx", voice.id));
@@ -1324,7 +1428,10 @@ impl PiperService {
 
         // 1. Config (small) first, then the model.
         log::info!("piper: downloading config for voice {} from {}", voice.id, voice.download_url_json);
-        let json_size = match fetcher.fetch_to_file(&voice.download_url_json, &json_part).await {
+        let json_size = match fetcher
+            .fetch_to_file(&voice.download_url_json, &json_part, &voice.id, "voice.onnx.json", progress)
+            .await
+        {
             Ok(n) => n,
             Err(e) => {
                 let _ = fs::remove_file(&json_part);
@@ -1335,7 +1442,10 @@ impl PiperService {
         };
 
         log::info!("piper: downloading model for voice {} from {}", voice.id, voice.download_url_onnx);
-        let onnx_size = match fetcher.fetch_to_file(&voice.download_url_onnx, &onnx_part).await {
+        let onnx_size = match fetcher
+            .fetch_to_file(&voice.download_url_onnx, &onnx_part, &voice.id, "voice.onnx", progress)
+            .await
+        {
             Ok(n) => n,
             Err(e) => {
                 let _ = fs::remove_file(&json_part);
@@ -1472,6 +1582,7 @@ pub async fn get_available_voices(
 
 #[tauri::command]
 pub async fn download_voice(
+    app: AppHandle,
     voice: VoiceInfo,
     state: tauri::State<'_, Arc<tokio::sync::Mutex<PiperService>>>,
 ) -> Result<(), ShioriError> {
@@ -1482,7 +1593,14 @@ pub async fn download_voice(
         let service = state.lock().await;
         (service.voices_dir.clone(), service.http_client.clone())
     };
-    PiperService::download_voice_files(&http_client, &voices_dir, &voice).await
+    // Emit progress on the `piper:download-progress` event; a failed emit must
+    // never fail the download itself.
+    let progress: ProgressCallback = Arc::new(move |p| {
+        if let Err(e) = app.emit("piper:download-progress", p) {
+            log::warn!("piper: failed to emit download progress event: {}", e);
+        }
+    });
+    PiperService::download_voice_files(&http_client, &voices_dir, &voice, &progress).await
 }
 
 #[tauri::command]
@@ -1515,9 +1633,20 @@ mod tests {
         }
     }
 
+    fn noop_progress() -> ProgressCallback {
+        Arc::new(|_| {})
+    }
+
     #[async_trait::async_trait]
     impl VoiceFetcher for StubFetcher {
-        async fn fetch_to_file(&self, url: &str, dest: &Path) -> Result<u64, ShioriError> {
+        async fn fetch_to_file(
+            &self,
+            url: &str,
+            dest: &Path,
+            _voice_id: &str,
+            _file_name: &str,
+            _progress: &ProgressCallback,
+        ) -> Result<u64, ShioriError> {
             let body: &[u8] = if url.contains(".onnx.json") {
                 b"fake-config"
             } else {
@@ -1533,6 +1662,44 @@ mod tests {
                 }
             }
             Ok(body.len() as u64)
+        }
+    }
+
+    /// Fake fetcher that streams the body in fixed-size chunks through the SAME
+    /// `ProgressEmitter` throttle logic the real reqwest client uses, and records
+    /// every chunk read so the test can prove throttling happened.
+    struct ChunkedFetcher {
+        chunk_size: usize,
+        total: usize,
+        /// `None` → report `total_bytes` as 0 (Content-Length absent).
+        reported_total: Option<u64>,
+        chunks: Arc<std::sync::Mutex<Vec<u64>>>,
+    }
+
+    #[async_trait::async_trait]
+    impl VoiceFetcher for ChunkedFetcher {
+        async fn fetch_to_file(
+            &self,
+            _url: &str,
+            dest: &Path,
+            voice_id: &str,
+            file_name: &str,
+            progress: &ProgressCallback,
+        ) -> Result<u64, ShioriError> {
+            let total_bytes = self.reported_total.unwrap_or(0);
+            let mut emitter = ProgressEmitter::new(voice_id, file_name, total_bytes, progress);
+            let mut file = tokio::fs::File::create(dest).await.map_err(ShioriError::Io)?;
+            let body = vec![0u8; self.total];
+            let mut downloaded: u64 = 0;
+            for chunk in body.chunks(self.chunk_size) {
+                file.write_all(chunk).await.map_err(ShioriError::Io)?;
+                downloaded += chunk.len() as u64;
+                emitter.on_progress(downloaded);
+                self.chunks.lock().unwrap().push(downloaded);
+            }
+            file.flush().await.map_err(ShioriError::Io)?;
+            emitter.finish(downloaded);
+            Ok(downloaded)
         }
     }
 
@@ -1561,7 +1728,7 @@ mod tests {
         // Fails on the model fetch, AFTER the .onnx.part file has been written.
         let fetcher = StubFetcher::failing("voice.onnx?");
 
-        let err = PiperService::download_voice_files(&fetcher, dir.path(), &test_voice())
+        let err = PiperService::download_voice_files(&fetcher, dir.path(), &test_voice(), &noop_progress())
             .await
             .unwrap_err();
         assert!(err.to_string().contains("simulated mid-download failure"), "unexpected error: {}", err);
@@ -1575,7 +1742,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let fetcher = StubFetcher { fail_on: None };
 
-        PiperService::download_voice_files(&fetcher, dir.path(), &test_voice())
+        PiperService::download_voice_files(&fetcher, dir.path(), &test_voice(), &noop_progress())
             .await
             .expect("download should succeed");
 
@@ -1589,12 +1756,108 @@ mod tests {
 
         // Retry over an already-downloaded voice (covers the Windows path where
         // rename cannot overwrite an existing destination) must also succeed.
-        PiperService::download_voice_files(&fetcher, dir.path(), &test_voice())
+        PiperService::download_voice_files(&fetcher, dir.path(), &test_voice(), &noop_progress())
             .await
             .expect("retry over existing files should succeed");
         assert_eq!(std::fs::read_to_string(&onnx).unwrap(), "fake-model");
         assert_eq!(std::fs::read_to_string(&json).unwrap(), "fake-config");
         assert!(dir_entries(dir.path()).len() == 2, "unexpected entries: {:?}", dir_entries(dir.path()));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn download_progress_throttles_but_covers_full_range() {
+        let dir = tempfile::tempdir().unwrap();
+        let chunks: Arc<std::sync::Mutex<Vec<u64>>> = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let events: Arc<std::sync::Mutex<Vec<PiperDownloadProgress>>> =
+            Arc::new(std::sync::Mutex::new(Vec::new()));
+        // 4 MiB in 4 KiB chunks = 1024 chunks per file. With a 1 MiB file and
+        // 16 KiB chunks every chunk crosses an integer percent, so the percent
+        // gate alone would fire per chunk; 4 KiB chunks on 4 MiB make both gates
+        // (≥256 KiB delta, whole-percent) fire roughly every ~10 chunks instead.
+        let fetcher = ChunkedFetcher {
+            chunk_size: 4 * 1024,
+            total: 4 * 1024 * 1024,
+            reported_total: Some(4 * 1024 * 1024),
+            chunks: chunks.clone(),
+        };
+        let cb: ProgressCallback = {
+            let events = events.clone();
+            Arc::new(move |p| events.lock().unwrap().push(p))
+        };
+
+        PiperService::download_voice_files(&fetcher, dir.path(), &test_voice(), &cb)
+            .await
+            .expect("download should succeed");
+
+        let chunks = chunks.lock().unwrap();
+        let events = events.lock().unwrap();
+        assert_eq!(chunks.len(), 2048, "expected 1024 chunks per file");
+        assert!(
+            events.len() < chunks.len() / 2,
+            "throttle failed: {} events for {} chunks",
+            events.len(),
+            chunks.len()
+        );
+
+        for file_name in ["voice.onnx.json", "voice.onnx"] {
+            let per_file: Vec<&PiperDownloadProgress> =
+                events.iter().filter(|e| e.file_name == file_name).collect();
+            assert!(!per_file.is_empty(), "{}: no events at all", file_name);
+            // First event is the 0-byte start marker.
+            assert_eq!(per_file.first().unwrap().downloaded_bytes, 0, "{}: no start event", file_name);
+            // Strictly increasing values.
+            for pair in per_file.windows(2) {
+                assert!(
+                    pair[0].downloaded_bytes < pair[1].downloaded_bytes,
+                    "{}: non-increasing progress",
+                    file_name
+                );
+            }
+            // Final event == total, with the known total reported throughout.
+            let last = per_file.last().unwrap();
+            assert_eq!(last.downloaded_bytes, 4 * 1024 * 1024, "{}: no final event", file_name);
+            assert_eq!(last.total_bytes, 4 * 1024 * 1024, "{}: wrong total", file_name);
+            assert!(per_file.iter().all(|e| e.voice_id == "xx_XX-test-medium"));
+        }
+
+        // Contract: serde emits camelCase field names the frontend keys on.
+        let v = serde_json::to_value(&events[0]).unwrap();
+        assert_eq!(v["voiceId"], "xx_XX-test-medium");
+        assert_eq!(v["fileName"], "voice.onnx.json");
+        assert_eq!(v["downloadedBytes"], 0);
+        assert_eq!(v["totalBytes"], 4 * 1024 * 1024);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn download_progress_unknown_total_reports_zero_and_still_finishes() {
+        let dir = tempfile::tempdir().unwrap();
+        let events: Arc<std::sync::Mutex<Vec<PiperDownloadProgress>>> =
+            Arc::new(std::sync::Mutex::new(Vec::new()));
+        // Content-Length absent → total_bytes 0 (indeterminate UI).
+        let fetcher = ChunkedFetcher {
+            chunk_size: 16 * 1024,
+            total: 1024 * 1024,
+            reported_total: None,
+            chunks: Arc::new(std::sync::Mutex::new(Vec::new())),
+        };
+        let cb: ProgressCallback = {
+            let events = events.clone();
+            Arc::new(move |p| events.lock().unwrap().push(p))
+        };
+
+        PiperService::download_voice_files(&fetcher, dir.path(), &test_voice(), &cb)
+            .await
+            .expect("download should succeed");
+
+        let events = events.lock().unwrap();
+        for file_name in ["voice.onnx.json", "voice.onnx"] {
+            let per_file: Vec<&PiperDownloadProgress> =
+                events.iter().filter(|e| e.file_name == file_name).collect();
+            assert_eq!(per_file.first().unwrap().downloaded_bytes, 0);
+            assert_eq!(per_file.first().unwrap().total_bytes, 0);
+            assert_eq!(per_file.last().unwrap().downloaded_bytes, 1024 * 1024);
+            assert_eq!(per_file.last().unwrap().total_bytes, 0);
+        }
     }
 
     #[tokio::test(flavor = "multi_thread")]

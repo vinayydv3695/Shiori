@@ -35,6 +35,19 @@ export const isAndroid = (() => {
   return isTauriEnv && /android/i.test(navigator.userAgent);
 })();
 
+// Linux desktop detection (Android UAs also contain "Linux", so exclude Android)
+export const isLinux = (() => {
+  if (typeof window === 'undefined') return false;
+  // @ts-expect-error - Check for Tauri v2 OS plugin
+  if (window.__TAURI_OS_PLUGIN_INTERNALS__?.os_type === 'linux') return true;
+  // @ts-expect-error - Fallback for generic Tauri internals
+  if (window.__TAURI_INTERNALS__?.platform === 'linux') return true;
+
+  // Fallback for browsers or old Tauri (only check UA if we are reasonably sure it's Tauri)
+  const isTauriEnv = '__TAURI__' in window || '__TAURI_INTERNALS__' in window;
+  return isTauriEnv && /linux/i.test(navigator.userAgent) && !isAndroid;
+})();
+
 export interface Book {
   id?: number
   uuid: string

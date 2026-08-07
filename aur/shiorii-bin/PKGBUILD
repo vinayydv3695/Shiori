@@ -13,9 +13,8 @@ depends=(
     'librsvg'
     'sqlite'
     'zstd'
-)
-optdepends=(
-    'speech-dispatcher: Native TTS support (experimental)'
+    'speech-dispatcher'
+    'espeak-ng'
 )
 provides=(
     'shiorii'

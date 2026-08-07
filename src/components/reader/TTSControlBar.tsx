@@ -2,6 +2,7 @@ import { useState, useDeferredValue, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTTS } from '@/hooks/useTTS';
 import { logger } from '@/lib/logger';
+import { isLinux } from '@/lib/tauri';
 import { 
   Volume2, 
   VolumeX, 
@@ -113,7 +114,7 @@ export function TTSControlBar({ contentRef, onChapterEnd, contentKey }: TTSContr
               }
             }}
             disabled={!isAvailable || voices.length === 0}
-            title={!isAvailable ? 'Text-to-speech not available' : voices.length === 0 ? 'No TTS voices found on this system' : 'Audiobook Mode'}
+            title={!isAvailable ? 'Text-to-speech not available' : voices.length === 0 ? isLinux ? 'No TTS voices found on this system — on Linux install speech-dispatcher and espeak-ng, then start speech-dispatcher' : 'No TTS voices found on this system' : 'Audiobook Mode'}
             className={`fixed bottom-[calc(env(safe-area-inset-bottom)+1.5rem)] right-4 md:right-8 z-50 p-4 rounded-full backdrop-blur-xl shadow-2xl transition-all duration-300 flex items-center justify-center ${
               !isAvailable || voices.length === 0 
                 ? 'opacity-50 cursor-not-allowed' 

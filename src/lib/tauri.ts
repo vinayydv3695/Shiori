@@ -198,6 +198,14 @@ export interface PluginSearchResponse {
   diagnostics: unknown | null
 }
 
+export interface AnnasMagnetItem {
+  title: string
+  size: string
+  magnet: string | null
+  md5: string
+  shardOnly: boolean
+}
+
 export interface ImportResult {
   success: string[]
   failed: [string, string][]
@@ -1757,9 +1765,9 @@ export const api = {
     return invoke("annas_archive_download", { contentId, titleHint })
   },
 
-  async searchAnnasArchive(query: string): Promise<{ title: string, magnet: string, size: string }[]> {
+  async searchAnnasArchive(query: string): Promise<AnnasMagnetItem[]> {
     const res = await invoke<PluginSearchResponse>("plugin_search_with_meta", { sourceId: "annas-archive", query, page: 1, limit: 10 })
-    const results = []
+    const results: AnnasMagnetItem[] = []
     
     // We only take the top 5 to avoid spamming the backend
     for (const item of res.items.slice(0, 5)) {
@@ -1773,11 +1781,26 @@ export const api = {
           results.push({
             title: item.title,
             magnet: magnetLink.url,
-            size: magnetLink.label || 'Unknown'
+            size: magnetLink.label || 'Unknown',
+            md5,
+            shardOnly: false
           })
         }
       } catch (err) {
-        console.warn(`Failed to fetch magnet for ${md5}`, err)
+        const msg = err instanceof Error ? err.message : typeof err === 'object' && err !== null ? JSON.stringify(err) : String(err)
+        const technicalDetails = typeof err === 'object' && err !== null && 'technicalDetails' in err ? String((err as { technicalDetails?: unknown }).technicalDetails ?? '') : ''
+        if (msg.includes('shard torrents') || technicalDetails.includes('shard torrents')) {
+          // Expected case: book lives in a public dataset shard, no per-book magnet.
+          results.push({
+            title: item.title,
+            size: 'Dataset shard',
+            magnet: null,
+            md5,
+            shardOnly: true
+          })
+        } else {
+          console.warn(`Failed to fetch magnet for ${md5}`, err)
+        }
       }
     }
     return results

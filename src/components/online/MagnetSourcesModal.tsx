@@ -7,8 +7,10 @@ export interface MagnetSource {
   title: string
   size: string
   seeders: number
-  magnet: string
+  magnet: string | null
   source: string
+  shardOnly?: boolean
+  md5?: string
 }
 
 interface MagnetSourcesModalProps {
@@ -24,6 +26,9 @@ export function MagnetSourcesModal({ isOpen, onClose, query, type, onAddMagnetTo
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [searchFilter, setSearchFilter] = useState('')
+  const [fetchingMd5, setFetchingMd5] = useState<string | null>(null)
+  const [importedMd5s, setImportedMd5s] = useState<Record<string, boolean>>({})
+  const [fetchErrors, setFetchErrors] = useState<Record<string, string>>({})
 
   const filteredSources = sources.filter(s => s.title.toLowerCase().includes(searchFilter.toLowerCase()))
 
@@ -47,7 +52,7 @@ export function MagnetSourcesModal({ isOpen, onClose, query, type, onAddMagnetTo
             title: r.title,
             size: r.size,
             seeders: parseInt(r.seeders, 10) || 0,
-            magnet: r.magnet,
+            magnet: r.magnet || '',
             source: 'Nyaa.si'
           }))
         } else {
@@ -57,8 +62,10 @@ export function MagnetSourcesModal({ isOpen, onClose, query, type, onAddMagnetTo
             title: r.title,
             size: r.size,
             seeders: 0, // Anna's Archive direct torrents might not show seeders easily
-            magnet: r.magnet,
-            source: "Anna's Archive"
+            magnet: r.magnet || '',
+            source: "Anna's Archive",
+            shardOnly: r.shardOnly,
+            md5: r.md5
           }))
         }
         
@@ -177,7 +184,7 @@ export function MagnetSourcesModal({ isOpen, onClose, query, type, onAddMagnetTo
                               <ShieldCheck className="w-3.5 h-3.5 text-primary" /> {s.source}
                             </span>
                             <span className="flex items-center gap-1.5 text-muted-foreground">
-                              <HardDrive className="w-3.5 h-3.5" /> {s.size}
+                              <HardDrive className="w-3.5 h-3.5" /> {s.shardOnly ? 'Dataset shard — no per-book magnet' : s.size}
                             </span>
                             {s.seeders > 0 && (
                               <span className="flex items-center gap-1.5 text-emerald-500">
@@ -186,16 +193,53 @@ export function MagnetSourcesModal({ isOpen, onClose, query, type, onAddMagnetTo
                             )}
                           </div>
                         </div>
-                        <button
-                          onClick={() => {
-                            onAddMagnetToTorbox(s.magnet, s.title)
-                            onClose()
-                          }}
-                          className="shrink-0 flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md font-medium text-sm hover:bg-primary/90 transition-colors shadow-sm"
-                        >
-                          <Download className="w-4 h-4" />
-                          Add
-                        </button>
+                        {s.shardOnly ? (
+                          <div className="shrink-0 flex flex-col items-end gap-1.5">
+                            <button
+                              onClick={async () => {
+                                const md5 = s.md5!
+                                setFetchingMd5(md5)
+                                setFetchErrors(prev => {
+                                  const next = { ...prev }
+                                  delete next[md5]
+                                  return next
+                                })
+                                try {
+                                  await api.annasArchiveSendToTorbox(md5, s.title)
+                                  setImportedMd5s(prev => ({ ...prev, [md5]: true }))
+                                } catch (err) {
+                                  const msg = err instanceof Error ? err.message : typeof err === 'object' && err !== null ? JSON.stringify(err) : String(err)
+                                  setFetchErrors(prev => ({ ...prev, [md5]: msg }))
+                                } finally {
+                                  setFetchingMd5(null)
+                                }
+                              }}
+                              disabled={fetchingMd5 === s.md5 || !!importedMd5s[s.md5!]}
+                              className="shrink-0 flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md font-medium text-sm hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-60 disabled:hover:bg-primary"
+                            >
+                              {fetchingMd5 === s.md5 ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Download className="w-4 h-4" />
+                              )}
+                              {fetchingMd5 === s.md5 ? 'Fetching...' : importedMd5s[s.md5!] ? 'Imported ✓' : 'Fetch via Torbox'}
+                            </button>
+                            {fetchErrors[s.md5!] && (
+                              <p className="text-xs text-destructive break-all max-w-[240px] text-right">{fetchErrors[s.md5!]}</p>
+                            )}
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              onAddMagnetToTorbox(s.magnet!, s.title)
+                              onClose()
+                            }}
+                            className="shrink-0 flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md font-medium text-sm hover:bg-primary/90 transition-colors shadow-sm"
+                          >
+                            <Download className="w-4 h-4" />
+                            Add
+                          </button>
+                        )}
                       </div>
                     )
                   })}

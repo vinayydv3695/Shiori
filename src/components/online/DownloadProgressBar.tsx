@@ -1,4 +1,4 @@
-import { CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Loader2, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DownloadProgress } from '@/store/onlineDownloadStore';
 
@@ -28,52 +28,66 @@ export function DownloadProgressBar({ bookTitle, progress }: DownloadProgressBar
   const isError = progress.status === 'error';
 
   return (
-    <div className="p-4 rounded-2xl bg-secondary/20 border border-border/50 backdrop-blur-md animate-in fade-in">
-      <div className="flex items-center justify-between gap-3 mb-2">
-        <p className="text-xs font-semibold text-foreground truncate">{bookTitle}</p>
+    <div className="p-4 rounded-2xl bg-card/80 border border-border/60 hover:border-primary/40 transition-all duration-300 shadow-md backdrop-blur-xl animate-in fade-in slide-in-from-bottom-1">
+      <div className="flex items-center justify-between gap-3 mb-2.5">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/25 flex items-center justify-center shrink-0">
+            <BookOpen className="w-3.5 h-3.5 text-primary" />
+          </div>
+          <p className="text-xs font-bold text-foreground truncate">{bookTitle}</p>
+        </div>
         {isDone ? (
-          <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />
+          <div className="flex items-center gap-1 text-[11px] font-extrabold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 shrink-0">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>Done</span>
+          </div>
         ) : isError ? (
-          <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+          <div className="flex items-center gap-1 text-[11px] font-extrabold text-destructive bg-destructive/10 px-2 py-0.5 rounded-full border border-destructive/20 shrink-0">
+            <AlertCircle className="w-3.5 h-3.5" />
+            <span>Failed</span>
+          </div>
         ) : (
-          <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" />
+          <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full border border-primary/20 shrink-0">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            <span>{percent !== null ? `${percent}%` : 'In Flight'}</span>
+          </div>
         )}
       </div>
 
-      {/* Progress bar */}
+      {/* Modern Gradient Progress Bar */}
       <div
         data-testid="download-progress-bar"
-        className="h-2 rounded-full bg-muted/40 overflow-hidden"
+        className="h-2 rounded-full bg-secondary/80 overflow-hidden border border-border/40 shadow-inner"
       >
         {isDone ? (
-          <div className="h-full rounded-full bg-green-400/80" style={{ width: '100%' }} />
+          <div className="h-full rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)] transition-all duration-300" style={{ width: '100%' }} />
         ) : isError ? (
-          <div className="h-full rounded-full bg-red-400/60" style={{ width: '100%' }} />
+          <div className="h-full rounded-full bg-destructive shadow-[0_0_8px_rgba(239,68,68,0.5)]" style={{ width: '100%' }} />
         ) : percent !== null ? (
           <div
-            className="h-full rounded-full bg-primary transition-all duration-300 ease-out"
+            className="h-full rounded-full bg-gradient-to-r from-primary via-indigo-500 to-purple-400 shadow-[0_0_10px_rgba(147,51,234,0.5)] transition-all duration-300 ease-out"
             style={{ width: `${percent}%` }}
           />
         ) : (
-          <div className="h-full w-1/3 rounded-full bg-primary/70 animate-pulse" />
+          <div className="h-full w-2/5 rounded-full bg-gradient-to-r from-primary to-indigo-500 animate-pulse shadow-[0_0_8px_rgba(147,51,234,0.5)]" />
         )}
       </div>
 
-      <div className="flex items-center justify-between mt-2">
+      <div className="flex items-center justify-between mt-2.5">
         <span
           className={cn(
-            'text-[11px] font-medium',
-            isDone ? 'text-green-400' : isError ? 'text-red-400' : 'text-muted-foreground'
+            'text-[11px] font-semibold tracking-tight',
+            isDone ? 'text-emerald-400' : isError ? 'text-destructive' : 'text-muted-foreground'
           )}
         >
           {isDone
             ? 'Added to library'
             : isError
               ? 'Download failed'
-              : 'Downloading…'}
+              : percent !== null ? 'Downloading book content…' : 'Connecting to mirror…'}
         </span>
-        <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
-          {isDone ? `${downloaded} MB` : total ? `${downloaded} MB / ${total} MB` : `${downloaded} MB`}
+        <span className="text-[11px] font-bold text-muted-foreground tabular-nums bg-secondary/40 px-2 py-0.5 rounded-md border border-border/30">
+          {isDone ? `${downloaded} MB` : total ? `${downloaded} / ${total} MB` : `${downloaded} MB`}
         </span>
       </div>
     </div>

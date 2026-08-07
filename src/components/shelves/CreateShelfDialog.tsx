@@ -5,6 +5,13 @@ import { api, Shelf } from '../../lib/tauri';
 import { logger } from '@/lib/logger';
 import { useShelfStore } from '../../store/shelfStore';
 import { useToast } from '@/store/toastStore';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
 interface CreateShelfDialogProps {
@@ -213,21 +220,20 @@ export const CreateShelfDialog = ({
               <div className="space-y-8">
                 <div className="space-y-3">
                   <label className="text-sm font-semibold text-foreground ml-1">Parent Shelf (Optional)</label>
-                  <div className="relative">
-                    <select
-                      value={selectedParentId || ''}
-                      onChange={(e) => setSelectedParentId(e.target.value ? Number(e.target.value) : null)}
-                      className="flex w-full appearance-none rounded-2xl bg-muted/50 border border-border px-5 py-4 text-sm text-foreground transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary/50 hover:border-primary/50 hover:bg-muted cursor-pointer"
-                    >
-                      <option value="" className="bg-background text-foreground">None (Top Level)</option>
+                  <Select
+                    value={selectedParentId ? String(selectedParentId) : 'none'}
+                    onValueChange={(val) => setSelectedParentId(val === 'none' ? null : Number(val))}
+                  >
+                    <SelectTrigger className="w-full h-12 rounded-2xl px-5">
+                      <SelectValue placeholder="None (Top Level)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None (Top Level)</SelectItem>
                       {getAvailableParentShelfs().map((col) => (
-                        <option key={col.id} value={col.id} className="bg-background text-foreground">{col.name}</option>
+                        <SelectItem key={col.id} value={String(col.id)}>{col.name}</SelectItem>
                       ))}
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-5 flex items-center text-muted-foreground">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                    </div>
-                  </div>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-3">

@@ -1,3 +1,11 @@
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
 type SettingOption = {
   label: string;
   value: string | number;
@@ -99,39 +107,22 @@ export function SettingControl({
 
       case 'select':
         return (
-          <div className="relative">
-            <select
-              id={inputId}
-              disabled={disabled}
-              value={String(value)}
-              onChange={(e) => onChange(e.target.value)}
-              className={`${inputBase} appearance-none pr-12 ${
-                isDarkSlate
-                  ? 'border-white/10 bg-zinc-950/40 text-zinc-100 hover:border-white/20 focus:border-white/30 focus-visible:ring-zinc-400/45'
-                  : ''
-              }`}
-              style={isDarkSlate ? { colorScheme: 'dark' } : undefined}
-            >
+          <Select
+            value={String(value)}
+            onValueChange={onChange}
+            disabled={disabled}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
               {options.map((option) => (
-                <option
-                  key={String(option.value)}
-                  value={String(option.value)}
-                  className={isDarkSlate ? 'bg-zinc-950 text-zinc-100' : 'bg-background text-foreground'}
-                >
+                <SelectItem key={String(option.value)} value={String(option.value)}>
                   {option.label}
-                </option>
+                </SelectItem>
               ))}
-            </select>
-            <div
-              className={`pointer-events-none absolute inset-y-1 right-1 flex items-center rounded-lg px-2 ${
-                isDarkSlate ? 'border border-white/10 bg-zinc-900/50 text-zinc-300/80' : 'text-white/50'
-              }`}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="m6 9 6 6 6-6"/>
-              </svg>
-            </div>
-          </div>
+            </SelectContent>
+          </Select>
         );
 
       case 'radio':

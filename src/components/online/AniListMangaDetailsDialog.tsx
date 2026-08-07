@@ -2,6 +2,13 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { X, BookOpen, DownloadCloud, Star, BookHeart, Minus, Plus, Save, Loader2 } from 'lucide-react';
 import { AnilistMediaList, AnilistMedia } from '@/lib/anilist';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useState, useEffect } from 'react';
 
 interface AniListMangaDetailsDialogProps {
@@ -161,17 +168,21 @@ export function AniListMangaDetailsDialog({
                   <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1.5">
                     Status
                   </div>
-                  <select 
-                    value={editStatus} 
-                    onChange={e => setEditStatus(e.target.value)} 
-                    className="w-full bg-transparent font-medium text-foreground/90 outline-none p-1 -ml-1 rounded focus:bg-background/80"
+                  <Select
+                    value={editStatus}
+                    onValueChange={setEditStatus}
                   >
-                    <option className="bg-background text-foreground" value="CURRENT">Reading</option>
-                    <option className="bg-background text-foreground" value="PLANNING">Planning</option>
-                    <option className="bg-background text-foreground" value="COMPLETED">Completed</option>
-                    <option className="bg-background text-foreground" value="DROPPED">Dropped</option>
-                    <option className="bg-background text-foreground" value="PAUSED">Paused</option>
-                  </select>
+                    <SelectTrigger className="w-full h-8 bg-transparent border-none shadow-none focus:ring-0 p-0 font-medium text-foreground/90">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CURRENT">Reading</SelectItem>
+                      <SelectItem value="PLANNING">Planning</SelectItem>
+                      <SelectItem value="COMPLETED">Completed</SelectItem>
+                      <SelectItem value="DROPPED">Dropped</SelectItem>
+                      <SelectItem value="PAUSED">Paused</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="bg-background/40 backdrop-blur-sm p-3 col-span-2 flex justify-between items-center">

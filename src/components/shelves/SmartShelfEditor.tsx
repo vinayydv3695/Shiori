@@ -1,6 +1,13 @@
 import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { SmartRule } from '../../lib/tauri';
 
 interface SmartShelfEditorProps {
@@ -157,18 +164,21 @@ export const SmartShelfEditor = ({ rules, onChange }: SmartShelfEditorProps) => 
     switch (field) {
       case 'format':
         return (
-          <select
-            value={rule.value}
-            onChange={(e) => updateRule(index, { value: e.target.value })}
-            className={selectClasses}
+          <Select
+            value={rule.value || ''}
+            onValueChange={(val) => updateRule(index, { value: val })}
           >
-            <option value="" className="bg-[#1a1a1a] text-white">Select format...</option>
-            {FORMAT_OPTIONS.map((fmt) => (
-              <option key={fmt} value={fmt} className="bg-[#1a1a1a] text-white">
-                {fmt.toUpperCase()}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select format..." />
+            </SelectTrigger>
+            <SelectContent>
+              {FORMAT_OPTIONS.map((fmt) => (
+                <SelectItem key={fmt} value={fmt}>
+                  {fmt.toUpperCase()}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         );
 
       case 'reading_status':
@@ -197,32 +207,38 @@ export const SmartShelfEditor = ({ rules, onChange }: SmartShelfEditorProps) => 
           );
         } else {
           return (
-            <select
-              value={rule.value}
-              onChange={(e) => updateRule(index, { value: e.target.value })}
-              className={selectClasses}
+            <Select
+              value={rule.value || ''}
+              onValueChange={(val) => updateRule(index, { value: val })}
             >
-              <option value="" className="bg-[#1a1a1a] text-white">Select status...</option>
-              {READING_STATUS_OPTIONS.map((status) => (
-                <option key={status.value} value={status.value} className="bg-[#1a1a1a] text-white">
-                  {status.label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select status..." />
+              </SelectTrigger>
+              <SelectContent>
+                {READING_STATUS_OPTIONS.map((status) => (
+                  <SelectItem key={status.value} value={status.value}>
+                    {status.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           );
         }
 
       case 'is_favorite':
         return (
-          <select
-            value={rule.value}
-            onChange={(e) => updateRule(index, { value: e.target.value })}
-            className={selectClasses}
+          <Select
+            value={rule.value || ''}
+            onValueChange={(val) => updateRule(index, { value: val })}
           >
-            <option value="" className="bg-[#1a1a1a] text-white">Select...</option>
-            <option value="true" className="bg-[#1a1a1a] text-white">Yes (Favorite)</option>
-            <option value="false" className="bg-[#1a1a1a] text-white">No (Not Favorite)</option>
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select favorite..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="true">Yes (Favorite)</SelectItem>
+              <SelectItem value="false">No (Not Favorite)</SelectItem>
+            </SelectContent>
+          </Select>
         );
 
       case 'rating':
@@ -239,25 +255,27 @@ export const SmartShelfEditor = ({ rules, onChange }: SmartShelfEditorProps) => 
           />
         );
 
-      case 'language':
-        return (
-          <input
-            type="text"
-            value={rule.value}
-            onChange={(e) => updateRule(index, { value: e.target.value })}
-            placeholder="e.g., en, es, fr"
-            className={inputClasses}
-          />
-        );
-
       case 'added_date':
+        if (operator === 'in_last_days') {
+          return (
+            <div className="flex-1 flex items-center gap-2">
+              <input
+                type="number"
+                min="1"
+                value={rule.value}
+                onChange={(e) => updateRule(index, { value: e.target.value })}
+                placeholder="Days"
+                className={inputClasses}
+              />
+              <span className="text-sm text-white/50">days</span>
+            </div>
+          );
+        }
         return (
           <input
-            type="number"
-            min="1"
+            type="date"
             value={rule.value}
             onChange={(e) => updateRule(index, { value: e.target.value })}
-            placeholder="Number of days"
             className={inputClasses}
           />
         );
@@ -275,21 +293,23 @@ export const SmartShelfEditor = ({ rules, onChange }: SmartShelfEditorProps) => 
     }
   };
 
-  const selectClasses = "appearance-none px-4 py-2 border border-white/10 rounded-xl bg-white/5 text-sm text-white/90 focus:outline-none focus:ring-1 focus:ring-white/20 focus:border-white/20 hover:border-white/20 transition-all";
-
   return (
     <div className="space-y-6 p-4">
       {/* Match Type Selector */}
       <div className="flex items-center gap-3 text-sm text-white/70">
         <span>Match</span>
-        <select
+        <Select
           value={matchType}
-          onChange={(e) => handleMatchTypeChange(e.target.value as MatchType)}
-          className="appearance-none px-3 py-1.5 border border-white/10 rounded-lg bg-white/5 text-white focus:outline-none focus:border-white/30 cursor-pointer hover:bg-white/10 transition-colors"
+          onValueChange={(val) => handleMatchTypeChange(val as MatchType)}
         >
-          <option value="all" className="bg-[#1a1a1a] text-white">ALL</option>
-          <option value="any" className="bg-[#1a1a1a] text-white">ANY</option>
-        </select>
+          <SelectTrigger className="w-24 h-8 bg-white/5 border-white/10 text-white">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">ALL</SelectItem>
+            <SelectItem value="any">ANY</SelectItem>
+          </SelectContent>
+        </Select>
         <span>of the following rules:</span>
       </div>
 
@@ -316,41 +336,53 @@ export const SmartShelfEditor = ({ rules, onChange }: SmartShelfEditorProps) => 
             return (
               <div key={index} className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 bg-white/5 border border-white/5 rounded-2xl relative">
                 {/* Field Selector */}
-                <select
-                  value={rule.field}
-                  onChange={(e) => updateRule(index, { field: e.target.value as RuleField })}
-                  className={cn(selectClasses, "w-full sm:w-32")}
-                >
-                  {FIELD_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value} className="bg-[#1a1a1a] text-white">
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="w-full sm:w-36">
+                  <Select
+                    value={rule.field}
+                    onValueChange={(val) => updateRule(index, { field: val as RuleField })}
+                  >
+                    <SelectTrigger className="w-full bg-white/5 border-white/10 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FIELD_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
                 {/* Operator Selector */}
-                <select
-                  value={rule.operator}
-                  onChange={(e) => updateRule(index, { operator: e.target.value as RuleOperator })}
-                  className={cn(selectClasses, "w-full sm:w-40")}
-                >
-                  {operators.map((opt) => (
-                    <option key={opt.value} value={opt.value} className="bg-[#1a1a1a] text-white">
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="w-full sm:w-44">
+                  <Select
+                    value={rule.operator}
+                    onValueChange={(val) => updateRule(index, { operator: val as RuleOperator })}
+                  >
+                    <SelectTrigger className="w-full bg-white/5 border-white/10 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {operators.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
                 {/* Value Input */}
                 <div className="flex-1 w-full flex">
                   {renderValueInput(rule, index)}
                 </div>
 
-                {/* Remove Button */}
+                {/* Delete Button */}
                 <button
                   type="button"
                   onClick={() => removeRule(index)}
-                  className="p-2 hover:bg-white/10 text-white/40 hover:text-white rounded-xl transition-colors absolute top-2 right-2 sm:relative sm:top-0 sm:right-0"
+                  className="p-2 text-white/40 hover:text-red-400 hover:bg-white/5 rounded-lg transition-colors self-end sm:self-center"
                   title="Remove rule"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -362,16 +394,14 @@ export const SmartShelfEditor = ({ rules, onChange }: SmartShelfEditorProps) => 
       </div>
 
       {/* Add Rule Button */}
-      {rules.length > 0 && (
-        <button
-          type="button"
-          onClick={addRule}
-          className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium border border-white/10 rounded-xl bg-white/5 text-white/80 hover:text-white hover:bg-white/10 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add Rule
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={addRule}
+        className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white/80 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all w-full justify-center"
+      >
+        <Plus className="w-4 h-4" />
+        Add Condition
+      </button>
 
       {/* Preview Info */}
       {rules.length > 0 && (

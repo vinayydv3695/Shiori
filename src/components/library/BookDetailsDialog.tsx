@@ -7,6 +7,13 @@ import { api, type Book } from '../../lib/tauri';
 import { logger } from '@/lib/logger';
 import { useToast } from '../../store/toastStore';
 import { Button } from '../ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { MetadataSearchDialog } from './MetadataSearchDialog';
 import { FeatureHint } from '../ui/FeatureHint';
 import { cn, pageCountLabel } from '@/lib/utils';
@@ -275,27 +282,32 @@ export const BookDetailsDialog = ({
                       <BookmarkCheck className="w-5 h-5 text-primary" />
                       Status
                     </div>
-                    <select
-                      value={readingStatus}
-                      onChange={async (e) => {
-                        const newStatus = e.target.value
-                        setReadingStatus(newStatus)
-                        try {
-                          await api.updateReadingStatus(bookId, newStatus)
-                          await loadBook()
-                        } catch (err) {
-                          logger.error('Failed to update reading status:', err)
-                          setReadingStatus(book?.reading_status || 'planning')
-                        }
-                      }}
-                      className="flex-1 px-4 py-2 text-sm font-semibold bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none shadow-sm cursor-pointer"
-                    >
-                      <option value="planning">Planning to Read</option>
-                      <option value="reading">Currently Reading</option>
-                      <option value="completed">Completed</option>
-                      <option value="on_hold">On Hold</option>
-                      <option value="dropped">Dropped</option>
-                    </select>
+                    <div className="flex-1">
+                      <Select
+                        value={readingStatus}
+                        onValueChange={async (newStatus) => {
+                          setReadingStatus(newStatus)
+                          try {
+                            await api.updateReadingStatus(bookId, newStatus)
+                            await loadBook()
+                          } catch (err) {
+                            logger.error('Failed to update reading status:', err)
+                            setReadingStatus(book?.reading_status || 'planning')
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-full h-10 rounded-xl font-semibold">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="planning">Planning to Read</SelectItem>
+                          <SelectItem value="reading">Currently Reading</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
+                          <SelectItem value="on_hold">On Hold</SelectItem>
+                          <SelectItem value="dropped">Dropped</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
                   {book.series && (

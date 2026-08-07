@@ -23,11 +23,18 @@ import {
   ChevronDown,
   ChevronRight,
   Plus,
+  Check,
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import { useToast } from '@/store/toastStore'
 import { TrendingExplore } from './torbox/TrendingExplore'
@@ -671,13 +678,49 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                     <Input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void runSearch() }} placeholder="Search Torbox..." className="flex-1 h-12 md:h-14 border-0 bg-transparent pl-4 md:pl-14 pr-1 text-sm md:text-base font-medium shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/50" />
                     
                     <div className="pr-1.5 flex items-center gap-1.5 shrink-0">
-                      <div className="relative hidden sm:flex items-center">
-                        <select value={searchType} onChange={(event) => setSearchType(event.target.value as SearchType)} className="h-9 md:h-10 rounded-full bg-muted/40 hover:bg-muted focus:bg-muted border border-transparent hover:border-border/50 px-3 md:px-4 pl-3 pr-8 text-xs md:text-sm font-semibold text-muted-foreground hover:text-foreground cursor-pointer focus:outline-none transition-all appearance-none outline-none [&>option]:bg-background [&>option]:text-foreground truncate shadow-sm">
-                          {(preferredContentType === 'manga' || preferredContentType === 'both') && <option value="manga">Manga</option>}
-                          {(preferredContentType === 'books' || preferredContentType === 'both') && <option value="books">Books</option>}
-                          {preferredContentType === 'both' && <option value="all">Everywhere</option>}
-                        </select>
-                        <ChevronDown className="absolute right-3 h-3 w-3 text-muted-foreground pointer-events-none" />
+                      <div className="hidden sm:flex items-center">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1.5 h-9 md:h-10 rounded-full bg-muted/40 hover:bg-muted/70 border border-border/40 hover:border-border/70 px-3.5 text-xs md:text-sm font-medium text-foreground transition-all duration-200 shadow-xs outline-none cursor-pointer"
+                            >
+                              <span>
+                                {searchType === 'manga' ? 'Manga' : searchType === 'books' ? 'Books' : 'Everywhere'}
+                              </span>
+                              <ChevronDown className="h-3.5 w-3.5 opacity-50 ml-0.5" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-44 p-1.5 rounded-2xl bg-popover/95 backdrop-blur-2xl border border-border/50 shadow-2xl z-[150]">
+                            {(preferredContentType === 'manga' || preferredContentType === 'both') && (
+                              <DropdownMenuItem
+                                onClick={() => setSearchType('manga')}
+                                className={`flex items-center justify-between px-3 py-2 text-xs font-medium rounded-xl cursor-pointer transition-colors ${searchType === 'manga' ? 'bg-muted text-foreground font-semibold' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}
+                              >
+                                <span>Manga & Comics</span>
+                                {searchType === 'manga' && <Check className="h-3.5 w-3.5 opacity-80" />}
+                              </DropdownMenuItem>
+                            )}
+                            {(preferredContentType === 'books' || preferredContentType === 'both') && (
+                              <DropdownMenuItem
+                                onClick={() => setSearchType('books')}
+                                className={`flex items-center justify-between px-3 py-2 text-xs font-medium rounded-xl cursor-pointer transition-colors ${searchType === 'books' ? 'bg-muted text-foreground font-semibold' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}
+                              >
+                                <span>Novels & Books</span>
+                                {searchType === 'books' && <Check className="h-3.5 w-3.5 opacity-80" />}
+                              </DropdownMenuItem>
+                            )}
+                            {preferredContentType === 'both' && (
+                              <DropdownMenuItem
+                                onClick={() => setSearchType('all')}
+                                className={`flex items-center justify-between px-3 py-2 text-xs font-medium rounded-xl cursor-pointer transition-colors ${searchType === 'all' ? 'bg-muted text-foreground font-semibold' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}
+                              >
+                                <span>Everywhere</span>
+                                {searchType === 'all' && <Check className="h-3.5 w-3.5 opacity-80" />}
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                       
                       <Button size="icon" className="h-10 w-10 md:h-11 md:w-11 rounded-full shrink-0 shadow-md transition-transform hover:scale-105 active:scale-95 bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => void runSearch()} disabled={isSearching}>

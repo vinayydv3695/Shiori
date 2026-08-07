@@ -14,6 +14,13 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { usePreferencesStore } from '../../store/preferencesStore'
 import type {
@@ -136,6 +143,7 @@ const ALL_SETTINGS: SettingDefinition[] = [
   { label: 'Auto-start Application', description: 'Start Shiori when system boots', tab: 'general', section: 'General' },
   { label: 'Discord Rich Presence', description: 'Show your reading activity on Discord', tab: 'general', section: 'General' },
   { label: 'Primary Content Type', description: 'What type of content you prefer to read', tab: 'general', section: 'General' },
+  { label: 'Filter NSFW & Adult Content', description: 'Hide 18+ adult content across online catalogs, manga browsing, metadata, and search results', tab: 'general', section: 'General' },
   { label: 'Import Path', description: 'Default import location', tab: 'general', section: 'Import' },
   { label: 'Default Sort Order', description: 'How books are sorted', tab: 'general', section: 'Library' },
   { label: 'Default View Mode', description: 'Grid list or table view', tab: 'general', section: 'Library' },
@@ -747,15 +755,30 @@ const GeneralSettings = ({
           )}
           {isSettingVisible('Primary Content Type', 'What type of content you prefer to read', 'General') && (
             <SettingItem label="Primary Content Type" description="What type of content you prefer to read">
-              <select
-                className="flex h-10 w-full md:w-[200px] items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              <Select
                 value={preferences.preferredContentType ?? 'both'}
-                onChange={(e) => updateGeneralSettings({ preferredContentType: e.target.value as 'books' | 'manga' | 'both' })}
+                onValueChange={(val) => updateGeneralSettings({ preferredContentType: val as 'books' | 'manga' | 'both' })}
               >
-                <option value="both" className="bg-background">Both Books & Manga</option>
-                <option value="books" className="bg-background">Only Books</option>
-                <option value="manga" className="bg-background">Only Manga & Comics</option>
-              </select>
+                <SelectTrigger className="w-full md:w-[220px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="both">Both Books & Manga</SelectItem>
+                  <SelectItem value="books">Only Books</SelectItem>
+                  <SelectItem value="manga">Only Manga & Comics</SelectItem>
+                </SelectContent>
+              </Select>
+            </SettingItem>
+          )}
+          {isSettingVisible('Filter NSFW & Adult Content', 'Hide 18+ adult content across online catalogs, manga browsing, metadata, and search results', 'General') && (
+            <SettingItem
+              label="Filter NSFW & Adult Content"
+              description="Hide 18+ adult content across online catalogs, manga browsing, metadata, and search results (Enabled by default)"
+            >
+              <Switch
+                checked={!(preferences.includeNsfw ?? false)}
+                onChange={(filtered) => updateGeneralSettings({ includeNsfw: !filtered })}
+              />
             </SettingItem>
           )}
         </SettingSection>
@@ -823,25 +846,28 @@ const GeneralSettings = ({
         <SettingSection title="Translation" description="Default target language for text translation">
           {isSettingVisible('Translation Target Language', 'Language for text translation', 'Translation') && (
             <SettingItem label="Target Language" description="Language to translate selected text into">
-              <select
+              <Select
                 value={preferences.translationTargetLanguage || 'en'}
-                onChange={(e) => updateGeneralSettings({ translationTargetLanguage: e.target.value })}
-                className="px-3 py-2 rounded-lg bg-muted border border-border text-sm"
-                aria-label="Translation target language"
+                onValueChange={(val) => updateGeneralSettings({ translationTargetLanguage: val })}
               >
-                <option value="en">English</option>
-                <option value="es">Spanish</option>
-                <option value="fr">French</option>
-                <option value="de">German</option>
-                <option value="it">Italian</option>
-                <option value="pt">Portuguese</option>
-                <option value="ru">Russian</option>
-                <option value="ja">Japanese</option>
-                <option value="ko">Korean</option>
-                <option value="zh">Chinese</option>
-                <option value="ar">Arabic</option>
-                <option value="hi">Hindi</option>
-              </select>
+                <SelectTrigger className="w-full md:w-[220px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="en">English</SelectItem>
+                  <SelectItem value="es">Spanish</SelectItem>
+                  <SelectItem value="fr">French</SelectItem>
+                  <SelectItem value="de">German</SelectItem>
+                  <SelectItem value="it">Italian</SelectItem>
+                  <SelectItem value="pt">Portuguese</SelectItem>
+                  <SelectItem value="ru">Russian</SelectItem>
+                  <SelectItem value="ja">Japanese</SelectItem>
+                  <SelectItem value="ko">Korean</SelectItem>
+                  <SelectItem value="zh">Chinese</SelectItem>
+                  <SelectItem value="ar">Arabic</SelectItem>
+                  <SelectItem value="hi">Hindi</SelectItem>
+                </SelectContent>
+              </Select>
             </SettingItem>
           )}
         </SettingSection>
@@ -853,16 +879,19 @@ const GeneralSettings = ({
             label="Debrid Provider"
             description="Torbox is the active SHIORI x TORBOX provider for online downloads in this build."
           >
-            <select
+            <Select
               value={preferredDebridProvider}
-              onChange={(e) => setPreferredDebridProvider(e.target.value as 'auto' | 'torbox')}
-              className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
-              aria-label="Preferred debrid provider"
+              onValueChange={(val) => setPreferredDebridProvider(val as 'auto' | 'torbox')}
               disabled
             >
-              <option value="auto">Auto (Torbox)</option>
-              <option value="torbox">Torbox</option>
-            </select>
+              <SelectTrigger className="w-full md:w-[220px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">Auto (Torbox)</SelectItem>
+                <SelectItem value="torbox">Torbox</SelectItem>
+              </SelectContent>
+            </Select>
           </SettingItem>
 
 
@@ -940,16 +969,19 @@ const BookReadingSettings = ({
         >
           {isSettingVisible('Font Family', 'Book reader font', 'Font Settings') && (
             <SettingItem label="Font Family" description={normalizedBookFontFamily}>
-              <select
+              <Select
                 value={normalizedBookFontFamily}
-                onChange={(e) => updateBookDefaults({ fontFamily: normalizeLegacyFontPreference(e.target.value) })}
-                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
-                aria-label="Font family"
+                onValueChange={(val) => updateBookDefaults({ fontFamily: normalizeLegacyFontPreference(val) })}
               >
-                {READING_FONTS.map((font) => (
-                  <option key={font.id} value={font.id}>{font.label}</option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full md:w-[220px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {READING_FONTS.map((font) => (
+                    <SelectItem key={font.id} value={font.id}>{font.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </SettingItem>
           )}
 
@@ -1007,15 +1039,18 @@ const BookReadingSettings = ({
               label="Scroll Mode"
               description={preferences.book.scrollMode === 'continuous' ? 'Continuous' : 'Paged'}
             >
-              <select
+              <Select
                 value={preferences.book.scrollMode}
-                onChange={(e) => updateBookDefaults({ scrollMode: e.target.value as 'paged' | 'continuous' })}
-                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
-                aria-label="Scroll mode"
+                onValueChange={(val) => updateBookDefaults({ scrollMode: val as 'paged' | 'continuous' })}
               >
-                <option value="paged">Paged</option>
-                <option value="continuous">Continuous</option>
-              </select>
+                <SelectTrigger className="w-full md:w-[220px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="paged">Paged</SelectItem>
+                  <SelectItem value="continuous">Continuous</SelectItem>
+                </SelectContent>
+              </Select>
             </SettingItem>
           )}
 
@@ -1024,15 +1059,18 @@ const BookReadingSettings = ({
               label="Text Justification"
               description={preferences.book.justification === 'justify' ? 'Justified' : 'Left-aligned'}
             >
-              <select
+              <Select
                 value={preferences.book.justification}
-                onChange={(e) => updateBookDefaults({ justification: e.target.value as 'left' | 'justify' })}
-                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
-                aria-label="Text justification"
+                onValueChange={(val) => updateBookDefaults({ justification: val as 'left' | 'justify' })}
               >
-                <option value="left">Left</option>
-                <option value="justify">Justify</option>
-              </select>
+                <SelectTrigger className="w-full md:w-[220px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="left">Left</SelectItem>
+                  <SelectItem value="justify">Justify</SelectItem>
+                </SelectContent>
+              </Select>
             </SettingItem>
           )}
 
@@ -1126,17 +1164,20 @@ const BookReadingSettings = ({
 
           {isSettingVisible('Speech Rate', 'TTS playback speed', 'Audio / TTS') && (
             <SettingItem label="Speech Rate" description={`${preferences.tts?.rate ?? 1.0}x`}>
-              <select
-                value={preferences.tts?.rate ?? 1.0}
-                onChange={(e) => updateTtsDefaults({ rate: Number(e.target.value) })}
+              <Select
+                value={String(preferences.tts?.rate ?? 1.0)}
+                onValueChange={(val) => updateTtsDefaults({ rate: Number(val) })}
                 disabled={!isAvailable}
-                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none  disabled:opacity-50"
-                aria-label="Speech rate"
               >
-                {SPEED_OPTIONS.map((s) => (
-                  <option key={s} value={s}>{s}x</option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full md:w-[220px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SPEED_OPTIONS.map((s) => (
+                    <SelectItem key={s} value={String(s)}>{s}x</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </SettingItem>
           )}
 
@@ -1363,16 +1404,19 @@ const MangaReadingSettings = ({
                   : preferences.manga.progressBar.charAt(0).toUpperCase() + preferences.manga.progressBar.slice(1)
               }
             >
-              <select
+              <Select
                 value={preferences.manga?.progressBar || 'hidden'}
-                onChange={(e) => updateMangaDefaults({ progressBar: e.target.value as 'top' | 'bottom' | 'hidden' })}
-                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
-                aria-label="Progress bar position"
+                onValueChange={(val) => updateMangaDefaults({ progressBar: val as 'top' | 'bottom' | 'hidden' })}
               >
-                <option value="hidden">Hidden</option>
-                <option value="top">Top</option>
-                <option value="bottom">Bottom</option>
-              </select>
+                <SelectTrigger className="w-full md:w-[220px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hidden">Hidden</SelectItem>
+                  <SelectItem value="top">Top</SelectItem>
+                  <SelectItem value="bottom">Bottom</SelectItem>
+                </SelectContent>
+              </Select>
             </SettingItem>
           )}
         </SettingSection>
@@ -1809,16 +1853,19 @@ const AdvancedSettings = ({
 
           {preferences.autoExportAnnotations && isSettingVisible('Export Format', 'Format for exported annotations', 'Annotations') && (
             <SettingItem label="Export Format" description="Format to save annotations">
-              <select
+              <Select
                 value={preferences.annotationsExportFormat || 'markdown'}
-                onChange={(e) => updateGeneralSettings({ annotationsExportFormat: e.target.value })}
-                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
-                aria-label="Annotations export format"
+                onValueChange={(val) => updateGeneralSettings({ annotationsExportFormat: val })}
               >
-                <option value="markdown">Markdown (.md)</option>
-                <option value="json">JSON (.json)</option>
-                <option value="text">Plain Text (.txt)</option>
-              </select>
+                <SelectTrigger className="w-full md:w-[220px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="markdown">Markdown (.md)</SelectItem>
+                  <SelectItem value="json">JSON (.json)</SelectItem>
+                  <SelectItem value="text">Plain Text (.txt)</SelectItem>
+                </SelectContent>
+              </Select>
             </SettingItem>
           )}
 
@@ -1872,35 +1919,41 @@ const AdvancedSettings = ({
 
           {isSettingVisible('Max Cache Size', 'Maximum cache storage limit', 'Cache') && (
             <SettingItem label="Max Cache Size" description="Maximum storage for cached data">
-              <select
+              <Select
                 value={String(preferences.cacheSizeLimitMB || 500)}
-                onChange={(e) => updateGeneralSettings({ cacheSizeLimitMB: Number(e.target.value) })}
-                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
-                aria-label="Max cache size"
+                onValueChange={(val) => updateGeneralSettings({ cacheSizeLimitMB: Number(val) })}
               >
-                <option value="100">100 MB</option>
-                <option value="250">250 MB</option>
-                <option value="500">500 MB (Default)</option>
-                <option value="1000">1 GB</option>
-                <option value="2000">2 GB</option>
-                <option value="-1">Unlimited</option>
-              </select>
+                <SelectTrigger className="w-full md:w-[220px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="100">100 MB</SelectItem>
+                  <SelectItem value="250">250 MB</SelectItem>
+                  <SelectItem value="500">500 MB (Default)</SelectItem>
+                  <SelectItem value="1000">1 GB</SelectItem>
+                  <SelectItem value="2000">2 GB</SelectItem>
+                  <SelectItem value="-1">Unlimited</SelectItem>
+                </SelectContent>
+              </Select>
             </SettingItem>
           )}
 
           {isSettingVisible('Cache Clear Policy', 'When to auto-clear cache', 'Cache') && (
             <SettingItem label="Cache Clear Policy" description="When to automatically clear cached data">
-              <select
+              <Select
                 value={preferences.cacheClearPolicy || 'manual'}
-                onChange={(e) => updateGeneralSettings({ cacheClearPolicy: e.target.value as UserPreferences['cacheClearPolicy'] })}
-                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
-                aria-label="Cache clear policy"
+                onValueChange={(val) => updateGeneralSettings({ cacheClearPolicy: val as UserPreferences['cacheClearPolicy'] })}
               >
-                <option value="manual">Manual Only</option>
-                <option value="on-startup">On Startup</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-              </select>
+                <SelectTrigger className="w-full md:w-[220px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manual">Manual Only</SelectItem>
+                  <SelectItem value="on-startup">On Startup</SelectItem>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                </SelectContent>
+              </Select>
             </SettingItem>
           )}
         </SettingSection>
@@ -1991,16 +2044,19 @@ const AdvancedSettings = ({
                       What to do when restored data already exists
                     </p>
                   </div>
-                  <select
+                  <Select
                     value={conflictPolicy}
-                    onChange={(e) => setConflictPolicy(e.target.value as ConflictPolicy)}
-                    className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
-                    aria-label="Restore conflict policy"
+                    onValueChange={(val) => setConflictPolicy(val as ConflictPolicy)}
                   >
-                    {(Object.keys(CONFLICT_POLICY_LABELS) as ConflictPolicy[]).map((policy) => (
-                      <option key={policy} value={policy}>{CONFLICT_POLICY_LABELS[policy]}</option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="w-full sm:w-[200px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(CONFLICT_POLICY_LABELS) as ConflictPolicy[]).map((policy) => (
+                        <SelectItem key={policy} value={policy}>{CONFLICT_POLICY_LABELS[policy]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -2171,18 +2227,21 @@ const AdvancedSettings = ({
 
           {isSettingVisible('Reading History Retention', 'How long to keep reading history', 'Privacy') && (
             <SettingItem label="Reading History Retention" description="How long to keep reading history">
-              <select
+              <Select
                 value={String(preferences.historyRetentionDays ?? -1)}
-                onChange={(e) => updateGeneralSettings({ historyRetentionDays: Number(e.target.value) })}
-                className="px-3 py-2 rounded-lg border border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none "
-                aria-label="Reading history retention"
+                onValueChange={(val) => updateGeneralSettings({ historyRetentionDays: Number(val) })}
               >
-                <option value="-1">Keep Forever</option>
-                <option value="30">30 Days</option>
-                <option value="90">90 Days</option>
-                <option value="180">6 Months</option>
-                <option value="365">1 Year</option>
-              </select>
+                <SelectTrigger className="w-full md:w-[220px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="-1">Keep Forever</SelectItem>
+                  <SelectItem value="30">30 Days</SelectItem>
+                  <SelectItem value="90">90 Days</SelectItem>
+                  <SelectItem value="180">6 Months</SelectItem>
+                  <SelectItem value="365">1 Year</SelectItem>
+                </SelectContent>
+              </Select>
             </SettingItem>
           )}
 

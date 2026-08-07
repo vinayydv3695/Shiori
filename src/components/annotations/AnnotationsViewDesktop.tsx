@@ -10,6 +10,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface AnnotationsViewDesktopProps {
   onClose: () => void;
@@ -95,16 +102,20 @@ export function AnnotationsViewDesktop({ onClose, onOpenBook, data }: Annotation
             {/* Top Row: Dropdown, Actions, Close */}
             <div className="flex items-center justify-between gap-2">
               <div className="flex-1 min-w-0 md:hidden">
-                <select
-                  value={selectedBookId}
-                  onChange={(e) => setSelectedBookId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                  className="w-full bg-transparent text-xl font-bold truncate focus:outline-none appearance-none"
+                <Select
+                  value={String(selectedBookId)}
+                  onValueChange={(val) => setSelectedBookId(val === 'all' ? 'all' : Number(val))}
                 >
-                  <option value="all">All Annotations</option>
-                  {uniqueBooks.map(b => (
-                    <option key={b.id} value={b.id}>{b.title}</option>
-                  ))}
-                </select>
+                  <SelectTrigger className="w-full text-xl font-bold border-none shadow-none focus:ring-0 p-0 h-auto">
+                    <SelectValue placeholder="All Annotations" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Annotations</SelectItem>
+                    {uniqueBooks.map(b => (
+                      <SelectItem key={b.id} value={String(b.id)}>{b.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <h1 className="text-xl md:text-2xl font-bold tracking-tight hidden md:block">
                 {selectedBookId === 'all' ? 'All Annotations' : uniqueBooks.find(b => b.id === selectedBookId)?.title}

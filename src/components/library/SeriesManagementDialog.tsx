@@ -7,6 +7,13 @@ import { api, type MangaSeries, type Book } from '../../lib/tauri';
 import { logger } from '@/lib/logger';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { MetadataSearchDialog } from './MetadataSearchDialog';
 
 import { useToast } from '@/store/toastStore';
@@ -282,16 +289,20 @@ export const SeriesManagementDialog = ({
 
                       <div className="space-y-2">
                         <label className="text-sm font-medium text-foreground">Status</label>
-                        <select 
-                          value={status} 
-                          onChange={e => setStatus(e.target.value)}
-                          className="w-full px-3 py-2 text-sm bg-muted/50 border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 dark:[color-scheme:dark] [&>option]:bg-popover [&>option]:text-popover-foreground"
+                        <Select
+                          value={status}
+                          onValueChange={setStatus}
                         >
-                          <option value="ongoing">Ongoing</option>
-                          <option value="completed">Completed</option>
-                          <option value="hiatus">On Hiatus</option>
-                          <option value="cancelled">Cancelled</option>
-                        </select>
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ongoing">Ongoing</SelectItem>
+                            <SelectItem value="completed">Completed</SelectItem>
+                            <SelectItem value="hiatus">On Hiatus</SelectItem>
+                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                   </div>
@@ -348,16 +359,21 @@ export const SeriesManagementDialog = ({
                   
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-foreground">Select Target Series</label>
-                    <select 
-                      value={targetSeriesId || ''} 
-                      onChange={e => setTargetSeriesId(Number(e.target.value))}
-                      className="w-full px-3 py-2.5 text-sm bg-muted/50 border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 dark:[color-scheme:dark] [&>option]:bg-popover [&>option]:text-popover-foreground"
+                    <Select
+                      value={targetSeriesId ? String(targetSeriesId) : ''}
+                      onValueChange={(val) => setTargetSeriesId(val ? Number(val) : null)}
                     >
-                      <option value="">-- Select a series --</option>
-                      {allSeries.filter(s => s.id !== resolvedSeriesId).map(s => (
-                        <option key={s.id} value={s.id}>{s.title} ({s.status})</option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="-- Select a series --" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allSeries.filter(s => s.id !== resolvedSeriesId).map(s => (
+                          <SelectItem key={s.id} value={String(s.id)}>
+                            {s.title} ({s.status})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   
                   <div className="flex justify-end pt-4">

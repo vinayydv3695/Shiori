@@ -89,14 +89,14 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
   const speakSentenceAtIndexRef = useRef<(index: number, sentenceArray?: string[]) => void>(() => {});
   const nativeTTSTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const isAvailable = TTSEngine.isAvailable() || useNativeTTS;
+  const isAvailable = TTSEngine.isAvailable() || useNativeTTS || (isTauri && !isAndroid);
 
   // Always try to detect native TTS first if running in Tauri.
   // We can't use isAvailable to gate checkNativeTTS because Web Speech API might be entirely absent (e.g., on Android WebView)
   useEffect(() => {
      const checkNativeTTS = async () => {
        if (isLinux) {
-         // tauri-plugin-tts is not registered on Linux — skip the probe, use Web Speech directly.
+         // On Linux, use Web Speech / Piper neural voices directly.
          setUseNativeTTS(false);
          return;
        }
@@ -106,7 +106,7 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
          logger.debug('[TTS] Native TTS plugin detected and available');
          setUseNativeTTS(true);
        } catch (error) {
-         logger.debug('[TTS] Native TTS plugin not available, falling back to Web Speech API:', error);
+         logger.debug('[TTS] Native TTS plugin not available, falling back to Web Speech API / Piper:', error);
          setUseNativeTTS(false);
        }
      };

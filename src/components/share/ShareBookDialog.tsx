@@ -2,6 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { sanitizeSVG } from '@/lib/sanitize';
 import { useShareStore, Share, ShareResponse } from '../../store/shareStore';
 import { Share2, Copy, X, Lock, Clock, Download, Trash2, Power, CheckCircle, AlertCircle } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import DOMPurify from 'dompurify';
 
 interface ShareBookDialogProps {
@@ -203,17 +210,21 @@ const ShareBookDialog: React.FC<ShareBookDialogProps> = ({ isOpen, onClose, book
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Expires In
                 </label>
-                <select
-                  value={expiresIn}
-                  onChange={(e) => setExpiresIn(parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                <Select
+                  value={String(expiresIn)}
+                  onValueChange={(val) => setExpiresIn(Number(val))}
                 >
-                  <option value={1}>1 hour</option>
-                  <option value={6}>6 hours</option>
-                  <option value={24}>24 hours</option>
-                  <option value={168}>7 days</option>
-                  <option value={720}>30 days</option>
-                </select>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 hour</SelectItem>
+                    <SelectItem value="6">6 hours</SelectItem>
+                    <SelectItem value="24">24 hours</SelectItem>
+                    <SelectItem value="168">7 days</SelectItem>
+                    <SelectItem value="720">30 days</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Password Protection */}

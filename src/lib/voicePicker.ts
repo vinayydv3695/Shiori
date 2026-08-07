@@ -12,7 +12,8 @@ export function buildVoicePickerItems(
   native: SpeechSynthesisVoice[],
   piper: VoiceInfo[],
 ): SpeechSynthesisVoice[] {
-  const piperItems: SpeechSynthesisVoice[] = piper.map((v) => ({
+  const downloadedPiper = piper.filter((v) => v.is_downloaded);
+  const piperItems: SpeechSynthesisVoice[] = downloadedPiper.map((v) => ({
     default: false,
     lang: v.lang || 'en-US',
     localService: true,

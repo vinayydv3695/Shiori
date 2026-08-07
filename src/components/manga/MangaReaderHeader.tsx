@@ -5,8 +5,14 @@ import {
     useMangaUIStore,
     useMangaSettingsStore
 } from '@/store/mangaReaderStore';
-import { X, Settings, ChevronLeft, ChevronRight, Maximize, Minimize, Library, CheckCircle2, List } from 'lucide-react';
+import { X, Settings, ChevronLeft, ChevronRight, Maximize, Minimize, Library, CheckCircle2, List, Check } from 'lucide-react';
 import React from 'react';
+import {
+    DropdownMenu,
+    DropdownMenuTrigger,
+    DropdownMenuContent,
+    DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
 import { useOnlineMangaReaderStore } from '@/store/onlineMangaReaderStore';
 import { useLibraryStore } from '@/store/libraryStore';
 const TOPBAR_AUTO_HIDE_MS = 3000;
@@ -199,49 +205,57 @@ export function MangaReaderHeader({
                 {/* Right Side: Chapter Nav (Online), Settings, Fullscreen */}
                 <div className="manga-topbar-right">
                     {(sourceType === 'online' || seriesBooks.length > 1) && (
-                        <div className="relative flex items-center justify-center">
-                            <button type="button" className="manga-topbar-btn" title={sourceType === 'online' ? "Choose Chapter" : "Choose Volume"}>
-                                <List size={18} />
-                            </button>
-                            <select 
-                                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-                                value={sourceType === 'online' ? (onlineSource?.chapterId || '') : (currentLocalBook?.id || '')}
-                                onChange={(e) => {
-                                    if (sourceType === 'online') {
-                                        const target = onlineSource?.chapters.find(c => c.id === e.target.value);
-                                        if (target) {
-                                            setLoading(true);
-                                            if (onChapterChange) {
-                                                onChapterChange(target.id).then(data => {
-                                                    setOnlineChapter(target.id, data.chapterTitle, data.pageUrls);
-                                                    setLoading(false);
-                                                }).catch(err => {
-                                                    setError(err instanceof Error ? String(err) : 'Failed');
-                                                    setLoading(false);
-                                                });
-                                            }
-                                        }
-                                    } else {
-                                        const targetBookId = Number(e.target.value);
-                                        window.dispatchEvent(new CustomEvent('open-book', { detail: { bookId: targetBookId } }));
-                                    }
-                                }}
-                            >
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button type="button" className="manga-topbar-btn cursor-pointer" title={sourceType === 'online' ? "Choose Chapter" : "Choose Volume"}>
+                                    <List size={18} />
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-64 max-h-80 overflow-y-auto custom-scrollbar p-1.5 rounded-2xl bg-card/95 backdrop-blur-2xl border border-border/60 shadow-2xl z-[150]">
                                 {sourceType === 'online' ? (
-                                    onlineSource?.chapters.map(c => (
-                                        <option key={c.id} value={c.id}>
-                                            {c.number != null ? `Chapter ${c.number}` : c.title}
-                                        </option>
-                                    ))
+                                    onlineSource?.chapters.map(c => {
+                                        const isSelected = onlineSource.chapterId === c.id;
+                                        return (
+                                            <DropdownMenuItem
+                                                key={c.id}
+                                                onClick={() => {
+                                                    setLoading(true);
+                                                    if (onChapterChange) {
+                                                        onChapterChange(c.id).then(data => {
+                                                            setOnlineChapter(c.id, data.chapterTitle, data.pageUrls);
+                                                            setLoading(false);
+                                                        }).catch(err => {
+                                                            setError(err instanceof Error ? String(err) : 'Failed');
+                                                            setLoading(false);
+                                                        });
+                                                    }
+                                                }}
+                                                className={`flex items-center justify-between px-3 py-2 text-xs font-medium rounded-xl cursor-pointer transition-colors ${isSelected ? 'bg-primary/15 text-primary font-bold' : 'text-foreground hover:bg-secondary/60'}`}
+                                            >
+                                                <span className="truncate">{c.number != null ? `Chapter ${c.number}` : c.title}</span>
+                                                {isSelected && <Check className="h-3.5 w-3.5 stroke-[3] shrink-0 ml-2" />}
+                                            </DropdownMenuItem>
+                                        );
+                                    })
                                 ) : (
-                                    seriesBooks.map(b => (
-                                        <option key={b.id} value={b.id}>
-                                            {b.title}
-                                        </option>
-                                    ))
+                                    seriesBooks.map(b => {
+                                        const isSelected = currentLocalBook?.id === b.id;
+                                        return (
+                                            <DropdownMenuItem
+                                                key={b.id}
+                                                onClick={() => {
+                                                    window.dispatchEvent(new CustomEvent('open-book', { detail: { bookId: b.id } }));
+                                                }}
+                                                className={`flex items-center justify-between px-3 py-2 text-xs font-medium rounded-xl cursor-pointer transition-colors ${isSelected ? 'bg-primary/15 text-primary font-bold' : 'text-foreground hover:bg-secondary/60'}`}
+                                            >
+                                                <span className="truncate">{b.title}</span>
+                                                {isSelected && <Check className="h-3.5 w-3.5 stroke-[3] shrink-0 ml-2" />}
+                                            </DropdownMenuItem>
+                                        );
+                                    })
                                 )}
-                            </select>
-                        </div>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     )}
 
                     {sourceType === 'local' && seriesBooks.length > 1 && (

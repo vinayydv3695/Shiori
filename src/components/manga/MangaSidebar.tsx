@@ -7,6 +7,13 @@ import {
     type ReadingMode,
 } from '@/store/mangaReaderStore';
 import { X, Settings } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { cn } from '@/lib/utils';
 
@@ -104,17 +111,23 @@ export const MangaSidebar = memo(function MangaSidebar() {
                         <div className="manga-sidebar-section-title">Navigation</div>
                         <div className="manga-sidebar-row">
                             <span className="manga-sidebar-label">Page</span>
-                            <select
-                                className="manga-select"
-                                value={currentPage}
-                                onChange={(e) => setCurrentPage(Number(e.target.value))}
-                            >
-                                {Array.from({ length: totalPages }, (_, i) => (
-                                    <option key={i} value={i}>
-                                        {i + 1} / {totalPages}
-                                    </option>
-                                ))}
-                            </select>
+                            <div className="flex-1 max-w-[140px]">
+                                <Select
+                                    value={String(currentPage)}
+                                    onValueChange={(val) => setCurrentPage(Number(val))}
+                                >
+                                    <SelectTrigger className="w-full h-8 text-xs">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="max-h-60">
+                                        {Array.from({ length: totalPages }, (_, i) => (
+                                            <SelectItem key={i} value={String(i)}>
+                                                {i + 1} / {totalPages}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
                     </motion.div>
 

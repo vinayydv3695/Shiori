@@ -133,11 +133,8 @@ async fn search_normalizes_both_layouts_and_paginates() {
     assert_eq!(new_row.extra.get("year").map(String::as_str), Some("1984"));
     assert_eq!(new_row.extra.get("format").map(String::as_str), Some("PDF"));
     assert_eq!(new_row.extra.get("file_size").map(String::as_str), Some("1.2 MB"));
-    // No <img> in this row → pseudo cover fallback.
-    assert_eq!(
-        new_row.cover_url.as_deref(),
-        Some(format!("{}/book/covers/{}", server.uri(), MD5_B).as_str())
-    );
+    // No <img> in this row → no cover, UI shows placeholder.
+    assert_eq!(new_row.cover_url, None);
 
     let diag = resp.diagnostics.expect("missing diagnostics");
     assert_eq!(diag.selected_mirror.as_deref(), Some(server.uri().as_str()));

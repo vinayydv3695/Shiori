@@ -335,7 +335,7 @@ impl AnnasArchiveSource {
             .map(|e| e.text().collect::<String>().trim().to_string())
             .filter(|s| !s.is_empty());
 
-        // Cover: real image when present, else the pseudo cover endpoint.
+        // Cover: real image when present, else None (UI shows a placeholder).
         let cover_url = row
             .select(&cover_sel)
             .next()
@@ -346,8 +346,7 @@ impl AnnasArchiveSource {
                     .or_else(|| img.value().attr("data-lazy-src"))
             })
             .filter(|s| !s.is_empty() && !s.contains("data:image") && !s.contains("blank"))
-            .map(|s| Self::normalize_href(s, mirror))
-            .or(Some(format!("{}/book/covers/{}", mirror, md5)));
+            .map(|s| Self::normalize_href(s, mirror));
 
         // Metadata: dedicated meta elements (.text-xs/.text-sm), else lines.
         let mut meta_texts: Vec<String> = row

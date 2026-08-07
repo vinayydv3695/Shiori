@@ -2,8 +2,9 @@ import { useState, useCallback } from 'react';
 import { fetchLibgenBooks } from '@/online-books/libgen/api';
 import { fetchGutenbergBooks } from '@/online-books/gutenberg/api';
 import { fetchAnnasArchiveBooks } from '@/online-books/annas-archive/api';
-import { getProxyUrl } from '@/lib/tauri';
 import type { OnlineAdvancedFilters } from '@/store/onlineSearchStore';
+
+export type BookSourceFilter = 'all' | 'libgen' | 'gutenberg' | 'annas-archive';
 
 export interface UnifiedSearchResult {
   id: string; // The URL to download
@@ -27,7 +28,7 @@ export function useGlobalSearch() {
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
 
-  const search = useCallback(async (query: string, page: number = 1, filters?: OnlineAdvancedFilters) => {
+  const search = useCallback(async (query: string, page: number = 1, filters?: OnlineAdvancedFilters, source: BookSourceFilter = 'all') => {
     setLoading(true);
     setError(null);
 
@@ -155,7 +156,7 @@ export function useGlobalSearch() {
                 source: 'annas-archive' as const,
                 title: book.title,
                 author: book.extra?.author || 'Unknown',
-                coverUrl: rawCoverUrl ? getProxyUrl('annas-archive', rawCoverUrl) : undefined,
+                coverUrl: rawCoverUrl || undefined,
                 format: (book.extra?.format || '').toLowerCase(),
                 year: book.extra?.year ? parseInt(String(book.extra.year), 10) : undefined,
                 language: book.extra?.language,
@@ -179,7 +180,11 @@ export function useGlobalSearch() {
         }
       };
 
-      await Promise.allSettled([fetchGutenberg(), fetchLibgen(), fetchAnnasArchive()]);
+      const fetchers: Promise<void>[] = [];
+      if (source === 'all' || source === 'gutenberg') fetchers.push(fetchGutenberg());
+      if (source === 'all' || source === 'libgen') fetchers.push(fetchLibgen());
+      if (source === 'all' || source === 'annas-archive') fetchers.push(fetchAnnasArchive());
+      await Promise.allSettled(fetchers);
       setHasMore(anyHasMore);
     } catch (err: any) {
       setError(err.message || 'An error occurred during search');

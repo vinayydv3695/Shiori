@@ -40,6 +40,7 @@ export const ModernBookCard = memo(function ModernBookCard({
     const objectUrl: string | null = null;
     
     const needsProxy = coverUrl.includes('libgen') || 
+                       coverUrl.includes('annas-archive') || 
                        coverUrl.includes('toontop') || 
                        coverUrl.includes('toonily') || 
                        coverUrl.includes('manhwaread') || 
@@ -51,6 +52,7 @@ export const ModernBookCard = memo(function ModernBookCard({
     if (needsProxy) {
       let sourceId = 'generic';
       if (coverUrl.includes('libgen')) sourceId = 'libgen';
+      else if (coverUrl.includes('annas-archive')) sourceId = 'annas-archive';
       else if (coverUrl.includes('toontop')) sourceId = 'toontop';
       else if (coverUrl.includes('toonily')) sourceId = 'toonily';
       else if (coverUrl.includes('manhwaread')) sourceId = 'manhwaread';

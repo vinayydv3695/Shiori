@@ -103,7 +103,7 @@ function HeroSection({
       <div className="hero-bg">
         {featuredBook?.cover_path ? (
            <img 
-             src={thumbUrl || ''} 
+             src={thumbUrl || undefined} 
              alt="" 
              className="hero-dynamic-bg opacity-40 blur-[80px] absolute inset-0 w-full h-full object-cover pointer-events-none transition-all duration-1000 scale-110"
            />
@@ -480,7 +480,7 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
             {continueReading.slice(1, 4).map(book => (
               <div key={book.id} onClick={() => handleOpenBook(book)} className="bento-list-item">
                 <div className="bento-list-cover-wrapper">
-                  <img src={getCoverUrl(book.cover_path)} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
+                  <img src={getCoverUrl(book.cover_path) || undefined} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
                 </div>
                 <div className="bento-list-info">
                   <span className="bento-list-title">{book.title}</span>
@@ -508,7 +508,7 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
             {recentlyAdded.slice(0, 5).map(book => (
               <div key={`recent-${book.id}`} onClick={() => handleOpenBook(book)} className="bento-list-item">
                 <div className="bento-list-cover-wrapper">
-                  <img src={getCoverUrl(book.cover_path)} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
+                  <img src={getCoverUrl(book.cover_path) || undefined} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
                 </div>
                 <div className="bento-list-info">
                   <span className="bento-list-title">{book.title}</span>
@@ -533,7 +533,7 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
             {recommendedBooks.slice(0, 5).map(book => (
               <div key={`rec-${book.id}`} onClick={() => handleOpenBook(book)} className="bento-list-item">
                 <div className="bento-list-cover-wrapper">
-                  <img src={getCoverUrl(book.cover_path)} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
+                  <img src={getCoverUrl(book.cover_path) || undefined} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
                 </div>
                 <div className="bento-list-info">
                   <span className="bento-list-title">{book.title}</span>

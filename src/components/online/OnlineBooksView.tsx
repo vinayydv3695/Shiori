@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { cn } from '@/lib/utils';
 import { useOnlineSearchStore } from '@/store/onlineSearchStore';
-import { useGlobalSearch } from '@/hooks/useGlobalSearch';
+import { useSourceStore } from '@/store/sourceStore';
+import { useGlobalSearch, type BookSourceFilter } from '@/hooks/useGlobalSearch';
 import { OnlineSearchHeader } from './OnlineSearchHeader';
 import { Compass } from 'lucide-react';
 import { OnlineBooksDashboard } from './OnlineBooksDashboard';
@@ -21,6 +22,12 @@ import { useBookOpen } from '@/hooks/useBookOpen';
 import { invoke } from '@tauri-apps/api/core';
 import { api } from '@/lib/tauri';
 
+const SOURCE_FILTER_LABELS: Record<string, string> = {
+  libgen: 'LibGen',
+  gutenberg: 'Gutenberg',
+  'annas-archive': "Anna's Archive",
+};
+
 let searchTimeout: number | undefined;
 
 export function OnlineBooksView() {
@@ -28,8 +35,12 @@ export function OnlineBooksView() {
   const searchQuery = useOnlineSearchStore((state) => state.queries['online-books']);
   const filters = useOnlineSearchStore((state) => state.filters['online-books']);
   const { results, search, loading, error, hasMore } = useGlobalSearch();
+  const enabledBookSources = useSourceStore((state) => state.sources).filter(
+    (s) => s.kind === 'books' && s.enabled
+  );
   
   const [page, setPage] = useState(1);
+  const [source, setSource] = useState<BookSourceFilter>('all');
   const [hasSearched, setHasSearched] = useState(false);
   const [previewBook, setPreviewBook] = useState<PreviewBook | null>(null);
   
@@ -48,8 +59,8 @@ export function OnlineBooksView() {
     
     setHasSearched(true);
     setPage(p);
-    search(searchQuery, p, filters);
-  }, [searchQuery, filters, search]);
+    search(searchQuery, p, filters, source);
+  }, [searchQuery, filters, search, source]);
 
   useEffect(() => {
     setHasSearched(false);
@@ -60,7 +71,7 @@ export function OnlineBooksView() {
     if (searchQuery || Object.keys(filters).length > 0) {
       searchTimeout = window.setTimeout(() => {
         if (!loading) {
-          search(searchQuery, 1, filters);
+          search(searchQuery, 1, filters, source);
           setHasSearched(true);
         }
       }, 500);
@@ -69,17 +80,17 @@ export function OnlineBooksView() {
     return () => {
       if (searchTimeout) window.clearTimeout(searchTimeout);
     };
-  }, [searchQuery, filters]);
+  }, [searchQuery, filters, source]);
 
   // Infinite scroll
   useEffect(() => {
     if (inView && !loading && hasSearched && hasMore) {
       setPage((p) => {
-        search(searchQuery, p + 1, filters);
+        search(searchQuery, p + 1, filters, source);
         return p + 1;
       });
     }
-  }, [inView, loading, hasSearched, hasMore, search, searchQuery, filters]);
+  }, [inView, loading, hasSearched, hasMore, search, searchQuery, filters, source]);
 
   const handleBookClick = (book: any) => {
     // Determine the source and format
@@ -199,6 +210,41 @@ export function OnlineBooksView() {
           onSearchValueChange={(val) => useOnlineSearchStore.getState().setQuery('online-books', val)}
           onSubmit={() => doSearch(1)}
         />
+      </div>
+
+      {/* Source filter pills */}
+      <div className="flex gap-2 overflow-x-auto px-4 md:px-8 py-2">
+        <button
+          className={cn(
+            "shrink-0 rounded-full px-3 py-1 text-sm font-medium transition-colors",
+            source === 'all'
+              ? "bg-primary text-primary-foreground"
+              : "bg-secondary/40 text-muted-foreground hover:bg-secondary"
+          )}
+          onClick={() => {
+            setSource('all');
+            setPage(1);
+          }}
+        >
+          All Sources
+        </button>
+        {enabledBookSources.map((s) => (
+          <button
+            key={s.id}
+            className={cn(
+              "shrink-0 rounded-full px-3 py-1 text-sm font-medium transition-colors",
+              source === s.id
+                ? "bg-primary text-primary-foreground"
+                : "bg-secondary/40 text-muted-foreground hover:bg-secondary"
+            )}
+            onClick={() => {
+              setSource(s.id as BookSourceFilter);
+              setPage(1);
+            }}
+          >
+            {SOURCE_FILTER_LABELS[s.id] ?? s.name}
+          </button>
+        ))}
       </div>
 
       {!hasSearched ? (

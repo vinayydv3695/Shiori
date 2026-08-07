@@ -4,7 +4,6 @@ import { useGlobalSearch } from '@/hooks/useGlobalSearch';
 import { fetchLibgenBooks } from '@/online-books/libgen/api';
 import { fetchGutenbergBooks } from '@/online-books/gutenberg/api';
 import { fetchAnnasArchiveBooks } from '@/online-books/annas-archive/api';
-import { getProxyUrl } from '@/lib/tauri';
 
 vi.mock('@/online-books/libgen/api', () => ({
   fetchLibgenBooks: vi.fn(),
@@ -18,10 +17,6 @@ vi.mock('@/online-books/annas-archive/api', () => ({
   fetchAnnasArchiveBooks: vi.fn(),
 }));
 
-vi.mock('@/lib/tauri', () => ({
-  getProxyUrl: vi.fn((sourceId: string, url: string) => `proxy:${sourceId}:${url}`),
-}));
-
 describe('useGlobalSearch', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -30,7 +25,7 @@ describe('useGlobalSearch', () => {
     vi.mocked(fetchAnnasArchiveBooks).mockResolvedValue({ items: [] });
   });
 
-  it('normalizes annas-archive items into UnifiedSearchResult with proxied cover', async () => {
+  it('normalizes annas-archive items into UnifiedSearchResult with RAW cover', async () => {
     vi.mocked(fetchAnnasArchiveBooks).mockResolvedValueOnce({
       items: [
         {
@@ -68,7 +63,7 @@ describe('useGlobalSearch', () => {
       source: 'annas-archive',
       title: 'The Test Book',
       author: 'Jane Doe',
-      coverUrl: 'proxy:annas-archive:https://annas-archive.org/covers/1.jpg',
+      coverUrl: 'https://annas-archive.org/covers/1.jpg',
       format: 'epub',
       year: 1984,
       language: 'English',
@@ -91,7 +86,7 @@ describe('useGlobalSearch', () => {
       source: 'annas-archive',
       title: 'Minimal Book',
       author: 'Unknown',
-      coverUrl: 'proxy:annas-archive:https://annas-archive.org/covers/2.jpg',
+      coverUrl: 'https://annas-archive.org/covers/2.jpg',
       format: '',
       year: undefined,
       language: undefined,
@@ -99,10 +94,6 @@ describe('useGlobalSearch', () => {
       downloadUrl: 'https://annas-archive.org/d/def456',
       mirrors: ['https://annas-archive.org/d/def456'],
     });
-    expect(getProxyUrl).toHaveBeenCalledWith(
-      'annas-archive',
-      'https://annas-archive.org/covers/1.jpg'
-    );
   });
 
   it('keeps libgen/gutenberg results when the annas-archive fetcher rejects', async () => {
@@ -193,6 +184,104 @@ describe('useGlobalSearch', () => {
     expect(ids).toHaveLength(3);
     expect(ids).toEqual(expect.arrayContaining(['http://gutendex.com/1/epub', 'shared', 'unique-md5']));
     expect(ids.filter((id) => id === 'shared')).toHaveLength(1);
+    expect(result.current.results.map((r) => r.source)).toEqual(
+      expect.arrayContaining(['gutenberg', 'libgen', 'annas-archive'])
+    );
+  });
+
+  it('searches ONLY annas-archive when source filter is set', async () => {
+    vi.mocked(fetchAnnasArchiveBooks).mockResolvedValueOnce({
+      items: [
+        {
+          id: 'aa-only',
+          title: 'AA Only Book',
+          coverUrl: 'https://annas-archive.org/covers/only.jpg',
+          extra: { md5: 'aa-md5', detail_url: 'https://annas-archive.org/d/aa' },
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useGlobalSearch());
+
+    await act(async () => {
+      await result.current.search('test', 1, undefined, 'annas-archive');
+    });
+
+    expect(fetchAnnasArchiveBooks).toHaveBeenCalledTimes(1);
+    expect(fetchLibgenBooks).not.toHaveBeenCalled();
+    expect(fetchGutenbergBooks).not.toHaveBeenCalled();
+    expect(result.current.results).toHaveLength(1);
+    expect(result.current.results[0]).toMatchObject({
+      id: 'aa-md5',
+      source: 'annas-archive',
+      title: 'AA Only Book',
+    });
+  });
+
+  it('searches ONLY gutenberg when source filter is set', async () => {
+    vi.mocked(fetchGutenbergBooks).mockResolvedValueOnce({
+      results: [
+        {
+          id: 7,
+          title: 'Gut Only Book',
+          authors: [{ name: 'Gut Author' }],
+          languages: ['en'],
+          formats: { 'application/epub+zip': 'http://gutendex.com/7/epub' },
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useGlobalSearch());
+
+    await act(async () => {
+      await result.current.search('test', 1, undefined, 'gutenberg');
+    });
+
+    expect(fetchGutenbergBooks).toHaveBeenCalledTimes(1);
+    expect(fetchLibgenBooks).not.toHaveBeenCalled();
+    expect(fetchAnnasArchiveBooks).not.toHaveBeenCalled();
+    expect(result.current.results).toHaveLength(1);
+    expect(result.current.results[0]).toMatchObject({
+      id: 'http://gutendex.com/7/epub',
+      source: 'gutenberg',
+      title: 'Gut Only Book',
+    });
+  });
+
+  it('calls all three fetchers with the default source filter', async () => {
+    vi.mocked(fetchGutenbergBooks).mockResolvedValueOnce({
+      results: [
+        {
+          id: 1,
+          title: 'Gut Book',
+          authors: [{ name: 'Gut Author' }],
+          languages: ['en'],
+          formats: { 'application/epub+zip': 'http://gutendex.com/1/epub' },
+        },
+      ],
+    });
+    vi.mocked(fetchLibgenBooks).mockResolvedValueOnce({
+      items: [{ id: 'l1', title: 'Lib Book', extra: { author: 'Lib Author' } }],
+    });
+    vi.mocked(fetchAnnasArchiveBooks).mockResolvedValueOnce({
+      items: [
+        {
+          id: 'aa-1',
+          title: 'AA Book',
+          extra: { md5: 'aa-1', detail_url: 'https://annas-archive.org/d/aa-1' },
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useGlobalSearch());
+
+    await act(async () => {
+      await result.current.search('test', 1);
+    });
+
+    expect(fetchLibgenBooks).toHaveBeenCalledTimes(1);
+    expect(fetchGutenbergBooks).toHaveBeenCalledTimes(1);
+    expect(fetchAnnasArchiveBooks).toHaveBeenCalledTimes(1);
     expect(result.current.results.map((r) => r.source)).toEqual(
       expect.arrayContaining(['gutenberg', 'libgen', 'annas-archive'])
     );

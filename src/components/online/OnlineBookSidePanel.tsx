@@ -55,7 +55,10 @@ export function OnlineBookSidePanel({
       return;
     }
     
-    if (book.coverUrl.includes('libgen') || book.coverUrl.includes('libgen.li')) {
+    if (book.coverUrl.includes('shiori-proxy') || book.coverUrl.includes('source=')) {
+      // Already-proxied URL (e.g. from a wishlist entry) — use as-is, never re-proxy.
+      setProxyUrl(book.coverUrl);
+    } else if (book.coverUrl.includes('libgen') || book.coverUrl.includes('libgen.li')) {
       const proxyUri = getProxyUrl('libgen', book.coverUrl);
       setProxyUrl(proxyUri);
     } else if (book.coverUrl.includes('annas-archive')) {

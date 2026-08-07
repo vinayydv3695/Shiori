@@ -260,8 +260,9 @@ impl AnnasArchiveSource {
             .map(ToString::to_string)
     }
 
+    // ponytail: best-effort: content must be pinned on a public gateway; AA-hosted IPFS records are frequently unpinned.
     fn rewrite_ipfs(url: &str) -> String {
-        url.replace("ipfs://", "https://ipfs.io/ipfs/")
+        url.replace("ipfs://", "https://").replace('/', ".ipfs.w3s.link")
     }
 
     fn classify_download_url(href: &str) -> Option<DownloadType> {

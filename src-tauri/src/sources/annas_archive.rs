@@ -152,6 +152,20 @@ impl AnnasArchiveSource {
         *self.config.write().await = config;
     }
 
+    /// The user's configured Anna's Archive auth cookie, if any. Used to unlock
+    /// auth-gated detail pages and downloads (per-book magnets/torrents and
+    /// direct `/fast_download` links are hidden behind a login wall for
+    /// anonymous requests).
+    async fn auth_cookie(&self) -> Option<String> {
+        let cookie = self.config.read().await.auth_cookie.clone()?;
+        let trimmed = cookie.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    }
+
     pub async fn load_config_from_store(&self, app_handle: &tauri::AppHandle) -> Result<()> {
         use tauri_plugin_store::StoreExt;
 
@@ -283,7 +297,11 @@ impl AnnasArchiveSource {
     async fn request_with_mirrors(&self, path: &str) -> Result<(String, String)> {
         for mirror in Self::mirrors() {
             let url = format!("{}{}", mirror, path);
-            match self.client.get(&url).send().await {
+            let mut request = self.client.get(&url);
+            if let Some(cookie) = self.auth_cookie().await {
+                request = request.header(reqwest::header::COOKIE, cookie);
+            }
+            match request.send().await {
                 Ok(resp) if resp.status().is_success() => {
                     let text = resp.text().await.map_err(|e| {
                         ShioriError::Other(format!("Failed to read response: {}", e))
@@ -600,7 +618,11 @@ impl AnnasArchiveSource {
                 page_param
             );
 
-            match self.client.get(&url).send().await {
+            let mut request = self.client.get(&url);
+            if let Some(cookie) = self.auth_cookie().await {
+                request = request.header(reqwest::header::COOKIE, cookie);
+            }
+            match request.send().await {
                 Ok(resp) if resp.status().is_success() => {
                     if let Ok(text) = resp.text().await {
                         html = text;

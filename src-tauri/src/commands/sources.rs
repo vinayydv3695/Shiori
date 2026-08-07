@@ -958,6 +958,14 @@ pub async fn annas_archive_download(
             .header("x-rapidapi-host", "annas-archive-api.p.rapidapi.com")
             .header("x-rapidapi-key", api_key);
     }
+    if let Some(cookie) = anna_config
+        .auth_cookie
+        .as_deref()
+        .map(str::trim)
+        .filter(|c| !c.is_empty())
+    {
+        request = request.header(reqwest::header::COOKIE, cookie);
+    }
 
     let response = request
         .send()

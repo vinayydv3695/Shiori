@@ -267,6 +267,11 @@ macro_rules! generate_shiori_handlers {
             commands::sources::proxy_manga_image,
             commands::sources::toongod_get_config,
             commands::sources::toongod_set_config,
+            commands::sources::annas_archive_download,
+            commands::sources::annas_archive_get_torrent_links,
+            commands::sources::annas_archive_send_to_torbox,
+            commands::sources::anna_archive_get_config,
+            commands::sources::anna_archive_set_config,
             commands::debrid::debrid_resolve_and_import,
             // Torbox commands
             commands::torbox::torbox_set_api_key,

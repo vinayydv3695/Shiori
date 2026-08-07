@@ -176,6 +176,7 @@ pub fn run() {
                         "manhwahub" => Some("https://manhwahub.net/"),
                         "mangafire" => Some("https://mangafire.to/"),
                         "libgen" => Some("https://libgen.li/"),
+                        "annas-archive" => Some("https://annas-archive.gl/"),
                         _ => None,
                     };
 

@@ -5,7 +5,10 @@ use std::time::Instant;
 use tauri::{Emitter, Manager, State};
 use tauri_plugin_store::StoreExt;
 
+use serde::Serialize;
+
 use crate::error::{Result, ShioriError};
+use crate::sources::annas_archive::{AnnasArchiveConfig, AnnasArchiveSource, DownloadType};
 use crate::sources::{
     Chapter, ContentType, Page, SearchResponse, SearchResult, SourceMeta, SourceSearchDiagnostics,
 };
@@ -594,4 +597,497 @@ pub async fn download_manga_chapter_as_cbz(
     .await
     .map_err(|e| ShioriError::Other(format!("Task error: {}", e)))??;
     Ok(cbz_path.to_string_lossy().to_string())
+}
+
+// ─── Anna's Archive downloads & config ────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadOptionDto {
+    pub url: String,
+    pub download_type: String,
+    pub label: Option<String>,
+}
+
+/// True when a torrent URL points at an Anna collection/shard bucket rather
+/// than a single book: managed datasets, zlib/pilimi bulk torrents, and
+/// external libgen shard torrents (f_/nf_/c_/s_ buckets).
+pub fn is_anna_dataset_torrent(url: &str) -> bool {
+    let lower = url.to_ascii_lowercase();
+
+    let managed_dataset = lower.contains("/managed_by_aa/")
+        || lower.contains("/zlib/")
+        || lower.contains("pilimi-zlib")
+        || lower.contains("annas_archive_data__");
+
+    // Anna external libgen shard torrents (f_*.torrent / nf_*.torrent /
+    // c_*.torrent / s_*.torrent) are collection buckets, not single-book torrents.
+    let libgen_shard = lower.contains("/dyn/small_file/torrents/external/libgen_")
+        && (lower.contains("/f_")
+            || lower.contains("/nf_")
+            || lower.contains("/c_")
+            || lower.contains("/s_"));
+
+    managed_dataset || libgen_shard
+}
+
+fn anna_source_from_registry(
+    registry: &crate::sources::registry::SourceRegistry,
+) -> Result<std::sync::Arc<dyn crate::sources::Source>> {
+    registry
+        .get("annas-archive")
+        .ok_or_else(|| ShioriError::Validation("Unknown source: annas-archive".to_string()))
+}
+
+#[tauri::command]
+pub async fn annas_archive_get_torrent_links(
+    state: State<'_, crate::AppState>,
+    content_id: String,
+) -> Result<Vec<DownloadOptionDto>> {
+    let registry = state.plugin_registry.read().await;
+    let source = anna_source_from_registry(&registry)?;
+
+    let source = source
+        .as_any()
+        .downcast_ref::<AnnasArchiveSource>()
+        .ok_or_else(|| ShioriError::Other("Anna source type mismatch".to_string()))?;
+
+    let options = source.get_download_options(&content_id).await?;
+
+    let has_any_torrentish = options.iter().any(|option| {
+        matches!(option.download_type, DownloadType::Magnet | DownloadType::Torrent)
+    });
+
+    let mut filtered = options
+        .into_iter()
+        .filter(|option| match option.download_type {
+            DownloadType::Magnet => true,
+            DownloadType::Torrent => !is_anna_dataset_torrent(&option.url),
+            _ => false,
+        })
+        .collect::<Vec<_>>();
+
+    filtered.sort_by_key(|option| match option.download_type {
+        DownloadType::Magnet => 0u8,
+        DownloadType::Torrent => 1u8,
+        _ => 2u8,
+    });
+
+    if filtered.is_empty() {
+        if has_any_torrentish {
+            return Err(ShioriError::Other(
+                "Only Anna collection/shard torrents were found for this result (no per-book magnet/torrent). Use View Details for manual download."
+                    .to_string(),
+            ));
+        }
+        return Err(ShioriError::Other(
+            "No torrent or magnet links found for this book".to_string(),
+        ));
+    }
+
+    Ok(filtered
+        .into_iter()
+        .map(|option| DownloadOptionDto {
+            url: option.url,
+            download_type: option.download_type.as_str().to_string(),
+            label: option.label,
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub async fn annas_archive_send_to_torbox(
+    app_handle: tauri::AppHandle,
+    state: State<'_, crate::AppState>,
+    torbox_state: State<'_, crate::commands::torbox::TorboxState>,
+    content_id: String,
+    filename_hint: Option<String>,
+) -> Result<String> {
+    let registry = state.plugin_registry.read().await;
+    let source = anna_source_from_registry(&registry)?;
+
+    let source = source
+        .as_any()
+        .downcast_ref::<AnnasArchiveSource>()
+        .ok_or_else(|| ShioriError::Other("Anna source type mismatch".to_string()))?;
+
+    let options = source.get_download_options(&content_id).await?;
+
+    let has_any_torrentish = options.iter().any(|option| {
+        matches!(option.download_type, DownloadType::Magnet | DownloadType::Torrent)
+    });
+
+    let mut candidate_urls = options
+        .iter()
+        .filter(|option| match option.download_type {
+            DownloadType::Magnet => true,
+            DownloadType::Torrent => !is_anna_dataset_torrent(&option.url),
+            _ => false,
+        })
+        .map(|option| option.url.clone())
+        .collect::<Vec<_>>();
+
+    candidate_urls.sort_by_key(|url| {
+        if url.to_ascii_lowercase().starts_with("magnet:") {
+            0u8
+        } else {
+            1u8
+        }
+    });
+
+    let mut seen = std::collections::HashSet::new();
+    candidate_urls.retain(|url| seen.insert(url.clone()));
+
+    if candidate_urls.is_empty() {
+        if has_any_torrentish {
+            return Err(ShioriError::Other(
+                "Only Anna collection/shard torrents were found for this result (no per-book magnet/torrent). Use View Details for manual download."
+                    .to_string(),
+            ));
+        }
+        return Err(ShioriError::Other(
+            "No magnet or torrent links found for this book on Anna's Archive".to_string(),
+        ));
+    }
+
+    let mut attempt_errors = Vec::new();
+
+    for candidate_url in candidate_urls {
+        match crate::services::debrid::resolve_and_import(
+            &app_handle,
+            &torbox_state.service,
+            &state,
+            crate::services::debrid::DebridResolveRequest {
+                provider: "torbox".to_string(),
+                candidate_links: vec![candidate_url.clone()],
+                filename_hint: filename_hint.clone(),
+            },
+        )
+        .await
+        {
+            Ok(response) => return Ok(response.imported_path),
+            Err(err) => {
+                let mut short_url = candidate_url.clone();
+                if short_url.len() > 110 {
+                    short_url.truncate(110);
+                    short_url.push_str("...");
+                }
+                attempt_errors.push(format!("{} => {}", short_url, err));
+            }
+        }
+    }
+
+    Err(ShioriError::Other(format!(
+        "All Anna candidates failed in Torbox. {}",
+        attempt_errors.join(" | ")
+    )))
+}
+
+#[tauri::command]
+pub async fn anna_archive_get_config(app_handle: tauri::AppHandle) -> Result<AnnasArchiveConfig> {
+    let store = app_handle
+        .store("sources.json")
+        .map_err(|e| ShioriError::Other(format!("Failed to open source store: {}", e)))?;
+
+    let read = |key: &str| -> Option<String> {
+        store
+            .get(key)
+            .and_then(|v| v.as_str().map(ToString::to_string))
+            .filter(|s| !s.is_empty())
+    };
+
+    Ok(AnnasArchiveConfig {
+        base_url: read("annas-archive.baseUrl"),
+        auth_key: read("annas-archive.authKey"),
+        membership_key: read("annas-archive.membershipKey"),
+        auth_cookie: read("annas-archive.authCookie"),
+        api_key: read("annas-archive.apiKey"),
+    })
+}
+
+#[tauri::command]
+pub async fn anna_archive_set_config(
+    app_handle: tauri::AppHandle,
+    state: State<'_, crate::AppState>,
+    config: AnnasArchiveConfig,
+) -> Result<()> {
+    // Persist to store
+    let store = app_handle
+        .store("sources.json")
+        .map_err(|e| ShioriError::Other(format!("Failed to open source store: {}", e)))?;
+
+    let write_key = |key: &str, value: &Option<String>| match value.as_deref() {
+        Some(v) if !v.trim().is_empty() => {
+            store.set(key, serde_json::json!(v.trim()));
+        }
+        _ => {
+            let _ = store.delete(key);
+        }
+    };
+
+    write_key("annas-archive.baseUrl", &config.base_url);
+    write_key("annas-archive.authKey", &config.auth_key);
+    write_key("annas-archive.membershipKey", &config.membership_key);
+    write_key("annas-archive.authCookie", &config.auth_cookie);
+    write_key("annas-archive.apiKey", &config.api_key);
+
+    store
+        .save()
+        .map_err(|e| ShioriError::Other(format!("Failed to save source config: {}", e)))?;
+
+    // Apply to live source instance
+    let registry = state.plugin_registry.read().await;
+    if let Some(source_arc) = registry.get("annas-archive") {
+        if let Some(source) = source_arc.as_any().downcast_ref::<AnnasArchiveSource>() {
+            source.set_config(config).await;
+        }
+    }
+
+    Ok(())
+}
+
+fn parse_content_disposition_filename(value: &str) -> Option<String> {
+    // Prefer the RFC 5987 form: filename*=UTF-8''<url-encoded>
+    for part in value.split(';') {
+        let part = part.trim();
+        if let Some(rest) = part.strip_prefix("filename*=") {
+            let rest = rest.trim().trim_matches('"');
+            let encoded = rest.rsplit("''").next().unwrap_or(rest);
+            let decoded = urlencoding::decode(encoded).ok()?.to_string();
+            if !decoded.is_empty() {
+                return Some(decoded);
+            }
+        }
+    }
+    // Fallback: plain filename="..."
+    for part in value.split(';') {
+        let part = part.trim();
+        if let Some(rest) = part.strip_prefix("filename=") {
+            let rest = rest.trim().trim_matches('"').trim();
+            if !rest.is_empty() {
+                return Some(rest.to_string());
+            }
+        }
+    }
+    None
+}
+
+fn sanitize_filename(name: &str) -> String {
+    name.chars()
+        .map(|c| {
+            if c.is_control() || c == '/' || c == '\\' {
+                '-'
+            } else {
+                c
+            }
+        })
+        .collect::<String>()
+        .trim()
+        .trim_end_matches(['.', ' '])
+        .to_string()
+}
+
+#[tauri::command]
+pub async fn annas_archive_download(
+    app_handle: tauri::AppHandle,
+    state: State<'_, crate::AppState>,
+    content_id: String,
+    title_hint: Option<String>,
+) -> Result<String> {
+    use std::time::Duration;
+
+    let registry = state.plugin_registry.read().await;
+    let source = anna_source_from_registry(&registry)?;
+
+    let source = source
+        .as_any()
+        .downcast_ref::<AnnasArchiveSource>()
+        .ok_or_else(|| ShioriError::Other("Anna source type mismatch".to_string()))?;
+
+    source.load_config_from_store(&app_handle).await?;
+    let anna_config = source.get_config().await;
+
+    // Get download options from the detail page
+    let options = source.get_download_options(&content_id).await?;
+
+    if options.is_empty() {
+        return Err(ShioriError::Other(
+            "No download links found. Use 'View Details' to download manually in your browser."
+                .to_string(),
+        ));
+    }
+
+    // Prefer direct > external; torrents/magnets are handled by Torbox instead.
+    let direct_option = options
+        .iter()
+        .find(|o| matches!(o.download_type, DownloadType::Direct));
+    let external_option = options
+        .iter()
+        .find(|o| matches!(o.download_type, DownloadType::External));
+    let has_magnet_or_torrent = options.iter().any(|o| {
+        matches!(o.download_type, DownloadType::Magnet | DownloadType::Torrent)
+    });
+
+    let download_url = if let Some(opt) = direct_option {
+        opt.url.clone()
+    } else if let Some(opt) = external_option {
+        opt.url.clone()
+    } else if has_magnet_or_torrent {
+        return Err(ShioriError::Other(
+            "Only torrent downloads available. Set up Torbox in Settings → Online Sources, then use the 'Torbox' button. Or use 'View Details' to download manually."
+                .to_string(),
+        ));
+    } else {
+        return Err(ShioriError::Other(
+            "No direct download available. Use 'View Details' to download manually in your browser."
+                .to_string(),
+        ));
+    };
+
+    // Download the file
+    let client = reqwest::Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .redirect(reqwest::redirect::Policy::limited(10))
+        .timeout(Duration::from_secs(120))
+        .build()
+        .map_err(|e| ShioriError::Other(format!("Failed to create download client: {}", e)))?;
+
+    let mut request = client.get(&download_url);
+    if let Some(api_key) = anna_config.api_key {
+        request = request
+            .header("x-rapidapi-host", "annas-archive-api.p.rapidapi.com")
+            .header("x-rapidapi-key", api_key);
+    }
+
+    let response = request
+        .send()
+        .await
+        .map_err(|e| ShioriError::Other(format!("Download request failed: {}", e)))?;
+
+    if !response.status().is_success() {
+        return Err(ShioriError::Other(format!(
+            "Download failed (status {}). Use 'View Details' to download manually.",
+            response.status()
+        )));
+    }
+
+    // Check Content-Type to see if we got an actual file or an HTML page
+    let content_type = response
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+
+    if content_type.contains("text/html") {
+        return Err(ShioriError::Other(
+            "Download blocked (received HTML instead of ebook). This source requires browser authentication. Use 'View Details' to download manually, or set up Torbox for torrent downloads."
+                .to_string(),
+        ));
+    }
+
+    // Filename: Content-Disposition (handling the filename*= UTF-8'' form) →
+    // URL last segment → sanitized title hint.
+    let filename = response
+        .headers()
+        .get("content-disposition")
+        .and_then(|v| v.to_str().ok())
+        .and_then(parse_content_disposition_filename)
+        .or_else(|| {
+            download_url.split('/').next_back().filter(|s| s.contains('.')).and_then(|s| {
+                urlencoding::decode(s)
+                    .map(|d| d.to_string())
+                    .ok()
+                    .filter(|d| !d.is_empty())
+            })
+        })
+        .unwrap_or_else(|| {
+            let title = title_hint.clone().unwrap_or_else(|| content_id.clone());
+            let safe_title: String = title
+                .chars()
+                .filter(|c| c.is_alphanumeric() || *c == ' ' || *c == '-' || *c == '_')
+                .collect();
+            format!("{}.epub", safe_title.trim())
+        });
+    let filename = sanitize_filename(&filename);
+
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|e| ShioriError::Other(format!("Failed to read download: {}", e)))?;
+
+    // Validate file content - check magic bytes
+    if bytes.len() < 4 {
+        return Err(ShioriError::Other(
+            "Downloaded file is too small to be valid. Use 'View Details' to download manually."
+                .to_string(),
+        ));
+    }
+
+    // Check for HTML content even if Content-Type was wrong
+    let starts_with_html = bytes.starts_with(b"<!DOCTYPE")
+        || bytes.starts_with(b"<!doctype")
+        || bytes.starts_with(b"<html")
+        || bytes.starts_with(b"<HTML");
+
+    if starts_with_html {
+        return Err(ShioriError::Other(
+            "Download blocked (received HTML instead of ebook). This source requires browser authentication. Use 'View Details' to download manually, or set up Torbox for torrent downloads."
+                .to_string(),
+        ));
+    }
+
+    // Determine actual format from file magic bytes
+    let detected_format = if bytes.starts_with(&[0x50, 0x4B, 0x03, 0x04]) {
+        // ZIP magic bytes - could be EPUB, CBZ, DOCX, etc.
+        if filename.to_lowercase().ends_with(".cbz") {
+            "cbz".to_string()
+        } else {
+            "epub".to_string() // Assume EPUB for ZIP files from book sources
+        }
+    } else if bytes.starts_with(b"%PDF") {
+        "pdf".to_string()
+    } else if bytes.len() > 68 && &bytes[60..68] == b"BOOKMOBI" {
+        "mobi".to_string()
+    } else {
+        // Use extension from filename
+        std::path::Path::new(&filename)
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(|e| e.to_lowercase())
+            .unwrap_or_else(|| "unknown".to_string())
+    };
+
+    // Ensure filename has the correct extension
+    let final_filename = if detected_format != "unknown"
+        && !filename.to_lowercase().ends_with(&format!(".{}", detected_format))
+    {
+        let stem = std::path::Path::new(&filename)
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| filename.trim_end_matches('.').to_string());
+        format!("{}.{}", stem, detected_format)
+    } else {
+        filename
+    };
+
+    // Save into <defaultImportPath>/Online Books/ with app_data_dir fallback
+    let prefs = crate::commands::preferences::get_user_preferences(state.clone()).await?;
+    let downloads_dir = if !prefs.default_import_path.is_empty()
+        && !prefs.default_import_path.starts_with("content://")
+    {
+        std::path::PathBuf::from(&prefs.default_import_path).join("Online Books")
+    } else {
+        app_handle
+            .path()
+            .app_data_dir()
+            .map_err(|e| {
+                ShioriError::Other(format!("Failed to get app dir: {}", e))
+            })?
+            .join("downloads")
+    };
+    std::fs::create_dir_all(&downloads_dir)?;
+    let dest_path = downloads_dir.join(&final_filename);
+    std::fs::write(&dest_path, &bytes)?;
+
+    Ok(dest_path.to_string_lossy().to_string())
 }

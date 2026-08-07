@@ -75,7 +75,8 @@ export const ModernBookCard = memo(function ModernBookCard({
   const [fallbackAttempted, setFallbackAttempted] = useState(false);
 
   useEffect(() => {
-    if (!coverUrl || !imgError || fallbackAttempted) return;
+    if (fallbackAttempted) return;
+    if (coverUrl && !imgError) return;
     let active = true;
     
     setFallbackAttempted(true); // Only attempt fallback once

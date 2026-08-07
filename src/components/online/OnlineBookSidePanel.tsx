@@ -72,7 +72,8 @@ export function OnlineBookSidePanel({
   }, [book.coverUrl, imgError]);
 
   useEffect(() => {
-    if (!book.coverUrl || !imgError || fallbackAttempted) return;
+    if (fallbackAttempted) return;
+    if (book.coverUrl && !imgError) return;
     let active = true;
     
     setFallbackAttempted(true);

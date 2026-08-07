@@ -4,7 +4,7 @@ import { usePreferencesStore } from '@/store/preferencesStore';
 import { useToastStore } from '@/store/toastStore';
 import { Settings2, Volume2, Globe, ExternalLink, Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { isAndroid, isTauri, api, VoiceInfo } from '@/lib/tauri';
+import { isAndroid, isTauri, isLinux, api, VoiceInfo } from '@/lib/tauri';
 import { getErrorMessage } from '@/lib/errors';
 import { open as openUrl } from '@tauri-apps/plugin-shell';
 import { getVoices as nativeGetVoices } from 'tauri-plugin-tts-api';
@@ -18,7 +18,7 @@ export function VoiceManager() {
 
   useEffect(() => {
     const loadVoices = async () => {
-      if (isTauri) {
+      if (isTauri && !isLinux) {
         try {
           const nativeVoices = await nativeGetVoices();
           const mapped = nativeVoices.map(v => ({

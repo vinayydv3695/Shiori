@@ -12,7 +12,7 @@ import { logger } from '@/lib/logger';
 import type { TTSState } from '@/lib/ttsEngine';
 import { splitSentences } from '@/lib/sentenceSplitter';
 import { highlightSentence, clearAllHighlights } from '@/lib/sentenceHighlighter';
-import { api, isTauri, isAndroid } from '@/lib/tauri';
+import { api, isTauri, isAndroid, isLinux } from '@/lib/tauri';
 import type { VoiceInfo } from '@/lib/tauri';
 import { buildVoicePickerItems } from '@/lib/voicePicker';
 import { usePreferencesStore } from '@/store/preferencesStore';
@@ -95,6 +95,11 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
   // We can't use isAvailable to gate checkNativeTTS because Web Speech API might be entirely absent (e.g., on Android WebView)
   useEffect(() => {
      const checkNativeTTS = async () => {
+       if (isLinux) {
+         // tauri-plugin-tts is not registered on Linux — skip the probe, use Web Speech directly.
+         setUseNativeTTS(false);
+         return;
+       }
        try {
          logger.debug('[TTS] Checking native TTS plugin availability...');
          await nativeStop();
@@ -117,7 +122,7 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
     const loadVoices = async () => {
       let availableVoices: SpeechSynthesisVoice[] = [];
       
-      if (useNativeTTS) {
+      if (useNativeTTS && !isLinux) {
         try {
           const nativeVoices = await nativeGetVoices();
           availableVoices = nativeVoices.map(v => ({

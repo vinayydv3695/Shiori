@@ -36,7 +36,7 @@ Shiori uses a **local-first desktop architecture**:
 Startup responsibilities:
 1. Initialize app-data directories
 2. Initialize DB + migrations
-3. Register source registry (MangaDex, ToonGod, Nyaa, Bitsearch, 1337x, TPB API, RuTracker, Anna’s Archive)
+3. Register source registry (MangaDex, ToonGod, Nyaa, Bitsearch, 1337x, TPB API, RuTracker, Anna’s Archive, LibGen, Gutenberg)
 4. Initialize services:
    - Conversion engine (4 workers)
    - Cover service
@@ -110,6 +110,8 @@ Key services:
 ## 4.4 Source Registry
 `SourceRegistry` maps source IDs to `Source` trait implementations.
 Each source declares capability metadata and implements search/chapter/page retrieval.
+
+Book sources: Project Gutenberg (public API), LibGen (scraper), and Anna's Archive (scraper with mirror failover). Anna's Archive returns typed download options (direct/external/magnet/torrent); direct links are downloaded by the `annas_archive_download` command, torrents route through Torbox.
 
 ---
 

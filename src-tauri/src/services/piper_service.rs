@@ -5,6 +5,7 @@ use reqwest::Client;
 use std::fs;
 use tokio::io::AsyncWriteExt;
 use serde::{Deserialize, Serialize};
+use crate::error::ShioriError;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct VoiceInfo {
@@ -18,7 +19,8 @@ pub struct VoiceInfo {
 }
 
 pub struct PiperService {
-    _app_handle: AppHandle,
+    // Kept for future use (e.g. emitting download events); `None` only in tests.
+    _app_handle: Option<AppHandle>,
     voices_dir: PathBuf,
     engine_cache: tokio::sync::Mutex<std::collections::HashMap<String, std::sync::Arc<tokio::sync::Mutex<piper_rs::Piper>>>>,
     http_client: Client,
@@ -30,22 +32,43 @@ impl PiperService {
         let voices_dir = app_dir.join("piper_voices");
         
         if !voices_dir.exists() {
-            let _ = fs::create_dir_all(&voices_dir);
+            if let Err(e) = fs::create_dir_all(&voices_dir) {
+                log::warn!("piper: failed to create voices dir {}: {}", voices_dir.display(), e);
+            }
         }
+        log::info!("piper: service constructed; voices dir = {} (exists: {})", voices_dir.display(), voices_dir.exists());
+
+        // espeak-ng data is shipped under the app resources dir; Piper/espeak-rs
+        // reads it via this env var at phonemization time.
         let resource_dir = app_handle.path().resource_dir().unwrap_or_else(|_| PathBuf::from("."));
         let espeak_data_dir = resource_dir.join("resources");
         std::env::set_var("PIPER_ESPEAKNG_DATA_DIRECTORY", &espeak_data_dir);
+        log::info!("piper: PIPER_ESPEAKNG_DATA_DIRECTORY = {} (exists: {})", espeak_data_dir.display(), espeak_data_dir.exists());
 
         let http_client = Client::builder()
             .user_agent("Shiori-TTS/1.0")
             .build()
-            .unwrap_or_else(|_| Client::new());
+            .unwrap_or_else(|e| {
+                log::warn!("piper: HTTP client build failed ({}); using default client", e);
+                Client::new()
+            });
 
         Self {
-            _app_handle: app_handle,
+            _app_handle: Some(app_handle),
             voices_dir,
             engine_cache: tokio::sync::Mutex::new(std::collections::HashMap::new()),
             http_client,
+        }
+    }
+
+    /// Test-only constructor: no tauri `AppHandle` is available in unit tests.
+    #[cfg(test)]
+    pub(crate) fn for_test(voices_dir: PathBuf) -> Self {
+        Self {
+            _app_handle: None,
+            voices_dir,
+            engine_cache: tokio::sync::Mutex::new(std::collections::HashMap::new()),
+            http_client: Client::new(),
         }
     }
 
@@ -54,8 +77,8 @@ impl PiperService {
     }
 
     // List of available voices to download
-    pub fn get_available_voices(&self) -> Vec<VoiceInfo> {
-        vec![
+    pub fn get_available_voices(&self) -> Result<Vec<VoiceInfo>, ShioriError> {
+        Ok(vec![
             VoiceInfo {
                 id: "ar_JO-kareem-medium".to_string(),
                 name: "kareem (Arabic)".to_string(),
@@ -1217,7 +1240,7 @@ impl PiperService {
                 download_url_json: "https://huggingface.co/rhasspy/piper-voices/resolve/main/zh/zh_CN/huayan/x_low/zh_CN-huayan-x_low.onnx.json?download=true".to_string(),
                 is_downloaded: self.is_voice_downloaded("zh_CN-huayan-x_low"),
             },
-        ]
+        ])
     }
 
     pub fn is_voice_downloaded(&self, voice_id: &str) -> bool {
@@ -1225,64 +1248,173 @@ impl PiperService {
         let json_path = self.voices_dir.join(format!("{}.onnx.json", voice_id));
         onnx_path.exists() && json_path.exists()
     }
+}
 
-    pub async fn download_voice(&self, voice: &VoiceInfo) -> Result<(), String> {
-        let onnx_path = self.voices_dir.join(format!("{}.onnx", voice.id));
-        let json_path = self.voices_dir.join(format!("{}.onnx.json", voice.id));
+/// Fetch a URL into `dest` (a `.part` file), returning the number of bytes
+/// written. Factored behind a trait so downloads are testable without network.
+#[async_trait::async_trait]
+pub trait VoiceFetcher: Send + Sync {
+    async fn fetch_to_file(&self, url: &str, dest: &Path) -> Result<u64, ShioriError>;
+}
 
-        // Download JSON config
-        let response = self.http_client.get(&voice.download_url_json).send().await
-            .map_err(|e| format!("Failed to download config: {}", e))?
+#[async_trait::async_trait]
+impl VoiceFetcher for Client {
+    async fn fetch_to_file(&self, url: &str, dest: &Path) -> Result<u64, ShioriError> {
+        let response = self
+            .get(url)
+            .send()
+            .await
+            .map_err(|e| ShioriError::Other(format!("Failed to download {}: {}", url, e)))?
             .error_for_status()
-            .map_err(|e| format!("Config HTTP Error: {}", e))?;
-        let bytes = response.bytes().await.map_err(|e| e.to_string())?;
-        let mut file = tokio::fs::File::create(&json_path).await.map_err(|e| e.to_string())?;
-        file.write_all(&bytes).await.map_err(|e| e.to_string())?;
+            .map_err(|e| ShioriError::Other(format!("HTTP error downloading {}: {}", url, e)))?;
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|e| ShioriError::Other(format!("Failed to read response body of {}: {}", url, e)))?;
+        let mut file = tokio::fs::File::create(dest)
+            .await
+            .map_err(ShioriError::Io)?;
+        file.write_all(&bytes).await.map_err(ShioriError::Io)?;
+        file.flush().await.map_err(ShioriError::Io)?;
+        Ok(bytes.len() as u64)
+    }
+}
 
-        // Download ONNX model
-        let response = self.http_client.get(&voice.download_url_onnx).send().await
-            .map_err(|e| format!("Failed to download model: {}", e))?
-            .error_for_status()
-            .map_err(|e| format!("Model HTTP Error: {}", e))?;
-        let bytes = response.bytes().await.map_err(|e| e.to_string())?;
-        let mut file = tokio::fs::File::create(&onnx_path).await.map_err(|e| e.to_string())?;
-        file.write_all(&bytes).await.map_err(|e| e.to_string())?;
+impl PiperService {
+    /// Atomically move `part` (`.part`) into `final_path`. Tolerates a concurrent
+    /// download of the same voice having already performed the swap, and handles
+    /// retries over an existing final file (Windows `rename` cannot overwrite).
+    fn swap_part(part: &Path, final_path: &Path, voice_id: &str) -> Result<(), ShioriError> {
+        match fs::rename(part, final_path) {
+            Ok(()) => Ok(()),
+            Err(_e) if final_path.exists() => {
+                if !part.exists() {
+                    // A concurrent download of the same voice already swapped this file.
+                    log::info!("piper: voice {} file already swapped by a concurrent download", voice_id);
+                    return Ok(());
+                }
+                fs::remove_file(final_path)
+                    .and_then(|_| fs::rename(part, final_path))
+                    .map_err(ShioriError::Io)
+            }
+            Err(e) => Err(ShioriError::Io(e)),
+        }
+    }
 
+    /// Download both voice files to `<voice>.onnx.part` / `.onnx.json.part` and
+    /// atomically rename them into place. Pure fs + fetch work: callers must NOT
+    /// hold the `PiperService` mutex across this (it only touches the immutable
+    /// `voices_dir`), so downloads never contend with synthesis.
+    ///
+    /// On failure or interruption no `.part` files remain and no final files are
+    /// left half-written; a retry starts from a clean slate.
+    pub async fn download_voice_files<F: VoiceFetcher>(
+        fetcher: &F,
+        voices_dir: &Path,
+        voice: &VoiceInfo,
+    ) -> Result<(), ShioriError> {
+        let json_final = voices_dir.join(format!("{}.onnx.json", voice.id));
+        let onnx_final = voices_dir.join(format!("{}.onnx", voice.id));
+        let json_part = voices_dir.join(format!("{}.onnx.json.part", voice.id));
+        let onnx_part = voices_dir.join(format!("{}.onnx.part", voice.id));
+
+        // Remove stale partials from any previous interrupted attempt.
+        let _ = fs::remove_file(&json_part);
+        let _ = fs::remove_file(&onnx_part);
+
+        // 1. Config (small) first, then the model.
+        log::info!("piper: downloading config for voice {} from {}", voice.id, voice.download_url_json);
+        let json_size = match fetcher.fetch_to_file(&voice.download_url_json, &json_part).await {
+            Ok(n) => n,
+            Err(e) => {
+                let _ = fs::remove_file(&json_part);
+                let _ = fs::remove_file(&onnx_part);
+                log::error!("piper: config download failed for voice {}: {}", voice.id, e);
+                return Err(e);
+            }
+        };
+
+        log::info!("piper: downloading model for voice {} from {}", voice.id, voice.download_url_onnx);
+        let onnx_size = match fetcher.fetch_to_file(&voice.download_url_onnx, &onnx_part).await {
+            Ok(n) => n,
+            Err(e) => {
+                let _ = fs::remove_file(&json_part);
+                let _ = fs::remove_file(&onnx_part);
+                log::error!("piper: model download failed for voice {}: {}", voice.id, e);
+                return Err(e);
+            }
+        };
+
+        // 2. Swap both files into place (json first — is_voice_downloaded needs both).
+        if let Err(e) = Self::swap_part(&json_part, &json_final, &voice.id) {
+            let _ = fs::remove_file(&json_part);
+            let _ = fs::remove_file(&onnx_part);
+            log::error!("piper: failed to finalize config file for voice {}: {}", voice.id, e);
+            return Err(e);
+        }
+        if let Err(e) = Self::swap_part(&onnx_part, &onnx_final, &voice.id) {
+            let _ = fs::remove_file(&json_part);
+            let _ = fs::remove_file(&onnx_part);
+            log::error!("piper: failed to finalize model file for voice {}: {}", voice.id, e);
+            return Err(e);
+        }
+
+        log::info!("piper: voice {} downloaded (config: {} bytes, model: {} bytes)", voice.id, json_size, onnx_size);
         Ok(())
     }
 
-    pub async fn synthesize(&self, text: &str, voice_id: &str) -> Result<String, String> {
+    pub async fn synthesize(&self, text: &str, voice_id: &str) -> Result<String, ShioriError> {
+        log::debug!("piper: synthesizing {} chars with voice {}", text.len(), voice_id);
         let onnx_path = self.voices_dir.join(format!("{}.onnx", voice_id));
         let json_path = self.voices_dir.join(format!("{}.onnx.json", voice_id));
 
-        if !onnx_path.exists() || !json_path.exists() {
-            return Err("Voice not downloaded".to_string());
+        if !onnx_path.exists() {
+            return Err(ShioriError::FileNotFound { path: onnx_path.display().to_string() });
+        }
+        if !json_path.exists() {
+            return Err(ShioriError::FileNotFound { path: json_path.display().to_string() });
         }
 
-        // Initialize ort if needed (it initializes automatically in v2 usually, but we can safely ignore if it's already init)
-        let _ = ort::init().with_name("shiori-piper").commit();
+        // Initialize the ONNX environment (idempotent). In ort 2.0.0-rc.12
+        // `commit()` returns `true` on first init and `false` when an environment
+        // is already configured — the latter is expected, not an error. Real init
+        // failures (e.g. missing onnxruntime) surface at Session creation inside
+        // `Piper::new` below and are propagated as a ShioriError with the cause.
+        let committed = ort::init().with_name("shiori-piper").commit();
+        log::debug!("piper: ort environment commit={} (true=first init, false=already configured)", committed);
 
         let mut cache = self.engine_cache.lock().await;
-        
+
         let engine = if let Some(engine) = cache.get(voice_id) {
             engine.clone()
         } else {
+            log::info!("piper: loading model for voice {} from {} (first use, may take a few seconds)", voice_id, onnx_path.display());
             let engine = tokio::task::block_in_place(|| {
                 piper_rs::Piper::new(&onnx_path, &json_path)
-            }).map_err(|e| format!("Failed to load Piper model: {}", e))?;
-            
+            }).map_err(|e| {
+                log::error!("piper: failed to load model for voice {} ({}): {}", voice_id, onnx_path.display(), e);
+                ShioriError::Other(format!(
+                    "Failed to load Piper model for voice '{}'. {} (missing onnxruntime, corrupt model, or missing espeak-ng data are the usual causes)",
+                    voice_id, e
+                ))
+            })?;
+            log::info!("piper: model for voice {} loaded", voice_id);
+
             let engine_arc = std::sync::Arc::new(tokio::sync::Mutex::new(engine));
             cache.insert(voice_id.to_string(), engine_arc.clone());
             engine_arc
         };
 
         let mut engine_lock = engine.lock().await;
-        
+
         let text_owned = text.to_string();
-        // create() can block, run in block_in_place
+        // create() can block (phonemization + inference), run in block_in_place
         let (samples, sample_rate) = tokio::task::block_in_place(move || {
             engine_lock.create(&text_owned, false, None, None, None, None)
-        }).map_err(|e| format!("Failed to synthesize speech: {}", e))?;
+        }).map_err(|e| {
+            log::error!("piper: synthesis failed for voice {}: {}", voice_id, e);
+            ShioriError::Other(format!("Failed to synthesize speech with voice '{}': {}", voice_id, e))
+        })?;
 
         // Convert f32 samples to i16 for WAV
         let i16_samples: Vec<i16> = samples.into_iter()
@@ -1320,6 +1452,8 @@ impl PiperService {
             wav_bytes.extend_from_slice(&sample.to_le_bytes());
         }
         
+        log::debug!("piper: synthesis complete for voice {} ({} chars -> {} bytes WAV @ {} Hz)", voice_id, text.len(), wav_bytes.len(), sample_rate);
+
         use base64::Engine;
         let b64 = base64::engine::general_purpose::STANDARD.encode(&wav_bytes);
         let data_uri = format!("data:audio/wav;base64,{}", b64);
@@ -1331,18 +1465,24 @@ impl PiperService {
 #[tauri::command]
 pub async fn get_available_voices(
     state: tauri::State<'_, Arc<tokio::sync::Mutex<PiperService>>>,
-) -> Result<Vec<VoiceInfo>, String> {
+) -> Result<Vec<VoiceInfo>, ShioriError> {
     let service = state.lock().await;
-    Ok(service.get_available_voices())
+    service.get_available_voices()
 }
 
 #[tauri::command]
 pub async fn download_voice(
     voice: VoiceInfo,
     state: tauri::State<'_, Arc<tokio::sync::Mutex<PiperService>>>,
-) -> Result<(), String> {
-    let service = state.lock().await;
-    service.download_voice(&voice).await
+) -> Result<(), ShioriError> {
+    // Take the service lock ONLY to snapshot the immutable config, then drop it:
+    // both HTTP fetches and the atomic file swap run WITHOUT the global
+    // PiperService mutex, so downloads never block synthesis or other commands.
+    let (voices_dir, http_client) = {
+        let service = state.lock().await;
+        (service.voices_dir.clone(), service.http_client.clone())
+    };
+    PiperService::download_voice_files(&http_client, &voices_dir, &voice).await
 }
 
 #[tauri::command]
@@ -1350,7 +1490,148 @@ pub async fn synthesize_speech(
     text: String,
     voice_id: String,
     state: tauri::State<'_, Arc<tokio::sync::Mutex<PiperService>>>,
-) -> Result<String, String> {
+) -> Result<String, ShioriError> {
+    // Synthesis keeps the service lock: model load + inference are CPU-bound and
+    // must be serialized across concurrent requests. Load timing is logged inside.
     let service = state.lock().await;
     service.synthesize(&text, &voice_id).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Fake fetcher: writes deterministic bytes to the destination (like a real
+    /// download would), optionally failing AFTER the write to simulate a
+    /// mid-download failure.
+    struct StubFetcher {
+        /// URLs containing this substring fail after the `.part` file is written.
+        fail_on: Option<String>,
+    }
+
+    impl StubFetcher {
+        fn failing(marker: &str) -> Self {
+            Self { fail_on: Some(marker.to_string()) }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl VoiceFetcher for StubFetcher {
+        async fn fetch_to_file(&self, url: &str, dest: &Path) -> Result<u64, ShioriError> {
+            let body: &[u8] = if url.contains(".onnx.json") {
+                b"fake-config"
+            } else {
+                b"fake-model"
+            };
+            tokio::fs::write(dest, body).await.map_err(ShioriError::Io)?;
+            if let Some(marker) = &self.fail_on {
+                if url.contains(marker) {
+                    return Err(ShioriError::Other(format!(
+                        "simulated mid-download failure for {}",
+                        url
+                    )));
+                }
+            }
+            Ok(body.len() as u64)
+        }
+    }
+
+    fn test_voice() -> VoiceInfo {
+        VoiceInfo {
+            id: "xx_XX-test-medium".to_string(),
+            name: "test (Fake)".to_string(),
+            lang: "xx_XX".to_string(),
+            quality: "medium".to_string(),
+            download_url_onnx: "https://example.invalid/voice.onnx?x".to_string(),
+            download_url_json: "https://example.invalid/voice.onnx.json?x".to_string(),
+            is_downloaded: false,
+        }
+    }
+
+    fn dir_entries(dir: &Path) -> Vec<String> {
+        std::fs::read_dir(dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect()
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn failed_download_cleans_partials_and_leaves_no_finals() {
+        let dir = tempfile::tempdir().unwrap();
+        // Fails on the model fetch, AFTER the .onnx.part file has been written.
+        let fetcher = StubFetcher::failing("voice.onnx?");
+
+        let err = PiperService::download_voice_files(&fetcher, dir.path(), &test_voice())
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("simulated mid-download failure"), "unexpected error: {}", err);
+
+        // No .part files and no final files may remain after a failed download.
+        assert!(dir_entries(dir.path()).is_empty(), "leftover files: {:?}", dir_entries(dir.path()));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn successful_download_swaps_both_files_atomically() {
+        let dir = tempfile::tempdir().unwrap();
+        let fetcher = StubFetcher { fail_on: None };
+
+        PiperService::download_voice_files(&fetcher, dir.path(), &test_voice())
+            .await
+            .expect("download should succeed");
+
+        let onnx = dir.path().join("xx_XX-test-medium.onnx");
+        let json = dir.path().join("xx_XX-test-medium.onnx.json");
+        assert_eq!(std::fs::read_to_string(&onnx).unwrap(), "fake-model");
+        assert_eq!(std::fs::read_to_string(&json).unwrap(), "fake-config");
+        // Partials must be gone after the swap.
+        assert!(!dir.path().join("xx_XX-test-medium.onnx.part").exists());
+        assert!(!dir.path().join("xx_XX-test-medium.onnx.json.part").exists());
+
+        // Retry over an already-downloaded voice (covers the Windows path where
+        // rename cannot overwrite an existing destination) must also succeed.
+        PiperService::download_voice_files(&fetcher, dir.path(), &test_voice())
+            .await
+            .expect("retry over existing files should succeed");
+        assert_eq!(std::fs::read_to_string(&onnx).unwrap(), "fake-model");
+        assert_eq!(std::fs::read_to_string(&json).unwrap(), "fake-config");
+        assert!(dir_entries(dir.path()).len() == 2, "unexpected entries: {:?}", dir_entries(dir.path()));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn synthesize_missing_voice_returns_shiori_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let service = PiperService::for_test(dir.path().to_path_buf());
+
+        let err = service.synthesize("hello", "xx_XX-nonexistent").await.unwrap_err();
+        match err {
+            ShioriError::FileNotFound { path } => {
+                assert!(path.contains("xx_XX-nonexistent.onnx"), "unexpected path: {}", path)
+            }
+            other => panic!("expected FileNotFound, got {:?}", other),
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn synthesize_corrupt_model_returns_shiori_error() {
+        let dir = tempfile::tempdir().unwrap();
+        // Model file exists but is garbage: Piper::new must fail at session load
+        // (no network involved) and the failure must map to a ShioriError::Other
+        // carrying the voice id + path.
+        std::fs::write(dir.path().join("xx_XX-test-medium.onnx"), b"not an onnx model").unwrap();
+        std::fs::write(
+            dir.path().join("xx_XX-test-medium.onnx.json"),
+            br#"{"audio":{"sample_rate":22050},"espeak":{"voice":"en-us"},"inference":{"noise_scale":0.667,"length_scale":1.0,"noise_w":0.8},"num_speakers":1,"speaker_id_map":{},"phoneme_id_map":{}}"#,
+        )
+        .unwrap();
+        let service = PiperService::for_test(dir.path().to_path_buf());
+
+        let err = service.synthesize("hello", "xx_XX-test-medium").await.unwrap_err();
+        match err {
+            ShioriError::Other(msg) => {
+                assert!(msg.contains("xx_XX-test-medium"), "message lacks voice id: {}", msg);
+                assert!(msg.contains("xx_XX-test-medium.onnx"), "message lacks model path: {}", msg);
+            }
+            other => panic!("expected ShioriError::Other, got {:?}", other),
+        }
+    }
 }

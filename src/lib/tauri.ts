@@ -1826,6 +1826,10 @@ export const api = {
     return invoke("annas_archive_send_to_torbox", { contentId, filenameHint })
   },
 
+  async annasArchiveBookSources(contentId: string): Promise<{ hasDirect: boolean; hasMagnet: boolean; hasLibgenShard: boolean; hasZlibShard: boolean }> {
+    return invoke("annas_archive_book_sources", { contentId })
+  },
+
   async annaArchiveGetConfig(): Promise<AnnaArchiveConfig> {
     return invoke("anna_archive_get_config")
   },

@@ -26,19 +26,19 @@ describe('sourceStore annas-archive', () => {
     useSourceStore.setState(useSourceStore.getInitialState());
   });
 
-  it('default store includes annas-archive as an enabled books source', () => {
+  it('default store includes annas-archive as a DISABLED books source', () => {
     const source = useSourceStore.getState().sources.find((s) => s.id === 'annas-archive');
 
     expect(source).toBeDefined();
     expect(source!.name).toBe("Anna's Archive");
     expect(source!.kind).toBe('books');
-    expect(source!.enabled).toBe(true);
+    expect(source!.enabled).toBe(false);
     expect(source!.implemented).toBe(true);
     expect(source!.torboxCompatible).toBe(true);
     expect(source!.capabilities).toEqual(expect.arrayContaining(['direct', 'torbox']));
   });
 
-  it('merges annas-archive in as enabled for persisted state from an old user', async () => {
+  it('merges annas-archive in as disabled for persisted state from an old user', async () => {
     window.localStorage.setItem(STORE_KEY, JSON.stringify(OLD_PERSISTED_STATE));
 
     await act(async () => {
@@ -49,7 +49,7 @@ describe('sourceStore annas-archive', () => {
     const aa = sources.find((s) => s.id === 'annas-archive');
 
     expect(aa).toBeDefined();
-    expect(aa!.enabled).toBe(true);
+    expect(aa!.enabled).toBe(false);
     expect(aa!.kind).toBe('books');
     // Other persisted sources keep their stored enabled flags
     expect(sources.find((s) => s.id === 'mangadex')!.enabled).toBe(false);
@@ -60,6 +60,9 @@ describe('sourceStore annas-archive', () => {
 
   it('toggleSource flips enabled and updates the books primary source when annas-archive was primary', () => {
     useSourceStore.setState({
+      sources: useSourceStore.getState().sources.map((s) =>
+        s.id === 'annas-archive' ? { ...s, enabled: true } : s
+      ),
       primarySourceByKind: { ...useSourceStore.getState().primarySourceByKind, books: 'annas-archive' },
     });
 
@@ -83,7 +86,8 @@ describe('sourceStore annas-archive', () => {
       useSourceStore.getState().toggleSource('annas-archive');
     });
 
-    expect(useSourceStore.getState().sources.find((s) => s.id === 'annas-archive')!.enabled).toBe(false);
+    // Default is disabled now, so one toggle enables it
+    expect(useSourceStore.getState().sources.find((s) => s.id === 'annas-archive')!.enabled).toBe(true);
     expect(useSourceStore.getState().primarySourceByKind.books).toBe('gutenberg');
   });
 });

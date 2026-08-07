@@ -811,6 +811,50 @@ pub async fn annas_archive_send_to_torbox(
     )))
 }
 
+#[derive(Debug, Clone, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnnasArchiveBookSources {
+    pub has_direct: bool,
+    pub has_magnet: bool,
+    pub has_libgen_shard: bool,
+    pub has_zlib_shard: bool,
+}
+
+#[tauri::command]
+pub async fn annas_archive_book_sources(
+    state: State<'_, crate::AppState>,
+    content_id: String,
+) -> Result<AnnasArchiveBookSources> {
+    let registry = state.plugin_registry.read().await;
+    let source = anna_source_from_registry(&registry)?;
+
+    let source = source
+        .as_any()
+        .downcast_ref::<AnnasArchiveSource>()
+        .ok_or_else(|| ShioriError::Other("Anna source type mismatch".to_string()))?;
+
+    let options = source.get_download_options(&content_id).await?;
+
+    let mut out = AnnasArchiveBookSources::default();
+    for option in options {
+        match option.download_type {
+            DownloadType::Direct => out.has_direct = true,
+            DownloadType::Magnet => out.has_magnet = true,
+            DownloadType::Torrent => {
+                if is_anna_dataset_torrent(&option.url) {
+                    if option.url.contains("managed_by_aa") {
+                        out.has_zlib_shard = true;
+                    } else {
+                        out.has_libgen_shard = true;
+                    }
+                }
+            }
+            DownloadType::External => {}
+        }
+    }
+    Ok(out)
+}
+
 #[tauri::command]
 pub async fn anna_archive_get_config(app_handle: tauri::AppHandle) -> Result<AnnasArchiveConfig> {
     let store = app_handle

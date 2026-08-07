@@ -21,6 +21,7 @@ pub async fn debrid_resolve_and_import(
             provider,
             candidate_links,
             filename_hint,
+            max_wait_secs: None,
         },
     )
     .await

@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { useState, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { cn } from '@/lib/utils';
-import { getProxyUrl } from '@/lib/tauri';
+import { getProxyUrl, api } from '@/lib/tauri';
 
 export interface PreviewBook {
   title: string;
@@ -42,11 +42,13 @@ export function OnlineBookSidePanel({
   const [proxyUrl, setProxyUrl] = useState<string | null>(null);
   const [imgError, setImgError] = useState(false);
   const [fallbackAttempted, setFallbackAttempted] = useState(false);
+  const [aaSources, setAaSources] = useState<{ hasDirect: boolean; hasMagnet: boolean; hasLibgenShard: boolean; hasZlibShard: boolean } | null>(null);
 
   useEffect(() => {
     // Reset state when book changes
     setImgError(false);
     setFallbackAttempted(false);
+    setAaSources(null);
   }, [book.downloadUrl]); // Assuming downloadUrl or id changes per book
 
   useEffect(() => {
@@ -70,6 +72,22 @@ export function OnlineBookSidePanel({
       setProxyUrl(book.coverUrl);
     }
   }, [book.coverUrl, imgError]);
+
+  useEffect(() => {
+    if (book.source !== 'annas-archive') return;
+
+    let active = true;
+
+    api.annasArchiveBookSources(book.downloadUrl)
+      .then((sources) => {
+        if (active) setAaSources(sources);
+      })
+      .catch(() => {
+        if (active) setAaSources(null);
+      });
+
+    return () => { active = false; };
+  }, [book.source, book.downloadUrl]);
 
   useEffect(() => {
     if (fallbackAttempted) return;
@@ -230,6 +248,39 @@ export function OnlineBookSidePanel({
                   Download to Library
                 </button>
               </motion.div>
+
+              {/* Download route status for Anna's Archive books */}
+              {book.source === 'annas-archive' && aaSources && (
+                <motion.div className="px-8 pt-6" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {aaSources && aaSources.hasMagnet && (
+                      <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold bg-emerald-500/10 text-emerald-400">
+                        ⚡ Magnet available
+                      </span>
+                    )}
+                    {aaSources && aaSources.hasLibgenShard && (
+                      <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold bg-emerald-500/10 text-emerald-400">
+                        Torbox-ready · LibGen shard
+                      </span>
+                    )}
+                    {aaSources && aaSources.hasDirect && (
+                      <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold bg-amber-500/10 text-amber-400">
+                        Direct download (needs session cookie)
+                      </span>
+                    )}
+                    {aaSources && !aaSources.hasMagnet && !aaSources.hasLibgenShard && aaSources.hasZlibShard && (
+                      <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold bg-amber-500/10 text-amber-400">
+                        Z-Library only — needs session cookie
+                      </span>
+                    )}
+                    {aaSources && !aaSources.hasMagnet && !aaSources.hasLibgenShard && !aaSources.hasDirect && !aaSources.hasZlibShard && (
+                      <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold bg-muted text-muted-foreground">
+                        No public download routes — use 'View Details'
+                      </span>
+                    )}
+                  </div>
+                </motion.div>
+              )}
 
               {/* Additional Info / Synopsis could go here if fetched */}
               <motion.div className="px-8 pb-8" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>

@@ -26,7 +26,7 @@ import {
     Check, 
     ZoomIn, 
     ZoomOut, 
-    Sparkles, 
+    Scan, 
     Eye, 
     Hash, 
     Repeat 
@@ -38,7 +38,7 @@ type SettingsTab = 'layout' | 'image' | 'shortcuts';
 /**
  * Advanced settings modal with tabbed interface.
  * Page Layout, Image, and Shortcuts tabs.
- * Supports both Light (Sepia/Cream) and Dark (Obsidian Glass) themes.
+ * Supports both Light (Sepia/Cream) and Dark (OLED Midnight) themes.
  */
 export function AdvancedSettingsPanel() {
     const isOpen = useMangaUIStore(s => s.isSettingsOpen);
@@ -94,7 +94,7 @@ export function AdvancedSettingsPanel() {
         { value: 'contain', label: 'Fit Screen', desc: 'Auto-resize completely', icon: Maximize2 },
         { value: 'width', label: 'Fit Width', desc: 'Scale to viewport width', icon: MoveHorizontal },
         { value: 'height', label: 'Fit Height', desc: 'Scale to viewport height', icon: MoveVertical },
-        { value: 'original', label: 'Original', desc: 'Actual image resolution', icon: Sparkles },
+        { value: 'original', label: 'Original', desc: 'Actual image resolution', icon: Scan },
     ];
 
     const shortcuts = [

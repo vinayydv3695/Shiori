@@ -9,20 +9,14 @@ import {
 import { 
     X, 
     SlidersHorizontal, 
-    BookOpen, 
-    Scroll, 
-    Smartphone, 
-    Columns, 
-    Layers, 
-    Moon, 
-    Sun, 
-    Play, 
-    Pause, 
     ChevronLeft, 
     ChevronRight, 
     ChevronRight as ArrowNext,
-    Gauge,
-    BookMarked
+    Sun,
+    Moon,
+    Play,
+    Pause,
+    Gauge
 } from 'lucide-react';
 import {
   Select,
@@ -35,8 +29,8 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import { cn } from '@/lib/utils';
 
 /**
- * Right sidebar overlay with reading controls.
- * Fixed overlay with GPU acceleration & rich Light/Dark theme adaptation.
+ * Minimal right sidebar overlay with reading controls.
+ * Dual-theme: Warm Sepia & Pure OLED Midnight.
  */
 export const MangaSidebar = memo(function MangaSidebar() {
     const isMobile = useIsMobile();
@@ -59,12 +53,12 @@ export const MangaSidebar = memo(function MangaSidebar() {
     const setAutoScrollSpeed = useMangaSettingsStore(s => s.setAutoScrollSpeed);
     const isLight = theme === 'light';
 
-    const modeOptions: { value: ReadingMode; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-        { value: 'single', label: 'Single', icon: BookOpen },
-        { value: 'strip', label: 'Strip', icon: Scroll },
-        { value: 'webtoon', label: 'Webtoon', icon: Smartphone },
-        { value: 'manhwa', label: 'Manhwa', icon: Columns },
-        { value: 'comic', label: 'Comic', icon: Layers },
+    const modeOptions: { value: ReadingMode; label: string }[] = [
+        { value: 'single', label: 'Single' },
+        { value: 'strip', label: 'Strip' },
+        { value: 'webtoon', label: 'Webtoon' },
+        { value: 'manhwa', label: 'Manhwa' },
+        { value: 'comic', label: 'Comic' },
     ];
 
     return (
@@ -73,51 +67,46 @@ export const MangaSidebar = memo(function MangaSidebar() {
                 <>
                     {/* Backdrop */}
                     <motion.div
-                        className="fixed inset-0 z-[140] bg-black/50 backdrop-blur-xs"
+                        className="fixed inset-0 z-[140] bg-black/40"
                         onClick={closeSidebar}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        transition={{ duration: 0.25, ease: "easeOut" }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
                     />
 
                     {/* Sidebar */}
                     <motion.div 
                         className={cn(
-                            "fixed top-0 right-0 bottom-0 z-[145] w-84 max-w-[90vw] flex flex-col backdrop-blur-2xl transition-colors shadow-2xl",
+                            "fixed top-0 right-0 bottom-0 z-[145] w-80 max-w-[85vw] flex flex-col transition-colors shadow-2xl",
                             isLight
-                                ? "bg-[#FAF6EC]/98 text-[#2C1E0F] border-l border-[#D9C9A3] shadow-2xl shadow-[#5C4430]/25 ring-1 ring-[#8A6A50]/10"
-                                : "bg-[#121217]/98 text-white border-l border-white/10 shadow-2xl shadow-black/90 ring-1 ring-white/5",
-                            isMobile && "!top-auto !bottom-0 !right-0 !left-0 !h-[80vh] !w-full rounded-t-3xl !border-l-0 border-t"
+                                ? "!bg-[#FAF6EC] !text-[#2C1E0F] !border-l !border-[#D9C9A3] shadow-2xl shadow-[#5C4430]/25"
+                                : "!bg-[#09090b] !text-white !border-l !border-white/10 shadow-2xl shadow-black/95",
+                            isMobile && "!top-auto !bottom-0 !right-0 !left-0 !h-[75vh] !w-full rounded-t-3xl !border-l-0 border-t"
                         )}
                         initial={isMobile ? { y: "100%" } : { x: "100%" }}
                         animate={isMobile ? { y: 0 } : { x: 0 }}
                         exit={isMobile ? { y: "100%" } : { x: "100%" }}
-                        transition={{ type: "spring", bounce: 0, duration: 0.35 }}
+                        transition={{ type: "spring", bounce: 0, duration: 0.3 }}
                     >
                         {/* Header */}
                         <div className={`px-5 py-4 border-b flex items-center justify-between shrink-0 ${
-                            isLight ? 'bg-[#F0E6CE]/70 border-[#D9C9A3]' : 'bg-white/[0.03] border-white/10'
+                            isLight ? '!bg-[#F4ECD8] !border-[#D9C9A3]' : '!bg-[#121216] !border-white/10'
                         }`}>
-                            <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-3">
-                                <div className={`p-1.5 rounded-xl ${isLight ? 'bg-[#A0522D]/15 text-[#A0522D]' : 'bg-amber-400/15 text-amber-400'}`}>
-                                    <BookMarked className="w-4 h-4" />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                    <h3 className={`font-semibold text-xs truncate ${isLight ? 'text-[#2C1E0F]' : 'text-white'}`}>
-                                        {title || 'Reader Options'}
-                                    </h3>
-                                    <p className={`text-[10px] ${isLight ? 'text-[#8A6A50]' : 'text-white/50'}`}>
-                                        Reading controls
-                                    </p>
-                                </div>
+                            <div className="min-w-0 flex-1 mr-3">
+                                <h3 className={`font-semibold text-xs tracking-tight truncate ${isLight ? 'text-[#2C1E0F]' : 'text-white'}`}>
+                                    {title || 'Reader Options'}
+                                </h3>
+                                <p className={`text-[10px] mt-0.5 ${isLight ? 'text-[#7D634B]' : 'text-zinc-400'}`}>
+                                    {isLight ? 'Sepia Theme' : 'OLED Midnight'}
+                                </p>
                             </div>
                             <button 
-                                className={`p-1.5 rounded-full transition-colors ${
-                                    isLight ? 'text-[#5C4430] hover:text-[#2C1E0F] hover:bg-[#E5D7BC]' : 'text-white/60 hover:text-white hover:bg-white/10'
+                                className={`p-1.5 rounded-lg transition-colors ${
+                                    isLight ? 'text-[#7D634B] hover:text-[#2C1E0F] hover:bg-[#E5D7BC]' : 'text-zinc-400 hover:text-white hover:bg-white/10'
                                 }`} 
                                 onClick={closeSidebar} 
-                                title="Close sidebar"
+                                title="Close sidebar (Esc)"
                             >
                                 <X className="w-4 h-4" />
                             </button>
@@ -126,38 +115,35 @@ export const MangaSidebar = memo(function MangaSidebar() {
                         {/* Content */}
                         <motion.div 
                             className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-6"
-                            variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.05, delayChildren: 0.05 } } }}
+                            variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.04 } } }}
                             initial="hidden" 
                             animate="show"
                         >
                             {/* Reading Mode Section */}
-                            <motion.div className="space-y-2.5" variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}>
-                                <label className={`text-[11px] font-semibold uppercase tracking-wider ${isLight ? 'text-[#8A6A50]' : 'text-white/50'}`}>
+                            <motion.div className="space-y-2" variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } }}>
+                                <label className={`text-[11px] font-semibold uppercase tracking-wider ${isLight ? 'text-[#7D634B]' : 'text-zinc-400'}`}>
                                     Reading Mode
                                 </label>
-                                <div className={`flex items-center gap-1 p-1 rounded-2xl border ${
-                                    isLight ? 'bg-[#EAE0CB]/70 border-[#D9C9A3]' : 'bg-black/40 border-white/5'
+                                <div className={`flex items-center p-1 rounded-xl border ${
+                                    isLight ? 'bg-[#EAE0CB] border-[#D9C9A3]' : 'bg-[#18181b] border-white/10'
                                 }`}>
                                     {modeOptions.map(opt => {
-                                        const Icon = opt.icon;
                                         const isActive = readingMode === opt.value;
                                         return (
                                             <button
                                                 key={opt.value}
-                                                className={`flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[11px] font-semibold transition-all ${
+                                                className={`flex-1 py-1.5 px-1 rounded-lg text-xs font-semibold transition-all ${
                                                     isActive
                                                         ? isLight
                                                             ? 'bg-[#A0522D] text-white shadow-xs'
-                                                            : 'bg-amber-400 text-black shadow-xs'
+                                                            : 'bg-white/20 text-white shadow-xs'
                                                         : isLight
-                                                            ? 'text-[#5C4430] hover:text-[#2C1E0F] hover:bg-[#FAF6EC]/80'
-                                                            : 'text-white/60 hover:text-white hover:bg-white/5'
+                                                            ? 'text-[#5C4430] hover:text-[#2C1E0F] hover:bg-[#FAF6EC]/60'
+                                                            : 'text-zinc-400 hover:text-white hover:bg-white/5'
                                                 }`}
                                                 onClick={() => setReadingMode(opt.value)}
-                                                title={opt.label}
                                             >
-                                                <Icon className="w-3.5 h-3.5 mb-1" />
-                                                <span className="text-[10px] leading-tight">{opt.label}</span>
+                                                {opt.label}
                                             </button>
                                         );
                                     })}
@@ -165,13 +151,13 @@ export const MangaSidebar = memo(function MangaSidebar() {
                             </motion.div>
 
                             {/* Page Navigation */}
-                            <motion.div className="space-y-2.5" variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}>
+                            <motion.div className="space-y-2" variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } }}>
                                 <div className="flex items-center justify-between">
-                                    <label className={`text-[11px] font-semibold uppercase tracking-wider ${isLight ? 'text-[#8A6A50]' : 'text-white/50'}`}>
+                                    <label className={`text-[11px] font-semibold uppercase tracking-wider ${isLight ? 'text-[#7D634B]' : 'text-zinc-400'}`}>
                                         Navigation
                                     </label>
-                                    <span className={`text-[10px] font-mono font-medium ${isLight ? 'text-[#8A6A50]' : 'text-white/50'}`}>
-                                        {currentPage + 1} of {totalPages}
+                                    <span className={`text-[10px] font-mono font-medium ${isLight ? 'text-[#7D634B]' : 'text-zinc-400'}`}>
+                                        {currentPage + 1} / {totalPages}
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -181,7 +167,7 @@ export const MangaSidebar = memo(function MangaSidebar() {
                                         className={`p-2 rounded-xl border flex items-center justify-center transition-all disabled:opacity-30 ${
                                             isLight
                                                 ? 'bg-[#EAE0CB] hover:bg-[#E5D7BC] border-[#D9C9A3] text-[#2C1E0F]'
-                                                : 'bg-white/10 hover:bg-white/20 border-white/10 text-white'
+                                                : 'bg-white/5 hover:bg-white/10 border-white/10 text-white'
                                         }`}
                                         title="Previous Page"
                                     >
@@ -193,17 +179,17 @@ export const MangaSidebar = memo(function MangaSidebar() {
                                             value={String(currentPage)}
                                             onValueChange={(val) => setCurrentPage(Number(val))}
                                         >
-                                            <SelectTrigger className={`w-full h-9 text-xs rounded-xl border ${
+                                            <SelectTrigger className={`w-full h-9 text-xs rounded-xl border font-medium ${
                                                 isLight 
-                                                    ? 'bg-[#EFE6D2] border-[#D9C9A3] text-[#2C1E0F]' 
-                                                    : 'bg-white/[0.06] border-white/10 text-white'
+                                                    ? 'bg-[#FAF6EC] border-[#D9C9A3] text-[#2C1E0F]' 
+                                                    : 'bg-[#18181b] border-white/10 text-white'
                                             }`}>
                                                 <SelectValue />
                                             </SelectTrigger>
-                                            <SelectContent className={`max-h-60 rounded-2xl ${
+                                            <SelectContent className={`max-h-60 rounded-xl ${
                                                 isLight 
-                                                    ? 'bg-[#FAF6EC] text-[#2C1E0F] border-[#D9C9A3]' 
-                                                    : 'bg-[#121217] text-white border-white/10'
+                                                    ? '!bg-[#FAF6EC] text-[#2C1E0F] border-[#D9C9A3]' 
+                                                    : '!bg-[#121216] text-white border-white/10'
                                             }`}>
                                                 {Array.from({ length: totalPages }, (_, i) => (
                                                     <SelectItem key={i} value={String(i)} className="text-xs">
@@ -220,7 +206,7 @@ export const MangaSidebar = memo(function MangaSidebar() {
                                         className={`p-2 rounded-xl border flex items-center justify-center transition-all disabled:opacity-30 ${
                                             isLight
                                                 ? 'bg-[#EAE0CB] hover:bg-[#E5D7BC] border-[#D9C9A3] text-[#2C1E0F]'
-                                                : 'bg-white/10 hover:bg-white/20 border-white/10 text-white'
+                                                : 'bg-white/5 hover:bg-white/10 border-white/10 text-white'
                                         }`}
                                         title="Next Page"
                                     >
@@ -232,22 +218,22 @@ export const MangaSidebar = memo(function MangaSidebar() {
                             <div className={`border-t ${isLight ? 'border-[#D9C9A3]/60' : 'border-white/5'}`} />
 
                             {/* Display & Automation */}
-                            <motion.div className="space-y-3" variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}>
-                                <label className={`text-[11px] font-semibold uppercase tracking-wider ${isLight ? 'text-[#8A6A50]' : 'text-white/50'}`}>
-                                    Display
+                            <motion.div className="space-y-3" variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } }}>
+                                <label className={`text-[11px] font-semibold uppercase tracking-wider ${isLight ? 'text-[#7D634B]' : 'text-zinc-400'}`}>
+                                    Display & Theme
                                 </label>
 
-                                <div className={`p-3.5 rounded-2xl border flex items-center justify-between ${
-                                    isLight ? 'bg-[#FAF6EC] border-[#D9C9A3]' : 'bg-white/[0.03] border-white/10'
+                                <div className={`p-3 rounded-2xl border flex items-center justify-between ${
+                                    isLight ? 'bg-[#F4ECD8] border-[#D9C9A3]' : 'bg-[#121216] border-white/10'
                                 }`}>
                                     <div className="flex items-center gap-3">
-                                        <div className={`p-2 rounded-xl ${isLight ? 'bg-[#E5D7BC] text-[#5C4430]' : 'bg-white/10 text-white/70'}`}>
-                                            {isLight ? <Sun className="w-4 h-4 text-amber-600" /> : <Moon className="w-4 h-4 text-amber-300" />}
+                                        <div className={`p-2 rounded-xl ${isLight ? 'bg-[#E5D7BC] text-[#5C4430]' : 'bg-white/10 text-white/80'}`}>
+                                            {isLight ? <Sun className="w-4 h-4 text-amber-700" /> : <Moon className="w-4 h-4 text-amber-400" />}
                                         </div>
                                         <div>
                                             <div className="text-xs font-semibold">Theme Mode</div>
-                                            <div className={`text-[10px] ${isLight ? 'text-[#8A6A50]' : 'text-white/50'}`}>
-                                                {isLight ? 'Sepia Cream' : 'Dark Obsidian'}
+                                            <div className={`text-[10px] ${isLight ? 'text-[#7D634B]' : 'text-zinc-400'}`}>
+                                                {isLight ? 'Warm Sepia' : 'OLED Midnight'}
                                             </div>
                                         </div>
                                     </div>
@@ -268,17 +254,17 @@ export const MangaSidebar = memo(function MangaSidebar() {
 
                                 {/* Auto-Scroll (if scroll mode) */}
                                 {(readingMode === 'webtoon' || readingMode === 'strip' || readingMode === 'manhwa') && (
-                                    <div className={`p-3.5 rounded-2xl border space-y-3 ${
-                                        isLight ? 'bg-[#FAF6EC] border-[#D9C9A3]' : 'bg-white/[0.03] border-white/10'
+                                    <div className={`p-3 rounded-2xl border space-y-3 ${
+                                        isLight ? 'bg-[#F4ECD8] border-[#D9C9A3]' : 'bg-[#121216] border-white/10'
                                     }`}>
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <div className={`p-2 rounded-xl ${isLight ? 'bg-[#E5D7BC] text-[#5C4430]' : 'bg-white/10 text-white/70'}`}>
-                                                    {isAutoScrolling ? <Pause className="w-4 h-4 text-amber-500" /> : <Play className="w-4 h-4" />}
+                                                <div className={`p-2 rounded-xl ${isLight ? 'bg-[#E5D7BC] text-[#5C4430]' : 'bg-white/10 text-white/80'}`}>
+                                                    {isAutoScrolling ? <Pause className="w-4 h-4 text-amber-600" /> : <Play className="w-4 h-4" />}
                                                 </div>
                                                 <div>
                                                     <div className="text-xs font-semibold">Auto-Scroll</div>
-                                                    <div className={`text-[10px] ${isLight ? 'text-[#8A6A50]' : 'text-white/50'}`}>
+                                                    <div className={`text-[10px] ${isLight ? 'text-[#7D634B]' : 'text-zinc-400'}`}>
                                                         Hands-free reading
                                                     </div>
                                                 </div>
@@ -300,7 +286,7 @@ export const MangaSidebar = memo(function MangaSidebar() {
 
                                         <div className="space-y-1.5 pt-1">
                                             <div className="flex items-center justify-between text-[11px]">
-                                                <span className={`flex items-center gap-1 ${isLight ? 'text-[#8A6A50]' : 'text-white/50'}`}>
+                                                <span className={`flex items-center gap-1 ${isLight ? 'text-[#7D634B]' : 'text-zinc-400'}`}>
                                                     <Gauge className="w-3 h-3" /> Speed
                                                 </span>
                                                 <span className="font-mono font-bold text-xs">{autoScrollSpeed.toFixed(1)}x</span>
@@ -312,7 +298,7 @@ export const MangaSidebar = memo(function MangaSidebar() {
                                                 step="0.1" 
                                                 value={autoScrollSpeed}
                                                 onChange={(e) => setAutoScrollSpeed(parseFloat(e.target.value))}
-                                                className="w-full accent-amber-400"
+                                                className="w-full accent-amber-500"
                                             />
                                         </div>
                                     </div>
@@ -322,12 +308,12 @@ export const MangaSidebar = memo(function MangaSidebar() {
                             <div className={`border-t ${isLight ? 'border-[#D9C9A3]/60' : 'border-white/5'}`} />
 
                             {/* Advanced Settings Button */}
-                            <motion.div variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}>
+                            <motion.div variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } }}>
                                 <button
-                                    className={`w-full p-3.5 rounded-2xl border flex items-center justify-between group transition-all ${
+                                    className={`w-full p-3 rounded-2xl border flex items-center justify-between group transition-all cursor-pointer ${
                                         isLight
-                                            ? 'bg-[#EAE0CB] hover:bg-[#E5D7BC] border-[#D9C9A3] text-[#2C1E0F] shadow-xs'
-                                            : 'bg-white/[0.06] hover:bg-white/[0.1] border-white/10 text-white shadow-xs'
+                                            ? 'bg-[#F4ECD8] hover:bg-[#EAE0CB] border-[#D9C9A3] text-[#2C1E0F] shadow-xs'
+                                            : 'bg-[#121216] hover:bg-[#1a1a20] border-white/10 text-white shadow-xs'
                                     }`}
                                     onClick={toggleSettings}
                                 >
@@ -339,7 +325,7 @@ export const MangaSidebar = memo(function MangaSidebar() {
                                         </div>
                                         <div className="text-left">
                                             <div className="text-xs font-semibold">Advanced Settings</div>
-                                            <div className={`text-[10px] ${isLight ? 'text-[#8A6A50]' : 'text-white/50'}`}>
+                                            <div className={`text-[10px] ${isLight ? 'text-[#7D634B]' : 'text-zinc-400'}`}>
                                                 Layout, zoom, shortcuts
                                             </div>
                                         </div>

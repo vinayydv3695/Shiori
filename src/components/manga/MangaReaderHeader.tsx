@@ -55,6 +55,8 @@ export function MangaReaderHeader({
     const isSidebarOpen = useMangaUIStore(s => s.isSidebarOpen);
     const isSettingsOpen = useMangaUIStore(s => s.isSettingsOpen);
     
+    const theme = useMangaSettingsStore(s => s.theme);
+    const isLight = theme === 'light';
     const stickyHeader = useMangaSettingsStore(s => s.stickyHeader);
     const readingMode = useMangaSettingsStore(s => s.readingMode);
     const zoomIn = useMangaSettingsStore(s => s.zoomIn);
@@ -292,26 +294,45 @@ export function MangaReaderHeader({
                             <DropdownMenuTrigger asChild>
                                 <button 
                                     type="button" 
-                                    className={`manga-topbar-btn cursor-pointer transition-all ${dropdownOpen ? 'manga-topbar-btn--active bg-white/10 text-white ring-1 ring-white/20' : ''}`} 
+                                    className={`manga-topbar-btn cursor-pointer transition-all ${
+                                        dropdownOpen 
+                                            ? isLight 
+                                                ? 'manga-topbar-btn--active bg-[#A0522D]/15 text-[#A0522D] ring-1 ring-[#A0522D]/30' 
+                                                : 'manga-topbar-btn--active bg-white/10 text-white ring-1 ring-white/20' 
+                                            : ''
+                                    }`} 
                                     title={sourceType === 'online' ? "Choose Chapter" : "Choose Volume"}
                                 >
                                     <List size={18} />
                                 </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent 
-                                align="end" 
-                                sideOffset={8}
-                                className="w-80 sm:w-96 max-h-[460px] flex flex-col p-0 rounded-2xl bg-[#0f0f14]/95 text-white backdrop-blur-2xl border border-white/10 shadow-2xl shadow-black/90 ring-1 ring-white/5 z-[150] overflow-hidden select-none animate-in fade-in-0 zoom-in-95 duration-150"
+                                align="center" 
+                                side="bottom"
+                                sideOffset={14}
+                                className={`w-80 sm:w-96 max-h-[460px] flex flex-col p-0 rounded-2xl backdrop-blur-2xl z-[150] overflow-hidden select-none animate-in fade-in-0 zoom-in-95 duration-150 ${
+                                    isLight
+                                        ? 'bg-[#FAF6EC]/98 text-[#2C1E0F] border border-[#D9C9A3] shadow-2xl shadow-[#5C4430]/25 ring-1 ring-[#8A6A50]/15'
+                                        : 'bg-[#0f0f14]/95 text-white border border-white/10 shadow-2xl shadow-black/90 ring-1 ring-white/5'
+                                }`}
                             >
                                 {/* Dropdown Header: Title, Count, Sort Toggle */}
-                                <div className="p-3 bg-white/[0.04] border-b border-white/10 flex flex-col gap-2.5 shrink-0">
+                                <div className={`p-3 border-b flex flex-col gap-2.5 shrink-0 ${
+                                    isLight 
+                                        ? 'bg-[#F0E6CE]/80 border-[#D9C9A3]' 
+                                        : 'bg-white/[0.04] border-white/10'
+                                }`}>
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
-                                            <BookOpen className="w-4 h-4 text-amber-400" />
-                                            <span className="font-semibold text-xs tracking-wide text-white">
+                                            <BookOpen className={`w-4 h-4 ${isLight ? 'text-[#A0522D]' : 'text-amber-400'}`} />
+                                            <span className={`font-semibold text-xs tracking-wide ${isLight ? 'text-[#2C1E0F]' : 'text-white'}`}>
                                                 {sourceType === 'online' ? 'Chapters' : 'Series Volumes'}
                                             </span>
-                                            <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-white/10 text-white/70 border border-white/5">
+                                            <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full border ${
+                                                isLight 
+                                                    ? 'bg-[#E5D7BC] text-[#5C4430] border-[#D9C9A3]' 
+                                                    : 'bg-white/10 text-white/70 border-white/5'
+                                            }`}>
                                                 {sourceType === 'online' ? (onlineSource?.chapters.length || 0) : seriesBooks.length}
                                             </span>
                                         </div>
@@ -321,18 +342,26 @@ export function MangaReaderHeader({
                                                 e.stopPropagation();
                                                 setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
                                             }}
-                                            className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors border border-transparent hover:border-white/10"
+                                            className={`flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-lg transition-colors border ${
+                                                isLight 
+                                                    ? 'text-[#5C4430] hover:text-[#2C1E0F] hover:bg-[#E5D7BC] border-transparent hover:border-[#D9C9A3]' 
+                                                    : 'text-white/70 hover:text-white hover:bg-white/10 border-transparent hover:border-white/10'
+                                            }`}
                                             title={`Sort chapters (${sortDirection === 'asc' ? 'Ascending' : 'Descending'})`}
                                         >
-                                            <ArrowUpDown className="w-3 h-3 text-amber-400" />
+                                            <ArrowUpDown className={`w-3 h-3 ${isLight ? 'text-[#A0522D]' : 'text-amber-400'}`} />
                                             <span>{sortDirection === 'asc' ? '1 → End' : 'End → 1'}</span>
                                         </button>
                                     </div>
 
                                     {/* Search Input Filter */}
                                     {((sourceType === 'online' && (onlineSource?.chapters.length || 0) > 4) || seriesBooks.length > 4) && (
-                                        <div className="relative flex items-center bg-white/[0.06] hover:bg-white/[0.08] focus-within:bg-white/[0.09] border border-white/10 focus-within:border-amber-400/50 rounded-xl px-2.5 py-1.5 transition-all">
-                                            <Search className="w-3.5 h-3.5 text-white/40 shrink-0 mr-2" />
+                                        <div className={`relative flex items-center border rounded-xl px-2.5 py-1.5 transition-all ${
+                                            isLight 
+                                                ? 'bg-[#EFE6D2] hover:bg-[#EAE0CB] focus-within:bg-[#FAF6EC] border-[#D9C9A3] focus-within:border-[#A0522D]' 
+                                                : 'bg-white/[0.06] hover:bg-white/[0.08] focus-within:bg-white/[0.09] border-white/10 focus-within:border-amber-400/50'
+                                        }`}>
+                                            <Search className={`w-3.5 h-3.5 shrink-0 mr-2 ${isLight ? 'text-[#8A6A50]' : 'text-white/40'}`} />
                                             <input
                                                 ref={searchInputRef}
                                                 type="text"
@@ -340,13 +369,19 @@ export function MangaReaderHeader({
                                                 value={chapterSearch}
                                                 onChange={(e) => setChapterSearch(e.target.value)}
                                                 onKeyDown={(e) => e.stopPropagation()}
-                                                className="w-full bg-transparent text-xs text-white placeholder:text-white/40 focus:outline-none"
+                                                className={`w-full bg-transparent text-xs focus:outline-none ${
+                                                    isLight 
+                                                        ? 'text-[#2C1E0F] placeholder:text-[#8A6A50]/70' 
+                                                        : 'text-white placeholder:text-white/40'
+                                                }`}
                                             />
                                             {chapterSearch && (
                                                 <button
                                                     type="button"
                                                     onClick={() => setChapterSearch('')}
-                                                    className="p-0.5 text-white/40 hover:text-white rounded-md transition-colors"
+                                                    className={`p-0.5 rounded-md transition-colors ${
+                                                        isLight ? 'text-[#8A6A50] hover:text-[#2C1E0F]' : 'text-white/40 hover:text-white'
+                                                    }`}
                                                 >
                                                     <X className="w-3.5 h-3.5" />
                                                 </button>
@@ -360,16 +395,22 @@ export function MangaReaderHeader({
                                     {sourceType === 'online' ? (
                                         processedChapters.length === 0 ? (
                                             <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
-                                                <Search className="w-6 h-6 text-white/20 mb-2" />
-                                                <p className="text-xs font-medium text-white/70">No chapters found</p>
+                                                <Search className={`w-6 h-6 mb-2 ${isLight ? 'text-[#8A6A50]/40' : 'text-white/20'}`} />
+                                                <p className={`text-xs font-medium ${isLight ? 'text-[#2C1E0F]/70' : 'text-white/70'}`}>No chapters found</p>
                                                 {chapterSearch && (
-                                                    <p className="text-[11px] text-white/40 mt-0.5">Matching &ldquo;{chapterSearch}&rdquo;</p>
+                                                    <p className={`text-[11px] mt-0.5 ${isLight ? 'text-[#8A6A50]' : 'text-white/40'}`}>
+                                                        Matching &ldquo;{chapterSearch}&rdquo;
+                                                    </p>
                                                 )}
                                                 {chapterSearch && (
                                                     <button
                                                         type="button"
                                                         onClick={() => setChapterSearch('')}
-                                                        className="mt-3 px-3 py-1 text-xs font-medium text-amber-400 bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/20 rounded-lg transition-colors"
+                                                        className={`mt-3 px-3 py-1 text-xs font-medium rounded-lg transition-colors border ${
+                                                            isLight 
+                                                                ? 'text-[#A0522D] bg-[#A0522D]/10 hover:bg-[#A0522D]/20 border-[#A0522D]/30' 
+                                                                : 'text-amber-400 bg-amber-400/10 hover:bg-amber-400/20 border-amber-400/20'
+                                                        }`}
                                                     >
                                                         Clear Search
                                                     </button>
@@ -406,39 +447,61 @@ export function MangaReaderHeader({
                                                             }}
                                                             className={`group relative flex items-center justify-between px-3 py-2 text-xs font-medium rounded-xl cursor-pointer transition-all outline-none ${
                                                                 isSelected 
-                                                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold shadow-inner' 
-                                                                    : 'text-white/80 hover:text-white hover:bg-white/[0.08] border border-transparent'
+                                                                    ? isLight 
+                                                                        ? 'bg-[#A0522D]/15 text-[#733516] border border-[#A0522D]/35 font-semibold shadow-xs' 
+                                                                        : 'bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold shadow-inner'
+                                                                    : isLight 
+                                                                        ? 'text-[#2C1E0F]/85 hover:text-[#2C1E0F] hover:bg-[#EFE6D2] border border-transparent' 
+                                                                        : 'text-white/80 hover:text-white hover:bg-white/[0.08] border border-transparent'
                                                             }`}
                                                         >
                                                             <div className="flex items-center gap-2.5 min-w-0 flex-1">
                                                                 {c.number != null ? (
                                                                     <span className={`px-2 py-0.5 text-[11px] font-mono font-bold rounded-lg shrink-0 transition-colors ${
                                                                         isSelected 
-                                                                            ? 'bg-amber-400 text-black shadow-sm' 
-                                                                            : 'bg-white/10 text-white/90 group-hover:bg-white/20 group-hover:text-white border border-white/5'
+                                                                            ? isLight 
+                                                                                ? 'bg-[#A0522D] text-white shadow-xs' 
+                                                                                : 'bg-amber-400 text-black shadow-sm' 
+                                                                            : isLight 
+                                                                                ? 'bg-[#E5D7BC] text-[#5C4430] group-hover:bg-[#D9C9A3] group-hover:text-[#2C1E0F] border border-[#D9C9A3]/60' 
+                                                                                : 'bg-white/10 text-white/90 group-hover:bg-white/20 group-hover:text-white border border-white/5'
                                                                     }`}>
                                                                         Ch. {c.number}
                                                                     </span>
                                                                 ) : (
-                                                                    <span className="px-2 py-0.5 text-[11px] font-mono font-bold rounded-lg shrink-0 bg-white/10 text-white/90 border border-white/5">
+                                                                    <span className={`px-2 py-0.5 text-[11px] font-mono font-bold rounded-lg shrink-0 border ${
+                                                                        isLight 
+                                                                            ? 'bg-[#E5D7BC] text-[#5C4430] border-[#D9C9A3]/60' 
+                                                                            : 'bg-white/10 text-white/90 border-white/5'
+                                                                    }`}>
                                                                         Ch
                                                                     </span>
                                                                 )}
                                                                 
-                                                                <span className="truncate text-xs">
+                                                                <span className={`truncate text-xs ${
+                                                                    isSelected 
+                                                                        ? (isLight ? 'text-[#733516] font-semibold' : 'text-amber-300 font-semibold') 
+                                                                        : (isLight ? 'text-[#2C1E0F] font-medium' : 'text-white/90 font-medium')
+                                                                }`}>
                                                                     {c.title ? (c.title.startsWith('Chapter ') && c.number != null ? c.title.replace(/^Chapter\s+\d+[\s:.-]*/i, '') || c.title : c.title) : `Chapter ${c.number ?? ''}`}
                                                                 </span>
                                                             </div>
 
                                                             <div className="flex items-center gap-1.5 shrink-0 ml-2">
                                                                 {isSwitching ? (
-                                                                    <Loader2 className="w-3.5 h-3.5 text-amber-400 animate-spin" />
+                                                                    <Loader2 className={`w-3.5 h-3.5 animate-spin ${isLight ? 'text-[#A0522D]' : 'text-amber-400'}`} />
                                                                 ) : isSelected ? (
-                                                                    <div className="w-5 h-5 rounded-full bg-amber-400/20 border border-amber-400/40 flex items-center justify-center">
-                                                                        <Check className="w-3 h-3 text-amber-300 stroke-[3]" />
+                                                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                                                                        isLight 
+                                                                            ? 'bg-[#A0522D]/20 border border-[#A0522D]/40 text-[#A0522D]' 
+                                                                            : 'bg-amber-400/20 border border-amber-400/40 text-amber-300'
+                                                                    }`}>
+                                                                        <Check className="w-3 h-3 stroke-[3]" />
                                                                     </div>
                                                                 ) : (
-                                                                    <ChevronRight className="w-3.5 h-3.5 text-white/20 group-hover:text-white/60 group-hover:translate-x-0.5 transition-all opacity-0 group-hover:opacity-100" />
+                                                                    <ChevronRight className={`w-3.5 h-3.5 transition-all opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 ${
+                                                                        isLight ? 'text-[#8A6A50]/40 group-hover:text-[#5C4430]' : 'text-white/20 group-hover:text-white/60'
+                                                                    }`} />
                                                                 )}
                                                             </div>
                                                         </div>
@@ -449,13 +512,17 @@ export function MangaReaderHeader({
                                     ) : (
                                         processedLocalBooks.length === 0 ? (
                                             <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
-                                                <Search className="w-6 h-6 text-white/20 mb-2" />
-                                                <p className="text-xs font-medium text-white/70">No volumes found</p>
+                                                <Search className={`w-6 h-6 mb-2 ${isLight ? 'text-[#8A6A50]/40' : 'text-white/20'}`} />
+                                                <p className={`text-xs font-medium ${isLight ? 'text-[#2C1E0F]/70' : 'text-white/70'}`}>No volumes found</p>
                                                 {chapterSearch && (
                                                     <button
                                                         type="button"
                                                         onClick={() => setChapterSearch('')}
-                                                        className="mt-3 px-3 py-1 text-xs font-medium text-amber-400 bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/20 rounded-lg transition-colors"
+                                                        className={`mt-3 px-3 py-1 text-xs font-medium rounded-lg transition-colors border ${
+                                                            isLight 
+                                                                ? 'text-[#A0522D] bg-[#A0522D]/10 hover:bg-[#A0522D]/20 border-[#A0522D]/30' 
+                                                                : 'text-amber-400 bg-amber-400/10 hover:bg-amber-400/20 border-amber-400/20'
+                                                        }`}
                                                     >
                                                         Clear Search
                                                     </button>
@@ -478,27 +545,45 @@ export function MangaReaderHeader({
                                                             }}
                                                             className={`group relative flex items-center justify-between px-3 py-2 text-xs font-medium rounded-xl cursor-pointer transition-all outline-none ${
                                                                 isSelected 
-                                                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold shadow-inner' 
-                                                                    : 'text-white/80 hover:text-white hover:bg-white/[0.08] border border-transparent'
+                                                                    ? isLight 
+                                                                        ? 'bg-[#A0522D]/15 text-[#733516] border border-[#A0522D]/35 font-semibold shadow-xs' 
+                                                                        : 'bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold shadow-inner'
+                                                                    : isLight 
+                                                                        ? 'text-[#2C1E0F]/85 hover:text-[#2C1E0F] hover:bg-[#EFE6D2] border border-transparent' 
+                                                                        : 'text-white/80 hover:text-white hover:bg-white/[0.08] border border-transparent'
                                                             }`}
                                                         >
                                                             <div className="flex items-center gap-2.5 min-w-0 flex-1">
                                                                 <span className={`px-2 py-0.5 text-[11px] font-mono font-bold rounded-lg shrink-0 transition-colors ${
                                                                     isSelected 
-                                                                        ? 'bg-amber-400 text-black shadow-sm' 
-                                                                        : 'bg-white/10 text-white/90 group-hover:bg-white/20 group-hover:text-white border border-white/5'
+                                                                        ? isLight 
+                                                                            ? 'bg-[#A0522D] text-white shadow-xs' 
+                                                                            : 'bg-amber-400 text-black shadow-sm' 
+                                                                        : isLight 
+                                                                            ? 'bg-[#E5D7BC] text-[#5C4430] group-hover:bg-[#D9C9A3] group-hover:text-[#2C1E0F] border border-[#D9C9A3]/60' 
+                                                                            : 'bg-white/10 text-white/90 group-hover:bg-white/20 group-hover:text-white border border-white/5'
                                                                 }`}>
                                                                     Vol. {b.series_index || idx + 1}
                                                                 </span>
-                                                                <span className="truncate text-xs">{b.title}</span>
+                                                                <span className={`truncate text-xs ${
+                                                                    isSelected 
+                                                                        ? (isLight ? 'text-[#733516] font-semibold' : 'text-amber-300 font-semibold') 
+                                                                        : (isLight ? 'text-[#2C1E0F] font-medium' : 'text-white/90 font-medium')
+                                                                }`}>{b.title}</span>
                                                             </div>
                                                             <div className="flex items-center gap-1.5 shrink-0 ml-2">
                                                                 {isSelected ? (
-                                                                    <div className="w-5 h-5 rounded-full bg-amber-400/20 border border-amber-400/40 flex items-center justify-center">
-                                                                        <Check className="w-3 h-3 text-amber-300 stroke-[3]" />
+                                                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                                                                        isLight 
+                                                                            ? 'bg-[#A0522D]/20 border border-[#A0522D]/40 text-[#A0522D]' 
+                                                                            : 'bg-amber-400/20 border border-amber-400/40 text-amber-300'
+                                                                    }`}>
+                                                                        <Check className="w-3 h-3 stroke-[3]" />
                                                                     </div>
                                                                 ) : (
-                                                                    <ChevronRight className="w-3.5 h-3.5 text-white/20 group-hover:text-white/60 group-hover:translate-x-0.5 transition-all opacity-0 group-hover:opacity-100" />
+                                                                    <ChevronRight className={`w-3.5 h-3.5 transition-all opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 ${
+                                                                        isLight ? 'text-[#8A6A50]/40 group-hover:text-[#5C4430]' : 'text-white/20 group-hover:text-white/60'
+                                                                    }`} />
                                                                 )}
                                                             </div>
                                                         </div>

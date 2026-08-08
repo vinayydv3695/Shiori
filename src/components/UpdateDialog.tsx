@@ -10,7 +10,6 @@ import {
   Download, 
   RefreshCw, 
   ArrowUpCircle, 
-  ArrowRight, 
   Palette, 
   ShieldCheck, 
   Sliders, 
@@ -19,6 +18,14 @@ import {
 } from 'lucide-react';
 import { logger } from '@/lib/logger';
 import { motion, AnimatePresence } from 'framer-motion';
+
+function stripEmojis(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/[\u{1F300}-\u{1FAFF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1F018}-\u{1F270}]/gu, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
 
 interface HighlightItem {
   icon: React.ComponentType<{ className?: string }>;
@@ -81,7 +88,7 @@ export function UpdateDialog() {
   const cleanNotes = useMemo(() => {
     if (!updateInfo?.notes) return '';
     const parts = updateInfo.notes.split(/Download the appropriate installer for your platform:/i);
-    return parts[0].trim();
+    return stripEmojis(parts[0].trim());
   }, [updateInfo?.notes]);
 
   const isCustomMarkdown = useMemo(() => {
@@ -153,9 +160,9 @@ export function UpdateDialog() {
     <AnimatePresence>
       {isUpdateDialogOpen && (
         <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>
-          <DialogContent className="sm:max-w-[540px] p-0 overflow-hidden border-none bg-transparent shadow-[0_0_60px_rgba(0,0,0,0.5)]">
+          <DialogContent className="sm:max-w-[580px] w-[94vw] p-0 overflow-hidden border-none bg-transparent shadow-[0_0_60px_rgba(0,0,0,0.6)]">
             <motion.div 
-              className="relative bg-[#0e0e12] text-white border border-white/[0.08] rounded-3xl overflow-hidden flex flex-col max-h-[86vh] shadow-2xl"
+              className="relative bg-[#0e0e12] text-white border border-white/[0.08] rounded-3xl overflow-hidden flex flex-col max-h-[88vh] shadow-2xl"
               initial={{ opacity: 0, scale: 0.96, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
@@ -186,7 +193,7 @@ export function UpdateDialog() {
                 </div>
 
                 {/* What's New Highlights (Minimal, calm, readable, zero emojis) */}
-                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-3 max-h-[44vh] overflow-y-auto custom-scrollbar">
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4.5 space-y-3 max-h-[44vh] overflow-y-auto custom-scrollbar">
                   <div className="text-[11px] font-semibold tracking-wider uppercase text-zinc-400 px-1">
                     What's New
                   </div>
@@ -196,19 +203,19 @@ export function UpdateDialog() {
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
                         components={{
-                          h1: ({node, ...props}) => <h3 className="text-xs font-semibold text-white mt-3 mb-1" {...props} />,
-                          h2: ({node, ...props}) => <h3 className="text-xs font-semibold text-white mt-3 mb-1" {...props} />,
-                          h3: ({node, ...props}) => <h4 className="text-xs font-medium text-zinc-300 mt-2 mb-1" {...props} />,
-                          ul: ({node, ...props}) => <ul className="space-y-2 my-1 list-none p-0" {...props} />,
+                          h1: ({node, children, ...props}) => <h3 className="text-xs font-semibold text-white mt-3 mb-1" {...props}>{stripEmojis(String(children))}</h3>,
+                          h2: ({node, children, ...props}) => <h3 className="text-xs font-semibold text-white mt-3 mb-1" {...props}>{stripEmojis(String(children))}</h3>,
+                          h3: ({node, children, ...props}) => <h4 className="text-xs font-medium text-zinc-300 mt-2 mb-1" {...props}>{stripEmojis(String(children))}</h4>,
+                          ul: ({node, ...props}) => <ul className="space-y-2.5 my-1 list-none p-0" {...props} />,
                           li: ({node, children, ...props}) => (
                             <li className="flex items-start gap-2 text-xs text-zinc-300 leading-relaxed" {...props}>
                               <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80 mt-1.5 shrink-0" />
                               <div className="flex-1 min-w-0">{children}</div>
                             </li>
                           ),
-                          strong: ({node, ...props}) => <strong className="font-medium text-white" {...props} />,
-                          code: ({node, ...props}) => (
-                            <span className="font-mono text-zinc-300 text-[11px]" {...props} />
+                          strong: ({node, children, ...props}) => <strong className="font-medium text-white" {...props}>{children}</strong>,
+                          code: ({node, children, ...props}) => (
+                            <span className="font-mono text-zinc-300 text-[11px]" {...props}>{children}</span>
                           ),
                         }}
                       >
@@ -268,12 +275,12 @@ export function UpdateDialog() {
                   </div>
                 )}
 
-                {/* Minimal Footer */}
-                <div className="pt-2 flex items-center justify-end gap-2.5">
+                {/* Clean, perfectly fitted footer */}
+                <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between sm:justify-end gap-3">
                   <button 
                     onClick={() => setIsUpdateDialogOpen(false)}
                     disabled={isUpdating}
-                    className="px-4 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50"
+                    className="h-10 px-4 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50"
                   >
                     Remind Me Later
                   </button>
@@ -281,7 +288,7 @@ export function UpdateDialog() {
                   <button 
                     onClick={handleUpdate}
                     disabled={isUpdating}
-                    className="px-4.5 py-2 rounded-xl text-xs font-semibold bg-amber-400 hover:bg-amber-300 text-black transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer"
+                    className="h-10 px-5 rounded-xl text-xs font-semibold bg-amber-400 hover:bg-amber-300 text-black transition-colors inline-flex items-center justify-center gap-2 shadow-xs disabled:opacity-50 cursor-pointer shrink-0 whitespace-nowrap"
                   >
                     {isUpdating ? (
                       <>

@@ -30,6 +30,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useOnlineMangaReaderStore } from '@/store/onlineMangaReaderStore';
 import { useLibraryStore } from '@/store/libraryStore';
+import { isAndroid } from '@/lib/tauri';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { AnimatePresence, motion } from 'framer-motion';
+import { createPortal } from 'react-dom';
+
 const TOPBAR_AUTO_HIDE_MS = 3000;
 
 export function MangaReaderHeader({ 
@@ -39,6 +44,7 @@ export function MangaReaderHeader({
     onClose: () => void;
     onChapterChange?: (chapterId: string) => Promise<{ pageUrls: string[]; chapterTitle: string }>;
 }) {
+    const isMobile = useIsMobile();
     const title = useMangaContentStore(s => s.title);
     const currentPage = useMangaContentStore(s => s.currentPage);
     const totalPages = useMangaContentStore(s => s.totalPages);
@@ -286,320 +292,333 @@ export function MangaReaderHeader({
                         </div>
                     )}
                 </div>
-
                 {/* Right Side: Chapter Nav (Online), Settings, Fullscreen */}
                 <div className="manga-topbar-right">
                     {(sourceType === 'online' || seriesBooks.length > 1) && (
-                        <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
-                            <DropdownMenuTrigger asChild>
-                                <button 
-                                    type="button" 
-                                    className={`manga-topbar-btn cursor-pointer transition-all ${
-                                        dropdownOpen 
-                                            ? isLight 
-                                                ? 'manga-topbar-btn--active !bg-[#A0522D]/15 !text-[#A0522D] ring-1 ring-[#A0522D]/30' 
-                                                : 'manga-topbar-btn--active !bg-white/15 !text-white ring-1 ring-white/20' 
-                                            : ''
-                                    }`} 
-                                    title={sourceType === 'online' ? "Choose Chapter" : "Choose Volume"}
-                                >
-                                    <List size={18} />
-                                </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent 
-                                align="end" 
-                                side="bottom"
-                                sideOffset={10}
-                                className={`w-84 sm:w-96 max-h-[460px] flex flex-col p-0 rounded-2xl z-[150] overflow-hidden select-none animate-in fade-in-0 zoom-in-95 duration-150 ${
-                                    isLight
-                                        ? '!bg-[#FAF6EC] !text-[#2C1E0F] !border-[#D9C9A3] shadow-2xl shadow-[#5C4430]/35 ring-1 ring-[#8A6A50]/20'
-                                        : '!bg-[#121217] !text-white !border-white/15 shadow-2xl shadow-black/95 ring-1 ring-white/10'
-                                }`}
+                        <>
+                            <button 
+                                type="button" 
+                                onClick={() => setDropdownOpen(true)}
+                                className={`manga-topbar-btn cursor-pointer transition-all ${
+                                    dropdownOpen 
+                                        ? isLight 
+                                            ? 'manga-topbar-btn--active !bg-[#A0522D]/15 !text-[#A0522D] ring-1 ring-[#A0522D]/30' 
+                                            : 'manga-topbar-btn--active !bg-white/15 !text-white ring-1 ring-white/20' 
+                                        : ''
+                                }`} 
+                                title={sourceType === 'online' ? "Choose Chapter" : "Choose Volume"}
                             >
-                                {/* Dropdown Header: Title, Count, Sort Toggle */}
-                                <div className={`p-3 border-b flex flex-col gap-2.5 shrink-0 ${
-                                    isLight 
-                                        ? '!bg-[#F4ECD8] !border-[#D9C9A3]' 
-                                        : '!bg-[#1a1a22] !border-white/10'
-                                }`}>
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <BookOpen className={`w-4 h-4 ${isLight ? 'text-[#A0522D]' : 'text-amber-400'}`} />
-                                            <span className={`font-semibold text-xs tracking-wide ${isLight ? 'text-[#2C1E0F]' : 'text-white'}`}>
-                                                {sourceType === 'online' ? 'Chapters' : 'Series Volumes'}
-                                            </span>
-                                            <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full border ${
-                                                isLight 
-                                                    ? 'bg-[#E5D7BC] text-[#5C4430] border-[#D9C9A3]' 
-                                                    : 'bg-white/10 text-white/70 border-white/5'
-                                            }`}>
-                                                {sourceType === 'online' ? (onlineSource?.chapters.length || 0) : seriesBooks.length}
-                                            </span>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-                                            }}
-                                            className={`flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-lg transition-colors border ${
-                                                isLight 
-                                                    ? 'text-[#5C4430] hover:text-[#2C1E0F] hover:bg-[#E5D7BC] border-transparent hover:border-[#D9C9A3]' 
-                                                    : 'text-white/70 hover:text-white hover:bg-white/10 border-transparent hover:border-white/10'
-                                            }`}
-                                            title={`Sort chapters (${sortDirection === 'asc' ? 'Ascending' : 'Descending'})`}
-                                        >
-                                            <ArrowUpDown className={`w-3 h-3 ${isLight ? 'text-[#A0522D]' : 'text-amber-400'}`} />
-                                            <span>{sortDirection === 'asc' ? '1 → End' : 'End → 1'}</span>
-                                        </button>
-                                    </div>
+                                <List size={18} />
+                            </button>
 
-                                    {/* Search Input Filter */}
-                                    {((sourceType === 'online' && (onlineSource?.chapters.length || 0) > 4) || seriesBooks.length > 4) && (
-                                        <div className={`relative flex items-center border rounded-xl px-2.5 py-1.5 transition-all ${
-                                            isLight 
-                                                ? '!bg-[#EAE0CB] hover:!bg-[#E5D7BC] focus-within:!bg-[#FAF6EC] !border-[#D9C9A3] focus-within:!border-[#A0522D]' 
-                                                : '!bg-white/[0.06] hover:!bg-white/[0.08] focus-within:!bg-white/[0.1] !border-white/10 focus-within:!border-amber-400/50'
-                                        }`}>
-                                            <Search className={`w-3.5 h-3.5 shrink-0 mr-2 ${isLight ? 'text-[#8A6A50]' : 'text-white/40'}`} />
-                                            <input
-                                                ref={searchInputRef}
-                                                type="text"
-                                                placeholder={sourceType === 'online' ? "Search chapter number or title..." : "Search volume..."}
-                                                value={chapterSearch}
-                                                onChange={(e) => setChapterSearch(e.target.value)}
-                                                onKeyDown={(e) => e.stopPropagation()}
-                                                className={`w-full bg-transparent text-xs focus:outline-none ${
-                                                    isLight 
-                                                        ? 'text-[#2C1E0F] placeholder:text-[#8A6A50]/70' 
-                                                        : 'text-white placeholder:text-white/40'
-                                                }`}
+                            {/* Chapter / Volume Modal - Portaled to document.body */}
+                            {typeof document !== 'undefined' && createPortal(
+                                <AnimatePresence>
+                                    {dropdownOpen && (
+                                        <>
+                                            {/* Backdrop */}
+                                            <motion.div
+                                                className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-xs"
+                                                onClick={() => setDropdownOpen(false)}
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                exit={{ opacity: 0 }}
+                                                transition={{ duration: 0.2 }}
                                             />
-                                            {chapterSearch && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setChapterSearch('')}
-                                                    className={`p-0.5 rounded-md transition-colors ${
-                                                        isLight ? 'text-[#8A6A50] hover:text-[#2C1E0F]' : 'text-white/40 hover:text-white'
-                                                    }`}
-                                                >
-                                                    <X className="w-3.5 h-3.5" />
-                                                </button>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
 
-                                {/* Chapters / Volumes List */}
-                                <div className={`flex-1 overflow-y-auto custom-scrollbar p-1.5 space-y-1 max-h-[340px] ${
-                                    isLight ? '!bg-[#FAF6EC]' : '!bg-[#121217]'
-                                }`}>
-                                    {sourceType === 'online' ? (
-                                        processedChapters.length === 0 ? (
-                                            <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
-                                                <Search className={`w-6 h-6 mb-2 ${isLight ? 'text-[#8A6A50]/40' : 'text-white/20'}`} />
-                                                <p className={`text-xs font-medium ${isLight ? 'text-[#2C1E0F]/70' : 'text-white/70'}`}>No chapters found</p>
-                                                {chapterSearch && (
-                                                    <p className={`text-[11px] mt-0.5 ${isLight ? 'text-[#8A6A50]' : 'text-white/40'}`}>
-                                                        Matching &ldquo;{chapterSearch}&rdquo;
-                                                    </p>
+                                            {/* Modal container: Bottom sheet on mobile/Android, Centered card on desktop */}
+                                            <motion.div
+                                                className={`fixed z-[205] flex flex-col overflow-hidden select-none border shadow-2xl ${
+                                                    isAndroid || isMobile
+                                                        ? 'bottom-0 inset-x-0 rounded-t-[28px] max-h-[82vh]'
+                                                        : 'top-[calc(max(12px,calc(env(safe-area-inset-top,0px)+8px))+52px)] left-1/2 -translate-x-1/2 w-84 sm:w-96 max-h-[min(540px,75vh)] rounded-3xl'
+                                                } ${
+                                                    isLight
+                                                        ? '!bg-[#FAF6EC] !text-[#2C1E0F] !border-[#D9C9A3] shadow-2xl shadow-[#5C4430]/35 ring-1 ring-[#8A6A50]/20'
+                                                        : '!bg-[#121217] !text-white !border-white/15 shadow-2xl shadow-black/95 ring-1 ring-white/10'
+                                                }`}
+                                                style={isAndroid || isMobile ? {
+                                                    paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)',
+                                                } : undefined}
+                                                initial={isAndroid || isMobile ? { y: '100%' } : { opacity: 0, scale: 0.96, y: -6, x: '-50%' }}
+                                                animate={isAndroid || isMobile ? { y: 0 } : { opacity: 1, scale: 1, y: 0, x: '-50%' }}
+                                                exit={isAndroid || isMobile ? { y: '100%' } : { opacity: 0, scale: 0.96, y: -6, x: '-50%' }}
+                                                transition={isAndroid || isMobile ? { type: 'spring', bounce: 0, duration: 0.3 } : { type: 'spring', bounce: 0, duration: 0.25 }}
+                                            >
+                                                {/* Mobile Drag handle pill */}
+                                                {(isAndroid || isMobile) && (
+                                                    <div className="w-12 h-1 rounded-full bg-muted-foreground/25 mx-auto mt-3 mb-1 shrink-0" />
                                                 )}
-                                                {chapterSearch && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setChapterSearch('')}
-                                                        className={`mt-3 px-3 py-1 text-xs font-medium rounded-lg transition-colors border ${
-                                                            isLight 
-                                                                ? 'text-[#A0522D] bg-[#A0522D]/10 hover:bg-[#A0522D]/20 border-[#A0522D]/30' 
-                                                                : 'text-amber-400 bg-amber-400/10 hover:bg-amber-400/20 border-amber-400/20'
-                                                        }`}
-                                                    >
-                                                        Clear Search
-                                                    </button>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            processedChapters.map(c => {
-                                                const isSelected = onlineSource?.chapterId === c.id;
-                                                const isSwitching = switchingChapterId === c.id;
 
-                                                return (
-                                                    <DropdownMenuItem
-                                                        key={c.id}
-                                                        asChild
-                                                        className="p-0 focus:bg-transparent focus:text-inherit data-[highlighted]:bg-transparent"
-                                                    >
-                                                        <div
-                                                            ref={isSelected ? activeItemRef : undefined}
-                                                            onClick={() => {
-                                                                if (isSelected || isSwitching) return;
-                                                                setSwitchingChapterId(c.id);
-                                                                setLoading(true);
-                                                                if (onChapterChange) {
-                                                                    onChapterChange(c.id).then(data => {
-                                                                        setOnlineChapter(c.id, data.chapterTitle, data.pageUrls);
-                                                                        setLoading(false);
-                                                                        setSwitchingChapterId(null);
-                                                                        setDropdownOpen(false);
-                                                                    }).catch(err => {
-                                                                        setError(err instanceof Error ? String(err) : 'Failed');
-                                                                        setLoading(false);
-                                                                        setSwitchingChapterId(null);
-                                                                    });
-                                                                }
-                                                            }}
-                                                            className={`group relative flex items-center justify-between px-3 py-2 text-xs font-medium rounded-xl cursor-pointer transition-all outline-none ${
-                                                                isSelected 
-                                                                    ? isLight 
-                                                                        ? '!bg-[#A0522D]/15 !text-[#733516] border border-[#A0522D]/35 font-semibold shadow-xs' 
-                                                                        : '!bg-amber-500/20 !text-amber-300 border border-amber-500/30 font-semibold shadow-inner'
-                                                                    : isLight 
-                                                                        ? '!text-[#2C1E0F] hover:!bg-[#EFE6D2] focus:!bg-[#EFE6D2] active:!bg-[#E5D7BC] border border-transparent' 
-                                                                        : '!text-white/90 hover:!bg-white/[0.08] focus:!bg-white/[0.08] active:!bg-white/[0.12] border border-transparent'
-                                                            }`}
-                                                        >
-                                                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                                                {c.number != null ? (
-                                                                    <span className={`px-2 py-0.5 text-[11px] font-mono font-bold rounded-lg shrink-0 transition-colors ${
-                                                                        isSelected 
-                                                                            ? isLight 
-                                                                                ? '!bg-[#A0522D] !text-white shadow-xs' 
-                                                                                : '!bg-amber-400 !text-black shadow-sm' 
-                                                                            : isLight 
-                                                                                ? '!bg-[#E5D7BC] !text-[#5C4430] group-hover:!bg-[#D9C9A3] group-hover:!text-[#2C1E0F] border border-[#D9C9A3]/60' 
-                                                                                : '!bg-white/10 !text-white/90 group-hover:!bg-white/20 group-hover:!text-white border border-white/5'
-                                                                    }`}>
-                                                                        Ch. {c.number}
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className={`px-2 py-0.5 text-[11px] font-mono font-bold rounded-lg shrink-0 border ${
-                                                                        isLight 
-                                                                            ? '!bg-[#E5D7BC] !text-[#5C4430] border-[#D9C9A3]/60' 
-                                                                            : '!bg-white/10 !text-white/90 border-white/5'
-                                                                    }`}>
-                                                                        Ch
-                                                                    </span>
-                                                                )}
-                                                                
-                                                                <span className={`truncate text-xs ${
-                                                                    isSelected 
-                                                                        ? (isLight ? 'text-[#733516] font-semibold' : 'text-amber-300 font-semibold') 
-                                                                        : (isLight ? 'text-[#2C1E0F] font-medium' : 'text-white/90 font-medium')
-                                                                }`}>
-                                                                    {c.title ? (c.title.startsWith('Chapter ') && c.number != null ? c.title.replace(/^Chapter\s+\d+[\s:.-]*/i, '') || c.title : c.title) : `Chapter ${c.number ?? ''}`}
-                                                                </span>
-                                                            </div>
-
-                                                            <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                                                                {isSwitching ? (
-                                                                    <Loader2 className={`w-3.5 h-3.5 animate-spin ${isLight ? 'text-[#A0522D]' : 'text-amber-400'}`} />
-                                                                ) : isSelected ? (
-                                                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                                                                        isLight 
-                                                                            ? 'bg-[#A0522D]/20 border border-[#A0522D]/40 text-[#A0522D]' 
-                                                                            : 'bg-amber-400/20 border border-amber-400/40 text-amber-300'
-                                                                    }`}>
-                                                                        <Check className="w-3 h-3 stroke-[3]" />
-                                                                    </div>
-                                                                ) : (
-                                                                    <ChevronRight className={`w-3.5 h-3.5 transition-all opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 ${
-                                                                        isLight ? 'text-[#8A6A50]/40 group-hover:text-[#5C4430]' : 'text-white/20 group-hover:text-white/60'
-                                                                    }`} />
-                                                                )}
-                                                            </div>
+                                                {/* Header: Title, Count, Sort, Close */}
+                                                <div className={`p-4 border-b flex flex-col gap-3 shrink-0 ${
+                                                    isLight ? '!bg-[#F4ECD8] !border-[#D9C9A3]' : '!bg-[#1a1a22] !border-white/10'
+                                                }`}>
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2 min-w-0">
+                                                            <BookOpen className={`w-4 h-4 shrink-0 ${isLight ? 'text-[#A0522D]' : 'text-amber-400'}`} />
+                                                            <span className={`font-bold text-sm tracking-tight truncate ${isLight ? 'text-[#2C1E0F]' : 'text-white'}`}>
+                                                                {sourceType === 'online' ? 'Chapters' : 'Series Volumes'}
+                                                            </span>
+                                                            <span className={`px-2 py-0.5 text-[11px] font-bold rounded-full border shrink-0 ${
+                                                                isLight 
+                                                                    ? 'bg-[#E5D7BC] text-[#5C4430] border-[#D9C9A3]' 
+                                                                    : 'bg-white/10 text-white/80 border-white/10'
+                                                            }`}>
+                                                                {sourceType === 'online' ? (onlineSource?.chapters.length || 0) : seriesBooks.length}
+                                                            </span>
                                                         </div>
-                                                    </DropdownMenuItem>
-                                                );
-                                            })
-                                        )
-                                    ) : (
-                                        processedLocalBooks.length === 0 ? (
-                                            <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
-                                                <Search className={`w-6 h-6 mb-2 ${isLight ? 'text-[#8A6A50]/40' : 'text-white/20'}`} />
-                                                <p className={`text-xs font-medium ${isLight ? 'text-[#2C1E0F]/70' : 'text-white/70'}`}>No volumes found</p>
-                                                {chapterSearch && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setChapterSearch('')}
-                                                        className={`mt-3 px-3 py-1 text-xs font-medium rounded-lg transition-colors border ${
+
+                                                        <div className="flex items-center gap-2 shrink-0">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
+                                                                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-colors border cursor-pointer ${
+                                                                    isLight 
+                                                                        ? 'text-[#5C4430] hover:text-[#2C1E0F] bg-[#EAE0CB] border-[#D9C9A3]' 
+                                                                        : 'text-white/80 hover:text-white bg-white/10 border-white/10'
+                                                                }`}
+                                                                title={`Sort chapters (${sortDirection === 'asc' ? 'Ascending' : 'Descending'})`}
+                                                            >
+                                                                <ArrowUpDown className={`w-3.5 h-3.5 ${isLight ? 'text-[#A0522D]' : 'text-amber-400'}`} />
+                                                                <span>{sortDirection === 'asc' ? '1 → End' : 'End → 1'}</span>
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setDropdownOpen(false)}
+                                                                className={`p-1.5 rounded-xl transition-colors cursor-pointer ${
+                                                                    isLight ? 'text-[#5C4430] hover:bg-[#EAE0CB]' : 'text-white/70 hover:bg-white/10'
+                                                                }`}
+                                                            >
+                                                                <X className="w-5 h-5" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Search Input Filter */}
+                                                    {((sourceType === 'online' && (onlineSource?.chapters.length || 0) > 4) || seriesBooks.length > 4) && (
+                                                        <div className={`relative flex items-center border rounded-2xl px-3 py-2 transition-all ${
                                                             isLight 
-                                                                ? 'text-[#A0522D] bg-[#A0522D]/10 hover:bg-[#A0522D]/20 border-[#A0522D]/30' 
-                                                                : 'text-amber-400 bg-amber-400/10 hover:bg-amber-400/20 border-amber-400/20'
-                                                        }`}
-                                                    >
-                                                        Clear Search
-                                                    </button>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            processedLocalBooks.map((b, idx) => {
-                                                const isSelected = currentLocalBook?.id === b.id;
-                                                return (
-                                                    <DropdownMenuItem
-                                                        key={b.id}
-                                                        asChild
-                                                        className="p-0 focus:bg-transparent focus:text-inherit data-[highlighted]:bg-transparent"
-                                                    >
-                                                        <div
-                                                            ref={isSelected ? activeItemRef : undefined}
-                                                            onClick={() => {
-                                                                if (isSelected) return;
-                                                                setDropdownOpen(false);
-                                                                window.dispatchEvent(new CustomEvent('open-book', { detail: { bookId: b.id } }));
-                                                            }}
-                                                            className={`group relative flex items-center justify-between px-3 py-2 text-xs font-medium rounded-xl cursor-pointer transition-all outline-none ${
-                                                                isSelected 
-                                                                    ? isLight 
-                                                                        ? '!bg-[#A0522D]/15 !text-[#733516] border border-[#A0522D]/35 font-semibold shadow-xs' 
-                                                                        : '!bg-amber-500/20 !text-amber-300 border border-amber-500/30 font-semibold shadow-inner'
-                                                                    : isLight 
-                                                                        ? '!text-[#2C1E0F] hover:!bg-[#EFE6D2] focus:!bg-[#EFE6D2] active:!bg-[#E5D7BC] border border-transparent' 
-                                                                        : '!text-white/90 hover:!bg-white/[0.08] focus:!bg-white/[0.08] active:!bg-white/[0.12] border border-transparent'
-                                                            }`}
-                                                        >
-                                                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                                                <span className={`px-2 py-0.5 text-[11px] font-mono font-bold rounded-lg shrink-0 transition-colors ${
-                                                                    isSelected 
-                                                                        ? isLight 
-                                                                            ? '!bg-[#A0522D] !text-white shadow-xs' 
-                                                                            : '!bg-amber-400 !text-black shadow-sm' 
-                                                                        : isLight 
-                                                                            ? '!bg-[#E5D7BC] !text-[#5C4430] group-hover:!bg-[#D9C9A3] group-hover:!text-[#2C1E0F] border border-[#D9C9A3]/60' 
-                                                                            : '!bg-white/10 !text-white/90 group-hover:!bg-white/20 group-hover:!text-white border border-white/5'
-                                                                }`}>
-                                                                    Vol. {b.series_index || idx + 1}
-                                                                </span>
-                                                                <span className={`truncate text-xs ${
-                                                                    isSelected 
-                                                                        ? (isLight ? 'text-[#733516] font-semibold' : 'text-amber-300 font-semibold') 
-                                                                        : (isLight ? 'text-[#2C1E0F] font-medium' : 'text-white/90 font-medium')
-                                                                }`}>{b.title}</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                                                                {isSelected ? (
-                                                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                                                                        isLight 
-                                                                            ? 'bg-[#A0522D]/20 border border-[#A0522D]/40 text-[#A0522D]' 
-                                                                            : 'bg-amber-400/20 border border-amber-400/40 text-amber-300'
-                                                                    }`}>
-                                                                        <Check className="w-3 h-3 stroke-[3]" />
-                                                                    </div>
-                                                                ) : (
-                                                                    <ChevronRight className={`w-3.5 h-3.5 transition-all opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 ${
-                                                                        isLight ? 'text-[#8A6A50]/40 group-hover:text-[#5C4430]' : 'text-white/20 group-hover:text-white/60'
-                                                                    }`} />
+                                                                ? '!bg-[#EAE0CB] focus-within:!bg-[#FAF6EC] !border-[#D9C9A3] focus-within:!border-[#A0522D]' 
+                                                                : '!bg-white/[0.06] focus-within:!bg-white/[0.1] !border-white/10 focus-within:!border-amber-400/50'
+                                                        }`}>
+                                                            <Search className={`w-4 h-4 shrink-0 mr-2.5 ${isLight ? 'text-[#8A6A50]' : 'text-white/40'}`} />
+                                                            <input
+                                                                ref={searchInputRef}
+                                                                type="text"
+                                                                placeholder={sourceType === 'online' ? "Search chapter number or title..." : "Search volume..."}
+                                                                value={chapterSearch}
+                                                                onChange={(e) => setChapterSearch(e.target.value)}
+                                                                className={`w-full bg-transparent text-sm focus:outline-none ${
+                                                                    isLight 
+                                                                        ? 'text-[#2C1E0F] placeholder:text-[#8A6A50]/70' 
+                                                                        : 'text-white placeholder:text-white/40'
+                                                                }`}
+                                                            />
+                                                            {chapterSearch && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setChapterSearch('')}
+                                                                    className={`p-1 rounded-md transition-colors ${
+                                                                        isLight ? 'text-[#8A6A50] hover:text-[#2C1E0F]' : 'text-white/40 hover:text-white'
+                                                                    }`}
+                                                                >
+                                                                    <X className="w-4 h-4" />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Chapters / Volumes List */}
+                                                <div className={`flex-1 overflow-y-auto overscroll-contain custom-scrollbar p-3 space-y-2 ${
+                                                    isAndroid || isMobile ? 'max-h-[60vh]' : 'max-h-[380px]'
+                                                } ${
+                                                    isLight ? '!bg-[#FAF6EC]' : '!bg-[#121217]'
+                                                }`}>
+                                                    {sourceType === 'online' ? (
+                                                        processedChapters.length === 0 ? (
+                                                            <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
+                                                                <Search className={`w-8 h-8 mb-2 ${isLight ? 'text-[#8A6A50]/40' : 'text-white/20'}`} />
+                                                                <p className={`text-sm font-medium ${isLight ? 'text-[#2C1E0F]/70' : 'text-white/70'}`}>No chapters found</p>
+                                                                {chapterSearch && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setChapterSearch('')}
+                                                                        className={`mt-3 px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-colors border cursor-pointer ${
+                                                                            isLight 
+                                                                                ? 'text-[#A0522D] bg-[#A0522D]/10 hover:bg-[#A0522D]/20 border-[#A0522D]/30' 
+                                                                                : 'text-amber-400 bg-amber-400/10 hover:bg-amber-400/20 border-amber-400/20'
+                                                                        }`}
+                                                                    >
+                                                                        Clear Search
+                                                                    </button>
                                                                 )}
                                                             </div>
-                                                        </div>
-                                                    </DropdownMenuItem>
-                                                );
-                                            })
-                                        )
-                                    )}
-                                </div>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    )}
+                                                        ) : (
+                                                            processedChapters.map(c => {
+                                                                const isSelected = onlineSource?.chapterId === c.id;
+                                                                const isSwitching = switchingChapterId === c.id;
+
+                                                                return (
+                                                                    <div
+                                                                        key={c.id}
+                                                                        ref={isSelected ? activeItemRef : undefined}
+                                                                        onClick={() => {
+                                                                            if (isSelected || isSwitching) return;
+                                                                            setSwitchingChapterId(c.id);
+                                                                            setLoading(true);
+                                                                            if (onChapterChange) {
+                                                                                onChapterChange(c.id).then(data => {
+                                                                                    setOnlineChapter(c.id, data.chapterTitle, data.pageUrls);
+                                                                                    setLoading(false);
+                                                                                    setSwitchingChapterId(null);
+                                                                                    setDropdownOpen(false);
+                                                                                }).catch(err => {
+                                                                                    setError(err instanceof Error ? String(err) : 'Failed');
+                                                                                    setLoading(false);
+                                                                                    setSwitchingChapterId(null);
+                                                                                });
+                                                                            }
+                                                                        }}
+                                                                        className={`group relative flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all active:scale-[0.99] ${
+                                                                            isSelected 
+                                                                                ? isLight 
+                                                                                    ? '!bg-[#A0522D]/15 !text-[#733516] border border-[#A0522D]/40 font-semibold shadow-xs' 
+                                                                                    : '!bg-amber-500/20 !text-amber-300 border border-amber-500/35 font-semibold shadow-inner'
+                                                                                : isLight 
+                                                                                    ? '!text-[#2C1E0F] hover:!bg-[#EFE6D2] active:!bg-[#E5D7BC] border border-transparent' 
+                                                                                    : '!text-white/90 hover:!bg-white/[0.08] active:!bg-white/[0.12] border border-transparent'
+                                                                        }`}
+                                                                    >
+                                                                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                                                                            {c.number != null ? (
+                                                                                <span className={`px-2.5 py-1 text-xs font-mono font-bold rounded-xl shrink-0 transition-colors ${
+                                                                                    isSelected 
+                                                                                        ? isLight 
+                                                                                            ? '!bg-[#A0522D] !text-white shadow-xs' 
+                                                                                            : '!bg-amber-400 !text-black shadow-sm' 
+                                                                                        : isLight 
+                                                                                            ? '!bg-[#E5D7BC] !text-[#5C4430] border border-[#D9C9A3]/60' 
+                                                                                            : '!bg-white/10 !text-white/90 border border-white/5'
+                                                                                }`}>
+                                                                                    Ch. {c.number}
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className={`px-2.5 py-1 text-xs font-mono font-bold rounded-xl shrink-0 border ${
+                                                                                    isLight 
+                                                                                        ? '!bg-[#E5D7BC] !text-[#5C4430] border border-[#D9C9A3]/60' 
+                                                                                        : '!bg-white/10 !text-white/90 border border-white/5'
+                                                                                }`}>
+                                                                                    Ch
+                                                                                </span>
+                                                                            )}
+                                                                            
+                                                                            <span className={`truncate text-sm ${
+                                                                                isSelected 
+                                                                                    ? (isLight ? 'text-[#733516] font-bold' : 'text-amber-300 font-bold') 
+                                                                                    : (isLight ? 'text-[#2C1E0F] font-medium' : 'text-white/90 font-medium')
+                                                                            }`}>
+                                                                                {c.title ? (c.title.startsWith('Chapter ') && c.number != null ? c.title.replace(/^Chapter\s+\d+[\s:.-]*/i, '') || c.title : c.title) : `Chapter ${c.number ?? ''}`}
+                                                                            </span>
+                                                                        </div>
+
+                                                                        <div className="flex items-center gap-1.5 shrink-0 ml-3">
+                                                                            {isSwitching ? (
+                                                                                <Loader2 className={`w-4 h-4 animate-spin ${isLight ? 'text-[#A0522D]' : 'text-amber-400'}`} />
+                                                                            ) : isSelected ? (
+                                                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                                                                                    isLight 
+                                                                                        ? 'bg-[#A0522D]/20 border border-[#A0522D]/40 text-[#A0522D]' 
+                                                                                        : 'bg-amber-400/20 border border-amber-400/40 text-amber-300'
+                                                                                }`}>
+                                                                                    <Check className="w-3.5 h-3.5 stroke-[3]" />
+                                                                                </div>
+                                                                            ) : (
+                                                                                <ChevronRight className={`w-4 h-4 opacity-40 ${
+                                                                                    isLight ? 'text-[#8A6A50]' : 'text-white/40'
+                                                                                }`} />
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })
+                                                        )
+                                                    ) : (
+                                                        processedLocalBooks.length === 0 ? (
+                                                            <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
+                                                                <Search className={`w-8 h-8 mb-2 ${isLight ? 'text-[#8A6A50]/40' : 'text-white/20'}`} />
+                                                                <p className={`text-sm font-medium ${isLight ? 'text-[#2C1E0F]/70' : 'text-white/70'}`}>No volumes found</p>
+                                                            </div>
+                                                        ) : (
+                                                            processedLocalBooks.map((b, idx) => {
+                                                                const isSelected = currentLocalBook?.id === b.id;
+                                                                return (
+                                                                    <div
+                                                                        key={b.id}
+                                                                        ref={isSelected ? activeItemRef : undefined}
+                                                                        onClick={() => {
+                                                                            if (isSelected) return;
+                                                                            setDropdownOpen(false);
+                                                                            window.dispatchEvent(new CustomEvent('open-book', { detail: { bookId: b.id } }));
+                                                                        }}
+                                                                        className={`group relative flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all active:scale-[0.99] ${
+                                                                            isSelected 
+                                                                                ? isLight 
+                                                                                    ? '!bg-[#A0522D]/15 !text-[#733516] border border-[#A0522D]/40 font-semibold shadow-xs' 
+                                                                                    : '!bg-amber-500/20 !text-amber-300 border border-amber-500/35 font-semibold shadow-inner'
+                                                                                : isLight 
+                                                                                    ? '!text-[#2C1E0F] hover:!bg-[#EFE6D2] active:!bg-[#E5D7BC] border border-transparent' 
+                                                                                    : '!text-white/90 hover:!bg-white/[0.08] active:!bg-white/[0.12] border border-transparent'
+                                                                        }`}
+                                                                    >
+                                                                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                                                                            <span className={`px-2.5 py-1 text-xs font-mono font-bold rounded-xl shrink-0 transition-colors ${
+                                                                                isSelected 
+                                                                                    ? isLight 
+                                                                                        ? '!bg-[#A0522D] !text-white shadow-xs' 
+                                                                                        : '!bg-amber-400 !text-black shadow-sm' 
+                                                                                    : isLight 
+                                                                                        ? '!bg-[#E5D7BC] !text-[#5C4430] border border-[#D9C9A3]/60' 
+                                                                                        : '!bg-white/10 !text-white/90 border border-white/5'
+                                                                            }`}>
+                                                                                Vol. {b.series_index || idx + 1}
+                                                                            </span>
+                                                                            <span className={`truncate text-sm ${
+                                                                                isSelected 
+                                                                                    ? (isLight ? 'text-[#733516] font-bold' : 'text-amber-300 font-bold') 
+                                                                                    : (isLight ? 'text-[#2C1E0F] font-medium' : 'text-white/90 font-medium')
+                                                                            }`}>{b.title}</span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-1.5 shrink-0 ml-3">
+                                                                            {isSelected ? (
+                                                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                                                                                    isLight 
+                                                                                        ? 'bg-[#A0522D]/20 border border-[#A0522D]/40 text-[#A0522D]' 
+                                                                                        : 'bg-amber-400/20 border border-amber-400/40 text-amber-300'
+                                                                                }`}>
+                                                                                    <Check className="w-3.5 h-3.5 stroke-[3]" />
+                                                                                </div>
+                                                                            ) : (
+                                                                                <ChevronRight className={`w-4 h-4 opacity-40 ${
+                                                                                    isLight ? 'text-[#8A6A50]' : 'text-white/40'
+                                                                                }`} />
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })
+                                                        )
+                                                    )}
+                                                </div>
+                                                </motion.div>
+                                            </>
+                                        )}
+                                    </AnimatePresence>,
+                                    document.body
+                                )}
+                            </>
+                        )}
 
                     {sourceType === 'local' && seriesBooks.length > 1 && (
                         <>

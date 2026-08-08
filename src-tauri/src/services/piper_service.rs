@@ -37,6 +37,24 @@ fn has_espeak_tables(dir: &Path) -> bool {
         || dir.join("phonindex").exists()
 }
 
+/// Normalizes a path to absolute and strips any Windows `\\?\` UNC prefix
+/// because the C `espeak-ng` library's `fopen` only accepts standard Win32 paths.
+fn normalize_path(path: &Path) -> PathBuf {
+    if let Ok(abs) = std::fs::canonicalize(path) {
+        let s = abs.to_string_lossy();
+        if s.starts_with(r"\\?\") {
+            return PathBuf::from(&s[4..]);
+        }
+        return abs;
+    }
+    if path.is_relative() {
+        if let Ok(cwd) = std::env::current_dir() {
+            return cwd.join(path);
+        }
+    }
+    path.to_path_buf()
+}
+
 /// Returns the value espeak-rs wants for PIPER_ESPEAKNG_DATA_DIRECTORY: the
 /// PARENT directory that contains an `espeak-ng-data` subdir with the phoneme
 /// tables. Per candidate:
@@ -46,15 +64,16 @@ fn has_espeak_tables(dir: &Path) -> bool {
 ///   (c) otherwise the candidate is skipped.
 pub fn find_espeak_data_dir(candidates: &[PathBuf]) -> Option<PathBuf> {
     for candidate in candidates {
+        let clean = normalize_path(candidate);
         // (a) Candidate is the parent; the espeak-ng-data subdir has the tables.
-        let data = candidate.join("espeak-ng-data");
+        let data = clean.join("espeak-ng-data");
         if data.join("phontab").exists() || data.join("phonindex").exists() {
-            return Some(candidate.clone());
+            return Some(clean);
         }
         // (b) Candidate is the data dir itself; espeak-rs wants its parent.
-        if candidate.join("phontab").exists() || candidate.join("phonindex").exists() {
-            let parent = candidate.parent().filter(|p| !p.as_os_str().is_empty());
-            return Some(parent.map(Path::to_path_buf).unwrap_or_else(|| candidate.clone()));
+        if clean.join("phontab").exists() || clean.join("phonindex").exists() {
+            let parent = clean.parent().filter(|p| !p.as_os_str().is_empty());
+            return Some(parent.map(Path::to_path_buf).unwrap_or_else(|| clean.clone()));
         }
         // (c) Otherwise keep probing.
     }

@@ -87,7 +87,7 @@ export function OnlineSourceSelector({ kind, className, variant = "outline" }: O
           <span className="truncate max-w-[180px]">{sourceLabel}</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[280px] md:w-[300px] bg-background/95 backdrop-blur-xl shadow-xl border-white/10">
+      <DropdownMenuContent align="end" className="w-[280px] md:w-[300px] bg-popover !bg-popover !opacity-100 shadow-2xl border border-border rounded-2xl p-1.5 z-[150]">
         <DropdownMenuLabel className="text-xs uppercase tracking-wide text-muted-foreground">
           {kind === 'books' ? 'Book sources' : 'Manga sources'}
         </DropdownMenuLabel>

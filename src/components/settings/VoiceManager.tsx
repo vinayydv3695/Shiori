@@ -170,12 +170,12 @@ export function VoiceManager() {
   const currentVoiceUri = preferences?.tts?.voice || 'default';
 
   const handleTestVoice = async (voice: SpeechSynthesisVoice) => {
-    if (isTauri) {
+    if (isTauri && !isLinux) {
       try {
         const { speak: nativeSpeak } = await import('tauri-plugin-tts-api');
         await nativeSpeak({
           text: 'This is a test of the selected voice.',
-          language: null,
+          language: voice.lang || null,
           voiceId: voice.voiceURI,
           rate: preferences?.tts?.rate || 1.0,
           pitch: null,
@@ -184,7 +184,7 @@ export function VoiceManager() {
         });
         return;
       } catch (e) {
-        console.error('Native TTS test failed', e);
+        console.error('Native TTS test failed, falling back to Web Speech API', e);
       }
     }
 

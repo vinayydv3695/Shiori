@@ -148,10 +148,10 @@ export function AnnotationsViewDesktop({ onClose, onOpenBook, data }: Annotation
                     <span>{categoryFilter === 'all' ? 'All Categories' : categories.find(c => c.id === categoryFilter)?.name || 'All Categories'}</span>
                     <ChevronDown size={14} className="text-muted-foreground" />
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48 bg-popover/95 backdrop-blur-xl border border-border/80 shadow-xl rounded-xl p-1 z-50">
+                  <DropdownMenuContent align="end" className="w-52 bg-popover !bg-popover !opacity-100 border border-border/80 shadow-2xl rounded-2xl p-1.5 z-[200]">
                     <DropdownMenuItem
                       onClick={() => setCategoryFilter('all')}
-                      className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
+                      className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-colors ${
                         categoryFilter === 'all' ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'
                       }`}
                     >
@@ -162,12 +162,12 @@ export function AnnotationsViewDesktop({ onClose, onOpenBook, data }: Annotation
                       <DropdownMenuItem
                         key={c.id ?? c.name}
                         onClick={() => c.id !== undefined && setCategoryFilter(c.id)}
-                        className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
+                        className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-colors ${
                           categoryFilter === c.id ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'
                         }`}
                       >
-                        <span>{c.name}</span>
-                        {categoryFilter === c.id && <Check size={14} className="text-primary" />}
+                        <span className="truncate pr-2">{c.name}</span>
+                        {categoryFilter === c.id && <Check size={14} className="text-primary shrink-0" />}
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>

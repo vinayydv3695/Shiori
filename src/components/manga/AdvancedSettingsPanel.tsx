@@ -29,9 +29,12 @@ import {
     Scan, 
     Eye, 
     Hash, 
+    FileDigit,
+    Infinity,
     Repeat 
 } from 'lucide-react';
 import { isAndroid } from '@/lib/tauri';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 type SettingsTab = 'layout' | 'image' | 'shortcuts';
 
@@ -71,6 +74,9 @@ export function AdvancedSettingsPanel() {
     const zoomOut = useMangaSettingsStore(s => s.zoomOut);
     const continuousChapter = useMangaSettingsStore(s => s.continuousChapter);
     const toggleContinuousChapter = useMangaSettingsStore(s => s.toggleContinuousChapter);
+
+    const isMobile = useIsMobile();
+    const isMobileOrAndroid = isAndroid || isMobile;
 
     const [activeTab, setActiveTab] = useState<SettingsTab>('layout');
 
@@ -116,18 +122,26 @@ export function AdvancedSettingsPanel() {
 
     return (
         <div
-            className="fixed inset-0 z-[200] bg-black/65 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in-0 duration-200"
+            className="fixed inset-0 z-[250] bg-black/65 backdrop-blur-md flex items-end sm:items-center justify-center sm:p-4 animate-in fade-in-0 duration-200"
             onClick={(e) => {
                 if (e.target === e.currentTarget) closeSettings();
             }}
         >
             <div 
-                className={`w-full max-w-xl max-h-[85vh] flex flex-col rounded-3xl overflow-hidden shadow-2xl transition-all animate-in zoom-in-95 duration-200 ${
+                className={`w-full max-w-xl max-h-[85vh] flex flex-col rounded-t-[32px] sm:rounded-3xl overflow-hidden shadow-2xl transition-all animate-in zoom-in-95 duration-200 ${
                     isLight
                         ? 'bg-[#FAF6EC] text-[#2C1E0F] border border-[#D9C9A3] shadow-2xl shadow-[#5C4430]/25 ring-1 ring-[#8A6A50]/15'
                         : 'bg-[#121217] text-white border border-white/10 shadow-2xl shadow-black/90 ring-1 ring-white/5'
                 }`}
+                style={isMobileOrAndroid ? {
+                    paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)',
+                } : undefined}
             >
+                {/* Drag handle pill on mobile */}
+                {isMobileOrAndroid && (
+                    <div className="w-12 h-1 rounded-full bg-muted-foreground/30 mx-auto mt-3 mb-1 shrink-0" />
+                )}
+
                 {/* Header */}
                 <div className={`px-6 py-4 border-b flex items-center justify-between shrink-0 ${
                     isLight ? 'bg-[#F0E6CE]/70 border-[#D9C9A3]' : 'bg-white/[0.03] border-white/10'
@@ -381,7 +395,7 @@ export function AdvancedSettingsPanel() {
                                     <div className="flex items-center justify-between gap-4">
                                         <div className="flex items-center gap-3">
                                             <div className={`p-2 rounded-xl ${isLight ? 'bg-[#E5D7BC] text-[#5C4430]' : 'bg-white/10 text-white/70'}`}>
-                                                <Hash className="w-4 h-4" />
+                                                <FileDigit className="w-4 h-4" />
                                             </div>
                                             <div>
                                                 <div className="text-xs font-semibold">Floating Page Number</div>
@@ -411,7 +425,7 @@ export function AdvancedSettingsPanel() {
                                     <div className="flex items-center justify-between gap-4">
                                         <div className="flex items-center gap-3">
                                             <div className={`p-2 rounded-xl ${isLight ? 'bg-[#E5D7BC] text-[#5C4430]' : 'bg-white/10 text-white/70'}`}>
-                                                <Repeat className="w-4 h-4" />
+                                                <Infinity className="w-4 h-4" />
                                             </div>
                                             <div>
                                                 <div className="text-xs font-semibold">Continuous Chapter Flow</div>

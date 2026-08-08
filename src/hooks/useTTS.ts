@@ -140,7 +140,7 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
         availableVoices = ttsEngine.getVoices();
       }
 
-      if (isTauri) {
+      if (isTauri && !isAndroid) {
         const piper = await loadPiperVoicesForPicker();
         availableVoices = buildVoicePickerItems(availableVoices, piper);
       }
@@ -307,18 +307,41 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
     } else if (useNativeTTS) {
       const estimatedDuration = (sentence.length / 15) * (1.0 / rate) * 1000;
       
-       nativeSpeak({
-         text: sentence,
-         language: null,
-         voiceId: preferredVoice && preferredVoice !== 'default' ? preferredVoice : null,
-         rate,
-         pitch: null,
-         volume: null,
-         queueMode: null,
-       }).catch((error) => {
-         logger.error('Native TTS error:', error);
-         setState('idle');
-       });
+      nativeSpeak({
+        text: sentence,
+        language: selectedVoice?.lang || null,
+        voiceId: preferredVoice && preferredVoice !== 'default' ? preferredVoice : null,
+        rate,
+        pitch: null,
+        volume: null,
+        queueMode: null,
+      }).catch((error) => {
+        logger.warn('Native TTS encountered an error, falling back to Web Speech engine:', error);
+        ttsEngine.speak(sentence, {
+          voice: selectedVoice || undefined,
+          rate,
+          pitch,
+          onEnd: () => {
+            const nextIndex = currentIndexRef.current + 1;
+            if (nextIndex < sentencesRef.current.length) {
+              speakSentenceAtIndexRef.current(nextIndex);
+            } else {
+              setState('idle');
+              setCurrentSentenceIndex(0);
+              currentIndexRef.current = 0;
+              if (cleanupHighlightRef.current) {
+                cleanupHighlightRef.current();
+                cleanupHighlightRef.current = null;
+              }
+              onChapterEnd?.();
+            }
+          },
+          onError: (event) => {
+            logger.error('TTS error:', event);
+            setState('idle');
+          }
+        });
+      });
 
       setState('speaking');
       setCurrentSentenceIndex(index);

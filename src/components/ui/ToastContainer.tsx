@@ -12,17 +12,16 @@ export const ToastContainer = () => {
 
   return (
     <Toaster
-      richColors
       theme="system"
       position={isMobileOrTablet ? 'top-center' : 'bottom-right'}
       offset={isMobileOrTablet ? (isAndroid ? 48 : 24) : 72}
       expand={!isMobileOrTablet}
-      className="!z-[99999]"
+      className="!z-[99999] shiori-toaster"
       toastOptions={{
-        className: 'rounded-2xl max-md:rounded-ui-xl px-4 py-3 text-sm shadow-xl font-medium tracking-tight border-0 ring-1 ring-black/5 dark:ring-white/10',
+        className: 'shiori-toast-item rounded-2xl px-4 py-3 text-sm shadow-2xl font-medium tracking-tight',
         style: {
           minHeight: 'auto',
-          borderRadius: '16px',
+          borderRadius: '18px',
         }
       }}
     />

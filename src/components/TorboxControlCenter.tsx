@@ -691,7 +691,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                               <ChevronDown className="h-3.5 w-3.5 opacity-50 ml-0.5" />
                             </button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-44 p-1.5 rounded-2xl bg-popover/95 backdrop-blur-2xl border border-border/50 shadow-2xl z-[150]">
+                          <DropdownMenuContent align="end" className="w-44 p-1.5 rounded-2xl bg-popover !bg-popover !opacity-100 border border-border shadow-2xl z-[150]">
                             {(preferredContentType === 'manga' || preferredContentType === 'both') && (
                               <DropdownMenuItem
                                 onClick={() => setSearchType('manga')}

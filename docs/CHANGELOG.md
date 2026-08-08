@@ -1,3 +1,19 @@
+# Release Notes (v2.3.9)
+
+## Improvements
+- **Theme-aware notification toasts** — Sonner toasts and notification popups now adapt their colors to the active app theme instead of using a fixed dark navy style.
+  - **Sepia / Light** (`[data-theme="white"]`): Warm Japanese parchment background (`#FAF6EC`), espresso ink text, sienna info badges, forest green success, ochre gold warning, terracotta error, and a soft warm shadow.
+  - **OLED Midnight** (`[data-theme="black"]`): Pure pitch black (`#000000`), crisp white text, semi-transparent white border, and electric violet / neon emerald / radiant gold / vibrant coral type icons.
+  - **Premium Dark** (`[data-theme="premium-dark"`): Deep obsidian charcoal (`#121218`), cool cream text, amber info, emerald success, amber warning, and crimson error icons.
+- **Chapter Selector** — portaled to `document.body` on desktop (centered modal just below topbar) and a full bottom-sheet drawer on Android/mobile; no more Popper-flip collisions or out-of-bounds positions on either platform.
+- **Floating Page Number icon** — replaced hash `#` with `FileDigit` icon on desktop to match the rest of the app.
+- **Continuous Chapter Flow icon** — replaced the Sparkles icon with `Infinity` in both the sidebar and advanced settings panel for a clearer visual metaphor.
+
+## Bug Fixes
+- Fixed chapter list appearing upside down / outside viewport bounds on Android.
+- Fixed syntax error in `MangaReaderHeader.tsx` that caused Vite's react-babel plugin to fail (`Unexpected token` at closing parenthesis).
+- Fixed React hook-order error in `AdvancedSettingsPanel` caused by conditional hook calls.
+
 # Release Notes (v2.3.5)
 
 ##  Performance

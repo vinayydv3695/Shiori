@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.3.8] - 2026-08-08
+
+### Reader & UI Aesthetics
+- **Warm Sepia & OLED Midnight Dual Themes**: Added dedicated paper cream and true black reading palettes across reader sidebars, dropdowns, settings dialogs, and update screens.
+- **Minimal Manga Sidebar & Controls**: Redesigned the reader sidebar into a streamlined panel with segmented reading modes (Single, Strip, Webtoon, Manhwa, Comic), swift page jumping, and an auto-scroll speed gauge.
+- **Centered Chapter & Volume Selector**: Replaced transparent overlays with an end-anchored, 100% opaque chapter menu featuring instant title search and reversible chapter sorting.
+- **Refined Update Experience**: Replaced generic modal icons with a clean, standard download emblem, dedicated release highlights header, and single-border visual hierarchy.
+
+### Offline TTS & Voice Synthesis
+- **Dynamic eSpeak-NG Path Resolution**: Added automatic environment discovery for eSpeak-NG phonemization data across Windows NSIS installations, Linux packages, and development environments.
+- **Enhanced Voice Engine Reliability**: Resolved cross-platform phonemization failures when synthesizing downloaded Piper neural voices.
+
+### Content & System Controls
+- **App-Wide NSFW Content Filter**: Added a privacy toggle in Settings to filter adult manga and catalog listings across online discovery sources.
+- **Accessible Radix Select Components**: Replaced standard HTML dropdowns with accessible, keyboard-navigable custom select menus across all panels.
+- **Zero-Ghosting Canvas**: Eliminated page bleed-through and subpixel artifacts during high-speed vertical scrolling.
+
+---
+
 ## [2.3.7] - 2026-08-08
 
 ### UI & Reader Aesthetic Overhaul

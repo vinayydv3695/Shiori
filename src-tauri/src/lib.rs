@@ -18,6 +18,7 @@ use std::sync::Arc;
 #[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
 use tauri::Emitter;
 use tauri::Manager;
+use tauri_plugin_log::{Target, TargetKind};
 
 use services::{
     book_metadata_service::BookMetadataService,
@@ -128,6 +129,18 @@ pub fn run() {
 
     builder = builder
         .plugin(tauri_plugin_dialog::init())
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .targets([
+                    // File target: app_log_dir()/shiori.log — this is where the
+                    // piper diagnostics land in packaged (console-less) builds.
+                    Target::new(TargetKind::LogDir {
+                        file_name: Some("shiori.log".into()),
+                    }),
+                    Target::new(TargetKind::Stdout),
+                ])
+                .build(),
+        )
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_http::init());

@@ -37,13 +37,33 @@ fn has_espeak_tables(dir: &Path) -> bool {
         || dir.join("phonindex").exists()
 }
 
-/// Normalizes a path to absolute and strips any Windows `\\?\` UNC prefix
+/// Strips a Windows `\\?\` verbatim-prefix from a path string. Windows
+/// `std::fs::canonicalize` returns such extended-length paths, but the C
+/// `espeak-ng` library's narrow-CRT `fopen`/`stat` cannot open them, so they
+/// must be converted back to standard Win32 form. Handles both flavors:
+///   `\\?\C:\x\y`     → `C:\x\y`    (drive)
+///   `\\?\UNC\srv\sh` → `\\srv\sh`  (UNC; the share name is preserved)
+/// Non-verbatim input is returned unchanged, borrowed without allocation.
+fn strip_verbatim_prefix(path: &str) -> std::borrow::Cow<'_, str> {
+    if let Some(rest) = path.strip_prefix(r"\\?\") {
+        if let Some(unc) = rest.strip_prefix("UNC\\") {
+            let mut unc_form = String::with_capacity(unc.len() + 2);
+            unc_form.push_str(r"\\");
+            unc_form.push_str(unc);
+            return std::borrow::Cow::Owned(unc_form);
+        }
+        return std::borrow::Cow::Borrowed(rest);
+    }
+    std::borrow::Cow::Borrowed(path)
+}
+
+/// Normalizes a path to absolute and strips any Windows `\\?\` verbatim prefix
 /// because the C `espeak-ng` library's `fopen` only accepts standard Win32 paths.
 fn normalize_path(path: &Path) -> PathBuf {
     if let Ok(abs) = std::fs::canonicalize(path) {
         let s = abs.to_string_lossy();
         if s.starts_with(r"\\?\") {
-            return PathBuf::from(&s[4..]);
+            return PathBuf::from(strip_verbatim_prefix(&s).as_ref());
         }
         return abs;
     }
@@ -2138,5 +2158,40 @@ mod tests {
         // Case (e): the user's value wins and is returned verbatim.
         assert_eq!(resolved_parent, Some(dir.path().to_path_buf()));
         assert_eq!(resolved_data_dir, Some(data));
+    }
+
+    #[test]
+    fn strip_verbatim_prefix_handles_drive_form() {
+        // Windows canonicalize returns `\\?\C:\...`; espeak-ng's narrow-CRT
+        // file access needs the plain drive path.
+        assert_eq!(
+            strip_verbatim_prefix(r"\\?\C:\Program Files\Shiori\resources"),
+            r"C:\Program Files\Shiori\resources"
+        );
+    }
+
+    #[test]
+    fn strip_verbatim_prefix_preserves_unc_share() {
+        // `\\?\UNC\server\share` must become `\\server\share` (a naive
+        // 4-byte strip would mangle it into `UNC\server\share`).
+        assert_eq!(
+            strip_verbatim_prefix(r"\\?\UNC\srv\share\espeak-ng-data"),
+            r"\\srv\share\espeak-ng-data"
+        );
+    }
+
+    #[test]
+    fn strip_verbatim_prefix_passes_plain_paths_through() {
+        // No verbatim prefix → unchanged (borrowed, no allocation).
+        assert_eq!(strip_verbatim_prefix(r"C:\x\y"), r"C:\x\y");
+        assert_eq!(strip_verbatim_prefix("/usr/share/espeak-ng-data"), "/usr/share/espeak-ng-data");
+    }
+
+    #[test]
+    fn strip_verbatim_prefix_handles_empty_and_edge_input() {
+        assert_eq!(strip_verbatim_prefix(""), "");
+        // Prefix with nothing after it, and a bare drive letter.
+        assert_eq!(strip_verbatim_prefix(r"\\?\"), "");
+        assert_eq!(strip_verbatim_prefix(r"\\?\C:\"), r"C:\");
     }
 }

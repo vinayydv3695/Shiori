@@ -121,6 +121,12 @@ Piper TTS phonemization uses espeak-rs, which reads `PIPER_ESPEAKNG_DATA_DIRECTO
 - Resolution order: (1) a user-set valid var wins, never clobbered; (2) `resource_dir`/`app_data_dir`/`app_local_data_dir` × (`resources/espeak-ng-data`, `resources`, `espeak-ng-data`); (3) `current_exe()` parent × same three; (4) dev-relative paths (`src-tauri/resources/...`); (5) system installs (`/usr/share/espeak-ng-data`, `/usr/local/share/espeak-ng-data`, `/usr/lib/espeak-ng-data`, `C:\Program Files\eSpeak NG\espeak-ng-data`).
 - Public helpers in `piper_service.rs`: `resolve_espeak_data_dir`, `ensure_espeak_ng_data_env`, and pure unit-tested `find_espeak_data_dir(&[PathBuf])`.
 
+**Windows packaged builds:** Tauri canonicalizes `current_exe()` (tauri-utils `starting_binary.rs`), and on Windows `canonicalize` yields `\\?\` extended-length paths that survive into `resource_dir()`-derived candidates (the `platform.rs` Windows branch does not simplify them). espeak-ng's narrow-CRT `stat` fails on verbatim paths, so `espeak_Initialize` returns 0 ("code 0"). `piper_service.rs` strips the prefix via unit-tested `strip_verbatim_prefix()` (`\\?\C:` → `C:`, `\\?\UNC\srv` → `\\srv`) before setting the env var.
+
+**NSIS layout (bundler 2.11.4):** `bundle.resources` files land tree-preserved at `$INSTDIR\resources\espeak-ng-data` (per-user installs: `%LOCALAPPDATA%\Programs\Shiori\...`). The `resources/espeak-ng-data/**/*` glob in `tauri.conf.json` is correct as-is.
+
+**Logging:** tauri-plugin-log initializes at the top of `shiori::run()` (lib.rs) with targets `LogDir` (`app_log_dir()/logs/shiori.log`) + `Stdout`; `piper_service.rs`'s `log::info!`/`log::warn!` diagnostics (resolved env var, searched candidates) are now visible in release builds on all platforms, including Windows where the console is hidden.
+
 ---
 
 ## 5) Data Architecture

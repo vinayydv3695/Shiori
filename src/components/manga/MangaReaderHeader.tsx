@@ -1,11 +1,26 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import {
     useMangaContentStore,
     useMangaUIStore,
     useMangaSettingsStore
 } from '@/store/mangaReaderStore';
-import { X, Settings, ChevronLeft, ChevronRight, Maximize, Minimize, Library, CheckCircle2, List, Check } from 'lucide-react';
+import { 
+    X, 
+    Settings, 
+    ChevronLeft, 
+    ChevronRight, 
+    Maximize, 
+    Minimize, 
+    Library, 
+    CheckCircle2, 
+    List, 
+    Check, 
+    Search, 
+    ArrowUpDown, 
+    Loader2, 
+    BookOpen 
+} from 'lucide-react';
 import React from 'react';
 import {
     DropdownMenu,
@@ -79,9 +94,29 @@ export function MangaReaderHeader({
     const { isFullscreen, toggleFullscreen } = useFullscreen();
     const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Keep the top bar visible while sidebar/settings panels are open.
+    // Chapter Dropdown state: Search, Sort & Auto-scroll
+    const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [chapterSearch, setChapterSearch] = useState('');
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+    const [switchingChapterId, setSwitchingChapterId] = useState<string | null>(null);
+    const activeItemRef = useRef<HTMLDivElement | null>(null);
+    const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+    // Auto-scroll to selected chapter when dropdown opens
     useEffect(() => {
-        if (isSidebarOpen || isSettingsOpen) {
+        if (dropdownOpen) {
+            const timer = setTimeout(() => {
+                activeItemRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            }, 60);
+            return () => clearTimeout(timer);
+        } else {
+            setChapterSearch('');
+        }
+    }, [dropdownOpen]);
+
+    // Keep the top bar visible while sidebar/settings/dropdown panels are open.
+    useEffect(() => {
+        if (isSidebarOpen || isSettingsOpen || dropdownOpen) {
             setTopBarVisible(true);
         }
         return () => {
@@ -90,7 +125,7 @@ export function MangaReaderHeader({
                 hideTimeoutRef.current = null;
             }
         };
-    }, [isSidebarOpen, isSettingsOpen, setTopBarVisible]);
+    }, [isSidebarOpen, isSettingsOpen, dropdownOpen, setTopBarVisible]);
 
     // In scrolling modes, keep top bar visible while user scrolls,
     // then hide it after a longer quiet period for less distraction.
@@ -99,7 +134,7 @@ export function MangaReaderHeader({
             clearTimeout(hideTimeoutRef.current);
             hideTimeoutRef.current = null;
         }
-        if (stickyHeader || isSidebarOpen || isSettingsOpen) {
+        if (stickyHeader || isSidebarOpen || isSettingsOpen || dropdownOpen) {
             return;
         }
         if (isScrollMode) {
@@ -129,8 +164,7 @@ export function MangaReaderHeader({
                 hideTimeoutRef.current = null;
             }
         };
-    }, [isScrollMode, stickyHeader, isSidebarOpen, isSettingsOpen, lastScrollActivityAt, setTopBarVisible, isTopBarVisible]);
-
+    }, [isScrollMode, stickyHeader, isSidebarOpen, isSettingsOpen, dropdownOpen, lastScrollActivityAt, setTopBarVisible, isTopBarVisible]);
 
     const handleChapterNav = async (direction: 'prev' | 'next') => {
         if (!onlineSource || !onChapterChange) return;
@@ -138,7 +172,7 @@ export function MangaReaderHeader({
         const currentIndex = onlineSource.chapters.findIndex(c => c.id === onlineSource.chapterId);
         if (currentIndex === -1) return;
 
-                const isDescending = onlineSource.chapters.length >= 2 && 
+        const isDescending = onlineSource.chapters.length >= 2 && 
             (onlineSource.chapters[0].number ?? 0) > (onlineSource.chapters[onlineSource.chapters.length - 1].number ?? 0);
         
         let nextIndex;
@@ -162,12 +196,61 @@ export function MangaReaderHeader({
         }
     };
 
-        const currentIndex = onlineSource ? onlineSource.chapters.findIndex(c => c.id === onlineSource.chapterId) : -1;
+    const currentIndex = onlineSource ? onlineSource.chapters.findIndex(c => c.id === onlineSource.chapterId) : -1;
     const isDescending = onlineSource && onlineSource.chapters.length >= 2 && (onlineSource.chapters[0].number ?? 0) > (onlineSource.chapters[onlineSource.chapters.length - 1].number ?? 0);
     const hasNextChapter = onlineSource && currentIndex !== -1 && (isDescending ? currentIndex > 0 : currentIndex < onlineSource.chapters.length - 1);
     const hasPrevChapter = onlineSource && currentIndex !== -1 && (isDescending ? currentIndex < onlineSource.chapters.length - 1 : currentIndex > 0);
 
-    // Use existing CSS variables and classes from manga-reader.css
+    // Filtered & Sorted Online Chapters
+    const processedChapters = useMemo(() => {
+        if (!onlineSource?.chapters) return [];
+        let list = [...onlineSource.chapters];
+
+        // Search Filter
+        if (chapterSearch.trim()) {
+            const q = chapterSearch.toLowerCase().trim();
+            list = list.filter(c => {
+                const titleMatch = c.title?.toLowerCase().includes(q);
+                const numMatch = c.number != null && String(c.number).toLowerCase().includes(q);
+                const chapterPrefixMatch = c.number != null && `chapter ${c.number}`.includes(q);
+                const chPrefixMatch = c.number != null && `ch ${c.number}`.includes(q);
+                const volMatch = c.volume && `vol ${c.volume}`.toLowerCase().includes(q);
+                return titleMatch || numMatch || chapterPrefixMatch || chPrefixMatch || volMatch;
+            });
+        }
+
+        // Sort
+        list.sort((a, b) => {
+            const numA = a.number ?? 0;
+            const numB = b.number ?? 0;
+            return sortDirection === 'asc' ? numA - numB : numB - numA;
+        });
+
+        return list;
+    }, [onlineSource?.chapters, chapterSearch, sortDirection]);
+
+    // Filtered & Sorted Local Volumes
+    const processedLocalBooks = useMemo(() => {
+        if (!seriesBooks.length) return [];
+        let list = [...seriesBooks];
+
+        if (chapterSearch.trim()) {
+            const q = chapterSearch.toLowerCase().trim();
+            list = list.filter(b => 
+                b.title.toLowerCase().includes(q) || 
+                (b.series_index != null && String(b.series_index).includes(q))
+            );
+        }
+
+        list.sort((a, b) => {
+            const idxA = a.series_index ?? 0;
+            const idxB = b.series_index ?? 0;
+            return sortDirection === 'asc' ? idxA - idxB : idxB - idxA;
+        });
+
+        return list;
+    }, [seriesBooks, chapterSearch, sortDirection]);
+
     return (
         <header className={`manga-topbar ${!isTopBarVisible ? 'manga-topbar--hidden' : ''}`}>
             <div className="manga-topbar-content">
@@ -205,55 +288,226 @@ export function MangaReaderHeader({
                 {/* Right Side: Chapter Nav (Online), Settings, Fullscreen */}
                 <div className="manga-topbar-right">
                     {(sourceType === 'online' || seriesBooks.length > 1) && (
-                        <DropdownMenu>
+                        <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
                             <DropdownMenuTrigger asChild>
-                                <button type="button" className="manga-topbar-btn cursor-pointer" title={sourceType === 'online' ? "Choose Chapter" : "Choose Volume"}>
+                                <button 
+                                    type="button" 
+                                    className={`manga-topbar-btn cursor-pointer transition-all ${dropdownOpen ? 'manga-topbar-btn--active bg-white/10 text-white ring-1 ring-white/20' : ''}`} 
+                                    title={sourceType === 'online' ? "Choose Chapter" : "Choose Volume"}
+                                >
                                     <List size={18} />
                                 </button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-64 max-h-80 overflow-y-auto custom-scrollbar p-1.5 rounded-2xl bg-card/95 backdrop-blur-2xl border border-border/60 shadow-2xl z-[150]">
-                                {sourceType === 'online' ? (
-                                    onlineSource?.chapters.map(c => {
-                                        const isSelected = onlineSource.chapterId === c.id;
-                                        return (
-                                            <DropdownMenuItem
-                                                key={c.id}
-                                                onClick={() => {
-                                                    setLoading(true);
-                                                    if (onChapterChange) {
-                                                        onChapterChange(c.id).then(data => {
-                                                            setOnlineChapter(c.id, data.chapterTitle, data.pageUrls);
-                                                            setLoading(false);
-                                                        }).catch(err => {
-                                                            setError(err instanceof Error ? String(err) : 'Failed');
-                                                            setLoading(false);
-                                                        });
-                                                    }
-                                                }}
-                                                className={`flex items-center justify-between px-3 py-2 text-xs font-medium rounded-xl cursor-pointer transition-colors ${isSelected ? 'bg-primary/15 text-primary font-bold' : 'text-foreground hover:bg-secondary/60'}`}
-                                            >
-                                                <span className="truncate">{c.number != null ? `Chapter ${c.number}` : c.title}</span>
-                                                {isSelected && <Check className="h-3.5 w-3.5 stroke-[3] shrink-0 ml-2" />}
-                                            </DropdownMenuItem>
-                                        );
-                                    })
-                                ) : (
-                                    seriesBooks.map(b => {
-                                        const isSelected = currentLocalBook?.id === b.id;
-                                        return (
-                                            <DropdownMenuItem
-                                                key={b.id}
-                                                onClick={() => {
-                                                    window.dispatchEvent(new CustomEvent('open-book', { detail: { bookId: b.id } }));
-                                                }}
-                                                className={`flex items-center justify-between px-3 py-2 text-xs font-medium rounded-xl cursor-pointer transition-colors ${isSelected ? 'bg-primary/15 text-primary font-bold' : 'text-foreground hover:bg-secondary/60'}`}
-                                            >
-                                                <span className="truncate">{b.title}</span>
-                                                {isSelected && <Check className="h-3.5 w-3.5 stroke-[3] shrink-0 ml-2" />}
-                                            </DropdownMenuItem>
-                                        );
-                                    })
-                                )}
+                            <DropdownMenuContent 
+                                align="end" 
+                                sideOffset={8}
+                                className="w-80 sm:w-96 max-h-[460px] flex flex-col p-0 rounded-2xl bg-[#0f0f14]/95 text-white backdrop-blur-2xl border border-white/10 shadow-2xl shadow-black/90 ring-1 ring-white/5 z-[150] overflow-hidden select-none animate-in fade-in-0 zoom-in-95 duration-150"
+                            >
+                                {/* Dropdown Header: Title, Count, Sort Toggle */}
+                                <div className="p-3 bg-white/[0.04] border-b border-white/10 flex flex-col gap-2.5 shrink-0">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <BookOpen className="w-4 h-4 text-amber-400" />
+                                            <span className="font-semibold text-xs tracking-wide text-white">
+                                                {sourceType === 'online' ? 'Chapters' : 'Series Volumes'}
+                                            </span>
+                                            <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-white/10 text-white/70 border border-white/5">
+                                                {sourceType === 'online' ? (onlineSource?.chapters.length || 0) : seriesBooks.length}
+                                            </span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                                            }}
+                                            className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors border border-transparent hover:border-white/10"
+                                            title={`Sort chapters (${sortDirection === 'asc' ? 'Ascending' : 'Descending'})`}
+                                        >
+                                            <ArrowUpDown className="w-3 h-3 text-amber-400" />
+                                            <span>{sortDirection === 'asc' ? '1 → End' : 'End → 1'}</span>
+                                        </button>
+                                    </div>
+
+                                    {/* Search Input Filter */}
+                                    {((sourceType === 'online' && (onlineSource?.chapters.length || 0) > 4) || seriesBooks.length > 4) && (
+                                        <div className="relative flex items-center bg-white/[0.06] hover:bg-white/[0.08] focus-within:bg-white/[0.09] border border-white/10 focus-within:border-amber-400/50 rounded-xl px-2.5 py-1.5 transition-all">
+                                            <Search className="w-3.5 h-3.5 text-white/40 shrink-0 mr-2" />
+                                            <input
+                                                ref={searchInputRef}
+                                                type="text"
+                                                placeholder={sourceType === 'online' ? "Search chapter number or title..." : "Search volume..."}
+                                                value={chapterSearch}
+                                                onChange={(e) => setChapterSearch(e.target.value)}
+                                                onKeyDown={(e) => e.stopPropagation()}
+                                                className="w-full bg-transparent text-xs text-white placeholder:text-white/40 focus:outline-none"
+                                            />
+                                            {chapterSearch && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setChapterSearch('')}
+                                                    className="p-0.5 text-white/40 hover:text-white rounded-md transition-colors"
+                                                >
+                                                    <X className="w-3.5 h-3.5" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Chapters / Volumes List */}
+                                <div className="flex-1 overflow-y-auto custom-scrollbar p-1.5 space-y-1 max-h-[340px]">
+                                    {sourceType === 'online' ? (
+                                        processedChapters.length === 0 ? (
+                                            <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
+                                                <Search className="w-6 h-6 text-white/20 mb-2" />
+                                                <p className="text-xs font-medium text-white/70">No chapters found</p>
+                                                {chapterSearch && (
+                                                    <p className="text-[11px] text-white/40 mt-0.5">Matching &ldquo;{chapterSearch}&rdquo;</p>
+                                                )}
+                                                {chapterSearch && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setChapterSearch('')}
+                                                        className="mt-3 px-3 py-1 text-xs font-medium text-amber-400 bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/20 rounded-lg transition-colors"
+                                                    >
+                                                        Clear Search
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            processedChapters.map(c => {
+                                                const isSelected = onlineSource?.chapterId === c.id;
+                                                const isSwitching = switchingChapterId === c.id;
+
+                                                return (
+                                                    <DropdownMenuItem
+                                                        key={c.id}
+                                                        asChild
+                                                    >
+                                                        <div
+                                                            ref={isSelected ? activeItemRef : undefined}
+                                                            onClick={() => {
+                                                                if (isSelected || isSwitching) return;
+                                                                setSwitchingChapterId(c.id);
+                                                                setLoading(true);
+                                                                if (onChapterChange) {
+                                                                    onChapterChange(c.id).then(data => {
+                                                                        setOnlineChapter(c.id, data.chapterTitle, data.pageUrls);
+                                                                        setLoading(false);
+                                                                        setSwitchingChapterId(null);
+                                                                        setDropdownOpen(false);
+                                                                    }).catch(err => {
+                                                                        setError(err instanceof Error ? String(err) : 'Failed');
+                                                                        setLoading(false);
+                                                                        setSwitchingChapterId(null);
+                                                                    });
+                                                                }
+                                                            }}
+                                                            className={`group relative flex items-center justify-between px-3 py-2 text-xs font-medium rounded-xl cursor-pointer transition-all outline-none ${
+                                                                isSelected 
+                                                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold shadow-inner' 
+                                                                    : 'text-white/80 hover:text-white hover:bg-white/[0.08] border border-transparent'
+                                                            }`}
+                                                        >
+                                                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                                                {c.number != null ? (
+                                                                    <span className={`px-2 py-0.5 text-[11px] font-mono font-bold rounded-lg shrink-0 transition-colors ${
+                                                                        isSelected 
+                                                                            ? 'bg-amber-400 text-black shadow-sm' 
+                                                                            : 'bg-white/10 text-white/90 group-hover:bg-white/20 group-hover:text-white border border-white/5'
+                                                                    }`}>
+                                                                        Ch. {c.number}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="px-2 py-0.5 text-[11px] font-mono font-bold rounded-lg shrink-0 bg-white/10 text-white/90 border border-white/5">
+                                                                        Ch
+                                                                    </span>
+                                                                )}
+                                                                
+                                                                <span className="truncate text-xs">
+                                                                    {c.title ? (c.title.startsWith('Chapter ') && c.number != null ? c.title.replace(/^Chapter\s+\d+[\s:.-]*/i, '') || c.title : c.title) : `Chapter ${c.number ?? ''}`}
+                                                                </span>
+                                                            </div>
+
+                                                            <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                                                {isSwitching ? (
+                                                                    <Loader2 className="w-3.5 h-3.5 text-amber-400 animate-spin" />
+                                                                ) : isSelected ? (
+                                                                    <div className="w-5 h-5 rounded-full bg-amber-400/20 border border-amber-400/40 flex items-center justify-center">
+                                                                        <Check className="w-3 h-3 text-amber-300 stroke-[3]" />
+                                                                    </div>
+                                                                ) : (
+                                                                    <ChevronRight className="w-3.5 h-3.5 text-white/20 group-hover:text-white/60 group-hover:translate-x-0.5 transition-all opacity-0 group-hover:opacity-100" />
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </DropdownMenuItem>
+                                                );
+                                            })
+                                        )
+                                    ) : (
+                                        processedLocalBooks.length === 0 ? (
+                                            <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
+                                                <Search className="w-6 h-6 text-white/20 mb-2" />
+                                                <p className="text-xs font-medium text-white/70">No volumes found</p>
+                                                {chapterSearch && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setChapterSearch('')}
+                                                        className="mt-3 px-3 py-1 text-xs font-medium text-amber-400 bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/20 rounded-lg transition-colors"
+                                                    >
+                                                        Clear Search
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            processedLocalBooks.map((b, idx) => {
+                                                const isSelected = currentLocalBook?.id === b.id;
+                                                return (
+                                                    <DropdownMenuItem
+                                                        key={b.id}
+                                                        asChild
+                                                    >
+                                                        <div
+                                                            ref={isSelected ? activeItemRef : undefined}
+                                                            onClick={() => {
+                                                                if (isSelected) return;
+                                                                setDropdownOpen(false);
+                                                                window.dispatchEvent(new CustomEvent('open-book', { detail: { bookId: b.id } }));
+                                                            }}
+                                                            className={`group relative flex items-center justify-between px-3 py-2 text-xs font-medium rounded-xl cursor-pointer transition-all outline-none ${
+                                                                isSelected 
+                                                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold shadow-inner' 
+                                                                    : 'text-white/80 hover:text-white hover:bg-white/[0.08] border border-transparent'
+                                                            }`}
+                                                        >
+                                                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                                                <span className={`px-2 py-0.5 text-[11px] font-mono font-bold rounded-lg shrink-0 transition-colors ${
+                                                                    isSelected 
+                                                                        ? 'bg-amber-400 text-black shadow-sm' 
+                                                                        : 'bg-white/10 text-white/90 group-hover:bg-white/20 group-hover:text-white border border-white/5'
+                                                                }`}>
+                                                                    Vol. {b.series_index || idx + 1}
+                                                                </span>
+                                                                <span className="truncate text-xs">{b.title}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                                                {isSelected ? (
+                                                                    <div className="w-5 h-5 rounded-full bg-amber-400/20 border border-amber-400/40 flex items-center justify-center">
+                                                                        <Check className="w-3 h-3 text-amber-300 stroke-[3]" />
+                                                                    </div>
+                                                                ) : (
+                                                                    <ChevronRight className="w-3.5 h-3.5 text-white/20 group-hover:text-white/60 group-hover:translate-x-0.5 transition-all opacity-0 group-hover:opacity-100" />
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </DropdownMenuItem>
+                                                );
+                                            })
+                                        )
+                                    )}
+                                </div>
                             </DropdownMenuContent>
                         </DropdownMenu>
                     )}

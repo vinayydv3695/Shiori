@@ -26,6 +26,143 @@ pub struct PiperService {
     http_client: Client,
 }
 
+/// Does `dir` look like a usable espeak-ng data root? A root is accepted when
+/// `dir/espeak-ng-data` contains the phoneme tables, OR `dir` itself IS an
+/// espeak-ng-data directory containing them. A directory lacking both phontab
+/// and phonindex is a partial/empty install and never passes.
+fn has_espeak_tables(dir: &Path) -> bool {
+    let data = dir.join("espeak-ng-data");
+    (data.join("phontab").exists() || data.join("phonindex").exists())
+        || dir.join("phontab").exists()
+        || dir.join("phonindex").exists()
+}
+
+/// Returns the value espeak-rs wants for PIPER_ESPEAKNG_DATA_DIRECTORY: the
+/// PARENT directory that contains an `espeak-ng-data` subdir with the phoneme
+/// tables. Per candidate:
+///   (a) `candidate/espeak-ng-data` contains phontab/phonindex → candidate;
+///   (b) candidate itself contains phontab/phonindex (it IS the data dir) →
+///       its parent (or the candidate itself when it has no usable parent);
+///   (c) otherwise the candidate is skipped.
+pub fn find_espeak_data_dir(candidates: &[PathBuf]) -> Option<PathBuf> {
+    for candidate in candidates {
+        // (a) Candidate is the parent; the espeak-ng-data subdir has the tables.
+        let data = candidate.join("espeak-ng-data");
+        if data.join("phontab").exists() || data.join("phonindex").exists() {
+            return Some(candidate.clone());
+        }
+        // (b) Candidate is the data dir itself; espeak-rs wants its parent.
+        if candidate.join("phontab").exists() || candidate.join("phonindex").exists() {
+            let parent = candidate.parent().filter(|p| !p.as_os_str().is_empty());
+            return Some(parent.map(Path::to_path_buf).unwrap_or_else(|| candidate.clone()));
+        }
+        // (c) Otherwise keep probing.
+    }
+    None
+}
+
+/// Ordered candidate roots for the espeak-ng data. Cheap `exists()` probes
+/// only; validation happens in `find_espeak_data_dir`.
+fn espeak_candidates(app_handle: Option<&AppHandle>) -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+
+    // Tauri app dirs: bundled resources under resource_dir() (Windows NSIS /
+    // Linux deb / macOS .app all land here), plus app data dirs.
+    if let Some(app) = app_handle {
+        for base in [
+            app.path().resource_dir().ok(),
+            app.path().app_data_dir().ok(),
+            app.path().app_local_data_dir().ok(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            candidates.push(base.join("resources").join("espeak-ng-data"));
+            candidates.push(base.join("resources"));
+            candidates.push(base.join("espeak-ng-data"));
+        }
+    }
+
+    // Executable-relative (portable installs; NSIS unpack dir).
+    if let Some(exe_dir) = std::env::current_exe().ok().and_then(|p| p.parent().map(Path::to_path_buf)) {
+        candidates.push(exe_dir.join("resources").join("espeak-ng-data"));
+        candidates.push(exe_dir.join("resources"));
+        candidates.push(exe_dir.join("espeak-ng-data"));
+    }
+
+    // Dev-relative paths: under `npm run tauri dev` the cwd is the repo root
+    // and the data lives at src-tauri/resources/espeak-ng-data.
+    candidates.push(PathBuf::from("src-tauri").join("resources").join("espeak-ng-data"));
+    candidates.push(PathBuf::from("src-tauri").join("resources"));
+    candidates.push(PathBuf::from("resources").join("espeak-ng-data"));
+    candidates.push(PathBuf::from("resources"));
+
+    // System espeak-ng installs as a last resort.
+    #[cfg(target_os = "windows")]
+    {
+        candidates.push(PathBuf::from(r"C:\Program Files\eSpeak NG\espeak-ng-data"));
+        candidates.push(PathBuf::from(r"C:\Program Files (x86)\eSpeak NG\espeak-ng-data"));
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        candidates.push(PathBuf::from("/usr/share/espeak-ng-data"));
+        candidates.push(PathBuf::from("/usr/local/share/espeak-ng-data"));
+        candidates.push(PathBuf::from("/usr/lib/espeak-ng-data"));
+    }
+
+    candidates
+}
+
+pub fn resolve_espeak_data_dir(app_handle: Option<&AppHandle>) -> Option<PathBuf> {
+    // A user-set variable wins outright when it still points at real data:
+    // espeak-rs reads it once per process at first phonemization, so we must
+    // not clobber a working user configuration. The user's value is returned
+    // verbatim (never normalized), even when it is the data dir itself.
+    if let Ok(user_dir) = std::env::var("PIPER_ESPEAKNG_DATA_DIRECTORY") {
+        let user_path = PathBuf::from(&user_dir);
+        if has_espeak_tables(&user_path) {
+            return Some(user_path);
+        }
+    }
+
+    find_espeak_data_dir(&espeak_candidates(app_handle))
+}
+
+pub fn ensure_espeak_ng_data_env(app_handle: Option<&AppHandle>) {
+    const VAR: &str = "PIPER_ESPEAKNG_DATA_DIRECTORY";
+
+    // User config: keep it if it still validates.
+    if let Ok(user_dir) = std::env::var(VAR) {
+        if has_espeak_tables(Path::new(&user_dir)) {
+            log::info!("piper: {} already set and valid (user config), keeping {}", VAR, user_dir);
+            return;
+        }
+    }
+
+    match resolve_espeak_data_dir(app_handle) {
+        Some(dir) => {
+            // Avoid churn: only set the var when the value actually differs.
+            if std::env::var(VAR).ok().map(PathBuf::from).as_deref() != Some(dir.as_path()) {
+                std::env::set_var(VAR, &dir);
+            }
+            log::info!("piper: {} set to {} (discovered)", VAR, dir.display());
+        }
+        None => {
+            let list: Vec<String> = espeak_candidates(app_handle)
+                .iter()
+                .map(|c| c.display().to_string())
+                .collect();
+            log::warn!(
+                "piper: espeak-ng data not found; {} left unset. Searched: {}. \
+                 Install espeak-ng or set {} to a directory containing an espeak-ng-data folder (with phontab and phonindex).",
+                VAR,
+                list.join(", "),
+                VAR
+            );
+        }
+    }
+}
+
 impl PiperService {
     pub fn new(app_handle: AppHandle) -> Self {
         let app_dir = app_handle.path().app_data_dir().unwrap_or_else(|_| PathBuf::from("."));
@@ -38,12 +175,8 @@ impl PiperService {
         }
         log::info!("piper: service constructed; voices dir = {} (exists: {})", voices_dir.display(), voices_dir.exists());
 
-        // espeak-ng data is shipped under the app resources dir; Piper/espeak-rs
-        // reads it via this env var at phonemization time.
-        let resource_dir = app_handle.path().resource_dir().unwrap_or_else(|_| PathBuf::from("."));
-        let espeak_data_dir = resource_dir.join("resources");
-        std::env::set_var("PIPER_ESPEAKNG_DATA_DIRECTORY", &espeak_data_dir);
-        log::info!("piper: PIPER_ESPEAKNG_DATA_DIRECTORY = {} (exists: {})", espeak_data_dir.display(), espeak_data_dir.exists());
+        // Locate and set espeak-ng-data environment variable dynamically
+        ensure_espeak_ng_data_env(Some(&app_handle));
 
         let http_client = Client::builder()
             .user_agent("Shiori-TTS/1.0")
@@ -1475,6 +1608,13 @@ impl PiperService {
 
     pub async fn synthesize(&self, text: &str, voice_id: &str) -> Result<String, ShioriError> {
         log::debug!("piper: synthesizing {} chars with voice {}", text.len(), voice_id);
+        
+        // ponytail: safety net only — espeak-rs reads PIPER_ESPEAKNG_DATA_DIRECTORY
+        // once per process (OnceLock) at first phonemization, so this call can
+        // never repair an already-failed espeak init; it only covers resources
+        // that appear between `PiperService::new` and the first synthesize.
+        ensure_espeak_ng_data_env(self._app_handle.as_ref());
+
         let onnx_path = self.voices_dir.join(format!("{}.onnx", voice_id));
         let json_path = self.voices_dir.join(format!("{}.onnx.json", voice_id));
 
@@ -1896,5 +2036,88 @@ mod tests {
             }
             other => panic!("expected ShioriError::Other, got {:?}", other),
         }
+    }
+
+    // ------------------------------------------------------------------
+    // espeak-ng data directory resolution (pure; no AppHandle required)
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn find_data_dir_accepts_parent_with_espeak_ng_data_subdir() {
+        let dir = tempfile::tempdir().unwrap();
+        let data = dir.path().join("espeak-ng-data");
+        std::fs::create_dir_all(&data).unwrap();
+        std::fs::write(data.join("phontab"), b"x").unwrap();
+
+        // Case (a): candidate is the parent; espeak-ng-data has the tables.
+        let resolved = find_espeak_data_dir(&[dir.path().to_path_buf()]);
+        assert_eq!(resolved, Some(dir.path().to_path_buf()));
+    }
+
+    #[test]
+    fn find_data_dir_returns_parent_when_candidate_is_the_data_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let data = dir.path().join("espeak-ng-data");
+        std::fs::create_dir_all(&data).unwrap();
+        std::fs::write(data.join("phonindex"), b"x").unwrap();
+
+        // Case (b): candidate IS the espeak-ng-data dir → its parent.
+        let resolved = find_espeak_data_dir(&[data.clone()]);
+        assert_eq!(resolved, Some(dir.path().to_path_buf()));
+    }
+
+    #[test]
+    fn find_data_dir_returns_none_when_nothing_matches() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("unrelated")).unwrap();
+
+        // Case (c): no espeak-ng data anywhere among the candidates.
+        let resolved = find_espeak_data_dir(&[dir.path().to_path_buf()]);
+        assert_eq!(resolved, None);
+    }
+
+    #[test]
+    fn find_data_dir_rejects_espeak_ng_data_without_phoneme_tables() {
+        let dir = tempfile::tempdir().unwrap();
+        let data = dir.path().join("espeak-ng-data");
+        std::fs::create_dir_all(&data).unwrap();
+
+        // Case (d): present but empty → rejected both as parent and as the
+        // data dir itself (no phontab AND no phonindex).
+        assert_eq!(find_espeak_data_dir(&[dir.path().to_path_buf()]), None);
+        assert_eq!(find_espeak_data_dir(&[data.clone()]), None);
+
+        // A stray file (e.g. lang/) is not enough either.
+        std::fs::write(data.join("lang"), b"x").unwrap();
+        assert_eq!(find_espeak_data_dir(&[dir.path().to_path_buf()]), None);
+    }
+
+    #[test]
+    fn user_env_var_beats_discovered_candidates() {
+        const VAR: &str = "PIPER_ESPEAKNG_DATA_DIRECTORY";
+        let dir = tempfile::tempdir().unwrap();
+        // Valid data at a location that appears in NO candidate list, so only
+        // the env var can possibly find it.
+        let data = dir.path().join("espeak-ng-data");
+        std::fs::create_dir_all(&data).unwrap();
+        std::fs::write(data.join("phontab"), b"x").unwrap();
+
+        let previous = std::env::var(VAR).ok();
+        std::env::set_var(VAR, dir.path());
+        let resolved_parent = resolve_espeak_data_dir(None);
+        // The value itself is also accepted verbatim (user may point at the
+        // data dir rather than its parent).
+        std::env::set_var(VAR, &data);
+        let resolved_data_dir = resolve_espeak_data_dir(None);
+        // Restore before asserting so a failed assert can't leak the var into
+        // other tests running in parallel.
+        match previous {
+            Some(v) => std::env::set_var(VAR, v),
+            None => std::env::remove_var(VAR),
+        }
+
+        // Case (e): the user's value wins and is returned verbatim.
+        assert_eq!(resolved_parent, Some(dir.path().to_path_buf()));
+        assert_eq!(resolved_data_dir, Some(data));
     }
 }

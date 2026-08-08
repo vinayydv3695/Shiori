@@ -113,6 +113,14 @@ Each source declares capability metadata and implements search/chapter/page retr
 
 Book sources: Project Gutenberg (public API), LibGen (scraper), and Anna's Archive (scraper with mirror failover). Anna's Archive returns typed download options (direct/external/magnet/torrent); direct links are downloaded by the `annas_archive_download` command, torrents route through Torbox.
 
+## 4.5 TTS / eSpeak-ng Data Directory
+Piper TTS phonemization uses espeak-rs, which reads `PIPER_ESPEAKNG_DATA_DIRECTORY` once per process (static `OnceLock`) at first phonemization. The value must be the **parent** directory containing an `espeak-ng-data` subdir (validated by `phontab`/`phonindex` presence).
+
+- Bundled via `tauri.conf.json` `bundle.resources` (`resources/espeak-ng-data/**/*`); lands at `resource_dir()/resources/espeak-ng-data` (exe dir on Windows/dev, `/usr/lib/{name}` on deb, `$APPDIR` on AppImage, `Contents/Resources` on macOS). Dev cwd is repo root; live copy is `src-tauri/resources/espeak-ng-data`.
+- `PiperService::new` sets the var before any synthesize; `synthesize()` re-checks as a safety net (the `OnceLock` means it cannot repair an already-failed espeak init — it only covers resources appearing between `new()` and first synthesize).
+- Resolution order: (1) a user-set valid var wins, never clobbered; (2) `resource_dir`/`app_data_dir`/`app_local_data_dir` × (`resources/espeak-ng-data`, `resources`, `espeak-ng-data`); (3) `current_exe()` parent × same three; (4) dev-relative paths (`src-tauri/resources/...`); (5) system installs (`/usr/share/espeak-ng-data`, `/usr/local/share/espeak-ng-data`, `/usr/lib/espeak-ng-data`, `C:\Program Files\eSpeak NG\espeak-ng-data`).
+- Public helpers in `piper_service.rs`: `resolve_espeak_data_dir`, `ensure_espeak_ng_data_env`, and pure unit-tested `find_espeak_data_dir(&[PathBuf])`.
+
 ---
 
 ## 5) Data Architecture

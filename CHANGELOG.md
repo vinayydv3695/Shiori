@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.3.10] - 2026-08-08
+
+### Offline TTS & Voice Synthesis
+- **Windows Packaged-Build eSpeak-NG Fix**: Stripped the `\\?\` verbatim path prefix that Tauri's canonicalized executable path introduces on Windows, so installed NSIS builds now locate bundled espeak-ng data and "Test Voice" works for all Piper voices.
+- **Real Application Logging**: Initialized tauri-plugin-log at startup (app log dir + stdout); piper diagnostics are now visible in release builds on every platform.
+
+---
+
 ## [2.3.8] - 2026-08-08
 
 ### Reader & UI Aesthetics

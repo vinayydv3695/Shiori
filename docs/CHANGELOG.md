@@ -1,3 +1,11 @@
+# Release Notes (v2.3.10)
+
+## Bug Fixes
+- **Windows packaged builds: "Test Voice" failed with "Failed to initialize eSpeak-ng (code 0)"** — Tauri's canonicalized executable path carries a `\\?\` verbatim prefix on Windows, which espeak-ng's file APIs reject. The prefix is now stripped (`\\?\C:\` → `C:\`, `\\?\UNC\` → `\\`) before `PIPER_ESPEAKNG_DATA_DIRECTORY` is set, so bundled espeak-ng data resolves correctly in installed NSIS builds.
+
+## Improvements
+- **Real application logging** — Shiori now initializes `tauri-plugin-log` at startup, writing to `app_log_dir()/logs/shiori.log` (plus stdout). Piper/TTS diagnostics (resolved espeak-ng data path, searched candidates) are now visible in release builds on all platforms, including Windows where the console is hidden.
+
 # Release Notes (v2.3.9)
 
 ## Improvements

@@ -297,8 +297,8 @@ export function MangaReaderHeader({
                                     className={`manga-topbar-btn cursor-pointer transition-all ${
                                         dropdownOpen 
                                             ? isLight 
-                                                ? 'manga-topbar-btn--active bg-[#A0522D]/15 text-[#A0522D] ring-1 ring-[#A0522D]/30' 
-                                                : 'manga-topbar-btn--active bg-white/10 text-white ring-1 ring-white/20' 
+                                                ? 'manga-topbar-btn--active !bg-[#A0522D]/15 !text-[#A0522D] ring-1 ring-[#A0522D]/30' 
+                                                : 'manga-topbar-btn--active !bg-white/15 !text-white ring-1 ring-white/20' 
                                             : ''
                                     }`} 
                                     title={sourceType === 'online' ? "Choose Chapter" : "Choose Volume"}
@@ -307,20 +307,20 @@ export function MangaReaderHeader({
                                 </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent 
-                                align="center" 
+                                align="end" 
                                 side="bottom"
-                                sideOffset={14}
-                                className={`w-80 sm:w-96 max-h-[460px] flex flex-col p-0 rounded-2xl backdrop-blur-2xl z-[150] overflow-hidden select-none animate-in fade-in-0 zoom-in-95 duration-150 ${
+                                sideOffset={10}
+                                className={`w-84 sm:w-96 max-h-[460px] flex flex-col p-0 rounded-2xl z-[150] overflow-hidden select-none animate-in fade-in-0 zoom-in-95 duration-150 ${
                                     isLight
-                                        ? 'bg-[#FAF6EC]/98 text-[#2C1E0F] border border-[#D9C9A3] shadow-2xl shadow-[#5C4430]/25 ring-1 ring-[#8A6A50]/15'
-                                        : 'bg-[#0f0f14]/95 text-white border border-white/10 shadow-2xl shadow-black/90 ring-1 ring-white/5'
+                                        ? '!bg-[#FAF6EC] !text-[#2C1E0F] !border-[#D9C9A3] shadow-2xl shadow-[#5C4430]/35 ring-1 ring-[#8A6A50]/20'
+                                        : '!bg-[#121217] !text-white !border-white/15 shadow-2xl shadow-black/95 ring-1 ring-white/10'
                                 }`}
                             >
                                 {/* Dropdown Header: Title, Count, Sort Toggle */}
                                 <div className={`p-3 border-b flex flex-col gap-2.5 shrink-0 ${
                                     isLight 
-                                        ? 'bg-[#F0E6CE]/80 border-[#D9C9A3]' 
-                                        : 'bg-white/[0.04] border-white/10'
+                                        ? '!bg-[#F4ECD8] !border-[#D9C9A3]' 
+                                        : '!bg-[#1a1a22] !border-white/10'
                                 }`}>
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
@@ -358,8 +358,8 @@ export function MangaReaderHeader({
                                     {((sourceType === 'online' && (onlineSource?.chapters.length || 0) > 4) || seriesBooks.length > 4) && (
                                         <div className={`relative flex items-center border rounded-xl px-2.5 py-1.5 transition-all ${
                                             isLight 
-                                                ? 'bg-[#EFE6D2] hover:bg-[#EAE0CB] focus-within:bg-[#FAF6EC] border-[#D9C9A3] focus-within:border-[#A0522D]' 
-                                                : 'bg-white/[0.06] hover:bg-white/[0.08] focus-within:bg-white/[0.09] border-white/10 focus-within:border-amber-400/50'
+                                                ? '!bg-[#EAE0CB] hover:!bg-[#E5D7BC] focus-within:!bg-[#FAF6EC] !border-[#D9C9A3] focus-within:!border-[#A0522D]' 
+                                                : '!bg-white/[0.06] hover:!bg-white/[0.08] focus-within:!bg-white/[0.1] !border-white/10 focus-within:!border-amber-400/50'
                                         }`}>
                                             <Search className={`w-3.5 h-3.5 shrink-0 mr-2 ${isLight ? 'text-[#8A6A50]' : 'text-white/40'}`} />
                                             <input
@@ -391,7 +391,9 @@ export function MangaReaderHeader({
                                 </div>
 
                                 {/* Chapters / Volumes List */}
-                                <div className="flex-1 overflow-y-auto custom-scrollbar p-1.5 space-y-1 max-h-[340px]">
+                                <div className={`flex-1 overflow-y-auto custom-scrollbar p-1.5 space-y-1 max-h-[340px] ${
+                                    isLight ? '!bg-[#FAF6EC]' : '!bg-[#121217]'
+                                }`}>
                                     {sourceType === 'online' ? (
                                         processedChapters.length === 0 ? (
                                             <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
@@ -425,6 +427,7 @@ export function MangaReaderHeader({
                                                     <DropdownMenuItem
                                                         key={c.id}
                                                         asChild
+                                                        className="p-0 focus:bg-transparent focus:text-inherit data-[highlighted]:bg-transparent"
                                                     >
                                                         <div
                                                             ref={isSelected ? activeItemRef : undefined}
@@ -448,11 +451,11 @@ export function MangaReaderHeader({
                                                             className={`group relative flex items-center justify-between px-3 py-2 text-xs font-medium rounded-xl cursor-pointer transition-all outline-none ${
                                                                 isSelected 
                                                                     ? isLight 
-                                                                        ? 'bg-[#A0522D]/15 text-[#733516] border border-[#A0522D]/35 font-semibold shadow-xs' 
-                                                                        : 'bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold shadow-inner'
+                                                                        ? '!bg-[#A0522D]/15 !text-[#733516] border border-[#A0522D]/35 font-semibold shadow-xs' 
+                                                                        : '!bg-amber-500/20 !text-amber-300 border border-amber-500/30 font-semibold shadow-inner'
                                                                     : isLight 
-                                                                        ? 'text-[#2C1E0F]/85 hover:text-[#2C1E0F] hover:bg-[#EFE6D2] border border-transparent' 
-                                                                        : 'text-white/80 hover:text-white hover:bg-white/[0.08] border border-transparent'
+                                                                        ? '!text-[#2C1E0F] hover:!bg-[#EFE6D2] focus:!bg-[#EFE6D2] active:!bg-[#E5D7BC] border border-transparent' 
+                                                                        : '!text-white/90 hover:!bg-white/[0.08] focus:!bg-white/[0.08] active:!bg-white/[0.12] border border-transparent'
                                                             }`}
                                                         >
                                                             <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -460,19 +463,19 @@ export function MangaReaderHeader({
                                                                     <span className={`px-2 py-0.5 text-[11px] font-mono font-bold rounded-lg shrink-0 transition-colors ${
                                                                         isSelected 
                                                                             ? isLight 
-                                                                                ? 'bg-[#A0522D] text-white shadow-xs' 
-                                                                                : 'bg-amber-400 text-black shadow-sm' 
+                                                                                ? '!bg-[#A0522D] !text-white shadow-xs' 
+                                                                                : '!bg-amber-400 !text-black shadow-sm' 
                                                                             : isLight 
-                                                                                ? 'bg-[#E5D7BC] text-[#5C4430] group-hover:bg-[#D9C9A3] group-hover:text-[#2C1E0F] border border-[#D9C9A3]/60' 
-                                                                                : 'bg-white/10 text-white/90 group-hover:bg-white/20 group-hover:text-white border border-white/5'
+                                                                                ? '!bg-[#E5D7BC] !text-[#5C4430] group-hover:!bg-[#D9C9A3] group-hover:!text-[#2C1E0F] border border-[#D9C9A3]/60' 
+                                                                                : '!bg-white/10 !text-white/90 group-hover:!bg-white/20 group-hover:!text-white border border-white/5'
                                                                     }`}>
                                                                         Ch. {c.number}
                                                                     </span>
                                                                 ) : (
                                                                     <span className={`px-2 py-0.5 text-[11px] font-mono font-bold rounded-lg shrink-0 border ${
                                                                         isLight 
-                                                                            ? 'bg-[#E5D7BC] text-[#5C4430] border-[#D9C9A3]/60' 
-                                                                            : 'bg-white/10 text-white/90 border-white/5'
+                                                                            ? '!bg-[#E5D7BC] !text-[#5C4430] border-[#D9C9A3]/60' 
+                                                                            : '!bg-white/10 !text-white/90 border-white/5'
                                                                     }`}>
                                                                         Ch
                                                                     </span>
@@ -535,6 +538,7 @@ export function MangaReaderHeader({
                                                     <DropdownMenuItem
                                                         key={b.id}
                                                         asChild
+                                                        className="p-0 focus:bg-transparent focus:text-inherit data-[highlighted]:bg-transparent"
                                                     >
                                                         <div
                                                             ref={isSelected ? activeItemRef : undefined}
@@ -546,22 +550,22 @@ export function MangaReaderHeader({
                                                             className={`group relative flex items-center justify-between px-3 py-2 text-xs font-medium rounded-xl cursor-pointer transition-all outline-none ${
                                                                 isSelected 
                                                                     ? isLight 
-                                                                        ? 'bg-[#A0522D]/15 text-[#733516] border border-[#A0522D]/35 font-semibold shadow-xs' 
-                                                                        : 'bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold shadow-inner'
+                                                                        ? '!bg-[#A0522D]/15 !text-[#733516] border border-[#A0522D]/35 font-semibold shadow-xs' 
+                                                                        : '!bg-amber-500/20 !text-amber-300 border border-amber-500/30 font-semibold shadow-inner'
                                                                     : isLight 
-                                                                        ? 'text-[#2C1E0F]/85 hover:text-[#2C1E0F] hover:bg-[#EFE6D2] border border-transparent' 
-                                                                        : 'text-white/80 hover:text-white hover:bg-white/[0.08] border border-transparent'
+                                                                        ? '!text-[#2C1E0F] hover:!bg-[#EFE6D2] focus:!bg-[#EFE6D2] active:!bg-[#E5D7BC] border border-transparent' 
+                                                                        : '!text-white/90 hover:!bg-white/[0.08] focus:!bg-white/[0.08] active:!bg-white/[0.12] border border-transparent'
                                                             }`}
                                                         >
                                                             <div className="flex items-center gap-2.5 min-w-0 flex-1">
                                                                 <span className={`px-2 py-0.5 text-[11px] font-mono font-bold rounded-lg shrink-0 transition-colors ${
                                                                     isSelected 
                                                                         ? isLight 
-                                                                            ? 'bg-[#A0522D] text-white shadow-xs' 
-                                                                            : 'bg-amber-400 text-black shadow-sm' 
+                                                                            ? '!bg-[#A0522D] !text-white shadow-xs' 
+                                                                            : '!bg-amber-400 !text-black shadow-sm' 
                                                                         : isLight 
-                                                                            ? 'bg-[#E5D7BC] text-[#5C4430] group-hover:bg-[#D9C9A3] group-hover:text-[#2C1E0F] border border-[#D9C9A3]/60' 
-                                                                            : 'bg-white/10 text-white/90 group-hover:bg-white/20 group-hover:text-white border border-white/5'
+                                                                            ? '!bg-[#E5D7BC] !text-[#5C4430] group-hover:!bg-[#D9C9A3] group-hover:!text-[#2C1E0F] border border-[#D9C9A3]/60' 
+                                                                            : '!bg-white/10 !text-white/90 group-hover:!bg-white/20 group-hover:!text-white border border-white/5'
                                                                 }`}>
                                                                     Vol. {b.series_index || idx + 1}
                                                                 </span>

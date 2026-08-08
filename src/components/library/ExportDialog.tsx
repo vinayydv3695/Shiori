@@ -79,17 +79,15 @@ export const ExportDialog = ({ open, onOpenChange }: ExportDialogProps) => {
   return (
     <Dialog.Root open={open} onOpenChange={handleClose}>
       <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
-        <Dialog.Content aria-describedby={undefined} className="dialog-content fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-[600px] max-h-[90vh] overflow-y-auto z-50">
-          <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4 z-10">
-            <div className="flex items-center justify-between">
-              <Dialog.Title className="text-xl font-semibold">Export Library</Dialog.Title>
-              <Dialog.Close asChild>
-               <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded" title="Close">
-                   <X className="w-5 h-5" />
-                 </button>
-              </Dialog.Close>
-            </div>
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-background/80 backdrop-blur-md z-50" />
+        <Dialog.Content aria-describedby={undefined} className="dialog-content fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card border border-border/60 rounded-2xl shadow-2xl w-[92vw] sm:w-[580px] max-h-[90vh] overflow-y-auto z-50 backdrop-blur-2xl">
+          <div className="sticky top-0 bg-card/95 backdrop-blur-md border-b border-border/50 px-6 py-4 z-10 flex items-center justify-between">
+            <Dialog.Title className="text-xl font-bold tracking-tight text-foreground">Export Library</Dialog.Title>
+            <Dialog.Close asChild>
+              <button className="p-2 hover:bg-secondary rounded-full text-muted-foreground hover:text-foreground transition-colors" title="Close">
+                <X className="w-5 h-5" />
+              </button>
+            </Dialog.Close>
           </div>
 
           <div className="p-6 space-y-6">
@@ -97,82 +95,82 @@ export const ExportDialog = ({ open, onOpenChange }: ExportDialogProps) => {
               <>
                 {/* Format Selection */}
                 <div>
-                  <label className="block text-sm font-medium mb-3">Export Format</label>
+                  <label className="block text-sm font-semibold text-foreground mb-3">Export Format</label>
                   <div className="grid grid-cols-3 gap-3">
                     {(['csv', 'json', 'markdown'] as ExportFormat[]).map((fmt) => (
                       <button
                         key={fmt}
                         onClick={() => setFormat(fmt)}
-                        className={`flex flex-col items-center gap-2 px-4 py-4 rounded-lg border-2 transition-all ${
+                        className={`flex flex-col items-center gap-2 px-4 py-4 rounded-xl border-2 transition-all ${
                           format === fmt
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                            : 'border-gray-300 dark:border-gray-700 hover:border-gray-400'
+                            ? 'border-primary bg-primary/10 shadow-sm'
+                            : 'border-border/60 bg-secondary/30 hover:bg-secondary/60 hover:border-border'
                         }`}
                       >
-                        <div className={format === fmt ? 'text-blue-600' : 'text-gray-600'}>
+                        <div className={format === fmt ? 'text-primary' : 'text-muted-foreground'}>
                           {formatIcons[fmt]}
                         </div>
                         <div className="text-center">
-                          <div className="font-medium uppercase text-xs">{fmt}</div>
+                          <div className={`font-bold uppercase text-xs ${format === fmt ? 'text-primary' : 'text-foreground'}`}>{fmt}</div>
                         </div>
                       </button>
                     ))}
                   </div>
-                  <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  <div className="mt-2 text-xs text-muted-foreground">
                     {formatDescriptions[format]}
                   </div>
                 </div>
 
                 {/* Export Options */}
                 <div>
-                  <label className="block text-sm font-medium mb-3">Include in Export</label>
+                  <label className="block text-sm font-semibold text-foreground mb-3">Include in Export</label>
                   <div className="space-y-3">
-                    <label className="flex items-center gap-3 cursor-pointer">
+                    <label className="flex items-center gap-3 cursor-pointer p-2.5 rounded-xl hover:bg-secondary/40 transition-colors border border-border/30">
                       <input
                         type="checkbox"
                         checked={includeMetadata}
                         onChange={(e) => setIncludeMetadata(e.target.checked)}
-                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/40"
                       />
                       <div className="flex-1">
-                        <div className="text-sm font-medium">Full Metadata</div>
-                        <div className="text-xs text-gray-500">ISBN, publisher, publication date, etc.</div>
+                        <div className="text-sm font-medium text-foreground">Full Metadata</div>
+                        <div className="text-xs text-muted-foreground">ISBN, publisher, publication date, etc.</div>
                       </div>
                     </label>
                     
-                    <label className="flex items-center gap-3 cursor-pointer">
+                    <label className="flex items-center gap-3 cursor-pointer p-2.5 rounded-xl hover:bg-secondary/40 transition-colors border border-border/30">
                       <input
                         type="checkbox"
                         checked={includeShelfs}
                         onChange={(e) => setIncludeShelfs(e.target.checked)}
-                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/40"
                       />
                       <div className="flex-1">
-                        <div className="text-sm font-medium">Shelfs</div>
-                        <div className="text-xs text-gray-500">Which shelves each book belongs to</div>
+                        <div className="text-sm font-medium text-foreground">Shelfs</div>
+                        <div className="text-xs text-muted-foreground">Which shelves each book belongs to</div>
                       </div>
                     </label>
                     
-                    <label className="flex items-center gap-3 cursor-pointer">
+                    <label className="flex items-center gap-3 cursor-pointer p-2.5 rounded-xl hover:bg-secondary/40 transition-colors border border-border/30">
                       <input
                         type="checkbox"
                         checked={includeReadingProgress}
                         onChange={(e) => setIncludeReadingProgress(e.target.checked)}
-                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/40"
                       />
                       <div className="flex-1">
-                        <div className="text-sm font-medium">Reading Progress</div>
-                        <div className="text-xs text-gray-500">Current reading position and completion percentage</div>
+                        <div className="text-sm font-medium text-foreground">Reading Progress</div>
+                        <div className="text-xs text-muted-foreground">Current reading position and completion percentage</div>
                       </div>
                     </label>
                   </div>
                 </div>
 
                 {/* Info Box */}
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <div className="bg-primary/10 border border-primary/20 rounded-xl p-4">
                   <div className="text-sm">
-                    <div className="font-medium mb-1">What's Exported:</div>
-                    <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                    <div className="font-semibold text-primary mb-1">What's Exported:</div>
+                    <ul className="text-xs text-muted-foreground space-y-1">
                       <li>• Book titles, authors, and tags</li>
                       <li>• File paths and formats</li>
                       <li>• Series information and ratings</li>
@@ -184,15 +182,15 @@ export const ExportDialog = ({ open, onOpenChange }: ExportDialogProps) => {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex justify-end gap-3 pt-4">
+                <div className="flex justify-end gap-3 pt-4 border-t border-border/40">
                   <Dialog.Close asChild>
-                    <button className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                    <button className="px-4 py-2 border border-border rounded-xl hover:bg-secondary text-foreground text-sm font-medium transition-colors">
                       Cancel
                     </button>
                   </Dialog.Close>
                   <button
                     onClick={handleExport}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                    className="px-4 py-2 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-md"
                   >
                     <Download className="w-4 h-4" />
                     Export Library
@@ -204,32 +202,32 @@ export const ExportDialog = ({ open, onOpenChange }: ExportDialogProps) => {
             {/* Exporting Status */}
             {status === 'exporting' && (
               <div className="flex flex-col items-center justify-center py-12">
-                <Loader2 className="w-16 h-16 text-blue-600 animate-spin mb-4" />
-                <div className="text-lg font-medium">Exporting library...</div>
-                <div className="text-sm text-gray-500 mt-1">Creating {format.toUpperCase()} file</div>
+                <Loader2 className="w-16 h-16 text-primary animate-spin mb-4" />
+                <div className="text-lg font-bold text-foreground">Exporting library...</div>
+                <div className="text-sm text-muted-foreground mt-1">Creating {format.toUpperCase()} file</div>
               </div>
             )}
 
             {/* Export Complete */}
             {status === 'completed' && (
               <div className="space-y-4">
-                <div className="flex items-center gap-3 pb-3 border-b border-gray-200 dark:border-gray-700">
-                  <CheckCircle className="w-8 h-8 text-green-600" />
+                <div className="flex items-center gap-3 pb-3 border-b border-border">
+                  <CheckCircle className="w-8 h-8 text-emerald-500" />
                   <div>
-                    <div className="text-lg font-medium">Export Complete</div>
-                    <div className="text-sm text-gray-500">Your library has been exported successfully</div>
+                    <div className="text-lg font-bold text-foreground">Export Complete</div>
+                    <div className="text-sm text-muted-foreground">Your library has been exported successfully</div>
                   </div>
                 </div>
 
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                  <div className="text-xs text-gray-500 mb-1">Saved to:</div>
-                  <div className="font-mono text-sm break-all">{exportedPath}</div>
+                <div className="bg-muted/40 border border-border/50 rounded-xl p-4">
+                  <div className="text-xs text-muted-foreground mb-1">Saved to:</div>
+                  <div className="font-mono text-sm text-foreground break-all">{exportedPath}</div>
                 </div>
 
                 <div className="flex justify-end pt-4">
                   <button
                     onClick={handleClose}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="px-5 py-2.5 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 transition-colors shadow-md"
                   >
                     Done
                   </button>
@@ -240,12 +238,12 @@ export const ExportDialog = ({ open, onOpenChange }: ExportDialogProps) => {
             {/* Error State */}
             {status === 'error' && (
               <div className="flex flex-col items-center justify-center py-12">
-                <AlertCircle className="w-16 h-16 text-red-600 mb-4" />
-                <div className="text-lg font-medium">Export Failed</div>
-                <div className="text-sm text-gray-500 mt-1">An error occurred during export</div>
+                <AlertCircle className="w-16 h-16 text-destructive mb-4" />
+                <div className="text-lg font-bold text-foreground">Export Failed</div>
+                <div className="text-sm text-muted-foreground mt-1">An error occurred during export</div>
                 <button
                   onClick={() => setStatus('idle')}
-                  className="mt-4 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  className="mt-4 px-4 py-2 border border-border rounded-xl hover:bg-secondary text-foreground font-medium transition-colors"
                 >
                   Try Again
                 </button>

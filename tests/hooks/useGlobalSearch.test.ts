@@ -4,6 +4,7 @@ import { useGlobalSearch } from '@/hooks/useGlobalSearch';
 import { fetchLibgenBooks } from '@/online-books/libgen/api';
 import { fetchGutenbergBooks } from '@/online-books/gutenberg/api';
 import { fetchAnnasArchiveBooks } from '@/online-books/annas-archive/api';
+import { useSourceStore } from '@/store/sourceStore';
 
 vi.mock('@/online-books/libgen/api', () => ({
   fetchLibgenBooks: vi.fn(),
@@ -17,15 +18,128 @@ vi.mock('@/online-books/annas-archive/api', () => ({
   fetchAnnasArchiveBooks: vi.fn(),
 }));
 
+function enableAllSources() {
+  useSourceStore.setState({
+    sources: useSourceStore.getState().sources.map((s) => ({ ...s, enabled: true })),
+  });
+}
+
+function resetSourceStore() {
+  useSourceStore.setState(useSourceStore.getInitialState());
+}
+
 describe('useGlobalSearch', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetSourceStore();
     vi.mocked(fetchLibgenBooks).mockResolvedValue({ items: [] });
     vi.mocked(fetchGutenbergBooks).mockResolvedValue({ results: [] });
     vi.mocked(fetchAnnasArchiveBooks).mockResolvedValue({ items: [] });
   });
 
+  it('does NOT call annas-archive when it is disabled in settings (default) during all-sources search', async () => {
+    vi.mocked(fetchGutenbergBooks).mockResolvedValueOnce({
+      results: [
+        {
+          id: 1,
+          title: 'Gut Book',
+          authors: [{ name: 'Gut Author' }],
+          languages: ['en'],
+          formats: { 'application/epub+zip': 'http://gutendex.com/1/epub' },
+        },
+      ],
+    });
+    vi.mocked(fetchLibgenBooks).mockResolvedValueOnce({
+      items: [{ id: 'l1', title: 'Lib Book', extra: { author: 'Lib Author' } }],
+    });
+
+    const { result } = renderHook(() => useGlobalSearch());
+
+    await act(async () => {
+      await result.current.search('test', 1);
+    });
+
+    expect(fetchGutenbergBooks).toHaveBeenCalledTimes(1);
+    expect(fetchLibgenBooks).toHaveBeenCalledTimes(1);
+    expect(fetchAnnasArchiveBooks).not.toHaveBeenCalled();
+    expect(result.current.results.map((r) => r.source)).toEqual(['gutenberg', 'libgen']);
+  });
+
+  it('calls all three fetchers with default source filter when annas-archive is enabled in settings', async () => {
+    enableAllSources();
+
+    vi.mocked(fetchGutenbergBooks).mockResolvedValueOnce({
+      results: [
+        {
+          id: 1,
+          title: 'Gut Book',
+          authors: [{ name: 'Gut Author' }],
+          languages: ['en'],
+          formats: { 'application/epub+zip': 'http://gutendex.com/1/epub' },
+        },
+      ],
+    });
+    vi.mocked(fetchLibgenBooks).mockResolvedValueOnce({
+      items: [{ id: 'l1', title: 'Lib Book', extra: { author: 'Lib Author' } }],
+    });
+    vi.mocked(fetchAnnasArchiveBooks).mockResolvedValueOnce({
+      items: [
+        {
+          id: 'aa-1',
+          title: 'AA Book',
+          extra: { md5: 'aa-1', detail_url: 'https://annas-archive.org/d/aa-1' },
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useGlobalSearch());
+
+    await act(async () => {
+      await result.current.search('test', 1);
+    });
+
+    expect(fetchLibgenBooks).toHaveBeenCalledTimes(1);
+    expect(fetchGutenbergBooks).toHaveBeenCalledTimes(1);
+    expect(fetchAnnasArchiveBooks).toHaveBeenCalledTimes(1);
+    expect(result.current.results.map((r) => r.source)).toEqual(
+      expect.arrayContaining(['gutenberg', 'libgen', 'annas-archive'])
+    );
+  });
+
+  it('skips disabled sources when libgen or gutenberg is turned off in settings', async () => {
+    useSourceStore.setState({
+      sources: useSourceStore.getState().sources.map((s) =>
+        s.id === 'libgen' ? { ...s, enabled: false } : s
+      ),
+    });
+
+    vi.mocked(fetchGutenbergBooks).mockResolvedValueOnce({
+      results: [
+        {
+          id: 1,
+          title: 'Gut Book',
+          authors: [{ name: 'Gut Author' }],
+          languages: ['en'],
+          formats: { 'application/epub+zip': 'http://gutendex.com/1/epub' },
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useGlobalSearch());
+
+    await act(async () => {
+      await result.current.search('test', 1);
+    });
+
+    expect(fetchGutenbergBooks).toHaveBeenCalledTimes(1);
+    expect(fetchLibgenBooks).not.toHaveBeenCalled();
+    expect(fetchAnnasArchiveBooks).not.toHaveBeenCalled();
+    expect(result.current.results.map((r) => r.source)).toEqual(['gutenberg']);
+  });
+
   it('normalizes annas-archive items into UnifiedSearchResult with RAW cover', async () => {
+    enableAllSources();
+
     vi.mocked(fetchAnnasArchiveBooks).mockResolvedValueOnce({
       items: [
         {
@@ -54,7 +168,7 @@ describe('useGlobalSearch', () => {
     const { result } = renderHook(() => useGlobalSearch());
 
     await act(async () => {
-      await result.current.search('test', 1);
+      await result.current.search('test', 1, undefined, 'annas-archive');
     });
 
     expect(result.current.results).toHaveLength(2);
@@ -97,6 +211,8 @@ describe('useGlobalSearch', () => {
   });
 
   it('keeps libgen/gutenberg results when the annas-archive fetcher rejects', async () => {
+    enableAllSources();
+
     vi.mocked(fetchAnnasArchiveBooks).mockRejectedValueOnce(new Error('Annas Archive down'));
     vi.mocked(fetchLibgenBooks).mockResolvedValueOnce({
       items: [
@@ -137,6 +253,8 @@ describe('useGlobalSearch', () => {
   });
 
   it('combines results from all three sources and dedupes by id', async () => {
+    enableAllSources();
+
     vi.mocked(fetchGutenbergBooks).mockResolvedValueOnce({
       results: [
         {
@@ -189,7 +307,9 @@ describe('useGlobalSearch', () => {
     );
   });
 
-  it('searches ONLY annas-archive when source filter is set', async () => {
+  it('searches ONLY annas-archive when source filter is set and it is enabled', async () => {
+    enableAllSources();
+
     vi.mocked(fetchAnnasArchiveBooks).mockResolvedValueOnce({
       items: [
         {
@@ -246,44 +366,5 @@ describe('useGlobalSearch', () => {
       source: 'gutenberg',
       title: 'Gut Only Book',
     });
-  });
-
-  it('calls all three fetchers with the default source filter', async () => {
-    vi.mocked(fetchGutenbergBooks).mockResolvedValueOnce({
-      results: [
-        {
-          id: 1,
-          title: 'Gut Book',
-          authors: [{ name: 'Gut Author' }],
-          languages: ['en'],
-          formats: { 'application/epub+zip': 'http://gutendex.com/1/epub' },
-        },
-      ],
-    });
-    vi.mocked(fetchLibgenBooks).mockResolvedValueOnce({
-      items: [{ id: 'l1', title: 'Lib Book', extra: { author: 'Lib Author' } }],
-    });
-    vi.mocked(fetchAnnasArchiveBooks).mockResolvedValueOnce({
-      items: [
-        {
-          id: 'aa-1',
-          title: 'AA Book',
-          extra: { md5: 'aa-1', detail_url: 'https://annas-archive.org/d/aa-1' },
-        },
-      ],
-    });
-
-    const { result } = renderHook(() => useGlobalSearch());
-
-    await act(async () => {
-      await result.current.search('test', 1);
-    });
-
-    expect(fetchLibgenBooks).toHaveBeenCalledTimes(1);
-    expect(fetchGutenbergBooks).toHaveBeenCalledTimes(1);
-    expect(fetchAnnasArchiveBooks).toHaveBeenCalledTimes(1);
-    expect(result.current.results.map((r) => r.source)).toEqual(
-      expect.arrayContaining(['gutenberg', 'libgen', 'annas-archive'])
-    );
   });
 });

@@ -38,9 +38,9 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   if (active && payload && payload.length && label !== undefined) {
     const totalSeconds = payload[0].payload.total_seconds;
     return (
-      <div className="bg-white dark:bg-gray-800 px-3 py-2 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">{label}</p>
-        <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+      <div className="bg-popover text-popover-foreground px-3.5 py-2 rounded-xl shadow-xl border border-border/50 backdrop-blur-md">
+        <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
+        <p className="text-sm font-bold text-primary">
           {formatMinutesAndSeconds(totalSeconds)}
         </p>
       </div>
@@ -49,30 +49,10 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   return null;
 }
 
-function useIsDark(): boolean {
-  const [isDark, setIsDark] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return document.documentElement.classList.contains('dark');
-  });
-
-  useEffect(() => {
-    const el = document.documentElement;
-    const observer = new MutationObserver(() => {
-      setIsDark(el.classList.contains('dark'));
-    });
-    observer.observe(el, { attributes: true, attributeFilter: ['class'] });
-    return () => observer.disconnect();
-  }, []);
-
-  return isDark;
-}
-
 export function WeeklyChart({ data }: WeeklyChartProps) {
-  const isDark = useIsDark();
-
   if (!data || data.length === 0) {
     return (
-      <div className="w-full h-[280px] flex items-center justify-center text-gray-400 dark:text-gray-500 text-sm">
+      <div className="w-full h-[280px] flex items-center justify-center text-muted-foreground text-sm">
         No reading data yet
       </div>
     );
@@ -84,38 +64,33 @@ export function WeeklyChart({ data }: WeeklyChartProps) {
     formattedDate: formatDayName(d.date),
   }));
 
-  const barColor = isDark ? '#60a5fa' : '#3b82f6';
-  const gridColor = isDark ? '#374151' : '#e5e7eb';
-  const tickColor = isDark ? '#9ca3af' : '#6b7280';
-  const cursorColor = isDark ? 'rgba(55, 65, 81, 0.5)' : 'rgba(243, 244, 246, 0.8)';
-
   return (
     <div className="w-full h-[280px]">
       <ResponsiveContainer width="100%" height={280}>
         <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border) / 0.4)" />
           <XAxis
             dataKey="formattedDate"
             axisLine={false}
             tickLine={false}
-            tick={{ fill: tickColor, fontSize: 12 }}
+            tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
             dy={10}
           />
           <YAxis
             axisLine={false}
             tickLine={false}
-            tick={{ fill: tickColor, fontSize: 12 }}
+            tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
             tickFormatter={(value: number) => `${value}m`}
             allowDecimals={false}
           />
           <Tooltip
-            cursor={{ fill: cursorColor }}
+            cursor={{ fill: "hsl(var(--muted) / 0.4)" }}
             content={<CustomTooltip />}
           />
           <Bar
             dataKey="minutes"
-            radius={[4, 4, 0, 0]}
-            fill={barColor}
+            radius={[6, 6, 0, 0]}
+            fill="hsl(var(--primary))"
             maxBarSize={48}
           />
         </BarChart>

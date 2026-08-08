@@ -252,7 +252,7 @@ export function CompanionDiscovery() {
             )}
 
             {cameraReady && (
-              <div className="overflow-hidden rounded-lg border bg-black/5" id="qr-reader" style={{ width: '100%', minHeight: '250px' }}></div>
+              <div className="overflow-hidden rounded-xl border border-border/50 bg-muted/30" id="qr-reader" style={{ width: '100%', minHeight: '250px' }}></div>
             )}
           </div>
         )}

@@ -76,7 +76,7 @@ const DesktopSeriesHeader = memo(function DesktopSeriesHeader({
         {/* Top Section: Cover & Info */}
         <div className="flex flex-row gap-4 md:gap-8 items-start md:items-end w-full">
           {/* Cover */}
-          <div className="w-24 h-36 md:w-48 md:h-72 rounded-lg overflow-hidden shadow-2xl border border-white/10 flex-shrink-0 bg-muted/50 transform transition-transform hover:scale-105 duration-300">
+          <div className="w-24 h-36 md:w-48 md:h-72 rounded-lg overflow-hidden shadow-2xl border border-border/40 flex-shrink-0 bg-muted/50 transform transition-transform hover:scale-105 duration-300">
             {coverUrl ? (
               <img src={coverUrl} alt={series.title} className="w-full h-full object-cover" />
             ) : (
@@ -637,7 +637,7 @@ export const SeriesView = memo(function SeriesView({
           )}
         >
           <Dialog.Close asChild>
-            <button className="absolute top-[calc(env(safe-area-inset-top,0px)+1rem)] md:top-4 right-4 text-white md:text-foreground/70 md:hover:text-foreground transition-colors flex-shrink-0 z-[60] bg-black/40 md:bg-background/40 hover:bg-black/60 md:hover:bg-background/60 backdrop-blur-md p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-primary border border-white/20 md:border-border/20 shadow-md" title="Close series view">
+            <button className="absolute top-[calc(env(safe-area-inset-top,0px)+1rem)] md:top-4 right-4 text-foreground/80 hover:text-foreground transition-colors flex-shrink-0 z-[60] bg-secondary/80 hover:bg-secondary backdrop-blur-md p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-primary border border-border/50 shadow-md hover:scale-105 active:scale-95" title="Close series view">
               <X className="h-5 w-5" />
             </button>
           </Dialog.Close>

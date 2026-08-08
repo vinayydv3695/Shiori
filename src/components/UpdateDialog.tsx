@@ -10,7 +10,6 @@ import { isAndroid } from '@/lib/tauri';
 import { 
   Download, 
   RefreshCw, 
-  ArrowUpCircle, 
   Palette, 
   ShieldCheck, 
   Sliders, 
@@ -165,24 +164,38 @@ export function UpdateDialog() {
     <AnimatePresence>
       {isUpdateDialogOpen && (
         <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>
-          <DialogContent className="sm:max-w-[580px] w-[94vw] p-0 overflow-hidden border-none bg-transparent shadow-[0_0_60px_rgba(0,0,0,0.5)]">
+          <DialogContent className="sm:max-w-[580px] w-[94vw] !p-0 overflow-hidden !border-none !bg-transparent shadow-none [&>button]:hidden">
             <motion.div 
               className={cn(
-                "relative rounded-3xl overflow-hidden flex flex-col max-h-[88vh] shadow-2xl border transition-colors",
+                "relative rounded-3xl overflow-hidden flex flex-col max-h-[88vh] shadow-2xl transition-colors border",
                 isLight
-                  ? "!bg-[#FAF6EC] !text-[#2C1E0F] !border-[#D9C9A3] shadow-2xl shadow-[#5C4430]/25"
-                  : "!bg-[#0e0e12] !text-white !border-white/[0.08] shadow-2xl shadow-black/80"
+                  ? "bg-[#FAF6EC] text-[#2C1E0F] border-[#E2D5B8] shadow-2xl shadow-[#5C4430]/20"
+                  : "bg-[#0e0e12] text-white border-white/10 shadow-2xl shadow-black/80"
               )}
               initial={{ opacity: 0, scale: 0.96, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
             >
-              {/* Ambient Glow */}
+              {/* Top Accent Light */}
               <div className={cn(
                 "absolute -top-24 left-1/2 -translate-x-1/2 w-72 h-36 rounded-full blur-[60px] pointer-events-none",
-                isLight ? "bg-[#A0522D]/10" : "bg-amber-500/10"
+                isLight ? "bg-[#A0522D]/8" : "bg-amber-500/10"
               )} />
+
+              {/* Theme-Adaptive Close Button */}
+              <button 
+                onClick={() => setIsUpdateDialogOpen(false)}
+                className={cn(
+                  "absolute top-5 right-5 z-20 p-2 rounded-full transition-colors",
+                  isLight 
+                    ? "text-[#7D634B] hover:text-[#2C1E0F] hover:bg-[#EAE0CB]" 
+                    : "text-zinc-400 hover:text-white hover:bg-white/10"
+                )}
+                title="Close (Esc)"
+              >
+                <X size={16} />
+              </button>
 
               <div className="p-6 sm:p-7 flex flex-col flex-1 min-h-0 relative z-10 space-y-5">
                 {/* Minimal Header */}
@@ -190,7 +203,7 @@ export function UpdateDialog() {
                   <div className={cn(
                     "w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border",
                     isLight 
-                      ? "bg-[#E5D7BC] border-[#D9C9A3] text-[#A0522D]" 
+                      ? "bg-[#F0E6CE] border-[#E2D5B8] text-[#A0522D]" 
                       : "bg-amber-400/10 border-amber-400/20 text-amber-400"
                   )}>
                     <Download className="w-5 h-5 stroke-[2.2]" />
@@ -206,7 +219,7 @@ export function UpdateDialog() {
                       <span className={cn(
                         "px-2 py-0.5 rounded-full text-[11px] font-medium border",
                         isLight 
-                          ? "bg-[#EAE0CB] text-[#5C4430] border-[#D9C9A3]" 
+                          ? "bg-[#F0E6CE] text-[#5C4430] border-[#E2D5B8]" 
                           : "bg-white/10 text-zinc-300 border-white/10"
                       )}>
                         v{updateInfo.version}
@@ -221,19 +234,19 @@ export function UpdateDialog() {
                   </div>
                 </div>
 
-                {/* What's New Highlights (Minimal, calm, readable, dual-theme) */}
+                {/* What's New Highlights (Dedicated Header Strip & Clean Borders) */}
                 <div className={cn(
                   "rounded-2xl border overflow-hidden flex flex-col max-h-[46vh]",
                   isLight 
-                    ? "border-[#D9C9A3] bg-[#F4ECD8]/80 text-[#2C1E0F]" 
-                    : "border-white/[0.08] bg-white/[0.03] text-white"
+                    ? "border-[#E2D5B8] bg-[#F7F2E6] text-[#2C1E0F]" 
+                    : "border-white/10 bg-white/[0.02] text-white"
                 )}>
-                  {/* Dedicated Header Strip preventing corner cut-off */}
+                  {/* Clean Fixed Header Strip */}
                   <div className={cn(
                     "px-5 py-3 border-b shrink-0 flex items-center justify-between text-[11px] font-semibold tracking-wider uppercase",
                     isLight 
-                      ? "bg-[#EAE0CB]/70 border-[#D9C9A3] text-[#7D634B]" 
-                      : "bg-white/[0.04] border-white/[0.08] text-zinc-400"
+                      ? "bg-[#F0E6CE]/80 border-[#E2D5B8] text-[#7D634B]" 
+                      : "bg-white/[0.04] border-white/10 text-zinc-400"
                   )}>
                     <span>What's New</span>
                     <span className={cn("text-[10px] font-normal lowercase tracking-normal", isLight ? "text-[#8A6A50]" : "text-zinc-500")}>
@@ -275,7 +288,7 @@ export function UpdateDialog() {
                             <div key={idx} className="flex items-start gap-3 p-1 rounded-xl">
                               <div className={cn(
                                 "p-1.5 rounded-lg mt-0.5 shrink-0",
-                                isLight ? "bg-[#E5D7BC] text-[#A0522D]" : "bg-white/5 text-amber-400"
+                                isLight ? "bg-[#F0E6CE] text-[#A0522D]" : "bg-white/5 text-amber-400"
                               )}>
                                 <Icon className="w-3.5 h-3.5" />
                               </div>
@@ -283,7 +296,7 @@ export function UpdateDialog() {
                                 <div className={cn(
                                   "font-medium tracking-tight",
                                   isLight ? "text-[#2C1E0F]" : "text-white"
-                                  )}>
+                                )}>
                                   {item.title}
                                 </div>
                                 <div className={cn(
@@ -305,7 +318,7 @@ export function UpdateDialog() {
                 {isUpdating && (
                   <div className={cn(
                     "p-3.5 rounded-2xl border space-y-2",
-                    isLight ? "bg-[#EAE0CB] border-[#D9C9A3]" : "bg-white/[0.03] border-white/[0.06]"
+                    isLight ? "bg-[#F0E6CE] border-[#E2D5B8]" : "bg-white/[0.03] border-white/10"
                   )}>
                     <div className="flex items-center justify-between text-xs">
                       <span className={cn(
@@ -319,7 +332,7 @@ export function UpdateDialog() {
                         {progressPercentage ? `${progressPercentage}%` : ''}
                       </span>
                     </div>
-                    <div className={cn("w-full h-1.5 rounded-full overflow-hidden", isLight ? "bg-[#D9C9A3]" : "bg-white/10")}>
+                    <div className={cn("w-full h-1.5 rounded-full overflow-hidden", isLight ? "bg-[#E2D5B8]" : "bg-white/10")}>
                       <div 
                         className={cn("h-full rounded-full transition-all duration-300", isLight ? "bg-[#A0522D]" : "bg-amber-400")}
                         style={{ width: progressPercentage ? `${progressPercentage}%` : '50%' }}
@@ -336,10 +349,10 @@ export function UpdateDialog() {
                   </div>
                 )}
 
-                {/* Clean, perfectly fitted footer */}
+                {/* Clean, single-divider footer */}
                 <div className={cn(
                   "pt-3 border-t flex items-center justify-between sm:justify-end gap-3",
-                  isLight ? "border-[#D9C9A3]" : "border-white/[0.06]"
+                  isLight ? "border-[#E2D5B8]/60" : "border-white/10"
                 )}>
                   <button 
                     onClick={() => setIsUpdateDialogOpen(false)}

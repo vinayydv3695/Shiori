@@ -29,17 +29,17 @@ const STATUS_CONFIG: Record<ImportStatus, { label: string; icon: LucideIcon; col
   idle: {
     label: 'Ready to import',
     icon: Upload,
-    colorClass: 'text-white/60',
+    colorClass: 'text-muted-foreground',
   },
   scanning: {
     label: 'Scanning files...',
     icon: Search,
-    colorClass: 'text-zinc-400',
+    colorClass: 'text-muted-foreground',
   },
   importing: {
     label: 'Importing your library...',
     icon: Loader2,
-    colorClass: 'text-zinc-400',
+    colorClass: 'text-primary',
   },
   completed: {
     label: 'Import completed successfully',
@@ -59,18 +59,18 @@ export default function ImportProgress({ status, progress, results, currentFile 
   const isLoading = status === 'scanning' || status === 'importing';
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-slate-900/50 p-5 shadow-xl">
+    <div className="rounded-2xl border border-border/50 bg-card/75 backdrop-blur-xl p-5 shadow-xl">
       <div className="mb-4 flex items-center gap-2.5">
         <statusInfo.icon
           size={20}
           className={`${statusInfo.colorClass} ${isLoading ? 'animate-spin' : ''}`}
         />
-        <p className="text-sm font-semibold tracking-wide text-white">{statusInfo.label}</p>
+        <p className="text-sm font-semibold tracking-wide text-foreground">{statusInfo.label}</p>
       </div>
 
-      <div className="relative h-3 overflow-hidden rounded-full border border-white/20 bg-slate-950/50">
+      <div className="relative h-3 overflow-hidden rounded-full border border-border/40 bg-muted/40">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-zinc-500 to-zinc-600 transition-[width] duration-500 ease-out"
+          className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out"
           style={{ width: `${clampedProgress}%` }}
           role="progressbar"
           aria-valuemin={0}
@@ -79,16 +79,16 @@ export default function ImportProgress({ status, progress, results, currentFile 
           aria-label="Import progress"
         />
         <div
-          className="pointer-events-none absolute top-0 h-full w-24 -translate-x-full bg-gradient-to-r from-transparent via-white/35 to-transparent animate-[shimmer_1.8s_linear_infinite]"
+          className="pointer-events-none absolute top-0 h-full w-24 -translate-x-full bg-gradient-to-r from-transparent via-primary-foreground/30 to-transparent animate-[shimmer_1.8s_linear_infinite]"
           style={{ left: `${clampedProgress}%` }}
         />
       </div>
 
-      <div className="mt-2 text-right text-xs font-medium text-white/60">{Math.round(clampedProgress)}%</div>
+      <div className="mt-2 text-right text-xs font-medium text-muted-foreground">{Math.round(clampedProgress)}%</div>
 
       {currentFile ? (
-        <div className="mt-3 flex items-center gap-2 rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-xs text-white/80">
-          <FileText size={15} className="text-white/60" />
+        <div className="mt-3 flex items-center gap-2 rounded-lg border border-border/40 bg-muted/30 px-3 py-2 text-xs text-foreground/90">
+          <FileText size={15} className="text-muted-foreground" />
           <span className="truncate" title={currentFile}>
             {currentFile}
           </span>

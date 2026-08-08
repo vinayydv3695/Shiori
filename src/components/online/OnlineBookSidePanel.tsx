@@ -153,7 +153,7 @@ export function OnlineBookSidePanel({
                 onPointerDown={(e) => dragControls.start(e)}
                 style={{ touchAction: 'none', cursor: 'grab' }}
               >
-                <div className="w-12 h-1.5 rounded-full bg-[var(--ui-border)] pointer-events-none" />
+                <div className="w-12 h-1.5 rounded-full bg-border pointer-events-none" />
               </div>
             )}
             {/* Close button */}
@@ -191,10 +191,10 @@ export function OnlineBookSidePanel({
               </div>
 
               {/* Header / Cover */}
-              <motion.div className="relative pt-6 pb-8 px-8 flex flex-col items-center border-b border-white/5" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
-                <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent opacity-30 pointer-events-none" />
+              <motion.div className="relative pt-6 pb-8 px-8 flex flex-col items-center border-b border-border/30" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
+                <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent opacity-30 pointer-events-none" />
                 
-                <div className="relative w-48 aspect-[2/3] rounded-xl overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.6)] border border-white/10 mb-6 shrink-0">
+                <div className="relative w-48 aspect-[2/3] rounded-xl overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.4)] border border-border/50 mb-6 shrink-0">
                   {proxyUrl && !imgError ? (
                     <img 
                       src={proxyUrl} 

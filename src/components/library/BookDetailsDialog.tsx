@@ -158,7 +158,7 @@ export const BookDetailsDialog = ({
           {/* Floating Close Button */}
           <div className="absolute top-4 right-4 z-50">
              <Dialog.Close asChild>
-               <button className="bg-black/40 hover:bg-black/60 backdrop-blur-xl border border-white/10 text-white p-2.5 rounded-full transition-all duration-200 shadow-lg hover:scale-105 active:scale-95" title="Close">
+               <button className="bg-secondary/80 hover:bg-secondary border border-border/50 text-muted-foreground hover:text-foreground p-2.5 rounded-full backdrop-blur-xl transition-all duration-200 shadow-md hover:scale-105 active:scale-95" title="Close">
                  <X className="h-5 w-5" />
                </button>
              </Dialog.Close>

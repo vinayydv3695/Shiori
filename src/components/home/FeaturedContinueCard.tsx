@@ -48,7 +48,7 @@ export function FeaturedContinueCard({
       <div className="relative z-10 p-6 flex flex-col gap-4">
         <div className="flex items-start gap-5">
           {/* Cover Thumbnail */}
-          <div className="w-20 h-28 flex-shrink-0 rounded-lg overflow-hidden shadow-2xl ring-1 ring-white/10 group-hover:-translate-y-1 transition-transform duration-300">
+          <div className="w-20 h-28 flex-shrink-0 rounded-lg overflow-hidden shadow-2xl ring-1 ring-border/40 group-hover:-translate-y-1 transition-transform duration-300">
             {coverUrl ? (
               <img src={coverUrl} alt={book.title} className="w-full h-full object-cover" />
             ) : (

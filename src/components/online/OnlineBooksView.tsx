@@ -218,7 +218,11 @@ export function OnlineBooksView() {
         <OnlineSearchHeader 
           kind="books"
           title="Online Library"
-          subtitle="Search Libgen, Gutenberg & Anna's Archive"
+          subtitle={
+            enabledBookSources.length > 0
+              ? `Search ${enabledBookSources.map((s) => s.name.replace(' (Planned)', '')).join(', ')}`
+              : 'Multi-Source Book Catalog'
+          }
           searchValue={searchQuery}
           loading={loading}
           disabled={false}

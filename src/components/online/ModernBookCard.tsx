@@ -134,7 +134,7 @@ export const ModernBookCard = memo(function ModernBookCard({
               onError={() => setImgError(true)}
             />
           ) : (
-            <div className="w-full h-full flex flex-col justify-center items-center p-4 bg-gradient-to-br from-indigo-950 to-slate-900 text-center relative overflow-hidden">
+            <div className="w-full h-full flex flex-col justify-center items-center p-4 bg-gradient-to-br from-primary/15 via-card to-secondary/30 text-center relative overflow-hidden">
               <div className="absolute top-0 right-0 w-24 h-24 bg-primary/20 rounded-full blur-2xl pointer-events-none" />
               <div className="text-[10px] font-semibold text-primary/80 mb-2">{format || 'BOOK'}</div>
               <div className="font-serif font-bold text-sm text-foreground line-clamp-4 leading-snug">{title}</div>

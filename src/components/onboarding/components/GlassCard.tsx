@@ -17,13 +17,11 @@ const glowClasses: Record<GlassCardGlowColor, string> = {
   none: 'shadow-none',
 };
 
-export function GlassCard({ children, className, glowColor = 'none', theme = 'light' }: GlassCardProps) {
+export function GlassCard({ children, className, glowColor = 'none' }: GlassCardProps) {
   const baseClasses =
-    theme === 'dark'
-      ? 'rounded-2xl border border-white/10 bg-slate-900/50 p-6 backdrop-blur-none transition-all duration-300 ease-out'
-      : 'rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl transition-all duration-300 ease-out';
+    'rounded-2xl border border-border/50 bg-card/60 p-6 backdrop-blur-xl transition-all duration-300 ease-out shadow-sm';
 
-  const glowClass = theme === 'dark' ? 'shadow-none' : glowClasses[glowColor];
+  const glowClass = glowClasses[glowColor];
 
   return (
     <div

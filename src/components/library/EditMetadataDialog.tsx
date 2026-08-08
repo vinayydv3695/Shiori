@@ -140,7 +140,7 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/60 backdrop-blur-md z-50 transition-all duration-300" />
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-background/80 backdrop-blur-md z-50 transition-all duration-300" />
         <Dialog.Content 
           aria-describedby={undefined} 
           className="dialog-content fixed inset-0 sm:inset-auto sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] bg-background/80 backdrop-blur-2xl sm:border sm:border-border sm:shadow-2xl sm:rounded-2xl w-full h-full sm:w-[90vw] sm:max-w-3xl sm:max-h-[90vh] overflow-hidden z-50 flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:data-[state=closed]:slide-out-to-top-[48%] sm:data-[state=open]:slide-in-from-top-[48%] duration-300"
@@ -156,7 +156,7 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
           {/* Floating Close Button */}
           <div className="absolute top-4 right-4 z-50">
              <Dialog.Close asChild>
-               <button className="bg-black/40 hover:bg-black/60 backdrop-blur-xl border border-white/10 text-white p-2.5 rounded-full transition-all duration-200 shadow-lg hover:scale-105 active:scale-95" title="Close">
+               <button className="bg-secondary/80 hover:bg-secondary border border-border/50 text-muted-foreground hover:text-foreground p-2.5 rounded-full backdrop-blur-xl transition-all duration-200 shadow-md hover:scale-105 active:scale-95" title="Close">
                  <X className="h-5 w-5" />
                </button>
              </Dialog.Close>
@@ -164,8 +164,8 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
 
           {/* Header Title */}
           <div className="px-6 pt-10 sm:px-10 sm:pt-12 pb-4 shrink-0 flex items-center gap-3">
-            <div className="p-2 bg-zinc-800/80 rounded-xl backdrop-blur-sm border border-white/10 shadow-sm">
-              <Pencil className="w-5 h-5 text-white" />
+            <div className="p-2.5 bg-secondary text-primary rounded-xl border border-border/50 shadow-xs">
+              <Pencil className="w-5 h-5" />
             </div>
             <div>
               <Dialog.Title className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight drop-shadow-sm">

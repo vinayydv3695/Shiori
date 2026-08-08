@@ -32,18 +32,18 @@ import { ConvertToEpubMenuItem } from '@/components/conversion/ConvertToEpubMenu
 
 // ─── Format Badge ─────────────────────────────
 const fmtColors: Record<string, string> = {
-  EPUB: 'bg-black/75 text-white border border-white/20',
-  PDF: 'bg-red-950/85 text-red-100 border border-red-500/30',
-  MOBI: 'bg-neutral-900/85 text-neutral-100 border border-white/20',
-  AZW3: 'bg-neutral-900/85 text-neutral-100 border border-white/20',
-  FB2: 'bg-amber-950/85 text-amber-100 border border-amber-500/30',
-  TXT: 'bg-neutral-800/85 text-neutral-100 border border-white/20',
-  DOCX: 'bg-blue-950/85 text-blue-100 border border-blue-500/30',
-  HTML: 'bg-purple-950/85 text-purple-100 border border-purple-500/30',
-  MD: 'bg-emerald-950/85 text-emerald-100 border border-emerald-500/30',
-  MARKDOWN: 'bg-emerald-950/85 text-emerald-100 border border-emerald-500/30',
-  CBZ: 'bg-[var(--manga-accent)] text-white border border-white/30',
-  CBR: 'bg-[var(--manga-accent)] text-white border border-white/30',
+  EPUB: 'bg-primary text-primary-foreground border-primary shadow-sm',
+  PDF: 'bg-destructive text-destructive-foreground border-destructive shadow-sm',
+  MOBI: 'bg-secondary text-secondary-foreground border-border shadow-sm',
+  AZW3: 'bg-secondary text-secondary-foreground border-border shadow-sm',
+  FB2: 'bg-amber-600 text-white border-amber-700 shadow-sm',
+  TXT: 'bg-muted text-foreground border-border shadow-sm',
+  DOCX: 'bg-blue-600 text-white border-blue-700 shadow-sm',
+  HTML: 'bg-purple-600 text-white border-purple-700 shadow-sm',
+  MD: 'bg-emerald-600 text-white border-emerald-700 shadow-sm',
+  MARKDOWN: 'bg-emerald-600 text-white border-emerald-700 shadow-sm',
+  CBZ: 'bg-[var(--manga-accent,#ec4899)] text-white border-pink-700 shadow-sm',
+  CBR: 'bg-[var(--manga-accent,#ec4899)] text-white border-pink-700 shadow-sm',
 }
 
 
@@ -74,12 +74,12 @@ const FormatPill = ({ format, filePath, bookId }: { format?: string, filePath?: 
     }
 
     return (
-      <span className="flex items-center gap-1 px-2 py-[3px] text-[9px] font-bold rounded-full tracking-wide shadow-md backdrop-blur-md bg-[var(--manga-accent)] text-white border border-white/20">
-        <Globe size={10} className="opacity-80" />
+      <span className="flex items-center gap-1 px-2 py-[3px] text-[9px] font-bold rounded-full tracking-wide shadow-md bg-[var(--manga-accent,#ec4899)] text-white border border-white/20 opacity-100">
+        <Globe size={10} className="opacity-90" />
         {displaySource}
         {chapterText && (
           <>
-            <span className="w-[1px] h-3 bg-white/30 mx-0.5"></span>
+            <span className="w-[1px] h-3 bg-white/40 mx-0.5"></span>
             <span className="truncate max-w-[80px]">{chapterText}</span>
           </>
         )}
@@ -89,11 +89,11 @@ const FormatPill = ({ format, filePath, bookId }: { format?: string, filePath?: 
 
   const fmt = format.toUpperCase()
   const isManga = fmt === 'CBZ' || fmt === 'CBR'
-  const cls = fmtColors[fmt] ?? 'bg-muted text-muted-foreground'
+  const cls = fmtColors[fmt] ?? 'bg-secondary text-secondary-foreground border border-border shadow-sm'
   return (
     <span className={cn(
-      'px-2 py-[3px] text-[10px] font-bold rounded-full tracking-wide shadow-md backdrop-blur-md',
-      isManga && 'ring-2 ring-white/30',
+      'px-2 py-[3px] text-[10px] font-extrabold rounded-full tracking-wide shadow-md opacity-100 border select-none',
+      isManga && 'ring-2 ring-primary/40',
       cls
     )}>
       {fmt}
@@ -113,9 +113,9 @@ interface OverlayProps {
 const HoverOverlay = ({ onOpen, onViewDetails, onEdit, onDelete, isManga }: OverlayProps) => {
   const btnCls = cn(
     'flex items-center justify-center w-8 h-8 rounded-full',
-    'bg-zinc-800/80 text-white hover:bg-zinc-700/90 hover:scale-110',
+    'bg-secondary/90 text-foreground hover:bg-secondary hover:scale-110',
     'transition-all duration-200 backdrop-blur-md',
-    'border border-white/10',
+    'border border-border/50',
     'shadow-sm'
   )
 
@@ -124,7 +124,7 @@ const HoverOverlay = ({ onOpen, onViewDetails, onEdit, onDelete, isManga }: Over
       <TooltipTrigger asChild>
         {children}
       </TooltipTrigger>
-      <TooltipContent sideOffset={8} className="bg-black/90 text-white border-white/10 backdrop-blur-md">
+      <TooltipContent sideOffset={8} className="bg-popover text-popover-foreground border border-border/50 backdrop-blur-md">
         <p className="text-xs font-medium">{content}</p>
       </TooltipContent>
     </Tooltip>
@@ -145,7 +145,7 @@ const HoverOverlay = ({ onOpen, onViewDetails, onEdit, onDelete, isManga }: Over
         <ActionTooltip content={isManga ? 'Read manga' : 'Open book'}>
           <button 
             onClick={(e) => { e.stopPropagation(); onOpen() }} 
-            className={cn(btnCls, 'w-12 h-12 bg-white/20 hover:bg-white/40 border-white/30 shadow-lg')}
+            className={cn(btnCls, 'w-12 h-12 bg-primary text-primary-foreground hover:bg-primary/90 border-primary/30 shadow-lg')}
           >
             <IconBookOpen size={22} className="opacity-90" />
           </button>
@@ -338,17 +338,17 @@ export const PremiumBookCard = memo(function PremiumBookCard({
         {/* Fallback (no cover) */}
         {(!coverUrl || imgError) && imgLoaded === false && !coverLoading && (
           <div 
-            className="absolute inset-0 z-0 p-3 flex flex-col"
+            className="absolute inset-0 z-0 p-3 pt-9 flex flex-col justify-between"
             style={{
               background: `linear-gradient(135deg, ${coverColor} 0%, hsl(${hue}, 50%, 20%) 100%)`,
             }}
           >
-            <div className={cn("font-serif text-white/90 font-medium leading-tight line-clamp-4 shadow-black drop-shadow-md text-left",
+            <div className={cn("font-serif text-white font-medium leading-tight line-clamp-4 drop-shadow-md text-left",
               coverSize === 'small' ? 'text-xs' : coverSize === 'medium' ? 'text-sm' : 'text-base'
             )}>
               {book.title}
             </div>
-            <div className={cn("mt-auto text-white/60 font-medium truncate text-left w-full",
+            <div className={cn("mt-auto text-white/80 font-medium truncate text-left w-full",
               coverSize === 'small' ? 'text-[10px]' : 'text-xs'
             )}>
               {authorStr}

@@ -60,7 +60,7 @@ export function WindowControls() {
         <>
           <button
             onClick={handleMinimize}
-            className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md text-muted-foreground hover:text-foreground transition-colors non-drag"
+            className="p-1.5 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground transition-colors non-drag"
             title="Minimize"
             type="button"
           >
@@ -68,7 +68,7 @@ export function WindowControls() {
           </button>
           <button
             onClick={handleToggleMaximize}
-            className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md text-muted-foreground hover:text-foreground transition-colors non-drag"
+            className="p-1.5 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground transition-colors non-drag"
             title={isMaximized ? 'Restore' : 'Maximize'}
             type="button"
           >
@@ -78,7 +78,7 @@ export function WindowControls() {
       )}
       <button
         onClick={toggleFullscreen}
-        className="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-md text-muted-foreground hover:text-foreground transition-colors non-drag"
+        className="p-1.5 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground transition-colors non-drag"
         title={isFullscreen ? 'Exit Fullscreen (F11)' : 'Fullscreen (F11)'}
         type="button"
       >

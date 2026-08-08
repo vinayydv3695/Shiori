@@ -222,7 +222,7 @@ export const SeriesCard = memo(function SeriesCard({
                   <div
                     className={cn(
                       "absolute inset-0 flex items-center justify-center",
-                      "bg-black/50 backdrop-blur-[2px]",
+                      "bg-background/60 backdrop-blur-[2px]",
                       "opacity-0 group-hover:opacity-100",
                       "transition-opacity duration-[150ms]",
                       "rounded-t-[inherit]",

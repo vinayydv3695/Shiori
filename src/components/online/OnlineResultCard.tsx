@@ -56,6 +56,7 @@ export const OnlineResultCard = memo(function OnlineResultCard({
     
     let active = true;
     const needsProxy = coverUrl.includes('libgen') || 
+                       coverUrl.includes('annas-archive') || 
                        coverUrl.includes('toontop') || 
                        coverUrl.includes('toonily') || 
                        coverUrl.includes('manhwaread') || 
@@ -67,6 +68,7 @@ export const OnlineResultCard = memo(function OnlineResultCard({
     if (needsProxy) {
       let sourceId = 'generic';
       if (coverUrl.includes('libgen')) sourceId = 'libgen';
+      else if (coverUrl.includes('annas-archive')) sourceId = 'annas-archive';
       else if (coverUrl.includes('toontop')) sourceId = 'toontop';
       else if (coverUrl.includes('toonily')) sourceId = 'toonily';
       else if (coverUrl.includes('manhwaread')) sourceId = 'manhwaread';
@@ -109,29 +111,31 @@ export const OnlineResultCard = memo(function OnlineResultCard({
 
 
   return (
-    <div
-      onClick={onReadOnline || onViewDetails}
+    <div 
       className={cn(
-        "group relative flex bg-card/60 backdrop-blur-xl border border-border/50 rounded-xl overflow-hidden hover:shadow-xl hover:border-primary/50 transition-all duration-300 max-md:h-[130px] max-md:flex-row max-md:rounded-none max-md:border-x-0 max-md:border-t-0 max-md:border-b max-md:border-border/30",
-        "h-48 sm:h-56 cursor-pointer transform hover:-translate-y-1"
+        "group relative flex flex-col md:flex-row gap-4 p-3.5 sm:p-4 rounded-2xl transition-all duration-300",
+        "bg-card/40 hover:bg-card/70 border border-border/40 hover:border-primary/40",
+        "shadow-sm hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-0.5",
+        "backdrop-blur-xl overflow-hidden"
       )}
     >
-      {/* Cover */}
-      <div className={cn(
-        "flex-shrink-0 bg-muted/50 overflow-hidden relative shadow-sm border",
-        "w-24 h-36 sm:w-28 sm:h-40 rounded-lg border-border/40",
-        "max-md:w-full max-md:aspect-[2/3]"
-      )}>
-        <div className="absolute inset-0 bg-secondary/30 pointer-events-none" />
-        
-        {(!imgLoaded && !imgError) && <div className="absolute inset-0 bg-muted animate-pulse" />}
+      {/* Cover / Thumbnail */}
+      <div 
+        onClick={onViewDetails}
+        className={cn(
+          "relative shrink-0 rounded-xl overflow-hidden cursor-pointer",
+          "aspect-[2/3] w-full md:w-28 lg:w-32 shadow-md",
+          "border border-border/40 group-hover:border-primary/30 transition-all duration-300",
+          "bg-secondary/40"
+        )}
+      >
         {proxyUrl && !imgError && (
           <>
             {!imgLoaded && (
-              <div className="absolute inset-0 bg-muted animate-pulse z-0" />
+              <div className="absolute inset-0 bg-muted/40 animate-pulse" />
             )}
-            <img
-              src={proxyUrl}
+            <img 
+              src={proxyUrl} 
               alt={title}
               className={cn(
                 'w-full h-full object-cover transition-all duration-500 relative z-10',
@@ -144,23 +148,23 @@ export const OnlineResultCard = memo(function OnlineResultCard({
           </>
         )}
         {(!coverUrl || imgError) && (
-          <div className="w-full h-full p-2.5 flex flex-col justify-between text-center select-none bg-gradient-to-br from-indigo-950 via-slate-900 to-blue-950 text-slate-200 border border-indigo-500/20 shadow-inner relative overflow-hidden">
-            {/* Elegant corner patterns or glows */}
+          <div className="w-full h-full p-2.5 flex flex-col justify-between text-center select-none bg-gradient-to-br from-primary/15 via-card to-secondary/30 text-foreground border border-border/40 shadow-inner relative overflow-hidden">
+            {/* Elegant ambient glow */}
             <div className="absolute top-0 right-0 w-12 h-12 bg-primary/20 rounded-full blur-xl pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-12 h-12 bg-violet-500/20 rounded-full blur-xl pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-12 h-12 bg-primary/10 rounded-full blur-xl pointer-events-none" />
             
-            <div className="text-[9px] uppercase tracking-wider font-semibold text-indigo-400/80 mb-1 border-b border-indigo-500/10 pb-0.5 truncate">
+            <div className="text-[9px] uppercase tracking-wider font-semibold text-primary/80 mb-1 border-b border-border/40 pb-0.5 truncate">
               {format || 'BOOK'}
             </div>
             
             <div className="flex-1 flex items-center justify-center py-1">
-              <span className="font-serif font-bold text-[10px] leading-snug line-clamp-4 tracking-tight drop-shadow-sm px-0.5">
+              <span className="font-serif font-bold text-[10px] leading-snug line-clamp-4 tracking-tight drop-shadow-xs px-0.5">
                 {title}
               </span>
             </div>
             
             {author && (
-              <div className="text-[8px] font-medium text-slate-400 border-t border-indigo-500/10 pt-1 truncate max-w-full">
+              <div className="text-[8px] font-medium text-muted-foreground border-t border-border/40 pt-1 truncate max-w-full">
                 {author}
               </div>
             )}

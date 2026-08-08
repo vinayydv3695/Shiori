@@ -63,13 +63,13 @@ export function CompletionPromptDialog({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="sm:max-w-md bg-background/95 backdrop-blur-xl border-white/10 shadow-2xl">
+            <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-xl border border-border/50 shadow-2xl">
                 <DialogHeader className="flex flex-col items-center text-center pb-4">
-                    <div className="w-16 h-16 rounded-full bg-yellow-500/10 flex items-center justify-center mb-4">
-                        <Trophy className="w-8 h-8 text-yellow-500" />
+                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 border border-primary/20">
+                        <Trophy className="w-8 h-8 text-primary" />
                     </div>
-                    <DialogTitle className="text-2xl font-bold tracking-tight">Congratulations!</DialogTitle>
-                    <DialogDescription className="text-base mt-2">
+                    <DialogTitle className="text-2xl font-bold tracking-tight text-foreground">Congratulations!</DialogTitle>
+                    <DialogDescription className="text-base mt-2 text-muted-foreground">
                         You've reached the end of <span className="text-foreground font-semibold">{mangaTitle}</span>.
                     </DialogDescription>
                 </DialogHeader>
@@ -88,14 +88,14 @@ export function CompletionPromptDialog({
                                     className={cn(
                                         "w-10 h-10 transition-colors",
                                         score >= star 
-                                            ? "fill-yellow-500 text-yellow-500" 
-                                            : "fill-transparent text-muted-foreground/30 hover:text-yellow-500/50"
+                                            ? "fill-primary text-primary" 
+                                            : "fill-transparent text-muted-foreground/30 hover:text-primary/50"
                                     )} 
                                 />
                             </button>
                         ))}
                     </div>
-                    <div className="h-4 text-xs font-medium text-yellow-500/80">
+                    <div className="h-4 text-xs font-medium text-primary">
                         {score === 1 && "Poor"}
                         {score === 2 && "Fair"}
                         {score === 3 && "Good"}
@@ -108,8 +108,6 @@ export function CompletionPromptDialog({
                     <Button 
                         variant="ghost" 
                         onClick={() => {
-                            // Also mark complete but without score if they skip?
-                            // Or just close? Let's just close.
                             onClose();
                         }}
                         className="sm:w-full"
@@ -119,7 +117,7 @@ export function CompletionPromptDialog({
                     </Button>
                     <Button 
                         onClick={handleSubmit} 
-                        className="sm:w-full bg-yellow-500 hover:bg-yellow-600 text-yellow-950 font-bold"
+                        className="sm:w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-md"
                         disabled={isSubmitting}
                     >
                         {isSubmitting ? (

@@ -9,14 +9,13 @@ import { isAndroid } from '@/lib/tauri';
 import { 
   Download, 
   RefreshCw, 
-  X, 
-  Sparkles, 
+  ArrowUpCircle, 
   ArrowRight, 
-  Check, 
   Palette, 
   ShieldCheck, 
   Sliders, 
-  Zap 
+  Zap,
+  X
 } from 'lucide-react';
 import { logger } from '@/lib/logger';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -154,7 +153,7 @@ export function UpdateDialog() {
     <AnimatePresence>
       {isUpdateDialogOpen && (
         <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>
-          <DialogContent className="sm:max-w-[560px] p-0 overflow-hidden border-none bg-transparent shadow-[0_0_60px_rgba(0,0,0,0.5)]">
+          <DialogContent className="sm:max-w-[540px] p-0 overflow-hidden border-none bg-transparent shadow-[0_0_60px_rgba(0,0,0,0.5)]">
             <motion.div 
               className="relative bg-[#0e0e12] text-white border border-white/[0.08] rounded-3xl overflow-hidden flex flex-col max-h-[86vh] shadow-2xl"
               initial={{ opacity: 0, scale: 0.96, y: 8 }}
@@ -163,29 +162,20 @@ export function UpdateDialog() {
               transition={{ duration: 0.2, ease: "easeOut" }}
             >
               {/* Subtle Ambient Glow */}
-              <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-80 h-40 bg-amber-500/10 rounded-full blur-[70px] pointer-events-none" />
+              <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-72 h-36 bg-amber-500/10 rounded-full blur-[60px] pointer-events-none" />
 
-              {/* Close Button */}
-              <button 
-                onClick={() => setIsUpdateDialogOpen(false)}
-                className="absolute top-5 right-5 z-20 p-2 rounded-full text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
-                title="Close (Esc)"
-              >
-                <X size={16} />
-              </button>
-
-              <div className="p-7 sm:p-8 flex flex-col flex-1 min-h-0 relative z-10 space-y-6">
+              <div className="p-6 sm:p-7 flex flex-col flex-1 min-h-0 relative z-10 space-y-5">
                 {/* Minimal Header */}
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center shrink-0">
-                    <Sparkles className="w-5 h-5 text-amber-400" />
+                <div className="flex items-center gap-3.5 pr-8">
+                  <div className="w-11 h-11 rounded-2xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center shrink-0">
+                    <ArrowUpCircle className="w-5 h-5 text-amber-400" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h2 className="text-xl font-bold tracking-tight text-white">
+                      <h2 className="text-lg font-semibold tracking-tight text-white">
                         Update Available
                       </h2>
-                      <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-white/10 text-zinc-300">
+                      <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-white/10 text-zinc-300">
                         v{updateInfo.version}
                       </span>
                     </div>
@@ -195,8 +185,8 @@ export function UpdateDialog() {
                   </div>
                 </div>
 
-                {/* What's New Highlights (Minimal, calm, readable) */}
-                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4.5 space-y-3.5 max-h-[46vh] overflow-y-auto custom-scrollbar">
+                {/* What's New Highlights (Minimal, calm, readable, zero emojis) */}
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-3 max-h-[44vh] overflow-y-auto custom-scrollbar">
                   <div className="text-[11px] font-semibold tracking-wider uppercase text-zinc-400 px-1">
                     What's New
                   </div>
@@ -206,17 +196,17 @@ export function UpdateDialog() {
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
                         components={{
-                          h1: ({node, ...props}) => <h3 className="text-xs font-bold text-white mt-3 mb-1" {...props} />,
-                          h2: ({node, ...props}) => <h3 className="text-xs font-bold text-white mt-3 mb-1" {...props} />,
-                          h3: ({node, ...props}) => <h4 className="text-xs font-semibold text-zinc-300 mt-2 mb-1" {...props} />,
-                          ul: ({node, ...props}) => <ul className="space-y-2.5 my-1 list-none p-0" {...props} />,
+                          h1: ({node, ...props}) => <h3 className="text-xs font-semibold text-white mt-3 mb-1" {...props} />,
+                          h2: ({node, ...props}) => <h3 className="text-xs font-semibold text-white mt-3 mb-1" {...props} />,
+                          h3: ({node, ...props}) => <h4 className="text-xs font-medium text-zinc-300 mt-2 mb-1" {...props} />,
+                          ul: ({node, ...props}) => <ul className="space-y-2 my-1 list-none p-0" {...props} />,
                           li: ({node, children, ...props}) => (
                             <li className="flex items-start gap-2 text-xs text-zinc-300 leading-relaxed" {...props}>
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 shrink-0" />
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80 mt-1.5 shrink-0" />
                               <div className="flex-1 min-w-0">{children}</div>
                             </li>
                           ),
-                          strong: ({node, ...props}) => <strong className="font-semibold text-white" {...props} />,
+                          strong: ({node, ...props}) => <strong className="font-medium text-white" {...props} />,
                           code: ({node, ...props}) => (
                             <span className="font-mono text-zinc-300 text-[11px]" {...props} />
                           ),
@@ -226,16 +216,16 @@ export function UpdateDialog() {
                       </ReactMarkdown>
                     </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-2.5">
                       {DEFAULT_HIGHLIGHTS.map((item, idx) => {
                         const Icon = item.icon;
                         return (
-                          <div key={idx} className="flex items-start gap-3 p-1.5 rounded-xl hover:bg-white/[0.02] transition-colors">
+                          <div key={idx} className="flex items-start gap-3 p-1 rounded-xl">
                             <div className="p-1.5 rounded-lg bg-white/5 text-amber-400 mt-0.5 shrink-0">
                               <Icon className="w-3.5 h-3.5" />
                             </div>
                             <div className="flex-1 min-w-0 text-xs">
-                              <div className="font-semibold text-white tracking-tight">
+                              <div className="font-medium text-white tracking-tight">
                                 {item.title}
                               </div>
                               <div className="text-zinc-400 text-[11px] leading-relaxed mt-0.5">
@@ -251,7 +241,7 @@ export function UpdateDialog() {
 
                 {/* Progress bar (when updating) */}
                 {isUpdating && (
-                  <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] space-y-2">
+                  <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.06] space-y-2">
                     <div className="flex items-center justify-between text-xs">
                       <span className="flex items-center gap-2 text-zinc-300">
                         <RefreshCw className="w-3 h-3 animate-spin text-amber-400" />
@@ -279,11 +269,11 @@ export function UpdateDialog() {
                 )}
 
                 {/* Minimal Footer */}
-                <div className="pt-2 flex items-center justify-end gap-3">
+                <div className="pt-2 flex items-center justify-end gap-2.5">
                   <button 
                     onClick={() => setIsUpdateDialogOpen(false)}
                     disabled={isUpdating}
-                    className="px-4 py-2.5 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50"
+                    className="px-4 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50"
                   >
                     Remind Me Later
                   </button>
@@ -291,7 +281,7 @@ export function UpdateDialog() {
                   <button 
                     onClick={handleUpdate}
                     disabled={isUpdating}
-                    className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-amber-400 hover:bg-amber-300 text-black transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer"
+                    className="px-4.5 py-2 rounded-xl text-xs font-semibold bg-amber-400 hover:bg-amber-300 text-black transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer"
                   >
                     {isUpdating ? (
                       <>

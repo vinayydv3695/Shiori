@@ -57,6 +57,7 @@ import { useIsMobile } from '@/hooks/useIsMobile'
 import { AniListSettings } from './AniListSettings'
 import { VoiceManager } from './VoiceManager'
 import { UpdateChangelogDialog } from '../dialogs/UpdateChangelogDialog'
+import { useUpdateStore } from '@/store/updateStore'
 
 import { READING_FONTS, normalizeLegacyFontPreference, resolveReadingFontCss } from '@/lib/readingFonts'
 
@@ -2288,25 +2289,27 @@ const AboutSettings = () => {
   }, [])
 
   const handleCheckUpdate = async () => {
-    if (!isTauri) {
-      toast.info('Auto-updates are only available in the desktop app.')
-      return
-    }
-    
     try {
-      if (import.meta.env.DEV) {
-        toast.info("Update checking is disabled in development mode.")
-        return
-      }
       setIsChecking(true)
       
+      // In development mode, open the rich update preview dialog for instant testing
+      if (import.meta.env.DEV || !isTauri) {
+        const updateStore = useUpdateStore.getState()
+        updateStore.setUpdateInfo({
+          version: '2.3.7',
+          notes: '',
+        })
+        updateStore.setIsUpdateDialogOpen(true)
+        toast.success("Opening update dialog preview...")
+        return
+      }
+
       if (isAndroid) {
         const res = await fetch("https://api.github.com/repos/vinayydv3695/Shiori/releases/latest");
         if (!res.ok) throw new Error("Failed to fetch releases");
         const data = await res.json();
         const latestVersion = data.tag_name.replace(/^v/, '');
         
-        // Simple version comparison assuming semver format x.y.z
         const isNewer = (v1: string, v2: string) => {
           const parts1 = v1.split('.').map(Number);
           const parts2 = v2.split('.').map(Number);
@@ -2318,11 +2321,14 @@ const AboutSettings = () => {
         };
         
         if (isNewer(latestVersion, appVersion)) {
-          setUpdateData({
+          const updateStore = useUpdateStore.getState()
+          const apkAsset = data.assets?.find((a: any) => a.name.endsWith('.apk'));
+          updateStore.setUpdateInfo({
             version: latestVersion,
             notes: data.body || 'No release notes available.',
-            url: data.html_url,
+            apkUrl: apkAsset?.browser_download_url
           })
+          updateStore.setIsUpdateDialogOpen(true)
         } else {
           toast.success("You are on the latest version.");
         }
@@ -2331,20 +2337,21 @@ const AboutSettings = () => {
         let updated = false;
         try {
           const update = await check()
-          if (update) {
-            setUpdateData({
+          if (update && update.available) {
+            const updateStore = useUpdateStore.getState()
+            updateStore.setUpdateInfo({
               version: update.version,
               notes: update.body || 'No release notes available.',
-              url: '',
-              tauriUpdate: update
+              desktopUpdate: update
             })
+            updateStore.setIsUpdateDialogOpen(true)
             updated = true;
           } else {
             toast.success("You are on the latest version.")
             updated = true;
           }
         } catch (pluginErr) {
-          // Tauri updater failed — fall back to GitHub API (Windows may lack latest.json in older releases)
+          // Tauri updater failed — fall back to GitHub API
           console.warn('[Update] Tauri updater failed, falling back to GitHub API:', pluginErr)
           try {
             const res = await fetch("https://api.github.com/repos/vinayydv3695/Shiori/releases/latest");
@@ -2361,11 +2368,12 @@ const AboutSettings = () => {
               return false;
             };
             if (isNewer(latestVersion, appVersion)) {
-              setUpdateData({
+              const updateStore = useUpdateStore.getState()
+              updateStore.setUpdateInfo({
                 version: latestVersion,
                 notes: data.body || 'No release notes available.',
-                url: data.html_url,
               })
+              updateStore.setIsUpdateDialogOpen(true)
             } else {
               toast.success("You are on the latest version.")
             }

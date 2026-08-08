@@ -45,13 +45,19 @@ export function OnlineBooksView() {
   const filters = useOnlineSearchStore((state) => state.filters['online-books']);
   const { results, search, loading, error, hasMore } = useGlobalSearch();
   const enabledBookSources = useSourceStore((state) => state.sources).filter(
-    (s) => s.kind === 'books' && s.enabled
+    (s) => s.kind === 'books' && s.enabled && s.implemented
   );
   
   const [page, setPage] = useState(1);
   const [source, setSource] = useState<BookSourceFilter>('all');
   const [hasSearched, setHasSearched] = useState(false);
   const [previewBook, setPreviewBook] = useState<PreviewBook | null>(null);
+
+  useEffect(() => {
+    if (source !== 'all' && !enabledBookSources.some((s) => s.id === source)) {
+      setSource('all');
+    }
+  }, [enabledBookSources, source]);
   
   const { success: showSuccessToast, error: showErrorToast } = useToast();
   const { handleOpenBook } = useBookOpen();

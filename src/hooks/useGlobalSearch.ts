@@ -3,6 +3,7 @@ import { fetchLibgenBooks } from '@/online-books/libgen/api';
 import { fetchGutenbergBooks } from '@/online-books/gutenberg/api';
 import { fetchAnnasArchiveBooks } from '@/online-books/annas-archive/api';
 import type { OnlineAdvancedFilters } from '@/store/onlineSearchStore';
+import { useSourceStore } from '@/store/sourceStore';
 
 export type BookSourceFilter = 'all' | 'libgen' | 'gutenberg' | 'annas-archive';
 
@@ -180,10 +181,21 @@ export function useGlobalSearch() {
         }
       };
 
+      const isEnabled = (sourceId: string) => {
+        const s = useSourceStore.getState().sources.find((src) => src.id === sourceId);
+        return s ? Boolean(s.enabled && s.implemented) : false;
+      };
+
       const fetchers: Promise<void>[] = [];
-      if (source === 'all' || source === 'gutenberg') fetchers.push(fetchGutenberg());
-      if (source === 'all' || source === 'libgen') fetchers.push(fetchLibgen());
-      if (source === 'all' || source === 'annas-archive') fetchers.push(fetchAnnasArchive());
+      if ((source === 'all' && isEnabled('gutenberg')) || (source === 'gutenberg' && isEnabled('gutenberg'))) {
+        fetchers.push(fetchGutenberg());
+      }
+      if ((source === 'all' && isEnabled('libgen')) || (source === 'libgen' && isEnabled('libgen'))) {
+        fetchers.push(fetchLibgen());
+      }
+      if ((source === 'all' && isEnabled('annas-archive')) || (source === 'annas-archive' && isEnabled('annas-archive'))) {
+        fetchers.push(fetchAnnasArchive());
+      }
       await Promise.allSettled(fetchers);
       setHasMore(anyHasMore);
     } catch (err: any) {

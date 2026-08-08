@@ -223,73 +223,82 @@ export function UpdateDialog() {
 
                 {/* What's New Highlights (Minimal, calm, readable, dual-theme) */}
                 <div className={cn(
-                  "rounded-2xl border p-4.5 space-y-3 max-h-[44vh] overflow-y-auto custom-scrollbar",
+                  "rounded-2xl border overflow-hidden flex flex-col max-h-[46vh]",
                   isLight 
                     ? "border-[#D9C9A3] bg-[#F4ECD8]/80 text-[#2C1E0F]" 
-                    : "border-white/[0.06] bg-white/[0.02] text-white"
+                    : "border-white/[0.08] bg-white/[0.03] text-white"
                 )}>
+                  {/* Dedicated Header Strip preventing corner cut-off */}
                   <div className={cn(
-                    "text-[11px] font-semibold tracking-wider uppercase px-1",
-                    isLight ? "text-[#7D634B]" : "text-zinc-400"
+                    "px-5 py-3 border-b shrink-0 flex items-center justify-between text-[11px] font-semibold tracking-wider uppercase",
+                    isLight 
+                      ? "bg-[#EAE0CB]/70 border-[#D9C9A3] text-[#7D634B]" 
+                      : "bg-white/[0.04] border-white/[0.08] text-zinc-400"
                   )}>
-                    What's New
+                    <span>What's New</span>
+                    <span className={cn("text-[10px] font-normal lowercase tracking-normal", isLight ? "text-[#8A6A50]" : "text-zinc-500")}>
+                      release highlights
+                    </span>
                   </div>
 
-                  {isCustomMarkdown && cleanNotes ? (
-                    <div className="prose prose-xs max-w-none px-1">
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          h1: ({node, children, ...props}) => <h3 className={cn("text-xs font-semibold mt-3 mb-1", isLight ? "text-[#2C1E0F]" : "text-white")} {...props}>{stripEmojis(String(children))}</h3>,
-                          h2: ({node, children, ...props}) => <h3 className={cn("text-xs font-semibold mt-3 mb-1", isLight ? "text-[#2C1E0F]" : "text-white")} {...props}>{stripEmojis(String(children))}</h3>,
-                          h3: ({node, children, ...props}) => <h4 className={cn("text-xs font-medium mt-2 mb-1", isLight ? "text-[#5C4430]" : "text-zinc-300")} {...props}>{stripEmojis(String(children))}</h4>,
-                          ul: ({node, ...props}) => <ul className="space-y-2.5 my-1 list-none p-0" {...props} />,
-                          li: ({node, children, ...props}) => (
-                            <li className={cn("flex items-start gap-2 text-xs leading-relaxed", isLight ? "text-[#5C4430]" : "text-zinc-300")} {...props}>
-                              <span className={cn("w-1.5 h-1.5 rounded-full mt-1.5 shrink-0", isLight ? "bg-[#A0522D]" : "bg-amber-400/80")} />
-                              <div className="flex-1 min-w-0">{children}</div>
-                            </li>
-                          ),
-                          strong: ({node, children, ...props}) => <strong className={cn("font-medium", isLight ? "text-[#2C1E0F]" : "text-white")} {...props}>{children}</strong>,
-                          code: ({node, children, ...props}) => (
-                            <span className={cn("font-mono text-[11px] px-1 py-0.5 rounded", isLight ? "bg-[#EAE0CB] text-[#2C1E0F]" : "bg-white/10 text-zinc-300")} {...props}>{children}</span>
-                          ),
-                        }}
-                      >
-                        {cleanNotes}
-                      </ReactMarkdown>
-                    </div>
-                  ) : (
-                    <div className="space-y-2.5">
-                      {DEFAULT_HIGHLIGHTS.map((item, idx) => {
-                        const Icon = item.icon;
-                        return (
-                          <div key={idx} className="flex items-start gap-3 p-1 rounded-xl">
-                            <div className={cn(
-                              "p-1.5 rounded-lg mt-0.5 shrink-0",
-                              isLight ? "bg-[#E5D7BC] text-[#A0522D]" : "bg-white/5 text-amber-400"
-                            )}>
-                              <Icon className="w-3.5 h-3.5" />
-                            </div>
-                            <div className="flex-1 min-w-0 text-xs">
+                  {/* Padded Scrollable Content */}
+                  <div className="p-5 overflow-y-auto custom-scrollbar space-y-3.5 flex-1 min-h-0">
+                    {isCustomMarkdown && cleanNotes ? (
+                      <div className="prose prose-xs max-w-none">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            h1: ({node, children, ...props}) => <h3 className={cn("text-xs font-semibold mt-3 mb-1", isLight ? "text-[#2C1E0F]" : "text-white")} {...props}>{stripEmojis(String(children))}</h3>,
+                            h2: ({node, children, ...props}) => <h3 className={cn("text-xs font-semibold mt-3 mb-1", isLight ? "text-[#2C1E0F]" : "text-white")} {...props}>{stripEmojis(String(children))}</h3>,
+                            h3: ({node, children, ...props}) => <h4 className={cn("text-xs font-medium mt-2 mb-1", isLight ? "text-[#5C4430]" : "text-zinc-300")} {...props}>{stripEmojis(String(children))}</h4>,
+                            ul: ({node, ...props}) => <ul className="space-y-2.5 my-1 list-none p-0" {...props} />,
+                            li: ({node, children, ...props}) => (
+                              <li className={cn("flex items-start gap-2.5 text-xs leading-relaxed", isLight ? "text-[#5C4430]" : "text-zinc-300")} {...props}>
+                                <span className={cn("w-1.5 h-1.5 rounded-full mt-1.5 shrink-0", isLight ? "bg-[#A0522D]" : "bg-amber-400/80")} />
+                                <div className="flex-1 min-w-0">{children}</div>
+                              </li>
+                            ),
+                            strong: ({node, children, ...props}) => <strong className={cn("font-medium", isLight ? "text-[#2C1E0F]" : "text-white")} {...props}>{children}</strong>,
+                            code: ({node, children, ...props}) => (
+                              <span className={cn("font-mono text-[11px] px-1.5 py-0.5 rounded", isLight ? "bg-[#EAE0CB] text-[#2C1E0F]" : "bg-white/10 text-zinc-300")} {...props}>{children}</span>
+                            ),
+                          }}
+                        >
+                          {cleanNotes}
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {DEFAULT_HIGHLIGHTS.map((item, idx) => {
+                          const Icon = item.icon;
+                          return (
+                            <div key={idx} className="flex items-start gap-3 p-1 rounded-xl">
                               <div className={cn(
-                                "font-medium tracking-tight",
-                                isLight ? "text-[#2C1E0F]" : "text-white"
+                                "p-1.5 rounded-lg mt-0.5 shrink-0",
+                                isLight ? "bg-[#E5D7BC] text-[#A0522D]" : "bg-white/5 text-amber-400"
                               )}>
-                                {item.title}
+                                <Icon className="w-3.5 h-3.5" />
                               </div>
-                              <div className={cn(
-                                "text-[11px] leading-relaxed mt-0.5",
-                                isLight ? "text-[#7D634B]" : "text-zinc-400"
-                              )}>
-                                {item.desc}
+                              <div className="flex-1 min-w-0 text-xs">
+                                <div className={cn(
+                                  "font-medium tracking-tight",
+                                  isLight ? "text-[#2C1E0F]" : "text-white"
+                                  )}>
+                                  {item.title}
+                                </div>
+                                <div className={cn(
+                                  "text-[11px] leading-relaxed mt-0.5",
+                                  isLight ? "text-[#7D634B]" : "text-zinc-400"
+                                )}>
+                                  {item.desc}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Progress bar (when updating) */}

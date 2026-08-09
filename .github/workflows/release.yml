@@ -318,7 +318,15 @@ jobs:
           includeUpdaterJson: ${{ matrix.include_updater_json }}
           tauriScript: npm run tauri
           releaseBody: |
-            ## Shiori v${{ needs.check-version.outputs.version }}
+            ## What's New in v${{ needs.check-version.outputs.version }}
+
+            - **Smooth Advanced Filter Tab Transitions** — Switching tabs now fades and glides with spring-animated sidebar pill highlights.
+            - **Date Picker Fix** — Calendar date selection now works correctly inside Radix dialogs on all platforms.
+            - **Rating Section Layout** — Min/Max rating rows are stacked full-width, no more clipping at dialog edges.
+            - **Hidden Scrollbars** — Scrollbar sliders removed across main content, Home, and filter panels while keeping full scroll.
+            - **Collection Pills Fix** — Favorites, Reading, Completed, and On Hold pill borders are crisp and unclipped.
+            - **Theme Persistence Fix** — Fixed `isDarkTheme` ReferenceError blocking theme switching during onboarding.
+            - **Recommended Icon** — Recommended widget now shows a ThumbsUp icon.
 
             Download the appropriate installer for your platform:
 

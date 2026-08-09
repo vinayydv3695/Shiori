@@ -1,3 +1,15 @@
+# Release Notes (v2.3.12)
+
+## Improvements
+
+- **Smooth Advanced Filter Tab Transitions** — Switching between General, Metadata, Organization, and Status tabs now fades and glides content in with spring-animated sidebar pill highlights and a cross-fade panel transition.
+- **Custom Theme-Aware Date Picker** — The calendar date picker now fully responds to pointer events inside Radix dialogs; selecting a date works correctly on all platforms.
+- **Rating Section Layout** — Min/Max rating rows in Advanced Filters are now stacked full-width with a numeric value badge, preventing star rows from being clipped at the dialog edge.
+- **Hidden Scrollbars** — Scrollbar sliders are now hidden across the main content area, Home section, filter panels, and dialogs while preserving full scroll functionality.
+- **Collection Pills Redesign** — Favorites, Reading, Completed, and On Hold pills on the Home dashboard use `rounded-full` with proper padding so border outlines are always crisp and unclipped.
+- **Theme Persistence Fix** — Fixed a `ReferenceError: Can't find variable: isDarkTheme` that blocked theme switching during onboarding and from the settings panel.
+- **Recommended Section Icon** — The Recommended widget now shows a `ThumbsUp` icon instead of the generic Sparkles icon.
+
 # Release Notes (v2.3.11)
 
 ## Improvements

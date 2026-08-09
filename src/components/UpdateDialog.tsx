@@ -36,32 +36,35 @@ interface HighlightItem {
 
 const DEFAULT_HIGHLIGHTS: HighlightItem[] = [
   {
-    icon: Palette,
-    title: 'Warmer Sepia Theme',
-    desc: 'Richer golden parchment, warm cream cards, and roasted coffee ink — feels like a real vintage book.',
+    icon: SlidersHorizontal,
+    title: 'Smooth Filter Tab Transitions',
+    desc: 'Switching between General, Metadata, Organization, and Status tabs now fades and glides with a spring-animated sidebar pill highlight.',
   },
   {
     icon: Layers,
-    title: 'Dialog Backdrop Blur',
-    desc: 'All dialogs now blur and dim the background for a clean, focused experience across all themes.',
+    title: 'Date Picker Works in Dialogs',
+    desc: 'The calendar date picker now fully responds to clicks inside Radix dialogs — selecting a date works correctly on all platforms.',
   },
   {
-    icon: SlidersHorizontal,
-    title: 'Better Contrast in Settings',
-    desc: 'Warning banners, AniList status, and storage alerts use proper high-contrast colors for light and dark modes.',
+    icon: Palette,
+    title: 'Collection Pills & Scrollbar Polish',
+    desc: 'Home dashboard pills have crisp rounded borders, and scrollbar sliders are now hidden across the app while keeping full scroll.',
   },
   {
     icon: BookX,
-    title: 'No Convert to EPUB for Comics',
-    desc: 'CBZ and CBR archives no longer show the "Convert to EPUB" option since they cannot be converted.',
+    title: 'Theme Persistence Fix',
+    desc: 'Fixed a ReferenceError that blocked theme switching during onboarding and from the settings panel.',
   },
 ];
 
 const DEFAULT_LATEST_RELEASE_NOTES = `
-* **Warmer Sepia Theme**: The Sepia palette is now richer and cozier — deeper golden parchment, warm cream cards, and roasted coffee ink text. Feels like a real vintage book.
-* **Dialog Backdrop Blur**: All dialogs now blur and dim the background behind them for a clean, focused experience across all themes.
-* **Better Contrast in Settings**: Warning banners, AniList status, and storage alerts now use proper high-contrast colors for both light and dark modes.
-* **No Convert to EPUB for Comics**: CBZ and CBR archives no longer show the "Convert to EPUB" option since comic archives cannot be converted.
+* **Smooth Advanced Filter Tab Transitions**: Switching between General, Metadata, Organization, and Status tabs now fades and glides with spring-animated sidebar pill highlights and a cross-fade panel transition.
+* **Date Picker Fix**: Calendar date selection now works correctly inside Radix dialogs on all platforms.
+* **Rating Section Layout**: Min/Max rating rows are stacked full-width with a numeric value badge, preventing star rows from being clipped at the dialog edge.
+* **Hidden Scrollbars**: Scrollbar sliders removed across main content, Home, and filter panels while keeping full scroll functionality.
+* **Collection Pills Fix**: Favorites, Reading, Completed, and On Hold pill borders are now crisp and unclipped.
+* **Theme Persistence Fix**: Fixed a \`isDarkTheme\` ReferenceError that blocked theme switching during onboarding and from settings.
+* **Recommended Icon**: Recommended widget now shows a ThumbsUp icon.
 `;
 
 export function UpdateDialog() {

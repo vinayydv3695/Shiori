@@ -129,7 +129,7 @@ export const BookDetailsDialog = ({
     return (
       <Dialog.Root open={open} onOpenChange={onOpenChange}>
         <Dialog.Portal>
-          <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-background/80 backdrop-blur-sm z-50" />
+          <Dialog.Overlay className="dialog-overlay fixed inset-0 z-50" />
           <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] bg-transparent outline-none border-none shadow-none z-50 flex items-center justify-center">
              <Loader2 className="w-12 h-12 animate-spin text-primary" />
           </Dialog.Content>
@@ -141,7 +141,7 @@ export const BookDetailsDialog = ({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-background/80 backdrop-blur-md z-50 transition-all duration-300 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:animate-in data-[state=open]:fade-in" />
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 z-50 transition-all duration-300 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:animate-in data-[state=open]:fade-in" />
         <Dialog.Content 
           aria-describedby={undefined} 
           className="fixed left-1/2 top-1/2 z-50 w-full max-w-3xl -translate-x-1/2 -translate-y-1/2 h-[90vh] sm:h-auto sm:max-h-[85vh] bg-card/85 sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-border/50 backdrop-blur-3xl transition-all duration-300 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95 sm:data-[state=closed]:slide-out-to-top-[48%] sm:data-[state=open]:slide-in-from-top-[48%] duration-300"

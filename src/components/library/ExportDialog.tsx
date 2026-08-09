@@ -79,7 +79,7 @@ export const ExportDialog = ({ open, onOpenChange }: ExportDialogProps) => {
   return (
     <Dialog.Root open={open} onOpenChange={handleClose}>
       <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-background/80 backdrop-blur-md z-50" />
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 z-50 bg-black/40 backdrop-blur-md" />
         <Dialog.Content aria-describedby={undefined} className="dialog-content fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card border border-border/60 rounded-2xl shadow-2xl w-[92vw] sm:w-[580px] max-h-[90vh] overflow-y-auto z-50 backdrop-blur-2xl">
           <div className="sticky top-0 bg-card/95 backdrop-blur-md border-b border-border/50 px-6 py-4 z-10 flex items-center justify-between">
             <Dialog.Title className="text-xl font-bold tracking-tight text-foreground">Export Library</Dialog.Title>

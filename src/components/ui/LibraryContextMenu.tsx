@@ -26,7 +26,7 @@ export function LibraryContextMenu({ children, items }: LibraryContextMenuProps)
         {children}
       </ContextMenu.Trigger>
       <ContextMenu.Portal>
-        <ContextMenu.Content className="min-w-[180px] bg-background/80 backdrop-blur-xl border border-border/50 rounded-xl shadow-2xl p-1.5 z-50 text-sm animate-in fade-in zoom-in-95 duration-200">
+        <ContextMenu.Content className="min-w-[180px] bg-popover text-popover-foreground backdrop-blur-md border border-border rounded-xl shadow-2xl p-1.5 z-50 text-sm animate-in fade-in zoom-in-95 duration-200">
           {items.map((item, index) => {
             if (item.isSeparator) {
               return <ContextMenu.Separator key={`sep-${index}`} className="h-px bg-border/50 my-1.5 mx-1" />;

@@ -276,7 +276,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
   const menuItems: LibraryMenuItem[] = [
     { label: 'Open', icon: BookOpen, onClick: () => onOpen(book.id!) },
     ...(onViewDetails ? [{ label: 'View Details', icon: Info, onClick: () => onViewDetails(book.id!) }] : []),
-    ...(book.file_format && !['epub', 'online-manga'].includes(book.file_format.toLowerCase())
+    ...(book.file_format && !['epub', 'online-manga', 'cbz', 'cbr'].includes(book.file_format.toLowerCase())
       ? [{ label: 'Convert to EPUB', icon: FileOutput, onClick: () => setConvertBookId(book.id!) }]
       : []),
     { label: 'Edit Metadata', icon: Pencil, onClick: () => onEdit(book.id!) },

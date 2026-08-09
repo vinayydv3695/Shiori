@@ -58,7 +58,7 @@ export function AniListSettings() {
                                 <img src={viewerInfo.avatar} alt="Avatar" className="w-12 h-12 rounded-full object-cover" />
                             )}
                             <div className="flex flex-col flex-1">
-                                <p className="text-sm font-medium text-green-600 dark:text-green-500">
+                                <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-400">
                                     ✓ Connected to AniList
                                 </p>
                                 {viewerInfo?.name && (
@@ -74,7 +74,7 @@ export function AniListSettings() {
                     </div>
                 ) : (
                     <div className="flex flex-col gap-4">
-                        <div className="bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 p-3 rounded-md text-sm">
+                        <div className="bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 text-amber-900 dark:text-amber-200 font-medium p-3 rounded-md text-sm">
                             Login with AniList to sync your library progress.
                         </div>
                         <Button onClick={handleLogin}>
@@ -91,7 +91,7 @@ export function AniListSettings() {
         <div className="flex flex-col gap-4 w-full">
             {preferences?.anilistToken ? (
                 <div className="flex flex-col gap-2">
-                    <p className="text-sm font-medium text-green-600 dark:text-green-500">
+                    <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-400">
                         ✓ Connected to AniList
                     </p>
                     <Button variant="destructive" size="sm" onClick={handleLogout}>

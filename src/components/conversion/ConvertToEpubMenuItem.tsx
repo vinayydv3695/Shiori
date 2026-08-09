@@ -47,8 +47,8 @@ interface ConvertToEpubMenuItemProps {
   onImported?: (newBookId: number | null) => void;
 }
 
-/** Formats that are already EPUB (or not local files) — no conversion offered. */
-const NON_CONVERTIBLE_FORMATS = new Set(['epub', 'online-manga']);
+/** Formats that are already EPUB (or manga/comics/non-local) — no conversion offered. */
+const NON_CONVERTIBLE_FORMATS = new Set(['epub', 'online-manga', 'cbz', 'cbr']);
 
 export function ConvertToEpubMenuItem({
   bookId,

@@ -183,20 +183,20 @@ export function TorboxSettings() {
         <div
           className={`p-3 rounded-lg border flex items-start gap-2 ${
             testResult.success
-              ? 'bg-green-500/10 border-green-500/30'
-              : 'bg-red-500/10 border-red-500/30'
+              ? 'bg-emerald-500/10 dark:bg-emerald-500/15 border-emerald-500/30'
+              : 'bg-red-500/10 dark:bg-red-500/15 border-red-500/30'
           }`}
         >
           {testResult.success ? (
-            <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-700 dark:text-emerald-400 mt-0.5 shrink-0" />
           ) : (
-            <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
+            <AlertCircle className="w-4 h-4 text-red-700 dark:text-red-400 mt-0.5 shrink-0" />
           )}
           <p
-            className={`text-sm ${
+            className={`text-sm font-medium ${
               testResult.success
-                ? 'text-green-700 dark:text-green-300'
-                : 'text-red-700 dark:text-red-300'
+                ? 'text-emerald-900 dark:text-emerald-200'
+                : 'text-red-900 dark:text-red-200'
             }`}
           >
             {testResult.message}
@@ -205,8 +205,9 @@ export function TorboxSettings() {
       )}
 
       {savedApiKey && !testResult && (
-        <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
-          <p className="text-xs text-blue-700 dark:text-blue-300">
+        <div className="p-3 rounded-lg bg-blue-500/10 dark:bg-blue-500/15 border border-blue-500/30 flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-blue-700 dark:text-blue-400 shrink-0" />
+          <p className="text-xs text-blue-950 dark:text-blue-200 font-medium">
             API key configured for online downloads.
           </p>
         </div>

@@ -211,7 +211,7 @@ const ShelfItem = ({ shelf, depth, onEdit, onDelete, onAddSubshelf }: ShelfItemP
               </DropdownMenu.Trigger>
               <DropdownMenu.Portal>
                 <DropdownMenu.Content
-                  className="min-w-[180px] bg-background/80 backdrop-blur-xl border border-border/50 rounded-xl shadow-2xl p-1.5 z-50 text-sm animate-in fade-in zoom-in-95 duration-200"
+                  className="min-w-[180px] bg-popover text-popover-foreground backdrop-blur-xl border border-border/50 rounded-xl shadow-2xl p-1.5 z-50 text-sm animate-in fade-in zoom-in-95 duration-200"
                   sideOffset={5}
                 >
                   <DropdownMenu.Item
@@ -243,7 +243,7 @@ const ShelfItem = ({ shelf, depth, onEdit, onDelete, onAddSubshelf }: ShelfItemP
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content
-            className="min-w-[180px] bg-background/80 backdrop-blur-xl border border-border/50 rounded-xl shadow-2xl p-1.5 z-50 text-sm animate-in fade-in zoom-in-95 duration-200"
+            className="min-w-[180px] bg-popover text-popover-foreground backdrop-blur-md border border-border rounded-xl shadow-2xl p-1.5 z-50 text-sm animate-in fade-in zoom-in-95 duration-200"
             sideOffset={5}
           >
             <DropdownMenu.Item

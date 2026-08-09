@@ -17,7 +17,7 @@ import { DEFAULT_USER_PREFERENCES } from "../types/preferences";
 const themeMap: Record<string, string> = { light: 'white', dark: 'black', 'premium-dark': 'premium-dark' };
 
 const themeColors: Record<string, string> = {
-  sepia: '#e9dfcb',
+  sepia: '#e5d6b6',
   white: '#fcfbf9',
   light: '#fcfbf9',
   black: '#000000',

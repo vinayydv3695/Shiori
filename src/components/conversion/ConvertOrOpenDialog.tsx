@@ -136,7 +136,7 @@ export function ConvertOrOpenDialog({ book, onOpenNative, onClose }: ConvertOrOp
       }}
     >
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-[90] bg-background/80 backdrop-blur-md data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 z-[90] data-[state=open]:animate-in data-[state=open]:fade-in-0" />
         <Dialog.Content
           aria-describedby={undefined}
           className="fixed left-[50%] top-[50%] z-[95] w-[92vw] sm:w-[440px] -translate-x-[50%] -translate-y-[50%] rounded-2xl border border-border/50 bg-background/95 backdrop-blur-3xl shadow-2xl p-6 duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"

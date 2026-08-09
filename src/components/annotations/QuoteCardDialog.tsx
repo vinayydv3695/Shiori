@@ -53,7 +53,7 @@ export function QuoteCardDialog({ open, onOpenChange, annotationData }: QuoteCar
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-background/80 backdrop-blur-md z-50 transition-opacity" />
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 z-50 transition-opacity" />
         <Dialog.Content aria-describedby={undefined} className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-lg shadow-2xl focus:outline-none">
           <div className="bg-card border border-border/60 rounded-2xl flex flex-col overflow-hidden shadow-2xl backdrop-blur-xl">
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-border/50 bg-secondary/30">

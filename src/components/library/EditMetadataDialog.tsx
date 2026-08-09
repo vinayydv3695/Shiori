@@ -128,7 +128,7 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
     return (
       <Dialog.Root open={open} onOpenChange={onOpenChange}>
         <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-background/80 backdrop-blur-md z-[90]" />
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 z-[90]" />
         <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[100] w-full max-w-4xl h-[90vh] sm:h-[85vh] bg-card/85 backdrop-blur-3xl border border-white/10 sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden">
              <Loader2 className="w-12 h-12 animate-spin text-primary" />
           </Dialog.Content>
@@ -140,7 +140,7 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-background/80 backdrop-blur-md z-50 transition-all duration-300" />
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 z-50 transition-all duration-300" />
         <Dialog.Content 
           aria-describedby={undefined} 
           className="dialog-content fixed inset-0 sm:inset-auto sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] bg-background/80 backdrop-blur-2xl sm:border sm:border-border sm:shadow-2xl sm:rounded-2xl w-full h-full sm:w-[90vw] sm:max-w-3xl sm:max-h-[90vh] overflow-hidden z-50 flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:data-[state=closed]:slide-out-to-top-[48%] sm:data-[state=open]:slide-in-from-top-[48%] duration-300"

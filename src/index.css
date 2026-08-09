@@ -112,42 +112,42 @@
     --card-overlay-text: 40 25% 90%;
   }
 
-  /* Sepia (Premium Warm Paper) */
+  /* Sepia (Premium Warm Book Parchment) */
   [data-theme="sepia"] {
-    --background: 38 45% 86%; /* Rich, deep warm parchment */
-    --foreground: 20 55% 15%; /* Ultra-rich deep espresso */
+    --background: 36 50% 84%; /* Rich, cozy warm golden parchment */
+    --foreground: 22 60% 13%; /* Ultra-rich deep roasted coffee ink */
     
-    --surface-1: 38 45% 84%;
-    --surface-2: 38 45% 82%;
-    --surface-3: 38 45% 80%;
-    --surface-4: 38 45% 76%;
+    --surface-1: 36 48% 81%;
+    --surface-2: 36 48% 78%;
+    --surface-3: 36 48% 75%;
+    --surface-4: 36 48% 71%;
     
-    --card: 38 45% 89%; /* Slightly lighter paper */
-    --card-foreground: 20 55% 15%;
-    --popover: 38 45% 89%;
-    --popover-foreground: 20 55% 15%;
+    --card: 36 48% 88%; /* Warm cream book paper */
+    --card-foreground: 22 60% 13%;
+    --popover: 36 52% 90%;
+    --popover-foreground: 22 60% 13%;
     
-    --primary: 18 65% 38%; /* Rich roasted amber */
-    --primary-foreground: 38 45% 92%;
+    --primary: 18 70% 36%; /* Rich roasted terracotta / warm amber */
+    --primary-foreground: 36 50% 93%;
     
-    --secondary: 38 35% 78%;
-    --secondary-foreground: 20 55% 15%;
+    --secondary: 36 42% 76%;
+    --secondary-foreground: 22 60% 13%;
     
-    --muted: 38 35% 78%;
-    --muted-foreground: 20 30% 38%;
+    --muted: 36 42% 76%;
+    --muted-foreground: 22 38% 34%;
     
-    --accent: 38 35% 78%;
-    --accent-foreground: 20 55% 15%;
+    --accent: 36 42% 76%;
+    --accent-foreground: 22 60% 13%;
     
-    --destructive: 0 70% 45%;
-    --destructive-foreground: 38 45% 92%;
+    --destructive: 0 75% 42%;
+    --destructive-foreground: 36 50% 93%;
     
-    --border: 38 30% 74%;
-    --input: 38 30% 74%;
-    --ring: 18 65% 38%;
+    --border: 36 38% 70%;
+    --input: 36 38% 70%;
+    --ring: 18 70% 36%;
     
-    --card-overlay: 20 55% 15%; /* Deep espresso overlay */
-    --card-overlay-text: 38 45% 92%; /* Light parchment text */
+    --card-overlay: 22 60% 13%; /* Deep espresso overlay */
+    --card-overlay-text: 36 50% 93%; /* Warm light parchment text */
   }
 
   /* Low-contrast Gray (E-ink style) */
@@ -837,4 +837,103 @@ body.light [data-sonner-toast] [data-button] {
   color: #FFFFFF !important;
   border-radius: 12px !important;
 }
+
+/* ==================== SELECT & DROPDOWN POPUPS SOLID THEMING ==================== */
+[data-radix-popper-content-wrapper] [role="listbox"],
+[data-radix-popper-content-wrapper] [role="menu"],
+[data-radix-select-content],
+[data-radix-dropdown-menu-content],
+.shiori-select-content {
+  background-color: hsl(var(--popover)) !important;
+  color: hsl(var(--popover-foreground)) !important;
+  opacity: 1 !important;
+  border: 1px solid hsl(var(--border)) !important;
+  box-shadow: 0 20px 45px -8px rgba(0, 0, 0, 0.35), 0 0 0 1px hsl(var(--border) / 0.3) !important;
+}
+
+/* Sepia Theme Dropdown / Select */
+[data-theme="sepia"] [data-radix-popper-content-wrapper] [role="listbox"],
+[data-theme="sepia"] [data-radix-popper-content-wrapper] [role="menu"],
+[data-theme="sepia"] [data-radix-select-content],
+[data-theme="sepia"] [data-radix-dropdown-menu-content],
+[data-theme="sepia"] .shiori-select-content {
+  background-color: #F3E9D3 !important;
+  color: #2D180B !important;
+  border: 1px solid #D1BF96 !important;
+  box-shadow: 0 16px 36px -4px rgba(78, 52, 30, 0.35), 0 2px 8px rgba(78, 52, 30, 0.18) !important;
+}
+
+/* OLED Midnight Dropdown / Select */
+[data-theme="black"] [data-radix-popper-content-wrapper] [role="listbox"],
+[data-theme="black"] [data-radix-popper-content-wrapper] [role="menu"],
+[data-theme="black"] [data-radix-select-content],
+[data-theme="black"] [data-radix-dropdown-menu-content],
+[data-theme="black"] .shiori-select-content {
+  background-color: #050505 !important;
+  color: #FFFFFF !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Premium Dark Dropdown / Select */
+[data-theme="premium-dark"] [data-radix-popper-content-wrapper] [role="listbox"],
+[data-theme="premium-dark"] [data-radix-popper-content-wrapper] [role="menu"],
+[data-theme="premium-dark"] [data-radix-select-content],
+[data-theme="premium-dark"] [data-radix-dropdown-menu-content],
+[data-theme="premium-dark"] .shiori-select-content {
+  background-color: #121218 !important;
+  color: #F3F4F6 !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+}
+
+/* ==================== GLOBAL DIALOG OVERLAYS (BLUR-FIRST, COMFORTABLE CONTRAST) ==================== */
+.dialog-overlay,
+[data-radix-dialog-overlay],
+[data-radix-alert-dialog-overlay] {
+  background-color: rgba(0, 0, 0, 0.42) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+/* Sepia Theme Dialog Overlay — Warm espresso dimming with rich blur */
+[data-theme="sepia"] .dialog-overlay,
+[data-theme="sepia"] [data-radix-dialog-overlay],
+[data-theme="sepia"] [data-radix-alert-dialog-overlay] {
+  background-color: rgba(35, 22, 10, 0.38) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+/* Light / White Theme Dialog Overlay */
+[data-theme="white"] .dialog-overlay,
+[data-theme="white"] [data-radix-dialog-overlay],
+[data-theme="white"] [data-radix-alert-dialog-overlay],
+:root:not([data-theme="black"]):not([data-theme="premium-dark"]):not([data-theme="sepia"]) .dialog-overlay,
+:root:not([data-theme="black"]):not([data-theme="premium-dark"]):not([data-theme="sepia"]) [data-radix-dialog-overlay] {
+  background-color: rgba(0, 0, 0, 0.38) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+/* OLED Midnight Dialog Overlay */
+[data-theme="black"] .dialog-overlay,
+[data-theme="black"] [data-radix-dialog-overlay],
+[data-theme="black"] [data-radix-alert-dialog-overlay] {
+  background-color: rgba(0, 0, 0, 0.7) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+}
+
+/* Premium Dark Dialog Overlay */
+[data-theme="premium-dark"] .dialog-overlay,
+[data-theme="premium-dark"] [data-radix-dialog-overlay],
+[data-theme="premium-dark"] [data-radix-alert-dialog-overlay] {
+  background-color: rgba(0, 0, 0, 0.6) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+
+
 

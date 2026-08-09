@@ -294,10 +294,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   return (
     <Wrapper open={open} onOpenChange={onOpenChange}>
       <Portal>
-        <Overlay className={cn(
-          "fixed inset-0 z-[100] transition-all duration-300",
-          isMobile ? "bg-black/40" : "bg-background/40 backdrop-blur-md dialog-overlay"
-        )} />
+        <Overlay className="dialog-overlay fixed inset-0 z-[100] bg-black/40 backdrop-blur-md transition-all duration-300" />
         <Content 
           aria-describedby={undefined} 
           onOpenAutoFocus={(e: Event) => {
@@ -2065,10 +2062,10 @@ const AdvancedSettings = ({
                 </div>
               </div>
 
-              <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+              <div className="p-3 rounded-lg bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30">
                 <div className="flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400 mt-0.5 shrink-0" />
-                  <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                  <AlertTriangle className="w-4 h-4 text-amber-700 dark:text-amber-400 mt-0.5 shrink-0" />
+                  <p className="text-xs text-amber-900 dark:text-amber-200 font-medium">
                     Restore applies to the categories selected above. Existing data is handled per the conflict policy — 'Skip' leaves it untouched.
                   </p>
                 </div>
@@ -2083,10 +2080,10 @@ const AdvancedSettings = ({
               </Button>
 
               {restoreResult && (
-                <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/30 space-y-2">
-                  <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                <div className="p-4 rounded-lg bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 space-y-2">
+                  <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-400">
                     <CheckCircle2 className="w-4 h-4" />
-                    <span className="text-sm font-medium">Restore completed</span>
+                    <span className="text-sm font-semibold">Restore completed</span>
                   </div>
                   <div className="text-xs text-muted-foreground space-y-1">
                     {Object.entries(restoreResult.restored).map(([cat, count]) => (
@@ -2200,8 +2197,8 @@ const AdvancedSettings = ({
                 )}
               </>
             ) : (
-              <p className="text-xs text-yellow-700 dark:text-yellow-300 flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              <p className="text-xs text-amber-900 dark:text-amber-200 font-medium flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-700 dark:text-amber-400 mt-0.5 shrink-0" />
                 The durable storage folder is Android-only. On desktop, managed books always live in Shiori's
                 app-private folder, which is removed on uninstall.
               </p>

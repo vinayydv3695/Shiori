@@ -11,9 +11,9 @@ import {
   Download, 
   RefreshCw, 
   Palette, 
-  ShieldCheck, 
-  Sliders, 
-  Zap,
+  Layers,
+  SlidersHorizontal, 
+  BookX,
   X
 } from 'lucide-react';
 import { logger } from '@/lib/logger';
@@ -21,7 +21,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 function stripEmojis(text: string): string {
-  if (!text) return '';
+  if (!text) return ''
   return text
     .replace(/[\u{1F300}-\u{1FAFF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1F018}-\u{1F270}]/gu, '')
     .replace(/\s{2,}/g, ' ')
@@ -37,32 +37,31 @@ interface HighlightItem {
 const DEFAULT_HIGHLIGHTS: HighlightItem[] = [
   {
     icon: Palette,
-    title: 'Warm Sepia & OLED Midnight Themes',
-    desc: 'Dedicated high-contrast paper cream and true black reading modes.',
+    title: 'Warmer Sepia Theme',
+    desc: 'Richer golden parchment, warm cream cards, and roasted coffee ink — feels like a real vintage book.',
   },
   {
-    icon: Sliders,
-    title: 'Minimal Reader Sidebar & Controls',
-    desc: 'Clean segmented mode switcher, centered chapter selector, and auto-scroll.',
+    icon: Layers,
+    title: 'Dialog Backdrop Blur',
+    desc: 'All dialogs now blur and dim the background for a clean, focused experience across all themes.',
   },
   {
-    icon: ShieldCheck,
-    title: 'App-Wide NSFW Content Filter',
-    desc: 'Customizable privacy toggle in Settings to filter adult manga and catalogs.',
+    icon: SlidersHorizontal,
+    title: 'Better Contrast in Settings',
+    desc: 'Warning banners, AniList status, and storage alerts use proper high-contrast colors for light and dark modes.',
   },
   {
-    icon: Zap,
-    title: 'Smoother Reading Engine',
-    desc: 'Zero-ghosting solid canvas, configurable cache preloading, and faster page turns.',
+    icon: BookX,
+    title: 'No Convert to EPUB for Comics',
+    desc: 'CBZ and CBR archives no longer show the "Convert to EPUB" option since they cannot be converted.',
   },
 ];
 
 const DEFAULT_LATEST_RELEASE_NOTES = `
-* **Warm Sepia & OLED Midnight Themes**: Dedicated paper cream and true black reading modes.
-* **Minimal Reader Sidebar & Controls**: Clean segmented mode switcher, centered chapter selector, and auto-scroll.
-* **App-Wide NSFW Content Filter**: Customizable privacy toggle in Settings to filter adult manga and catalogs.
-* **Smoother Reading Engine**: Zero-ghosting solid canvas, configurable cache preloading, and faster page turns.
-* **Refined Dropdowns**: Custom accessible menus across Settings, Shelves, and Reader.
+* **Warmer Sepia Theme**: The Sepia palette is now richer and cozier — deeper golden parchment, warm cream cards, and roasted coffee ink text. Feels like a real vintage book.
+* **Dialog Backdrop Blur**: All dialogs now blur and dim the background behind them for a clean, focused experience across all themes.
+* **Better Contrast in Settings**: Warning banners, AniList status, and storage alerts now use proper high-contrast colors for both light and dark modes.
+* **No Convert to EPUB for Comics**: CBZ and CBR archives no longer show the "Convert to EPUB" option since comic archives cannot be converted.
 `;
 
 export function UpdateDialog() {

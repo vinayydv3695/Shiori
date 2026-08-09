@@ -1,3 +1,15 @@
+# Release Notes (v2.3.11)
+
+## Improvements
+
+- **Warmer Sepia Theme** — The Sepia palette has been richer and cozier: deeper golden parchment background (`hsl(36 50% 84%)`), warm cream book paper cards, and ultra-rich roasted coffee ink text. The theme now feels like a real vintage book rather than a plain off-white page.
+- **Dialog Backdrop Blur** — All dialogs (Delete, Export, Settings, Metadata, etc.) now apply a clear `backdrop-filter: blur(12px)` with a comfortable semi-transparent dim behind them, so the library is softened instead of remaining fully visible or over-saturated.
+- **Consistent Warning & Status Text Contrast** — Amber/warning banners (`bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200`), success badges (`text-emerald-800 dark:text-emerald-400`), and info alerts use proper high-contrast color pairs for both light/sepia and dark/OLED themes across AniList settings, backup restore, and storage mode indicators.
+
+## Bug Fixes
+
+- **No "Convert to EPUB" for comic archives** — CBZ and CBR formats no longer show the "Convert to EPUB" option in context menus or batch conversion, since comic archives are not convertible to EPUB.
+
 # Release Notes (v2.3.10)
 
 ## Bug Fixes

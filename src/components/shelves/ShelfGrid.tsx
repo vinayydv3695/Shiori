@@ -218,7 +218,7 @@ function ShelfCard({
       </ContextMenu.Trigger>
       <ContextMenu.Portal>
         <ContextMenu.Content
-          className="min-w-[160px] bg-background/80 backdrop-blur-xl border border-border/50 rounded-xl shadow-2xl p-1.5 z-50 text-sm animate-in fade-in zoom-in-95 duration-200"
+          className="min-w-[160px] bg-popover text-popover-foreground backdrop-blur-md border border-border rounded-xl shadow-2xl p-1.5 z-50 text-sm animate-in fade-in zoom-in-95 duration-200"
         >
           {onEdit && (
             <ContextMenu.Item

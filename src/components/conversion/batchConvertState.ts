@@ -28,8 +28,8 @@ export interface BatchConvertSummary {
   skipped: number
 }
 
-/** Formats that are already EPUB (or not local files) — no conversion offered. */
-export const NON_CONVERTIBLE_FORMATS = new Set(['epub', 'online-manga'])
+/** Formats that are already EPUB (or manga/comics/non-local) — no conversion offered. */
+export const NON_CONVERTIBLE_FORMATS = new Set(['epub', 'online-manga', 'cbz', 'cbr'])
 
 export function isConvertibleFormat(format?: string): boolean {
   if (!format) return false

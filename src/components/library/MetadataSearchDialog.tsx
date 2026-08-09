@@ -582,7 +582,7 @@ export const MetadataSearchDialog = ({
     return (
       <Dialog.Root open={open} onOpenChange={onOpenChange}>
         <Dialog.Portal>
-          <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-background/80 backdrop-blur-md z-50" />
+          <Dialog.Overlay className="dialog-overlay fixed inset-0 z-50" />
           <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-2xl w-[90vw] md:w-[90vw] max-w-5xl max-h-[85vh] md:max-h-[90vh] z-50 flex flex-col overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b border-border bg-muted/30">
               <div className="flex flex-col">
@@ -739,7 +739,7 @@ export const MetadataSearchDialog = ({
     <>
       <Dialog.Root open={open} onOpenChange={onOpenChange}>
         <Dialog.Portal>
-          <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-background/80 backdrop-blur-md z-50" />
+          <Dialog.Overlay className="dialog-overlay fixed inset-0 z-50" />
           <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-lg shadow-lg w-[90vw] md:w-[90vw] max-w-3xl max-h-[85vh] md:max-h-[90vh] z-50 flex flex-col overflow-x-hidden">
             <div className="flex items-center justify-between p-6 border-b border-border flex-shrink-0">
               <Dialog.Title className="text-lg font-semibold text-foreground">
@@ -872,7 +872,7 @@ export const MetadataSearchDialog = ({
       {/* Preview Modal for Single Mode */}
       <Dialog.Root open={previewModalOpen} onOpenChange={handleClosePreview}>
         <Dialog.Portal>
-          <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-background/80 backdrop-blur-md z-[60] animate-in fade-in" />
+          <Dialog.Overlay className="dialog-overlay fixed inset-0 z-[60] animate-in fade-in" />
           <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-2xl w-[90vw] max-w-4xl max-h-[85vh] md:max-h-[90vh] md:max-h-[90vh] z-[60] flex flex-col overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b border-border bg-muted/10">
               <Dialog.Title className="text-xl font-bold tracking-tight text-foreground">Review Metadata & Cover</Dialog.Title>

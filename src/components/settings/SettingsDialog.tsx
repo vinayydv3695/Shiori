@@ -310,7 +310,11 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
           isMobile 
             ? "fixed inset-0 w-full h-full rounded-none" 
             : "dialog-content settings-dialog fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.2)] w-[95vw] max-w-5xl h-[90vh]",
-          preferences?.transparentSettings ?? false ? "bg-background/80 backdrop-blur-2xl" : "bg-background"
+          // Transparent mode must stay near-opaque: at /80 the inner panels
+          // (bg-background/30 sidebar, /50 content) stacked on the /40 overlay
+          // let the app's icons show through the panel. /95 + heavy blur keeps
+          // the frosted look while making the background unreadable.
+          preferences?.transparentSettings ?? false ? "bg-background/95 backdrop-blur-2xl" : "bg-background"
         )}>
           <div className="flex items-center justify-between p-4 md:p-6 border-b border-border gap-3">
             {isMobile && mobileView === 'detail' ? (

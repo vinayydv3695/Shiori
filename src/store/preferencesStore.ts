@@ -16,6 +16,8 @@ import { DEFAULT_USER_PREFERENCES } from "../types/preferences";
 
 const themeMap: Record<string, string> = { light: 'white', dark: 'black', 'premium-dark': 'premium-dark' };
 
+const isDarkTheme = (theme: string) => theme !== 'light' && theme !== 'white' && theme !== 'sepia' && theme !== 'paper';
+
 const themeColors: Record<string, string> = {
   sepia: '#e5d6b6',
   white: '#fcfbf9',
@@ -146,7 +148,7 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
 
       // Apply theme and scale to DOM
       document.documentElement.setAttribute("data-theme", themeMap[preferences.theme] ?? preferences.theme);
-      if (preferences.theme !== 'light' && preferences.theme !== 'white') {
+      if (isDarkTheme(preferences.theme)) {
         document.documentElement.classList.add('dark');
       } else {
         document.documentElement.classList.remove('dark');
@@ -173,7 +175,7 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
     }));
     document.documentElement.setAttribute("data-theme", themeMap[theme] ?? theme);
     // Also toggle 'dark' class for Tailwind dark: variants
-    if (theme !== 'light' && theme !== 'white') {
+    if (isDarkTheme(theme)) {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
@@ -192,7 +194,7 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
             : DEFAULT_USER_PREFERENCES,
         }));
         document.documentElement.setAttribute("data-theme", themeMap[previousTheme] ?? previousTheme);
-        if (previousTheme !== 'light' && previousTheme !== 'white') {
+        if (isDarkTheme(previousTheme)) {
           document.documentElement.classList.add('dark');
         } else {
           document.documentElement.classList.remove('dark');

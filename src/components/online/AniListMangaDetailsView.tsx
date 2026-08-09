@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { motion } from 'framer-motion';
 import { usePreferencesStore } from '@/store/preferencesStore';
+import { DatePicker } from '@/components/ui/DatePicker';
 
 // TrackerForm Component
 function TrackerForm({
@@ -168,24 +169,20 @@ function TrackerForm({
           <label className="text-[11px] font-bold tracking-widest text-muted-foreground uppercase flex items-center gap-1.5">
             <Calendar className="w-3.5 h-3.5 text-primary" /> Start Date
           </label>
-          <input 
-            type="date"
+          <DatePicker
             value={startedAt}
-            onChange={e => setStartedAt(e.target.value)}
-            className="w-full bg-secondary/40 border border-border/60 text-foreground font-bold rounded-2xl focus:border-primary focus:ring-2 focus:ring-primary/30 hover:bg-secondary/60 py-2.5 px-3 text-[13px] outline-none transition-all shadow-sm" 
-            style={{ colorScheme: 'dark' }}
+            onChange={setStartedAt}
+            placeholder="Select start date"
           />
         </div>
         <div className="space-y-2">
           <label className="text-[11px] font-bold tracking-widest text-muted-foreground uppercase flex items-center gap-1.5">
             <Calendar className="w-3.5 h-3.5 text-primary" /> Finish Date
           </label>
-          <input 
-            type="date" 
+          <DatePicker
             value={completedAt}
-            onChange={e => setCompletedAt(e.target.value)}
-            className="w-full bg-secondary/40 border border-border/60 text-foreground font-bold rounded-2xl focus:border-primary focus:ring-2 focus:ring-primary/30 hover:bg-secondary/60 py-2.5 px-3 text-[13px] outline-none transition-all shadow-sm" 
-            style={{ colorScheme: 'dark' }}
+            onChange={setCompletedAt}
+            placeholder="Select finish date"
           />
         </div>
       </motion.div>

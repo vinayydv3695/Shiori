@@ -4,10 +4,13 @@ use crate::services::backup_service;
 use crate::AppState;
 use tauri::{Manager, State};
 
+/// Backup is heavy (VACUUM INTO + zipping covers/books), so it runs off the
+/// main thread. A sync command here blocks the UI thread for the whole backup —
+/// on Windows the window goes "Not Responding" and on Android it risks an ANR.
 #[tauri::command]
-pub fn create_backup(
+pub async fn create_backup(
     app_handle: tauri::AppHandle,
-    state: State<AppState>,
+    state: State<'_, AppState>,
     backup_path: String,
     selection: BackupSelection,
     frontend_settings: Option<String>,
@@ -15,43 +18,59 @@ pub fn create_backup(
     let app_data_dir = app_handle.path().app_data_dir().map_err(|e| {
         crate::error::ShioriError::Other(format!("Failed to get app data dir: {}", e))
     })?;
+    let db = state.db.clone();
 
-    backup_service::create_backup(
-        &state.db,
-        &app_data_dir,
-        &std::path::Path::new(&backup_path),
-        &selection,
-        frontend_settings.as_deref(),
-    )
+    tauri::async_runtime::spawn_blocking(move || {
+        backup_service::create_backup(
+            &db,
+            &app_data_dir,
+            std::path::Path::new(&backup_path),
+            &selection,
+            frontend_settings.as_deref(),
+        )
+    })
+    .await
+    .map_err(|e| crate::error::ShioriError::Other(format!("Backup task failed: {}", e)))?
 }
 
 #[tauri::command]
-pub fn restore_backup(
+pub async fn restore_backup(
     app_handle: tauri::AppHandle,
-    state: State<AppState>,
+    state: State<'_, AppState>,
     backup_path: String,
     selection: Option<RestoreSelection>,
 ) -> Result<RestoreSummary> {
     let app_data_dir = app_handle.path().app_data_dir().map_err(|e| {
         crate::error::ShioriError::Other(format!("Failed to get app data dir: {}", e))
     })?;
-
+    let db = state.db.clone();
     let selection = selection.unwrap_or_default();
 
     // Subset-of-full is not supported: the snapshot ATTACH path would copy
     // backup-side book ids and never re-link children by uuid/hash (that only
     // happens on the per-category JSON path). Reject with a clear error before
     // touching the database.
-    backup_service::validate_restore_selection(&std::path::Path::new(&backup_path), &selection)?;
+    let selection_owned = selection.clone();
+    let path_for_validate = backup_path.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        backup_service::validate_restore_selection(std::path::Path::new(&path_for_validate), &selection_owned)
+    })
+    .await
+    .map_err(|e| crate::error::ShioriError::Other(format!("Restore validation task failed: {}", e)))??;
 
-    let report = backup_service::restore_backup(
-        &state.db,
-        &app_data_dir,
-        &std::path::Path::new(&backup_path),
-        &selection,
-    )?;
+    let db_for_summary = db.clone();
+    let report = tauri::async_runtime::spawn_blocking(move || {
+        backup_service::restore_backup(
+            &db,
+            &app_data_dir,
+            std::path::Path::new(&backup_path),
+            &selection,
+        )
+    })
+    .await
+    .map_err(|e| crate::error::ShioriError::Other(format!("Restore task failed: {}", e)))??;
 
-    Ok(summarize(&state.db, report))
+    Ok(summarize(&db_for_summary, report))
 }
 
 /// Wrap the service report with the legacy counters the frontend still reads
@@ -77,7 +96,13 @@ fn summarize(db: &crate::db::Database, report: RestoreReport) -> RestoreSummary 
     }
 }
 
+/// Reading a large archive's central directory can take a while for big
+/// backups (many covers/books), so run it off the main thread too.
 #[tauri::command]
-pub fn get_backup_info(backup_path: String) -> Result<backup_service::BackupInfo> {
-    backup_service::get_backup_info(&std::path::Path::new(&backup_path))
+pub async fn get_backup_info(backup_path: String) -> Result<backup_service::BackupInfo> {
+    tauri::async_runtime::spawn_blocking(move || {
+        backup_service::get_backup_info(std::path::Path::new(&backup_path))
+    })
+    .await
+    .map_err(|e| crate::error::ShioriError::Other(format!("Backup info task failed: {}", e)))?
 }

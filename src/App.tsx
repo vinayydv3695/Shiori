@@ -24,6 +24,7 @@ import { useOpenedFiles } from "./hooks/useOpenedFiles"
 import { api, isAndroid } from "./lib/tauri"
 import { useDiscordRPCUpdater } from "./hooks/useDiscordRPCUpdater"
 import { useOnlineSearchStore } from "./store/onlineSearchStore"
+import { useShelfStore } from "./store/shelfStore"
 import { AndroidSplashScreen } from "./components/ui/AndroidSplashScreen"
 import { SwipeGestureHandler } from "./components/layout/SwipeGestureHandler"
 import { useBackButton } from "./hooks/useBackButton"
@@ -95,6 +96,8 @@ function App() {
   }, [onboardingComplete, legacyLibraryMigrationStatus])
 
   const handleNavigate = (view: typeof currentView) => {
+    // Clear shelf filter on view change so all books are visible in Library
+    useShelfStore.getState().selectShelf(null);
     setCurrentView(view)
   }
 

@@ -416,7 +416,7 @@ export const useOnboardingStore = create<OnboardingStore>()(
         set({ selectedTheme: theme });
         // Immediately apply to DOM for live preview
         document.documentElement.setAttribute('data-theme', THEME_NAME_TO_VALUE[theme] ?? 'black');
-        if (theme === 'Premium Light') {
+        if (theme === 'Premium Light' || theme === 'Sepia Paper') {
           document.documentElement.classList.remove('dark');
         } else {
           document.documentElement.classList.add('dark');

@@ -11,6 +11,8 @@ use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
 use std::io::{BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
+use std::thread;
+use std::time::Duration;
 use tempfile::TempDir;
 use walkdir::WalkDir;
 use zip::write::SimpleFileOptions;
@@ -304,6 +306,15 @@ pub fn create_backup(
     }
 }
 
+/// True for SQLITE_BUSY / SQLITE_LOCKED — transient lock errors that a short
+/// retry can ride out (another pool connection mid-transaction).
+fn is_transient_lock(e: &rusqlite::Error) -> bool {
+    matches!(
+        e.sqlite_error_code(),
+        Some(rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked)
+    )
+}
+
 /// Legacy fast path: `VACUUM INTO` snapshot + covers + optional books +
 /// optional frontend settings. Manifest is stamped v2 with all categories.
 fn create_full_backup(
@@ -319,10 +330,24 @@ fn create_full_backup(
         .map_err(|e| ShioriError::Other(format!("Failed to create temp directory: {}", e)))?;
     let temp_db_path = temp_dir.path().join("library.db");
 
-    conn.execute_batch(&format!(
+    // VACUUM INTO can hit SQLITE_BUSY/LOCKED when another pool connection is
+    // mid-transaction (background sync, reading progress, RSS refresh, ...).
+    // busy_timeout only covers BUSY — retry both for a short while first.
+    let vacuum_sql = format!(
         "VACUUM INTO '{}'",
         temp_db_path.display().to_string().replace('\'', "''")
-    ))?;
+    );
+    let mut attempt = 0;
+    loop {
+        match conn.execute_batch(&vacuum_sql) {
+            Ok(()) => break,
+            Err(e) if is_transient_lock(&e) && attempt < 5 => {
+                attempt += 1;
+                thread::sleep(Duration::from_millis(200 * attempt));
+            }
+            Err(e) => return Err(e.into()),
+        }
+    }
 
     let book_count: usize = conn.query_row("SELECT COUNT(*) FROM books", [], |row| row.get(0))?;
     let annotation_count: usize =
@@ -353,10 +378,13 @@ fn create_full_backup(
             if path.is_file() {
                 if let Ok(relative) = path.strip_prefix(&covers_dir) {
                     let zip_path = format!("covers/{}", relative.display());
-                    zip.start_file(&zip_path, options)?;
-                    let mut file = File::open(path)?;
-                    total_size += std::io::copy(&mut file, &mut zip)?;
-                    cover_count += 1;
+                    // Cover being replaced/removed mid-backup: skip it,
+                    // don't abort the whole backup.
+                    if let Ok(mut file) = File::open(path) {
+                        zip.start_file(&zip_path, options)?;
+                        total_size += std::io::copy(&mut file, &mut zip)?;
+                        cover_count += 1;
+                    }
                 }
             }
         }
@@ -374,10 +402,17 @@ fn create_full_backup(
             if book_path.exists() && book_path.is_file() {
                 if let Some(filename) = book_path.file_name() {
                     let zip_path = format!("books/{}", filename.to_string_lossy());
-                    zip.start_file(&zip_path, options)?;
-                    let mut file = File::open(book_path)?;
-                    total_size += std::io::copy(&mut file, &mut zip)?;
-                    book_file_count += 1;
+                    match File::open(book_path) {
+                        Ok(mut file) => {
+                            zip.start_file(&zip_path, options)?;
+                            total_size += std::io::copy(&mut file, &mut zip)?;
+                            book_file_count += 1;
+                        }
+                        // In-use or unreadable file (Windows lock, in-progress
+                        // download, moved on disk): skip it, don't abort the
+                        // whole backup. Recorded in the manifest.
+                        Err(_) => skipped_files.push(file_path.clone()),
+                    }
                 }
             } else {
                 skipped_files.push(file_path);

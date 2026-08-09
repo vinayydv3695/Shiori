@@ -500,7 +500,7 @@ export function Layout({
           onTouchStart={isMobile ? handleTouchStart : undefined}
           onTouchMove={isMobile ? handleTouchMove : undefined}
           onTouchEnd={isMobile ? handleTouchEnd : undefined}
-          className="flex-1 min-w-0 overflow-y-auto bg-transparent relative z-10 transition-transform"
+          className="flex-1 min-w-0 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden bg-transparent relative z-10 transition-all max-md:p-0 md:my-1 md:mr-2 md:mb-2 md:ml-1.5 md:rounded-2xl md:border md:border-border/30 md:bg-card/20 md:backdrop-blur-sm"
           style={isMobile ? {
             paddingLeft: 'env(safe-area-inset-left, 0px)',
             paddingRight: 'env(safe-area-inset-right, 0px)',

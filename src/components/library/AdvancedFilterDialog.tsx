@@ -1,12 +1,14 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as Checkbox from '@radix-ui/react-checkbox'
-import { X, Filter, Save, Trash2, ChevronDown, Check, Star, Settings, Tag, Layers, StarHalf } from 'lucide-react'
+import { X, Filter, Save, Trash2, ChevronDown, Check, Star, Settings, Tag, Layers, StarHalf, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { logger } from '@/lib/logger'
 import { useLibraryStore } from '@/store/libraryStore'
 import type { FilterCriteria, FilterPreset, ReadingStatus } from '@/store/libraryStore'
 import { matchesAdvancedFilters, countActiveFilterCriteria } from '@/store/libraryStore'
+import { DatePicker } from '@/components/ui/DatePicker'
 
 const STORAGE_KEY = 'shiori_filter_presets'
 
@@ -167,7 +169,7 @@ export function AdvancedFilterDialog({ open, onOpenChange }: AdvancedFilterDialo
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/60 backdrop-blur-md z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-300" />
-        <Dialog.Content aria-describedby={undefined} className="dialog-content fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border/50 rounded-[24px] shadow-2xl w-[96vw] sm:w-[640px] max-w-full max-h-[85vh] flex flex-col z-50 overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-300">
+        <Dialog.Content aria-describedby={undefined} className="dialog-content fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border/50 rounded-[24px] shadow-2xl w-[96vw] sm:w-[720px] max-w-full max-h-[85vh] flex flex-col z-50 overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-300">
 
           <div className="flex items-center justify-between px-6 py-4 border-b border-border/50 shrink-0">
             <Dialog.Title className="flex items-center gap-2 text-xl font-bold text-foreground">
@@ -187,207 +189,250 @@ export function AdvancedFilterDialog({ open, onOpenChange }: AdvancedFilterDialo
               <button
                 onClick={() => setActiveTab('general')}
                 className={cn(
-                  "flex items-center justify-center sm:justify-start gap-2 px-2 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-xl transition-all whitespace-nowrap w-full",
-                  activeTab === 'general' ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  "relative flex items-center justify-center sm:justify-start gap-2 px-2 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-xl transition-colors whitespace-nowrap w-full select-none cursor-pointer",
+                  activeTab === 'general' ? "text-primary-foreground font-bold" : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
-                <Settings size={16} className="shrink-0" /> <span className="truncate">General</span>
+                {activeTab === 'general' && (
+                  <motion.div
+                    layoutId="activeFilterTabPill"
+                    className="absolute inset-0 bg-primary rounded-xl z-0 shadow-md shadow-primary/20"
+                    transition={{ type: "spring", stiffness: 450, damping: 35 }}
+                  />
+                )}
+                <Settings size={16} className="shrink-0 relative z-10" /> <span className="truncate relative z-10">General</span>
               </button>
               <button
                 onClick={() => setActiveTab('metadata')}
                 className={cn(
-                  "flex items-center justify-center sm:justify-start gap-2 px-2 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-xl transition-all whitespace-nowrap w-full",
-                  activeTab === 'metadata' ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  "relative flex items-center justify-center sm:justify-start gap-2 px-2 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-xl transition-colors whitespace-nowrap w-full select-none cursor-pointer",
+                  activeTab === 'metadata' ? "text-primary-foreground font-bold" : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
-                <Tag size={16} className="shrink-0" /> <span className="truncate">Metadata</span>
+                {activeTab === 'metadata' && (
+                  <motion.div
+                    layoutId="activeFilterTabPill"
+                    className="absolute inset-0 bg-primary rounded-xl z-0 shadow-md shadow-primary/20"
+                    transition={{ type: "spring", stiffness: 450, damping: 35 }}
+                  />
+                )}
+                <Tag size={16} className="shrink-0 relative z-10" /> <span className="truncate relative z-10">Metadata</span>
               </button>
               <button
                 onClick={() => setActiveTab('organization')}
                 className={cn(
-                  "flex items-center justify-center sm:justify-start gap-2 px-2 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-xl transition-all whitespace-nowrap w-full",
-                  activeTab === 'organization' ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  "relative flex items-center justify-center sm:justify-start gap-2 px-2 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-xl transition-colors whitespace-nowrap w-full select-none cursor-pointer",
+                  activeTab === 'organization' ? "text-primary-foreground font-bold" : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
-                <Layers size={16} className="shrink-0" /> <span className="truncate">Organization</span>
+                {activeTab === 'organization' && (
+                  <motion.div
+                    layoutId="activeFilterTabPill"
+                    className="absolute inset-0 bg-primary rounded-xl z-0 shadow-md shadow-primary/20"
+                    transition={{ type: "spring", stiffness: 450, damping: 35 }}
+                  />
+                )}
+                <Layers size={16} className="shrink-0 relative z-10" /> <span className="truncate relative z-10">Organization</span>
               </button>
               <button
                 onClick={() => setActiveTab('ratings')}
                 className={cn(
-                  "flex items-center justify-center sm:justify-start gap-2 px-2 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-xl transition-all whitespace-nowrap w-full",
-                  activeTab === 'ratings' ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  "relative flex items-center justify-center sm:justify-start gap-2 px-2 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-xl transition-colors whitespace-nowrap w-full select-none cursor-pointer",
+                  activeTab === 'ratings' ? "text-primary-foreground font-bold" : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
-                <StarHalf size={16} className="shrink-0" /> <span className="truncate">Status</span>
+                {activeTab === 'ratings' && (
+                  <motion.div
+                    layoutId="activeFilterTabPill"
+                    className="absolute inset-0 bg-primary rounded-xl z-0 shadow-md shadow-primary/20"
+                    transition={{ type: "spring", stiffness: 450, damping: 35 }}
+                  />
+                )}
+                <StarHalf size={16} className="shrink-0 relative z-10" /> <span className="truncate relative z-10">Status</span>
               </button>
             </div>
 
-            {/* Content Area */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-background/50">
-              {activeTab === 'general' && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
-                  <FilterSection title="Text Search">
-                    <input
-                      type="text"
-                      value={filters.textSearch ?? ''}
-                      onChange={e => updateFilter('textSearch', e.target.value)}
-                      placeholder="Search in title, author..."
-                      className="w-full h-12 px-4 text-base rounded-xl border border-border/50 bg-muted/20 shadow-inner text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
-                    />
-                  </FilterSection>
-
-                  <FilterSection title="Formats">
-                    <div className="flex flex-wrap gap-2">
-                      {uniqueFormats.map(fmt => {
-                        const isSelected = (filters.formats ?? []).includes(fmt);
-                        return (
-                          <button
-                            key={fmt}
-                            type="button"
-                            onClick={() => updateFilter('formats', toggleArrayItem(filters.formats, fmt))}
-                            className={cn(
-                              "px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-300 border flex items-center gap-2 select-none",
-                              isSelected 
-                                ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20" 
-                                : "bg-background border-border text-muted-foreground hover:border-primary/50 hover:bg-muted/50"
-                            )}
-                          >
-                            {isSelected && <Check size={16} className="shrink-0" />}
-                            {fmt}
-                          </button>
-                        );
-                      })}
-                      {uniqueFormats.length === 0 && (
-                        <span className="text-sm text-muted-foreground">No formats available</span>
-                      )}
-                    </div>
-                  </FilterSection>
-                </div>
-              )}
-
-              {activeTab === 'metadata' && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
-                  <FilterSection title="Authors">
-                    <MultiSelectCheckboxList
-                      items={uniqueAuthors}
-                      selected={filters.authors ?? []}
-                      onToggle={item => updateFilter('authors', toggleArrayItem(filters.authors, item))}
-                      maxVisible={6}
-                    />
-                  </FilterSection>
-
-                  <FilterSection title="Tags">
-                    <TagChips
-                      items={uniqueTags}
-                      selected={filters.tags ?? []}
-                      onToggle={item => updateFilter('tags', toggleArrayItem(filters.tags, item))}
-                    />
-                  </FilterSection>
-
-                  <FilterSection title="Publishers">
-                    <MultiSelectCheckboxList
-                      items={uniquePublishers}
-                      selected={filters.publishers ?? []}
-                      onToggle={item => updateFilter('publishers', toggleArrayItem(filters.publishers, item))}
-                      maxVisible={4}
-                    />
-                  </FilterSection>
-                </div>
-              )}
-
-              {activeTab === 'organization' && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
-                  <FilterSection title="Series">
-                    <MultiSelectCheckboxList
-                      items={uniqueSeries}
-                      selected={filters.series ?? []}
-                      onToggle={item => updateFilter('series', toggleArrayItem(filters.series, item))}
-                      maxVisible={6}
-                    />
-                  </FilterSection>
-
-                  <FilterSection title="Languages">
-                    <MultiSelectCheckboxList
-                      items={uniqueLanguages}
-                      selected={filters.languages ?? []}
-                      onToggle={item => updateFilter('languages', toggleArrayItem(filters.languages, item))}
-                      maxVisible={4}
-                    />
-                  </FilterSection>
-                </div>
-              )}
-
-              {activeTab === 'ratings' && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
-                  <FilterSection title="Rating">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-6">
-                      <div className="flex items-center gap-3 bg-muted/30 p-3 rounded-lg border border-border/50">
-                        <span className="text-sm font-medium text-muted-foreground w-8">Min:</span>
-                        <StarRating
-                          value={filters.ratingMin ?? 0}
-                          onChange={v => updateFilter('ratingMin', v)}
-                        />
-                      </div>
-                      <div className="flex items-center gap-3 bg-muted/30 p-3 rounded-lg border border-border/50">
-                        <span className="text-sm font-medium text-muted-foreground w-8">Max:</span>
-                        <StarRating
-                          value={filters.ratingMax ?? 10}
-                          onChange={v => updateFilter('ratingMax', v)}
-                        />
-                      </div>
-                    </div>
-                  </FilterSection>
-
-                  <FilterSection title="Reading Status">
-                    <div className="flex flex-wrap gap-4">
-                      {READING_STATUSES.map(({ value, label }) => (
-                        <label key={value} className="flex items-center gap-2 cursor-pointer select-none group">
-                          <Checkbox.Root
-                            checked={(filters.readingStatus ?? []).includes(value)}
-                            onCheckedChange={() =>
-                              updateFilter('readingStatus', toggleArrayItem(filters.readingStatus, value))
-                            }
-                            className={cn(
-                              'w-4 h-4 rounded border flex items-center justify-center transition-all',
-                              (filters.readingStatus ?? []).includes(value)
-                                ? 'bg-primary border-primary shadow-sm'
-                                : 'border-border bg-background group-hover:border-primary/50'
-                            )}
-                          >
-                            <Checkbox.Indicator>
-                              <Check size={12} className="text-primary-foreground" />
-                            </Checkbox.Indicator>
-                          </Checkbox.Root>
-                          <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">{label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </FilterSection>
-
-                  <FilterSection title="Date Added">
-                    <div className="flex items-center gap-4">
-                      <div className="flex-1">
-                        <label className="block text-xs font-medium text-muted-foreground mb-1.5">From Date</label>
+            {/* Content Area — Smooth Animated Tab Switch */}
+            <div className="flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden p-6 sm:p-7 bg-background/50 relative">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeTab}
+                  initial={{ opacity: 0, y: 10, scale: 0.99 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.99 }}
+                  transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                  className="space-y-6"
+                >
+                  {activeTab === 'general' && (
+                    <div className="space-y-6">
+                      <FilterSection title="Text Search">
                         <input
-                          type="date"
-                          value={filters.dateFrom ?? ''}
-                          onChange={e => updateFilter('dateFrom', e.target.value)}
-                          className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background shadow-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all [color-scheme:dark]"
+                          type="text"
+                          value={filters.textSearch ?? ''}
+                          onChange={e => updateFilter('textSearch', e.target.value)}
+                          placeholder="Search in title, author..."
+                          className="w-full h-12 px-4 text-base rounded-xl border border-border/50 bg-muted/20 shadow-inner text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
                         />
-                      </div>
-                      <div className="flex-1">
-                        <label className="block text-xs font-medium text-muted-foreground mb-1.5">To Date</label>
-                        <input
-                          type="date"
-                          value={filters.dateTo ?? ''}
-                          onChange={e => updateFilter('dateTo', e.target.value)}
-                          className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background shadow-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all [color-scheme:dark]"
-                        />
-                      </div>
+                      </FilterSection>
+
+                      <FilterSection title="Formats">
+                        <div className="flex flex-wrap gap-2">
+                          {uniqueFormats.map(fmt => {
+                            const isSelected = (filters.formats ?? []).includes(fmt);
+                            return (
+                              <button
+                                key={fmt}
+                                type="button"
+                                onClick={() => updateFilter('formats', toggleArrayItem(filters.formats, fmt))}
+                                className={cn(
+                                  "px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-300 border flex items-center gap-2 select-none",
+                                  isSelected 
+                                    ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20" 
+                                    : "bg-background border-border text-muted-foreground hover:border-primary/50 hover:bg-muted/50"
+                                )}
+                              >
+                                {isSelected && <Check size={16} className="shrink-0" />}
+                                {fmt}
+                              </button>
+                            );
+                          })}
+                          {uniqueFormats.length === 0 && (
+                            <span className="text-sm text-muted-foreground">No formats available</span>
+                          )}
+                        </div>
+                      </FilterSection>
                     </div>
-                  </FilterSection>
-                </div>
-              )}
+                  )}
+
+                  {activeTab === 'metadata' && (
+                    <div className="space-y-6">
+                      <FilterSection title="Authors">
+                        <MultiSelectCheckboxList
+                          items={uniqueAuthors}
+                          selected={filters.authors ?? []}
+                          onToggle={item => updateFilter('authors', toggleArrayItem(filters.authors, item))}
+                          maxVisible={6}
+                        />
+                      </FilterSection>
+
+                      <FilterSection title="Tags">
+                        <TagChips
+                          items={uniqueTags}
+                          selected={filters.tags ?? []}
+                          onToggle={item => updateFilter('tags', toggleArrayItem(filters.tags, item))}
+                        />
+                      </FilterSection>
+
+                      <FilterSection title="Publishers">
+                        <MultiSelectCheckboxList
+                          items={uniquePublishers}
+                          selected={filters.publishers ?? []}
+                          onToggle={item => updateFilter('publishers', toggleArrayItem(filters.publishers, item))}
+                          maxVisible={4}
+                        />
+                      </FilterSection>
+                    </div>
+                  )}
+
+                  {activeTab === 'organization' && (
+                    <div className="space-y-6">
+                      <FilterSection title="Series">
+                        <MultiSelectCheckboxList
+                          items={uniqueSeries}
+                          selected={filters.series ?? []}
+                          onToggle={item => updateFilter('series', toggleArrayItem(filters.series, item))}
+                          maxVisible={6}
+                        />
+                      </FilterSection>
+
+                      <FilterSection title="Languages">
+                        <MultiSelectCheckboxList
+                          items={uniqueLanguages}
+                          selected={filters.languages ?? []}
+                          onToggle={item => updateFilter('languages', toggleArrayItem(filters.languages, item))}
+                          maxVisible={4}
+                        />
+                      </FilterSection>
+                    </div>
+                  )}
+
+                  {activeTab === 'ratings' && (
+                    <div className="space-y-6">
+                      <FilterSection title="Rating">
+                        <div className="flex flex-col gap-3">
+                          <div className="flex items-center justify-between bg-muted/30 px-4 py-2.5 rounded-xl border border-border/50">
+                            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Minimum Rating</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-mono font-bold text-primary w-4 text-right">{filters.ratingMin ?? 0}</span>
+                              <StarRating
+                                value={filters.ratingMin ?? 0}
+                                onChange={v => updateFilter('ratingMin', v)}
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between bg-muted/30 px-4 py-2.5 rounded-xl border border-border/50">
+                            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Maximum Rating</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-mono font-bold text-primary w-4 text-right">{filters.ratingMax ?? 10}</span>
+                              <StarRating
+                                value={filters.ratingMax ?? 10}
+                                onChange={v => updateFilter('ratingMax', v)}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </FilterSection>
+
+                      <FilterSection title="Reading Status">
+                        <div className="flex flex-wrap gap-4">
+                          {READING_STATUSES.map(({ value, label }) => (
+                            <label key={value} className="flex items-center gap-2 cursor-pointer select-none group">
+                              <Checkbox.Root
+                                checked={(filters.readingStatus ?? []).includes(value)}
+                                onCheckedChange={() =>
+                                  updateFilter('readingStatus', toggleArrayItem(filters.readingStatus, value))
+                                }
+                                className={cn(
+                                  'w-4 h-4 rounded border flex items-center justify-center transition-all',
+                                  (filters.readingStatus ?? []).includes(value)
+                                    ? 'bg-primary border-primary shadow-sm'
+                                    : 'border-border bg-background group-hover:border-primary/50'
+                                )}
+                              >
+                                <Checkbox.Indicator>
+                                  <Check size={12} className="text-primary-foreground" />
+                                </Checkbox.Indicator>
+                              </Checkbox.Root>
+                              <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">{label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </FilterSection>
+
+                      <FilterSection title="Date Added">
+                        <div className="flex flex-col sm:flex-row items-center gap-4">
+                          <div className="flex-1 w-full">
+                            <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">From Date</label>
+                            <DatePicker
+                              value={filters.dateFrom ?? ''}
+                              onChange={val => updateFilter('dateFrom', val)}
+                              placeholder="Select start date"
+                            />
+                          </div>
+                          <div className="flex-1 w-full">
+                            <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">To Date</label>
+                            <DatePicker
+                              value={filters.dateTo ?? ''}
+                              onChange={val => updateFilter('dateTo', val)}
+                              placeholder="Select end date"
+                            />
+                          </div>
+                        </div>
+                      </FilterSection>
+                    </div>
+                  )}
+                </motion.div>
+              </AnimatePresence>
             </div>
           </div>
           <div className="p-4 sm:p-6 border-t border-border/50 bg-background/95 backdrop-blur-xl shrink-0 flex flex-col gap-4">
@@ -573,7 +618,7 @@ function MultiSelectCheckboxList({
           className="w-full h-8 px-2.5 text-xs rounded-md border border-border bg-muted/40 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         />
       )}
-      <div className={cn('space-y-1', expanded && 'max-h-40 overflow-y-auto pr-1')}>
+      <div className={cn('space-y-1', expanded && 'max-h-48 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pr-1')}>
         {visible.map(item => (
           <label key={item} className="flex items-center gap-2 cursor-pointer select-none py-0.5">
             <Checkbox.Root

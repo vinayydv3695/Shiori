@@ -15,7 +15,7 @@ import { useMemo, useEffect, useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
   BookOpen, Clock, Sparkles, ArrowRight,
-  ListOrdered, Activity, HardDrive, Heart, History, CheckCircle2, PauseCircle, BarChart2
+  ListOrdered, Activity, HardDrive, Heart, History, CheckCircle2, PauseCircle, BarChart2, ThumbsUp
 } from 'lucide-react'
 import { MobileStickyHeader } from '../layout/MobileStickyHeader'
 import { useThumbnail } from '@/hooks/useThumbnail'
@@ -368,11 +368,11 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
       />
       
       {/* ── COMPACT COLLECTIONS BAR ── */}
-      <div className="flex gap-3 mb-6 overflow-x-auto pb-2 scrollbar-none hidden md:flex">
+      <div className="flex gap-3 mb-6 overflow-x-auto p-1 pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden hidden md:flex">
         {/* Favorites */}
         <div 
           onClick={handleViewLibrary}
-          className="group flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-card/70 hover:bg-card border border-border/50 hover:border-primary/40 text-muted-foreground hover:text-foreground shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 select-none cursor-pointer"
+          className="group flex items-center gap-2.5 px-4 py-2 rounded-full bg-card/80 hover:bg-card border border-border/60 hover:border-primary/50 text-muted-foreground hover:text-foreground shadow-xs transition-all duration-200 hover:scale-102 active:scale-98 select-none cursor-pointer shrink-0"
         >
           <Heart size={16} className="text-primary opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all" />
           <span className="font-extrabold text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20 tabular-nums">{favoriteBooks.length}</span>
@@ -382,7 +382,7 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
         {/* Reading */}
         <div 
           onClick={handleViewLibrary}
-          className="group flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-card/70 hover:bg-card border border-border/50 hover:border-primary/40 text-muted-foreground hover:text-foreground shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 select-none cursor-pointer"
+          className="group flex items-center gap-2.5 px-4 py-2 rounded-full bg-card/80 hover:bg-card border border-border/60 hover:border-primary/50 text-muted-foreground hover:text-foreground shadow-xs transition-all duration-200 hover:scale-102 active:scale-98 select-none cursor-pointer shrink-0"
         >
           <BookOpen size={16} className="text-primary opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all" />
           <span className="font-extrabold text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20 tabular-nums">{continueReading.length}</span>
@@ -392,7 +392,7 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
         {/* Completed */}
         <div 
           onClick={handleViewLibrary}
-          className="group flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-card/70 hover:bg-card border border-border/50 hover:border-primary/40 text-muted-foreground hover:text-foreground shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 select-none cursor-pointer"
+          className="group flex items-center gap-2.5 px-4 py-2 rounded-full bg-card/80 hover:bg-card border border-border/60 hover:border-primary/50 text-muted-foreground hover:text-foreground shadow-xs transition-all duration-200 hover:scale-102 active:scale-98 select-none cursor-pointer shrink-0"
         >
           <CheckCircle2 size={16} className="text-primary opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all" />
           <span className="font-extrabold text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20 tabular-nums">{completedBooks.length}</span>
@@ -402,7 +402,7 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
         {/* On Hold */}
         <div 
           onClick={handleViewLibrary}
-          className="group flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-card/70 hover:bg-card border border-border/50 hover:border-primary/40 text-muted-foreground hover:text-foreground shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 select-none cursor-pointer"
+          className="group flex items-center gap-2.5 px-4 py-2 rounded-full bg-card/80 hover:bg-card border border-border/60 hover:border-primary/50 text-muted-foreground hover:text-foreground shadow-xs transition-all duration-200 hover:scale-102 active:scale-98 select-none cursor-pointer shrink-0"
         >
           <PauseCircle size={16} className="text-primary opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all" />
           <span className="font-extrabold text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20 tabular-nums">{onHoldBooks.length}</span>
@@ -527,7 +527,7 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
         {/* Recommended */}
         <div className="bento-widget hidden md:flex flex-col">
           <div className="bento-widget-header">
-            <h2 className="bento-widget-title"><Sparkles size={18} /> Recommended</h2>
+            <h2 className="bento-widget-title"><ThumbsUp size={18} /> Recommended</h2>
           </div>
           <div className="bento-widget-content overflow-y-auto pr-2" style={{ maxHeight: '300px' }}>
             {recommendedBooks.slice(0, 5).map(book => (

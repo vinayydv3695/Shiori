@@ -179,9 +179,10 @@ export function PremiumTopbar({
       <header
         data-tauri-drag-region
         className={cn(
-          'flex items-center justify-between h-[64px] px-4 gap-4',
-          'bg-card/70 backdrop-blur-2xl border-b border-border/40 shadow-sm',
-          'shrink-0 z-30 select-none max-md:hidden'
+          'flex items-center justify-between h-[58px] px-4 gap-4',
+          'mx-2 mt-2 mb-1 rounded-2xl border border-border/40',
+          'bg-card/80 backdrop-blur-2xl shadow-xs',
+          'shrink-0 z-30 select-none max-md:hidden transition-all duration-200'
         )}
       >
         {/* ── ZONE 1: Left Actions & Domain Segmented Control ── */}

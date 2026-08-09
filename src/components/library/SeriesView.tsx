@@ -59,16 +59,19 @@ const DesktopSeriesHeader = memo(function DesktopSeriesHeader({
 
   return (
     <div className="hidden md:block relative overflow-hidden shrink-0 border-b border-border bg-card">
-      {/* Blurred Hero Background */}
+      {/* Hero Background Banner with Left-Fade Towards Text */}
       {coverUrl && (
-        <>
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div 
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-10"
+            className="absolute inset-0 bg-cover bg-right-top bg-no-repeat opacity-35 scale-105 filter blur-[2px]"
             style={{ backgroundImage: `url(${coverUrl})` }}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-r from-background/90 via-background/40 to-transparent" />
-        </>
+          {/* Gradient fading from background on the left (text area) to transparent on the right */}
+          <div className="absolute inset-0 bg-gradient-to-r from-card via-card/80 to-transparent w-full md:w-3/4" />
+          <div className="absolute inset-0 bg-gradient-to-r from-card via-card/50 to-transparent" />
+          {/* Bottom fade into content */}
+          <div className="absolute inset-0 bg-gradient-to-t from-card via-card/20 to-transparent" />
+        </div>
       )}
 
       <div className="relative z-10 p-4 pt-14 md:p-8 flex flex-col gap-5 md:gap-8">
@@ -213,16 +216,16 @@ const MobileSeriesHeader = memo(function MobileSeriesHeader({
 
   return (
     <div className="md:hidden flex flex-col relative w-full shrink-0 border-b border-border bg-card overflow-hidden">
-      {/* Blurred Hero Background */}
+      {/* Hero Background Banner with Soft Fade */}
       {coverUrl && (
-        <>
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div 
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-15"
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-35 filter blur-[2px]"
             style={{ backgroundImage: `url(${coverUrl})` }}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-r from-background/90 via-background/50 to-transparent" />
-        </>
+          <div className="absolute inset-0 bg-gradient-to-t from-card via-card/70 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-card via-card/50 to-transparent" />
+        </div>
       )}
 
       <div className="relative z-10 px-4 pt-16 pb-4 flex flex-col gap-4">

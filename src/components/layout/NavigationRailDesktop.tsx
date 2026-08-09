@@ -84,8 +84,8 @@ export function NavigationRailDesktop({
       <nav
         aria-label="Primary Desktop Navigation"
         className={cn(
-          "flex h-full flex-col bg-card/75 backdrop-blur-3xl border-r border-border/40 transition-all duration-300 ease-out z-20 select-none shadow-[1px_0_20px_rgba(0,0,0,0.03)] max-md:hidden",
-          sidebarCollapsed ? "w-[76px]" : "w-64"
+          "flex h-[calc(100%-12px)] my-1 ml-2 mb-2 flex-col bg-card/80 backdrop-blur-3xl border border-border/40 rounded-2xl transition-all duration-300 ease-out z-20 select-none shadow-xs max-md:hidden overflow-hidden",
+          sidebarCollapsed ? "w-[72px]" : "w-64"
         )}
       >
         {/* Top Header Bar */}

@@ -1,7 +1,7 @@
 /**
  * FilterPanel — Shiori v3.0
  * Domain-aware, collapsible filter sidebar.
- * Replaces ModernSidebar with a cleaner accordion pattern.
+ * Premium theme-aligned accordion pattern.
  */
 
 import { useState } from 'react'
@@ -59,23 +59,24 @@ const FilterSection = ({
   const activeCount = selected.length
 
   return (
-    <div className="border-b border-border last:border-b-0">
+    <div className="border-b border-border/40 last:border-b-0 py-0.5">
       {/* Header */}
       <button
+        type="button"
         onClick={() => setOpen((o) => !o)}
         className={cn(
           'w-full flex items-center justify-between',
-          'px-3 py-2 text-left',
-          'hover:bg-accent/60 transition-colors duration-[120ms]',
-          'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-          'group',
+          'px-3 py-2 text-left mx-0.5 rounded-xl',
+          'hover:bg-muted/60 transition-all duration-200',
+          'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40',
+          'group select-none',
         )}
       >
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="w-3.5 h-3.5 text-muted-foreground shrink-0">{icon}</span>
-          <span className="text-xs font-semibold text-foreground truncate">{title}</span>
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0 flex items-center justify-center">{icon}</span>
+          <span className="text-xs font-bold text-foreground/90 group-hover:text-foreground truncate">{title}</span>
           {activeCount > 0 && (
-            <span className="flex items-center justify-center w-4 h-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold shrink-0">
+            <span className="flex items-center justify-center px-1.5 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/30 text-[10px] font-bold shrink-0">
               {activeCount}
             </span>
           )}
@@ -83,7 +84,7 @@ const FilterSection = ({
         <IconChevronDown
           size={13}
           className={cn(
-            'text-muted-foreground shrink-0 transition-transform duration-200',
+            'text-muted-foreground shrink-0 transition-transform duration-200 group-hover:text-foreground',
             open ? 'rotate-0' : '-rotate-90',
           )}
         />
@@ -92,36 +93,36 @@ const FilterSection = ({
       {/* Body */}
       <div
         className={cn(
-          'overflow-hidden transition-all duration-200',
-          open ? 'max-h-96' : 'max-h-0',
+          'overflow-hidden transition-all duration-200 ease-in-out',
+          open ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0',
         )}
       >
         {/* Search */}
         {searchable && items.length > 5 && (
-          <div className="px-2 pt-1 pb-0.5">
+          <div className="px-2.5 pt-1 pb-1.5">
             <div className="relative">
               <IconSearch
-                size={11}
-                className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                size={12}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
               />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={`Filter ${title.toLowerCase()}…`}
                 className={cn(
-                  'w-full h-6 pl-6 pr-6 text-[11px] rounded',
-                  'bg-muted/60 border border-border',
-                  'focus:outline-none focus:ring-1 focus:ring-ring focus:border-ring',
-                  'transition-colors',
-                  'placeholder:text-muted-foreground/60',
+                  'w-full h-7 pl-7 pr-6 text-xs rounded-lg',
+                  'bg-muted/40 border border-border/60 text-foreground',
+                  'focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/40',
+                  'transition-all placeholder:text-muted-foreground/60',
                 )}
               />
               {search && (
                 <button
+                  type="button"
                   onClick={() => setSearch('')}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  <IconX size={10} />
+                  <IconX size={11} />
                 </button>
               )}
             </div>
@@ -129,43 +130,44 @@ const FilterSection = ({
         )}
 
         {/* Items */}
-        <div className="px-1.5 pb-1.5 pt-0.5 max-h-52 overflow-y-auto custom-scrollbar">
+        <div className="px-1.5 pb-2 pt-0.5 max-h-56 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden space-y-0.5">
           {visible.length === 0 ? (
-            <p className="px-2 py-2 text-[11px] text-muted-foreground">No items</p>
+            <p className="px-3 py-2 text-xs text-muted-foreground italic">No items</p>
           ) : (
             <>
               {visible.map((item) => {
                 const isActive = selected.includes(item.id)
                 return (
                   <button
+                    type="button"
                     key={item.id}
                     onClick={() => onToggle(item.id)}
                     className={cn(
                       'w-full flex items-center justify-between',
-                      'px-2 py-1 rounded text-left gap-2',
-                      'transition-colors duration-[100ms]',
-                      'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                      'px-2.5 py-1.5 rounded-xl text-left gap-2',
+                      'transition-all duration-150 border select-none',
+                      'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40',
                       isActive
-                        ? 'bg-primary/10 text-foreground'
-                        : 'hover:bg-accent/60 text-muted-foreground hover:text-foreground',
+                        ? 'bg-primary/15 border-primary/25 text-foreground font-semibold shadow-xs'
+                        : 'bg-transparent border-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground',
                     )}
                   >
                     {/* Check indicator */}
                     <span
                       className={cn(
-                        'w-3 h-3 rounded-sm border shrink-0 flex items-center justify-center',
-                        'transition-all duration-[100ms]',
+                        'w-3.5 h-3.5 rounded-md border shrink-0 flex items-center justify-center',
+                        'transition-all duration-150',
                         isActive
-                          ? 'bg-primary border-primary'
-                          : 'border-border',
+                          ? 'bg-primary border-primary text-primary-foreground shadow-xs scale-105'
+                          : 'border-border/80 bg-background/50',
                       )}
                     >
                       {isActive && (
-                        <svg viewBox="0 0 10 10" className="w-2 h-2 text-primary-foreground">
+                        <svg viewBox="0 0 10 10" className="w-2.5 h-2.5 text-primary-foreground">
                           <path
                             d="M8.5 2.5L4 7.5L1.5 5"
                             stroke="currentColor"
-                            strokeWidth="1.5"
+                            strokeWidth="1.8"
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             fill="none"
@@ -173,9 +175,9 @@ const FilterSection = ({
                         </svg>
                       )}
                     </span>
-                    <span className="flex-1 text-[11px] truncate">{item.label}</span>
+                    <span className="flex-1 text-xs truncate">{item.label}</span>
                     {item.count > 0 && (
-                      <span className="text-[10px] text-muted-foreground/70 tabular-nums shrink-0">
+                      <span className="text-[10px] text-muted-foreground/80 font-mono tabular-nums shrink-0 px-1.5 py-0.5 rounded-md bg-muted/40 border border-border/30">
                         {item.count}
                       </span>
                     )}
@@ -184,8 +186,9 @@ const FilterSection = ({
               })}
               {hasMore && (
                 <button
+                  type="button"
                   onClick={() => setShowAll(true)}
-                  className="w-full text-[11px] text-muted-foreground hover:text-foreground px-2 py-1 text-left transition-colors"
+                  className="w-full text-xs font-semibold text-primary hover:underline px-2.5 py-1.5 text-left transition-colors"
                 >
                   +{filtered.length - maxVisible} more
                 </button>
@@ -214,51 +217,53 @@ const ReadingStatusSection = ({ value, onChange }: ReadingStatusSectionProps) =>
   ]
 
   return (
-    <div className="border-b border-border">
+    <div className="border-b border-border/40 py-0.5">
       <button
+        type="button"
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between px-3 py-2 hover:bg-accent/60 transition-colors group focus-visible:outline-none"
+        className="w-full flex items-center justify-between px-3 py-2 mx-0.5 rounded-xl hover:bg-muted/60 transition-all duration-200 group focus-visible:outline-none select-none"
       >
-        <div className="flex items-center gap-2">
-          <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-xs font-semibold">Reading Status</span>
+        <div className="flex items-center gap-2.5">
+          <BookOpen className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+          <span className="text-xs font-bold text-foreground/90 group-hover:text-foreground">Reading Status</span>
           {value !== 'all' && (
-            <span className="w-4 h-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
+            <span className="w-4 h-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center shadow-xs">
               1
             </span>
           )}
         </div>
         <IconChevronDown
           size={13}
-          className={cn('text-muted-foreground transition-transform duration-200', open ? '' : '-rotate-90')}
+          className={cn('text-muted-foreground transition-transform duration-200 group-hover:text-foreground', open ? 'rotate-0' : '-rotate-90')}
         />
       </button>
-      <div className={cn('overflow-hidden transition-all duration-200', open ? 'max-h-40' : 'max-h-0')}>
-        <div className="flex flex-col gap-0.5 px-1.5 pb-1.5 pt-0.5">
+      <div className={cn('overflow-hidden transition-all duration-200 ease-in-out', open ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0')}>
+        <div className="flex flex-col gap-0.5 px-1.5 pb-2 pt-0.5">
           {options.map((opt) => (
             <button
+              type="button"
               key={opt.id}
               onClick={() => onChange(opt.id)}
               className={cn(
-                'flex items-center gap-2 px-2 py-1 rounded text-left',
-                'transition-colors duration-[100ms]',
+                'flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-left border select-none',
+                'transition-all duration-150',
                 value === opt.id
-                  ? 'bg-primary/10 text-foreground'
-                  : 'hover:bg-accent/60 text-muted-foreground hover:text-foreground',
+                  ? 'bg-primary/15 border-primary/25 text-foreground font-bold shadow-xs'
+                  : 'bg-transparent border-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground',
               )}
             >
               <span
                 className={cn(
-                  'w-3 h-3 rounded-full border shrink-0',
-                  'flex items-center justify-center transition-all duration-[100ms]',
-                  value === opt.id ? 'border-primary' : 'border-border',
+                  'w-3.5 h-3.5 rounded-full border shrink-0',
+                  'flex items-center justify-center transition-all duration-150',
+                  value === opt.id ? 'border-primary bg-primary/20' : 'border-border/80 bg-background/50',
                 )}
               >
                 {value === opt.id && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary shadow-xs" />
                 )}
               </span>
-              <span className="text-[11px]">{opt.label}</span>
+              <span className="text-xs">{opt.label}</span>
             </button>
           ))}
         </div>
@@ -319,24 +324,26 @@ export function FilterPanel({
   return (
     <aside
       className={cn(
-        'flex flex-col h-full bg-background',
-        'border-r border-border',
-        'w-[var(--sidebar-width,224px)] shrink-0',
+        'flex flex-col h-[calc(100%-12px)] my-1 ml-1.5 mb-2 rounded-2xl border border-border/40 bg-card/75 backdrop-blur-2xl overflow-hidden',
+        'w-[var(--sidebar-width,224px)] shrink-0 select-none shadow-xs',
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between h-10 px-3 border-b border-border shrink-0">
+      <div className="flex items-center justify-between h-12 px-3.5 border-b border-border/40 shrink-0 bg-card/40">
         <div className="flex items-center gap-2">
-          <IconFilter size={13} className="text-muted-foreground" />
-          <span className="text-xs font-semibold">Filters</span>
+          <IconFilter size={14} className="text-primary" />
+          <span className="text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground/90">Filters</span>
           {totalActive > 0 && (
-            <span className="text-[10px] text-muted-foreground">({totalActive})</span>
+            <span className="px-1.5 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/30 text-[10px] font-bold">
+              {totalActive}
+            </span>
           )}
         </div>
         {totalActive > 0 && (
           <button
+            type="button"
             onClick={onClearAll}
-            className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+            className="px-2 py-0.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-bold transition-all"
           >
             Clear all
           </button>
@@ -344,7 +351,7 @@ export function FilterPanel({
       </div>
 
       {/* Sections */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
+      <div className="flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden p-1">
         <ReadingStatusSection value={readingStatus} onChange={setReadingStatus} />
 
         <FilterSection

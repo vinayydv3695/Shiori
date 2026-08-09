@@ -28,6 +28,7 @@ import type {
 } from '../../types/preferences'
 import { DEFAULT_USER_PREFERENCES, DEFAULT_BOOK_PREFERENCES, DEFAULT_MANGA_PREFERENCES } from '../../types/preferences'
 import { api, isTauri, isAndroid } from '../../lib/tauri'
+import { getErrorMessage } from '@/lib/errors'
 import type { BackupInfo, BackupCategory, CacheStats, ConflictPolicy, MigrateReport, RestoreInfo } from '../../lib/tauri'
 import {
   ALL_BACKUP_CATEGORIES,
@@ -1664,7 +1665,7 @@ const AdvancedSettings = ({
       setBackupResult(info)
       toast.success('Backup created successfully')
     } catch (err) {
-      setError(`Backup failed: ${err instanceof Error ? err.message : String(err)}`)
+      setError(`Backup failed: ${getErrorMessage(err)}`)
     } finally {
       setIsBackingUp(false)
     }
@@ -1715,7 +1716,7 @@ const AdvancedSettings = ({
       )
       setTimeout(() => window.location.reload(), 2000)
     } catch (err) {
-      setError(`Restore failed: ${err instanceof Error ? err.message : String(err)}`)
+      setError(`Restore failed: ${getErrorMessage(err)}`)
     } finally {
       setIsRestoring(false)
     }
@@ -1741,7 +1742,7 @@ const AdvancedSettings = ({
       toast.success('Durable folder set', 'Managed books will be stored in the chosen folder')
     } catch (err) {
       logger.error('Failed to set library folder:', err)
-      setLibraryError(`Failed to set library folder: ${err instanceof Error ? err.message : String(err)}`)
+      setLibraryError(`Failed to set library folder: ${getErrorMessage(err)}`)
     } finally {
       setIsPickingFolder(false)
     }

@@ -1,6 +1,12 @@
 import { create } from "zustand"
 import { api, type Book, type SearchQuery } from "../lib/tauri"
 
+// Monotonic token for search requests. Overlapping searchBooks() calls can
+// resolve out of order; the last write wins, so a stale (possibly empty)
+// response could otherwise clobber fresh data. Each loader captures a token
+// and discards its result if a newer request has started.
+let requestId = 0;
+
 export interface FilterState {
   authors: string[]
   languages: string[]
@@ -237,6 +243,7 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
     set({ serverSearchQuery, books: [], hasMore: true, totalCount: 0 })
   },
   loadInitialBooks: async () => {
+    const id = ++requestId
     set({ isLoading: true })
     try {
       const state = get()
@@ -251,6 +258,7 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
       }
 
       const result = await api.searchBooks(query)
+      if (id !== requestId) return // stale: a newer request owns the state (and the loading clear)
       set({
         books: result.books,
         totalCount: result.total,
@@ -258,12 +266,15 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
         isLoading: false,
       })
     } catch {
+      if (id !== requestId) return // stale: a newer request owns the loading clear
       set({ isLoading: false })
     }
   },
   loadMoreBooks: async () => {
     const state = get();
-    if (state.isLoading || !state.hasMore) return;
+    if (state.isLoading || !state.hasMore) return; // no-op: never touch the request token
+
+    const id = ++requestId
 
     set({ isLoading: true });
     try {
@@ -278,6 +289,7 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
       }
 
       const result = await api.searchBooks(query)
+      if (id !== requestId) return // stale: the newer request set isLoading itself and owns the clear
       const newBooks = result.books
 
       const currentBooks = get().books;
@@ -295,10 +307,12 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
         isLoading: false
       });
     } catch {
+      if (id !== requestId) return // stale: a newer request owns the loading clear
       set({ isLoading: false });
     }
   },
   refreshLibrary: async () => {
+    const id = ++requestId
     // Refetch the same window the user already has loaded instead of collapsing
     // to the first 50 rows: loadInitialBooks() would reset pagination mid-scroll
     // (grid shrinks, scroll position clamps). Newly imported books sort to the
@@ -314,6 +328,7 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
     }
     try {
       const result = await api.searchBooks(query)
+      if (id !== requestId) return // stale: keep current books, don't touch loading flags
       set({
         books: result.books,
         totalCount: result.total,

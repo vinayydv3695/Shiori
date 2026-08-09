@@ -15,7 +15,8 @@ import { useState, useEffect, useRef, memo } from 'react'
 import { Heart, Info, Rss } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import { api, type Book, type ReadingProgress } from '@/lib/tauri'
+import { type Book, type ReadingProgress } from '@/lib/tauri'
+import { requestReadingProgress } from '@/lib/readingProgressCache'
 import {
   IconBookOpen,
   IconDelete,
@@ -50,9 +51,11 @@ const fmtColors: Record<string, string> = {
 const FormatPill = ({ format, filePath, bookId }: { format?: string, filePath?: string, bookId?: number }) => {
   const [progress, setProgress] = useState<ReadingProgress | null>(null);
 
+  // Batch reading-progress lookups through readingProgressCache (one
+  // get_reading_progress_batch invoke per frame instead of one IPC per card).
   useEffect(() => {
     if (format?.toLowerCase() === 'online-manga' && bookId) {
-      api.getReadingProgress(bookId).then((prog: any) => {
+      requestReadingProgress(bookId).then((prog) => {
         if (prog) setProgress(prog as ReadingProgress);
       }).catch(() => {});
     }

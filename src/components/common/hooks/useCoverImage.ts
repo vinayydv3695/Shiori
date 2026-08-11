@@ -6,10 +6,16 @@ import { proxyExternalCover } from '@/lib/utils'
 function toAssetUrl(filePath: string): string | null {
   // Empty / whitespace-only paths mean "no cover" — never emit "" (React
   // warns on <img src=""> and unguarded consumers would render a broken img).
-  if (!filePath.trim()) return null
-  // HTTP(S) URLs (e.g. online manga cover CDN links)
+  if (!filePath || !filePath.trim()) return null
+  // HTTP(S) URLs (e.g. online manga cover CDN links or Tauri asset protocol links)
   if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
-    return proxyExternalCover(filePath);
+    if (filePath.includes('asset.localhost')) {
+      return filePath
+    }
+    return proxyExternalCover(filePath)
+  }
+  if (filePath.startsWith('asset://')) {
+    return filePath
   }
   return convertFileSrc(filePath.replace(/\\/g, '/'))
 }

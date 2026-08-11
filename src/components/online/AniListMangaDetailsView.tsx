@@ -126,16 +126,16 @@ function TrackerForm({
             )}
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => handleProgressChange(progress - 1)} className="p-3 bg-secondary/40 border border-border/60 rounded-xl hover:bg-secondary active:scale-95 transition-all text-muted-foreground hover:text-foreground">
+            <button type="button" onClick={() => handleProgressChange(progress - 1)} className="p-3 bg-card/80 border border-border/60 rounded-xl hover:bg-card active:scale-95 transition-all text-muted-foreground hover:text-foreground cursor-pointer">
               <Minus className="w-4 h-4" />
             </button>
             <input 
               type="number" 
               value={progress}
               onChange={e => handleProgressChange(parseInt(e.target.value))}
-              className="flex-1 min-w-0 bg-secondary/40 border border-border/60 text-foreground text-center font-bold rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/30 py-3 px-4 text-sm outline-none transition-all shadow-inner [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+              className="flex-1 min-w-0 bg-card/80 border border-border/60 text-foreground text-center font-bold rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/30 py-3 px-4 text-sm outline-none transition-all shadow-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
             />
-            <button type="button" onClick={() => handleProgressChange(progress + 1)} className="p-3 bg-secondary/40 border border-border/60 rounded-xl hover:bg-secondary active:scale-95 transition-all text-muted-foreground hover:text-foreground">
+            <button type="button" onClick={() => handleProgressChange(progress + 1)} className="p-3 bg-card/80 border border-border/60 rounded-xl hover:bg-card active:scale-95 transition-all text-muted-foreground hover:text-foreground cursor-pointer">
               <Plus className="w-4 h-4" />
             </button>
           </div>
@@ -149,7 +149,7 @@ function TrackerForm({
             </label>
             <span className="text-xs font-extrabold text-primary bg-primary/10 border border-primary/20 px-2.5 py-0.5 rounded-full">{score} / 100</span>
           </div>
-          <div className="flex items-center gap-4 bg-secondary/40 border border-border/60 rounded-2xl p-4 shadow-inner">
+          <div className="flex items-center gap-4 bg-card/80 border border-border/60 rounded-2xl p-4 shadow-xs">
             <input 
               type="range"
               value={score}
@@ -192,16 +192,16 @@ function TrackerForm({
           <RefreshCw className="w-3.5 h-3.5 text-primary" /> Re-reads
         </label>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => handleRepeatChange(repeat - 1)} className="p-3 bg-secondary/40 border border-border/60 rounded-xl hover:bg-secondary active:scale-95 transition-all text-muted-foreground hover:text-foreground">
+          <button type="button" onClick={() => handleRepeatChange(repeat - 1)} className="p-3 bg-card/80 border border-border/60 rounded-xl hover:bg-card active:scale-95 transition-all text-muted-foreground hover:text-foreground cursor-pointer">
             <Minus className="w-4 h-4" />
           </button>
           <input 
             type="number" 
             value={repeat}
             onChange={e => handleRepeatChange(parseInt(e.target.value))}
-            className="flex-1 min-w-0 bg-secondary/40 border border-border/60 text-foreground text-center font-bold rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/30 py-3 px-4 text-sm outline-none transition-all shadow-inner [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+            className="flex-1 min-w-0 bg-card/80 border border-border/60 text-foreground text-center font-bold rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/30 py-3 px-4 text-sm outline-none transition-all shadow-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
           />
-          <button type="button" onClick={() => handleRepeatChange(repeat + 1)} className="p-3 bg-secondary/40 border border-border/60 rounded-xl hover:bg-secondary active:scale-95 transition-all text-muted-foreground hover:text-foreground">
+          <button type="button" onClick={() => handleRepeatChange(repeat + 1)} className="p-3 bg-card/80 border border-border/60 rounded-xl hover:bg-card active:scale-95 transition-all text-muted-foreground hover:text-foreground cursor-pointer">
             <Plus className="w-4 h-4" />
           </button>
         </div>
@@ -216,7 +216,7 @@ function TrackerForm({
           onChange={e => setNotes(e.target.value)}
           rows={3}
           placeholder="Jot down some thoughts..."
-          className="w-full bg-secondary/40 border border-border/60 text-foreground rounded-2xl focus:border-primary focus:ring-2 focus:ring-primary/30 hover:bg-secondary/60 py-3 px-4 text-sm font-medium outline-none transition-all resize-none shadow-sm" 
+          className="w-full bg-card/80 border border-border/60 text-foreground rounded-2xl focus:border-primary focus:ring-2 focus:ring-primary/30 hover:bg-card py-3 px-4 text-sm font-medium outline-none transition-all resize-none shadow-xs" 
         />
       </motion.div>
 
@@ -464,18 +464,18 @@ export function AniListMangaDetailsView({
                   </h1>
                   
                   <div className={cn("flex flex-wrap gap-2 mb-4", isMobile ? "justify-center" : "")}>
-                    <div className="bg-secondary/70 backdrop-blur-xl border border-border/50 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
+                    <div className="bg-card/80 backdrop-blur-md border border-border/60 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-xs">
                       <span className="text-[10px] font-extrabold tracking-wider text-muted-foreground">FORMAT</span>
                       <span className="text-xs font-extrabold text-foreground uppercase">{details.format}</span>
                     </div>
                     {details.averageScore && (
-                      <div className="bg-secondary/70 backdrop-blur-xl border border-border/50 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
+                      <div className="bg-card/80 backdrop-blur-md border border-border/60 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-xs">
                         <span className="text-[10px] font-extrabold tracking-wider text-muted-foreground">SCORE</span>
-                        <span className="text-xs font-extrabold text-yellow-500 dark:text-yellow-400">{details.averageScore}%</span>
+                        <span className="text-xs font-extrabold text-amber-500 dark:text-amber-400">{details.averageScore}%</span>
                       </div>
                     )}
                     {details.popularity && (
-                      <div className="bg-secondary/70 backdrop-blur-xl border border-border/50 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
+                      <div className="bg-card/80 backdrop-blur-md border border-border/60 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-xs">
                         <span className="text-[10px] font-extrabold tracking-wider text-muted-foreground">POPULARITY</span>
                         <span className="text-xs font-extrabold text-primary">#{details.popularity}</span>
                       </div>
@@ -521,7 +521,7 @@ export function AniListMangaDetailsView({
               <div className="flex-grow min-w-0">
                 {/* Segmented Glass Pill Switcher */}
                 <div className={cn(
-                  "flex gap-1.5 overflow-x-auto hide-scrollbar relative z-10 p-1.5 bg-secondary/40 backdrop-blur-xl rounded-2xl border border-border/50 mb-8 shrink-0",
+                  "flex gap-2 overflow-x-auto p-1 pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden mb-8 select-none shrink-0",
                   isMobile ? "mb-6" : ""
                 )}>
                   {(['overview', 'characters', 'relations', 'recommendations'] as const).map(tab => {
@@ -531,18 +531,18 @@ export function AniListMangaDetailsView({
                         key={tab}
                         onClick={() => setActiveTab(tab)}
                         className={cn(
-                          "relative px-5 py-2.5 text-xs sm:text-sm font-extrabold transition-all whitespace-nowrap flex items-center gap-2 rounded-xl select-none z-10 capitalize",
-                          isActive ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                          "relative px-5 py-2.5 text-xs sm:text-sm font-extrabold transition-colors whitespace-nowrap flex items-center gap-2 rounded-full select-none cursor-pointer shrink-0 capitalize",
+                          isActive ? "text-primary-foreground font-bold" : "bg-card/80 hover:bg-card border border-border/60 hover:border-primary/40 text-muted-foreground hover:text-foreground shadow-xs"
                         )}
                       >
                         {isActive && (
                           <motion.div
                             layoutId="activeTabPillDetails"
-                            className="absolute inset-0 bg-primary rounded-xl shadow-md shadow-primary/25 -z-10"
-                            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                            className="absolute inset-0 bg-primary rounded-full shadow-md shadow-primary/25 z-0"
+                            transition={{ type: "spring", stiffness: 450, damping: 35 }}
                           />
                         )}
-                        <span>{tab}</span>
+                        <span className="relative z-10">{tab}</span>
                       </button>
                     );
                   })}
@@ -738,7 +738,7 @@ export function AniListMangaDetailsView({
               {/* Sidebar: Desktop Only */}
               {!isMobile && (
                 <aside className="w-full lg:w-80 flex-shrink-0 animate-in fade-in slide-in-from-right-8 duration-700">
-                  <div className="bg-card/80 backdrop-blur-2xl p-6 rounded-2xl border border-border sticky top-24 shadow-2xl">
+                  <div className="bg-card/80 backdrop-blur-2xl p-6 rounded-3xl border border-border/60 sticky top-24 shadow-xl">
                     <h2 className="text-lg font-bold text-primary mb-6 flex items-center gap-2">
                       <Bookmark className="w-5 h-5" /> My List
                     </h2>

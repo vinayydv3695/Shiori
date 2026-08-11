@@ -29,19 +29,20 @@ export function FeaturedContinueCard({
       className="relative flex flex-col justify-end h-full min-h-[280px] rounded-2xl overflow-hidden cursor-pointer group border border-transparent shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_0_0_1px_hsl(var(--border)/0.4),0_8px_32px_rgba(0,0,0,0.3)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_0_1px_hsl(var(--primary)/0.4),0_12px_40px_hsl(var(--primary)/0.15)] hover:-translate-y-[2px] transition-all duration-400 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]"
       onClick={() => onOpenBook(book)}
     >
-      {/* Background Image with heavy blur */}
-      <div className="absolute inset-0 bg-muted z-0">
+      {/* Background Image - Sharp & Vivid */}
+      <div className="absolute inset-0 bg-card z-0 overflow-hidden">
         {coverUrl ? (
           <img
             src={coverUrl}
             alt="Background"
-            className="w-full h-full object-cover opacity-60 scale-105 group-hover:scale-110 transition-transform duration-700 ease-out"
+            className="w-full h-full object-cover object-center opacity-35 scale-100 group-hover:scale-105 transition-transform duration-700 ease-out"
           />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-primary/10 to-accent/10" />
+          <div className="w-full h-full bg-gradient-to-br from-primary/15 to-accent/15" />
         )}
-        <div className="absolute inset-0 bg-background/50 backdrop-blur-3xl" />
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
+        {/* Left & Bottom Gradient Overlays for crisp text contrast */}
+        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/60 to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent pointer-events-none" />
       </div>
 
       {/* Content */}

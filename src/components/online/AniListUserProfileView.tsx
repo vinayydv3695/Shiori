@@ -106,7 +106,7 @@ export function AniListUserProfileView({ onClose, user, shelf }: AniListUserProf
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-        className="w-full h-full md:h-[90vh] md:max-w-4xl md:rounded-xl md:border md:border-border/50 bg-background overflow-hidden relative flex flex-col shadow-2xl"
+        className="w-full h-full md:h-[90vh] md:max-w-4xl md:rounded-3xl md:border md:border-border/60 bg-background overflow-hidden relative flex flex-col shadow-2xl"
       >
         {!user ? (
           <div className="flex-1 flex flex-col animate-in fade-in duration-300">
@@ -267,12 +267,12 @@ function ProfileButton({ icon, label, onClick }: { icon: React.ReactNode, label:
   return (
     <button 
       onClick={onClick}
-      className="flex flex-col items-center justify-center gap-3 bg-secondary/20 hover:bg-secondary/50 border border-border/10 rounded-2xl p-6 transition-all active:scale-95 shadow-sm"
+      className="flex flex-col items-center justify-center gap-3 bg-card/80 hover:bg-card border border-border/60 hover:border-primary/50 rounded-2xl p-6 transition-all active:scale-95 shadow-xs cursor-pointer select-none"
     >
-      <div className="text-foreground/90">
+      <div className="text-primary">
         {icon}
       </div>
-      <span className="text-sm font-medium tracking-wide">{label}</span>
+      <span className="text-sm font-bold tracking-wide text-foreground">{label}</span>
     </button>
   );
 }

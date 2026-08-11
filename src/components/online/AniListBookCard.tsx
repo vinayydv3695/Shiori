@@ -32,7 +32,7 @@ export function AniListBookCard({
   return (
     <div 
       className={cn(
-        "group relative cursor-pointer w-full aspect-[2/3] overflow-hidden rounded-xl max-md:rounded-ui-xl bg-card/90 shadow-lg transition-all duration-400 ease-out hover:shadow-[0_12px_32px_rgba(0,0,0,0.5)] hover:-translate-y-1.5 border border-border/50 hover:border-primary/40 select-none",
+        "group relative cursor-pointer w-full aspect-[2/3] overflow-hidden rounded-2xl bg-card/90 shadow-sm hover:shadow-xl hover:shadow-primary/10 transition-all duration-300 ease-out hover:-translate-y-1.5 border border-border/60 hover:border-primary/50 select-none",
         className
       )}
       onClick={onClick}
@@ -92,6 +92,16 @@ export function AniListBookCard({
           </div>
         )}
       </div>
+
+      {/* Progress Bar Track at Bottom Edge */}
+      {progress !== undefined && total !== undefined && total > 0 && (
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/60 z-30 pointer-events-none overflow-hidden">
+          <div 
+            className="h-full bg-primary transition-all duration-500 rounded-r-full"
+            style={{ width: `${Math.min(100, Math.max(0, (progress / total) * 100))}%` }}
+          />
+        </div>
+      )}
     </div>
   );
 }

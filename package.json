@@ -1,7 +1,7 @@
 {
   "name": "shiori",
   "private": true,
-  "version": "2.3.13",
+  "version": "2.3.14",
   "type": "module",
   "license": "GPL-3.0",
   "scripts": {

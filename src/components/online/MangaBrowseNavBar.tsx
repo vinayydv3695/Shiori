@@ -54,13 +54,13 @@ export function MangaBrowseNavBar({ activeGenres, activeTypes, activeMode, onFil
   };
 
   return (
-    <div className={`w-full bg-card/70 backdrop-blur-2xl border border-border/50 rounded-2xl shadow-xl flex items-center justify-between transition-all duration-300 ${isMobileDialog ? 'flex-col gap-4 py-4 px-2 border-none items-stretch bg-transparent shadow-none' : 'py-2.5 px-4 md:px-6 mb-6 mt-0 sticky top-0 z-40 gap-3 overflow-x-auto scrollbar-hide'}`}>
-      <div className="flex items-center gap-2.5 shrink-0">
+    <div className={`w-full bg-card/75 backdrop-blur-2xl border border-border/50 rounded-2xl shadow-sm flex items-center justify-between transition-all duration-300 ${isMobileDialog ? 'flex-col gap-4 py-4 px-2 border-none items-stretch bg-transparent shadow-none' : 'py-2 px-4 md:px-6 mb-6 mt-0 sticky top-0 z-40 gap-3 overflow-x-auto scrollbar-hide'}`}>
+      <div className="flex items-center gap-2 shrink-0">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className={cn(
-              "font-extrabold flex items-center gap-1.5 transition-all text-xs sm:text-sm px-3.5 py-2 rounded-xl border border-border/50 shadow-sm outline-none",
-              activeTypes.length > 0 ? "bg-primary text-primary-foreground border-primary/40 shadow-primary/20" : "bg-secondary/60 text-muted-foreground hover:text-foreground hover:bg-secondary"
+              "font-bold flex items-center gap-1.5 transition-all text-xs px-3.5 py-1.5 rounded-full border border-border/50 shadow-xs outline-none",
+              activeTypes.length > 0 ? "bg-primary text-primary-foreground border-primary/40 shadow-primary/20" : "bg-card/70 text-muted-foreground hover:text-foreground hover:bg-secondary/60"
             )}>
               <span>Types {activeTypes.length > 0 && `(${activeTypes.length})`}</span> <ChevronDown className="w-3.5 h-3.5 opacity-70" />
             </button>
@@ -77,8 +77,8 @@ export function MangaBrowseNavBar({ activeGenres, activeTypes, activeMode, onFil
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className={cn(
-              "font-extrabold flex items-center gap-1.5 transition-all text-xs sm:text-sm px-3.5 py-2 rounded-xl border border-border/50 shadow-sm outline-none",
-              activeGenres.length > 0 ? "bg-primary text-primary-foreground border-primary/40 shadow-primary/20" : "bg-secondary/60 text-muted-foreground hover:text-foreground hover:bg-secondary"
+              "font-bold flex items-center gap-1.5 transition-all text-xs px-3.5 py-1.5 rounded-full border border-border/50 shadow-xs outline-none",
+              activeGenres.length > 0 ? "bg-primary text-primary-foreground border-primary/40 shadow-primary/20" : "bg-card/70 text-muted-foreground hover:text-foreground hover:bg-secondary/60"
             )}>
               <span>Genres {activeGenres.length > 0 && `(${activeGenres.length})`}</span> <ChevronDown className="w-3.5 h-3.5 opacity-70" />
             </button>
@@ -95,7 +95,7 @@ export function MangaBrowseNavBar({ activeGenres, activeTypes, activeMode, onFil
         </DropdownMenu>
       </div>
 
-      <div className="flex items-center gap-1 bg-secondary/40 backdrop-blur-xl p-1 rounded-xl border border-border/40 shadow-inner shrink-0">
+      <div className="flex items-center gap-1 bg-secondary/40 backdrop-blur-xl p-1 rounded-full border border-border/40 shadow-inner shrink-0">
         {['popular', 'Newest', 'Updated', 'Added'].map(mode => {
           const isActive = activeMode.toLowerCase() === mode.toLowerCase();
           return (
@@ -103,8 +103,8 @@ export function MangaBrowseNavBar({ activeGenres, activeTypes, activeMode, onFil
               key={mode} 
               onClick={() => setMode(mode)} 
               className={cn(
-                "relative font-extrabold transition-all px-3.5 py-1.5 rounded-lg text-xs capitalize select-none z-10",
-                isActive ? "text-primary-foreground bg-primary shadow-md shadow-primary/20" : "text-muted-foreground hover:text-foreground"
+                "relative font-bold transition-all px-3 py-1 rounded-full text-xs capitalize select-none z-10",
+                isActive ? "text-primary-foreground bg-primary shadow-xs shadow-primary/20" : "text-muted-foreground hover:text-foreground"
               )}
             >
               {mode}
@@ -114,7 +114,7 @@ export function MangaBrowseNavBar({ activeGenres, activeTypes, activeMode, onFil
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        <div className="flex items-center gap-2 cursor-pointer text-xs font-semibold hover:text-foreground transition-colors select-none text-muted-foreground bg-secondary/30 hover:bg-secondary/60 px-3 py-2 rounded-xl border border-border/40">
+        <div className="flex items-center gap-2 cursor-pointer text-xs font-semibold hover:text-foreground transition-colors select-none text-muted-foreground bg-card/60 hover:bg-secondary/60 px-3 py-1.5 rounded-full border border-border/40">
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
@@ -122,14 +122,14 @@ export function MangaBrowseNavBar({ activeGenres, activeTypes, activeMode, onFil
               onChange={(e) => updateGeneralSettings({ includeNsfw: e.target.checked })}
               className="rounded border-border text-primary focus:ring-primary/20 bg-background/50 cursor-pointer w-3.5 h-3.5"
             />
-            <span>Include NSFW</span>
+            <span>NSFW</span>
           </label>
         </div>
 
         <Button 
           variant="ghost" 
           size="sm"
-          className="text-muted-foreground hover:text-foreground hover:bg-secondary/60 gap-1.5 shrink-0 rounded-xl font-bold text-xs px-3 py-2 h-auto border border-border/40" 
+          className="text-muted-foreground hover:text-foreground hover:bg-secondary/60 gap-1.5 shrink-0 rounded-full font-bold text-xs px-3 py-1.5 h-auto border border-border/40 shadow-xs" 
           onClick={onRandomClick}
         >
           <Shuffle className="w-3.5 h-3.5 text-primary" /> Random

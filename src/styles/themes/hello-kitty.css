@@ -1,0 +1,93 @@
+/* hello-kitty theme - Cute Kawaii Pastel Pink & Ruby Red Bow */
+[data-theme="hello-kitty"] {
+  /* Tailwind requires H S L format without the function wrapper */
+  --background: 345 100% 98%; /* #fff0f5 Soft strawberry milk */
+  --foreground: 340 45% 15%; /* #381320 Deep berry espresso ink */
+
+  --surface-1: 345 85% 96%;
+  --surface-2: 345 75% 93%;
+  --surface-3: 345 65% 89%;
+  --surface-4: 345 55% 85%;
+
+  --card: 0 0% 100%; /* Pure Marshmallow White */
+  --card-foreground: 340 45% 15%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 340 45% 15%;
+
+  --primary: 345 95% 58%; /* Hello Kitty signature ruby/hot pink bow */
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 345 75% 93%; /* Soft cotton-candy pink */
+  --secondary-foreground: 340 45% 15%;
+
+  --muted: 345 50% 94%;
+  --muted-foreground: 340 25% 45%;
+
+  --accent: 345 75% 93%;
+  --accent-foreground: 345 95% 45%;
+
+  --destructive: 350 85% 55%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 345 60% 88%; /* Strawberry ribbon border */
+  --input: 345 60% 88%;
+  --ring: 345 95% 58%;
+  --radius: 0.85rem;
+
+  --card-overlay: 0 0% 100%;
+  --card-overlay-text: 340 45% 15%;
+
+  /* Provide the --bg-primary etc. required by components/reader */
+  --bg-primary: oklch(0.97 0.02 350);
+  --bg-secondary: oklch(0.94 0.03 350);
+  --bg-tertiary: oklch(0.91 0.04 350);
+  --bg-elevated: oklch(1.00 0.00 0);
+  --bg-hover: oklch(0.94 0.03 350);
+  --bg-active: oklch(0.90 0.05 350);
+
+  --text-primary: oklch(0.25 0.05 350);
+  --text-secondary: oklch(0.40 0.04 350);
+  --text-tertiary: oklch(0.60 0.03 350);
+  --text-disabled: oklch(0.70 0.02 350);
+  --text-inverse: oklch(0.98 0.01 350);
+
+  --border-primary: oklch(0.88 0.04 350);
+  --border-secondary: oklch(0.91 0.03 350);
+  --border-focus: oklch(0.65 0.22 350);
+  --border-hover: oklch(0.75 0.15 350);
+
+  --scrollbar-track: oklch(0.97 0.02 350);
+  --scrollbar-thumb: oklch(0.82 0.08 350);
+  --scrollbar-thumb-hover: oklch(0.68 0.20 350);
+
+  --reader-bg: oklch(0.97 0.02 350);
+  --reader-text: oklch(0.25 0.05 350);
+  --reader-selection: oklch(0.85 0.12 350 / 0.35);
+
+  --shadow-xs: 0 1px 3px 0 rgb(255 42 109 / 0.08);
+  --shadow-sm: 0 2px 6px 0 rgb(255 42 109 / 0.12), 0 1px 2px -1px rgb(255 42 109 / 0.08);
+  --shadow-md: 0 6px 16px -2px rgb(255 42 109 / 0.15), 0 2px 4px -2px rgb(255 42 109 / 0.08);
+  --shadow-lg: 0 16px 32px -4px rgb(255 42 109 / 0.18), 0 4px 8px -4px rgb(255 42 109 / 0.12);
+  --shadow-xl: 0 28px 56px -8px rgb(255 42 109 / 0.24);
+}
+
+/* Hello Kitty Kawaii Selection & Scrollbar details */
+[data-theme="hello-kitty"] ::selection {
+  background-color: rgba(255, 42, 109, 0.22);
+  color: #ff2a6d;
+}
+
+[data-theme="hello-kitty"] *::-webkit-scrollbar-thumb {
+  background-color: #fbcfe8;
+  border-radius: 9999px;
+  border: 2px solid #fff0f5;
+}
+
+[data-theme="hello-kitty"] *::-webkit-scrollbar-thumb:hover {
+  background-color: #ff2a6d;
+}
+
+[data-theme="hello-kitty"] *::-webkit-scrollbar-track {
+  background-color: #fff0f5;
+}

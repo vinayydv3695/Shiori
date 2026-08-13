@@ -3,16 +3,17 @@ import { fetchTrendingBooks, fetchSubjectBooks } from '@/online-books/openlibrar
 import type { OpenLibraryWork } from '@/online-books/openlibrary/types';
 import { ModernBookCard } from './ModernBookCard';
 import { useOnlineSearchStore } from '@/store/onlineSearchStore';
+import { ChevronLeft, ChevronRight, Sparkles, TrendingUp, BookOpen, Flame } from 'lucide-react';
 
 interface BookRowProps {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   books: any[];
   onBookClick: (title: string, author?: string) => void;
   isLoading: boolean;
 }
 
-function BookRow({ title, subtitle, books, onBookClick, isLoading }: BookRowProps) {
+function BookRow({ title, books, onBookClick, isLoading }: BookRowProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const scrollLeft = () => {
@@ -29,13 +30,13 @@ function BookRow({ title, subtitle, books, onBookClick, isLoading }: BookRowProp
 
   if (isLoading) {
     return (
-      <div className="mb-12">
-        <div className="flex justify-between items-end mb-4 px-4 md:px-8">
-          <h2 className="text-lg md:text-xl font-bold tracking-tight text-foreground/90">{title}</h2>
+      <div className="mb-10">
+        <div className="flex items-center gap-2 mb-4 px-4 md:px-8">
+          <div className="w-40 h-6 bg-muted/50 rounded-lg animate-pulse" />
         </div>
         <div className="flex gap-4 md:gap-6 px-4 md:px-8 overflow-hidden">
           {[1, 2, 3, 4, 5, 6].map(i => (
-            <div key={i} className="min-w-[120px] md:min-w-[160px] lg:min-w-[192px] aspect-[2/3] rounded-xl bg-muted/40 border border-border/40 animate-pulse" />
+            <div key={i} className="min-w-[120px] md:min-w-[160px] lg:min-w-[192px] aspect-[2/3] rounded-2xl bg-muted/40 border border-border/40 animate-pulse" />
           ))}
         </div>
       </div>
@@ -45,24 +46,30 @@ function BookRow({ title, subtitle, books, onBookClick, isLoading }: BookRowProp
   if (books.length === 0) return null;
 
   return (
-    <div className="mb-12 relative group/row">
-      <div className="flex justify-between items-end mb-4 px-4 md:px-8">
-        <h2 className="text-lg md:text-xl font-bold tracking-tight text-foreground/90">{title}</h2>
+    <div className="mb-10 relative group/row">
+      <div className="flex items-center justify-between mb-4 px-4 md:px-8">
+        <h2 className="text-lg md:text-xl font-bold tracking-tight text-foreground">
+          {title}
+        </h2>
       </div>
       
       {/* Scroll Controls */}
       <button 
+        type="button"
         onClick={scrollLeft}
-        className="absolute left-2 top-[55%] -translate-y-1/2 z-30 bg-black/50 hover:bg-black/80 text-white p-3 rounded-full opacity-0 group-hover/row:opacity-100 transition-all duration-300 backdrop-blur-md border border-white/10 shadow-[0_0_15px_rgba(0,0,0,0.5)]"
+        aria-label="Scroll left"
+        className="absolute left-2 top-[55%] -translate-y-1/2 z-30 bg-card/85 hover:bg-card text-foreground p-2.5 rounded-full opacity-0 group-hover/row:opacity-100 transition-all duration-300 backdrop-blur-xl border border-border/60 shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        <ChevronLeft className="w-4 h-4 stroke-[2.2]" />
       </button>
       
       <button 
+        type="button"
         onClick={scrollRight}
-        className="absolute right-2 top-[55%] -translate-y-1/2 z-30 bg-black/50 hover:bg-black/80 text-white p-3 rounded-full opacity-0 group-hover/row:opacity-100 transition-all duration-300 backdrop-blur-md border border-white/10 shadow-[0_0_15px_rgba(0,0,0,0.5)]"
+        aria-label="Scroll right"
+        className="absolute right-2 top-[55%] -translate-y-1/2 z-30 bg-card/85 hover:bg-card text-foreground p-2.5 rounded-full opacity-0 group-hover/row:opacity-100 transition-all duration-300 backdrop-blur-xl border border-border/60 shadow-lg hover:scale-110 active:scale-95 cursor-pointer"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        <ChevronRight className="w-4 h-4 stroke-[2.2]" />
       </button>
 
       <div 
@@ -94,16 +101,16 @@ function BookRow({ title, subtitle, books, onBookClick, isLoading }: BookRowProp
   );
 }
 
-function BookGrid({ title, subtitle, books, onBookClick, isLoading }: BookRowProps) {
+function BookGrid({ title, books, onBookClick, isLoading }: BookRowProps) {
   if (isLoading) {
     return (
-      <div className="mb-12">
-        <div className="flex justify-between items-end mb-4 px-4 md:px-8">
-          <h2 className="text-lg md:text-xl font-bold tracking-tight text-foreground/90">{title}</h2>
+      <div className="mb-10">
+        <div className="flex items-center gap-2 mb-4 px-4 md:px-8">
+          <div className="w-40 h-6 bg-muted/50 rounded-lg animate-pulse" />
         </div>
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(105px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6 px-4 md:px-8">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6 px-4 md:px-8">
           {[1, 2, 3, 4].map(i => (
-            <div key={i} className="w-full aspect-[2/3] rounded-xl bg-muted/40 border border-border/40 animate-pulse" />
+            <div key={i} className="w-full aspect-[2/3] rounded-2xl bg-muted/40 border border-border/40 animate-pulse" />
           ))}
         </div>
       </div>
@@ -113,11 +120,13 @@ function BookGrid({ title, subtitle, books, onBookClick, isLoading }: BookRowPro
   if (books.length === 0) return null;
 
   return (
-    <div className="mb-12">
-      <div className="flex justify-between items-end mb-4 px-4 md:px-8">
-        <h2 className="text-lg md:text-xl font-bold tracking-tight text-foreground/90">{title}</h2>
+    <div className="mb-10">
+      <div className="flex items-center justify-between mb-4 px-4 md:px-8">
+        <h2 className="text-lg md:text-xl font-bold tracking-tight text-foreground">
+          {title}
+        </h2>
       </div>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(105px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6 px-4 md:px-8">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6 px-4 md:px-8">
         {books.map((book) => {
           const coverId = book.cover_i || book.cover_id;
           const authorName = Array.isArray(book.author_name) 

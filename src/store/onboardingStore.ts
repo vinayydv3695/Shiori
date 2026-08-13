@@ -11,8 +11,8 @@ export type ThemeName =
   | 'OLED Midnight'
   | 'Rose Pine Moon'
   | 'Catppuccin Mocha'
-  | 'Nord'
-  | 'Dracula'
+  | 'Hello Kitty'
+  | 'Midnight Pink'
   | 'Tokyo Night'
   | 'Premium Dark'
   | 'Sepia Paper'
@@ -126,8 +126,8 @@ export const THEME_OPTIONS: ThemeOption[] = [
   { name: 'OLED Midnight', value: 'black' },
   { name: 'Rose Pine Moon', value: 'rose-pine-moon' },
   { name: 'Catppuccin Mocha', value: 'catppuccin-mocha' },
-  { name: 'Nord', value: 'nord' },
-  { name: 'Dracula', value: 'dracula' },
+  { name: 'Hello Kitty', value: 'hello-kitty' },
+  { name: 'Midnight Pink', value: 'midnight-pink' },
   { name: 'Tokyo Night', value: 'tokyo-night' },
   { name: 'Premium Dark', value: 'premium-dark' },
   { name: 'Sepia Paper', value: 'sepia' },
@@ -416,7 +416,7 @@ export const useOnboardingStore = create<OnboardingStore>()(
         set({ selectedTheme: theme });
         // Immediately apply to DOM for live preview
         document.documentElement.setAttribute('data-theme', THEME_NAME_TO_VALUE[theme] ?? 'black');
-        if (theme === 'Premium Light' || theme === 'Sepia Paper') {
+        if (theme === 'Premium Light' || theme === 'Sepia Paper' || theme === 'Hello Kitty') {
           document.documentElement.classList.remove('dark');
         } else {
           document.documentElement.classList.add('dark');

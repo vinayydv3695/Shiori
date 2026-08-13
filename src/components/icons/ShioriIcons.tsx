@@ -371,3 +371,22 @@ export function IconInfo({ size = 20, className, ...props }: IconProps) {
         </svg>
     )
 }
+
+// ──────────────────────────────────────────────
+// SOLID HOME ICON (Clean solid silhouette with doorway cutout)
+// ──────────────────────────────────────────────
+export function SolidHomeIcon({ size = 20, className, ...props }: IconProps) {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            width={size}
+            height={size}
+            fill="currentColor"
+            className={cn("shrink-0", className)}
+            {...props}
+        >
+            <path d="M12 2.69l-9 7.2v10.11a1 1 0 0 0 1 1h5.5v-6a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v6H20a1 1 0 0 0 1-1V9.89l-9-7.2z" />
+        </svg>
+    )
+}

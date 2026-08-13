@@ -44,6 +44,7 @@ import { listen } from "@tauri-apps/api/event";
 import { MobileFilterSheet } from "./MobileFilterSheet";
 import { openExternal } from "@/lib/externalLinks";
 import { isAndroid, isTauri } from "@/lib/tauri";
+import { useOnlineDownloadStore } from "@/store/onlineDownloadStore";
 import { MangaDownloadDock } from "./MangaDownloadDock";
 import { MangaDownloadOptionsDialog } from "./MangaDownloadOptionsDialog";
 import {
@@ -1117,8 +1118,10 @@ export function OnlineMangaView() {
     let i = 0;
     for (const ch of selectedChapters) {
       i++;
+      const uniqueChapterTitle = buildChapterDownloadTitle(ch);
+      const fullDisplayTitle = `${mangaTitle} - ${uniqueChapterTitle}`;
       try {
-        const uniqueChapterTitle = buildChapterDownloadTitle(ch);
+        useOnlineDownloadStore.getState().registerDownload(ch.id, fullDisplayTitle, 'pages');
 
         setDownloadProgress({
           chapterTitle: uniqueChapterTitle,
@@ -1138,9 +1141,25 @@ export function OnlineMangaView() {
           chapterTitle: uniqueChapterTitle,
         });
         setChapterDownloadStatus((prev) => ({ ...prev, [ch.id]: "done" }));
+        useOnlineDownloadStore.getState().setDownload(ch.id, {
+          target_id: ch.id,
+          status: 'completed',
+          downloaded_bytes: 1,
+          total_bytes: 1,
+          title: fullDisplayTitle,
+          unit: 'pages',
+        });
         pathsToImport.push({ path: cbzPath, chapter: ch.chapter !== '?' ? ch.chapter : null });
       } catch (err) {
         setChapterDownloadStatus((prev) => ({ ...prev, [ch.id]: "failed" }));
+        useOnlineDownloadStore.getState().setDownload(ch.id, {
+          target_id: ch.id,
+          status: 'error',
+          downloaded_bytes: 0,
+          total_bytes: 1,
+          title: fullDisplayTitle,
+          unit: 'pages',
+        });
         const reason = getErrorMessage(err);
         downloadFailures.push({ chapter: String(ch.chapter), reason });
         showErrorToast(`Failed to download chapter ${ch.chapter}: ${reason}`);
@@ -1234,8 +1253,8 @@ export function OnlineMangaView() {
 
   const chapterStatusCounts = countChapterStatuses(chapterDownloadStatus);
 
-  const downloadProgressToast = downloadProgress ? (
-    <div className="fixed bottom-6 right-6 z-50 bg-background/95 backdrop-blur-2xl border border-border rounded-xl shadow-[0_0_50px_-10px_rgba(0,0,0,0.7)] p-5 w-80 animate-in fade-in slide-in-from-bottom-6 flex flex-col gap-3">
+  const downloadProgressToast = (isAndroid && downloadProgress) ? (
+    <div className="fixed bottom-6 right-6 z-50 bg-card/95 backdrop-blur-2xl border border-border/60 rounded-2xl shadow-2xl p-5 w-80 animate-in fade-in slide-in-from-bottom-6 flex flex-col gap-3">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -1338,9 +1357,8 @@ export function OnlineMangaView() {
           onDownloadAll={() => setDownloadOptionsOpen(true)}
         />
 
-        {/* Uniform download options for every manga source: per-chapter
-            "Download Chapter" and "Download Manga" (all chapters). */}
-        {!downloadProgress && unifiedChapters.length > 0 && (
+        {/* Uniform download options on Android; on desktop, queue lives in the top bar Downloads panel */}
+        {isAndroid && !downloadProgress && unifiedChapters.length > 0 && (
           <MangaDownloadDock
             chapters={unifiedChapters}
             status={chapterDownloadStatus}

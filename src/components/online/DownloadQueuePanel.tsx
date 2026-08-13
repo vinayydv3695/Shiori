@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { create } from 'zustand';
-import { Download, X, Inbox } from 'lucide-react';
+import { Download, X, Inbox, Sparkles, CheckCircle2, Loader2 } from 'lucide-react';
 import { useOnlineDownloadStore, type DownloadProgress } from '@/store/onlineDownloadStore';
 import { DownloadProgressBar } from './DownloadProgressBar';
 import { cn } from '@/lib/utils';
@@ -49,14 +50,14 @@ export function DownloadsButton() {
       onClick={() => setOpen(true)}
       title={totalCount > 0 ? `Downloads (${totalCount})` : 'Downloads'}
       className={cn(
-        "relative flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all duration-300 border shadow-xs outline-none group",
+        "relative flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-300 border shadow-xs outline-none group cursor-pointer",
         activeCount > 0 
-          ? "bg-primary text-primary-foreground border-primary/50 shadow-md shadow-primary/30 ring-1 ring-primary/40 scale-[1.02]" 
-          : "bg-card/80 hover:bg-card text-foreground border-border/60 hover:border-primary/40"
+          ? "bg-primary text-primary-foreground border-primary/50 shadow-md shadow-primary/25 scale-[1.02]" 
+          : "bg-card/75 hover:bg-card text-foreground border-border/50 hover:border-primary/40"
       )}
     >
       <div className="relative flex items-center justify-center">
-        <Download className={cn("w-4 h-4 transition-transform duration-300 group-hover:-translate-y-0.5", activeCount > 0 ? "text-primary-foreground" : "text-primary")} />
+        <Download className={cn("w-3.5 h-3.5 transition-transform duration-300 group-hover:-translate-y-0.5", activeCount > 0 ? "text-primary-foreground" : "text-primary")} />
         {activeCount > 0 && (
           <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
         )}
@@ -64,7 +65,7 @@ export function DownloadsButton() {
       <span className="hidden sm:inline">Downloads</span>
       {totalCount > 0 && (
         <span className={cn(
-          "min-w-[20px] h-[20px] px-1.5 rounded-full text-[10px] font-extrabold flex items-center justify-center border",
+          "min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-extrabold flex items-center justify-center border",
           activeCount > 0
             ? "bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30"
             : "bg-primary/15 text-primary border-primary/25"
@@ -83,6 +84,8 @@ export function DownloadsButton() {
 export function DownloadQueuePanel() {
   const open = useDownloadQueueUI((s) => s.open);
   const setOpen = useDownloadQueueUI((s) => s.setOpen);
+  const [filter, setFilter] = useState<'all' | 'active' | 'done'>('all');
+  
   // Panel is mounted globally — only subscribe to the live object while open.
   const downloads = useOnlineDownloadStore((s) => (open ? s.downloads : EMPTY_DOWNLOADS));
 
@@ -90,12 +93,22 @@ export function DownloadQueuePanel() {
   const activeCount = entries.filter((d) => d.status === 'downloading').length;
   const finishedCount = entries.filter((d) => d.status === 'completed' || d.status === 'error').length;
 
+  const filteredEntries = entries.filter((d) => {
+    if (filter === 'active') return d.status === 'downloading';
+    if (filter === 'done') return d.status === 'completed' || d.status === 'error';
+    return true;
+  });
+
   const handleClearFinished = () => {
     for (const d of entries) {
       if (d.status === 'completed' || d.status === 'error') {
         useOnlineDownloadStore.getState().clearDownload(d.target_id);
       }
     }
+  };
+
+  const handleClearItem = (targetId: string) => {
+    useOnlineDownloadStore.getState().clearDownload(targetId);
   };
 
   return (
@@ -111,61 +124,109 @@ export function DownloadQueuePanel() {
           </Dialog.Description>
 
           {/* Header */}
-          <div className="flex-none flex items-center justify-between px-6 py-5 border-b border-border/50 bg-secondary/30 backdrop-blur-xl">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-primary/15 border border-primary/30 flex items-center justify-center shadow-xs">
-                <Download className="w-5 h-5 text-primary" />
+          <div className="flex-none px-6 py-5 border-b border-border/50 bg-secondary/30 backdrop-blur-xl">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-primary/10 border border-primary/25 flex items-center justify-center shadow-xs text-primary">
+                  <Download className="w-5 h-5" />
+                </div>
+                <div>
+                  <Dialog.Title className="text-base font-bold text-foreground tracking-tight leading-none">
+                    Download Queue
+                  </Dialog.Title>
+                  <p className="text-xs font-semibold text-muted-foreground mt-1">
+                    {entries.length === 0
+                      ? 'No active downloads'
+                      : activeCount > 0
+                        ? `${activeCount} active · ${entries.length} total`
+                        : `${entries.length} completed`}
+                  </p>
+                </div>
               </div>
-              <div>
-                <Dialog.Title className="text-base font-extrabold text-foreground tracking-tight leading-none">
-                  Download Queue
-                </Dialog.Title>
-                <p className="text-xs font-bold text-muted-foreground mt-1">
-                  {entries.length === 0
-                    ? 'No downloads in progress'
-                    : `${activeCount} in flight · ${entries.length} total`}
-                </p>
+              <div className="flex items-center gap-2">
+                {finishedCount > 0 && (
+                  <button
+                    onClick={handleClearFinished}
+                    className="px-3 py-1 text-xs font-bold rounded-full bg-secondary/80 hover:bg-secondary text-muted-foreground hover:text-foreground border border-border/50 transition-all cursor-pointer shadow-xs"
+                    title="Clear completed and failed downloads"
+                  >
+                    Clear done
+                  </button>
+                )}
+                <Dialog.Close asChild>
+                  <button
+                    className="p-2 bg-secondary/60 hover:bg-secondary border border-border/50 rounded-full transition-all text-muted-foreground hover:text-foreground shadow-xs cursor-pointer"
+                    title="Close downloads"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </Dialog.Close>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {finishedCount > 0 && (
+
+            {/* Filter Tabs if items exist */}
+            {entries.length > 0 && (
+              <div className="flex items-center gap-1.5 mt-4 pt-3 border-t border-border/40">
                 <button
-                  onClick={handleClearFinished}
-                  className="px-2.5 py-1 text-[11px] font-extrabold rounded-lg bg-secondary/80 hover:bg-secondary text-muted-foreground hover:text-foreground border border-border/50 transition-all"
-                  title="Clear completed and failed downloads"
+                  onClick={() => setFilter('all')}
+                  className={cn(
+                    "px-3 py-1 rounded-full text-xs font-bold transition-all shadow-xs",
+                    filter === 'all'
+                      ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25"
+                      : "bg-secondary/60 hover:bg-secondary text-muted-foreground hover:text-foreground border border-border/40"
+                  )}
                 >
-                  Clear done
+                  All ({entries.length})
                 </button>
-              )}
-              <Dialog.Close asChild>
                 <button
-                  className="p-2 bg-secondary/60 hover:bg-secondary border border-border/50 rounded-xl transition-all text-muted-foreground hover:text-foreground shadow-xs"
-                  title="Close downloads"
+                  onClick={() => setFilter('active')}
+                  className={cn(
+                    "px-3 py-1 rounded-full text-xs font-bold transition-all shadow-xs",
+                    filter === 'active'
+                      ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25"
+                      : "bg-secondary/60 hover:bg-secondary text-muted-foreground hover:text-foreground border border-border/40"
+                  )}
                 >
-                  <X className="w-4 h-4" />
+                  Active ({activeCount})
                 </button>
-              </Dialog.Close>
-            </div>
+                <button
+                  onClick={() => setFilter('done')}
+                  className={cn(
+                    "px-3 py-1 rounded-full text-xs font-bold transition-all shadow-xs",
+                    filter === 'done'
+                      ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25"
+                      : "bg-secondary/60 hover:bg-secondary text-muted-foreground hover:text-foreground border border-border/40"
+                  )}
+                >
+                  Done ({finishedCount})
+                </button>
+              </div>
+            )}
           </div>
 
           {/* List */}
           <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-3">
-            {entries.length === 0 ? (
+            {filteredEntries.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-24 text-muted-foreground text-center">
-                <div className="w-16 h-16 rounded-3xl bg-secondary/50 border border-border/40 flex items-center justify-center mb-4 shadow-inner">
-                  <Inbox className="w-8 h-8 opacity-30 text-primary" />
+                <div className="w-16 h-16 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-4 shadow-lg shadow-primary/5 text-primary">
+                  <Inbox className="w-7 h-7" />
                 </div>
-                <p className="text-sm font-extrabold text-foreground">No downloads in flight</p>
+                <p className="text-sm font-bold text-foreground">
+                  {entries.length === 0 ? 'Queue is Empty' : 'No items match filter'}
+                </p>
                 <p className="text-xs text-muted-foreground mt-1.5 max-w-[240px] leading-relaxed">
-                  Books and manga downloaded from online catalogs will appear here with live speed and progress.
+                  {entries.length === 0
+                    ? 'Books and manga downloaded from online catalogs will appear here with live speed and progress.'
+                    : 'Switch back to "All" to view your downloads.'}
                 </p>
               </div>
             ) : (
-              entries.map((entry) => (
+              filteredEntries.map((entry) => (
                 <DownloadProgressBar
                   key={entry.target_id}
                   bookTitle={entry.title || entry.target_id}
                   progress={entry}
+                  onClear={() => handleClearItem(entry.target_id)}
                 />
               ))
             )}

@@ -1,6 +1,7 @@
 import { useState } from "react"
 import type { CurrentView } from "@/store/uiStore"
 import { ChevronLeft, ChevronRight, ChevronDown, Settings, Compass, Globe, LayoutGrid, SlidersHorizontal } from "lucide-react"
+import { SolidHomeIcon } from "@/components/icons/ShioriIcons"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useNavigationRail, type NavSection } from "./hooks/useNavigationRail"
 import { ShelfSidebar } from "../shelves/ShelfSidebar"
@@ -22,7 +23,7 @@ const SECTION_TITLES: Record<NavSection, string> = {
 }
 
 const SECTION_ICONS: Record<NavSection, React.ComponentType<{ className?: string }>> = {
-  NAVIGATE: Compass,
+  NAVIGATE: SolidHomeIcon,
   DISCOVER: Globe,
   WORKSPACE: LayoutGrid,
   SYSTEM: SlidersHorizontal,
@@ -144,12 +145,12 @@ export function NavigationRailDesktop({
                     <div className="flex items-center gap-2.5 min-w-0">
                       {/* Icon Badge Container */}
                       <div className={cn(
-                        "flex items-center justify-center w-7 h-7 rounded-xl transition-all duration-200 shrink-0",
+                        "flex items-center justify-center w-7.5 h-7.5 rounded-xl transition-all duration-200 shrink-0",
                         hasActiveChild
                           ? "bg-primary text-primary-foreground shadow-md shadow-primary/25 scale-105"
                           : "bg-secondary/80 text-muted-foreground group-hover:bg-primary/15 group-hover:text-primary group-hover:scale-105"
                       )}>
-                        <SectionIcon className="w-3.5 h-3.5" />
+                        <SectionIcon className="w-4 h-4" />
                       </div>
 
                       <span className="tracking-wide text-xs sm:text-[13px] font-bold truncate">{SECTION_TITLES[sectionKey]}</span>
@@ -179,19 +180,24 @@ export function NavigationRailDesktop({
                         onClick={() => toggleSection(sectionKey)}
                         aria-label={SECTION_TITLES[sectionKey]}
                         className={cn(
-                          "relative flex items-center justify-center w-12 h-12 rounded-2xl transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+                          "relative flex items-center justify-center w-11 h-11 rounded-2xl transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 group select-none cursor-pointer",
                           hasActiveChild
-                            ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25 scale-105"
-                            : "text-muted-foreground hover:bg-accent/80 hover:text-foreground hover:scale-105"
+                            ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25 scale-102"
+                            : "bg-secondary/40 hover:bg-secondary text-muted-foreground hover:text-foreground border border-border/40 hover:border-primary/40 shadow-xs hover:scale-105"
                         )}
                       >
-                        <SectionIcon className="h-5 w-5" />
+                        {/* Active Left Indicator Bar */}
                         {hasActiveChild && (
-                          <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-primary ring-2 ring-background" />
+                          <motion.span
+                            layoutId="activeRailIndicator"
+                            className="absolute -left-2 top-1/2 -translate-y-1/2 w-1.5 h-6 rounded-r-full bg-primary shadow-xs"
+                            transition={{ type: "spring", stiffness: 450, damping: 35 }}
+                          />
                         )}
+                        <SectionIcon className="h-5 w-5 transition-transform duration-200 group-hover:scale-110" />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="right" sideOffset={12} className="font-medium text-xs">
+                    <TooltipContent side="right" sideOffset={12} className="font-bold text-xs shadow-md">
                       {SECTION_TITLES[sectionKey]} ({items.length})
                     </TooltipContent>
                   </Tooltip>

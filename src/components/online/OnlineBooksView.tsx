@@ -239,13 +239,13 @@ export function OnlineBooksView() {
             setPage(1);
           }}
           className={cn(
-            "flex items-center gap-2 shrink-0 rounded-2xl px-4 py-2 text-xs font-extrabold transition-all duration-200 shadow-xs",
+            "relative flex items-center gap-2 shrink-0 rounded-full px-4 py-2 text-xs font-bold transition-all duration-200 shadow-xs",
             source === 'all'
-              ? "bg-primary text-primary-foreground shadow-md shadow-primary/25 ring-1 ring-primary/40 scale-[1.02]"
-              : "bg-secondary/40 text-muted-foreground hover:text-foreground hover:bg-secondary/80 border border-border/50"
+              ? "bg-primary text-primary-foreground shadow-md shadow-primary/25"
+              : "bg-card/70 text-muted-foreground hover:text-foreground hover:bg-card border border-border/50"
           )}
         >
-          <Globe className="w-3.5 h-3.5" />
+          <Globe className="w-3.5 h-3.5 stroke-[2.2]" />
           <span>All Sources</span>
         </button>
         {enabledBookSources.map((s) => {
@@ -261,13 +261,13 @@ export function OnlineBooksView() {
                 setPage(1);
               }}
               className={cn(
-                "flex items-center gap-2 shrink-0 rounded-2xl px-4 py-2 text-xs font-extrabold transition-all duration-200 shadow-xs",
+                "relative flex items-center gap-2 shrink-0 rounded-full px-4 py-2 text-xs font-bold transition-all duration-200 shadow-xs",
                 isActive
-                  ? "bg-primary text-primary-foreground shadow-md shadow-primary/25 ring-1 ring-primary/40 scale-[1.02]"
-                  : "bg-secondary/40 text-muted-foreground hover:text-foreground hover:bg-secondary/80 border border-border/50"
+                  ? "bg-primary text-primary-foreground shadow-md shadow-primary/25"
+                  : "bg-card/70 text-muted-foreground hover:text-foreground hover:bg-card border border-border/50"
               )}
             >
-              <IconComp className={cn("w-3.5 h-3.5", isActive ? "text-primary-foreground" : "text-primary/70")} />
+              <IconComp className={cn("w-3.5 h-3.5 stroke-[2.2]", isActive ? "text-primary-foreground" : "text-primary")} />
               <span>{label}</span>
             </button>
           );

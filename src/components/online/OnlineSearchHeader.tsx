@@ -58,13 +58,13 @@ export function OnlineSearchHeader({
               <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-foreground drop-shadow-sm">
                 {title}
               </h1>
-              <span className="px-2.5 py-0.5 text-[10px] font-extrabold bg-secondary border border-border/50 text-muted-foreground rounded-full">
+              <span className="px-3 py-0.5 text-[11px] font-bold bg-primary/10 text-primary border border-primary/20 rounded-full shadow-xs">
                 {kind === 'books' ? 'Multi-Source Catalog' : 'Manga Catalog'}
               </span>
             </div>
             <div className="flex items-center gap-3">
               {kind === 'manga' && (
-                <OnlineSourceSelector kind={kind} variant="secondary" className="h-9 px-4 bg-secondary/70 hover:bg-secondary text-foreground border border-border/60 rounded-xl shadow-sm backdrop-blur-xl text-xs font-bold" />
+                <OnlineSourceSelector kind={kind} variant="secondary" className="h-9 px-4 bg-card/75 hover:bg-card text-foreground border border-border/50 hover:border-primary/40 rounded-full shadow-xs backdrop-blur-xl text-xs font-bold transition-all" />
               )}
               <DownloadsButton />
             </div>
@@ -73,11 +73,11 @@ export function OnlineSearchHeader({
           <div className="relative group">
             {isMobile ? (
               // Mobile Premium Search Bar (Precision Noir)
-              <div className="flex items-center bg-background/60 backdrop-blur-xl border border-border/50 rounded-full p-1.5 focus-within:border-primary/50 focus-within:bg-background transition-all duration-300 shadow-sm">
+              <div className="flex items-center bg-card/80 backdrop-blur-xl border border-border/50 rounded-full p-1.5 focus-within:border-primary/50 focus-within:bg-card transition-all duration-300 shadow-sm">
                 
                 {/* Left side actions */}
                 <div className="flex items-center gap-1 pl-1 shrink-0">
-                  <Search className="w-4 h-4 text-muted-foreground ml-2 mr-1 hidden sm:block" />
+                  <Search className="w-4 h-4 text-muted-foreground ml-2 mr-1 hidden sm:block stroke-[2.2]" />
                   
                   {/* Filter Option */}
                   {(kind === 'books' || kind === 'manga') && (
@@ -86,13 +86,13 @@ export function OnlineSearchHeader({
                       className={cn(
                         "w-9 h-9 rounded-full flex items-center justify-center transition-all shrink-0",
                         (kind === 'books' && hasFilters) || kind === 'manga'
-                          ? "bg-primary text-primary-foreground shadow-md" 
-                          : "text-muted-foreground hover:text-foreground hover:bg-secondary/80 bg-background/50"
+                          ? "bg-primary text-primary-foreground shadow-md shadow-primary/25" 
+                          : "text-muted-foreground hover:text-foreground hover:bg-secondary/80 bg-secondary/40"
                       )}
                       disabled={disabled}
                       title="Filters"
                     >
-                      <Filter className="w-4 h-4" />
+                      <Filter className="w-4 h-4 stroke-[2.2]" />
                     </button>
                   )}
 
@@ -111,7 +111,7 @@ export function OnlineSearchHeader({
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') onSubmit();
                   }}
-                  placeholder={kind === 'books' ? 'Search books...' : 'Search manga...'}
+                  placeholder={kind === 'books' ? 'Search books by title or author...' : 'Search manga by title...'}
                   className="flex-1 bg-transparent border-none outline-none text-[15px] font-medium text-foreground placeholder:text-muted-foreground/60 focus:ring-0 py-2 px-3 min-w-0"
                   disabled={disabled}
                 />
@@ -122,7 +122,7 @@ export function OnlineSearchHeader({
                     <button 
                       onClick={onSubmit} 
                       disabled={loading || disabled}
-                      className="px-4 py-1.5 rounded-full bg-foreground text-background text-sm font-semibold hover:bg-foreground/90 disabled:opacity-50 transition-all shadow-md active:scale-95"
+                      className="px-4 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 disabled:opacity-50 transition-all shadow-md shadow-primary/25 active:scale-95"
                     >
                       Go
                     </button>
@@ -130,16 +130,16 @@ export function OnlineSearchHeader({
                 </div>
               </div>
             ) : (
-              <div className="flex items-center bg-card/60 hover:bg-card/90 focus-within:bg-card border border-border/50 focus-within:border-primary/50 rounded-2xl p-1.5 transition-all duration-300 shadow-lg backdrop-blur-2xl">
-                <Compass className="w-5 h-5 text-muted-foreground ml-3 shrink-0 transition-colors duration-300 group-focus-within:text-primary" />
+              <div className="flex items-center bg-card/75 hover:bg-card focus-within:bg-card border border-border/50 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/15 rounded-2xl p-1.5 transition-all duration-300 shadow-md backdrop-blur-2xl">
+                <Search className="w-5 h-5 text-muted-foreground ml-3.5 shrink-0 transition-colors duration-300 group-focus-within:text-primary stroke-[2.2]" />
                 <input
                   value={searchValue}
                   onChange={(e) => onSearchValueChange(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') onSubmit();
                   }}
-                  placeholder={kind === 'books' ? 'Search online books by title or author...' : 'Search manga by title...'}
-                  className="w-full bg-transparent border-none outline-none text-base md:text-lg font-bold text-foreground placeholder:text-muted-foreground/50 focus:ring-0 py-2 px-3 h-11 transition-all"
+                  placeholder={kind === 'books' ? 'Search online books by title or author...' : 'Search manga by title or author...'}
+                  className="w-full bg-transparent border-none outline-none text-sm md:text-base font-semibold text-foreground placeholder:text-muted-foreground/50 focus:ring-0 py-2 px-3 h-11 transition-all"
                   disabled={disabled}
                 />
                 <div className="flex items-center gap-2 pr-1 shrink-0">
@@ -149,19 +149,19 @@ export function OnlineSearchHeader({
                       className={cn(
                         "p-2.5 rounded-xl transition-all flex items-center justify-center",
                         (kind === 'books' && hasFilters) || kind === 'manga'
-                          ? "bg-primary/20 text-primary hover:bg-primary/30 border border-primary/20 shadow-inner" 
+                          ? "bg-primary/20 text-primary hover:bg-primary/30 border border-primary/25 shadow-inner" 
                           : "text-muted-foreground hover:text-foreground hover:bg-secondary/60 bg-transparent"
                       )}
                       disabled={disabled}
                       title="Filters"
                     >
-                      <Filter className="w-4 h-4" />
+                      <Filter className="w-4 h-4 stroke-[2.2]" />
                     </button>
                   )}
                   <button 
                     onClick={onSubmit} 
                     disabled={loading || (!searchValue.trim() && !hasFilters) || disabled}
-                    className="px-6 py-2.5 text-sm rounded-xl bg-primary text-primary-foreground font-extrabold hover:bg-primary/90 disabled:opacity-50 transition-all shadow-md shadow-primary/25 hover:scale-[1.02] active:scale-95"
+                    className="px-6 py-2.5 text-xs sm:text-sm rounded-xl bg-primary text-primary-foreground font-bold hover:bg-primary/90 disabled:opacity-50 transition-all shadow-md shadow-primary/25 hover:scale-[1.02] active:scale-95"
                   >
                     Search
                   </button>

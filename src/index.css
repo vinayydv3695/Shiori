@@ -876,9 +876,102 @@ input:-webkit-autofill:active{
 }
 
 [data-theme="premium-dark"] [data-sonner-toast] [data-button],
-:root.dark:not([data-theme="black"]):not([data-theme="sepia"]):not([data-theme="white"]) [data-sonner-toast] [data-button] {
+:root.dark:not([data-theme="black"]):not([data-theme="sepia"]):not([data-theme="white"]):not([data-theme="hello-kitty"]) [data-sonner-toast] [data-button] {
   background: rgba(255, 255, 255, 0.15) !important;
   color: #FFFFFF !important;
+  border-radius: 12px !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   5. HELLO KITTY PINK THEME TOASTS
+   ───────────────────────────────────────────────────────────────── */
+[data-theme="hello-kitty"] [data-sonner-toast],
+[data-theme="hello-kitty"] [data-sonner-toast][data-styled="true"] {
+  --normal-bg: #FFFFFF !important;
+  --normal-text: #381320 !important;
+  --normal-border: #FBCFE8 !important;
+  background-color: #FFFFFF !important;
+  background: #FFFFFF !important;
+  color: #381320 !important;
+  border: 1px solid #FBCFE8 !important;
+  box-shadow: 0 14px 34px -4px rgba(255, 42, 109, 0.15), 0 2px 8px rgba(255, 42, 109, 0.08) !important;
+}
+
+[data-theme="hello-kitty"] [data-sonner-toast] [data-title] {
+  color: #381320 !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="hello-kitty"] [data-sonner-toast] [data-description] {
+  color: #83475D !important;
+}
+
+[data-theme="hello-kitty"] [data-sonner-toast][data-type="info"] [data-icon] {
+  color: #FF2A6D !important;
+}
+
+[data-theme="hello-kitty"] [data-sonner-toast][data-type="success"] [data-icon] {
+  color: #10B981 !important;
+}
+
+[data-theme="hello-kitty"] [data-sonner-toast][data-type="warning"] [data-icon] {
+  color: #F59E0B !important;
+}
+
+[data-theme="hello-kitty"] [data-sonner-toast][data-type="error"] [data-icon] {
+  color: #EF4444 !important;
+}
+
+[data-theme="hello-kitty"] [data-sonner-toast] [data-button] {
+  background: #FF2A6D !important;
+  color: #FFFFFF !important;
+  border-radius: 12px !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   6. MIDNIGHT PINK THEME TOASTS
+   ───────────────────────────────────────────────────────────────── */
+[data-theme="midnight-pink"] [data-sonner-toast],
+[data-theme="midnight-pink"] [data-sonner-toast][data-styled="true"] {
+  --normal-bg: #1F0E1B !important;
+  --normal-text: #FDF2F7 !important;
+  --normal-border: #4A1532 !important;
+  background-color: #1F0E1B !important;
+  background: #1F0E1B !important;
+  color: #FDF2F7 !important;
+  border: 1px solid #4A1532 !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 77, 141, 0.2) !important;
+}
+
+[data-theme="midnight-pink"] [data-sonner-toast] [data-title] {
+  color: #FDF2F7 !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="midnight-pink"] [data-sonner-toast] [data-description] {
+  color: #C08FA6 !important;
+}
+
+[data-theme="midnight-pink"] [data-sonner-toast][data-type="info"] [data-icon] {
+  color: #FF4D8D !important;
+}
+
+[data-theme="midnight-pink"] [data-sonner-toast][data-type="success"] [data-icon] {
+  color: #34D399 !important;
+}
+
+[data-theme="midnight-pink"] [data-sonner-toast][data-type="warning"] [data-icon] {
+  color: #FBBF24 !important;
+}
+
+[data-theme="midnight-pink"] [data-sonner-toast][data-type="error"] [data-icon] {
+  color: #F87171 !important;
+}
+
+[data-theme="midnight-pink"] [data-sonner-toast] [data-button] {
+  background: #FF4D8D !important;
+  color: #160A12 !important;
+  font-weight: 700 !important;
   border-radius: 12px !important;
 }
 
@@ -1010,11 +1103,32 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   background-color: hsl(var(--primary) / 0.15);
 }
 
-/* Sepia specific date input background */
-[data-theme="sepia"] input[type="date"] {
-  background-color: #F3E9D3 !important;
-  color: #2D180B !important;
-  border-color: #D1BF96 !important;
+/* Hello Kitty Theme Dropdown / Select */
+[data-theme="hello-kitty"] [data-radix-popper-content-wrapper] [role="listbox"],
+[data-theme="hello-kitty"] [data-radix-popper-content-wrapper] [role="menu"],
+[data-theme="hello-kitty"] [data-radix-select-content],
+[data-theme="hello-kitty"] [data-radix-dropdown-menu-content],
+[data-theme="hello-kitty"] .shiori-select-content {
+  background-color: #FFFFFF !important;
+  color: #381320 !important;
+  border: 1px solid #FBCFE8 !important;
+  box-shadow: 0 16px 36px -4px rgba(255, 42, 109, 0.18), 0 2px 8px rgba(255, 42, 109, 0.08) !important;
+}
+
+/* Hello Kitty specific date input background */
+[data-theme="hello-kitty"] input[type="date"] {
+  background-color: #FFFFFF !important;
+  color: #381320 !important;
+  border-color: #FBCFE8 !important;
+}
+
+/* Hello Kitty Dialog Overlay — Soft sweet blush dimming */
+[data-theme="hello-kitty"] .dialog-overlay,
+[data-theme="hello-kitty"] [data-radix-dialog-overlay],
+[data-theme="hello-kitty"] [data-radix-alert-dialog-overlay] {
+  background-color: rgba(45, 15, 25, 0.35) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
 }
 
 

@@ -18,6 +18,8 @@ import { usePreferencesStore } from "../store/preferencesStore";
 
 import '../styles/themes/rose-pine-moon.css';
 import '../styles/themes/catppuccin-mocha.css';
+import '../styles/themes/hello-kitty.css';
+import '../styles/themes/midnight-pink.css';
 import '../styles/themes/nord.css';
 import '../styles/themes/dracula.css';
 import '../styles/themes/tokyo-night.css';

@@ -1,3 +1,20 @@
+# Release Notes (v2.3.15)
+
+## Security
+
+- **XSS chain closed** — AniList description HTML is now DOMPurify-sanitized in both detail views; RSS article links open in the system browser instead of hijacking the app webview; search-term highlighting HTML-escapes matches; backup restore only writes allow-listed `shiori-` localStorage keys; the debug store handle (`__PREFERENCES_STORE__`) is no longer exposed in production builds; pasted AniList tokens are shape-validated with clear errors instead of silently dropped.
+- **SSRF hardening** — `is_safe_url` now blocks link-local (`169.254.0.0/16`), loopback `127.0.0.0/8`, CGNAT, IPv4-mapped IPv6, IPv6 loopback/link-local/ULA, and multicast ranges; fetches re-resolve DNS and pin the resolved public IP, and every redirect hop is re-validated; the guard is now applied to the manga image proxy, cover preview, Cloudflare image proxy (with host-match + cookie confinement), Discord resolve, ToonGod webview navigation and scraper chapter fetches; image proxies cap response size (25MB) and malformed URLs error instead of panicking.
+- **Arbitrary file-write fixed** — annotation export (`write_text_to_file`) rejects NUL bytes, `.`/`..` segments and separator-terminated paths; Calibre conversion restricts `output_format` to alphanumerics; torrent downloads sanitize attacker-controlled filenames (CJK/space/multi-file paths preserved); library migration targets are confined to app-owned directories; `update_book` and background scans validate paths like `add_book` does.
+- **Backup restore zip-slip fixed** — archive entries with traversal/absolute/NUL names are skipped and counted; restored database paths are validated (absolute, no traversal, parent must exist) so a crafted backup can no longer write outside extraction roots.
+- **CSP tightened** — `script-src` drops `'unsafe-inline'` (no inline scripts exist; all three `eval` uses run in remote webviews, unaffected); dead scraper domains removed from `connect-src`; `fs:read-all` capability removed (zero usage); dev builds get a CSP meta tag.
+- **Android update channel** — APK downloads are confined to GitHub release URLs, capped at 600MB, and SHA-256-verified against the release asset digest before install; release builds disable cleartext HTTP (debug keeps it for the dev server); `android:allowBackup` is disabled so the token-bearing database never leaves the device via adb/Drive backups.
+- **Secrets & queries** — SQL limits from the frontend are clamped (0–1000); smart-shelf LIKE rules escape `%`/`_`; decompression bomb surfaces in FB2/MOBI/zip entry reads are capped; `embed_local_image` only inlines image-extension files ≤25MB; conversion temp dirs use 0700 `TempDir`; CBR extraction verifies all paths stay inside its temp root; poisoned-mutex unwraps replaced with `into_inner`; error messages no longer leak absolute paths.
+
+## Bug Fixes
+
+- **Migration data integrity** — v29 no longer drops six v8 preference columns (page-flip, paper-theme, doodle, adaptive-mode) on rebuild; new guarded v46 migration re-adds them for existing databases; v22 rebuild keeps the primary key and CHECK constraints; v5 normalizes lowercase conversion-job statuses so pre-v5 queued jobs resume correctly.
+- **Misc** — shelf queries no longer return stale defaults for new book fields; trashed books stay visible in shelves as before (query parity across listing paths); conversion temp artifacts are cleaned up automatically.
+
 # Release Notes (v2.3.12)
 
 ## Improvements

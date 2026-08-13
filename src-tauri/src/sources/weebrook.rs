@@ -102,6 +102,8 @@ impl WeebrookEngine {
     }
 
     async fn fetch(&self, url: &str) -> Result<String> {
+        // SSRF guard: never fetch unvalidated URLs.
+        crate::validate_fetch_url(url)?;
         let headers = Self::browser_headers(Some(BASE_URL));
         let resp = self
             .client

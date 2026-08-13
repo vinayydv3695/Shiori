@@ -16,12 +16,14 @@ import { DEFAULT_USER_PREFERENCES } from "../types/preferences";
 
 const themeMap: Record<string, string> = { light: 'white', dark: 'black', 'premium-dark': 'premium-dark' };
 
-const isDarkTheme = (theme: string) => theme !== 'light' && theme !== 'white' && theme !== 'sepia' && theme !== 'paper';
+const isDarkTheme = (theme: string) => theme !== 'light' && theme !== 'white' && theme !== 'sepia' && theme !== 'paper' && theme !== 'hello-kitty';
 
 const themeColors: Record<string, string> = {
   sepia: '#e5d6b6',
   white: '#fcfbf9',
   light: '#fcfbf9',
+  'hello-kitty': '#fff0f5',
+  'midnight-pink': '#160a12',
   black: '#000000',
   oled: '#000000',
   'premium-dark': '#080808',
@@ -462,7 +464,9 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
   },
 }));
 
-// Expose store on window for logger access (avoids circular dependency)
-if (typeof window !== 'undefined') {
+// Expose store on window for logger access (avoids circular dependency).
+// DEV-only: the store holds the AniList access token, so it must not be
+// reachable from the window global in production builds.
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
   (window as any).__PREFERENCES_STORE__ = usePreferencesStore;
 }

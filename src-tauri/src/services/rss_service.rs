@@ -10,6 +10,17 @@ use std::path::PathBuf;
 use super::epub_builder::{EpubBuilder, EpubMetadata};
 use crate::db::Database;
 
+/// Upper bound for frontend-supplied LIMIT values; anything above is clamped.
+const MAX_LIMIT: i64 = 1000;
+
+/// Build a SQL LIMIT clause from a frontend-supplied limit, clamped to
+/// [0, MAX_LIMIT]. `None` keeps the current no-LIMIT behavior.
+fn limit_clause(limit: Option<usize>) -> String {
+    limit
+        .map(|l| format!(" LIMIT {}", (l as i64).clamp(0, MAX_LIMIT)))
+        .unwrap_or_default()
+}
+
 /// RSS feed metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RssFeed {
@@ -440,14 +451,14 @@ impl RssService {
         let (query, params_vec): (String, Vec<Box<dyn rusqlite::ToSql>>) = if let Some(fid) =
             feed_id
         {
-            let limit_clause = limit.map(|l| format!(" LIMIT {}", l)).unwrap_or_default();
+            let limit_clause = limit_clause(limit);
             (
                 format!("SELECT id, feed_id, title, author, url, content, summary, published, guid, is_read, epub_book_id, created_at
                          FROM rss_articles WHERE feed_id = ?1 AND is_read = 0 ORDER BY published DESC{}", limit_clause),
                 vec![Box::new(fid)]
             )
         } else {
-            let limit_clause = limit.map(|l| format!(" LIMIT {}", l)).unwrap_or_default();
+            let limit_clause = limit_clause(limit);
             (
                 format!("SELECT id, feed_id, title, author, url, content, summary, published, guid, is_read, epub_book_id, created_at
                          FROM rss_articles WHERE is_read = 0 ORDER BY published DESC{}", limit_clause),
@@ -727,6 +738,16 @@ mod tests {
         let service = RssService::new(db, temp_dir);
 
         assert!(service.is_ok());
+    }
+
+    #[test]
+    fn test_limit_clause_clamps() {
+        // None keeps the no-LIMIT behavior; over-limit values are clamped to
+        // MAX_LIMIT; 0 is preserved.
+        assert_eq!(limit_clause(None), "");
+        assert_eq!(limit_clause(Some(5000)), " LIMIT 1000");
+        assert_eq!(limit_clause(Some(1000)), " LIMIT 1000");
+        assert_eq!(limit_clause(Some(0)), " LIMIT 0");
     }
 
     #[test]

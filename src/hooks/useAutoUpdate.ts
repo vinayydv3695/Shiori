@@ -56,10 +56,13 @@ export function useAutoUpdate() {
             // Find APK asset
             const apkAsset = data.assets.find((a: any) => a.name.endsWith('.apk'));
             if (apkAsset && mounted) {
+              // GitHub release assets publish a `digest` field as `sha256:<hex>`
+              const digest: string | undefined = apkAsset.digest;
               setUpdateInfo({
                 version: data.tag_name,
                 notes: data.body || 'No release notes provided.',
-                apkUrl: apkAsset.browser_download_url
+                apkUrl: apkAsset.browser_download_url,
+                apkSha256: digest ? digest.replace(/^sha256:/i, '').trim() : undefined
               });
               setIsUpdateDialogOpen(true);
             }

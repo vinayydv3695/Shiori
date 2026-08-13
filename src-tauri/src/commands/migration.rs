@@ -19,20 +19,55 @@ pub async fn migrate_library(
     state: State<'_, AppState>,
     target: Option<String>,
 ) -> Result<MigrationResult> {
+    let app_data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| crate::error::ShioriError::Other(e.to_string()))?;
+
+    // Mode A default: the managed root under app data. Never restricted.
     let target_dir = if let Some(t) = target {
-        PathBuf::from(t)
+        let requested = PathBuf::from(&t);
+
+        // Arbitrary `target` argument → must be absolute and stay inside
+        // app data (or the current managed root, which is a subdir of it).
+        if !requested.is_absolute() {
+            return Err(crate::error::ShioriError::Validation(format!(
+                "migration target must be an absolute path, got '{}'",
+                t
+            )));
+        }
+        if !requested.starts_with(&app_data_dir) {
+            return Err(crate::error::ShioriError::Validation(format!(
+                "migration target '{}' must be inside the app data directory '{}'",
+                t,
+                app_data_dir.display()
+            )));
+        }
+        requested
     } else {
-        app_handle
-            .path()
-            .app_data_dir()
-            .map_err(|e| crate::error::ShioriError::Other(e.to_string()))?
-            .join("library")
+        app_data_dir.join("library")
     };
 
     if !target_dir.exists() {
         fs::create_dir_all(&target_dir)
             .await
             .map_err(|e| crate::error::ShioriError::Other(e.to_string()))?;
+    }
+
+    // Canonical form of the validated target — used to verify every
+    // destination stays under it (defeats symlink redirects).
+    let canon_target = target_dir
+        .canonicalize()
+        .map_err(|e| crate::error::ShioriError::Other(e.to_string()))?;
+    if !canon_target.starts_with(
+        &app_data_dir
+            .canonicalize()
+            .unwrap_or_else(|_| app_data_dir.clone()),
+    ) {
+        return Err(crate::error::ShioriError::Validation(format!(
+            "migration target '{}' resolves outside the app data directory",
+            target_dir.display()
+        )));
     }
 
     let conn = state.db.get_connection()?;
@@ -57,6 +92,22 @@ pub async fn migrate_library(
         if !path.starts_with(&target_dir) {
             if let Some(file_name) = path.file_name() {
                 let new_path = target_dir.join(file_name);
+
+                // Verify the destination stays under the target before
+                // copying — skip and report otherwise.
+                let dest_within_target = new_path
+                    .parent()
+                    .and_then(|p| p.canonicalize().ok())
+                    .map(|canon_parent| canon_parent.starts_with(&canon_target))
+                    .unwrap_or(false);
+                if !dest_within_target {
+                    failed_count += 1;
+                    errors.push(format!(
+                        "Refusing to move {}: destination escapes the migration target",
+                        file_path
+                    ));
+                    continue;
+                }
 
                 // Copy first, then remove original to be safe
                 match fs::copy(&path, &new_path).await {

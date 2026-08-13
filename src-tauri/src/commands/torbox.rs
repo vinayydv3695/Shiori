@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
@@ -6,6 +7,48 @@ use tauri::{Emitter, Manager, State};
 use crate::error::{Result, ShioriError};
 use crate::models::ImportResult;
 use crate::services::torbox::{TorboxService, TorrentInfo};
+
+/// Sanitize a torrent-provided relative path before joining it into the
+/// downloads directory.
+///
+/// Splits on BOTH `/` and `\` so CJK titles, spaces, and subdirectories from
+/// multi-file torrents survive, while traversal (`..`), NUL bytes, and
+/// Windows drive/ADS (`:`) components are rejected outright.
+fn sanitize_torrent_rel_path(raw: &str) -> Result<PathBuf> {
+    if raw.contains('\0') {
+        return Err(ShioriError::Validation(
+            "torrent file name contains a NUL byte".to_string(),
+        ));
+    }
+
+    let mut out = PathBuf::new();
+    for component in raw.split(['/', '\\']) {
+        if component.is_empty() || component == "." {
+            continue;
+        }
+        if component == ".." {
+            return Err(ShioriError::Validation(format!(
+                "torrent file name contains path traversal component '..' (got '{}')",
+                raw
+            )));
+        }
+        if component.contains(':') {
+            return Err(ShioriError::Validation(format!(
+                "torrent file name contains a ':' component (Windows drive/ADS) (got '{}')",
+                raw
+            )));
+        }
+        out.push(component);
+    }
+
+    if out.as_os_str().is_empty() {
+        return Err(ShioriError::Validation(
+            "torrent file name is empty after sanitization".to_string(),
+        ));
+    }
+
+    Ok(out)
+}
 
 pub struct TorboxState {
     pub service: Arc<TorboxService>,
@@ -203,7 +246,7 @@ async fn finalize_import_from_target(
             filename.push_str(&default_extension);
         }
 
-        let dest_path = downloads_dir.join(&filename);
+        let dest_path = downloads_dir.join(sanitize_torrent_rel_path(&filename)?);
         let mut last_emitted_percent: i64 = -1;
         let mut last_emitted_bytes: u64 = 0;
 
@@ -908,4 +951,45 @@ pub async fn wait_for_torbox_completion(
         .service
         .wait_for_completion(torrent_id, wait_seconds)
         .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sanitize_torrent_rel_path_accepts_legit() {
+        // CJK + spaces + single file
+        let p = sanitize_torrent_rel_path("L'art de la guerre (Tome 1).cbr").unwrap();
+        assert_eq!(
+            p,
+            PathBuf::from("L'art de la guerre (Tome 1).cbr")
+        );
+
+        // Subdirectories from multi-file torrents survive
+        let p = sanitize_torrent_rel_path("マンガ/第01話/01.png").unwrap();
+        assert_eq!(p, PathBuf::from("マンガ/第01話/01.png"));
+
+        // Backslash-separated subdirs and spaces
+        let p = sanitize_torrent_rel_path("folder/file with spaces.cbz").unwrap();
+        assert_eq!(p, PathBuf::from("folder/file with spaces.cbz"));
+
+        // Trailing separators and '.' components collapse harmlessly
+        let p = sanitize_torrent_rel_path("./vol/./ch1/").unwrap();
+        assert_eq!(p, PathBuf::from("vol/ch1"));
+    }
+
+    #[test]
+    fn test_sanitize_torrent_rel_path_rejects_unsafe() {
+        assert!(sanitize_torrent_rel_path("../x").is_err());
+        assert!(sanitize_torrent_rel_path("a/../../b").is_err());
+        assert!(sanitize_torrent_rel_path("..").is_err());
+        assert!(sanitize_torrent_rel_path("..\\x").is_err());
+        assert!(sanitize_torrent_rel_path("a:/b").is_err());
+        assert!(sanitize_torrent_rel_path("C:\\evil.exe").is_err());
+        assert!(sanitize_torrent_rel_path("C:evil.exe").is_err());
+        assert!(sanitize_torrent_rel_path("x\0.bin").is_err());
+        assert!(sanitize_torrent_rel_path("").is_err());
+        assert!(sanitize_torrent_rel_path("./").is_err());
+    }
 }

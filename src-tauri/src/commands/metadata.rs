@@ -150,9 +150,7 @@ pub async fn preview_cover_url(url: String) -> Result<Vec<u8>> {
         .build()
         .map_err(|e| ShioriError::Other(format!("Failed to build HTTP client: {}", e)))?;
 
-    let mut response = client
-        .get(&url)
-        .send()
+    let mut response = crate::guarded_get(&client, &url)
         .await
         .map_err(|e| ShioriError::Other(format!("Failed to download cover: {}", e)))?;
 

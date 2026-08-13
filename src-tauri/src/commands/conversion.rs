@@ -20,7 +20,7 @@ pub async fn convert_file(
     book_id: Option<i64>,
 ) -> crate::error::Result<String> {
     validate::require_safe_path(&input_path, "input_path")?;
-    validate::require_non_empty(&output_format, "output_format")?;
+    validate::require_simple_format(&output_format, "output_format")?;
     if let Some(ref dir) = output_dir {
         validate::require_safe_path(dir, "output_dir")?;
     }
@@ -120,7 +120,7 @@ pub async fn convert_with_calibre(
     state: State<'_, AppState>,
 ) -> crate::error::Result<CalibreConversionResult> {
     validate::require_safe_path(&input_path, "input_path")?;
-    validate::require_non_empty(&output_format, "output_format")?;
+    validate::require_simple_format(&output_format, "output_format")?;
     if let Some(id) = book_id {
         validate::require_positive_id(id, "book_id")?;
     }

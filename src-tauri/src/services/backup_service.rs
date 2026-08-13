@@ -812,6 +812,91 @@ fn write_json_entry(zip: &mut ZipWriter<BufWriter<File>>, entry: &str, json: &Va
 
 // ─── restore_backup ──────────────────────────────────────────────────────────
 
+/// Validate an archive entry name for extraction and return the normalized
+/// relative path, or `None` when the entry must be skipped: empty names, NUL
+/// bytes, `.`/`..` components, absolute paths (RootDir), and Windows prefixes
+/// (drive letters / UNC) are all rejected. Backslashes are normalized to
+/// forward slashes first, so Windows-style traversal (`covers\..\evil`) is
+/// caught even when the archive was stored with `\` separators.
+fn safe_archive_rel_path(entry_name: &str) -> Option<PathBuf> {
+    if entry_name.is_empty() || entry_name.contains('\0') {
+        return None;
+    }
+    let normalized = entry_name.replace('\\', "/");
+    let mut out = PathBuf::new();
+    for comp in Path::new(&normalized).components() {
+        match comp {
+            std::path::Component::Normal(part) => out.push(part),
+            std::path::Component::CurDir | std::path::Component::ParentDir => return None,
+            std::path::Component::RootDir | std::path::Component::Prefix(_) => return None,
+        }
+    }
+    if out.as_os_str().is_empty() {
+        return None;
+    }
+    Some(out)
+}
+
+/// Validate a non-managed book's `file_path` (from the restore manifest) for
+/// writing: it must be absolute (RootDir or Windows Prefix present), contain
+/// no NUL bytes and no `.`/`..` components, and not be root-only. Returns the
+/// path when acceptable. Symlink/containment of the parent is not checked
+/// here — callers additionally require the parent directory to already exist
+/// on this machine.
+fn safe_absolute_restore_path(file_path: &str) -> Option<PathBuf> {
+    if file_path.is_empty() || file_path.contains('\0') {
+        return None;
+    }
+    let mut out = PathBuf::new();
+    let mut absolute = false;
+    let mut has_normal = false;
+    for comp in Path::new(file_path).components() {
+        match comp {
+            std::path::Component::Normal(part) => {
+                has_normal = true;
+                out.push(part);
+            }
+            std::path::Component::CurDir | std::path::Component::ParentDir => return None,
+            std::path::Component::RootDir | std::path::Component::Prefix(_) => {
+                absolute = true;
+                out.push(comp.as_os_str());
+            }
+        }
+    }
+    if absolute && has_normal {
+        Some(out)
+    } else {
+        None
+    }
+}
+
+/// True when `rel` is a plain relative path: non-empty, no NUL bytes, and only
+/// Normal components (no `.`/`..`, no absolute or Windows-prefix components).
+/// Fallback check used when the managed root or the target parent can't be
+/// canonicalized.
+fn rel_component_safe(rel: &str) -> bool {
+    if rel.is_empty() || rel.contains('\0') {
+        return false;
+    }
+    Path::new(rel)
+        .components()
+        .all(|c| matches!(c, std::path::Component::Normal(_)))
+}
+
+/// Validate a managed book's restore target: the canonicalized target parent
+/// must live under the canonicalized managed root (canonicalization resolves
+/// symlinks, so a relpath that walks out via an existing symlink is caught).
+/// When the parent can't be canonicalized because it doesn't exist yet (fresh
+/// library), fall back to [`rel_component_safe`] — the managed-root join is
+/// then inherently bounded by the root.
+fn managed_target_allowed(managed_root: &Path, target: &Path, rel: &str) -> bool {
+    let parent = target.parent().unwrap_or(target);
+    match (fs::canonicalize(managed_root), fs::canonicalize(parent)) {
+        (Ok(root), Ok(parent_canon)) => parent_canon.starts_with(&root),
+        _ => rel_component_safe(rel),
+    }
+}
+
 /// Restore from an archive honoring the selection.
 ///
 /// - Full snapshot archives (`database/library.db` present, i.e. v1 manifests
@@ -1020,6 +1105,14 @@ fn restore_full_snapshot(
             let file_path = file.name().to_string();
             if !file_path.ends_with('/') {
                 if let Some(relative_path) = file_path.strip_prefix("covers/") {
+                    let Some(relative_path) = safe_archive_rel_path(relative_path) else {
+                        report.skipped += 1;
+                        report.skipped_invalid_paths += 1;
+                        report
+                            .errors
+                            .push(format!("Skipped unsafe archive entry '{file_path}'"));
+                        continue;
+                    };
                     let target_path = covers_dir.join(relative_path);
                     if let Some(parent) = target_path.parent() {
                         fs::create_dir_all(parent)?;
@@ -1041,6 +1134,14 @@ fn restore_full_snapshot(
             let file_path = file.name().to_string();
             if !file_path.ends_with('/') {
                 if let Some(filename) = file_path.strip_prefix("books/") {
+                    let Some(filename) = safe_archive_rel_path(filename) else {
+                        report.skipped += 1;
+                        report.skipped_invalid_paths += 1;
+                        report
+                            .errors
+                            .push(format!("Skipped unsafe archive entry '{file_path}'"));
+                        continue;
+                    };
                     let target_path = storage_books_dir.join(filename);
                     let mut target_file = File::create(&target_path)?;
                     std::io::copy(&mut file, &mut target_file)?;
@@ -1130,6 +1231,14 @@ fn restore_subset_archive(
                     let file_path = file.name().to_string();
                     if !file_path.ends_with('/') {
                         if let Some(relative_path) = file_path.strip_prefix("covers/") {
+                            let Some(relative_path) = safe_archive_rel_path(relative_path) else {
+                                report.skipped += 1;
+                                report.skipped_invalid_paths += 1;
+                                report
+                                    .errors
+                                    .push(format!("Skipped unsafe archive entry '{file_path}'"));
+                                continue;
+                            };
                             let target_path = covers_dir.join(relative_path);
                             if let Some(parent) = target_path.parent() {
                                 fs::create_dir_all(parent)?;
@@ -1165,6 +1274,15 @@ fn restore_subset_archive(
 
 /// Extract book files (Books category, subset archives). Targets: managed books
 /// → managed root + managed_relpath; referenced books → original file_path.
+///
+/// DB-supplied paths are validated before any write: non-managed `file_path`
+/// must be absolute with no `.`/`..` components and its parent must already
+/// exist on this machine (no directory creation from manifest data); managed
+/// `managed_relpath` must resolve inside the managed root. Rejected targets
+/// are skipped and counted in `skipped_invalid_paths`.
+// ponytail: crafted manifests pointing at existing dirs (e.g. ~/.ssh) still
+// write; restore is a trusted-file op — XSS chain + UI confirmation are the
+// remaining mitigations.
 fn restore_book_files(
     db: &Database,
     app_data_dir: &Path,
@@ -1200,17 +1318,66 @@ fn restore_book_files(
             continue;
         };
         let target: Option<PathBuf> = if is_managed {
-            managed_relpath.map(|rel| managed_root.local_path().join(rel))
+            let Some(rel) = managed_relpath else {
+                report.skipped += 1;
+                report
+                    .errors
+                    .push(format!("Book file skipped: managed book {uuid} has no managed_relpath"));
+                continue;
+            };
+            let target = managed_root.local_path().join(&rel);
+            if managed_target_allowed(managed_root.local_path(), &target, &rel) {
+                Some(target)
+            } else {
+                report.skipped += 1;
+                report.skipped_invalid_paths += 1;
+                report.errors.push(format!(
+                    "Book file skipped: managed_relpath '{rel}' for book {uuid} escapes the managed library root"
+                ));
+                None
+            }
         } else {
-            Some(PathBuf::from(&file_path))
+            match safe_absolute_restore_path(&file_path) {
+                Some(path) => Some(path),
+                None => {
+                    report.skipped += 1;
+                    report.skipped_invalid_paths += 1;
+                    report.errors.push(format!(
+                        "Book file skipped: invalid file_path '{file_path}' for book {uuid}: must be absolute with no '.'/'..' components"
+                    ));
+                    None
+                }
+            }
         };
         let Some(target) = target else {
-            report.skipped += 1;
-            report
-                .errors
-                .push(format!("Book file skipped: managed book {uuid} has no managed_relpath"));
             continue;
         };
+
+        // Non-managed: the target's parent must ALREADY exist — a crafted
+        // manifest must not create directories outside the managed tree.
+        if !is_managed {
+            let parent = target.parent().unwrap_or(target.as_path());
+            if !matches!(fs::metadata(parent), Ok(m) if m.is_dir()) {
+                report.skipped += 1;
+                report.skipped_invalid_paths += 1;
+                report.errors.push(format!(
+                    "Book file skipped: parent directory '{}' of file_path for book {uuid} does not exist",
+                    parent.display()
+                ));
+                continue;
+            }
+        }
+
+        // The archive entry name must itself be a safe relative path (defense
+        // in depth — the write target is already validated above).
+        if safe_archive_rel_path(entry).is_none() {
+            report.skipped += 1;
+            report.skipped_invalid_paths += 1;
+            report
+                .errors
+                .push(format!("Book file skipped: unsafe archive entry '{entry}'"));
+            continue;
+        }
         match archive.by_name(entry) {
             Ok(mut file) => {
                 if let Some(parent) = target.parent() {
@@ -1285,6 +1452,15 @@ fn restore_sources(
         let file_path = file.name().to_string();
         if let Some(relative) = file_path.strip_prefix("sources/cloudflare_sessions/") {
             if selection.include_credentials {
+                let Some(relative) = safe_archive_rel_path(relative) else {
+                    report.skipped += 1;
+                    report.skipped_invalid_paths += 1;
+                    report
+                        .errors
+                        .push(format!("Skipped unsafe archive entry '{file_path}'"));
+                    any = true;
+                    continue;
+                };
                 fs::create_dir_all(&sessions_dir)?;
                 let target_path = sessions_dir.join(relative);
                 let mut target_file = File::create(&target_path)?;

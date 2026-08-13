@@ -14,7 +14,7 @@ import { DoodleToolbar } from './DoodleToolbar';
 import { PageFlipEngine, type PageFlipHandle } from './PageFlipEngine';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
 import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Search, BookOpen, Highlighter } from '@/components/icons';
-import { sanitizeBookContent } from '@/lib/sanitize';
+import { sanitizeBookContent, escapeHtml } from '@/lib/sanitize';
 import { applyHighlightsToDOM } from '@/lib/highlightAnnotations';
 import { handleExternalLinkClick } from '@/lib/externalLinks';
 import { useToastStore } from '@/store/toastStore';
@@ -167,7 +167,7 @@ function highlightSearchTerm(html: string, searchTerm: string): string {
     if (node.nodeType === Node.TEXT_NODE) {
       const text = node.textContent || '';
       if (regex.test(text)) {
-        const highlightedHTML = text.replace(regex, '<mark class="search-highlight">$1</mark>');
+        const highlightedHTML = text.replace(regex, (match) => `<mark class="search-highlight">${escapeHtml(match)}</mark>`);
         const span = document.createElement('span');
         span.innerHTML = highlightedHTML;
         node.parentNode?.replaceChild(span, node);

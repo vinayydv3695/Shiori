@@ -179,6 +179,19 @@ pub async fn cf_proxy_image(
     image_url: String,
     source_base_url: String,
 ) -> Result<Vec<u8>> {
+    // SSRF guard: the image host must equal the source host (or be a subdomain
+    // of it) and the URL must pass the safe-URL checks. This also guarantees
+    // session cookies are never attached to a foreign host.
+    let image_host = host_from_url(&image_url);
+    let base_host = host_from_url(&source_base_url);
+    if !crate::cloudflare::client::host_matches(&image_host, &base_host) {
+        return Err(ShioriError::Other(format!(
+            "Image host {} is not {} or a subdomain of it",
+            image_host, base_host
+        )));
+    }
+    crate::validate_fetch_url(&image_url)?;
+
     let client = CfClient::new(&source_base_url, cf_state.store.inner_arc())?.with_app_handle(app);
     client.get_image(&image_url).await
 }

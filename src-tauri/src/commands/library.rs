@@ -45,6 +45,7 @@ pub fn start_background_scan(
     library_path: String,
     content_type: String,
 ) -> Result<()> {
+    validate::require_safe_path(&library_path, "library_path")?;
     tauri::async_runtime::spawn_blocking(move || {
         use std::path::Path;
 
@@ -100,7 +101,10 @@ pub fn start_background_scan(
 /// to cover the cold-start race.
 #[tauri::command]
 pub fn take_opened_urls(state: State<AppState>) -> Result<Vec<String>> {
-    let mut opened = state.opened_urls.lock().unwrap();
+    let mut opened = state
+        .opened_urls
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     Ok(std::mem::take(&mut *opened))
 }
 
@@ -258,6 +262,8 @@ pub async fn update_book(state: State<'_, AppState>, book: Book) -> Result<()> {
     }
     validate::require_non_empty(&book.title, "title")?;
     validate::require_max_length(&book.title, 1000, "title")?;
+    validate::require_non_empty(&book.file_path, "file_path")?;
+    validate::require_safe_path(&book.file_path, "file_path")?;
     let db = &state.db;
     library_service::update_book(db, book)
 }

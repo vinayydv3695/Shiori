@@ -4,6 +4,9 @@ use crate::models::{SearchQuery, SearchResult};
 use crate::services::library_service;
 use rusqlite::types::Value;
 
+/// Upper bound for frontend-supplied LIMIT values; anything above is clamped.
+const MAX_LIMIT: i64 = 1000;
+
 pub fn build_search_query(query: &SearchQuery) -> (String, Vec<Value>, String, Vec<Value>) {
     let mut from_sql = String::from(" FROM books b");
     let mut where_clauses: Vec<String> = Vec::new();
@@ -253,7 +256,7 @@ pub fn build_search_query(query: &SearchQuery) -> (String, Vec<Value>, String, V
 
     if let Some(limit) = query.limit {
         ids_sql.push_str(" LIMIT ?");
-        page_params.push(Value::Integer(limit));
+        page_params.push(Value::Integer(limit.clamp(0, MAX_LIMIT)));
     }
 
     // SQLite requires LIMIT before OFFSET. If caller provides OFFSET alone, use LIMIT -1.
@@ -384,6 +387,28 @@ mod tests {
         assert!(!ids_sql.contains("SELECT MIN(a.name)"), "{ids_sql}");
         assert!(ids_sql.contains("LEFT JOIN (SELECT ba.book_id AS am_book_id, MIN(a.name)"), "{ids_sql}");
         assert!(ids_sql.contains("ORDER BY am.author_name ASC NULLS LAST"), "{ids_sql}");
+    }
+
+    #[test]
+    fn test_build_search_query_limit_clamped() {
+        // Over-limit values are clamped to MAX_LIMIT; 0 and negatives clamp to 0.
+        let mut query = SearchQuery::default();
+        query.limit = Some(5000);
+        let (_count_sql, _base_params, ids_sql, page_params) = build_search_query(&query);
+        assert!(ids_sql.contains("LIMIT ?"));
+        assert_eq!(page_params[0], Value::Integer(1000));
+
+        let mut query = SearchQuery::default();
+        query.limit = Some(0);
+        let (_count_sql, _base_params, ids_sql, page_params) = build_search_query(&query);
+        assert!(ids_sql.contains("LIMIT ?"));
+        assert_eq!(page_params[0], Value::Integer(0));
+
+        let mut query = SearchQuery::default();
+        query.limit = Some(-5);
+        let (_count_sql, _base_params, ids_sql, page_params) = build_search_query(&query);
+        assert!(ids_sql.contains("LIMIT ?"));
+        assert_eq!(page_params[0], Value::Integer(0));
     }
 
     #[test]

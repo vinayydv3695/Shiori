@@ -159,6 +159,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 45 {
             self.run_in_savepoint("v45", |mgr| mgr.migrate_to_v45())?;
         }
+        if current_version < 46 {
+            self.run_in_savepoint("v46", |mgr| mgr.migrate_to_v46())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -1011,7 +1014,20 @@ impl<'a> MigrationManager<'a> {
                     uuid, book_id, source_path,
                     COALESCE(target_path, ''),
                     source_format, target_format,
-                    status, progress, error_message,
+                    -- v3 stored lowercase statuses ('queued'/'processing'/...)
+                    -- but the engine reads 'Queued'/'Processing' (see
+                    -- conversion_engine::load_pending_jobs). Normalize so old
+                    -- queued/processing jobs resume after the upgrade instead
+                    -- of being invisible forever.
+                    CASE status
+                        WHEN 'queued' THEN 'Queued'
+                        WHEN 'processing' THEN 'Processing'
+                        WHEN 'completed' THEN 'Completed'
+                        WHEN 'failed' THEN 'Failed'
+                        WHEN 'cancelled' THEN 'Cancelled'
+                        ELSE status
+                    END,
+                    progress, error_message,
                     created_at, created_at
                 FROM _conversion_jobs_v3;
 
@@ -1787,11 +1803,107 @@ impl<'a> MigrationManager<'a> {
     fn migrate_to_v22(&self) -> Result<()> {
         log::info!("[Migration] Applying v22: Remove theme CHECK constraint");
 
+        // Rebuild user_preferences with an explicit schema instead of
+        // `CREATE TABLE ... AS SELECT *`: CTAS silently drops the PRIMARY KEY,
+        // all CHECK constraints (id = 1, font-size ranges, theme whitelist,
+        // …) and NOT NULL flags, leaving a constraint-less table behind.
+        // The explicit column list also guarantees the rebuild never picks up
+        // (or drops) columns the pre-v22 schema did not have.
         self.conn.execute_batch(
             r#"
             PRAGMA foreign_keys=off;
             
-            CREATE TABLE user_preferences_new AS SELECT * FROM user_preferences;
+            CREATE TABLE user_preferences_new (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                
+                -- Theme
+                theme TEXT DEFAULT 'black' CHECK(theme IN ('black', 'white', 'rose-pine-moon', 'catppuccin-mocha', 'nord', 'dracula', 'tokyo-night', 'light', 'dark', 'system', 'sepia', 'high-contrast')),
+                
+                -- Book reading defaults
+                book_font_family TEXT DEFAULT 'Merriweather',
+                book_font_size INTEGER DEFAULT 18 CHECK(book_font_size BETWEEN 12 AND 32),
+                book_line_height REAL DEFAULT 1.6 CHECK(book_line_height BETWEEN 1.2 AND 2.0),
+                book_page_width INTEGER DEFAULT 720 CHECK(book_page_width BETWEEN 600 AND 900),
+                book_scroll_mode TEXT DEFAULT 'paged' CHECK(book_scroll_mode IN ('paged', 'continuous')),
+                book_justification TEXT DEFAULT 'justify' CHECK(book_justification IN ('left', 'justify')),
+                book_paragraph_spacing INTEGER DEFAULT 16,
+                book_animation_speed INTEGER DEFAULT 300 CHECK(book_animation_speed BETWEEN 100 AND 500),
+                book_hyphenation BOOLEAN DEFAULT 1,
+                book_custom_css TEXT DEFAULT '',
+                
+                -- Manga reading defaults
+                manga_mode TEXT DEFAULT 'single' CHECK(manga_mode IN ('long-strip', 'single', 'double')),
+                manga_direction TEXT DEFAULT 'ltr' CHECK(manga_direction IN ('ltr', 'rtl')),
+                manga_margin_size INTEGER DEFAULT 0 CHECK(manga_margin_size BETWEEN 0 AND 100),
+                manga_fit_width BOOLEAN DEFAULT 1,
+                manga_background_color TEXT DEFAULT '#000000',
+                manga_progress_bar TEXT DEFAULT 'bottom' CHECK(manga_progress_bar IN ('top', 'bottom', 'hidden')),
+                manga_image_smoothing BOOLEAN DEFAULT 1,
+                manga_preload_count INTEGER DEFAULT 3 CHECK(manga_preload_count BETWEEN 1 AND 5),
+                manga_gpu_acceleration BOOLEAN DEFAULT 1,
+                
+                -- General settings
+                auto_start BOOLEAN DEFAULT 0,
+                default_import_path TEXT DEFAULT '',
+                ui_density TEXT DEFAULT 'comfortable' CHECK(ui_density IN ('compact', 'comfortable')),
+                accent_color TEXT DEFAULT '#4A9EFF',
+                
+                -- v7 onboarding
+                preferred_content_type TEXT DEFAULT 'both',
+                ui_scale REAL DEFAULT 1.0,
+                performance_mode TEXT DEFAULT 'standard',
+                metadata_mode TEXT DEFAULT 'online',
+                auto_scan_enabled BOOLEAN DEFAULT TRUE,
+                default_manga_path TEXT DEFAULT NULL,
+                
+                -- v8 reader enhancements
+                page_flip_enabled BOOLEAN DEFAULT 1,
+                page_flip_speed INTEGER DEFAULT 400,
+                paper_theme_enabled BOOLEAN DEFAULT 0,
+                paper_texture_intensity REAL DEFAULT 0.08,
+                doodle_enabled BOOLEAN DEFAULT 1,
+                adaptive_mode TEXT DEFAULT 'auto',
+                
+                -- v12 TTS
+                tts_voice TEXT NOT NULL DEFAULT 'default',
+                tts_rate REAL NOT NULL DEFAULT 1.0,
+                tts_auto_advance INTEGER NOT NULL DEFAULT 1,
+                tts_highlight_color TEXT NOT NULL DEFAULT '#f3a6a68c',
+                
+                -- v14 translation
+                translation_target_language TEXT NOT NULL DEFAULT 'en',
+                
+                -- v21 auto-group manga
+                auto_group_manga BOOLEAN DEFAULT 1,
+                
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                version INTEGER DEFAULT 1
+            );
+            
+            INSERT OR IGNORE INTO user_preferences_new (
+                id, theme, book_font_family, book_font_size, book_line_height, book_page_width,
+                book_scroll_mode, book_justification, book_paragraph_spacing, book_animation_speed,
+                book_hyphenation, book_custom_css, manga_mode, manga_direction, manga_margin_size,
+                manga_fit_width, manga_background_color, manga_progress_bar, manga_image_smoothing,
+                manga_preload_count, manga_gpu_acceleration, auto_start, default_import_path,
+                ui_density, accent_color, preferred_content_type, ui_scale, performance_mode,
+                metadata_mode, auto_scan_enabled, default_manga_path, page_flip_enabled,
+                page_flip_speed, paper_theme_enabled, paper_texture_intensity, doodle_enabled,
+                adaptive_mode, tts_voice, tts_rate, tts_auto_advance, tts_highlight_color,
+                translation_target_language, auto_group_manga, created_at, updated_at, version
+            ) SELECT 
+                id, theme, book_font_family, book_font_size, book_line_height, book_page_width,
+                book_scroll_mode, book_justification, book_paragraph_spacing, book_animation_speed,
+                book_hyphenation, book_custom_css, manga_mode, manga_direction, manga_margin_size,
+                manga_fit_width, manga_background_color, manga_progress_bar, manga_image_smoothing,
+                manga_preload_count, manga_gpu_acceleration, auto_start, default_import_path,
+                ui_density, accent_color, preferred_content_type, ui_scale, performance_mode,
+                metadata_mode, auto_scan_enabled, default_manga_path, page_flip_enabled,
+                page_flip_speed, paper_theme_enabled, paper_texture_intensity, doodle_enabled,
+                adaptive_mode, tts_voice, tts_rate, tts_auto_advance, tts_highlight_color,
+                translation_target_language, auto_group_manga, created_at, updated_at, version
+            FROM user_preferences;
             
             DROP TABLE user_preferences;
             
@@ -2075,6 +2187,15 @@ impl<'a> MigrationManager<'a> {
                 auto_scan_enabled BOOLEAN DEFAULT 1,
                 default_manga_path TEXT,
                 
+                -- v8 reader enhancements (restored: v29's original rebuild
+                -- omitted these six columns, silently dropping the settings)
+                page_flip_enabled BOOLEAN DEFAULT 1,
+                page_flip_speed INTEGER DEFAULT 400,
+                paper_theme_enabled BOOLEAN DEFAULT 0,
+                paper_texture_intensity REAL DEFAULT 0.08,
+                doodle_enabled BOOLEAN DEFAULT 1,
+                adaptive_mode TEXT DEFAULT 'auto',
+                
                 tts_voice TEXT NOT NULL DEFAULT 'default',
                 tts_rate REAL NOT NULL DEFAULT 1.0,
                 tts_auto_advance INTEGER NOT NULL DEFAULT 1,
@@ -2115,7 +2236,9 @@ impl<'a> MigrationManager<'a> {
                 manga_fit_width, manga_background_color, manga_progress_bar, manga_image_smoothing,
                 manga_preload_count, manga_gpu_acceleration, auto_start, default_import_path,
                 ui_density, accent_color, preferred_content_type, ui_scale, performance_mode,
-                metadata_mode, auto_scan_enabled, default_manga_path, tts_voice, tts_rate,
+                metadata_mode, auto_scan_enabled, default_manga_path, page_flip_enabled,
+                page_flip_speed, paper_theme_enabled, paper_texture_intensity, doodle_enabled,
+                adaptive_mode, tts_voice, tts_rate,
                 tts_auto_advance, tts_highlight_color, translation_target_language, auto_group_manga,
                 auto_translate, cache_size_limit_mb, library_size_limit, send_analytics,
                 send_crash_reports, debug_logging, enable_cloud_sync, enable_notifications,
@@ -2129,7 +2252,9 @@ impl<'a> MigrationManager<'a> {
                 manga_fit_width, manga_background_color, manga_progress_bar, manga_image_smoothing,
                 manga_preload_count, manga_gpu_acceleration, auto_start, default_import_path,
                 ui_density, accent_color, preferred_content_type, ui_scale, performance_mode,
-                metadata_mode, auto_scan_enabled, default_manga_path, tts_voice, tts_rate,
+                metadata_mode, auto_scan_enabled, default_manga_path, page_flip_enabled,
+                page_flip_speed, paper_theme_enabled, paper_texture_intensity, doodle_enabled,
+                adaptive_mode, tts_voice, tts_rate,
                 tts_auto_advance, tts_highlight_color, translation_target_language, auto_group_manga,
                 auto_translate, cache_size_limit_mb, library_size_limit, send_analytics,
                 send_crash_reports, debug_logging, enable_cloud_sync, enable_notifications,
@@ -2648,6 +2773,49 @@ impl<'a> MigrationManager<'a> {
 
         let hash = Self::calculate_checksum("v45_query_layer_indexes");
         self.record_migration(45, "query_layer_indexes", &hash)?;
+        Ok(())
+    }
+
+    /// Migration v46: Restore the v8 reader-enhancement preference columns.
+    ///
+    /// v29's rebuild of `user_preferences` (CREATE + INSERT..SELECT) omitted
+    /// the six columns v8 added (page_flip_enabled, page_flip_speed,
+    /// paper_theme_enabled, paper_texture_intensity, doodle_enabled,
+    /// adaptive_mode), so every DB that crossed v8→v29 — including fresh
+    /// installs — lost those settings. v29's column lists now include them
+    /// (fixes the fresh path); this migration repairs EXISTING DBs that
+    /// already ran the buggy v29 by re-adding whatever is missing with the
+    /// exact v8 defaults. The ALTERs are guarded with column_exists because
+    /// `user_version` is stuck at 30 (migrations v31+ re-run on every
+    /// startup) and an unguarded ALTER would fail with "duplicate column
+    /// name" on the second launch.
+    fn migrate_to_v46(&self) -> Result<()> {
+        log::info!(
+            "[Migration] Applying v46: restore v8 reader-enhancement preference columns"
+        );
+
+        let columns_to_add = vec![
+            ("page_flip_enabled", "BOOLEAN DEFAULT 1"),
+            ("page_flip_speed", "INTEGER DEFAULT 400"),
+            ("paper_theme_enabled", "BOOLEAN DEFAULT 0"),
+            ("paper_texture_intensity", "REAL DEFAULT 0.08"),
+            ("doodle_enabled", "BOOLEAN DEFAULT 1"),
+            ("adaptive_mode", "TEXT DEFAULT 'auto'"),
+        ];
+
+        for (col_name, col_def) in columns_to_add {
+            if !self.column_exists("user_preferences", col_name)? {
+                let sql = format!(
+                    "ALTER TABLE user_preferences ADD COLUMN {} {}",
+                    col_name, col_def
+                );
+                self.conn.execute(&sql, [])?;
+                log::debug!("v46: restored column {} on user_preferences", col_name);
+            }
+        }
+
+        let hash = Self::calculate_checksum("v46_restore_v8_preference_columns");
+        self.record_migration(46, "restore_v8_preference_columns", &hash)?;
         Ok(())
     }
 }

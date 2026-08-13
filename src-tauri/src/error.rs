@@ -96,6 +96,30 @@ impl From<lopdf::Error> for ShioriError {
 }
 
 impl ShioriError {
+    /// The serialized `message` is technical free text (e.g. `io` errors
+    /// embed the offending path). Strip absolute path prefixes from it so
+    /// host paths never leak into the frontend. `technicalDetails` keeps
+    /// the full text for debugging. Frontend matching is key-based only
+    /// (see src/lib/errors.ts), so key names stay identical.
+    fn sanitized_message(&self) -> String {
+        static PATH_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
+            // Three alternatives: Windows drive (`C:\...`), UNC (`\\server\share`),
+            // and multi-segment absolute Unix paths. The Unix branch captures the
+            // char before the leading `/` (group 1) to avoid matching inside
+            // `scheme://` URLs — the `regex` crate has no look-around.
+            regex::Regex::new(
+                r#"(?:\b[A-Za-z]:[\\/][^\s"':]*|\\\\[^\\\s]+\\[^\\\s]+(?:\\[^\s"':]*)*|(^|[^:/])/(?:[^\s"'./][^\s"']*/)+[^\s"'./][^\s"']*)"#,
+            )
+            .expect("static path regex")
+        });
+        PATH_RE
+            .replace_all(&self.to_string(), |caps: &regex::Captures| match caps.get(1) {
+                Some(m) => format!("{}[path]", m.as_str()),
+                None => "[path]".to_string(),
+            })
+            .to_string()
+    }
+
     /// Get a user-friendly error message suitable for display in the UI
     pub fn user_message(&self) -> String {
         match self {
@@ -242,7 +266,7 @@ impl serde::Serialize for ShioriError {
     {
         use serde::ser::SerializeStruct;
         let mut state = serializer.serialize_struct("ShioriError", 5)?;
-        state.serialize_field("message", &self.to_string())?;
+        state.serialize_field("message", &self.sanitized_message())?;
         state.serialize_field("userMessage", &self.user_message())?;
         state.serialize_field("suggestions", &self.recovery_suggestions())?;
         state.serialize_field("technicalDetails", &self.technical_details())?;
@@ -252,3 +276,56 @@ impl serde::Serialize for ShioriError {
 }
 
 pub type Result<T> = std::result::Result<T, ShioriError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sanitized_message_strips_absolute_paths() {
+        let e = ShioriError::FileNotFound {
+            path: "/home/user/Documents/book.epub".to_string(),
+        };
+        let msg = e.sanitized_message();
+        assert_eq!(msg, "File not found: [path]");
+        assert!(!msg.contains("/home/"));
+
+        // Windows drive paths
+        let e = ShioriError::FileNotFound {
+            path: "C:\\Users\\alice\\book.pdf".to_string(),
+        };
+        let msg = e.sanitized_message();
+        assert_eq!(msg, "File not found: [path]");
+
+        // UNC
+        let e = ShioriError::Other("Failed to move \\\\server\\share\\x.epub: nope".to_string());
+        let msg = e.sanitized_message();
+        assert_eq!(msg, "Failed to move [path]: nope");
+
+        // Non-path text untouched (incl. traversal strings and relative refs)
+        let e = ShioriError::Validation(
+            "file_path contains path traversal (../) which is not allowed".to_string(),
+        );
+        assert_eq!(
+            e.sanitized_message(),
+            "Validation error: file_path contains path traversal (../) which is not allowed"
+        );
+        let e = ShioriError::Other("relative/path and https://example.com/x stay".to_string());
+        let msg = e.sanitized_message();
+        assert_eq!(msg, "relative/path and https://example.com/x stay");
+    }
+
+    #[test]
+    fn test_serialized_message_strips_paths_but_keeps_details() {
+        let e = ShioriError::FileNotFound {
+            path: "/home/user/book.epub".to_string(),
+        };
+        let json = serde_json::to_string(&e).unwrap();
+        assert!(json.contains("\"message\":\"File not found: [path]\""));
+        assert!(!json.contains("File not found: /home/user"));
+        assert!(json.contains("\"technicalDetails\":\"File Not Found\\nPath: /home/user/book.epub\""));
+        // Keys unchanged
+        assert!(json.contains("\"userMessage\""));
+        assert!(json.contains("\"kind\":\"file_not_found\""));
+    }
+}

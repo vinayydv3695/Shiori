@@ -11,6 +11,9 @@ import { anilistAuth, ViewerInfo } from '@/auth';
 const ANILIST_CLIENT_ID = '45197';
 const ANILIST_IMPLICIT_URL = `https://anilist.co/api/v2/oauth/authorize?client_id=${ANILIST_CLIENT_ID}&response_type=token`;
 
+// AniList access tokens are JWT-shaped: three dot-separated base64url segments.
+const ANILIST_TOKEN_RE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
+
 type IntegrationsStepProps = {
   onBack: () => void;
   onNext: () => void;
@@ -37,6 +40,7 @@ export function IntegrationsStep({ onBack, onNext }: IntegrationsStepProps) {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isAniListLinked, setIsAniListLinked] = useState(false);
   const [aniListViewer, setAniListViewer] = useState<ViewerInfo | null>(null);
+  const [anilistTokenError, setAnilistTokenError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -222,13 +226,25 @@ export function IntegrationsStep({ onBack, onNext }: IntegrationsStepProps) {
                                   placeholder="eyJ0eXAi..."
                                   className="h-9 flex-1 rounded-lg border border-border/40 bg-background px-3 text-sm text-foreground outline-none transition focus-visible:ring-1 focus-visible:ring-primary/50"
                                   onChange={(e) => {
-                                    if (e.target.value.length > 50) {
-                                      updateGeneralSettings({ anilistToken: e.target.value });
+                                    const value = e.target.value;
+                                    if (ANILIST_TOKEN_RE.test(value)) {
+                                      updateGeneralSettings({ anilistToken: value });
+                                      setAnilistTokenError(null);
                                       e.target.value = '';
+                                    } else if (value.length > 0) {
+                                      setAnilistTokenError('Invalid token — paste a full AniList access token (three dot-separated parts).');
+                                    } else {
+                                      setAnilistTokenError(null);
                                     }
                                   }}
                                 />
                               </div>
+                              {anilistTokenError && (
+                                <p className="flex items-center gap-1 text-[11px] text-amber-300">
+                                  <AlertTriangle className="h-3 w-3 shrink-0" />
+                                  {anilistTokenError}
+                                </p>
+                              )}
                               <a
                                 href={ANILIST_IMPLICIT_URL}
                                 target="_blank"

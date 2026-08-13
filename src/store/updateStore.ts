@@ -4,6 +4,7 @@ export interface UpdateInfo {
   version: string;
   notes: string;
   apkUrl?: string; // For Android
+  apkSha256?: string; // For Android — hex digest of the APK release asset (no sha256: prefix)
   desktopUpdate?: any; // The Tauri Update object
 }
 

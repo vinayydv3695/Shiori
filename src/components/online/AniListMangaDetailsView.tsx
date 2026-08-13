@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Download, ExternalLink, Bookmark, ArrowLeft, BookOpen, ChevronDown, X, Star, Calendar, RefreshCw, AlignLeft, Plus, Minus, Loader2, Check } from 'lucide-react';
 import { AnilistMediaList, AnilistMediaDetails, getMediaDetails, updateMediaListEntry } from '@/lib/anilist';
+import DOMPurify from 'dompurify';
 import { toast } from '@/store/toastStore';
 import { useAniListAccessToken } from '@/auth/useAniListAccessToken';
 import { openExternal } from '@/lib/externalLinks';
@@ -579,7 +580,7 @@ export function AniListMangaDetailsView({
                         <h3 className={cn("font-bold text-primary mb-3", isMobile ? "text-lg" : "text-xl")}>Synopsis</h3>
                         <p 
                           className="text-muted-foreground leading-relaxed text-base md:text-lg opacity-90"
-                          dangerouslySetInnerHTML={{ __html: details.description || 'No synopsis available.' }}
+                          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(details.description || 'No synopsis available.') }}
                         />
                       </div>
                       

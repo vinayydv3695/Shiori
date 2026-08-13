@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { sanitizeArticleHTML } from '@/lib/sanitize';
+import { handleExternalLinkClick } from '@/lib/externalLinks';
 import { type RssArticle } from '@/store/rssStore';
 import { open } from '@tauri-apps/plugin-shell';
 
@@ -18,6 +19,7 @@ export const RSSArticleReader: React.FC<RSSArticleReaderProps> = ({ article, onC
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const [mounted, setMounted] = useState(false);
   const minSwipeDistance = 50;
+  const articleRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -113,6 +115,12 @@ export const RSSArticleReader: React.FC<RSSArticleReaderProps> = ({ article, onC
           </header>
 
           <article
+            ref={articleRef}
+            onClick={(e) => {
+              // External links (http/https/mailto) → system browser; internal
+              // links (anchors, relative) bubble on untouched.
+              handleExternalLinkClick(e.nativeEvent, articleRef.current);
+            }}
             className="prose prose-base md:prose-lg dark:prose-invert max-w-none prose-headings:font-bold prose-a:text-primary prose-img:rounded-xl prose-img:shadow-md"
             dangerouslySetInnerHTML={{ __html: sanitizeArticleHTML(article.content) }}
           />

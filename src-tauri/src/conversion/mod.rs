@@ -186,13 +186,19 @@ pub async fn convert_to_epub_new(
 
     report("Detecting format", 2);
 
-    // Prepare output path
+    // Prepare output path. The intermediate dir is a `tempfile::TempDir`
+    // (0700 perms, unique) that we `keep()`: the returned EPUB path is handed
+    // to the frontend reader, which reads it lazily for the whole session, so
+    // drop-time auto-cleanup would delete a file still in use. Leftovers are
+    // reaped by `cleanup_converted_cache` (Clear Cache / app exit).
     let stem = input_path
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("converted");
-    let tmp_dir = std::env::temp_dir().join(format!("shiori_converted_{}", uuid::Uuid::new_v4()));
-    std::fs::create_dir_all(&tmp_dir)?;
+    let tmp_handle = tempfile::Builder::new()
+        .prefix("shiori_converted_")
+        .tempdir()?;
+    let tmp_dir = tmp_handle.keep();
     let output_path = tmp_dir.join(format!("{}.epub", stem));
 
     if let Some(db) = db {
@@ -305,10 +311,18 @@ fn parse_oeb(input_path: &Path, ext: &str) -> Result<oeb::OebBook, ConversionErr
 
 /// Delete the Shiori conversion cache directory.
 /// Call this on app exit or "Clear Cache" user action.
+///
+/// Reaps every `shiori_converted_*` directory under the system temp dir
+/// (the intermediate dirs produced by [`convert_to_epub_new`], which are
+/// kept alive for the reading session rather than dropped).
 pub fn cleanup_converted_cache() -> Result<(), ConversionError> {
-    let tmp_dir = std::env::temp_dir().join("shiori_converted");
-    if tmp_dir.exists() {
-        std::fs::remove_dir_all(&tmp_dir)?;
+    let tmp_root = std::env::temp_dir();
+    let entries = std::fs::read_dir(&tmp_root).map_err(ConversionError::IoError)?;
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        if name.to_string_lossy().starts_with("shiori_converted_") && entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+            std::fs::remove_dir_all(entry.path())?;
+        }
     }
     Ok(())
 }

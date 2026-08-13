@@ -10,7 +10,7 @@ import {
   X, Moon, Sun, Palette, Shield, BookOpen, FileText,
   Download, Upload, HardDrive, Archive, CheckCircle2, AlertTriangle,
   Search, FolderOpen, ExternalLink, RefreshCw, Trash2, Info,
-  RotateCcw, Puzzle, MonitorSmartphone
+  RotateCcw, Puzzle, MonitorSmartphone, Heart
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -605,12 +605,12 @@ const GeneralSettings = ({
   const themeOptions: { value: Theme; label: string; icon: typeof Moon }[] = [
     { value: 'light', label: 'Premium Light', icon: Sun },
     { value: 'dark', label: 'OLED Midnight', icon: Moon },
+    { value: 'hello-kitty', label: 'Hello Kitty', icon: Heart },
+    { value: 'midnight-pink', label: 'Midnight Pink', icon: Palette },
     { value: 'sepia', label: 'Sepia Paper', icon: Sun },
     { value: 'gray', label: 'E-Ink Gray', icon: Moon },
     { value: 'rose-pine-moon', label: 'Rosé Pine', icon: Palette },
     { value: 'catppuccin-mocha', label: 'Catppuccin', icon: Palette },
-    { value: 'nord', label: 'Nord', icon: Palette },
-    { value: 'dracula', label: 'Dracula', icon: Palette },
     { value: 'tokyo-night', label: 'Tokyo Night', icon: Palette },
     { value: 'premium-dark', label: 'Premium Dark', icon: Palette },
   ]
@@ -1532,7 +1532,15 @@ const AdvancedSettings = ({
   const restoreFrontendSettings = (settingsJson: string) => {
     try {
       const settings: Record<string, string> = JSON.parse(settingsJson)
+      // Strict allowlist: only ever write keys the app itself collects for
+      // backup (see collectFrontendSettings — `shiori-` prefixed keys only).
+      // A crafted backup must not be able to plant arbitrary localStorage
+      // entries; unknown keys are skipped silently.
       for (const [key, value] of Object.entries(settings)) {
+        if (!key.startsWith('shiori-')) {
+          if (import.meta.env.DEV) console.warn(`[restore] Skipping non-backup key: ${key}`)
+          continue
+        }
         localStorage.setItem(key, value)
       }
     } catch {

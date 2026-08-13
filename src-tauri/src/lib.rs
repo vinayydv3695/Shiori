@@ -14,6 +14,7 @@ pub mod sources;
 pub mod utils;
 
 use error::ShioriError;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 #[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
 use tauri::Emitter;
@@ -200,19 +201,23 @@ pub fn run() {
                             .unwrap_or_default();
                     }
 
-                    let mut req = CLIENT
-                        .get(&image_url)
-                        .header("User-Agent", user_agent)
-                        .header("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
-                        .header("Accept-Language", "en-US,en;q=0.9")
-                        .header("Sec-Fetch-Dest", "image")
-                        .header("Sec-Fetch-Mode", "no-cors")
-                        .header("Sec-Fetch-Site", "cross-site");
-                if let Some(ref_url) = referer {
-                    req = req.header("Referer", ref_url);
-                }
+                    let result = guarded_get_with(&CLIENT, &image_url, |req| {
+                        let req = req
+                            .header("User-Agent", user_agent)
+                            .header("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
+                            .header("Accept-Language", "en-US,en;q=0.9")
+                            .header("Sec-Fetch-Dest", "image")
+                            .header("Sec-Fetch-Mode", "no-cors")
+                            .header("Sec-Fetch-Site", "cross-site");
+                        if let Some(ref_url) = referer {
+                            req.header("Referer", ref_url)
+                        } else {
+                            req
+                        }
+                    })
+                    .await;
 
-                if let Ok(response) = req.send().await {
+                if let Ok(mut response) = result {
                     let status = response.status();
                     if status.is_success() {
                         // Forward Content-Type if present
@@ -223,13 +228,34 @@ pub fn run() {
                             .unwrap_or("image/jpeg")
                             .to_string();
 
-                        if let Ok(bytes) = response.bytes().await {
+                        // Cap the response body at 25MB (S-42)
+                        let max_body: usize = 25 * 1024 * 1024;
+                        let mut bytes = Vec::new();
+                        let mut body_ok = true;
+                        loop {
+                            match response.chunk().await {
+                                Ok(Some(chunk)) => {
+                                    if bytes.len() + chunk.len() > max_body {
+                                        body_ok = false;
+                                        break;
+                                    }
+                                    bytes.extend_from_slice(&chunk);
+                                }
+                                Ok(None) => break,
+                                Err(_) => {
+                                    body_ok = false;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if body_ok {
                             if let Ok(resp) = tauri::http::Response::builder()
                                 .status(200)
                                 .header("Content-Type", content_type)
                                 .header("Access-Control-Allow-Origin", "*")
                                 .header("Cache-Control", "public, max-age=31536000")
-                                .body(bytes.to_vec())
+                                .body(bytes)
                             {
                                 responder.respond(resp);
                                 return;
@@ -714,7 +740,8 @@ pub fn run() {
 }
 
 /// Security Fix: SSRF Prevention
-/// Validates scheme (https) and ensures IP is not private/loopback/link-local
+/// Validates scheme (https) and ensures the host is not a private/loopback/
+/// link-local/multicast IP literal or a single-label hostname.
 pub fn is_safe_url(image_url: &str) -> bool {
     let parsed = match url::Url::parse(image_url) {
         Ok(p) => p,
@@ -731,13 +758,14 @@ pub fn is_safe_url(image_url: &str) -> bool {
         None => return false,
     };
 
-    // Block explicit loopback / link-local / private IPv4 literals
-    let blocked_literals = ["localhost", "127.0.0.1", "[::1]", "0.0.0.0"];
+    // Block explicit loopback / special hostnames
+    let blocked_literals = ["localhost", "0.0.0.0"];
     if blocked_literals.contains(&host.as_str()) {
         return false;
     }
 
-    // Block private IPv4 ranges expressed as literals (simple prefix check)
+    // Block private IPv4 ranges expressed as hostname prefixes (defense in
+    // depth for hostnames that embed private literals, e.g. "10.0.0.1.evil.com")
     let private_prefixes = [
         "10.", "192.168.", "172.16.", "172.17.", "172.18.", "172.19.", "172.20.", "172.21.",
         "172.22.", "172.23.", "172.24.", "172.25.", "172.26.", "172.27.", "172.28.", "172.29.",
@@ -754,6 +782,13 @@ pub fn is_safe_url(image_url: &str) -> bool {
         return false;
     }
 
+    // Proper IP-literal handling: reject ANY non-public address (loopback,
+    // link-local, private, CGNAT, multicast, IPv4-mapped IPv6 of a blocked
+    // v4 range, IPv6 link-local/unique-local, ...).
+    if let Some(ip) = parse_ip_host(&host) {
+        return is_public_ip(&ip);
+    }
+
     // Must have at least one dot (not a bare hostname / single-label domain)
     if !host.contains('.') {
         return false;
@@ -762,31 +797,288 @@ pub fn is_safe_url(image_url: &str) -> bool {
     true
 }
 
+/// Parse a URL host string (lowercased, IPv6 without brackets) as an IP literal,
+/// including WHATWG-style IPv4 shorthand such as `127.1` -> 127.0.0.1.
+fn parse_ip_host(host: &str) -> Option<IpAddr> {
+    // url crate serializes IPv6 hosts WITH brackets in host_str()
+    // (e.g. "[2606:4700::1111]") — strip them before parsing.
+    let host = host
+        .strip_prefix('[')
+        .and_then(|h| h.strip_suffix(']'))
+        .unwrap_or(host);
+    if let Ok(v4) = host.parse::<Ipv4Addr>() {
+        return Some(IpAddr::V4(v4));
+    }
+    if let Ok(v6) = host.parse::<Ipv6Addr>() {
+        return Some(IpAddr::V6(v6));
+    }
+    // WHATWG IPv4 shorthand (e.g. "127.1" -> 127.0.0.1, "127.0.1" -> 127.0.0.1)
+    if host.bytes().all(|b| b.is_ascii_digit() || b == b'.') {
+        let parts: Vec<&str> = host.split('.').collect();
+        if !parts.is_empty() && parts.len() <= 4 {
+            let mut nums = [0u32; 4];
+            let mut ok = true;
+            for (i, p) in parts.iter().enumerate() {
+                if p.is_empty() || p.len() > 3 {
+                    ok = false;
+                    break;
+                }
+                match p.parse::<u32>() {
+                    Ok(n) if n <= 255 => nums[i] = n,
+                    _ => {
+                        ok = false;
+                        break;
+                    }
+                }
+            }
+            if ok {
+                // Fill octets from the right: "a.b" -> a.0.0.b, "a" -> 0.0.0.a
+                let mut octets = [0u8; 4];
+                for (i, n) in nums.iter().take(parts.len()).enumerate() {
+                    octets[4 - parts.len() + i] = *n as u8;
+                }
+                return Some(IpAddr::V4(Ipv4Addr::from(octets)));
+            }
+        }
+    }
+    None
+}
+
+/// Returns true if `ip` is a globally routable (public) address.
+/// Rejects loopback, private, link-local, CGNAT, unspecified, multicast,
+/// broadcast, documentation/TEST-NET, benchmark ranges, 0.0.0.0/8,
+/// 192.0.0.0/24, IPv4-mapped IPv6 whose mapped v4 is blocked, IPv6
+/// link-local (fe80::/10) and unique-local (fc00::/7).
+pub fn is_public_ip(ip: &IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(v4) => {
+            if v4.is_loopback()
+                || v4.is_private()
+                || v4.is_link_local()
+                || v4.is_multicast()
+                || v4.is_broadcast()
+                || v4.is_unspecified()
+                || v4.is_documentation()
+            {
+                return false;
+            }
+            let o = v4.octets();
+            // 0.0.0.0/8
+            if o[0] == 0 {
+                return false;
+            }
+            // 100.64.0.0/10 (carrier-grade NAT / CGNAT)
+            if o[0] == 100 && (o[1] & 0xC0) == 0x40 {
+                return false;
+            }
+            // 192.0.0.0/24 (IETF protocol assignments)
+            if o[0] == 192 && o[1] == 0 && o[2] == 0 {
+                return false;
+            }
+            // 198.18.0.0/15 (benchmarking)
+            if o[0] == 198 && (o[1] & 0xFE) == 0x12 {
+                return false;
+            }
+            true
+        }
+        IpAddr::V6(v6) => {
+            if v6.is_loopback() || v6.is_multicast() || v6.is_unspecified() {
+                return false;
+            }
+            // fe80::/10 link-local
+            if (v6.segments()[0] & 0xFFC0) == 0xFE80 {
+                return false;
+            }
+            // fc00::/7 unique-local
+            if (v6.segments()[0] & 0xFE00) == 0xFC00 {
+                return false;
+            }
+            // ::ffff:a.b.c.d — reject if the mapped IPv4 is any blocked range
+            if let Some(mapped) = v6.to_ipv4_mapped() {
+                return is_public_ip(&IpAddr::V4(mapped));
+            }
+            true
+        }
+    }
+}
+
+/// Validate a URL before fetching: must parse and pass `is_safe_url`.
+pub fn validate_fetch_url(url: &str) -> Result<(), ShioriError> {
+    url::Url::parse(url)
+        .map(|_| ())
+        .map_err(|e| ShioriError::Other(format!("Invalid URL: {e}")))?;
+    if !is_safe_url(url) {
+        return Err(ShioriError::Other(format!(
+            "Blocked URL (SSRF guard): {url}"
+        )));
+    }
+    Ok(())
+}
+
+/// Maximum redirect hops followed by `guarded_get` (matches reqwest's default limit).
+const MAX_GUARDED_REDIRECTS: usize = 10;
+
+/// Redirect policy that re-validates every hop URL with `is_safe_url` and
+/// errors on the first unsafe hop (prevents redirect-based SSRF).
+fn safe_redirect_policy() -> reqwest::redirect::Policy {
+    reqwest::redirect::Policy::custom(|attempt| {
+        if attempt.previous().len() >= MAX_GUARDED_REDIRECTS {
+            return attempt.error(Box::new(ShioriError::Other(
+                "Too many redirects".to_string(),
+            )));
+        }
+        let next_url = attempt.url().clone();
+        if !is_safe_url(next_url.as_str()) {
+            return attempt.error(Box::new(ShioriError::Other(format!(
+                "Redirect to unsafe URL blocked (SSRF guard): {next_url}"
+            ))));
+        }
+        attempt.follow()
+    })
+}
+
+/// SSRF-hardened GET: validates the URL, performs its own DNS lookup for
+/// hostnames (rejecting if ANY resolved address is non-public), pins the
+/// first resolved public address for this request (DNS-rebinding mitigation),
+/// and re-validates every redirect hop with `is_safe_url`.
+///
+/// The request is sent through a dedicated client with the SSRF re-validation
+/// policy (see `safe_redirect_policy`) and a fixed 30s timeout; settings of
+/// the passed-in `client` (timeouts, cookies, proxies, TLS) are not carried
+/// over.
+pub async fn guarded_get(
+    client: &reqwest::Client,
+    url: &str,
+) -> Result<reqwest::Response, ShioriError> {
+    guarded_get_with(client, url, |req| req).await
+}
+/// Same as `guarded_get` but lets the caller attach headers/body via `configure`.
+pub(crate) async fn guarded_get_with<F>(
+    _client: &reqwest::Client,
+    url: &str,
+    configure: F,
+) -> Result<reqwest::Response, ShioriError>
+where
+    F: FnOnce(reqwest::RequestBuilder) -> reqwest::RequestBuilder,
+{
+    validate_fetch_url(url)?;
+
+    let parsed = url::Url::parse(url)
+        .map_err(|e| ShioriError::Other(format!("Invalid URL: {e}")))?;
+    let host = parsed
+        .host_str()
+        .ok_or_else(|| ShioriError::Other("URL has no host".to_string()))?
+        .to_lowercase();
+    let port = parsed.port_or_known_default().unwrap_or(443);
+
+    // Redirect policies are client-level in reqwest, so build a dedicated
+    // client with the SSRF re-validating policy. The caller's client-level
+    // settings (cookies, proxies, TLS) are not carried over; use a fixed
+    // default timeout. DNS pinning (below) is applied on the same builder.
+    let mut guarded_builder = reqwest::Client::builder()
+        .redirect(safe_redirect_policy())
+        .timeout(std::time::Duration::from_secs(30));
+
+    // DNS-rebinding mitigation: for hostnames, resolve ourselves and reject the
+    // request if ANY resolved address is non-public, then pin the first public
+    // address so a second (attacker-controlled) lookup can't diverge.
+    if matches!(parsed.host(), Some(url::Host::Domain(_))) {
+        let addrs: Vec<IpAddr> = tokio::net::lookup_host((host.as_str(), port))
+            .await
+            .map_err(|e| ShioriError::Other(format!("DNS lookup failed for {host}: {e}")))?
+            .map(|sa| sa.ip())
+            .collect();
+
+        if addrs.is_empty() {
+            return Err(ShioriError::Other(format!(
+                "DNS lookup returned no addresses for {host}"
+            )));
+        }
+        for ip in &addrs {
+            if !is_public_ip(ip) {
+                return Err(ShioriError::Other(format!(
+                    "Blocked non-public resolved address {ip} for {host}"
+                )));
+            }
+        }
+        guarded_builder = guarded_builder.resolve(&host, SocketAddr::new(addrs[0], port));
+    }
+
+    let guarded_client = guarded_builder
+        .build()
+        .map_err(|e| ShioriError::Other(format!("Failed to build HTTP client: {e}")))?;
+    let req = configure(guarded_client.get(url));
+
+    req.send()
+        .await
+        .map_err(|e| ShioriError::Other(format!("Request failed: {e}")))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_is_safe_url() {
-        // Valid HTTPS URLs should pass
+    fn test_is_safe_url_accepts_public_urls() {
+        assert!(is_safe_url("https://example.com/"));
+        assert!(is_safe_url("https://mangadex.org/"));
+        assert!(is_safe_url("https://img.mangadex.org/x.png"));
+        assert!(is_safe_url("https://8.8.8.8/"));
+        assert!(is_safe_url("https://[2606:4700::1111]/"));
         assert!(is_safe_url("https://github.com"));
-        assert!(is_safe_url("https://mangadex.org/api/v2"));
         assert!(is_safe_url("https://cdn.mangafire.to/image.jpg"));
+    }
 
-        // HTTP should fail
-        assert!(!is_safe_url("http://github.com"));
-
-        // File schemes should fail
-        assert!(!is_safe_url("file:///etc/passwd"));
-
-        // Internal IP addresses should fail
+    #[test]
+    fn test_is_safe_url_rejects_private_and_special_ips() {
+        // Cloud metadata / link-local
+        assert!(!is_safe_url("https://169.254.169.254/"));
+        // Loopback variants
+        assert!(!is_safe_url("https://127.0.0.2/x"));
+        assert!(!is_safe_url("https://[::ffff:127.0.0.1]/"));
+        assert!(!is_safe_url("https://127.1/"));
         assert!(!is_safe_url("https://127.0.0.1"));
-        assert!(!is_safe_url("https://localhost"));
+        assert!(!is_safe_url("https://[::1]/"));
+        // CGNAT
+        assert!(!is_safe_url("https://100.64.0.1/"));
+        // RFC1918 private
+        assert!(!is_safe_url("https://10.1.2.3/"));
+        assert!(!is_safe_url("https://192.168.1.1/"));
+        assert!(!is_safe_url("https://172.16.5.5/"));
         assert!(!is_safe_url("https://10.0.0.1"));
-        assert!(!is_safe_url("https://192.168.1.1"));
-        assert!(!is_safe_url("https://something.localhost"));
+        // IPv6 link-local / unique-local
+        assert!(!is_safe_url("https://[fe80::1]/"));
+        assert!(!is_safe_url("https://[fc00::1]/"));
+        // Unspecified / multicast / benchmark
+        assert!(!is_safe_url("https://0.0.0.0/"));
+        assert!(!is_safe_url("https://224.0.0.1/"));
+        assert!(!is_safe_url("https://198.18.0.1/"));
+    }
 
-        // Bare single-label hostname should fail
+    #[test]
+    fn test_is_safe_url_rejects_scheme_and_hostname_issues() {
+        assert!(!is_safe_url("http://example.com"));
+        assert!(!is_safe_url("http://github.com"));
+        assert!(!is_safe_url("file:///etc/passwd"));
+        assert!(!is_safe_url("https://localhost/x"));
+        assert!(!is_safe_url("https://foo.localhost/"));
+        assert!(!is_safe_url("https://something.localhost"));
         assert!(!is_safe_url("https://internalhost"));
+    }
+
+    #[test]
+    fn test_is_public_ip() {
+        assert!(is_public_ip(&"8.8.8.8".parse::<IpAddr>().unwrap()));
+        assert!(is_public_ip(&"1.1.1.1".parse::<IpAddr>().unwrap()));
+        assert!(is_public_ip(&"2606:4700::1111".parse::<IpAddr>().unwrap()));
+        assert!(!is_public_ip(&"127.0.0.1".parse::<IpAddr>().unwrap()));
+        assert!(!is_public_ip(&"169.254.169.254".parse::<IpAddr>().unwrap()));
+        assert!(!is_public_ip(&"100.64.0.1".parse::<IpAddr>().unwrap()));
+        assert!(!is_public_ip(&"10.1.2.3".parse::<IpAddr>().unwrap()));
+        assert!(!is_public_ip(&"192.168.1.1".parse::<IpAddr>().unwrap()));
+        assert!(!is_public_ip(&"172.16.5.5".parse::<IpAddr>().unwrap()));
+        assert!(!is_public_ip(&"::1".parse::<IpAddr>().unwrap()));
+        assert!(!is_public_ip(&"fe80::1".parse::<IpAddr>().unwrap()));
+        assert!(!is_public_ip(&"::ffff:127.0.0.1".parse::<IpAddr>().unwrap()));
     }
 }

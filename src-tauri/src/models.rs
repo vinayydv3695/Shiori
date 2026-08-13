@@ -552,6 +552,12 @@ pub struct RestoreReport {
     pub restored: HashMap<String, u64>,
     #[serde(default)]
     pub skipped: u64,
+    /// Archive entries whose names failed the extraction-path safety check
+    /// (traversal, absolute paths, NUL, ...). Kept separate from `skipped`
+    /// so restores can report security-skipped entries distinctly. Unknown
+    /// to the frontend's RestoreInfo — extra keys are ignored there.
+    #[serde(default)]
+    pub skipped_invalid_paths: u64,
     #[serde(default)]
     pub errors: Vec<String>,
     #[serde(default)]

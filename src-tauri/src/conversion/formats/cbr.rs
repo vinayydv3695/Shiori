@@ -22,6 +22,10 @@ pub fn parse(path: &Path) -> Result<OebBook, ConversionError> {
     // Extract using the unrar crate (requires libunrar at link time)
     extract_rar(path, tmp_dir.path())?;
 
+    // Reject archives whose entries escape the extraction directory
+    // (zip-slip-style RARs) before any page is streamed from disk.
+    verify_extracted_paths(tmp_dir.path())?;
+
     // Delegate to the CBZ image-directory parser. Pages are referenced as
     // `ImageSource::Path` into the temp dir — `epub_builder` streams them
     // from disk, so a 1 GB CBR never lives in RAM.
@@ -35,6 +39,33 @@ pub fn parse(path: &Path) -> Result<OebBook, ConversionError> {
     }
 
     Ok(book)
+}
+
+/// Walk the extraction directory and reject any file that resolves (after
+/// canonicalization, i.e. following symlinks) outside it. First violation
+/// aborts the conversion with a clear message.
+fn verify_extracted_paths(dest: &Path) -> Result<(), ConversionError> {
+    let canon_dest = dest.canonicalize().map_err(ConversionError::IoError)?;
+
+    for entry in walkdir::WalkDir::new(dest) {
+        let entry = entry.map_err(|e| {
+            ConversionError::Other(format!("CBR extraction scan failed: {}", e))
+        })?;
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let canon = entry.path().canonicalize().map_err(ConversionError::IoError)?;
+        if !canon.starts_with(&canon_dest) {
+            return Err(ConversionError::ParseError {
+                format: "CBR".to_string(),
+                detail: format!(
+                    "CBR archive entry '{}' escapes the extraction directory; refusing to continue.",
+                    entry.path().display()
+                ),
+            });
+        }
+    }
+    Ok(())
 }
 
 /// Extract a RAR archive to the given directory.

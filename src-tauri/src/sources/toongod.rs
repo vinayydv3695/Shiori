@@ -158,6 +158,9 @@ impl ToonGodSource {
     async fn evaluate_js(&self, url: &str, js_script: &str) -> Result<String> {
         let _lock = self.eval_lock.lock().await;
 
+        // SSRF guard: only navigate the webview to validated HTTPS URLs.
+        crate::validate_fetch_url(url)?;
+
         let guard = self.app_handle.read().await;
         let app = guard.as_ref().ok_or_else(|| {
             ShioriError::Other("ToonGod source app_handle not initialized".into())
@@ -213,10 +216,13 @@ impl ToonGodSource {
 
             use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
+            let parsed_url = url::Url::parse(url).map_err(|e| {
+                ShioriError::Other(format!("Invalid ToonGod URL {}: {}", url, e))
+            })?;
             let _window = WebviewWindowBuilder::new(
                 app,
                 &window_label,
-                WebviewUrl::External(url.parse().unwrap()),
+                WebviewUrl::External(parsed_url),
             )
             .visible(false)
             .initialization_script(&js)
@@ -325,6 +331,8 @@ impl ToonGodSource {
         url: &str,
         _referer: Option<&str>,
     ) -> Result<(reqwest::StatusCode, String)> {
+        // SSRF guard: re-validate scraped URLs before navigating to them.
+        crate::validate_fetch_url(url)?;
         let js = r#"return document.documentElement.outerHTML;"#;
         let html = self.evaluate_js(url, js).await?;
         Ok((reqwest::StatusCode::OK, html))
@@ -597,6 +605,8 @@ impl Source for ToonGodSource {
             format!("{}/{}/{}/", BASE_URL, MANGA_PATH, content_id)
         };
 
+        // SSRF guard: chapter URLs may come from scraped pages; validate first.
+        crate::validate_fetch_url(&manga_url)?;
         let (status, html) = self.fetch_with_referer(&manga_url, Some(BASE_URL)).await?;
 
         if Self::detect_cloudflare_block(status, &html) {

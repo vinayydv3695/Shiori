@@ -214,4 +214,54 @@ mod tests {
         assert!(out.contains("Bye"));
         assert!(!out.contains("example.com"));
     }
+
+    #[test]
+    fn test_embed_local_image_embeds_png() {
+        let dir = tempfile::tempdir().unwrap();
+        // Minimal PNG signature (89 50 4E 47 ...)
+        std::fs::write(dir.path().join("cover.png"), b"\x89PNG\r\n\x1a\n")
+            .unwrap();
+        let mut images = Vec::new();
+        let mut counter = 0;
+        let out = common::embed_local_image(
+            dir.path().join("cover.png").to_str().unwrap(),
+            dir.path(),
+            &mut images,
+            &mut counter,
+        );
+        assert!(out.is_some());
+        assert_eq!(images.len(), 1);
+        assert_eq!(counter, 1);
+    }
+
+    #[test]
+    fn test_embed_local_image_skips_non_image_and_oversized() {
+        let dir = tempfile::tempdir().unwrap();
+
+        // .txt must NOT be embedded (arbitrary local-file exfiltration)
+        std::fs::write(dir.path().join("secret.txt"), b"private data").unwrap();
+        let mut images = Vec::new();
+        assert!(common::embed_local_image("secret.txt", dir.path(), &mut images, &mut 0).is_none());
+        assert!(images.is_empty());
+
+        // Extensionless path under a dot-dir (`.ssh`-style) must NOT be embedded
+        std::fs::create_dir_all(dir.path().join(".ssh")).unwrap();
+        std::fs::write(dir.path().join(".ssh").join("id_rsa"), b"key material").unwrap();
+        let src = format!("./.ssh/id_rsa");
+        assert!(
+            common::embed_local_image(&src, dir.path(), &mut images, &mut 0).is_none(),
+            "extensionless local file must not be embedded"
+        );
+        assert!(images.is_empty());
+
+        // Oversized image (>25 MB) must NOT be embedded
+        let big = dir.path().join("huge.png");
+        std::fs::write(&big, vec![0u8; 25 * 1024 * 1024 + 1]).unwrap();
+        let src = big.to_str().unwrap().to_string();
+        assert!(
+            common::embed_local_image(&src, dir.path(), &mut images, &mut 0).is_none(),
+            "oversized image must not be embedded"
+        );
+        assert!(images.is_empty());
+    }
 }

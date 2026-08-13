@@ -44,6 +44,13 @@ pub fn require_max_length(value: &str, max: usize, field: &str) -> Result<()> {
 pub fn require_safe_path(path: &str, field: &str) -> Result<()> {
     require_non_empty(path, field)?;
 
+    if path.contains('\0') {
+        return Err(ShioriError::Validation(format!(
+            "{} contains a NUL byte",
+            field
+        )));
+    }
+
     // Reject path traversal
     let normalized = path.replace('\\', "/");
     if normalized.contains("../") || normalized.contains("/..") || normalized == ".." {
@@ -53,6 +60,93 @@ pub fn require_safe_path(path: &str, field: &str) -> Result<()> {
         )));
     }
 
+    Ok(())
+}
+
+/// Validate a user-selected save path (e.g. from a native save dialog).
+///
+/// Rejects:
+/// - NUL bytes
+/// - any path component that is `.` or `..` (traversal / dir-escape)
+/// - an empty file name (last component)
+/// - a path whose last component is not a single segment (trailing `/`/`\\`)
+/// - root-only paths (`/`, `\\`, `C:\`)
+///
+/// Allows absolute paths (Unix, Windows drive letters, UNC) and any parent
+/// directories — `create_dir_all` in the caller still creates them.
+pub fn validate_save_path(path: &str, field: &str) -> Result<()> {
+    require_non_empty(path, field)?;
+
+    if path.contains('\0') {
+        return Err(ShioriError::Validation(format!(
+            "{} contains a NUL byte",
+            field
+        )));
+    }
+
+    // The file name must be a single segment — a trailing separator means the
+    // "file name" component is empty (or contains an embedded separator).
+    if path.ends_with('/') || path.ends_with('\\') {
+        return Err(ShioriError::Validation(format!(
+            "{} must end with a file name, not a path separator",
+            field
+        )));
+    }
+
+    // Normalize `\` → `/` so Windows paths validate identically on every
+    // platform (drive letters, UNC, `\`-separated trees).
+    let normalized = path.replace('\\', "/");
+
+    // Reject `.`/`..` segments on the raw split — `Path::components()`
+    // normalizes away interior `.` segments, so it would miss `a/./b`.
+    for segment in normalized.split('/') {
+        if segment == "." || segment == ".." {
+            return Err(ShioriError::Validation(format!(
+                "{} contains a '.' or '..' path component which is not allowed",
+                field
+            )));
+        }
+    }
+
+    let p = std::path::Path::new(&normalized);
+
+    let mut saw_file_component = false;
+    for component in p.components() {
+        match component {
+            std::path::Component::CurDir | std::path::Component::ParentDir => {
+                return Err(ShioriError::Validation(format!(
+                    "{} contains a '.' or '..' path component which is not allowed",
+                    field
+                )));
+            }
+            std::path::Component::RootDir | std::path::Component::Prefix(_) => {}
+            std::path::Component::Normal(_) => saw_file_component = true,
+        }
+    }
+
+    // Root-only paths (`/`, `\\`, `C:/`, `//server/share`) have no file name.
+    if !saw_file_component {
+        return Err(ShioriError::Validation(format!(
+            "{} must include a file name",
+            field
+        )));
+    }
+
+    Ok(())
+}
+
+/// Validate a plain alphanumeric token (used for output file formats).
+///
+/// Rejects separators, dots, and anything that could inject path segments
+/// into a generated file name (`format!("{}.{}", stem, output_format)`).
+pub fn require_simple_format(value: &str, field: &str) -> Result<()> {
+    require_non_empty(value, field)?;
+    if !value.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return Err(ShioriError::Validation(format!(
+            "{} must contain only letters and digits, got '{}'",
+            field, value
+        )));
+    }
     Ok(())
 }
 
@@ -155,6 +249,54 @@ mod tests {
         assert!(require_max_length("12345", 5, "field").is_ok());
         assert!(require_max_length("123456", 5, "field").is_err());
         assert!(require_max_length("", 5, "field").is_ok());
+    }
+
+    #[test]
+    fn test_validate_save_path() {
+        // Legit dialog paths pass
+        assert!(validate_save_path("/home/u/Documents/x.md", "field").is_ok());
+        assert!(validate_save_path("C:\\Users\\u\\file.txt", "field").is_ok());
+        assert!(validate_save_path("file.txt", "field").is_ok());
+        assert!(validate_save_path("annotations_export.md", "field").is_ok());
+        assert!(validate_save_path("C:/Users/u/notes.md", "field").is_ok());
+
+        // Traversal / dot components
+        assert!(validate_save_path("a/../b", "field").is_err());
+        assert!(validate_save_path("..", "field").is_err());
+        assert!(validate_save_path(".", "field").is_err());
+        assert!(validate_save_path("a/./b.txt", "field").is_err());
+        assert!(validate_save_path("..\\x.txt", "field").is_err());
+
+        // Empty / root-only
+        assert!(validate_save_path("", "field").is_err());
+        assert!(validate_save_path("/", "field").is_err());
+        assert!(validate_save_path("\\", "field").is_err());
+        assert!(validate_save_path("C:\\", "field").is_err());
+
+        // Filename must be a single segment (no trailing separator, no NUL)
+        assert!(validate_save_path("a/b/", "field").is_err());
+        assert!(validate_save_path("a/b\\", "field").is_err());
+        assert!(validate_save_path("x.md\0", "field").is_err());
+        assert!(validate_save_path("a\0/b.txt", "field").is_err());
+    }
+
+    #[test]
+    fn test_require_simple_format() {
+        // Real formats pass
+        assert!(require_simple_format("epub", "output_format").is_ok());
+        assert!(require_simple_format("pdf", "output_format").is_ok());
+        assert!(require_simple_format("mobi", "output_format").is_ok());
+        assert!(require_simple_format("azw3", "output_format").is_ok());
+        assert!(require_simple_format("txt", "output_format").is_ok());
+        assert!(require_simple_format("HTML", "output_format").is_ok());
+
+        // Path injection dies
+        assert!(require_simple_format("x/../../evil", "output_format").is_err());
+        assert!(require_simple_format("x/y", "output_format").is_err());
+        assert!(require_simple_format("a.b", "output_format").is_err());
+        assert!(require_simple_format("a b", "output_format").is_err());
+        assert!(require_simple_format("", "output_format").is_err());
+        assert!(require_simple_format("..", "output_format").is_err());
     }
 
     #[test]

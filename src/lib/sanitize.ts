@@ -1,6 +1,19 @@
 import DOMPurify from 'dompurify'
 
 /**
+ * Escape a plain-text string for safe insertion into HTML text nodes.
+ * Escapes the five HTML-significant characters: & < > " '.
+ */
+export function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+/**
  * Sanitize HTML content rendered from eBooks (EPUB/MOBI chapters).
  *
  * Allows the rich subset needed for book content (headings, paragraphs,

@@ -1,6 +1,7 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { X, BookOpen, DownloadCloud, Star, BookHeart, Minus, Plus, Save, Loader2 } from 'lucide-react';
 import { AnilistMediaList, AnilistMedia } from '@/lib/anilist';
+import DOMPurify from 'dompurify';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -209,7 +210,7 @@ export function AniListMangaDetailsDialog({
                   <div className="relative h-full">
                     <div 
                       className="absolute inset-0 text-sm text-foreground/70 leading-relaxed overflow-y-auto pr-4 custom-scrollbar pb-6"
-                      dangerouslySetInnerHTML={{ __html: manga.description }}
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(manga.description) }}
                     />
                     {/* Fade out at bottom of scroll container */}
                     <div className="absolute bottom-0 left-0 right-4 h-8 bg-gradient-to-t from-background to-transparent pointer-events-none" />

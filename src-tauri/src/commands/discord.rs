@@ -82,6 +82,13 @@ pub async fn discord_resolve_image(url: String) -> Result<String> {
             .unwrap_or_default()
     });
 
+    // SSRF guard: only resolve URLs that pass the safe-URL checks (https +
+    // public host). Unsafe URLs are returned unchanged, never requested.
+    if !crate::is_safe_url(&url) {
+        log::warn!("Blocked unsafe Discord image URL: {}", url);
+        return Ok(url);
+    }
+
     match HTTP_CLIENT.head(&url).send().await {
         Ok(response) => {
             // Return the final resolved URL after redirects

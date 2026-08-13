@@ -124,7 +124,7 @@ export function UpdateDialog() {
             setDownloadProgress(event.payload);
           });
 
-          const fullApkPath = await invoke<string>('download_apk', { url: updateInfo.apkUrl });
+          const fullApkPath = await invoke<string>('download_apk', { url: updateInfo.apkUrl, expectedSha256: updateInfo.apkSha256 });
           unlisten();
           
           await install(fullApkPath);

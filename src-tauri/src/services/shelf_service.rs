@@ -4,6 +4,16 @@ use chrono::Utc;
 use rusqlite::{params, Connection, Row};
 use serde_json;
 
+/// Escape LIKE wildcards (`%`, `_`) and the escape character itself so a
+/// user-supplied rule value is matched literally inside a `LIKE ? ESCAPE '\'`
+/// pattern. Backslash must be escaped FIRST: otherwise a literal `\` before
+/// `%`/`_` would be reinterpreted as an escape sequence.
+fn escape_like(s: &str) -> String {
+    s.replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_")
+}
+
 pub struct ShelfService;
 
 impl ShelfService {
@@ -328,14 +338,14 @@ impl ShelfService {
                     "b.series = ?".to_string()
                 }
                 ("series", "contains") => {
-                    params_vec.push(Box::new(format!("%{}%", rule.value)));
-                    "b.series LIKE ?".to_string()
+                    params_vec.push(Box::new(format!("%{}%", escape_like(&rule.value))));
+                    "b.series LIKE ? ESCAPE '\\'".to_string()
                 }
                 ("series", "is_empty") => "b.series IS NULL".to_string(),
                 ("series", "is_not_empty") => "b.series IS NOT NULL".to_string(),
                 ("title", "contains") => {
-                    params_vec.push(Box::new(format!("%{}%", rule.value)));
-                    "b.title LIKE ?".to_string()
+                    params_vec.push(Box::new(format!("%{}%", escape_like(&rule.value))));
+                    "b.title LIKE ? ESCAPE '\\'".to_string()
                 }
                 ("title", "equals") => {
                     params_vec.push(Box::new(rule.value.clone()));
@@ -346,16 +356,16 @@ impl ShelfService {
                     "b.title != ?".to_string()
                 }
                 ("title", "starts_with") => {
-                    params_vec.push(Box::new(format!("{}%", rule.value)));
-                    "b.title LIKE ?".to_string()
+                    params_vec.push(Box::new(format!("{}%", escape_like(&rule.value))));
+                    "b.title LIKE ? ESCAPE '\\'".to_string()
                 }
                 ("title", "ends_with") => {
-                    params_vec.push(Box::new(format!("%{}", rule.value)));
-                    "b.title LIKE ?".to_string()
+                    params_vec.push(Box::new(format!("%{}", escape_like(&rule.value))));
+                    "b.title LIKE ? ESCAPE '\\'".to_string()
                 }
                 ("publisher", "contains") => {
-                    params_vec.push(Box::new(format!("%{}%", rule.value)));
-                    "b.publisher LIKE ?".to_string()
+                    params_vec.push(Box::new(format!("%{}%", escape_like(&rule.value))));
+                    "b.publisher LIKE ? ESCAPE '\\'".to_string()
                 }
                 ("publisher", "equals") => {
                     params_vec.push(Box::new(rule.value.clone()));
@@ -401,8 +411,8 @@ impl ShelfService {
                     "NOT EXISTS (SELECT 1 FROM books_tags WHERE book_id = b.id)".to_string()
                 }
                 ("author", "contains") => {
-                    params_vec.push(Box::new(format!("%{}%", rule.value)));
-                    "EXISTS (SELECT 1 FROM books_authors ba JOIN authors a ON ba.author_id = a.id WHERE ba.book_id = b.id AND a.name LIKE ?)".to_string()
+                    params_vec.push(Box::new(format!("%{}%", escape_like(&rule.value))));
+                    "EXISTS (SELECT 1 FROM books_authors ba JOIN authors a ON ba.author_id = a.id WHERE ba.book_id = b.id AND a.name LIKE ? ESCAPE '\\')".to_string()
                 }
                 ("author", "equals") => {
                     params_vec.push(Box::new(rule.value.clone()));
@@ -730,5 +740,43 @@ impl ShelfService {
     pub fn preview_smart_shelf(conn: &Connection, smart_rules: &str) -> Result<i64> {
         let books = Self::get_books_by_smart_rules(conn, smart_rules)?;
         Ok(books.len() as i64)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_escape_like_matches_only_literal_value() {
+        // A value containing '%' or '_' must match only the literal string,
+        // never act as a LIKE wildcard; a literal backslash must survive as
+        // itself (not escape the following character).
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE t (v TEXT);
+             INSERT INTO t VALUES ('50% off'), ('50X off'), ('a_b'), ('axb'), ('a\\b'), ('ab'), ('plain'), ('日本語');",
+        )
+        .unwrap();
+
+        let check = |pattern: &str| {
+            let count: i64 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM t WHERE v LIKE ?1 ESCAPE '\\'",
+                    params![pattern],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(count, 1, "pattern {pattern:?} must match exactly one row");
+        };
+
+        check(&format!("%{}%", escape_like("50% off")));
+        check(&format!("%{}%", escape_like("a_b")));
+        check(&format!("%{}%", escape_like("a\\b")));
+        // Normal values (letters, spaces, CJK) keep their semantics.
+        assert_eq!(escape_like("plain"), "plain");
+        assert_eq!(escape_like("日本語"), "日本語");
+        check(&format!("%{}%", escape_like("plain")));
+        check(&format!("%{}%", escape_like("日本語")));
     }
 }

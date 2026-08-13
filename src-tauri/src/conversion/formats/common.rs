@@ -141,9 +141,23 @@ pub fn is_chapter_heading(handle: &Handle) -> bool {
 // LOCAL IMAGE EMBEDDING
 // ──────────────────────────────────────────────────────────────────────────
 
+/// Image file-name extensions (case-insensitive) that may be embedded.
+/// Anything else is treated as a non-image local file reference and left
+/// un-embedded — closing arbitrary local-file exfiltration via crafted
+/// `<img src>` references.
+/// ponytail: legit extensionless image refs are dropped; acceptable
+/// tradeoff for closing arbitrary local-file exfiltration.
+const EMBEDDABLE_IMAGE_EXTS: &[&str] = &[
+    "png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "avif",
+];
+
+/// Maximum size (bytes) for a local image to be embedded (25 MB).
+const MAX_EMBED_IMAGE_SIZE: u64 = 25 * 1024 * 1024;
+
 /// Embed a local image referenced from a chapter, returning the EPUB-internal
 /// `../Images/…` src to use. Returns `None` when the reference is external
-/// (http/https/data/`#`) or the file cannot be read.
+/// (http/https/data/`#`), is not a local image file name, exceeds the size
+/// cap, or the file cannot be read.
 pub fn embed_local_image(
     src: &str,
     base_dir: &Path,
@@ -171,6 +185,31 @@ pub fn embed_local_image(
     } else {
         base_dir.join(candidate)
     };
+
+    // Allowlist gate: only image file names may be read. Absolute/relative
+    // (`..`-containing) resolution logic is otherwise unchanged, but a
+    // non-image target is never read.
+    let file_name = resolved.file_name()?.to_str()?;
+    let has_image_ext = std::path::Path::new(file_name)
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| {
+            EMBEDDABLE_IMAGE_EXTS
+                .iter()
+                .any(|x| x.eq_ignore_ascii_case(e))
+        })
+        .unwrap_or(false);
+    if !has_image_ext {
+        return None;
+    }
+
+    // Size gate: metadata check before any read.
+    let size_ok = std::fs::metadata(&resolved)
+        .map(|m| m.is_file() && m.len() <= MAX_EMBED_IMAGE_SIZE)
+        .unwrap_or(false);
+    if !size_ok {
+        return None;
+    }
 
     let data = match std::fs::read(&resolved) {
         Ok(d) if !d.is_empty() => d,

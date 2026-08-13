@@ -5,6 +5,7 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#000000" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost https: blob: data: shiori-proxy: http://shiori-proxy.localhost https://shiori-proxy.localhost; media-src 'self' asset: http://asset.localhost blob: data:; font-src 'self' asset: http://asset.localhost data:; connect-src 'self' ipc: http://ipc.localhost http://asset.localhost https://asset.localhost ws://localhost:5173 http://localhost:5173 http://127.0.0.1:5173 http://10.0.2.2:5173 http://shiori-proxy.localhost https://www.googleapis.com https://openlibrary.org https://covers.openlibrary.org https://graphql.anilist.co https://gutendex.com https://api.github.com; worker-src 'self' blob:" />
     <title>shiori</title>
     
     <!-- Local fonts (bundled for production Tauri build, no CDN dependency) -->

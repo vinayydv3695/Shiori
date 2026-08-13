@@ -269,26 +269,25 @@ pub async fn proxy_manga_image(source_id: String, image_url: String) -> Result<V
             .unwrap_or_default()
     });
 
-    let mut req = HTTP_CLIENT
-        .get(&image_url)
-        .header("User-Agent", user_agent)
-        .header(
-            "Accept",
-            "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-        )
-        .header("Accept-Language", "en-US,en;q=0.9")
-        .header("Sec-Fetch-Dest", "image")
-        .header("Sec-Fetch-Mode", "no-cors")
-        .header("Sec-Fetch-Site", "cross-site");
-
-    if let Some(ref_url) = referer {
-        req = req.header("Referer", ref_url);
-    }
-
-    let response = req
-        .send()
-        .await
-        .map_err(|e| ShioriError::Other(format!("Failed to fetch image: {}", e)))?;
+    let mut response = crate::guarded_get_with(&HTTP_CLIENT, &image_url, |req| {
+        let req = req
+            .header("User-Agent", user_agent)
+            .header(
+                "Accept",
+                "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+            )
+            .header("Accept-Language", "en-US,en;q=0.9")
+            .header("Sec-Fetch-Dest", "image")
+            .header("Sec-Fetch-Mode", "no-cors")
+            .header("Sec-Fetch-Site", "cross-site");
+        if let Some(ref_url) = referer {
+            req.header("Referer", ref_url)
+        } else {
+            req
+        }
+    })
+    .await
+    .map_err(|e| ShioriError::Other(format!("Failed to fetch image: {}", e)))?;
 
     if !response.status().is_success() {
         return Err(ShioriError::Other(format!(
@@ -297,12 +296,23 @@ pub async fn proxy_manga_image(source_id: String, image_url: String) -> Result<V
         )));
     }
 
-    let bytes = response
-        .bytes()
+    // Cap the body at 25MB to avoid memory exhaustion.
+    let mut bytes = Vec::new();
+    let max_body: usize = 25 * 1024 * 1024; // 25MB
+    while let Some(chunk) = response
+        .chunk()
         .await
-        .map_err(|e| ShioriError::Other(format!("Failed to read image bytes: {}", e)))?;
+        .map_err(|e| ShioriError::Other(format!("Failed to read image bytes: {}", e)))?
+    {
+        if bytes.len() + chunk.len() > max_body {
+            return Err(ShioriError::Other(
+                "Image too large (exceeds 25MB limit)".to_string(),
+            ));
+        }
+        bytes.extend_from_slice(&chunk);
+    }
 
-    Ok(bytes.to_vec())
+    Ok(bytes)
 }
 
 // ─── ToonGod Cloudflare bypass config ─────────────────────────────────────────

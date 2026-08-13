@@ -112,6 +112,16 @@ impl CfClient {
 
     /// Fetch a URL and return the raw response bytes (images, binary files).
     pub async fn get_image(&self, url: &str) -> Result<Vec<u8>> {
+        // SSRF guard (defense-in-depth): never send session cookies to a host
+        // that isn't this client's host (or a subdomain of it).
+        let url_host = extract_host(url);
+        if !host_matches(&url_host, &self.host) {
+            return Err(ShioriError::Other(format!(
+                "Blocked image URL: host {} is not {} or a subdomain of it",
+                url_host, self.host
+            )));
+        }
+        crate::validate_fetch_url(url)?;
         self.get_bytes(url, Some("image/*")).await
     }
 
@@ -374,6 +384,36 @@ fn extract_host(url: &str) -> String {
         .ok()
         .and_then(|u| u.host_str().map(str::to_string))
         .unwrap_or_else(|| url.to_string())
+}
+
+/// True if `host` equals `base` or is a subdomain of it (e.g. `img.host.com`
+/// for `host.com`). Used to ensure cookies only ever attach to matching hosts.
+pub(crate) fn host_matches(host: &str, base: &str) -> bool {
+    if host.eq_ignore_ascii_case(base) {
+        return true;
+    }
+    let host = host.to_ascii_lowercase();
+    let base = base.to_ascii_lowercase();
+    host.len() > base.len() && host.ends_with(&format!(".{base}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::host_matches;
+
+    #[test]
+    fn test_host_matches() {
+        // Exact match
+        assert!(host_matches("host.com", "host.com"));
+        assert!(host_matches("Host.com", "host.com"));
+        // Subdomain match
+        assert!(host_matches("img.host.com", "host.com"));
+        assert!(host_matches("a.b.host.com", "host.com"));
+        // Foreign host / suffix spoofing rejected
+        assert!(!host_matches("evil.com", "host.com"));
+        assert!(!host_matches("nothost.com", "host.com"));
+        assert!(!host_matches("host.com.evil.com", "host.com"));
+    }
 }
 
 fn looks_like_html(bytes: &[u8]) -> bool {

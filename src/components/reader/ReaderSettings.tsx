@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useReadingSettings, type ReaderTheme, applyReaderThemeToElement } from '@/store/premiumReaderStore';
 import { Settings, Columns, ChevronDown, ChevronUp } from '@/components/icons';
+import { ReaderTooltip } from './ReaderTooltip';
 import { READING_FONTS, normalizeLegacyFontPreference } from '@/lib/readingFonts';
 import { isAndroid } from '@/lib/tauri';
 import { getReaderCapabilities } from './readerCapabilities';
@@ -146,15 +147,16 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
 
   return (
     <div className="premium-settings-container">
-      <button
-        ref={buttonRef}
-        onClick={() => setIsOpen(!isOpen)}
-        className={`premium-control-button ${isOpen ? 'premium-control-button--active' : ''}`}
-        aria-label="Settings"
-        title="Reading settings"
-      >
-        <Settings className="premium-control-icon" />
-      </button>
+      <ReaderTooltip content="Reading settings">
+        <button
+          ref={buttonRef}
+          onClick={() => setIsOpen(!isOpen)}
+          className={`premium-control-button ${isOpen ? 'premium-control-button--active' : ''}`}
+          aria-label="Reading settings"
+        >
+          <Settings className="premium-control-icon" />
+        </button>
+      </ReaderTooltip>
 
       {isOpen && (
         <PortalWrapper usePortal={isMobile}>

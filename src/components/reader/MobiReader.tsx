@@ -19,6 +19,7 @@ import { sanitizeBookContent } from '@/lib/sanitize';
 import { applyHighlightsToDOM } from '@/lib/highlightAnnotations';
 import { resolveReadingFontCss } from '@/lib/readingFonts';
 import { BookOpen, Highlighter, Search } from '@/components/icons';
+import { ReaderTooltip } from './ReaderTooltip';
 import '@/styles/premium-reader.css';
 
 interface MobiReaderProps {
@@ -476,7 +477,7 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
                         type="button"
                         onClick={toggleDoodleMode}
                         className={`premium-control-button ${isDoodleMode ? 'premium-control-button--active' : ''}`}
-                        title="Toggle drawing mode"
+                        aria-label="Toggle drawing mode"
                     >
                         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                             <path d="M12 20h9" />
@@ -486,30 +487,33 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
                 }
                 rightExtra={
                     <>
-                        <button
-                            type="button"
-                            onClick={() => toggleSidebar('search')}
-                            className="premium-control-button"
-                            aria-label="Search"
-                            title="Search in book"
-                        >
-                            <Search className="premium-control-icon" />
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => toggleSidebar('toc')}
-                            className="premium-control-button"
-                            aria-label="Table of Contents"
-                            title="Table of Contents"
-                        >
-                            <BookOpen className="premium-control-icon" />
-                        </button>
+                        <ReaderTooltip content="Search in book">
+                            <button
+                                type="button"
+                                onClick={() => toggleSidebar('search')}
+                                className="premium-control-button"
+                                aria-label="Search in book"
+                            >
+                                <Search className="premium-control-icon" />
+                            </button>
+                        </ReaderTooltip>
+
+                        <ReaderTooltip content="Table of Contents">
+                            <button
+                                type="button"
+                                onClick={() => toggleSidebar('toc')}
+                                className="premium-control-button"
+                                aria-label="Table of Contents"
+                            >
+                                <BookOpen className="premium-control-icon" />
+                            </button>
+                        </ReaderTooltip>
+
                         <button
                             type="button"
                             onClick={() => toggleSidebar('highlights')}
                             className="premium-control-button"
                             aria-label="Highlights & Notes"
-                            title="Highlights & Notes"
                         >
                             <Highlighter className="premium-control-icon" />
                         </button>

@@ -1,3 +1,12 @@
+# Release Notes (v2.3.17)
+
+## Improvements & Fixes
+
+- **Theme-Adaptive Custom Tooltips** — Replaced OS-level rectangular tooltips with rounded, frosted Radix tooltips with smooth entry animations.
+- **Dynamic Reader Theme Matching** — Reader tooltips now reactively match the active reader theme (Sepia, Paper, Dark, OLED, Light) with matching palette backgrounds, text, and border styling.
+- **Streamlined Menu Tooltips** — Cleaned up tooltips on menu dropdown items that already display visible text labels, keeping floating tooltips strictly on icon-only navigation and toolbar buttons.
+- **Provider & Layout Safety** — Mounted `TooltipProvider` at the root and reader layout to ensure seamless tooltip rendering across all views and dialogs without runtime crashes.
+
 # Release Notes (v2.3.15)
 
 ## Security

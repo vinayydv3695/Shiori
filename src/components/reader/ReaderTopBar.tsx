@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useReaderUIStore } from '@/store/premiumReaderStore';
 import { ArrowLeft, Maximize2, Minimize2, MoreVertical } from '@/components/icons';
+import { ReaderTooltip } from './ReaderTooltip';
 import { ReaderSettings, type ReaderFormat } from './ReaderSettings';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ConvertToEpubMenuItem } from '@/components/conversion/ConvertToEpubMenuItem';
@@ -52,14 +53,15 @@ export function ReaderTopBar({
       <div className="premium-top-bar-content">
         {/* ── LEFT: Back Button + Uncropped Title & Subtitle ── */}
         <div className="premium-top-bar-left max-w-[70%] sm:max-w-[80%] md:max-w-[440px] lg:max-w-[560px] flex-1">
-          <button
-            onClick={onClose}
-            className="premium-control-button shrink-0"
-            aria-label="Back to library"
-            title="Back to library"
-          >
-            <ArrowLeft className="premium-control-icon" />
-          </button>
+          <ReaderTooltip content="Back to library">
+            <button
+              onClick={onClose}
+              className="premium-control-button shrink-0 cursor-pointer"
+              aria-label="Back to library"
+            >
+              <ArrowLeft className="premium-control-icon" />
+            </button>
+          </ReaderTooltip>
           <div className="flex flex-col min-w-0 overflow-hidden text-left justify-center h-full py-0.5">
             <span className="premium-book-title truncate block w-full leading-tight font-extrabold text-xs sm:text-sm" title={title}>{title}</span>
             {subtitle && <span className="premium-chapter-indicator truncate block w-full leading-tight text-[10px] sm:text-xs opacity-75 font-medium mt-0.5" title={subtitle}>{subtitle}</span>}
@@ -80,7 +82,6 @@ export function ReaderTopBar({
             <button
               className={`premium-control-button ${isMoreMenuOpen ? 'premium-control-button--active' : ''}`}
               aria-label="More options"
-              title="More options"
               onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
             >
               <MoreVertical className="premium-control-icon" />
@@ -98,16 +99,15 @@ export function ReaderTopBar({
                     onClick={() => setIsMoreMenuOpen(false)} 
                   />
                   <motion.div 
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute top-full right-0 mt-2 w-56 flex flex-col p-2 bg-[var(--bg-elevated)] border border-[var(--ui-border)] shadow-xl rounded-[var(--radius-lg)] z-[100] backdrop-blur-xl bg-opacity-90"
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                    className="absolute top-full right-0 mt-3 w-72 flex flex-col p-2 bg-[var(--bg-elevated)] border border-[var(--ui-border)] shadow-2xl rounded-2xl z-[100] backdrop-blur-2xl bg-opacity-95"
                   >
                     <motion.div 
-                      className="w-full flex flex-col gap-1 pb-2 premium-mobile-menu-items" 
-                      onClick={() => setIsMoreMenuOpen(false)}
-                      variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.05, delayChildren: 0.05 } } }}
+                      className="flex flex-col gap-1.5 premium-mobile-menu-items"
+                      variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.05 } } }}
                       initial="hidden"
                       animate="show"
                     >
@@ -116,17 +116,27 @@ export function ReaderTopBar({
                           {child}
                         </motion.div>
                       ))}
+
                       <motion.div variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
                         <button
-                          onClick={toggleFullscreen}
+                          type="button"
+                          onClick={() => {
+                            toggleFullscreen();
+                            setIsMoreMenuOpen(false);
+                          }}
                           className="premium-control-button premium-fullscreen-button"
-                          aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-                          title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                          aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
                         >
                           {isFullscreen ? (
-                            <Minimize2 className="premium-control-icon" />
+                            <>
+                              <Minimize2 className="premium-control-icon" />
+                              <span className="premium-fullscreen-label">Exit Fullscreen</span>
+                            </>
                           ) : (
-                            <Maximize2 className="premium-control-icon" />
+                            <>
+                              <Maximize2 className="premium-control-icon" />
+                              <span className="premium-fullscreen-label">Fullscreen</span>
+                            </>
                           )}
                         </button>
                       </motion.div>
@@ -141,7 +151,7 @@ export function ReaderTopBar({
                       </motion.div>
                     </motion.div>
                     <motion.div 
-                      className="w-full border-t border-[var(--ui-border)] pt-2 flex flex-col gap-1 premium-mobile-menu-items"
+                      className="w-full border-t border-[var(--ui-border)] mt-2 pt-2 flex flex-col gap-1 premium-mobile-menu-items"
                       variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { delay: 0.15 } } }}
                       initial="hidden"
                       animate="show"
@@ -161,14 +171,15 @@ export function ReaderTopBar({
             
             {/* Desktop More Options Dropdown */}
             <div className="relative">
-              <button
-                className={`premium-control-button ${isDesktopMenuOpen ? 'premium-control-button--active' : ''}`}
-                aria-label="More options"
-                title="More options"
-                onClick={() => setIsDesktopMenuOpen(!isDesktopMenuOpen)}
-              >
-                <MoreVertical className="premium-control-icon" />
-              </button>
+              <ReaderTooltip content="More options">
+                <button
+                  className={`premium-control-button ${isDesktopMenuOpen ? 'premium-control-button--active' : ''}`}
+                  aria-label="More options"
+                  onClick={() => setIsDesktopMenuOpen(!isDesktopMenuOpen)}
+                >
+                  <MoreVertical className="premium-control-icon" />
+                </button>
+              </ReaderTooltip>
 
               <AnimatePresence>
                 {isDesktopMenuOpen && (
@@ -202,7 +213,6 @@ export function ReaderTopBar({
                           }}
                           className="premium-control-button"
                           aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-                          title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
                         >
                           {isFullscreen ? (
                             <Minimize2 className="premium-control-icon" />

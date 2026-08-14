@@ -14,6 +14,7 @@ import { DoodleToolbar } from './DoodleToolbar';
 import { PageFlipEngine, type PageFlipHandle } from './PageFlipEngine';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
 import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Search, BookOpen, Highlighter } from '@/components/icons';
+import { ReaderTooltip } from './ReaderTooltip';
 import { sanitizeBookContent, escapeHtml } from '@/lib/sanitize';
 import { applyHighlightsToDOM } from '@/lib/highlightAnnotations';
 import { handleExternalLinkClick } from '@/lib/externalLinks';
@@ -1132,40 +1133,43 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         onClose={handleClose}
         rightExtra={
           <>
-            <button
-              type="button"
-              onClick={() => toggleSidebar('search')}
-              className="premium-control-button"
-              aria-label="Search"
-              title="Search in book"
-            >
-              <Search className="premium-control-icon" />
-            </button>
-            <button
-              type="button"
-              onClick={() => toggleSidebar('toc')}
-              className="premium-control-button"
-              aria-label="Table of Contents"
-              title="Table of Contents"
-            >
-              <BookOpen className="premium-control-icon" />
-            </button>
+            <ReaderTooltip content="Search in book">
+              <button
+                type="button"
+                onClick={() => toggleSidebar('search')}
+                className="premium-control-button"
+                aria-label="Search in book"
+              >
+                <Search className="premium-control-icon" />
+              </button>
+            </ReaderTooltip>
+
+            <ReaderTooltip content="Table of Contents">
+              <button
+                type="button"
+                onClick={() => toggleSidebar('toc')}
+                className="premium-control-button"
+                aria-label="Table of Contents"
+              >
+                <BookOpen className="premium-control-icon" />
+              </button>
+            </ReaderTooltip>
+
             <button
               type="button"
               onClick={() => toggleSidebar('highlights')}
               className="premium-control-button"
               aria-label="Highlights & Notes"
-              title="Highlights & Notes"
             >
               <Highlighter className="premium-control-icon" />
             </button>
+
             {!isAndroid && (
               <button
                 type="button"
                 onClick={toggleTwoPageView}
                 className={`premium-control-button ${twoPageView ? 'premium-control-button--active' : ''}`}
                 aria-label="Two-page view"
-                title="Two-page view"
               >
                 <svg aria-hidden="true" className="premium-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <rect x="3" y="4" width="8" height="16" />
@@ -1173,12 +1177,12 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
                 </svg>
               </button>
             )}
+
             <button
               type="button"
               onClick={toggleDoodleMode}
               className={`premium-control-button ${isDoodleMode ? 'premium-control-button--active' : ''}`}
-              aria-label="Drawing mode"
-              title="Toggle drawing mode"
+              aria-label="Toggle drawing mode"
             >
               <svg aria-hidden="true" className="premium-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 20h9" />

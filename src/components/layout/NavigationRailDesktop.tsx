@@ -16,7 +16,7 @@ interface NavigationRailDesktopProps {
 }
 
 const SECTION_TITLES: Record<NavSection, string> = {
-  NAVIGATE: "Navigate",
+  NAVIGATE: "Home",
   DISCOVER: "Discover",
   WORKSPACE: "Workspace",
   SYSTEM: "System",
@@ -81,7 +81,7 @@ export function NavigationRailDesktop({
   }
 
   return (
-    <TooltipProvider delayDuration={100}>
+    <TooltipProvider delayDuration={0}>
       <nav
         aria-label="Primary Desktop Navigation"
         className={cn(
@@ -97,22 +97,32 @@ export function NavigationRailDesktop({
             </span>
           )}
 
-          <button
-            type="button"
-            onClick={toggleSidebar}
-            aria-label={sidebarCollapsed ? "Expand navigation sidebar" : "Collapse navigation sidebar"}
-            aria-expanded={!sidebarCollapsed}
-            className={cn(
-              "flex h-8 w-8 items-center justify-center rounded-xl text-muted-foreground transition-all duration-200 hover:bg-accent hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-              sidebarCollapsed && "mx-auto"
-            )}
-          >
-            {sidebarCollapsed ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <ChevronLeft className="h-4 w-4" />
-            )}
-          </button>
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                aria-label={sidebarCollapsed ? "Expand navigation sidebar" : "Collapse navigation sidebar"}
+                aria-expanded={!sidebarCollapsed}
+                className={cn(
+                  "flex h-8 w-8 items-center justify-center rounded-xl text-muted-foreground transition-all duration-200 hover:bg-accent hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer",
+                  sidebarCollapsed && "mx-auto"
+                )}
+              >
+                {sidebarCollapsed ? (
+                  <ChevronRight className="h-4 w-4" />
+                ) : (
+                  <ChevronLeft className="h-4 w-4" />
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent
+              side="right"
+              sideOffset={14}
+            >
+              {sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            </TooltipContent>
+          </Tooltip>
         </div>
 
         {/* Main Content Area — No Scrollbar Slider */}
@@ -173,7 +183,7 @@ export function NavigationRailDesktop({
                     />
                   </button>
                 ) : (
-                  <Tooltip>
+                  <Tooltip delayDuration={0}>
                     <TooltipTrigger asChild>
                       <button
                         type="button"
@@ -197,8 +207,14 @@ export function NavigationRailDesktop({
                         <SectionIcon className="h-5 w-5 transition-transform duration-200 group-hover:scale-110" />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="right" sideOffset={12} className="font-bold text-xs shadow-md">
-                      {SECTION_TITLES[sectionKey]} ({items.length})
+                    <TooltipContent
+                      side="right"
+                      sideOffset={14}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span>{SECTION_TITLES[sectionKey]}</span>
+                        <span className="text-[10px] opacity-60 font-semibold">({items.length})</span>
+                      </div>
                     </TooltipContent>
                   </Tooltip>
                 )}

@@ -24,6 +24,7 @@ import { useReaderAutoHide } from '@/hooks/useReaderAutoHide';
 import { useReaderTheme } from '@/hooks/useReaderTheme';
 import type { ReaderContent } from './readerContent';
 import { BookOpen, Highlighter, Search } from '@/components/icons';
+import { ReaderTooltip } from './ReaderTooltip';
 import '@/styles/premium-reader.css';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -879,86 +880,103 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
         onClose={handleClose}
         rightExtra={
           <>
-            <button
-              type="button"
-              onClick={() => toggleSidebar('search')}
-              className="premium-control-button"
-              aria-label="Search"
-              title="Search in book"
-            >
-              <Search className="premium-control-icon" />
-            </button>
-            <button
-              type="button"
-              onClick={() => toggleSidebar('toc')}
-              className="premium-control-button"
-              aria-label="Table of Contents"
-              title="Table of Contents"
-            >
-              <BookOpen className="premium-control-icon" />
-            </button>
+            <ReaderTooltip content="Search in book">
+              <button
+                type="button"
+                onClick={() => toggleSidebar('search')}
+                className="premium-control-button"
+                aria-label="Search in book"
+              >
+                <Search className="premium-control-icon" />
+              </button>
+            </ReaderTooltip>
+
+            <ReaderTooltip content="Table of Contents">
+              <button
+                type="button"
+                onClick={() => toggleSidebar('toc')}
+                className="premium-control-button"
+                aria-label="Table of Contents"
+              >
+                <BookOpen className="premium-control-icon" />
+              </button>
+            </ReaderTooltip>
+
             <button
               type="button"
               onClick={() => toggleSidebar('highlights')}
               className="premium-control-button"
               aria-label="Highlights & Notes"
-              title="Highlights & Notes"
             >
               <Highlighter className="premium-control-icon" />
             </button>
+
             <button
               type="button"
               onClick={toggleDoodleMode}
               className={`premium-control-button ${isDoodleMode ? 'premium-control-button--active' : ''}`}
-              aria-label="Drawing mode"
-              title="Toggle drawing mode"
+              aria-label="Toggle drawing mode"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M12 20h9" />
                 <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
               </svg>
             </button>
+
             <span className="premium-top-bar-separator" />
             <PageInput pageNumber={pageNumber} numPages={numPages} onNavigate={(p) => {
               setPageNumber(p);
               if (viewMode === 'scroll') scrollToPage(p);
             }} />
-            <button type="button" onClick={zoomOut} className="premium-control-button" aria-label="Zoom out" title="Zoom out">
-              <ZoomOut className="premium-control-icon" />
-            </button>
+
+            <ReaderTooltip content="Zoom out">
+              <button type="button" onClick={zoomOut} className="premium-control-button" aria-label="Zoom out">
+                <ZoomOut className="premium-control-icon" />
+              </button>
+            </ReaderTooltip>
+
             <span className="text-xs font-medium min-w-[38px] text-center" style={{ color: 'var(--text-secondary)' }}>
               {Math.round(scale * 100)}%
             </span>
-            <button type="button" onClick={zoomIn} className="premium-control-button" aria-label="Zoom in" title="Zoom in">
-              <ZoomIn className="premium-control-icon" />
-            </button>
-            <button
-              type="button"
-              onClick={setFitWidth}
-              className={`premium-control-button ${zoomMode === 'fit-width' ? 'premium-control-button--active' : ''}`}
-              aria-label="Fit width"
-              title="Fit width"
-            >
-              <Maximize className="premium-control-icon" />
-            </button>
-            <button
-              type="button"
-              onClick={setFitPage}
-              className={`premium-control-button ${zoomMode === 'fit-page' ? 'premium-control-button--active' : ''}`}
-              aria-label="Fit page"
-              title="Fit page"
-            >
-              <Minimize className="premium-control-icon" />
-            </button>
-            <button
-              type="button"
-              onClick={toggleViewMode}
-              className={`premium-control-button ${viewMode === 'scroll' ? 'premium-control-button--active' : ''}`}
-              aria-label={viewMode === 'scroll' ? 'Page view' : 'Scroll view'}
-              title={viewMode === 'scroll' ? 'Switch to page view' : 'Switch to scroll view'}
-            >
-              <FileText className="premium-control-icon" />
-            </button>
+
+            <ReaderTooltip content="Zoom in">
+              <button type="button" onClick={zoomIn} className="premium-control-button" aria-label="Zoom in">
+                <ZoomIn className="premium-control-icon" />
+              </button>
+            </ReaderTooltip>
+
+            <ReaderTooltip content="Fit width">
+              <button
+                type="button"
+                onClick={setFitWidth}
+                className={`premium-control-button ${zoomMode === 'fit-width' ? 'premium-control-button--active' : ''}`}
+                aria-label="Fit width"
+              >
+                <Maximize className="premium-control-icon" />
+              </button>
+            </ReaderTooltip>
+
+            <ReaderTooltip content="Fit page">
+              <button
+                type="button"
+                onClick={setFitPage}
+                className={`premium-control-button ${zoomMode === 'fit-page' ? 'premium-control-button--active' : ''}`}
+                aria-label="Fit page"
+              >
+                <Minimize className="premium-control-icon" />
+              </button>
+            </ReaderTooltip>
+
+            <ReaderTooltip content={viewMode === 'scroll' ? 'Switch to page view' : 'Switch to scroll view'}>
+              <button
+                type="button"
+                onClick={toggleViewMode}
+                className={`premium-control-button ${viewMode === 'scroll' ? 'premium-control-button--active' : ''}`}
+                aria-label={viewMode === 'scroll' ? 'Switch to page view' : 'Switch to scroll view'}
+              >
+                <FileText className="premium-control-icon" />
+              </button>
+            </ReaderTooltip>
           </>
         }
       />

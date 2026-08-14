@@ -5,6 +5,7 @@ import { api } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
 import type { TocEntry, Annotation, BookSearchResult, AnnotationCategory } from '@/lib/tauri';
 import { X, BookOpen, Highlighter, FileText, Search, Loader2, Trash2, Edit2, Download } from '@/components/icons';
+import { StickyNote, ListTree, SearchX, Sparkles } from 'lucide-react';
 import { parseTocLocationToIndex, findCurrentTocEntry } from '@/lib/toc';
 import DOMPurify from 'dompurify';
 import { useToastStore } from '@/store/toastStore';
@@ -22,6 +23,37 @@ const HIGHLIGHT_COLORS = [
   { name: 'Red', value: '#f87171' },
   { name: 'Teal', value: '#2dd4bf' },
 ];
+
+interface SidebarEmptyStateProps {
+  icon: React.ElementType;
+  title: string;
+  description: string;
+}
+
+function SidebarEmptyState({
+  icon: Icon,
+  title,
+  description,
+}: SidebarEmptyStateProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+      className="premium-sidebar-empty-container"
+    >
+      <div className="premium-sidebar-empty-icon-wrapper">
+        <div className="premium-sidebar-empty-glow" />
+        <div className="premium-sidebar-empty-icon-box">
+          <Icon className="premium-sidebar-empty-icon" />
+        </div>
+      </div>
+
+      <h4 className="premium-sidebar-empty-title">{title}</h4>
+      <p className="premium-sidebar-empty-desc">{description}</p>
+    </motion.div>
+  );
+}
 
 interface PremiumSidebarProps {
   bookId: number;
@@ -496,7 +528,6 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                 key={tab.id}
                 onClick={() => setSidebarTab(tab.id as any)}
                 className={`premium-sidebar-tab ${sidebarTab === tab.id ? 'premium-sidebar-tab--active' : ''}`}
-                title={tab.label}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
@@ -537,7 +568,11 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
             <div className="premium-sidebar-panel">
               <h3 className="premium-sidebar-title">Table of Contents</h3>
               {toc.length === 0 ? (
-                <p className="premium-sidebar-empty">No table of contents available</p>
+                <SidebarEmptyState
+                  icon={ListTree}
+                  title="No Table of Contents"
+                  description="This book doesn't include an embedded chapter outline."
+                />
               ) : (
                 <motion.div 
                   className="premium-toc-list"
@@ -575,7 +610,11 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                 )}
               </div>
               {highlights.length === 0 ? (
-                <p className="premium-sidebar-empty">No highlights yet</p>
+                <SidebarEmptyState
+                  icon={Highlighter}
+                  title="No highlights yet"
+                  description="Select any text in the book to highlight quotes, facts, and key ideas."
+                />
               ) : (
                 <motion.div 
                   className="premium-annotations-list"
@@ -660,7 +699,11 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                 )}
               </div>
               {notes.length === 0 ? (
-                <p className="premium-sidebar-empty">No notes yet</p>
+                <SidebarEmptyState
+                  icon={StickyNote}
+                  title="No notes yet"
+                  description="Add personal annotations, takeaways, and reflections to any passage."
+                />
               ) : (
                 <motion.div 
                   className="premium-annotations-list"
@@ -851,11 +894,19 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
               )}
 
               {!isSearching && searchQuery.trim().length >= 2 && searchResults.length === 0 && (
-                <p className="premium-sidebar-empty">No results found</p>
+                <SidebarEmptyState
+                  icon={SearchX}
+                  title="No results found"
+                  description={`No matches found for "${searchQuery}".`}
+                />
               )}
 
               {searchQuery.trim().length > 0 && searchQuery.trim().length < 2 && (
-                <p className="premium-sidebar-empty" style={{ fontSize: 12 }}>Type at least 2 characters</p>
+                <SidebarEmptyState
+                  icon={Search}
+                  title="Search in book"
+                  description="Type at least 2 characters to search across all chapters."
+                />
               )}
             </div>
           )}

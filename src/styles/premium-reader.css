@@ -881,6 +881,70 @@ select {
   padding: var(--spacing-xxl) var(--spacing-lg);
 }
 
+.premium-sidebar-empty-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 56px 20px 40px;
+  user-select: none;
+}
+
+.premium-sidebar-empty-icon-wrapper {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.premium-sidebar-empty-glow {
+  position: absolute;
+  inset: -6px;
+  border-radius: 24px;
+  background: var(--text-primary, #000000);
+  opacity: 0.04;
+  filter: blur(12px);
+  pointer-events: none;
+}
+
+.premium-sidebar-empty-icon-box {
+  position: relative;
+  width: 54px;
+  height: 54px;
+  border-radius: 18px;
+  background: var(--bg-elevated, #ffffff);
+  border: 1px solid var(--ui-border, #e7e5e4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px var(--shadow, rgba(0, 0, 0, 0.04));
+}
+
+.premium-sidebar-empty-icon {
+  width: 22px;
+  height: 22px;
+  color: var(--text-secondary, #4a4745);
+  stroke-width: 1.8;
+  opacity: 0.9;
+}
+
+.premium-sidebar-empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  margin: 0 0 6px 0;
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+}
+
+.premium-sidebar-empty-desc {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-tertiary);
+  max-width: 260px;
+  margin: 0;
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+}
+
 /* TOC Styles */
 .premium-toc-list {
   display: flex;

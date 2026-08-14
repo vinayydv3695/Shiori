@@ -11,6 +11,7 @@ import { ReaderErrorBoundary, parseReaderError } from './ReaderErrorBoundary';
 import { getReaderKind } from './readerRouting';
 import { useKeepScreenOn } from '@/hooks/useKeepScreenOn';
 import { useToastStore } from '@/store/toastStore';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import type { ReaderFormat } from './ReaderSettings';
 import type { ReaderContent } from './readerContent';
 
@@ -242,30 +243,32 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
   // Unknown formats fall back to the GenericHtmlReader (best-effort) — nothing falls through.
   const readerKind = getReaderKind(currentBookFormat) ?? 'html';
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: 'var(--reader-bg)' }}>
-      {currentBookPath && readerKind === 'epub' && (
-        <PremiumEpubReader bookPath={currentBookPath} bookId={bookId} readerContent={currentContent} onClose={handleClose} />
-      )}
-      {currentBookPath && readerKind === 'pdf' && (
-        <PdfReader bookPath={currentBookPath} bookId={bookId} readerContent={currentContent} onClose={handleClose} />
-      )}
-      {currentBookPath && readerKind === 'manga' && (
-        <MangaReader mode="local" bookId={bookId} bookPath={currentBookPath} onClose={handleClose} onNextChapter={handleNextChapter} />
-      )}
-      {currentBookPath && readerKind === 'html' && (
-        <GenericHtmlReader
-          bookPath={currentBookPath}
-          bookId={bookId}
-          format={currentBookFormat as ReaderFormat}
-          readerContent={currentContent}
-          onClose={handleClose}
-        />
-      )}
-      {!currentBookPath && (
-        <div className="flex items-center justify-center h-full">
-          <p style={{ color: 'var(--text-secondary)' }}>No book loaded</p>
-        </div>
-      )}
-    </div>
+    <TooltipProvider delayDuration={0}>
+      <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: 'var(--reader-bg)' }}>
+        {currentBookPath && readerKind === 'epub' && (
+          <PremiumEpubReader bookPath={currentBookPath} bookId={bookId} readerContent={currentContent} onClose={handleClose} />
+        )}
+        {currentBookPath && readerKind === 'pdf' && (
+          <PdfReader bookPath={currentBookPath} bookId={bookId} readerContent={currentContent} onClose={handleClose} />
+        )}
+        {currentBookPath && readerKind === 'manga' && (
+          <MangaReader mode="local" bookId={bookId} bookPath={currentBookPath} onClose={handleClose} onNextChapter={handleNextChapter} />
+        )}
+        {currentBookPath && readerKind === 'html' && (
+          <GenericHtmlReader
+            bookPath={currentBookPath}
+            bookId={bookId}
+            format={currentBookFormat as ReaderFormat}
+            readerContent={currentContent}
+            onClose={handleClose}
+          />
+        )}
+        {!currentBookPath && (
+          <div className="flex items-center justify-center h-full">
+            <p style={{ color: 'var(--text-secondary)' }}>No book loaded</p>
+          </div>
+        )}
+      </div>
+    </TooltipProvider>
   );
 }

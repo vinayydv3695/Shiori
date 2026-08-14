@@ -1203,7 +1203,6 @@ fn restore_subset_archive(
                         *cat,
                         &json,
                         selection.conflict_policy,
-                        selection.include_credentials,
                         report,
                     )?;
                 }
@@ -1489,7 +1488,6 @@ fn restore_category_json(
     cat: BackupCategory,
     json: &Value,
     policy: ConflictPolicy,
-    include_credentials: bool,
     report: &mut RestoreReport,
 ) -> Result<()> {
     let Some(tables) = json.get("tables").and_then(|t| t.as_object()) else {
@@ -1539,7 +1537,6 @@ fn restore_category_json(
                     policy,
                     cat_name,
                     &redacted_columns,
-                    include_credentials,
                     report,
                 )?
             }
@@ -2240,7 +2237,6 @@ fn restore_singleton_redacted(
     policy: ConflictPolicy,
     cat_name: &str,
     redacted_columns: &HashSet<String>,
-    include_credentials: bool,
     report: &mut RestoreReport,
 ) -> Result<()> {
     for row in rows {

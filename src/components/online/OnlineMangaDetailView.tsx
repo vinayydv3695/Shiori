@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Play, Bookmark, BookmarkCheck, ArrowLeft, Search, Star, FileText, Globe, BookDown, X } from 'lucide-react';
+import { Play, Bookmark, BookmarkCheck, ArrowLeft, Search, Star, FileText, Globe, BookDown, X, Download, Check, Loader2, ChevronDown } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,10 @@ import { getProxyUrl } from '@/lib/tauri';
 import { ChapterDownloadStatusIcon } from './ChapterDownloadStatusIcon';
 import {
   chapterDisplayLabel,
+  formatChapterTitle,
   type ChapterDownloadStatusMap,
+  groupChaptersIntoVolumes,
+  type VolumeGroup,
 } from './mangaDownloadUtils';
 
 export interface UnifiedChapter {
@@ -22,6 +25,31 @@ export interface UnifiedChapter {
   sourceType: 'mangadex' | 'plugin';
   originalChapter: any;
   date?: string; 
+}
+
+function getVolumeDownloadStatus(
+  chapters: UnifiedChapter[],
+  statusMap?: ChapterDownloadStatusMap
+): {
+  isAllDone: boolean;
+  isDownloading: boolean;
+  doneCount: number;
+  totalCount: number;
+} {
+  if (!chapters.length) return { isAllDone: false, isDownloading: false, doneCount: 0, totalCount: 0 };
+  let doneCount = 0;
+  let isDownloading = false;
+  for (const ch of chapters) {
+    const s = statusMap?.[ch.id];
+    if (s === 'done') doneCount++;
+    else if (s === 'downloading' || s === 'queued') isDownloading = true;
+  }
+  return {
+    isAllDone: doneCount === chapters.length,
+    isDownloading,
+    doneCount,
+    totalCount: chapters.length,
+  };
 }
 
 interface OnlineMangaDetailViewProps {
@@ -54,6 +82,8 @@ interface OnlineMangaDetailViewProps {
   chapterDownloadStatus?: ChapterDownloadStatusMap;
   /** Download a single chapter from its row button. */
   onDownloadChapter?: (chapter: UnifiedChapter) => void;
+  /** Download multiple chapters in batch (e.g. for an entire volume). */
+  onDownloadChapters?: (chapters: UnifiedChapter[]) => void;
   /** Download the whole manga (header "Download Manga" button). */
   onDownloadAll?: () => void;
 }
@@ -82,6 +112,7 @@ export function OnlineMangaDetailView({
   onMangaClick,
   chapterDownloadStatus,
   onDownloadChapter,
+  onDownloadChapters,
   onDownloadAll,
 }: OnlineMangaDetailViewProps) {
   const parentRef = useRef<HTMLDivElement>(null);
@@ -189,9 +220,9 @@ export function OnlineMangaDetailView({
       const q = searchQuery.trim().toLowerCase();
       list = list.filter(
         (ch) =>
-          ch.chapter.includes(q) ||
+          ch.chapter.toLowerCase().includes(q) ||
           ch.title.toLowerCase().includes(q) ||
-          ch.volume.includes(q)
+          ch.volume.toLowerCase().includes(q)
       );
     }
 
@@ -210,11 +241,26 @@ export function OnlineMangaDetailView({
     return list;
   }, [unifiedChapters, searchQuery, sortAscending]);
 
-  const volumes = useMemo(() => {
+  const volumeGroups = useMemo((): VolumeGroup[] => {
     if (activeTab !== 'VOLUME') return [];
-    const vols = new Set(filteredAndSortedChapters.map((c) => c.volume));
-    return Array.from(vols);
-  }, [filteredAndSortedChapters, activeTab]);
+    let list = [...unifiedChapters];
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      list = list.filter(
+        (ch) =>
+          ch.chapter.toLowerCase().includes(q) ||
+          ch.title.toLowerCase().includes(q) ||
+          ch.volume.toLowerCase().includes(q) ||
+          `chapter ${ch.chapter}`.toLowerCase().includes(q) ||
+          `vol ${ch.volume}`.toLowerCase().includes(q)
+      );
+    }
+    const groups = groupChaptersIntoVolumes(list);
+    if (!sortAscending) {
+      groups.reverse();
+    }
+    return groups;
+  }, [unifiedChapters, activeTab, searchQuery, sortAscending]);
 
   const rowVirtualizer = useVirtualizer({
     count: filteredAndSortedChapters.length,
@@ -458,8 +504,7 @@ export function OnlineMangaDetailView({
                     {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                       const idx = virtualRow.index;
                       const ch = filteredAndSortedChapters[idx];
-                      const chapterNumStr = ch.chapter && ch.chapter !== '?' ? `Chapter ${ch.chapter}` : (ch.title ? '' : 'Oneshot');
-                      const fullTitle = ch.title ? (chapterNumStr ? `${chapterNumStr}: ${ch.title}` : ch.title) : chapterNumStr;
+                      const fullTitle = formatChapterTitle(ch);
                       
                       const isHighlighted = lastReadChapterId ? ch.id === lastReadChapterId : idx === 0;
                       const chStatus = chapterDownloadStatus?.[ch.id];
@@ -519,73 +564,142 @@ export function OnlineMangaDetailView({
                     })}
                   </div>
                 ) : (
-                  volumes.map((vol) => {
-                    const volChapters = filteredAndSortedChapters.filter(c => c.volume === vol);
-                    const isExpanded = expandedVolume === vol;
-                    return (
-                      <div key={vol} className="border-b border-border/30">
-                        <div 
-                          className="flex items-center justify-between p-4 cursor-pointer hover:bg-secondary transition-colors font-medium text-sm text-foreground"
-                          onClick={() => setExpandedVolume(isExpanded ? null : vol)}
-                        >
-                          <span className="font-semibold text-base">Volume {vol !== 'None' ? vol : '?'}</span>
-                          <span className="text-xs px-2 py-1 bg-secondary rounded-md text-muted-foreground">{volChapters.length} chapters</span>
-                        </div>
-                        {isExpanded && (
-                          <div className="bg-secondary/20">
-                            {volChapters.map((ch) => {
-                              const chapterNumStr = ch.chapter && ch.chapter !== '?' ? `Chapter ${ch.chapter}` : '';
-                              const fullTitle = ch.title ? (chapterNumStr ? `${chapterNumStr}: ${ch.title}` : ch.title) : chapterNumStr || 'Oneshot';
-                              const isHighlighted = lastReadChapterId ? ch.id === lastReadChapterId : false;
-                              const chStatus = chapterDownloadStatus?.[ch.id];
-                              return (
-                                <div 
-                                  key={ch.id} 
-                                  onClick={() => onReadChapter(ch)}
-                                  className={`flex items-center justify-between p-3 pl-8 cursor-pointer transition-colors border-t border-border/30 hover:bg-secondary ${isHighlighted ? 'bg-primary/10 border-l-2 border-l-primary' : 'border-l-2 border-l-transparent'}`}
-                                >
-                                  <div className="flex items-center gap-3 min-w-0">
-                                    {isHighlighted && <Play className="w-3 h-3 text-primary fill-primary shrink-0" />}
-                                    <span className={`truncate text-sm ${isHighlighted ? 'text-primary font-bold' : 'text-foreground/80 font-medium'}`}>{fullTitle}</span>
-                                  </div>
-                                  <div className="flex items-center gap-2 shrink-0 ml-4">
-                                    <div className="flex flex-col items-end">
-                                      {ch.scanlationGroup && (
-                                        <span className="text-[11px] font-medium text-foreground/60 max-w-[100px] sm:max-w-[150px] truncate" title={ch.scanlationGroup}>
-                                          {ch.scanlationGroup}
-                                        </span>
-                                      )}
-                                      {ch.date && ch.date !== 'Unknown' && (
-                                        <span className="text-[11px] text-muted-foreground/70">
-                                          {ch.date}
-                                        </span>
+                  volumeGroups.length === 0 ? (
+                    <div className="p-8 text-center text-muted-foreground/80">No volumes found</div>
+                  ) : (
+                    volumeGroups.map((vol) => {
+                      const isExpanded = expandedVolume === vol.id;
+                      const volDownloadStatus = getVolumeDownloadStatus(vol.chapters, chapterDownloadStatus);
+
+                      return (
+                        <div key={vol.id} className="border-b border-border/30 last:border-b-0 transition-colors">
+                          <div 
+                            className={cn(
+                              "flex items-center justify-between p-4 cursor-pointer hover:bg-secondary/60 transition-all select-none group",
+                              isExpanded && "bg-secondary/40 border-l-2 border-l-primary"
+                            )}
+                            onClick={() => setExpandedVolume(isExpanded ? null : vol.id)}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0 group-hover:bg-primary/20 transition-colors">
+                                {vol.volumeNumber ?? '#'}
+                              </div>
+                              <div className="flex flex-col min-w-0">
+                                <span className="font-bold text-sm sm:text-base text-foreground group-hover:text-primary transition-colors truncate">
+                                  {vol.volumeLabel}
+                                </span>
+                                <span className="text-xs text-muted-foreground font-medium">
+                                  {vol.chapterRangeLabel} · {vol.chapters.length} {vol.chapters.length === 1 ? 'chapter' : 'chapters'}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0 ml-3" onClick={(e) => e.stopPropagation()}>
+                              {/* Download Volume Button */}
+                              {volDownloadStatus.isAllDone ? (
+                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full text-xs font-bold shadow-xs">
+                                  <Check className="w-3.5 h-3.5 stroke-[3]" />
+                                  <span className="hidden sm:inline">Downloaded</span>
+                                </div>
+                              ) : volDownloadStatus.isDownloading ? (
+                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 border border-primary/20 text-primary rounded-full text-xs font-bold shadow-xs">
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  <span>{volDownloadStatus.doneCount}/{volDownloadStatus.totalCount}</span>
+                                </div>
+                              ) : (
+                                (onDownloadChapters || onDownloadChapter) && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      const toDownload = vol.chapters.filter(c => chapterDownloadStatus?.[c.id] !== 'done');
+                                      if (onDownloadChapters) {
+                                        onDownloadChapters(toDownload);
+                                      } else if (onDownloadChapter) {
+                                        toDownload.forEach(ch => onDownloadChapter(ch));
+                                      }
+                                    }}
+                                    title={`Download ${vol.volumeLabel} (${vol.chapters.length} chapters)`}
+                                    className="h-8 px-3 rounded-full text-xs font-bold gap-1.5 bg-secondary/80 hover:bg-primary hover:text-primary-foreground border-border/50 transition-all shadow-xs"
+                                  >
+                                    <Download className="w-3.5 h-3.5" />
+                                    <span className="hidden sm:inline">Download Vol</span>
+                                  </Button>
+                                )
+                              )}
+
+                              {/* Expand/Collapse Chevron Button */}
+                              <button 
+                                type="button"
+                                onClick={() => setExpandedVolume(isExpanded ? null : vol.id)}
+                                className="p-1.5 rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+                                title={isExpanded ? "Collapse" : "Expand"}
+                              >
+                                <ChevronDown className={cn("w-4 h-4 transition-transform duration-200", isExpanded && "rotate-180")} />
+                              </button>
+                            </div>
+                          </div>
+
+                          {isExpanded && (
+                            <div className="bg-secondary/15 divide-y divide-border/20 border-t border-border/20">
+                              {vol.chapters.map((ch) => {
+                                const fullTitle = formatChapterTitle(ch);
+                                const isHighlighted = lastReadChapterId ? ch.id === lastReadChapterId : false;
+                                const chStatus = chapterDownloadStatus?.[ch.id];
+                                return (
+                                  <div 
+                                    key={ch.id} 
+                                    onClick={() => onReadChapter(ch)}
+                                    className={cn(
+                                      "flex items-center justify-between p-3 pl-8 sm:pl-10 cursor-pointer transition-colors hover:bg-secondary/60",
+                                      isHighlighted ? "bg-primary/10 border-l-2 border-l-primary" : "border-l-2 border-l-transparent"
+                                    )}
+                                  >
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      {isHighlighted && <Play className="w-3 h-3 text-primary fill-primary shrink-0" />}
+                                      <span className={cn("truncate text-sm", isHighlighted ? "text-primary font-bold" : "text-foreground/80 font-medium")}>
+                                        {fullTitle}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0 ml-4">
+                                      <div className="flex flex-col items-end">
+                                        {ch.scanlationGroup && (
+                                          <span className="text-[11px] font-medium text-foreground/60 max-w-[100px] sm:max-w-[150px] truncate" title={ch.scanlationGroup}>
+                                            {ch.scanlationGroup}
+                                          </span>
+                                        )}
+                                        {ch.date && ch.date !== 'Unknown' && (
+                                          <span className="text-[11px] text-muted-foreground/70">
+                                            {ch.date}
+                                          </span>
+                                        )}
+                                      </div>
+                                      {onDownloadChapter && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            onDownloadChapter(ch);
+                                          }}
+                                          disabled={chStatus === 'downloading' || chStatus === 'queued'}
+                                          aria-label={`Download ${chapterDisplayLabel(ch)}`}
+                                          data-status={chStatus ?? 'idle'}
+                                          title="Download this chapter"
+                                          className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors hover:bg-primary/15 hover:text-primary disabled:opacity-60 disabled:pointer-events-none"
+                                        >
+                                          <ChapterDownloadStatusIcon status={chStatus} />
+                                        </button>
                                       )}
                                     </div>
-                                    {onDownloadChapter && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          onDownloadChapter(ch);
-                                        }}
-                                        disabled={chStatus === 'downloading' || chStatus === 'queued'}
-                                        aria-label={`Download ${chapterDisplayLabel(ch)}`}
-                                        data-status={chStatus ?? 'idle'}
-                                        title="Download this chapter"
-                                        className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors hover:bg-primary/15 hover:text-primary disabled:opacity-60 disabled:pointer-events-none"
-                                      >
-                                        <ChapterDownloadStatusIcon status={chStatus} />
-                                      </button>
-                                    )}
                                   </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )
                 )}
               </div>
             </div>

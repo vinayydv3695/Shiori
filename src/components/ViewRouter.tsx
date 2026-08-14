@@ -87,6 +87,7 @@ export function ViewRouter({
           <Suspense fallback={<LoadingSpinner className="py-24" />}>
             <HomePage 
               onOpenBook={handleOpenBook} 
+              onViewSeries={dialogs.openSeriesView}
               onViewRSS={() => handleNavigate('rss-articles')} 
               searchQuery={searchQuery}
               onSearchChange={onSearchChange}

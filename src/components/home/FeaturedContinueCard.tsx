@@ -1,25 +1,48 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { PlayCircle, BookOpen } from 'lucide-react';
+import { PlayCircle, BookOpen, Layers } from 'lucide-react';
 import type { Book, ReadingProgress } from '@/lib/tauri';
+import type { SeriesGroup } from '@/hooks/useGroupedLibrary';
 import { useCoverImage } from '../common/hooks/useCoverImage';
 
 interface FeaturedContinueCardProps {
-  book: Book;
+  book?: Book;
+  series?: SeriesGroup;
   progress: ReadingProgress;
   onOpenBook: (book: Book) => void;
+  onViewSeries?: (series: SeriesGroup) => void;
   isManga: boolean;
 }
 
 export function FeaturedContinueCard({
-  book,
+  book: propBook,
+  series,
   progress,
   onOpenBook,
+  onViewSeries,
   isManga
 }: FeaturedContinueCardProps) {
+  // If series is passed, identify the active/next book to continue
+  const nextBook = series ? (series.books.find(b => b.reading_status !== 'completed') || series.books[0]) : propBook;
+  const book = nextBook || propBook;
+  
   const percent = progress.progressPercent || 0;
   const clampedProgress = Math.min(Math.max(percent, 0), 100);
-  const { coverUrl } = useCoverImage(book.id, book.cover_path);
+  const coverPath = series?.firstCover || book?.cover_path;
+  const { coverUrl } = useCoverImage(book?.id, coverPath);
+
+  if (!book && !series) return null;
+
+  const title = series?.title || book?.title || '';
+  const authorText = series 
+    ? Array.from(series.authors).join(', ') || 'Unknown Author'
+    : book?.authors?.map(a => a.name).join(', ') || 'Unknown Author';
+
+  const handleClick = () => {
+    if (book) {
+      onOpenBook(book);
+    }
+  };
 
   return (
     <motion.div
@@ -27,31 +50,31 @@ export function FeaturedContinueCard({
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.5, delay: 0.1 }}
       className="relative flex flex-col justify-end h-full min-h-[280px] rounded-2xl overflow-hidden cursor-pointer group border border-transparent shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_0_0_1px_hsl(var(--border)/0.4),0_8px_32px_rgba(0,0,0,0.3)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_0_1px_hsl(var(--primary)/0.4),0_12px_40px_hsl(var(--primary)/0.15)] hover:-translate-y-[2px] transition-all duration-400 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]"
-      onClick={() => onOpenBook(book)}
+      onClick={handleClick}
     >
-      {/* Background Image - Sharp & Vivid */}
+      {/* Background Image - Sharp & Vivid with Subtle Blur */}
       <div className="absolute inset-0 bg-card z-0 overflow-hidden">
         {coverUrl ? (
           <img
             src={coverUrl}
             alt="Background"
-            className="w-full h-full object-cover object-center opacity-35 scale-100 group-hover:scale-105 transition-transform duration-700 ease-out"
+            className="w-full h-full object-cover object-center opacity-40 scale-100 filter blur-[4px] group-hover:scale-105 transition-transform duration-700 ease-out"
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-primary/15 to-accent/15" />
         )}
         {/* Left & Bottom Gradient Overlays for crisp text contrast */}
-        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/60 to-transparent pointer-events-none" />
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent pointer-events-none" />
       </div>
 
       {/* Content */}
       <div className="relative z-10 p-6 flex flex-col gap-4">
         <div className="flex items-start gap-5">
           {/* Cover Thumbnail */}
-          <div className="w-20 h-28 flex-shrink-0 rounded-lg overflow-hidden shadow-2xl ring-1 ring-border/40 group-hover:-translate-y-1 transition-transform duration-300">
+          <div className="w-20 h-28 flex-shrink-0 rounded-lg overflow-hidden shadow-2xl ring-1 ring-border/40 group-hover:-translate-y-1 transition-transform duration-300 bg-muted">
             {coverUrl ? (
-              <img src={coverUrl} alt={book.title} className="w-full h-full object-cover" />
+              <img src={coverUrl} alt={title} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full bg-muted flex items-center justify-center">
                 <BookOpen size={24} className="text-muted-foreground/50" />
@@ -59,15 +82,23 @@ export function FeaturedContinueCard({
             )}
           </div>
           
-          <div className="flex flex-col gap-1.5 pt-2">
-            <span className="text-[10px] uppercase tracking-widest font-bold text-primary">
-              Continue Reading
-            </span>
-            <h2 className="text-xl font-bold leading-tight line-clamp-2 text-foreground">
-              {book.title}
+          <div className="flex flex-col gap-1.5 pt-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] uppercase tracking-widest font-black text-primary">
+                {series ? 'Continue Series' : 'Continue Reading'}
+              </span>
+              {series && (
+                <span className="text-[10px] text-foreground/80 font-bold flex items-center gap-1 bg-secondary/80 px-2 py-0.5 rounded-full border border-border/30">
+                  <Layers className="w-3 h-3 text-primary" />
+                  {series.bookCount} Vols
+                </span>
+              )}
+            </div>
+            <h2 className="text-xl font-black leading-tight line-clamp-2 text-foreground">
+              {title}
             </h2>
             <p className="text-sm text-muted-foreground line-clamp-1">
-              {book.authors?.map(a => a.name).join(', ') || 'Unknown Author'}
+              {authorText}
             </p>
           </div>
         </div>
@@ -84,7 +115,7 @@ export function FeaturedContinueCard({
             {Math.round(percent)}%
           </span>
           <button 
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpenBook(book); }}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleClick(); }}
             className="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-primary-foreground shadow-lg group-hover:bg-primary/90 group-hover:scale-105 transition-all">
             <PlayCircle size={20} />
           </button>

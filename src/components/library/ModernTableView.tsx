@@ -40,6 +40,8 @@ function SortIcon({ field, sortField, sortDirection }: { field: SortField; sortF
   )
 }
 
+const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
+
 export const ModernTableView = ({
   books,
   selectedBooks,
@@ -67,12 +69,12 @@ export const ModernTableView = ({
 
     switch (sortField) {
       case 'title':
-        comparison = a.title.localeCompare(b.title)
+        comparison = collator.compare(a.title || '', b.title || '')
         break
       case 'author': {
         const aAuthor = a.authors?.[0]?.name || ''
         const bAuthor = b.authors?.[0]?.name || ''
-        comparison = aAuthor.localeCompare(bAuthor)
+        comparison = collator.compare(aAuthor, bAuthor)
         break
       }
       case 'rating':

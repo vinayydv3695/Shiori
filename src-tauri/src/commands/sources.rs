@@ -664,34 +664,17 @@ pub async fn annas_archive_get_torrent_links(
 
     let options = source.get_download_options(&content_id).await?;
 
-    let has_any_torrentish = options.iter().any(|option| {
-        matches!(option.download_type, DownloadType::Magnet | DownloadType::Torrent)
-    });
-
-    let mut filtered = options
-        .into_iter()
-        .filter(|option| match option.download_type {
-            DownloadType::Magnet => true,
-            DownloadType::Torrent => !is_anna_dataset_torrent(&option.url),
-            _ => false,
-        })
-        .collect::<Vec<_>>();
-
+    let mut filtered = options;
     filtered.sort_by_key(|option| match option.download_type {
         DownloadType::Magnet => 0u8,
         DownloadType::Torrent => 1u8,
-        _ => 2u8,
+        DownloadType::Direct => 2u8,
+        DownloadType::External => 3u8,
     });
 
     if filtered.is_empty() {
-        if has_any_torrentish {
-            return Err(ShioriError::Other(
-                "Only Anna collection/shard torrents were found for this result (no per-book magnet/torrent). Use View Details for manual download."
-                    .to_string(),
-            ));
-        }
         return Err(ShioriError::Other(
-            "No torrent or magnet links found for this book".to_string(),
+            "No download links found for this book on Anna's Archive".to_string(),
         ));
     }
 

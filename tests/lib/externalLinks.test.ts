@@ -1,9 +1,12 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { isExternalHref, handleExternalLinkClick, openExternal } from '@/lib/externalLinks';
 
-// Toggleable isTauri flag + shell mock, so both code paths are testable.
-const tauriMock = vi.hoisted(() => ({ isTauri: false }));
-vi.mock('@/lib/tauri', () => ({ get isTauri() { return tauriMock.isTauri; } }));
+// Toggleable isTauri/isAndroid flag + shell mock, so both code paths are testable.
+const tauriMock = vi.hoisted(() => ({ isTauri: false, isAndroid: false }));
+vi.mock('@/lib/tauri', () => ({
+  get isTauri() { return tauriMock.isTauri; },
+  get isAndroid() { return tauriMock.isAndroid; },
+}));
 
 const shellMock = vi.hoisted(() => ({ open: vi.fn() }));
 vi.mock('@tauri-apps/plugin-shell', () => ({ open: shellMock.open }));

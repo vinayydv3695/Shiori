@@ -18,9 +18,11 @@ const books = [
 ];
 
 describe('isConvertibleFormat', () => {
-  it('rejects epub and online-manga case-insensitively', () => {
+  it('rejects epub, online-manga, cbz, and cbr case-insensitively', () => {
     expect(isConvertibleFormat('epub')).toBe(false);
     expect(isConvertibleFormat('EPUB')).toBe(false);
+    expect(isConvertibleFormat('cbz')).toBe(false);
+    expect(isConvertibleFormat('CBR')).toBe(false);
     expect(isConvertibleFormat('online-manga')).toBe(false);
     expect(isConvertibleFormat('Online-Manga')).toBe(false);
   });
@@ -28,7 +30,8 @@ describe('isConvertibleFormat', () => {
   it('accepts other local formats and rejects missing formats', () => {
     expect(isConvertibleFormat('pdf')).toBe(true);
     expect(isConvertibleFormat('mobi')).toBe(true);
-    expect(isConvertibleFormat('cbz')).toBe(true);
+    expect(isConvertibleFormat('fb2')).toBe(true);
+    expect(isConvertibleFormat('txt')).toBe(true);
     expect(isConvertibleFormat(undefined)).toBe(false);
     expect(isConvertibleFormat('')).toBe(false);
   });

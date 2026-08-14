@@ -46,12 +46,12 @@ export function DownloadProgressBar({ bookTitle, progress, onClear }: DownloadPr
               )}
             >
               {isDone
-                ? 'Ready in library'
+                ? 'Added to library'
                 : isError
                   ? 'Download failed'
                   : isPages
                     ? (hasTotal ? `Downloading page ${progress.downloaded_bytes} of ${totalBytes}…` : 'Fetching chapter pages…')
-                    : percent !== null ? 'Downloading content…' : 'Connecting to source…'}
+                    : 'Downloading…'}
             </span>
           </div>
         </div>
@@ -110,7 +110,7 @@ export function DownloadProgressBar({ bookTitle, progress, onClear }: DownloadPr
         <span className="tabular-nums">
           {isPages
             ? (isDone ? `${totalBytes || downloaded} pages` : hasTotal ? `${downloaded} / ${total} pages` : 'Connecting…')
-            : (isDone ? `${downloaded} MB` : total ? `${downloaded} / ${total} MB` : `${downloaded} MB`)}
+            : (isDone ? `${downloaded} MB` : total ? `${downloaded} MB / ${total} MB` : `${downloaded} MB`)}
         </span>
         {!isDone && !isError && percent !== null && (
           <span className="font-bold text-primary">{percent}%</span>

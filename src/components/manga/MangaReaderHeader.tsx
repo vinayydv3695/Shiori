@@ -22,6 +22,8 @@ import {
     BookOpen 
 } from 'lucide-react';
 import React from 'react';
+import { compareBooksNatural, parseVolumeOrChapterNumber } from '@/lib/seriesSorting';
+import { formatChapterTitle } from '@/components/online/mangaDownloadUtils';
 import {
     DropdownMenu,
     DropdownMenuTrigger,
@@ -89,7 +91,7 @@ export function MangaReaderHeader({
         if (!currentLocalBook?.series) return [];
         return libraryBooks
             .filter(b => b.series === currentLocalBook.series)
-            .sort((a, b) => (a.series_index || 0) - (b.series_index || 0));
+            .sort((a, b) => compareBooksNatural(a, b, 'chapter_asc'));
     }, [currentLocalBook, libraryBooks]);
     
     const currentLocalIndex = React.useMemo(() => 
@@ -244,17 +246,16 @@ export function MangaReaderHeader({
 
         if (chapterSearch.trim()) {
             const q = chapterSearch.toLowerCase().trim();
-            list = list.filter(b => 
-                b.title.toLowerCase().includes(q) || 
-                (b.series_index != null && String(b.series_index).includes(q))
-            );
+            list = list.filter(b => {
+                const volNum = parseVolumeOrChapterNumber(b);
+                return (
+                    b.title.toLowerCase().includes(q) || 
+                    (volNum !== null && (String(volNum).includes(q) || `vol ${volNum}`.includes(q)))
+                );
+            });
         }
 
-        list.sort((a, b) => {
-            const idxA = a.series_index ?? 0;
-            const idxB = b.series_index ?? 0;
-            return sortDirection === 'asc' ? idxA - idxB : idxB - idxA;
-        });
+        list.sort((a, b) => compareBooksNatural(a, b, sortDirection));
 
         return list;
     }, [seriesBooks, chapterSearch, sortDirection]);
@@ -492,7 +493,19 @@ export function MangaReaderHeader({
                                                                         }`}
                                                                     >
                                                                         <div className="flex items-center gap-3 min-w-0 flex-1">
-                                                                            {c.number != null ? (
+                                                                            {c.volume != null && c.number != null ? (
+                                                                                <span className={`px-2.5 py-1 text-xs font-mono font-bold rounded-xl shrink-0 transition-colors ${
+                                                                                    isSelected 
+                                                                                        ? isLight 
+                                                                                            ? '!bg-[#A0522D] !text-white shadow-xs' 
+                                                                                            : '!bg-amber-400 !text-black shadow-sm' 
+                                                                                        : isLight 
+                                                                                            ? '!bg-[#E5D7BC] !text-[#5C4430] border border-[#D9C9A3]/60' 
+                                                                                            : '!bg-white/10 !text-white/90 border border-white/5'
+                                                                                }`}>
+                                                                                    Vol. {c.volume} Ch. {c.number}
+                                                                                </span>
+                                                                            ) : c.number != null ? (
                                                                                 <span className={`px-2.5 py-1 text-xs font-mono font-bold rounded-xl shrink-0 transition-colors ${
                                                                                     isSelected 
                                                                                         ? isLight 
@@ -519,7 +532,11 @@ export function MangaReaderHeader({
                                                                                     ? (isLight ? 'text-[#733516] font-bold' : 'text-amber-300 font-bold') 
                                                                                     : (isLight ? 'text-[#2C1E0F] font-medium' : 'text-white/90 font-medium')
                                                                             }`}>
-                                                                                {c.title ? (c.title.startsWith('Chapter ') && c.number != null ? c.title.replace(/^Chapter\s+\d+[\s:.-]*/i, '') || c.title : c.title) : `Chapter ${c.number ?? ''}`}
+                                                                                {formatChapterTitle({
+                                                                                    volume: c.volume != null ? String(c.volume) : undefined,
+                                                                                    chapter: c.number != null ? String(c.number) : undefined,
+                                                                                    title: c.title,
+                                                                                })}
                                                                             </span>
                                                                         </div>
 
@@ -582,7 +599,7 @@ export function MangaReaderHeader({
                                                                                         ? '!bg-[#E5D7BC] !text-[#5C4430] border border-[#D9C9A3]/60' 
                                                                                         : '!bg-white/10 !text-white/90 border border-white/5'
                                                                             }`}>
-                                                                                Vol. {b.series_index || idx + 1}
+                                                                                Vol. {b.series_index ?? parseVolumeOrChapterNumber(b) ?? (idx + 1)}
                                                                             </span>
                                                                             <span className={`truncate text-sm ${
                                                                                 isSelected 

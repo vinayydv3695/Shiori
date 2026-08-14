@@ -50,6 +50,7 @@ import { MangaDownloadOptionsDialog } from "./MangaDownloadOptionsDialog";
 import {
   buildChapterDownloadTitle,
   countChapterStatuses,
+  extractChapterVolume,
   type ChapterDownloadStatus,
   type ChapterDownloadStatusMap,
 } from "./mangaDownloadUtils";
@@ -970,30 +971,40 @@ export function OnlineMangaView() {
     // MangaDex is the active source) must still list chapters and offer
     // downloads. selectedManga / selectedPluginManga are mutually exclusive.
     if (selectedManga) {
-      return chapters.map((c) => ({
-        id: c.id,
-        volume: c.volume || "None",
-        chapter: c.chapter || "?",
-        title: c.title || "",
-        pages: c.pages,
-        sourceType: "mangadex",
-        originalChapter: c,
-        date: c.publishAt
-          ? new Date(c.publishAt).toLocaleDateString()
-          : undefined,
-      }));
+      return chapters.map((c) => {
+        const parsedVol = extractChapterVolume(c.volume, c.title, c.chapter);
+        return {
+          id: c.id,
+          volume: parsedVol || c.volume || "None",
+          chapter: c.chapter || "?",
+          title: c.title || "",
+          pages: c.pages,
+          sourceType: "mangadex",
+          originalChapter: c,
+          date: c.publishAt
+            ? new Date(c.publishAt).toLocaleDateString()
+            : undefined,
+        };
+      });
     }
     if (selectedPluginManga) {
-      return pluginChapters.map((c) => ({
-        id: c.id,
-        volume: c.volume ? String(c.volume) : "None",
-        chapter: c.number !== undefined ? String(c.number) : "?",
-        title: c.title || "",
-        pages: c.pages,
-        sourceType: "plugin",
-        originalChapter: c,
-        date: c.date ? new Date(c.date).toLocaleDateString() : undefined,
-      }));
+      return pluginChapters.map((c) => {
+        const parsedVol = extractChapterVolume(
+          c.volume ? String(c.volume) : undefined,
+          c.title,
+          c.number !== undefined ? String(c.number) : ""
+        );
+        return {
+          id: c.id,
+          volume: parsedVol || (c.volume ? String(c.volume) : "None"),
+          chapter: c.number !== undefined ? String(c.number) : "?",
+          title: c.title || "",
+          pages: c.pages,
+          sourceType: "plugin",
+          originalChapter: c,
+          date: c.date ? new Date(c.date).toLocaleDateString() : undefined,
+        };
+      });
     }
     return [];
   }, [
@@ -1354,6 +1365,7 @@ export function OnlineMangaView() {
           lastReadChapterId={lastReadChapterId}
           chapterDownloadStatus={chapterDownloadStatus}
           onDownloadChapter={(ch) => void handleDownloadChapters([ch])}
+          onDownloadChapters={(chs) => void handleDownloadChapters(chs)}
           onDownloadAll={() => setDownloadOptionsOpen(true)}
         />
 

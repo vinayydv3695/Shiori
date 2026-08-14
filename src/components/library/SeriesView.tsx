@@ -8,7 +8,7 @@ import {
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { usePreferencesStore } from '@/store/preferencesStore'
-import { cn, pageCountLabel } from '@/lib/utils'
+import { cn, pageCountLabel, fetchWithRetry } from '@/lib/utils'
 import { logger } from '@/lib/logger'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { PremiumBookCard } from './ModernBookCard'
@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { api, type Book } from '@/lib/tauri'
 import { useToast } from '@/store/toastStore'
+import { compareBooksNatural, parseVolumeOrChapterNumber } from '@/lib/seriesSorting'
 
 function getBookReadStatus(book: Book) {
   return book.reading_status || 'planning';
@@ -43,12 +44,42 @@ const DesktopSeriesHeader = memo(function DesktopSeriesHeader({
   // React throws "rendered fewer/more hooks than during the previous render".
   const firstBook = series?.books[0];
   const { coverUrl } = useCoverImage(firstBook?.id, firstBook?.cover_path)
+  const [anilistBanner, setAnilistBanner] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (series?.title) {
+      const fetchBanner = async () => {
+        try {
+          const query = `
+            query ($search: String) {
+              Media(search: $search, type: MANGA) {
+                bannerImage
+              }
+            }
+          `;
+          const res = await fetchWithRetry('https://graphql.anilist.co', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query, variables: { search: series.title } })
+          });
+          const data = await res.json();
+          if (data.data?.Media?.bannerImage) {
+            setAnilistBanner(data.data.Media.bannerImage);
+          }
+        } catch {
+          // ignore banner fetch failures gracefully
+        }
+      };
+      fetchBanner();
+    }
+  }, [series?.title]);
 
   const totalPages = useMemo(() => (series?.books ?? []).reduce((acc, b) => acc + (b.page_count || 0), 0), [series?.books]);
 
-  // Find next unread book
-  const sortedBooks = useMemo(() => [...(series?.books ?? [])].sort((a, b) => (a.series_index ?? 0) - (b.series_index ?? 0)), [series?.books]);
+  // Find next unread book (sorted naturally by volume/chapter)
+  const sortedBooks = useMemo(() => [...(series?.books ?? [])].sort((a, b) => compareBooksNatural(a, b, 'chapter_asc')), [series?.books]);
   const nextUnreadBook = useMemo(() => sortedBooks.find(b => getBookReadStatus(b) !== 'completed'), [sortedBooks]);
+  const nextVolNum = nextUnreadBook ? (nextUnreadBook.series_index ?? parseVolumeOrChapterNumber(nextUnreadBook)) : null;
 
   if (!series) return null;
 
@@ -56,124 +87,143 @@ const DesktopSeriesHeader = memo(function DesktopSeriesHeader({
   const progressPercent = series.books.length > 0 ? Math.round((readBooks / series.books.length) * 100) : 0;
 
   const status = 'Ongoing';
+  const heroImage = anilistBanner || coverUrl;
 
   return (
-    <div className="hidden md:block relative overflow-hidden shrink-0 border-b border-border bg-card">
-      {/* Hero Background Banner with Left-Fade Towards Text */}
-      {coverUrl && (
+    <div className="hidden md:block relative overflow-hidden shrink-0 border-b border-border/50 bg-card/60">
+      {/* Hero Background Banner */}
+      {heroImage && (
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div 
-            className="absolute inset-0 bg-cover bg-right-top bg-no-repeat opacity-35 scale-105 filter blur-[2px]"
-            style={{ backgroundImage: `url(${coverUrl})` }}
+            className="absolute right-0 top-0 bottom-0 w-full md:w-3/5 bg-cover bg-right-top bg-no-repeat opacity-50 md:opacity-65 filter blur-[4px] transition-all duration-500"
+            style={{ backgroundImage: `url(${heroImage})` }}
           />
-          {/* Gradient fading from background on the left (text area) to transparent on the right */}
-          <div className="absolute inset-0 bg-gradient-to-r from-card via-card/80 to-transparent w-full md:w-3/4" />
-          <div className="absolute inset-0 bg-gradient-to-r from-card via-card/50 to-transparent" />
-          {/* Bottom fade into content */}
-          <div className="absolute inset-0 bg-gradient-to-t from-card via-card/20 to-transparent" />
+          {/* Overlay gradients for high contrast and readability */}
+          <div className="absolute inset-0 bg-gradient-to-r from-card via-card/75 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
         </div>
       )}
 
-      <div className="relative z-10 p-4 pt-14 md:p-8 flex flex-col gap-5 md:gap-8">
-        
-        {/* Top Section: Cover & Info */}
-        <div className="flex flex-row gap-4 md:gap-8 items-start md:items-end w-full">
-          {/* Cover */}
-          <div className="w-24 h-36 md:w-48 md:h-72 rounded-lg overflow-hidden shadow-2xl border border-border/40 flex-shrink-0 bg-muted/50 transform transition-transform hover:scale-105 duration-300">
-            {coverUrl ? (
-              <img src={coverUrl} alt={series.title} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground/30 bg-muted">
-                <BookOpen className="w-8 h-8 md:w-12 md:h-12 mb-2" />
-              </div>
-            )}
-          </div>
+      <div className="relative z-10 p-6 md:p-8 flex flex-row gap-6 md:gap-8 items-stretch w-full max-w-6xl">
+        {/* Cover Artwork Card */}
+        <div className="w-36 h-52 md:w-44 md:h-64 rounded-xl overflow-hidden shadow-2xl border border-white/10 flex-shrink-0 bg-muted/60 transform transition-transform hover:scale-[1.02] duration-300 relative group">
+          {coverUrl ? (
+            <img src={coverUrl} alt={series.title} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground/30 bg-muted">
+              <BookOpen className="w-10 h-10 mb-2" />
+            </div>
+          )}
+        </div>
 
-          {/* Info */}
-          <div className="flex-1 min-w-0 flex flex-col justify-start md:justify-end py-1 md:py-2 w-full text-left">
-            <div className="flex flex-wrap items-center gap-2 mb-2 md:mb-3">
-              <span className="px-2 py-0.5 md:px-2.5 md:py-1 rounded text-[10px] md:text-xs font-bold tracking-wider bg-primary text-primary-foreground shadow-sm uppercase">
+        {/* Info & Actions Column (Fully Contained) */}
+        <div className="flex-1 min-w-0 flex flex-col justify-between py-1 text-left">
+          {/* Top metadata tags */}
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] md:text-xs font-black tracking-wider bg-primary text-primary-foreground shadow-sm uppercase">
                 {status}
               </span>
-              <span className="text-[10px] md:text-sm text-foreground/90 font-medium flex items-center gap-1 backdrop-blur-md bg-background/30 px-2 py-0.5 md:px-2.5 md:py-1 rounded border border-border/20">
-                <Layers className="w-3 h-3 md:w-4 md:h-4" />
+              <span className="text-[10px] md:text-xs text-foreground/90 font-medium flex items-center gap-1.5 backdrop-blur-md bg-secondary/60 px-2.5 py-0.5 rounded-full border border-border/30">
+                <Layers className="w-3.5 h-3.5 text-primary" />
                 {series.bookCount} {series.bookCount === 1 ? 'Vol' : 'Vols'}
               </span>
               {totalPages > 0 && (
-                <span className="hidden md:flex text-sm text-foreground/90 font-medium items-center gap-1 backdrop-blur-md bg-background/30 px-2.5 py-1 rounded border border-border/20">
-                  <BookOpen className="w-4 h-4" />
+                <span className="text-[10px] md:text-xs text-foreground/90 font-medium flex items-center gap-1.5 backdrop-blur-md bg-secondary/60 px-2.5 py-0.5 rounded-full border border-border/30">
+                  <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
                   {totalPages.toLocaleString()} Pages
                 </span>
               )}
             </div>
             
-            <Dialog.Title className="text-xl sm:text-2xl md:text-5xl font-black text-foreground line-clamp-2 md:line-clamp-none md:truncate tracking-tight mb-1 md:mb-2 drop-shadow-md leading-tight break-words whitespace-normal">
+            {/* Title & Author */}
+            <Dialog.Title className="text-2xl md:text-4xl font-black text-foreground tracking-tight line-clamp-2 drop-shadow-md leading-tight mt-1">
               {series.title}
             </Dialog.Title>
-            <p className="text-xs md:text-xl text-foreground/80 truncate font-medium drop-shadow-sm">
+            <p className="text-sm md:text-base text-foreground/80 font-medium truncate">
               {Array.from(series.authors).join(', ') || 'Unknown Author'}
             </p>
           </div>
-        </div>
 
-        {/* Actions Section */}
-        <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6 w-full mt-1 md:mt-2">
-          {/* Primary & Secondary Buttons Group */}
-          <div className="flex items-center gap-2 w-full md:w-auto">
+          {/* Bottom Actions & Reading Progress (Contained inside info box) */}
+          <div className="flex flex-wrap items-center gap-4 mt-4 pt-3 border-t border-border/20">
+            {/* Primary Action Button */}
             <Button 
               size="lg" 
               onClick={() => {
                 if (nextUnreadBook?.id) onOpenBook(nextUnreadBook.id);
                 else if (sortedBooks[0]?.id) onOpenBook(sortedBooks[0].id);
               }} 
-              className="flex-1 md:flex-none md:w-48 gap-2 font-bold text-sm md:text-base shadow-lg shadow-primary/20 transition-all hover:scale-105 h-11 md:h-12"
+              className="h-11 px-6 gap-2.5 font-bold text-sm rounded-xl bg-gradient-to-r from-primary via-primary/95 to-primary/85 hover:from-primary/90 hover:to-primary text-primary-foreground shadow-[0_4px_16px_-2px_rgba(var(--primary),0.5)] hover:scale-[1.02] active:scale-[0.98] transition-all"
             >
-              <Play className="w-4 h-4 md:w-5 md:h-5 fill-current" /> 
-              {nextUnreadBook ? `Continue Vol. ${nextUnreadBook.series_index || ''}` : 'Read Again'}
+              <Play className="w-4 h-4 fill-current" /> 
+              <span>{nextUnreadBook ? `Continue Vol. ${nextVolNum ?? ''}` : 'Read Again'}</span>
             </Button>
 
-            <Button variant="secondary" size="lg" onClick={onMarkAllRead} className="w-12 h-11 md:h-12 md:w-12 shrink-0 px-0 bg-background/40 hover:bg-background/60 text-foreground border-border/20 backdrop-blur-md shadow-sm transition-colors" title="Mark All Read">
-              <CheckCircle2 className="w-5 h-5" />
-            </Button>
-            
-            <DropdownMenu.Root>
-              <DropdownMenu.Trigger asChild>
-                <Button variant="secondary" size="lg" className="w-12 h-11 md:h-12 md:w-12 shrink-0 px-0 bg-background/40 hover:bg-background/60 text-foreground border-border/20 backdrop-blur-md shadow-sm transition-colors">
-                  <MoreVertical className="w-5 h-5" />
-                </Button>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Portal>
-                <DropdownMenu.Content align="end" className="w-48 bg-card border border-border/50 rounded-lg shadow-xl p-1 z-[100] animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-2">
-                  <DropdownMenu.Item onSelect={onFindMetadata} className="flex items-center gap-2 px-3 py-2 text-sm text-foreground cursor-pointer outline-none hover:bg-accent hover:text-accent-foreground rounded-md transition-colors">
-                    <Edit2 className="w-4 h-4" /> Edit Metadata
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Separator className="h-px bg-border/50 my-1" />
-                  {!showDeleteConfirm ? (
-                    <DropdownMenu.Item onSelect={(e) => { e.preventDefault(); setShowDeleteConfirm(true); }} className="flex items-center gap-2 px-3 py-2 text-sm text-destructive cursor-pointer outline-none hover:bg-destructive/10 rounded-md transition-colors font-medium">
-                      <Trash2 className="w-4 h-4" /> Ungroup Series
+            {/* Quick Action Icon Buttons */}
+            <div className="flex items-center gap-1.5">
+              <Button 
+                variant="secondary" 
+                size="lg" 
+                onClick={onMarkAllRead} 
+                className="w-11 h-11 shrink-0 px-0 rounded-xl bg-secondary/60 hover:bg-secondary text-foreground/90 hover:text-foreground border border-border/40 hover:border-border/70 backdrop-blur-xl shadow-xs hover:scale-105 active:scale-95 transition-all" 
+                title="Mark All Volumes as Read"
+              >
+                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+              </Button>
+              
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <Button 
+                    variant="secondary" 
+                    size="lg" 
+                    className="w-11 h-11 shrink-0 px-0 rounded-xl bg-secondary/60 hover:bg-secondary text-foreground/90 hover:text-foreground border border-border/40 hover:border-border/70 backdrop-blur-xl shadow-xs hover:scale-105 active:scale-95 transition-all"
+                    title="More Options"
+                  >
+                    <MoreVertical className="w-5 h-5" />
+                  </Button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content align="start" className="w-52 bg-card/95 backdrop-blur-2xl border border-border/50 rounded-xl shadow-2xl p-1.5 z-[100] animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-2">
+                    <DropdownMenu.Item onSelect={onFindMetadata} className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-foreground cursor-pointer outline-none hover:bg-secondary rounded-lg transition-colors font-medium">
+                      <Edit2 className="w-4 h-4 text-primary" /> Edit Metadata
                     </DropdownMenu.Item>
-                  ) : (
-                    <div className="flex items-center justify-between p-2 bg-destructive/10 rounded-md">
-                      <span className="text-xs text-destructive font-bold px-1">Sure?</span>
-                      <div className="flex gap-1">
-                        <Button variant="destructive" size="sm" onClick={onDelete} className="h-6 text-[10px] px-2 py-0">Yes</Button>
-                        <Button variant="ghost" size="sm" onClick={() => setShowDeleteConfirm(false)} className="h-6 text-[10px] px-2 py-0 hover:bg-destructive/20 text-destructive">No</Button>
+                    <DropdownMenu.Separator className="h-px bg-border/40 my-1" />
+                    {!showDeleteConfirm ? (
+                      <DropdownMenu.Item onSelect={(e) => { e.preventDefault(); setShowDeleteConfirm(true); }} className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-destructive cursor-pointer outline-none hover:bg-destructive/10 rounded-lg transition-colors font-medium">
+                        <Trash2 className="w-4 h-4" /> Ungroup Series
+                      </DropdownMenu.Item>
+                    ) : (
+                      <div className="flex items-center justify-between p-2.5 bg-destructive/10 border border-destructive/20 rounded-lg">
+                        <span className="text-xs text-destructive font-bold">Delete Series?</span>
+                        <div className="flex gap-1.5">
+                          <Button variant="destructive" size="sm" onClick={onDelete} className="h-7 text-xs px-2.5 rounded-md font-bold">Yes</Button>
+                          <Button variant="ghost" size="sm" onClick={() => setShowDeleteConfirm(false)} className="h-7 text-xs px-2.5 rounded-md hover:bg-destructive/20 text-destructive font-medium">No</Button>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </DropdownMenu.Content>
-              </DropdownMenu.Portal>
-            </DropdownMenu.Root>
-          </div>
-
-          {/* Reading Progress */}
-          <div className="flex-1 flex flex-col w-full max-w-none md:max-w-sm ml-0 md:ml-auto">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] md:text-xs font-bold text-foreground/80 uppercase tracking-wider drop-shadow-sm">Reading Progress</span>
-              <span className="text-[10px] md:text-xs font-black text-primary drop-shadow-sm">{progressPercent}%</span>
+                    )}
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
             </div>
-            <div className="h-1.5 md:h-2 w-full bg-background/60 backdrop-blur-sm rounded-full overflow-hidden border border-border/30 shadow-inner">
-              <div className="h-full bg-primary transition-all duration-1000 ease-out" style={{ width: `${progressPercent}%` }} />
+
+            {/* Reading Progress Indicator (Compact & Contained) */}
+            <div className="flex-1 min-w-[200px] max-w-xs flex flex-col justify-center gap-1.5 ml-auto bg-secondary/40 backdrop-blur-xl border border-border/30 rounded-xl px-3.5 py-2 shadow-xs">
+              <div className="flex items-center justify-between text-[11px] font-bold">
+                <span className="text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                  Progress
+                </span>
+                <span className="text-foreground">
+                  <span className="text-primary font-black">{readBooks}</span>/{series.books.length} <span className="text-muted-foreground font-medium">({progressPercent}%)</span>
+                </span>
+              </div>
+              <div className="h-1.5 w-full bg-background/70 backdrop-blur-sm rounded-full overflow-hidden border border-border/20">
+                <div 
+                  className="h-full bg-gradient-to-r from-primary to-primary/80 transition-all duration-700 rounded-full shadow-[0_0_8px_rgba(var(--primary),0.5)]" 
+                  style={{ width: `${progressPercent}%` }} 
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -201,11 +251,42 @@ const MobileSeriesHeader = memo(function MobileSeriesHeader({
   // React throws "rendered fewer/more hooks than during the previous render".
   const firstBook = series?.books[0];
   const { coverUrl } = useCoverImage(firstBook?.id, firstBook?.cover_path)
+  const [anilistBanner, setAnilistBanner] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (series?.title) {
+      const fetchBanner = async () => {
+        try {
+          const query = `
+            query ($search: String) {
+              Media(search: $search, type: MANGA) {
+                bannerImage
+              }
+            }
+          `;
+          const res = await fetchWithRetry('https://graphql.anilist.co', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query, variables: { search: series.title } })
+          });
+          const data = await res.json();
+          if (data.data?.Media?.bannerImage) {
+            setAnilistBanner(data.data.Media.bannerImage);
+          }
+        } catch {
+          // ignore banner fetch failures gracefully
+        }
+      };
+      fetchBanner();
+    }
+  }, [series?.title]);
 
   const totalPages = useMemo(() => (series?.books ?? []).reduce((acc, b) => acc + (b.page_count || 0), 0), [series?.books]);
 
-  const sortedBooks = useMemo(() => [...(series?.books ?? [])].sort((a, b) => (a.series_index ?? 0) - (b.series_index ?? 0)), [series?.books]);
+  // Find next unread book (sorted naturally by volume/chapter)
+  const sortedBooks = useMemo(() => [...(series?.books ?? [])].sort((a, b) => compareBooksNatural(a, b, 'chapter_asc')), [series?.books]);
   const nextUnreadBook = useMemo(() => sortedBooks.find(b => getBookReadStatus(b) !== 'completed'), [sortedBooks]);
+  const nextVolNum = nextUnreadBook ? (nextUnreadBook.series_index ?? parseVolumeOrChapterNumber(nextUnreadBook)) : null;
 
   if (!series) return null;
 
@@ -213,113 +294,125 @@ const MobileSeriesHeader = memo(function MobileSeriesHeader({
   const progressPercent = series.books.length > 0 ? Math.round((readBooks / series.books.length) * 100) : 0;
 
   const status = 'Ongoing';
+  const heroImage = anilistBanner || coverUrl;
 
   return (
-    <div className="md:hidden flex flex-col relative w-full shrink-0 border-b border-border bg-card overflow-hidden">
-      {/* Hero Background Banner with Soft Fade */}
-      {coverUrl && (
+    <div className="md:hidden flex flex-col relative w-full shrink-0 border-b border-border/50 bg-card/60 overflow-hidden">
+      {/* Hero Background Banner */}
+      {heroImage && (
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div 
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-35 filter blur-[2px]"
-            style={{ backgroundImage: `url(${coverUrl})` }}
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-40 filter blur-[4px] transition-all duration-500"
+            style={{ backgroundImage: `url(${heroImage})` }}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-card via-card/70 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-r from-card via-card/50 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-card via-card/80 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-card via-card/60 to-transparent" />
         </div>
       )}
 
-      <div className="relative z-10 px-4 pt-16 pb-4 flex flex-col gap-4">
-        
+      <div className="relative z-10 px-4 pt-16 pb-4 flex flex-col gap-3.5">
         {/* Top Section: Cover & Info (Horizontal) */}
-        <div className="flex flex-row gap-4 items-end w-full">
+        <div className="flex flex-row gap-3.5 items-center w-full">
           {/* Cover */}
-          <div className="w-24 h-36 rounded-lg overflow-hidden shadow-2xl border border-white/10 flex-shrink-0 bg-muted/50 relative z-20">
+          <div className="w-20 h-28 rounded-lg overflow-hidden shadow-xl border border-white/10 flex-shrink-0 bg-muted/60 relative z-20">
             {coverUrl ? (
               <img src={coverUrl} alt={series.title} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-muted-foreground/30 bg-muted">
-                <BookOpen className="w-8 h-8" />
+                <BookOpen className="w-7 h-7" />
               </div>
             )}
           </div>
 
           {/* Info */}
-          <div className="flex-1 min-w-0 flex flex-col justify-end w-full text-left pb-1">
-            <div className="flex flex-wrap items-center gap-1.5 mb-2">
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider bg-primary text-primary-foreground shadow-sm uppercase">
+          <div className="flex-1 min-w-0 flex flex-col justify-center w-full text-left">
+            <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+              <span className="px-2 py-0.5 rounded-full text-[9px] font-black tracking-wider bg-primary text-primary-foreground shadow-sm uppercase">
                 {status}
               </span>
-              <span className="text-[10px] text-foreground/90 font-medium flex items-center gap-1 backdrop-blur-md bg-background/30 px-1.5 py-0.5 rounded border border-border/20">
-                <Layers className="w-3 h-3" />
+              <span className="text-[10px] text-foreground/90 font-medium flex items-center gap-1 backdrop-blur-md bg-secondary/60 px-2 py-0.5 rounded-full border border-border/20">
+                <Layers className="w-3 h-3 text-primary" />
                 {series.bookCount} {series.bookCount === 1 ? 'Vol' : 'Vols'}
               </span>
             </div>
             
-            <Dialog.Title className="text-xl font-black text-foreground line-clamp-3 tracking-tight mb-1 drop-shadow-md leading-tight break-words whitespace-normal">
+            <Dialog.Title className="text-lg font-black text-foreground line-clamp-2 tracking-tight leading-snug drop-shadow-md break-words">
               {series.title}
             </Dialog.Title>
-            <p className="text-xs text-foreground/80 truncate font-medium drop-shadow-sm">
+            <p className="text-xs text-foreground/75 truncate font-medium mt-0.5">
               {Array.from(series.authors).join(', ') || 'Unknown Author'}
             </p>
           </div>
         </div>
 
-        {/* Actions Section */}
-        <div className="flex flex-row items-center gap-2 w-full mt-1">
-          <Button 
-            size="lg" 
-            onClick={() => {
-              if (nextUnreadBook?.id) onOpenBook(nextUnreadBook.id);
-              else if (sortedBooks[0]?.id) onOpenBook(sortedBooks[0].id);
-            }} 
-            className="flex-1 gap-2 font-bold text-sm shadow-lg shadow-primary/20 transition-all active:scale-95 h-11"
-          >
-            <Play className="w-4 h-4 fill-current" /> 
-            {nextUnreadBook ? `Continue Vol. ${nextUnreadBook.series_index || ''}` : 'Read Again'}
-          </Button>
+        {/* Actions & Progress Section */}
+        <div className="flex flex-col gap-2.5 w-full pt-1 border-t border-border/20">
+          <div className="flex items-center gap-2 w-full">
+            <Button 
+              size="lg" 
+              onClick={() => {
+                if (nextUnreadBook?.id) onOpenBook(nextUnreadBook.id);
+                else if (sortedBooks[0]?.id) onOpenBook(sortedBooks[0].id);
+              }} 
+              className="flex-1 h-10 gap-2 font-bold text-xs rounded-xl bg-gradient-to-r from-primary via-primary/95 to-primary/85 text-primary-foreground shadow-md shadow-primary/20 active:scale-[0.98] transition-all"
+            >
+              <Play className="w-3.5 h-3.5 fill-current" /> 
+              <span>{nextUnreadBook ? `Continue Vol. ${nextVolNum ?? ''}` : 'Read Again'}</span>
+            </Button>
 
-          <Button variant="secondary" size="lg" onClick={onMarkAllRead} className="w-11 h-11 shrink-0 px-0 bg-background/40 hover:bg-background/60 text-foreground border-border/20 backdrop-blur-md shadow-sm transition-colors" title="Mark All Read">
-            <CheckCircle2 className="w-5 h-5" />
-          </Button>
-          
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger asChild>
-              <Button variant="secondary" size="lg" className="w-11 h-11 shrink-0 px-0 bg-background/40 hover:bg-background/60 text-foreground border-border/20 backdrop-blur-md shadow-sm transition-colors">
-                <MoreVertical className="w-5 h-5" />
-              </Button>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Portal>
-              <DropdownMenu.Content align="end" className="w-48 bg-card border border-border/50 rounded-lg shadow-xl p-1 z-[100] animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-2">
-                <DropdownMenu.Item onSelect={onFindMetadata} className="flex items-center gap-2 px-3 py-2 text-sm text-foreground cursor-pointer outline-none hover:bg-accent hover:text-accent-foreground rounded-md transition-colors">
-                  <Edit2 className="w-4 h-4" /> Edit Metadata
-                </DropdownMenu.Item>
-                <DropdownMenu.Separator className="h-px bg-border/50 my-1" />
-                {!showDeleteConfirm ? (
-                  <DropdownMenu.Item onSelect={(e) => { e.preventDefault(); setShowDeleteConfirm(true); }} className="flex items-center gap-2 px-3 py-2 text-sm text-destructive cursor-pointer outline-none hover:bg-destructive/10 rounded-md transition-colors font-medium">
-                    <Trash2 className="w-4 h-4" /> Ungroup Series
+            <Button 
+              variant="secondary" 
+              size="lg" 
+              onClick={onMarkAllRead} 
+              className="w-10 h-10 shrink-0 px-0 rounded-xl bg-secondary/60 hover:bg-secondary text-foreground/90 border border-border/40 backdrop-blur-xl shadow-xs transition-colors" 
+              title="Mark All Read"
+            >
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            </Button>
+            
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger asChild>
+                <Button 
+                  variant="secondary" 
+                  size="lg" 
+                  className="w-10 h-10 shrink-0 px-0 rounded-xl bg-secondary/60 hover:bg-secondary text-foreground/90 border border-border/40 backdrop-blur-xl shadow-xs transition-colors"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content align="end" className="w-48 bg-card/95 backdrop-blur-2xl border border-border/50 rounded-xl shadow-2xl p-1.5 z-[100]">
+                  <DropdownMenu.Item onSelect={onFindMetadata} className="flex items-center gap-2 px-3 py-2 text-sm text-foreground rounded-lg font-medium">
+                    <Edit2 className="w-4 h-4 text-primary" /> Edit Metadata
                   </DropdownMenu.Item>
-                ) : (
-                  <div className="flex items-center justify-between p-2 bg-destructive/10 rounded-md">
-                    <span className="text-xs text-destructive font-bold px-1">Sure?</span>
-                    <div className="flex gap-1">
-                      <Button variant="destructive" size="sm" onClick={onDelete} className="h-6 text-[10px] px-2 py-0">Yes</Button>
-                      <Button variant="ghost" size="sm" onClick={() => setShowDeleteConfirm(false)} className="h-6 text-[10px] px-2 py-0 hover:bg-destructive/20 text-destructive">No</Button>
+                  <DropdownMenu.Separator className="h-px bg-border/40 my-1" />
+                  {!showDeleteConfirm ? (
+                    <DropdownMenu.Item onSelect={(e) => { e.preventDefault(); setShowDeleteConfirm(true); }} className="flex items-center gap-2 px-3 py-2 text-sm text-destructive rounded-lg font-medium">
+                      <Trash2 className="w-4 h-4" /> Ungroup Series
+                    </DropdownMenu.Item>
+                  ) : (
+                    <div className="flex items-center justify-between p-2 bg-destructive/10 rounded-lg">
+                      <span className="text-xs text-destructive font-bold">Sure?</span>
+                      <div className="flex gap-1">
+                        <Button variant="destructive" size="sm" onClick={onDelete} className="h-6 text-[10px] px-2">Yes</Button>
+                        <Button variant="ghost" size="sm" onClick={() => setShowDeleteConfirm(false)} className="h-6 text-[10px] px-2 text-destructive">No</Button>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </DropdownMenu.Content>
-            </DropdownMenu.Portal>
-          </DropdownMenu.Root>
-        </div>
-
-        {/* Reading Progress */}
-        <div className="w-full flex flex-col mt-1">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[10px] font-bold text-foreground/80 uppercase tracking-wider drop-shadow-sm">Reading Progress</span>
-            <span className="text-[10px] font-black text-primary drop-shadow-sm">{progressPercent}%</span>
+                  )}
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
           </div>
-          <div className="h-1.5 w-full bg-background/60 backdrop-blur-sm rounded-full overflow-hidden border border-border/30 shadow-inner">
-            <div className="h-full bg-primary transition-all duration-1000 ease-out" style={{ width: `${progressPercent}%` }} />
+
+          {/* Reading Progress Bar */}
+          <div className="bg-secondary/40 backdrop-blur-xl border border-border/30 rounded-xl px-3 py-2 shadow-xs">
+            <div className="flex items-center justify-between mb-1 text-[10px] font-bold">
+              <span className="text-muted-foreground uppercase tracking-wider">Progress</span>
+              <span className="text-foreground">{readBooks}/{series.books.length} vols <span className="text-primary font-black">({progressPercent}%)</span></span>
+            </div>
+            <div className="h-1.5 w-full bg-background/70 rounded-full overflow-hidden border border-border/20">
+              <div className="h-full bg-gradient-to-r from-primary to-primary/80 transition-all duration-500 rounded-full" style={{ width: `${progressPercent}%` }} />
+            </div>
           </div>
         </div>
       </div>
@@ -377,9 +470,12 @@ const ListBookCard = memo(function ListBookCard({
           {book.title}
         </h4>
         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-          {book.series_index !== undefined && (
-            <span className="font-medium bg-muted px-1.5 py-0.5 rounded text-foreground/80">Vol. {book.series_index}</span>
-          )}
+          {(() => {
+            const volNum = book.series_index ?? parseVolumeOrChapterNumber(book);
+            return volNum !== null && volNum !== undefined ? (
+              <span className="font-medium bg-muted px-1.5 py-0.5 rounded text-foreground/80">Vol. {volNum}</span>
+            ) : null;
+          })()}
           {pageCount && <span>{pageCount}</span>}
           {status === 'reading' && <span className="text-blue-500 font-medium">Reading</span>}
         </div>
@@ -410,62 +506,61 @@ export const SeriesView = memo(function SeriesView({
   selectedBookIds,
   favoritedBookIds,
 }: SeriesViewProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'read' | 'unread'>('all');
-  const [sortOrder, setSortOrder] = useState<'chapter_asc' | 'chapter_desc' | 'date_added'>('chapter_asc');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [metadataDialogOpen, setMetadataDialogOpen] = useState(false);
-  const [metadataSeriesId, setMetadataSeriesId] = useState<number | null>(null);
-  const [jumpInput, setJumpInput] = useState('');
-  
-  const toast = useToast();
-  const bookRefs = useRef<Map<number, HTMLDivElement>>(new Map());
-  const [parentEl, setParentEl] = useState<HTMLDivElement | null>(null);
+  const [filterStatus, setFilterStatus] = useState<'all' | 'unread' | 'read'>('all')
+  const [sortOrder, setSortOrder] = useState<'chapter_asc' | 'chapter_desc' | 'date_added'>('chapter_asc')
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [jumpInput, setJumpInput] = useState('')
+  const [parentEl, setParentEl] = useState<HTMLDivElement | null>(null)
+  const [containerWidth, setContainerWidth] = useState<number>(0)
+  const isMobile = useIsMobile()
+  const toast = useToast()
+  const [metadataDialogOpen, setMetadataDialogOpen] = useState(false)
+  const [metadataSeriesId, setMetadataSeriesId] = useState<number | null>(null)
 
-  const isMobile = useIsMobile();
-  const libraryDensity = usePreferencesStore(state => state.preferences?.libraryDensity);
-  const coverSize = usePreferencesStore(state => state.preferences?.coverSize ?? "medium");
+  const density = usePreferencesStore((state) => state.preferences?.libraryDensity ?? 'comfortable')
+  const coverSize = usePreferencesStore((state) => state.preferences?.coverSize ?? 'medium')
+  const bookRefs = useRef<Map<number, HTMLDivElement>>(new Map())
 
-  const baseDensityColumnSize = libraryDensity === "compact" ? 140 : libraryDensity === "spacious" ? 240 : 180;
-  const densityColumnSize = isMobile ? Math.min(baseDensityColumnSize, 140) : baseDensityColumnSize;
-
-  const [containerWidth, setContainerWidth] = useState(0);
-  const [columns, setColumns] = useState(viewMode === 'grid' ? (isMobile ? 2 : 6) : 1);
+  const unreadCount = useMemo(() => (series?.books ?? []).filter(b => getBookReadStatus(b) !== 'completed').length, [series?.books]);
+  const readCount = useMemo(() => (series?.books ?? []).length - unreadCount, [series?.books, unreadCount]);
 
   useEffect(() => {
-    if (!parentEl || !isOpen) return;
-    
+    if (!parentEl) return;
     const observer = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width;
-      if (width) {
-        setContainerWidth(width);
-        if (viewMode === 'grid') {
-          const minCols = (isMobile && libraryDensity === "spacious") ? 1 : 2;
-          setColumns(Math.max(minCols, Math.floor(width / densityColumnSize)));
-        } else {
-          setColumns(1);
-        }
+      for (const entry of entries) {
+        setContainerWidth(entry.contentRect.width);
       }
     });
-    
     observer.observe(parentEl);
     return () => observer.disconnect();
-  }, [parentEl, densityColumnSize, isMobile, libraryDensity, viewMode, isOpen]);
+  }, [parentEl]);
 
-  useEffect(() => {
-    if (isOpen) {
-      setSearchQuery('');
-      setFilterStatus('all');
-      setJumpInput('');
-      bookRefs.current.clear();
+  const densityColumnSize = useMemo(() => {
+    switch (density) {
+      case 'compact': return 130;
+      case 'spacious': return 210;
+      case 'comfortable':
+      case 'normal':
+      default: return 160;
     }
-  }, [isOpen, series?.id]);
+  }, [density]);
+
+  const columns = useMemo(() => {
+    if (viewMode === 'list') return 1;
+    if (!containerWidth) return isMobile ? 3 : 5;
+    const padding = 32;
+    const gap = 12;
+    const availableWidth = containerWidth - padding;
+    const calculated = Math.floor((availableWidth + gap) / (densityColumnSize + gap));
+    return Math.max(1, calculated);
+  }, [containerWidth, densityColumnSize, isMobile, viewMode]);
 
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (/^[0-9]$/.test(e.key)) {
+      if (e.key === 'j' && !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) {
+        e.preventDefault();
         const jumpInputEl = document.getElementById('chapter-jump-input');
         if (jumpInputEl) jumpInputEl.focus();
       }
@@ -481,11 +576,7 @@ export const SeriesView = memo(function SeriesView({
     if (isNaN(targetChapter)) return;
     
     const targetIndex = processedBooks.findIndex(b => {
-      let idx = b.series_index;
-      if (idx == null || isNaN(idx)) {
-          const m = b.title.match(/\d+/g);
-          if (m) idx = parseFloat(m[m.length - 1]);
-      }
+      const idx = parseVolumeOrChapterNumber(b);
       return idx === targetChapter;
     });
 
@@ -515,11 +606,14 @@ export const SeriesView = memo(function SeriesView({
     if (!series) return [];
     let result = [...series.books];
     if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(b => 
-        b.title.toLowerCase().includes(q) || 
-        (b.series_index !== undefined && b.series_index.toString() === q)
-      );
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter(b => {
+        const volNum = parseVolumeOrChapterNumber(b);
+        return (
+          b.title.toLowerCase().includes(q) || 
+          (volNum !== null && (volNum.toString() === q || `vol ${volNum}`.includes(q) || `ch ${volNum}`.includes(q)))
+        );
+      });
     }
     if (filterStatus !== 'all') {
       result = result.filter(b => {
@@ -528,8 +622,8 @@ export const SeriesView = memo(function SeriesView({
       });
     }
     result.sort((a, b) => {
-      if (sortOrder === 'chapter_asc') return (a.series_index ?? Infinity) - (b.series_index ?? Infinity);
-      if (sortOrder === 'chapter_desc') return (b.series_index ?? -Infinity) - (a.series_index ?? -Infinity);
+      if (sortOrder === 'chapter_asc') return compareBooksNatural(a, b, 'chapter_asc');
+      if (sortOrder === 'chapter_desc') return compareBooksNatural(a, b, 'chapter_desc');
       if (sortOrder === 'date_added') return new Date(b.added_date).getTime() - new Date(a.added_date).getTime();
       return 0;
     });
@@ -662,19 +756,31 @@ export const SeriesView = memo(function SeriesView({
               onOpenBook={onOpenBook}
             />
 
-          <div className="flex flex-col md:flex-row items-center justify-between gap-3 p-3 md:gap-4 md:p-4 border-b border-border bg-card/80 backdrop-blur-md shrink-0 sticky top-0 z-20 shadow-sm">
-            <div className="flex items-center gap-2 w-full md:w-auto">
-              <div className="relative flex-1 md:w-64 group">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+          {/* Controls Bar */}
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 px-4 md:px-6 py-3 border-b border-border/40 bg-card/75 backdrop-blur-2xl shrink-0 sticky top-0 z-20 shadow-xs">
+            {/* Left: Search & Jump */}
+            <div className="flex items-center gap-2.5 w-full md:w-auto">
+              <div className="relative flex-1 md:w-72 group">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none" />
                 <Input 
                   type="search"
                   placeholder="Search volumes..." 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 h-10 bg-background/50 border-border/50 focus-visible:ring-primary/20 rounded-full transition-all"
+                  className="pl-9 pr-8 h-10 bg-secondary/50 hover:bg-secondary/80 focus-visible:bg-secondary border-border/40 focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/20 rounded-full text-sm font-medium transition-all shadow-xs"
                 />
+                {searchQuery && (
+                  <button 
+                    type="button" 
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-full transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
-              <form onSubmit={handleJumpSubmit} className="relative flex-shrink-0 w-24 md:w-28 group">
+
+              <form onSubmit={handleJumpSubmit} className="relative flex-shrink-0 group">
                 <Input 
                   id="chapter-jump-input"
                   type="number"
@@ -682,37 +788,118 @@ export const SeriesView = memo(function SeriesView({
                   placeholder="Vol #" 
                   value={jumpInput}
                   onChange={(e) => setJumpInput(e.target.value)}
-                  className="h-10 bg-background/50 border-border/50 focus-visible:ring-primary/20 rounded-full text-center transition-all"
+                  className="h-10 w-24 bg-secondary/50 hover:bg-secondary/80 focus-visible:bg-secondary border-border/40 focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/20 rounded-full text-center text-sm font-bold transition-all shadow-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  title="Jump to Volume Number"
                 />
               </form>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-center md:justify-end pb-1 md:pb-0">
-              <div className="flex items-center bg-background/50 border border-border/50 rounded-full p-1 shadow-inner shrink-0">
-                <button onClick={() => setFilterStatus('all')} className={cn("px-3 md:px-4 py-1.5 text-xs font-bold rounded-full transition-all duration-200", filterStatus === 'all' ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:text-foreground hover:bg-muted/50")}>All</button>
-                <button onClick={() => setFilterStatus('unread')} className={cn("px-3 md:px-4 py-1.5 text-xs font-bold rounded-full transition-all duration-200", filterStatus === 'unread' ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:text-foreground hover:bg-muted/50")}>Unread</button>
-                <button onClick={() => setFilterStatus('read')} className={cn("px-3 md:px-4 py-1.5 text-xs font-bold rounded-full transition-all duration-200", filterStatus === 'read' ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:text-foreground hover:bg-muted/50")}>Read</button>
+            {/* Right: Filter Segmented Control, Sort Controls, and Layout Toggles */}
+            <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
+              {/* Segmented Filter Pills */}
+              <div className="inline-flex items-center p-1 bg-secondary/60 backdrop-blur-xl border border-border/40 rounded-full shadow-inner">
+                <button 
+                  type="button"
+                  onClick={() => setFilterStatus('all')} 
+                  className={cn(
+                    "px-3.5 py-1.5 text-xs font-bold rounded-full transition-all duration-200 flex items-center gap-1.5",
+                    filterStatus === 'all' 
+                      ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25 scale-[1.02]" 
+                      : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+                  )}
+                >
+                  <span>All</span>
+                  <span className={cn("text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold", filterStatus === 'all' ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground")}>{series?.books.length ?? 0}</span>
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setFilterStatus('unread')} 
+                  className={cn(
+                    "px-3.5 py-1.5 text-xs font-bold rounded-full transition-all duration-200 flex items-center gap-1.5",
+                    filterStatus === 'unread' 
+                      ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25 scale-[1.02]" 
+                      : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+                  )}
+                >
+                  <span>Unread</span>
+                  <span className={cn("text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold", filterStatus === 'unread' ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground")}>{unreadCount}</span>
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setFilterStatus('read')} 
+                  className={cn(
+                    "px-3.5 py-1.5 text-xs font-bold rounded-full transition-all duration-200 flex items-center gap-1.5",
+                    filterStatus === 'read' 
+                      ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25 scale-[1.02]" 
+                      : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+                  )}
+                >
+                  <span>Read</span>
+                  <span className={cn("text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold", filterStatus === 'read' ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground")}>{readCount}</span>
+                </button>
               </div>
 
-              <div className="flex items-center gap-1 bg-background/50 border border-border/50 rounded-full p-1 shadow-inner shrink-0">
-                <button onClick={() => setSortOrder('chapter_asc')} className={cn("p-2 rounded-full transition-all duration-200", sortOrder === 'chapter_asc' ? "bg-muted text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")} title="Sort Ascending">
+              {/* Sort Action Group */}
+              <div className="inline-flex items-center gap-0.5 p-1 bg-secondary/60 backdrop-blur-xl border border-border/40 rounded-full shadow-inner shrink-0">
+                <button 
+                  type="button"
+                  onClick={() => setSortOrder('chapter_asc')} 
+                  className={cn(
+                    "p-2 rounded-full transition-all duration-200", 
+                    sortOrder === 'chapter_asc' ? "bg-card text-foreground font-bold shadow-xs scale-105" : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+                  )} 
+                  title="Sort Ascending (Oldest First)"
+                >
                   <SortAsc className="w-4 h-4" />
                 </button>
-                <button onClick={() => setSortOrder('chapter_desc')} className={cn("p-2 rounded-full transition-all duration-200", sortOrder === 'chapter_desc' ? "bg-muted text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")} title="Sort Descending">
+                <button 
+                  type="button"
+                  onClick={() => setSortOrder('chapter_desc')} 
+                  className={cn(
+                    "p-2 rounded-full transition-all duration-200", 
+                    sortOrder === 'chapter_desc' ? "bg-card text-foreground font-bold shadow-xs scale-105" : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+                  )} 
+                  title="Sort Descending (Newest First)"
+                >
                   <SortDesc className="w-4 h-4" />
                 </button>
-                <button onClick={() => setSortOrder('date_added')} className={cn("p-2 rounded-full transition-all duration-200", sortOrder === 'date_added' ? "bg-muted text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")} title="Sort by Date Added">
+                <button 
+                  type="button"
+                  onClick={() => setSortOrder('date_added')} 
+                  className={cn(
+                    "p-2 rounded-full transition-all duration-200", 
+                    sortOrder === 'date_added' ? "bg-card text-foreground font-bold shadow-xs scale-105" : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+                  )} 
+                  title="Sort by Date Added"
+                >
                   <Clock className="w-4 h-4" />
                 </button>
               </div>
 
-              <div className="h-6 w-px bg-border/50 mx-1 hidden md:block shrink-0" />
+              <div className="h-5 w-px bg-border/40 mx-0.5 hidden md:block shrink-0" />
 
-              <div className="flex items-center bg-background/50 border border-border/50 rounded-full p-1 shadow-inner shrink-0">
-                <button onClick={() => setViewMode('grid')} className={cn("p-2 rounded-full transition-all duration-200", viewMode === 'grid' ? "bg-muted text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")} title="Grid View">
+              {/* Grid / List View Mode Switcher */}
+              <div className="inline-flex items-center gap-0.5 p-1 bg-secondary/60 backdrop-blur-xl border border-border/40 rounded-full shadow-inner shrink-0">
+                <button 
+                  type="button"
+                  onClick={() => setViewMode('grid')} 
+                  className={cn(
+                    "p-2 rounded-full transition-all duration-200", 
+                    viewMode === 'grid' ? "bg-card text-foreground font-bold shadow-xs scale-105" : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+                  )} 
+                  title="Grid View"
+                >
                   <LayoutGrid className="w-4 h-4" />
                 </button>
-                <button onClick={() => setViewMode('list')} className={cn("p-2 rounded-full transition-all duration-200", viewMode === 'list' ? "bg-muted text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")} title="List View">
+                <button 
+                  type="button"
+                  onClick={() => setViewMode('list')} 
+                  className={cn(
+                    "p-2 rounded-full transition-all duration-200", 
+                    viewMode === 'list' ? "bg-card text-foreground font-bold shadow-xs scale-105" : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+                  )} 
+                  title="List View"
+                >
                   <List className="w-4 h-4" />
                 </button>
               </div>
@@ -791,11 +978,14 @@ export const SeriesView = memo(function SeriesView({
                                       <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
                                     </div>
                                   )}
-                                  {book.series_index !== undefined && (
-                                    <div className="absolute top-2 left-2 z-10 bg-background/90 backdrop-blur-md px-2 py-0.5 rounded text-[10px] font-black border border-border/50 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                                      VOL {book.series_index}
-                                    </div>
-                                  )}
+                                  {(() => {
+                                    const volNum = book.series_index ?? parseVolumeOrChapterNumber(book);
+                                    return volNum !== null && volNum !== undefined ? (
+                                      <div className="absolute top-2 left-2 z-10 bg-background/90 backdrop-blur-md px-2 py-0.5 rounded text-[10px] font-black border border-border/50 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                                        VOL {volNum}
+                                      </div>
+                                    ) : null;
+                                  })()}
                                 </>
                               ) : (
                                 <ListBookCard

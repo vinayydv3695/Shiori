@@ -15,7 +15,7 @@ import { useMemo, useEffect, useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
   BookOpen, Clock, Sparkles, ArrowRight,
-  ListOrdered, Activity, HardDrive, Heart, History, CheckCircle2, PauseCircle, BarChart2, ThumbsUp
+  ListOrdered, Activity, HardDrive, Heart, History, CheckCircle2, PauseCircle, BarChart2, ThumbsUp, Layers
 } from 'lucide-react'
 import { MobileStickyHeader } from '../layout/MobileStickyHeader'
 import { useThumbnail } from '@/hooks/useThumbnail'
@@ -26,6 +26,8 @@ import type { Book, ReadingProgress } from '@/lib/tauri'
 import { api } from '@/lib/tauri'
 import { formatFileSize, isMangaDomain, proxyExternalCover } from '@/lib/utils'
 import { useTorboxStore } from '@/store/useTorboxStore'
+import { groupBooksBySeries, extractSeriesTitle, type GroupedItem, type SeriesGroup } from '@/hooks/useGroupedLibrary'
+import { parseVolumeOrChapterNumber } from '@/lib/seriesSorting'
 
 function getCoverUrl(path: string | null | undefined): string {
   if (!path) return '';
@@ -204,6 +206,7 @@ function HeroSection({
 // ── Main HomePage Component ──────────────────────
 interface HomePageProps {
   onOpenBook: (bookId: number) => void
+  onViewSeries?: (series: SeriesGroup) => void
   onViewRSS: () => void
   searchQuery?: string
   onSearchChange?: (query: string) => void
@@ -211,9 +214,15 @@ interface HomePageProps {
   onOpenSettings?: () => void
 }
 
-
-
-export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChange = () => {}, onOpenAdvancedFilter = () => {}, onOpenSettings = () => {} }: HomePageProps) {
+export function HomePage({ 
+  onOpenBook, 
+  onViewSeries,
+  onViewRSS, 
+  searchQuery = "", 
+  onSearchChange = () => {}, 
+  onOpenAdvancedFilter = () => {}, 
+  onOpenSettings = () => {} 
+}: HomePageProps) {
   const [libraryStats, setLibraryStats] = useState<{total_books: number, total_manga: number, total_size_bytes: number} | null>(null);
   const favoriteBookIds = useLibraryStore(s => s.favoriteBookIds)
   const libraryBooks = useLibraryStore(s => s.books)
@@ -233,7 +242,6 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
 
   const domain = currentDomain
 
-
   // Load all Home Data from SQLite directly
   const loadHomeData = useCallback(async () => {
     try {
@@ -241,7 +249,7 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
       setLibraryStats(stats);
 
       // 1. Recently Added
-      const recent = await api.getBooksByDomain(domain, 12, 0);
+      const recent = await api.getBooksByDomain(domain, 24, 0);
 
       // 2. Continue Reading (Reading Status)
       const readingBooks = await api.getBooksByReadingStatus('reading', 50, 0);
@@ -263,16 +271,16 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
 
       // 4. Completed, On Hold & Recommended
       const [completed, onHold, recommended] = await Promise.all([
-        api.getBooksByReadingStatus('completed', 12, 0),
-        api.getBooksByReadingStatus('on_hold', 12, 0),
-        api.getRecommendedBooks(15)
+        api.getBooksByReadingStatus('completed', 20, 0),
+        api.getBooksByReadingStatus('on_hold', 20, 0),
+        api.getRecommendedBooks(25)
       ]);
       const domainRecommended = (recommended as unknown as Book[]).filter(b =>
         domain === 'manga_comics' ? isMangaDomain(b) : !isMangaDomain(b)
-      );;
+      );
 
       // 5. Reading Progress Map
-      const bookIdsToFetch = [...domainReading, ...recent, ...domainFavs].slice(0, 30).map(b => b.id!);
+      const bookIdsToFetch = [...domainReading, ...recent, ...domainFavs].slice(0, 50).map(b => b.id!);
       const map: Record<number, ReadingProgress> = {};
       if (bookIdsToFetch.length > 0) {
         const batchResult = await api.getReadingProgressBatch(bookIdsToFetch);
@@ -285,10 +293,10 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
 
       // 6. Batch State Updates
       setRecentlyAdded(recent as unknown as Book[]);
-      setContinueReading(domainReading.slice(0, 12));
+      setContinueReading(domainReading);
       setAllInProgress(readingBooks.length);
-      setLastReadBooks(domainReading.slice(0, 12));
-      setFavoriteBooks(domainFavs.slice(0, 12));
+      setLastReadBooks(domainReading);
+      setFavoriteBooks(domainFavs);
       setRecommendedBooks(domainRecommended);
       setCompletedBooks(completed.filter(b => domain === 'manga_comics' ? isMangaDomain(b) : !isMangaDomain(b)));
       setOnHoldBooks(onHold.filter(b => domain === 'manga_comics' ? isMangaDomain(b) : !isMangaDomain(b)));
@@ -302,7 +310,54 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
     loadHomeData();
   }, [loadHomeData]);
 
+  // Series Groups extracted from the full library when in manga_comics domain
+  const librarySeriesGroups = useMemo(() => {
+    if (domain !== 'manga_comics') return [];
+    return groupBooksBySeries(libraryBooks, true)
+      .filter((item): item is { type: 'series'; data: SeriesGroup } => item.type === 'series')
+      .map(item => item.data);
+  }, [libraryBooks, domain]);
 
+  // Helper to resolve any book to its SeriesGroup (if it belongs to a series with >1 volume in library), or null
+  const findSeriesForBook = useCallback((book: Book): SeriesGroup | null => {
+    if (domain !== 'manga_comics') return null;
+    const seriesTitle = extractSeriesTitle(book);
+    if (!seriesTitle) return null;
+    return librarySeriesGroups.find(
+      s => s.title.toLowerCase() === seriesTitle.toLowerCase()
+    ) || null;
+  }, [domain, librarySeriesGroups]);
+
+  // Transform a list of books into deduplicated GroupedItems (Series or Standalone Books)
+  const groupItemsList = useCallback((books: Book[]): GroupedItem[] => {
+    if (domain !== 'manga_comics') {
+      return books.map(b => ({ type: 'book' as const, data: b }));
+    }
+
+    const seenSeriesIds = new Set<string>();
+    const result: GroupedItem[] = [];
+
+    for (const book of books) {
+      const series = findSeriesForBook(book);
+      if (series) {
+        if (!seenSeriesIds.has(series.id)) {
+          seenSeriesIds.add(series.id);
+          result.push({ type: 'series', data: series });
+        }
+      } else {
+        result.push({ type: 'book', data: book });
+      }
+    }
+
+    return result;
+  }, [domain, findSeriesForBook]);
+
+  const groupedContinueReading = useMemo(() => groupItemsList(continueReading), [continueReading, groupItemsList]);
+  const groupedRecentlyAdded = useMemo(() => groupItemsList(recentlyAdded), [recentlyAdded, groupItemsList]);
+  const groupedRecommended = useMemo(() => groupItemsList(recommendedBooks), [recommendedBooks, groupItemsList]);
+  const groupedFavorites = useMemo(() => groupItemsList(favoriteBooks), [favoriteBooks, groupItemsList]);
+  const groupedCompleted = useMemo(() => groupItemsList(completedBooks), [completedBooks, groupItemsList]);
+  const groupedOnHold = useMemo(() => groupItemsList(onHoldBooks), [onHoldBooks, groupItemsList]);
 
   const handleOpenBook = (book: Book) => {
     onOpenBook(book.id!)
@@ -310,14 +365,6 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
 
   const handleViewLibrary = () => {
     setCurrentView('library')
-  }
-
-  const handleViewOnlineBooks = () => {
-    setCurrentView('online-books')
-  }
-
-  const handleViewOnlineManga = () => {
-    setCurrentView('online-manga')
   }
 
   // ── Empty state ──────────────────────────────
@@ -375,7 +422,7 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
           className="group flex items-center gap-2.5 px-4 py-2 rounded-full bg-card/80 hover:bg-card border border-border/60 hover:border-primary/50 text-muted-foreground hover:text-foreground shadow-xs transition-all duration-200 hover:scale-102 active:scale-98 select-none cursor-pointer shrink-0"
         >
           <Heart size={16} className="text-primary opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all" />
-          <span className="font-extrabold text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20 tabular-nums">{favoriteBooks.length}</span>
+          <span className="font-extrabold text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20 tabular-nums">{groupedFavorites.length}</span>
           <span className="text-xs font-bold tracking-wide text-foreground">Favorites</span>
         </div>
 
@@ -385,7 +432,7 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
           className="group flex items-center gap-2.5 px-4 py-2 rounded-full bg-card/80 hover:bg-card border border-border/60 hover:border-primary/50 text-muted-foreground hover:text-foreground shadow-xs transition-all duration-200 hover:scale-102 active:scale-98 select-none cursor-pointer shrink-0"
         >
           <BookOpen size={16} className="text-primary opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all" />
-          <span className="font-extrabold text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20 tabular-nums">{continueReading.length}</span>
+          <span className="font-extrabold text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20 tabular-nums">{groupedContinueReading.length}</span>
           <span className="text-xs font-bold tracking-wide text-foreground">Reading</span>
         </div>
 
@@ -395,7 +442,7 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
           className="group flex items-center gap-2.5 px-4 py-2 rounded-full bg-card/80 hover:bg-card border border-border/60 hover:border-primary/50 text-muted-foreground hover:text-foreground shadow-xs transition-all duration-200 hover:scale-102 active:scale-98 select-none cursor-pointer shrink-0"
         >
           <CheckCircle2 size={16} className="text-primary opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all" />
-          <span className="font-extrabold text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20 tabular-nums">{completedBooks.length}</span>
+          <span className="font-extrabold text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20 tabular-nums">{groupedCompleted.length}</span>
           <span className="text-xs font-bold tracking-wide text-foreground">Completed</span>
         </div>
 
@@ -405,21 +452,36 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
           className="group flex items-center gap-2.5 px-4 py-2 rounded-full bg-card/80 hover:bg-card border border-border/60 hover:border-primary/50 text-muted-foreground hover:text-foreground shadow-xs transition-all duration-200 hover:scale-102 active:scale-98 select-none cursor-pointer shrink-0"
         >
           <PauseCircle size={16} className="text-primary opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all" />
-          <span className="font-extrabold text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20 tabular-nums">{onHoldBooks.length}</span>
+          <span className="font-extrabold text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20 tabular-nums">{groupedOnHold.length}</span>
           <span className="text-xs font-bold tracking-wide text-foreground">On Hold</span>
         </div>
       </div>
 
       {/* ── ROW 1: THE "NOW" ROW ── */}
       <div className="bento-row now-row">
-        {continueReading.length > 0 ? (
+        {groupedContinueReading.length > 0 ? (
           <div className="bento-widget p-0 overflow-hidden flex flex-col h-full border-none bg-transparent">
-            <FeaturedContinueCard 
-              book={continueReading[0]} 
-              progress={progressMap[continueReading[0].id!] || { progressPercent: 0, book_id: continueReading[0].id!, total_seconds: 0 } as any} 
-              onOpenBook={handleOpenBook} 
-              isManga={domain === 'manga_comics'}
-            />
+            {groupedContinueReading[0].type === 'series' ? (
+              <FeaturedContinueCard 
+                series={groupedContinueReading[0].data} 
+                progress={(() => {
+                  const s = groupedContinueReading[0].data;
+                  const nextBook = s.books.find(b => b.reading_status !== 'completed') || s.books[0];
+                  return progressMap[nextBook?.id!] || { progressPercent: 0, book_id: nextBook?.id!, total_seconds: 0 } as any;
+                })()} 
+                onOpenBook={handleOpenBook} 
+                onViewSeries={onViewSeries}
+                isManga={domain === 'manga_comics'}
+              />
+            ) : (
+              <FeaturedContinueCard 
+                book={groupedContinueReading[0].data} 
+                progress={progressMap[groupedContinueReading[0].data.id!] || { progressPercent: 0, book_id: groupedContinueReading[0].data.id!, total_seconds: 0 } as any} 
+                onOpenBook={handleOpenBook} 
+                onViewSeries={onViewSeries}
+                isManga={domain === 'manga_comics'}
+              />
+            )}
           </div>
         ) : (
           <div className="bento-widget flex items-center justify-center text-center p-8">
@@ -477,21 +539,49 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
             <h2 className="bento-widget-title"><Clock size={18} /> Jump Back In</h2>
           </div>
           <div className="bento-widget-content">
-            {continueReading.slice(1, 4).map(book => (
-              <div key={book.id} onClick={() => handleOpenBook(book)} className="bento-list-item">
-                <div className="bento-list-cover-wrapper">
-                  <img src={getCoverUrl(book.cover_path) || undefined} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
-                </div>
-                <div className="bento-list-info">
-                  <span className="bento-list-title">{book.title}</span>
-                  <span className="bento-list-meta">{Math.round(progressMap[book.id!]?.progressPercent ?? 0)}% completed</span>
-                  <div className="bento-progress-track">
-                    <div className="bento-progress-bar" style={{ width: `${progressMap[book.id!]?.progressPercent ?? 0}%` }} />
+            {groupedContinueReading.slice(1, 4).map((item) => {
+              if (item.type === 'series') {
+                const series = item.data;
+                const nextBook = series.books.find(b => b.reading_status !== 'completed') || series.books[0];
+                const prog = Math.round(progressMap[nextBook?.id!]?.progressPercent ?? 0);
+                const volNum = nextBook ? (nextBook.series_index ?? parseVolumeOrChapterNumber(nextBook)) : null;
+                const coverPath = series.firstCover || nextBook?.cover_path;
+
+                return (
+                  <div key={`series-${series.id}`} onClick={() => nextBook && handleOpenBook(nextBook)} className="bento-list-item">
+                    <div className="bento-list-cover-wrapper">
+                      <img src={getCoverUrl(coverPath) || undefined} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
+                    </div>
+                    <div className="bento-list-info">
+                      <span className="bento-list-title">{series.title}</span>
+                      <span className="bento-list-meta">
+                        {volNum !== null && volNum !== undefined ? `Vol. ${volNum} · ` : ''}{prog}% completed
+                      </span>
+                      <div className="bento-progress-track">
+                        <div className="bento-progress-bar" style={{ width: `${prog}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              const book = item.data;
+              return (
+                <div key={`book-${book.id}`} onClick={() => handleOpenBook(book)} className="bento-list-item">
+                  <div className="bento-list-cover-wrapper">
+                    <img src={getCoverUrl(book.cover_path) || undefined} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
+                  </div>
+                  <div className="bento-list-info">
+                    <span className="bento-list-title">{book.title}</span>
+                    <span className="bento-list-meta">{Math.round(progressMap[book.id!]?.progressPercent ?? 0)}% completed</span>
+                    <div className="bento-progress-track">
+                      <div className="bento-progress-bar" style={{ width: `${progressMap[book.id!]?.progressPercent ?? 0}%` }} />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-            {continueReading.length <= 1 && (
+              );
+            })}
+            {groupedContinueReading.length <= 1 && (
               <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground text-center px-4">
                 You're all caught up! No other books in progress.
               </div>
@@ -505,18 +595,49 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
             <h2 className="bento-widget-title"><History size={18} /> Recent Activity</h2>
           </div>
           <div className="bento-widget-content overflow-y-auto pr-2" style={{ maxHeight: '300px' }}>
-            {recentlyAdded.slice(0, 5).map(book => (
-              <div key={`recent-${book.id}`} onClick={() => handleOpenBook(book)} className="bento-list-item">
-                <div className="bento-list-cover-wrapper">
-                  <img src={getCoverUrl(book.cover_path) || undefined} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
+            {groupedRecentlyAdded.slice(0, 5).map((item) => {
+              if (item.type === 'series') {
+                const series = item.data;
+                const firstBook = series.books[0];
+                const coverPath = series.firstCover || firstBook?.cover_path;
+
+                return (
+                  <div 
+                    key={`recent-series-${series.id}`} 
+                    onClick={() => {
+                      if (onViewSeries) onViewSeries(series);
+                      else if (firstBook) handleOpenBook(firstBook);
+                    }} 
+                    className="bento-list-item cursor-pointer"
+                  >
+                    <div className="bento-list-cover-wrapper">
+                      <img src={getCoverUrl(coverPath) || undefined} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
+                    </div>
+                    <div className="bento-list-info">
+                      <span className="bento-list-title">{series.title}</span>
+                      <span className="bento-list-meta flex items-center gap-1">
+                        <Layers className="w-3 h-3 text-primary inline" />
+                        {series.bookCount} {series.bookCount === 1 ? 'Volume' : 'Volumes'} added
+                      </span>
+                    </div>
+                  </div>
+                );
+              }
+
+              const book = item.data;
+              return (
+                <div key={`recent-${book.id}`} onClick={() => handleOpenBook(book)} className="bento-list-item">
+                  <div className="bento-list-cover-wrapper">
+                    <img src={getCoverUrl(book.cover_path) || undefined} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
+                  </div>
+                  <div className="bento-list-info">
+                    <span className="bento-list-title">{book.title}</span>
+                    <span className="bento-list-meta">Added to library</span>
+                  </div>
                 </div>
-                <div className="bento-list-info">
-                  <span className="bento-list-title">{book.title}</span>
-                  <span className="bento-list-meta">Added to library</span>
-                </div>
-              </div>
-            ))}
-            {recentlyAdded.length === 0 && (
+              );
+            })}
+            {groupedRecentlyAdded.length === 0 && (
               <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
                 No recent activity.
               </div>
@@ -530,18 +651,46 @@ export function HomePage({ onOpenBook, onViewRSS, searchQuery = "", onSearchChan
             <h2 className="bento-widget-title"><ThumbsUp size={18} /> Recommended</h2>
           </div>
           <div className="bento-widget-content overflow-y-auto pr-2" style={{ maxHeight: '300px' }}>
-            {recommendedBooks.slice(0, 5).map(book => (
-              <div key={`rec-${book.id}`} onClick={() => handleOpenBook(book)} className="bento-list-item">
-                <div className="bento-list-cover-wrapper">
-                  <img src={getCoverUrl(book.cover_path) || undefined} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
+            {groupedRecommended.slice(0, 5).map((item) => {
+              if (item.type === 'series') {
+                const series = item.data;
+                const firstBook = series.books[0];
+                const coverPath = series.firstCover || firstBook?.cover_path;
+
+                return (
+                  <div 
+                    key={`rec-series-${series.id}`} 
+                    onClick={() => {
+                      if (onViewSeries) onViewSeries(series);
+                      else if (firstBook) handleOpenBook(firstBook);
+                    }} 
+                    className="bento-list-item cursor-pointer"
+                  >
+                    <div className="bento-list-cover-wrapper">
+                      <img src={getCoverUrl(coverPath) || undefined} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
+                    </div>
+                    <div className="bento-list-info">
+                      <span className="bento-list-title">{series.title}</span>
+                      <span className="bento-list-meta">{series.bookCount} Vols · Suggested for you</span>
+                    </div>
+                  </div>
+                );
+              }
+
+              const book = item.data;
+              return (
+                <div key={`rec-${book.id}`} onClick={() => handleOpenBook(book)} className="bento-list-item">
+                  <div className="bento-list-cover-wrapper">
+                    <img src={getCoverUrl(book.cover_path) || undefined} className="bento-list-cover" alt="" onError={(e) => e.currentTarget.src = ''} />
+                  </div>
+                  <div className="bento-list-info">
+                    <span className="bento-list-title">{book.title}</span>
+                    <span className="bento-list-meta">Suggested for you</span>
+                  </div>
                 </div>
-                <div className="bento-list-info">
-                  <span className="bento-list-title">{book.title}</span>
-                  <span className="bento-list-meta">Suggested for you</span>
-                </div>
-              </div>
-            ))}
-            {recommendedBooks.length === 0 && (
+              );
+            })}
+            {groupedRecommended.length === 0 && (
               <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
                 Read more books to get recommendations.
               </div>

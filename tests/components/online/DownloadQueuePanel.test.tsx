@@ -86,8 +86,7 @@ describe('DownloadQueuePanel', () => {
     useDownloadQueueUI.getState().setOpen(true);
     render(<DownloadQueuePanel />);
 
-    expect(screen.getByText('No downloads yet')).toBeInTheDocument();
-    expect(screen.getByText('Nothing in flight')).toBeInTheDocument();
+    expect(screen.getByText('Queue is Empty')).toBeInTheDocument();
   });
 
   it('lists active downloads with title, MB readout and status', () => {

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MangaDownloadDock } from '@/components/online/MangaDownloadDock';
-import { MangaDownloadConfirmDialog } from '@/components/online/MangaDownloadConfirmDialog';
+import { MangaDownloadOptionsDialog } from '@/components/online/MangaDownloadOptionsDialog';
 import {
   buildChapterDownloadTitle,
   chapterDisplayLabel,
@@ -29,7 +29,7 @@ beforeAll(() => {
 
 const chapter = (overrides: Partial<UnifiedChapter> = {}): UnifiedChapter => ({
   id: 'ch-1',
-  volume: '1',
+  volume: undefined,
   chapter: '12',
   title: 'The Return',
   pages: 20,
@@ -40,12 +40,12 @@ const chapter = (overrides: Partial<UnifiedChapter> = {}): UnifiedChapter => ({
 
 describe('buildChapterDownloadTitle', () => {
   it('prefixes "Chapter N" when the title has no chapter word', () => {
-    expect(buildChapterDownloadTitle(chapter())).toBe('Chapter 12 - The Return');
+    expect(buildChapterDownloadTitle(chapter())).toBe('Chapter 12: The Return');
   });
 
-  it('keeps titles that already include the word "chapter"', () => {
+  it('formats titles that include the word "chapter"', () => {
     expect(buildChapterDownloadTitle(chapter({ title: 'Chapter 12 Special' }))).toBe(
-      'Chapter 12 Special'
+      'Chapter 12: Special'
     );
   });
 
@@ -123,7 +123,7 @@ describe('MangaDownloadDock', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('shows a "Download Manga" button and per-chapter download buttons', () => {
+  it('shows a "Download All" button and per-chapter download buttons', () => {
     const chapters = [chapter({ id: 'a', chapter: '1', title: 'First' })];
     render(
       <MangaDownloadDock
@@ -135,12 +135,12 @@ describe('MangaDownloadDock', () => {
     );
 
     expect(
-      screen.getByRole('button', { name: /download manga/i })
+      screen.getByRole('button', { name: /download all/i })
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /chapters/i })).toBeInTheDocument();
   });
 
-  it('calls onDownloadAll from the Download Manga button', () => {
+  it('calls onDownloadAll from the Download All button', () => {
     const onDownloadAll = vi.fn();
     render(
       <MangaDownloadDock
@@ -151,7 +151,7 @@ describe('MangaDownloadDock', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /download manga/i }));
+    fireEvent.click(screen.getByRole('button', { name: /download all/i }));
     expect(onDownloadAll).toHaveBeenCalledTimes(1);
   });
 
@@ -195,21 +195,21 @@ describe('MangaDownloadDock', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /chapters/i }));
 
-    expect(screen.getByRole('button', { name: /download chapter 1: first/i })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: /download .*1: first/i })).toHaveAttribute(
       'data-status',
       'done'
     );
-    expect(screen.getByRole('button', { name: /download chapter 2: second/i })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: /download .*2: second/i })).toHaveAttribute(
       'data-status',
       'failed'
     );
-    expect(screen.getByRole('button', { name: /download chapter 3: third/i })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: /download .*3: third/i })).toHaveAttribute(
       'data-status',
       'downloading'
     );
     // Downloading rows are disabled to avoid concurrent downloads
     expect(
-      screen.getByRole('button', { name: /download chapter 3: third/i })
+      screen.getByRole('button', { name: /download .*3: third/i })
     ).toBeDisabled();
   });
 
@@ -228,22 +228,27 @@ describe('MangaDownloadDock', () => {
   });
 });
 
-describe('MangaDownloadConfirmDialog', () => {
-  it('shows the chapter count and confirms', () => {
-    const onConfirm = vi.fn();
+describe('MangaDownloadOptionsDialog', () => {
+  it('shows options and downloads all chapters', () => {
+    const onDownload = vi.fn();
+    const testChapters = [
+      chapter({ id: 'ch-1', chapter: '1' }),
+      chapter({ id: 'ch-2', chapter: '2' }),
+    ];
+
     render(
-      <MangaDownloadConfirmDialog
+      <MangaDownloadOptionsDialog
         open
         onOpenChange={vi.fn()}
         title="My Manga"
-        chapterCount={42}
-        onConfirm={onConfirm}
+        chapters={testChapters}
+        onDownload={onDownload}
       />
     );
 
     expect(screen.getByText('Download Manga')).toBeInTheDocument();
-    expect(screen.getByText('42')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /download all/i }));
-    expect(onConfirm).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: /all chapters/i }));
+    expect(onDownload).toHaveBeenCalledTimes(1);
+    expect(onDownload).toHaveBeenCalledWith(testChapters);
   });
 });

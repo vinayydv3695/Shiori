@@ -24,6 +24,11 @@ import {
   ChevronRight,
   Plus,
   Check,
+  CheckCircle2,
+  Clock,
+  Sparkles,
+  RefreshCw,
+  Trash2,
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
@@ -145,30 +150,30 @@ function formatLocalFileStep(job: TorboxQueueItem): string | null {
 }
 
 function queueStatusBadgeClass(job: TorboxQueueItem): string {
-  if (job.localPhase === 'downloading' || job.localPhase === 'importing') return 'bg-yellow-500/15 text-yellow-500 border-yellow-500/40'
+  if (job.localPhase === 'downloading' || job.localPhase === 'importing') return 'bg-amber-500/15 text-amber-400 border-amber-500/40 shadow-xs'
   const normalized = (job.status || '').toLowerCase()
-  if (normalized.includes('downloading') || normalized.includes('verify')) return 'bg-blue-500/15 text-blue-300 border-blue-400/40'
-  if (normalized.includes('completed') || normalized.includes('seeding') || normalized.includes('ready')) return 'bg-emerald-500/15 text-emerald-300 border-emerald-400/40'
-  if (normalized.includes('error') || normalized.includes('failed')) return 'bg-red-500/15 text-red-300 border-red-400/40'
-  return 'bg-muted text-muted-foreground border-border'
+  if (normalized.includes('completed') || normalized.includes('seeding') || normalized.includes('ready')) return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40 shadow-xs'
+  if (normalized.includes('error') || normalized.includes('failed')) return 'bg-rose-500/15 text-rose-400 border-rose-500/40 shadow-xs'
+  if (normalized.includes('downloading') || normalized.includes('verify')) return 'bg-primary/15 text-primary border-primary/40 shadow-xs'
+  return 'bg-secondary text-secondary-foreground border-border/50'
 }
 
 function progressFillClass(job: TorboxQueueItem): string {
-  if (job.localPhase === 'downloading' || job.localPhase === 'importing') return 'bg-yellow-400'
+  if (job.localPhase === 'downloading' || job.localPhase === 'importing') return 'bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_12px_rgba(245,158,11,0.4)]'
   const normalized = (job.status || '').toLowerCase()
-  if (normalized.includes('completed') || normalized.includes('seeding') || normalized.includes('ready')) return 'bg-emerald-400'
-  if (normalized.includes('error') || normalized.includes('failed')) return 'bg-red-400'
-  if (normalized.includes('downloading') || normalized.includes('verify')) return 'bg-blue-400'
+  if (normalized.includes('completed') || normalized.includes('seeding') || normalized.includes('ready')) return 'bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_0_12px_rgba(16,185,129,0.4)]'
+  if (normalized.includes('error') || normalized.includes('failed')) return 'bg-gradient-to-r from-rose-500 to-red-400'
+  if (normalized.includes('downloading') || normalized.includes('verify')) return 'bg-gradient-to-r from-primary to-primary/80 shadow-[0_0_12px_hsl(var(--primary)/0.4)]'
   return 'bg-muted-foreground'
 }
 
 function statusPhaseText(status: string): string {
   const normalized = status.toLowerCase()
   if (normalized.includes('error') || normalized.includes('failed')) return 'Transfer failed'
-  if (normalized.includes('completed') || normalized.includes('seeding') || normalized.includes('ready')) return 'Downloaded and imported to library'
-  if (normalized.includes('import')) return 'Cloud complete - downloading to this device and importing'
-  if (normalized.includes('download')) return 'Downloading from Torbox'
-  if (normalized.includes('verify')) return 'Preparing transfer'
+  if (normalized.includes('completed') || normalized.includes('seeding') || normalized.includes('ready')) return 'Downloaded & imported to library'
+  if (normalized.includes('import')) return 'Cloud cached · Downloading to device'
+  if (normalized.includes('download')) return 'Downloading in Cloud'
+  if (normalized.includes('verify')) return 'Preparing cloud transfer'
   return 'Queued in Torbox'
 }
 
@@ -428,25 +433,113 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
     }
     const query = customQuery || meta.title
     try {
-      const raw = await invoke<any>('search_manga_sources', { query })
-      const rootArray = Array.isArray(raw) ? raw : (raw?.items ?? raw?.results ?? raw?.data ?? [])
-      
       const sources: SearchSource[] = []
-      rootArray.forEach((row: any, i: number) => {
-        const sourceId = (row.sourceId || row.source_id || '').toLowerCase()
-        if (sourceId !== 'nyaa') return
+      const seenLinks = new Set<string>()
 
-        if (row.sources && Array.isArray(row.sources)) {
-          row.sources.forEach((s: any, j: number) => {
-            const parsed = parseSearchSource(s, j, meta.title)
-            if (parsed) sources.push(parsed)
-          })
+      // 1. Search Manga sources (Nyaa, etc.)
+      try {
+        const raw = await invoke<any>('search_manga_sources', { query })
+        const rootArray = Array.isArray(raw) ? raw : (raw?.items ?? raw?.results ?? raw?.data ?? [])
+        
+        rootArray.forEach((row: any, i: number) => {
+          if (row.sources && Array.isArray(row.sources)) {
+            row.sources.forEach((s: any, j: number) => {
+              const parsed = parseSearchSource(s, j, meta.title)
+              if (parsed && !seenLinks.has(parsed.magnetLink)) {
+                seenLinks.add(parsed.magnetLink)
+                sources.push(parsed)
+              }
+            })
+          }
+          const direct = parseSearchSource(row, i, meta.title)
+          if (direct && !seenLinks.has(direct.magnetLink)) {
+            seenLinks.add(direct.magnetLink)
+            sources.push(direct)
+          }
+        })
+      } catch (e) {
+        console.warn('Manga source search error:', e)
+      }
+
+      // 2. Search Book sources: Anna's Archive
+      try {
+        const annaRes = await invoke<any>('plugin_search_with_meta', {
+          sourceId: 'annas-archive',
+          query,
+          page: 1,
+          limit: 8
+        }).catch(() => null)
+
+        const annaItems = annaRes?.items || []
+        for (const item of annaItems.slice(0, 6)) {
+          const md5 = item.extra?.md5 || (item.id.startsWith('anna-') ? item.id.replace('anna-', '') : item.id)
+          if (!md5) continue
+
+          try {
+            const links = await invoke<{ url: string; download_type: string; label?: string }[]>(
+              'annas_archive_get_torrent_links',
+              { contentId: md5 }
+            )
+
+            for (let k = 0; k < links.length; k++) {
+              const l = links[k]
+              if (seenLinks.has(l.url)) continue
+              seenLinks.add(l.url)
+
+              const isMagnet = l.url.startsWith('magnet:')
+              const isTorrent = l.download_type === 'torrent' || l.url.includes('.torrent')
+              const fileType = (item.extra?.format?.toUpperCase() || (isMagnet || isTorrent ? 'TORRENT' : 'EPUB')) as FileType
+
+              sources.push({
+                id: `anna-${md5}-${k}`,
+                label: `${item.title}${item.extra?.format ? ` [${item.extra.format.toUpperCase()}]` : ''}`,
+                magnetLink: l.url,
+                linkKind: isMagnet ? 'magnet' : isTorrent ? 'torrent' : 'anna',
+                fileType,
+                fileName: item.title,
+                sizeBytes: undefined,
+                seeders: undefined
+              })
+            }
+          } catch (linkErr) {
+            console.warn(`Failed to fetch links for Anna item ${md5}:`, linkErr)
+          }
         }
-        const direct = parseSearchSource(row, i, meta.title)
-        if (direct) {
-          sources.push(direct)
+      } catch (e) {
+        console.warn("Anna's Archive search failed:", e)
+      }
+
+      // 3. Search LibGen for book sources
+      try {
+        const libgenRes = await invoke<any>('plugin_search_with_meta', {
+          sourceId: 'libgen',
+          query,
+          page: 1,
+          limit: 8
+        }).catch(() => null)
+
+        const libgenItems = libgenRes?.items || []
+        for (let i = 0; i < libgenItems.length; i++) {
+          const item = libgenItems[i]
+          const link = item.extra?.download_url || item.extra?.mirror || item.extra?.magnet || item.url
+          if (link && !seenLinks.has(link)) {
+            seenLinks.add(link)
+            const isMagnet = link.startsWith('magnet:')
+            sources.push({
+              id: `libgen-${i}-${item.id}`,
+              label: `${item.title}${item.extra?.extension ? ` [${item.extra.extension.toUpperCase()}]` : ''}`,
+              magnetLink: link,
+              linkKind: isMagnet ? 'magnet' : 'direct',
+              fileType: (item.extra?.extension?.toUpperCase() || 'EPUB') as FileType,
+              fileName: item.title,
+              sizeBytes: undefined,
+              seeders: undefined
+            })
+          }
         }
-      })
+      } catch (e) {
+        console.warn('LibGen search failed:', e)
+      }
 
       setActiveModalResult({
         ...meta,
@@ -478,20 +571,24 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
   const renderQueueRows = useCallback((rows: TorboxQueueItem[], emptyLabel: string) => {
     if (rows.length === 0) {
       return (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/70 py-16 text-muted-foreground backdrop-blur-sm bg-muted/10">
-          <AlertCircle className="mb-3 h-6 w-6 opacity-50" />
-          <p className="text-sm font-medium tracking-wide opacity-80">{emptyLabel}</p>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/60 py-20 text-muted-foreground backdrop-blur-xl bg-card/30 shadow-xs">
+          <div className="w-14 h-14 rounded-2xl bg-muted/60 border border-border/40 flex items-center justify-center mb-3 text-muted-foreground/60 shadow-inner">
+            <Cloud className="h-7 w-7 opacity-60" />
+          </div>
+          <p className="text-sm font-semibold tracking-wide text-foreground/80">{emptyLabel}</p>
+          <p className="text-xs text-muted-foreground/70 mt-1">Search for items in Discover or paste a magnet link to start.</p>
         </motion.div>
       )
     }
 
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
         <AnimatePresence mode="popLayout">
           {rows.map((job) => {
             const progress = job.progress || 0
             const isDone = job.status === 'completed'
             const isErr = job.status === 'failed'
+            const isLocal = job.localPhase === 'downloading' || job.localPhase === 'importing'
             const eta = estimateEta(job.status, job.size || 0, progress, job.downloadSpeed || 0)
             const localProgressText = formatLocalProgress(job)
             const localFileStepText = formatLocalFileStep(job)
@@ -500,82 +597,137 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
               <motion.div
                 key={job.id}
                 layout
-                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                initial={{ opacity: 0, scale: 0.96, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
-                className="group relative flex flex-col justify-between overflow-hidden rounded-xl border border-border/50 bg-card/60 backdrop-blur-xl p-3.5 md:p-4 shadow-sm transition-all hover:shadow-md hover:border-border"
+                className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border/50 bg-card/75 backdrop-blur-2xl p-4 md:p-5 shadow-lg transition-all duration-300 hover:shadow-2xl hover:border-primary/40"
               >
-                {!isDone && !isErr && <div className="absolute -top-10 -right-10 h-32 w-32 rounded-full bg-blue-500/10 blur-3xl" />}
-                {isDone && <div className="absolute -top-10 -right-10 h-32 w-32 rounded-full bg-emerald-500/10 blur-3xl" />}
+                {/* Dynamic ambient backdrop glow */}
+                {!isDone && !isErr && !isLocal && <div className="absolute -top-10 -right-10 h-36 w-36 rounded-full bg-primary/15 blur-3xl pointer-events-none" />}
+                {isLocal && <div className="absolute -top-10 -right-10 h-36 w-36 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />}
+                {isDone && <div className="absolute -top-10 -right-10 h-36 w-36 rounded-full bg-emerald-500/15 blur-3xl pointer-events-none" />}
+                {isErr && <div className="absolute -top-10 -right-10 h-36 w-36 rounded-full bg-rose-500/15 blur-3xl pointer-events-none" />}
                 
-                <div className="relative z-10 flex flex-row items-start gap-3 md:gap-4">
+                <div className="relative z-10 flex flex-row items-start gap-3.5 md:gap-4">
+                  {/* Cover Artwork Card */}
                   {(job as any).coverPath || (job as any).metadata?.coverUrl ? (
-                    <img src={(job as any).coverPath ? convertFileSrc((job as any).coverPath) : (job as any).metadata!.coverUrl} alt="Cover" className="h-20 w-14 md:h-28 md:w-20 rounded-md object-cover shadow-sm bg-muted shrink-0" />
+                    <img 
+                      src={(job as any).coverPath ? convertFileSrc((job as any).coverPath) : (job as any).metadata!.coverUrl} 
+                      alt="Cover" 
+                      className="h-24 w-16 md:h-28 md:w-20 rounded-xl object-cover shadow-md border border-white/10 bg-muted shrink-0" 
+                    />
                   ) : (
-                    <div className="flex h-20 w-14 md:h-28 md:w-20 items-center justify-center rounded-md bg-muted/50 text-muted-foreground/50 shrink-0">
-                      <ImageIcon className="h-5 w-5 md:h-8 md:w-8" />
+                    <div className="flex h-24 w-16 md:h-28 md:w-20 items-center justify-center rounded-xl bg-muted/60 border border-border/30 text-muted-foreground/40 shrink-0 shadow-inner">
+                      <ImageIcon className="h-6 w-6 md:h-8 md:w-8" />
                     </div>
                   )}
                   
-                  <div className="flex-1 min-w-0 flex flex-col text-left">
+                  {/* Content & Metadata */}
+                  <div className="flex-1 min-w-0 flex flex-col text-left justify-between">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 pr-2">
-                        <h3 className="font-semibold text-[13px] md:text-base text-foreground leading-tight line-clamp-2 md:truncate" title={job.title || 'Unknown Title'}>{job.title || 'Unknown Title'}</h3>
-                        <p className="mt-1 truncate text-[10px] md:text-xs text-muted-foreground" title={job.sourceLink}>{job.sourceLink}</p>
+                      <div className="min-w-0 pr-1">
+                        <h3 className="font-bold text-sm md:text-base text-foreground leading-snug line-clamp-2" title={job.title || 'Unknown Title'}>
+                          {job.title || 'Unknown Title'}
+                        </h3>
+                        <p className="mt-1 truncate font-mono text-[10px] text-muted-foreground/80 bg-muted/40 px-1.5 py-0.5 rounded border border-border/20 max-w-full inline-block" title={job.sourceLink}>
+                          {job.sourceLink.length > 36 ? `${job.sourceLink.slice(0, 36)}...` : job.sourceLink}
+                        </p>
                       </div>
-                      <button onClick={() => void removeJob(job.id)} className="shrink-0 rounded-full bg-background/50 border border-border/50 p-1.5 text-muted-foreground hover:bg-destructive hover:text-destructive-foreground hover:border-destructive transition-all hover:scale-105 active:scale-95" title="Cancel/Remove">
+                      
+                      {/* Cancel / Remove Button */}
+                      <button 
+                        onClick={() => void removeJob(job.id)} 
+                        className="shrink-0 rounded-full bg-secondary/70 hover:bg-destructive text-muted-foreground hover:text-destructive-foreground border border-border/40 p-1.5 transition-all hover:scale-105 active:scale-95 shadow-xs" 
+                        title="Cancel / Remove Job"
+                      >
                         <X className="h-3.5 w-3.5" />
                       </button>
                     </div>
 
-                    <div className="mt-3 md:mt-4 flex items-end justify-between">
-                      <Badge className={`border text-[9px] md:text-[10px] uppercase tracking-wider font-bold px-1.5 py-0 md:px-2 md:py-0.5 rounded-sm ${queueStatusBadgeClass(job)}`} variant="outline">
-                        {job.status || 'queued'}
+                    {/* Status Badge & Percentage */}
+                    <div className="mt-3 flex items-center justify-between">
+                      <Badge className={`border text-[9px] md:text-[10px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1.5 ${queueStatusBadgeClass(job)}`} variant="outline">
+                        {isDone && <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
+                        {isLocal && <Download className="w-3 h-3 text-amber-400 animate-pulse" />}
+                        {!isDone && !isLocal && !isErr && <Cloud className="w-3 h-3 text-primary animate-pulse" />}
+                        {isErr && <AlertCircle className="w-3 h-3 text-rose-400" />}
+                        <span>{isLocal ? 'Importing' : (job.status || 'Queued')}</span>
                       </Badge>
-                      <div className="text-right">
-                        <p className="text-[10px] md:text-xs font-bold text-foreground/90">{Math.round(progress)}%</p>
-                      </div>
+                      <span className="text-xs md:text-sm font-black tabular-nums text-foreground">
+                        {Math.round(progress)}%
+                      </span>
                     </div>
 
-                    <div className="mt-1.5 h-1.5 md:h-2 w-full overflow-hidden rounded-full bg-muted/50 shadow-inner">
-                      <motion.div className={`h-full rounded-full ${progressFillClass(job)} shadow-sm`} initial={{ width: 0 }} animate={{ width: `${progress}%` }} />
+                    {/* Sleek Progress Track */}
+                    <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-background/80 border border-border/30 shadow-inner">
+                      <motion.div 
+                        className={`h-full rounded-full transition-all duration-500 ${progressFillClass(job)}`} 
+                        initial={{ width: 0 }} 
+                        animate={{ width: `${progress}%` }} 
+                      />
                     </div>
 
+                    {/* Phase Info & Speed/ETA */}
                     <div className="mt-2 flex items-center justify-between text-[10px] md:text-[11px] text-muted-foreground font-medium">
-                      <span className="truncate pr-2">{statusPhaseText(job.status)}</span>
-                      <div className="flex shrink-0 items-center gap-1.5 md:gap-2 text-right">
-                        {eta && <span className="text-blue-400/80">{eta}</span>}
-                        {(job.downloadSpeed || 0) > 0 && <span className="text-foreground/70 bg-foreground/5 px-1 rounded">{formatSpeed(job.downloadSpeed!)}</span>}
+                      <span className="truncate pr-2 font-medium text-foreground/80">{statusPhaseText(job.status)}</span>
+                      <div className="flex shrink-0 items-center gap-1.5 text-right">
+                        {eta && (
+                          <span className="text-primary font-bold flex items-center gap-1 bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20">
+                            <Clock className="w-2.5 h-2.5" />
+                            {eta}
+                          </span>
+                        )}
+                        {(job.downloadSpeed || 0) > 0 && (
+                          <span className="text-foreground font-bold bg-secondary/80 px-1.5 py-0.5 rounded border border-border/30 flex items-center gap-1">
+                            <Activity className="w-2.5 h-2.5 text-primary" />
+                            {formatSpeed(job.downloadSpeed!)}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="relative z-10 mt-3 md:mt-4 space-y-1.5">
-                  {(isDone || isErr || job.resolvedLink || job.importedPath || job.error) && (
-                    <div className="flex flex-col gap-2 pt-2 md:pt-3 border-t border-border/40">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <Button size="sm" variant="secondary" className="h-6 md:h-7 rounded-md px-2 md:px-2.5 text-[10px] md:text-[11px] font-medium shadow-sm active:scale-95 transition-transform" onClick={() => void resolveJob(job.id)} disabled={job.resolving}>
-                          {job.resolving ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Link className="mr-1 h-3 w-3" />}
-                          Resolve
-                        </Button>
-                        <Button size="sm" variant="secondary" className="h-6 md:h-7 rounded-md px-2 md:px-2.5 text-[10px] md:text-[11px] font-medium shadow-sm active:scale-95 transition-transform" onClick={() => void importJob(job.id)} disabled={job.localPhase === 'importing'}>
-                          {job.localPhase === 'importing' ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Download className="mr-1 h-3 w-3" />}
-                          Import
-                        </Button>
-                      </div>
-                      <div className="space-y-0.5">
-                        {job.resolvedLink && <span className="truncate w-full block text-[9px] md:text-[10px] text-muted-foreground">Resolved: {job.resolvedLink}</span>}
-                        {job.importedPath && <span className="truncate w-full block text-[9px] md:text-[10px] text-emerald-400/90">Imported: {job.importedPath}</span>}
-                        {job.error && <span className="text-[9px] md:text-[10px] text-red-400/90 w-full block font-medium bg-red-400/10 px-1.5 py-0.5 rounded">{job.error}</span>}
-                      </div>
+                {/* Local Download & Import Status Card */}
+                <div className="relative z-10 mt-3 space-y-2">
+                  {(localProgressText || localFileStepText) && (
+                    <div className="rounded-xl bg-secondary/40 backdrop-blur-md p-2.5 text-[11px] text-foreground/90 border border-border/40 shadow-xs">
+                      {localProgressText && <p className="font-semibold text-amber-400/90">{localProgressText}</p>}
+                      {localFileStepText && <p className="mt-0.5 text-muted-foreground font-medium">{localFileStepText}</p>}
                     </div>
                   )}
 
-                  {(localProgressText || localFileStepText) && (
-                    <div className="rounded-md bg-muted/30 p-2 text-[10px] text-muted-foreground border border-border/30 mt-2">
-                      {localProgressText && <p>{localProgressText}</p>}
-                      {localFileStepText && <p className="mt-0.5 opacity-80">{localFileStepText}</p>}
+                  {/* Actions & Resolution Info */}
+                  {(isDone || isErr || job.resolvedLink || job.importedPath || job.error) && (
+                    <div className="flex flex-col gap-2 pt-2.5 border-t border-border/30">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="secondary" 
+                          className="h-7 rounded-lg px-3 text-xs font-semibold shadow-xs hover:bg-secondary active:scale-95 transition-all" 
+                          onClick={() => void resolveJob(job.id)} 
+                          disabled={job.resolving}
+                        >
+                          {job.resolving ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin text-primary" /> : <Link className="mr-1.5 h-3 w-3 text-primary" />}
+                          Resolve Link
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="secondary" 
+                          className="h-7 rounded-lg px-3 text-xs font-semibold shadow-xs hover:bg-secondary active:scale-95 transition-all" 
+                          onClick={() => void importJob(job.id)} 
+                          disabled={job.localPhase === 'importing'}
+                        >
+                          {job.localPhase === 'importing' ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin text-amber-400" /> : <Download className="mr-1.5 h-3 w-3 text-amber-400" />}
+                          Import to Library
+                        </Button>
+                      </div>
+                      
+                      <div className="space-y-1 mt-0.5">
+                        {job.resolvedLink && <span className="truncate w-full block font-mono text-[10px] text-muted-foreground">Resolved: {job.resolvedLink}</span>}
+                        {job.importedPath && <span className="truncate w-full block text-[10px] font-medium text-emerald-400 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Imported to Library</span>}
+                        {job.error && <span className="text-[10px] text-rose-400/90 w-full block font-medium bg-rose-500/10 border border-rose-500/20 px-2 py-1 rounded-lg">{job.error}</span>}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1012,37 +1164,46 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                             return 'bg-secondary text-secondary-foreground'
                           }
 
+                          const getSourceName = (s: SearchSource) => {
+                            if (s.linkKind === 'nyaa') return 'Nyaa.si'
+                            if (s.linkKind === 'anna' || s.id.startsWith('anna-')) return "Anna's Archive"
+                            if (s.id.startsWith('libgen')) return 'LibGen'
+                            if (s.linkKind === 'direct') return 'Direct Mirror'
+                            if (s.linkKind === 'torrent') return 'Torrent'
+                            return 'Source'
+                          }
+
                           return (
-                            <div key={source.id} className="group relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-3 rounded-lg border border-border/50 bg-muted/20 hover:bg-muted/40 hover:border-primary/30 transition-all">
+                            <div key={source.id} className="group relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-3.5 rounded-xl border border-border/50 bg-muted/20 hover:bg-muted/40 hover:border-primary/40 transition-all shadow-xs">
                               <div className="flex-1 min-w-0 pr-4">
-                                <h4 className="font-medium text-sm leading-tight break-words text-foreground group-hover:text-primary transition-colors">
+                                <h4 className="font-semibold text-sm leading-tight break-words text-foreground group-hover:text-primary transition-colors">
                                   {source.label}
                                 </h4>
-                                <div className="flex items-center flex-wrap gap-3 mt-2 text-xs font-medium">
-                                  <span className={`flex items-center gap-1.5 border px-2 py-0.5 rounded shadow-sm ${getBadgeColor(source.fileType || '')}`}>
+                                <div className="flex items-center flex-wrap gap-2.5 mt-2.5 text-xs font-medium">
+                                  <span className={`flex items-center gap-1.5 border px-2 py-0.5 rounded-md font-semibold text-[11px] shadow-xs ${getBadgeColor(source.fileType || '')}`}>
                                     {source.fileType || 'UNKNOWN'}
                                   </span>
-                                  <span className="flex items-center gap-1.5 text-muted-foreground bg-background border border-border px-2 py-0.5 rounded shadow-sm">
-                                    <ShieldCheck className="w-3.5 h-3.5 text-primary" /> {source.linkKind === 'nyaa' ? 'Nyaa.si' : source.linkKind === 'anna' ? 'Anna\'s Archive' : 'Unknown'}
+                                  <span className="flex items-center gap-1.5 text-muted-foreground bg-background/80 border border-border/60 px-2 py-0.5 rounded-md shadow-xs text-[11px] font-medium">
+                                    <ShieldCheck className="w-3.5 h-3.5 text-primary" /> {getSourceName(source)}
                                   </span>
                                   {typeof source.sizeBytes === 'number' && (
-                                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                                    <span className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
                                       <HardDrive className="w-3.5 h-3.5" /> {formatBytes(source.sizeBytes)}
                                     </span>
                                   )}
                                   {typeof source.seeders === 'number' && (
-                                    <span className="flex items-center gap-1.5 text-emerald-500">
+                                    <span className="flex items-center gap-1.5 text-emerald-400 font-semibold text-[11px]">
                                       <Server className="w-3.5 h-3.5" /> {source.seeders} seeders
                                     </span>
                                   )}
                                 </div>
                               </div>
 
-                              <div className="shrink-0 flex items-center">
+                              <div className="shrink-0 flex items-center gap-2">
                                 {source.linkKind === 'direct' || source.linkKind === 'anna' || source.linkKind === 'external' ? (
                                   <Button
                                     variant="secondary"
-                                    className="bg-white text-black hover:bg-white/90 h-9 px-4 rounded-md text-sm font-medium shadow-sm"
+                                    className="bg-secondary text-foreground hover:bg-secondary/80 border border-border/50 h-9 px-4 rounded-lg text-xs font-semibold shadow-xs transition-all active:scale-95"
                                     onClick={() => {
                                       try {
                                         const url = new URL(source.magnetLink);
@@ -1056,33 +1217,33 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                                       }
                                     }}
                                   >
-                                    <Link className="w-4 h-4 mr-2 opacity-70" />
-                                    Direct Download
+                                    <Link className="w-3.5 h-3.5 mr-1.5 opacity-80" />
+                                    Direct Link
                                   </Button>
-                                ) : (
-                                  <Button
-                                    className="bg-white text-black hover:bg-white/90 h-9 px-4 rounded-md text-sm font-medium shadow-sm"
-                                    disabled={busy}
-                                    onClick={async () => {
-                                      setSourceBusy((prev) => ({ ...prev, [busyId]: true }))
-                                      try {
-                                        await enqueueJob({
-                                          title: activeModalResult.title,
-                                          sourceLink: source.magnetLink,
-                                          kind: searchType === 'books' ? 'books' : 'manga'
-                                        })
-                                        success('Added to Cloud', 'Job is now queued.')
-                                      } catch (e) {
-                                        error('Queue failed', getErrorMessage(e, 'Could not add to Torbox'))
-                                      } finally {
-                                        setSourceBusy((prev) => { const n = { ...prev }; delete n[busyId]; return n; })
-                                      }
-                                    }}
-                                  >
-                                    {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                                    Add
-                                  </Button>
-                                )}
+                                ) : null}
+
+                                <Button
+                                  className="bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 rounded-lg text-xs font-semibold shadow-xs transition-all active:scale-95"
+                                  disabled={busy}
+                                  onClick={async () => {
+                                    setSourceBusy((prev) => ({ ...prev, [busyId]: true }))
+                                    try {
+                                      await enqueueJob({
+                                        title: activeModalResult.title,
+                                        sourceLink: source.magnetLink,
+                                        kind: searchType === 'books' ? 'books' : 'manga'
+                                      })
+                                      success('Added to Cloud', 'Job is now queued in Torbox.')
+                                    } catch (e) {
+                                      error('Queue failed', getErrorMessage(e, 'Could not add to Torbox'))
+                                    } finally {
+                                      setSourceBusy((prev) => { const n = { ...prev }; delete n[busyId]; return n; })
+                                    }
+                                  }}
+                                >
+                                  {busy ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1.5 h-3.5 w-3.5" />}
+                                  Add to Cloud
+                                </Button>
                               </div>
                             </div>
                           )

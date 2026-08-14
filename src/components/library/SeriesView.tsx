@@ -541,7 +541,6 @@ export const SeriesView = memo(function SeriesView({
       case 'compact': return 130;
       case 'spacious': return 210;
       case 'comfortable':
-      case 'normal':
       default: return 160;
     }
   }, [density]);

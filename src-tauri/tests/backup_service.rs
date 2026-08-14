@@ -441,6 +441,73 @@ fn test_credentials_redaction() {
     assert!(restored.contains("super-secret"), "credentials restored");
 }
 
+/// S-15: user_preferences credential columns are NEVER written back from an
+/// archive — they live in the OS keyring on desktop, and archives can't
+/// restore keyring state. Non-credential fields must still restore.
+#[test]
+fn test_preferences_credentials_never_restored() {
+    let src = TestEnv::new();
+    {
+        let conn = src.conn();
+        conn.execute(
+            "UPDATE user_preferences SET theme = 'sepia', anilist_token = 'anilist-secret', \
+             prowlarr_api_key = 'prowlarr-secret' WHERE id = 1",
+            [],
+        )
+        .unwrap();
+    }
+    let cred_sel = BackupSelection {
+        categories: vec![BackupCategory::Preferences],
+        include_credentials: true,
+        include_books: false,
+        frontend_settings: false,
+    };
+    backup_service::create_backup(&src.db, &src.app_data_dir, &src.backup_path, &cred_sel, None)
+        .expect("preferences backup (with credentials)");
+
+    // Sanity: the archive really does carry the plaintext credentials.
+    {
+        let file = fs::File::open(&src.backup_path).unwrap();
+        let mut archive = zip::ZipArchive::new(file).unwrap();
+        let mut content = String::new();
+        archive
+            .by_name("category_preferences.json")
+            .unwrap()
+            .read_to_string(&mut content)
+            .unwrap();
+        assert!(content.contains("anilist-secret"), "archive holds anilist token");
+        assert!(content.contains("prowlarr-secret"), "archive holds prowlarr key");
+    }
+
+    // Restore WITH credentials requested: the columns must still stay empty.
+    let dst = TestEnv::new();
+    let sel = RestoreSelection {
+        categories: vec![BackupCategory::Preferences],
+        conflict_policy: ConflictPolicy::Overwrite,
+        include_credentials: true,
+    };
+    backup_service::restore_backup(&dst.db, &dst.app_data_dir, &src.backup_path, &sel)
+        .expect("preferences restore (with credentials)");
+
+    let (theme, anilist, prowlarr): (String, Option<String>, Option<String>) = dst
+        .conn()
+        .query_row(
+            "SELECT theme, anilist_token, prowlarr_api_key FROM user_preferences WHERE id = 1",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .unwrap();
+    assert_eq!(theme, "sepia", "non-credential preferences still restore");
+    assert!(
+        anilist.as_deref().unwrap_or("").is_empty(),
+        "anilist_token must NOT be restored from an archive"
+    );
+    assert!(
+        prowlarr.as_deref().unwrap_or("").is_empty(),
+        "prowlarr_api_key must NOT be restored from an archive"
+    );
+}
+
 /// (f) Unresolvable book file → recorded in skipped_files, backup succeeds.
 #[test]
 fn test_unresolvable_book_file_skipped() {

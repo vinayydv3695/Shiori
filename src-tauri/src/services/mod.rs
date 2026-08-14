@@ -53,6 +53,9 @@ pub mod folder_watch;
 // Torbox service
 pub mod torbox;
 
+// OS keyring secret storage (desktop) with legacy-storage fallback
+pub mod secret_store;
+
 // Minimal bencode decoder for .torrent dataset shard metadata
 pub mod bencode;
 

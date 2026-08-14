@@ -343,6 +343,14 @@ impl TorboxService {
     pub async fn load_api_key_from_store(&self, app_handle: &tauri::AppHandle) -> Result<()> {
         use tauri_plugin_store::StoreExt;
 
+        // S-15: prefer the OS keyring; fall back to the legacy sources.json
+        // store when the keyring has no entry (pre-keyring values) or is
+        // unavailable (no Secret Service daemon on Linux, headless CI, ...).
+        if let Some(k) = crate::services::secret_store::get("torbox.api_key")? {
+            self.set_api_key(Some(k)).await;
+            return Ok(());
+        }
+
         let store = app_handle
             .store("sources.json")
             .map_err(|e| ShioriError::Other(format!("Failed to open source store: {}", e)))?;
@@ -350,6 +358,15 @@ impl TorboxService {
         let value = store
             .get("torbox.api_key")
             .and_then(|v| v.as_str().map(ToString::to_string));
+
+        // Migrate a legacy plaintext key into the keyring, then drop the copy.
+        if let Some(k) = &value {
+            if crate::services::secret_store::set("torbox.api_key", k)? {
+                store.delete("torbox.api_key");
+                // Best-effort persist of the removal; retried on next load.
+                let _ = store.save();
+            }
+        }
 
         self.set_api_key(value).await;
         Ok(())
@@ -367,8 +384,21 @@ impl TorboxService {
             .map_err(|e| ShioriError::Other(format!("Failed to open source store: {}", e)))?;
 
         if let Some(k) = &key {
+            // S-15: prefer the OS keyring. When it accepts the key, drop the
+            // plaintext store copy; when it's unavailable, keep the legacy
+            // store path.
+            if crate::services::secret_store::set("torbox.api_key", k)? {
+                store.delete("torbox.api_key");
+                store
+                    .save()
+                    .map_err(|e| ShioriError::Other(format!("Failed to save store: {}", e)))?;
+                self.set_api_key(key).await;
+                return Ok(());
+            }
             store.set("torbox.api_key", serde_json::json!(k));
         } else {
+            // Clearing: drop the keyring entry too.
+            crate::services::secret_store::delete("torbox.api_key");
             store.delete("torbox.api_key");
         }
 

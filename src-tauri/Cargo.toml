@@ -145,6 +145,13 @@ tauri-plugin-tts = { version = "0.1", optional = true }
 tauri-plugin-android-auth = { path = "plugins/tauri-plugin-android-auth" }
 tauri-plugin-android-package-install = "2.0.2"
 
+[target.'cfg(not(target_os = "android"))'.dependencies]
+# OS keyring (macOS Keychain / Windows Credential Manager / Linux Secret
+# Service) for user credentials at rest (finding S-15). Android has no keyring
+# backend — android-auth (EncryptedSharedPreferences) covers the AniList token
+# there, so Android builds must not pull this crate.
+keyring = "4"
+
 [features]
 default = ["custom-protocol", "native-tts"]
 native-tts = ["tauri-plugin-tts"]

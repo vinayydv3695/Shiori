@@ -2231,8 +2231,8 @@ fn restore_singleton(
 }
 
 /// user_preferences singleton with credential-column handling: credential
-/// columns are only ever written when the archive captured them
-/// (not redacted) AND the user asked for credentials.
+/// columns are never written back from an archive — they live in the OS
+/// keyring on desktop and archives can't restore keyring state.
 fn restore_singleton_redacted(
     conn: &rusqlite::Connection,
     table: &str,
@@ -2262,12 +2262,14 @@ fn restore_singleton_redacted(
             .keys()
             .filter(|k| !k.starts_with('_') && k.as_str() != "id")
             .filter(|k| {
+                // Credentials live in the OS keyring on desktop; archives
+                // can't restore keyring state, so never overwrite the columns.
+                if is_credential_column(k) {
+                    return false;
+                }
                 // Never write credential columns when they were redacted out of
                 // the archive, or when the user didn't ask for credentials.
                 if redacted_columns.contains(k.as_str()) {
-                    return false;
-                }
-                if !include_credentials && is_credential_column(k) {
                     return false;
                 }
                 true

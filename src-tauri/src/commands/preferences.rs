@@ -1,4 +1,5 @@
 use crate::error::Result;
+use crate::services::secret_store;
 use crate::AppState;
 /// Preferences IPC Commands
 ///
@@ -113,7 +114,7 @@ pub struct OnboardingState {
 #[tauri::command]
 pub async fn get_user_preferences(state: State<'_, AppState>) -> Result<UserPreferences> {
     let conn = state.db.get_connection()?;
-    let prefs = conn.query_row(
+    let mut prefs = conn.query_row(
         "SELECT
             theme,
             book_font_family, book_font_size, book_line_height, book_page_width,
@@ -204,6 +205,17 @@ pub async fn get_user_preferences(state: State<'_, AppState>) -> Result<UserPref
             })
         },
     )?;
+
+    // S-15: credentials live in the OS keyring on desktop; the DB columns are
+    // the legacy fallback (pre-keyring values / keyring-less environments).
+    if let Some(token) = secret_store::get("anilist_token")? {
+        prefs.anilist_token = Some(token);
+    }
+    if let Some(key) = secret_store::get("prowlarr_api_key")? {
+        if !key.is_empty() {
+            prefs.prowlarr_api_key = key;
+        }
+    }
 
     Ok(prefs)
 }
@@ -525,6 +537,41 @@ pub async fn update_user_preferences(
     let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
 
     conn.execute(&sql, param_refs.as_slice())?;
+
+    // S-15: credentials move to the OS keyring on desktop. When the keyring
+    // accepts a value, the DB column is cleared (it becomes a legacy fallback
+    // / migration path only); when the keyring is unavailable, the DB keeps
+    // the value exactly as before.
+    if let Some(prowlarr_api_key) = updates.get("prowlarrApiKey").and_then(|v| v.as_str()) {
+        if prowlarr_api_key.is_empty() {
+            // Clearing: drop the keyring entry too, so reads don't resurrect it.
+            secret_store::delete("prowlarr_api_key");
+        } else if secret_store::set("prowlarr_api_key", prowlarr_api_key)? {
+            conn.execute(
+                "UPDATE user_preferences SET prowlarr_api_key = '' WHERE id = 1",
+                [],
+            )?;
+        }
+    }
+    if let Some(anilist_token) = updates.get("anilistToken").and_then(|v| {
+        if v.is_null() {
+            Some(None)
+        } else {
+            v.as_str().map(|s| Some(s.to_string()))
+        }
+    }) {
+        match anilist_token {
+            None => secret_store::delete("anilist_token"),
+            Some(token) => {
+                if secret_store::set("anilist_token", &token)? {
+                    conn.execute(
+                        "UPDATE user_preferences SET anilist_token = '' WHERE id = 1",
+                        [],
+                    )?;
+                }
+            }
+        }
+    }
 
     // Performance mode changed: re-read it and re-apply the per-connection
     // pragmas (new value is committed — autocommit — so other connections see
@@ -948,7 +995,7 @@ pub async fn get_startup_data(state: State<'_, AppState>) -> Result<StartupData>
     let conn = state.db.get_connection()?;
 
     // ── User preferences ──────────────────────────────────────────────────────
-    let preferences = conn.query_row(
+    let mut preferences = conn.query_row(
         "SELECT
             theme,
             book_font_family, book_font_size, book_line_height, book_page_width,
@@ -1039,6 +1086,17 @@ pub async fn get_startup_data(state: State<'_, AppState>) -> Result<StartupData>
             })
         },
     )?;
+
+    // S-15: credentials live in the OS keyring on desktop; the DB columns are
+    // the legacy fallback (pre-keyring values / keyring-less environments).
+    if let Some(token) = secret_store::get("anilist_token")? {
+        preferences.anilist_token = Some(token);
+    }
+    if let Some(key) = secret_store::get("prowlarr_api_key")? {
+        if !key.is_empty() {
+            preferences.prowlarr_api_key = key;
+        }
+    }
 
     // ── Book preference overrides ─────────────────────────────────────────────
     let book_overrides = {

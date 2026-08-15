@@ -24,6 +24,7 @@ struct Response {
     id: Option<usize>,
     result: Option<Value>,
     ready: Option<bool>,
+    error: Option<String>,
 }
 
 pub struct BrowserDaemon {
@@ -111,21 +112,29 @@ impl BrowserDaemon {
 
         let mut reader = BufReader::new(stdout).lines();
 
-        // Wait for ready state from daemon script
-        if let Some(line) = reader
-            .next_line()
-            .await
-            .map_err(|_| ShioriError::Other("EOF before ready".into()))?
-        {
-            if let Ok(resp) = serde_json::from_str::<Response>(&line) {
-                if resp.ready != Some(true) {
-                    return Err(ShioriError::Other(format!(
-                        "Unexpected output before ready: {}",
-                        line
-                    )));
+        // Wait for ready state from daemon script. The script prints
+        // {"ready": true} only after its Cloudflare challenge cleared and the
+        // site JS is present; it prints {"ready": false, ...} (or exits) on
+        // failure. EOF before ready means the script died — treat as failure
+        // so callers fall back to the webview RPC instead of hanging forever.
+        match reader.next_line().await {
+            Err(e) => return Err(ShioriError::Other(format!("Failed to read daemon ready: {e}"))),
+            Ok(None) => {
+                return Err(ShioriError::Other(
+                    "Browser daemon exited before reporting ready".into(),
+                ))
+            }
+            Ok(Some(line)) => {
+                if let Ok(resp) = serde_json::from_str::<Response>(&line) {
+                    if resp.ready != Some(true) {
+                        return Err(ShioriError::Other(format!(
+                            "Daemon failed to become ready: {}",
+                            resp.error.as_deref().unwrap_or(&line)
+                        )));
+                    }
+                } else {
+                    return Err(ShioriError::Other(format!("Failed to parse ready: {}", line)));
                 }
-            } else {
-                return Err(ShioriError::Other(format!("Failed to parse ready: {}", line)));
             }
         }
 

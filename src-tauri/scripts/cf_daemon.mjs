@@ -25,6 +25,13 @@ async function main() {
         attempts++;
     }
 
+    // Headless Chromium is reliably fingerprinted by Cloudflare — if the
+    // challenge never cleared, fail fast instead of serving garbage pages.
+    if (attempts >= 60) {
+        console.log(JSON.stringify({ ready: false, error: 'Cloudflare challenge never cleared' }));
+        process.exit(1);
+    }
+
     // Give it a brief moment after challenge disappears to initialize site scripts
     await new Promise(r => setTimeout(r, 2000));
 
@@ -35,6 +42,11 @@ async function main() {
         if (hasExtendClient) break;
         await new Promise(r => setTimeout(r, 1000));
         siteJsAttempts++;
+    }
+
+    if (siteJsAttempts >= 20) {
+        console.log(JSON.stringify({ ready: false, error: 'MangaFire site JS (extendClient) never loaded' }));
+        process.exit(1);
     }
 
     // Inject axios

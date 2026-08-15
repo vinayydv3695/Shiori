@@ -162,14 +162,17 @@ impl MangaFireSource {
 
                         const raw_result = await (async () => {{ {} }})();
                         const result = (typeof raw_result === 'string') ? raw_result : JSON.stringify(raw_result);
-                        const chunkSize = 32768;
+                        // Keep chunks small: WebKitGTK coalesces/caps rapid or oversized
+                        // document.title writes, which would stall the ACK handshake
+                        // and hit the 60s timeout. 512 chars is the proven value.
+                        const chunkSize = 512;
                         window.__CHUNK_ACK = true;
                         for (let i = 0; i < result.length; i += chunkSize) {{
                             const chunk = result.slice(i, i + chunkSize);
                             window.__CHUNK_ACK = false;
                             document.title = 'SHIORI_CHUNK|' + encodeURIComponent(chunk);
                             while (!window.__CHUNK_ACK) {{
-                                await new Promise(r => setTimeout(r, 5));
+                                await new Promise(r => setTimeout(r, 10));
                             }}
                         }}
                         document.title = 'SHIORI_DONE|';
@@ -366,21 +369,49 @@ impl MangaFireSource {
 
         #[cfg(not(target_os = "android"))]
         {
-            // First try via persistent BrowserDaemon for high-speed concurrent RPC
-            if let Ok(daemon) = self.get_daemon().await {
+            // ponytail: the headless-chromium daemon is unreliable against
+            // MangaFire's Cloudflare (headless is fingerprintable; the script
+            // also shipped with a Rust-ism syntax error until recently). Off
+            // by default — enable with SHIORI_MF_DAEMON=1 to iterate. Every
+            // failure path below falls through to the proven webview RPC.
+            let daemon_enabled = std::env::var("SHIORI_MF_DAEMON")
+                .map(|v| v == "1")
+                .unwrap_or(false);
+            if daemon_enabled {
+                if let Ok(daemon) = self.get_daemon().await {
                 match daemon.fetch(url, None).await {
                     Ok(data) => {
-                        return Ok(serde_json::to_string(&data).unwrap_or_default());
+                        // A stuck Cloudflare challenge makes the daemon serve
+                        // challenge HTML as Ok — never trust it, fall back to
+                        // the webview RPC which carries the real session.
+                        let is_html = data.as_str().map(|s| {
+                            let t = s.trim_start();
+                            t.starts_with('<') || s.contains("Just a moment")
+                        }).unwrap_or(false);
+                        if is_html {
+                            log::warn!("[MangaFire] Daemon returned challenge HTML, falling back to webview RPC");
+                            *self.daemon.lock().await = None;
+                        } else {
+                            return Ok(serde_json::to_string(&data).unwrap_or_default());
+                        }
                     }
                     Err(e) => {
                         log::warn!("[MangaFire] Daemon fetch failed: {}, retrying daemon start", e);
                         *self.daemon.lock().await = None;
                         if let Ok(daemon) = self.get_daemon().await {
                             if let Ok(data) = daemon.fetch(url, None).await {
-                                return Ok(serde_json::to_string(&data).unwrap_or_default());
+                                let is_html = data.as_str().map(|s| {
+                                    let t = s.trim_start();
+                                    t.starts_with('<') || s.contains("Just a moment")
+                                }).unwrap_or(false);
+                                if !is_html {
+                                    return Ok(serde_json::to_string(&data).unwrap_or_default());
+                                }
+                                log::warn!("[MangaFire] Retried daemon still returned challenge HTML, using webview RPC");
                             }
                         }
                     }
+                }
                 }
             }
 

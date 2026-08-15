@@ -955,3 +955,68 @@ fn test_subset_restore_failure_rolls_back() {
     assert_eq!(count_rows(&dst, "authors"), 0);
     assert_eq!(count_rows(&dst, "annotations"), 0);
 }
+
+/// Books with identical filenames in different directories, or duplicate file_paths,
+/// must not cause a "Duplicate filename" error in the zip archive.
+#[test]
+fn test_backup_with_duplicate_filenames_and_paths() {
+    let src = TestEnv::new();
+    let temp_books_dir = src.app_data_dir.join("test_books");
+    let dir1 = temp_books_dir.join("manga_series_1");
+    let dir2 = temp_books_dir.join("manga_series_2");
+    fs::create_dir_all(&dir1).unwrap();
+    fs::create_dir_all(&dir2).unwrap();
+
+    let file1 = dir1.join("001.cbz");
+    let file2 = dir2.join("001.cbz");
+    let shared_file = temp_books_dir.join("shared_book.epub");
+
+    fs::write(&file1, b"chapter 1 content").unwrap();
+    fs::write(&file2, b"another series chapter 1 content").unwrap();
+    fs::write(&shared_file, b"shared epub content").unwrap();
+
+    // 1. Two different files with identical filename ("001.cbz")
+    insert_book(&src, "u-dup-1", "Series 1 Ch 1", file1.to_str().unwrap(), Some("h1"));
+    insert_book(&src, "u-dup-2", "Series 2 Ch 1", file2.to_str().unwrap(), Some("h2"));
+    // 2. Multiple books referencing the exact same file path
+    insert_book(&src, "u-dup-3", "Shared Book Copy 1", shared_file.to_str().unwrap(), Some("h3"));
+    insert_book(&src, "u-dup-4", "Shared Book Copy 2", shared_file.to_str().unwrap(), Some("h3"));
+
+    // Full backup (includes books)
+    let mut full_sel = BackupSelection::default();
+    full_sel.include_books = true;
+    let full_info = backup_service::create_backup(
+        &src.db,
+        &src.app_data_dir,
+        &src.backup_path,
+        &full_sel,
+        None,
+    )
+    .expect("Full backup with duplicate filenames must succeed");
+
+    assert_eq!(full_info.book_count, 4);
+
+    // Verify zip entries in full backup
+    let zip_file = fs::File::open(&src.backup_path).unwrap();
+    let mut archive = zip::ZipArchive::new(zip_file).unwrap();
+    let file_names: Vec<String> = (0..archive.len())
+        .map(|i| archive.by_index(i).unwrap().name().to_string())
+        .collect();
+    let book_entries: Vec<&String> = file_names.iter().filter(|n| n.starts_with("books/")).collect();
+    // 3 distinct files on disk (file1, file2, shared_file) -> 3 book entries in zip
+    assert_eq!(book_entries.len(), 3, "Expected 3 distinct book files in zip, found: {:?}", book_entries);
+
+    // Subset backup (includes books)
+    let subset_backup_path = src.app_data_dir.join("subset_backup.zip");
+    let subset_sel = cat_selection(&[BackupCategory::Library, BackupCategory::Books]);
+    let subset_info = backup_service::create_backup(
+        &src.db,
+        &src.app_data_dir,
+        &subset_backup_path,
+        &subset_sel,
+        None,
+    )
+    .expect("Subset backup with duplicate filenames must succeed");
+
+    assert_eq!(subset_info.book_count, 4);
+}

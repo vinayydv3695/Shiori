@@ -52,13 +52,13 @@ export function FeaturedContinueCard({
       className="relative flex flex-col justify-end h-full min-h-[280px] rounded-2xl overflow-hidden cursor-pointer group border border-transparent shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_0_0_1px_hsl(var(--border)/0.4),0_8px_32px_rgba(0,0,0,0.3)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_0_1px_hsl(var(--primary)/0.4),0_12px_40px_hsl(var(--primary)/0.15)] hover:-translate-y-[2px] transition-all duration-400 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]"
       onClick={handleClick}
     >
-      {/* Background Image - Sharp & Vivid with Subtle Blur */}
+      {/* Background Image - Sharp & Crisp */}
       <div className="absolute inset-0 bg-card z-0 overflow-hidden">
         {coverUrl ? (
           <img
             src={coverUrl}
             alt="Background"
-            className="w-full h-full object-cover object-center opacity-40 scale-100 filter blur-[4px] group-hover:scale-105 transition-transform duration-700 ease-out"
+            className="w-full h-full object-cover object-center opacity-40 scale-100 group-hover:scale-105 transition-transform duration-700 ease-out"
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-primary/15 to-accent/15" />

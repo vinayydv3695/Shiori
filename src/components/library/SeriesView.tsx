@@ -40,10 +40,10 @@ const DesktopSeriesHeader = memo(function DesktopSeriesHeader({
 }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // NOTE: All hooks must run unconditionally before any early return, otherwise
-  // React throws "rendered fewer/more hooks than during the previous render".
-  const firstBook = series?.books[0];
-  const { coverUrl } = useCoverImage(firstBook?.id, firstBook?.cover_path)
+  // Find next unread book & natural first book for cover artwork
+  const sortedBooks = useMemo(() => [...(series?.books ?? [])].sort((a, b) => compareBooksNatural(a, b, 'chapter_asc')), [series?.books]);
+  const firstBook = sortedBooks[0] ?? series?.books[0];
+  const { coverUrl } = useCoverImage(firstBook?.id, firstBook?.cover_path);
   const [anilistBanner, setAnilistBanner] = useState<string | null>(null);
 
   useEffect(() => {
@@ -76,8 +76,6 @@ const DesktopSeriesHeader = memo(function DesktopSeriesHeader({
 
   const totalPages = useMemo(() => (series?.books ?? []).reduce((acc, b) => acc + (b.page_count || 0), 0), [series?.books]);
 
-  // Find next unread book (sorted naturally by volume/chapter)
-  const sortedBooks = useMemo(() => [...(series?.books ?? [])].sort((a, b) => compareBooksNatural(a, b, 'chapter_asc')), [series?.books]);
   const nextUnreadBook = useMemo(() => sortedBooks.find(b => getBookReadStatus(b) !== 'completed'), [sortedBooks]);
   const nextVolNum = nextUnreadBook ? (nextUnreadBook.series_index ?? parseVolumeOrChapterNumber(nextUnreadBook)) : null;
 
@@ -87,7 +85,7 @@ const DesktopSeriesHeader = memo(function DesktopSeriesHeader({
   const progressPercent = series.books.length > 0 ? Math.round((readBooks / series.books.length) * 100) : 0;
 
   const status = 'Ongoing';
-  const heroImage = anilistBanner || coverUrl;
+  const heroImage = coverUrl || anilistBanner;
 
   return (
     <div className="hidden md:block relative overflow-hidden shrink-0 border-b border-border/50 bg-card/60">
@@ -95,7 +93,7 @@ const DesktopSeriesHeader = memo(function DesktopSeriesHeader({
       {heroImage && (
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div 
-            className="absolute right-0 top-0 bottom-0 w-full md:w-3/5 bg-cover bg-right-top bg-no-repeat opacity-50 md:opacity-65 filter blur-[4px] transition-all duration-500"
+            className="absolute right-0 top-0 bottom-0 w-full md:w-3/5 bg-cover bg-right-top bg-no-repeat opacity-40 md:opacity-55 transition-all duration-500"
             style={{ backgroundImage: `url(${heroImage})` }}
           />
           {/* Overlay gradients for high contrast and readability */}
@@ -247,10 +245,10 @@ const MobileSeriesHeader = memo(function MobileSeriesHeader({
 }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // NOTE: All hooks must run unconditionally before any early return, otherwise
-  // React throws "rendered fewer/more hooks than during the previous render".
-  const firstBook = series?.books[0];
-  const { coverUrl } = useCoverImage(firstBook?.id, firstBook?.cover_path)
+  // Find next unread book & natural first book for cover artwork
+  const sortedBooks = useMemo(() => [...(series?.books ?? [])].sort((a, b) => compareBooksNatural(a, b, 'chapter_asc')), [series?.books]);
+  const firstBook = sortedBooks[0] ?? series?.books[0];
+  const { coverUrl } = useCoverImage(firstBook?.id, firstBook?.cover_path);
   const [anilistBanner, setAnilistBanner] = useState<string | null>(null);
 
   useEffect(() => {
@@ -283,8 +281,6 @@ const MobileSeriesHeader = memo(function MobileSeriesHeader({
 
   const totalPages = useMemo(() => (series?.books ?? []).reduce((acc, b) => acc + (b.page_count || 0), 0), [series?.books]);
 
-  // Find next unread book (sorted naturally by volume/chapter)
-  const sortedBooks = useMemo(() => [...(series?.books ?? [])].sort((a, b) => compareBooksNatural(a, b, 'chapter_asc')), [series?.books]);
   const nextUnreadBook = useMemo(() => sortedBooks.find(b => getBookReadStatus(b) !== 'completed'), [sortedBooks]);
   const nextVolNum = nextUnreadBook ? (nextUnreadBook.series_index ?? parseVolumeOrChapterNumber(nextUnreadBook)) : null;
 
@@ -294,7 +290,7 @@ const MobileSeriesHeader = memo(function MobileSeriesHeader({
   const progressPercent = series.books.length > 0 ? Math.round((readBooks / series.books.length) * 100) : 0;
 
   const status = 'Ongoing';
-  const heroImage = anilistBanner || coverUrl;
+  const heroImage = coverUrl || anilistBanner;
 
   return (
     <div className="md:hidden flex flex-col relative w-full shrink-0 border-b border-border/50 bg-card/60 overflow-hidden">
@@ -302,7 +298,7 @@ const MobileSeriesHeader = memo(function MobileSeriesHeader({
       {heroImage && (
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div 
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-40 filter blur-[4px] transition-all duration-500"
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-30 transition-all duration-500"
             style={{ backgroundImage: `url(${heroImage})` }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-card via-card/80 to-transparent" />

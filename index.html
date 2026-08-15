@@ -11,9 +11,22 @@
     <!-- Local fonts (bundled for production Tauri build, no CDN dependency) -->
     <link rel="stylesheet" href="/fonts/fonts.css">
     <style>
-      body {
+      html, body {
         margin: 0;
-        background-color: #0e0e0e;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background-color: var(--background, #fbf7ee);
+        color: var(--foreground, #222);
+        overflow: hidden;
+      }
+      #root {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        background-color: transparent;
+        overflow: hidden;
       }
       #native-splash {
         position: fixed;

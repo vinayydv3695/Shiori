@@ -101,13 +101,13 @@ function HeroSection({
 
   return (
     <motion.div className="hero-section" variants={itemVariants}>
-      {/* Background dynamic blur or static orbs */}
+      {/* Background dynamic cover or static orbs */}
       <div className="hero-bg">
         {featuredBook?.cover_path ? (
            <img 
              src={thumbUrl || undefined} 
              alt="" 
-             className="hero-dynamic-bg opacity-40 blur-[80px] absolute inset-0 w-full h-full object-cover pointer-events-none transition-all duration-1000 scale-110"
+             className="hero-dynamic-bg opacity-30 absolute inset-0 w-full h-full object-cover pointer-events-none transition-all duration-1000 scale-100"
            />
         ) : (
           <>

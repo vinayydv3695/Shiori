@@ -346,7 +346,7 @@ pub fn run() {
 
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             {
-                builder = builder.fullscreen(false).decorations(false);
+                builder = builder.fullscreen(false).decorations(false).shadow(true);
             }
 
             // Silence unused_assignments on platforms where variables aren't used

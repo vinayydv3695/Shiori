@@ -425,7 +425,7 @@ export function Layout({
   }
 
   return (
-    <div className={cn("flex flex-col h-screen overflow-hidden bg-background")}>
+    <div className={cn("flex flex-col h-full w-full overflow-hidden bg-background")}>
 
 
       {/* ── Topbar ── */}

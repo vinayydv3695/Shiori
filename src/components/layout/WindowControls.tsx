@@ -55,7 +55,7 @@ export function WindowControls() {
   const handleClose = () => getCurrentWindow().close()
 
   return (
-    <div className="flex items-center space-x-1 pl-2 h-full shrink-0" data-tauri-drag-region>
+    <div className="flex items-center space-x-1 pl-2 h-full shrink-0 select-none z-50">
       {!isFullscreen && (
         <>
           <button

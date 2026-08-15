@@ -363,9 +363,12 @@ fn create_full_backup(
     let mut zip = ZipWriter::new(buf_writer);
     let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
 
+    let mut seen_entries: HashSet<String> = HashSet::new();
+    let mut added_canonical_paths: HashMap<PathBuf, String> = HashMap::new();
     let mut total_size: u64 = 0;
     let mut skipped_files: Vec<String> = Vec::new();
 
+    seen_entries.insert("database/library.db".to_string());
     zip.start_file("database/library.db", options)?;
     let mut db_file = File::open(&temp_db_path)?;
     total_size += std::io::copy(&mut db_file, &mut zip)?;
@@ -377,13 +380,16 @@ fn create_full_backup(
             let path = entry.path();
             if path.is_file() {
                 if let Ok(relative) = path.strip_prefix(&covers_dir) {
-                    let zip_path = format!("covers/{}", relative.display());
+                    let rel_clean = relative.to_string_lossy().replace('\\', "/");
+                    let zip_path = format!("covers/{}", rel_clean);
                     // Cover being replaced/removed mid-backup: skip it,
-                    // don't abort the whole backup.
-                    if let Ok(mut file) = File::open(path) {
-                        zip.start_file(&zip_path, options)?;
-                        total_size += std::io::copy(&mut file, &mut zip)?;
-                        cover_count += 1;
+                    // don't abort the whole backup. Check seen_entries to prevent duplicates.
+                    if seen_entries.insert(zip_path.clone()) {
+                        if let Ok(mut file) = File::open(path) {
+                            zip.start_file(&zip_path, options)?;
+                            total_size += std::io::copy(&mut file, &mut zip)?;
+                            cover_count += 1;
+                        }
                     }
                 }
             }
@@ -400,10 +406,35 @@ fn create_full_backup(
         for file_path in paths {
             let book_path = Path::new(&file_path);
             if book_path.exists() && book_path.is_file() {
+                let canonical = book_path.canonicalize().unwrap_or_else(|_| book_path.to_path_buf());
+                if let Some(_existing_entry) = added_canonical_paths.get(&canonical) {
+                    // Exact same disk file was already bundled in this archive; avoid duplicating data
+                    // and prevent duplicate zip filenames.
+                    continue;
+                }
+
                 if let Some(filename) = book_path.file_name() {
-                    let zip_path = format!("books/{}", filename.to_string_lossy());
+                    let base_name = filename.to_string_lossy();
+                    let file_stem = book_path
+                        .file_stem()
+                        .map(|s| s.to_string_lossy().into_owned())
+                        .unwrap_or_else(|| "book".to_string());
+                    let file_ext = book_path
+                        .extension()
+                        .map(|e| format!(".{}", e.to_string_lossy()))
+                        .unwrap_or_default();
+
+                    let mut zip_path = format!("books/{}", base_name);
+                    let mut counter = 1;
+                    while seen_entries.contains(&zip_path) {
+                        zip_path = format!("books/{}_{}{}", file_stem, counter, file_ext);
+                        counter += 1;
+                    }
+
                     match File::open(book_path) {
                         Ok(mut file) => {
+                            seen_entries.insert(zip_path.clone());
+                            added_canonical_paths.insert(canonical, zip_path.clone());
                             zip.start_file(&zip_path, options)?;
                             total_size += std::io::copy(&mut file, &mut zip)?;
                             book_file_count += 1;
@@ -421,9 +452,12 @@ fn create_full_backup(
     }
 
     if let Some(settings_json) = frontend_settings_json {
-        zip.start_file("settings/frontend_settings.json", options)?;
-        zip.write_all(settings_json.as_bytes())?;
-        total_size += settings_json.len() as u64;
+        let entry = "settings/frontend_settings.json";
+        if seen_entries.insert(entry.to_string()) {
+            zip.start_file(entry, options)?;
+            zip.write_all(settings_json.as_bytes())?;
+            total_size += settings_json.len() as u64;
+        }
     }
 
     let mut category_counts = HashMap::new();
@@ -453,8 +487,10 @@ fn create_full_backup(
     };
 
     let manifest_json = serde_json::to_string_pretty(&backup_info)?;
-    zip.start_file("manifest.json", options)?;
-    zip.write_all(manifest_json.as_bytes())?;
+    if seen_entries.insert("manifest.json".to_string()) {
+        zip.start_file("manifest.json", options)?;
+        zip.write_all(manifest_json.as_bytes())?;
+    }
 
     zip.finish()?;
     let _ = fs::remove_file(backup_path);
@@ -485,6 +521,7 @@ fn create_subset_backup(
     let mut zip = ZipWriter::new(buf_writer);
     let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
 
+    let mut seen_entries: HashSet<String> = HashSet::new();
     let mut total_size: u64 = 0;
     let mut category_counts: HashMap<String, u64> = HashMap::new();
     let mut skipped_files: Vec<String> = Vec::new();
@@ -509,8 +546,10 @@ fn create_subset_backup(
             .map(|t| t.values().map(|v| v.as_array().map_or(0, |a| a.len())).sum())
             .unwrap_or(0);
         let entry = format!("category_{}.json", cat.as_str());
-        let size = write_json_entry(&mut zip, &entry, &json)?;
-        total_size += size;
+        if seen_entries.insert(entry.clone()) {
+            let size = write_json_entry(&mut zip, &entry, &json)?;
+            total_size += size;
+        }
         category_counts.insert(cat.as_str().to_string(), rows as u64);
         match cat {
             BackupCategory::Library => {
@@ -535,14 +574,20 @@ fn create_subset_backup(
     // pure credentials).
     if cats.contains(&BackupCategory::Sources) {
         if let Some((json, session_files)) = export_sources(app_data_dir, include_credentials)? {
-            let size = write_json_entry(&mut zip, "category_sources.json", &json)?;
-            total_size += size;
+            let entry = "category_sources.json".to_string();
+            if seen_entries.insert(entry.clone()) {
+                let size = write_json_entry(&mut zip, &entry, &json)?;
+                total_size += size;
+            }
             let mut count = 1u64;
             for (entry, src) in session_files {
-                if let Ok(mut file) = File::open(&src) {
-                    zip.start_file(&entry, options)?;
-                    total_size += std::io::copy(&mut file, &mut zip)?;
-                    count += 1;
+                let clean_entry = entry.replace('\\', "/");
+                if seen_entries.insert(clean_entry.clone()) {
+                    if let Ok(mut file) = File::open(&src) {
+                        zip.start_file(&clean_entry, options)?;
+                        total_size += std::io::copy(&mut file, &mut zip)?;
+                        count += 1;
+                    }
                 }
             }
             category_counts.insert("sources".to_string(), count);
@@ -558,11 +603,15 @@ fn create_subset_backup(
                 let path = entry.path();
                 if path.is_file() {
                     if let Ok(relative) = path.strip_prefix(&covers_dir) {
-                        let zip_path = format!("covers/{}", relative.display());
-                        zip.start_file(&zip_path, options)?;
-                        let mut file = File::open(path)?;
-                        total_size += std::io::copy(&mut file, &mut zip)?;
-                        cover_count += 1;
+                        let rel_clean = relative.to_string_lossy().replace('\\', "/");
+                        let zip_path = format!("covers/{}", rel_clean);
+                        if seen_entries.insert(zip_path.clone()) {
+                            if let Ok(mut file) = File::open(path) {
+                                zip.start_file(&zip_path, options)?;
+                                total_size += std::io::copy(&mut file, &mut zip)?;
+                                cover_count += 1;
+                            }
+                        }
                     }
                 }
             }
@@ -590,6 +639,7 @@ fn create_subset_backup(
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
 
+        let mut added_canonical_paths: HashMap<PathBuf, String> = HashMap::new();
         let mut book_file_count: u64 = 0;
         for (uuid, file_path, is_managed, managed_relpath, _file_format) in books {
             let resolved: Option<PathBuf> = if is_managed {
@@ -606,12 +656,33 @@ fn create_subset_backup(
                 skipped_files.push(file_path);
                 continue;
             }
+
+            let canonical = resolved.canonicalize().unwrap_or_else(|_| resolved.clone());
+            if let Some(existing_entry) = added_canonical_paths.get(&canonical) {
+                // Disk file already added to archive for another book entry; link it in manifest
+                book_files.insert(uuid, existing_entry.clone());
+                continue;
+            }
+
             let ext = resolved
                 .extension()
                 .map(|e| e.to_string_lossy().to_string())
                 .unwrap_or_default();
-            let entry = format!("books/{uuid}.{ext}");
+            let base_uuid = if uuid.trim().is_empty() {
+                uuid::Uuid::new_v4().to_string()
+            } else {
+                uuid.clone()
+            };
+            let mut entry = format!("books/{base_uuid}.{ext}");
+            let mut counter = 1;
+            while seen_entries.contains(&entry) {
+                entry = format!("books/{base_uuid}_{counter}.{ext}");
+                counter += 1;
+            }
+
             if let Ok(mut file) = File::open(&resolved) {
+                seen_entries.insert(entry.clone());
+                added_canonical_paths.insert(canonical, entry.clone());
                 zip.start_file(&entry, options)?;
                 total_size += std::io::copy(&mut file, &mut zip)?;
                 book_files.insert(uuid, entry);
@@ -626,9 +697,12 @@ fn create_subset_backup(
     // Frontend settings blob (Preferences-adjacent, controlled by its own flag).
     if include_frontend_settings {
         if let Some(settings_json) = frontend_settings_json {
-            zip.start_file("settings/frontend_settings.json", options)?;
-            zip.write_all(settings_json.as_bytes())?;
-            total_size += settings_json.len() as u64;
+            let entry = "settings/frontend_settings.json";
+            if seen_entries.insert(entry.to_string()) {
+                zip.start_file(entry, options)?;
+                zip.write_all(settings_json.as_bytes())?;
+                total_size += settings_json.len() as u64;
+            }
         }
     }
 
@@ -653,8 +727,10 @@ fn create_subset_backup(
     };
 
     let manifest_json = serde_json::to_string_pretty(&backup_info)?;
-    zip.start_file("manifest.json", options)?;
-    zip.write_all(manifest_json.as_bytes())?;
+    if seen_entries.insert("manifest.json".to_string()) {
+        zip.start_file("manifest.json", options)?;
+        zip.write_all(manifest_json.as_bytes())?;
+    }
 
     zip.finish()?;
     let _ = fs::remove_file(backup_path);
@@ -784,8 +860,9 @@ fn export_sources(
             let path = entry.path();
             if path.is_file() {
                 if let Ok(relative) = path.strip_prefix(&sessions_dir) {
+                    let rel_clean = relative.to_string_lossy().replace('\\', "/");
                     session_files.push((
-                        format!("sources/cloudflare_sessions/{}", relative.display()),
+                        format!("sources/cloudflare_sessions/{}", rel_clean),
                         path.to_path_buf(),
                     ));
                 }

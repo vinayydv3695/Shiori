@@ -186,7 +186,7 @@ export function PremiumTopbar({
         )}
       >
         {/* ── ZONE 1: Left Actions & Domain Segmented Control ── */}
-        <div className="flex items-center gap-3 shrink-0" data-tauri-drag-region>
+        <div className="flex items-center gap-3 shrink-0">
           <button
             type="button"
             onClick={onToggleSidebar}
@@ -245,7 +245,7 @@ export function PremiumTopbar({
         </div>
 
         {/* ── ZONE 3: Right Actions & Tools ── */}
-        <div className="flex items-center gap-2.5 shrink-0" data-tauri-drag-region>
+        <div className="flex items-center gap-2.5 shrink-0">
           {/* Primary Import CTA */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

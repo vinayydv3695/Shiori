@@ -402,6 +402,14 @@ impl MangaFireSource {
                         log::warn!("[source:mangafire] get_xhr returned a challenge page, falling back to RPC");
                     }
                     Err(e) => {
+                        let msg = e.to_string();
+                        // A Cloudflare block here means the webview RPC would
+                        // hit the same wall (challenge can't complete) — fail
+                        // fast with the friendly error instead of burning the
+                        // RPC's 15s challenge wait.
+                        if msg.contains("Cloudflare") || msg.contains("blocking") {
+                            return Err(SourceError::CloudflareChallenge.into());
+                        }
                         log::warn!("[source:mangafire] get_xhr failed ({}), falling back to RPC", e);
                     }
                 }

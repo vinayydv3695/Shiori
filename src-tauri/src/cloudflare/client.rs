@@ -276,11 +276,22 @@ impl CfClient {
 
     // ── Internal helpers ──────────────────────────────────────────────────────
 
+    /// Resolve a possibly-relative URL against the client's base URL.
+    /// Sources (e.g. mangafire) pass API paths like `/api/titles?...`;
+    /// reqwest cannot build a request from a relative URL.
+    fn resolve_url(&self, url: &str) -> String {
+        if url.starts_with('/') {
+            format!("{}{}", self.base_url.trim_end_matches('/'), url)
+        } else {
+            url.to_string()
+        }
+    }
+
     async fn build_request(&self, method: reqwest::Method, url: &str, accept: &str, body: Option<String>) -> Result<reqwest::RequestBuilder> {
         let timeout = *self.timeout.lock().unwrap_or_else(|p| p.into_inner());
         let mut req = self
             .http
-            .request(method.clone(), url)
+            .request(method.clone(), self.resolve_url(url))
             .timeout(timeout)
             .header(header::ACCEPT, accept)
             .header(header::ACCEPT_LANGUAGE, "en-US,en;q=0.9")
@@ -324,7 +335,7 @@ impl CfClient {
         let timeout = *self.timeout.lock().unwrap_or_else(|p| p.into_inner());
         let mut req = self
             .http
-            .get(url)
+            .get(self.resolve_url(url))
             .timeout(timeout)
             .header(header::ACCEPT, accept)
             .header(header::ACCEPT_LANGUAGE, "en-US,en;q=0.9")

@@ -80,9 +80,8 @@ impl ToonGodSource {
 
     /// Test-only constructor: wire a real [`CfClient`] (fresh throwaway
     /// session store) to a `base_url` such as a wiremock server. No Tauri
-    /// AppHandle is involved, so the webview `evaluate_js` fallback is
-    /// unavailable on this instance — fine for offline tests, which only
-    /// exercise the CfClient fetch path.
+    /// AppHandle is involved — fine for offline tests, which only exercise
+    /// the CfClient fetch path.
     pub async fn new_with_cf_client(base_url: &str) -> Result<Self> {
         let store = crate::cloudflare::session::SessionStore::new(
             std::env::temp_dir().join("shiori-cf-mock-sessions"),

@@ -421,10 +421,15 @@ export function OnlineMangaView() {
           setBrowseData((prev) => ({ ...prev, [mode]: data }));
         }
       } catch (err) {
+        const message =
+          err instanceof Error ? err.message : `Failed to load ${mode} manga`;
         logger.error(
           `Failed to load ${mode} manga for ${activeSource.id}:`,
           err,
         );
+        // Surface the graceful source error (e.g. Cloudflare block) instead
+        // of leaving the section silently empty.
+        reportPluginError(activeSource.id, message);
         setBrowseData((prev) => ({ ...prev, [mode]: [] }));
       } finally {
         setBrowseLoading((prev) => ({ ...prev, [mode]: false }));

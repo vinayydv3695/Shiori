@@ -164,7 +164,7 @@ pub async fn solve(url: &str, host: &str, cfg: &BrowserConfig, #[allow(unused_va
         let mode_label = if headless { "headless" } else { "visible" };
         log::info!("[CF Browser] Trying {mode_label} mode for {url}");
 
-        match run_browser_script(script, url, headless, cfg).await {
+        match run_browser_script(script, url, headless, cfg, cfg.challenge_timeout.as_secs()).await {
             Ok(output) => {
                 let session = build_session(host, output)?;
                 log::info!(
@@ -187,6 +187,25 @@ pub async fn solve(url: &str, host: &str, cfg: &BrowserConfig, #[allow(unused_va
     )))
 }
 
+/// Harvest a Cloudflare session entirely windowless (Komikku technique).
+///
+/// Same spawn/parse contract as [`solve`], but always headless with a 50s
+/// budget.  The solver script auto-clicks the Turnstile widget in headless
+/// mode.  [`CfClient::refresh_session`] tries this FIRST and only falls back
+/// to the visible [`solve`] window when the harvest fails.
+pub async fn harvest(url: &str, host: &str, cfg: &BrowserConfig) -> Result<CfSession> {
+    log::info!("[CF Browser] Headless harvest for {url}");
+
+    let script = include_str!("../../scripts/cf_solver.mjs");
+    let output = run_browser_script(script, url, true, cfg, 50).await?;
+    let session = build_session(host, output)?;
+    log::info!(
+        "[CF Browser] ✓ Headless harvest — captured {} cookies",
+        session.cookies.len()
+    );
+    Ok(session)
+}
+
 // ─── Browser script runner ────────────────────────────────────────────────────
 
 async fn run_browser_script(
@@ -194,9 +213,8 @@ async fn run_browser_script(
     url: &str,
     headless: bool,
     cfg: &BrowserConfig,
+    timeout_secs: u64,
 ) -> Result<SolverOutput> {
-    let timeout_secs = cfg.challenge_timeout.as_secs();
-
     // Build the command with display environment forwarded.
     // Tauri apps may strip these from the child process environment on Linux.
     let mut cmd = tokio::process::Command::new("node");
@@ -238,7 +256,7 @@ async fn run_browser_script(
     }
 
     let output = timeout(
-        cfg.challenge_timeout + Duration::from_secs(15), // grace period
+        Duration::from_secs(timeout_secs) + Duration::from_secs(15), // grace period
         cmd.output(),
     )
     .await

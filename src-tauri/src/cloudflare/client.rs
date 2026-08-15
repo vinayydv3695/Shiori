@@ -223,7 +223,8 @@ impl CfClient {
             .ok_or_else(|| ShioriError::Other("Session was not saved after solving".to_string()))
     }
 
-    /// Force-refresh the CF session by launching the Playwright solver.
+    /// Force-refresh the CF session.  Tries the windowless headless harvest
+    /// first, then falls back to the visible Playwright solver window.
     /// This is serialised — only one solve runs at a time.
     pub async fn refresh_session(&self, url: &str) -> Result<()> {
         let _lock = self.solve_lock.lock().await;
@@ -239,6 +240,23 @@ impl CfClient {
         }
 
         log::info!("[CfClient] Launching Playwright solver for {}", self.host);
+
+        // Windowless harvest first (Komikku technique) — no visible window.
+        // Fall back to the visible solver only if headless truly fails.
+        match browser::harvest(url, &self.host, &self.browser_cfg).await {
+            Ok(session) => {
+                self.store.save(session)?;
+                log::info!("[CfClient] Headless harvest succeeded for {}", self.host);
+                return Ok(());
+            }
+            Err(e) => {
+                log::warn!(
+                    "[CfClient] Headless harvest failed for {}: {e} — falling back to visible solver",
+                    self.host
+                );
+            }
+        }
+
         let session = browser::solve(url, &self.host, &self.browser_cfg, self.app_handle.as_ref()).await?;
         self.store.save(session)?;
         log::info!("[CfClient] ✓ Session saved for {}", self.host);

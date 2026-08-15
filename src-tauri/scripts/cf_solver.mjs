@@ -88,6 +88,48 @@ function findClearanceFor(cookies, targetHost) {
   });
 }
 
+// ─── Turnstile auto-interaction (headless only) ───────────────────────────────
+
+const TURNSTILE_MAX_TRIES = 30;
+const TURNSTILE_SELECTORS = [
+  'input[type=checkbox]',
+  'button:has-text("Verify")',
+  '#challenge-stage input',
+  'button:has-text("I\'m human")',
+  'button:has-text("I am human")',
+  'button:has-text("Im human")',
+];
+
+/**
+ * Best-effort click on the Turnstile widget inside the Cloudflare challenge
+ * frame.  Returns:
+ *   'done'    — page URL/title no longer looks like a challenge (stop clicking)
+ *   'clicked' — a click was attempted
+ *   null      — no challenge frame / no clickable widget found
+ */
+async function tryClickTurnstile(page) {
+  const frame = page.frames().find(f => f.url().includes('challenges.cloudflare.com'));
+  if (!frame) return null;
+
+  const url   = page.url().toLowerCase();
+  const title = (await page.title().catch(() => '')).toLowerCase();
+  if (!url.includes('challenge') && !title.includes('just a moment')) return 'done';
+
+  for (const sel of TURNSTILE_SELECTORS) {
+    console.error(`[solver] Turnstile click attempt: ${sel}`);
+    try {
+      // Short per-selector timeout — the default would be the whole solver
+      // timeout (50s+) and block the poll loop for each selector.
+      await frame.click(sel, { timeout: 1500 });
+      console.error(`[solver]   ✓ clicked ${sel}`);
+      return 'clicked';
+    } catch (_) {
+      // Not present / not actionable — try the next selector.
+    }
+  }
+  return null;
+}
+
 // ─── Main solver ──────────────────────────────────────────────────────────────
 
 async function runSolver(headless) {
@@ -102,7 +144,8 @@ async function runSolver(headless) {
       // Removes the "Chrome is being controlled by automated software" banner
       // and the navigator.webdriver=true flag that CF Turnstile checks.
       '--disable-blink-features=AutomationControlled',
-      `--window-size=1366,768`,
+      // Headless gets a smaller window; visible keeps the historical size.
+      headless ? '--window-size=1280,900' : '--window-size=1366,768',
       '--lang=en-US',
     ],
     ignoreDefaultArgs: ['--enable-automation'],
@@ -137,8 +180,9 @@ async function runSolver(headless) {
       console.error('[solver] ▶ If a checkbox appears, click "Verify you are human".');
     }
 
-    const deadline  = Date.now() + timeoutMs;
-    let   lastLog   = 0;
+    const deadline      = Date.now() + timeoutMs;
+    let   lastLog       = 0;
+    let   turnstileTries = 0;
 
     while (Date.now() < deadline) {
       const raw     = await context.cookies().catch(() => []);
@@ -172,6 +216,18 @@ async function runSolver(headless) {
         console.log(JSON.stringify(result));
         await browser.close().catch(() => {});
         return true;
+      }
+
+      // Headless only: auto-click the Turnstile widget (every ~1s, ≤30 real
+      // attempts — only counted when a challenge frame is actually present).
+      // Visible mode keeps its historical manual flow — do not touch it.
+      if (headless && turnstileTries < TURNSTILE_MAX_TRIES) {
+        const r = await tryClickTurnstile(page).catch(() => null);
+        if (r === 'done') {
+          turnstileTries = TURNSTILE_MAX_TRIES; // challenge gone — stop clicking
+        } else if (r !== null) {
+          turnstileTries += 1; // frame present → counts as one attempt
+        }
       }
 
       // Log status every 5s.

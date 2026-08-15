@@ -377,7 +377,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
             <Tabs.List asChild>
               <motion.div
                 className={cn(
-                  "w-64 bg-background/30 p-6 space-y-1.5 flex-shrink-0 overflow-y-auto scrollbar-none",
+                  "w-64 bg-background/30 p-6 space-y-1.5 flex-shrink-0 overflow-y-auto custom-scrollbar",
                   isMobile && mobileView === 'root' ? "w-full flex-1 max-md:pb-12" : isMobile ? "hidden" : "block"
                 )}
                 aria-label="Settings categories"
@@ -437,7 +437,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                       transition: { duration: 0.2, staggerChildren: 0.05, delayChildren: 0.05 } 
                     }
                   }}
-                  className="absolute inset-0 p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto"
+                  className="absolute inset-0 p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto custom-scrollbar"
                 >
                   {selectedTab === 'general' && (
                     <GeneralSettings
@@ -470,7 +470,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                   )}
 
                   {selectedTab === 'companion' && (
-                    <div className="p-4 md:p-6 pb-20 max-md:pb-32 overflow-y-auto max-h-full scroll-smooth">
+                    <div className="p-4 md:p-6 pb-20 max-md:pb-32 overflow-y-auto max-h-full scroll-smooth custom-scrollbar">
                       {/* Companion Tab Content */}
                       {isAndroid ? <CompanionDiscovery /> : <DesktopCompanionSettings />}
                     </div>

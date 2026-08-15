@@ -199,7 +199,7 @@ export function AniListUserProfileView({ onClose, user, shelf }: AniListUserProf
             </div>
 
             {/* Content Area */}
-            <ScrollArea className="flex-1 min-h-[340px] max-h-[calc(90vh-210px)] px-4 sm:px-6 md:px-8 pt-2 pb-6 overscroll-contain">
+            <div className="flex-1 overflow-y-auto min-h-[340px] max-h-[calc(90vh-210px)] px-4 sm:px-6 md:px-8 pt-2 pb-6 overscroll-contain custom-scrollbar">
               <AnimatePresence mode="wait">
                 {activeTab === 'profile' && (
                   <motion.div 
@@ -376,7 +376,7 @@ export function AniListUserProfileView({ onClose, user, shelf }: AniListUserProf
                   </motion.div>
                 )}
               </AnimatePresence>
-            </ScrollArea>
+            </div>
           </>
         )}
       </motion.div>

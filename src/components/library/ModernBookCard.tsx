@@ -48,7 +48,17 @@ const fmtColors: Record<string, string> = {
 }
 
 
-const FormatPill = ({ format, filePath, bookId }: { format?: string, filePath?: string, bookId?: number }) => {
+const FormatPill = ({
+  format,
+  filePath,
+  bookId,
+  onOpen,
+}: {
+  format?: string
+  filePath?: string
+  bookId?: number
+  onOpen?: () => void
+}) => {
   const [progress, setProgress] = useState<ReadingProgress | null>(null);
 
   // Batch reading-progress lookups through readingProgressCache (one
@@ -65,8 +75,10 @@ const FormatPill = ({ format, filePath, bookId }: { format?: string, filePath?: 
 
   if (format.toLowerCase() === 'online-manga') {
     const sourceMatch = filePath?.match(/online-manga:\/\/([^/]+)\//);
-    const source = sourceMatch ? sourceMatch[1] : 'Online';
-    const displaySource = source === 'mangadex' ? 'MangaDex' : source.charAt(0).toUpperCase() + source.slice(1);
+    const rawSource = sourceMatch ? sourceMatch[1] : 'Online';
+    const displaySource = (rawSource === 'mangadex' || rawSource.toLowerCase() === 'mangafire')
+      ? 'MangaFire'
+      : rawSource.charAt(0).toUpperCase() + rawSource.slice(1);
 
     let chapterText = '';
     if (progress && progress.currentLocation) {
@@ -77,16 +89,24 @@ const FormatPill = ({ format, filePath, bookId }: { format?: string, filePath?: 
     }
 
     return (
-      <span className="flex items-center gap-1 px-2 py-[3px] text-[9px] font-bold rounded-full tracking-wide shadow-md bg-[var(--manga-accent,#ec4899)] text-white border border-white/20 opacity-100">
-        <Globe size={10} className="opacity-90" />
-        {displaySource}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpen?.();
+        }}
+        className="flex items-center gap-1 px-2.5 py-[3px] text-[9.5px] font-bold rounded-full tracking-wide shadow-md bg-[var(--manga-accent,#ec4899)] hover:brightness-110 text-white border border-white/25 opacity-100 transition-all hover:scale-105 active:scale-95 cursor-pointer select-none"
+        title={`Open ${displaySource} in Online Manga`}
+      >
+        <Globe size={10} className="opacity-90 shrink-0" />
+        <span>{displaySource}</span>
         {chapterText && (
           <>
             <span className="w-[1px] h-3 bg-white/40 mx-0.5"></span>
             <span className="truncate max-w-[80px]">{chapterText}</span>
           </>
         )}
-      </span>
+      </button>
     )
   }
 
@@ -405,7 +425,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
 
         {/* Format badge */}
         <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1.5">
-          <FormatPill format={book.file_format} filePath={book.file_path} bookId={book.id} />
+          <FormatPill format={book.file_format} filePath={book.file_path} bookId={book.id} onOpen={() => onOpen(book.id!)} />
           {isRss && (
             <span className="flex items-center gap-1 px-2 py-[3px] text-[10px] font-bold rounded-full tracking-wide shadow-md backdrop-blur-md bg-orange-500/90 text-white border border-white/20">
               <Rss size={10} />

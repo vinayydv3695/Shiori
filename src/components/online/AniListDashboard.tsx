@@ -371,7 +371,7 @@ export function AniListDashboard({ onOpenSettings }: AniListDashboardProps = {})
 
   return (
     <div className="h-full flex flex-col bg-background overflow-hidden relative">
-      <div className="flex-1 overflow-y-auto overflow-x-hidden hide-scrollbar">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
         {/* Dynamic Hero Section */}
         <div className="relative w-full h-[200px] md:h-[280px] overflow-hidden">
           {/* Background Image (Cover/Banner) */}

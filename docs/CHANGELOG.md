@@ -1,3 +1,12 @@
+# Release Notes (v2.3.24)
+
+## Improvements & Fixes
+
+- **Direct Online Manga Library Navigation** — Clicking any online manga in your library directly opens that manga's full details and chapter list view instead of the generic browse homepage.
+- **MangaFire Primary Source & Badge** — Set MangaFire as the top primary source across AniList import sync and updated library card badges to display MangaFire with quick-open actions.
+- **High-Performance MangaFire Desktop RPC** — Connected the background Playwright browser daemon to MangaFire RPC requests with mutex locking and increased transfer chunk sizes, preventing timeout errors during parallel browse queries.
+- **Scrollbar Consistency** — Enabled clean, theme-adaptive custom scrollbars across AniList Profile subviews, Dashboard, Reviews, Activities, Manga details dialogs, and Settings tabs.
+
 # Release Notes (v2.3.23)
 
 ## Improvements & Fixes

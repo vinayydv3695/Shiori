@@ -209,8 +209,8 @@ export function AniListImportDialog({ isOpen, onClose, shelf, anilistToken }: An
 
   /** Helper to search multiple online manga sources with timeout protection and title fallbacks */
   const searchMangaOnline = async (candidateTitles: string[]): Promise<{ sourceId: string; resultId: string; coverUrl?: string } | null> => {
-    // Prioritize fast, high-uptime MangaDex first, then fallbacks
-    const sources = ['mangadex', 'mangafire', 'toongod', 'manhwaread'];
+    // Prioritize MangaFire first, then high-uptime manga sources
+    const sources = ['mangafire', 'toongod', 'manhwaread'];
     
     for (const sourceId of sources) {
       for (const title of candidateTitles) {
@@ -372,7 +372,7 @@ export function AniListImportDialog({ isOpen, onClose, shelf, anilistToken }: An
           </div>
 
           {/* Main Body */}
-          <div className="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 md:p-8 space-y-5 overscroll-contain">
+          <div className="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 md:p-8 space-y-5 overscroll-contain custom-scrollbar">
             {!isImporting ? (
               <>
                 {/* Search & Filter Controls Bar */}
@@ -469,7 +469,7 @@ export function AniListImportDialog({ isOpen, onClose, shelf, anilistToken }: An
                 </div>
 
                 {/* Manga Items: Large Poster Grid or Compact List */}
-                <div className="max-h-[50vh] overflow-y-auto pr-1">
+                <div className="max-h-[50vh] overflow-y-auto pr-1 custom-scrollbar">
                   {filteredEntries.length > 0 ? (
                     viewMode === 'grid' ? (
                       /* Large Poster Grid */
@@ -743,7 +743,7 @@ export function AniListImportDialog({ isOpen, onClose, shelf, anilistToken }: An
                       </span>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto max-h-[220px] space-y-2 pt-2.5 pr-1 overscroll-contain">
+                    <div className="flex-1 overflow-y-auto max-h-[220px] space-y-2 pt-2.5 pr-1 overscroll-contain custom-scrollbar">
                       {selectedItemsToImport.map((item, index) => {
                         const id = item.entry.media.id;
                         const title = item.entry.media.title.userPreferred || item.entry.media.title.english || item.entry.media.title.romaji;

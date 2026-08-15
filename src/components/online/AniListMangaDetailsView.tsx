@@ -361,7 +361,7 @@ export function AniListMangaDetailsView({
 
   const content = (
     <div className={cn(
-      "fixed inset-0 bg-background text-on-surface overflow-y-auto overflow-x-hidden font-sans overscroll-none pb-[env(safe-area-inset-bottom,0px)]",
+      "fixed inset-0 bg-background text-on-surface overflow-y-auto overflow-x-hidden font-sans overscroll-none pb-[env(safe-area-inset-bottom,0px)] custom-scrollbar",
       isMobile ? "z-40" : "z-[300]"
     )}>
       {loading ? (

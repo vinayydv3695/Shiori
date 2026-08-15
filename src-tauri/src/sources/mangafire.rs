@@ -31,6 +31,9 @@ const PAGE_FETCH_CONCURRENCY: usize = 4;
 pub struct MangaFireSource {
     cf_client: RwLock<Option<Arc<CfClient>>>,
     app_handle: RwLock<Option<tauri::AppHandle>>,
+    #[cfg(not(target_os = "android"))]
+    daemon: tokio::sync::Mutex<Option<Arc<crate::cloudflare::daemon::BrowserDaemon>>>,
+    rpc_lock: tokio::sync::Mutex<()>,
     /// content_id -> (cached_at, chapters); TTL [`CHAPTER_CACHE_TTL`].
     chapter_cache: Mutex<HashMap<String, (Instant, Vec<Chapter>)>>,
     /// chapter_id -> (cached_at, pages); TTL [`PAGES_CACHE_TTL`].
@@ -42,6 +45,9 @@ impl MangaFireSource {
         Self {
             cf_client: RwLock::new(None),
             app_handle: RwLock::new(None),
+            #[cfg(not(target_os = "android"))]
+            daemon: tokio::sync::Mutex::new(None),
+            rpc_lock: tokio::sync::Mutex::new(()),
             chapter_cache: Mutex::new(HashMap::new()),
             pages_cache: Mutex::new(HashMap::new()),
         }
@@ -50,6 +56,18 @@ impl MangaFireSource {
     pub async fn set_cf_client(&self, cf: Arc<CfClient>, app_handle: tauri::AppHandle) {
         *self.cf_client.write().await = Some(cf);
         *self.app_handle.write().await = Some(app_handle);
+    }
+
+    #[cfg(not(target_os = "android"))]
+    async fn get_daemon(&self) -> Result<Arc<crate::cloudflare::daemon::BrowserDaemon>> {
+        let mut guard = self.daemon.lock().await;
+        if let Some(d) = guard.as_ref() {
+            return Ok(d.clone());
+        }
+        let cfg = crate::cloudflare::browser::BrowserConfig::default();
+        let d = crate::cloudflare::daemon::BrowserDaemon::start(&cfg).await?;
+        *guard = Some(d.clone());
+        Ok(d)
     }
 
     async fn wait_for_init(&self) -> Result<()> {
@@ -69,6 +87,7 @@ impl MangaFireSource {
     }
 
     async fn evaluate_js_on_site(&self, js_script: &str) -> Result<String> {
+        let _lock = self.rpc_lock.lock().await;
         self.wait_for_init().await?;
         let guard = self.app_handle.read().await;
         if let Some(app) = guard.as_ref() {
@@ -143,14 +162,14 @@ impl MangaFireSource {
 
                         const raw_result = await (async () => {{ {} }})();
                         const result = (typeof raw_result === 'string') ? raw_result : JSON.stringify(raw_result);
-                        const chunkSize = 512;
+                        const chunkSize = 32768;
                         window.__CHUNK_ACK = true;
                         for (let i = 0; i < result.length; i += chunkSize) {{
                             const chunk = result.slice(i, i + chunkSize);
                             window.__CHUNK_ACK = false;
                             document.title = 'SHIORI_CHUNK|' + encodeURIComponent(chunk);
                             while (!window.__CHUNK_ACK) {{
-                                await new Promise(r => setTimeout(r, 10));
+                                await new Promise(r => setTimeout(r, 5));
                             }}
                         }}
                         document.title = 'SHIORI_DONE|';
@@ -347,6 +366,24 @@ impl MangaFireSource {
 
         #[cfg(not(target_os = "android"))]
         {
+            // First try via persistent BrowserDaemon for high-speed concurrent RPC
+            if let Ok(daemon) = self.get_daemon().await {
+                match daemon.fetch(url, None).await {
+                    Ok(data) => {
+                        return Ok(serde_json::to_string(&data).unwrap_or_default());
+                    }
+                    Err(e) => {
+                        log::warn!("[MangaFire] Daemon fetch failed: {}, retrying daemon start", e);
+                        *self.daemon.lock().await = None;
+                        if let Ok(daemon) = self.get_daemon().await {
+                            if let Ok(data) = daemon.fetch(url, None).await {
+                                return Ok(serde_json::to_string(&data).unwrap_or_default());
+                            }
+                        }
+                    }
+                }
+            }
+
             let js = format!(
                 r#"
                 const [path, queryString] = '{}'.split('?');

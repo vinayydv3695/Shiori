@@ -83,7 +83,7 @@ export function AniListMangaDetailsDialog({
             <span className="sr-only">Close</span>
           </Dialog.Close>
 
-          <div className="relative z-10 px-6 sm:px-10 pt-12 pb-10 flex flex-col sm:flex-row gap-8 sm:gap-10 overflow-y-auto">
+          <div className="relative z-10 px-6 sm:px-10 pt-12 pb-10 flex flex-col sm:flex-row gap-8 sm:gap-10 overflow-y-auto custom-scrollbar">
             
             {/* Left Column: Cover Image & Actions */}
             <div className="shrink-0 mx-auto sm:mx-0 flex flex-col gap-6 w-[180px] sm:w-[220px]">

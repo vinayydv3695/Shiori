@@ -1,3 +1,19 @@
+# Release Notes (v2.3.25)
+
+## Improvements
+
+- **Source Health Checks** — Every online source now exposes a health status (Available / Unavailable / Blocked / Rate limited / Unknown) with a manual Check button in Settings → Online Sources; checks are conservative and never poll in the background.
+- **Backend Source Enable/Disable** — The enable toggles now sync to the backend registry; disabled sources are rejected at the command layer (search, browse, chapters, pages, downloads, image proxy).
+- **Structured Source Errors** — Sources now return typed errors (Network / Timeout / NotFound / RateLimited / AccessDenied / CloudflareChallenge / Parser / InvalidResponse) with friendly, human-readable messages instead of raw status codes.
+- **Graceful Cloudflare Handling** — When a source requires browser verification, the app now detects it and explains it instead of retrying blindly. A **Verify in browser** button in the error panel lets you solve the challenge yourself (user-initiated, visible browser only — no automation). The previous automatic bypass machinery (headless stealth harvest, Turnstile auto-click, auto-solve windows, Playwright daemon) was removed in line with the security policy.
+- **ToonGod Adapter Hardening** — Fetches through the shared Cloudflare-aware HTTP client (windowless), with 10-minute TTL caching for search and chapter lists.
+- **MangaFire Adapter Hardening** — Health probe, structured error mapping, plain-HTTP XHR fast path with stored session cookies.
+- **Shared Source Cache Module** — TTL-bounded generic cache used by both adapters.
+
+## Testing
+
+- Wiremock integration tests for ToonGod (search, popular, latest, chapters, pages, 403/404/429 mapping, cache single-fetch assertion) and registry enable/disable; 269 lib tests + 14 integration tests, all offline.
+
 # Release Notes (v2.3.24)
 
 ## Improvements & Fixes

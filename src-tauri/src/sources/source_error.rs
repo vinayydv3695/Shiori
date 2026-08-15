@@ -6,8 +6,6 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::error::ShioriError;
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum SourceError {
@@ -62,15 +60,21 @@ impl SourceError {
     }
 }
 
-impl From<SourceError> for ShioriError {
-    fn from(e: SourceError) -> Self {
-        ShioriError::Other(e.user_message())
+impl std::fmt::Display for SourceError {
+    /// Display delegates to the friendly user-facing message so wrapping
+    /// errors (`ShioriError::Source`) surface the same text the frontend
+    /// matches on (e.g. the word "Cloudflare").
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.user_message())
     }
 }
+
+// `From<SourceError> for ShioriError` lives in error.rs as `ShioriError::Source`.
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::ShioriError;
 
     #[test]
     fn cloudflare_message_contains_keyword() {

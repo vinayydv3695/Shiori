@@ -7,13 +7,11 @@ use tokio::sync::RwLock;
 
 use crate::cloudflare::client::CfClient;
 use crate::error::{Result, ShioriError};
+use crate::sources::cache::cache_get_or_fetch;
 use crate::sources::{
     challenge, Chapter, ContentType, Page, SearchResult, Source, SourceError, SourceHealth,
     SourceMeta,
 };
-
-#[cfg(target_os = "android")]
-use tauri_plugin_android_saf::AndroidSafExt;
 
 const BASE_URL: &str = "https://www.toongod.org";
 const MANGA_PATH: &str = "webtoons";
@@ -22,9 +20,6 @@ const MANGA_PATH: &str = "webtoons";
 const SEARCH_CACHE_TTL: Duration = Duration::from_secs(10 * 60);
 /// How long chapter lists are served from the in-memory cache before refresh.
 const CHAPTERS_CACHE_TTL: Duration = Duration::from_secs(10 * 60);
-/// Max entries per cache (search + chapters each). Beyond this, the entry
-/// with the oldest `cached_at` is evicted on insert — keeps memory bounded.
-const CACHE_MAX_ENTRIES: usize = 50;
 
 // Rotate through realistic Chrome user-agents to reduce fingerprinting
 #[allow(dead_code)]
@@ -57,9 +52,6 @@ pub struct ToonGodSource {
     base_url: String,
     config: RwLock<ToonGodConfig>,
     cf_client: RwLock<Option<Arc<CfClient>>>,
-    app_handle: RwLock<Option<tauri::AppHandle>>,
-    #[allow(dead_code)]
-    eval_lock: tokio::sync::Mutex<()>,
     /// `query|page` -> (cached_at, results); TTL [`SEARCH_CACHE_TTL`].
     search_cache: Mutex<HashMap<String, (Instant, Vec<SearchResult>)>>,
     /// content_id -> (cached_at, chapters); TTL [`CHAPTERS_CACHE_TTL`].
@@ -77,16 +69,13 @@ impl ToonGodSource {
             base_url,
             config: RwLock::new(ToonGodConfig::default()),
             cf_client: RwLock::new(None),
-            app_handle: RwLock::new(None),
-            eval_lock: tokio::sync::Mutex::new(()),
             search_cache: Mutex::new(HashMap::new()),
             chapters_cache: Mutex::new(HashMap::new()),
         })
     }
 
-    pub async fn set_cf_client(&self, cf: Arc<CfClient>, app_handle: tauri::AppHandle) {
+    pub async fn set_cf_client(&self, cf: Arc<CfClient>) {
         *self.cf_client.write().await = Some(cf);
-        *self.app_handle.write().await = Some(app_handle);
     }
 
     /// Test-only constructor: wire a real [`CfClient`] (fresh throwaway
@@ -104,11 +93,6 @@ impl ToonGodSource {
         Ok(source)
     }
 
-    #[allow(dead_code)]
-    pub async fn set_app_handle(&self, app_handle: tauri::AppHandle) {
-        *self.app_handle.write().await = Some(app_handle);
-    }
-
     pub async fn set_config(&self, config: ToonGodConfig) {
         let mut guard = self.config.write().await;
         *guard = config;
@@ -117,47 +101,6 @@ impl ToonGodSource {
     #[allow(dead_code)]
     pub async fn get_config(&self) -> ToonGodConfig {
         self.config.read().await.clone()
-    }
-
-    fn detect_cloudflare_block(status: reqwest::StatusCode, html: &str) -> bool {
-        if status == reqwest::StatusCode::FORBIDDEN
-            || status == reqwest::StatusCode::SERVICE_UNAVAILABLE
-            || status == reqwest::StatusCode::TOO_MANY_REQUESTS
-        {
-            return true;
-        }
-
-        let lower = html.to_lowercase();
-        lower.contains("cloudflare")
-            || lower.contains("attention required")
-            || lower.contains("cf-browser-verification")
-            || lower.contains("just a moment")
-            || lower.contains("enable javascript")
-            || lower.contains("_cf_chl")
-            || lower.contains("challenge-platform")
-    }
-
-    fn cloudflare_error(context: &str) -> ShioriError {
-        log::warn!("[source:toongod] {} blocked by Cloudflare — no automated bypass", context);
-        SourceError::CloudflareChallenge.into()
-    }
-
-    /// Best-effort: extract an HTTP status code from a CfClient error message
-    /// like "HTTP 429 from https://… after 3 retries".
-    fn status_from_error(msg: &str) -> Option<reqwest::StatusCode> {
-        let tokens: Vec<&str> = msg.split_whitespace().collect();
-        for (i, t) in tokens.iter().enumerate() {
-            if *t == "HTTP" {
-                if let Some(next) = tokens.get(i + 1) {
-                    if let Ok(code) = next.parse::<u16>() {
-                        if (100..600).contains(&code) {
-                            return reqwest::StatusCode::from_u16(code).ok();
-                        }
-                    }
-                }
-            }
-        }
-        None
     }
 
     fn absolute_url(href: &str) -> String {
@@ -219,181 +162,6 @@ impl ToonGodSource {
             .to_string()
     }
 
-    /// Kept for Android (SAF evaluate_javascript) and as the pre-CfClient
-    /// webview RPC fallback; currently unused on desktop now that ToonGod
-    /// fetches via CfClient.
-    #[allow(dead_code)]
-    async fn evaluate_js(&self, url: &str, js_script: &str) -> Result<String> {
-        let _lock = self.eval_lock.lock().await;
-
-        // SSRF guard: only navigate the webview to validated HTTPS URLs.
-        crate::validate_fetch_url(url)?;
-
-        let guard = self.app_handle.read().await;
-        let app = guard.as_ref().ok_or_else(|| {
-            ShioriError::Other("ToonGod source app_handle not initialized".into())
-        })?;
-
-        #[cfg(not(target_os = "android"))]
-        {
-            let window_label = format!("tg-eval-{}", uuid::Uuid::new_v4().simple());
-            let (tx, rx) = tokio::sync::oneshot::channel();
-            let tx = std::sync::Arc::new(std::sync::Mutex::new(Some(tx)));
-            let html_buffer = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
-
-            let js = format!(
-                r#"(async () => {{
-                    try {{
-                        if (window.top !== window.self) return; // Prevent iframe execution
-                        if (document.readyState === 'loading') {{
-                            await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve));
-                        }}
-                        while (true) {{
-                            const title = document.title.toLowerCase();
-                            if (title.includes('just a moment') || title.includes('cloudflare') || title.includes('attention required')) {{
-                                await new Promise(resolve => setTimeout(resolve, 1000));
-                                continue;
-                            }}
-                            break;
-                        }}
-                        await new Promise(resolve => setTimeout(resolve, 1500));
-                        const raw_result = await (async () => {{ {} }})();
-                        const result = (typeof raw_result === 'string') ? raw_result : JSON.stringify(raw_result);
-                        const chunkSize = 16384;
-                        window.__CHUNK_ACK = true;
-                        for (let i = 0; i < result.length; i += chunkSize) {{
-                            const chunk = result.slice(i, i + chunkSize);
-                            window.__CHUNK_ACK = false;
-                            document.title = 'SHIORI_CHUNK|' + encodeURIComponent(chunk);
-                            while (!window.__CHUNK_ACK) {{
-                                await new Promise(r => setTimeout(r, 10));
-                            }}
-                        }}
-                        document.title = 'SHIORI_DONE|';
-                    }} catch (e) {{
-                        document.title = 'SHIORI_ERROR|' + e.message;
-                    }}
-                }})();"#,
-                js_script
-            );
-
-            let tx_clone = std::sync::Arc::clone(&tx);
-            let app_clone = app.clone();
-            let window_label_clone = window_label.clone();
-            let html_buffer_clone = std::sync::Arc::clone(&html_buffer);
-
-            use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
-
-            let parsed_url = url::Url::parse(url).map_err(|e| {
-                ShioriError::Other(format!("Invalid ToonGod URL {}: {}", url, e))
-            })?;
-            let _window = WebviewWindowBuilder::new(
-                app,
-                &window_label,
-                WebviewUrl::External(parsed_url),
-            )
-            .visible(false)
-            .initialization_script(&js)
-            .on_document_title_changed(move |window, title| {
-                if title.starts_with("SHIORI_CHUNK|") {
-                    if let Ok(mut buf) = html_buffer_clone.lock() {
-                        let raw = title.trim_start_matches("SHIORI_CHUNK|");
-                        let decoded =
-                            urlencoding::decode(raw).unwrap_or(std::borrow::Cow::Borrowed(raw));
-                        buf.push_str(&decoded);
-                    }
-                    let _ = window.eval("window.__CHUNK_ACK = true;");
-                } else if title.starts_with("SHIORI_DONE|") {
-                    if let Ok(mut lock) = tx_clone.lock() {
-                        if let Some(sender) = lock.take() {
-                            let buf = html_buffer_clone.lock().unwrap().clone();
-                            let _ = sender.send(format!("SHIORI_RESULT|{}", buf));
-                        }
-                    }
-                    let w_label = window_label_clone.clone();
-                    let a = app_clone.clone();
-                    tauri::async_runtime::spawn(async move {
-                        if let Some(w) = a.get_webview_window(&w_label) {
-                            let _ = w.close();
-                        }
-                    });
-                } else if title.starts_with("SHIORI_ERROR|") {
-                    if let Ok(mut lock) = tx_clone.lock() {
-                        if let Some(sender) = lock.take() {
-                            let _ = sender.send(title.clone());
-                        }
-                    }
-                    let w_label = window_label_clone.clone();
-                    let a = app_clone.clone();
-                    tauri::async_runtime::spawn(async move {
-                        if let Some(w) = a.get_webview_window(&w_label) {
-                            let _ = w.close();
-                        }
-                    });
-                }
-            })
-            .build()
-            .map_err(|e| ShioriError::Other(format!("Failed to build eval webview: {}", e)))?;
-
-            let result = match tokio::time::timeout(std::time::Duration::from_secs(45), rx).await {
-                Ok(Ok(res)) => {
-                    if res.starts_with("SHIORI_RESULT|") {
-                        res.trim_start_matches("SHIORI_RESULT|").to_string()
-                    } else if res.starts_with("SHIORI_ERROR|") {
-                        return Err(ShioriError::Other(format!(
-                            "ToonGod JS Error: {}",
-                            res.trim_start_matches("SHIORI_ERROR|")
-                        )));
-                    } else {
-                        return Err(ShioriError::Other(format!(
-                            "ToonGod unexpected eval result: {}",
-                            res
-                        )));
-                    }
-                }
-                _ => {
-                    // Timeout or error receiving, ensure we clean up the window!
-                    let w_label = window_label.clone();
-                    let a = app.clone();
-                    tauri::async_runtime::spawn(async move {
-                        if let Some(w) = a.get_webview_window(&w_label) {
-                            let _ = w.close();
-                        }
-                    });
-                    return Err(ShioriError::Other("ToonGod evaluate_js timed out".into()));
-                }
-            };
-            Ok(result)
-        }
-
-        #[cfg(target_os = "android")]
-        {
-            let js = format!(
-                r#"(async () => {{
-                    try {{
-                        const raw_result = await (async () => {{ {} }})();
-                        return (typeof raw_result === 'string') ? raw_result : JSON.stringify(raw_result);
-                    }} catch (e) {{
-                        return JSON.stringify({{ error: e.message }});
-                    }}
-                }})()"#,
-                js_script
-            );
-
-            let result = app
-                .android_saf()
-                .evaluate_javascript(url.to_string(), js, Some(USER_AGENTS[0].to_string()))
-                .map_err(|e| {
-                    ShioriError::Other(format!("Android evaluateJavascript failed: {}", e))
-                })?;
-
-            if result.starts_with("{\"error\":") {
-                return Err(ShioriError::Other(format!("ToonGod JS Error: {}", result)));
-            }
-            Ok(result)
-        }
-    }
-
     /// SSRF guard for the fetch path. Production (`TOONGOD_BASE` unset)
     /// delegates to the crate-wide `validate_fetch_url`. When the base URL
     /// has been overridden (offline tests/CI pointing at a local mock), only
@@ -448,16 +216,11 @@ impl ToonGodSource {
             .await
             .map_err(|e| {
                 let msg = e.to_string();
-                if msg.contains("Cloudflare") || msg.contains("blocking access") {
-                    log::warn!("[source:toongod] Cloudflare challenge detected at {url}");
-                    return SourceError::CloudflareChallenge.into();
-                }
-                // Map non-CF HTTP errors ("HTTP 429 …") via detect_challenge.
-                if let Some(status) = Self::status_from_error(&msg) {
-                    if let Some(err) = challenge::detect_challenge(status, "") {
-                        log::warn!("[source:toongod] HTTP {status} at {url} → {}", err.kind());
-                        return err.into();
-                    }
+                // Map documented CfClient error texts (CF block, HTTP status
+                // after retries, timeouts) via the shared classifier.
+                if let Some(err) = challenge::status_from_cf_error(&msg) {
+                    log::warn!("[source:toongod] CfClient error at {url} → {}", err.kind());
+                    return err.into();
                 }
                 e
             })?;
@@ -506,55 +269,10 @@ impl ToonGodSource {
     }
 }
 
-// ─── Cache helpers (mirrors mangafire's cache_get_or_fetch/evict pattern) ────
-
-/// Evict the single entry with the oldest `cached_at` when `cache` holds more
-/// than [`CACHE_MAX_ENTRIES`]. Returns how many entries were evicted (0 or 1).
-fn evict_oldest_if_over_cap<T>(cache: &mut HashMap<String, (Instant, T)>) -> usize {
-    if cache.len() <= CACHE_MAX_ENTRIES {
-        return 0;
-    }
-    if let Some(oldest_key) = cache
-        .iter()
-        .min_by_key(|(_, (cached_at, _))| *cached_at)
-        .map(|(k, _)| k.clone())
-    {
-        cache.remove(&oldest_key);
-        return 1;
-    }
-    0
-}
-
-/// Returns a cached value while it is fresh (within `ttl`); otherwise runs
-/// `fetch`, stores the result keyed by `key`, and returns it. Errors from
-/// `fetch` are propagated untouched and never cached.
-async fn cache_get_or_fetch<T, F>(
-    cache: &Mutex<HashMap<String, (Instant, T)>>,
-    key: &str,
-    ttl: Duration,
-    fetch: F,
-) -> Result<T>
-where
-    T: Clone,
-    F: std::future::Future<Output = Result<T>>,
-{
-    {
-        let guard = cache.lock().unwrap_or_else(|p| p.into_inner());
-        if let Some((cached_at, value)) = guard.get(key) {
-            if cached_at.elapsed() < ttl {
-                return Ok(value.clone());
-            }
-        }
-    }
-    let value = fetch.await?;
-    let mut guard = cache.lock().unwrap_or_else(|p| p.into_inner());
-    guard.insert(key.to_string(), (Instant::now(), value.clone()));
-    let evicted = evict_oldest_if_over_cap(&mut guard);
-    if evicted > 0 {
-        log::debug!("[source:toongod] cache over cap, evicted {} oldest entr(ies)", evicted);
-    }
-    Ok(value)
-}
+// ─── Challenge/error classification ──────────────────────────────────────────
+// All detection goes through `challenge::detect_challenge(status, body)` and
+// `challenge::status_from_cf_error(msg)` so the fetch path and health_check
+// agree on what counts as a Cloudflare block, rate limit, etc.
 
 #[async_trait::async_trait]
 impl Source for ToonGodSource {
@@ -598,8 +316,9 @@ impl Source for ToonGodSource {
 
                 let (status, html) = self.fetch_with_referer(&url, Some(BASE_URL)).await?;
 
-                if Self::detect_cloudflare_block(status, &html) {
-                    return Err(Self::cloudflare_error("search"));
+                if let Some(err) = challenge::detect_challenge(status, &html) {
+                    log::warn!("[source:toongod] search blocked → {}", err.kind());
+                    return Err(err.into());
                 }
 
                 let doc = Html::parse_document(&html);
@@ -716,8 +435,9 @@ impl Source for ToonGodSource {
             }
         };
 
-        if Self::detect_cloudflare_block(status, &html) {
-            return Err(Self::cloudflare_error("browse"));
+        if let Some(err) = challenge::detect_challenge(status, &html) {
+            log::warn!("[source:toongod] browse blocked → {}", err.kind());
+            return Err(err.into());
         }
 
         let doc = Html::parse_document(&html);
@@ -797,8 +517,9 @@ impl Source for ToonGodSource {
                 self.guarded_fetch_url(&manga_url)?;
                 let (status, html) = self.fetch_with_referer(&manga_url, Some(BASE_URL)).await?;
 
-                if Self::detect_cloudflare_block(status, &html) {
-                    return Err(Self::cloudflare_error("chapter list"));
+                if let Some(err) = challenge::detect_challenge(status, &html) {
+                    log::warn!("[source:toongod] chapter list blocked → {}", err.kind());
+                    return Err(err.into());
                 }
 
                 let manga_id = {
@@ -898,8 +619,9 @@ impl Source for ToonGodSource {
             }
         };
 
-        if Self::detect_cloudflare_block(status, &html) {
-            return Err(Self::cloudflare_error("chapter pages"));
+        if let Some(err) = challenge::detect_challenge(status, &html) {
+            log::warn!("[source:toongod] chapter pages blocked → {}", err.kind());
+            return Err(err.into());
         }
 
         let doc = Html::parse_document(&html);
@@ -967,8 +689,12 @@ impl Source for ToonGodSource {
                 }
             }
             Err(e) => {
-                let msg = e.to_string();
-                if msg.contains("Cloudflare") || msg.contains("blocking access") {
+                // The fetch path already maps CfClient errors, but keep a
+                // belt-and-braces check so health_check agrees with it.
+                if matches!(&e, ShioriError::Source(SourceError::CloudflareChallenge))
+                    || challenge::status_from_cf_error(&e.to_string())
+                        == Some(SourceError::CloudflareChallenge)
+                {
                     Ok(SourceHealth::Blocked)
                 } else {
                     Ok(SourceHealth::Unavailable)
@@ -989,11 +715,13 @@ mod tests {
             challenge::detect_challenge(reqwest::StatusCode::FORBIDDEN, body),
             Some(SourceError::CloudflareChallenge)
         );
-        // ToonGod's own body-marker list agrees.
-        assert!(ToonGodSource::detect_cloudflare_block(
-            reqwest::StatusCode::FORBIDDEN,
-            body
-        ));
+        // The CfClient error text maps to the same structured kind.
+        assert_eq!(
+            challenge::status_from_cf_error(
+                "Cloudflare is blocking access to https://www.toongod.org. Shiori cannot bypass it automatically."
+            ),
+            Some(SourceError::CloudflareChallenge)
+        );
     }
 
     #[test]
@@ -1013,23 +741,35 @@ mod tests {
     }
 
     #[test]
-    fn status_from_error_extracts_http_codes() {
+    fn status_from_cf_error_maps_documented_texts() {
+        // "HTTP {status} … after 3 retries" → status classification.
         assert_eq!(
-            ToonGodSource::status_from_error("HTTP 429 from https://x after 3 retries"),
-            Some(reqwest::StatusCode::TOO_MANY_REQUESTS)
+            challenge::status_from_cf_error("HTTP 429 from https://x after 3 retries"),
+            Some(SourceError::RateLimited)
         );
         assert_eq!(
-            ToonGodSource::status_from_error("HTTP 404 from https://x after 3 retries"),
-            Some(reqwest::StatusCode::NOT_FOUND)
+            challenge::status_from_cf_error("HTTP 404 from https://x after 3 retries"),
+            Some(SourceError::NotFound)
+        );
+        // "Cloudflare is blocking access to …" → CloudflareChallenge.
+        assert_eq!(
+            challenge::status_from_cf_error(
+                "Cloudflare is blocking access to https://x. Use Verify in Settings."
+            ),
+            Some(SourceError::CloudflareChallenge)
+        );
+        // "timed out"/"timeout" → Timeout.
+        assert_eq!(
+            challenge::status_from_cf_error("Request failed after 3 retries: connect timed out"),
+            Some(SourceError::Timeout)
         );
         assert_eq!(
-            ToonGodSource::status_from_error("connect timeout"),
-            None
+            challenge::status_from_cf_error("operation timed out"),
+            Some(SourceError::Timeout)
         );
-        assert_eq!(
-            ToonGodSource::status_from_error("HTTP 9999 weird"),
-            None
-        );
+        // Unrecognized texts map to nothing.
+        assert_eq!(challenge::status_from_cf_error("HTTP 9999 weird"), None);
+        assert_eq!(challenge::status_from_cf_error("boom"), None);
     }
 
     #[test]

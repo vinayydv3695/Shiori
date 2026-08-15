@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::{Result, ShioriError};
 
 pub mod annas_archive;
+pub mod cache;
 pub mod challenge;
 pub mod libgen;
 pub mod mangadex;

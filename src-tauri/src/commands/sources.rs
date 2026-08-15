@@ -14,14 +14,16 @@ use crate::sources::{
     SourceSearchDiagnostics,
 };
 
-/// Guard helper: fetch a source and verify it is enabled. Disabled sources
-/// fail with [`SourceError::SourceDisabled`] so the frontend can show the
-/// enable hint instead of a raw network error.
-async fn get_enabled_source(
-    state: &State<'_, crate::AppState>,
+/// Guard helper: fetch a source from the registry and verify it is enabled.
+/// Disabled sources fail with [`SourceError::SourceDisabled`] so the frontend
+/// can show the enable hint instead of a raw network error.
+///
+/// Free function over `&SourceRegistry` (no tauri `State`) so it is
+/// unit-testable without a Tauri runtime.
+fn ensure_enabled(
+    registry: &crate::sources::registry::SourceRegistry,
     source_id: &str,
 ) -> Result<std::sync::Arc<dyn crate::sources::Source>> {
-    let registry = state.plugin_registry.read().await;
     let source = registry
         .get(source_id)
         .ok_or_else(|| ShioriError::Validation(format!("Unknown source: {}", source_id)))?;
@@ -29,6 +31,14 @@ async fn get_enabled_source(
         return Err(SourceError::SourceDisabled.into());
     }
     Ok(source)
+}
+
+async fn get_enabled_source(
+    state: &State<'_, crate::AppState>,
+    source_id: &str,
+) -> Result<std::sync::Arc<dyn crate::sources::Source>> {
+    let registry = state.plugin_registry.read().await;
+    ensure_enabled(&registry, source_id)
 }
 
 #[tauri::command]
@@ -193,12 +203,8 @@ pub async fn plugin_download_chapter(
 ) -> Result<Vec<String>> {
     crate::utils::validate::require_safe_path(&dest_dir, "dest_dir")?;
 
-    let source = {
-        let registry = state.plugin_registry.read().await;
-        registry
-            .get(&source_id)
-            .ok_or_else(|| ShioriError::Validation(format!("Unknown source: {}", source_id)))?
-    };
+    let registry = state.plugin_registry.read().await;
+    let source = ensure_enabled(&registry, &source_id)?;
 
     let _download_guard =
         crate::ActiveDownloads::increment(app_handle.state::<crate::ActiveDownloads>());
@@ -279,7 +285,16 @@ pub async fn set_source_config(
 }
 
 #[tauri::command]
-pub async fn proxy_manga_image(source_id: String, image_url: String) -> Result<Vec<u8>> {
+pub async fn proxy_manga_image(
+    state: State<'_, crate::AppState>,
+    source_id: String,
+    image_url: String,
+) -> Result<Vec<u8>> {
+    // Same enable gate as every other source command: a disabled source must
+    // not keep serving images.
+    let registry = state.plugin_registry.read().await;
+    ensure_enabled(&registry, &source_id)?;
+
     let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36";
 
     // Determine referer based on source
@@ -489,12 +504,8 @@ pub async fn download_manga_chapter_as_cbz(
     chapter_id: String,
     chapter_title: String,
 ) -> Result<String> {
-    let source = {
-        let registry = state.plugin_registry.read().await;
-        registry
-            .get(&source_id)
-            .ok_or_else(|| ShioriError::Validation(format!("Unknown source: {}", source_id)))?
-    };
+    let registry = state.plugin_registry.read().await;
+    let source = ensure_enabled(&registry, &source_id)?;
 
     let pages = source.get_pages(&chapter_id).await?;
 
@@ -1207,4 +1218,94 @@ pub async fn annas_archive_download(
     std::fs::write(&dest_path, &bytes)?;
 
     Ok(dest_path.to_string_lossy().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::sources::registry::SourceRegistry;
+
+    struct DummySource;
+
+    #[async_trait::async_trait]
+    impl crate::sources::Source for DummySource {
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+        fn meta(&self) -> SourceMeta {
+            SourceMeta {
+                id: "dummy".into(),
+                name: "Dummy".into(),
+                base_url: "https://dummy.test".into(),
+                version: "1.0.0".into(),
+                content_type: ContentType::Manga,
+                supports_search: true,
+                supports_download: false,
+                requires_api_key: false,
+                nsfw: false,
+            }
+        }
+        async fn search(&self, _q: &str, _p: u32) -> Result<Vec<SearchResult>> {
+            Ok(vec![])
+        }
+        async fn get_chapters(&self, _id: &str) -> Result<Vec<Chapter>> {
+            Ok(vec![])
+        }
+        async fn get_pages(&self, _id: &str) -> Result<Vec<Page>> {
+            Ok(vec![])
+        }
+    }
+
+    fn registry_with_dummy() -> SourceRegistry {
+        let mut r = SourceRegistry::new();
+        r.register(std::sync::Arc::new(DummySource));
+        r
+    }
+
+    #[test]
+    fn ensure_enabled_unknown_id_errors() {
+        let r = registry_with_dummy();
+        let err = match ensure_enabled(&r, "nope") {
+            Err(e) => e,
+            Ok(_) => panic!("expected error for unknown id"),
+        };
+        match err {
+            ShioriError::Validation(_) => {}
+            other => panic!("expected Validation, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn ensure_enabled_disabled_source_errors_with_source_disabled() {
+        let mut r = registry_with_dummy();
+        r.set_enabled("dummy", false).unwrap();
+        let err = match ensure_enabled(&r, "dummy") {
+            Err(e) => e,
+            Ok(_) => panic!("expected error for disabled source"),
+        };
+        match err {
+            ShioriError::Source(SourceError::SourceDisabled) => {}
+            other => panic!("expected Source(SourceDisabled), got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn ensure_enabled_enabled_source_returns_arc() {
+        let r = registry_with_dummy();
+        let source = ensure_enabled(&r, "dummy").expect("enabled source resolves");
+        assert_eq!(source.meta().id, "dummy");
+    }
+
+    #[test]
+    fn source_error_serializes_kind_source_and_source_kind() {
+        let e: ShioriError = SourceError::CloudflareChallenge.into();
+        let json = serde_json::to_string(&e).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(v["kind"], "source");
+        assert_eq!(v["sourceKind"], "cloudflareChallenge");
+        assert!(
+            v["message"].as_str().unwrap().contains("Cloudflare"),
+            "frontend matches on the word Cloudflare"
+        );
+    }
 }

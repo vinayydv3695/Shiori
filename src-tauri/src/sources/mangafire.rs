@@ -11,7 +11,8 @@ use tauri_plugin_android_saf::AndroidSafExt;
 
 use crate::cloudflare::client::CfClient;
 use crate::error::{Result, ShioriError};
-use crate::sources::{Chapter, ContentType, Page, SearchResult, Source, SourceError, SourceMeta};
+use crate::sources::cache::cache_get_or_fetch;
+use crate::sources::{Chapter, ContentType, Page, SearchResult, Source, SourceError, SourceHealth, SourceMeta};
 
 const BASE_URL: &str = "https://mangafire.to";
 
@@ -19,10 +20,6 @@ const BASE_URL: &str = "https://mangafire.to";
 const CHAPTER_CACHE_TTL: Duration = Duration::from_secs(10 * 60);
 /// How long chapter page lists are served from the in-memory cache before a refresh.
 const PAGES_CACHE_TTL: Duration = Duration::from_secs(30 * 60);
-/// Max entries per cache (chapters and pages each). Beyond this, the entry
-/// with the oldest `cached_at` is evicted on insert — keeps memory bounded
-/// when users browse many series without hitting the TTLs.
-const CACHE_MAX_ENTRIES: usize = 50;
 /// Max number of chapter-list pages fetched concurrently. Every page is a
 /// Cloudflare-browser RPC round-trip, so a small cap keeps the webview sane
 /// while still cutting wall-clock time by ~4x on multi-page series.
@@ -490,59 +487,6 @@ struct MfPageItem {
     url: String,
 }
 
-/// Evict the single entry with the oldest `cached_at` when `cache` holds more
-/// than [`CACHE_MAX_ENTRIES`]. Returns how many entries were evicted (0 or 1).
-/// Tiny maps, so a linear scan is plenty fast — and it keeps the policy
-/// trivially unit-testable.
-fn evict_oldest_if_over_cap<T>(cache: &mut HashMap<String, (Instant, T)>) -> usize {
-    if cache.len() <= CACHE_MAX_ENTRIES {
-        return 0;
-    }
-    if let Some(oldest_key) = cache
-        .iter()
-        .min_by_key(|(_, (cached_at, _))| *cached_at)
-        .map(|(k, _)| k.clone())
-    {
-        cache.remove(&oldest_key);
-        return 1;
-    }
-    0
-}
-
-/// Returns a cached value while it is fresh (within `ttl`); otherwise runs
-/// `fetch`, stores the result keyed by `key`, and returns it. Errors from
-/// `fetch` are propagated untouched and never cached.
-async fn cache_get_or_fetch<T, F>(
-    cache: &Mutex<HashMap<String, (Instant, T)>>,
-    key: &str,
-    ttl: Duration,
-    fetch: F,
-) -> Result<T>
-where
-    T: Clone,
-    F: std::future::Future<Output = Result<T>>,
-{
-    {
-        let guard = cache.lock().unwrap_or_else(|p| p.into_inner());
-        if let Some((cached_at, value)) = guard.get(key) {
-            if cached_at.elapsed() < ttl {
-                return Ok(value.clone());
-            }
-        }
-    }
-    let value = fetch.await?;
-    let mut guard = cache.lock().unwrap_or_else(|p| p.into_inner());
-    guard.insert(key.to_string(), (Instant::now(), value.clone()));
-    let evicted = evict_oldest_if_over_cap(&mut guard);
-    if evicted > 0 {
-        log::debug!(
-            "[mangafire] cache over cap, evicted {} oldest entr(ies)",
-            evicted
-        );
-    }
-    Ok(value)
-}
-
 /// Fetches every chapter page for a title by calling `fetch_one(page)`.
 ///
 /// Page 1 is fetched first because its `meta.lastPage` reveals the page count;
@@ -643,6 +587,32 @@ impl Source for MangaFireSource {
             supports_download: true,
             requires_api_key: false,
             nsfw: false,
+        }
+    }
+
+    /// Cheap reachability probe: no session in the CfClient store → `Unknown`
+    /// (badge must not claim availability before Verify). Otherwise one XHR
+    /// against the API root; the 15s command timeout in `source_health`
+    /// already wraps this call, so no extra timeout machinery here.
+    async fn health_check(&self) -> Result<SourceHealth> {
+        let cf = match self.cf_client.read().await.as_ref() {
+            Some(c) => c.clone(),
+            None => return Ok(SourceHealth::Unknown),
+        };
+        if !cf.has_session() {
+            return Ok(SourceHealth::Unknown);
+        }
+        let url = format!("{}/api/titles?keyword=health-check&page=1&limit=1", cf.base_url());
+        match cf.get_xhr(&url, "application/json").await {
+            Ok(_) => Ok(SourceHealth::Available),
+            Err(e) => {
+                let msg = e.to_string();
+                if msg.contains("Cloudflare") || msg.contains("blocking") {
+                    Ok(SourceHealth::Blocked)
+                } else {
+                    Ok(SourceHealth::Unavailable)
+                }
+            }
         }
     }
 
@@ -837,6 +807,7 @@ impl Source for MangaFireSource {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::sources::cache::{evict_oldest_if_over_cap, CACHE_MAX_ENTRIES};
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     #[test]

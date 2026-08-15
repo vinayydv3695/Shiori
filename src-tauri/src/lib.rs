@@ -510,7 +510,7 @@ pub fn run() {
                     Ok(cf_client) => {
                         let cf_client = cf_client.with_app_handle(app_handle_for_toongod.clone());
                         toongod_for_cf
-                            .set_cf_client(std::sync::Arc::new(cf_client), app_handle_for_toongod)
+                            .set_cf_client(std::sync::Arc::new(cf_client))
                             .await;
 
                         log::info!("ToonGod: CfClient attached successfully");

@@ -13,7 +13,8 @@
 /// let cf = CfClient::new(store, app_data_dir).await?;
 /// let html = cf.get_html("https://www.toongod.org/webtoons/some-manga/").await?;
 /// ```
-use std::{sync::Arc, time::Duration};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use reqwest::header;
 use tokio::sync::Semaphore;
@@ -47,6 +48,8 @@ pub struct CfClient {
     browser_cfg: BrowserConfig,
     /// Inner reqwest client — used for all actual HTTP traffic.
     http: reqwest::Client,
+    /// Per-request timeout (default 45s), overridable via [`CfClient::set_timeout`].
+    timeout: Mutex<Duration>,
     /// Semaphore prevents too many simultaneous requests to the same host.
     concurrency: Arc<Semaphore>,
     /// Lock that serialises browser-solver invocations (only one solve at a time).
@@ -76,10 +79,17 @@ impl CfClient {
             store,
             browser_cfg: BrowserConfig::default(),
             http,
+            timeout: Mutex::new(Duration::from_secs(45)),
             concurrency: Arc::new(Semaphore::new(MAX_CONCURRENCY)),
             solve_lock: Arc::new(tokio::sync::Mutex::new(())),
             app_handle: None,
         })
+    }
+
+    /// Override the per-request timeout (default 45s). Applied to every
+    /// request built after the call (both browser-style and XHR requests).
+    pub fn set_timeout(&self, d: Duration) {
+        *self.timeout.lock().unwrap_or_else(|p| p.into_inner()) = d;
     }
 
     /// Set the Tauri AppHandle (needed for Android Cloudflare bypass).
@@ -108,6 +118,16 @@ impl CfClient {
     /// Get the active User-Agent from the session (if any).
     pub async fn user_agent(&self) -> Option<String> {
         self.store.get(&self.host).map(|s| s.user_agent)
+    }
+
+    /// The base URL this client was created for.
+    pub fn base_url(&self) -> &str {
+        &self.base_url
+    }
+
+    /// Whether a stored session (cf_clearance cookies) exists for this host.
+    pub fn has_session(&self) -> bool {
+        self.store.get(&self.host).is_some()
     }
 
     /// Fetch a URL and return the raw response bytes (images, binary files).
@@ -257,9 +277,11 @@ impl CfClient {
     // ── Internal helpers ──────────────────────────────────────────────────────
 
     async fn build_request(&self, method: reqwest::Method, url: &str, accept: &str, body: Option<String>) -> Result<reqwest::RequestBuilder> {
+        let timeout = *self.timeout.lock().unwrap_or_else(|p| p.into_inner());
         let mut req = self
             .http
             .request(method.clone(), url)
+            .timeout(timeout)
             .header(header::ACCEPT, accept)
             .header(header::ACCEPT_LANGUAGE, "en-US,en;q=0.9")
             .header("sec-fetch-dest", "document")
@@ -299,9 +321,11 @@ impl CfClient {
     /// Build a request with XHR/AJAX headers instead of browser navigation headers.
     /// MangaFire's API requires X-Requested-With: XMLHttpRequest and CORS sec-fetch headers.
     async fn build_xhr_request(&self, url: &str, accept: &str) -> Result<reqwest::RequestBuilder> {
+        let timeout = *self.timeout.lock().unwrap_or_else(|p| p.into_inner());
         let mut req = self
             .http
             .get(url)
+            .timeout(timeout)
             .header(header::ACCEPT, accept)
             .header(header::ACCEPT_LANGUAGE, "en-US,en;q=0.9")
             .header("X-Requested-With", "XMLHttpRequest")

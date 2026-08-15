@@ -142,7 +142,8 @@ async function runSolver() {
       // Check for cf_clearance on the target domain.
       const clearance = findClearanceFor(cookies, targetUrl);
       if (clearance) {
-        console.error(`[solver] ✓ cf_clearance: ${clearance.value.slice(0, 30)}…`);
+        // Never log the cookie value (or even a prefix) — presence only.
+        console.error('[solver] ✓ cf_clearance present');
         finalUrl = page.url();
 
         // Short settle wait for any trailing cookies.

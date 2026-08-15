@@ -90,3 +90,16 @@ fn set_enabled_on_unknown_id_errors() {
     // The failed call must not have changed the default-enabled state.
     assert!(registry.is_enabled("missing"));
 }
+
+#[test]
+fn toongod_meta_exposes_expected_fields() {
+    // No Tauri runtime needed: metadata is static. (TOONGOD_BASE, if a
+    // parallel test set it, only affects the base_url — not these fields.)
+    let source =
+        shiori::sources::toongod::ToonGodSource::new().expect("ToonGodSource constructs");
+    let meta = source.meta();
+    assert_eq!(meta.id, "toongod");
+    assert!(meta.supports_search, "toongod supports search");
+    assert_eq!(meta.content_type, ContentType::Manga);
+    assert!(meta.supports_download, "toongod supports downloads");
+}

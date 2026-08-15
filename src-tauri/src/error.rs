@@ -84,6 +84,19 @@ pub enum ShioriError {
 
     #[error("{0}")]
     Other(String),
+
+    /// Structured source-adapter error. Serializes `kind: "source"` plus the
+    /// inner [`SourceError`](crate::sources::source_error::SourceError) kind
+    /// (e.g. `cloudflareChallenge`) as an extra `sourceKind` field, so the
+    /// frontend can branch on the structured kind instead of string-matching.
+    #[error("{0}")]
+    Source(crate::sources::source_error::SourceError),
+}
+
+impl From<crate::sources::source_error::SourceError> for ShioriError {
+    fn from(e: crate::sources::source_error::SourceError) -> Self {
+        ShioriError::Source(e)
+    }
 }
 
 impl From<lopdf::Error> for ShioriError {
@@ -255,6 +268,7 @@ impl ShioriError {
             Self::EmptyOrTruncatedFile { .. } => "corrupted",
             Self::FileSizeLimitExceeded { .. } => "size_limit",
             Self::Other(_) => "unknown",
+            Self::Source(_) => "source",
         }
     }
 }
@@ -265,12 +279,26 @@ impl serde::Serialize for ShioriError {
         S: serde::Serializer,
     {
         use serde::ser::SerializeStruct;
-        let mut state = serializer.serialize_struct("ShioriError", 5)?;
+        // The Source variant carries a structured source kind (serialized as
+        // e.g. "cloudflareChallenge" by SourceError's camelCase serde). Emit it
+        // as an extra `sourceKind` field so `kind` stays "source" for all
+        // source errors while the frontend still gets the precise kind.
+        let source_kind = match self {
+            Self::Source(e) => Some(e),
+            _ => None,
+        };
+        let mut state = serializer.serialize_struct(
+            "ShioriError",
+            if source_kind.is_some() { 6 } else { 5 },
+        )?;
         state.serialize_field("message", &self.sanitized_message())?;
         state.serialize_field("userMessage", &self.user_message())?;
         state.serialize_field("suggestions", &self.recovery_suggestions())?;
         state.serialize_field("technicalDetails", &self.technical_details())?;
         state.serialize_field("kind", &self.error_kind())?;
+        if let Some(e) = source_kind {
+            state.serialize_field("sourceKind", e)?;
+        }
         state.end()
     }
 }

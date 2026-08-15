@@ -307,3 +307,59 @@ async fn search_cache_serves_second_call_without_network() {
     assert_eq!(first.len(), 2);
     assert_eq!(second.len(), first.len());
 }
+
+// ─── Popular browse (mode → trending path) ───────────────────────────────────
+
+#[tokio::test]
+#[allow(clippy::await_holding_lock)]
+async fn browse_popular_hits_trending_path_and_parses() {
+    // Path mapping in toongod.rs `browse()`:
+    //   "trending" | "popular" => "trending"  (quoted from the order match)
+    // so "popular" must hit /home/?m_orderby=trending, not the default latest.
+    let _lock = ENV_LOCK.lock().unwrap();
+    let server = MockServer::start().await;
+    let _env = override_base(&server.uri());
+
+    Mock::given(method("GET"))
+        .and(path("/home/"))
+        .respond_with(ResponseTemplate::new(200).set_body_string(SEARCH_HTML))
+        .mount(&server)
+        .await;
+
+    let source = source_against(&server).await;
+    let results = source
+        .browse("popular", 1, 20, None, None)
+        .await
+        .expect("browse(popular) failed");
+
+    assert_eq!(results.len(), 2, "popular browse parses the same cards");
+    let reqs = server.received_requests().await.expect("requests recorded");
+    assert_eq!(reqs.len(), 1);
+    assert_eq!(reqs[0].url.path(), "/home/");
+    let query = reqs[0].url.query().unwrap_or("");
+    assert!(
+        query.contains("m_orderby=trending"),
+        "popular must map to trending, got query: {query}"
+    );
+}
+
+// ─── Parser failure resilience ───────────────────────────────────────────────
+
+#[tokio::test]
+#[allow(clippy::await_holding_lock)]
+async fn search_with_garbage_html_returns_empty_results_without_panicking() {
+    let _lock = ENV_LOCK.lock().unwrap();
+    let server = MockServer::start().await;
+    let _env = override_base(&server.uri());
+
+    // 200 + non-HTML garbage: selectors match nothing → graceful empty list.
+    Mock::given(method("GET"))
+        .and(path("/"))
+        .respond_with(ResponseTemplate::new(200).set_body_string("garbage not html {{{"))
+        .mount(&server)
+        .await;
+
+    let source = source_against(&server).await;
+    let results = source.search("solo", 1).await.expect("search must not error");
+    assert!(results.is_empty(), "garbage HTML yields no results, got {}", results.len());
+}

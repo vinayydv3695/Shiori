@@ -60,18 +60,50 @@ pub fn map_reqwest_error(e: &reqwest::Error) -> SourceError {
         return SourceError::Network;
     }
     if let Some(status) = e.status() {
+        // detect_challenge covers every status mapping below (429, 404, 403,
+        // 5xx), so the plain status is classified here and nowhere else.
         if let Some(source_err) = detect_challenge(status, "") {
             return source_err;
         }
-        match status.as_u16() {
-            404 => return SourceError::NotFound,
-            429 => return SourceError::RateLimited,
-            403 => return SourceError::AccessDenied,
-            500..=599 => return SourceError::Network,
-            _ => {}
-        }
     }
     SourceError::Unknown(e.to_string())
+}
+
+/// Map a CfClient error message to a structured error.
+///
+/// Handles exactly the documented error texts from `cloudflare/client.rs`:
+///   - `"Cloudflare is blocking access to {url}. …"` → [`SourceError::CloudflareChallenge`]
+///   - `"HTTP {status} from {url} after 3 retries"` → status classification
+///     via [`detect_challenge`]
+///   - messages containing `"timed out"` / `"timeout"` → [`SourceError::Timeout`]
+///
+/// Anything else (e.g. transport errors without a status) maps to `None` so
+/// callers can fall back to their own handling.
+pub fn status_from_cf_error(e: &str) -> Option<SourceError> {
+    let lower = e.to_ascii_lowercase();
+    if lower.contains("cloudflare is blocking access") {
+        return Some(SourceError::CloudflareChallenge);
+    }
+    if lower.contains("timed out") || lower.contains("timeout") {
+        return Some(SourceError::Timeout);
+    }
+
+    // "HTTP 429 from https://… after 3 retries"
+    let tokens: Vec<&str> = e.split_whitespace().collect();
+    for (i, t) in tokens.iter().enumerate() {
+        if *t == "HTTP" {
+            if let Some(next) = tokens.get(i + 1) {
+                if let Ok(code) = next.parse::<u16>() {
+                    if (100..600).contains(&code) {
+                        if let Ok(status) = StatusCode::from_u16(code) {
+                            return detect_challenge(status, "");
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
 }
 
 #[cfg(test)]
@@ -167,5 +199,38 @@ mod tests {
             .await
             .unwrap_err();
         assert_eq!(map_reqwest_error(&e), SourceError::Timeout);
+    }
+
+    #[test]
+    fn cf_error_texts_map_to_structured_kinds() {
+        assert_eq!(
+            status_from_cf_error(
+                "Cloudflare is blocking access to https://x. Shiori cannot bypass it automatically."
+            ),
+            Some(SourceError::CloudflareChallenge)
+        );
+        assert_eq!(
+            status_from_cf_error("HTTP 429 from https://x after 3 retries"),
+            Some(SourceError::RateLimited)
+        );
+        assert_eq!(
+            status_from_cf_error("HTTP 404 from https://x after 3 retries"),
+            Some(SourceError::NotFound)
+        );
+        assert_eq!(
+            status_from_cf_error("Request failed after 3 retries: timed out"),
+            Some(SourceError::Timeout)
+        );
+        assert_eq!(
+            status_from_cf_error("operation timeout"),
+            Some(SourceError::Timeout)
+        );
+        assert_eq!(status_from_cf_error("HTTP 9999 weird"), None);
+        assert_eq!(status_from_cf_error("boom"), None);
+        // A 200 after retries has no classification.
+        assert_eq!(
+            status_from_cf_error("HTTP 200 from https://x after 3 retries"),
+            None
+        );
     }
 }

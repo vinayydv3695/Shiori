@@ -2,7 +2,8 @@ use crate::error::Result;
 use crate::models::{BackupSelection, RestoreReport, RestoreSelection, RestoreSummary};
 use crate::services::backup_service;
 use crate::AppState;
-use tauri::{Manager, State};
+use std::sync::Arc;
+use tauri::{Emitter, Manager, State};
 
 /// Backup is heavy (VACUUM INTO + zipping covers/books), so it runs off the
 /// main thread. A sync command here blocks the UI thread for the whole backup —
@@ -20,13 +21,19 @@ pub async fn create_backup(
     })?;
     let db = state.db.clone();
 
+    let app_handle_for_progress = app_handle.clone();
+    let progress_cb: backup_service::BackupProgressCallback = Arc::new(move |payload| {
+        let _ = app_handle_for_progress.emit("backup:progress", payload);
+    });
+
     tauri::async_runtime::spawn_blocking(move || {
-        backup_service::create_backup(
+        backup_service::create_backup_with_progress(
             &db,
             &app_data_dir,
             std::path::Path::new(&backup_path),
             &selection,
             frontend_settings.as_deref(),
+            Some(&progress_cb),
         )
     })
     .await
@@ -58,13 +65,19 @@ pub async fn restore_backup(
     .await
     .map_err(|e| crate::error::ShioriError::Other(format!("Restore validation task failed: {}", e)))??;
 
+    let app_handle_for_progress = app_handle.clone();
+    let progress_cb: backup_service::RestoreProgressCallback = Arc::new(move |payload| {
+        let _ = app_handle_for_progress.emit("restore:progress", payload);
+    });
+
     let db_for_summary = db.clone();
     let report = tauri::async_runtime::spawn_blocking(move || {
-        backup_service::restore_backup(
+        backup_service::restore_backup_with_progress(
             &db,
             &app_data_dir,
             std::path::Path::new(&backup_path),
             &selection,
+            Some(&progress_cb),
         )
     })
     .await

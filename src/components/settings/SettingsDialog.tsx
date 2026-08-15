@@ -10,7 +10,7 @@ import {
   X, Moon, Sun, Palette, Shield, BookOpen, FileText,
   Download, Upload, HardDrive, Archive, CheckCircle2, AlertTriangle,
   Search, FolderOpen, ExternalLink, RefreshCw, Trash2, Info,
-  RotateCcw, Puzzle, MonitorSmartphone, Heart
+  RotateCcw, Puzzle, MonitorSmartphone, Heart, Clock, Loader2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -29,7 +29,11 @@ import type {
 import { DEFAULT_USER_PREFERENCES, DEFAULT_BOOK_PREFERENCES, DEFAULT_MANGA_PREFERENCES } from '../../types/preferences'
 import { api, isTauri, isAndroid } from '../../lib/tauri'
 import { getErrorMessage } from '@/lib/errors'
-import type { BackupInfo, BackupCategory, CacheStats, ConflictPolicy, MigrateReport, RestoreInfo } from '../../lib/tauri'
+import type {
+  BackupInfo, BackupCategory, CacheStats, ConflictPolicy, MigrateReport, RestoreInfo,
+  BackupProgressPayload, RestoreProgressPayload
+} from '../../lib/tauri'
+import { listen } from '@tauri-apps/api/event'
 import {
   ALL_BACKUP_CATEGORIES,
   BACKUP_CATEGORY_DESCRIPTIONS,
@@ -1479,6 +1483,8 @@ const AdvancedSettings = ({
   const [isCleaningUp, setIsCleaningUp] = useState(false)
   const [isBackingUp, setIsBackingUp] = useState(false)
   const [isRestoring, setIsRestoring] = useState(false)
+  const [backupProgress, setBackupProgress] = useState<BackupProgressPayload | null>(null)
+  const [restoreProgress, setRestoreProgress] = useState<RestoreProgressPayload | null>(null)
   const [selectedCategories, setSelectedCategories] = useState<BackupCategory[]>(defaultBackupCategories)
   const [includeCredentials, setIncludeCredentials] = useState(false)
   const [includeFrontendSettings, setIncludeFrontendSettings] = useState(true)
@@ -1497,6 +1503,15 @@ const AdvancedSettings = ({
   const [migrateReport, setMigrateReport] = useState<MigrateReport | null>(null)
   const [libraryError, setLibraryError] = useState<string | null>(null)
   const toast = useToast()
+
+  const formatEta = (seconds: number | null | undefined): string => {
+    if (seconds === null || seconds === undefined) return 'Calculating...'
+    if (seconds <= 0) return 'Almost done...'
+    if (seconds < 60) return `~${seconds}s remaining`
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return secs > 0 ? `~${mins}m ${secs}s remaining` : `~${mins}m remaining`
+  }
 
   useEffect(() => {
     const loadCacheStats = async () => {
@@ -1641,6 +1656,8 @@ const AdvancedSettings = ({
   const handleBackup = async () => {
     setError(null)
     setBackupResult(null)
+    setBackupProgress(null)
+    let unlisten: (() => void) | null = null
     try {
       const defaultName = `shiori-backup-${new Date().toISOString().slice(0, 10)}.shiori`
       
@@ -1659,6 +1676,14 @@ const AdvancedSettings = ({
       }
 
       setIsBackingUp(true)
+      try {
+        unlisten = await listen<BackupProgressPayload>('backup:progress', (event) => {
+          setBackupProgress(event.payload)
+        })
+      } catch (e) {
+        logger.debug('Failed to register backup:progress listener', e)
+      }
+
       const frontendSettings = includeFrontendSettings ? collectFrontendSettings() : undefined
       const info = await api.createBackup(
         rustSavePath,
@@ -1675,6 +1700,7 @@ const AdvancedSettings = ({
     } catch (err) {
       setError(`Backup failed: ${getErrorMessage(err)}`)
     } finally {
+      if (unlisten) unlisten()
       setIsBackingUp(false)
     }
   }
@@ -1682,6 +1708,8 @@ const AdvancedSettings = ({
   const handleRestore = async () => {
     setError(null)
     setRestoreResult(null)
+    setRestoreProgress(null)
+    let unlisten: (() => void) | null = null
 
     const restoreScope = isFullSelection(selectedCategories)
       ? 'everything'
@@ -1708,6 +1736,14 @@ const AdvancedSettings = ({
       if (!filePath) return
 
       setIsRestoring(true)
+      try {
+        unlisten = await listen<RestoreProgressPayload>('restore:progress', (event) => {
+          setRestoreProgress(event.payload)
+        })
+      } catch (e) {
+        logger.debug('Failed to register restore:progress listener', e)
+      }
+
       const result = await api.restoreBackup(
         filePath,
         buildRestoreSelection(selectedCategories, conflictPolicy, includeCredentials),
@@ -1726,6 +1762,7 @@ const AdvancedSettings = ({
     } catch (err) {
       setError(`Restore failed: ${getErrorMessage(err)}`)
     } finally {
+      if (unlisten) unlisten()
       setIsRestoring(false)
     }
   }
@@ -2028,11 +2065,50 @@ const AdvancedSettings = ({
 
             <Button variant="outline" onClick={handleBackup} disabled={isBackingUp} className="w-full gap-2">
               {isBackingUp ? (
-                <><HardDrive className="w-4 h-4 animate-pulse" /> Creating backup...</>
+                <><Loader2 className="w-4 h-4 animate-spin text-primary" /> Creating backup...</>
               ) : (
                 <><Download className="w-4 h-4" /> Create Backup</>
               )}
             </Button>
+
+            {isBackingUp && (
+              <div className="p-4 rounded-xl bg-card border border-primary/20 space-y-3 shadow-inner">
+                <div className="flex items-center justify-between text-xs gap-2">
+                  <div className="flex items-center gap-2 font-medium text-foreground truncate">
+                    <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
+                    <span className="truncate">{backupProgress?.message || 'Preparing backup archive...'}</span>
+                  </div>
+                  <span className="font-mono font-bold text-sm text-primary tabular-nums shrink-0">
+                    {Math.round(backupProgress?.percentage ?? 5)}%
+                  </span>
+                </div>
+
+                <div className="w-full h-2.5 bg-muted/80 rounded-full overflow-hidden p-0.5 border border-border/50">
+                  <div
+                    className="h-full bg-gradient-to-r from-primary/80 via-primary to-primary rounded-full transition-all duration-300 shadow-[0_0_12px_rgba(var(--primary),0.5)]"
+                    style={{ width: `${Math.max(4, Math.min(100, backupProgress?.percentage ?? 5))}%` }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-0.5">
+                  <div className="flex items-center gap-1.5 truncate">
+                    {backupProgress?.total && backupProgress.total > 1 ? (
+                      <span>
+                        Item {backupProgress.current} of {backupProgress.total}
+                      </span>
+                    ) : (
+                      <span>Processing files & database...</span>
+                    )}
+                  </div>
+                  {backupProgress?.etaSeconds !== undefined && backupProgress?.etaSeconds !== null && (
+                    <div className="flex items-center gap-1 font-mono text-primary/90 shrink-0 font-medium">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>{formatEta(backupProgress.etaSeconds)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {backupResult && (
               <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/30 space-y-1">
@@ -2082,11 +2158,50 @@ const AdvancedSettings = ({
 
               <Button variant="outline" onClick={handleRestore} disabled={isRestoring} className="w-full gap-2">
                 {isRestoring ? (
-                  <><Archive className="w-4 h-4 animate-pulse" /> Restoring...</>
+                  <><Loader2 className="w-4 h-4 animate-spin text-primary" /> Restoring...</>
                 ) : (
                   <><Upload className="w-4 h-4" /> Restore from Backup</>
                 )}
               </Button>
+
+              {isRestoring && (
+                <div className="p-4 rounded-xl bg-card border border-primary/20 space-y-3 shadow-inner">
+                  <div className="flex items-center justify-between text-xs gap-2">
+                    <div className="flex items-center gap-2 font-medium text-foreground truncate">
+                      <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
+                      <span className="truncate">{restoreProgress?.message || 'Restoring backup data...'}</span>
+                    </div>
+                    <span className="font-mono font-bold text-sm text-primary tabular-nums shrink-0">
+                      {Math.round(restoreProgress?.percentage ?? 5)}%
+                    </span>
+                  </div>
+
+                  <div className="w-full h-2.5 bg-muted/80 rounded-full overflow-hidden p-0.5 border border-border/50">
+                    <div
+                      className="h-full bg-gradient-to-r from-primary/80 via-primary to-primary rounded-full transition-all duration-300 shadow-[0_0_12px_rgba(var(--primary),0.5)]"
+                      style={{ width: `${Math.max(4, Math.min(100, restoreProgress?.percentage ?? 5))}%` }}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-0.5">
+                    <div className="flex items-center gap-1.5 truncate">
+                      {restoreProgress?.total && restoreProgress.total > 1 ? (
+                        <span>
+                          Item {restoreProgress.current} of {restoreProgress.total}
+                        </span>
+                      ) : (
+                        <span>Extracting and merging...</span>
+                      )}
+                    </div>
+                    {restoreProgress?.etaSeconds !== undefined && restoreProgress?.etaSeconds !== null && (
+                      <div className="flex items-center gap-1 font-mono text-primary/90 shrink-0 font-medium">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>{formatEta(restoreProgress.etaSeconds)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {restoreResult && (
                 <div className="p-4 rounded-lg bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 space-y-2">

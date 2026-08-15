@@ -485,6 +485,28 @@ export interface RestoreInfo {
   settings_restored: boolean
 }
 
+export interface BackupProgressPayload {
+  stage: string
+  message: string
+  current: number
+  total: number
+  percentage: number
+  bytesProcessed: number
+  totalBytesEstimate: number
+  etaSeconds: number | null
+}
+
+export interface RestoreProgressPayload {
+  stage: string
+  message: string
+  current: number
+  total: number
+  percentage: number
+  bytesProcessed: number
+  totalBytesEstimate: number
+  etaSeconds: number | null
+}
+
 export interface DictionaryMeaning {
   part_of_speech: string
   definitions: DictionaryDefinition[]

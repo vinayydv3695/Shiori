@@ -579,6 +579,34 @@ pub struct RestoreSummary {
     pub settings_restored: bool,
 }
 
+/// Progress payload emitted during backup creation on `backup:progress`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupProgressPayload {
+    pub stage: String,
+    pub message: String,
+    pub current: u64,
+    pub total: u64,
+    pub percentage: f32,
+    pub bytes_processed: u64,
+    pub total_bytes_estimate: u64,
+    pub eta_seconds: Option<u64>,
+}
+
+/// Progress payload emitted during backup restoration on `restore:progress`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RestoreProgressPayload {
+    pub stage: String,
+    pub message: String,
+    pub current: u64,
+    pub total: u64,
+    pub percentage: f32,
+    pub bytes_processed: u64,
+    pub total_bytes_estimate: u64,
+    pub eta_seconds: Option<u64>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

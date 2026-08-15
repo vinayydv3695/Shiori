@@ -1,7 +1,8 @@
 use crate::db::Database;
 use crate::error::{Result, ShioriError};
 use crate::models::{
-    BackupCategory, BackupSelection, ConflictPolicy, RestoreReport, RestoreSelection,
+    BackupCategory, BackupProgressPayload, BackupSelection, ConflictPolicy, RestoreProgressPayload,
+    RestoreReport, RestoreSelection,
 };
 use chrono::Utc;
 use rusqlite::OptionalExtension;
@@ -11,8 +12,9 @@ use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
 use std::io::{BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tempfile::TempDir;
 use walkdir::WalkDir;
 use zip::write::SimpleFileOptions;
@@ -21,6 +23,87 @@ use zip::{ZipArchive, ZipWriter};
 const BACKUP_VERSION: &str = "2.0";
 const SCHEMA_VERSION: u32 = 2;
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+pub type BackupProgressCallback = Arc<dyn Fn(BackupProgressPayload) + Send + Sync>;
+pub type RestoreProgressCallback = Arc<dyn Fn(RestoreProgressPayload) + Send + Sync>;
+
+fn emit_backup_progress(
+    cb: Option<&BackupProgressCallback>,
+    start_time: Instant,
+    stage: &str,
+    message: &str,
+    current: u64,
+    total: u64,
+    percentage: f32,
+    bytes_processed: u64,
+    total_bytes_estimate: u64,
+) {
+    if let Some(callback) = cb {
+        let eta_seconds = if percentage >= 5.0 && percentage < 99.5 {
+            let elapsed = start_time.elapsed().as_secs_f64();
+            if elapsed > 0.3 {
+                let total_time = elapsed / (percentage as f64 / 100.0);
+                Some((total_time - elapsed).max(0.0).ceil() as u64)
+            } else {
+                None
+            }
+        } else if percentage >= 99.5 {
+            Some(0)
+        } else {
+            None
+        };
+
+        callback(BackupProgressPayload {
+            stage: stage.to_string(),
+            message: message.to_string(),
+            current,
+            total,
+            percentage: percentage.clamp(0.0, 100.0),
+            bytes_processed,
+            total_bytes_estimate,
+            eta_seconds,
+        });
+    }
+}
+
+fn emit_restore_progress(
+    cb: Option<&RestoreProgressCallback>,
+    start_time: Instant,
+    stage: &str,
+    message: &str,
+    current: u64,
+    total: u64,
+    percentage: f32,
+    bytes_processed: u64,
+    total_bytes_estimate: u64,
+) {
+    if let Some(callback) = cb {
+        let eta_seconds = if percentage >= 5.0 && percentage < 99.5 {
+            let elapsed = start_time.elapsed().as_secs_f64();
+            if elapsed > 0.3 {
+                let total_time = elapsed / (percentage as f64 / 100.0);
+                Some((total_time - elapsed).max(0.0).ceil() as u64)
+            } else {
+                None
+            }
+        } else if percentage >= 99.5 {
+            Some(0)
+        } else {
+            None
+        };
+
+        callback(RestoreProgressPayload {
+            stage: stage.to_string(),
+            message: message.to_string(),
+            current,
+            total,
+            percentage: percentage.clamp(0.0, 100.0),
+            bytes_processed,
+            total_bytes_estimate,
+            eta_seconds,
+        });
+    }
+}
 
 /// Backup manifest.
 ///
@@ -275,14 +358,14 @@ fn add_name_links(
 
 // ─── create_backup ───────────────────────────────────────────────────────────
 
-/// Create a backup honoring the given selection. Empty (or all-eight)
-/// categories take the legacy full-snapshot fast path.
-pub fn create_backup(
+/// Create a backup honoring the given selection with optional real-time progress.
+pub fn create_backup_with_progress(
     db: &Database,
     app_data_dir: &Path,
     backup_path: &Path,
     selection: &BackupSelection,
     frontend_settings_json: Option<&str>,
+    progress: Option<&BackupProgressCallback>,
 ) -> Result<BackupInfo> {
     let mut cats: HashSet<BackupCategory> = selection.categories.iter().copied().collect();
     if selection.include_books {
@@ -292,7 +375,14 @@ pub fn create_backup(
     let include_books = selection.include_books || cats.contains(&BackupCategory::Books);
 
     if is_everything {
-        create_full_backup(db, app_data_dir, backup_path, include_books, frontend_settings_json)
+        create_full_backup(
+            db,
+            app_data_dir,
+            backup_path,
+            include_books,
+            frontend_settings_json,
+            progress,
+        )
     } else {
         create_subset_backup(
             db,
@@ -302,8 +392,27 @@ pub fn create_backup(
             selection.include_credentials,
             selection.frontend_settings,
             frontend_settings_json,
+            progress,
         )
     }
+}
+
+/// Create a backup honoring the given selection (standard entry point).
+pub fn create_backup(
+    db: &Database,
+    app_data_dir: &Path,
+    backup_path: &Path,
+    selection: &BackupSelection,
+    frontend_settings_json: Option<&str>,
+) -> Result<BackupInfo> {
+    create_backup_with_progress(
+        db,
+        app_data_dir,
+        backup_path,
+        selection,
+        frontend_settings_json,
+        None,
+    )
 }
 
 /// True for SQLITE_BUSY / SQLITE_LOCKED — transient lock errors that a short
@@ -323,7 +432,21 @@ fn create_full_backup(
     backup_path: &Path,
     include_books: bool,
     frontend_settings_json: Option<&str>,
+    progress: Option<&BackupProgressCallback>,
 ) -> Result<BackupInfo> {
+    let start_time = Instant::now();
+    emit_backup_progress(
+        progress,
+        start_time,
+        "preparing",
+        "Preparing database snapshot...",
+        0,
+        100,
+        5.0,
+        0,
+        0,
+    );
+
     let conn = db.get_connection()?;
 
     let temp_dir = TempDir::new()
@@ -355,6 +478,18 @@ fn create_full_backup(
     let shelf_count: usize =
         conn.query_row("SELECT COUNT(*) FROM shelves", [], |row| row.get(0))?;
 
+    emit_backup_progress(
+        progress,
+        start_time,
+        "database",
+        "Compressing database...",
+        1,
+        1,
+        15.0,
+        0,
+        0,
+    );
+
     // Write to `<dest>.part`, rename on success (see PartFileGuard).
     let part_path = backup_path.with_extension("part");
     let mut part_guard = PartFileGuard::new(part_path.clone());
@@ -376,22 +511,42 @@ fn create_full_backup(
     let covers_dir = app_data_dir.join("covers");
     let mut cover_count: u64 = 0;
     if covers_dir.exists() {
+        let mut cover_files = Vec::new();
         for entry in WalkDir::new(&covers_dir).into_iter().filter_map(|e| e.ok()) {
             let path = entry.path();
             if path.is_file() {
-                if let Ok(relative) = path.strip_prefix(&covers_dir) {
-                    let rel_clean = relative.to_string_lossy().replace('\\', "/");
-                    let zip_path = format!("covers/{}", rel_clean);
-                    // Cover being replaced/removed mid-backup: skip it,
-                    // don't abort the whole backup. Check seen_entries to prevent duplicates.
-                    if seen_entries.insert(zip_path.clone()) {
-                        if let Ok(mut file) = File::open(path) {
-                            zip.start_file(&zip_path, options)?;
-                            total_size += std::io::copy(&mut file, &mut zip)?;
-                            cover_count += 1;
-                        }
+                cover_files.push(path.to_path_buf());
+            }
+        }
+        let total_covers = cover_files.len() as u64;
+        let covers_max_pct = if include_books { 50.0 } else { 90.0 };
+
+        for (idx, path) in cover_files.iter().enumerate() {
+            if let Ok(relative) = path.strip_prefix(&covers_dir) {
+                let rel_clean = relative.to_string_lossy().replace('\\', "/");
+                let zip_path = format!("covers/{}", rel_clean);
+                if seen_entries.insert(zip_path.clone()) {
+                    if let Ok(mut file) = File::open(path) {
+                        zip.start_file(&zip_path, options)?;
+                        total_size += std::io::copy(&mut file, &mut zip)?;
+                        cover_count += 1;
                     }
                 }
+            }
+
+            if idx % 10 == 0 || (idx + 1) as u64 == total_covers {
+                let pct = 15.0 + ((covers_max_pct - 15.0) * (idx + 1) as f32 / total_covers.max(1) as f32);
+                emit_backup_progress(
+                    progress,
+                    start_time,
+                    "covers",
+                    &format!("Archiving covers ({}/{})", idx + 1, total_covers),
+                    (idx + 1) as u64,
+                    total_covers,
+                    pct,
+                    total_size,
+                    total_size,
+                );
             }
         }
     }
@@ -402,14 +557,13 @@ fn create_full_backup(
         let paths: Vec<String> = stmt
             .query_map([], |row| row.get(0))?
             .collect::<std::result::Result<Vec<_>, _>>()?;
+        let total_books = paths.len() as u64;
 
-        for file_path in paths {
-            let book_path = Path::new(&file_path);
+        for (idx, file_path) in paths.iter().enumerate() {
+            let book_path = Path::new(file_path);
             if book_path.exists() && book_path.is_file() {
                 let canonical = book_path.canonicalize().unwrap_or_else(|_| book_path.to_path_buf());
                 if let Some(_existing_entry) = added_canonical_paths.get(&canonical) {
-                    // Exact same disk file was already bundled in this archive; avoid duplicating data
-                    // and prevent duplicate zip filenames.
                     continue;
                 }
 
@@ -439,17 +593,39 @@ fn create_full_backup(
                             total_size += std::io::copy(&mut file, &mut zip)?;
                             book_file_count += 1;
                         }
-                        // In-use or unreadable file (Windows lock, in-progress
-                        // download, moved on disk): skip it, don't abort the
-                        // whole backup. Recorded in the manifest.
                         Err(_) => skipped_files.push(file_path.clone()),
                     }
                 }
             } else {
-                skipped_files.push(file_path);
+                skipped_files.push(file_path.clone());
             }
+
+            let pct = 50.0 + (42.0 * (idx + 1) as f32 / total_books.max(1) as f32);
+            emit_backup_progress(
+                progress,
+                start_time,
+                "books",
+                &format!("Archiving books ({}/{})", idx + 1, total_books),
+                (idx + 1) as u64,
+                total_books,
+                pct,
+                total_size,
+                total_size,
+            );
         }
     }
+
+    emit_backup_progress(
+        progress,
+        start_time,
+        "finalizing",
+        "Finalizing backup archive...",
+        95,
+        100,
+        95.0,
+        total_size,
+        total_size,
+    );
 
     if let Some(settings_json) = frontend_settings_json {
         let entry = "settings/frontend_settings.json";
@@ -496,6 +672,19 @@ fn create_full_backup(
     let _ = fs::remove_file(backup_path);
     fs::rename(&part_path, backup_path)?;
     part_guard.commit();
+
+    emit_backup_progress(
+        progress,
+        start_time,
+        "completed",
+        "Backup created successfully!",
+        100,
+        100,
+        100.0,
+        total_size,
+        total_size,
+    );
+
     Ok(backup_info)
 }
 
@@ -510,7 +699,21 @@ fn create_subset_backup(
     include_credentials: bool,
     include_frontend_settings: bool,
     frontend_settings_json: Option<&str>,
+    progress: Option<&BackupProgressCallback>,
 ) -> Result<BackupInfo> {
+    let start_time = Instant::now();
+    emit_backup_progress(
+        progress,
+        start_time,
+        "preparing",
+        "Preparing selective backup...",
+        0,
+        100,
+        5.0,
+        0,
+        0,
+    );
+
     let conn = db.get_connection()?;
 
     // Write to `<dest>.part`, rename on success (see PartFileGuard).
@@ -530,11 +733,15 @@ fn create_subset_backup(
     let mut annotation_count = 0usize;
     let mut shelf_count = 0usize;
 
+    let active_cats: Vec<BackupCategory> = BackupCategory::ALL
+        .iter()
+        .filter(|c| cats.contains(c))
+        .copied()
+        .collect();
+    let total_cats = active_cats.len().max(1) as f32;
+
     // Per-category JSON exports.
-    for cat in BackupCategory::ALL.iter() {
-        if !cats.contains(cat) {
-            continue;
-        }
+    for (idx, cat) in active_cats.iter().enumerate() {
         match cat {
             BackupCategory::Covers | BackupCategory::Books | BackupCategory::Sources => continue,
             _ => {}
@@ -567,6 +774,19 @@ fn create_subset_backup(
             BackupCategory::Annotations => annotation_count = rows,
             _ => {}
         }
+
+        let pct = 10.0 + (25.0 * (idx + 1) as f32 / total_cats);
+        emit_backup_progress(
+            progress,
+            start_time,
+            "database",
+            &format!("Exporting {}", cat.as_str()),
+            (idx + 1) as u64,
+            total_cats as u64,
+            pct,
+            total_size,
+            total_size,
+        );
     }
 
     // Sources: sources.json store (redacted unless include_credentials) +
@@ -599,20 +819,42 @@ fn create_subset_backup(
     if cats.contains(&BackupCategory::Covers) {
         let covers_dir = app_data_dir.join("covers");
         if covers_dir.exists() {
+            let mut cover_files = Vec::new();
             for entry in WalkDir::new(&covers_dir).into_iter().filter_map(|e| e.ok()) {
                 let path = entry.path();
                 if path.is_file() {
-                    if let Ok(relative) = path.strip_prefix(&covers_dir) {
-                        let rel_clean = relative.to_string_lossy().replace('\\', "/");
-                        let zip_path = format!("covers/{}", rel_clean);
-                        if seen_entries.insert(zip_path.clone()) {
-                            if let Ok(mut file) = File::open(path) {
-                                zip.start_file(&zip_path, options)?;
-                                total_size += std::io::copy(&mut file, &mut zip)?;
-                                cover_count += 1;
-                            }
+                    cover_files.push(path.to_path_buf());
+                }
+            }
+            let total_covers = cover_files.len() as u64;
+            let covers_max_pct = if cats.contains(&BackupCategory::Books) { 60.0 } else { 90.0 };
+
+            for (idx, path) in cover_files.iter().enumerate() {
+                if let Ok(relative) = path.strip_prefix(&covers_dir) {
+                    let rel_clean = relative.to_string_lossy().replace('\\', "/");
+                    let zip_path = format!("covers/{}", rel_clean);
+                    if seen_entries.insert(zip_path.clone()) {
+                        if let Ok(mut file) = File::open(path) {
+                            zip.start_file(&zip_path, options)?;
+                            total_size += std::io::copy(&mut file, &mut zip)?;
+                            cover_count += 1;
                         }
                     }
+                }
+
+                if idx % 10 == 0 || (idx + 1) as u64 == total_covers {
+                    let pct = 35.0 + ((covers_max_pct - 35.0) * (idx + 1) as f32 / total_covers.max(1) as f32);
+                    emit_backup_progress(
+                        progress,
+                        start_time,
+                        "covers",
+                        &format!("Archiving covers ({}/{})", idx + 1, total_covers),
+                        (idx + 1) as u64,
+                        total_covers,
+                        pct,
+                        total_size,
+                        total_size,
+                    );
                 }
             }
         }
@@ -641,7 +883,9 @@ fn create_subset_backup(
 
         let mut added_canonical_paths: HashMap<PathBuf, String> = HashMap::new();
         let mut book_file_count: u64 = 0;
-        for (uuid, file_path, is_managed, managed_relpath, _file_format) in books {
+        let total_books = books.len() as u64;
+
+        for (idx, (uuid, file_path, is_managed, managed_relpath, _file_format)) in books.into_iter().enumerate() {
             let resolved: Option<PathBuf> = if is_managed {
                 managed_relpath
                     .map(|rel| managed_root.local_path().join(rel))
@@ -690,9 +934,34 @@ fn create_subset_backup(
             } else {
                 skipped_files.push(file_path);
             }
+
+            let pct = 60.0 + (32.0 * (idx + 1) as f32 / total_books.max(1) as f32);
+            emit_backup_progress(
+                progress,
+                start_time,
+                "books",
+                &format!("Archiving books ({}/{})", idx + 1, total_books),
+                (idx + 1) as u64,
+                total_books,
+                pct,
+                total_size,
+                total_size,
+            );
         }
         category_counts.insert("books".to_string(), book_file_count);
     }
+
+    emit_backup_progress(
+        progress,
+        start_time,
+        "finalizing",
+        "Finalizing backup archive...",
+        95,
+        100,
+        95.0,
+        total_size,
+        total_size,
+    );
 
     // Frontend settings blob (Preferences-adjacent, controlled by its own flag).
     if include_frontend_settings {
@@ -736,6 +1005,19 @@ fn create_subset_backup(
     let _ = fs::remove_file(backup_path);
     fs::rename(&part_path, backup_path)?;
     part_guard.commit();
+
+    emit_backup_progress(
+        progress,
+        start_time,
+        "completed",
+        "Backup created successfully!",
+        100,
+        100,
+        100.0,
+        total_size,
+        total_size,
+    );
+
     Ok(backup_info)
 }
 
@@ -974,20 +1256,27 @@ fn managed_target_allowed(managed_root: &Path, target: &Path, rel: &str) -> bool
     }
 }
 
-/// Restore from an archive honoring the selection.
-///
-/// - Full snapshot archives (`database/library.db` present, i.e. v1 manifests
-///   and v2 Everything backups) take the legacy ATTACH-merge path, filtered to
-///   the selected categories' tables. The legacy path always replaces rows
-///   (delete + insert) regardless of `conflict_policy`, preserving today's
-///   "restore = replace" semantics for full backups.
-/// - Subset archives restore the per-category JSON with the conflict policy.
-pub fn restore_backup(
+/// Restore from an archive honoring the selection with real-time progress.
+pub fn restore_backup_with_progress(
     db: &Database,
     app_data_dir: &Path,
     backup_path: &Path,
     selection: &RestoreSelection,
+    progress: Option<&RestoreProgressCallback>,
 ) -> Result<RestoreReport> {
+    let start_time = Instant::now();
+    emit_restore_progress(
+        progress,
+        start_time,
+        "validating",
+        "Opening and validating backup archive...",
+        0,
+        100,
+        5.0,
+        0,
+        0,
+    );
+
     let file = File::open(backup_path)?;
     let mut archive = ZipArchive::new(file)?;
 
@@ -1038,7 +1327,15 @@ pub fn restore_backup(
 
     let is_full = archive.by_name("database/library.db").is_ok();
     if is_full {
-        restore_full_snapshot(db, app_data_dir, &mut archive, &effective, &mut report)?;
+        restore_full_snapshot(
+            db,
+            app_data_dir,
+            &mut archive,
+            &effective,
+            &mut report,
+            progress,
+            start_time,
+        )?;
     } else {
         restore_subset_archive(
             db,
@@ -1048,10 +1345,34 @@ pub fn restore_backup(
             &effective,
             selection,
             &mut report,
+            progress,
+            start_time,
         )?;
     }
 
+    emit_restore_progress(
+        progress,
+        start_time,
+        "completed",
+        "Restore completed successfully!",
+        100,
+        100,
+        100.0,
+        0,
+        0,
+    );
+
     Ok(report)
+}
+
+/// Restore from an archive honoring the selection (standard entry point).
+pub fn restore_backup(
+    db: &Database,
+    app_data_dir: &Path,
+    backup_path: &Path,
+    selection: &RestoreSelection,
+) -> Result<RestoreReport> {
+    restore_backup_with_progress(db, app_data_dir, backup_path, selection, None)
 }
 
 /// Legacy ATTACH-merge restore for full snapshots. Always delete + insert
@@ -1068,6 +1389,8 @@ fn restore_full_snapshot(
     archive: &mut ZipArchive<File>,
     effective: &[BackupCategory],
     report: &mut RestoreReport,
+    progress: Option<&RestoreProgressCallback>,
+    start_time: Instant,
 ) -> Result<()> {
     let is_everything = {
         let set: HashSet<&BackupCategory> = effective.iter().collect();
@@ -1083,6 +1406,18 @@ fn restore_full_snapshot(
             .collect()
     };
 
+    emit_restore_progress(
+        progress,
+        start_time,
+        "database",
+        "Extracting database snapshot...",
+        10,
+        100,
+        15.0,
+        0,
+        0,
+    );
+
     // Temp DB extracted from the archive lives in a TempDir — self-cleaning on
     // every exit path (success, error, panic), unlike the old `.keep()`ed path.
     let temp_dir = TempDir::new()
@@ -1096,6 +1431,18 @@ fn restore_full_snapshot(
         let mut temp_file = File::create(&temp_db_path)?;
         std::io::copy(&mut db_file, &mut temp_file)?;
     }
+
+    emit_restore_progress(
+        progress,
+        start_time,
+        "database",
+        "Merging database records...",
+        25,
+        100,
+        25.0,
+        0,
+        0,
+    );
 
     let conn = db.get_connection()?;
 
@@ -1172,32 +1519,59 @@ fn restore_full_snapshot(
     let _ = conn.execute_batch("DETACH DATABASE backup_db");
     db_result?;
 
+    let archive_len = archive.len();
+
     // File trees, gated by category.
     let mut covers_restored = 0u64;
     if effective.contains(&BackupCategory::Covers) {
         let covers_dir = app_data_dir.join("covers");
         fs::create_dir_all(&covers_dir)?;
-        for i in 0..archive.len() {
-            let mut file = archive.by_index(i)?;
-            let file_path = file.name().to_string();
-            if !file_path.ends_with('/') {
-                if let Some(relative_path) = file_path.strip_prefix("covers/") {
-                    let Some(relative_path) = safe_archive_rel_path(relative_path) else {
-                        report.skipped += 1;
-                        report.skipped_invalid_paths += 1;
-                        report
-                            .errors
-                            .push(format!("Skipped unsafe archive entry '{file_path}'"));
-                        continue;
-                    };
-                    let target_path = covers_dir.join(relative_path);
-                    if let Some(parent) = target_path.parent() {
-                        fs::create_dir_all(parent)?;
-                    }
-                    let mut target_file = File::create(&target_path)?;
-                    std::io::copy(&mut file, &mut target_file)?;
-                    covers_restored += 1;
+        let mut cover_indices = Vec::new();
+        for i in 0..archive_len {
+            if let Ok(file) = archive.by_index(i) {
+                let name = file.name().to_string();
+                if !name.ends_with('/') && name.starts_with("covers/") {
+                    cover_indices.push(i);
                 }
+            }
+        }
+        let total_covers = cover_indices.len() as u64;
+        let covers_max_pct = if effective.contains(&BackupCategory::Books) { 65.0 } else { 92.0 };
+
+        for (idx, i) in cover_indices.iter().enumerate() {
+            let mut file = archive.by_index(*i)?;
+            let file_path = file.name().to_string();
+            if let Some(relative_path) = file_path.strip_prefix("covers/") {
+                let Some(relative_path) = safe_archive_rel_path(relative_path) else {
+                    report.skipped += 1;
+                    report.skipped_invalid_paths += 1;
+                    report
+                        .errors
+                        .push(format!("Skipped unsafe archive entry '{file_path}'"));
+                    continue;
+                };
+                let target_path = covers_dir.join(relative_path);
+                if let Some(parent) = target_path.parent() {
+                    fs::create_dir_all(parent)?;
+                }
+                let mut target_file = File::create(&target_path)?;
+                std::io::copy(&mut file, &mut target_file)?;
+                covers_restored += 1;
+            }
+
+            if idx % 10 == 0 || (idx + 1) as u64 == total_covers {
+                let pct = 35.0 + ((covers_max_pct - 35.0) * (idx + 1) as f32 / total_covers.max(1) as f32);
+                emit_restore_progress(
+                    progress,
+                    start_time,
+                    "covers",
+                    &format!("Restoring covers ({}/{})", idx + 1, total_covers),
+                    (idx + 1) as u64,
+                    total_covers,
+                    pct,
+                    0,
+                    0,
+                );
             }
         }
         *report.restored.entry("covers".to_string()).or_insert(0) += covers_restored;
@@ -1206,25 +1580,47 @@ fn restore_full_snapshot(
     if effective.contains(&BackupCategory::Books) {
         let storage_books_dir = app_data_dir.join("storage").join("books");
         fs::create_dir_all(&storage_books_dir)?;
-        for i in 0..archive.len() {
-            let mut file = archive.by_index(i)?;
-            let file_path = file.name().to_string();
-            if !file_path.ends_with('/') {
-                if let Some(filename) = file_path.strip_prefix("books/") {
-                    let Some(filename) = safe_archive_rel_path(filename) else {
-                        report.skipped += 1;
-                        report.skipped_invalid_paths += 1;
-                        report
-                            .errors
-                            .push(format!("Skipped unsafe archive entry '{file_path}'"));
-                        continue;
-                    };
-                    let target_path = storage_books_dir.join(filename);
-                    let mut target_file = File::create(&target_path)?;
-                    std::io::copy(&mut file, &mut target_file)?;
-                    *report.restored.entry("books".to_string()).or_insert(0) += 1;
+        let mut book_indices = Vec::new();
+        for i in 0..archive_len {
+            if let Ok(file) = archive.by_index(i) {
+                let name = file.name().to_string();
+                if !name.ends_with('/') && name.starts_with("books/") {
+                    book_indices.push(i);
                 }
             }
+        }
+        let total_books = book_indices.len() as u64;
+
+        for (idx, i) in book_indices.iter().enumerate() {
+            let mut file = archive.by_index(*i)?;
+            let file_path = file.name().to_string();
+            if let Some(filename) = file_path.strip_prefix("books/") {
+                let Some(filename) = safe_archive_rel_path(filename) else {
+                    report.skipped += 1;
+                    report.skipped_invalid_paths += 1;
+                    report
+                        .errors
+                        .push(format!("Skipped unsafe archive entry '{file_path}'"));
+                    continue;
+                };
+                let target_path = storage_books_dir.join(filename);
+                let mut target_file = File::create(&target_path)?;
+                std::io::copy(&mut file, &mut target_file)?;
+                *report.restored.entry("books".to_string()).or_insert(0) += 1;
+            }
+
+            let pct = 65.0 + (30.0 * (idx + 1) as f32 / total_books.max(1) as f32);
+            emit_restore_progress(
+                progress,
+                start_time,
+                "books",
+                &format!("Restoring books ({}/{})", idx + 1, total_books),
+                (idx + 1) as u64,
+                total_books,
+                pct,
+                0,
+                0,
+            );
         }
     }
 
@@ -1236,6 +1632,18 @@ fn restore_full_snapshot(
             report.frontend_settings = Some(settings_content);
         }
     }
+
+    emit_restore_progress(
+        progress,
+        start_time,
+        "finalizing",
+        "Finalizing restore...",
+        98,
+        100,
+        98.0,
+        0,
+        0,
+    );
 
     Ok(())
 }
@@ -1250,6 +1658,8 @@ fn restore_subset_archive(
     effective: &[BackupCategory],
     selection: &RestoreSelection,
     report: &mut RestoreReport,
+    progress: Option<&RestoreProgressCallback>,
+    start_time: Instant,
 ) -> Result<()> {
     let conn = db.get_connection()?;
 
@@ -1287,6 +1697,18 @@ fn restore_subset_archive(
                     .errors
                     .push(format!("Category '{}' not present in archive", cat.as_str())),
             }
+
+            emit_restore_progress(
+                progress,
+                start_time,
+                "database",
+                &format!("Restored {}", cat.as_str()),
+                25,
+                100,
+                35.0,
+                0,
+                0,
+            );
         }
         tx.commit()?;
         Ok(())
@@ -1302,32 +1724,78 @@ fn restore_subset_archive(
             BackupCategory::Covers => {
                 let covers_dir = app_data_dir.join("covers");
                 fs::create_dir_all(&covers_dir)?;
+                let mut cover_indices = Vec::new();
                 for i in 0..archive.len() {
-                    let mut file = archive.by_index(i)?;
-                    let file_path = file.name().to_string();
-                    if !file_path.ends_with('/') {
-                        if let Some(relative_path) = file_path.strip_prefix("covers/") {
-                            let Some(relative_path) = safe_archive_rel_path(relative_path) else {
-                                report.skipped += 1;
-                                report.skipped_invalid_paths += 1;
-                                report
-                                    .errors
-                                    .push(format!("Skipped unsafe archive entry '{file_path}'"));
-                                continue;
-                            };
-                            let target_path = covers_dir.join(relative_path);
-                            if let Some(parent) = target_path.parent() {
-                                fs::create_dir_all(parent)?;
-                            }
-                            let mut target_file = File::create(&target_path)?;
-                            std::io::copy(&mut file, &mut target_file)?;
-                            *report.restored.entry("covers".to_string()).or_insert(0) += 1;
+                    if let Ok(file) = archive.by_index(i) {
+                        let name = file.name().to_string();
+                        if !name.ends_with('/') && name.starts_with("covers/") {
+                            cover_indices.push(i);
                         }
+                    }
+                }
+                let total_covers = cover_indices.len() as u64;
+
+                for (idx, i) in cover_indices.iter().enumerate() {
+                    let mut file = archive.by_index(*i)?;
+                    let file_path = file.name().to_string();
+                    if let Some(relative_path) = file_path.strip_prefix("covers/") {
+                        let Some(relative_path) = safe_archive_rel_path(relative_path) else {
+                            report.skipped += 1;
+                            report.skipped_invalid_paths += 1;
+                            report
+                                .errors
+                                .push(format!("Skipped unsafe archive entry '{file_path}'"));
+                            continue;
+                        };
+                        let target_path = covers_dir.join(relative_path);
+                        if let Some(parent) = target_path.parent() {
+                            fs::create_dir_all(parent)?;
+                        }
+                        let mut target_file = File::create(&target_path)?;
+                        std::io::copy(&mut file, &mut target_file)?;
+                        *report.restored.entry("covers".to_string()).or_insert(0) += 1;
+                    }
+
+                    if idx % 10 == 0 || (idx + 1) as u64 == total_covers {
+                        let pct = 45.0 + (30.0 * (idx + 1) as f32 / total_covers.max(1) as f32);
+                        emit_restore_progress(
+                            progress,
+                            start_time,
+                            "covers",
+                            &format!("Restoring covers ({}/{})", idx + 1, total_covers),
+                            (idx + 1) as u64,
+                            total_covers,
+                            pct,
+                            0,
+                            0,
+                        );
                     }
                 }
             }
             BackupCategory::Books => {
+                emit_restore_progress(
+                    progress,
+                    start_time,
+                    "books",
+                    "Restoring book files...",
+                    75,
+                    100,
+                    75.0,
+                    0,
+                    0,
+                );
                 restore_book_files(db, app_data_dir, archive, manifest, report)?;
+                emit_restore_progress(
+                    progress,
+                    start_time,
+                    "books",
+                    "Restored book files",
+                    95,
+                    100,
+                    95.0,
+                    0,
+                    0,
+                );
             }
             BackupCategory::Sources => {
                 restore_sources(app_data_dir, archive, selection, report)?;
@@ -1344,6 +1812,18 @@ fn restore_subset_archive(
             report.frontend_settings = Some(settings_content);
         }
     }
+
+    emit_restore_progress(
+        progress,
+        start_time,
+        "finalizing",
+        "Finalizing restore...",
+        98,
+        100,
+        98.0,
+        0,
+        0,
+    );
 
     Ok(())
 }

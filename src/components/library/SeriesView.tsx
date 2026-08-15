@@ -88,17 +88,17 @@ const DesktopSeriesHeader = memo(function DesktopSeriesHeader({
   const heroImage = coverUrl || anilistBanner;
 
   return (
-    <div className="hidden md:block relative overflow-hidden shrink-0 border-b border-border/50 bg-card/60">
+    <div className="hidden md:block relative overflow-hidden shrink-0 border-b border-border/50 bg-card">
       {/* Hero Background Banner */}
       {heroImage && (
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div 
-            className="absolute right-0 top-0 bottom-0 w-full md:w-3/5 bg-cover bg-right-top bg-no-repeat opacity-40 md:opacity-55 transition-all duration-500"
+            className="absolute inset-0 w-full h-full bg-cover bg-center bg-no-repeat opacity-30 md:opacity-40 transition-all duration-700"
             style={{ backgroundImage: `url(${heroImage})` }}
           />
-          {/* Overlay gradients for high contrast and readability */}
-          <div className="absolute inset-0 bg-gradient-to-r from-card via-card/75 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
+          {/* Smooth multi-stop directional fade without hard edges */}
+          <div className="absolute inset-0 bg-gradient-to-r from-card via-card/85 via-40% to-card/25" />
+          <div className="absolute inset-0 bg-gradient-to-t from-card via-card/30 to-transparent" />
         </div>
       )}
 

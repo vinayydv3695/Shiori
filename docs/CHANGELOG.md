@@ -1,3 +1,11 @@
+# Release Notes (v2.3.23)
+
+## Improvements & Fixes
+
+- **Live Backup & Restore Progress with ETA** — Added real-time progress events from the Rust backend during backup creation and restoration, displaying percentage, processed items count, stage updates, and dynamic estimated time remaining.
+- **Enhanced Sidebar Visual Hierarchy** — Fine-tuned desktop navigation sidebar layout to reach the bottom seamlessly, open all category groups by default, and scaled nested sub-item icons (16px) with clean row spacing for a clear subpart hierarchy.
+- **Smooth Series Hero Banner** — Replaced sharp image division seams in manga and series detail views with full-width background coverage and multi-stop gradient masks.
+
 # Release Notes (v2.3.22)
 
 ## Improvements & Fixes

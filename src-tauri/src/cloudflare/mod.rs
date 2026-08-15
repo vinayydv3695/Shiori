@@ -6,9 +6,11 @@
 ///   client   – reqwest wrapper that injects CF cookies + auto-refreshes.
 ///   detector – Heuristics to detect whether a response is a CF challenge page.
 ///   commands – Tauri command handlers exposed to the frontend.
+///   webview_solve – visible-webview one-shot Turnstile solver for hidden-RPC sources.
 pub mod browser;
 pub mod client;
 pub mod commands;
 pub mod daemon;
 pub mod detector;
 pub mod session;
+pub mod webview_solve;

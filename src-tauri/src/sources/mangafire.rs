@@ -87,12 +87,50 @@ impl MangaFireSource {
     }
 
     async fn evaluate_js_on_site(&self, js_script: &str) -> Result<String> {
+        // rpc_lock is held across the whole function (including the retry
+        // loop): the RPC webviews are hidden and share the session, so only
+        // one may run at a time.
         let _lock = self.rpc_lock.lock().await;
         self.wait_for_init().await?;
         let guard = self.app_handle.read().await;
         if let Some(app) = guard.as_ref() {
             let app = app.clone();
-            let window_label = format!("mf-rpc-{}", uuid::Uuid::new_v4().simple());
+            let mut turnstile_solved = false;
+            loop {
+                match self.run_rpc_once(&app, js_script).await {
+                    Ok(res) => return Ok(res),
+                    Err(e) if !turnstile_solved && e.to_string().contains("Turnstile") => {
+                        // One-shot visible solve, then one retry. Cookies
+                        // (cf_clearance) solved here land in the shared
+                        // WebKitWebContext and apply to the next RPC webview.
+                        turnstile_solved = true;
+                        log::info!(
+                            "[MangaFire] Turnstile challenge pending, opening visible solver"
+                        );
+                        if crate::cloudflare::webview_solve::solve_turnstile(
+                            &app,
+                            "https://mangafire.to/filter",
+                        )
+                        .await
+                        .is_ok()
+                        {
+                            log::info!("[MangaFire] Turnstile solved, retrying RPC");
+                            continue;
+                        }
+                        return Err(e);
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+        }
+        Err(ShioriError::Other(
+            "Browser RPC not initialized for MangaFire".into(),
+        ))
+    }
+
+    /// Runs one hidden-webview RPC attempt against mangafire.to/filter.
+    async fn run_rpc_once(&self, app: &tauri::AppHandle, js_script: &str) -> Result<String> {
+        let window_label = format!("mf-rpc-{}", uuid::Uuid::new_v4().simple());
             let (tx, rx) = tokio::sync::oneshot::channel();
             let tx = std::sync::Arc::new(std::sync::Mutex::new(Some(tx)));
             let html_buffer = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
@@ -104,9 +142,14 @@ impl MangaFireSource {
                         if (document.readyState === 'loading') {{
                             await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve));
                         }}
+                        let cfAttempts = 0;
                         while (true) {{
                             const title = document.title.toLowerCase();
                             if (title.includes('just a moment') || title.includes('cloudflare') || title.includes('attention required')) {{
+                                cfAttempts++;
+                                if (cfAttempts > 15) {{
+                                    throw new Error("Cloudflare Turnstile challenge pending - please solve via Settings or retry");
+                                }}
                                 await new Promise(resolve => setTimeout(resolve, 1000));
                                 continue;
                             }}
@@ -191,7 +234,7 @@ impl MangaFireSource {
             use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
             let _window = WebviewWindowBuilder::new(
-                &app,
+                app,
                 &window_label,
                 WebviewUrl::External("https://mangafire.to/filter".parse().unwrap()),
             )
@@ -259,11 +302,7 @@ impl MangaFireSource {
                 }
             };
 
-            return Ok(result);
-        }
-        Err(ShioriError::Other(
-            "Browser RPC not initialized for MangaFire".into(),
-        ))
+            Ok(result)
     }
 
     async fn fetch_rpc(&self, url: &str) -> Result<String> {

@@ -88,8 +88,7 @@ impl ToonGodSource {
     fn cloudflare_error(context: &str) -> ShioriError {
         ShioriError::Other(format!(
             "ToonGod {} is blocked by Cloudflare. \
-            Shiori will automatically open a browser to solve the challenge. \
-            If the browser opens and gets stuck, click the \"Verify you are human\" checkbox. \
+            Shiori opened a browser to verify you're human — please complete the check, then retry. \
             You can also trigger the browser manually via Settings → Online Sources → ToonGod → Verify Session. \
             The session is cached for 20+ hours once solved.",
             context
@@ -326,7 +325,29 @@ impl ToonGodSource {
         }
     }
 
+    /// Fetches `url` via the hidden-webview RPC; when the response is a
+    /// Cloudflare block, opens the visible Turnstile solver once and retries
+    /// a single time. A second block surfaces to the caller as before.
     async fn fetch_with_referer(
+        &self,
+        url: &str,
+        referer: Option<&str>,
+    ) -> Result<(reqwest::StatusCode, String)> {
+        let (status, html) = self.fetch_with_referer_once(url, referer).await?;
+        if Self::detect_cloudflare_block(status, &html) {
+            let app = self.app_handle.read().await.clone();
+            if let Some(app) = app {
+                log::info!("[ToonGod] Cloudflare block detected, opening visible solver");
+                if crate::cloudflare::webview_solve::solve_turnstile(&app, url).await.is_ok() {
+                    log::info!("[ToonGod] Cloudflare solved, retrying fetch");
+                    return self.fetch_with_referer_once(url, referer).await;
+                }
+            }
+        }
+        Ok((status, html))
+    }
+
+    async fn fetch_with_referer_once(
         &self,
         url: &str,
         _referer: Option<&str>,

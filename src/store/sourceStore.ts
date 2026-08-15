@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { pluginApi } from '@/lib/pluginSources';
 
 export type SourceKind = 'manga' | 'books';
 export type SourceStatus = 'active' | 'planned';
@@ -258,7 +259,11 @@ export const useSourceStore = create<SourceStore>()(
         );
       },
       isSourceEnabled: (id) => get().sources.find((source) => source.id === id)?.enabled ?? false,
-      toggleSource: (id) =>
+      toggleSource: (id) => {
+        const current = get().sources.find((source) => source.id === id);
+        if (!current || !current.implemented || isMandatorySource(id)) return;
+        const next = !current.enabled;
+
         set((state) => {
           const target = state.sources.find((source) => source.id === id);
           if (!target || !target.implemented || isMandatorySource(id)) return state;
@@ -291,7 +296,22 @@ export const useSourceStore = create<SourceStore>()(
             sources: nextSources,
             primarySourceByKind: nextPrimary,
           };
-        }),
+        });
+
+        // Fire-and-forget backend sync; revert the store flag on failure.
+        pluginApi.setSourceEnabled(id, next).catch((err) => {
+          console.warn('[source] enable sync failed', err);
+          set((state) => {
+            const target = state.sources.find((source) => source.id === id);
+            if (!target || target.enabled === current.enabled) return state;
+            return {
+              sources: state.sources.map((source) =>
+                source.id === id ? { ...source, enabled: current.enabled } : source
+              ),
+            };
+          });
+        });
+      },
       setPrimarySource: (kind, id) =>
         set((state) => {
           const candidate = state.sources.find(

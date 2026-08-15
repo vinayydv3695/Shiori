@@ -81,6 +81,8 @@ export interface DownloadOptionDto {
 
 export type BrowseMode = 'popular' | 'latest' | 'recent' | 'top-rated';
 
+export type SourceHealth = 'available' | 'unavailable' | 'blocked' | 'rateLimited' | 'unknown';
+
 export const pluginApi = {
   async listSources(): Promise<SourceMeta[]> {
     return invoke<SourceMeta[]>('list_sources');
@@ -121,6 +123,14 @@ export const pluginApi = {
 
   async setConfig(sourceId: string, key: string, value: string): Promise<boolean> {
     return invoke<boolean>('set_source_config', { sourceId, key, value });
+  },
+
+  async sourceHealth(sourceId: string): Promise<SourceHealth> {
+    return invoke<SourceHealth>('source_health', { sourceId });
+  },
+
+  async setSourceEnabled(sourceId: string, enabled: boolean): Promise<boolean> {
+    return invoke<boolean>('source_set_enabled', { sourceId, enabled });
   },
 
   async annaArchiveGetTorrentLinks(contentId: string): Promise<DownloadOptionDto[]> {

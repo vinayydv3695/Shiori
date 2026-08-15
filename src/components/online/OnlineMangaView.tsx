@@ -21,6 +21,7 @@ import {
   type Chapter as PluginChapter,
   type SearchResult as PluginSearchResult,
 } from "@/lib/pluginSources";
+import { solveCfChallenge } from "@/cloudflare";
 import { useUIStore } from "@/store/uiStore";
 import { useOnlineMangaReaderStore } from "@/store/onlineMangaReaderStore";
 import { useOnlineMangaBrowseStore } from "@/store/onlineMangaBrowseStore";
@@ -180,6 +181,7 @@ export function OnlineMangaView() {
   const [pluginChapters, setPluginChapters] = useState<PluginChapter[]>([]);
   const [chaptersLoading, setChaptersLoading] = useState(false);
   const [pluginError, setPluginError] = useState<string | null>(null);
+  const [cfVerifying, setCfVerifying] = useState(false);
   const [queueingManga, setQueueingManga] = useState<Record<string, boolean>>(
     {},
   );
@@ -398,11 +400,21 @@ export function OnlineMangaView() {
     setBrowseData({ popular: [], latest: [], recent: [], "top-rated": [] });
     setBrowseInitialized(true);
 
-    // Load all browse modes in parallel
-    void loadBrowseData("popular");
-    void loadBrowseData("latest");
-    void loadBrowseData("recent");
-    void loadBrowseData("top-rated");
+    // Load browse modes: MangaDex supports high concurrency; plugins use sequential loading to prevent RPC bridge contention
+    if (activeSource.id === "mangadex") {
+      void loadBrowseData("popular");
+      void loadBrowseData("latest");
+      void loadBrowseData("recent");
+      void loadBrowseData("top-rated");
+    } else {
+      const loadSequentially = async () => {
+        await loadBrowseData("popular");
+        await loadBrowseData("latest");
+        await loadBrowseData("recent");
+        await loadBrowseData("top-rated");
+      };
+      void loadSequentially();
+    }
 
     // Reset browse page
     setBrowsePage(1);
@@ -1426,34 +1438,45 @@ export function OnlineMangaView() {
                 : "Search Failed"}
             </div>
             {pluginError.includes("Cloudflare") ? (
-              <div className="space-y-2">
+              <div className="space-y-2.5">
+                <p className="text-sm text-muted-foreground">{pluginError}</p>
                 <p className="text-sm text-muted-foreground">
-                  ToonGod has Cloudflare protection. To access it you need to
-                  configure a bypass:
+                  This source requires browser verification and cannot be
+                  accessed automatically.
                 </p>
-                <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-1 ml-1">
-                  <li>
-                    Open{" "}
-                    <strong className="text-foreground">toongod.org</strong> in
-                    your browser and solve the CAPTCHA
-                  </li>
-                  <li>
-                    Open DevTools → Application → Cookies → copy{" "}
-                    <code className="bg-muted px-1 rounded text-xs">
-                      cf_clearance
-                    </code>
-                  </li>
-                  <li>
-                    Go to{" "}
-                    <strong className="text-foreground">
-                      Settings → Download Services → ToonGod → Cloudflare Bypass
-                    </strong>
-                  </li>
-                  <li>
-                    Paste the value and click Save, then retry your search
-                  </li>
-                </ol>
-                <p className="text-xs text-muted-foreground opacity-70 mt-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={async () => {
+                    if (!activeSource) return;
+                    setCfVerifying(true);
+                    try {
+                      const fallback =
+                        activeSource.id === "toongod"
+                          ? "https://www.toongod.org"
+                          : "https://mangafire.to";
+                      await solveCfChallenge(
+                        activeSource.website ?? fallback,
+                        "visible",
+                      );
+                    } catch (err) {
+                      console.warn("[CF] verify failed:", err);
+                    } finally {
+                      setCfVerifying(false);
+                    }
+                  }}
+                  disabled={cfVerifying}
+                  className="gap-2"
+                >
+                  {cfVerifying && (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  )}
+                  {cfVerifying ? "Verifying…" : "Verify in browser"}
+                </Button>
+                <p className="text-xs text-muted-foreground opacity-80">
+                  After verifying, retry your search.
+                </p>
+                <p className="text-xs text-muted-foreground opacity-70">
                   Alternative: switch to <strong>MangaDex</strong> for
                   unrestricted access.
                 </p>

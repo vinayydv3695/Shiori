@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { SourceHealth } from '@/lib/pluginSources';
 
 export type SourceFailureReason = 'error' | 'timeout';
 export type SourceHealthLevel = 'unknown' | 'good' | 'degraded' | 'poor';
@@ -18,6 +19,7 @@ interface SourceHealthStore {
   bySource: Record<string, SourceHealthStats>;
   recordSuccess: (sourceId: string, latencyMs?: number) => void;
   recordFailure: (sourceId: string, reason: SourceFailureReason, latencyMs?: number) => void;
+  recordHealth: (sourceId: string, health: SourceHealth) => void;
   getSourceScore: (sourceId: string) => number;
   getSourceHealthLevel: (sourceId: string) => SourceHealthLevel;
 }
@@ -98,6 +100,14 @@ export const useSourceHealthStore = create<SourceHealthStore>()(
             },
           };
         }),
+      recordHealth: (sourceId, health) => {
+        if (health === 'available') {
+          get().recordSuccess(sourceId);
+        } else if (health === 'unavailable' || health === 'blocked' || health === 'rateLimited') {
+          get().recordFailure(sourceId, 'error');
+        }
+        // 'unknown' → no-op
+      },
       getSourceScore: (sourceId) => calculateSourceScore(get().bySource[sourceId]),
       getSourceHealthLevel: (sourceId) => {
         const stats = get().bySource[sourceId];

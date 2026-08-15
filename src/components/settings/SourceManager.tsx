@@ -1,5 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useSourceStore } from '@/store/sourceStore';
+import { useSourceHealthStore } from '@/store/sourceHealthStore';
+import { pluginApi, type SourceHealth } from '@/lib/pluginSources';
 import { ChevronDown, ChevronUp, ExternalLink, Database, Globe, Loader2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
@@ -149,9 +151,38 @@ const itemVariants: Variants = {
   }
 };
 
+const HEALTH_BADGES: Record<SourceHealth, { label: string; className: string }> = {
+  available: { label: 'Available', className: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30' },
+  unavailable: { label: 'Unavailable', className: 'bg-red-500/15 text-red-500 border-red-500/30' },
+  blocked: { label: 'Blocked', className: 'bg-amber-500/15 text-amber-600 border-amber-500/30' },
+  rateLimited: { label: 'Rate limited', className: 'bg-amber-500/15 text-amber-600 border-amber-500/30' },
+  unknown: { label: 'Unknown', className: 'bg-surface-2 text-muted-foreground border-border/50' },
+};
+
 export function SourceManager() {
   const sources = useSourceStore((state) => state.sources);
   const toggleSource = useSourceStore((state) => state.toggleSource);
+  const recordHealth = useSourceHealthStore((state) => state.recordHealth);
+
+  const [checking, setChecking] = useState<Record<string, boolean>>({});
+  const [healths, setHealths] = useState<Record<string, SourceHealth>>({});
+
+  const handleCheck = useCallback(
+    async (sourceId: string) => {
+      setChecking((prev) => ({ ...prev, [sourceId]: true }));
+      try {
+        const health = await pluginApi.sourceHealth(sourceId);
+        setHealths((prev) => ({ ...prev, [sourceId]: health }));
+        recordHealth(sourceId, health);
+      } catch (err) {
+        console.warn('[source] health check failed', err);
+        setHealths((prev) => ({ ...prev, [sourceId]: 'unknown' }));
+      } finally {
+        setChecking((prev) => ({ ...prev, [sourceId]: false }));
+      }
+    },
+    [recordHealth]
+  );
 
   const mangaSources = sources.filter((source) => source.kind === 'manga');
   const bookSources = sources.filter((source) => source.kind === 'books' && source.id !== 'jackett');
@@ -212,6 +243,37 @@ export function SourceManager() {
         <p className="text-[13px] text-muted-foreground leading-relaxed pr-8 line-clamp-2">
           {source.description}
         </p>
+
+        <div className="flex items-center gap-2 mt-3 flex-wrap">
+          {!source.enabled && (
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-surface-2 text-muted-foreground/70 border border-border/50">
+              Disabled
+            </span>
+          )}
+          {checking[source.id] ? (
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-surface-2 text-muted-foreground border border-border/50">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Checking…
+            </span>
+          ) : (
+            <span
+              className={cn(
+                'text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border',
+                HEALTH_BADGES[healths[source.id] ?? 'unknown'].className
+              )}
+            >
+              {HEALTH_BADGES[healths[source.id] ?? 'unknown'].label}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => void handleCheck(source.id)}
+            disabled={checking[source.id] || !source.implemented}
+            className="text-[11px] font-semibold text-primary hover:text-primary/80 transition-colors duration-300 disabled:opacity-50 disabled:pointer-events-none"
+          >
+            Check
+          </button>
+        </div>
 
         {source.id === 'annas-archive' && <AnnaArchiveCredentials />}
 

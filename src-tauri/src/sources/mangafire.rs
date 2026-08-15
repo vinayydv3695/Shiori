@@ -408,6 +408,30 @@ impl MangaFireSource {
 
         #[cfg(not(target_os = "android"))]
         {
+            // Windowless fast path: CfClient::get_xhr sends the XHR headers
+            // (X-Requested-With + sec-fetch-mode) mangafire's API expects plus
+            // stored cf_clearance cookies, so a valid session often answers
+            // without any JS. Only succeeds when a session exists; otherwise
+            // falls through to the daemon/webview RPC below.
+            if let Some(cf) = self.cf_client.read().await.as_ref() {
+                match cf
+                    .get_xhr(url, "application/json, text/javascript, */*; q=0.01")
+                    .await
+                {
+                    Ok(s) => {
+                        // Never trust a challenge page as data.
+                        let t = s.trim_start();
+                        if !t.starts_with('<') && !s.contains("Just a moment") && !s.contains("challenge-platform") {
+                            return Ok(s);
+                        }
+                        log::warn!("[MangaFire] get_xhr returned a challenge page, falling back to RPC");
+                    }
+                    Err(e) => {
+                        log::warn!("[MangaFire] get_xhr failed ({}), falling back to RPC", e);
+                    }
+                }
+            }
+
             // ponytail: the headless-chromium daemon is unreliable against
             // MangaFire's Cloudflare (headless is fingerprintable; the script
             // also shipped with a Rust-ism syntax error until recently). Off

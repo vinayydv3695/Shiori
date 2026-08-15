@@ -10,8 +10,26 @@ use serde::Serialize;
 use crate::error::{Result, ShioriError};
 use crate::sources::annas_archive::{AnnasArchiveConfig, AnnasArchiveSource, DownloadType};
 use crate::sources::{
-    Chapter, ContentType, Page, SearchResponse, SearchResult, SourceMeta, SourceSearchDiagnostics,
+    Chapter, ContentType, Page, SearchResponse, SearchResult, SourceError, SourceHealth, SourceMeta,
+    SourceSearchDiagnostics,
 };
+
+/// Guard helper: fetch a source and verify it is enabled. Disabled sources
+/// fail with [`SourceError::SourceDisabled`] so the frontend can show the
+/// enable hint instead of a raw network error.
+async fn get_enabled_source(
+    state: &State<'_, crate::AppState>,
+    source_id: &str,
+) -> Result<std::sync::Arc<dyn crate::sources::Source>> {
+    let registry = state.plugin_registry.read().await;
+    let source = registry
+        .get(source_id)
+        .ok_or_else(|| ShioriError::Validation(format!("Unknown source: {}", source_id)))?;
+    if !registry.is_enabled(source_id) {
+        return Err(SourceError::SourceDisabled.into());
+    }
+    Ok(source)
+}
 
 #[tauri::command]
 pub async fn list_sources(state: State<'_, crate::AppState>) -> Result<Vec<SourceMeta>> {
@@ -40,6 +58,47 @@ pub async fn list_sources_by_type(
     Ok(registry.list_by_type(parsed))
 }
 
+/// Enable or disable a source in the backend registry. The frontend keeps
+/// its own mirror of the flag; this is the authoritative one.
+#[tauri::command]
+pub async fn source_set_enabled(
+    state: State<'_, crate::AppState>,
+    source_id: String,
+    enabled: bool,
+) -> Result<bool> {
+    let mut registry = state.plugin_registry.write().await;
+    registry.set_enabled(&source_id, enabled)?;
+    log::info!("[sources] {} {} {}", source_id, if enabled { "enabled" } else { "disabled" }, "by user");
+    Ok(enabled)
+}
+
+/// Probe a source's health. Wrapped in a 15s timeout: a hanging probe is
+/// reported as `Unavailable` rather than blocking the caller.
+#[tauri::command]
+pub async fn source_health(
+    state: State<'_, crate::AppState>,
+    source_id: String,
+) -> Result<SourceHealth> {
+    let source = {
+        let registry = state.plugin_registry.read().await;
+        registry
+            .get(&source_id)
+            .ok_or_else(|| ShioriError::Validation(format!("Unknown source: {}", source_id)))?
+    };
+
+    match tokio::time::timeout(std::time::Duration::from_secs(15), source.health_check()).await {
+        Ok(Ok(health)) => Ok(health),
+        Ok(Err(e)) => {
+            log::warn!("[sources] health_check for {} failed: {}", source_id, e);
+            Ok(SourceHealth::Unavailable)
+        }
+        Err(_) => {
+            log::warn!("[sources] health_check for {} timed out", source_id);
+            Ok(SourceHealth::Unavailable)
+        }
+    }
+}
+
 #[tauri::command]
 pub async fn plugin_search(
     state: State<'_, crate::AppState>,
@@ -47,12 +106,7 @@ pub async fn plugin_search(
     query: String,
     page: Option<u32>,
 ) -> Result<Vec<SearchResult>> {
-    let source = {
-        let registry = state.plugin_registry.read().await;
-        registry
-            .get(&source_id)
-            .ok_or_else(|| ShioriError::Validation(format!("Unknown source: {}", source_id)))?
-    };
+    let source = get_enabled_source(&state, &source_id).await?;
 
     source.search(&query, page.unwrap_or(1)).await
 }
@@ -65,12 +119,7 @@ pub async fn plugin_search_with_meta(
     page: Option<u32>,
     limit: Option<u32>,
 ) -> Result<SearchResponse> {
-    let source = {
-        let registry = state.plugin_registry.read().await;
-        registry
-            .get(&source_id)
-            .ok_or_else(|| ShioriError::Validation(format!("Unknown source: {}", source_id)))?
-    };
+    let source = get_enabled_source(&state, &source_id).await?;
 
     let source_meta = source.meta();
     let started = Instant::now();
@@ -105,12 +154,7 @@ pub async fn plugin_browse(
     genres: Option<Vec<String>>,
     types: Option<Vec<String>>,
 ) -> Result<Vec<SearchResult>> {
-    let source = {
-        let registry = state.plugin_registry.read().await;
-        registry
-            .get(&source_id)
-            .ok_or_else(|| ShioriError::Validation(format!("Unknown source: {}", source_id)))?
-    };
+    let source = get_enabled_source(&state, &source_id).await?;
 
     source
         .browse(&mode, page.unwrap_or(1), limit.unwrap_or(20), genres, types)
@@ -123,12 +167,7 @@ pub async fn plugin_get_chapters(
     source_id: String,
     content_id: String,
 ) -> Result<Vec<Chapter>> {
-    let source = {
-        let registry = state.plugin_registry.read().await;
-        registry
-            .get(&source_id)
-            .ok_or_else(|| ShioriError::Validation(format!("Unknown source: {}", source_id)))?
-    };
+    let source = get_enabled_source(&state, &source_id).await?;
 
     source.get_chapters(&content_id).await
 }
@@ -139,12 +178,7 @@ pub async fn plugin_get_pages(
     source_id: String,
     chapter_id: String,
 ) -> Result<Vec<Page>> {
-    let source = {
-        let registry = state.plugin_registry.read().await;
-        registry
-            .get(&source_id)
-            .ok_or_else(|| ShioriError::Validation(format!("Unknown source: {}", source_id)))?
-    };
+    let source = get_enabled_source(&state, &source_id).await?;
 
     source.get_pages(&chapter_id).await
 }
@@ -396,7 +430,10 @@ pub async fn search_manga_sources(
 
     for source in registry.get_all() {
         let meta = source.meta();
-        if meta.supports_download && meta.supports_search {
+        if meta.supports_download
+            && meta.supports_search
+            && registry.is_enabled(&meta.id)
+        {
             let source_clone = source.clone();
             let query_clone = query.clone();
             tasks.push(tokio::spawn(async move {

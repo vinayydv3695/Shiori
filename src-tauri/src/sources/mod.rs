@@ -6,23 +6,38 @@ use serde::{Deserialize, Serialize};
 use crate::error::{Result, ShioriError};
 
 pub mod annas_archive;
+pub mod challenge;
 pub mod libgen;
 pub mod mangadex;
 pub mod mangafire;
 pub mod manhwahub;
 pub mod nyaa;
 pub mod registry;
+pub mod source_error;
 pub mod toongod;
 pub mod toonily;
 pub mod toontop;
 pub mod torrent_csv;
 pub mod weebrook;
 
+pub use source_error::SourceError;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum ContentType {
     Manga,
     Book,
+}
+
+/// Health state of a source, reported by `Source::health_check`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum SourceHealth {
+    Available,
+    Unavailable,
+    Blocked,
+    RateLimited,
+    Unknown,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -134,5 +149,12 @@ pub trait Source: Send + Sync {
     }
     async fn get_chapters(&self, content_id: &str) -> Result<Vec<Chapter>>;
     async fn get_pages(&self, chapter_id: &str) -> Result<Vec<Page>>;
+
+    /// Probe whether the source is reachable. Default: assume available.
+    /// Sources with a real probe override this; failures should be mapped to
+    /// [`SourceHealth`] via `challenge::detect_challenge` where possible.
+    async fn health_check(&self) -> Result<SourceHealth> {
+        Ok(SourceHealth::Available)
+    }
 }
 pub mod manhwaread;

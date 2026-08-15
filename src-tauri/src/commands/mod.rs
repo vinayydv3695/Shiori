@@ -255,6 +255,8 @@ macro_rules! generate_shiori_handlers {
             commands::folder_watch::get_watch_status,
             commands::sources::list_sources,
             commands::sources::list_sources_by_type,
+            commands::sources::source_set_enabled,
+            commands::sources::source_health,
             commands::sources::plugin_search,
             commands::sources::plugin_search_with_meta,
             commands::sources::search_manga_sources,

@@ -3,20 +3,18 @@
 /// # How it works
 ///
 /// 1. Spawn a real Chromium browser using `playwright` (already installed).
-/// 2. Navigate to the target URL.
+/// 2. Navigate to the target URL (fully VISIBLE — no headless mode).
 /// 3. Poll for either:
 ///    - Disappearance of the "Just a moment" / "Checking your browser" text, OR
 ///    - Presence of expected page content (customisable selector).
 /// 4. Extract all cookies + the actual User-Agent string.
 /// 5. Shut the browser down and return the captured data.
 ///
-/// ## Headless → Visible fallback
+/// ## Security posture
 ///
-/// Cloudflare's JS challenge can sometimes detect headless Chromium via subtle
-/// DOM/timing differences.  We first try `--headless=new` (Chrome's modern
-/// headless mode, harder to detect than the old `--headless`).  If we still
-/// get a block after the timeout, we retry in *fully visible* mode so the user
-/// can optionally solve a CAPTCHA if required.
+/// This is a USER-INITIATED solve only (`cf_solve` Settings button). There is
+/// no automation: no stealth flags, no auto-clicks, no headless harvesting.
+/// The user completes any verification themselves in the visible window.
 ///
 /// ## Why not Puppeteer / Playwright-Rust?
 ///
@@ -45,9 +43,6 @@ pub struct BrowserConfig {
     /// Directory to write the ephemeral browser profile to.
     /// Defaults to `<tmp>/shiori_cf_profile_<host>`.
     pub user_data_dir: Option<PathBuf>,
-    /// Whether to try headless mode first (then fall back to visible).
-    #[allow(dead_code)]
-    pub try_headless_first: bool,
     /// How long (total) to wait for the CF challenge to resolve.
     #[allow(dead_code)]
     pub challenge_timeout: Duration,
@@ -68,9 +63,7 @@ impl Default for BrowserConfig {
         Self {
             playwright_root: default_playwright_root(),
             user_data_dir: None,
-            // Headless Chromium is reliably fingerprinted by Cloudflare.
-            // Use visible mode (system Chrome) as the primary strategy.
-            try_headless_first: false,
+            // Visible-only solve: no headless mode exists anymore.
             challenge_timeout: Duration::from_secs(90),
             nav_timeout: Duration::from_secs(30),
             debug,
@@ -107,11 +100,11 @@ pub struct SolverOutput {
 ///
 /// This function:
 ///  1. Writes a temporary Node.js helper script to disk.
-///  2. Spawns `node` with the script.
+///  2. Spawns `node` with the script (visible browser, no automation).
 ///  3. Reads the JSON output from stdout.
 ///  4. Packages the result into a [`CfSession`].
 pub async fn solve(url: &str, host: &str, cfg: &BrowserConfig, #[allow(unused_variables)] app_handle: Option<&tauri::AppHandle>) -> Result<CfSession> {
-    log::info!("[CF Browser] Attempting to solve CF for {url}");
+    log::info!("[CF Browser] Attempting visible solve for {url}");
 
     #[cfg(target_os = "android")]
     if let Some(app) = app_handle {
@@ -151,59 +144,22 @@ pub async fn solve(url: &str, host: &str, cfg: &BrowserConfig, #[allow(unused_va
     // Use the inline script via node --eval to avoid module resolution errors
     let script = include_str!("../../scripts/cf_solver.mjs");
 
-    // Try headless first, then visible fallback.
-    let modes: &[bool] = if cfg.try_headless_first {
-        &[true, false]
-    } else {
-        &[false]
-    };
-
-    let mut last_error = String::new();
-
-    for &headless in modes {
-        let mode_label = if headless { "headless" } else { "visible" };
-        log::info!("[CF Browser] Trying {mode_label} mode for {url}");
-
-        match run_browser_script(script, url, headless, cfg, cfg.challenge_timeout.as_secs()).await {
-            Ok(output) => {
-                let session = build_session(host, output)?;
-                log::info!(
-                    "[CF Browser] ✓ Solved in {mode_label} mode — captured {} cookies",
-                    session.cookies.len()
-                );
-                return Ok(session);
-            }
-            Err(e) => {
-                log::warn!("[CF Browser] {mode_label} mode failed: {e}");
-                last_error = e.to_string();
-                // Wait a moment before switching modes.
-                tokio::time::sleep(Duration::from_secs(2)).await;
-            }
+    match run_browser_script(script, url, cfg, cfg.challenge_timeout.as_secs()).await {
+        Ok(output) => {
+            let session = build_session(host, output)?;
+            log::info!(
+                "[CF Browser] ✓ Visible solve — captured {} cookies",
+                session.cookies.len()
+            );
+            Ok(session)
+        }
+        Err(e) => {
+            log::warn!("[CF Browser] Visible solve failed: {e}");
+            Err(ShioriError::Other(format!(
+                "Cloudflare solver failed for {url}: {e}"
+            )))
         }
     }
-
-    Err(ShioriError::Other(format!(
-        "Cloudflare solver failed for {url}: {last_error}"
-    )))
-}
-
-/// Harvest a Cloudflare session entirely windowless (Komikku technique).
-///
-/// Same spawn/parse contract as [`solve`], but always headless with a 50s
-/// budget.  The solver script auto-clicks the Turnstile widget in headless
-/// mode.  [`CfClient::refresh_session`] tries this FIRST and only falls back
-/// to the visible [`solve`] window when the harvest fails.
-pub async fn harvest(url: &str, host: &str, cfg: &BrowserConfig) -> Result<CfSession> {
-    log::info!("[CF Browser] Headless harvest for {url}");
-
-    let script = include_str!("../../scripts/cf_solver.mjs");
-    let output = run_browser_script(script, url, true, cfg, 50).await?;
-    let session = build_session(host, output)?;
-    log::info!(
-        "[CF Browser] ✓ Headless harvest — captured {} cookies",
-        session.cookies.len()
-    );
-    Ok(session)
 }
 
 // ─── Browser script runner ────────────────────────────────────────────────────
@@ -211,7 +167,6 @@ pub async fn harvest(url: &str, host: &str, cfg: &BrowserConfig) -> Result<CfSes
 async fn run_browser_script(
     script: &str,
     url: &str,
-    headless: bool,
     cfg: &BrowserConfig,
     timeout_secs: u64,
 ) -> Result<SolverOutput> {
@@ -223,7 +178,7 @@ async fn run_browser_script(
         .arg(script)
         .arg("dummy_pad") // pad process.argv[1] so indices match
         .arg(url)
-        .arg(if headless { "headless" } else { "visible" })
+        .arg("visible")
         .arg(timeout_secs.to_string())
         .current_dir(&cfg.playwright_root)
         .stdout(std::process::Stdio::piped())

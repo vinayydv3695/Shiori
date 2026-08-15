@@ -1,18 +1,30 @@
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 
 use crate::cloudflare::client::CfClient;
 use crate::error::{Result, ShioriError};
-use crate::sources::{Chapter, ContentType, Page, SearchResult, Source, SourceMeta};
+use crate::sources::{
+    challenge, Chapter, ContentType, Page, SearchResult, Source, SourceError, SourceHealth,
+    SourceMeta,
+};
 
 #[cfg(target_os = "android")]
 use tauri_plugin_android_saf::AndroidSafExt;
 
 const BASE_URL: &str = "https://www.toongod.org";
 const MANGA_PATH: &str = "webtoons";
+
+/// How long search results are served from the in-memory cache before refresh.
+const SEARCH_CACHE_TTL: Duration = Duration::from_secs(10 * 60);
+/// How long chapter lists are served from the in-memory cache before refresh.
+const CHAPTERS_CACHE_TTL: Duration = Duration::from_secs(10 * 60);
+/// Max entries per cache (search + chapters each). Beyond this, the entry
+/// with the oldest `cached_at` is evicted on insert — keeps memory bounded.
+const CACHE_MAX_ENTRIES: usize = 50;
 
 // Rotate through realistic Chrome user-agents to reduce fingerprinting
 #[allow(dead_code)]
@@ -45,6 +57,10 @@ pub struct ToonGodSource {
     app_handle: RwLock<Option<tauri::AppHandle>>,
     #[allow(dead_code)]
     eval_lock: tokio::sync::Mutex<()>,
+    /// `query|page` -> (cached_at, results); TTL [`SEARCH_CACHE_TTL`].
+    search_cache: Mutex<HashMap<String, (Instant, Vec<SearchResult>)>>,
+    /// content_id -> (cached_at, chapters); TTL [`CHAPTERS_CACHE_TTL`].
+    chapters_cache: Mutex<HashMap<String, (Instant, Vec<Chapter>)>>,
 }
 
 impl ToonGodSource {
@@ -54,6 +70,8 @@ impl ToonGodSource {
             cf_client: RwLock::new(None),
             app_handle: RwLock::new(None),
             eval_lock: tokio::sync::Mutex::new(()),
+            search_cache: Mutex::new(HashMap::new()),
+            chapters_cache: Mutex::new(HashMap::new()),
         })
     }
 
@@ -96,13 +114,26 @@ impl ToonGodSource {
     }
 
     fn cloudflare_error(context: &str) -> ShioriError {
-        ShioriError::Other(format!(
-            "ToonGod {} is blocked by Cloudflare. \
-            Shiori opened a browser to verify you're human — please complete the check, then retry. \
-            You can also trigger the browser manually via Settings → Online Sources → ToonGod → Verify Session. \
-            The session is cached for 20+ hours once solved.",
-            context
-        ))
+        log::warn!("[source:toongod] {} blocked by Cloudflare — no automated bypass", context);
+        SourceError::CloudflareChallenge.into()
+    }
+
+    /// Best-effort: extract an HTTP status code from a CfClient error message
+    /// like "HTTP 429 from https://… after 3 retries".
+    fn status_from_error(msg: &str) -> Option<reqwest::StatusCode> {
+        let tokens: Vec<&str> = msg.split_whitespace().collect();
+        for (i, t) in tokens.iter().enumerate() {
+            if *t == "HTTP" {
+                if let Some(next) = tokens.get(i + 1) {
+                    if let Ok(code) = next.parse::<u16>() {
+                        if (100..600).contains(&code) {
+                            return reqwest::StatusCode::from_u16(code).ok();
+                        }
+                    }
+                }
+            }
+        }
+        None
     }
 
     fn absolute_url(href: &str) -> String {
@@ -339,26 +370,16 @@ impl ToonGodSource {
         }
     }
 
-    /// Fetches `url` via the hidden-webview RPC; when the response is a
-    /// Cloudflare block, opens the visible Turnstile solver once and retries
-    /// a single time. A second block surfaces to the caller as before.
+    /// Fetches `url` via plain HTTP carrying the stored user-solved session.
+    /// No automated anti-bot machinery: a Cloudflare challenge is DETECTED and
+    /// surfaced as [`SourceError::CloudflareChallenge`] — the user verifies
+    /// manually via Settings → Verify (cf_solve) if they want to continue.
     async fn fetch_with_referer(
         &self,
         url: &str,
         referer: Option<&str>,
     ) -> Result<(reqwest::StatusCode, String)> {
-        let (status, html) = self.fetch_with_referer_once(url, referer).await?;
-        if Self::detect_cloudflare_block(status, &html) {
-            let app = self.app_handle.read().await.clone();
-            if let Some(app) = app {
-                log::info!("[ToonGod] Cloudflare block detected, opening visible solver");
-                if crate::cloudflare::webview_solve::solve_turnstile(&app, url).await.is_ok() {
-                    log::info!("[ToonGod] Cloudflare solved, retrying fetch");
-                    return self.fetch_with_referer_once(url, referer).await;
-                }
-            }
-        }
-        Ok((status, html))
+        self.fetch_with_referer_once(url, referer).await
     }
 
     async fn fetch_with_referer_once(
@@ -371,12 +392,26 @@ impl ToonGodSource {
         let cf = self.cf_client.read().await.clone().ok_or_else(|| {
             ShioriError::Other("ToonGod source CfClient not initialized".into())
         })?;
-        // Windowless fetch: CfClient attaches the stored cf_clearance session,
-        // detects CF blocks and refreshes the session (Playwright solver) with
-        // up to 3 retries. On an unresolved block it errors out directly.
+        // Plain HTTP: CfClient attaches the stored user-solved cf_clearance
+        // session and fails on unresolved CF blocks — no auto-solve.
         let bytes = cf
             .request_bytes(reqwest::Method::GET, url, Some("text/html"), None)
-            .await?;
+            .await
+            .map_err(|e| {
+                let msg = e.to_string();
+                if msg.contains("Cloudflare") || msg.contains("blocking access") {
+                    log::warn!("[source:toongod] Cloudflare challenge detected at {url}");
+                    return SourceError::CloudflareChallenge.into();
+                }
+                // Map non-CF HTTP errors ("HTTP 429 …") via detect_challenge.
+                if let Some(status) = Self::status_from_error(&msg) {
+                    if let Some(err) = challenge::detect_challenge(status, "") {
+                        log::warn!("[source:toongod] HTTP {status} at {url} → {}", err.kind());
+                        return err.into();
+                    }
+                }
+                e
+            })?;
         let html = String::from_utf8_lossy(&bytes).to_string();
         Ok((reqwest::StatusCode::OK, html))
     }
@@ -422,6 +457,56 @@ impl ToonGodSource {
     }
 }
 
+// ─── Cache helpers (mirrors mangafire's cache_get_or_fetch/evict pattern) ────
+
+/// Evict the single entry with the oldest `cached_at` when `cache` holds more
+/// than [`CACHE_MAX_ENTRIES`]. Returns how many entries were evicted (0 or 1).
+fn evict_oldest_if_over_cap<T>(cache: &mut HashMap<String, (Instant, T)>) -> usize {
+    if cache.len() <= CACHE_MAX_ENTRIES {
+        return 0;
+    }
+    if let Some(oldest_key) = cache
+        .iter()
+        .min_by_key(|(_, (cached_at, _))| *cached_at)
+        .map(|(k, _)| k.clone())
+    {
+        cache.remove(&oldest_key);
+        return 1;
+    }
+    0
+}
+
+/// Returns a cached value while it is fresh (within `ttl`); otherwise runs
+/// `fetch`, stores the result keyed by `key`, and returns it. Errors from
+/// `fetch` are propagated untouched and never cached.
+async fn cache_get_or_fetch<T, F>(
+    cache: &Mutex<HashMap<String, (Instant, T)>>,
+    key: &str,
+    ttl: Duration,
+    fetch: F,
+) -> Result<T>
+where
+    T: Clone,
+    F: std::future::Future<Output = Result<T>>,
+{
+    {
+        let guard = cache.lock().unwrap_or_else(|p| p.into_inner());
+        if let Some((cached_at, value)) = guard.get(key) {
+            if cached_at.elapsed() < ttl {
+                return Ok(value.clone());
+            }
+        }
+    }
+    let value = fetch.await?;
+    let mut guard = cache.lock().unwrap_or_else(|p| p.into_inner());
+    guard.insert(key.to_string(), (Instant::now(), value.clone()));
+    let evicted = evict_oldest_if_over_cap(&mut guard);
+    if evicted > 0 {
+        log::debug!("[source:toongod] cache over cap, evicted {} oldest entr(ies)", evicted);
+    }
+    Ok(value)
+}
+
 #[async_trait::async_trait]
 impl Source for ToonGodSource {
     fn as_any(&self) -> &dyn std::any::Any {
@@ -443,80 +528,96 @@ impl Source for ToonGodSource {
     }
 
     async fn search(&self, query: &str, page: u32) -> Result<Vec<SearchResult>> {
-        let page_path = if page > 1 {
-            format!("page/{}/", page)
-        } else {
-            String::new()
-        };
-        let url = format!(
-            "{}/{}?s={}&post_type=wp-manga",
-            BASE_URL,
-            page_path,
-            urlencoding::encode(query)
-        );
+        log::info!("[source:toongod] search started (query={}, page={})", query, page);
+        let cache_key = format!("{}|{}", query, page);
+        let results = cache_get_or_fetch(
+            &self.search_cache,
+            &cache_key,
+            SEARCH_CACHE_TTL,
+            async {
+                let page_path = if page > 1 {
+                    format!("page/{}/", page)
+                } else {
+                    String::new()
+                };
+                let url = format!(
+                    "{}/{}?s={}&post_type=wp-manga",
+                    BASE_URL,
+                    page_path,
+                    urlencoding::encode(query)
+                );
 
-        let (status, html) = self.fetch_with_referer(&url, Some(BASE_URL)).await?;
+                let (status, html) = self.fetch_with_referer(&url, Some(BASE_URL)).await?;
 
-        if Self::detect_cloudflare_block(status, &html) {
-            return Err(Self::cloudflare_error("search"));
-        }
+                if Self::detect_cloudflare_block(status, &html) {
+                    return Err(Self::cloudflare_error("search"));
+                }
 
-        let doc = Html::parse_document(&html);
-        let item_sel = Selector::parse(SEARCH_ITEM_SELECTOR)
-            .map_err(|e| ShioriError::Other(format!("Selector error: {:?}", e)))?;
-        let title_sel = Selector::parse(SEARCH_TITLE_LINK_SELECTOR)
-            .map_err(|e| ShioriError::Other(format!("Selector error: {:?}", e)))?;
-        let image_sel = Selector::parse(SEARCH_IMAGE_SELECTOR)
-            .map_err(|e| ShioriError::Other(format!("Selector error: {:?}", e)))?;
+                let doc = Html::parse_document(&html);
+                let item_sel = Selector::parse(SEARCH_ITEM_SELECTOR)
+                    .map_err(|e| ShioriError::Other(format!("Selector error: {:?}", e)))?;
+                let title_sel = Selector::parse(SEARCH_TITLE_LINK_SELECTOR)
+                    .map_err(|e| ShioriError::Other(format!("Selector error: {:?}", e)))?;
+                let image_sel = Selector::parse(SEARCH_IMAGE_SELECTOR)
+                    .map_err(|e| ShioriError::Other(format!("Selector error: {:?}", e)))?;
 
-        let mut results = Vec::new();
-        let mut seen_ids = std::collections::HashSet::new();
+                let mut results = Vec::new();
+                let mut seen_ids = std::collections::HashSet::new();
 
-        for item in doc.select(&item_sel) {
-            let title_link = match item.select(&title_sel).next() {
-                Some(el) => el,
-                None => continue,
-            };
+                for item in doc.select(&item_sel) {
+                    let title_link = match item.select(&title_sel).next() {
+                        Some(el) => el,
+                        None => continue,
+                    };
 
-            let href = match title_link.value().attr("href") {
-                Some(h) => Self::absolute_url(h),
-                None => continue,
-            };
+                    let href = match title_link.value().attr("href") {
+                        Some(h) => Self::absolute_url(h),
+                        None => continue,
+                    };
 
-            let id = Self::extract_slug_from_url(&href);
-            if id.is_empty() || seen_ids.contains(&id) {
-                continue;
-            }
-            seen_ids.insert(id.clone());
+                    let id = Self::extract_slug_from_url(&href);
+                    if id.is_empty() || seen_ids.contains(&id) {
+                        continue;
+                    }
+                    seen_ids.insert(id.clone());
 
-            let title = title_link.text().collect::<String>().trim().to_string();
-            if title.is_empty() {
-                continue;
-            }
+                    let title = title_link.text().collect::<String>().trim().to_string();
+                    if title.is_empty() {
+                        continue;
+                    }
 
-            let cover_url = item
-                .select(&image_sel)
-                .next()
-                .and_then(|img| {
-                    img.value()
-                        .attr("data-src")
-                        .or_else(|| img.value().attr("src"))
-                        .or_else(|| img.value().attr("data-lazy-src"))
-                })
-                .map(|s| s.split_whitespace().next().unwrap_or(s))
-                .filter(|s| !s.contains("data:image"))
-                .map(|s| Self::absolute_url(s));
+                    let cover_url = item
+                        .select(&image_sel)
+                        .next()
+                        .and_then(|img| {
+                            img.value()
+                                .attr("data-src")
+                                .or_else(|| img.value().attr("src"))
+                                .or_else(|| img.value().attr("data-lazy-src"))
+                        })
+                        .map(|s| s.split_whitespace().next().unwrap_or(s))
+                        .filter(|s| !s.contains("data:image"))
+                        .map(|s| Self::absolute_url(s));
 
-            results.push(SearchResult {
-                id,
-                title,
-                cover_url,
-                description: Some(href.clone()),
-                source_id: "toongod".to_string(),
-                extra: HashMap::from([("url".to_string(), href)]),
-            });
-        }
+                    results.push(SearchResult {
+                        id,
+                        title,
+                        cover_url,
+                        description: Some(href.clone()),
+                        source_id: "toongod".to_string(),
+                        extra: HashMap::from([("url".to_string(), href)]),
+                    });
+                }
 
+                Ok(results)
+            },
+        )
+        .await
+        .map_err(|e| {
+            log::warn!("[source:toongod] search failed: {e}");
+            e
+        })?;
+        log::info!("[source:toongod] search completed ({} results)", results.len());
         Ok(results)
     }
 
@@ -528,6 +629,7 @@ impl Source for ToonGodSource {
         genres: Option<Vec<String>>,
         _types: Option<Vec<String>>,
     ) -> Result<Vec<SearchResult>> {
+        log::info!("[source:toongod] browse started (mode={}, page={})", mode, page);
         let order = match mode.to_lowercase().as_str() {
             "newest" | "added" => "new-manga",
             "updated" => "latest",
@@ -557,12 +659,13 @@ impl Source for ToonGodSource {
             BASE_URL, page_path, order, genre_query
         );
 
-        let (status, html) = self.fetch_with_referer(&url, Some(BASE_URL)).await?;
-
-        let _ = std::fs::write(
-            "/tmp/toongod_debug.txt",
-            format!("URL: {}\nSTATUS: {}\nHTML:\n{}", url, status, html),
-        );
+        let (status, html) = match self.fetch_with_referer(&url, Some(BASE_URL)).await {
+            Ok(v) => v,
+            Err(e) => {
+                log::warn!("[source:toongod] browse failed: {e}");
+                return Err(e);
+            }
+        };
 
         if Self::detect_cloudflare_block(status, &html) {
             return Err(Self::cloudflare_error("browse"));
@@ -624,90 +727,107 @@ impl Source for ToonGodSource {
             });
         }
 
+        log::info!("[source:toongod] browse completed ({} results)", results.len());
         Ok(results)
     }
 
     async fn get_chapters(&self, content_id: &str) -> Result<Vec<Chapter>> {
-        let manga_url = if content_id.starts_with("http") {
-            content_id.to_string()
-        } else {
-            format!("{}/{}/{}/", BASE_URL, MANGA_PATH, content_id)
-        };
-
-        // SSRF guard: chapter URLs may come from scraped pages; validate first.
-        crate::validate_fetch_url(&manga_url)?;
-        let (status, html) = self.fetch_with_referer(&manga_url, Some(BASE_URL)).await?;
-
-        if Self::detect_cloudflare_block(status, &html) {
-            return Err(Self::cloudflare_error("chapter list"));
-        }
-
-        let manga_id = {
-            let doc = Html::parse_document(&html);
-            doc.select(&Selector::parse("div.manga-page, div[data-id]").unwrap())
-                .next()
-                .and_then(|el| el.value().attr("data-id"))
-                .map(String::from)
-        };
-
-        let chapter_html = if let Some(ref mid) = manga_id {
-            self.try_ajax_chapters(mid, &manga_url)
-                .await?
-                .unwrap_or(html.clone())
-        } else {
-            html.clone()
-        };
-
-        let chapter_doc = Html::parse_document(&chapter_html);
-        let chapter_sel = Selector::parse(CHAPTER_LIST_SELECTOR)
-            .map_err(|e| ShioriError::Other(format!("Selector error: {:?}", e)))?;
-        let link_sel = Selector::parse(CHAPTER_LINK_SELECTOR)
-            .map_err(|e| ShioriError::Other(format!("Selector error: {:?}", e)))?;
-
-        let mut chapters = Vec::new();
-
-        for li in chapter_doc.select(&chapter_sel) {
-            let link = match li.select(&link_sel).next() {
-                Some(a) => a,
-                None => continue,
-            };
-
-            let href = match link.value().attr("href") {
-                Some(h) => Self::absolute_url(h),
-                None => continue,
-            };
-
-            let title = link.text().collect::<String>().trim().to_string();
-            let number = Self::extract_chapter_number(&title);
-
-            chapters.push(Chapter {
-                id: href.clone(),
-                title: if title.is_empty() {
-                    format!("Chapter {}", number)
+        log::info!("[source:toongod] get_chapters started (content={})", content_id);
+        let chapters = cache_get_or_fetch(
+            &self.chapters_cache,
+            content_id,
+            CHAPTERS_CACHE_TTL,
+            async {
+                let manga_url = if content_id.starts_with("http") {
+                    content_id.to_string()
                 } else {
-                    title
-                },
-                number,
-                volume: None,
-                uploaded_at: None,
-                source_id: "toongod".to_string(),
-                content_id: content_id.to_string(),
-            });
-        }
+                    format!("{}/{}/{}/", BASE_URL, MANGA_PATH, content_id)
+                };
 
-        // Chapters are usually in reverse order (newest first), reverse for chronological
-        if chapters.len() > 1 {
-            let first_num = chapters.first().map(|c| c.number).unwrap_or(0.0);
-            let last_num = chapters.last().map(|c| c.number).unwrap_or(0.0);
-            if first_num > last_num {
-                chapters.reverse();
-            }
-        }
+                // SSRF guard: chapter URLs may come from scraped pages; validate first.
+                crate::validate_fetch_url(&manga_url)?;
+                let (status, html) = self.fetch_with_referer(&manga_url, Some(BASE_URL)).await?;
 
+                if Self::detect_cloudflare_block(status, &html) {
+                    return Err(Self::cloudflare_error("chapter list"));
+                }
+
+                let manga_id = {
+                    let doc = Html::parse_document(&html);
+                    doc.select(&Selector::parse("div.manga-page, div[data-id]").unwrap())
+                        .next()
+                        .and_then(|el| el.value().attr("data-id"))
+                        .map(String::from)
+                };
+
+                let chapter_html = if let Some(ref mid) = manga_id {
+                    self.try_ajax_chapters(mid, &manga_url)
+                        .await?
+                        .unwrap_or(html.clone())
+                } else {
+                    html.clone()
+                };
+
+                let chapter_doc = Html::parse_document(&chapter_html);
+                let chapter_sel = Selector::parse(CHAPTER_LIST_SELECTOR)
+                    .map_err(|e| ShioriError::Other(format!("Selector error: {:?}", e)))?;
+                let link_sel = Selector::parse(CHAPTER_LINK_SELECTOR)
+                    .map_err(|e| ShioriError::Other(format!("Selector error: {:?}", e)))?;
+
+                let mut chapters = Vec::new();
+
+                for li in chapter_doc.select(&chapter_sel) {
+                    let link = match li.select(&link_sel).next() {
+                        Some(a) => a,
+                        None => continue,
+                    };
+
+                    let href = match link.value().attr("href") {
+                        Some(h) => Self::absolute_url(h),
+                        None => continue,
+                    };
+
+                    let title = link.text().collect::<String>().trim().to_string();
+                    let number = Self::extract_chapter_number(&title);
+
+                    chapters.push(Chapter {
+                        id: href.clone(),
+                        title: if title.is_empty() {
+                            format!("Chapter {}", number)
+                        } else {
+                            title
+                        },
+                        number,
+                        volume: None,
+                        uploaded_at: None,
+                        source_id: "toongod".to_string(),
+                        content_id: content_id.to_string(),
+                    });
+                }
+
+                // Chapters are usually in reverse order (newest first), reverse for chronological
+                if chapters.len() > 1 {
+                    let first_num = chapters.first().map(|c| c.number).unwrap_or(0.0);
+                    let last_num = chapters.last().map(|c| c.number).unwrap_or(0.0);
+                    if first_num > last_num {
+                        chapters.reverse();
+                    }
+                }
+
+                Ok(chapters)
+            },
+        )
+        .await
+        .map_err(|e| {
+            log::warn!("[source:toongod] get_chapters failed: {e}");
+            e
+        })?;
+        log::info!("[source:toongod] get_chapters completed ({} chapters)", chapters.len());
         Ok(chapters)
     }
 
     async fn get_pages(&self, chapter_id: &str) -> Result<Vec<Page>> {
+        log::info!("[source:toongod] get_pages started (chapter={})", chapter_id);
         let chapter_url = if chapter_id.starts_with("http") {
             if chapter_id.contains('?') {
                 format!("{}&style=list", chapter_id)
@@ -718,9 +838,16 @@ impl Source for ToonGodSource {
             Self::absolute_url(chapter_id)
         };
 
-        let (status, html) = self
+        let (status, html) = match self
             .fetch_with_referer(&chapter_url, Some(BASE_URL))
-            .await?;
+            .await
+        {
+            Ok(v) => v,
+            Err(e) => {
+                log::warn!("[source:toongod] get_pages failed: {e}");
+                return Err(e);
+            }
+        };
 
         if Self::detect_cloudflare_block(status, &html) {
             return Err(Self::cloudflare_error("chapter pages"));
@@ -767,11 +894,102 @@ impl Source for ToonGodSource {
         }
 
         if pages.is_empty() {
+            log::warn!("[source:toongod] get_pages: no pages found for {chapter_id}");
             return Err(ShioriError::Other(
-                "No pages found. ToonGod may require Cloudflare bypass. Set cf_clearance cookie or FlareSolverr URL in Settings → Online Sources → ToonGod.".to_string()
+                "No pages found. ToonGod may be blocking this chapter. If a Cloudflare challenge appears, solve it via Settings → Verify Session.".to_string()
             ));
         }
 
+        log::info!("[source:toongod] get_pages completed ({} pages)", pages.len());
         Ok(pages)
+    }
+
+    /// Probe reachability with a plain HTTP GET on the webtoons home page.
+    /// Challenges map to `Blocked`, rate limits to `RateLimited`.
+    async fn health_check(&self) -> Result<SourceHealth> {
+        let url = format!("{}/{}", BASE_URL, MANGA_PATH);
+        match self.fetch_with_referer(&url, Some(BASE_URL)).await {
+            Ok((status, html)) => {
+                match challenge::detect_challenge(status, &html) {
+                    Some(SourceError::CloudflareChallenge) => Ok(SourceHealth::Blocked),
+                    Some(SourceError::RateLimited) => Ok(SourceHealth::RateLimited),
+                    Some(_) => Ok(SourceHealth::Unavailable),
+                    None => Ok(SourceHealth::Available),
+                }
+            }
+            Err(e) => {
+                let msg = e.to_string();
+                if msg.contains("Cloudflare") || msg.contains("blocking access") {
+                    Ok(SourceHealth::Blocked)
+                } else {
+                    Ok(SourceHealth::Unavailable)
+                }
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn challenge_mapping_403_with_markers_is_cloudflare() {
+        let body = "<title>Just a moment...</title> cloudflare challenge-platform";
+        assert_eq!(
+            challenge::detect_challenge(reqwest::StatusCode::FORBIDDEN, body),
+            Some(SourceError::CloudflareChallenge)
+        );
+        // ToonGod's own body-marker list agrees.
+        assert!(ToonGodSource::detect_cloudflare_block(
+            reqwest::StatusCode::FORBIDDEN,
+            body
+        ));
+    }
+
+    #[test]
+    fn challenge_mapping_429_is_rate_limited() {
+        assert_eq!(
+            challenge::detect_challenge(reqwest::StatusCode::TOO_MANY_REQUESTS, ""),
+            Some(SourceError::RateLimited)
+        );
+    }
+
+    #[test]
+    fn challenge_mapping_404_is_not_found() {
+        assert_eq!(
+            challenge::detect_challenge(reqwest::StatusCode::NOT_FOUND, "nope"),
+            Some(SourceError::NotFound)
+        );
+    }
+
+    #[test]
+    fn status_from_error_extracts_http_codes() {
+        assert_eq!(
+            ToonGodSource::status_from_error("HTTP 429 from https://x after 3 retries"),
+            Some(reqwest::StatusCode::TOO_MANY_REQUESTS)
+        );
+        assert_eq!(
+            ToonGodSource::status_from_error("HTTP 404 from https://x after 3 retries"),
+            Some(reqwest::StatusCode::NOT_FOUND)
+        );
+        assert_eq!(
+            ToonGodSource::status_from_error("connect timeout"),
+            None
+        );
+        assert_eq!(
+            ToonGodSource::status_from_error("HTTP 9999 weird"),
+            None
+        );
+    }
+
+    #[test]
+    fn cf_client_block_message_maps_to_cloudflare_challenge() {
+        let e = ShioriError::Other(
+            "Cloudflare is blocking access to https://www.toongod.org. Shiori cannot bypass it automatically.".into(),
+        );
+        let msg = e.to_string();
+        assert!(msg.contains("Cloudflare"));
+        assert!(msg.contains("blocking access"));
     }
 }

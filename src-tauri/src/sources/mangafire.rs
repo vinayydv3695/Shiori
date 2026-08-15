@@ -11,7 +11,7 @@ use tauri_plugin_android_saf::AndroidSafExt;
 
 use crate::cloudflare::client::CfClient;
 use crate::error::{Result, ShioriError};
-use crate::sources::{Chapter, ContentType, Page, SearchResult, Source, SourceMeta};
+use crate::sources::{Chapter, ContentType, Page, SearchResult, Source, SourceError, SourceMeta};
 
 const BASE_URL: &str = "https://mangafire.to";
 
@@ -28,11 +28,23 @@ const CACHE_MAX_ENTRIES: usize = 50;
 /// while still cutting wall-clock time by ~4x on multi-page series.
 const PAGE_FETCH_CONCURRENCY: usize = 4;
 
+/// Single choke point mapping RPC errors to structured [`SourceError`]s.
+///
+/// The RPC JS throws "Cloudflare Turnstile challenge pending..." when the
+/// challenge page never resolves; a challenge page can also surface through
+/// other messages containing "Cloudflare". Both become
+/// [`SourceError::CloudflareChallenge`] so the frontend shows the Verify hint.
+fn map_rpc_error(e: ShioriError) -> ShioriError {
+    let msg = e.to_string();
+    if msg.contains("Turnstile") || msg.contains("Cloudflare") {
+        return SourceError::CloudflareChallenge.into();
+    }
+    e
+}
+
 pub struct MangaFireSource {
     cf_client: RwLock<Option<Arc<CfClient>>>,
     app_handle: RwLock<Option<tauri::AppHandle>>,
-    #[cfg(not(target_os = "android"))]
-    daemon: tokio::sync::Mutex<Option<Arc<crate::cloudflare::daemon::BrowserDaemon>>>,
     rpc_lock: tokio::sync::Mutex<()>,
     /// content_id -> (cached_at, chapters); TTL [`CHAPTER_CACHE_TTL`].
     chapter_cache: Mutex<HashMap<String, (Instant, Vec<Chapter>)>>,
@@ -45,8 +57,6 @@ impl MangaFireSource {
         Self {
             cf_client: RwLock::new(None),
             app_handle: RwLock::new(None),
-            #[cfg(not(target_os = "android"))]
-            daemon: tokio::sync::Mutex::new(None),
             rpc_lock: tokio::sync::Mutex::new(()),
             chapter_cache: Mutex::new(HashMap::new()),
             pages_cache: Mutex::new(HashMap::new()),
@@ -56,18 +66,6 @@ impl MangaFireSource {
     pub async fn set_cf_client(&self, cf: Arc<CfClient>, app_handle: tauri::AppHandle) {
         *self.cf_client.write().await = Some(cf);
         *self.app_handle.write().await = Some(app_handle);
-    }
-
-    #[cfg(not(target_os = "android"))]
-    async fn get_daemon(&self) -> Result<Arc<crate::cloudflare::daemon::BrowserDaemon>> {
-        let mut guard = self.daemon.lock().await;
-        if let Some(d) = guard.as_ref() {
-            return Ok(d.clone());
-        }
-        let cfg = crate::cloudflare::browser::BrowserConfig::default();
-        let d = crate::cloudflare::daemon::BrowserDaemon::start(&cfg).await?;
-        *guard = Some(d.clone());
-        Ok(d)
     }
 
     async fn wait_for_init(&self) -> Result<()> {
@@ -87,41 +85,21 @@ impl MangaFireSource {
     }
 
     async fn evaluate_js_on_site(&self, js_script: &str) -> Result<String> {
-        // rpc_lock is held across the whole function (including the retry
-        // loop): the RPC webviews are hidden and share the session, so only
-        // one may run at a time.
+        // rpc_lock is held across the whole function: the RPC webviews are
+        // hidden and share the session, so only one may run at a time.
         let _lock = self.rpc_lock.lock().await;
         self.wait_for_init().await?;
         let guard = self.app_handle.read().await;
         if let Some(app) = guard.as_ref() {
             let app = app.clone();
-            let mut turnstile_solved = false;
-            loop {
-                match self.run_rpc_once(&app, js_script).await {
-                    Ok(res) => return Ok(res),
-                    Err(e) if !turnstile_solved && e.to_string().contains("Turnstile") => {
-                        // One-shot visible solve, then one retry. Cookies
-                        // (cf_clearance) solved here land in the shared
-                        // WebKitWebContext and apply to the next RPC webview.
-                        turnstile_solved = true;
-                        log::info!(
-                            "[MangaFire] Turnstile challenge pending, opening visible solver"
-                        );
-                        if crate::cloudflare::webview_solve::solve_turnstile(
-                            &app,
-                            "https://mangafire.to/filter",
-                        )
-                        .await
-                        .is_ok()
-                        {
-                            log::info!("[MangaFire] Turnstile solved, retrying RPC");
-                            continue;
-                        }
-                        return Err(e);
-                    }
-                    Err(e) => return Err(e),
-                }
-            }
+            // Single attempt, no automated Turnstile retry. A challenge is
+            // surfaced as `SourceError::CloudflareChallenge` — the user solves
+            // it manually via Settings → Verify (stored cookies then apply to
+            // the next RPC webview).
+            return match self.run_rpc_once(&app, js_script).await {
+                Ok(res) => Ok(res),
+                Err(e) => Err(map_rpc_error(e)),
+            };
         }
         Err(ShioriError::Other(
             "Browser RPC not initialized for MangaFire".into(),
@@ -410,9 +388,9 @@ impl MangaFireSource {
         {
             // Windowless fast path: CfClient::get_xhr sends the XHR headers
             // (X-Requested-With + sec-fetch-mode) mangafire's API expects plus
-            // stored cf_clearance cookies, so a valid session often answers
-            // without any JS. Only succeeds when a session exists; otherwise
-            // falls through to the daemon/webview RPC below.
+            // stored user-solved cf_clearance cookies, so a valid session
+            // often answers without any JS. Only succeeds when a session
+            // exists; otherwise falls through to the webview RPC below.
             if let Some(cf) = self.cf_client.read().await.as_ref() {
                 match cf
                     .get_xhr(url, "application/json, text/javascript, */*; q=0.01")
@@ -424,57 +402,11 @@ impl MangaFireSource {
                         if !t.starts_with('<') && !s.contains("Just a moment") && !s.contains("challenge-platform") {
                             return Ok(s);
                         }
-                        log::warn!("[MangaFire] get_xhr returned a challenge page, falling back to RPC");
+                        log::warn!("[source:mangafire] get_xhr returned a challenge page, falling back to RPC");
                     }
                     Err(e) => {
-                        log::warn!("[MangaFire] get_xhr failed ({}), falling back to RPC", e);
+                        log::warn!("[source:mangafire] get_xhr failed ({}), falling back to RPC", e);
                     }
-                }
-            }
-
-            // ponytail: the headless-chromium daemon is unreliable against
-            // MangaFire's Cloudflare (headless is fingerprintable; the script
-            // also shipped with a Rust-ism syntax error until recently). Off
-            // by default — enable with SHIORI_MF_DAEMON=1 to iterate. Every
-            // failure path below falls through to the proven webview RPC.
-            let daemon_enabled = std::env::var("SHIORI_MF_DAEMON")
-                .map(|v| v == "1")
-                .unwrap_or(false);
-            if daemon_enabled {
-                if let Ok(daemon) = self.get_daemon().await {
-                match daemon.fetch(url, None).await {
-                    Ok(data) => {
-                        // A stuck Cloudflare challenge makes the daemon serve
-                        // challenge HTML as Ok — never trust it, fall back to
-                        // the webview RPC which carries the real session.
-                        let is_html = data.as_str().map(|s| {
-                            let t = s.trim_start();
-                            t.starts_with('<') || s.contains("Just a moment")
-                        }).unwrap_or(false);
-                        if is_html {
-                            log::warn!("[MangaFire] Daemon returned challenge HTML, falling back to webview RPC");
-                            *self.daemon.lock().await = None;
-                        } else {
-                            return Ok(serde_json::to_string(&data).unwrap_or_default());
-                        }
-                    }
-                    Err(e) => {
-                        log::warn!("[MangaFire] Daemon fetch failed: {}, retrying daemon start", e);
-                        *self.daemon.lock().await = None;
-                        if let Ok(daemon) = self.get_daemon().await {
-                            if let Ok(data) = daemon.fetch(url, None).await {
-                                let is_html = data.as_str().map(|s| {
-                                    let t = s.trim_start();
-                                    t.starts_with('<') || s.contains("Just a moment")
-                                }).unwrap_or(false);
-                                if !is_html {
-                                    return Ok(serde_json::to_string(&data).unwrap_or_default());
-                                }
-                                log::warn!("[MangaFire] Retried daemon still returned challenge HTML, using webview RPC");
-                            }
-                        }
-                    }
-                }
                 }
             }
 
@@ -715,11 +647,18 @@ impl Source for MangaFireSource {
     }
 
     async fn search(&self, query: &str, _page: u32) -> Result<Vec<SearchResult>> {
+        log::info!("[source:mangafire] search started (query={})", query);
         // URL encode the query
         let encoded_query = urlencoding::encode(query);
         let url = format!("/api/titles?keyword={}&page=1&limit=50", encoded_query);
 
-        let json_str = self.fetch_rpc(&url).await?;
+        let json_str = match self.fetch_rpc(&url).await {
+            Ok(s) => s,
+            Err(e) => {
+                log::warn!("[source:mangafire] search failed: {e}");
+                return Err(e);
+            }
+        };
         let res: MfSearchResponse = serde_json::from_str(&json_str).map_err(|e| {
             ShioriError::Other(format!(
                 "Failed to parse MangaFire search JSON: {} - raw: {}",
@@ -743,6 +682,7 @@ impl Source for MangaFireSource {
             });
         }
 
+        log::info!("[source:mangafire] search completed ({} results)", results.len());
         Ok(results)
     }
 
@@ -791,7 +731,13 @@ impl Source for MangaFireSource {
 
         let url = base_url;
 
-        let json_str = self.fetch_rpc(&url).await?;
+        let json_str = match self.fetch_rpc(&url).await {
+            Ok(s) => s,
+            Err(e) => {
+                log::warn!("[source:mangafire] browse failed: {e}");
+                return Err(e);
+            }
+        };
         let res: MfSearchResponse = serde_json::from_str(&json_str).map_err(|e| {
             ShioriError::Other(format!(
                 "Failed to parse MangaFire browse JSON: {} - raw: {}",
@@ -814,10 +760,12 @@ impl Source for MangaFireSource {
             });
         }
 
+        log::info!("[source:mangafire] browse completed ({} results)", results.len());
         Ok(results)
     }
 
     async fn get_chapters(&self, content_id: &str) -> Result<Vec<Chapter>> {
+        log::info!("[source:mangafire] get_chapters started (content={})", content_id);
         let parts: Vec<&str> = content_id.split('|').collect();
         if parts.len() != 2 {
             return Err(ShioriError::Other(
@@ -834,18 +782,33 @@ impl Source for MangaFireSource {
                 );
                 Box::pin(async move { self.fetch_rpc(&url).await })
             })
-            .await?;
+            .await
+            .map_err(|e| {
+                log::warn!("[source:mangafire] get_chapters failed: {e}");
+                e
+            })?;
             Ok(build_chapters(content_id, items))
         })
         .await
+        .map(|chapters| {
+            log::info!("[source:mangafire] get_chapters completed ({} chapters)", chapters.len());
+            chapters
+        })
     }
 
     async fn get_pages(&self, chapter_id: &str) -> Result<Vec<Page>> {
+        log::info!("[source:mangafire] get_pages started (chapter={})", chapter_id);
         cache_get_or_fetch(&self.pages_cache, chapter_id, PAGES_CACHE_TTL, async {
             // chapter_id is just the id (e.g., 7285952)
             let url = format!("/api/chapters/{}", chapter_id);
 
-            let json_str = self.fetch_rpc(&url).await?;
+            let json_str = match self.fetch_rpc(&url).await {
+                Ok(s) => s,
+                Err(e) => {
+                    log::warn!("[source:mangafire] get_pages failed: {e}");
+                    return Err(e);
+                }
+            };
             let res: MfPageResponse = serde_json::from_str(&json_str).map_err(|e| {
                 ShioriError::Other(format!(
                     "Failed to parse MangaFire pages JSON: {} - raw: {}",
@@ -864,6 +827,10 @@ impl Source for MangaFireSource {
             Ok(pages)
         })
         .await
+        .map(|pages| {
+            log::info!("[source:mangafire] get_pages completed ({} pages)", pages.len());
+            pages
+        })
     }
 }
 
@@ -871,6 +838,40 @@ impl Source for MangaFireSource {
 mod tests {
     use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[test]
+    fn rpc_turnstile_error_maps_to_cloudflare_challenge() {
+        let e = ShioriError::Other(
+            "MangaFire RPC JS error: Cloudflare Turnstile challenge pending - please solve via Settings or retry"
+                .into(),
+        );
+        let mapped = map_rpc_error(e);
+        assert_eq!(
+            mapped.to_string(),
+            SourceError::CloudflareChallenge.user_message()
+        );
+    }
+
+    #[test]
+    fn rpc_cloudflare_message_maps_to_cloudflare_challenge() {
+        let e = ShioriError::Other("MangaFire RPC JS error: Cloudflare block".into());
+        let mapped = map_rpc_error(e);
+        assert_eq!(
+            mapped.to_string(),
+            SourceError::CloudflareChallenge.user_message()
+        );
+    }
+
+    #[test]
+    fn rpc_unrelated_errors_pass_through() {
+        let original = "MangaFire RPC timed out";
+        let mapped = map_rpc_error(ShioriError::Other(original.into()));
+        assert_eq!(mapped.to_string(), format!("{}", original));
+
+        let original2 = "extendClient not found";
+        let mapped2 = map_rpc_error(ShioriError::Other(original2.into()));
+        assert_eq!(mapped2.to_string(), format!("{}", original2));
+    }
 
     fn chapter(id: &str, title: &str) -> Chapter {
         Chapter {

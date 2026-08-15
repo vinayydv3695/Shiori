@@ -1,21 +1,20 @@
 #!/usr/bin/env node
 /**
- * cf_solver.mjs  —  Shiori Cloudflare Challenge Solver  (v4 — final)
+ * cf_solver.mjs  —  Shiori Cloudflare Challenge Solver  (v5 — visible-only)
  *
  * Usage:
- *   node cf_solver.mjs <url> [headless|visible] [timeout_secs]
+ *   node cf_solver.mjs <url> visible <timeout_secs>
  *
  * Output (stdout, last JSON line):
  *   { "cookies": [...], "user_agent": "...", "final_url": "..." }
  *
  * Exit codes:  0 = success   1 = challenge not solved
  *
- * KEY FINDINGS:
- *   ✓ System Chrome (google-chrome-stable) passes CF Turnstile automatically.
- *   ✗ addInitScript() stealth patches break Turnstile (it detects the injection).
- *   ✗ --disable-gpu, --no-zygote, --disable-dev-shm-usage change fingerprint.
- *   ✓ Only 2 extra args needed: --no-sandbox --disable-blink-features=AutomationControlled
- *   ✓ Turnstile auto-resolves in ~5-15 seconds with a real Chrome binary.
+ * SECURITY POSTURE:
+ *   This script is invoked ONLY by the user-initiated `cf_solve` command
+ *   (Settings → Verify). It opens a fully visible browser with NO automation:
+ *   no stealth flags, no auto-clicking, no token extraction. The user
+ *   completes any Cloudflare/Turnstile verification themselves in the window.
  */
 
 import { chromium }   from 'playwright';
@@ -25,11 +24,15 @@ import { existsSync } from 'fs';
 const [, , targetUrl, modeArg, timeoutArg] = process.argv;
 
 if (!targetUrl) {
-  console.error('Usage: node cf_solver.mjs <url> [headless|visible] [timeout_secs]');
+  console.error('Usage: node cf_solver.mjs <url> visible <timeout_secs>');
   process.exit(1);
 }
 
-const wantHeadless = (modeArg === 'headless');
+if (modeArg !== 'visible') {
+  console.error('[solver] Only visible mode is supported — no headless automation.');
+  process.exit(1);
+}
+
 const timeoutMs   = parseInt(timeoutArg || '120', 10) * 1000;
 
 // ─── Find system Chrome ───────────────────────────────────────────────────────
@@ -88,68 +91,20 @@ function findClearanceFor(cookies, targetHost) {
   });
 }
 
-// ─── Turnstile auto-interaction (headless only) ───────────────────────────────
-
-const TURNSTILE_MAX_TRIES = 30;
-const TURNSTILE_SELECTORS = [
-  'input[type=checkbox]',
-  'button:has-text("Verify")',
-  '#challenge-stage input',
-  'button:has-text("I\'m human")',
-  'button:has-text("I am human")',
-  'button:has-text("Im human")',
-];
-
-/**
- * Best-effort click on the Turnstile widget inside the Cloudflare challenge
- * frame.  Returns:
- *   'done'    — page URL/title no longer looks like a challenge (stop clicking)
- *   'clicked' — a click was attempted
- *   null      — no challenge frame / no clickable widget found
- */
-async function tryClickTurnstile(page) {
-  const frame = page.frames().find(f => f.url().includes('challenges.cloudflare.com'));
-  if (!frame) return null;
-
-  const url   = page.url().toLowerCase();
-  const title = (await page.title().catch(() => '')).toLowerCase();
-  if (!url.includes('challenge') && !title.includes('just a moment')) return 'done';
-
-  for (const sel of TURNSTILE_SELECTORS) {
-    console.error(`[solver] Turnstile click attempt: ${sel}`);
-    try {
-      // Short per-selector timeout — the default would be the whole solver
-      // timeout (50s+) and block the poll loop for each selector.
-      await frame.click(sel, { timeout: 1500 });
-      console.error(`[solver]   ✓ clicked ${sel}`);
-      return 'clicked';
-    } catch (_) {
-      // Not present / not actionable — try the next selector.
-    }
-  }
-  return null;
-}
-
 // ─── Main solver ──────────────────────────────────────────────────────────────
 
-async function runSolver(headless) {
+async function runSolver() {
   const executablePath = findSystemChrome();
 
   const browser = await chromium.launch({
-    headless,
+    headless: false,
     executablePath: executablePath || undefined,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
-      // Removes the "Chrome is being controlled by automated software" banner
-      // and the navigator.webdriver=true flag that CF Turnstile checks.
-      '--disable-blink-features=AutomationControlled',
-      // Headless gets a smaller window; visible keeps the historical size.
-      headless ? '--window-size=1280,900' : '--window-size=1366,768',
+      '--window-size=1366,768',
       '--lang=en-US',
     ],
-    ignoreDefaultArgs: ['--enable-automation'],
-    // Do NOT use slowMo — it doesn't help and slows us down.
   });
 
   const context = await browser.newContext({
@@ -158,7 +113,6 @@ async function runSolver(headless) {
     viewport:          { width: 1366, height: 768 },
     acceptDownloads:   false,
     javaScriptEnabled: true,
-    // Do NOT call addInitScript here — any script injection is detected by Turnstile.
   });
 
   const page = await context.newPage();
@@ -169,20 +123,17 @@ async function runSolver(headless) {
   let userAgent = '';
 
   try {
-    console.error(`[solver] Navigating (${headless ? 'headless' : 'visible'}) → ${targetUrl}`);
+    console.error(`[solver] Navigating (visible) → ${targetUrl}`);
     await page.goto(targetUrl, { waitUntil: 'domcontentloaded' }).catch(() => {});
 
     userAgent = await page.evaluate(() => navigator.userAgent).catch(() => '');
     console.error(`[solver] UA: ${userAgent.slice(0, 100)}`);
 
-    if (!headless) {
-      console.error('[solver] ▶ Browser window is open. Turnstile usually auto-solves in ~10s.');
-      console.error('[solver] ▶ If a checkbox appears, click "Verify you are human".');
-    }
+    console.error('[solver] ▶ Browser window is open. If a challenge appears, complete it yourself.');
+    console.error('[solver] ▶ Waiting for cf_clearance — no automatic interaction is performed.');
 
-    const deadline      = Date.now() + timeoutMs;
-    let   lastLog       = 0;
-    let   turnstileTries = 0;
+    const deadline = Date.now() + timeoutMs;
+    let   lastLog  = 0;
 
     while (Date.now() < deadline) {
       const raw     = await context.cookies().catch(() => []);
@@ -218,18 +169,6 @@ async function runSolver(headless) {
         return true;
       }
 
-      // Headless only: auto-click the Turnstile widget (every ~1s, ≤30 real
-      // attempts — only counted when a challenge frame is actually present).
-      // Visible mode keeps its historical manual flow — do not touch it.
-      if (headless && turnstileTries < TURNSTILE_MAX_TRIES) {
-        const r = await tryClickTurnstile(page).catch(() => null);
-        if (r === 'done') {
-          turnstileTries = TURNSTILE_MAX_TRIES; // challenge gone — stop clicking
-        } else if (r !== null) {
-          turnstileTries += 1; // frame present → counts as one attempt
-        }
-      }
-
       // Log status every 5s.
       const now = Date.now();
       if (now - lastLog > 5000) {
@@ -239,9 +178,9 @@ async function runSolver(headless) {
         const lo        = content.toLowerCase();
 
         if (lo.includes('just a moment') || lo.includes('checking your browser') || lo.includes('challenge-platform')) {
-          console.error(`[solver] CF challenge visible — ${remaining}s left`);
+          console.error(`[solver] CF challenge visible — complete it in the window (${remaining}s left)`);
         } else if (lo.includes('verify you are human')) {
-          console.error(`[solver] Turnstile waiting for click — ${remaining}s left`);
+          console.error(`[solver] Turnstile waiting for manual click — ${remaining}s left`);
         } else if (content.length > 5000 && !lo.includes('challenge')) {
           // Real content without cf_clearance (CF not enforcing on this request).
           console.error('[solver] Real content loaded without cf_clearance — accepting');
@@ -275,7 +214,7 @@ async function runSolver(headless) {
 }
 
 async function main() {
-  const ok = await runSolver(wantHeadless);
+  const ok = await runSolver();
   process.exit(ok ? 0 : 1);
 }
 

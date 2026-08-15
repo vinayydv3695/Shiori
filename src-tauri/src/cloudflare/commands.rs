@@ -82,22 +82,18 @@ pub async fn cf_session_status(
 }
 
 /// Launch the Playwright browser to solve the CF challenge for `url`.
-/// This can open a visible browser window if headless fails.
+/// User-initiated (Settings → Verify): opens a VISIBLE browser with no
+/// automation — the user completes any verification themselves.
 #[tauri::command]
 pub async fn cf_solve(
     app: tauri::AppHandle,
     cf_state: State<'_, CloudflareState>,
     url: String,
-    headless_only: Option<bool>,
+    _headless_only: Option<bool>, // kept for frontend compat; no headless mode exists
 ) -> Result<SolveResult> {
     let host = host_from_url(&url);
 
-    let mut cfg = BrowserConfig::default();
-    if headless_only == Some(true) {
-        cfg.try_headless_first = true;
-        // We'll make visible fallback disabled by signalling through a flag.
-        // The browser module already handles this gracefully.
-    }
+    let cfg = BrowserConfig::default();
 
     let session = solve(&url, &host, &cfg, Some(&app))
         .await

@@ -1,11 +1,11 @@
 /// Cloudflare-aware HTTP client wrapper.
 ///
-/// Wraps `reqwest::Client` and automatically:
-///  1. Injects the stored CF cookies + User-Agent on every request.
-///  2. Detects CF blocks in responses.
-///  3. Re-runs the Playwright solver to refresh the session when needed.
-///  4. Retries the original request with the new session.
-///  5. Applies configurable rate-limiting / backoff between retries.
+/// Wraps `reqwest::Client` and:
+///  1. Injects the stored user-solved cookies + User-Agent on every request.
+///  2. Detects CF blocks in responses and FAILS GRACEFULLY — no automatic
+///     solving, no retry loops against the challenge. The user solves in
+///     their own browser via Settings → Verify (`cf_solve`).
+///  3. Applies configurable rate-limiting / backoff between retries.
 ///
 /// ## Usage
 ///
@@ -20,7 +20,7 @@ use tokio::sync::Semaphore;
 use tokio::time::sleep;
 
 use crate::cloudflare::{
-    browser::{self, BrowserConfig},
+    browser::BrowserConfig,
     detector,
     session::{CfSession, SessionStore},
 };
@@ -181,8 +181,8 @@ impl CfClient {
                     if session_refreshed || attempt >= MAX_RETRIES {
                         return Err(ShioriError::Other(format!(
                             "Cloudflare is blocking access to {url}. \
-                             The browser solver has already been attempted. \
-                             Please check your network connection or try again later."
+                             Shiori cannot bypass it automatically — use Verify in Settings \
+                             after solving the challenge in your browser."
                         )));
                     }
                     log::warn!("[CfClient] CF block detected at {url} (attempt {attempt}) — refreshing session");
@@ -223,9 +223,12 @@ impl CfClient {
             .ok_or_else(|| ShioriError::Other("Session was not saved after solving".to_string()))
     }
 
-    /// Force-refresh the CF session.  Tries the windowless headless harvest
-    /// first, then falls back to the visible Playwright solver window.
-    /// This is serialised — only one solve runs at a time.
+    /// Force-refresh the CF session.
+    ///
+    /// NEVER launches any solver automatically — the only solve path is the
+    /// user-initiated visible `cf_solve` command. If the stored session is
+    /// already valid, this is a no-op; otherwise it fails so the caller
+    /// surfaces the Cloudflare block gracefully.
     pub async fn refresh_session(&self, url: &str) -> Result<()> {
         let _lock = self.solve_lock.lock().await;
 
@@ -233,34 +236,16 @@ impl CfClient {
         if let Some(sess) = self.store.get(&self.host) {
             if sess.has_valid_clearance() {
                 log::info!(
-                    "[CfClient] Session already refreshed by another task — skipping solver"
+                    "[CfClient] Session already refreshed by another task — skipping"
                 );
                 return Ok(());
             }
         }
 
-        log::info!("[CfClient] Launching Playwright solver for {}", self.host);
-
-        // Windowless harvest first (Komikku technique) — no visible window.
-        // Fall back to the visible solver only if headless truly fails.
-        match browser::harvest(url, &self.host, &self.browser_cfg).await {
-            Ok(session) => {
-                self.store.save(session)?;
-                log::info!("[CfClient] Headless harvest succeeded for {}", self.host);
-                return Ok(());
-            }
-            Err(e) => {
-                log::warn!(
-                    "[CfClient] Headless harvest failed for {}: {e} — falling back to visible solver",
-                    self.host
-                );
-            }
-        }
-
-        let session = browser::solve(url, &self.host, &self.browser_cfg, self.app_handle.as_ref()).await?;
-        self.store.save(session)?;
-        log::info!("[CfClient] ✓ Session saved for {}", self.host);
-        Ok(())
+        log::warn!("[CfClient] No valid session and auto-solve is disabled — blocking at {url}");
+        Err(ShioriError::Other(format!(
+            "Cloudflare is blocking access to {url}. Open Settings → Verify and solve the challenge in your browser to continue."
+        )))
     }
 
     /// Invalidate the current session (next request will re-solve).
@@ -375,7 +360,7 @@ impl CfClient {
                 if detector::is_blocked(status, &body_str) {
                     if session_refreshed || attempt >= MAX_RETRIES {
                         return Err(ShioriError::Other(format!(
-                            "Cloudflare blocking XHR to {url}"
+                            "Cloudflare is blocking access to {url}. Shiori cannot bypass it automatically — use Verify in Settings after solving the challenge in your browser."
                         )));
                     }
                     log::warn!("[CfClient] CF block on XHR {url} — refreshing session");

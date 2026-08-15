@@ -61,26 +61,26 @@ export function AniListUserSocialView({ userId }: { userId: number }) {
   }
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="show" className="flex flex-col gap-8 pb-12">
+    <motion.div variants={containerVariants} initial="hidden" animate="show" className="flex flex-col gap-6 pb-12">
       <motion.div variants={itemVariants}>
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Following ({following.length})</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <h3 className="text-xs font-extrabold text-muted-foreground uppercase tracking-wider mb-3">Following ({following.length})</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {following.length === 0 ? <p className="text-muted-foreground text-sm">Not following anyone.</p> : following.map(u => (
-            <motion.div variants={itemVariants} key={u.id} className="flex items-center gap-3 bg-secondary/10 p-3 rounded-xl border border-border/20">
-              <img src={u.avatar.large} alt={u.name} className="w-12 h-12 rounded-full object-cover" />
-              <span className="font-medium text-foreground">{u.name}</span>
+            <motion.div variants={itemVariants} key={u.id} className="flex items-center gap-3 bg-secondary/40 hover:bg-secondary/70 p-3 rounded-2xl border border-border/50 shadow-xs transition-colors">
+              <img src={u.avatar.large} alt={u.name} className="w-11 h-11 rounded-full object-cover border-2 border-card shadow-xs" />
+              <span className="font-bold text-foreground text-sm">{u.name}</span>
             </motion.div>
           ))}
         </div>
       </motion.div>
       
       <motion.div variants={itemVariants}>
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Followers ({followers.length})</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <h3 className="text-xs font-extrabold text-muted-foreground uppercase tracking-wider mb-3">Followers ({followers.length})</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {followers.length === 0 ? <p className="text-muted-foreground text-sm">No followers.</p> : followers.map(u => (
-            <motion.div variants={itemVariants} key={u.id} className="flex items-center gap-3 bg-secondary/10 p-3 rounded-xl border border-border/20">
-              <img src={u.avatar.large} alt={u.name} className="w-12 h-12 rounded-full object-cover" />
-              <span className="font-medium text-foreground">{u.name}</span>
+            <motion.div variants={itemVariants} key={u.id} className="flex items-center gap-3 bg-secondary/40 hover:bg-secondary/70 p-3 rounded-2xl border border-border/50 shadow-xs transition-colors">
+              <img src={u.avatar.large} alt={u.name} className="w-11 h-11 rounded-full object-cover border-2 border-card shadow-xs" />
+              <span className="font-bold text-foreground text-sm">{u.name}</span>
             </motion.div>
           ))}
         </div>

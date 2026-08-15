@@ -35,18 +35,18 @@ export function AniListMangaStatistics({ stats }: AniListMangaStatisticsProps) {
     <div className="flex flex-col gap-8 pb-12">
       {/* Top Metrics Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-        <MetricCard label="Total Manga" value={stats.count} icon={<BookOpen className="w-5 h-5 text-primary/80" />} />
-        <MetricCard label="Chapters Read" value={stats.chaptersRead} icon={<Layers className="w-5 h-5 text-primary/80" />} />
-        <MetricCard label="Days Read" value={estimatedDaysRead} icon={<CalendarDays className="w-5 h-5 text-primary/80" />} />
-        <MetricCard label="Mean Score" value={stats.meanScore.toFixed(2)} icon={<Star className="w-5 h-5 text-primary/80" />} />
-        <MetricCard label="Standard Dev" value={stats.standardDeviation.toFixed(2)} icon={<TrendingUp className="w-5 h-5 text-primary/80" />} />
+        <MetricCard label="Total Manga" value={stats.count} icon={<BookOpen className="w-5 h-5 text-primary" />} />
+        <MetricCard label="Chapters Read" value={stats.chaptersRead} icon={<Layers className="w-5 h-5 text-primary" />} />
+        <MetricCard label="Days Read" value={estimatedDaysRead} icon={<CalendarDays className="w-5 h-5 text-primary" />} />
+        <MetricCard label="Mean Score" value={stats.meanScore.toFixed(2)} icon={<Star className="w-5 h-5 text-amber-500 fill-amber-500" />} />
+        <MetricCard label="Standard Dev" value={stats.standardDeviation.toFixed(2)} icon={<TrendingUp className="w-5 h-5 text-primary" />} />
       </div>
 
       {/* Score Distribution */}
-      <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Score</h3>
-        <div className="flex flex-col gap-3 bg-secondary/10 p-4 rounded-xl border border-border/20">
-          <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground mb-1 pb-2 border-b border-border/20">
+      <div className="space-y-3">
+        <h3 className="text-xs font-extrabold text-muted-foreground uppercase tracking-wider">Score Distribution</h3>
+        <div className="flex flex-col gap-2.5 bg-secondary/40 p-4 rounded-2xl border border-border/50 shadow-xs">
+          <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground mb-1 pb-2 border-b border-border/40">
             <span className="w-8">Score</span>
             <span className="flex-1 px-4">% Titles</span>
             <span className="w-12 text-right">Count</span>
@@ -56,17 +56,17 @@ export function AniListMangaStatistics({ stats }: AniListMangaStatisticsProps) {
             const fillWidth = ((s.count / maxScoreCount) * 100) + '%';
             return (
               <div key={s.score} className="flex items-center text-sm relative group">
-                <span className="w-8 font-medium">{s.score}</span>
+                <span className="w-8 font-bold text-foreground font-mono">{s.score}</span>
                 <div className="flex-1 px-4 relative h-6 flex items-center">
-                  <div className="absolute inset-y-1 left-4 rounded-md bg-primary/20 overflow-hidden" style={{ width: `calc(100% - 2rem)` }}>
+                  <div className="absolute inset-y-1 left-4 rounded-md bg-secondary/80 border border-border/40 overflow-hidden" style={{ width: `calc(100% - 2rem)` }}>
                     <div 
-                      className="h-full bg-primary/70 group-hover:bg-primary transition-all duration-500 rounded-md shadow-[inset_0_1px_3px_rgba(255,255,255,0.2)]" 
+                      className="h-full bg-primary transition-all duration-500 rounded-sm shadow-xs" 
                       style={{ width: fillWidth }}
                     />
                   </div>
-                  <span className="relative z-10 text-xs ml-2 font-medium opacity-80 mix-blend-difference text-white">{percentage}%</span>
+                  <span className="relative z-10 text-xs ml-2 font-bold font-mono text-foreground">{percentage}%</span>
                 </div>
-                <span className="w-12 text-right font-medium">{s.count}</span>
+                <span className="w-12 text-right font-bold text-foreground font-mono">{s.count}</span>
               </div>
             );
           })}
@@ -74,10 +74,10 @@ export function AniListMangaStatistics({ stats }: AniListMangaStatisticsProps) {
       </div>
 
       {/* Length Distribution */}
-      <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Chapters</h3>
-        <div className="flex flex-col gap-3 bg-secondary/10 p-4 rounded-xl border border-border/20">
-          <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground mb-1 pb-2 border-b border-border/20">
+      <div className="space-y-3">
+        <h3 className="text-xs font-extrabold text-muted-foreground uppercase tracking-wider">Chapter Lengths</h3>
+        <div className="flex flex-col gap-2.5 bg-secondary/40 p-4 rounded-2xl border border-border/50 shadow-xs">
+          <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground mb-1 pb-2 border-b border-border/40">
             <span className="w-16">Length</span>
             <span className="flex-1 px-4">% Titles</span>
             <span className="w-12 text-right">Count</span>
@@ -87,17 +87,17 @@ export function AniListMangaStatistics({ stats }: AniListMangaStatisticsProps) {
             const fillWidth = ((l.count / maxLengthCount) * 100) + '%';
             return (
               <div key={l.length} className="flex items-center text-sm relative group">
-                <span className="w-16 font-medium truncate">{l.length}</span>
+                <span className="w-16 font-bold text-foreground truncate text-xs">{l.length}</span>
                 <div className="flex-1 px-4 relative h-6 flex items-center">
-                  <div className="absolute inset-y-1 left-4 rounded-md bg-primary/20 overflow-hidden" style={{ width: `calc(100% - 2rem)` }}>
+                  <div className="absolute inset-y-1 left-4 rounded-md bg-secondary/80 border border-border/40 overflow-hidden" style={{ width: `calc(100% - 2rem)` }}>
                     <div 
-                      className="h-full bg-primary/70 group-hover:bg-primary transition-all duration-500 rounded-md shadow-[inset_0_1px_3px_rgba(255,255,255,0.2)]" 
+                      className="h-full bg-primary transition-all duration-500 rounded-sm shadow-xs" 
                       style={{ width: fillWidth }}
                     />
                   </div>
-                  <span className="relative z-10 text-xs ml-2 font-medium opacity-80 mix-blend-difference text-white">{percentage}%</span>
+                  <span className="relative z-10 text-xs ml-2 font-bold font-mono text-foreground">{percentage}%</span>
                 </div>
-                <span className="w-12 text-right font-medium">{l.count}</span>
+                <span className="w-12 text-right font-bold text-foreground font-mono">{l.count}</span>
               </div>
             );
           })}
@@ -105,7 +105,7 @@ export function AniListMangaStatistics({ stats }: AniListMangaStatisticsProps) {
       </div>
 
       {/* Pie Charts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <PieChartCard title="Format Distribution" data={stats.formats} nameKey="format" valueKey="count" />
         <PieChartCard title="Status Distribution" data={stats.statuses} nameKey="status" valueKey="count" />
         <PieChartCard title="Country Distribution" data={stats.countries} nameKey="country" valueKey="count" />
@@ -116,11 +116,11 @@ export function AniListMangaStatistics({ stats }: AniListMangaStatisticsProps) {
 
 function MetricCard({ label, value, icon }: { label: string, value: string | number, icon: React.ReactNode }) {
   return (
-    <div className="bg-secondary/20 p-4 rounded-xl border border-border/10 flex items-center gap-3">
+    <div className="bg-secondary/40 p-4 rounded-2xl border border-border/50 shadow-xs flex items-center gap-3">
       <div className="shrink-0">{icon}</div>
       <div className="flex-1 min-w-0">
-        <div className="text-[10px] sm:text-xs text-muted-foreground font-medium mb-0.5 uppercase tracking-wide truncate">{label}</div>
-        <div className="font-bold text-foreground text-sm sm:text-base truncate">{value}</div>
+        <div className="text-[10px] sm:text-xs text-muted-foreground font-extrabold mb-0.5 uppercase tracking-wide truncate">{label}</div>
+        <div className="font-black text-foreground text-sm sm:text-base font-mono truncate">{value}</div>
       </div>
     </div>
   );
@@ -132,8 +132,8 @@ function PieChartCard({ title, data, nameKey, valueKey }: { title: string, data:
   
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{title}</h3>
-      <div className="bg-secondary/10 rounded-xl border border-border/20 p-4 flex flex-col items-center gap-6 h-[250px] relative">
+      <h3 className="text-xs font-extrabold text-muted-foreground uppercase tracking-wider">{title}</h3>
+      <div className="bg-secondary/40 rounded-2xl border border-border/50 p-4 flex flex-col items-center gap-4 h-[260px] relative shadow-xs">
         {!hasData ? (
            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">No data</div>
         ) : (

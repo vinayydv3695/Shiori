@@ -61,40 +61,40 @@ export function AniListUserMangaView({ userId }: { userId: number }) {
 
   if (!shelf || shelf.lists.length === 0) {
     return (
-      <motion.div initial="hidden" animate="show" variants={itemVariants} className="text-center py-12 bg-secondary/10 rounded-xl border border-border/20">
+      <motion.div initial="hidden" animate="show" variants={itemVariants} className="text-center py-12 bg-secondary/30 rounded-2xl border border-border/50 shadow-xs">
         <BookOpen className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
-        <p className="text-muted-foreground">You don't have any manga in your lists yet.</p>
+        <p className="text-muted-foreground font-medium">You don't have any manga in your lists yet.</p>
       </motion.div>
     );
   }
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="show" className="flex flex-col gap-8 pb-12">
+    <motion.div variants={containerVariants} initial="hidden" animate="show" className="flex flex-col gap-6 pb-12">
       {shelf.lists.map(list => (
-        <div key={list.name} className="space-y-4">
-          <motion.div variants={itemVariants} className="flex items-center gap-3">
-            <h3 className="font-bold text-lg">{list.name}</h3>
-            <span className="bg-secondary/50 text-secondary-foreground text-xs px-2 py-0.5 rounded-full font-medium">
+        <div key={list.name} className="space-y-3">
+          <motion.div variants={itemVariants} className="flex items-center gap-2.5">
+            <h3 className="font-extrabold text-base text-foreground tracking-tight">{list.name}</h3>
+            <span className="bg-primary/10 text-primary border border-primary/20 text-xs px-2.5 py-0.5 rounded-full font-bold font-mono">
               {list.entries.length}
             </span>
           </motion.div>
           
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5">
             {list.entries.slice(0, 10).map(entry => (
-              <motion.div variants={itemVariants} key={entry.id} className="group relative aspect-[2/3] rounded-xl overflow-hidden cursor-pointer bg-secondary/20 shadow-sm border border-border/10">
-                <img src={entry.media.coverImage.large} alt={entry.media.title.romaji} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+              <motion.div variants={itemVariants} key={entry.id} className="group relative aspect-[2/3] rounded-2xl overflow-hidden cursor-pointer bg-secondary/30 shadow-xs border border-border/40 hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+                <img src={entry.media.coverImage.large} alt={entry.media.title.romaji} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end p-3 opacity-100">
-                  <h4 className="font-bold text-white text-xs line-clamp-2 leading-tight mb-1">{entry.media.title.english || entry.media.title.romaji}</h4>
-                  <div className="flex items-center justify-between text-[10px] font-medium text-white/80">
+                  <h4 className="font-bold text-white text-xs line-clamp-2 leading-snug mb-1">{entry.media.title.english || entry.media.title.romaji}</h4>
+                  <div className="flex items-center justify-between text-[10px] font-bold text-white/90 font-mono">
                     <span>Ch. {entry.progress}{entry.media.chapters ? ` / ${entry.media.chapters}` : ''}</span>
-                    {entry.score > 0 && <span>⭐ {entry.score}</span>}
+                    {entry.score > 0 && <span className="text-amber-400">★ {entry.score}</span>}
                   </div>
                 </div>
               </motion.div>
             ))}
           </div>
           {list.entries.length > 10 && (
-            <p className="text-xs text-muted-foreground mt-2 italic">+ {list.entries.length - 10} more in your main dashboard</p>
+            <p className="text-xs text-muted-foreground font-medium italic">+ {list.entries.length - 10} more in your main dashboard</p>
           )}
         </div>
       ))}

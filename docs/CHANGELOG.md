@@ -1,3 +1,13 @@
+# Release Notes (v2.3.22)
+
+## Improvements & Fixes
+
+- **AniList Profile & Activity Views** — Fully refreshed AniList user profile, activity feed, social tabs, and manga statistics views with theme-adaptive cards, smooth gradients, and Android-friendly touch targets.
+- **AniList Reviews & Forum Discussions** — Added support for reading and opening AniList reviews as well as user forum discussion threads with rich previews and metric counters.
+- **Redesigned AniList Import Dialog** — Upgraded the AniList manga import dialog to a spacious multi-column poster grid with high-resolution covers, live filters, and quick bulk actions.
+- **Multi-Source Online Manga Fallback** — Added fast MangaDex lookup with resilient multi-source fallbacks (MangaFire, ToonGod, ManhwaRead) and timeout protection during AniList library sync.
+- **Live Sync Dashboard** — Revamped the import progress view into an immersive split-canvas dashboard with a large hero cover showcase, smooth progress bar, and real-time sync queue.
+
 # Release Notes (v2.3.17)
 
 ## Improvements & Fixes

@@ -587,14 +587,28 @@ export interface AnilistFavourite {
 export interface AnilistReview {
   id: number;
   summary: string;
+  body?: string;
   score: number;
   rating: number;
   createdAt: number;
+  siteUrl?: string;
   media: {
     id: number;
     title: { romaji: string; english?: string };
     coverImage: { large: string };
   };
+}
+
+export interface AnilistThread {
+  id: number;
+  title: string;
+  body?: string;
+  replyCount: number;
+  viewCount: number;
+  createdAt: number;
+  siteUrl?: string;
+  categories?: { id: number; name: string }[];
+  mediaCategories?: { id: number; title: { romaji: string; english?: string }; coverImage: { large: string } }[];
 }
 
 export async function getUserSocial(userId: number, token: string): Promise<{ following: AnilistUserSocial[], followers: AnilistUserSocial[] }> {
@@ -652,12 +666,14 @@ export async function getUserReviews(userId: number, token: string): Promise<Ani
   const query = `
     query ($userId: Int!) {
       Page(perPage: 50) {
-        reviews(userId: $userId, mediaType: MANGA, sort: [UPDATED_AT_DESC, CREATED_AT_DESC]) {
+        reviews(userId: $userId, sort: [ID_DESC]) {
           id
           summary
+          body
           score
           rating
           createdAt
+          siteUrl
           media {
             id
             title { romaji english }
@@ -668,7 +684,36 @@ export async function getUserReviews(userId: number, token: string): Promise<Ani
     }
   `;
   const data = await fetchAnilistAPI(query, { userId }, token);
-  return data.Page.reviews;
+  return data?.Page?.reviews || [];
+}
+
+export async function getUserThreads(userId: number, token: string): Promise<AnilistThread[]> {
+  const query = `
+    query ($userId: Int!) {
+      Page(perPage: 50) {
+        threads(userId: $userId, sort: [ID_DESC]) {
+          id
+          title
+          body
+          replyCount
+          viewCount
+          createdAt
+          siteUrl
+          categories {
+            id
+            name
+          }
+          mediaCategories {
+            id
+            title { romaji english }
+            coverImage { large }
+          }
+        }
+      }
+    }
+  `;
+  const data = await fetchAnilistAPI(query, { userId }, token);
+  return data?.Page?.threads || [];
 }
 
 export async function saveReview(mediaId: number, body: string, summary: string, score: number, token: string) {

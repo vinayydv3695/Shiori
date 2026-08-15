@@ -52,6 +52,9 @@ pub struct ToonGodConfig {
 }
 
 pub struct ToonGodSource {
+    /// Effective base URL: [`BASE_URL`] by default, overridable via the
+    /// `TOONGOD_BASE` env var (mirrors mangadex's `MANGADEX_API_BASE`).
+    base_url: String,
     config: RwLock<ToonGodConfig>,
     cf_client: RwLock<Option<Arc<CfClient>>>,
     app_handle: RwLock<Option<tauri::AppHandle>>,
@@ -65,7 +68,13 @@ pub struct ToonGodSource {
 
 impl ToonGodSource {
     pub fn new() -> Result<Self> {
+        // Base URL override, read once at construction exactly like mangadex
+        // reads MANGADEX_API_BASE (`std::env::var(...).unwrap_or_else(...)`).
+        // Unset in production → BASE_URL; set by hermetic tests → mock server.
+        let base_url = std::env::var("TOONGOD_BASE")
+            .unwrap_or_else(|_| BASE_URL.to_string());
         Ok(Self {
+            base_url,
             config: RwLock::new(ToonGodConfig::default()),
             cf_client: RwLock::new(None),
             app_handle: RwLock::new(None),
@@ -78,6 +87,21 @@ impl ToonGodSource {
     pub async fn set_cf_client(&self, cf: Arc<CfClient>, app_handle: tauri::AppHandle) {
         *self.cf_client.write().await = Some(cf);
         *self.app_handle.write().await = Some(app_handle);
+    }
+
+    /// Test-only constructor: wire a real [`CfClient`] (fresh throwaway
+    /// session store) to a `base_url` such as a wiremock server. No Tauri
+    /// AppHandle is involved, so the webview `evaluate_js` fallback is
+    /// unavailable on this instance — fine for offline tests, which only
+    /// exercise the CfClient fetch path.
+    pub async fn new_with_cf_client(base_url: &str) -> Result<Self> {
+        let store = crate::cloudflare::session::SessionStore::new(
+            std::env::temp_dir().join("shiori-cf-mock-sessions"),
+        )?;
+        let cf = Arc::new(CfClient::new(base_url, store)?);
+        let source = Self::new()?;
+        *source.cf_client.write().await = Some(cf);
+        Ok(source)
     }
 
     #[allow(dead_code)]
@@ -370,6 +394,31 @@ impl ToonGodSource {
         }
     }
 
+    /// SSRF guard for the fetch path. Production (`TOONGOD_BASE` unset)
+    /// delegates to the crate-wide `validate_fetch_url`. When the base URL
+    /// has been overridden (offline tests/CI pointing at a local mock), only
+    /// URLs on the override host are fetchable — scraped external URLs stay
+    /// blocked, so the override never weakens the guard.
+    fn guarded_fetch_url(&self, url: &str) -> Result<()> {
+        if std::env::var("TOONGOD_BASE").is_ok() {
+            let base_host = url::Url::parse(&self.base_url)
+                .ok()
+                .and_then(|u| u.host_str().map(|h| h.to_ascii_lowercase()))
+                .unwrap_or_default();
+            let host = url::Url::parse(url)
+                .ok()
+                .and_then(|u| u.host_str().map(|h| h.to_ascii_lowercase()))
+                .unwrap_or_default();
+            if !host.is_empty() && host == base_host {
+                return Ok(());
+            }
+            return Err(ShioriError::Other(format!(
+                "Blocked URL (SSRF guard, override host only): {url}"
+            )));
+        }
+        crate::validate_fetch_url(url)
+    }
+
     /// Fetches `url` via plain HTTP carrying the stored user-solved session.
     /// No automated anti-bot machinery: a Cloudflare challenge is DETECTED and
     /// surfaced as [`SourceError::CloudflareChallenge`] — the user verifies
@@ -388,7 +437,7 @@ impl ToonGodSource {
         _referer: Option<&str>,
     ) -> Result<(reqwest::StatusCode, String)> {
         // SSRF guard: re-validate scraped URLs before navigating to them.
-        crate::validate_fetch_url(url)?;
+        self.guarded_fetch_url(url)?;
         let cf = self.cf_client.read().await.clone().ok_or_else(|| {
             ShioriError::Other("ToonGod source CfClient not initialized".into())
         })?;
@@ -441,7 +490,7 @@ impl ToonGodSource {
         }
 
         // Try old admin-ajax endpoint: `action=manga_get_chapters&manga={manga_id}`
-        let old_ajax_url = format!("{}/wp-admin/admin-ajax.php", BASE_URL);
+        let old_ajax_url = format!("{}/wp-admin/admin-ajax.php", self.base_url);
         let body_old = format!("action=manga_get_chapters&manga={}", manga_id);
         if let Ok(bytes) = cf
             .request_bytes(reqwest::Method::POST, &old_ajax_url, None, Some(body_old))
@@ -542,7 +591,7 @@ impl Source for ToonGodSource {
                 };
                 let url = format!(
                     "{}/{}?s={}&post_type=wp-manga",
-                    BASE_URL,
+                    self.base_url,
                     page_path,
                     urlencoding::encode(query)
                 );
@@ -656,7 +705,7 @@ impl Source for ToonGodSource {
 
         let url = format!(
             "{}/home/{}?m_orderby={}{}",
-            BASE_URL, page_path, order, genre_query
+            self.base_url, page_path, order, genre_query
         );
 
         let (status, html) = match self.fetch_with_referer(&url, Some(BASE_URL)).await {
@@ -741,11 +790,11 @@ impl Source for ToonGodSource {
                 let manga_url = if content_id.starts_with("http") {
                     content_id.to_string()
                 } else {
-                    format!("{}/{}/{}/", BASE_URL, MANGA_PATH, content_id)
+                    format!("{}/{}/{}/", self.base_url, MANGA_PATH, content_id)
                 };
 
                 // SSRF guard: chapter URLs may come from scraped pages; validate first.
-                crate::validate_fetch_url(&manga_url)?;
+                self.guarded_fetch_url(&manga_url)?;
                 let (status, html) = self.fetch_with_referer(&manga_url, Some(BASE_URL)).await?;
 
                 if Self::detect_cloudflare_block(status, &html) {
@@ -907,7 +956,7 @@ impl Source for ToonGodSource {
     /// Probe reachability with a plain HTTP GET on the webtoons home page.
     /// Challenges map to `Blocked`, rate limits to `RateLimited`.
     async fn health_check(&self) -> Result<SourceHealth> {
-        let url = format!("{}/{}", BASE_URL, MANGA_PATH);
+        let url = format!("{}/{}", self.base_url, MANGA_PATH);
         match self.fetch_with_referer(&url, Some(BASE_URL)).await {
             Ok((status, html)) => {
                 match challenge::detect_challenge(status, &html) {

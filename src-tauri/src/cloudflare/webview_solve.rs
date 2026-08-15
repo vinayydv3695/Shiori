@@ -65,8 +65,6 @@ pub async fn solve_turnstile(app: &tauri::AppHandle, url: &str) -> Result<()> {
     })();"#;
 
     let tx_clone = Arc::clone(&tx);
-    let app_clone = app.clone();
-    let window_label_clone = window_label.clone();
 
     let parsed_url = url::Url::parse(url)
         .map_err(|e| ShioriError::Other(format!("Invalid solve URL {}: {}", url, e)))?;
@@ -76,7 +74,7 @@ pub async fn solve_turnstile(app: &tauri::AppHandle, url: &str) -> Result<()> {
         .inner_size(760.0, 820.0)
         .visible(true)
         .initialization_script(js)
-        .on_document_title_changed(move |window, title| {
+        .on_document_title_changed(move |_window, title| {
             if title == "SHIORI_CF_SOLVED" {
                 if let Ok(mut lock) = tx_clone.lock() {
                     if let Some(sender) = lock.take() {

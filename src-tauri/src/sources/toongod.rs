@@ -1,8 +1,10 @@
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use crate::cloudflare::client::CfClient;
 use crate::error::{Result, ShioriError};
 use crate::sources::{Chapter, ContentType, Page, SearchResult, Source, SourceMeta};
 
@@ -39,7 +41,9 @@ pub struct ToonGodConfig {
 
 pub struct ToonGodSource {
     config: RwLock<ToonGodConfig>,
+    cf_client: RwLock<Option<Arc<CfClient>>>,
     app_handle: RwLock<Option<tauri::AppHandle>>,
+    #[allow(dead_code)]
     eval_lock: tokio::sync::Mutex<()>,
 }
 
@@ -47,9 +51,15 @@ impl ToonGodSource {
     pub fn new() -> Result<Self> {
         Ok(Self {
             config: RwLock::new(ToonGodConfig::default()),
+            cf_client: RwLock::new(None),
             app_handle: RwLock::new(None),
             eval_lock: tokio::sync::Mutex::new(()),
         })
+    }
+
+    pub async fn set_cf_client(&self, cf: Arc<CfClient>, app_handle: tauri::AppHandle) {
+        *self.cf_client.write().await = Some(cf);
+        *self.app_handle.write().await = Some(app_handle);
     }
 
     #[allow(dead_code)]
@@ -154,6 +164,10 @@ impl ToonGodSource {
             .to_string()
     }
 
+    /// Kept for Android (SAF evaluate_javascript) and as the pre-CfClient
+    /// webview RPC fallback; currently unused on desktop now that ToonGod
+    /// fetches via CfClient.
+    #[allow(dead_code)]
     async fn evaluate_js(&self, url: &str, js_script: &str) -> Result<String> {
         let _lock = self.eval_lock.lock().await;
 
@@ -354,57 +368,51 @@ impl ToonGodSource {
     ) -> Result<(reqwest::StatusCode, String)> {
         // SSRF guard: re-validate scraped URLs before navigating to them.
         crate::validate_fetch_url(url)?;
-        let js = r#"return document.documentElement.outerHTML;"#;
-        let html = self.evaluate_js(url, js).await?;
+        let cf = self.cf_client.read().await.clone().ok_or_else(|| {
+            ShioriError::Other("ToonGod source CfClient not initialized".into())
+        })?;
+        // Windowless fetch: CfClient attaches the stored cf_clearance session,
+        // detects CF blocks and refreshes the session (Playwright solver) with
+        // up to 3 retries. On an unresolved block it errors out directly.
+        let bytes = cf
+            .request_bytes(reqwest::Method::GET, url, Some("text/html"), None)
+            .await?;
+        let html = String::from_utf8_lossy(&bytes).to_string();
         Ok((reqwest::StatusCode::OK, html))
     }
 
     async fn try_ajax_chapters(&self, manga_id: &str, manga_url: &str) -> Result<Option<String>> {
-        // Try the new AJAX endpoint first
-        let ajax_url = format!("{}/ajax/chapters/", manga_url.trim_end_matches('/'));
-        let js = format!(
-            r#"
-            let res = await fetch('{}', {{
-                method: 'POST',
-                headers: {{
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json, text/javascript, */*; q=0.01',
-                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
-                }},
-                body: 'manga={}'
-            }});
-            return await res.text();
-        "#,
-            ajax_url, manga_id
-        );
+        let cf = self.cf_client.read().await.clone().ok_or_else(|| {
+            ShioriError::Other("ToonGod source CfClient not initialized".into())
+        })?;
 
-        if let Ok(html) = self.evaluate_js(manga_url, &js).await {
+        // Try the new AJAX endpoint first. Same body the webview path posted:
+        // `manga={manga_id}` (manga_id scraped from the manga page HTML).
+        let ajax_url = format!("{}/ajax/chapters/", manga_url.trim_end_matches('/'));
+        let body = format!("manga={}", manga_id);
+        if let Ok(bytes) = cf
+            .request_bytes(
+                reqwest::Method::POST,
+                &ajax_url,
+                Some("application/json, text/javascript, */*; q=0.01"),
+                Some(body),
+            )
+            .await
+        {
+            let html = String::from_utf8_lossy(&bytes).to_string();
             if !html.is_empty() && html.contains("wp-manga-chapter") {
                 return Ok(Some(html));
             }
         }
 
-        // Try old admin-ajax endpoint
+        // Try old admin-ajax endpoint: `action=manga_get_chapters&manga={manga_id}`
         let old_ajax_url = format!("{}/wp-admin/admin-ajax.php", BASE_URL);
-        let js_old = format!(
-            r#"
-            let formData = new URLSearchParams();
-            formData.append('action', 'manga_get_chapters');
-            formData.append('manga', '{}');
-            let res = await fetch('{}', {{
-                method: 'POST',
-                headers: {{
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
-                }},
-                body: formData
-            }});
-            return await res.text();
-        "#,
-            manga_id, old_ajax_url
-        );
-
-        if let Ok(html) = self.evaluate_js(manga_url, &js_old).await {
+        let body_old = format!("action=manga_get_chapters&manga={}", manga_id);
+        if let Ok(bytes) = cf
+            .request_bytes(reqwest::Method::POST, &old_ajax_url, None, Some(body_old))
+            .await
+        {
+            let html = String::from_utf8_lossy(&bytes).to_string();
             if !html.is_empty() && html.contains("wp-manga-chapter") {
                 return Ok(Some(html));
             }

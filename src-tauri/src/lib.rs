@@ -497,12 +497,26 @@ pub fn run() {
             };
             app.manage(cf_state);
 
-            // Wire the app_handle to ToonGod source so it can use Webview for HTML fetching.
+            // Wire the CfClient to ToonGod source for windowless HTML fetching
+            // (cf_clearance session, auto-refresh via Playwright solver on block).
             let toongod_for_cf = toongod_source.clone();
+            let cf_store_for_toongod = cf_store.clone();
             let app_handle_for_toongod = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                toongod_for_cf.set_app_handle(app_handle_for_toongod).await;
-                log::info!("ToonGod: app_handle attached for JS evaluation");
+                match cloudflare::client::CfClient::new(
+                    "https://www.toongod.org",
+                    cf_store_for_toongod,
+                ) {
+                    Ok(cf_client) => {
+                        let cf_client = cf_client.with_app_handle(app_handle_for_toongod.clone());
+                        toongod_for_cf
+                            .set_cf_client(std::sync::Arc::new(cf_client), app_handle_for_toongod)
+                            .await;
+
+                        log::info!("ToonGod: CfClient attached successfully");
+                    }
+                    Err(e) => log::warn!("ToonGod: Failed to build CfClient: {}", e),
+                }
             });
 
             let manhwaread_for_cf = manhwaread_source.clone();

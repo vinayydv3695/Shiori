@@ -265,6 +265,11 @@ impl CfClient {
             .header("sec-fetch-user", "?1")
             .header("upgrade-insecure-requests", "1");
 
+        // WP-style manga themes (toongod) require the XHR marker on POSTs.
+        if method == reqwest::Method::POST {
+            req = req.header("X-Requested-With", "XMLHttpRequest");
+        }
+
         // Inject session cookies + User-Agent if we have a session.
         if let Some(session) = self.store.get(&self.host) {
             req = req

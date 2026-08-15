@@ -1,6 +1,6 @@
 import { useState } from "react"
 import type { CurrentView } from "@/store/uiStore"
-import { ChevronLeft, ChevronRight, ChevronDown, Settings, Compass, Globe, LayoutGrid, SlidersHorizontal } from "lucide-react"
+import { ChevronLeft, ChevronRight, ChevronDown, Settings, Compass, Globe, LayoutGrid, SlidersHorizontal, ListFilter } from "lucide-react"
 import { SolidHomeIcon } from "@/components/icons/ShioriIcons"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useNavigationRail, type NavSection } from "./hooks/useNavigationRail"
@@ -13,6 +13,8 @@ interface NavigationRailDesktopProps {
   onNavigateToView?: (view: CurrentView) => void
   onCreateShelf?: () => void
   onOpenSettings?: () => void
+  onToggleFilters?: () => void
+  isFiltersOpen?: boolean
 }
 
 const SECTION_TITLES: Record<NavSection, string> = {
@@ -34,6 +36,8 @@ export function NavigationRailDesktop({
   onNavigateToView,
   onCreateShelf,
   onOpenSettings,
+  onToggleFilters,
+  isFiltersOpen,
 }: NavigationRailDesktopProps) {
   const { sidebarCollapsed, toggleSidebar, groupedNavItems } = useNavigationRail()
 
@@ -83,45 +87,90 @@ export function NavigationRailDesktop({
         )}
       >
         {/* Top Header Bar */}
-        <div className="flex h-14 items-center justify-between px-4 shrink-0 border-b border-border/30">
-          {!sidebarCollapsed && (
-            <span className="text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground/80">
-              Navigation
-            </span>
+        <div className="flex h-14 items-center justify-between px-3.5 shrink-0 border-b border-border/30">
+          {!sidebarCollapsed ? (
+            <div className="flex items-center gap-2 select-none min-w-0 px-1">
+              <span className="text-base font-bold text-primary select-none leading-none">
+                栞
+              </span>
+              <span className="text-xs font-black tracking-[0.18em] text-foreground/90 uppercase select-none">
+                SHIORI
+              </span>
+            </div>
+          ) : (
+            <span className="sr-only">SHIORI</span>
           )}
 
-          <Tooltip delayDuration={0}>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={toggleSidebar}
-                aria-label={sidebarCollapsed ? "Expand navigation sidebar" : "Collapse navigation sidebar"}
-                aria-expanded={!sidebarCollapsed}
-                className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-xl text-muted-foreground transition-all duration-200 hover:bg-accent hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer",
-                  sidebarCollapsed && "mx-auto"
-                )}
+          {/* Header Action Buttons */}
+          <div className="flex items-center gap-1.5">
+            {/* Collapse / Expand Rail Toggle (Left button) */}
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={toggleSidebar}
+                  aria-label={sidebarCollapsed ? "Expand navigation sidebar" : "Collapse navigation sidebar"}
+                  aria-expanded={!sidebarCollapsed}
+                  className={cn(
+                    "flex items-center justify-center transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer",
+                    sidebarCollapsed
+                      ? "w-12 h-12 rounded-2xl mx-auto bg-primary/10 text-primary border border-primary/25 hover:bg-primary hover:text-primary-foreground shadow-xs group"
+                      : "h-8 w-8 rounded-xl text-muted-foreground hover:bg-accent hover:text-foreground"
+                  )}
+                >
+                  {sidebarCollapsed ? (
+                    <span className="text-base font-bold leading-none group-hover:scale-110 transition-transform select-none">
+                      栞
+                    </span>
+                  ) : (
+                    <ChevronLeft className="h-4 w-4" />
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent
+                side={sidebarCollapsed ? "right" : "bottom"}
+                sideOffset={sidebarCollapsed ? 14 : 8}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border/40 bg-popover/95 backdrop-blur-md shadow-xl text-xs font-semibold"
               >
-                {sidebarCollapsed ? (
-                  <ChevronRight className="h-4 w-4" />
-                ) : (
-                  <ChevronLeft className="h-4 w-4" />
-                )}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent
-              side="right"
-              sideOffset={14}
-            >
-              {sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            </TooltipContent>
-          </Tooltip>
+                {sidebarCollapsed ? "Expand sidebar (栞 SHIORI)" : "Collapse sidebar"}
+              </TooltipContent>
+            </Tooltip>
+
+            {/* Toggle Filters Sidebar Button (Right button, next to collapse sidebar — visible only on library and shelves) */}
+            {!sidebarCollapsed && onToggleFilters && (currentView === "library" || currentView === "shelves") && (
+              <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={onToggleFilters}
+                    aria-label={isFiltersOpen ? "Hide filter panel" : "Show filter panel"}
+                    aria-pressed={isFiltersOpen}
+                    className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer",
+                      isFiltersOpen
+                        ? "bg-primary/15 text-primary border border-primary/30 shadow-xs"
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                    )}
+                  >
+                    <ListFilter className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="bottom"
+                  sideOffset={8}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl border border-border/40 bg-popover/95 backdrop-blur-md shadow-xl text-xs font-semibold"
+                >
+                  {isFiltersOpen ? "Hide filter panel" : "Toggle filter panel"}
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
         </div>
 
         {/* Main Content Area — No Scrollbar Slider */}
         <div className={cn(
-          "flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-3.5 space-y-3.5",
-          sidebarCollapsed ? "px-2 flex flex-col items-center" : "px-3"
+          "flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-3.5",
+          sidebarCollapsed ? "px-2.5 flex flex-col items-center space-y-3" : "px-3 space-y-3.5"
         )}>
           {sections.map((sectionKey) => {
             const items = [...(groupedNavItems[sectionKey] || [])]
@@ -136,7 +185,7 @@ export function NavigationRailDesktop({
             const hasActiveChild = items.some((item) => item.isActive(currentView))
 
             return (
-              <div key={sectionKey} className={cn("w-full space-y-1.5", sidebarCollapsed && "flex flex-col items-center")}>
+              <div key={sectionKey} className={cn("w-full", sidebarCollapsed ? "flex flex-col items-center" : "space-y-1.5")}>
                 {/* Section Header */}
                 {!sidebarCollapsed ? (
                   <button
@@ -189,29 +238,25 @@ export function NavigationRailDesktop({
                         className={cn(
                           "relative flex items-center justify-center w-12 h-12 rounded-2xl transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 group select-none cursor-pointer",
                           hasActiveChild
-                            ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25 scale-102"
-                            : "bg-secondary/40 hover:bg-secondary text-muted-foreground hover:text-foreground border border-border/40 hover:border-primary/40 shadow-xs hover:scale-105"
+                            ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25 scale-102 font-bold border border-primary/30"
+                            : "bg-secondary/50 hover:bg-secondary text-muted-foreground hover:text-foreground border border-border/40 hover:border-primary/40 shadow-xs hover:scale-105 active:scale-95"
                         )}
                       >
-                        {/* Active Left Indicator Bar */}
-                        {hasActiveChild && (
-                          <motion.span
-                            layoutId="activeRailIndicator"
-                            className="absolute -left-2 top-1/2 -translate-y-1/2 w-1.5 h-6 rounded-r-full bg-primary shadow-xs"
-                            transition={{ type: "spring", stiffness: 450, damping: 35 }}
-                          />
-                        )}
-                        <SectionIcon className="h-5.5 w-5.5 transition-transform duration-200 group-hover:scale-110" />
+                        <SectionIcon className={cn(
+                          "h-6 w-6 transition-transform duration-200",
+                          hasActiveChild ? "scale-105" : "group-hover:scale-110"
+                        )} />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent
                       side="right"
                       sideOffset={14}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border/40 bg-popover/95 backdrop-blur-md shadow-xl text-xs font-semibold"
                     >
-                      <div className="flex items-center gap-1.5">
-                        <span>{SECTION_TITLES[sectionKey]}</span>
-                        <span className="text-xs opacity-60 font-semibold">({totalCount})</span>
-                      </div>
+                      <span className="text-foreground">{SECTION_TITLES[sectionKey]}</span>
+                      <span className="px-1.5 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-bold">
+                        {totalCount}
+                      </span>
                     </TooltipContent>
                   </Tooltip>
                 )}

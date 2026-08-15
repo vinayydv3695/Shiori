@@ -7,6 +7,8 @@ interface NavigationRailProps {
   onNavigateToView?: (view: CurrentView) => void
   onCreateShelf?: () => void
   onOpenSettings?: () => void
+  onToggleFilters?: () => void
+  isFiltersOpen?: boolean
 }
 
 export function NavigationRail(props: NavigationRailProps) {

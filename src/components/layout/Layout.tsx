@@ -472,6 +472,8 @@ export function Layout({
             onNavigateToView={onNavigateToView}
             onCreateShelf={() => setCreateShelfOpen(true)}
             onOpenSettings={onOpenSettings}
+            onToggleFilters={() => setSidebarOpen((o) => !o)}
+            isFiltersOpen={sidebarOpen}
           />
         </div>
 

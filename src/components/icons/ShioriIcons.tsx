@@ -296,6 +296,16 @@ export function IconSidebarToggle({ size = 18, className, ...props }: IconProps)
     )
 }
 
+export function IconRightSidebarToggle({ size = 18, className, ...props }: IconProps) {
+    return (
+        <svg {...baseProps(size)} className={cn(className)} {...props}>
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <path d="M15 3v18" />
+            <path d="M12 9l-3 3 3 3" />
+        </svg>
+    )
+}
+
 // ──────────────────────────────────────────────
 // FILTER
 // ──────────────────────────────────────────────

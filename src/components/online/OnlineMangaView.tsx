@@ -154,6 +154,19 @@ function getUiErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+const CF_SOURCE_FALLBACK_URLS: Record<string, string> = {
+  toongod: "https://www.toongod.org",
+  mangafire: "https://mangafire.to",
+};
+
+function getCfVerifyUrl(
+  sourceId: string | null | undefined,
+  website?: string | null,
+): string | null {
+  if (!sourceId) return null;
+  return website?.trim() || CF_SOURCE_FALLBACK_URLS[sourceId] || null;
+}
+
 export function OnlineMangaView() {
   const isMobile = useIsMobile();
   const searchQuery = useOnlineSearchStore(
@@ -182,6 +195,8 @@ export function OnlineMangaView() {
   const [chaptersLoading, setChaptersLoading] = useState(false);
   const [pluginError, setPluginError] = useState<string | null>(null);
   const [cfVerifying, setCfVerifying] = useState(false);
+  const [cfVerifyUrl, setCfVerifyUrl] = useState<string | null>(null);
+  const [cfVerifyMsg, setCfVerifyMsg] = useState<string | null>(null);
   const [queueingManga, setQueueingManga] = useState<Record<string, boolean>>(
     {},
   );
@@ -226,6 +241,26 @@ export function OnlineMangaView() {
   const isPluginMangaSource =
     activeSource?.id !== "mangadex" && activeSource?.kind === "manga";
   const activePluginSourceId = isPluginMangaSource ? activeSource?.id : null;
+
+  const getSourceWebsite = useCallback(
+    (sourceId: string | null | undefined): string | undefined => {
+      if (!sourceId) return undefined;
+      return sources.find((s) => s.id === sourceId)?.website;
+    },
+    [sources],
+  );
+
+  const reportPluginError = useCallback(
+    (sourceId: string | null | undefined, message: string) => {
+      setPluginError(message);
+      if (message.includes("Cloudflare")) {
+        setCfVerifyUrl(getCfVerifyUrl(sourceId, getSourceWebsite(sourceId)));
+      } else {
+        setCfVerifyUrl(null);
+      }
+    },
+    [getSourceWebsite],
+  );
 
   const [lastSearchedQuery, setLastSearchedQuery] = useState("");
 
@@ -590,6 +625,8 @@ export function OnlineMangaView() {
 
       if (activePluginSourceId) {
         setPluginError(null);
+        setCfVerifyUrl(null);
+        setCfVerifyMsg(null);
         setChapters([]);
         setResults([]);
         setTotalResults(0);
@@ -614,12 +651,18 @@ export function OnlineMangaView() {
               ? err.message
               : "Failed to search plugin source";
           logger.error("Plugin manga search failed:", err);
-          setPluginError(message);
+          reportPluginError(activePluginSourceId, message);
           setPluginResults([]);
         }
       }
     },
-    [activePluginSourceId, isMangaDexEnabled, searchManga, searchQuery],
+    [
+      activePluginSourceId,
+      isMangaDexEnabled,
+      reportPluginError,
+      searchManga,
+      searchQuery,
+    ],
   );
 
   const visibleResults = useMemo(() => {
@@ -708,6 +751,9 @@ export function OnlineMangaView() {
     setPluginChapters([]);
     setChaptersLoading(true);
     setChapterDownloadStatus({});
+    setPluginError(null);
+    setCfVerifyUrl(null);
+    setCfVerifyMsg(null);
 
     try {
       const chapterList = await pluginApi.getChapters(
@@ -719,7 +765,7 @@ export function OnlineMangaView() {
       const message =
         err instanceof Error ? err.message : "Failed to load plugin chapters";
       logger.error("Plugin chapters load failed:", err);
-      setPluginError(message);
+      reportPluginError(effectiveSourceId, message);
       setPluginChapters([]);
     } finally {
       setChaptersLoading(false);
@@ -1450,17 +1496,28 @@ export function OnlineMangaView() {
                   onClick={async () => {
                     if (!activeSource) return;
                     setCfVerifying(true);
+                    setCfVerifyMsg(null);
                     try {
-                      const fallback =
-                        activeSource.id === "toongod"
-                          ? "https://www.toongod.org"
-                          : "https://mangafire.to";
-                      await solveCfChallenge(
-                        activeSource.website ?? fallback,
-                        "visible",
+                      const verifyUrl =
+                        cfVerifyUrl ??
+                        getCfVerifyUrl(activeSource.id, activeSource.website);
+                      if (!verifyUrl) {
+                        setCfVerifyMsg(
+                          "Verification failed: no source URL available",
+                        );
+                        return;
+                      }
+                      await solveCfChallenge(verifyUrl, "visible");
+                      setCfVerifyMsg(
+                        "Verification completed — retry your search now.",
                       );
                     } catch (err) {
                       console.warn("[CF] verify failed:", err);
+                      setCfVerifyMsg(
+                        `Verification failed: ${
+                          err instanceof Error ? err.message : String(err)
+                        }`,
+                      );
                     } finally {
                       setCfVerifying(false);
                     }
@@ -1473,6 +1530,18 @@ export function OnlineMangaView() {
                   )}
                   {cfVerifying ? "Verifying…" : "Verify in browser"}
                 </Button>
+                {cfVerifyMsg && (
+                  <p
+                    className={cn(
+                      "text-xs",
+                      cfVerifyMsg.startsWith("Verification failed")
+                        ? "text-amber-500"
+                        : "text-green-600",
+                    )}
+                  >
+                    {cfVerifyMsg}
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground opacity-80">
                   After verifying, retry your search.
                 </p>

@@ -19,7 +19,6 @@ import {
   IconSun,
   IconMoon,
   IconX,
-  IconSidebarToggle,
 } from '@/components/icons/ShioriIcons'
 import { Layers, Filter, HelpCircle, BarChart2, Rss, FolderPlus, FolderOpen, ChevronDown, Settings } from 'lucide-react'
 import { usePreferencesStore } from '@/store/preferencesStore'
@@ -187,15 +186,6 @@ export function PremiumTopbar({
       >
         {/* ── ZONE 1: Left Actions & Domain Segmented Control ── */}
         <div className="flex items-center gap-3 shrink-0">
-          <button
-            type="button"
-            onClick={onToggleSidebar}
-            title="Toggle Sidebar"
-            className="flex items-center justify-center w-9 h-9 rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors"
-          >
-            <IconSidebarToggle size={18} />
-          </button>
-
           {/* Domain Segmented Control */}
           {preferences?.preferredContentType === 'both' && (
             <div className="relative flex items-center p-1 bg-secondary/80 border border-border/50 rounded-2xl h-11 shadow-inner">

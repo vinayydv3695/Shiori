@@ -519,10 +519,10 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
             <div className="premium-sidebar-header">
           <div className="premium-sidebar-tabs">
             {[
+              { id: 'search', label: 'Search', icon: Search },
               { id: 'toc', label: 'TOC', icon: BookOpen },
-              { id: 'highlights', label: 'Highlights', icon: Highlighter },
               { id: 'notes', label: 'Notes', icon: FileText },
-              { id: 'search', label: 'Search', icon: Search }
+              { id: 'highlights', label: 'Highlights', icon: Highlighter }
             ].map(tab => (
               <motion.button
                 key={tab.id}

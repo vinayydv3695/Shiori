@@ -1,4 +1,4 @@
-import { useCallback, forwardRef, useImperativeHandle, memo, useRef, useState, useMemo } from 'react';
+import { useCallback, forwardRef, useImperativeHandle, memo, useRef, useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import DOMPurify from 'dompurify';
 import { sanitizeBookContent } from '@/lib/sanitize';
@@ -6,12 +6,13 @@ import '@/styles/page-flip.css';
 
 interface PageFlipEngineProps {
     currentContent: string;
-    nextContent: string | null;
-    prevContent: string | null;
+    chapterIndex?: number;
+    nextContent?: string | null;
+    prevContent?: string | null;
     flipSpeed: number;
     enabled: boolean;
-    animationStyle: 'flip' | 'slide' | 'fade' | 'none';
-    onFlipComplete: (direction: 'forward' | 'backward') => void;
+    animationStyle: 'slide' | 'fade' | 'none';
+    onFlipComplete?: (direction: 'forward' | 'backward') => void;
     className?: string;
 }
 
@@ -22,70 +23,45 @@ export interface PageFlipHandle {
 }
 
 /**
- * 3D Hardware-Accelerated Realistic Page Flip Transition Engine.
+ * Framer Motion Page Transition Engine for Shiori EPUB Reader.
  *
- * Supports four animation styles:
- * - flip: 3D perspective book page turn with spine depth & dynamic ambient shadows (flagship default)
- * - slide: smooth horizontal slide
- * - fade: crossfade transition
- * - none: instant switch (no animation)
+ * Supports three clean animation styles:
+ * - slide: smooth horizontal slide transition
+ * - fade: soft crossfade transition
+ * - none: instant page switch
  */
 export const PageFlipEngine = memo(
     forwardRef<PageFlipHandle, PageFlipEngineProps>(function PageFlipEngine(
-        { currentContent, nextContent, prevContent, flipSpeed, enabled, animationStyle, onFlipComplete, className },
+        { currentContent, chapterIndex = 0, nextContent, prevContent, flipSpeed, enabled, animationStyle, onFlipComplete, className },
         ref
     ) {
         const isFlippingRef = useRef(false);
         const [direction, setDirection] = useState<1 | -1>(1); // 1 = forward, -1 = backward
-        // Monotonic key so AnimatePresence sees a new child on each flip
-        const [pageKey, setPageKey] = useState(0);
+        const prevIndexRef = useRef<number>(chapterIndex);
+
+        // Detect index/content changes from external navigation (TOC, next chapter, buttons)
+        useEffect(() => {
+            if (chapterIndex !== prevIndexRef.current) {
+                setDirection(chapterIndex > prevIndexRef.current ? 1 : -1);
+                prevIndexRef.current = chapterIndex;
+            }
+        }, [chapterIndex]);
 
         // ────────────────────────────────────────────────────────────
-        // 3D REALISTIC PAGE FLIP VARIANTS
+        // ANIMATION VARIANTS
         // ────────────────────────────────────────────────────────────
-        const flipVariants: Variants = {
-            enter: (dir: number) => ({
-                rotateY: dir > 0 ? 80 : -80,
-                transformOrigin: dir > 0 ? 'right center' : 'left center',
-                opacity: 0.15,
-                scale: 0.97,
-                x: dir > 0 ? '8%' : '-8%',
-                boxShadow: dir > 0 
-                    ? '-20px 0 40px rgba(0,0,0,0.45)' 
-                    : '20px 0 40px rgba(0,0,0,0.45)',
-            }),
-            center: {
-                rotateY: 0,
-                transformOrigin: 'center center',
-                opacity: 1,
-                scale: 1,
-                x: '0%',
-                boxShadow: '0 0 0 rgba(0,0,0,0)',
-            },
-            exit: (dir: number) => ({
-                rotateY: dir > 0 ? -80 : 80,
-                transformOrigin: dir > 0 ? 'left center' : 'right center',
-                opacity: 0.15,
-                scale: 0.97,
-                x: dir > 0 ? '-8%' : '8%',
-                boxShadow: dir > 0 
-                    ? '20px 0 40px rgba(0,0,0,0.45)' 
-                    : '-20px 0 40px rgba(0,0,0,0.45)',
-            }),
-        };
-
         const slideVariants: Variants = {
             enter: (dir: number) => ({
-                x: dir > 0 ? '40%' : '-40%',
-                opacity: 0,
+                x: dir > 0 ? '100%' : '-100%',
+                opacity: 0.3,
             }),
             center: {
-                x: 0,
+                x: '0%',
                 opacity: 1,
             },
             exit: (dir: number) => ({
-                x: dir > 0 ? '-40%' : '40%',
-                opacity: 0,
+                x: dir > 0 ? '-100%' : '100%',
+                opacity: 0.3,
             }),
         };
 
@@ -98,12 +74,11 @@ export const PageFlipEngine = memo(
         const noneVariants: Variants = {
             enter: { opacity: 1 },
             center: { opacity: 1 },
-            exit: { opacity: 0 },
+            exit: { opacity: 1 },
         };
 
         const getVariants = () => {
             switch (animationStyle) {
-                case 'flip': return flipVariants;
                 case 'slide': return slideVariants;
                 case 'fade': return fadeVariants;
                 case 'none': return noneVariants;
@@ -114,16 +89,16 @@ export const PageFlipEngine = memo(
             if (animationStyle === 'none') {
                 return { duration: 0 };
             }
-            const durationSec = flipSpeed / 1000;
-            if (animationStyle === 'flip') {
+            const durationSec = Math.max(0.1, flipSpeed / 1000);
+            if (animationStyle === 'slide') {
                 return {
                     duration: durationSec,
-                    ease: [0.25, 1, 0.4, 1] as [number, number, number, number],
+                    ease: [0.25, 1, 0.5, 1] as [number, number, number, number],
                 };
             }
             return {
                 duration: durationSec,
-                ease: [0.4, 0.0, 0.2, 1] as [number, number, number, number],
+                ease: 'easeInOut' as const,
             };
         };
 
@@ -133,7 +108,7 @@ export const PageFlipEngine = memo(
         const handleAnimationComplete = useCallback(
             (dir: 'forward' | 'backward') => {
                 isFlippingRef.current = false;
-                onFlipComplete(dir);
+                onFlipComplete?.(dir);
             },
             [onFlipComplete]
         );
@@ -142,27 +117,24 @@ export const PageFlipEngine = memo(
             ref,
             () => ({
                 flipForward: () => {
-                    if (!enabled || !nextContent || isFlippingRef.current) return false;
+                    if (!enabled || isFlippingRef.current) return false;
                     isFlippingRef.current = true;
                     setDirection(1);
-                    setPageKey((k) => k + 1);
-                    // Schedule callback after animation
-                    setTimeout(() => handleAnimationComplete('forward'), flipSpeed + 40);
+                    setTimeout(() => handleAnimationComplete('forward'), flipSpeed + 30);
                     return true;
                 },
 
                 flipBackward: () => {
-                    if (!enabled || !prevContent || isFlippingRef.current) return false;
+                    if (!enabled || isFlippingRef.current) return false;
                     isFlippingRef.current = true;
                     setDirection(-1);
-                    setPageKey((k) => k + 1);
-                    setTimeout(() => handleAnimationComplete('backward'), flipSpeed + 40);
+                    setTimeout(() => handleAnimationComplete('backward'), flipSpeed + 30);
                     return true;
                 },
 
                 isFlipping: () => isFlippingRef.current,
             }),
-            [enabled, nextContent, prevContent, flipSpeed, handleAnimationComplete]
+            [enabled, flipSpeed, handleAnimationComplete]
         );
 
         // ────────────────────────────────────────────────────────────
@@ -175,7 +147,7 @@ export const PageFlipEngine = memo(
         // ────────────────────────────────────────────────────────────
         // RENDER — disabled mode (no animation wrapper overhead)
         // ────────────────────────────────────────────────────────────
-        if (!enabled) {
+        if (!enabled || animationStyle === 'none') {
             return (
                 <div className={className}>
                     <div
@@ -187,13 +159,13 @@ export const PageFlipEngine = memo(
         }
 
         // ────────────────────────────────────────────────────────────
-        // RENDER — animated mode
+        // RENDER — animated mode (Slide / Fade)
         // ────────────────────────────────────────────────────────────
         return (
             <div className={`page-transition-container ${className || ''}`}>
                 <AnimatePresence initial={false} custom={direction} mode="wait">
                     <motion.div
-                        key={pageKey}
+                        key={chapterIndex}
                         custom={direction}
                         variants={getVariants()}
                         initial="enter"
@@ -202,11 +174,6 @@ export const PageFlipEngine = memo(
                         transition={getTransition()}
                         className="page-transition-page"
                     >
-                        {animationStyle === 'flip' && (
-                            <div 
-                                className={`page-flip-shadow-overlay ${direction > 0 ? 'page-flip-shadow-forward' : 'page-flip-shadow-backward'}`} 
-                            />
-                        )}
                         <div
                             className="premium-chapter-content"
                             dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(safeCurrentContent) }}
@@ -218,6 +185,7 @@ export const PageFlipEngine = memo(
     }),
     (prev, next) =>
         prev.currentContent === next.currentContent &&
+        prev.chapterIndex === next.chapterIndex &&
         prev.enabled === next.enabled &&
         prev.flipSpeed === next.flipSpeed &&
         prev.animationStyle === next.animationStyle

@@ -9,6 +9,7 @@ import { usePreferencesStore } from '@/store/preferencesStore';
 import { ttsEngine, TTSEngine } from '@/lib/ttsEngine';
 import { TranslationPopup } from './TranslationPopup';
 import { useTTS } from '@/hooks/useTTS';
+import { useReadingSettings, READER_THEME_COLORS } from '@/store/premiumReaderStore';
 
 interface TextSelectionToolbarProps {
   bookId: number;
@@ -390,6 +391,10 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
         ? JSON.stringify({ type: 'define', data: dictionaryResult })
         : JSON.stringify({ type: 'translate', data: translationResult });
 
+      const currentReaderTheme = useReadingSettings.getState().theme || 'paper';
+      const themeColors = READER_THEME_COLORS[currentReaderTheme] || READER_THEME_COLORS.paper;
+      const vocabColor = themeColors['--text-link'] || themeColors['--ui-focus'] || '#8B6914';
+
       await api.createAnnotation(
         bookId,
         'note', // Use note type to comply with DB constraints
@@ -397,7 +402,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
         undefined,
         selectedText,
         vocabData,
-        '#8b5cf6', // Purple color for vocabulary
+        vocabColor,
         vocabCategory.id
       );
       useToastStore.getState().addToast({

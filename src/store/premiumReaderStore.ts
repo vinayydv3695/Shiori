@@ -107,7 +107,7 @@ interface ReadingSettings {
   // Page Transition Animation (Chapter-level or page-level)
   pageFlipEnabled: boolean;
   pageFlipSpeed: number; // ms (100-800)
-  animationStyle: 'flip' | 'slide' | 'fade' | 'none';
+  animationStyle: 'slide' | 'fade' | 'none';
 
   // Paper Texture
   paperTextureIntensity: number; // 0.0-0.20
@@ -138,7 +138,7 @@ interface ReadingSettings {
   setBrightness: (brightness: number) => void;
   setPageFlipEnabled: (enabled: boolean) => void;
   setPageFlipSpeed: (speed: number) => void;
-  setAnimationStyle: (style: 'flip' | 'slide' | 'fade' | 'none') => void;
+  setAnimationStyle: (style: 'slide' | 'fade' | 'none') => void;
   setPaperTextureIntensity: (intensity: number) => void;
   setUiScale: (scale: number) => void;
   resetToDefaults: () => void;
@@ -164,8 +164,8 @@ const defaultSettings = {
   keepScreenOn: true,
   brightness: 1.0,
   pageFlipEnabled: true,
-  pageFlipSpeed: 380,
-  animationStyle: 'flip' as const,
+  pageFlipSpeed: 300,
+  animationStyle: 'slide' as const,
   paperTextureIntensity: isAndroid ? 0.11 : 0.08,
   uiScale: 1.0,
 };
@@ -173,7 +173,7 @@ const defaultSettings = {
 const READER_THEMES: ReaderTheme[] = ['light', 'black', 'paper', 'paper-dark', 'sepia', 'dark'];
 const WIDTH_OPTIONS: Array<ReadingSettings['width']> = ['narrow', 'medium', 'wide', 'full'];
 const TEXT_ALIGN_OPTIONS: Array<ReadingSettings['textAlign']> = ['left', 'justify'];
-const ANIMATION_STYLE_OPTIONS: Array<ReadingSettings['animationStyle']> = ['flip', 'slide', 'fade', 'none'];
+const ANIMATION_STYLE_OPTIONS: Array<ReadingSettings['animationStyle']> = ['slide', 'fade', 'none'];
 
 const clampNumber = (value: unknown, fallback: number, min: number, max: number): number => {
   if (typeof value !== 'number' || Number.isNaN(value)) return fallback;

@@ -869,15 +869,6 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     if (!isFocusMode && !isTopBarShortcutOnly) {
       setTopBarVisible(false);
     }
-    
-    // Page flip mode: trigger flip animation between chapters ONLY if explicitly enabled AND not in two-page or paginated spread
-    if (pageFlipEnabled && !isHorizontalPaging && pageFlipRef.current) {
-      const flipped = pageFlipRef.current.flipForward();
-      if (!flipped) {
-        nextChapter();
-      }
-      return;
-    }
 
     // Normal scroll mode or paginated / two-page mode
     if (canvasRef.current) {
@@ -906,21 +897,14 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
           });
         }
       }
+    } else {
+      nextChapter();
     }
-  }, [nextChapter, pageFlipEnabled, isHorizontalPaging, animationStyle, isFocusMode, isTopBarShortcutOnly]);
+  }, [nextChapter, isHorizontalPaging, animationStyle, isFocusMode, isTopBarShortcutOnly]);
 
   const prevPage = useCallback(() => {
     if (!isFocusMode && !isTopBarShortcutOnly) {
       setTopBarVisible(false);
-    }
-
-    // Page flip mode: trigger flip animation between chapters ONLY if explicitly enabled AND not in two-page or paginated spread
-    if (pageFlipEnabled && !isHorizontalPaging && pageFlipRef.current) {
-      const flipped = pageFlipRef.current.flipBackward();
-      if (!flipped) {
-        prevChapter(true);
-      }
-      return;
     }
 
     // Normal scroll mode or paginated / two-page mode
@@ -947,8 +931,10 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
           });
         }
       }
+    } else {
+      prevChapter(true);
     }
-  }, [prevChapter, pageFlipEnabled, isHorizontalPaging, animationStyle, isFocusMode, isTopBarShortcutOnly]);
+  }, [prevChapter, isHorizontalPaging, animationStyle, isFocusMode, isTopBarShortcutOnly]);
 
   // Mouse wheel navigation: ONLY intercept in horizontal two-page or paginated mode
   const lastWheelTimeRef = useRef(0);
@@ -1298,6 +1284,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
               <PageFlipEngine
                 ref={pageFlipRef}
                 currentContent={currentChapter.content}
+                chapterIndex={currentIndex}
                 nextContent={nextChapterContent}
                 prevContent={prevChapterContent}
                 flipSpeed={pageFlipSpeed}

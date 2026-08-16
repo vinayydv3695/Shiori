@@ -221,7 +221,6 @@ function createHighlightMark(annotation: Annotation): HTMLElement {
   mark.className = 'epub-highlight';
   const color = annotation.color || '#fbbf24';
   mark.style.setProperty('--highlight-color', color);
-  mark.style.backgroundColor = hexToRgba(color, 0.32);
   mark.dataset.annotationId = String(annotation.id || '');
   mark.dataset.annotationType = annotation.annotationType;
 

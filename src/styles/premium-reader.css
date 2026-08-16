@@ -1396,29 +1396,54 @@ select {
 .epub-highlight,
 .pdf-highlight {
   --highlight-base: var(--highlight-color, #fbbf24);
-  border-radius: 4px;
-  padding: 1px 3px;
-  margin: 0 0.5px;
-  cursor: pointer;
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
-  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
-  color: inherit;
+  background-color: color-mix(in srgb, var(--highlight-base) 28%, transparent) !important;
+  border-radius: 9999px !important;
+  padding: 0.12em 0.45em !important;
+  margin: 0 0.08em !important;
+  cursor: pointer !important;
+  box-decoration-break: clone !important;
+  -webkit-box-decoration-break: clone !important;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  color: inherit !important;
+  display: inline !important;
+  text-decoration: none !important;
+  border: none !important;
+}
+
+/* Authentic Paper & Sepia ink multiplication */
+[data-reader-theme="paper"] .epub-highlight,
+[data-reader-theme="sepia"] .epub-highlight,
+[data-reader-theme="light"] .epub-highlight {
+  mix-blend-mode: multiply;
+}
+
+/* Dark / Black theme soft luminescence */
+[data-reader-theme="black"] .epub-highlight,
+[data-reader-theme="dark"] .epub-highlight,
+[data-reader-theme="paper-dark"] .epub-highlight {
+  background-color: color-mix(in srgb, var(--highlight-base) 34%, transparent) !important;
 }
 
 .epub-highlight:hover,
 .pdf-highlight:hover {
-  filter: brightness(1.08) saturate(1.15);
-  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--highlight-base) 55%, transparent), 0 2px 8px color-mix(in srgb, var(--highlight-base) 20%, transparent);
+  background-color: color-mix(in srgb, var(--highlight-base) 44%, transparent) !important;
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--highlight-base) 60%, transparent), 0 2px 10px color-mix(in srgb, var(--highlight-base) 25%, transparent) !important;
 }
 
-/* Notes & Vocabulary (Delicate, elegant dotted underline matching highlight color) */
+/* Notes & Vocabulary (Smooth circular pill ring with soft ambient glow) */
 .epub-highlight[data-annotation-type="note"],
 .epub-highlight[data-has-note="true"],
 .pdf-highlight[data-annotation-type="note"],
 .pdf-highlight[data-has-note="true"] {
-  border-bottom: 2px dotted color-mix(in srgb, var(--highlight-base) 90%, currentColor);
-  padding-bottom: 1px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--highlight-base) 50%, transparent) !important;
+  border-bottom: none !important;
+}
+
+.epub-highlight[data-annotation-type="note"]:hover,
+.epub-highlight[data-has-note="true"]:hover,
+.pdf-highlight[data-annotation-type="note"]:hover,
+.pdf-highlight[data-has-note="true"]:hover {
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--highlight-base) 80%, transparent), 0 0 0 2px color-mix(in srgb, var(--highlight-base) 45%, transparent), 0 2px 10px color-mix(in srgb, var(--highlight-base) 30%, transparent) !important;
 }
 
 .premium-search-results {

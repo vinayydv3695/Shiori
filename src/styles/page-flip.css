@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
-   3D REALISTIC BOOK PAGE FLIP ANIMATION SYSTEM
-   Hardware-accelerated CSS 3D Perspective & Depth Lighting
+   PAGE TRANSITION ANIMATION SYSTEM
+   Framer Motion Slide, Fade, and Instant Transitions
    ═══════════════════════════════════════════════════════════ */
 
 /* ────────────────────────────────────────────────────────────
@@ -10,9 +10,6 @@
     position: relative;
     width: 100%;
     min-height: 100%;
-    perspective: 2400px;
-    perspective-origin: center center;
-    transform-style: preserve-3d;
     overflow: hidden;
 }
 
@@ -22,42 +19,8 @@
 .page-transition-page {
     width: 100%;
     min-height: 100%;
-    will-change: transform, opacity, box-shadow;
-    transform-style: preserve-3d;
-    backface-visibility: hidden;
+    will-change: transform, opacity;
     position: relative;
-}
-
-/* ────────────────────────────────────────────────────────────
-   REALISTIC BOOK SPINE & CURVATURE SHADOW OVERLAY
-   ──────────────────────────────────────────────────────────── */
-.page-flip-shadow-overlay {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 30;
-    mix-blend-mode: multiply;
-    transition: opacity 0.25s cubic-bezier(0.25, 1, 0.5, 1);
-}
-
-.page-flip-shadow-forward {
-    background: linear-gradient(
-        to right,
-        rgba(0, 0, 0, 0.35) 0%,
-        rgba(0, 0, 0, 0.12) 20%,
-        rgba(0, 0, 0, 0.03) 45%,
-        transparent 100%
-    );
-}
-
-.page-flip-shadow-backward {
-    background: linear-gradient(
-        to left,
-        rgba(0, 0, 0, 0.35) 0%,
-        rgba(0, 0, 0, 0.12) 20%,
-        rgba(0, 0, 0, 0.03) 45%,
-        transparent 100%
-    );
 }
 
 /* ────────────────────────────────────────────────────────────
@@ -68,8 +31,5 @@
         transition: none !important;
         animation: none !important;
         transform: none !important;
-    }
-    .page-flip-shadow-overlay {
-        display: none !important;
     }
 }

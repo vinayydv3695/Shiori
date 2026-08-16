@@ -195,6 +195,9 @@ export function OnlineMangaView() {
   const setSelectedPluginManga = useOnlineMangaBrowseStore(
     (state) => state.setSelectedPluginManga,
   );
+  const clearSelection = useOnlineMangaBrowseStore(
+    (state) => state.clearSelection,
+  );
   const [chapters, setChapters] = useState<MangaDexChapter[]>([]);
   const [pluginResults, setPluginResults] = useState<PluginSearchResult[]>([]);
   const [pluginChapters, setPluginChapters] = useState<PluginChapter[]>([]);
@@ -731,8 +734,10 @@ export function OnlineMangaView() {
   const handleViewChapters = useCallback(
     async (manga: MangaDexManga) => {
       console.log("handleViewChapters FIRED!");
+      // setSelectedManga already clears the plugin selection via the store
+      // action — do NOT call setSelectedPluginManga(null) here: it would
+      // null selectedManga too (batched), silently killing the navigation.
       setSelectedManga(manga);
-      setSelectedPluginManga(null);
       setChapters([]);
       setChaptersLoading(true);
       setPluginError(null);
@@ -1438,8 +1443,10 @@ export function OnlineMangaView() {
           chaptersError={isPlugin ? pluginError : mangadexError}
           unifiedChapters={unifiedChapters}
           onBack={() => {
-            setSelectedManga(null);
-            setSelectedPluginManga(null);
+            // clearSelection, not the individual setters: with the hardened
+            // store actions, setSelectedManga(null) would leave a stale
+            // plugin selection (and vice versa).
+            clearSelection();
           }}
           onReadChapter={handleReadUnifiedChapter}
           onSaveToLibrary={handleSaveToLibrary}

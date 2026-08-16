@@ -15,7 +15,17 @@ export const useOnlineMangaBrowseStore = create<OnlineMangaBrowseState>((set) =>
   selectedManga: null,
   selectedPluginManga: null,
 
-  setSelectedManga: (manga) => set({ selectedManga: manga, selectedPluginManga: null }),
-  setSelectedPluginManga: (manga) => set({ selectedPluginManga: manga, selectedManga: null }),
+  setSelectedManga: (manga) =>
+    set(
+      manga
+        ? { selectedManga: manga, selectedPluginManga: null }
+        : { selectedManga: null },
+    ),
+  setSelectedPluginManga: (manga) =>
+    set(
+      manga
+        ? { selectedPluginManga: manga, selectedManga: null }
+        : { selectedPluginManga: null },
+    ),
   clearSelection: () => set({ selectedManga: null, selectedPluginManga: null }),
 }));

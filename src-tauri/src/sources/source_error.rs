@@ -31,9 +31,7 @@ impl SourceError {
             Self::NotFound => "The requested content was not found on this source.".to_string(),
             Self::RateLimited => "The source is rate-limiting requests. Slow down and try again in a few minutes.".to_string(),
             Self::AccessDenied => "The source denied access to this content.".to_string(),
-            Self::CloudflareChallenge => {
-                "Cloudflare is blocking this source. It requires browser verification and cannot be accessed automatically — use Verify in Settings after solving in your browser.".to_string()
-            }
+            Self::CloudflareChallenge => cloudflare_user_message(has_global_ipv6()),
             Self::Parser => "Failed to parse the source's response. The site layout may have changed.".to_string(),
             Self::InvalidResponse => "The source returned an unexpected response.".to_string(),
             Self::SourceDisabled => {
@@ -57,6 +55,69 @@ impl SourceError {
             Self::SourceDisabled => "source_disabled",
             Self::Unknown(_) => "unknown",
         }
+    }
+}
+
+/// Parse `/proc/net/if_inet6`-style lines. Returns `true` if any line holds
+/// a global IPv6 address.
+///
+/// Line format: `{32-hex-addr} {ifindex} {prefixlen} {scope} {flags}` —
+/// scope `0x00` is global, `0x20` is link (fe80). Link-local `fe80::/10`
+/// addresses are skipped regardless of the scope field.
+fn parse_if_inet6(lines: &str) -> bool {
+    lines.lines().any(|line| {
+        let mut fields = line.split_whitespace();
+        let (Some(addr), Some(_ifindex), Some(_prefixlen), Some(scope)) =
+            (fields.next(), fields.next(), fields.next(), fields.next())
+        else {
+            return false;
+        };
+        // Malformed address length (must be 32 hex chars, no colon).
+        if addr.len() != 32 || !addr.chars().all(|c| c.is_ascii_hexdigit()) {
+            return false;
+        }
+        // Skip link-local fe80::/10 addresses whatever the scope field says.
+        if addr.starts_with("fe8") || addr.starts_with("fe9") || addr.starts_with("fea") || addr.starts_with("feb") {
+            return false;
+        }
+        // Global scope only (0x00); anything else (link 0x20, host 0x80,
+        // site 0x40, multicast 0xff) is not globally routable.
+        scope == "00"
+    })
+}
+
+/// Whether the machine has any global IPv6 address. Linux reads
+/// `/proc/net/if_inet6`; on other platforms we can't know, so we optimistically
+/// return `true` to avoid false IPv6 hints on macOS/Windows/Android. The result
+/// is cached for the process lifetime.
+pub fn has_global_ipv6() -> bool {
+    static CACHE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *CACHE.get_or_init(|| {
+        #[cfg(target_os = "linux")]
+        {
+            std::fs::read_to_string("/proc/net/if_inet6")
+                .map(|s| parse_if_inet6(&s))
+                .unwrap_or(false)
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            true
+        }
+    })
+}
+
+/// Base Cloudflare message, plus an actionable IPv6 hint when the machine has
+/// no global IPv6 (Cloudflare's Turnstile attestation is IPv6-only). Keeps the
+/// words "Cloudflare" and "Verify in browser" — the frontend matches on both.
+fn cloudflare_user_message(has_ipv6: bool) -> String {
+    let base = "Cloudflare is blocking this source. It requires browser verification and cannot be accessed automatically — use the Verify in browser button after solving the challenge";
+    if has_ipv6 {
+        base.to_string()
+    } else {
+        format!(
+            "{}, or retry on a network with IPv6. This network appears to lack IPv6, which Cloudflare's verification requires — try a phone hotspot, enable IPv6 on your router, or use a VPN with IPv6.",
+            base
+        )
     }
 }
 
@@ -99,6 +160,36 @@ mod tests {
     fn converts_to_shiori_error_with_friendly_message() {
         let e: ShioriError = SourceError::CloudflareChallenge.into();
         assert!(e.to_string().contains("Cloudflare"));
+    }
+
+    #[test]
+    fn parse_if_inet6_detects_global_addresses() {
+        // All link-local → false.
+        let link_only = "fe800000000000000000000000000000 01 80 20 80\n\nfe8000000000000001c20000fffea7f8 02 64 20 80";
+        assert!(!parse_if_inet6(link_only));
+        // One global (scope 00, non-fe8) → true.
+        let with_global = "fe800000000000000000000000000000 01 80 20 80\n260612cd000102030405060708090a0b 02 64 00 80";
+        assert!(parse_if_inet6(with_global));
+        // fe80::/10 with scope 00 must still be skipped.
+        assert!(!parse_if_inet6("fea00000000000000000000000000000 01 80 00 80"));
+        // Empty input → false.
+        assert!(!parse_if_inet6(""));
+        // Malformed lines are ignored.
+        assert!(!parse_if_inet6("garbage line"));
+        assert!(!parse_if_inet6("260612cd000102030405060708090a 01 64 00 80")); // 30 hex chars
+        assert!(!parse_if_inet6("260612cd000102030405060708090a0z 01 64 00 80")); // non-hex
+        assert!(!parse_if_inet6("260612cd000102030405060708090a0b")); // missing scope
+    }
+
+    #[test]
+    fn cloudflare_message_hint_depends_on_ipv6() {
+        let with_ipv6 = cloudflare_user_message(true);
+        assert!(!with_ipv6.contains("IPv6"), "no hint when IPv6 is present");
+        let without_ipv6 = cloudflare_user_message(false);
+        assert!(without_ipv6.contains("IPv6"));
+        assert!(without_ipv6.contains("Cloudflare"));
+        assert!(without_ipv6.contains("Verify"));
+        assert!(without_ipv6.contains("Verify in browser"));
     }
 
     #[test]

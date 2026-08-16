@@ -1491,6 +1491,13 @@ export function OnlineMangaView() {
             {pluginError.includes("Cloudflare") ? (
               <div className="space-y-2.5">
                 <p className="text-sm text-muted-foreground">{pluginError}</p>
+                {pluginError.includes("IPv6") && (
+                  <p className="text-xs text-amber-500 opacity-90">
+                    💡 This network appears to lack IPv6 — Cloudflare
+                    verification needs it. Try a phone hotspot, enable IPv6 on
+                    your router, or use a VPN with IPv6.
+                  </p>
+                )}
                 <p className="text-sm text-muted-foreground">
                   This source requires browser verification and cannot be
                   accessed automatically.
